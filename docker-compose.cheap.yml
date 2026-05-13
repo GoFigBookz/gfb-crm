@@ -1,0 +1,46 @@
+# CHEAP docker-compose.yml - SQLite version
+# Single container, no MySQL, no Redis
+# Can run on cheapest VPS ($3-5/month) or Raspberry Pi
+
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.cheap
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:./data/crm.db
+      - VITE_APP_URL=${VITE_APP_URL:-http://localhost:3000}
+      - APP_SECRET=${APP_SECRET:-change-me-in-production}
+      # Optional OAuth - add these to .env file:
+      # GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      # GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      # MICROSOFT_CLIENT_ID=${MICROSOFT_CLIENT_ID}
+      # MICROSOFT_CLIENT_SECRET=${MICROSOFT_CLIENT_SECRET}
+    volumes:
+      # SQLite database persists here
+      - ./data:/app/data
+      # Uploaded files persist here
+      - ./uploads:/app/uploads
+      # Backups directory
+      - ./backups:/app/backups
+    restart: unless-stopped
+    # Resource limits for cheap VPS
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3

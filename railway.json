@@ -1,0 +1,8 @@
+{
+  "name": "gfb-crm",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "NODE_ENV=production node dist/boot.js"
+  }
+}

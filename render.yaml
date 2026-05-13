@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: gfb-crm
+    runtime: docker
+    repo: https://github.com/GoFigBookz/gfb-crm
+    branch: main
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        value: file:./data/crm.db
+      - key: APP_SECRET
+        generateValue: true
+      - key: VITE_APP_URL
+        value: https://gfb-crm.onrender.com
+    disk:
+      name: data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    healthCheckPath: /api/health
+    autoDeploy: true
