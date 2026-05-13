@@ -2,13 +2,21 @@ import { z } from "zod";
 import { createRouter, publicQuery, adminQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { users } from "@db/schema";
-import { eq, and, like, desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { hash, compare } from "bcryptjs";
 import { signSessionToken } from "./kimi/session";
-import { setCookie } from "hono/cookie";
-import { getSessionCookieOptions } from "./lib/cookies";
 import { Session } from "@contracts/constants";
-import { randomBytes } from "crypto";
+
+// Helper to serialize cookie
+function serializeCookie(name: string, value: string, opts: Record<string, any>) {
+  let cookie = `${name}=${encodeURIComponent(value)}`;
+  if (opts.maxAge !== undefined) cookie += `; Max-Age=${opts.maxAge}`;
+  if (opts.httpOnly) cookie += "; HttpOnly";
+  if (opts.secure) cookie += "; Secure";
+  if (opts.sameSite) cookie += `; SameSite=${opts.sameSite}`;
+  if (opts.path) cookie += `; Path=${opts.path}`;
+  return cookie;
+}
 
 export const localAuthRouter = createRouter({
   // Register new user (admin only)
@@ -101,12 +109,15 @@ export const localAuthRouter = createRouter({
         clientId: process.env.APP_ID || "local",
       });
       
-      // Set cookie
-      const cookieOpts = getSessionCookieOptions(ctx.req?.raw?.headers || new Headers());
-      setCookie(ctx, Session.cookieName, token, {
-        ...cookieOpts,
+      // Set cookie header manually (tRPC context, not Hono)
+      const cookieValue = serializeCookie(Session.cookieName, token, {
         maxAge: Session.maxAgeMs / 1000,
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        path: "/",
       });
+      ctx.resHeaders.append("Set-Cookie", cookieValue);
       
       return {
         user: {
@@ -241,13 +252,14 @@ export const localAuthRouter = createRouter({
 
   // Logout
   logout: publicQuery.mutation(async ({ ctx }) => {
-    setCookie(ctx, Session.cookieName, "", {
+    const cookieValue = serializeCookie(Session.cookieName, "", {
       maxAge: 0,
       httpOnly: true,
       secure: true,
       sameSite: "lax",
       path: "/",
     });
+    ctx.resHeaders.append("Set-Cookie", cookieValue);
     return { success: true };
   }),
 });

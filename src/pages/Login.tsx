@@ -1,5 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { trpc } from "@/providers/trpc";
+import { useState } from "react";
+import { useNavigate } from "react-router";
+import { useAuth } from "@/hooks/useAuth";
 
 function getOAuthUrl() {
   const kimiAuthUrl = import.meta.env.VITE_KIMI_AUTH_URL;
@@ -23,6 +29,33 @@ function enableDemoMode() {
 }
 
 export default function Login() {
+  const navigate = useNavigate();
+  const { refetch } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [mode, setMode] = useState<"login" | "kimi">("login");
+
+  const loginMutation = trpc.localAuth.login.useMutation({
+    onSuccess: async () => {
+      await refetch();
+      window.location.href = "/";
+    },
+    onError: (err) => {
+      setError(err.message);
+    },
+  });
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!email || !password) {
+      setError("Please enter email and password");
+      return;
+    }
+    loginMutation.mutate({ email, password });
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="w-full max-w-sm space-y-4">
@@ -37,15 +70,74 @@ export default function Login() {
             <CardDescription>Sign in to access your workspace</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button
-              className="w-full bg-slate-900 hover:bg-slate-800"
-              size="lg"
-              onClick={() => {
-                window.location.href = getOAuthUrl();
-              }}
-            >
-              Sign in with Kimi
-            </Button>
+            {/* Toggle between login modes */}
+            <div className="flex rounded-lg bg-slate-100 p-1">
+              <button
+                className={`flex-1 py-1.5 text-sm font-medium rounded-md transition ${
+                  mode === "login" ? "bg-white shadow text-slate-900" : "text-slate-500"
+                }`}
+                onClick={() => { setMode("login"); setError(""); }}
+              >
+                Email / Password
+              </button>
+              <button
+                className={`flex-1 py-1.5 text-sm font-medium rounded-md transition ${
+                  mode === "kimi" ? "bg-white shadow text-slate-900" : "text-slate-500"
+                }`}
+                onClick={() => { setMode("kimi"); setError(""); }}
+              >
+                Kimi OAuth
+              </button>
+            </div>
+
+            {mode === "login" ? (
+              <form onSubmit={handleLogin} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="markie@gofig.ca"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                {error && (
+                  <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded">{error}</p>
+                )}
+                <Button
+                  type="submit"
+                  className="w-full bg-lime-600 hover:bg-lime-700"
+                  size="lg"
+                  disabled={loginMutation.isPending}
+                >
+                  {loginMutation.isPending ? "Signing in..." : "Sign In"}
+                </Button>
+              </form>
+            ) : (
+              <Button
+                className="w-full bg-slate-900 hover:bg-slate-800"
+                size="lg"
+                onClick={() => {
+                  window.location.href = getOAuthUrl();
+                }}
+              >
+                Sign in with Kimi
+              </Button>
+            )}
+
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
