@@ -38,6 +38,15 @@ COPY --from=builder /app/api ./api
 COPY --from=builder /app/contracts ./contracts
 COPY --from=builder /app/db ./db
 COPY --from=builder /app/.env ./.env
+COPY --from=builder /app/db/schema.sql ./db/schema.sql
+COPY --from=builder /app/db/seed.sql ./db/seed.sql
+COPY --from=builder /app/init.sh ./init.sh
+
+# Create data directory for SQLite database and make init executable
+RUN mkdir -p /app/data && chmod +x /app/init.sh
+
+# Install sqlite3 for database initialization
+RUN apk add --no-cache sqlite
 
 # Expose the application port
 EXPOSE 3000
@@ -46,5 +55,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-# Start the application
-CMD ["npm", "start"]
+# Start with initialization script
+CMD ["/app/init.sh"]

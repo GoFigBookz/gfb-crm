@@ -22,7 +22,7 @@ services:
         value: https://gfb-crm.onrender.com
     disk:
       name: data
-      mountPath: /opt/render/project/src/data
+      mountPath: /app/data
       sizeGB: 1
     healthCheckPath: /
     autoDeploy: true
