@@ -9,11 +9,19 @@ import {
 // ========== USERS ==========
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  unionId: text("unionId").notNull().unique(),
+  unionId: text("unionId").unique(),
+  email: text("email").notNull().unique(),
   name: text("name"),
-  email: text("email"),
   avatar: text("avatar"),
   role: text("role", { enum: ["admin", "senior_bookkeeper", "junior_bookkeeper", "client"] }).default("junior_bookkeeper").notNull(),
+  // Local auth
+  passwordHash: text("passwordHash"),
+  authProvider: text("authProvider", { enum: ["kimi", "google", "microsoft", "local"] }).default("local").notNull(),
+  // Active status
+  isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(),
+  // For password reset
+  resetToken: text("resetToken"),
+  resetTokenExpires: integer("resetTokenExpires", { mode: "timestamp" }),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   lastSignInAt: integer("lastSignInAt", { mode: "timestamp" }).$defaultFn(() => new Date()),

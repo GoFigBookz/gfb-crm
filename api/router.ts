@@ -1,3 +1,4 @@
+import { localAuthRouter } from "./local-auth-router";
 import { authRouter } from "./auth-router";
 import { clientRouter } from "./client-router";
 import { taskRouter } from "./task-router";
@@ -61,6 +62,7 @@ export const appRouter = createRouter({
   monthlyClose: monthlyCloseRouter,
   agentWebhook: agentWebhookRouter,
   sheetExport: sheetExportRouter,
+  localAuth: localAuthRouter,
 });
 
 export type AppRouter = typeof appRouter;
