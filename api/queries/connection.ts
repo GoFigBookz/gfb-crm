@@ -15,9 +15,12 @@ export function getDb() {
   if (!instance) {
     // Resolve database path relative to project root (not dist/)
     // In production, server runs from dist/, so go up one level
-    const dbPath = path.resolve(process.cwd(), "data", "crm.db");
+    const cwd = process.cwd();
+    const isInDist = cwd.endsWith('/dist') || cwd.endsWith('\\dist');
+    const basePath = isInDist ? path.resolve(cwd, '..') : cwd;
+    const dbPath = path.resolve(basePath, "data", "crm.db");
     const url = `file:${dbPath}`;
-    console.log("[DB] Connecting to:", url);
+    console.log("[DB] CWD:", cwd, "Base:", basePath, "DB:", url);
     const client = createClient({ url });
     instance = drizzle(client, { schema: fullSchema });
   }
