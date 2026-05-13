@@ -13,8 +13,11 @@ if [ ! -f "$DB_PATH" ]; then
     echo "[INIT] Schema created."
   fi
   
-  # Seed admin user
-  if [ -f "/app/db/seed.sql" ]; then
+  # Seed with full data (all clients + tasks)
+  if [ -f "/app/db/full-seed.sql" ]; then
+    sqlite3 "$DB_PATH" < /app/db/full-seed.sql
+    echo "[INIT] Full database seeded with all clients and tasks."
+  elif [ -f "/app/db/seed.sql" ]; then
     sqlite3 "$DB_PATH" < /app/db/seed.sql
     echo "[INIT] Admin user seeded."
   fi
