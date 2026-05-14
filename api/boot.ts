@@ -6,12 +6,11 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
-import { createOAuthCallbackHandler } from "./kimi/auth";
+import { createOAuthCallbackHandler } from "./google/auth";
 import { Paths } from "@contracts/constants";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
-// CORS: Allow gofig.ca website to call CRM API
 app.use(cors({
   origin: [
     "https://gofig.ca",
@@ -26,7 +25,7 @@ app.use(cors({
   ],
   allowMethods: ["POST", "GET", "OPTIONS"],
   allowHeaders: ["Content-Type", "Authorization"],
-  credentials: false, // No cookies for public API
+  credentials: false,
 }));
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
@@ -48,14 +47,12 @@ async function startServer() {
   const { serveStaticFiles } = await import("./lib/vite");
   serveStaticFiles(app);
 
-  // Start background auto-sync scheduler
   const { startSyncScheduler } = await import("./sync-scheduler");
   startSyncScheduler();
 
   const port = parseInt(process.env.PORT || "3000");
-  const hostname = process.env.NODE_ENV === "production" ? "0.0.0.0" : "localhost";
-  serve({ fetch: app.fetch, port, hostname }, () => {
-    console.log(`Server running on http://${hostname}:${port}/`);
+  serve({ fetch: app.fetch, port }, () => {
+    console.log(`Server running on http://localhost:${port}/`);
   });
 }
 
