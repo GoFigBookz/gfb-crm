@@ -1,1 +1,121 @@
+import type { Context } from "hono";
+import { setCookie } from "hono/cookie";
+import * as cookie from "cookie";
+import { Session } from "@contracts/constants";
+import { getSessionCookieOptions } from "../lib/cookies";
+import { Errors } from "@contracts/errors";
+import { signSessionToken, verifySessionToken } from "../kimi/session";
+import { findUserByUnionId, upsertUser } from "../queries/users";
 
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
+
+function getAppUrl() {
+  return process.env.VITE_APP_URL || "http://localhost:3000";
+}
+
+function getGoogleCredentials() {
+  return {
+    clientId: process.env.GOOGLE_CLIENT_ID || "",
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    redirectUri: `${getAppUrl()}/api/oauth/callback`,
+  };
+}
+
+async function exchangeGoogleCode(code: string, redirectUri: string) {
+  const { clientId, clientSecret } = getGoogleCredentials();
+  const params = new URLSearchParams({
+    code,
+    client_id: clientId,
+    client_secret: clientSecret,
+    redirect_uri: redirectUri,
+    grant_type: "authorization_code",
+  });
+  const resp = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString(),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Google token exchange failed (${resp.status}): ${text}`);
+  }
+  return resp.json() as Promise<{ access_token: string }>;
+}
+
+async function getGoogleUserInfo(accessToken: string) {
+  const resp = await fetch(GOOGLE_USERINFO_URL, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!resp.ok) {
+    throw new Error(`Failed to get Google user info: ${resp.status}`);
+  }
+  return resp.json() as Promise<{
+    sub: string;
+    email: string;
+    name: string;
+    picture: string;
+  }>;
+}
+
+export async function authenticateRequest(headers: Headers) {
+  const cookies = cookie.parse(headers.get("cookie") || "");
+  const token = cookies[Session.cookieName];
+  if (!token) {
+    throw Errors.forbidden("Invalid authentication token.");
+  }
+  const claim = await verifySessionToken(token);
+  if (!claim) {
+    throw Errors.forbidden("Invalid authentication token.");
+  }
+  const user = await findUserByUnionId(claim.unionId);
+  if (!user) {
+    throw Errors.forbidden("User not found. Please re-login.");
+  }
+  return user;
+}
+
+export function createOAuthCallbackHandler() {
+  return async (c: Context) => {
+    const code = c.req.query("code");
+    const error = c.req.query("error");
+
+    if (error) {
+      return error === "access_denied"
+        ? c.redirect("/", 302)
+        : c.json({ error }, 400);
+    }
+
+    if (!code) {
+      return c.json({ error: "code is required" }, 400);
+    }
+
+    try {
+      const { clientId, redirectUri } = getGoogleCredentials();
+      const tokens = await exchangeGoogleCode(code, redirectUri);
+      const userInfo = await getGoogleUserInfo(tokens.access_token);
+
+      const unionId = `google_${userInfo.sub}`;
+
+      await upsertUser({
+        unionId,
+        name: userInfo.name,
+        email: userInfo.email,
+        avatar: userInfo.picture,
+        lastSignInAt: new Date(),
+      });
+
+      const token = await signSessionToken({ unionId, clientId });
+      const cookieOpts = getSessionCookieOptions(c.req.raw.headers);
+      setCookie(c, Session.cookieName, token, {
+        ...cookieOpts,
+        maxAge: Session.maxAgeMs / 1000,
+      });
+
+      return c.redirect("/", 302);
+    } catch (err) {
+      console.error("[OAuth] Google callback failed", err);
+      return c.json({ error: "OAuth callback failed" }, 500);
+    }
+  };
+}
