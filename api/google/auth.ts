@@ -13,20 +13,9 @@ import { eq } from "drizzle-orm";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
 
-function getAppUrl() {
-  return process.env.VITE_APP_URL || "http://localhost:3000";
-}
-
-function getGoogleCredentials() {
-  return {
-    clientId: process.env.GOOGLE_CLIENT_ID || "",
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-    redirectUri: `${getAppUrl()}/api/oauth/callback`,
-  };
-}
-
 async function exchangeGoogleCode(code: string, redirectUri: string) {
-  const { clientId, clientSecret } = getGoogleCredentials();
+  const clientId = process.env.GOOGLE_CLIENT_ID || "";
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
   const params = new URLSearchParams({
     code,
     client_id: clientId,
@@ -61,11 +50,14 @@ async function getGoogleUserInfo(accessToken: string) {
   }>;
 }
 
-async function upsertGoogleUser(unionId: string, name: string, email: string, avatar: string) {
+async function upsertGoogleUser(unionId: string, name: string, email: string) {
   const db = getDb();
-  const existing = await db.select().from(users).where(eq(users.unionId, unionId)).limit(1);
+  const existing = await db.select().from(users)
+    .where(eq(users.unionId, unionId)).limit(1);
   if (existing[0]) {
-    await db.update(users).set({ name, email, lastSignInAt: new Date() }).where(eq(users.unionId, unionId));
+    await db.update(users)
+      .set({ name, email, lastSignInAt: new Date() })
+      .where(eq(users.unionId, unionId));
   } else {
     await db.insert(users).values({ unionId, name, email, lastSignInAt: new Date() });
   }
@@ -74,17 +66,11 @@ async function upsertGoogleUser(unionId: string, name: string, email: string, av
 export async function authenticateRequest(headers: Headers) {
   const cookies = cookie.parse(headers.get("cookie") || "");
   const token = cookies[Session.cookieName];
-  if (!token) {
-    throw Errors.forbidden("Invalid authentication token.");
-  }
+  if (!token) throw Errors.forbidden("Invalid authentication token.");
   const claim = await verifySessionToken(token);
-  if (!claim) {
-    throw Errors.forbidden("Invalid authentication token.");
-  }
+  if (!claim) throw Errors.forbidden("Invalid authentication token.");
   const user = await findUserByUnionId(claim.unionId);
-  if (!user) {
-    throw Errors.forbidden("User not found. Please re-login.");
-  }
+  if (!user) throw Errors.forbidden("User not found. Please re-login.");
   return user;
 }
 
@@ -99,17 +85,20 @@ export function createOAuthCallbackHandler() {
         : c.json({ error }, 400);
     }
 
-    if (!code) {
-      return c.json({ error: "code is required" }, 400);
-    }
+    if (!code) return c.json({ error: "code is required" }, 400);
 
     try {
-      const { clientId, redirectUri } = getGoogleCredentials();
+      // Build redirect URI from the actual incoming request URL
+      const reqUrl = new URL(c.req.url);
+      const redirectUri = `${reqUrl.protocol}//${reqUrl.host}/api/oauth/callback`;
+
+      const clientId = process.env.GOOGLE_CLIENT_ID || "";
+
       const tokens = await exchangeGoogleCode(code, redirectUri);
       const userInfo = await getGoogleUserInfo(tokens.access_token);
       const unionId = `google_${userInfo.sub}`;
 
-      await upsertGoogleUser(unionId, userInfo.name, userInfo.email, userInfo.picture);
+      await upsertGoogleUser(unionId, userInfo.name, userInfo.email);
 
       const token = await signSessionToken({ unionId, clientId });
       const cookieOpts = getSessionCookieOptions(c.req.raw.headers);
