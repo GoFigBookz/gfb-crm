@@ -13,14 +13,17 @@ import { eq } from "drizzle-orm";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
 
-async function exchangeGoogleCode(code: string, redirectUri: string) {
+// Hardcoded — must exactly match Google Cloud Console registered URI
+const REDIRECT_URI = "https://figgy.gofig.ca/api/oauth/callback";
+
+async function exchangeGoogleCode(code: string) {
   const clientId = process.env.GOOGLE_CLIENT_ID || "";
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
   const params = new URLSearchParams({
     code,
     client_id: clientId,
     client_secret: clientSecret,
-    redirect_uri: redirectUri,
+    redirect_uri: REDIRECT_URI,
     grant_type: "authorization_code",
   });
   const resp = await fetch(GOOGLE_TOKEN_URL, {
@@ -59,7 +62,8 @@ async function upsertGoogleUser(unionId: string, name: string, email: string) {
       .set({ name, email, lastSignInAt: new Date() })
       .where(eq(users.unionId, unionId));
   } else {
-    await db.insert(users).values({ unionId, name, email, lastSignInAt: new Date() });
+    await db.insert(users)
+      .values({ unionId, name, email, lastSignInAt: new Date() });
   }
 }
 
@@ -88,13 +92,8 @@ export function createOAuthCallbackHandler() {
     if (!code) return c.json({ error: "code is required" }, 400);
 
     try {
-      // Build redirect URI from the actual incoming request URL
-      const reqUrl = new URL(c.req.url);
-      const redirectUri = `${reqUrl.protocol}//${reqUrl.host}/api/oauth/callback`;
-
       const clientId = process.env.GOOGLE_CLIENT_ID || "";
-
-      const tokens = await exchangeGoogleCode(code, redirectUri);
+      const tokens = await exchangeGoogleCode(code);
       const userInfo = await getGoogleUserInfo(tokens.access_token);
       const unionId = `google_${userInfo.sub}`;
 
