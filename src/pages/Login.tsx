@@ -1,18 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-function getGoogleOAuthUrl() {
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+async function redirectToGoogle() {
+  const resp = await fetch("/api/auth/config");
+  const { googleClientId } = await resp.json();
   const redirectUri = `${window.location.origin}/api/oauth/callback`;
   const params = new URLSearchParams({
-    client_id: clientId,
+    client_id: googleClientId,
     redirect_uri: redirectUri,
     response_type: "code",
     scope: "openid email profile",
     access_type: "offline",
     prompt: "select_account",
   });
-  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
 function enableDemoMode() {
@@ -38,7 +39,7 @@ export default function Login() {
             <Button
               className="w-full bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 shadow-sm"
               size="lg"
-              onClick={() => { window.location.href = getGoogleOAuthUrl(); }}
+              onClick={() => redirectToGoogle()}
             >
               <svg className="w-5 h-5 mr-2 flex-shrink-0" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
