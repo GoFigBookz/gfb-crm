@@ -5,7 +5,10 @@ import { Session } from "@contracts/constants";
 import { getSessionCookieOptions } from "../lib/cookies";
 import { Errors } from "@contracts/errors";
 import { signSessionToken, verifySessionToken } from "../kimi/session";
-import { findUserByUnionId, upsertUser } from "../queries/users";
+import { findUserByUnionId } from "../queries/users";
+import { getDb } from "../queries/connection";
+import { users } from "../../db/schema";
+import { eq } from "drizzle-orm";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
@@ -58,6 +61,16 @@ async function getGoogleUserInfo(accessToken: string) {
   }>;
 }
 
+async function upsertGoogleUser(unionId: string, name: string, email: string, avatar: string) {
+  const db = getDb();
+  const existing = await db.select().from(users).where(eq(users.unionId, unionId)).limit(1);
+  if (existing[0]) {
+    await db.update(users).set({ name, email, lastSignInAt: new Date() }).where(eq(users.unionId, unionId));
+  } else {
+    await db.insert(users).values({ unionId, name, email, lastSignInAt: new Date() });
+  }
+}
+
 export async function authenticateRequest(headers: Headers) {
   const cookies = cookie.parse(headers.get("cookie") || "");
   const token = cookies[Session.cookieName];
@@ -94,16 +107,9 @@ export function createOAuthCallbackHandler() {
       const { clientId, redirectUri } = getGoogleCredentials();
       const tokens = await exchangeGoogleCode(code, redirectUri);
       const userInfo = await getGoogleUserInfo(tokens.access_token);
-
       const unionId = `google_${userInfo.sub}`;
 
-      await upsertUser({
-        unionId,
-        name: userInfo.name,
-        email: userInfo.email,
-        avatar: userInfo.picture,
-        lastSignInAt: new Date(),
-      });
+      await upsertGoogleUser(unionId, userInfo.name, userInfo.email, userInfo.picture);
 
       const token = await signSessionToken({ unionId, clientId });
       const cookieOpts = getSessionCookieOptions(c.req.raw.headers);
@@ -114,8 +120,9 @@ export function createOAuthCallbackHandler() {
 
       return c.redirect("/", 302);
     } catch (err) {
-      console.error("[OAuth] Google callback failed", err);
-      return c.json({ error: "OAuth callback failed" }, 500);
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[OAuth] Google callback failed", message);
+      return c.json({ error: "OAuth callback failed", detail: message }, 500);
     }
   };
 }
