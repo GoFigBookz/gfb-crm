@@ -5,7 +5,6 @@ import type { HttpBindings } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
 import { createContext } from "./context";
-import { env } from "./lib/env";
 import { createOAuthCallbackHandler } from "./google/auth";
 import { Paths } from "@contracts/constants";
 
@@ -15,12 +14,8 @@ app.use(cors({
   origin: [
     "https://gofig.ca",
     "https://www.gofig.ca",
-    "http://gofig.ca",
-    "http://www.gofig.ca",
-    "https://gofigbookz.ca",
-    "https://www.gofigbookz.ca",
+    "https://figgy.gofig.ca",
     "http://localhost:3000",
-    "http://localhost:3001",
     "http://localhost:5173",
   ],
   allowMethods: ["POST", "GET", "OPTIONS"],
@@ -29,7 +24,14 @@ app.use(cors({
 }));
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
+
+// Returns Google Client ID to frontend at runtime
+app.get("/api/auth/config", (c) =>
+  c.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || "" })
+);
+
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
+
 app.use("/api/trpc/*", async (c) => {
   return fetchRequestHandler({
     endpoint: "/api/trpc",
@@ -38,6 +40,7 @@ app.use("/api/trpc/*", async (c) => {
     createContext,
   });
 });
+
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
 export default app;
