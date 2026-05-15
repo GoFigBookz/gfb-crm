@@ -5,12 +5,14 @@ async function redirectToGoogle() {
   const resp = await fetch("/api/auth/config");
   const { googleClientId } = await resp.json();
   const redirectUri = `${window.location.origin}/api/oauth/callback`;
+  const state = Math.random().toString(36).substring(2, 15);
+  sessionStorage.setItem("oauth_state", state);
   const params = new URLSearchParams({
     client_id: googleClientId,
     redirect_uri: redirectUri,
     response_type: "code",
     scope: "openid email profile",
-    access_type: "offline",
+    state: state,
     prompt: "select_account",
   });
   window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
