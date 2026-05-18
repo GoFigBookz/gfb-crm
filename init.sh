@@ -10,7 +10,6 @@ else
   echo "[INIT] Database exists at /app/data/crm.db"
 fi
 
-# Seed active clients if table is empty
 CLIENT_COUNT=$(sqlite3 /app/data/crm.db "SELECT COUNT(*) FROM clients;" 2>/dev/null || echo "0")
 echo "[INIT] Current client count: $CLIENT_COUNT"
 
