@@ -1,21 +1,219 @@
--- GFB Active Clients Import
--- Generated from GFB_Client_Master_Government_Data_R1.xlsx
--- 32 active clients
+import { z } from "zod";
+import { createRouter, authedQuery, staffQuery } from "./middleware";
+import { getDb } from "./queries/connection";
+import {
+  tasks,
+  clientDashboardSnapshots,
+  timesheets,
+  clientOnboarding,
+  qboInvoices,
+  qboPayments,
+  qboConnections,
+  clients,
+} from "../db/schema";
+import { eq, and, desc } from "drizzle-orm";
 
-BEGIN TRANSACTION;
+export const clientDashboardRouter = createRouter({
+  getByClient: authedQuery
+    .input(z.object({ clientId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const { clientId } = input;
 
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('ORIGINALITY.AI INC.', 'ORIGINALITY.AI INC.', 'support@originality.ai', NULL, '64 Hurontario St, Suite 200, Collingwood, ON L9Y 2L6', 'technology', 'active', 'originality.ai', 'markie+originalityaiinc@gofig.ca', 'An AI-powered platform that detects AI-generated content and plagiarism. Founded in 2022 in Collingwood, Ontario.', 'Jon Gillham', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('CLARK POOLS AND SPAS COLLINGWOOD INC.', 'Clark Pools Collingwood', 'office@clarkpoolscollingwood.com', '(705) 445-6165', '20 Balsam St, Collingwood, ON L9Y 4H7', 'other', 'active', 'clarkpoolscollingwood.com', 'markie+clarkpoolsandspascollingwoodinc@gofig.ca', 'Complete pool and spa service company serving South Georgian Bay for over 20 years.', 'Jon', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('CLARK POOLS AND SPAS OWEN SOUND INC.', 'Clark Pools Owen Sound', 'info@clarkpools.com', '(519) 372-9411', '718028 Hwy 6, Owen Sound, ON N4K 5N7', 'other', 'active', 'clarkpools.com', 'markie+clarkpoolsandspasowensoundinc@gofig.ca', 'Pool and spa experts serving Owen Sound and Grey Bruce County for over 40 years.', 'Jon', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('WEST YORK PAVING LTD.', 'West York Paving', NULL, '(416) 231-6394', '200 Rexdale Blvd, Etobicoke, ON M9W 1R2', 'construction', 'active', 'westyorkpaving.com', 'markie+westyorkpavingltd@gofig.ca', 'Large paving company serving Toronto and GTA. Operated by the Barone family. Weekly payroll.', 'Joe & Frank Barone', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('1000235299 ONTARIO LTD. (The Auld Spot Pub)', 'The Auld Spot Pub', NULL, '(416) 461-1114', '347 Danforth Ave, Toronto, ON M4K 1N7', 'restaurant', 'active', 'auldspotpub.ca', 'markie+1000235299ontarioltdtheauldspotpub@gofig.ca', 'Scottish-style pub on Toronto Danforth since 1975. Uses TouchBistro POS.', 'Nathan Hynes', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('1001196626 ONTARIO LTD. (Sher-E-Punjab)', 'Sher-E-Punjab', NULL, '(416) 465-2125', '351 Danforth Ave, Toronto, ON M4K 1N7', 'restaurant', 'active', 'sher-e-punjab.ca', 'markie+1001196626ontarioltdsherepunjab@gofig.ca', 'Indian fine dining restaurant on Toronto Danforth since 1975.', 'Jaspal', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('KING INDUSTRIES INC.', 'King Industries', NULL, '(877) 289-3625', '29 Nobel Rd, McDougall, ON P2A 2W9', 'manufacturing', 'active', 'kingindustries.com', 'markie+kingindustriesinc@gofig.ca', 'Specialty chemical additives manufacturer. Also operates Dock Kings division.', 'Brad', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('OVITA CONSTRUCTION LTD.', 'Ovita Construction', NULL, '(905) 851-7744', '6260 Highway 7, Unit 7, Vaughan, ON L4H 4G3', 'construction', 'active', 'ovitaconstruction.com', 'markie+ovitaconstructionltd@gofig.ca', 'Building restoration and general contracting. High-rise construction specialists.', 'Rocco', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('OVITA HOLDINGS INC.', 'Ovita Holdings', NULL, NULL, 'Vaughan, ON', 'holding_company', 'active', NULL, 'markie+ovitaholdingsinc@gofig.ca', 'Holding company for Ovita Construction. Related entity — interco transactions with Ovita Construction.', 'Rocco', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('UNIVERSAL CONSTRUCTION GROUP INC.', 'Universal Construction Group', 'Universalconstructionyeg1605@gmail.com', '(416) 722-9447', 'Woodbridge, ON L4H 1N6', 'construction', 'active', 'universalcontructionyeg.com', 'markie+universalconstructiongroupinc@gofig.ca', 'Residential and commercial construction across Ontario.', 'Andrew', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('ALIGN BY DESIGN HD INC.', 'Align By Design', 'hello@alignanddesign.ca', '(647) 200-3501', 'Toronto, ON', 'professional_services', 'active', 'alignanddesign.ca', 'markie+alignbydesignhdinc@gofig.ca', 'Professional organizing and interior styling service.', 'Amy', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('GOTOMARKET AGILITY INC.', 'GoToMarket Agility', NULL, NULL, 'Toronto, ON', 'professional_services', 'active', 'gotomarketsolutions.ca', 'markie+gotomarketagilityinc@gofig.ca', 'Strategic consulting firm. Go-to-market planning and fractional CCO services.', 'Brad', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('ADBANK INC.', 'Adbank', 'hello@adbank.network', NULL, 'Collingwood, ON L9Y 1A1', 'technology', 'active', 'adbank.network', 'markie+adbankinc@gofig.ca', 'Digital advertising technology. Uses PayPal. Monthly reporting.', 'Jon', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('MOTION INVEST INC.', 'Motion Invest', 'contact@motioninvest.com', NULL, '1 First Street, Collingwood, ON L9Y 1A1', 'technology', 'active', 'motioninvest.com', 'markie+motioninvestinc@gofig.ca', 'Marketplace for buying and selling websites and YouTube channels. Monthly reporting.', 'Jon', 'ON', 1778866324, 1778866324);
-INSERT OR IGNORE INTO clients (name, company, email, phone, address, industry, workflowStatus, website, figgyEmail, notes, contactName, province, createdAt, updatedAt) VALUES ('FRACTAL SAAS INC.', 'Fractal SaaS', 'andrew@passed.ai', NULL, '64 Hurontario St, Suite 200, Colling
+      const clientTasks = await db
+        .select()
+        .from(tasks)
+        .where(and(eq(tasks.clientId, clientId), eq(tasks.userId, ctx.user.id)))
+        .orderBy(desc(tasks.dueDate));
+
+      const snapshots = await db
+        .select()
+        .from(clientDashboardSnapshots)
+        .where(and(
+          eq(clientDashboardSnapshots.clientId, clientId),
+          eq(clientDashboardSnapshots.userId, ctx.user.id)
+        ))
+        .orderBy(desc(clientDashboardSnapshots.createdAt))
+        .limit(1);
+
+      const clientTimesheets = await db
+        .select()
+        .from(timesheets)
+        .where(eq(timesheets.clientId, clientId))
+        .orderBy(desc(timesheets.payPeriodEnd));
+
+      const onboardingData = await db
+        .select()
+        .from(clientOnboarding)
+        .where(eq(clientOnboarding.clientId, clientId))
+        .orderBy(desc(clientOnboarding.createdAt))
+        .limit(1);
+
+      return {
+        tasks: clientTasks,
+        snapshot: snapshots[0] || null,
+        timesheets: clientTimesheets,
+        onboarding: onboardingData[0] || null,
+      };
+    }),
+
+  saveSnapshot: staffQuery
+    .input(z.object({
+      clientId: z.number(),
+      revenue: z.number().optional(),
+      expenses: z.number().optional(),
+      netIncome: z.number().optional(),
+      assets: z.number().optional(),
+      liabilities: z.number().optional(),
+      equity: z.number().optional(),
+      periodStart: z.date().optional(),
+      periodEnd: z.date().optional(),
+      source: z.enum(["qbo", "manual", "import"]).default("manual"),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const { clientId, ...data } = input;
+      const [snapshot] = await db
+        .insert(clientDashboardSnapshots)
+        .values({ clientId, userId: ctx.user.id, ...data })
+        .returning();
+      return snapshot;
+    }),
+
+  // ── QBO BILLING — per-client using qboConnectionId + qboCustomerId ──
+  getQboBilling: authedQuery
+    .input(z.object({ clientId: z.number() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const { clientId } = input;
+
+      const clientRows = await db
+        .select()
+        .from(clients)
+        .where(eq(clients.id, clientId))
+        .limit(1);
+
+      const client = clientRows[0];
+
+      if (!client?.qboConnectionId || !client?.qboCustomerId) {
+        return {
+          invoices: [],
+          payments: [],
+          summary: {
+            totalInvoiced: 0,
+            totalPaid: 0,
+            outstanding: 0,
+            overdueCount: 0,
+            invoiceCount: 0,
+            paymentCount: 0,
+          },
+          lastSyncedAt: null,
+          linked: false,
+        };
+      }
+
+      const clientInvoices = await db
+        .select()
+        .from(qboInvoices)
+        .where(and(
+          eq(qboInvoices.connectionId, client.qboConnectionId),
+          eq(qboInvoices.qboCustomerId, client.qboCustomerId)
+        ))
+        .orderBy(desc(qboInvoices.transactionDate));
+
+      const clientPayments = await db
+        .select()
+        .from(qboPayments)
+        .where(and(
+          eq(qboPayments.connectionId, client.qboConnectionId),
+          eq(qboPayments.qboCustomerId, client.qboCustomerId)
+        ))
+        .orderBy(desc(qboPayments.transactionDate));
+
+      const connectionRows = await db
+        .select({ lastSyncedAt: qboConnections.lastSyncedAt })
+        .from(qboConnections)
+        .where(eq(qboConnections.id, client.qboConnectionId))
+        .limit(1);
+
+      const lastSyncedAt = connectionRows[0]?.lastSyncedAt ?? null;
+
+      const now = new Date();
+      const totalInvoiced = clientInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+      const totalPaid = clientPayments.reduce((sum, p) => sum + (p.totalAmount || 0), 0);
+      const outstanding = clientInvoices.reduce((sum, inv) => sum + (inv.balance || 0), 0);
+      const overdueCount = clientInvoices.filter(
+        (inv) => (inv.balance || 0) > 0 && inv.dueDate && new Date(inv.dueDate) < now
+      ).length;
+
+      return {
+        invoices: clientInvoices,
+        payments: clientPayments,
+        summary: { totalInvoiced, totalPaid, outstanding, overdueCount, invoiceCount: clientInvoices.length, paymentCount: clientPayments.length },
+        lastSyncedAt,
+        linked: true,
+      };
+    }),
+
+  saveTimesheet: staffQuery
+    .input(z.object({
+      id: z.number().optional(),
+      clientId: z.number(),
+      employeeId: z.number(),
+      payPeriodStart: z.date(),
+      payPeriodEnd: z.date(),
+      regularHours: z.number().default(0),
+      overtimeHours: z.number().default(0),
+      vacationHours: z.number().default(0),
+      sickHours: z.number().default(0),
+      statHolidayHours: z.number().default(0),
+      hourlyRate: z.number().optional(),
+      overtimeRate: z.number().optional(),
+      status: z.enum(["draft", "submitted", "approved", "paid"]).default("draft"),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const { id, ...data } = input;
+      if (id) {
+        await db.update(timesheets).set({ ...data, updatedAt: new Date() }).where(eq(timesheets.id, id));
+        const rows = await db.select().from(timesheets).where(eq(timesheets.id, id)).limit(1);
+        return rows[0];
+      } else {
+        const [ts] = await db.insert(timesheets).values({
+          ...data,
+          approvedBy: data.status === "approved" ? ctx.user.id : undefined,
+          approvedAt: data.status === "approved" ? new Date() : undefined,
+        }).returning();
+        return ts;
+      }
+    }),
+
+  getTimesheetsByPeriod: authedQuery
+    .input(z.object({ clientId: z.number() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const rows = await db
+        .select()
+        .from(timesheets)
+        .where(eq(timesheets.clientId, input.clientId))
+        .orderBy(desc(timesheets.payPeriodEnd));
+
+      const periods = new Map<string, typeof rows>();
+      for (const row of rows) {
+        const key = `${row.payPeriodStart?.toISOString()}-${row.payPeriodEnd?.toISOString()}`;
+        if (!periods.has(key)) periods.set(key, []);
+        periods.get(key)!.push(row);
+      }
+
+      return Array.from(periods.entries()).map(([key, entries]) => ({
+        periodKey: key,
+        payPeriodStart: entries[0].payPeriodStart,
+        payPeriodEnd: entries[0].payPeriodEnd,
+        entries,
+        totalRegularHours: entries.reduce((s, e) => s + (e.regularHours || 0), 0),
+        totalOvertimeHours: entries.reduce((s, e) => s + (e.overtimeHours || 0), 0),
+        totalVacationHours: entries.reduce((s, e) => s + (e.vacationHours || 0), 0),
+      }));
+    }),
+});
