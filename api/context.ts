@@ -1,6 +1,6 @@
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import type { User } from "@db/schema";
-import { authenticateRequest } from "./kimi/auth";
+import { authenticateRequest } from "./google/auth";
 import { getDb } from "./queries/connection";
 import { users } from "../db/schema";
 
@@ -15,7 +15,6 @@ export async function createContext(
 ): Promise<TrpcContext> {
   const ctx: TrpcContext = { req: opts.req, resHeaders: opts.resHeaders };
   
-  // Check for demo mode header
   const isDemo = opts.req.headers.get("x-demo-mode") === "true";
   if (isDemo) {
     try {
