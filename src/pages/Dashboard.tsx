@@ -10,6 +10,7 @@ import {
   ArrowDownRight,
   FileText,
   Clock,
+  Target,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   const { data: clientStats } = trpc.crmClient.stats.useQuery();
+  const { data: pipelineStats } = trpc.crmClient.pipelineStats.useQuery();
   const { data: upcomingTasks } = trpc.task.upcoming.useQuery({ days: 7 });
   const { data: overdueTasks } = trpc.task.overdue.useQuery();
   const { data: invoiceStats } = trpc.invoice.stats.useQuery();
@@ -31,11 +33,29 @@ export default function Dashboard() {
     {
       title: "Total Clients",
       value: clientStats?.total ?? 0,
-      subtitle: `${clientStats?.active ?? 0} active`,
+      subtitle: `${clientStats?.active ?? 0} active · ${clientStats?.total ? clientStats.total - (clientStats.active ?? 0) : 0} other`,
       icon: Users,
       trend: "up" as const,
       color: "bg-blue-500",
-      onClick: () => navigate("/clients"),
+      onClick: () => navigate("/clients?status=all"),
+    },
+    {
+      title: "Active Clients",
+      value: clientStats?.active ?? 0,
+      subtitle: "Currently active",
+      icon: Users,
+      trend: "up" as const,
+      color: "bg-lime-600",
+      onClick: () => navigate("/clients?status=active"),
+    },
+    {
+      title: "Pipeline Value",
+      value: `$${(pipelineStats?.totalPipelineValue ?? 0).toLocaleString()}`,
+      subtitle: `${pipelineStats?.totalLeads ?? 0} leads · ${pipelineStats?.engagementsSent ?? 0} waiting`,
+      icon: Target,
+      trend: "up" as const,
+      color: "bg-violet-500",
+      onClick: () => navigate("/clients?status=lead"),
     },
     {
       title: "Pending Tasks",
@@ -44,7 +64,7 @@ export default function Dashboard() {
       icon: CheckSquare,
       trend: overdueTasks && overdueTasks.length > 0 ? "down" : "up",
       color: "bg-amber-500",
-      onClick: () => navigate("/tasks"),
+      onClick: () => navigate("/tasks?tab=upcoming"),
     },
     {
       title: "Overdue Tasks",
@@ -53,7 +73,7 @@ export default function Dashboard() {
       icon: AlertCircle,
       trend: "down" as const,
       color: "bg-red-500",
-      onClick: () => navigate("/tasks"),
+      onClick: () => navigate("/tasks?tab=overdue"),
     },
     {
       title: "Total Revenue",
@@ -80,8 +100,8 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats Grid — 6 cards: 3x2 on desktop, 2x3 on tablet, 1x6 on mobile */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {statCards.map((stat) => {
           const Icon = stat.icon;
           const TrendIcon = stat.trend === "up" ? ArrowUpRight : ArrowDownRight;
@@ -163,7 +183,7 @@ export default function Dashboard() {
               <CheckSquare className="h-5 w-5 text-amber-500" />
               Upcoming Tasks
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/tasks")}>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/tasks?tab=upcoming")}>
               View All
             </Button>
           </CardHeader>
@@ -178,7 +198,8 @@ export default function Dashboard() {
                 {upcomingTasks.slice(0, 5).map((task) => (
                   <div
                     key={task.id}
-                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                    onClick={() => navigate("/tasks?tab=upcoming")}
                   >
                     <div className="flex items-center gap-3">
                       <div
@@ -224,7 +245,11 @@ export default function Dashboard() {
               <AlertCircle className="h-5 w-5 text-red-500" />
               Overdue
             </CardTitle>
-            <Badge variant="destructive" className="bg-red-500">
+            <Badge 
+              variant="destructive" 
+              className="bg-red-500 cursor-pointer hover:bg-red-600 transition-colors"
+              onClick={() => navigate("/tasks?tab=overdue")}
+            >
               {overdueTasks?.length ?? 0}
             </Badge>
           </CardHeader>
@@ -237,7 +262,11 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {overdueTasks.slice(0, 5).map((task) => (
-                  <div key={task.id} className="p-3 bg-red-50 rounded-lg border border-red-100">
+                  <div 
+                    key={task.id} 
+                    className="p-3 bg-red-50 rounded-lg border border-red-100 cursor-pointer hover:bg-red-100 transition-colors"
+                    onClick={() => navigate(`/tasks?tab=overdue`)}
+                  >
                     <p className="font-medium text-slate-900">{task.title}</p>
                     <p className="text-sm text-slate-500">{task.category || "General"}</p>
                     <p className="text-xs text-red-600 mt-1">

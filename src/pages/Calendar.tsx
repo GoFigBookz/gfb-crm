@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function CalendarPage() {
+  const navigate = useNavigate();
   const utils = trpc.useUtils();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -88,7 +90,27 @@ export default function CalendarPage() {
                   {dayEvents.length > 0 && <span className="text-xs px-1.5 py-0.5 rounded-full bg-lime-500 text-white">{dayEvents.length}</span>}
                 </div>
                 <div className="space-y-1">
-                  {dayEvents.slice(0, 3).map(e => <div key={e.id} className="text-xs truncate px-1.5 py-0.5 rounded bg-lime-100 text-lime-700">{e.title}</div>)}
+                  {dayEvents.slice(0, 3).map(e => (
+                    <div 
+                      key={e.id} 
+                      className={cn(
+                        "text-xs truncate px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80",
+                        e.color === "purple" ? "bg-purple-100 text-purple-700" : "bg-lime-100 text-lime-700"
+                      )}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        // If discovery call, navigate to discovery form with client
+                        if (e.title?.includes("Discovery Call")) {
+                          const clientId = e.clientId;
+                          if (clientId) {
+                            navigate(`/discovery?clientId=${clientId}`);
+                          }
+                        }
+                      }}
+                    >
+                      {e.title}
+                    </div>
+                  ))}
                 </div>
               </div>
             );

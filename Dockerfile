@@ -41,6 +41,7 @@ COPY --from=builder /app/.env ./.env
 COPY --from=builder /app/db/schema.sql ./db/schema.sql
 COPY --from=builder /app/db/full-seed.sql ./db/full-seed.sql
 COPY --from=builder /app/db/seed.sql ./db/seed.sql
+COPY --from=builder /app/db/seed-clients.sql ./db/seed-clients.sql
 COPY --from=builder /app/init.sh ./init.sh
 
 # Create data directory for SQLite database and make init executable

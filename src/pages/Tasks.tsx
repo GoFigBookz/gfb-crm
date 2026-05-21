@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { Plus, Search, Check, Repeat, Sparkles, CalendarClock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,9 @@ import { cn } from "@/lib/utils";
 
 export default function Tasks() {
   const utils = trpc.useUtils();
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "all");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isRecurringOpen, setIsRecurringOpen] = useState(false);
 

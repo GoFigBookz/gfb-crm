@@ -106,7 +106,7 @@ export const qboCustomers = sqliteTable("qbo_customers", {
   // Financial tracking (for practice health & client overview)
   monthlyFee: real("monthlyFee"),
   hourlyRate: real("hourlyRate"),
-  billingType: text("billingType", { enum: ["monthly_fixed", "hourly", "project", "hybrid"] }),
+  billingType: text("billingType", { enum: ["monthly_fixed", "annual_fixed", "one_time_cleanup", "hourly", "project", "hybrid"] }),
   
   // Scorecard tracking (updated by AI or manual review)
   lastReconciledDate: integer("lastReconciledDate", { mode: "timestamp" }),
@@ -192,14 +192,19 @@ export const clients = sqliteTable("clients", {
   company: text("company"),
   address: text("address"),
   taxId: text("taxId"),
-  status: text("status", { enum: ["active", "inactive", "prospect"] }).default("active").notNull(),
+  status: text("status", { enum: ["active", "inactive", "prospect", "lead"] }).default("active").notNull(),
   
   // Workflow & Lead Tracking
-  workflowStatus: text("workflowStatus", { enum: ["new_lead", "discovery_call", "onboarding_sent", "onboarding_complete", "active", "inactive", "churned"] }).default("new_lead").notNull(),
+  workflowStatus: text("workflowStatus", { enum: ["new_lead", "discovery_call", "quote_sent", "quote_approved", "engagement_sent", "onboarding_sent", "onboarding_complete", "active", "inactive", "churned"] }).default("new_lead").notNull(),
   leadSource: text("leadSource"),
+  leadSourceDetail: text("leadSourceDetail"),
   discoveryDate: integer("discoveryDate", { mode: "timestamp" }),
   nextAction: text("nextAction"),
   nextActionDate: integer("nextActionDate", { mode: "timestamp" }),
+  
+  // Lead Scoring & Value
+  estimatedMonthlyValue: real("estimatedMonthlyValue"),
+  leadScore: integer("leadScore"),
   
   // Pain Points & Expectations
   painPoints: text("painPoints"),
@@ -212,9 +217,27 @@ export const clients = sqliteTable("clients", {
   onboardingCompletedAt: integer("onboardingCompletedAt", { mode: "timestamp" }),
   onboardingToken: text("onboardingToken"),
   
+  // Bookkeeping service flags
+  hasHST: integer("hasHST", { mode: "boolean" }).default(false),
+  hstNumber: text("hstNumber"),
+  hstPeriod: text("hstPeriod", { enum: ["monthly", "quarterly", "annual"] }),
+  hasWSIB: integer("hasWSIB", { mode: "boolean" }).default(false),
+  wsibAccountNumber: text("wsibAccountNumber"),
+  wsibQuarter: text("wsibQuarter", { enum: ["Q1", "Q2", "Q3", "Q4", "all"] }),
+  hasPayroll: integer("hasPayroll", { mode: "boolean" }).default(false),
+  payrollFrequency: text("payrollFrequency", { enum: ["weekly", "bi-weekly", "semi-monthly", "monthly", "self"] }),
+  yearEndMonth: text("yearEndMonth", { enum: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] }),
+
+  // Quote & Engagement Letter
+  quoteAmount: real("quoteAmount"),
+  quoteSentAt: integer("quoteSentAt", { mode: "timestamp" }),
+  quoteApprovedAt: integer("quoteApprovedAt", { mode: "timestamp" }),
+  transactionsPerMonth: integer("transactionsPerMonth").default(0),
+  engagementSentAt: integer("engagementSentAt", { mode: "timestamp" }),
+  engagementSignedAt: integer("engagementSignedAt", { mode: "timestamp" }),
+  engagementLetterUrl: text("engagementLetterUrl"),
+
   assignedTo: text("assignedTo"),
-  notes: text("notes"),
-  googleDriveFolderId: text("googleDriveFolderId"),
   oneDriveFolderId: text("oneDriveFolderId"),
   qboCustomerId: text("qboCustomerId"),
   // Multi-QBO firm mapping: which QBO firm this client belongs to
@@ -644,6 +667,7 @@ export const calendarEvents = sqliteTable("calendar_events", {
   attendees: text("attendees"),
   recurrence: text("recurrence"),
   color: text("color"),
+  meetingLink: text("meeting_link"),
   isRecurring: integer("isRecurring", { mode: "boolean" }).default(false).notNull(),
   status: text("status", { enum: ["confirmed", "tentative", "cancelled"] }).default("confirmed").notNull(),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),

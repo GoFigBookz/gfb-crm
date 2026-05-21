@@ -260,6 +260,11 @@ CREATE TABLE `clients` (
 	`oneDriveFolderId` text,
 	`qboCustomerId` text,
 	`qboConnectionId` integer,
+	`industry` text DEFAULT 'other',
+	`province` text DEFAULT 'ON',
+	`qboAccountType` text DEFAULT 'ca_clients',
+	`figgyEmail` text,
+	`contactName` text,
 	`createdAt` integer,
 	`updatedAt` integer
 );

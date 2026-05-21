@@ -39,6 +39,10 @@ import {
   AlertTriangle,
   Phone,
   Database,
+  Building2,
+  Target,
+  Megaphone,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -55,6 +59,12 @@ interface NavItem {
   minRole: "client" | "staff" | "senior" | "admin";
 }
 
+interface NavSection {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  items: NavItem[];
+}
+
 interface ToolItem {
   to: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -64,35 +74,81 @@ interface ToolItem {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user, can } = useAuth();
   const [toolsOpen, setToolsOpen] = useState(true);
+  const [openSections, setOpenSections] = useState<string[]>(["internal", "client", "staff"]);
 
-  const mainNavItems: NavItem[] = [
-    { to: "/", icon: LayoutDashboard, label: "Dashboard", minRole: "staff" },
-    { to: "/clients", icon: Users, label: "Clients", minRole: "staff" },
-    { to: "/tasks", icon: CheckSquare, label: "Tasks", minRole: "staff" },
-    { to: "/emails", icon: Mail, label: "Emails", minRole: "staff" },
-    { to: "/calendar", icon: CalendarDays, label: "Calendar", minRole: "staff" },
-    { to: "/files", icon: FolderOpen, label: "Files", minRole: "staff" },
-    { to: "/invoices", icon: Receipt, label: "Invoices", minRole: "staff" },
-    { to: "/qbo", icon: Landmark, label: "QuickBooks", minRole: "senior" },
-    { to: "/vault", icon: Shield, label: "Client Vault", minRole: "staff" },
-    { to: "/portal-settings", icon: Globe, label: "Client Portals", minRole: "staff" },
-    { to: "/staff-workload", icon: UsersRound, label: "Staff Workload", minRole: "senior" },
-    { to: "/employees", icon: Briefcase, label: "Employees", minRole: "staff" },
-    { to: "/engagement", icon: ScrollText, label: "Engagement Letters", minRole: "senior" },
-    { to: "/discovery", icon: Phone, label: "Discovery Call", minRole: "staff" },
-    { to: "/onboarding-checklist", icon: CheckSquare, label: "Onboarding Checklist", minRole: "staff" },
-    { to: "/signatures", icon: FileSignature, label: "Signatures", minRole: "senior" },
-    { to: "/playbook", icon: Notebook, label: "Client Playbook", minRole: "staff" },
-    { to: "/ai-agents", icon: Bot, label: "AI Agents", minRole: "senior" },
-    { to: "/triage", icon: ShieldCheck, label: "AI Triage", minRole: "senior" },
-    { to: "/practice-health", icon: BarChart3, label: "Practice Health", minRole: "admin" },
-    { to: "/satisfaction", icon: Heart, label: "Satisfaction Scores", minRole: "staff" },
-    { to: "/clickup-import", icon: Upload, label: "ClickUp Import", minRole: "senior" },
-    { to: "/emergency-sop", icon: AlertTriangle, label: "Emergency SOP", minRole: "staff" },
-    { to: "/integrations", icon: Link, label: "Integrations", minRole: "senior" },
-    { to: "/users", icon: UserCog, label: "Users", minRole: "admin" },
-    { to: "/settings", icon: Settings, label: "Settings", minRole: "senior" },
-    { to: "/sheets-setup", icon: Database, label: "Sheets DB Setup", minRole: "admin" },
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => 
+      prev.includes(section) 
+        ? prev.filter(s => s !== section)
+        : [...prev, section]
+    );
+  };
+
+  const sections: NavSection[] = [
+    {
+      title: "Internal",
+      icon: Building2,
+      items: [
+        { to: "/", icon: LayoutDashboard, label: "Dashboard", minRole: "staff" },
+        { to: "/practice-health", icon: BarChart3, label: "Practice Health", minRole: "admin" },
+        { to: "/users", icon: UserCog, label: "Users", minRole: "admin" },
+        { to: "/integrations", icon: Link, label: "Integrations", minRole: "senior" },
+        { to: "/settings", icon: Settings, label: "Settings", minRole: "senior" },
+        { to: "/sheets-setup", icon: Database, label: "Sheets DB", minRole: "admin" },
+      ],
+    },
+    {
+      title: "Client",
+      icon: Users,
+      items: [
+        { to: "/clients", icon: Users, label: "All Clients", minRole: "staff" },
+        { to: "/vault", icon: Shield, label: "Client Vault", minRole: "staff" },
+        { to: "/portal-settings", icon: Globe, label: "Client Portals", minRole: "staff" },
+        { to: "/playbook", icon: Notebook, label: "Client Playbook", minRole: "staff" },
+        { to: "/engagement", icon: ScrollText, label: "Engagement Letters", minRole: "senior" },
+        { to: "/signatures", icon: FileSignature, label: "Signatures", minRole: "senior" },
+      ],
+    },
+    {
+      title: "Sales",
+      icon: Target,
+      items: [
+        { to: "/clients?status=lead", icon: Users, label: "New Leads", minRole: "staff" },
+        { to: "/discovery", icon: Phone, label: "Discovery Call", minRole: "staff" },
+        { to: "/emergency-sop", icon: AlertTriangle, label: "Emergency SOP", minRole: "staff" },
+      ],
+    },
+    {
+      title: "Marketing",
+      icon: Megaphone,
+      items: [
+        { to: "/satisfaction", icon: Heart, label: "Satisfaction", minRole: "staff" },
+      ],
+    },
+    {
+      title: "Staff",
+      icon: UsersRound,
+      items: [
+        { to: "/tasks", icon: CheckSquare, label: "Tasks", minRole: "staff" },
+        { to: "/emails", icon: Mail, label: "Emails", minRole: "staff" },
+        { to: "/calendar", icon: CalendarDays, label: "Calendar", minRole: "staff" },
+        { to: "/files", icon: FolderOpen, label: "Files", minRole: "staff" },
+        { to: "/onboarding-checklist", icon: ClipboardCheck, label: "Onboarding", minRole: "staff" },
+        { to: "/staff-workload", icon: UsersRound, label: "Staff Workload", minRole: "senior" },
+        { to: "/employees", icon: Briefcase, label: "Employees", minRole: "staff" },
+        { to: "/invoices", icon: Receipt, label: "Invoices", minRole: "staff" },
+        { to: "/qbo", icon: Landmark, label: "QuickBooks", minRole: "senior" },
+      ],
+    },
+    {
+      title: "AI Agent",
+      icon: Sparkles,
+      items: [
+        { to: "/ai-agents", icon: Bot, label: "AI Agents", minRole: "senior" },
+        { to: "/triage", icon: ShieldCheck, label: "AI Triage", minRole: "senior" },
+        { to: "/clickup-import", icon: Upload, label: "ClickUp Import", minRole: "senior" },
+      ],
+    },
   ];
 
   const toolItems: ToolItem[] = [
@@ -107,13 +163,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     { to: "/pricing-calculator", icon: Calculator, label: "Pricing Calculator" },
   ];
 
-  const visibleMainItems = mainNavItems.filter((item) => {
+  const isItemVisible = (item: NavItem) => {
     if (item.minRole === "client") return true;
     if (item.minRole === "staff") return can.staff;
     if (item.minRole === "senior") return can.senior;
     if (item.minRole === "admin") return can.admin;
     return false;
-  });
+  };
 
   const ToolLink = ({ item }: { item: ToolItem }) => (
     <NavLink
@@ -131,6 +187,63 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {!collapsed && <span className="truncate">{item.label}</span>}
     </NavLink>
   );
+
+  const SectionHeader = ({ section }: { section: NavSection }) => {
+    const isOpen = openSections.includes(section.title.toLowerCase());
+    const hasVisibleItems = section.items.some(isItemVisible);
+    if (!hasVisibleItems) return null;
+
+    return (
+      <div className="mt-2">
+        {!collapsed ? (
+          <button
+            onClick={() => toggleSection(section.title.toLowerCase())}
+            className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors rounded-lg hover:bg-slate-800/50"
+            style={{ color: isOpen ? "#a3e635" : "#94a3b8" }}
+          >
+            <span className="flex items-center gap-2">
+              <section.icon className="h-4 w-4" />
+              {section.title}
+            </span>
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 transition-transform",
+                isOpen && "rotate-180"
+              )}
+            />
+          </button>
+        ) : (
+          <div className="flex justify-center py-2">
+            <section.icon className="h-4 w-4" style={{ color: isOpen ? "#a3e635" : "#94a3b8" }} />
+          </div>
+        )}
+        {(isOpen || collapsed) && (
+          <div className="space-y-0.5 mt-1">
+            {section.items.filter(isItemVisible).map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/"}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group",
+                    isActive
+                      ? "bg-lime-600 text-white"
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  )
+                }
+              >
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                {!collapsed && (
+                  <span className="font-medium text-sm truncate">{item.label}</span>
+                )}
+              </NavLink>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <aside
@@ -169,27 +282,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </button>
       </div>
 
-      {/* Main Navigation */}
+      {/* Main Navigation — Grouped by Section */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-        {visibleMainItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === "/"}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
-                isActive
-                  ? "bg-lime-600 text-white"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
-              )
-            }
-          >
-            <item.icon className="h-5 w-5 flex-shrink-0" />
-            {!collapsed && (
-              <span className="font-medium text-sm truncate">{item.label}</span>
-            )}
-          </NavLink>
+        {sections.map((section) => (
+          <SectionHeader key={section.title} section={section} />
         ))}
 
         {/* Tools Section */}

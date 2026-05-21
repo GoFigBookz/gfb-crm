@@ -69,7 +69,7 @@ export const calendarRouter = createRouter({
       })).optional(),
       recurrence: z.string().optional(),
       color: z.string().optional(),
-      isRecurring: z.boolean().optional().default(false),
+      meetingLink: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
