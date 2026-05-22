@@ -1,6 +1,8 @@
 import { migrateRouter } from "./migrate-router";
 import { voiceRouter } from "./voice-router";
 import { googleTasksRouter } from "./google-tasks-router";
+import { googleSyncRouter } from "./google-sync-router";
+import { microsoftSyncRouter } from "./microsoft-sync-router";
 import { dailyBriefRouter } from "./daily-brief-router";
 import { localAuthRouter } from "./local-auth-router";
 import { authRouter } from "./auth-router";
@@ -75,6 +77,8 @@ export const appRouter = createRouter({
   migrate: migrateRouter,
   senderRules: senderRulesRouter,
   connector: connectorRouter,
+  googleSync: googleSyncRouter,
+  microsoftSync: microsoftSyncRouter,
 });
 
 export type AppRouter = typeof appRouter;

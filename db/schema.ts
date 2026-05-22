@@ -499,6 +499,7 @@ export const tasks = sqliteTable("tasks", {
   googleCalendarEventId: text("googleCalendarEventId"),
   googleTaskId: text("googleTaskId"),
   outlookTaskId: text("outlookTaskId"),
+  microsoftTaskId: text("microsoftTaskId"),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });

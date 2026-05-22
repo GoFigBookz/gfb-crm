@@ -69,6 +69,28 @@ export default function Integrations() {
     { enabled: false }
   );
 
+  // Google Sync
+  const syncGoogleGmail = trpc.googleSync.syncGmail.useMutation({
+    onSuccess: () => { utils.email.list.invalidate(); alert("Gmail synced!"); }
+  });
+  const syncGoogleCalendar = trpc.googleSync.syncCalendar.useMutation({
+    onSuccess: () => { utils.calendar.list.invalidate(); alert("Calendar synced!"); }
+  });
+  const syncGoogleTasks = trpc.googleSync.syncTasks.useMutation({
+    onSuccess: () => { utils.task.list.invalidate(); alert("Tasks synced!"); }
+  });
+
+  // Microsoft Sync
+  const syncMicrosoftOutlook = trpc.microsoftSync.syncOutlook.useMutation({
+    onSuccess: () => { utils.email.list.invalidate(); alert("Outlook synced!"); }
+  });
+  const syncMicrosoftCalendar = trpc.microsoftSync.syncCalendar.useMutation({
+    onSuccess: () => { utils.calendar.list.invalidate(); alert("Calendar synced!"); }
+  });
+  const syncMicrosoftTasks = trpc.microsoftSync.syncTasks.useMutation({
+    onSuccess: () => { utils.task.list.invalidate(); alert("Tasks synced!"); }
+  });
+
   // Per-client connectors
   const createConnector = trpc.connector.create.useMutation({
     onSuccess: () => {
@@ -207,24 +229,54 @@ export default function Integrations() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {PER_CLIENT_PROVIDERS.includes(provider.id) ? (
+                          {provider.id === "google" ? (
                             <>
-                              <Button variant="ghost" size="sm" onClick={() => pullStatements.mutate({ connectionId: account.id })} disabled={pullStatements.isPending}>
-                                {pullStatements.isPending ? "Pulling..." : "Pull Now"}
+                              <Button variant="ghost" size="sm" onClick={() => syncGoogleGmail.mutate({ accountId: account.id, maxResults: 50 })} disabled={syncGoogleGmail.isPending}>
+                                <Mail className="h-3 w-3 mr-1" /> {syncGoogleGmail.isPending ? "Syncing..." : "Gmail"}
                               </Button>
-                              <Button variant="ghost" size="icon" className="text-red-500" onClick={() => deleteConnector.mutate({ id: account.id })}>
+                              <Button variant="ghost" size="sm" onClick={() => syncGoogleCalendar.mutate({ accountId: account.id })} disabled={syncGoogleCalendar.isPending}>
+                                <CalendarDays className="h-3 w-3 mr-1" /> {syncGoogleCalendar.isPending ? "Syncing..." : "Calendar"}
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => syncGoogleTasks.mutate({ accountId: account.id })} disabled={syncGoogleTasks.isPending}>
+                                <CheckSquare className="h-3 w-3 mr-1" /> {syncGoogleTasks.isPending ? "Syncing..." : "Tasks"}
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-red-500" onClick={() => deleteAccount.mutate({ id: account.id })}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : provider.id === "microsoft" ? (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => syncMicrosoftOutlook.mutate({ accountId: account.id, maxResults: 50 })} disabled={syncMicrosoftOutlook.isPending}>
+                                <Mail className="h-3 w-3 mr-1" /> {syncMicrosoftOutlook.isPending ? "Syncing..." : "Outlook"}
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => syncMicrosoftCalendar.mutate({ accountId: account.id })} disabled={syncMicrosoftCalendar.isPending}>
+                                <CalendarDays className="h-3 w-3 mr-1" /> {syncMicrosoftCalendar.isPending ? "Syncing..." : "Calendar"}
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => syncMicrosoftTasks.mutate({ accountId: account.id })} disabled={syncMicrosoftTasks.isPending}>
+                                <CheckSquare className="h-3 w-3 mr-1" /> {syncMicrosoftTasks.isPending ? "Syncing..." : "Tasks"}
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-red-500" onClick={() => deleteAccount.mutate({ id: account.id })}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </>
                           ) : provider.id === "quickbooks" ? (
                             <>
                               <Button variant="ghost" size="sm" onClick={() => syncQbo.mutate({ connectionId: account.id })} disabled={syncQbo.isPending}>
-                                {syncQbo.isPending ? "Syncing..." : "Sync Now"}
+                                {syncQbo.isPending ? "Syncing..." : "Sync QBO"}
                               </Button>
                               <Button variant="ghost" size="sm" onClick={() => toggleQbo.mutate({ id: account.id, active: !account.isActive })}>
                                 {account.isActive ? "Pause" : "Resume"}
                               </Button>
                               <Button variant="ghost" size="icon" className="text-red-500" onClick={() => deleteQbo.mutate({ id: account.id })}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : PER_CLIENT_PROVIDERS.includes(provider.id) ? (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => pullStatements.mutate({ connectionId: account.id })} disabled={pullStatements.isPending}>
+                                {pullStatements.isPending ? "Pulling..." : "Pull Now"}
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-red-500" onClick={() => deleteConnector.mutate({ id: account.id })}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </>
