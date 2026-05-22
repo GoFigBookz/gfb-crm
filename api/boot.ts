@@ -3,6 +3,7 @@ const BUILD_INFO = { commit: "e43d831", deployTime: new Date().toISOString() };
 
 import { Hono } from "hono";
 import { Hono } from "hono";
+import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import type { HttpBindings } from "@hono/node-server";

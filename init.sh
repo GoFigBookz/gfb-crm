@@ -44,4 +44,5 @@ fi
 
 PORT="${PORT:-3000}"
 echo "[INIT] Starting server on port $PORT..."
-exec NODE_ENV=production node dist/boot.js
+export NODE_ENV=production
+exec node dist/boot.js
