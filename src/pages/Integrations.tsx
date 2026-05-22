@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 const providers = [
   { id: "google", name: "Google", icon: "G", color: "bg-red-500", scopes: ["Gmail", "Calendar", "Drive", "Tasks"] },
   { id: "microsoft", name: "Microsoft", icon: "M", color: "bg-blue-600", scopes: ["Outlook", "Calendar", "OneDrive", "Tasks"] },
+  { id: "quickbooks", name: "QuickBooks", icon: "QB", color: "bg-green-600", scopes: ["Invoices", "Customers", "Payments", "Accounts"] },
   { id: "dropbox", name: "Dropbox", icon: "D", color: "bg-blue-400", scopes: ["Files"] },
   { id: "icloud", name: "iCloud", icon: "i", color: "bg-slate-600", scopes: ["Files"] },
 ];
@@ -28,7 +29,25 @@ export default function Integrations() {
   const [addProvider, setAddProvider] = useState<string | null>(null);
   const [accountLabel, setAccountLabel] = useState("");
 
-  const getGoogleAuthUrl = trpc.integration.getGoogleAuthUrl.useQuery(
+  const { data: qboConnections } = trpc.qbo.listConnections.useQuery();
+  const { data: qboStats } = trpc.qbo.getStats.useQuery();
+  const syncQbo = trpc.qbo.syncAll.useMutation({
+    onSuccess: () => {
+      utils.qbo.listConnections.invalidate();
+      utils.qbo.getStats.invalidate();
+    }
+  });
+  const deleteQbo = trpc.qbo.deleteConnection.useMutation({
+    onSuccess: () => utils.qbo.listConnections.invalidate()
+  });
+  const toggleQbo = trpc.qbo.toggleConnection.useMutation({
+    onSuccess: () => utils.qbo.listConnections.invalidate()
+  });
+
+  const getQboAuthUrl = trpc.qbo.getAuthUrl.useQuery(
+    { environment: "production" },
+    { enabled: false }
+  );(
     { accountLabel: accountLabel || "Google Account" },
     { enabled: false }
   );
@@ -38,6 +57,16 @@ export default function Integrations() {
   );
 
   const handleConnect = async (provider: string) => {
+    if (provider === "quickbooks") {
+      const result = await getQboAuthUrl.refetch();
+      const url = result.data?.url || "";
+      if (url) {
+        window.location.href = url;
+      }
+      setAddProvider(null);
+      return;
+    }
+    
     if (!accountLabel.trim()) return;
     
     let url = "";
@@ -76,7 +105,19 @@ export default function Integrations() {
       {/* Connected Accounts Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {providers.map((provider) => {
-          const providerAccounts = groupedAccounts[provider.id] || [];
+          const providerAccounts = provider.id === "quickbooks" 
+            ? (qboConnections || []).map(c => ({ 
+                id: c.id, 
+                provider: "quickbooks", 
+                accountLabel: c.companyName || `QBO Company ${c.realmId}`,
+                accountEmail: c.companyEmail || null,
+                isActive: c.isActive,
+                syncEnabled: null,
+                lastSyncedAt: c.lastSyncedAt,
+                createdAt: c.createdAt,
+                updatedAt: c.updatedAt,
+              }))
+            : (groupedAccounts[provider.id] || []);
           const isConnected = providerAccounts.length > 0;
           
           return (
@@ -112,12 +153,28 @@ export default function Integrations() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => toggleActive.mutate({ id: account.id, active: !account.isActive })}>
-                            {account.isActive ? "Pause" : "Resume"}
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-red-500" onClick={() => deleteAccount.mutate({ id: account.id })}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {provider.id === "quickbooks" ? (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => syncQbo.mutate({ connectionId: account.id })} disabled={syncQbo.isPending}>
+                                {syncQbo.isPending ? "Syncing..." : "Sync Now"}
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => toggleQbo.mutate({ id: account.id, active: !account.isActive })}>
+                                {account.isActive ? "Pause" : "Resume"}
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-red-500" onClick={() => deleteQbo.mutate({ id: account.id })}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => toggleActive.mutate({ id: account.id, active: !account.isActive })}>
+                                {account.isActive ? "Pause" : "Resume"}
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-red-500" onClick={() => deleteAccount.mutate({ id: account.id })}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -130,11 +187,13 @@ export default function Integrations() {
                       <DialogContent>
                         <DialogHeader><DialogTitle>Connect {provider.name} Account</DialogTitle></DialogHeader>
                         <div className="space-y-4 py-4">
-                          <div className="space-y-2">
-                            <Label>Account Label *</Label>
-                            <Input placeholder="e.g., Personal Gmail, Work Account" value={accountLabel} onChange={(e) => setAccountLabel(e.target.value)} />
-                          </div>
-                          <Button className="w-full" onClick={() => handleConnect(provider.id)} disabled={!accountLabel.trim()}>
+                          {provider.id !== "quickbooks" && (
+                            <div className="space-y-2">
+                              <Label>Account Label *</Label>
+                              <Input placeholder="e.g., Personal Gmail, Work Account" value={accountLabel} onChange={(e) => setAccountLabel(e.target.value)} />
+                            </div>
+                          )}
+                          <Button className="w-full" onClick={() => handleConnect(provider.id)} disabled={provider.id !== "quickbooks" && !accountLabel.trim()}>
                             <Link2 className="h-4 w-4 mr-2" /> Connect Account
                           </Button>
                         </div>
@@ -151,11 +210,13 @@ export default function Integrations() {
                     <DialogContent>
                       <DialogHeader><DialogTitle>Connect {provider.name} Account</DialogTitle></DialogHeader>
                       <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                          <Label>Account Label *</Label>
-                          <Input placeholder="e.g., Personal Gmail, Work Account" value={accountLabel} onChange={(e) => setAccountLabel(e.target.value)} />
-                          <p className="text-xs text-slate-500">Give this account a name so you can identify it later</p>
-                        </div>
+                        {provider.id !== "quickbooks" && (
+                          <div className="space-y-2">
+                            <Label>Account Label *</Label>
+                            <Input placeholder="e.g., Personal Gmail, Work Account" value={accountLabel} onChange={(e) => setAccountLabel(e.target.value)} />
+                            <p className="text-xs text-slate-500">Give this account a name so you can identify it later</p>
+                          </div>
+                        )}
                         <div className="space-y-3">
                           <p className="text-sm font-medium">This will enable:</p>
                           <div className="flex flex-wrap gap-2">
@@ -164,7 +225,7 @@ export default function Integrations() {
                             ))}
                           </div>
                         </div>
-                        <Button className="w-full" onClick={() => handleConnect(provider.id)} disabled={!accountLabel.trim()}>
+                        <Button className="w-full" onClick={() => handleConnect(provider.id)} disabled={provider.id !== "quickbooks" && !accountLabel.trim()}>
                           <Link2 className="h-4 w-4 mr-2" /> Connect Account
                         </Button>
                       </div>
