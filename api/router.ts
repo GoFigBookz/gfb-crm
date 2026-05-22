@@ -1,3 +1,4 @@
+import { migrateRouter } from "./migrate-router";
 import { voiceRouter } from "./voice-router";
 import { googleTasksRouter } from "./google-tasks-router";
 import { dailyBriefRouter } from "./daily-brief-router";
@@ -69,6 +70,7 @@ export const appRouter = createRouter({
   dailyBrief: dailyBriefRouter,
   googleTasks: googleTasksRouter,
   voice: voiceRouter,
+  migrate: migrateRouter,
 });
 
 export type AppRouter = typeof appRouter;
