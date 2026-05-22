@@ -1089,3 +1089,60 @@ export const senderRules = sqliteTable("sender_rules", {
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// ========== PER-CLIENT CONNECTOR STATEMENTS (Wise, Stripe, Jobber, TouchBistro, PayPal) ==========
+export const connectorStatements = sqliteTable("connector_statements", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  userId: integer("userId").notNull(),
+  connectedAccountId: integer("connectedAccountId").notNull(),
+  provider: text("provider", { enum: ["wise", "stripe", "jobber", "touchbistro", "paypal"] }).notNull(),
+
+  // Statement period
+  periodStart: integer("periodStart", { mode: "timestamp" }).notNull(),
+  periodEnd: integer("periodEnd", { mode: "timestamp" }).notNull(),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(),
+
+  // Summary data
+  totalRevenue: real("totalRevenue").default(0),
+  totalExpenses: real("totalExpenses").default(0),
+  totalFees: real("totalFees").default(0),
+  netAmount: real("netAmount").default(0),
+  transactionCount: integer("transactionCount").default(0),
+
+  // Raw data storage
+  rawJson: text("rawJson"),
+  transactionsJson: text("transactionsJson"),
+
+  // Statement file (if downloadable)
+  fileName: text("fileName"),
+  fileUrl: text("fileUrl"),
+  fileMimeType: text("fileMimeType"),
+
+  // Status
+  status: text("status", { enum: ["pending", "syncing", "synced", "error", "missing"]}).default("pending").notNull(),
+  errorMessage: text("errorMessage"),
+
+  // For reconciliation tracking
+  reconciled: integer("reconciled", { mode: "boolean" }).default(false).notNull(),
+  reconciledAt: integer("reconciledAt", { mode: "timestamp" }),
+
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// ========== CONNECTOR SYNC LOGS ==========
+export const connectorSyncLogs = sqliteTable("connector_sync_logs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  connectedAccountId: integer("connectedAccountId").notNull(),
+  clientId: integer("clientId").notNull(),
+  provider: text("provider", { enum: ["wise", "stripe", "jobber", "touchbistro", "paypal"] }).notNull(),
+
+  syncType: text("syncType", { enum: ["statements", "transactions", "balances", "invoices", "payouts", "all"] }).default("all").notNull(),
+  status: text("status", { enum: ["success", "error", "partial"] }).notNull(),
+  recordsSynced: integer("recordsSynced").default(0).notNull(),
+  errorMessage: text("errorMessage"),
+  startedAt: integer("startedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  completedAt: integer("completedAt", { mode: "timestamp" }),
+});
