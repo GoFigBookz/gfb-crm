@@ -6,13 +6,11 @@ import {
   XCircle, TrendingUp, BarChart3, FileText, CheckSquare,
   Bot, Activity, Zap, Inbox, ExternalLink,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/providers/trpc";
-import { format, subDays, isToday } from "date-fns";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 /* ─── Types ─── */
@@ -83,11 +81,9 @@ const flagColors: Record<string, { bg: string; text: string; border: string }> =
 
 export default function TriageDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("review");
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: tasks } = trpc.task.upcoming.useQuery({ days: 7 });
-  const { data: clientStats } = trpc.crmClient.stats.useQuery();
 
   const handleRefresh = () => {
     setRefreshing(true);
