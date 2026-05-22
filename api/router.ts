@@ -1,3 +1,4 @@
+import { voiceRouter } from "./voice-router";
 import { googleTasksRouter } from "./google-tasks-router";
 import { dailyBriefRouter } from "./daily-brief-router";
 import { localAuthRouter } from "./local-auth-router";
@@ -67,6 +68,7 @@ export const appRouter = createRouter({
   localAuth: localAuthRouter,
   dailyBrief: dailyBriefRouter,
   googleTasks: googleTasksRouter,
+  voice: voiceRouter,
 });
 
 export type AppRouter = typeof appRouter;
