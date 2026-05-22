@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Unimax Construction Group",
+    "businessNumber": "",
+    "hstGstNumber": "",
+    "hstGstFrequency": "quarterly",
+    "payrollAccountNumber": "",
+    "payrollFrequency": "biweekly",
+    "fiscalYearEnd": "December 31",
+    "wsibAccountNumber": "",
+    "wsibRequired": true,
+    "hasSubcontractors": true,
+    "hasInvestments": false,
+    "bankAccountCount": 2,
+    "creditCardCount": 1
+  },
+  {
+    "name": "Fleming Osteopathic",
+    "businessNumber": "",
+    "hstGstNumber": "",
+    "hstGstFrequency": "none",
+    "payrollAccountNumber": "",
+    "payrollFrequency": "none",
+    "fiscalYearEnd": "December 31",
+    "wsibAccountNumber": "",
+    "wsibRequired": false,
+    "hasSubcontractors": false,
+    "hasInvestments": false,
+    "bankAccountCount": 1,
+    "creditCardCount": 1
+  },
+  {
+    "name": "Studio Lala",
+    "businessNumber": "",
+    "hstGstNumber": "",
+    "hstGstFrequency": "quarterly",
+    "payrollAccountNumber": "",
+    "payrollFrequency": "monthly",
+    "fiscalYearEnd": "December 31",
+    "wsibAccountNumber": "",
+    "wsibRequired": false,
+    "hasSubcontractors": false,
+    "hasInvestments": false,
+    "bankAccountCount": 1,
+    "creditCardCount": 0
+  },
+  {
+    "name": "Selective Painting",
+    "businessNumber": "",
+    "hstGstNumber": "",
+    "hstGstFrequency": "quarterly",
+    "payrollAccountNumber": "",
+    "payrollFrequency": "biweekly",
+    "fiscalYearEnd": "December 31",
+    "wsibAccountNumber": "",
+    "wsibRequired": true,
+    "hasSubcontractors": true,
+    "hasInvestments": false,
+    "bankAccountCount": 2,
+    "creditCardCount": 1
+  }
+]
