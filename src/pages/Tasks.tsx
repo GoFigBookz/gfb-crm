@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
 import { Plus, Search, Check, Repeat, Sparkles, LayoutGrid, List as ListIcon, Calendar as CalendarIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,12 +14,20 @@ import { cn } from "@/lib/utils";
 
 export default function Tasks() {
   const utils = trpc.useUtils();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"list" | "board" | "calendar">("list");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isRecurringOpen, setIsRecurringOpen] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
+
+  // Handle ?tab=overdue|today|upcoming from dashboard drill-down
+  const tabParam = searchParams.get("tab");
+  useEffect(() => {
+    if (tabParam === "overdue" || tabParam === "today" || tabParam === "upcoming") {
+      setView("board");
+    }
+  }, [tabParam]);
 
   const { data: allTasks } = trpc.task.list.useQuery();
   const { data: recurringTasks } = trpc.task.listRecurring.useQuery();

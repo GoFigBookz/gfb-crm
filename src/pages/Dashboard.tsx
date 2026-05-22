@@ -88,6 +88,7 @@ export default function Dashboard() {
   const { data: expiringDocs } = trpc.expiration.getExpiringSoon.useQuery({ days: 30 });
 
   const { data: dailyBrief } = trpc.dailyBrief.get.useQuery();
+  const utils = trpc.useUtils();
   const setPriorities = trpc.dailyBrief.setPriorities.useMutation({
     onSuccess: () => utils.dailyBrief.get.invalidate()
   });

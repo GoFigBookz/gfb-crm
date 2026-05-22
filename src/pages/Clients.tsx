@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Search, Users, ArrowRight, Globe, Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/providers/trpc";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 const INDUSTRIES: Record<string, string> = {
   technology: "💻 Technology", construction: "🏗️ Construction",
@@ -24,11 +24,15 @@ const FIRM_INFO: Record<string, { flag: string; label: string; color: string }> 
   us_clients: { flag: "🇺🇸", label: "Go Fig Bookz US", color: "bg-blue-50 text-blue-700 border-blue-200" },
 };
 
-const TABS = ["active", "inactive"] as const;
+const TABS = ["all", "active", "lead", "prospect", "inactive"] as const;
+
+type TabType = typeof TABS[number];
 
 export default function Clients() {
   const utils = trpc.useUtils();
-  const [tab, setTab] = useState<"active" | "inactive">("active");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlStatus = searchParams.get("status") as TabType | null;
+  const [tab, setTab] = useState<TabType>(urlStatus && TABS.includes(urlStatus) ? urlStatus : "active");
   const [search, setSearch] = useState("");
   const [firmFilter, setFirmFilter] = useState("all");
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -37,6 +41,19 @@ export default function Clients() {
     status: "active" as "active" | "inactive",
     qboAccountType: "ca_clients" as "ca_clients" | "us_clients",
   });
+
+  // Sync tab with URL ?status= param
+  useEffect(() => {
+    if (urlStatus && TABS.includes(urlStatus) && urlStatus !== tab) {
+      setTab(urlStatus);
+    }
+  }, [urlStatus]);
+
+  // Update URL when tab changes (if user clicked a tab)
+  const handleTabChange = (t: TabType) => {
+    setTab(t);
+    setSearchParams({ status: t });
+  };
 
   const { data: clients, isLoading } = trpc.crmClient.list.useQuery({
     search: search || undefined,
@@ -52,8 +69,13 @@ export default function Clients() {
     onSuccess: () => { utils.crmClient.list.invalidate(); setIsAddOpen(false); },
   });
 
-  const activeCount = clients?.filter(c => c.workflowStatus === "active").length ?? 0;
-  const inactiveCount = clients?.filter(c => c.workflowStatus === "inactive").length ?? 0;
+  const tabCounts: Record<TabType, number> = {
+    all: clients?.length ?? 0,
+    active: clients?.filter(c => c.status === "active").length ?? 0,
+    lead: clients?.filter(c => c.status === "lead" || c.status === "prospect").length ?? 0,
+    prospect: clients?.filter(c => c.status === "prospect").length ?? 0,
+    inactive: clients?.filter(c => c.status === "inactive").length ?? 0,
+  };
 
   return (
     <div className="space-y-5">
@@ -103,7 +125,7 @@ export default function Clients() {
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-slate-200">
         {TABS.map((t) => (
-          <button key={t} onClick={() => setTab(t)}
+          <button key={t} onClick={() => handleTabChange(t)}
             className={cn(
               "px-4 py-2.5 text-sm font-medium capitalize border-b-2 transition-colors",
               tab === t
@@ -115,7 +137,7 @@ export default function Clients() {
               "ml-2 px-1.5 py-0.5 rounded-full text-xs",
               tab === t ? "bg-lime-100 text-lime-700" : "bg-slate-100 text-slate-500"
             )}>
-              {t === "active" ? activeCount : inactiveCount}
+              {tabCounts[t] ?? 0}
             </span>
           </button>
         ))}
@@ -147,7 +169,7 @@ export default function Clients() {
       ) : !filtered?.length ? (
         <div className="text-center py-20 text-slate-400">
           <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No {tab} clients found</p>
+          <p className="font-medium">No {tab === "all" ? "" : tab + " "}clients found</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
