@@ -30,6 +30,9 @@ app.get("/api/auth/config", (c) =>
   c.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || "" })
 );
 
+// Health check endpoint
+app.get("/api/health", (c) => c.json({ status: "ok", time: Date.now() }));
+
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
 
 app.use("/api/trpc/*", async (c) => {
