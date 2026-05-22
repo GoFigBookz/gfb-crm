@@ -57,6 +57,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const toolItems = [
     { to: "/calculators", icon: Calculator, label: "Calculators" },
     { to: "/bank-converter", icon: ArrowRightLeft, label: "Bank → QBO" },
+    { to: "/qbo-triage", icon: Receipt, label: "QBO Review" },
     { to: "/tax-deadlines", icon: CalendarClock, label: "Tax Deadlines" },
     { to: "/year-end", icon: ClipboardCheck, label: "Year-End" },
     { to: "/monthly-close", icon: CheckSquare, label: "Monthly Close" },

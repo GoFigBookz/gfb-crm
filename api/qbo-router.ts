@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts } from "../db/schema";
+import { qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, clients } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 // QBO API base URLs
@@ -93,6 +93,15 @@ async function ensureValidToken(connection: typeof qboConnections.$inferSelect) 
     return refreshToken(connection);
   }
   return connection;
+}
+
+// Simple fuzzy string matcher (Jaccard similarity on word sets)
+function jaccardSimilarity(a: string, b: string): number {
+  const setA = new Set(a.split(/\s+/));
+  const setB = new Set(b.split(/\s+/));
+  const intersection = new Set([...setA].filter(x => setB.has(x)));
+  const union = new Set([...setA, ...setB]);
+  return union.size === 0 ? 0 : intersection.size / union.size;
 }
 
 // ================================================================
@@ -571,38 +580,168 @@ export const qboRouter = createRouter({
     };
   }),
 
-  // --- Webhook Receiver ---
+  // --- Triage / Review Queue ---
 
-  webhook: publicQuery
+  getPendingReview: publicQuery
     .input(z.object({
-      realmId: z.string(),
-      eventNotifications: z.array(z.object({
-        dataChangeEvent: z.object({
-          entities: z.array(z.object({
-            name: z.string(),
-            id: z.string(),
-            operation: z.string(),
-          })),
-        }),
-      })),
-    }))
-    .mutation(async ({ input }) => {
+      connectionId: z.number().optional(),
+      entityType: z.enum(["invoices", "payments", "all"]).default("all"),
+    }).optional())
+    .query(async ({ input }) => {
       const db = getDb();
-      const conn = await db.select().from(qboConnections).where(eq(qboConnections.realmId, input.realmId)).limit(1);
-      if (!conn[0]) return { received: true, action: "connection_not_found" };
+      const wherePending = eq(qboInvoices.reviewStatus, "pending");
+      
+      let invoiceRows: any[] = [];
+      let paymentRows: any[] = [];
 
-      for (const notification of input.eventNotifications) {
-        for (const entity of notification.dataChangeEvent.entities) {
-          if (entity.name === "Customer") {
-            await doSyncCustomers(conn[0].id);
-          } else if (entity.name === "Invoice") {
-            await doSyncInvoices(conn[0].id);
-          } else if (entity.name === "Payment") {
-            await doSyncPayments(conn[0].id);
-          }
+      if (!input || input.entityType === "all" || input.entityType === "invoices") {
+        const query = db.select().from(qboInvoices).where(wherePending).orderBy(desc(qboInvoices.transactionDate));
+        if (input?.connectionId) {
+          invoiceRows = await db.select().from(qboInvoices)
+            .where(and(eq(qboInvoices.connectionId, input.connectionId), eq(qboInvoices.reviewStatus, "pending")))
+            .orderBy(desc(qboInvoices.transactionDate));
+        } else {
+          invoiceRows = await query;
         }
       }
 
-      return { received: true, action: "synced" };
+      if (!input || input.entityType === "all" || input.entityType === "payments") {
+        if (input?.connectionId) {
+          paymentRows = await db.select().from(qboPayments)
+            .where(and(eq(qboPayments.connectionId, input.connectionId), eq(qboPayments.reviewStatus, "pending")))
+            .orderBy(desc(qboPayments.transactionDate));
+        } else {
+          paymentRows = await db.select().from(qboPayments).where(eq(qboPayments.reviewStatus, "pending")).orderBy(desc(qboPayments.transactionDate));
+        }
+      }
+
+      // Fetch QBO customer names for display
+      const customerIds = new Set([...invoiceRows.map(r => r.qboCustomerId), ...paymentRows.map(r => r.qboCustomerId)]);
+      const customers = await db.select().from(qboCustomers).where(eq(qboCustomers.qboCustomerId, [...customerIds][0] || ""));
+      const customerMap = new Map(customers.map(c => [c.qboCustomerId, c.displayName || c.companyName]));
+
+      return {
+        invoices: invoiceRows.map(r => ({ ...r, qboCustomerName: customerMap.get(r.qboCustomerId) || "Unknown" })),
+        payments: paymentRows.map(r => ({ ...r, qboCustomerName: customerMap.get(r.qboCustomerId) || "Unknown" })),
+        totalPending: invoiceRows.length + paymentRows.length,
+      };
+    }),
+
+  suggestClientMatches: publicQuery.query(async () => {
+    const db = getDb();
+    // Get all QBO customers that don't have a mapped client
+    const unmappedQboCustomers = await db.select().from(qboCustomers).where(eq(qboCustomers.clientId, 0));
+    // Get all CRM clients
+    const crmClients = await db.select().from(clients);
+
+    const suggestions = unmappedQboCustomers.map(qboCust => {
+      const qboName = (qboCust.displayName || qboCust.companyName || "").toLowerCase();
+      // Simple fuzzy match: find CRM client with closest name
+      let bestMatch = null;
+      let bestScore = 0;
+      for (const client of crmClients) {
+        const clientName = (client.companyName || client.name || "").toLowerCase();
+        const score = jaccardSimilarity(qboName, clientName);
+        if (score > bestScore && score > 0.3) {
+          bestScore = score;
+          bestMatch = client;
+        }
+      }
+      return {
+        qboCustomerId: qboCust.qboCustomerId,
+        qboDisplayName: qboCust.displayName,
+        qboCompanyName: qboCust.companyName,
+        suggestedClientId: bestMatch?.id || null,
+        suggestedClientName: bestMatch?.companyName || bestMatch?.name || null,
+        confidence: bestScore,
+      };
+    });
+
+    return { suggestions };
+  }),
+
+  mapQboCustomerToClient: publicQuery
+    .input(z.object({
+      qboCustomerId: z.string(),
+      clientId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.update(qboCustomers)
+        .set({ clientId: input.clientId })
+        .where(eq(qboCustomers.qboCustomerId, input.qboCustomerId));
+      return { success: true };
+    }),
+
+  approveItems: publicQuery
+    .input(z.object({
+      invoiceIds: z.array(z.number()).optional(),
+      paymentIds: z.array(z.number()).optional(),
+      clientId: z.number().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const now = new Date();
+      let updated = 0;
+
+      if (input.invoiceIds && input.invoiceIds.length > 0) {
+        for (const id of input.invoiceIds) {
+          await db.update(qboInvoices)
+            .set({
+              reviewStatus: "posted",
+              clientId: input.clientId || undefined,
+              reviewedAt: now,
+            })
+            .where(eq(qboInvoices.id, id));
+          updated++;
+        }
+      }
+
+      if (input.paymentIds && input.paymentIds.length > 0) {
+        for (const id of input.paymentIds) {
+          await db.update(qboPayments)
+            .set({
+              reviewStatus: "posted",
+              clientId: input.clientId || undefined,
+              reviewedAt: now,
+            })
+            .where(eq(qboPayments.id, id));
+          updated++;
+        }
+      }
+
+      return { success: true, updated };
+    }),
+
+  rejectItems: publicQuery
+    .input(z.object({
+      invoiceIds: z.array(z.number()).optional(),
+      paymentIds: z.array(z.number()).optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const now = new Date();
+      let updated = 0;
+
+      if (input.invoiceIds && input.invoiceIds.length > 0) {
+        for (const id of input.invoiceIds) {
+          await db.update(qboInvoices)
+            .set({ reviewStatus: "rejected", reviewedAt: now, reviewNotes: input.notes || null })
+            .where(eq(qboInvoices.id, id));
+          updated++;
+        }
+      }
+
+      if (input.paymentIds && input.paymentIds.length > 0) {
+        for (const id of input.paymentIds) {
+          await db.update(qboPayments)
+            .set({ reviewStatus: "rejected", reviewedAt: now, reviewNotes: input.notes || null })
+            .where(eq(qboPayments.id, id));
+          updated++;
+        }
+      }
+
+      return { success: true, updated };
     }),
 });

@@ -15,6 +15,7 @@ import AIAgents from "./pages/AIAgents";
 import Integrations from "./pages/Integrations";
 import SettingsPage from "./pages/SettingsPage";
 import QBO from "./pages/QBO";
+import QboTriage from "./pages/QboTriage";
 import Calculators from "./pages/Calculators";
 import ClientVault from "./pages/ClientVault";
 import Onboarding from "./pages/Onboarding";
@@ -70,6 +71,7 @@ function AppRoutes() {
         <Route path="/integrations" element={<Integrations />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/qbo" element={<QBO />} />
+        <Route path="/qbo-triage" element={<QboTriage />} />
         <Route path="/calculators" element={<Calculators />} />
         <Route path="/vault" element={<ClientVault />} />
         <Route path="/onboarding" element={<Onboarding />} />

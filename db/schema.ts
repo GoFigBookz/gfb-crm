@@ -147,6 +147,11 @@ export const qboInvoices = sqliteTable("qbo_invoices", {
   lineItems: text("lineItems"),
   memo: text("memo"),
   privateNote: text("privateNote"),
+  // Triage / review workflow
+  reviewStatus: text("reviewStatus", { enum: ["pending", "approved", "rejected", "posted"] }).default("pending"),
+  reviewedBy: integer("reviewedBy"),
+  reviewedAt: integer("reviewedAt", { mode: "timestamp" }),
+  reviewNotes: text("reviewNotes"),
   lastUpdatedAt: integer("lastUpdatedAt", { mode: "timestamp" }),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
@@ -165,6 +170,11 @@ export const qboPayments = sqliteTable("qbo_payments", {
   transactionDate: integer("transactionDate", { mode: "timestamp" }),
   status: text("status"),
   memo: text("memo"),
+  // Triage / review workflow
+  reviewStatus: text("reviewStatus", { enum: ["pending", "approved", "rejected", "posted"] }).default("pending"),
+  reviewedBy: integer("reviewedBy"),
+  reviewedAt: integer("reviewedAt", { mode: "timestamp" }),
+  reviewNotes: text("reviewNotes"),
   lastUpdatedAt: integer("lastUpdatedAt", { mode: "timestamp" }),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
