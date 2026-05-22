@@ -14,13 +14,68 @@ import {
   Flame,
   Sun,
   Plus,
+  Shield,
+  AlertTriangle,
+  XCircle,
+  UserCheck,
+  ChevronRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { trpc } from "@/providers/trpc";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+
+/* ─── Demo triage data (mirrors TriageDashboard) ─── */
+interface TriageItem {
+  id: number;
+  clientName: string;
+  severity: "critical" | "warning" | "info";
+  title: string;
+  description: string;
+  suggestedAction: string;
+}
+
+const demoTriageItems: TriageItem[] = [
+  {
+    id: 1, clientName: "Acme Construction", severity: "critical",
+    title: "$2,400 reconciliation difference",
+    description: "Bank statement ending balance does not match QBO. 3 uncleared transactions.",
+    suggestedAction: "Review uncleared items in QBO",
+  },
+  {
+    id: 2, clientName: "Acme Construction", severity: "warning",
+    title: "12 receipts missing for March",
+    description: "Expense transactions total $3,450 with no attached receipts. GST ITCs may be lost.",
+    suggestedAction: "Request receipts from client",
+  },
+  {
+    id: 3, clientName: "Smith Plumbing", severity: "critical",
+    title: "Q1 HST due in 3 days",
+    description: "HST return for Jan-Mar period due April 30. Return not yet prepared.",
+    suggestedAction: "Prepare and file immediately",
+  },
+  {
+    id: 4, clientName: "TechStart Inc", severity: "warning",
+    title: "Unusual payroll spike: +$8,500",
+    description: "March payroll is 35% higher than average. Possible bonus or error.",
+    suggestedAction: "Verify with client before remitting",
+  },
+  {
+    id: 5, clientName: "Acme Construction", severity: "info",
+    title: "Sales entry from Stripe: $12,400",
+    description: "47 Stripe transactions matched to deposits. Ready for review.",
+    suggestedAction: "Review and approve categorization",
+  },
+];
+
+const severityConfig = {
+  critical: { icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50", border: "border-red-200", badge: "destructive" as const },
+  warning: { icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200", badge: "default" as const },
+  info: { icon: FileText, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200", badge: "secondary" as const },
+};
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -248,6 +303,85 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Figgy Junior — AI Triage Preview */}
+      <Card className="border-l-4 border-l-purple-500 bg-purple-50/20">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-purple-500" />
+              <h2 className="text-lg font-bold text-slate-800">Figgy Junior — AI Triage</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                94% accuracy this week
+              </Badge>
+              <Button size="sm" variant="outline" onClick={() => navigate("/triage")}>
+                Full Triage <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Triage mini stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="bg-white rounded-lg p-3 border border-slate-200">
+              <div className="flex items-center gap-1.5 text-amber-600">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-xs font-semibold">Needs Attention</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900">{demoTriageItems.length}</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-slate-200">
+              <div className="flex items-center gap-1.5 text-red-600">
+                <XCircle className="h-4 w-4" />
+                <span className="text-xs font-semibold">Critical</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900">{demoTriageItems.filter(i => i.severity === "critical").length}</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-slate-200">
+              <div className="flex items-center gap-1.5 text-lime-600">
+                <UserCheck className="h-4 w-4" />
+                <span className="text-xs font-semibold">Approved Today</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900">1</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-slate-200">
+              <div className="flex items-center gap-1.5 text-blue-600">
+                <TrendingUp className="h-4 w-4" />
+                <span className="text-xs font-semibold">AI Accuracy</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900">94%</p>
+            </div>
+          </div>
+
+          {/* Top 3 triage items */}
+          <div className="space-y-2">
+            {demoTriageItems.slice(0, 3).map((item) => {
+              const cfg = severityConfig[item.severity];
+              const Icon = cfg.icon;
+              return (
+                <div
+                  key={item.id}
+                  className={cn("flex items-start gap-3 p-3 rounded-lg border", cfg.bg, cfg.border)}
+                >
+                  <Icon className={cn("h-5 w-5 mt-0.5 flex-shrink-0", cfg.color)} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="font-medium text-sm truncate">{item.title}</span>
+                      <Badge variant={cfg.badge} className="text-xs">{item.severity}</Badge>
+                    </div>
+                    <p className="text-sm text-slate-600 truncate">{item.description}</p>
+                    <p className="text-xs text-slate-400 mt-1">{item.clientName} • Suggested: {item.suggestedAction}</p>
+                  </div>
+                </div>
+              );
+            })}
+            {demoTriageItems.length > 3 && (
+              <p className="text-xs text-purple-600 pl-1">+{demoTriageItems.length - 3} more items in full triage</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Grid — 6 cards: 3x2 on desktop, 2x3 on tablet, 1x6 on mobile */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
