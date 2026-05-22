@@ -185,4 +185,42 @@ export default function Clients() {
                   <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                     <Badge variant="outline" className={cn(
                       "text-xs capitalize",
-                      c
+                      client.status === "active" ? "bg-lime-50 text-lime-700 border-lime-200" :
+                      "bg-slate-50 text-slate-700 border-slate-200"
+                    )}>
+                      {client.status}
+                    </Badge>
+                    <Link to={`/client/${client.id}`}>
+                      <Button variant="ghost" size="sm" className="text-lime-600 hover:text-lime-700 hover:bg-lime-50">
+                        <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}lient.status === "active" ? "bg-lime-50 text-lime-700 border-lime-200" :
+                      "bg-slate-50 text-slate-700 border-slate-200"
+                    )}>
+                      {client.status}
+                    </Badge>
+                    <Link to={`/client/${client.id}`}>
+                      <Button variant="ghost" size="sm" className="text-lime-600 hover:text-lime-700 hover:bg-lime-50">
+                        <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
