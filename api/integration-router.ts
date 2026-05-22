@@ -120,8 +120,20 @@ export const integrationRouter = createRouter({
       return { success: true };
     }),
 
-  // Delete account
+  // Delete / disconnect account
   delete: authedQuery
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      await db
+        .delete(connectedAccounts)
+        .where(and(eq(connectedAccounts.id, input.id), eq(connectedAccounts.userId, ctx.user.id)));
+
+      return { success: true };
+    }),
+
+  // Disconnect alias (frontend calls this)
+  disconnect: authedQuery
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
@@ -161,7 +173,7 @@ export const integrationRouter = createRouter({
       accountLabel: z.string().min(1),
       scopes: z.array(z.string()).optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const clientId = process.env.GOOGLE_CLIENT_ID || "";
       const redirectUri = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/google/callback`;
       const scopes = input.scopes || [
@@ -177,6 +189,7 @@ export const integrationRouter = createRouter({
       const state = Buffer.from(JSON.stringify({
         accountLabel: input.accountLabel,
         provider: "google",
+        userId: ctx.user.id,
       })).toString("base64");
 
       const url = `https://accounts.google.com/o/oauth2/v2/auth?` +
@@ -196,7 +209,7 @@ export const integrationRouter = createRouter({
     .input(z.object({
       accountLabel: z.string().min(1),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const clientId = process.env.MICROSOFT_CLIENT_ID || "";
       const redirectUri = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/microsoft/callback`;
       const scopes = [
@@ -214,6 +227,7 @@ export const integrationRouter = createRouter({
       const state = Buffer.from(JSON.stringify({
         accountLabel: input.accountLabel,
         provider: "microsoft",
+        userId: ctx.user.id,
       })).toString("base64");
 
       const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
