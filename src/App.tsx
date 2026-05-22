@@ -39,7 +39,7 @@ import StaffWorkload from "./pages/StaffWorkload";
 import MonthlyCloseChecklist from "./pages/MonthlyCloseChecklist";
 import PricingCalculator from "./pages/PricingCalculator";
 import SatisfactionScores from "./pages/SatisfactionScores";
-import ClickUpImport from "./pages/ClickUpImport";
+import ClientImport from "./pages/ClientImport";
 import EmergencySOP from "./pages/EmergencySOP";
 import DiscoveryCall from "./pages/DiscoveryCall";
 import OnboardingChecklist from "./pages/OnboardingChecklist";
@@ -92,7 +92,7 @@ function AppRoutes() {
         <Route path="/monthly-close" element={<MonthlyCloseChecklist />} />
         <Route path="/pricing-calculator" element={<PricingCalculator />} />
         <Route path="/satisfaction" element={<SatisfactionScores />} />
-        <Route path="/clickup-import" element={<ClickUpImport />} />
+        <Route path="/client-import" element={<ClientImport />} />
         <Route path="/emergency-sop" element={<EmergencySOP />} />
         <Route path="/discovery" element={<DiscoveryCall />} />
         <Route path="/onboarding-checklist" element={<OnboardingChecklist />} />

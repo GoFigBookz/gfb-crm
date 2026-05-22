@@ -1,3 +1,4 @@
+import { googleTasksRouter } from "./google-tasks-router";
 import { dailyBriefRouter } from "./daily-brief-router";
 import { localAuthRouter } from "./local-auth-router";
 import { authRouter } from "./auth-router";
@@ -65,6 +66,7 @@ export const appRouter = createRouter({
   sheetExport: sheetExportRouter,
   localAuth: localAuthRouter,
   dailyBrief: dailyBriefRouter,
+  googleTasks: googleTasksRouter,
 });
 
 export type AppRouter = typeof appRouter;

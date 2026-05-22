@@ -13,7 +13,7 @@ interface ParsedRow {
   status: string;
 }
 
-export default function ClickUpImport() {
+export default function ClientImport() {
   const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
   const [fileName, setFileName] = useState("");
   const [isDragging, setIsDragging] = useState(false);
@@ -62,9 +62,9 @@ export default function ClickUpImport() {
       <div>
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
           <Upload className="h-6 w-6 text-lime-500" />
-          ClickUp Import
+          Client Import
         </h1>
-        <p className="text-slate-500 mt-1">One-time import of client data and notes from a ClickUp CSV export.</p>
+        <p className="text-slate-500 mt-1">Bulk import client data from a CSV file.</p>
       </div>
 
       <div
@@ -77,7 +77,7 @@ export default function ClickUpImport() {
         onClick={() => document.getElementById("csv-upload")?.click()}
       >
         <Upload className="h-10 w-10 text-slate-400 mx-auto mb-3" />
-        <p className="font-medium text-slate-600">Drop your ClickUp CSV here or click to browse</p>
+        <p className="font-medium text-slate-600">Drop your CSV here or click to browse</p>
         <p className="text-sm text-slate-400 mt-1">Maps: Name, Email, Phone, Company, Notes, Status</p>
         <input id="csv-upload" type="file" accept=".csv" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
       </div>
@@ -130,7 +130,7 @@ export default function ClickUpImport() {
               const blob = new Blob([csv], { type: "text/csv" });
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
-              a.href = url; a.download = "clickup_import_template.csv"; a.click();
+              a.href = url; a.download = "client_import_template.csv"; a.click();
             }}>
               <Download className="h-3 w-3 mr-1" /> Download Template
             </Button>

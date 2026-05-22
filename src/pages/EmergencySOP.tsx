@@ -34,10 +34,10 @@ const SOPS = [
     severity: "critical",
     icon: <AlertTriangle className="h-5 w-5" />,
     steps: [
-      "Switch to ClickUp backup for task management",
+      "Switch to manual task tracking (Google Tasks, paper list)",
       "Use Google Drive for document storage and sharing",
       "Email clients directly (bypass portal)",
-      "Use personal calendar for deadline tracking",
+      "Use personal calendar or Google Calendar for deadline tracking",
       "Take notes in Google Docs — transfer to CRM when restored",
       "Contact hosting provider / check server logs",
       "Restore from latest database backup if needed",
