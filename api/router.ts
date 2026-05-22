@@ -31,6 +31,7 @@ import { expirationRouter } from "./expiration-router";
 import { monthlyCloseRouter } from "./monthly-close-router";
 import { agentWebhookRouter } from "./agent-webhook-router";
 import { sheetExportRouter } from "./sheet-export-router";
+import { senderRulesRouter } from "./sender-rules-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
 
@@ -71,6 +72,7 @@ export const appRouter = createRouter({
   googleTasks: googleTasksRouter,
   voice: voiceRouter,
   migrate: migrateRouter,
+  senderRules: senderRulesRouter,
 });
 
 export type AppRouter = typeof appRouter;

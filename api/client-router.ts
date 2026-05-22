@@ -7,7 +7,9 @@ import { syncInsert, syncUpdate } from "./sync-hooks";
 import { createRecurringTasksForClient } from "./client-task-creator";
 
 export const clientRouter = createRouter({
-  // List clients for current user
+  // List clients — SHARED PRACTICE VIEW
+  // All staff (junior_bookkeeper+) can see all clients
+  // Client role only sees their own
   list: authedQuery
     .input(z.object({
       search: z.string().optional(),
@@ -18,17 +20,27 @@ export const clientRouter = createRouter({
     .query(async ({ ctx, input }) => {
       const db = getDb();
       const userId = ctx.user.id;
+      const userRole = ctx.user.role;
       const search = input?.search;
       const status = input?.status ?? "all";
 
-      const conditions = [eq(clients.userId, userId)];
+      const conditions = [];
+      
+      // Client role only sees their own data
+      if (userRole === "client") {
+        conditions.push(eq(clients.userId, userId));
+      }
+      // Staff (junior+) sees ALL clients — shared practice view
+
       if (status !== "all") conditions.push(eq(clients.status, status));
       if (search) conditions.push(like(clients.name, `%${search}%`));
+
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
       const results = await db
         .select()
         .from(clients)
-        .where(and(...conditions))
+        .where(whereClause)
         .orderBy(desc(clients.updatedAt))
         .limit(input?.limit ?? 50)
         .offset(input?.offset ?? 0);
@@ -356,15 +368,14 @@ export const clientRouter = createRouter({
       return result;
     }),
 
-  // Lead Pipeline Stats
+  // Lead Pipeline Stats — SHARED: all staff see firm-wide stats
   pipelineStats: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
-    const userId = ctx.user.id;
+    const userRole = ctx.user.role;
 
-    const allClients = await db
-      .select()
-      .from(clients)
-      .where(eq(clients.userId, userId));
+    const allClients = userRole === "client"
+      ? await db.select().from(clients).where(eq(clients.userId, ctx.user.id))
+      : await db.select().from(clients);
 
     const leads = allClients.filter(c => c.status === "lead" || c.status === "prospect");
     const active = allClients.filter(c => c.status === "active");

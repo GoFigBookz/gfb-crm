@@ -1065,3 +1065,21 @@ export const engagementLetters = sqliteTable("engagement_letters", {
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// ========== EMAIL SENDER RULES (Which "from" address to use per client) ==========
+export const senderRules = sqliteTable("sender_rules", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId"),                    // NULL = default rule for all clients
+  fromAddress: text("fromAddress").notNull(),       // e.g. finance@adbank.network
+  fromName: text("fromName").notNull(),             // e.g. "Go Fig Bookz — Finance"
+  replyTo: text("replyTo"),                          // Optional different reply-to
+  isDefault: integer("isDefault", { mode: "boolean" }).default(false).notNull(),
+  // Matching logic
+  clientEmailDomain: text("clientEmailDomain"),     // Match by domain (e.g. "darkhorseinc.com")
+  clientNamePattern: text("clientNamePattern"),     // Match by name contains (e.g. "Dark Horse")
+  priority: integer("priority").default(0).notNull(), // Higher = evaluated first
+  notes: text("notes"),
+  isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, authedQuery, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { emails, connectedAccounts, clientEmails } from "../db/schema";
+import { emails, connectedAccounts, clientEmails, senderRules, clients } from "../db/schema";
 import { eq, and, desc, inArray, isNull, ne, like } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
@@ -100,7 +100,74 @@ export const emailRouter = createRouter({
       return { success: true };
     }),
 
-  // Send email
+  // Send email using sender rules (auto-selects from address based on client)
+  sendWithRule: authedQuery
+    .input(z.object({
+      clientId: z.number(),
+      to: z.string().email(),
+      cc: z.string().optional(),
+      subject: z.string().min(1),
+      body: z.string().min(1),
+      threadId: z.string().optional(),
+      inReplyTo: z.number().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+
+      // Get sender rule for this client
+      const clientRows = await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1);
+      if (!clientRows[0]) throw new Error("Client not found");
+
+      // Find matching sender rule
+      const allRules = await db
+        .select()
+        .from(senderRules)
+        .where(eq(senderRules.isActive, true))
+        .orderBy(desc(senderRules.priority));
+
+      let matchedRule: typeof senderRules.$inferSelect | null = null;
+      for (const rule of allRules) {
+        if (rule.clientId === input.clientId) { matchedRule = rule; break; }
+        if (rule.clientEmailDomain && clientRows[0].email?.toLowerCase().includes(rule.clientEmailDomain.toLowerCase())) { matchedRule = rule; break; }
+        if (rule.clientNamePattern && clientRows[0].name?.toLowerCase().includes(rule.clientNamePattern.toLowerCase())) { matchedRule = rule; break; }
+        if (!rule.clientId && !rule.clientEmailDomain && !rule.clientNamePattern) { matchedRule = rule; break; }
+      }
+
+      const fromAddress = matchedRule?.fromAddress || "markie@gofig.ca";
+      const fromName = matchedRule?.fromName || "Go Fig Bookz";
+      const replyTo = matchedRule?.replyTo || null;
+
+      // Update client's lastContactedAt
+      await db.update(clients)
+        .set({ lastContactedAt: new Date() })
+        .where(eq(clients.id, input.clientId));
+
+      const threadId = input.threadId || randomUUID();
+
+      const [email] = await db.insert(emails).values({
+        userId: ctx.user.id,
+        connectedAccountId: 0, // Not tied to a connected account — uses sender rule
+        clientId: input.clientId,
+        threadId,
+        fromAddress,
+        fromName,
+        replyTo,
+        toAddresses: input.to,
+        ccAddresses: input.cc || null,
+        subject: input.subject,
+        body: input.body,
+        bodyPlain: input.body.replace(/<[^>]*>/g, ""),
+        isRead: true,
+        isSent: true,
+        inReplyTo: input.inReplyTo || null,
+        receivedAt: new Date(),
+        sentAt: new Date(),
+      }).returning();
+
+      return { success: true, email, matchedRule };
+    }),
+
+  // Send email (legacy — uses connected account)
   send: authedQuery
     .input(z.object({
       connectedAccountId: z.number(),

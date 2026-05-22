@@ -294,11 +294,12 @@ async function doSyncAccounts(connectionId: number) {
 // ================================================================
 
 export const qboRouter = createRouter({
-  // --- OAuth Flow ---
+  // --- OAuth Flow (Dual-Company: CA + US) ---
 
   getAuthUrl: publicQuery
     .input(z.object({
       environment: z.enum(["sandbox", "production"]).optional().default("sandbox"),
+      accountType: z.enum(["ca_clients", "us_clients", "personal_business"]).optional().default("ca_clients"),
     }))
     .query(async ({ input }) => {
       const { clientId, redirectUri } = getCredentials();
@@ -306,7 +307,11 @@ export const qboRouter = createRouter({
         "com.intuit.quickbooks.accounting",
         "com.intuit.quickbooks.payment",
       ].join(" ");
-      const state = Buffer.from(JSON.stringify({ env: input.environment, ts: Date.now() })).toString("base64url");
+      const state = Buffer.from(JSON.stringify({
+        env: input.environment,
+        accountType: input.accountType,
+        ts: Date.now(),
+      })).toString("base64url");
 
       const url = `https://appcenter.intuit.com/connect/oauth2?${new URLSearchParams({
         client_id: clientId,
@@ -316,7 +321,7 @@ export const qboRouter = createRouter({
         state,
       })}`;
 
-      return { url, state };
+      return { url, state, accountType: input.accountType };
     }),
 
   callback: publicQuery
@@ -327,9 +332,11 @@ export const qboRouter = createRouter({
     }))
     .mutation(async ({ input }) => {
       let env: string = "sandbox";
+      let accountType: string = "ca_clients";
       try {
         const parsed = JSON.parse(Buffer.from(input.state, "base64url").toString());
         env = parsed.env || "sandbox";
+        accountType = parsed.accountType || "ca_clients";
       } catch { /* ignore */ }
 
       const { clientId, clientSecret, redirectUri } = getCredentials();
@@ -353,7 +360,7 @@ export const qboRouter = createRouter({
       }
       const data = await res.json();
 
-      // Fetch company info to get the company name
+      // Fetch company info
       const companyInfo = await fetch(
         `${QBO_BASE_URLS[env as "sandbox" | "production"]}/v3/company/${input.realmId}/companyinfo/${input.realmId}`,
         { headers: { Authorization: `Bearer ${data.access_token}`, Accept: "application/json" } }
@@ -367,6 +374,37 @@ export const qboRouter = createRouter({
       }
 
       const db = getDb();
+      // Check if connection already exists for this realm
+      const existing = await db
+        .select()
+        .from(qboConnections)
+        .where(eq(qboConnections.realmId, input.realmId))
+        .limit(1);
+
+      if (existing[0]) {
+        // Update existing
+        await db.update(qboConnections)
+          .set({
+            accessToken: data.access_token,
+            refreshToken: data.refresh_token,
+            expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
+            companyName: companyName || existing[0].companyName,
+            companyEmail: companyEmail || existing[0].companyEmail,
+            accountType: accountType as "ca_clients" | "us_clients" | "personal_business",
+            isActive: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(qboConnections.id, existing[0].id));
+
+        return {
+          success: true,
+          realmId: input.realmId,
+          companyName,
+          accountType,
+          updated: true,
+        };
+      }
+
       await db.insert(qboConnections).values({
         userId: 1,
         realmId: input.realmId,
@@ -376,10 +414,17 @@ export const qboRouter = createRouter({
         refreshToken: data.refresh_token,
         expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
         environment: env as "sandbox" | "production",
+        accountType: accountType as "ca_clients" | "us_clients" | "personal_business",
         isActive: true,
       });
 
-      return { success: true, realmId: input.realmId, companyName };
+      return {
+        success: true,
+        realmId: input.realmId,
+        companyName,
+        accountType,
+        updated: false,
+      };
     }),
 
   // --- Connection Management ---
@@ -388,6 +433,19 @@ export const qboRouter = createRouter({
     const db = getDb();
     return db.select().from(qboConnections).orderBy(desc(qboConnections.createdAt));
   }),
+
+  getConnectionByType: publicQuery
+    .input(z.object({ accountType: z.enum(["ca_clients", "us_clients", "personal_business"]) }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const rows = await db
+        .select()
+        .from(qboConnections)
+        .where(and(eq(qboConnections.accountType, input.accountType), eq(qboConnections.isActive, true)))
+        .orderBy(desc(qboConnections.createdAt))
+        .limit(1);
+      return rows[0] || null;
+    }),
 
   deleteConnection: publicQuery
     .input(z.object({ id: z.number() }))
