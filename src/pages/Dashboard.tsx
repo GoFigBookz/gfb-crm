@@ -11,6 +11,9 @@ import {
   FileText,
   Clock,
   Target,
+  Flame,
+  Sun,
+  Plus,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +31,11 @@ export default function Dashboard() {
   const { data: overdueTasks } = trpc.task.overdue.useQuery();
   const { data: invoiceStats } = trpc.invoice.stats.useQuery();
   const { data: expiringDocs } = trpc.expiration.getExpiringSoon.useQuery({ days: 30 });
+
+  const { data: dailyBrief } = trpc.dailyBrief.get.useQuery();
+  const setPriorities = trpc.dailyBrief.setPriorities.useMutation({
+    onSuccess: () => utils.dailyBrief.get.invalidate()
+  });
 
   const statCards = [
     {
@@ -99,6 +107,147 @@ export default function Dashboard() {
           View Calendar
         </Button>
       </div>
+
+      {/* Morning Brief */}
+      {dailyBrief && (
+        <Card className={cn(
+          "border-l-4",
+          dailyBrief.stats.overdueCount > 0 ? "border-l-red-500 bg-red-50/30" : "border-l-lime-500 bg-lime-50/30"
+        )}>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Sun className="h-5 w-5 text-amber-500" />
+                <h2 className="text-lg font-bold text-slate-800">
+                  {dailyBrief.greeting}, Markie! ☀️
+                </h2>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => navigate("/quick-add")}>
+                <Plus className="h-4 w-4 mr-1" />
+                Quick Add
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div className="bg-white rounded-lg p-3 border border-slate-200">
+                <div className="flex items-center gap-1.5 text-red-600">
+                  <Flame className="h-4 w-4" />
+                  <span className="text-xs font-semibold">Overdue</span>
+                </div>
+                <p className="text-2xl font-bold text-slate-900">{dailyBrief.stats.overdueCount}</p>
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-slate-200">
+                <div className="flex items-center gap-1.5 text-amber-600">
+                  <Clock className="h-4 w-4" />
+                  <span className="text-xs font-semibold">Today</span>
+                </div>
+                <p className="text-2xl font-bold text-slate-900">{dailyBrief.stats.todayCount}</p>
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-slate-200">
+                <div className="flex items-center gap-1.5 text-blue-600">
+                  <CalendarDays className="h-4 w-4" />
+                  <span className="text-xs font-semibold">Calendar</span>
+                </div>
+                <p className="text-2xl font-bold text-slate-900">{dailyBrief.stats.calendarCount}</p>
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-slate-200">
+                <div className="flex items-center gap-1.5 text-slate-600">
+                  <CheckSquare className="h-4 w-4" />
+                  <span className="text-xs font-semibold">Pending</span>
+                </div>
+                <p className="text-2xl font-bold text-slate-900">{dailyBrief.stats.totalPending}</p>
+              </div>
+            </div>
+
+            {/* Overdue tasks preview */}
+            {dailyBrief.overdue.length > 0 && (
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-1">
+                  <Flame className="h-4 w-4" />
+                  Overdue — handle these first!
+                </p>
+                <div className="space-y-1.5">
+                  {dailyBrief.overdue.slice(0, 3).map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2"
+                      onClick={() => navigate(`/tasks?tab=overdue`)}
+                    >
+                      <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+                      <span className="text-sm text-red-800 truncate">{task.title}</span>
+                    </div>
+                  ))}
+                  {dailyBrief.overdue.length > 3 && (
+                    <p className="text-xs text-red-600 pl-1">
+                      +{dailyBrief.overdue.length - 3} more overdue
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Today's tasks preview */}
+            {dailyBrief.today.length > 0 && (
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-amber-700 mb-2">
+                  Due Today
+                </p>
+                <div className="space-y-1.5">
+                  {dailyBrief.today.slice(0, 3).map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
+                      onClick={() => navigate(`/tasks?tab=today`)}
+                    >
+                      <Clock className="h-4 w-4 text-amber-500 shrink-0" />
+                      <span className="text-sm text-amber-800 truncate">{task.title}</span>
+                    </div>
+                  ))}
+                  {dailyBrief.today.length > 3 && (
+                    <p className="text-xs text-amber-600 pl-1">
+                      +{dailyBrief.today.length - 3} more due today
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Calendar preview */}
+            {dailyBrief.calendar.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold text-blue-700 mb-2">
+                  Calendar Today
+                </p>
+                <div className="space-y-1.5">
+                  {dailyBrief.calendar.slice(0, 3).map((evt) => (
+                    <div
+                      key={evt.id}
+                      className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2"
+                      onClick={() => navigate("/calendar")}
+                    >
+                      <CalendarDays className="h-4 w-4 text-blue-500 shrink-0" />
+                      <span className="text-sm text-blue-800 truncate">{evt.title}</span>
+                      <span className="text-xs text-blue-600 ml-auto">
+                        {evt.startDate ? format(new Date(evt.startDate), "h:mm a") : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {dailyBrief.overdue.length === 0 && dailyBrief.today.length === 0 && dailyBrief.calendar.length === 0 && (
+              <div className="text-center py-4">
+                <p className="text-slate-500">Nothing urgent today! 🎉</p>
+                <Button variant="outline" className="mt-2" onClick={() => navigate("/quick-add")}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add a task
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Grid — 6 cards: 3x2 on desktop, 2x3 on tablet, 1x6 on mobile */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

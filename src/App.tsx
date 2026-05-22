@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
+import QuickAdd from "./pages/QuickAdd";
 import { AppLayout } from "./components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -98,7 +99,8 @@ function AppRoutes() {
         <Route path="/sheets-setup" element={<SheetsSetup />} />
       </Route>
 
-      {/* Redirect old landing path */}
+      {/* Quick Add Task (mobile-optimized, no sidebar) */}
+      <Route path="/quick-add" element={<QuickAdd />} />
       <Route path="/landing" element={<LandingPage />} />
       <Route path="/get-started" element={<Navigate to="/login" replace />} />
       

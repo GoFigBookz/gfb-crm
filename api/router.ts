@@ -1,3 +1,4 @@
+import { dailyBriefRouter } from "./daily-brief-router";
 import { localAuthRouter } from "./local-auth-router";
 import { authRouter } from "./auth-router";
 import { clientRouter } from "./client-router";
@@ -63,6 +64,7 @@ export const appRouter = createRouter({
   agentWebhook: agentWebhookRouter,
   sheetExport: sheetExportRouter,
   localAuth: localAuthRouter,
+  dailyBrief: dailyBriefRouter,
 });
 
 export type AppRouter = typeof appRouter;
