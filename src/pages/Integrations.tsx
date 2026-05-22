@@ -69,16 +69,30 @@ export default function Integrations() {
     { enabled: false }
   );
 
-  // Per-client integrations (stored as regular connected accounts with clientId in metadata)
-  const { data: perClientConnections } = trpc.integration.list.useQuery();
-  const perClientGrouped = (perClientConnections || [])
-    .filter(a => PER_CLIENT_PROVIDERS.includes(a.provider))
-    .reduce((acc, account) => {
-      const prov = account.provider;
-      if (!acc[prov]) acc[prov] = [];
-      acc[prov]!.push(account);
-      return acc;
-    }, {} as Record<string, typeof perClientConnections>);
+  // Per-client connectors
+  const createConnector = trpc.connector.create.useMutation({
+    onSuccess: () => {
+      utils.connector.list.invalidate();
+      utils.integration.list.invalidate();
+      setAddProvider(null);
+      setSelectedClient("");
+      setPerClientApiKey("");
+    }
+  });
+  const deleteConnector = trpc.connector.delete.useMutation({
+    onSuccess: () => utils.connector.list.invalidate()
+  });
+  const pullStatements = trpc.connector.pullStatements.useMutation({
+    onSuccess: () => utils.connector.list.invalidate()
+  });
+
+  const { data: connectorList } = trpc.connector.list.useQuery();
+  const perClientGrouped = (connectorList || []).reduce((acc, account) => {
+    const prov = account.provider;
+    if (!acc[prov]) acc[prov] = [];
+    acc[prov]!.push(account);
+    return acc;
+  }, {} as Record<string, typeof connectorList>);
 
   const handleConnect = async (provider: string) => {
     if (provider === "quickbooks") {
@@ -90,14 +104,18 @@ export default function Integrations() {
     }
 
     if (PER_CLIENT_PROVIDERS.includes(provider)) {
-      // Per-client connector: needs API key + client selection
+      // Per-client connector: call connector.create
       if (!selectedClient || !perClientApiKey.trim()) return;
-      // Store as connected account with provider=wise/stripe/etc and accountLabel="Client Name - API Key"
-      // For now, just save the connection metadata
-      alert(`${provider} connection for client ${selectedClient} with key ${perClientApiKey.substring(0, 8)}... would be saved.`);
-      setAddProvider(null);
-      setSelectedClient("");
-      setPerClientApiKey("");
+
+      const client = clients?.find((c) => c.id.toString() === selectedClient);
+      if (!client) return;
+
+      createConnector.mutate({
+        clientId: parseInt(selectedClient),
+        provider: provider as typeof PER_CLIENT_PROVIDERS[number],
+        accountLabel: `${client.name} — ${providers.find((p) => p.id === provider)?.name}`,
+        apiKey: perClientApiKey,
+      });
       return;
     }
 
@@ -189,7 +207,16 @@ export default function Integrations() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {provider.id === "quickbooks" ? (
+                          {PER_CLIENT_PROVIDERS.includes(provider.id) ? (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => pullStatements.mutate({ connectionId: account.id })} disabled={pullStatements.isPending}>
+                                {pullStatements.isPending ? "Pulling..." : "Pull Now"}
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-red-500" onClick={() => deleteConnector.mutate({ id: account.id })}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : provider.id === "quickbooks" ? (
                             <>
                               <Button variant="ghost" size="sm" onClick={() => syncQbo.mutate({ connectionId: account.id })} disabled={syncQbo.isPending}>
                                 {syncQbo.isPending ? "Syncing..." : "Sync Now"}

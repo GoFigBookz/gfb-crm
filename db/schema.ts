@@ -27,15 +27,20 @@ export const users = sqliteTable("users", {
   lastSignInAt: integer("lastSignInAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
-// ========== CONNECTED ACCOUNTS (Multi-account OAuth) ==========
+// ========== CONNECTED ACCOUNTS (Multi-account OAuth + API Key Connectors) ==========
 export const connectedAccounts = sqliteTable("connected_accounts", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("userId").notNull(),
-  provider: text("provider", { enum: ["google", "microsoft", "dropbox", "icloud"] }).notNull(),
-  providerAccountId: text("providerAccountId").notNull(),
+  clientId: integer("clientId"),                          // NULL = firm-wide (e.g. your Gmail), SET = per-client connector
+  provider: text("provider", { enum: [
+    "google", "microsoft", "dropbox", "icloud",
+    "quickbooks",
+    "wise", "stripe", "jobber", "touchbistro", "paypal",
+  ]}).notNull(),
+  providerAccountId: text("providerAccountId"),            // OAuth account ID (null for API key connectors)
   accountLabel: text("accountLabel").default("Primary").notNull(),
-  accountEmail: text("accountEmail"),
-  accessToken: text("accessToken"),
+  accountEmail: text("accountEmail"),                      // For OAuth: email. For API key: key identifier / public key
+  accessToken: text("accessToken"),                        // OAuth: token. API key: encrypted secret key
   refreshToken: text("refreshToken"),
   expiresAt: integer("expiresAt", { mode: "timestamp" }),
   scopes: text("scopes"),

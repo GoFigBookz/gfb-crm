@@ -32,6 +32,7 @@ import { monthlyCloseRouter } from "./monthly-close-router";
 import { agentWebhookRouter } from "./agent-webhook-router";
 import { sheetExportRouter } from "./sheet-export-router";
 import { senderRulesRouter } from "./sender-rules-router";
+import { connectorRouter } from "./connector-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
 
@@ -73,6 +74,7 @@ export const appRouter = createRouter({
   voice: voiceRouter,
   migrate: migrateRouter,
   senderRules: senderRulesRouter,
+  connector: connectorRouter,
 });
 
 export type AppRouter = typeof appRouter;

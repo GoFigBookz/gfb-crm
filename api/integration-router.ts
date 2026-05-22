@@ -11,6 +11,8 @@ export const integrationRouter = createRouter({
     return db
       .select({
         id: connectedAccounts.id,
+        userId: connectedAccounts.userId,
+        clientId: connectedAccounts.clientId,
         provider: connectedAccounts.provider,
         accountLabel: connectedAccounts.accountLabel,
         accountEmail: connectedAccounts.accountEmail,
@@ -27,7 +29,7 @@ export const integrationRouter = createRouter({
 
   // Get accounts by provider
   byProvider: authedQuery
-    .input(z.object({ provider: z.enum(["google", "microsoft", "dropbox", "icloud"]) }))
+    .input(z.object({ provider: z.string() }))
     .query(async ({ ctx, input }) => {
       const db = getDb();
       return db
@@ -42,11 +44,15 @@ export const integrationRouter = createRouter({
         .orderBy(desc(connectedAccounts.createdAt));
     }),
 
-  // Create connected account (after OAuth)
+  // Create connected account (after OAuth or API key)
   create: authedQuery
     .input(z.object({
-      provider: z.enum(["google", "microsoft", "dropbox", "icloud"]),
-      providerAccountId: z.string().min(1),
+      provider: z.enum([
+        "google", "microsoft", "dropbox", "icloud",
+        "quickbooks", "wise", "stripe", "jobber", "touchbistro", "paypal",
+      ]),
+      providerAccountId: z.string().optional(),
+      clientId: z.number().optional(),
       accountLabel: z.string().min(1).max(100),
       accountEmail: z.string().email().optional(),
       accessToken: z.string().optional(),
@@ -60,7 +66,7 @@ export const integrationRouter = createRouter({
         ...input,
         userId: ctx.user.id,
         isActive: true,
-      });
+      }).returning();
       return account;
     }),
 
