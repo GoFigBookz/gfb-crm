@@ -6,7 +6,7 @@ const MIGRATE_TOKEN = process.env.MIGRATE_TOKEN || "gfb-migrate-2026";
 
 export const migrateRouter = createRouter({
   runGovData: publicQuery
-    .input(z.object({ token: z.string() }))
+    .input(z.object({ token: z.string(), migration: z.enum(["gov_data", "connectors"]).default("gov_data") }))
     .mutation(async ({ input }) => {
       if (input.token !== MIGRATE_TOKEN) {
         throw new Error("Invalid token");
@@ -16,7 +16,8 @@ export const migrateRouter = createRouter({
       const fs = await import("node:fs");
       const path = await import("node:path");
 
-      const sqlPath = path.join(process.cwd(), "db", "update_gov_data.sql");
+      const filename = input.migration === "connectors" ? "update_connectors.sql" : "update_gov_data.sql";
+      const sqlPath = path.join(process.cwd(), "db", filename);
       const sql = fs.readFileSync(sqlPath, "utf-8");
 
       // Split into statements and execute

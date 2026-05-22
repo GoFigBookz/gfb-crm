@@ -1,0 +1,40 @@
+CREATE TABLE IF NOT EXISTS connector_statements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  clientId INTEGER NOT NULL,
+  userId INTEGER NOT NULL,
+  connectedAccountId INTEGER NOT NULL,
+  provider TEXT NOT NULL CHECK(provider IN ('wise', 'stripe', 'jobber', 'touchbistro', 'paypal')),
+  periodStart INTEGER NOT NULL,
+  periodEnd INTEGER NOT NULL,
+  year INTEGER NOT NULL,
+  month INTEGER NOT NULL,
+  totalRevenue REAL DEFAULT 0,
+  totalExpenses REAL DEFAULT 0,
+  totalFees REAL DEFAULT 0,
+  netAmount REAL DEFAULT 0,
+  transactionCount INTEGER DEFAULT 0,
+  rawJson TEXT,
+  transactionsJson TEXT,
+  fileName TEXT,
+  fileUrl TEXT,
+  fileMimeType TEXT,
+  status TEXT DEFAULT 'pending' NOT NULL CHECK(status IN ('pending', 'syncing', 'synced', 'error', 'missing')),
+  errorMessage TEXT,
+  reconciled INTEGER DEFAULT 0 NOT NULL,
+  reconciledAt INTEGER,
+  createdAt INTEGER DEFAULT (unixepoch()),
+  updatedAt INTEGER DEFAULT (unixepoch())
+);
+
+CREATE TABLE IF NOT EXISTS connector_sync_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  connectedAccountId INTEGER NOT NULL,
+  clientId INTEGER NOT NULL,
+  provider TEXT NOT NULL CHECK(provider IN ('wise', 'stripe', 'jobber', 'touchbistro', 'paypal')),
+  syncType TEXT DEFAULT 'all' NOT NULL CHECK(syncType IN ('statements', 'transactions', 'balances', 'invoices', 'payouts', 'all')),
+  status TEXT NOT NULL CHECK(status IN ('success', 'error', 'partial')),
+  recordsSynced INTEGER DEFAULT 0 NOT NULL,
+  errorMessage TEXT,
+  startedAt INTEGER DEFAULT (unixepoch()),
+  completedAt INTEGER
+);

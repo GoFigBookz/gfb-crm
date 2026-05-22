@@ -1,21 +1,21 @@
 import { z } from "zod";
 import { createRouter, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { connectedAccounts } from "../db/schema";
+import { connectedAccounts, connectorStatements, connectorSyncLogs, clients } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 /**
  * PER-CLIENT CONNECTOR ROUTER
  *
- * Stores API keys / access tokens for per-client integrations:
+ * Real API sync for per-client integrations:
  * - Wise (bank statements, transactions)
- * - Stripe (payments, invoices, payouts)
+ * - Stripe (payments, invoices, customers, payouts)
  * - Jobber (invoices, quotes, visits)
  * - TouchBistro (sales, labor, menu)
  * - PayPal (payments, transactions, statements)
  *
  * Each connection is tied to a specific client.
- * The CRM can pull statements monthly via cron.
+ * The CRM pulls statements monthly via cron or manual trigger.
  */
 
 const PER_CLIENT_PROVIDERS = [
@@ -26,13 +26,431 @@ const PER_CLIENT_PROVIDERS = [
   "paypal",
 ] as const;
 
+type PerClientProvider = (typeof PER_CLIENT_PROVIDERS)[number];
+
+// Provider configs
+const PROVIDER_CONFIGS: Record<
+  PerClientProvider,
+  { name: string; baseUrl: string }
+> = {
+  wise: { name: "Wise", baseUrl: "https://api.wise.com" },
+  stripe: { name: "Stripe", baseUrl: "https://api.stripe.com" },
+  jobber: { name: "Jobber", baseUrl: "https://api.getjobber.com" },
+  touchbistro: { name: "TouchBistro", baseUrl: "https://api.touchbistro.com" },
+  paypal: { name: "PayPal", baseUrl: "https://api.paypal.com" },
+};
+
+// ======== SYNC ENGINE ========
+
+interface SyncParams {
+  provider: PerClientProvider;
+  apiKey: string;
+  clientId: number;
+  userId: number;
+  periodStart: Date;
+  periodEnd: Date;
+  year: number;
+  month: number;
+  connectedAccountId: number;
+}
+
+interface SyncResult {
+  status: "success" | "error" | "partial";
+  recordsSynced: number;
+  errorMessage?: string;
+}
+
+async function syncProviderData(params: SyncParams): Promise<SyncResult> {
+  switch (params.provider) {
+    case "wise":
+      return syncWise(params);
+    case "stripe":
+      return syncStripe(params);
+    case "jobber":
+      return syncJobber(params);
+    case "touchbistro":
+      return syncTouchBistro(params);
+    case "paypal":
+      return syncPayPal(params);
+    default:
+      return {
+        status: "error",
+        recordsSynced: 0,
+        errorMessage: `Unknown provider: ${params.provider}`,
+      };
+  }
+}
+
+async function upsertStatement(
+  db: ReturnType<typeof getDb>,
+  params: SyncParams,
+  data: {
+    totalRevenue: number;
+    totalExpenses: number;
+    totalFees: number;
+    netAmount: number;
+    transactionCount: number;
+    transactionsJson: string;
+    rawJson: string;
+  }
+) {
+  const existing = await db
+    .select()
+    .from(connectorStatements)
+    .where(
+      and(
+        eq(connectorStatements.connectedAccountId, params.connectedAccountId),
+        eq(connectorStatements.year, params.year),
+        eq(connectorStatements.month, params.month)
+      )
+    )
+    .get();
+
+  const statementData = {
+    clientId: params.clientId,
+    userId: params.userId,
+    connectedAccountId: params.connectedAccountId,
+    provider: params.provider,
+    periodStart: params.periodStart,
+    periodEnd: params.periodEnd,
+    year: params.year,
+    month: params.month,
+    ...data,
+    status: "synced" as const,
+  };
+
+  if (existing) {
+    await db
+      .update(connectorStatements)
+      .set({ ...statementData, updatedAt: new Date() })
+      .where(eq(connectorStatements.id, existing.id));
+  } else {
+    await db.insert(connectorStatements).values(statementData);
+  }
+}
+
+// ---- WISE ----
+async function syncWise(params: SyncParams): Promise<SyncResult> {
+  try {
+    const profilesRes = await fetch("https://api.wise.com/v1/profiles", {
+      headers: { Authorization: `Bearer ${params.apiKey}` },
+    });
+
+    if (!profilesRes.ok) {
+      return {
+        status: "error",
+        recordsSynced: 0,
+        errorMessage: `Wise API error: ${profilesRes.status}`,
+      };
+    }
+
+    const profiles = await profilesRes.json();
+    let allTransactions: any[] = [];
+
+    for (const profile of profiles) {
+      const txRes = await fetch(
+        `https://api.wise.com/v1/profiles/${profile.id}/transactions?intervalStart=${params.periodStart.toISOString()}&intervalEnd=${params.periodEnd.toISOString()}`,
+        { headers: { Authorization: `Bearer ${params.apiKey}` } }
+      );
+      if (txRes.ok) {
+        const txs = await txRes.json();
+        allTransactions = allTransactions.concat(txs || []);
+      }
+    }
+
+    const totalRevenue = allTransactions
+      .filter((t: any) => t.type === "CREDIT" || t.type === "INCOMING")
+      .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+    const totalExpenses = allTransactions
+      .filter((t: any) => t.type === "DEBIT" || t.type === "OUTGOING")
+      .reduce((sum: number, t: any) => sum + Math.abs(t.amount || 0), 0);
+    const totalFees = allTransactions.reduce(
+      (sum: number, t: any) => sum + (t.feeAmount || 0),
+      0
+    );
+
+    await upsertStatement(getDb(), params, {
+      totalRevenue,
+      totalExpenses,
+      totalFees,
+      netAmount: totalRevenue - totalExpenses - totalFees,
+      transactionCount: allTransactions.length,
+      transactionsJson: JSON.stringify(allTransactions.slice(0, 500)),
+      rawJson: JSON.stringify({
+        profiles: profiles.length,
+        transactionCount: allTransactions.length,
+      }),
+    });
+
+    return { status: "success", recordsSynced: allTransactions.length };
+  } catch (error) {
+    return {
+      status: "error",
+      recordsSynced: 0,
+      errorMessage: error instanceof Error ? error.message : "Wise sync failed",
+    };
+  }
+}
+
+// ---- STRIPE ----
+async function syncStripe(params: SyncParams): Promise<SyncResult> {
+  try {
+    const start = Math.floor(params.periodStart.getTime() / 1000);
+    const end = Math.floor(params.periodEnd.getTime() / 1000);
+
+    const balanceRes = await fetch(
+      `https://api.stripe.com/v1/balance_transactions?created[gte]=${start}&created[lte]=${end}&limit=100`,
+      { headers: { Authorization: `Bearer ${params.apiKey}` } }
+    );
+
+    if (!balanceRes.ok) {
+      return {
+        status: "error",
+        recordsSynced: 0,
+        errorMessage: `Stripe API error: ${balanceRes.status}`,
+      };
+    }
+
+    const balanceData = await balanceRes.json();
+    const transactions = balanceData.data || [];
+
+    const payoutsRes = await fetch(
+      `https://api.stripe.com/v1/payouts?created[gte]=${start}&created[lte]=${end}&limit=100`,
+      { headers: { Authorization: `Bearer ${params.apiKey}` } }
+    );
+    const payoutsData = payoutsRes.ok ? await payoutsRes.json() : { data: [] };
+
+    const totalRevenue = transactions
+      .filter((t: any) => t.type === "charge" || t.type === "payment")
+      .reduce((sum: number, t: any) => sum + (t.amount || 0) / 100, 0);
+    const totalFees = transactions.reduce(
+      (sum: number, t: any) => sum + (t.fee || 0) / 100,
+      0
+    );
+    const totalPayouts = payoutsData.data.reduce(
+      (sum: number, t: any) => sum + (t.amount || 0) / 100,
+      0
+    );
+
+    await upsertStatement(getDb(), params, {
+      totalRevenue,
+      totalExpenses: totalPayouts,
+      totalFees,
+      netAmount: totalRevenue - totalFees,
+      transactionCount: transactions.length,
+      transactionsJson: JSON.stringify(transactions.slice(0, 500)),
+      rawJson: JSON.stringify({
+        balanceTransactions: transactions.length,
+        payouts: payoutsData.data.length,
+      }),
+    });
+
+    return { status: "success", recordsSynced: transactions.length };
+  } catch (error) {
+    return {
+      status: "error",
+      recordsSynced: 0,
+      errorMessage: error instanceof Error ? error.message : "Stripe sync failed",
+    };
+  }
+}
+
+// ---- JOBBER ----
+async function syncJobber(params: SyncParams): Promise<SyncResult> {
+  try {
+    const query = `
+      query GetInvoices($after: String) {
+        invoices(first: 100, after: $after) {
+          edges { node { id invoiceNumber total status createdAt client { id name } } }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    `;
+
+    const res = await fetch("https://api.getjobber.com/graphql", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${params.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ query }),
+    });
+
+    if (!res.ok) {
+      return {
+        status: "error",
+        recordsSynced: 0,
+        errorMessage: `Jobber API error: ${res.status}`,
+      };
+    }
+
+    const data = await res.json();
+    const invoices =
+      data?.data?.invoices?.edges?.map((e: any) => e.node) || [];
+
+    const periodInvoices = invoices.filter((inv: any) => {
+      const date = new Date(inv.createdAt);
+      return date >= params.periodStart && date <= params.periodEnd;
+    });
+
+    const totalRevenue = periodInvoices
+      .filter((inv: any) => inv.status === "PAID" || inv.status === "sent")
+      .reduce((sum: number, inv: any) => sum + (inv.total || 0), 0);
+
+    await upsertStatement(getDb(), params, {
+      totalRevenue,
+      totalExpenses: 0,
+      totalFees: 0,
+      netAmount: totalRevenue,
+      transactionCount: periodInvoices.length,
+      transactionsJson: JSON.stringify(periodInvoices.slice(0, 500)),
+      rawJson: JSON.stringify({
+        totalInvoices: invoices.length,
+        periodInvoices: periodInvoices.length,
+      }),
+    });
+
+    return { status: "success", recordsSynced: periodInvoices.length };
+  } catch (error) {
+    return {
+      status: "error",
+      recordsSynced: 0,
+      errorMessage: error instanceof Error ? error.message : "Jobber sync failed",
+    };
+  }
+}
+
+// ---- TOUCHBISTRO ----
+async function syncTouchBistro(params: SyncParams): Promise<SyncResult> {
+  try {
+    const start = params.periodStart.toISOString().split("T")[0];
+    const end = params.periodEnd.toISOString().split("T")[0];
+
+    const res = await fetch(
+      `https://api.touchbistro.com/v1/sales?start_date=${start}&end_date=${end}`,
+      {
+        headers: {
+          Authorization: `Bearer ${params.apiKey}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!res.ok) {
+      return {
+        status: "error",
+        recordsSynced: 0,
+        errorMessage: `TouchBistro API error: ${res.status}`,
+      };
+    }
+
+    const data = await res.json();
+    const sales = data.sales || data.data || [];
+
+    const totalRevenue = sales.reduce(
+      (sum: number, s: any) => sum + (s.total || s.amount || 0),
+      0
+    );
+    const totalFees = sales.reduce(
+      (sum: number, s: any) => sum + (s.fees || s.tips || 0),
+      0
+    );
+
+    await upsertStatement(getDb(), params, {
+      totalRevenue,
+      totalExpenses: 0,
+      totalFees,
+      netAmount: totalRevenue - totalFees,
+      transactionCount: sales.length,
+      transactionsJson: JSON.stringify(sales.slice(0, 500)),
+      rawJson: JSON.stringify(data),
+    });
+
+    return { status: "success", recordsSynced: sales.length };
+  } catch (error) {
+    return {
+      status: "error",
+      recordsSynced: 0,
+      errorMessage: error instanceof Error ? error.message : "TouchBistro sync failed",
+    };
+  }
+}
+
+// ---- PAYPAL ----
+async function syncPayPal(params: SyncParams): Promise<SyncResult> {
+  try {
+    const startDate = params.periodStart.toISOString();
+    const endDate = params.periodEnd.toISOString();
+
+    // Note: PayPal requires OAuth access token, not raw API key.
+    // If user provides an access token, this works. If they provide client credentials, we'd need to exchange first.
+    const res = await fetch(
+      `https://api.paypal.com/v1/reporting/transactions?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${params.apiKey}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!res.ok) {
+      return {
+        status: "error",
+        recordsSynced: 0,
+        errorMessage: `PayPal API error: ${res.status}. Note: PayPal requires an OAuth access token (not client ID/secret).`,
+      };
+    }
+
+    const data = await res.json();
+    const transactions = data.transaction_details || [];
+
+    const totalRevenue = transactions
+      .filter((t: any) => t.transaction_info?.transaction_amount?.value > 0)
+      .reduce(
+        (sum: number, t: any) =>
+          sum + parseFloat(t.transaction_info.transaction_amount.value || 0),
+        0
+      );
+    const totalFees = transactions.reduce(
+      (sum: number, t: any) =>
+        sum + parseFloat(t.transaction_info?.fee_amount?.value || 0),
+      0
+    );
+
+    await upsertStatement(getDb(), params, {
+      totalRevenue,
+      totalExpenses: 0,
+      totalFees,
+      netAmount: totalRevenue - totalFees,
+      transactionCount: transactions.length,
+      transactionsJson: JSON.stringify(transactions.slice(0, 500)),
+      rawJson: JSON.stringify({ transactionCount: transactions.length }),
+    });
+
+    return { status: "success", recordsSynced: transactions.length };
+  } catch (error) {
+    return {
+      status: "error",
+      recordsSynced: 0,
+      errorMessage: error instanceof Error ? error.message : "PayPal sync failed",
+    };
+  }
+}
+
+// ======== ROUTER ========
+
 export const connectorRouter = createRouter({
-  // List all per-client connections (optionally filtered by provider or client)
+  // List all per-client connections
   list: staffQuery
-    .input(z.object({
-      provider: z.enum(PER_CLIENT_PROVIDERS).optional(),
-      clientId: z.number().optional(),
-    }).optional())
+    .input(
+      z
+        .object({
+          provider: z.enum(PER_CLIENT_PROVIDERS).optional(),
+          clientId: z.number().optional(),
+        })
+        .optional()
+    )
     .query(async ({ ctx, input }) => {
       const db = getDb();
       const conditions = [eq(connectedAccounts.userId, ctx.user.id)];
@@ -44,17 +462,20 @@ export const connectorRouter = createRouter({
         conditions.push(eq(connectedAccounts.clientId, input.clientId));
       }
 
-      // Only return per-client providers
       const all = await db
         .select()
         .from(connectedAccounts)
         .where(and(...conditions))
         .orderBy(desc(connectedAccounts.createdAt));
 
-      return all.filter((a) => PER_CLIENT_PROVIDERS.includes(a.provider as typeof PER_CLIENT_PROVIDERS[number]));
+      return all.filter((a) =>
+        PER_CLIENT_PROVIDERS.includes(
+          a.provider as (typeof PER_CLIENT_PROVIDERS)[number]
+        )
+      );
     }),
 
-  // Get a single connection
+  // Get single connection
   get: staffQuery
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
@@ -72,22 +493,33 @@ export const connectorRouter = createRouter({
       return rows[0] || null;
     }),
 
-  // Create a per-client API key connection
+  // Create per-client API key connection
   create: staffQuery
-    .input(z.object({
-      clientId: z.number(),
-      provider: z.enum(PER_CLIENT_PROVIDERS),
-      accountLabel: z.string().min(1),
-      apiKey: z.string().min(1),          // Secret key / access token
-      apiSecret: z.string().optional(),     // Optional second secret (e.g. PayPal secret)
-      accountEmail: z.string().optional(),    // Public identifier (e.g. Stripe account ID)
-      scopes: z.string().optional(),        // What this key can access
-    }))
+    .input(
+      z.object({
+        clientId: z.number(),
+        provider: z.enum(PER_CLIENT_PROVIDERS),
+        accountLabel: z.string().min(1),
+        apiKey: z.string().min(1),
+        apiSecret: z.string().optional(),
+        accountEmail: z.string().optional(),
+        scopes: z.string().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
-      const { clientId, provider, accountLabel, apiKey, apiSecret, accountEmail, scopes } = input;
+      const { clientId, provider, accountLabel, apiKey, apiSecret, accountEmail, scopes } =
+        input;
 
-      // Check if a connection already exists for this client + provider
+      // Verify client belongs to user
+      const client = await db
+        .select()
+        .from(clients)
+        .where(and(eq(clients.id, clientId), eq(clients.userId, ctx.user.id)))
+        .get();
+      if (!client) throw new Error("Client not found");
+
+      // Check if already exists
       const existing = await db
         .select()
         .from(connectedAccounts)
@@ -101,7 +533,6 @@ export const connectorRouter = createRouter({
         .limit(1);
 
       if (existing[0]) {
-        // Update existing
         await db
           .update(connectedAccounts)
           .set({
@@ -114,11 +545,9 @@ export const connectorRouter = createRouter({
             updatedAt: new Date(),
           })
           .where(eq(connectedAccounts.id, existing[0].id));
-
         return { success: true, updated: true, id: existing[0].id };
       }
 
-      // Create new
       const [account] = await db
         .insert(connectedAccounts)
         .values({
@@ -140,14 +569,16 @@ export const connectorRouter = createRouter({
 
   // Update connection
   update: staffQuery
-    .input(z.object({
-      id: z.number(),
-      accountLabel: z.string().min(1).optional(),
-      apiKey: z.string().min(1).optional(),
-      apiSecret: z.string().optional(),
-      accountEmail: z.string().optional(),
-      isActive: z.boolean().optional(),
-    }))
+    .input(
+      z.object({
+        id: z.number(),
+        accountLabel: z.string().min(1).optional(),
+        apiKey: z.string().min(1).optional(),
+        apiSecret: z.string().optional(),
+        accountEmail: z.string().optional(),
+        isActive: z.boolean().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
       const { id, ...data } = input;
@@ -189,15 +620,36 @@ export const connectorRouter = createRouter({
       return { success: true };
     }),
 
-  // Pull statements (stub — will be implemented per-provider)
-  pullStatements: staffQuery
-    .input(z.object({
-      connectionId: z.number(),
-      startDate: z.string().optional(),    // ISO date
-      endDate: z.string().optional(),      // ISO date
-    }))
+  // Toggle active
+  toggle: staffQuery
+    .input(z.object({ id: z.number(), active: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
+      await db
+        .update(connectedAccounts)
+        .set({ isActive: input.active, updatedAt: new Date() })
+        .where(
+          and(
+            eq(connectedAccounts.id, input.id),
+            eq(connectedAccounts.userId, ctx.user.id)
+          )
+        );
+      return { success: true };
+    }),
+
+  // ======== REAL SYNC: pullStatements ========
+  pullStatements: staffQuery
+    .input(
+      z.object({
+        connectionId: z.number(),
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+
+      // Get connection
       const rows = await db
         .select()
         .from(connectedAccounts)
@@ -212,40 +664,156 @@ export const connectorRouter = createRouter({
       if (!rows[0]) throw new Error("Connection not found");
       const conn = rows[0];
 
-      // TODO: Implement actual provider-specific pulls
-      // For now, return a success message with what would be pulled
-      const providerActions: Record<string, string> = {
-        wise: "bank statements + transactions + balances",
-        stripe: "payments + invoices + payouts + customers",
-        jobber: "invoices + quotes + visits + clients",
-        touchbistro: "sales + menu items + labor reports",
-        paypal: "payments + invoices + transactions",
-      };
+      if (!conn.clientId || !conn.accessToken) {
+        throw new Error("Connection missing client or API key");
+      }
 
-      // Update last synced
-      await db
-        .update(connectedAccounts)
-        .set({ lastSyncedAt: new Date() })
-        .where(eq(connectedAccounts.id, input.connectionId));
+      const provider = conn.provider as PerClientProvider;
 
-      return {
-        success: true,
-        provider: conn.provider,
-        clientId: conn.clientId,
-        pulled: providerActions[conn.provider] || "data",
-        startDate: input.startDate || "last_sync",
-        endDate: input.endDate || "now",
-        message: `Stub: ${conn.provider} data pull for client ${conn.clientId} would happen here.`,
-      };
+      // Determine period
+      const now = new Date();
+      let periodStart: Date;
+      let periodEnd: Date;
+      let year: number;
+      let month: number;
+
+      if (input.startDate && input.endDate) {
+        periodStart = new Date(input.startDate);
+        periodEnd = new Date(input.endDate);
+        year = periodStart.getFullYear();
+        month = periodStart.getMonth() + 1;
+      } else {
+        year = now.getFullYear();
+        month = now.getMonth() + 1;
+        periodStart = new Date(year, month - 1, 1);
+        periodEnd = new Date(year, month, 0, 23, 59, 59);
+      }
+
+      // Start sync log
+      const logResult = await db
+        .insert(connectorSyncLogs)
+        .values({
+          connectedAccountId: conn.id,
+          clientId: conn.clientId,
+          provider,
+          syncType: "all",
+          status: "success", // will be updated
+          recordsSynced: 0,
+          startedAt: new Date(),
+        })
+        .returning();
+      const syncLogId = logResult[0].id;
+
+      try {
+        // Run sync
+        const result = await syncProviderData({
+          provider,
+          apiKey: conn.accessToken,
+          clientId: conn.clientId,
+          userId: ctx.user.id,
+          periodStart,
+          periodEnd,
+          year,
+          month,
+          connectedAccountId: conn.id,
+        });
+
+        // Update sync log
+        await db
+          .update(connectorSyncLogs)
+          .set({
+            status: result.status,
+            recordsSynced: result.recordsSynced,
+            errorMessage: result.errorMessage,
+            completedAt: new Date(),
+          })
+          .where(eq(connectorSyncLogs.id, syncLogId));
+
+        // Update connection last synced
+        await db
+          .update(connectedAccounts)
+          .set({ lastSyncedAt: new Date() })
+          .where(eq(connectedAccounts.id, conn.id));
+
+        return {
+          success: result.status === "success" || result.status === "partial",
+          provider: conn.provider,
+          clientId: conn.clientId,
+          pulled: PROVIDER_CONFIGS[provider].name,
+          recordsSynced: result.recordsSynced,
+          startDate: periodStart.toISOString(),
+          endDate: periodEnd.toISOString(),
+          message: result.errorMessage || `${result.recordsSynced} records synced`,
+        };
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+
+        await db
+          .update(connectorSyncLogs)
+          .set({
+            status: "error",
+            errorMessage,
+            completedAt: new Date(),
+          })
+          .where(eq(connectorSyncLogs.id, syncLogId));
+
+        throw new Error(`Sync failed: ${errorMessage}`);
+      }
     }),
 
-  // Get clients without a specific connector
+  // Get statements for a client/provider
+  getStatements: staffQuery
+    .input(
+      z.object({
+        clientId: z.number(),
+        provider: z.enum(PER_CLIENT_PROVIDERS).optional(),
+        year: z.number().optional(),
+        month: z.number().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const conditions = [
+        eq(connectorStatements.clientId, input.clientId),
+        eq(connectorStatements.userId, ctx.user.id),
+      ];
+      if (input.provider)
+        conditions.push(eq(connectorStatements.provider, input.provider));
+      if (input.year) conditions.push(eq(connectorStatements.year, input.year));
+      if (input.month)
+        conditions.push(eq(connectorStatements.month, input.month));
+
+      return db
+        .select()
+        .from(connectorStatements)
+        .where(and(...conditions))
+        .orderBy(desc(connectorStatements.periodEnd));
+    }),
+
+  // Get sync logs
+  getSyncLogs: staffQuery
+    .input(
+      z.object({
+        connectedAccountId: z.number(),
+        limit: z.number().default(20),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = getDb();
+      return db
+        .select()
+        .from(connectorSyncLogs)
+        .where(eq(connectorSyncLogs.connectedAccountId, input.connectedAccountId))
+        .orderBy(desc(connectorSyncLogs.startedAt))
+        .limit(input.limit);
+    }),
+
+  // Get clients missing a specific connector
   missingConnections: staffQuery
     .input(z.object({ provider: z.enum(PER_CLIENT_PROVIDERS) }))
     .query(async ({ ctx, input }) => {
       const db = getDb();
-
-      // Get all active clients
       const allClients = await db
         .select({ id: connectedAccounts.clientId })
         .from(connectedAccounts)
@@ -255,9 +823,9 @@ export const connectorRouter = createRouter({
             eq(connectedAccounts.provider, input.provider)
           )
         );
-
-      const connectedClientIds = new Set(allClients.map((c) => c.id).filter(Boolean));
-
+      const connectedClientIds = new Set(
+        allClients.map((c) => c.id).filter(Boolean)
+      );
       return {
         provider: input.provider,
         connectedCount: connectedClientIds.size,
