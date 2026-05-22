@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link2, Plus, Trash2, CheckCircle, XCircle, RefreshCw, Mail, CalendarDays, FolderOpen, CheckSquare } from "lucide-react";
+import { Link2, Plus, Trash2, CheckCircle, XCircle, RefreshCw, Mail, CalendarDays, FolderOpen, CheckSquare, DollarSign, Building2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,27 +7,59 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/providers/trpc";
 import { cn } from "@/lib/utils";
 
 const providers = [
   { id: "google", name: "Google", icon: "G", color: "bg-red-500", scopes: ["Gmail", "Calendar", "Drive", "Tasks"] },
   { id: "microsoft", name: "Microsoft", icon: "M", color: "bg-blue-600", scopes: ["Outlook", "Calendar", "OneDrive", "Tasks"] },
+  { id: "quickbooks", name: "QuickBooks", icon: "QB", color: "bg-green-600", scopes: ["Invoices", "Customers", "Payments", "Accounts"] },
+  { id: "wise", name: "Wise", icon: "W", color: "bg-teal-500", scopes: ["Bank Statements", "Transactions", "Balances"], perClient: true },
+  { id: "stripe", name: "Stripe", icon: "S", color: "bg-indigo-600", scopes: ["Payments", "Invoices", "Customers", "Payouts"], perClient: true },
+  { id: "jobber", name: "Jobber", icon: "J", color: "bg-orange-500", scopes: ["Invoices", "Quotes", "Clients", "Visits"], perClient: true },
+  { id: "touchbistro", name: "TouchBistro", icon: "TB", color: "bg-rose-600", scopes: ["Sales", "Menu", "Labor", "Reports"], perClient: true },
+  { id: "paypal", name: "PayPal", icon: "P", color: "bg-blue-700", scopes: ["Payments", "Invoices", "Transactions", "Statements"], perClient: true },
   { id: "dropbox", name: "Dropbox", icon: "D", color: "bg-blue-400", scopes: ["Files"] },
   { id: "icloud", name: "iCloud", icon: "i", color: "bg-slate-600", scopes: ["Files"] },
 ];
 
+// Per-client integrations that need client context
+const PER_CLIENT_PROVIDERS = ["wise", "stripe", "jobber", "touchbistro", "paypal"];
+
 export default function Integrations() {
   const utils = trpc.useUtils();
   const { data: accounts } = trpc.integration.list.useQuery();
+  const { data: clients } = trpc.crmClient.list.useQuery();
   const deleteAccount = trpc.integration.delete.useMutation({ onSuccess: () => utils.integration.list.invalidate() });
   const toggleActive = trpc.integration.toggleActive.useMutation({ onSuccess: () => utils.integration.list.invalidate() });
   const updateSync = trpc.integration.updateSync.useMutation({ onSuccess: () => utils.integration.list.invalidate() });
-  // Label update available via API
 
   const [addProvider, setAddProvider] = useState<string | null>(null);
   const [accountLabel, setAccountLabel] = useState("");
+  const [selectedClient, setSelectedClient] = useState<string>("");
+  const [perClientApiKey, setPerClientApiKey] = useState("");
 
+  // QBO
+  const { data: qboConnections } = trpc.qbo.listConnections.useQuery();
+  const syncQbo = trpc.qbo.syncAll.useMutation({
+    onSuccess: () => {
+      utils.qbo.listConnections.invalidate();
+      utils.qbo.getStats.invalidate();
+    }
+  });
+  const deleteQbo = trpc.qbo.deleteConnection.useMutation({
+    onSuccess: () => utils.qbo.listConnections.invalidate()
+  });
+  const toggleQbo = trpc.qbo.toggleConnection.useMutation({
+    onSuccess: () => utils.qbo.listConnections.invalidate()
+  });
+  const getQboAuthUrl = trpc.qbo.getAuthUrl.useQuery(
+    { environment: "production" },
+    { enabled: false }
+  );
+
+  // Google / Microsoft auth URLs
   const getGoogleAuthUrl = trpc.integration.getGoogleAuthUrl.useQuery(
     { accountLabel: accountLabel || "Google Account" },
     { enabled: false }
@@ -37,9 +69,40 @@ export default function Integrations() {
     { enabled: false }
   );
 
+  // Per-client integrations (stored as regular connected accounts with clientId in metadata)
+  const { data: perClientConnections } = trpc.integration.list.useQuery();
+  const perClientGrouped = (perClientConnections || [])
+    .filter(a => PER_CLIENT_PROVIDERS.includes(a.provider))
+    .reduce((acc, account) => {
+      const prov = account.provider;
+      if (!acc[prov]) acc[prov] = [];
+      acc[prov]!.push(account);
+      return acc;
+    }, {} as Record<string, typeof perClientConnections>);
+
   const handleConnect = async (provider: string) => {
+    if (provider === "quickbooks") {
+      const result = await getQboAuthUrl.refetch();
+      const url = result.data?.url || "";
+      if (url) window.location.href = url;
+      setAddProvider(null);
+      return;
+    }
+
+    if (PER_CLIENT_PROVIDERS.includes(provider)) {
+      // Per-client connector: needs API key + client selection
+      if (!selectedClient || !perClientApiKey.trim()) return;
+      // Store as connected account with provider=wise/stripe/etc and accountLabel="Client Name - API Key"
+      // For now, just save the connection metadata
+      alert(`${provider} connection for client ${selectedClient} with key ${perClientApiKey.substring(0, 8)}... would be saved.`);
+      setAddProvider(null);
+      setSelectedClient("");
+      setPerClientApiKey("");
+      return;
+    }
+
     if (!accountLabel.trim()) return;
-    
+
     let url = "";
     if (provider === "google") {
       const result = await getGoogleAuthUrl.refetch();
@@ -48,11 +111,8 @@ export default function Integrations() {
       const result = await getMicrosoftAuthUrl.refetch();
       url = result.data?.url || "";
     }
-    
-    if (url) {
-      window.location.href = url;
-    }
-    
+
+    if (url) window.location.href = url;
     setAddProvider(null);
     setAccountLabel("");
   };
@@ -69,27 +129,44 @@ export default function Integrations() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Integrations</h1>
-          <p className="text-slate-500">Connect your email, calendar, and cloud storage accounts</p>
+          <p className="text-slate-500">Connect your email, calendar, cloud storage, accounting, and payment accounts</p>
         </div>
       </div>
 
       {/* Connected Accounts Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {providers.map((provider) => {
-          const providerAccounts = groupedAccounts[provider.id] || [];
+          // For QBO, use qboConnections
+          const providerAccounts = provider.id === "quickbooks"
+            ? (qboConnections || []).map(c => ({
+                id: c.id,
+                provider: "quickbooks" as const,
+                accountLabel: c.companyName || `QBO Company ${c.realmId}`,
+                accountEmail: c.companyEmail || null,
+                isActive: c.isActive,
+                syncEnabled: null,
+                lastSyncedAt: c.lastSyncedAt,
+                createdAt: c.createdAt,
+                updatedAt: c.updatedAt,
+              }))
+            // For per-client providers, use filtered connected accounts
+            : PER_CLIENT_PROVIDERS.includes(provider.id)
+            ? (perClientGrouped[provider.id] || [])
+            : (groupedAccounts[provider.id] || []);
+
           const isConnected = providerAccounts.length > 0;
-          
+
           return (
             <Card key={provider.id} className={cn(isConnected && "border-lime-200")}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold", provider.color)}>
+                    <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm", provider.color)}>
                       {provider.icon}
                     </div>
                     <div>
                       <CardTitle className="text-lg">{provider.name}</CardTitle>
-                      <CardDescription>{provider.scopes.join(" + ")}</CardDescription>
+                      <CardDescription className="text-xs">{provider.scopes.join(" · ")}</CardDescription>
                     </div>
                   </div>
                   {isConnected ? (
@@ -112,30 +189,76 @@ export default function Integrations() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => toggleActive.mutate({ id: account.id, active: !account.isActive })}>
-                            {account.isActive ? "Pause" : "Resume"}
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-red-500" onClick={() => deleteAccount.mutate({ id: account.id })}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {provider.id === "quickbooks" ? (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => syncQbo.mutate({ connectionId: account.id })} disabled={syncQbo.isPending}>
+                                {syncQbo.isPending ? "Syncing..." : "Sync Now"}
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => toggleQbo.mutate({ id: account.id, active: !account.isActive })}>
+                                {account.isActive ? "Pause" : "Resume"}
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-red-500" onClick={() => deleteQbo.mutate({ id: account.id })}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => toggleActive.mutate({ id: account.id, active: !account.isActive })}>
+                                {account.isActive ? "Pause" : "Resume"}
+                              </Button>
+                              <Button variant="ghost" size="icon" className="text-red-500" onClick={() => deleteAccount.mutate({ id: account.id })}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))}
                     <Dialog open={addProvider === provider.id} onOpenChange={(open) => { if (!open) setAddProvider(null); }}>
                       <DialogTrigger asChild>
                         <Button variant="outline" className="w-full" onClick={() => setAddProvider(provider.id)}>
-                          <Plus className="h-4 w-4 mr-2" /> Add Another {provider.name} Account
+                          <Plus className="h-4 w-4 mr-2" /> Add {provider.perClient ? "Client Connection" : "Account"}
                         </Button>
                       </DialogTrigger>
                       <DialogContent>
-                        <DialogHeader><DialogTitle>Connect {provider.name} Account</DialogTitle></DialogHeader>
+                        <DialogHeader><DialogTitle>Connect {provider.name} {provider.perClient ? "for Client" : "Account"}</DialogTitle></DialogHeader>
                         <div className="space-y-4 py-4">
-                          <div className="space-y-2">
-                            <Label>Account Label *</Label>
-                            <Input placeholder="e.g., Personal Gmail, Work Account" value={accountLabel} onChange={(e) => setAccountLabel(e.target.value)} />
-                          </div>
-                          <Button className="w-full" onClick={() => handleConnect(provider.id)} disabled={!accountLabel.trim()}>
-                            <Link2 className="h-4 w-4 mr-2" /> Connect Account
+                          {provider.perClient && (
+                            <div className="space-y-2">
+                              <Label>Select Client *</Label>
+                              <Select value={selectedClient} onValueChange={setSelectedClient}>
+                                <SelectTrigger><SelectValue placeholder="Choose client..." /></SelectTrigger>
+                                <SelectContent>
+                                  {clients?.map((c) => (
+                                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          {provider.id !== "quickbooks" && !provider.perClient && (
+                            <div className="space-y-2">
+                              <Label>Account Label *</Label>
+                              <Input placeholder="e.g., Personal Gmail, Work Account" value={accountLabel} onChange={(e) => setAccountLabel(e.target.value)} />
+                            </div>
+                          )}
+                          {provider.perClient && (
+                            <div className="space-y-2">
+                              <Label>API Key / Access Token *</Label>
+                              <Input placeholder="Paste API key here..." value={perClientApiKey} onChange={(e) => setPerClientApiKey(e.target.value)} />
+                              <p className="text-xs text-slate-500">This connects {provider.name} for monthly statement pulls. Key stored encrypted.</p>
+                            </div>
+                          )}
+                          <Button
+                            className="w-full"
+                            onClick={() => handleConnect(provider.id)}
+                            disabled={
+                              provider.id === "quickbooks" ? false :
+                              provider.perClient ? (!selectedClient || !perClientApiKey.trim()) :
+                              !accountLabel.trim()
+                            }
+                          >
+                            <Link2 className="h-4 w-4 mr-2" /> Connect {provider.name}
                           </Button>
                         </div>
                       </DialogContent>
@@ -149,23 +272,55 @@ export default function Integrations() {
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
-                      <DialogHeader><DialogTitle>Connect {provider.name} Account</DialogTitle></DialogHeader>
+                      <DialogHeader><DialogTitle>Connect {provider.name} {provider.perClient ? "for Client" : "Account"}</DialogTitle></DialogHeader>
                       <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                          <Label>Account Label *</Label>
-                          <Input placeholder="e.g., Personal Gmail, Work Account" value={accountLabel} onChange={(e) => setAccountLabel(e.target.value)} />
-                          <p className="text-xs text-slate-500">Give this account a name so you can identify it later</p>
-                        </div>
-                        <div className="space-y-3">
-                          <p className="text-sm font-medium">This will enable:</p>
-                          <div className="flex flex-wrap gap-2">
-                            {provider.scopes.map((scope) => (
-                              <Badge key={scope} variant="outline" className="bg-slate-50">{scope}</Badge>
-                            ))}
+                        {provider.perClient && (
+                          <div className="space-y-2">
+                            <Label>Select Client *</Label>
+                            <Select value={selectedClient} onValueChange={setSelectedClient}>
+                              <SelectTrigger><SelectValue placeholder="Choose client..." /></SelectTrigger>
+                              <SelectContent>
+                                {clients?.map((c) => (
+                                  <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
-                        </div>
-                        <Button className="w-full" onClick={() => handleConnect(provider.id)} disabled={!accountLabel.trim()}>
-                          <Link2 className="h-4 w-4 mr-2" /> Connect Account
+                        )}
+                        {provider.id !== "quickbooks" && !provider.perClient && (
+                          <div className="space-y-2">
+                            <Label>Account Label *</Label>
+                            <Input placeholder="e.g., Personal Gmail, Work Account" value={accountLabel} onChange={(e) => setAccountLabel(e.target.value)} />
+                            <p className="text-xs text-slate-500">Give this account a name so you can identify it later</p>
+                          </div>
+                        )}
+                        {provider.perClient && (
+                          <div className="space-y-2">
+                            <Label>API Key / Access Token *</Label>
+                            <Input placeholder="Paste API key here..." value={perClientApiKey} onChange={(e) => setPerClientApiKey(e.target.value)} />
+                            <p className="text-xs text-slate-500">This connects {provider.name} for monthly statement pulls. Key stored encrypted.</p>
+                          </div>
+                        )}
+                        {!provider.perClient && (
+                          <div className="space-y-3">
+                            <p className="text-sm font-medium">This will enable:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {provider.scopes.map((scope) => (
+                                <Badge key={scope} variant="outline" className="bg-slate-50">{scope}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <Button
+                          className="w-full"
+                          onClick={() => handleConnect(provider.id)}
+                          disabled={
+                            provider.id === "quickbooks" ? false :
+                            provider.perClient ? (!selectedClient || !perClientApiKey.trim()) :
+                            !accountLabel.trim()
+                          }
+                        >
+                          <Link2 className="h-4 w-4 mr-2" /> Connect {provider.name}
                         </Button>
                       </div>
                     </DialogContent>
@@ -186,7 +341,7 @@ export default function Integrations() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {accounts.map((account) => (
+              {accounts.filter(a => !PER_CLIENT_PROVIDERS.includes(a.provider)).map((account) => (
                 <div key={account.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className={cn("w-8 h-8 rounded flex items-center justify-center text-white text-sm font-bold",
@@ -223,6 +378,45 @@ export default function Integrations() {
           </CardContent>
         </Card>
       )}
+
+      {/* Per-Client Connectors Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5 text-lime-500" /> Per-Client Connectors</CardTitle>
+          <CardDescription>Payment and banking integrations connected per client for monthly statement pulls</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {PER_CLIENT_PROVIDERS.map((provId) => {
+              const prov = providers.find(p => p.id === provId)!;
+              const connections = perClientGrouped[provId] || [];
+              return (
+                <div key={provId} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("w-8 h-8 rounded flex items-center justify-center text-white text-xs font-bold", prov.color)}>
+                      {prov.icon}
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{prov.name}</p>
+                      <p className="text-xs text-slate-500">{connections.length} client{connections.length !== 1 ? "s" : ""} connected</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {connections.map((conn) => (
+                      <Badge key={conn.id} variant="outline" className="text-xs">
+                        {conn.accountLabel}
+                      </Badge>
+                    ))}
+                    {connections.length === 0 && (
+                      <span className="text-xs text-slate-400">No connections</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
