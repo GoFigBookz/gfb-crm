@@ -25,6 +25,12 @@ sqlite3 "$DB_PATH" "ALTER TABLE clients ADD COLUMN figgyEmail text;" 2>/dev/null
 sqlite3 "$DB_PATH" "ALTER TABLE clients ADD COLUMN contactName text;" 2>/dev/null || true
 echo "[INIT] Migrations complete."
 
+# Create default admin user if none exists
+echo "[INIT] Ensuring admin user exists..."
+sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO users (unionId, email, name, role, authProvider, isActive, createdAt, updatedAt) VALUES ('google_105796619971296636840', 'markie@gofig.ca', 'Markie Antle', 'admin', 'google', 1, 1778866324, 1778866324);"
+USER_COUNT=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users;")
+echo "[INIT] $USER_COUNT user(s) in database."
+
 if [ -f "$SEED_FILE" ]; then
   echo "[INIT] Reseeding clients..."
   sqlite3 "$DB_PATH" "DELETE FROM client_onboarding;" 2>/dev/null || true
