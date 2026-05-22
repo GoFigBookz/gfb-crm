@@ -42,5 +42,6 @@ else
   echo "[INIT] WARNING: seed-clients.sql not found."
 fi
 
-echo "[INIT] Starting server..."
+PORT="${PORT:-3000}"
+echo "[INIT] Starting server on port $PORT..."
 exec NODE_ENV=production node dist/boot.js
