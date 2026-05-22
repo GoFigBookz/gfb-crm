@@ -64,6 +64,8 @@ export const qboConnections = sqliteTable("qbo_connections", {
   environment: text("environment", { enum: ["sandbox", "production"] }).default("sandbox").notNull(),
   // Multi-account support: personal_business, ca_clients, us_clients
   accountType: text("accountType", { enum: ["personal_business", "ca_clients", "us_clients"] }).default("ca_clients").notNull(),
+  // Which CRM client this QBO company belongs to (NULL = unassigned/triage)
+  clientId: integer("clientId"),
   isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(),
   lastSyncedAt: integer("lastSyncedAt", { mode: "timestamp" }),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),

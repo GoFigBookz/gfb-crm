@@ -103,7 +103,8 @@ async function doSyncCustomers(connectionId: number) {
   const db = getDb();
   const connRow = await db.select().from(qboConnections).where(eq(qboConnections.id, connectionId)).limit(1);
   if (!connRow[0]) throw new Error("Connection not found");
-  let connection = await ensureValidToken(connRow[0]);
+  const connection = await ensureValidToken(connRow[0]);
+  const clientId = connection.clientId; // propagate client assignment
 
   const data = await qboRequest(connection, "/query?query=SELECT * FROM Customer MAXRESULTS 1000");
   const customers = (data.QueryResponse?.Customer || []) as Record<string, unknown>[];
@@ -114,6 +115,7 @@ async function doSyncCustomers(connectionId: number) {
       .where(and(eq(qboCustomers.connectionId, connectionId), eq(qboCustomers.qboCustomerId, String(c.Id))));
     const row = {
       connectionId: connectionId,
+      clientId, // NEW: auto-tag with client
       qboCustomerId: String(c.Id),
       displayName: (c.DisplayName as string) || null,
       companyName: (c.CompanyName as string) || null,
@@ -160,7 +162,8 @@ async function doSyncInvoices(connectionId: number) {
   const db = getDb();
   const connRow = await db.select().from(qboConnections).where(eq(qboConnections.id, connectionId)).limit(1);
   if (!connRow[0]) throw new Error("Connection not found");
-  let connection = await ensureValidToken(connRow[0]);
+  const connection = await ensureValidToken(connRow[0]);
+  const clientId = connection.clientId;
 
   const data = await qboRequest(connection, "/query?query=SELECT * FROM Invoice MAXRESULTS 1000");
   const invoices = (data.QueryResponse?.Invoice || []) as Record<string, unknown>[];
@@ -170,6 +173,7 @@ async function doSyncInvoices(connectionId: number) {
       .where(and(eq(qboInvoices.connectionId, connectionId), eq(qboInvoices.qboInvoiceId, String(inv.Id))));
     const row = {
       connectionId: connectionId,
+      clientId, // NEW
       qboInvoiceId: String(inv.Id),
       qboCustomerId: (inv.CustomerRef as Record<string, unknown>)?.value as string || null,
       invoiceNumber: (inv.DocNumber as string) || null,
@@ -207,7 +211,8 @@ async function doSyncPayments(connectionId: number) {
   const db = getDb();
   const connRow = await db.select().from(qboConnections).where(eq(qboConnections.id, connectionId)).limit(1);
   if (!connRow[0]) throw new Error("Connection not found");
-  let connection = await ensureValidToken(connRow[0]);
+  const connection = await ensureValidToken(connRow[0]);
+  const clientId = connection.clientId;
 
   const data = await qboRequest(connection, "/query?query=SELECT * FROM Payment MAXRESULTS 1000");
   const payments = (data.QueryResponse?.Payment || []) as Record<string, unknown>[];
@@ -217,6 +222,7 @@ async function doSyncPayments(connectionId: number) {
       .where(and(eq(qboPayments.connectionId, connectionId), eq(qboPayments.qboPaymentId, String(p.Id))));
     const row = {
       connectionId: connectionId,
+      clientId, // NEW
       qboPaymentId: String(p.Id),
       qboCustomerId: (p.CustomerRef as Record<string, unknown>)?.value as string || null,
       totalAmount: (p.TotalAmt as number) || 0,
@@ -250,7 +256,7 @@ async function doSyncAccounts(connectionId: number) {
   const db = getDb();
   const connRow = await db.select().from(qboConnections).where(eq(qboConnections.id, connectionId)).limit(1);
   if (!connRow[0]) throw new Error("Connection not found");
-  let connection = await ensureValidToken(connRow[0]);
+  const connection = await ensureValidToken(connRow[0]);
 
   const data = await qboRequest(connection, "/query?query=SELECT * FROM Account MAXRESULTS 1000");
   const accounts = (data.QueryResponse?.Account || []) as Record<string, unknown>[];
@@ -329,6 +335,7 @@ export const qboRouter = createRouter({
       code: z.string(),
       realmId: z.string(),
       state: z.string(),
+      clientId: z.number().optional(), // NEW: which CRM client this QBO belongs to
     }))
     .mutation(async ({ input }) => {
       let env: string = "sandbox";
@@ -391,6 +398,7 @@ export const qboRouter = createRouter({
             companyName: companyName || existing[0].companyName,
             companyEmail: companyEmail || existing[0].companyEmail,
             accountType: accountType as "ca_clients" | "us_clients" | "personal_business",
+            clientId: input.clientId || existing[0].clientId, // NEW: preserve or update clientId
             isActive: true,
             updatedAt: new Date(),
           })
@@ -402,6 +410,7 @@ export const qboRouter = createRouter({
           companyName,
           accountType,
           updated: true,
+          clientId: input.clientId || existing[0].clientId,
         };
       }
 
@@ -415,6 +424,7 @@ export const qboRouter = createRouter({
         expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
         environment: env as "sandbox" | "production",
         accountType: accountType as "ca_clients" | "us_clients" | "personal_business",
+        clientId: input.clientId || null, // NEW
         isActive: true,
       });
 
@@ -424,6 +434,7 @@ export const qboRouter = createRouter({
         companyName,
         accountType,
         updated: false,
+        clientId: input.clientId || null,
       };
     }),
 
@@ -604,5 +615,110 @@ export const qboRouter = createRouter({
       }
 
       return { received: true, action: "synced" };
+    }),
+
+  // ========== QBO TRIAGE (Assign unassigned data to clients) ==========
+
+  // Assign a QBO connection to a CRM client (and retroactively tag all its data)
+  assignClient: publicQuery
+    .input(z.object({
+      connectionId: z.number(),
+      clientId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+
+      // Update the connection
+      await db
+        .update(qboConnections)
+        .set({ clientId: input.clientId, updatedAt: new Date() })
+        .where(eq(qboConnections.id, input.connectionId));
+
+      // Retroactively tag all existing records for this connection
+      await db
+        .update(qboCustomers)
+        .set({ clientId: input.clientId })
+        .where(eq(qboCustomers.connectionId, input.connectionId));
+      await db
+        .update(qboInvoices)
+        .set({ clientId: input.clientId })
+        .where(eq(qboInvoices.connectionId, input.connectionId));
+      await db
+        .update(qboPayments)
+        .set({ clientId: input.clientId })
+        .where(eq(qboPayments.connectionId, input.connectionId));
+
+      return {
+        success: true,
+        message: `QBO connection assigned to client ${input.clientId}. All existing records retagged.`,
+      };
+    }),
+
+  // Get all unassigned QBO data for triage review
+  getTriage: publicQuery.query(async () => {
+    const db = getDb();
+
+    // Unassigned connections (no client linked)
+    const unassignedConnections = await db
+      .select()
+      .from(qboConnections)
+      .where(eq(qboConnections.clientId, null))
+      .orderBy(desc(qboConnections.createdAt));
+
+    // Unassigned records (shouldn't happen if connection has client, but catches edge cases)
+    const unassignedCustomers = await db
+      .select()
+      .from(qboCustomers)
+      .where(eq(qboCustomers.clientId, null))
+      .limit(50);
+    const unassignedInvoices = await db
+      .select()
+      .from(qboInvoices)
+      .where(eq(qboInvoices.clientId, null))
+      .limit(50);
+    const unassignedPayments = await db
+      .select()
+      .from(qboPayments)
+      .where(eq(qboPayments.clientId, null))
+      .limit(50);
+
+    return {
+      connections: unassignedConnections,
+      customers: unassignedCustomers,
+      invoices: unassignedInvoices,
+      payments: unassignedPayments,
+      summary: {
+        unassignedConnections: unassignedConnections.length,
+        unassignedCustomers: unassignedCustomers.length,
+        unassignedInvoices: unassignedInvoices.length,
+        unassignedPayments: unassignedPayments.length,
+      },
+    };
+  }),
+
+  // Assign individual records to a client (for one-off fixes)
+  assignRecords: publicQuery
+    .input(z.object({
+      entityType: z.enum(["customers", "invoices", "payments"]),
+      ids: z.array(z.number()),
+      clientId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const table =
+        input.entityType === "customers" ? qboCustomers :
+        input.entityType === "invoices" ? qboInvoices :
+        qboPayments;
+
+      for (const id of input.ids) {
+        await db.update(table).set({ clientId: input.clientId }).where(eq(table.id, id));
+      }
+
+      return {
+        success: true,
+        assigned: input.ids.length,
+        entityType: input.entityType,
+        clientId: input.clientId,
+      };
     }),
 });
