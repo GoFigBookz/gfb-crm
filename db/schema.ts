@@ -242,6 +242,12 @@ export const clients = sqliteTable("clients", {
   qboCustomerId: text("qboCustomerId"),
   // Multi-QBO firm mapping: which QBO firm this client belongs to
   qboConnectionId: integer("qboConnectionId"),
+  // Firm mapping columns
+  industry: text("industry").default("other"),
+  province: text("province").default("ON"),
+  qboAccountType: text("qboAccountType").default("ca_clients"),
+  figgyEmail: text("figgyEmail"),
+  contactName: text("contactName"),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
