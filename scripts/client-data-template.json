@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Unimax Construction Group",
+    "businessNumber": "",
+    "hstGstNumber": "",
+    "hstGstFrequency": "quarterly",
+    "payrollAccountNumber": "",
+    "payrollFrequency": "biweekly",
+    "fiscalYearEnd": "December 31",
+    "wsibAccountNumber": "",
+    "wsibRequired": false,
+    "hasSubcontractors": true,
+    "hasInvestments": false,
+    "bankAccountCount": 2,
+    "creditCardCount": 1
+  }
+]
