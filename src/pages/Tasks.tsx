@@ -46,7 +46,9 @@ export default function Tasks() {
     description: "",
     dueDate: "",
     priority: "medium" as const,
-    category: ""
+    category: "",
+    isRecurring: false,
+    frequency: "monthly" as string,
   });
   const [newRecurring, setNewRecurring] = useState({
     title: "",
@@ -191,7 +193,72 @@ export default function Tasks() {
                     </Select>
                   </div>
                 </div>
-                <Button onClick={() => newTask.title && createTask.mutate({...newTask, dueDate: newTask.dueDate ? new Date(newTask.dueDate) : undefined})} className="w-full">Create Task</Button>
+                
+                {/* NEW: Make recurring from the same dialog */}
+                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <input
+                    type="checkbox"
+                    id="isRecurring"
+                    checked={newTask.isRecurring || false}
+                    onChange={(e) => setNewTask({...newTask, isRecurring: e.target.checked})}
+                    className="w-4 h-4 accent-lime-500"
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="isRecurring" className="cursor-pointer flex items-center gap-2">
+                      <Repeat className="h-4 w-4 text-lime-500" />
+                      <span className="font-medium">Make this a recurring task</span>
+                    </Label>
+                    <p className="text-xs text-slate-500 mt-0.5">Auto-generate future instances based on frequency</p>
+                  </div>
+                </div>
+
+                {newTask.isRecurring && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Frequency *</Label>
+                      <Select value={newTask.frequency || "monthly"} onValueChange={(v) => setNewTask({...newTask, frequency: v})}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="biweekly">Bi-weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="quarterly">Quarterly</SelectItem>
+                          <SelectItem value="yearly">Yearly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Category</Label>
+                      <Input placeholder="e.g. Payroll, HST, Reconciliation" value={newTask.category || ""} onChange={(e) => setNewTask({...newTask, category: e.target.value})} />
+                    </div>
+                  </div>
+                )}
+
+                <Button 
+                  onClick={() => {
+                    if (!newTask.title) return;
+                    if (newTask.isRecurring && newTask.frequency) {
+                      // Create as recurring task rule
+                      createRecurring.mutate({
+                        title: newTask.title,
+                        description: newTask.description,
+                        frequency: newTask.frequency as any,
+                        startDate: newTask.dueDate ? new Date(newTask.dueDate) : new Date(),
+                        priority: newTask.priority,
+                      });
+                    } else {
+                      // Create as one-time task
+                      createTask.mutate({
+                        ...newTask,
+                        dueDate: newTask.dueDate ? new Date(newTask.dueDate) : undefined,
+                      });
+                    }
+                  }} 
+                  className="w-full"
+                >
+                  {newTask.isRecurring ? "Create Recurring Task" : "Create Task"}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
