@@ -65,6 +65,17 @@ export default function IntakeDashboard() {
     filter ? { status: filter as any, limit: 50, offset: 0 } : { limit: 50, offset: 0 }
   );
   const { data: clients } = trpc.crmClient.list.useQuery();
+  const sheetPull = trpc.makeIntake.pollFromSheet.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(`Pulled ${data.imported} rows from sheet`);
+        refetch();
+      } else {
+        toast.error(data.error || "Failed to pull from sheet");
+      }
+    },
+    onError: (err) => toast.error(err.message),
+  });
   const updateMutation = trpc.makeIntake.update.useMutation({
     onSuccess: () => { refetch(); toast.success("Updated"); },
   });
@@ -111,6 +122,10 @@ export default function IntakeDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => sheetPull.mutate()}>
+            <RefreshCw className={cn("w-4 h-4 mr-1", sheetPull.isPending && "animate-spin")} />
+            {sheetPull.isPending ? "Pulling..." : "Pull from Sheet"}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="w-4 h-4 mr-1" /> Refresh
           </Button>
@@ -157,8 +172,9 @@ export default function IntakeDashboard() {
           <Inbox className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <h3 className="text-lg font-medium text-slate-700">No intake items</h3>
           <p className="text-sm text-slate-500 mt-1">
-            Make.com submissions will appear here. Webhook URL:<br />
-            <code className="bg-slate-100 px-2 py-1 rounded text-xs mt-2 inline-block">POST /api/intake/webhook</code>
+            Click "Pull from Sheet" to load data from the Google Sheet.
+            <br />
+            <span className="text-xs text-slate-400">Sheet: 1lDtTggtV6YnGENYPXEZXng6gV2wclADGUgKqntWnql8</span>
           </p>
         </Card>
       ) : (

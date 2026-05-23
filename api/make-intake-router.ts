@@ -2,9 +2,99 @@ import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { sql } from "drizzle-orm";
+import { connectedAccounts } from "../db/schema";
+import { eq } from "drizzle-orm";
+
+const SHEET_ID = "1lDtTggtV6YnGENYPXEZXng6gV2wclADGUgKqntWnql8";
+
+async function getGoogleToken(db: any) {
+  const rows = await db.select().from(connectedAccounts)
+    .where(eq(connectedAccounts.provider, "google"))
+    .limit(1);
+  return rows[0]?.accessToken || null;
+}
+
+async function readSheet(accessToken: string, sheetId: string) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/Sheet1`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Sheets API error: ${res.status} ${err}`);
+  }
+  const data = await res.json();
+  return data.values || [];
+}
+
+function parseSheetRows(values: any[][]): any[] {
+  if (values.length < 2) return [];
+  const headers = values[0].map((h: string) => h.toLowerCase().trim().replace(/\s+/g, "_"));
+  const rows: any[] = [];
+  for (let i = 1; i < values.length; i++) {
+    const row: Record<string, any> = {};
+    for (let j = 0; j < headers.length; j++) {
+      row[headers[j]] = values[i][j] ?? null;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
 
 export const makeIntakeRouter = createRouter({
-  // PUBLIC webhook — Make.com posts here (no auth required)
+  // Pull from Google Sheet (read-only — never edits the sheet)
+  pollFromSheet: publicQuery
+    .mutation(async () => {
+      const db = getDb();
+      const token = await getGoogleToken(db);
+      if (!token) {
+        return { success: false, error: "No Google account connected. Connect in Integrations first." };
+      }
+
+      const values = await readSheet(token, SHEET_ID);
+      const rows = parseSheetRows(values);
+      const now = new Date();
+      let imported = 0;
+
+      for (const row of rows) {
+        const raw = JSON.stringify(row);
+        const extract = (...keys: string[]) => {
+          for (const k of keys) if (row[k] != null && row[k] !== "") return String(row[k]);
+          return null;
+        };
+
+        const id      = extract("id", "entry_id", "make_id", "submission_id", "timestamp");
+        const client  = extract("client", "client_name", "company", "customer");
+        const contact = extract("name", "contact_name", "full_name", "submitter");
+        const email   = extract("email", "email_address", "contact_email");
+        const phone   = extract("phone", "phone_number", "contact_phone");
+        const subject = extract("subject", "topic", "title", "description", "note", "message");
+        const amount  = extract("amount", "total", "value", "cost");
+        const vendor  = extract("vendor", "vendor_name", "supplier", "payee");
+        const docType = extract("type", "document_type", "category", "form_type");
+        const url     = extract("url", "link", "file_url", "drive_url", "attachment", "file_link");
+
+        await db.run(sql`
+          INSERT INTO make_intake (
+            make_id, raw_payload,
+            client_name, contact_name, email, phone,
+            subject, amount, vendor, document_type, file_url,
+            status, created_at, updated_at
+          ) VALUES (
+            ${id ?? null}, ${raw},
+            ${client}, ${contact}, ${email}, ${phone},
+            ${subject}, ${amount ? parseFloat(amount) || null : null}, ${vendor}, ${docType}, ${url},
+            'new', ${now}, ${now}
+          )
+          ON CONFLICT DO NOTHING
+        `);
+        imported++;
+      }
+
+      return { success: true, imported, totalRows: rows.length };
+    }),
+
+  // Keep webhook for direct Make.com push as backup
   receive: publicQuery
     .input(z.record(z.any()))
     .mutation(async ({ input }) => {
