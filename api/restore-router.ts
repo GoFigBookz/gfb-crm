@@ -5,6 +5,7 @@ import { clients, clientOnboarding, tasks, clientTaskRules, users as usersTable 
 import { eq, count } from "drizzle-orm";
 import { createClientTaskRules, buildTaskRules, calculateNextDueDate } from "./task-generator";
 
+// Client master data — extracted from GFB_Client_Master_Government_Data_R2_CLEAN.xlsx
 const CLIENT_SEED = [
   { name: "ORIGINALITY.AI INC.", email: "support@originality.ai", phone: null, company: "Originality.AI", address: "64 Hurontario St, Collingwood, ON", industry: "technology", province: "ON", qboAccountType: "ca_clients", figgyEmail: "markie+originalityaiinc@gofig.ca", contactName: "Jon Gillham", notes: "AI content detection. Jon Gillham group." },
   { name: "CLARK POOLS COLLINGWOOD", email: "office@clarkpoolscollingwood.com", phone: "(705) 445-6165", company: "Clark Pools Collingwood", address: "20 Balsam St, Collingwood, ON", industry: "other", province: "ON", qboAccountType: "ca_clients", figgyEmail: "markie+clarkpoolscollingwood@gofig.ca", contactName: "Jon Gillham", notes: "Pool and spa. Biweekly payroll. Jon Gillham group." },
@@ -250,6 +251,91 @@ export const restoreRouter = createRouter({
       return {
         success: true,
         message: `Force-restored ${results.clientsCreated} clients, ${results.onboardingCreated} onboarding records, and ${results.tasksCreated} tasks.`,
+        ...results,
+      };
+    }),
+
+  // Bulk update client business info from master data
+  bulkUpdateBusinessInfo: publicQuery
+    .input(z.array(z.object({
+      name: z.string(),
+      taxId: z.string().nullable().optional(),
+      hstNumber: z.string().nullable().optional(),
+      hasHST: z.boolean().optional(),
+      hstPeriod: z.string().nullable().optional(),
+      payrollFrequency: z.string().nullable().optional(),
+      hasPayroll: z.boolean().optional(),
+      hasWSIB: z.boolean().optional(),
+      yearEndMonth: z.string().nullable().optional(),
+      contactName: z.string().nullable().optional(),
+      phone: z.string().nullable().optional(),
+      email: z.string().nullable().optional(),
+      address: z.string().nullable().optional(),
+      industry: z.string().nullable().optional(),
+      notes: z.string().nullable().optional(),
+    })))
+    .mutation(async ({ input }) => {
+      const { createClient } = await import("@libsql/client");
+      const path = await import("path");
+      const cwd = process.cwd();
+      const isInDist = cwd.endsWith('/dist') || cwd.endsWith('\\dist');
+      const basePath = isInDist ? path.resolve(cwd, '..') : cwd;
+      const dbPath = path.resolve(basePath, "data", "crm.db");
+      const rawClient = createClient({ url: `file:${dbPath}` });
+
+      const results = { updated: 0, notFound: 0, errors: [] as string[] };
+
+      for (const data of input) {
+        try {
+          // Find client by exact or partial name match
+          const findResult = await rawClient.execute({
+            sql: `SELECT id FROM clients WHERE name LIKE ? OR name LIKE ? LIMIT 1`,
+            args: [`%${data.name}%`, `%${data.name.replace(/\s+/g, '%')}%`]
+          });
+          const rows = findResult.rows;
+          if (!rows || rows.length === 0) {
+            results.notFound++;
+            continue;
+          }
+          const clientId = rows[0].id;
+
+          // Update business fields
+          await rawClient.execute({
+            sql: `UPDATE clients SET
+              taxId = ?, hasHST = ?, hstNumber = ?, hstPeriod = ?,
+              hasPayroll = ?, payrollFrequency = ?, hasWSIB = ?, yearEndMonth = ?,
+              contactName = ?, phone = ?, email = ?, address = ?, industry = ?, notes = ?,
+              updatedAt = ?
+              WHERE id = ?`,
+            args: [
+              data.taxId ?? null,
+              data.hasHST ? 1 : 0,
+              data.hstNumber ?? null,
+              data.hstPeriod ?? null,
+              data.hasPayroll ? 1 : 0,
+              data.payrollFrequency ?? null,
+              data.hasWSIB ? 1 : 0,
+              data.yearEndMonth ?? null,
+              data.contactName ?? null,
+              data.phone ?? null,
+              data.email ?? null,
+              data.address ?? null,
+              data.industry ?? null,
+              data.notes ?? null,
+              Date.now(),
+              clientId,
+            ]
+          });
+          results.updated++;
+        } catch (e: any) {
+          results.errors.push(`${data.name}: ${e.message}`);
+        }
+      }
+
+      rawClient.close();
+      return {
+        success: true,
+        message: `Updated ${results.updated} clients. ${results.notFound} not found. ${results.errors.length} errors.`,
         ...results,
       };
     }),
