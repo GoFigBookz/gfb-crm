@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   Shield, CheckCircle, AlertTriangle, Clock,
-  RefreshCw, Mail, Brain, Landmark, ChevronRight,
+  RefreshCw, Mail, Link2, Brain, Landmark, ChevronRight,
   XCircle, BarChart3, FileText, CheckSquare,
-  Bot, Activity, Zap, Inbox, ExternalLink, Download,
+  Bot, Activity, Zap, Inbox, ExternalLink, Database,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,29 +13,25 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 /* ─── Types ─── */
-interface MakeSubmission {
+interface TriageItem {
   id: number;
-  source: string;
-  payload: string;
+  sourceType: string;
+  vendorName: string | null;
+  description: string | null;
+  amount: number | null;
+  totalAmount: number | null;
+  currency: string;
+  transactionDate: string | null;
   status: string;
-  notes: string | null;
+  suggestedClientId: number | null;
+  assignedClientId: number | null;
+  confidenceScore: number | null;
+  fileUrl: string | null;
+  aiSuggestion: string | null;
   createdAt: string;
-  updatedAt: string;
-}
-
-interface ParsedPayload {
-  [key: string]: any;
 }
 
 /* ─── Helpers ─── */
-function parsePayload(payload: string): ParsedPayload {
-  try {
-    return JSON.parse(payload);
-  } catch {
-    return {};
-  }
-}
-
 function timeAgo(date: string): string {
   const diff = Date.now() - new Date(date).getTime();
   const mins = Math.floor(diff / 60000);
@@ -46,29 +42,37 @@ function timeAgo(date: string): string {
   return `${Math.floor(hrs / 24)} days ago`;
 }
 
+function formatCurrency(amount: number | null, currency = "CAD"): string {
+  if (!amount) return "—";
+  return new Intl.NumberFormat("en-CA", { style: "currency", currency }).format(amount);
+}
+
 const statusColors: Record<string, { bg: string; text: string; border: string }> = {
-  new: { bg: "bg-amber-50", text: "text-amber-600", border: "border-amber-200" },
-  reviewed: { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-200" },
+  pending: { bg: "bg-amber-50", text: "text-amber-600", border: "border-amber-200" },
+  needs_client: { bg: "bg-orange-50", text: "text-orange-600", border: "border-orange-200" },
+  needs_vendor: { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-200" },
+  ready_to_approve: { bg: "bg-purple-50", text: "text-purple-600", border: "border-purple-200" },
   approved: { bg: "bg-lime-50", text: "text-lime-600", border: "border-lime-200" },
-  rejected: { bg: "bg-red-50", text: "text-red-600", border: "border-red-200" },
   posted: { bg: "bg-green-50", text: "text-green-600", border: "border-green-200" },
+  rejected: { bg: "bg-red-50", text: "text-red-600", border: "border-red-200" },
+  duplicate: { bg: "bg-slate-100", text: "text-slate-500", border: "border-slate-200" },
 };
 
 /* ─── Component ─── */
 export default function TriageDashboard() {
   const navigate = useNavigate();
   const [refreshing, setRefreshing] = useState(false);
-  const [submissions, setSubmissions] = useState<MakeSubmission[]>([]);
+  const [triageItems, setTriageItems] = useState<TriageItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSubmissions = async () => {
+  const fetchTriage = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/make-webhook/list?limit=50");
+      const res = await fetch("/api/triage-intake/queue?status=all&limit=50");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setSubmissions(data.items || []);
+      setTriageItems(data.items || []);
       setError(null);
     } catch (e: any) {
       setError(e.message);
@@ -78,51 +82,44 @@ export default function TriageDashboard() {
   };
 
   useEffect(() => {
-    fetchSubmissions();
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchSubmissions, 30000);
+    fetchTriage();
+    const interval = setInterval(fetchTriage, 30000);
     return () => clearInterval(interval);
   }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchSubmissions();
+    await fetchTriage();
     setTimeout(() => setRefreshing(false), 500);
   };
 
-  const updateStatus = async (id: number, status: string, notes?: string) => {
+  const handlePullFromSheet = async () => {
+    setRefreshing(true);
     try {
-      const res = await fetch(`/api/make-webhook/${id}/status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, notes }),
-      });
-      if (res.ok) fetchSubmissions();
+      const res = await fetch("/api/triage-intake/pull", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        await fetchTriage();
+      }
     } catch (e) {
       console.error(e);
+    } finally {
+      setRefreshing(false);
     }
   };
 
-  const newCount = submissions.filter(s => s.status === "new").length;
-  const reviewedCount = submissions.filter(s => s.status === "reviewed").length;
-  const approvedCount = submissions.filter(s => s.status === "approved").length;
+  const pendingCount = triageItems.filter(i => ["pending", "needs_client", "needs_vendor"].includes(i.status)).length;
+  const approvedCount = triageItems.filter(i => i.status === "approved").length;
+  const postedCount = triageItems.filter(i => i.status === "posted").length;
 
   const stats = [
     {
-      label: "New Submissions",
-      value: String(newCount),
-      sub: "needs review",
+      label: "Needs Review",
+      value: String(pendingCount),
+      sub: "items waiting",
       icon: Inbox,
       color: "text-amber-600",
       bg: "bg-amber-50",
-    },
-    {
-      label: "Reviewed",
-      value: String(reviewedCount),
-      sub: "in progress",
-      icon: CheckSquare,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
     },
     {
       label: "Approved",
@@ -133,9 +130,17 @@ export default function TriageDashboard() {
       bg: "bg-lime-50",
     },
     {
-      label: "Total Today",
-      value: String(submissions.filter(s => new Date(s.createdAt).toDateString() === new Date().toDateString()).length),
-      sub: "submissions",
+      label: "Posted",
+      value: String(postedCount),
+      sub: "to QBO/Drive",
+      icon: CheckSquare,
+      color: "text-green-600",
+      bg: "bg-green-50",
+    },
+    {
+      label: "Total",
+      value: String(triageItems.length),
+      sub: "in queue",
       icon: BarChart3,
       color: "text-purple-600",
       bg: "bg-purple-50",
@@ -143,7 +148,7 @@ export default function TriageDashboard() {
   ];
 
   const systemHealth = [
-    { name: "Make.com Webhook", status: "Active", icon: Zap, color: "text-lime-600", bg: "bg-lime-50" },
+    { name: "Google Sheets", status: "Connected", icon: Database, color: "text-lime-600", bg: "bg-lime-50" },
     { name: "QBO Connection", status: "Connected", icon: Landmark, color: "text-lime-600", bg: "bg-lime-50" },
     { name: "Email Processing", status: "Active", icon: Mail, color: "text-lime-600", bg: "bg-lime-50" },
     { name: "AI Model", status: "Running", icon: Brain, color: "text-lime-600", bg: "bg-lime-50" },
@@ -156,14 +161,18 @@ export default function TriageDashboard() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <Shield className="h-6 w-6 text-lime-500" />
-            Figgy Jr — Make.com Form Dashboard
+            Figgy Jr — Form Intake
           </h1>
-          <p className="text-slate-500">Submissions from your Make.com form appear here automatically.</p>
+          <p className="text-slate-500">Pulls from your Google Sheet automatically.</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handlePullFromSheet} disabled={refreshing}>
+            <RefreshCw className={cn("h-4 w-4 mr-1", refreshing && "animate-spin")} />
+            {refreshing ? "Pulling..." : "Pull from Sheet"}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
             <RefreshCw className={cn("h-4 w-4 mr-1", refreshing && "animate-spin")} />
-            {refreshing ? "Syncing..." : "Refresh"}
+            Refresh
           </Button>
         </div>
       </div>
@@ -198,12 +207,12 @@ export default function TriageDashboard() {
           <Mail className="h-4 w-4 mr-1" /> Process Emails
         </Button>
         <Badge variant="outline" className="ml-auto bg-purple-50 text-purple-700 border-purple-200">
-          <Zap className="h-3 w-3 mr-1" /> Make.com Connected
+          <Zap className="h-3 w-3 mr-1" /> Google Sheets
         </Badge>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Submissions List */}
+        {/* Left: Triage Items */}
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -220,7 +229,7 @@ export default function TriageDashboard() {
               {loading && (
                 <div className="p-8 text-center text-slate-400">
                   <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
-                  Loading submissions...
+                  Loading...
                 </div>
               )}
               {error && (
@@ -229,73 +238,49 @@ export default function TriageDashboard() {
                   {error}
                 </div>
               )}
-              {!loading && submissions.length === 0 && (
+              {!loading && triageItems.length === 0 && (
                 <div className="p-8 text-center text-slate-400">
                   <Inbox className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                  <p className="text-sm">No submissions yet.</p>
-                  <p className="text-xs mt-1">Configure your Make.com form to POST to:<br/>
-                    <code className="bg-slate-100 px-2 py-1 rounded text-xs">https://figgy.gofig.ca/api/make-webhook</code>
-                  </p>
+                  <p className="text-sm">No items yet.</p>
+                  <p className="text-xs mt-1">Click "Pull from Sheet" to load from Google Sheets.</p>
                 </div>
               )}
-              <div className="space-y-2">
-                {submissions.map((sub) => {
-                  const payload = parsePayload(sub.payload);
-                  const cfg = statusColors[sub.status] || statusColors.new;
-                  // Extract common form fields
-                  const title = payload["Vendor"] || payload["vendor"] || payload["Company"] || payload["Name"] || "Form Submission";
-                  const detail = payload["Description"] || payload["description"] || payload["Notes"] || payload["notes"] || "";
-                  const amount = payload["Amount"] || payload["amount"] || payload["Total"] || payload["total"] || "";
-                  const email = payload["Email"] || payload["email"] || payload["Contact"] || "";
-                  
+              <div className="space-y-1">
+                {triageItems.map((item) => {
+                  const cfg = statusColors[item.status] || statusColors.pending;
                   return (
                     <div
-                      key={sub.id}
-                      className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-100"
+                      key={item.id}
+                      className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/tasks`)}
                     >
                       <div className={cn("p-1.5 rounded-md flex-shrink-0 mt-0.5", cfg.bg)}>
                         <FileText className={cn("h-4 w-4", cfg.text)} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-slate-800">{title}</span>
-                          {amount && (
-                            <span className="text-sm font-semibold text-slate-600">{amount}</span>
-                          )}
+                          <span className="text-sm font-medium text-slate-800">
+                            {item.vendorName || "Unknown"}
+                          </span>
+                          <span className="text-sm text-slate-500">
+                            — {item.description || "No description"}
+                          </span>
                         </div>
-                        {detail && (
-                          <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{detail}</p>
-                        )}
-                        {email && (
-                          <p className="text-xs text-slate-400 mt-0.5">{email}</p>
-                        )}
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-slate-400">{timeAgo(sub.createdAt)}</span>
-                          <span className="text-xs text-slate-400">• ID: {sub.id}</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1 items-end">
-                        <Badge variant="outline" className={cn("text-xs", cfg.bg, cfg.text, cfg.border)}>
-                          {sub.status}
-                        </Badge>
-                        <div className="flex gap-1 mt-1">
-                          {sub.status === "new" && (
-                            <>
-                              <Button size="sm" className="h-6 text-xs bg-lime-500 px-2" onClick={() => updateStatus(sub.id, "approved")}>
-                                Approve
-                              </Button>
-                              <Button variant="outline" size="sm" className="h-6 text-xs px-2" onClick={() => updateStatus(sub.id, "reviewed")}>
-                                Review
-                              </Button>
-                            </>
-                          )}
-                          {sub.status === "reviewed" && (
-                            <Button size="sm" className="h-6 text-xs bg-lime-500 px-2" onClick={() => updateStatus(sub.id, "approved")}>
-                              Approve
-                            </Button>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs text-slate-400">{timeAgo(item.createdAt)}</span>
+                          <span className="text-xs font-medium text-slate-600">
+                            {formatCurrency(item.totalAmount || item.amount, item.currency)}
+                          </span>
+                          {item.transactionDate && (
+                            <span className="text-xs text-slate-400">
+                              {format(new Date(item.transactionDate), "MMM d")}
+                            </span>
                           )}
                         </div>
                       </div>
+                      <Badge variant="outline" className={cn("text-xs flex-shrink-0", cfg.bg, cfg.text, cfg.border)}>
+                        {item.status.replace("_", " ")}
+                      </Badge>
                     </div>
                   );
                 })}
@@ -304,9 +289,8 @@ export default function TriageDashboard() {
           </Card>
         </div>
 
-        {/* Right: System Health + Quick Stats */}
+        {/* Right: System Health + Sheet Info */}
         <div className="space-y-6">
-          {/* System Health */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -329,69 +313,24 @@ export default function TriageDashboard() {
                   </div>
                 );
               })}
-              <p className="text-xs text-slate-400 text-center pt-1">
-                Last checked: {format(new Date(), "h:mm a")}
-              </p>
             </CardContent>
           </Card>
 
-          {/* Webhook URL Card */}
           <Card className="border-lime-200 bg-lime-50/30">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2 text-sm">
-                <ExternalLink className="h-4 w-4 text-lime-500" />
-                Webhook URL
+                <Database className="h-4 w-4 text-lime-500" />
+                Google Sheets Sync
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-slate-600 mb-2">
-                Point your Make.com HTTP module to this URL:
+                Set your spreadsheet ID to auto-pull:
               </p>
               <code className="block bg-white border rounded p-2 text-xs break-all font-mono text-slate-700">
-                https://figgy.gofig.ca/api/make-webhook
+                POST /api/triage-intake/config
+                {"spreadsheetId": "YOUR_ID"}
               </code>
-              <p className="text-xs text-slate-400 mt-2">
-                Method: POST • Content-Type: application/json
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity Summary */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2 text-sm">
-                <BarChart3 className="h-4 w-4 text-lime-500" />
-                This Week
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, i) => {
-                  const daySubs = submissions.filter(s => {
-                    const d = new Date(s.createdAt);
-                    const today = new Date();
-                    const dayDiff = today.getDay() === 0 ? 6 : today.getDay() - 1;
-                    const startOfWeek = new Date(today);
-                    startOfWeek.setDate(today.getDate() - dayDiff);
-                    startOfWeek.setHours(0,0,0,0);
-                    const targetDay = new Date(startOfWeek);
-                    targetDay.setDate(startOfWeek.getDate() + i);
-                    return d.toDateString() === targetDay.toDateString();
-                  });
-                  return (
-                    <div key={day} className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500 w-8">{day}</span>
-                      <div className="flex-1 mx-2 h-4 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-lime-400 rounded-full"
-                          style={{ width: `${Math.min(daySubs.length * 10, 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-slate-600 w-6 text-right">{daySubs.length}</span>
-                    </div>
-                  );
-                })}
-              </div>
             </CardContent>
           </Card>
         </div>

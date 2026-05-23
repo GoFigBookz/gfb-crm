@@ -6,7 +6,6 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import type { HttpBindings } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
-import { makeWebhookRouter } from "./make-webhook-router";
 import { triageIntakeRouter } from "./triage-intake-router";
 import { appRouter } from "./router";
 import { createContext } from "./context";
@@ -329,8 +328,6 @@ app.use("/api/trpc/*", async (c) => {
 // Triage Intake Router (Google Sheets -> CRM)
 app.route("/api/triage-intake", triageIntakeRouter);
 
-// Make.com Webhook Router
-app.route("/api/make-webhook", makeWebhookRouter);
 
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
