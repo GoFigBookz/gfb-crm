@@ -33,12 +33,16 @@ USER_COUNT=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users;")
 echo "[INIT] $USER_COUNT user(s) in database."
 
 if [ -f "$SEED_FILE" ]; then
-  echo "[INIT] Reseeding clients..."
-  sqlite3 "$DB_PATH" "DELETE FROM client_onboarding;" 2>/dev/null || true
-  sqlite3 "$DB_PATH" "DELETE FROM clients;" 2>/dev/null || true
-  sqlite3 "$DB_PATH" < "$SEED_FILE"
-  COUNT=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM clients;")
-  echo "[INIT] Seeded $COUNT clients!"
+  # Only seed if NO clients exist (first-time setup only)
+  CLIENT_COUNT=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM clients;" 2>/dev/null || echo "0")
+  if [ "$CLIENT_COUNT" = "0" ]; then
+    echo "[INIT] First-time setup: seeding clients..."
+    sqlite3 "$DB_PATH" < "$SEED_FILE"
+    COUNT=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM clients;")
+    echo "[INIT] Seeded $COUNT clients!"
+  else
+    echo "[INIT] Database already has $CLIENT_COUNT clients. Skipping seed to preserve data."
+  fi
 else
   echo "[INIT] WARNING: seed-clients.sql not found."
 fi
