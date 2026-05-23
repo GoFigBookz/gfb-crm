@@ -1,5 +1,3 @@
--- Auto-generated schema
-
 CREATE TABLE `ai_agent_configs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` integer NOT NULL,
@@ -19,7 +17,6 @@ CREATE TABLE `ai_agent_configs` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `ai_agent_runs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`agentId` integer NOT NULL,
@@ -34,7 +31,6 @@ CREATE TABLE `ai_agent_runs` (
 	`startedAt` integer,
 	`completedAt` integer
 );
-
 CREATE TABLE `calendar_events` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` integer NOT NULL,
@@ -52,12 +48,12 @@ CREATE TABLE `calendar_events` (
 	`attendees` text,
 	`recurrence` text,
 	`color` text,
+	`meeting_link` text,
 	`isRecurring` integer DEFAULT false NOT NULL,
 	`status` text DEFAULT 'confirmed' NOT NULL,
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `client_dashboard_snapshots` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -73,7 +69,6 @@ CREATE TABLE `client_dashboard_snapshots` (
 	`source` text DEFAULT 'manual',
 	`createdAt` integer
 );
-
 CREATE TABLE `client_emails` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -84,7 +79,6 @@ CREATE TABLE `client_emails` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `client_gov_reps` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -109,7 +103,6 @@ CREATE TABLE `client_gov_reps` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `client_onboarding` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -162,7 +155,7 @@ CREATE TABLE `client_onboarding` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
+CREATE UNIQUE INDEX `client_onboarding_token_unique` ON `client_onboarding` (`token`);
 CREATE TABLE `client_playbooks` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -172,7 +165,7 @@ CREATE TABLE `client_playbooks` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
+CREATE UNIQUE INDEX `client_playbooks_clientId_unique` ON `client_playbooks` (`clientId`);
 CREATE TABLE `client_task_rules` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -195,7 +188,6 @@ CREATE TABLE `client_task_rules` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `client_vault` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -231,7 +223,6 @@ CREATE TABLE `client_vault` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `clients` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` integer NOT NULL,
@@ -244,9 +235,12 @@ CREATE TABLE `clients` (
 	`status` text DEFAULT 'active' NOT NULL,
 	`workflowStatus` text DEFAULT 'new_lead' NOT NULL,
 	`leadSource` text,
+	`leadSourceDetail` text,
 	`discoveryDate` integer,
 	`nextAction` text,
 	`nextActionDate` integer,
+	`estimatedMonthlyValue` real,
+	`leadScore` integer,
 	`painPoints` text,
 	`expectations` text,
 	`serviceTier` text DEFAULT 'standard',
@@ -254,9 +248,23 @@ CREATE TABLE `clients` (
 	`onboardingSentAt` integer,
 	`onboardingCompletedAt` integer,
 	`onboardingToken` text,
+	`hasHST` integer DEFAULT false,
+	`hstNumber` text,
+	`hstPeriod` text,
+	`hasWSIB` integer DEFAULT false,
+	`wsibAccountNumber` text,
+	`wsibQuarter` text,
+	`hasPayroll` integer DEFAULT false,
+	`payrollFrequency` text,
+	`yearEndMonth` text,
+	`quoteAmount` real,
+	`quoteSentAt` integer,
+	`quoteApprovedAt` integer,
+	`transactionsPerMonth` integer DEFAULT 0,
+	`engagementSentAt` integer,
+	`engagementSignedAt` integer,
+	`engagementLetterUrl` text,
 	`assignedTo` text,
-	`notes` text,
-	`googleDriveFolderId` text,
 	`oneDriveFolderId` text,
 	`qboCustomerId` text,
 	`qboConnectionId` integer,
@@ -268,12 +276,12 @@ CREATE TABLE `clients` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `connected_accounts` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` integer NOT NULL,
+	`clientId` integer,
 	`provider` text NOT NULL,
-	`providerAccountId` text NOT NULL,
+	`providerAccountId` text,
 	`accountLabel` text DEFAULT 'Primary' NOT NULL,
 	`accountEmail` text,
 	`accessToken` text,
@@ -286,7 +294,45 @@ CREATE TABLE `connected_accounts` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
+CREATE TABLE `connector_statements` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`clientId` integer NOT NULL,
+	`userId` integer NOT NULL,
+	`connectedAccountId` integer NOT NULL,
+	`provider` text NOT NULL,
+	`periodStart` integer NOT NULL,
+	`periodEnd` integer NOT NULL,
+	`year` integer NOT NULL,
+	`month` integer NOT NULL,
+	`totalRevenue` real DEFAULT 0,
+	`totalExpenses` real DEFAULT 0,
+	`totalFees` real DEFAULT 0,
+	`netAmount` real DEFAULT 0,
+	`transactionCount` integer DEFAULT 0,
+	`rawJson` text,
+	`transactionsJson` text,
+	`fileName` text,
+	`fileUrl` text,
+	`fileMimeType` text,
+	`status` text DEFAULT 'pending' NOT NULL,
+	`errorMessage` text,
+	`reconciled` integer DEFAULT false NOT NULL,
+	`reconciledAt` integer,
+	`createdAt` integer,
+	`updatedAt` integer
+);
+CREATE TABLE `connector_sync_logs` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`connectedAccountId` integer NOT NULL,
+	`clientId` integer NOT NULL,
+	`provider` text NOT NULL,
+	`syncType` text DEFAULT 'all' NOT NULL,
+	`status` text NOT NULL,
+	`recordsSynced` integer DEFAULT 0 NOT NULL,
+	`errorMessage` text,
+	`startedAt` integer,
+	`completedAt` integer
+);
 CREATE TABLE `emails` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` integer NOT NULL,
@@ -314,7 +360,6 @@ CREATE TABLE `emails` (
 	`sentAt` integer,
 	`createdAt` integer
 );
-
 CREATE TABLE `employees` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -357,7 +402,6 @@ CREATE TABLE `employees` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `engagement_letters` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -385,7 +429,6 @@ CREATE TABLE `engagement_letters` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `files` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` integer NOT NULL,
@@ -407,7 +450,6 @@ CREATE TABLE `files` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `interactions` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` integer NOT NULL,
@@ -421,7 +463,6 @@ CREATE TABLE `interactions` (
 	`calendarEventId` integer,
 	`createdAt` integer
 );
-
 CREATE TABLE `invoice_items` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`invoiceId` integer NOT NULL,
@@ -431,7 +472,6 @@ CREATE TABLE `invoice_items` (
 	`amount` real NOT NULL,
 	`createdAt` integer
 );
-
 CREATE TABLE `invoices` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` integer NOT NULL,
@@ -448,7 +488,34 @@ CREATE TABLE `invoices` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
+CREATE TABLE `make_intake` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`make_id` text,
+	`raw_payload` text,
+	`client_name` text,
+	`contact_name` text,
+	`email` text,
+	`phone` text,
+	`subject` text,
+	`amount` real,
+	`vendor` text,
+	`document_type` text,
+	`file_url` text,
+	`status` text DEFAULT 'new' NOT NULL,
+	`notes` text,
+	`assigned_client_id` integer,
+	`createdAt` integer,
+	`updatedAt` integer
+);
+CREATE TABLE `make_submissions` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`source` text DEFAULT 'make.com' NOT NULL,
+	`payload` text NOT NULL,
+	`status` text DEFAULT 'new' NOT NULL,
+	`notes` text,
+	`createdAt` integer,
+	`updatedAt` integer
+);
 CREATE TABLE `missing_items` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -465,7 +532,6 @@ CREATE TABLE `missing_items` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `monthly_close_checklist` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -494,7 +560,6 @@ CREATE TABLE `monthly_close_checklist` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `notifications` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` integer NOT NULL,
@@ -507,7 +572,6 @@ CREATE TABLE `notifications` (
 	`sentVia` text DEFAULT 'in_app' NOT NULL,
 	`createdAt` integer
 );
-
 CREATE TABLE `portal_files` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -527,7 +591,6 @@ CREATE TABLE `portal_files` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `portal_settings` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -541,7 +604,7 @@ CREATE TABLE `portal_settings` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
+CREATE UNIQUE INDEX `portal_settings_clientId_unique` ON `portal_settings` (`clientId`);
 CREATE TABLE `portal_tokens` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -552,7 +615,7 @@ CREATE TABLE `portal_tokens` (
 	`lastUsedAt` integer,
 	`createdAt` integer
 );
-
+CREATE UNIQUE INDEX `portal_tokens_token_unique` ON `portal_tokens` (`token`);
 CREATE TABLE `qbo_accounts` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`connectionId` integer NOT NULL,
@@ -568,7 +631,6 @@ CREATE TABLE `qbo_accounts` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `qbo_connections` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` integer NOT NULL,
@@ -580,12 +642,12 @@ CREATE TABLE `qbo_connections` (
 	`expiresAt` integer,
 	`environment` text DEFAULT 'sandbox' NOT NULL,
 	`accountType` text DEFAULT 'ca_clients' NOT NULL,
+	`clientId` integer,
 	`isActive` integer DEFAULT true NOT NULL,
 	`lastSyncedAt` integer,
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `qbo_customers` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`connectionId` integer NOT NULL,
@@ -625,7 +687,6 @@ CREATE TABLE `qbo_customers` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `qbo_invoices` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`connectionId` integer NOT NULL,
@@ -642,11 +703,14 @@ CREATE TABLE `qbo_invoices` (
 	`lineItems` text,
 	`memo` text,
 	`privateNote` text,
+	`reviewStatus` text DEFAULT 'pending',
+	`reviewedBy` integer,
+	`reviewedAt` integer,
+	`reviewNotes` text,
 	`lastUpdatedAt` integer,
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `qbo_payments` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`connectionId` integer NOT NULL,
@@ -659,11 +723,14 @@ CREATE TABLE `qbo_payments` (
 	`transactionDate` integer,
 	`status` text,
 	`memo` text,
+	`reviewStatus` text DEFAULT 'pending',
+	`reviewedBy` integer,
+	`reviewedAt` integer,
+	`reviewNotes` text,
 	`lastUpdatedAt` integer,
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `qbo_sync_logs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`connectionId` integer NOT NULL,
@@ -674,7 +741,6 @@ CREATE TABLE `qbo_sync_logs` (
 	`startedAt` integer,
 	`completedAt` integer
 );
-
 CREATE TABLE `recurring_tasks` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` integer NOT NULL,
@@ -693,7 +759,6 @@ CREATE TABLE `recurring_tasks` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `satisfaction_scores` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -703,7 +768,21 @@ CREATE TABLE `satisfaction_scores` (
 	`callType` text DEFAULT 'check_in',
 	`createdAt` integer
 );
-
+CREATE TABLE `sender_rules` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`clientId` integer,
+	`fromAddress` text NOT NULL,
+	`fromName` text NOT NULL,
+	`replyTo` text,
+	`isDefault` integer DEFAULT false NOT NULL,
+	`clientEmailDomain` text,
+	`clientNamePattern` text,
+	`priority` integer DEFAULT 0 NOT NULL,
+	`notes` text,
+	`isActive` integer DEFAULT true NOT NULL,
+	`createdAt` integer,
+	`updatedAt` integer
+);
 CREATE TABLE `signature_documents` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -727,7 +806,6 @@ CREATE TABLE `signature_documents` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `tasks` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` integer NOT NULL,
@@ -747,10 +825,10 @@ CREATE TABLE `tasks` (
 	`googleCalendarEventId` text,
 	`googleTaskId` text,
 	`outlookTaskId` text,
+	`microsoftTaskId` text,
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `time_entries` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -765,7 +843,6 @@ CREATE TABLE `time_entries` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `timesheets` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -786,7 +863,6 @@ CREATE TABLE `timesheets` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
 CREATE TABLE `triage_findings` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`agentName` text NOT NULL,
@@ -805,7 +881,50 @@ CREATE TABLE `triage_findings` (
 	`reviewedNotes` text,
 	`createdAt` integer
 );
-
+CREATE TABLE `triage_queue` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`sourceType` text NOT NULL,
+	`sourceId` text,
+	`sourceEmail` text,
+	`sourceUrl` text,
+	`documentType` text DEFAULT 'receipt' NOT NULL,
+	`vendorName` text,
+	`vendorId` integer,
+	`invoiceNumber` text,
+	`description` text,
+	`amount` real,
+	`hstAmount` real,
+	`totalAmount` real,
+	`currency` text DEFAULT 'CAD',
+	`transactionDate` integer,
+	`dueDate` integer,
+	`suggestedAccount` text,
+	`suggestedAccountId` text,
+	`suggestedHstCode` text,
+	`suggestedHstCodeId` text,
+	`suggestedClientId` integer,
+	`assignedClientId` integer,
+	`confidenceScore` integer,
+	`fileUrl` text,
+	`fileName` text,
+	`mimeType` text,
+	`driveFileId` text,
+	`qboConnectionId` integer,
+	`qboBillId` text,
+	`qboInvoiceId` text,
+	`qboPaymentId` text,
+	`status` text DEFAULT 'pending' NOT NULL,
+	`actionTaken` text DEFAULT 'none',
+	`aiSuggestion` text,
+	`aiFlags` text,
+	`reviewedBy` integer,
+	`reviewedAt` integer,
+	`reviewerNotes` text,
+	`createdAt` integer,
+	`updatedAt` integer,
+	`postedAt` integer,
+	`staleNotifiedAt` integer
+);
 CREATE TABLE `user_settings` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`userId` integer NOT NULL,
@@ -826,7 +945,7 @@ CREATE TABLE `user_settings` (
 	`createdAt` integer,
 	`updatedAt` integer
 );
-
+CREATE UNIQUE INDEX `user_settings_userId_unique` ON `user_settings` (`userId`);
 CREATE TABLE `users` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`unionId` text,
@@ -843,7 +962,8 @@ CREATE TABLE `users` (
 	`updatedAt` integer,
 	`lastSignInAt` integer
 );
-
+CREATE UNIQUE INDEX `users_unionId_unique` ON `users` (`unionId`);
+CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);
 CREATE TABLE `workflow_logs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`clientId` integer NOT NULL,
@@ -854,24 +974,3 @@ CREATE TABLE `workflow_logs` (
 	`performedBy` integer,
 	`createdAt` integer
 );
-
-CREATE TABLE `make_intake` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`make_id` text,
-	`raw_payload` text,
-	`client_name` text,
-	`contact_name` text,
-	`email` text,
-	`phone` text,
-	`subject` text,
-	`amount` real,
-	`vendor` text,
-	`document_type` text,
-	`file_url` text,
-	`status` text DEFAULT 'new' NOT NULL,
-	`notes` text,
-	`assigned_client_id` integer,
-	`created_at` integer,
-	`updated_at` integer
-);
-

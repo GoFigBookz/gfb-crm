@@ -5,26 +5,31 @@ SEED_FILE="/app/db/seed-clients.sql"
 
 echo "[INIT] Starting GFB CRM init..."
 
+# Check if database exists and has the full schema (check for a column that only exists in new schema)
+NEEDS_RECREATE=0
 if [ ! -f "$DB_PATH" ]; then
-  echo "[INIT] Database not found. Creating from schema..."
+  echo "[INIT] Database not found. Will create."
+  NEEDS_RECREATE=1
+else
+  # Check if the clients table has the 'hasHST' column (new schema has it, old doesn't)
+  HAS_HST=$(sqlite3 "$DB_PATH" "PRAGMA table_info(clients)" | grep -c "hasHST" || echo "0")
+  if [ "$HAS_HST" = "0" ]; then
+    echo "[INIT] Old schema detected (missing hasHST column). Recreating database..."
+    NEEDS_RECREATE=1
+  else
+    echo "[INIT] Database exists with correct schema."
+  fi
+fi
+
+if [ "$NEEDS_RECREATE" = "1" ]; then
+  rm -f "$DB_PATH"
   if [ -f "$SCHEMA_FILE" ]; then
     sqlite3 "$DB_PATH" < "$SCHEMA_FILE"
-    echo "[INIT] Schema created."
+    echo "[INIT] Schema created from schema.sql"
   else
     echo "[INIT] WARNING: schema.sql not found."
   fi
-else
-  echo "[INIT] Database exists."
 fi
-
-echo "[INIT] Running migrations..."
-sqlite3 "$DB_PATH" "ALTER TABLE clients ADD COLUMN industry text DEFAULT 'other';" 2>/dev/null || true
-sqlite3 "$DB_PATH" "ALTER TABLE clients ADD COLUMN province text DEFAULT 'ON';" 2>/dev/null || true
-sqlite3 "$DB_PATH" "ALTER TABLE clients ADD COLUMN qboAccountType text DEFAULT 'ca_clients';" 2>/dev/null || true
-sqlite3 "$DB_PATH" "ALTER TABLE clients ADD COLUMN figgyEmail text;" 2>/dev/null || true
-sqlite3 "$DB_PATH" "ALTER TABLE clients ADD COLUMN contactName text;" 2>/dev/null || true
-sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS make_intake (id integer PRIMARY KEY AUTOINCREMENT NOT NULL, make_id text, raw_payload text, client_name text, contact_name text, email text, phone text, subject text, amount real, vendor text, document_type text, file_url text, status text DEFAULT 'new' NOT NULL, notes text, assigned_client_id integer, created_at integer, updated_at integer);" 2>/dev/null || true
-echo "[INIT] Migrations complete."
 
 # Create default admin user if none exists
 echo "[INIT] Ensuring admin user exists..."
@@ -32,8 +37,8 @@ sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO users (unionId, email, name, role, aut
 USER_COUNT=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM users;")
 echo "[INIT] $USER_COUNT user(s) in database."
 
+# Seed clients only on first-time setup
 if [ -f "$SEED_FILE" ]; then
-  # Only seed if NO clients exist (first-time setup only)
   CLIENT_COUNT=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM clients;" 2>/dev/null || echo "0")
   if [ "$CLIENT_COUNT" = "0" ]; then
     echo "[INIT] First-time setup: seeding clients..."
@@ -41,7 +46,7 @@ if [ -f "$SEED_FILE" ]; then
     COUNT=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM clients;")
     echo "[INIT] Seeded $COUNT clients!"
   else
-    echo "[INIT] Database already has $CLIENT_COUNT clients. Skipping seed to preserve data."
+    echo "[INIT] Database already has $CLIENT_COUNT clients. Skipping seed."
   fi
 else
   echo "[INIT] WARNING: seed-clients.sql not found."
