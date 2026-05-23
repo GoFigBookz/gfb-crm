@@ -88,6 +88,36 @@ export const restoreRouter = createRouter({
       const dbPath = path.resolve(basePath, "data", "crm.db");
       const rawClient = createClient({ url: `file:${dbPath}` });
 
+      // Schema repair: add missing columns that Drizzle expects
+      const repairSqls = [
+        `ALTER TABLE clients ADD COLUMN leadSourceDetail text;`,
+        `ALTER TABLE clients ADD COLUMN estimatedMonthlyValue real;`,
+        `ALTER TABLE clients ADD COLUMN leadScore integer;`,
+        `ALTER TABLE clients ADD COLUMN hasHST integer DEFAULT 0;`,
+        `ALTER TABLE clients ADD COLUMN hstNumber text;`,
+        `ALTER TABLE clients ADD COLUMN hstPeriod text;`,
+        `ALTER TABLE clients ADD COLUMN hasWSIB integer DEFAULT 0;`,
+        `ALTER TABLE clients ADD COLUMN wsibAccountNumber text;`,
+        `ALTER TABLE clients ADD COLUMN wsibQuarter text;`,
+        `ALTER TABLE clients ADD COLUMN hasPayroll integer DEFAULT 0;`,
+        `ALTER TABLE clients ADD COLUMN payrollFrequency text;`,
+        `ALTER TABLE clients ADD COLUMN yearEndMonth text;`,
+        `ALTER TABLE clients ADD COLUMN quoteAmount real;`,
+        `ALTER TABLE clients ADD COLUMN quoteSentAt integer;`,
+        `ALTER TABLE clients ADD COLUMN quoteApprovedAt integer;`,
+        `ALTER TABLE clients ADD COLUMN transactionsPerMonth integer DEFAULT 0;`,
+        `ALTER TABLE clients ADD COLUMN engagementSentAt integer;`,
+        `ALTER TABLE clients ADD COLUMN engagementSignedAt integer;`,
+        `ALTER TABLE clients ADD COLUMN engagementLetterUrl text;`,
+        `ALTER TABLE tasks ADD COLUMN ruleId integer;`,
+        `ALTER TABLE tasks ADD COLUMN isRecurring integer DEFAULT 0;`,
+        `ALTER TABLE tasks ADD COLUMN recurrenceCount integer DEFAULT 1;`,
+        `ALTER TABLE tasks ADD COLUMN microsoftTaskId text;`,
+      ];
+      for (const sql of repairSqls) {
+        await rawClient.execute({ sql }).catch(() => {}); // ignore "duplicate column" errors
+      }
+
       for (const seed of CLIENT_SEED) {
         // Insert only columns that exist in deployed DB schema
         const insertResult = await rawClient.execute({
