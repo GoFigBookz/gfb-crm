@@ -35,6 +35,7 @@ import { agentWebhookRouter } from "./agent-webhook-router";
 import { sheetExportRouter } from "./sheet-export-router";
 import { senderRulesRouter } from "./sender-rules-router";
 import { connectorRouter } from "./connector-router";
+import { restoreRouter } from "./restore-router";
 import { bulkImportRouter } from "./bulk-import-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
@@ -81,6 +82,7 @@ export const appRouter = createRouter({
   googleSync: googleSyncRouter,
   microsoftSync: microsoftSyncRouter,
   bulkImport: bulkImportRouter,
+  restore: restoreRouter,
 });
 
 export type AppRouter = typeof appRouter;
