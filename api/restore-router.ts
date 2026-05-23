@@ -160,31 +160,35 @@ export const restoreRouter = createRouter({
         });
 
         // Create task rules and first tasks using raw SQL (bypass Drizzle schema mismatch)
-        const rules = buildTaskRules({ clientId, userId, assignedTo: null, fiscalYearEnd: "December 31", ...attrs });
-        for (const rule of rules) {
-          const nextDue = calculateNextDueDate(rule);
-          const ruleResult = await rawClient.execute({
-            sql: `INSERT INTO client_task_rules (clientId, userId, title, description, category, priority, assignedTo, ruleType, frequency, dueDayOfMonth, dueMonth, daysBeforeDue, fiscalYearEndMonth, fiscalYearEndDay, nextDueDate, active, createdAt, updatedAt)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            args: [
-              clientId, userId, rule.title, rule.description || null, rule.category || null,
-              rule.priority, null, rule.ruleType, rule.frequency, rule.dueDayOfMonth,
-              rule.dueMonth || null, rule.daysBeforeDue, rule.fiscalYearEndMonth || null,
-              rule.fiscalYearEndDay || null, nextDue.getTime(), 1, Date.now(), Date.now()
-            ]
-          });
-          const ruleId = Number(ruleResult.lastInsertRowid);
-          if (ruleId) {
-            results.tasksCreated++;
-            await rawClient.execute({
-              sql: `INSERT INTO tasks (userId, clientId, title, description, dueDate, completed, priority, status, category, assignedTo, ruleId, isRecurring, recurrenceCount, createdAt, updatedAt)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        try {
+          const rules = buildTaskRules({ clientId, userId, assignedTo: null, fiscalYearEnd: "December 31", ...attrs });
+          for (const rule of rules) {
+            const nextDue = calculateNextDueDate(rule);
+            const ruleResult = await rawClient.execute({
+              sql: `INSERT INTO client_task_rules (clientId, userId, title, description, category, priority, assignedTo, ruleType, frequency, dueDayOfMonth, dueMonth, daysBeforeDue, fiscalYearEndMonth, fiscalYearEndDay, nextDueDate, active, createdAt, updatedAt)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               args: [
-                userId, clientId, rule.title, rule.description || null, nextDue.getTime(),
-                0, rule.priority, "pending", rule.category || null, null, ruleId, 1, 1, Date.now(), Date.now()
+                clientId, userId, rule.title, rule.description || null, rule.category || null,
+                rule.priority, null, rule.ruleType, rule.frequency, rule.dueDayOfMonth,
+                rule.dueMonth || null, rule.daysBeforeDue, rule.fiscalYearEndMonth || null,
+                rule.fiscalYearEndDay || null, nextDue.getTime(), 1, Date.now(), Date.now()
               ]
             });
+            const ruleId = Number(ruleResult.lastInsertRowid);
+            if (ruleId) {
+              results.tasksCreated++;
+              await rawClient.execute({
+                sql: `INSERT INTO tasks (userId, clientId, title, description, dueDate, completed, priority, status, category, assignedTo, ruleId, isRecurring, recurrenceCount, createdAt, updatedAt)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                args: [
+                  userId, clientId, rule.title, rule.description || null, nextDue.getTime(),
+                  0, rule.priority, "pending", rule.category || null, null, ruleId, 1, 1, Date.now(), Date.now()
+                ]
+              });
+            }
           }
+        } catch (e) {
+          console.error("[RESTORE] Task generation failed for client", clientId, e);
         }
       }
 
