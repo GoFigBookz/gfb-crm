@@ -79,39 +79,65 @@ export const restoreRouter = createRouter({
       const userId = userRows[0]?.id || 1;
       const results = { clientsCreated: 0, onboardingCreated: 0, tasksCreated: 0 };
 
-      for (const seed of CLIENT_SEED) {
-        const [client] = await db.insert(clients).values({
-          userId, name: seed.name, email: seed.email, phone: seed.phone,
-          company: seed.company, address: seed.address, status: "active",
-          workflowStatus: "active", industry: seed.industry, province: seed.province,
-          qboAccountType: seed.qboAccountType, figgyEmail: seed.figgyEmail,
-          contactName: seed.contactName, notes: seed.notes,
-          createdAt: new Date(), updatedAt: new Date(),
-        }).returning();
+      // Use raw SQL to bypass Drizzle schema mismatch on deployed DB
+      const { createClient } = await import("@libsql/client");
+      const path = await import("path");
+      const cwd = process.cwd();
+      const isInDist = cwd.endsWith('/dist') || cwd.endsWith('\\dist');
+      const basePath = isInDist ? path.resolve(cwd, '..') : cwd;
+      const dbPath = path.resolve(basePath, "data", "crm.db");
+      const rawClient = createClient({ url: `file:${dbPath}` });
 
-        if (!client) continue;
+      for (const seed of CLIENT_SEED) {
+        // Insert only columns that exist in deployed DB schema
+        const insertResult = await rawClient.execute({
+          sql: `INSERT INTO clients (userId, name, email, phone, company, address, status, workflowStatus, industry, province, qboAccountType, figgyEmail, contactName, notes, createdAt, updatedAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            userId, seed.name, seed.email, seed.phone || null, seed.company || null,
+            seed.address || null, "active", "active", seed.industry || "other",
+            seed.province || "ON", seed.qboAccountType || "ca_clients",
+            seed.figgyEmail || null, seed.contactName || null, seed.notes || null,
+            Date.now(), Date.now()
+          ]
+        });
+        const clientId = Number(insertResult.lastInsertRowid);
+        if (!clientId) continue;
         results.clientsCreated++;
 
         const attrs = inferClientAttributes(seed.notes || "");
-        const [onboarding] = await db.insert(clientOnboarding).values({
-          clientId: client.id, token: "restored-" + Math.random().toString(36).substring(2, 15),
-          status: "approved", submittedAt: new Date(), reviewedAt: new Date(), reviewedBy: userId,
-          ...attrs, fiscalYearEnd: "December 31",
-        }).returning();
+        
+        // Create onboarding record
+        await rawClient.execute({
+          sql: `INSERT INTO client_onboarding (clientId, token, status, submittedAt, reviewedAt, reviewedBy, fiscalYearEnd, hstGstFrequency, payrollFrequency, hasEmployees, hasSubcontractors, hasInvestments, wsibRequired, bankAccountCount, creditCardCount, needsYearEnd, createdAt, updatedAt)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            clientId, "restored-" + Math.random().toString(36).substring(2, 15),
+            "approved", Date.now(), Date.now(), userId,
+            "December 31", attrs.hstGstFrequency || "none", attrs.payrollFrequency || "none",
+            attrs.hasEmployees ? 1 : 0, attrs.hasSubcontractors ? 1 : 0,
+            attrs.hasInvestments ? 1 : 0, attrs.wsibRequired ? 1 : 0,
+            attrs.bankAccountCount || 1, attrs.creditCardCount || 0,
+            attrs.needsYearEnd !== false ? 1 : 0, Date.now(), Date.now()
+          ]
+        });
+        results.onboardingCreated++;
 
-        if (onboarding) {
-          results.onboardingCreated++;
-          await db.update(clients)
-            .set({ workflowStatus: "active", onboardingCompletedAt: new Date() })
-            .where(eq(clients.id, client.id));
+        // Update client workflow
+        await rawClient.execute({
+          sql: `UPDATE clients SET workflowStatus = ?, onboardingCompletedAt = ? WHERE id = ?`,
+          args: ["active", Date.now(), clientId]
+        });
 
-          const taskResult = await createClientTaskRules({
-            clientId: client.id, userId, assignedTo: null,
-            fiscalYearEnd: "December 31", ...attrs,
-          });
-          results.tasksCreated += taskResult.tasks.length;
-        }
+        // Auto-generate task rules and first tasks using Drizzle (this should work, uses clientTaskRules table)
+        const taskResult = await createClientTaskRules({
+          clientId, userId, assignedTo: null,
+          fiscalYearEnd: "December 31", ...attrs,
+        });
+        results.tasksCreated += taskResult.tasks.length;
       }
+
+      rawClient.close();
 
       return {
         success: true,
