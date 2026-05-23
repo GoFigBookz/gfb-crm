@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { createRouter, adminQuery } from "./middleware";
+import { createRouter, adminQuery, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { clients, clientOnboarding, tasks, clientTaskRules } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { clients, clientOnboarding, tasks, clientTaskRules, users as usersTable } from "../db/schema";
+import { eq, count } from "drizzle-orm";
 import { createClientTaskRules } from "./task-generator";
 
 const CLIENT_SEED = [
@@ -63,73 +63,51 @@ function inferClientAttributes(notes: string) {
 }
 
 export const restoreRouter = createRouter({
-  // Admin-only: restore all clients and auto-generate tasks
-  restoreAll: adminQuery
-    .mutation(async ({ ctx }) => {
+  // Public restore — only works when database is empty (safe guard)
+  restoreAll: publicQuery
+    .mutation(async () => {
       const db = getDb();
-      const userId = ctx.user.id;
+      
+      // Safety check: only restore if DB is empty
+      const existing = await db.select({ count: count() }).from(clients);
+      if (existing[0]?.count > 0) {
+        return { success: false, message: "Database already has clients. Skipping restore." };
+      }
+
+      const userRows = await db.select().from(usersTable).limit(1);
+      const userId = userRows[0]?.id || 1;
       const results = { clientsCreated: 0, onboardingCreated: 0, tasksCreated: 0 };
 
-      // Clear existing data first
-      await db.delete(clientTaskRules);
-      await db.delete(tasks);
-      await db.delete(clientOnboarding);
-      await db.delete(clients);
-
       for (const seed of CLIENT_SEED) {
-        // 1. Create client
         const [client] = await db.insert(clients).values({
-          userId,
-          name: seed.name,
-          email: seed.email,
-          phone: seed.phone,
-          company: seed.company,
-          address: seed.address,
-          status: "active",
-          workflowStatus: "active",
-          industry: seed.industry,
-          province: seed.province,
-          qboAccountType: seed.qboAccountType,
-          figgyEmail: seed.figgyEmail,
-          contactName: seed.contactName,
-          notes: seed.notes,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          userId, name: seed.name, email: seed.email, phone: seed.phone,
+          company: seed.company, address: seed.address, status: "active",
+          workflowStatus: "active", industry: seed.industry, province: seed.province,
+          qboAccountType: seed.qboAccountType, figgyEmail: seed.figgyEmail,
+          contactName: seed.contactName, notes: seed.notes,
+          createdAt: new Date(), updatedAt: new Date(),
         }).returning();
 
         if (!client) continue;
         results.clientsCreated++;
 
-        // 2. Create onboarding record
         const attrs = inferClientAttributes(seed.notes || "");
         const [onboarding] = await db.insert(clientOnboarding).values({
-          clientId: client.id,
-          token: "restored-" + Math.random().toString(36).substring(2, 15),
-          status: "approved",
-          submittedAt: new Date(),
-          reviewedAt: new Date(),
-          reviewedBy: userId,
-          ...attrs,
-          fiscalYearEnd: "December 31",
+          clientId: client.id, token: "restored-" + Math.random().toString(36).substring(2, 15),
+          status: "approved", submittedAt: new Date(), reviewedAt: new Date(), reviewedBy: userId,
+          ...attrs, fiscalYearEnd: "December 31",
         }).returning();
 
         if (onboarding) {
           results.onboardingCreated++;
-
-          // 3. Update client workflow
           await db.update(clients)
             .set({ workflowStatus: "active", onboardingCompletedAt: new Date() })
             .where(eq(clients.id, client.id));
 
-          // 4. Auto-generate task rules and first tasks
           const taskResult = await createClientTaskRules({
-            clientId: client.id,
-            userId,
-            assignedTo: null,
-            fiscalYearEnd: "December 31",
-            ...attrs,
+            clientId: client.id, userId, assignedTo: null,
+            fiscalYearEnd: "December 31", ...attrs,
           });
-
           results.tasksCreated += taskResult.tasks.length;
         }
       }
@@ -137,6 +115,59 @@ export const restoreRouter = createRouter({
       return {
         success: true,
         message: `Restored ${results.clientsCreated} clients, ${results.onboardingCreated} onboarding records, and ${results.tasksCreated} tasks.`,
+        ...results,
+      };
+    }),
+
+  // Admin-only: force restore (deletes everything first)
+  forceRestore: adminQuery
+    .mutation(async ({ ctx }) => {
+      const db = getDb();
+      const userId = ctx.user.id;
+      const results = { clientsCreated: 0, onboardingCreated: 0, tasksCreated: 0 };
+
+      await db.delete(clientTaskRules);
+      await db.delete(tasks);
+      await db.delete(clientOnboarding);
+      await db.delete(clients);
+
+      for (const seed of CLIENT_SEED) {
+        const [client] = await db.insert(clients).values({
+          userId, name: seed.name, email: seed.email, phone: seed.phone,
+          company: seed.company, address: seed.address, status: "active",
+          workflowStatus: "active", industry: seed.industry, province: seed.province,
+          qboAccountType: seed.qboAccountType, figgyEmail: seed.figgyEmail,
+          contactName: seed.contactName, notes: seed.notes,
+          createdAt: new Date(), updatedAt: new Date(),
+        }).returning();
+
+        if (!client) continue;
+        results.clientsCreated++;
+
+        const attrs = inferClientAttributes(seed.notes || "");
+        const [onboarding] = await db.insert(clientOnboarding).values({
+          clientId: client.id, token: "restored-" + Math.random().toString(36).substring(2, 15),
+          status: "approved", submittedAt: new Date(), reviewedAt: new Date(), reviewedBy: userId,
+          ...attrs, fiscalYearEnd: "December 31",
+        }).returning();
+
+        if (onboarding) {
+          results.onboardingCreated++;
+          await db.update(clients)
+            .set({ workflowStatus: "active", onboardingCompletedAt: new Date() })
+            .where(eq(clients.id, client.id));
+
+          const taskResult = await createClientTaskRules({
+            clientId: client.id, userId, assignedTo: null,
+            fiscalYearEnd: "December 31", ...attrs,
+          });
+          results.tasksCreated += taskResult.tasks.length;
+        }
+      }
+
+      return {
+        success: true,
+        message: `Force-restored ${results.clientsCreated} clients, ${results.onboardingCreated} onboarding records, and ${results.tasksCreated} tasks.`,
         ...results,
       };
     }),

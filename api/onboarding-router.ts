@@ -126,6 +126,163 @@ export const onboardingRouter = createRouter({
       return { success: true };
     }),
 
+  // Staff: directly submit intake form (creates client + onboarding + tasks)
+  staffSubmit: staffQuery
+    .input(z.object({
+      name: z.string().min(1),
+      email: z.string().email(),
+      phone: z.string().optional(),
+      company: z.string().optional(),
+      address: z.string().optional(),
+      industry: z.string().optional(),
+      province: z.string().optional(),
+      qboAccountType: z.enum(["ca_clients", "us_clients"]).default("ca_clients"),
+      contactName: z.string().optional(),
+      notes: z.string().optional(),
+      businessLegalName: z.string().optional(),
+      businessOperatingName: z.string().optional(),
+      businessStructure: z.string().optional(),
+      incorporationDate: z.string().optional(),
+      businessNumber: z.string().optional(),
+      hstGstNumber: z.string().optional(),
+      payrollAccountNumber: z.string().optional(),
+      wsibAccountNumber: z.string().optional(),
+      primaryContactName: z.string().optional(),
+      primaryContactEmail: z.string().optional(),
+      primaryContactPhone: z.string().optional(),
+      bankName: z.string().optional(),
+      bankAccountNumber: z.string().optional(),
+      bankRoutingNumber: z.string().optional(),
+      fiscalYearEnd: z.string().optional(),
+      lastFiledYear: z.string().optional(),
+      outstandingFilings: z.string().optional(),
+      hstGstFrequency: z.enum(["monthly", "quarterly", "annually", "none"]).default("none"),
+      payrollFrequency: z.enum(["weekly", "biweekly", "semi_monthly", "monthly", "none"]).default("none"),
+      hasEmployees: z.boolean().default(false),
+      hasSubcontractors: z.boolean().default(false),
+      hasInvestments: z.boolean().default(false),
+      wsibRequired: z.boolean().default(false),
+      bankAccountCount: z.number().min(0).default(1),
+      creditCardCount: z.number().min(0).default(0),
+      needsYearEnd: z.boolean().default(true),
+      usesStripe: z.boolean().default(false),
+      usesSquare: z.boolean().default(false),
+      usesJobber: z.boolean().default(false),
+      salesEntryFrequency: z.enum(["daily", "weekly", "monthly", "none"]).default("none"),
+      currentAccountingSoftware: z.string().optional(),
+      currentPayrollProvider: z.string().optional(),
+      servicesNeeded: z.string().optional(),
+      painPoints: z.string().optional(),
+      expectations: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const userId = ctx.user.id;
+
+      // 1. Create client
+      const [client] = await db.insert(clients).values({
+        userId,
+        name: input.name,
+        email: input.email,
+        phone: input.phone || null,
+        company: input.company || input.name,
+        address: input.address || null,
+        status: "active",
+        workflowStatus: "active",
+        industry: input.industry || null,
+        province: input.province || null,
+        qboAccountType: input.qboAccountType,
+        figgyEmail: `markie+${input.name.toLowerCase().replace(/[^a-z0-9]/g, "")}@gofig.ca`,
+        contactName: input.contactName || null,
+        notes: input.notes || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }).returning();
+
+      if (!client) throw new Error("Failed to create client");
+
+      // 2. Create onboarding record (auto-approved since staff entered it)
+      const [onboarding] = await db.insert(clientOnboarding).values({
+        clientId: client.id,
+        token: "staff-" + crypto.randomBytes(16).toString("hex"),
+        status: "approved",
+        submittedAt: new Date(),
+        reviewedAt: new Date(),
+        reviewedBy: userId,
+        businessLegalName: input.businessLegalName || null,
+        businessOperatingName: input.businessOperatingName || null,
+        businessStructure: input.businessStructure || null,
+        industry: input.industry || null,
+        incorporationDate: input.incorporationDate ? new Date(input.incorporationDate) : null,
+        businessNumber: input.businessNumber || null,
+        hstGstNumber: input.hstGstNumber || null,
+        payrollAccountNumber: input.payrollAccountNumber || null,
+        wsibAccountNumber: input.wsibAccountNumber || null,
+        primaryContactName: input.primaryContactName || input.contactName || null,
+        primaryContactEmail: input.primaryContactEmail || input.email || null,
+        primaryContactPhone: input.primaryContactPhone || input.phone || null,
+        bankName: input.bankName || null,
+        bankAccountNumber: input.bankAccountNumber || null,
+        bankRoutingNumber: input.bankRoutingNumber || null,
+        fiscalYearEnd: input.fiscalYearEnd || null,
+        lastFiledYear: input.lastFiledYear || null,
+        outstandingFilings: input.outstandingFilings || null,
+        hstGstFrequency: input.hstGstFrequency,
+        payrollFrequency: input.payrollFrequency,
+        hasEmployees: input.hasEmployees,
+        hasSubcontractors: input.hasSubcontractors,
+        hasInvestments: input.hasInvestments,
+        wsibRequired: input.wsibRequired,
+        bankAccountCount: input.bankAccountCount,
+        creditCardCount: input.creditCardCount,
+        needsYearEnd: input.needsYearEnd,
+        usesStripe: input.usesStripe,
+        usesSquare: input.usesSquare,
+        usesJobber: input.usesJobber,
+        salesEntryFrequency: input.salesEntryFrequency,
+        currentAccountingSoftware: input.currentAccountingSoftware || null,
+        currentPayrollProvider: input.currentPayrollProvider || null,
+        servicesNeeded: input.servicesNeeded || null,
+        painPoints: input.painPoints || null,
+        expectations: input.expectations || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }).returning();
+
+      // 3. Update client
+      await db.update(clients)
+        .set({ workflowStatus: "active", onboardingCompletedAt: new Date() })
+        .where(eq(clients.id, client.id));
+
+      // 4. Auto-generate task rules and first tasks
+      const taskResult = await createClientTaskRules({
+        clientId: client.id,
+        userId,
+        assignedTo: null,
+        fiscalYearEnd: input.fiscalYearEnd,
+        hstGstFrequency: input.hstGstFrequency,
+        payrollFrequency: input.payrollFrequency,
+        hasEmployees: input.hasEmployees,
+        hasSubcontractors: input.hasSubcontractors,
+        hasInvestments: input.hasInvestments,
+        wsibRequired: input.wsibRequired,
+        bankAccountCount: input.bankAccountCount,
+        creditCardCount: input.creditCardCount,
+        needsYearEnd: input.needsYearEnd,
+        usesStripe: input.usesStripe,
+        usesSquare: input.usesSquare,
+        usesJobber: input.usesJobber,
+        salesEntryFrequency: input.salesEntryFrequency,
+      });
+
+      return {
+        success: true,
+        message: `Created client "${client.name}" with ${taskResult.tasks.length} auto-generated tasks.`,
+        clientId: client.id,
+        tasksCreated: taskResult.tasks.length,
+      };
+    }),
+
   // Staff: list all onboarding submissions
   list: staffQuery.query(async () => {
     const db = getDb();
