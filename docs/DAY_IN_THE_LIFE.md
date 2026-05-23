@@ -30,7 +30,7 @@ You click **Triage**.
 
 ### What You Do:
 1. **Click** the Aim Construction receipts → AI already read them, suggests accounts
-2. **Approve** → receipts auto-filed to `2 - Tax Filings > Receipts`
+2. **Approve** → receipts auto-filed to `6 - Vendors > [Vendor Name]`
 3. **Click** the Stripe payout → auto-matched to invoice, marked paid
 4. **Click** the missing bank statement → downloaded, filed, reconciled
 5. **Click** the AI flag → review the 3 transactions, send client portal request for receipts

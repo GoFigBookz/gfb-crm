@@ -125,7 +125,7 @@ System:
      - Memo: "Job materials - invoice #2847"
   
   2. Files receipt in Google Drive:
-     → GFB Clients > Finance - Aim Construction > 2 - Tax Filings > Receipts > 2026-05 > ABC_Supply_2847.pdf
+     → GFB Clients > Finance - Aim Construction > 6 - Vendors > ABC Supply > ABC_Supply_2847_2026-05-15.pdf
   
   3. Marks Triage item: ✅ POSTED
   
@@ -215,18 +215,16 @@ Receipt posted to QBO
 ↓
 System uploads to Google Drive:
 
-Path: 
+Path:
 GFB Clients/
 └── Finance - Aim Construction/
-    └── 2 - Tax Filings/
-        └── Receipts/
-            └── 2026-05/
-                └── ABC_Supply_2847_2026-05-15.pdf
+    └── 6 - Vendors/
+        └── ABC Supply/
+            └── ABC_Supply_2847_2026-05-15.pdf
 
 Naming convention: {Vendor}_{Invoice#}_{Date}.{ext}
 
 If vendor folder doesn't exist → creates it
-If month folder doesn't exist → creates it
 If file already exists → appends _2, _3, etc.
 ```
 
@@ -358,7 +356,7 @@ You click: "Personal — Owner Draw"
 System:
   1. Does NOT post to QBO expense account
   2. Posts as: Owner Draw / Shareholder Loan
-  3. Files in: 2 - Tax Filings > Owner Transactions
+  3. Files in: 6 - Vendors > Boston Pizza > Boston_Pizza_2026-05-15.pdf (with note: "Personal")
   4. Note: "Owner lunch — personal, not business deductible"
 ```
 
@@ -408,8 +406,9 @@ System:
                                   ▼
          ┌────────────────────────────────────────────┐
          │         FILE IN GOOGLE DRIVE               │
-         │  GFB Clients > Finance - [Client] >       │
-         │  2 - Tax Filings > Receipts > 2026-05    │
+         │  GFB Clients > Finance - [Client] >          │
+         │  6 - Vendors > [Vendor Name] >               │
+         │  {Vendor}_{Invoice#}_{Date}.pdf                │
          └────────────────────┬───────────────────────┘
                               │
                               ▼
@@ -440,7 +439,7 @@ System:
 | Confidence check | Score >90% = auto-ready | — |
 | Review | — | Click ✅, 📝, ❌, or ⏸️ |
 | Post to QBO | API call, create bill | — |
-| File in Drive | Upload, name, folder | — |
+| File in Drive | Upload to vendor folder | — |
 | Bank matching | Compare amounts/dates | Review mismatches |
 | Monthly close | Generate reports | Review & approve |
 
@@ -475,7 +474,7 @@ May 23, 2026 9:15 AM — Receipt #19e47135 received from ABC Supply
 May 23, 2026 9:15 AM — AI processed: vendor=ABC Supply, amount=$1,409.68, confidence=94%
 May 23, 2026 9:47 AM — Markie approved posting
 May 23, 2026 9:47 AM — QBO bill #2847 created in Aim Construction
-May 23, 2026 9:47 AM — File uploaded: GFB Clients/Finance - Aim Construction/2 - Tax Filings/Receipts/2026-05/ABC_Supply_2847.pdf
+May 23, 2026 9:47 AM — File uploaded: GFB Clients/Finance - Aim Construction/6 - Vendors/ABC Supply/ABC_Supply_2847_2026-05-15.pdf
 May 25, 2026 11:30 AM — Bank transaction matched: ABC SUPPLY $1,409.68
 May 25, 2026 11:30 AM — Status: FULLY RECONCILED
 ```
@@ -486,7 +485,7 @@ May 25, 2026 11:30 AM — Status: FULLY RECONCILED
 
 ## ✅ THE BOTTOM LINE
 
-**Vendor sends receipt → AI reads it → You click approve → Posted to QBO → Filed in Drive → Matched to bank → Monthly close done.**
+**Vendor sends receipt → AI reads it → You click approve → Posted to QBO → Filed in Drive vendor folder → Matched to bank → Monthly close done.**
 
 **Your touch points:**
 1. Review in Triage (15 seconds)
