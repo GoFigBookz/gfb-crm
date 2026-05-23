@@ -35,7 +35,7 @@ import { agentWebhookRouter } from "./agent-webhook-router";
 import { sheetExportRouter } from "./sheet-export-router";
 import { senderRulesRouter } from "./sender-rules-router";
 import { connectorRouter } from "./connector-router";
-import { makeIntakeRouter } from "./make-intake-router";
+import { bulkImportRouter } from "./bulk-import-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
 
@@ -80,7 +80,7 @@ export const appRouter = createRouter({
   connector: connectorRouter,
   googleSync: googleSyncRouter,
   microsoftSync: microsoftSyncRouter,
-  makeIntake: makeIntakeRouter,
+  bulkImport: bulkImportRouter,
 });
 
 export type AppRouter = typeof appRouter;
