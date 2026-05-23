@@ -733,6 +733,227 @@ function FXCalculator() {
 }
 
 /* =================================================================
+   DEPRECIATION CALCULATOR (CCA / Straight Line / Double Declining)
+   ================================================================= */
+function DepreciationCalculator() {
+  const [cost, setCost] = useState("");
+  const [salvageValue, setSalvageValue] = useState("0");
+  const [usefulLife, setUsefulLife] = useState("5");
+  const [method, setMethod] = useState<"straight" | "declining" | "double-declining">("declining");
+  const [rate, setRate] = useState("20"); // CCA rate %
+  const [halfYearRule, setHalfYearRule] = useState(true);
+  const [showSchedule, setShowSchedule] = useState(false);
+
+  const c = parseFloat(cost) || 0;
+  const salvage = parseFloat(salvageValue) || 0;
+  const life = parseFloat(usefulLife) || 1;
+  const ccaRate = parseFloat(rate) / 100;
+
+  const schedule = useMemo(() => {
+    if (c <= 0) return [];
+    const rows: { year: number; opening: number; claim: number; ending: number; note?: string }[] = [];
+    let ucc = c; // Undepreciated Capital Cost
+
+    if (method === "straight") {
+      const annual = (c - salvage) / life;
+      for (let year = 1; year <= life; year++) {
+        const claim = year === life ? ucc - salvage : annual;
+        rows.push({ year, opening: ucc, claim: Math.max(0, claim), ending: Math.max(salvage, ucc - claim) });
+        ucc = Math.max(salvage, ucc - claim);
+      }
+    } else if (method === "declining") {
+      // CCA-style declining balance with optional half-year rule
+      const effectiveRate = ccaRate;
+      for (let year = 1; year <= 30; year++) {
+        if (ucc <= salvage) break;
+        let claim = ucc * effectiveRate;
+        if (halfYearRule && year === 1) claim = claim * 0.5; // Half-year rule
+        if (ucc - claim < salvage) claim = ucc - salvage;
+        rows.push({ year, opening: ucc, claim: Math.max(0, claim), ending: Math.max(salvage, ucc - claim) });
+        ucc = Math.max(salvage, ucc - claim);
+      }
+    } else if (method === "double-declining") {
+      const ddbRate = 2 / life;
+      for (let year = 1; year <= life; year++) {
+        if (ucc <= salvage) break;
+        let claim = ucc * ddbRate;
+        if (ucc - claim < salvage) claim = ucc - salvage;
+        if (claim <= 0) break;
+        rows.push({ year, opening: ucc, claim, ending: Math.max(salvage, ucc - claim) });
+        ucc = Math.max(salvage, ucc - claim);
+      }
+    }
+    return rows;
+  }, [c, salvage, life, method, ccaRate, halfYearRule]);
+
+  const totalClaimed = schedule.reduce((sum, r) => sum + r.claim, 0);
+  const remaining = Math.max(0, c - totalClaimed - salvage);
+
+  // Common CCA classes
+  const ccaClasses = [
+    { class: "Class 1", rate: "4", desc: "Buildings (acquired after 1987)" },
+    { class: "Class 8", rate: "20", desc: "Furniture, fixtures, machinery, equipment" },
+    { class: "Class 10", rate: "30", desc: "Vehicles (pre-2022), computer equipment" },
+    { class: "Class 10.1", rate: "30", desc: "Passenger vehicles > $30k limit" },
+    { class: "Class 12", rate: "100", desc: "Tools, medical instruments, computer software" },
+    { class: "Class 43", rate: "30", desc: "Manufacturing & processing equipment" },
+    { class: "Class 44", rate: "25", desc: "Patents, franchises, concessions" },
+    { class: "Class 50", rate: "55", desc: "Computer equipment (after 2009)" },
+    { class: "Class 53", rate: "50", desc: "M&P equipment (2016-2025, full expensing)" },
+    { class: "Class 54", rate: "100", desc: "Zero-emission vehicles (before 2024)" },
+    { class: "Class 55", rate: "100", desc: "Zero-emission vehicles (2024+)" },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <TrendingUp className="h-5 w-5 text-lime-500" />
+          Asset Depreciation Calculator
+        </CardTitle>
+        <CardDescription>
+          Calculate CCA (Capital Cost Allowance), straight-line, and double-declining balance depreciation. Includes half-year rule for Canadian tax.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* CCA Quick Select */}
+        <div className="space-y-2">
+          <Label>Quick Select — CRA CCA Class</Label>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            {ccaClasses.map((cls) => (
+              <Button
+                key={cls.class}
+                variant={rate === cls.rate ? "default" : "outline"}
+                size="sm"
+                onClick={() => { setRate(cls.rate); setMethod("declining"); }}
+                className={rate === cls.rate ? "bg-lime-500 text-xs" : "text-xs"}
+              >
+                {cls.class} ({cls.rate}%)
+              </Button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-400">{ccaClasses.find((c) => c.rate === rate)?.desc || ""}</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Asset Cost ($)</Label>
+            <Input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="50000" />
+          </div>
+          <div className="space-y-2">
+            <Label>Salvage / Residual Value ($)</Label>
+            <Input type="number" value={salvageValue} onChange={(e) => setSalvageValue(e.target.value)} placeholder="0" />
+          </div>
+          <div className="space-y-2">
+            <Label>Useful Life (years)</Label>
+            <Input type="number" value={usefulLife} onChange={(e) => setUsefulLife(e.target.value)} placeholder="5" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Depreciation Method</Label>
+            <Select value={method} onValueChange={(v: any) => setMethod(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="straight">Straight-Line</SelectItem>
+                <SelectItem value="declining">Declining Balance (CCA)</SelectItem>
+                <SelectItem value="double-declining">Double Declining Balance</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {method === "declining" && (
+            <div className="space-y-2">
+              <Label>CCA Rate (%)</Label>
+              <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="20" />
+            </div>
+          )}
+          <div className="flex items-center gap-2 pt-6">
+            <Button
+              variant={halfYearRule ? "default" : "outline"}
+              size="sm"
+              onClick={() => setHalfYearRule(!halfYearRule)}
+              className={halfYearRule ? "bg-lime-500" : ""}
+            >
+              Half-Year Rule: {halfYearRule ? "ON" : "OFF"}
+            </Button>
+          </div>
+        </div>
+
+        {c > 0 && schedule.length > 0 && (
+          <div className="space-y-4 mt-4">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-slate-50 rounded-lg p-4 text-center">
+                <p className="text-xs text-slate-500">Asset Cost</p>
+                <p className="text-xl font-bold">${fmt(c)}</p>
+              </div>
+              <div className="bg-red-50 rounded-lg p-4 text-center">
+                <p className="text-xs text-red-500">Total Depreciated</p>
+                <p className="text-xl font-bold text-red-700">${fmt(totalClaimed)}</p>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-4 text-center">
+                <p className="text-xs text-amber-600">Remaining UCC</p>
+                <p className="text-xl font-bold text-amber-700">${fmt(remaining + salvage)}</p>
+              </div>
+              <div className="bg-lime-50 rounded-lg p-4 text-center">
+                <p className="text-xs text-lime-600">Salvage Value</p>
+                <p className="text-xl font-bold text-lime-700">${fmt(salvage)}</p>
+              </div>
+            </div>
+
+            {/* Schedule Toggle */}
+            <Button variant="outline" size="sm" onClick={() => setShowSchedule(!showSchedule)}>
+              {showSchedule ? "Hide" : "Show"} Full Schedule ({schedule.length} years)
+            </Button>
+
+            {showSchedule && (
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="text-left p-3 text-xs text-slate-500 font-medium">Year</th>
+                      <th className="text-right p-3 text-xs text-slate-500 font-medium">Opening UCC</th>
+                      <th className="text-right p-3 text-xs text-slate-500 font-medium">Depreciation Claim</th>
+                      <th className="text-right p-3 text-xs text-slate-500 font-medium">Ending UCC</th>
+                      <th className="text-right p-3 text-xs text-slate-500 font-medium">% Used</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {schedule.map((row) => (
+                      <tr key={row.year} className="border-t hover:bg-slate-50">
+                        <td className="p-3 font-medium">{row.year}</td>
+                        <td className="p-3 text-right">${fmt(row.opening)}</td>
+                        <td className="p-3 text-right font-medium text-red-600">${fmt(row.claim)}</td>
+                        <td className="p-3 text-right">${fmt(row.ending)}</td>
+                        <td className="p-3 text-right text-slate-400">{((row.claim / c) * 100).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Year 1 highlight */}
+            {schedule[0] && (
+              <div className="bg-lime-50 rounded-lg p-4 border border-lime-200">
+                <p className="text-sm font-medium text-lime-800">
+                  Year 1 Claim: ${fmt(schedule[0].claim)} 
+                  {halfYearRule && method === "declining" && "(includes half-year rule — 50% of normal CCA)"}
+                </p>
+                <p className="text-xs text-lime-600 mt-1">
+                  Remaining UCC after Year 1: ${fmt(schedule[0].ending)}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* =================================================================
    MILEAGE CALCULATOR
    ================================================================= */
 function MileageCalculator() {
@@ -1171,11 +1392,12 @@ export default function Calculators() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5 h-auto flex-wrap gap-1">
+        <TabsList className="grid w-full grid-cols-6 h-auto flex-wrap gap-1">
           <TabsTrigger value="tax" className="text-xs md:text-sm">Tax & HST</TabsTrigger>
           <TabsTrigger value="payroll" className="text-xs md:text-sm">Payroll</TabsTrigger>
           <TabsTrigger value="dividends" className="text-xs md:text-sm">Dividends</TabsTrigger>
           <TabsTrigger value="fx" className="text-xs md:text-sm">FX & Currency</TabsTrigger>
+          <TabsTrigger value="depreciation" className="text-xs md:text-sm">Depreciation</TabsTrigger>
           <TabsTrigger value="business" className="text-xs md:text-sm">Business</TabsTrigger>
         </TabsList>
 
@@ -1207,6 +1429,16 @@ export default function Calculators() {
         {/* FX TAB */}
         <TabsContent value="fx" className="space-y-4 mt-6">
           <FXCalculator />
+        </TabsContent>
+
+        {/* DEPRECIATION TAB */}
+        <TabsContent value="depreciation" className="space-y-4 mt-6">
+          <DepreciationCalculator />
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="p-4 text-sm text-blue-700">
+              <strong>CCA Note:</strong> The half-year rule applies to most asset classes in the year of acquisition — only 50% of the CCA can be claimed. Some classes (like Class 14) have different rules. Always verify the current CRA CCA rates for the specific asset class.
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* BUSINESS TAB */}
