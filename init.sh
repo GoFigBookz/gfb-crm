@@ -1,4 +1,5 @@
 #!/bin/sh
+# GFB CRM Init Script - Auto-detects schema changes and recreates DB if needed
 DB_PATH="/app/data/crm.db"
 SCHEMA_FILE="/app/db/schema.sql"
 SEED_FILE="/app/db/seed-clients.sql"
