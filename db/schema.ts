@@ -937,6 +937,75 @@ export const triageFindings = sqliteTable("triage_findings", {
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// ========== MASTER TRIAGE QUEUE (One inbox for ALL incoming documents) ==========
+export const triageQueue = sqliteTable("triage_queue", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  
+  // Source info
+  sourceType: text("sourceType", { enum: ["email", "portal_upload", "hubdoc", "stripe_webhook", "bank_feed", "manual", "qbo_sync", "wise_sync", "jobber_sync", "touchbistro_sync", "paypal_sync"] }).notNull(),
+  sourceId: text("sourceId"),              // email ID, upload ID, webhook ID, etc.
+  sourceEmail: text("sourceEmail"),        // for email-based items
+  sourceUrl: text("sourceUrl"),            // link to original if applicable
+  
+  // Document info (AI-extracted or provided)
+  documentType: text("documentType", { enum: ["receipt", "invoice", "bank_statement", "credit_card_statement", "payroll_doc", "tax_form", "contract", "other"] }).default("receipt").notNull(),
+  vendorName: text("vendorName"),
+  vendorId: integer("vendorId"),           // linked to vendors table once known
+  invoiceNumber: text("invoiceNumber"),
+  description: text("description"),
+  amount: real("amount"),
+  hstAmount: real("hstAmount"),
+  totalAmount: real("totalAmount"),
+  currency: text("currency").default("CAD"),
+  transactionDate: integer("transactionDate", { mode: "timestamp" }),
+  dueDate: integer("dueDate", { mode: "timestamp" }),
+  
+  // QBO account suggestions
+  suggestedAccount: text("suggestedAccount"),
+  suggestedAccountId: text("suggestedAccountId"),    // QBO account ref
+  suggestedHstCode: text("suggestedHstCode"),
+  suggestedHstCodeId: text("suggestedHstCodeId"),      // QBO tax code ref
+  
+  // Client assignment (NULL = unassigned, needs your input)
+  suggestedClientId: integer("suggestedClientId"),     // AI guess
+  assignedClientId: integer("assignedClientId"),       // your final assignment
+  confidenceScore: integer("confidenceScore"),        // 0-100
+  
+  // File storage
+  fileUrl: text("fileUrl"),                // Google Drive temp URL
+  fileName: text("fileName"),
+  mimeType: text("mimeType"),
+  driveFileId: text("driveFileId"),        // once filed to client folder
+  
+  // QBO posting
+  qboConnectionId: integer("qboConnectionId"),         // which QBO realm
+  qboBillId: text("qboBillId"),             // once posted
+  qboInvoiceId: text("qboInvoiceId"),       // if it's a customer invoice
+  qboPaymentId: text("qboPaymentId"),       // if it's a payment
+  
+  // Status workflow
+  status: text("status", { enum: ["pending", "needs_client", "needs_vendor", "ready_to_approve", "approved", "posted", "rejected", "saved", "duplicate"] }).default("pending").notNull(),
+  actionTaken: text("actionTaken", { enum: ["none", "posted_to_qbo", "filed_to_drive", "rejected_duplicate", "rejected_not_business", "rejected_wrong_client", "saved_for_later", "assigned_to_client", "bank_matched"] }).default("none"),
+  
+  // AI reasoning
+  aiSuggestion: text("aiSuggestion"),        // full AI reasoning text
+  aiFlags: text("aiFlags"),                // JSON: ["duplicate_possible", "multi_client_vendor", "personal_possible"]
+  
+  // Human review
+  reviewedBy: integer("reviewedBy"),
+  reviewedAt: integer("reviewedAt", { mode: "timestamp" }),
+  reviewerNotes: text("reviewerNotes"),
+  
+  // Timestamps
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  postedAt: integer("postedAt", { mode: "timestamp" }),
+  staleNotifiedAt: integer("staleNotifiedAt", { mode: "timestamp" }),  // when flagged as >3 days old
+});
+
+// Indexes for triage queue performance
+// (Drizzle doesn't have index() in sqliteTable; add via manual SQL in migrations)
+
 // ========== SATISFACTION SCORES ==========
 export const satisfactionScores = sqliteTable("satisfaction_scores", {
   id: integer("id").primaryKey({ autoIncrement: true }),

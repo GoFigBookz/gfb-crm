@@ -17,23 +17,41 @@ Everything is here.
 
 ---
 
-## ⏰ 7:15 AM — Triage (The Secret Weapon)
+## ⏰ 7:15 AM — Master Triage (ONE Inbox for ALL Clients)
 
 You click **Triage**.
 
+**This is ONE inbox.** Not 30 separate client inboxes. Everything lands here first.
+
+### Why One Inbox?
+- Vendor emails YOU — they don't know which client it is
+- Hubdoc captures — might be mis-tagged initially
+- You see EVERYTHING in one place → prioritize across all 30 clients
+- One click to assign client + vendor → auto-routes to their folder
+
 ### What Shows Up:
-- 📎 **Aim Construction** uploaded 7 receipts via Hubdoc → "Review & post?"
-- 📊 **Stripe payout** for Clark Pools hit → "$4,247.50 deposited"
-- 🧾 **Jobber invoice** from Selective Painting → "Invoice #2847 paid via Interac"
-- 📧 **Email from Sher-E-Punjab**: "Here's the missing bank statement"
+- 📎 **Aim Construction** uploaded 7 receipts via Hubdoc → "Review & post?" (confidence: 94%)
+- 📊 **Stripe payout** for Clark Pools hit → "$4,247.50 deposited" (auto-matched)
+- 🧾 **Jobber invoice** from Selective Painting → "Invoice #2847 paid via Interac" (needs client assignment)
+- 📧 **Email from Sher-E-Punjab**: "Here's the missing bank statement" (auto-tagged by sender)
 - ⚠️ **AI Flag**: "West York Paving — 3 transactions this week with no receipt attached"
+- 🎯 **Unassigned**: "Home Depot $247.50 — 4 possible clients, pick one"
 
 ### What You Do:
 1. **Click** the Aim Construction receipts → AI already read them, suggests accounts
-2. **Approve** → receipts auto-filed to `6 - Vendors > [Vendor Name]`
-3. **Click** the Stripe payout → auto-matched to invoice, marked paid
-4. **Click** the missing bank statement → downloaded, filed, reconciled
+   - Click ✅ Approve → posted to QBO + filed to `6 - Vendors > [Vendor Name]`
+2. **Click** the Stripe payout → auto-matched to invoice, marked paid → ✅ Approve
+3. **Click** the Jobber invoice → AI suggests "Selective Painting" but confidence is 72%
+   - Click 🎯 Pick Client → "Selective Painting" from dropdown → then ✅ Approve
+4. **Click** the missing bank statement → downloaded, filed to `4 - Statements`, reconciled
 5. **Click** the AI flag → review the 3 transactions, send client portal request for receipts
+6. **Click** the unassigned Home Depot → see mini-cards: "Aim (last purchase May 10), Clark Pools (May 18), West York (April 28), Selective (Feb 3)"
+   - Pick "Clark Pools" → AI learns: "Home Depot + $247 + May = likely Clark Pools"
+
+### After You Approve:
+- Item LEAVES Master Triage → posted + filed
+- You see: "11 items remaining" (not 12 anymore)
+- Client dashboard updates: "Aim Construction: Last receipt 2 min ago"
 
 **Time spent: 20 minutes. Zero app-switching.**
 
