@@ -6,6 +6,7 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import type { HttpBindings } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { triageIntakeRouter } from "./triage-intake-router";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { createOAuthCallbackHandler } from "./google/auth";
@@ -323,6 +324,9 @@ app.use("/api/trpc/*", async (c) => {
     createContext,
   });
 });
+
+// Triage Intake Router (Google Sheets -> CRM)
+app.route("/api/triage-intake", triageIntakeRouter);
 
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
