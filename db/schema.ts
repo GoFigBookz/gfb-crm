@@ -1006,6 +1006,17 @@ export const triageQueue = sqliteTable("triage_queue", {
 // Indexes for triage queue performance
 // (Drizzle doesn't have index() in sqliteTable; add via manual SQL in migrations)
 
+// ========== MAKE.COM FORM SUBMISSIONS ==========
+export const makeSubmissions = sqliteTable("make_submissions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  source: text("source").default("make.com").notNull(),
+  payload: text("payload").notNull(),           // raw JSON from Make.com
+  status: text("status", { enum: ["new", "reviewed", "approved", "rejected", "posted"] }).default("new").notNull(),
+  notes: text("notes"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // ========== SATISFACTION SCORES ==========
 export const satisfactionScores = sqliteTable("satisfaction_scores", {
   id: integer("id").primaryKey({ autoIncrement: true }),
