@@ -70,7 +70,8 @@ export const restoreRouter = createRouter({
       
       // Safety check: only restore if DB is empty
       const existing = await db.select({ count: count() }).from(clients);
-      if (existing[0]?.count > 0) {
+      const clientCount = Number(existing[0]?.count ?? 0);
+      if (clientCount > 0) {
         return { success: false, message: "Database already has clients. Skipping restore." };
       }
 
