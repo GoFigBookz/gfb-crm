@@ -3,6 +3,7 @@
 DB_PATH="/app/data/crm.db"
 SCHEMA_FILE="/app/db/schema.sql"
 SEED_FILE="/app/db/seed-clients.sql"
+MIGRATE_FILE="/app/db/migrate-columns.sql"
 
 echo "[INIT] Starting GFB CRM init..."
 
@@ -29,6 +30,12 @@ if [ "$NEEDS_RECREATE" = "1" ]; then
     echo "[INIT] Schema created from schema.sql"
   else
     echo "[INIT] WARNING: schema.sql not found."
+  fi
+else
+  # Apply column migrations if schema.sql has columns DB is missing
+  if [ -f "$MIGRATE_FILE" ]; then
+    echo "[INIT] Applying column migrations..."
+    sqlite3 "$DB_PATH" < "$MIGRATE_FILE" 2>/dev/null || true
   fi
 fi
 
