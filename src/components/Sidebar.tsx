@@ -5,7 +5,7 @@ import {
   FolderOpen, Receipt, Settings, ChevronLeft, ChevronRight,
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
-  DollarSign, Building2, Globe, Shield, Bot, BarChart3, UserCheck,
+  DollarSign, Building2, Globe, Inbox, Bot, BarChart3, UserCheck,
   Plus, TrendingUp, Lock, Import,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,7 +31,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const dailyItems = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-    { to: "/triage", icon: Shield, label: "Figgy Junior" },
+    { to: "/intake", icon: Inbox, label: "Intake" },
     { to: "/tasks", icon: CheckSquare, label: "Tasks" },
     { to: "/calendar", icon: CalendarDays, label: "Calendar" },
     { to: "/emails", icon: Mail, label: "Emails" },

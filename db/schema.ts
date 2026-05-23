@@ -1238,3 +1238,24 @@ export const connectorSyncLogs = sqliteTable("connector_sync_logs", {
   startedAt: integer("startedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   completedAt: integer("completedAt", { mode: "timestamp" }),
 });
+
+// ========== MAKE.COM INTAKE (simple webhook submissions) ==========
+export const makeIntake = sqliteTable("make_intake", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  makeId: text("make_id"),
+  rawPayload: text("raw_payload"),
+  clientName: text("client_name"),
+  contactName: text("contact_name"),
+  email: text("email"),
+  phone: text("phone"),
+  subject: text("subject"),
+  amount: real("amount"),
+  vendor: text("vendor"),
+  documentType: text("document_type"),
+  fileUrl: text("file_url"),
+  status: text("status", { enum: ["new", "reviewed", "approved", "rejected", "posted"] }).default("new").notNull(),
+  notes: text("notes"),
+  assignedClientId: integer("assigned_client_id"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

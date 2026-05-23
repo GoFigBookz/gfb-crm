@@ -23,6 +23,7 @@ sqlite3 "$DB_PATH" "ALTER TABLE clients ADD COLUMN province text DEFAULT 'ON';" 
 sqlite3 "$DB_PATH" "ALTER TABLE clients ADD COLUMN qboAccountType text DEFAULT 'ca_clients';" 2>/dev/null || true
 sqlite3 "$DB_PATH" "ALTER TABLE clients ADD COLUMN figgyEmail text;" 2>/dev/null || true
 sqlite3 "$DB_PATH" "ALTER TABLE clients ADD COLUMN contactName text;" 2>/dev/null || true
+sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS make_intake (id integer PRIMARY KEY AUTOINCREMENT NOT NULL, make_id text, raw_payload text, client_name text, contact_name text, email text, phone text, subject text, amount real, vendor text, document_type text, file_url text, status text DEFAULT 'new' NOT NULL, notes text, assigned_client_id integer, created_at integer, updated_at integer);" 2>/dev/null || true
 echo "[INIT] Migrations complete."
 
 # Create default admin user if none exists

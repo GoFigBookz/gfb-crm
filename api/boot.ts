@@ -6,7 +6,6 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import type { HttpBindings } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
-import { triageIntakeRouter } from "./triage-intake-router";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { createOAuthCallbackHandler } from "./google/auth";
@@ -15,7 +14,7 @@ import { Paths } from "@contracts/constants";
 // DB imports for inline OAuth callbacks
 import { getDb } from "./queries/connection";
 import { connectedAccounts, qboConnections } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
@@ -314,6 +313,66 @@ app.get("/api/oauth/microsoft/callback", async (c) => {
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
 
 // ================================================================
+// MAKE.COM WEBHOOK — Simple raw JSON intake endpoint
+// Make.com can POST any JSON here and it goes straight to make_intake
+// ================================================================
+app.post("/api/intake/webhook", async (c) => {
+  try {
+    const body = await c.req.json();
+    const db = getDb();
+    const now = new Date();
+
+    const raw = JSON.stringify(body);
+    const payload = body as Record<string, any>;
+
+    const extract = (keys: string[]): string | null => {
+      for (const k of keys) {
+        const v = payload[k];
+        if (v != null && v !== "") return String(v);
+        for (const parent of Object.values(payload)) {
+          if (parent && typeof parent === "object" && !Array.isArray(parent)) {
+            const nested = (parent as Record<string, any>)[k];
+            if (nested != null && nested !== "") return String(nested);
+          }
+        }
+      }
+      return null;
+    };
+
+    const id       = payload.id || payload.ID || payload.Id || payload.entryId || null;
+    const client   = extract(["client", "clientName", "client_name", "company", "Company", "customer", "Customer"]);
+    const contact  = extract(["name", "contactName", "contact_name", "fullName", "full_name", "firstName", "first_name"]);
+    const email    = extract(["email", "Email", "emailAddress", "email_address", "mail"]);
+    const phone    = extract(["phone", "Phone", "phoneNumber", "phone_number", "tel"]);
+    const subject  = extract(["subject", "Subject", "topic", "Topic", "title", "Title", "note", "Note", "message", "Message", "description", "Description"]);
+    const amount   = extract(["amount", "Amount", "total", "Total", "value", "Value", "cost", "Cost"]);
+    const vendor   = extract(["vendor", "Vendor", "vendorName", "vendor_name", "supplier", "Supplier", "payee", "Payee"]);
+    const docType  = extract(["type", "Type", "documentType", "document_type", "category", "Category", "formType", "form_type"]);
+    const url      = extract(["url", "URL", "link", "Link", "fileUrl", "file_url", "driveUrl", "drive_url", "attachment", "Attachment"]);
+
+    await db.run(sql`
+      INSERT INTO make_intake (
+        make_id, raw_payload,
+        client_name, contact_name, email, phone,
+        subject, amount, vendor, document_type, file_url,
+        status, created_at, updated_at
+      ) VALUES (
+        ${id ?? null}, ${raw},
+        ${client}, ${contact}, ${email}, ${phone},
+        ${subject}, ${amount ? parseFloat(amount) || null : null}, ${vendor}, ${docType}, ${url},
+        'new', ${now}, ${now}
+      )
+    `);
+
+    return c.json({ success: true, received: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[Intake Webhook] Error:", message);
+    return c.json({ success: false, error: message }, 500);
+  }
+});
+
+// ================================================================
 // tRPC API
 // ================================================================
 app.use("/api/trpc/*", async (c) => {
@@ -324,10 +383,6 @@ app.use("/api/trpc/*", async (c) => {
     createContext,
   });
 });
-
-// Triage Intake Router (Google Sheets -> CRM)
-app.route("/api/triage-intake", triageIntakeRouter);
-
 
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 

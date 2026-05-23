@@ -15,7 +15,7 @@ import AIAgents from "./pages/AIAgents";
 import Integrations from "./pages/Integrations";
 import SettingsPage from "./pages/SettingsPage";
 import QBO from "./pages/QBO";
-import QboTriage from "./pages/QboTriage";
+
 import Calculators from "./pages/Calculators";
 import ClientVault from "./pages/ClientVault";
 import Onboarding from "./pages/Onboarding";
@@ -29,7 +29,7 @@ import YearEndChecklist from "./pages/YearEndChecklist";
 import Templates from "./pages/Templates";
 import Receipts from "./pages/Receipts";
 import Resources from "./pages/Resources";
-import TriageDashboard from "./pages/TriageDashboard";
+import IntakeDashboard from "./pages/IntakeDashboard";
 import PracticeHealth from "./pages/PracticeHealth";
 import ClientDashboard from "./pages/ClientDashboard";
 import ClientPortal from "./pages/ClientPortal";
@@ -71,7 +71,6 @@ function AppRoutes() {
         <Route path="/integrations" element={<Integrations />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/qbo" element={<QBO />} />
-        <Route path="/qbo-triage" element={<QboTriage />} />
         <Route path="/calculators" element={<Calculators />} />
         <Route path="/vault" element={<ClientVault />} />
         <Route path="/onboarding" element={<Onboarding />} />
@@ -83,7 +82,7 @@ function AppRoutes() {
         <Route path="/templates" element={<Templates />} />
         <Route path="/receipts" element={<Receipts />} />
         <Route path="/resources" element={<Resources />} />
-        <Route path="/triage" element={<TriageDashboard />} />
+        <Route path="/intake" element={<IntakeDashboard />} />
         <Route path="/practice-health" element={<PracticeHealth />} />
         <Route path="/users" element={<UsersManagement />} />
         <Route path="/client/:clientId" element={<ClientDashboard />} />
