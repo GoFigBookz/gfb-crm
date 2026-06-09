@@ -88,6 +88,17 @@ export default function Dashboard() {
   const { data: expiringDocs } = trpc.expiration.getExpiringSoon.useQuery({ days: 30 });
 
   const { data: dailyBrief } = trpc.dailyBrief.get.useQuery();
+  // Live triage findings (Figgy Jr / agents) — falls back to demo data when empty
+  const { data: rawFindings } = trpc.agentWebhook.listFindings.useQuery({ status: "new" });
+  const liveTriage: TriageItem[] = (rawFindings || []).map((f: any) => ({
+    id: f.id,
+    clientName: f.agentName || "Figgy Jr",
+    severity: f.severity,
+    title: f.title,
+    description: f.description || "",
+    suggestedAction: f.suggestedAction || "",
+  }));
+  const triageItems: TriageItem[] = liveTriage.length ? liveTriage : demoTriageItems;
   const utils = trpc.useUtils();
   const setPriorities = trpc.dailyBrief.setPriorities.useMutation({
     onSuccess: () => utils.dailyBrief.get.invalidate()
@@ -330,14 +341,14 @@ export default function Dashboard() {
                 <AlertTriangle className="h-4 w-4" />
                 <span className="text-xs font-semibold">Needs Attention</span>
               </div>
-              <p className="text-2xl font-bold text-slate-900">{demoTriageItems.length}</p>
+              <p className="text-2xl font-bold text-slate-900">{triageItems.length}</p>
             </div>
             <div className="bg-white rounded-lg p-3 border border-slate-200">
               <div className="flex items-center gap-1.5 text-red-600">
                 <XCircle className="h-4 w-4" />
                 <span className="text-xs font-semibold">Critical</span>
               </div>
-              <p className="text-2xl font-bold text-slate-900">{demoTriageItems.filter(i => i.severity === "critical").length}</p>
+              <p className="text-2xl font-bold text-slate-900">{triageItems.filter(i => i.severity === "critical").length}</p>
             </div>
             <div className="bg-white rounded-lg p-3 border border-slate-200">
               <div className="flex items-center gap-1.5 text-lime-600">
@@ -357,7 +368,7 @@ export default function Dashboard() {
 
           {/* Top 3 triage items */}
           <div className="space-y-2">
-            {demoTriageItems.slice(0, 3).map((item) => {
+            {triageItems.slice(0, 3).map((item) => {
               const cfg = severityConfig[item.severity];
               const Icon = cfg.icon;
               return (
@@ -377,8 +388,8 @@ export default function Dashboard() {
                 </div>
               );
             })}
-            {demoTriageItems.length > 3 && (
-              <p className="text-xs text-purple-600 pl-1">+{demoTriageItems.length - 3} more items in full triage</p>
+            {triageItems.length > 3 && (
+              <p className="text-xs text-purple-600 pl-1">+{triageItems.length - 3} more items in full triage</p>
             )}
           </div>
         </CardContent>

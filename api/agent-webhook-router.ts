@@ -31,7 +31,7 @@ export const agentWebhookRouter = createRouter({
       confidence: z.number().min(0).max(1).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const token = (ctx as any).req?.headers?.["x-agent-token"] || "";
+      const _h = (ctx as any).req?.headers; const token = (_h && typeof _h.get === "function" ? _h.get("x-agent-token") : _h?.["x-agent-token"]) || "";
       if (!validateAgentToken(token)) {
         throw new Error("Invalid agent token");
       }
