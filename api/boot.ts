@@ -317,6 +317,56 @@ app.get(Paths.oauthCallback, createOAuthCallbackHandler());
 // Make.com can POST any JSON here and it goes straight to make_intake
 // ================================================================
 // FIGGY JR auto-feed -> triage finding (form-encoded; deduped by Review Queue Row ID)
+app.post("/api/figgy-jr-sync", async (c) => {
+  try {
+    const token = c.req.header("x-agent-token") || "";
+    if (token !== (process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026")) {
+      return c.json({ success: false, error: "Invalid agent token" }, 401);
+    }
+    const body: any = await c.req.json();
+    let values: any[][] = [];
+    if (Array.isArray(body?.values)) values = body.values;
+    else if (Array.isArray(body?.valueRanges?.[0]?.values)) values = body.valueRanges[0].values;
+    else if (Array.isArray(body?.body?.valueRanges?.[0]?.values)) values = body.body.valueRanges[0].values;
+    const db = getDb();
+    let created = 0, skipped = 0;
+    let start = 0;
+    if (values[0] && String(values[0][0] || "").toLowerCase().includes("row id")) start = 1;
+    for (let i = start; i < values.length; i++) {
+      const row = values[i] || [];
+      if (String(row[17] || "").trim().toUpperCase() !== "TRUE") continue;
+      const rowId = String(row[0] || "").trim();
+      if (!rowId) continue;
+      const dup = await db.select().from(triageFindings).where(eq(triageFindings.sourceData, rowId)).limit(1);
+      if (dup[0]) { skipped++; continue; }
+      const clientName = String(row[2] || "").trim();
+      let clientId: number | undefined;
+      if (clientName) {
+        const cc = await db.select().from(clients).where(eq(clients.name, clientName)).limit(1);
+        if (cc[0]) clientId = cc[0].id;
+      }
+      const vendor = String(row[7] || "").trim();
+      const docType = String(row[5] || "").trim();
+      const title = vendor && docType ? (vendor + " \u2014 " + docType) : (vendor || docType || ("Review " + rowId));
+      await db.insert(triageFindings).values({
+        agentName: "Figgy Jr",
+        clientId,
+        findingType: "review",
+        severity: "warning",
+        title: title.slice(0, 200),
+        description: ("Escalation: " + String(row[18] || "") + " | Category: " + String(row[13] || "") + " | Amount: " + String(row[8] || "")).slice(0, 2000),
+        suggestedAction: (String(row[14] || "") || "Review in QBO").slice(0, 500),
+        sourceData: rowId,
+        status: "new",
+      });
+      created++;
+    }
+    return c.json({ success: true, created, skipped });
+  } catch (e: any) {
+    return c.json({ success: false, error: e.message }, 500);
+  }
+});
+
 app.post("/api/figgy-jr-finding", async (c) => {
   try {
     const token = c.req.header("x-agent-token") || "";
