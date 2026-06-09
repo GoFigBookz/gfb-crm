@@ -14,7 +14,7 @@ import { Paths } from "@contracts/constants";
 // DB imports for inline OAuth callbacks
 import { getDb } from "./queries/connection";
 import { connectedAccounts, qboConnections, triageFindings, clients } from "../db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, like } from "drizzle-orm";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
@@ -337,8 +337,26 @@ app.post("/api/figgy-jr-sync", async (c) => {
       if (String(row[17] || "").trim().toUpperCase() !== "TRUE") continue;
       const rowId = String(row[0] || "").trim();
       if (!rowId) continue;
-      const dup = await db.select().from(triageFindings).where(eq(triageFindings.sourceData, rowId)).limit(1);
-      if (dup[0]) { skipped++; continue; }
+      const attachment = String(row[19] || "").trim();
+      const gmailMsgId = attachment.includes("::") ? attachment.split("::")[0].trim() : "";
+      const sourceData = JSON.stringify({
+        rowId, gmailMsgId, attachment,
+        vendor: String(row[7] || "").trim(),
+        amount: String(row[8] || "").trim(),
+        currency: String(row[9] || "").trim(),
+        date: String(row[4] || row[3] || "").trim(),
+        category: String(row[13] || "").trim(),
+        hst: String(row[11] || "").trim(),
+        reason: String(row[18] || "").trim(),
+      });
+      const existing = await db.select().from(triageFindings).where(like(triageFindings.sourceData, "%" + rowId + "%")).limit(1);
+      if (existing[0]) {
+        if (existing[0].sourceData !== sourceData) {
+          await db.update(triageFindings).set({ sourceData }).where(eq(triageFindings.id, existing[0].id));
+        }
+        skipped++;
+        continue;
+      }
       const clientName = String(row[2] || "").trim();
       let clientId: number | undefined;
       if (clientName) {
@@ -356,7 +374,7 @@ app.post("/api/figgy-jr-sync", async (c) => {
         title: title.slice(0, 200),
         description: ("Escalation: " + String(row[18] || "") + " | Category: " + String(row[13] || "") + " | Amount: " + String(row[8] || "")).slice(0, 2000),
         suggestedAction: (String(row[14] || "") || "Review in QBO").slice(0, 500),
-        sourceData: rowId,
+        sourceData,
         status: "new",
       });
       created++;

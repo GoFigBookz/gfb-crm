@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Shield, AlertTriangle, XCircle, Info, CheckCircle2, ChevronLeft, Pencil } from "lucide-react";
+import { Shield, AlertTriangle, XCircle, Info, CheckCircle2, ChevronLeft, Pencil, ExternalLink } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,10 @@ const severityConfig: Record<string, { icon: any; color: string; border: string;
   warning: { icon: AlertTriangle, color: "text-amber-600", border: "border-l-amber-500", badge: "default", rank: 1 },
   info: { icon: Info, color: "text-blue-600", border: "border-l-blue-500", badge: "secondary", rank: 2 },
 };
+
+function parseMeta(f: any): any {
+  try { const m = JSON.parse(f.sourceData || ""); return (m && typeof m === "object") ? m : {}; } catch { return {}; }
+}
 
 type EditForm = { title: string; description: string; suggestedAction: string; severity: string };
 
@@ -86,6 +90,8 @@ export default function Triage() {
           const cfg = severityConfig[f.severity] || severityConfig.info;
           const Icon = cfg.icon;
           const editing = editId === f.id;
+          const meta = parseMeta(f);
+          const receiptUrl = meta.gmailMsgId ? "https://mail.google.com/mail/u/0/#all/" + meta.gmailMsgId : null;
           return (
             <Card key={f.id} className={cn("border-l-4", cfg.border)}>
               <CardContent className="p-4">
@@ -136,11 +142,25 @@ export default function Triage() {
                           <Badge variant={cfg.badge} className="text-xs">{f.severity}</Badge>
                           {f.agentName && <Badge variant="outline" className="text-xs">{f.agentName}</Badge>}
                         </div>
+                        {(meta.vendor || meta.amount || meta.date || meta.category || meta.hst) && (
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-600 mb-1">
+                            {meta.vendor && <span><span className="text-slate-400">Vendor:</span> {meta.vendor}</span>}
+                            {meta.amount && <span><span className="text-slate-400">Amount:</span> {meta.amount}{meta.currency ? " " + meta.currency : ""}</span>}
+                            {meta.date && <span><span className="text-slate-400">Date:</span> {meta.date}</span>}
+                            {meta.category && <span><span className="text-slate-400">Category:</span> {meta.category}</span>}
+                            {meta.hst && <span><span className="text-slate-400">HST:</span> {meta.hst}</span>}
+                          </div>
+                        )}
                         {f.description && <p className="text-sm text-slate-600 break-words">{f.description}</p>}
                         {f.suggestedAction && <p className="text-xs text-slate-400 mt-1">Suggested: {f.suggestedAction}</p>}
                         {f.reviewedNotes && <p className="text-xs text-purple-600 mt-1">Your note to Figgy: {f.reviewedNotes}</p>}
                       </div>
                       <div className="flex flex-col gap-1 flex-shrink-0">
+                        {receiptUrl && (
+                          <a href={receiptUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center h-7 px-2 text-xs rounded border border-blue-200 text-blue-700 hover:bg-blue-50">
+                            <ExternalLink className="h-3 w-3 mr-1" />Receipt
+                          </a>
+                        )}
                         <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => startEdit(f)}>
                           <Pencil className="h-3 w-3 mr-1" />Edit
                         </Button>
