@@ -930,7 +930,7 @@ export const triageFindings = sqliteTable("triage_findings", {
   suggestedAction: text("suggestedAction"),
   sourceData: text("sourceData"), // JSON blob
   confidence: real("confidence"),
-  status: text("status", { enum: ["new", "approved", "dismissed"] }).default("new").notNull(),
+  status: text("status", { enum: ["new", "approved", "dismissed", "awaiting_client"] }).default("new").notNull(),
   reviewedBy: integer("reviewedBy"),
   reviewedAt: integer("reviewedAt", { mode: "timestamp" }),
   reviewedNotes: text("reviewedNotes"),

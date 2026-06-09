@@ -142,6 +142,21 @@ export const agentWebhookRouter = createRouter({
       return { success: true };
     }),
 
+  // Staff: Ask the client for missing info (moves finding to awaiting_client)
+  askClient: staffQuery
+    .input(z.object({ id: z.number(), question: z.string().optional() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.update(triageFindings)
+        .set({
+          status: "awaiting_client",
+          reviewedNotes: input.question ? ("Asked client: " + input.question) : "Asked client for missing info",
+          reviewedAt: new Date(),
+        })
+        .where(eq(triageFindings.id, input.id));
+      return { success: true };
+    }),
+
   // Agent: Get status of submitted findings
   getStatus: publicQuery
     .input(z.object({ findingIds: z.array(z.number()) }))
