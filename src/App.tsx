@@ -14,6 +14,7 @@ import Invoices from "./pages/Invoices";
 import AIAgents from "./pages/AIAgents";
 import Integrations from "./pages/Integrations";
 import SettingsPage from "./pages/SettingsPage";
+import Triage from "./pages/Triage";
 import QBO from "./pages/QBO";
 
 import Calculators from "./pages/Calculators";
@@ -61,6 +62,7 @@ function AppRoutes() {
       {/* Protected routes (work in demo mode too) */}
       <Route element={<AppLayout />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/triage" element={<Triage />} />
         <Route path="/clients" element={<Clients />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/emails" element={<Emails />} />
