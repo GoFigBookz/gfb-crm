@@ -5,7 +5,7 @@ import {
   FolderOpen, Receipt, Settings, ChevronLeft, ChevronRight,
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
-  DollarSign, Building2, Globe, Inbox, Bot, BarChart3, UserCheck,
+  DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
   Plus, TrendingUp, Lock, Import, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,12 +31,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const dailyItems = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-    { to: "/triage", icon: ShieldCheck, label: "Figgy Triage" },
-    { to: "/intake", icon: Inbox, label: "Intake" },
+    { to: "/triage", icon: ShieldCheck, label: "Figgy Jr" },
     { to: "/tasks", icon: CheckSquare, label: "Tasks" },
+    { to: "/quick-add", icon: Plus, label: "Quick Add" },
     { to: "/calendar", icon: CalendarDays, label: "Calendar" },
     { to: "/emails", icon: Mail, label: "Emails" },
-    { to: "/quick-add", icon: Plus, label: "Quick Add" },
   ];
 
   const clientItems = [
@@ -58,7 +57,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const toolItems = [
     { to: "/calculators", icon: Calculator, label: "Calculators" },
     { to: "/bank-converter", icon: ArrowRightLeft, label: "Bank → QBO" },
-    { to: "/qbo-triage", icon: Receipt, label: "QBO Review" },
+    { to: "/qbo", icon: Receipt, label: "QBO Review" },
     { to: "/tax-deadlines", icon: CalendarClock, label: "Tax Deadlines" },
     { to: "/year-end", icon: ClipboardCheck, label: "Year-End" },
     { to: "/monthly-close", icon: CheckSquare, label: "Monthly Close" },
