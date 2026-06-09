@@ -45,6 +45,12 @@ export const agentWebhookRouter = createRouter({
         if (rows[0]) resolvedClientId = rows[0].id;
       }
 
+      // Dedup: if a sourceData key (e.g. Review Queue Row ID) was provided and already exists, skip.
+      if (input.sourceData) {
+        const dup = await db.select().from(triageFindings).where(eq(triageFindings.sourceData, input.sourceData)).limit(1);
+        if (dup[0]) return { success: true, findingId: dup[0].id, deduped: true, clientId: resolvedClientId };
+      }
+
       const [finding] = await db.insert(triageFindings).values({
         agentName: input.agentName,
         agentVersion: input.agentVersion,
