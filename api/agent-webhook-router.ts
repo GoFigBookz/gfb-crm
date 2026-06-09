@@ -118,6 +118,30 @@ export const agentWebhookRouter = createRouter({
       return { success: true };
     }),
 
+  // Staff: Edit a finding's fields (review/correct what Figgy flagged)
+  updateFinding: staffQuery
+    .input(z.object({
+      id: z.number(),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      suggestedAction: z.string().optional(),
+      severity: z.enum(["critical", "warning", "info"]).optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const patch: Record<string, any> = {};
+      if (input.title !== undefined) patch.title = input.title;
+      if (input.description !== undefined) patch.description = input.description;
+      if (input.suggestedAction !== undefined) patch.suggestedAction = input.suggestedAction;
+      if (input.severity !== undefined) patch.severity = input.severity;
+      if (input.notes !== undefined) patch.reviewedNotes = input.notes;
+      if (Object.keys(patch).length > 0) {
+        await db.update(triageFindings).set(patch).where(eq(triageFindings.id, input.id));
+      }
+      return { success: true };
+    }),
+
   // Agent: Get status of submitted findings
   getStatus: publicQuery
     .input(z.object({ findingIds: z.array(z.number()) }))

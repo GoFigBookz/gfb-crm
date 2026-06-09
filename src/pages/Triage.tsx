@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Shield, AlertTriangle, XCircle, Info, CheckCircle2, ChevronLeft } from "lucide-react";
+import { Shield, AlertTriangle, XCircle, Info, CheckCircle2, ChevronLeft, Pencil } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,25 +13,34 @@ const severityConfig: Record<string, { icon: any; color: string; border: string;
   info: { icon: Info, color: "text-blue-600", border: "border-l-blue-500", badge: "secondary", rank: 2 },
 };
 
+type EditForm = { title: string; description: string; suggestedAction: string; severity: string };
+
 export default function Triage() {
   const navigate = useNavigate();
   const utils = trpc.useUtils();
   const [tab, setTab] = useState<"new" | "approved" | "dismissed">("new");
   const [notes, setNotes] = useState<Record<number, string>>({});
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<EditForm>({ title: "", description: "", suggestedAction: "", severity: "warning" });
+
   const { data: findings, isLoading } = trpc.agentWebhook.listFindings.useQuery({ status: tab });
-  const review = trpc.agentWebhook.reviewFinding.useMutation({
-    onSuccess: () => {
-      utils.agentWebhook.listFindings.invalidate();
-    },
-  });
+  const refresh = () => utils.agentWebhook.listFindings.invalidate();
+  const review = trpc.agentWebhook.reviewFinding.useMutation({ onSuccess: refresh });
+  const update = trpc.agentWebhook.updateFinding.useMutation({ onSuccess: () => { refresh(); setEditId(null); } });
 
   const act = (id: number, action: "approve" | "dismiss") => {
     const note = (notes[id] || "").trim();
     review.mutate({ id, action, notes: note || undefined });
-    setNotes((n) => {
-      const next = { ...n };
-      delete next[id];
-      return next;
+    setNotes((n) => { const next = { ...n }; delete next[id]; return next; });
+  };
+
+  const startEdit = (f: any) => {
+    setEditId(f.id);
+    setEditForm({
+      title: f.title || "",
+      description: f.description || "",
+      suggestedAction: f.suggestedAction || "",
+      severity: f.severity || "warning",
     });
   };
 
@@ -47,21 +56,15 @@ export default function Triage() {
           Dashboard
         </Button>
         <Shield className="h-6 w-6 text-purple-500" />
-        <h1 className="text-2xl font-bold text-slate-800">Figgy Junior &mdash; Triage</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Figgy Jr</h1>
       </div>
       <p className="text-sm text-slate-500 -mt-2">
-        Receipts &amp; documents Figgy Jr processed for your sign-off. Approve to accept, dismiss to clear &mdash; add a note to teach Figgy as you go.
+        Receipts &amp; documents Figgy Jr processed for your sign-off. Edit anything that needs correcting, add a note to teach Figgy, then approve or dismiss.
       </p>
 
       <div className="flex gap-2">
         {(["new", "approved", "dismissed"] as const).map((t) => (
-          <Button
-            key={t}
-            size="sm"
-            variant={tab === t ? "default" : "outline"}
-            onClick={() => setTab(t)}
-            className="capitalize"
-          >
+          <Button key={t} size="sm" variant={tab === t ? "default" : "outline"} onClick={() => { setTab(t); setEditId(null); }} className="capitalize">
             {t}
           </Button>
         ))}
@@ -82,58 +85,83 @@ export default function Triage() {
         {items.map((f: any) => {
           const cfg = severityConfig[f.severity] || severityConfig.info;
           const Icon = cfg.icon;
+          const editing = editId === f.id;
           return (
             <Card key={f.id} className={cn("border-l-4", cfg.border)}>
               <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <Icon className={cn("h-5 w-5 mt-0.5 flex-shrink-0", cfg.color)} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-semibold text-sm">{f.title}</span>
-                      <Badge variant={cfg.badge} className="text-xs">{f.severity}</Badge>
-                      {f.agentName && (
-                        <Badge variant="outline" className="text-xs">{f.agentName}</Badge>
-                      )}
+                {editing ? (
+                  <div className="space-y-2">
+                    <input
+                      className="w-full text-sm font-semibold border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300"
+                      value={editForm.title}
+                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                      placeholder="Title"
+                    />
+                    <textarea
+                      className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300"
+                      rows={2}
+                      value={editForm.description}
+                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                      placeholder="Details"
+                    />
+                    <input
+                      className="w-full text-xs border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300"
+                      value={editForm.suggestedAction}
+                      onChange={(e) => setEditForm({ ...editForm, suggestedAction: e.target.value })}
+                      placeholder="Suggested action"
+                    />
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="text-xs border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300"
+                        value={editForm.severity}
+                        onChange={(e) => setEditForm({ ...editForm, severity: e.target.value })}
+                      >
+                        <option value="critical">critical</option>
+                        <option value="warning">warning</option>
+                        <option value="info">info</option>
+                      </select>
+                      <Button size="sm" className="h-7 text-xs bg-lime-500 hover:bg-lime-600" disabled={update.isPending} onClick={() => update.mutate({ id: f.id, title: editForm.title, description: editForm.description, suggestedAction: editForm.suggestedAction, severity: editForm.severity as "critical" | "warning" | "info" })}>
+                        Save
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditId(null)}>Cancel</Button>
                     </div>
-                    {f.description && <p className="text-sm text-slate-600 break-words">{f.description}</p>}
-                    {f.suggestedAction && (
-                      <p className="text-xs text-slate-400 mt-1">Suggested: {f.suggestedAction}</p>
-                    )}
-                    {f.reviewedNotes && (
-                      <p className="text-xs text-purple-600 mt-1">Your note to Figgy: {f.reviewedNotes}</p>
-                    )}
                   </div>
-                  {tab === "new" && (
-                    <div className="flex flex-col gap-1 flex-shrink-0">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs border-lime-300 text-lime-700 hover:bg-lime-50"
-                        disabled={review.isPending}
-                        onClick={() => act(f.id, "approve")}
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs text-slate-500"
-                        disabled={review.isPending}
-                        onClick={() => act(f.id, "dismiss")}
-                      >
-                        Dismiss
-                      </Button>
+                ) : (
+                  <>
+                    <div className="flex items-start gap-3">
+                      <Icon className={cn("h-5 w-5 mt-0.5 flex-shrink-0", cfg.color)} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="font-semibold text-sm">{f.title}</span>
+                          <Badge variant={cfg.badge} className="text-xs">{f.severity}</Badge>
+                          {f.agentName && <Badge variant="outline" className="text-xs">{f.agentName}</Badge>}
+                        </div>
+                        {f.description && <p className="text-sm text-slate-600 break-words">{f.description}</p>}
+                        {f.suggestedAction && <p className="text-xs text-slate-400 mt-1">Suggested: {f.suggestedAction}</p>}
+                        {f.reviewedNotes && <p className="text-xs text-purple-600 mt-1">Your note to Figgy: {f.reviewedNotes}</p>}
+                      </div>
+                      <div className="flex flex-col gap-1 flex-shrink-0">
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => startEdit(f)}>
+                          <Pencil className="h-3 w-3 mr-1" />Edit
+                        </Button>
+                        {tab === "new" && (
+                          <>
+                            <Button size="sm" variant="outline" className="h-7 text-xs border-lime-300 text-lime-700 hover:bg-lime-50" disabled={review.isPending} onClick={() => act(f.id, "approve")}>Approve</Button>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-500" disabled={review.isPending} onClick={() => act(f.id, "dismiss")}>Dismiss</Button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-                {tab === "new" && (
-                  <input
-                    type="text"
-                    className="mt-2 w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300"
-                    placeholder="Add a note for Figgy (optional) — e.g. 'this vendor is always Job Materials' — helps it learn"
-                    value={notes[f.id] || ""}
-                    onChange={(e) => setNotes((n) => ({ ...n, [f.id]: e.target.value }))}
-                  />
+                    {tab === "new" && (
+                      <input
+                        type="text"
+                        className="mt-2 w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300"
+                        placeholder="Add a note for Figgy (optional) — e.g. 'this vendor is always Job Materials' — helps it learn"
+                        value={notes[f.id] || ""}
+                        onChange={(e) => setNotes((n) => ({ ...n, [f.id]: e.target.value }))}
+                      />
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
