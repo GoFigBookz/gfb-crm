@@ -17,12 +17,23 @@ export default function Triage() {
   const navigate = useNavigate();
   const utils = trpc.useUtils();
   const [tab, setTab] = useState<"new" | "approved" | "dismissed">("new");
+  const [notes, setNotes] = useState<Record<number, string>>({});
   const { data: findings, isLoading } = trpc.agentWebhook.listFindings.useQuery({ status: tab });
   const review = trpc.agentWebhook.reviewFinding.useMutation({
     onSuccess: () => {
       utils.agentWebhook.listFindings.invalidate();
     },
   });
+
+  const act = (id: number, action: "approve" | "dismiss") => {
+    const note = (notes[id] || "").trim();
+    review.mutate({ id, action, notes: note || undefined });
+    setNotes((n) => {
+      const next = { ...n };
+      delete next[id];
+      return next;
+    });
+  };
 
   const items = [...(findings || [])].sort(
     (a: any, b: any) => (severityConfig[a.severity]?.rank ?? 9) - (severityConfig[b.severity]?.rank ?? 9)
@@ -39,7 +50,7 @@ export default function Triage() {
         <h1 className="text-2xl font-bold text-slate-800">Figgy Junior &mdash; Triage</h1>
       </div>
       <p className="text-sm text-slate-500 -mt-2">
-        Everything Figgy Jr has flagged for your review. Approve to accept, dismiss to clear.
+        Receipts &amp; documents Figgy Jr processed for your sign-off. Approve to accept, dismiss to clear &mdash; add a note to teach Figgy as you go.
       </p>
 
       <div className="flex gap-2">
@@ -73,42 +84,56 @@ export default function Triage() {
           const Icon = cfg.icon;
           return (
             <Card key={f.id} className={cn("border-l-4", cfg.border)}>
-              <CardContent className="p-4 flex items-start gap-3">
-                <Icon className={cn("h-5 w-5 mt-0.5 flex-shrink-0", cfg.color)} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="font-semibold text-sm">{f.title}</span>
-                    <Badge variant={cfg.badge} className="text-xs">{f.severity}</Badge>
-                    {f.agentName && (
-                      <Badge variant="outline" className="text-xs">{f.agentName}</Badge>
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <Icon className={cn("h-5 w-5 mt-0.5 flex-shrink-0", cfg.color)} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-semibold text-sm">{f.title}</span>
+                      <Badge variant={cfg.badge} className="text-xs">{f.severity}</Badge>
+                      {f.agentName && (
+                        <Badge variant="outline" className="text-xs">{f.agentName}</Badge>
+                      )}
+                    </div>
+                    {f.description && <p className="text-sm text-slate-600 break-words">{f.description}</p>}
+                    {f.suggestedAction && (
+                      <p className="text-xs text-slate-400 mt-1">Suggested: {f.suggestedAction}</p>
+                    )}
+                    {f.reviewedNotes && (
+                      <p className="text-xs text-purple-600 mt-1">Your note to Figgy: {f.reviewedNotes}</p>
                     )}
                   </div>
-                  {f.description && <p className="text-sm text-slate-600 break-words">{f.description}</p>}
-                  {f.suggestedAction && (
-                    <p className="text-xs text-slate-400 mt-1">Suggested: {f.suggestedAction}</p>
+                  {tab === "new" && (
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs border-lime-300 text-lime-700 hover:bg-lime-50"
+                        disabled={review.isPending}
+                        onClick={() => act(f.id, "approve")}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-slate-500"
+                        disabled={review.isPending}
+                        onClick={() => act(f.id, "dismiss")}
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
                   )}
                 </div>
                 {tab === "new" && (
-                  <div className="flex flex-col gap-1 flex-shrink-0">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs border-lime-300 text-lime-700 hover:bg-lime-50"
-                      disabled={review.isPending}
-                      onClick={() => review.mutate({ id: f.id, action: "approve" })}
-                    >
-                      Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs text-slate-500"
-                      disabled={review.isPending}
-                      onClick={() => review.mutate({ id: f.id, action: "dismiss" })}
-                    >
-                      Dismiss
-                    </Button>
-                  </div>
+                  <input
+                    type="text"
+                    className="mt-2 w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300"
+                    placeholder="Add a note for Figgy (optional) — e.g. 'this vendor is always Job Materials' — helps it learn"
+                    value={notes[f.id] || ""}
+                    onChange={(e) => setNotes((n) => ({ ...n, [f.id]: e.target.value }))}
+                  />
                 )}
               </CardContent>
             </Card>

@@ -100,9 +100,6 @@ export default function Dashboard() {
   }));
   const triageItems: TriageItem[] = liveTriage.length ? liveTriage : demoTriageItems;
   const utils = trpc.useUtils();
-  const reviewFinding = trpc.agentWebhook.reviewFinding.useMutation({
-    onSuccess: () => utils.agentWebhook.listFindings.invalidate(),
-  });
   const setPriorities = trpc.dailyBrief.setPriorities.useMutation({
     onSuccess: () => utils.dailyBrief.get.invalidate()
   });
@@ -332,7 +329,7 @@ export default function Dashboard() {
                 94% accuracy this week
               </Badge>
               <Button size="sm" variant="outline" onClick={() => navigate("/triage")}>
-                Full Triage <ChevronRight className="h-4 w-4 ml-1" />
+                Review & Approve <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </div>
@@ -387,10 +384,6 @@ export default function Dashboard() {
                     </div>
                     <p className="text-sm text-slate-600 truncate">{item.description}</p>
                     <p className="text-xs text-slate-400 mt-1">{item.clientName} • Suggested: {item.suggestedAction}</p>
-                  </div>
-                  <div className="flex flex-col gap-1 flex-shrink-0">
-                    <Button size="sm" variant="outline" className="h-7 text-xs border-lime-300 text-lime-700 hover:bg-lime-50" disabled={reviewFinding.isPending} onClick={() => reviewFinding.mutate({ id: item.id, action: "approve" })}>Approve</Button>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-500" disabled={reviewFinding.isPending} onClick={() => reviewFinding.mutate({ id: item.id, action: "dismiss" })}>Dismiss</Button>
                   </div>
                 </div>
               );
