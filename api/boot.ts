@@ -13,7 +13,7 @@ import { Paths } from "@contracts/constants";
 
 // DB imports for inline OAuth callbacks
 import { getDb } from "./queries/connection";
-import { connectedAccounts, qboConnections } from "../db/schema";
+import { connectedAccounts, qboConnections, triageFindings, clients } from "../db/schema";
 import { eq, sql } from "drizzle-orm";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
@@ -316,6 +316,44 @@ app.get(Paths.oauthCallback, createOAuthCallbackHandler());
 // MAKE.COM WEBHOOK — Simple raw JSON intake endpoint
 // Make.com can POST any JSON here and it goes straight to make_intake
 // ================================================================
+// FIGGY JR auto-feed -> triage finding (form-encoded; deduped by Review Queue Row ID)
+app.post("/api/figgy-jr-finding", async (c) => {
+  try {
+    const token = c.req.header("x-agent-token") || "";
+    if (token !== (process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026")) {
+      return c.json({ success: false, error: "Invalid agent token" }, 401);
+    }
+    const b = (await c.req.parseBody()) as Record<string, any>;
+    const rowId = String(b.rowId || "").trim();
+    if (!rowId) return c.json({ success: false, error: "rowId required" }, 400);
+    const db = getDb();
+    const dup = await db.select().from(triageFindings).where(eq(triageFindings.sourceData, rowId)).limit(1);
+    if (dup[0]) return c.json({ success: true, deduped: true, findingId: dup[0].id });
+    const clientName = String(b.clientName || "").trim();
+    let clientId: number | undefined;
+    if (clientName) {
+      const cc = await db.select().from(clients).where(eq(clients.name, clientName)).limit(1);
+      if (cc[0]) clientId = cc[0].id;
+    }
+    const sevRaw = String(b.severity || "warning");
+    const severity = (sevRaw === "critical" || sevRaw === "info" || sevRaw === "warning") ? sevRaw : "warning";
+    const [finding] = await db.insert(triageFindings).values({
+      agentName: "Figgy Jr",
+      clientId,
+      findingType: "review",
+      severity: severity as "critical" | "warning" | "info",
+      title: String(b.title || ("Review " + rowId)).slice(0, 200),
+      description: String(b.description || "").slice(0, 2000),
+      suggestedAction: String(b.suggestedAction || "").slice(0, 500),
+      sourceData: rowId,
+      status: "new",
+    }).returning();
+    return c.json({ success: true, findingId: finding.id });
+  } catch (e: any) {
+    return c.json({ success: false, error: e.message }, 500);
+  }
+});
+
 app.post("/api/intake/webhook", async (c) => {
   try {
     const body = await c.req.json();
