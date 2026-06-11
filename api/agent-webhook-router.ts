@@ -118,6 +118,15 @@ export const agentWebhookRouter = createRouter({
       return { success: true };
     }),
 
+  // Staff: Permanently delete a finding (Dismiss keeps it for the record; this removes it)
+  deleteFinding: staffQuery
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.delete(triageFindings).where(eq(triageFindings.id, input.id));
+      return { success: true };
+    }),
+
   // Staff: Edit a finding's fields (review/correct what Figgy flagged)
   updateFinding: staffQuery
     .input(z.object({
