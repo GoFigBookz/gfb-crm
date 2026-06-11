@@ -61,7 +61,13 @@ ONCE on consolidated rails — never per-client clones.**
   client, idempotent — now seeds BOTH Clark OS (realm 9341456017349963 → scenario
   5347484) AND Clark CW (realm 13633946244024404 → scenario 5347489)). Backlog →
   Triage (read-only, posters OFF): `scripts/figgy-suggest-backlog.ts`. GO-LIVE
-  RUNBOOK: `docs/FIGGY_JR_GO_LIVE_RUNBOOK.md` (env vars, 3-col ALTER, seed, run).
+  RUNBOOK: `docs/FIGGY_JR_GO_LIVE_RUNBOOK.md`. SELF-CONFIGURES ON BOOT
+  (`api/bridge-bootstrap.ts`, called from `boot.ts startServer`): ensures the 3
+  columns + (when FIGGY_MAKE_API_TOKEN set) binds Clark OS/CW to EXISTING CRM
+  clients matched by city ("Clark Pools Owen Sound"/"...Collingwood" already in
+  the clients table — NEVER creates a dup). So go-live = just set 2 env vars on
+  Railway (FIGGY_MAKE_API_TOKEN + ANTHROPIC_API_KEY); redeploy auto-wires the
+  bridge. Deploy: figgy.gofig.ca on Railway, auto-deploys from GitHub main.
   LIVE-VERIFIED (responsive run): Walker(653) 3 bills→🟡81%, Highbury(225) 8 bills
   →🟢95% (both all 1150040016/tax6, correctly coded), dup-catch on reformatted
   invoice#. NON-BILL EXPENSES WIDENED (2026-06-11): report path now works end to

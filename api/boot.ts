@@ -588,6 +588,10 @@ async function startServer() {
   const { startSyncScheduler } = await import("./sync-scheduler");
   startSyncScheduler();
 
+  // Self-configure the live QBO bridge (idempotent; links existing clients only).
+  const { ensureBridgeReady } = await import("./bridge-bootstrap");
+  await ensureBridgeReady();
+
   const port = parseInt(process.env.PORT || "3000");
   serve({ fetch: app.fetch, port }, () => {
     console.log(`Server running on http://localhost:${port}/`);

@@ -35,30 +35,18 @@ not in a dev session.
 
 ---
 
-## 2. Apply the schema (one-time, adds 3 columns)
-The bridge added `transport`, `bridgeUrl`, `bridgeSecret` to `qbo_connections`.
-On a fresh DB they're created automatically. On the existing SQLite DB, add them:
-
-```sql
-ALTER TABLE qbo_connections ADD COLUMN transport text DEFAULT 'native' NOT NULL;
-ALTER TABLE qbo_connections ADD COLUMN bridgeUrl text;
-ALTER TABLE qbo_connections ADD COLUMN bridgeSecret text;
-```
-(or run your normal drizzle-kit push if you use it — same result.)
+## 2. Schema + bridge setup — AUTOMATIC (nothing to run)
+On startup the server now self-configures (`api/bridge-bootstrap.ts`): it adds the
+3 bridge columns and, once `FIGGY_MAKE_API_TOKEN` is set, binds Clark OS (realm
+9341456017349963 → scenario 5347484) and Clark CW (realm 13633946244024404 →
+scenario 5347489) to your EXISTING CRM clients (matched by city — never creates a
+duplicate). Idempotent, no QBO writes. So after step 1, just let it redeploy.
+(Manual trigger if ever needed: `node --experimental-strip-types
+scripts/seed-clark-os-bridge.ts` with `FIGGY_MAKE_API_TOKEN` set.)
 
 ---
 
-## 3. Register the bridged clients (idempotent)
-```sh
-FIGGY_MAKE_API_TOKEN=••• node --experimental-strip-types scripts/seed-clark-os-bridge.ts
-```
-Registers Clark OS (realm 9341456017349963 → scenario 5347484) and Clark CW
-(realm 13633946244024404 → scenario 5347489), each as one active bridge
-connection. Re-running is safe. Expect "Active connections for client #X: 1".
-
----
-
-## 4. Generate suggestions into Triage (read-only)
+## 3. Generate suggestions into Triage (read-only)
 Make a small candidates file (one row per document you want coded), e.g.
 `clarkos.json`:
 ```json
