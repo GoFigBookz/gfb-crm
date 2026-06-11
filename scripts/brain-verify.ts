@@ -14,6 +14,12 @@ import {
   decideCoding,
   decideDedup,
 } from "../api/qbo-vendor-brain-core.ts";
+import { classifyVendorByName, codingHintForVendor } from "../api/qbo-vendor-classify.ts";
+
+const CLARK_OS_MAP = {
+  meals: { accountId: "1150040020", accountName: "Meals & Entertainment", taxCode: "7" },
+  fuel: { accountId: "1150040005", accountName: "Fuel", taxCode: "6" },
+};
 
 let pass = 0;
 const check = (name: string, fn: () => void) => { fn(); pass++; console.log("  ✓", name); };
@@ -99,6 +105,30 @@ check("two+ accounts -> FLAG yellow + ranked rationale", () => {
   assert.deepEqual(d.ranked.map((r) => r.accountId), ["A", "B"]); assert.equal(d.suggestedAccountId, "A");
   assert.equal(d.confidence, 67); // 2/3 dominance
   assert.match(d.rationale, /Repairs/);
+});
+
+console.log("classifyVendorByName + codingHintForVendor (cold-start, review-gated)");
+check("ESSO -> fuel; Boston Pizza -> meals; Walker -> null", () => {
+  assert.equal(classifyVendorByName("ESSO #4821 OWEN SOUND")?.category, "fuel");
+  assert.equal(classifyVendorByName("Boston Pizza")?.category, "meals");
+  assert.equal(classifyVendorByName("Walker Aggregates"), null);
+});
+check("hint maps to REAL account + M&E tax 7, low confidence, source=name", () => {
+  const h = codingHintForVendor("Tim Hortons #123", CLARK_OS_MAP)!;
+  assert.equal(h.accountId, "1150040020"); assert.equal(h.taxCode, "7");
+  assert.equal(h.confidence, 40); assert.equal(h.source, "name"); assert.match(h.rationale, /Meals & Entertainment/);
+});
+check("fuel hint -> Fuel acct + HST 6", () => {
+  const h = codingHintForVendor("Petro-Canada", CLARK_OS_MAP)!;
+  assert.equal(h.accountId, "1150040005"); assert.equal(h.taxCode, "6");
+});
+check("never guesses: unrecognized name -> null; category not in chart map -> null", () => {
+  assert.equal(codingHintForVendor("Walker Aggregates", CLARK_OS_MAP), null);
+  assert.equal(codingHintForVendor("Bell Canada", { fuel: CLARK_OS_MAP.fuel }), null); // telecom not mapped
+});
+check("web-lookup layer feeds the SAME review-gated hint (source=web)", () => {
+  const h = codingHintForVendor("Some Diner LLC", CLARK_OS_MAP, { category: "meals", label: "restaurant" })!;
+  assert.equal(h.accountId, "1150040020"); assert.equal(h.source, "web"); assert.match(h.rationale, /web lookup/i);
 });
 
 console.log("decideDedup (same lookup, two jobs)");

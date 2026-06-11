@@ -151,6 +151,17 @@ a realm). Vendor Memory cache is keyed by `(connectionId, vendorId)`.
   optional `suggestedAccount`; alongside existing `vendor/amount/date/category/
   hst/gmailMsgId`. UI falls back to deriving color from the stored `confidence`
   (0-1) column if `triage` absent (`src/pages/Triage.tsx` `codingTriage`).
+- **COLD-START CLASSIFIER (2026-06-11, Markie ask): `api/qbo-vendor-classify.ts`.**
+  When a vendor has NO history, instead of a blank "needs account" Figgy offers a
+  review-gated HINT from the vendor name: gas stations→Fuel (1150040005, tax 6),
+  restaurants/takeout→Meals & Entertainment (1150040020, tax 7 / M&E 50% rate
+  ref 15); also courier→shipping, telecom buckets. GOLDEN-RULE SAFE: maps only to
+  REAL locked-chart accounts (per-realm `CATEGORY_MAPS` in qbo-vendor-brain.ts),
+  always LOW confidence (40) + yellow + flagged, NEVER auto-posts, NOT cached
+  until Markie confirms (then it's history-based). Layer 2 = WEB LOOKUP for names
+  keywords miss (`codingHintForVendor(name, map, webCategory?)` already accepts a
+  web result, source="web") — runtime wiring PENDING Markie's choice (live search
+  vs staged). Wired into `suggestCoding` no_history branch. 26/26 checks.
 - **Brain P0 core upgrades (`api/qbo-vendor-brain-core.ts`, 19/19 checks):**
   `decideCoding(entries, greenThreshold=85)` now returns `confidence` (0-100),
   `triage`, `rationale`; `decideDedup` compares invoice#s via

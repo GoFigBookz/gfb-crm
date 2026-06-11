@@ -46,6 +46,18 @@ import {
   decideCoding,
   decideDedup,
 } from "./qbo-vendor-brain-core";
+import { type CategoryCodingMap, codingHintForVendor } from "./qbo-vendor-classify";
+
+// Per-client (realm) category -> REAL locked-chart account map for the cold-start
+// classifier. Keyed by realmId so it can never apply one client's accounts to
+// another. Add a realm's entries as its chart is verified live.
+const CATEGORY_MAPS: Record<string, CategoryCodingMap> = {
+  // Clark OS (Owen Sound) — verified live 2026-06-11.
+  "9341456017349963": {
+    meals: { accountId: "1150040020", accountName: "Meals & Entertainment", taxCode: "7" }, // M&E 50%, rate ref 15
+    fuel: { accountId: "1150040005", accountName: "Fuel", taxCode: "6" },                     // HST on
+  },
+};
 
 // Re-export the pure core so existing import sites keep working.
 export * from "./qbo-vendor-brain-core";
@@ -163,7 +175,25 @@ export const qboBrainRouter = createRouter({
 
       const since = input.historySinceISO ?? new Date(Date.now() - 730 * 86_400_000).toISOString().slice(0, 10);
       const history = await qboVendorHistory(conn, resolution.vendorId, since);
-      const coding = decideCoding(history, input.autoApproveThreshold ?? 85);
+      let coding = decideCoding(history, input.autoApproveThreshold ?? 85);
+
+      // COLD START: no history -> offer a review-gated classifier HINT (name now;
+      // web lookup later) instead of a blank "needs an account". Stays FLAGGED
+      // (low confidence, yellow) — never auto-posts, never cached until confirmed.
+      if (coding.status === "flag" && coding.flagReason === "no_history") {
+        const hint = codingHintForVendor(resolution.displayName || input.vendorName, CATEGORY_MAPS[conn.realmId] ?? {});
+        if (hint) {
+          coding = {
+            ...coding,
+            suggestedAccountId: hint.accountId,
+            suggestedAccountName: hint.accountName,
+            suggestedTaxCode: hint.taxCode,
+            confidence: hint.confidence,
+            triage: "yellow",
+            rationale: hint.rationale,
+          };
+        }
+      }
       const dedup = decideDedup(
         { invoiceNumber: input.invoiceNumber, total: input.total, txnDate: input.txnDate },
         history.map((h) => ({ docNumber: h.docNumber, amount: h.amount, date: h.date, txnId: h.txnId })),
