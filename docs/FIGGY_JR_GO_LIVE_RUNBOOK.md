@@ -1,0 +1,97 @@
+# FIGGY JR — GO-LIVE RUNBOOK (Clark OS + Clark CW, read-only)
+
+How to turn on the live Account Brain so real coding suggestions land in the
+Triage review queue. **Nothing here posts to QuickBooks** — every poster stays
+OFF; the brain only READS vendor history and WRITES review cards you approve.
+
+Do this on the **deployed CRM** (the box that serves the app + `data/crm.db`),
+not in a dev session.
+
+---
+
+## 0. What you're turning on
+- The brain reads Clark OS / Clark CW books live through your existing Make QBO
+  tools (no new credentials, no OAuth yet).
+- Each finding shows a 🟢/🟡/🔴 traffic light, a confidence %, and a plain
+  "Why" line. Unknown vendors get a name/web-lookup hint (still review-gated).
+- Isolation is guaranteed: each company has its own realm + scenario +
+  connection; one can never read the other's books.
+
+---
+
+## 1. Set the secrets (environment variables)
+| Variable | Value | Why |
+|---|---|---|
+| `FIGGY_MAKE_API_TOKEN` | a Make API token (Team 2327575) | lets the CRM run the per-realm QBO tool scenarios |
+| `FIGGY_MAKE_REGION` | `us2` (default — only set if different) | Make region for the scenario-run URL |
+| `ANTHROPIC_API_KEY` | an Anthropic API key | powers the web lookup for unknown vendors |
+| `FIGGY_CLASSIFY_MODEL` | `claude-haiku-4-5` (already the default) | cheap model for vendor web lookup |
+| `FIGGY_WEB_CLASSIFY` | *(leave unset)* | web lookup is ON by default once a key is present; set `off` to disable |
+| `AGENT_WEBHOOK_TOKEN` | your finding-post token (default `figgy-webhook-2026`) | auth for writing findings |
+
+> The web lookup is **safe**: with no `ANTHROPIC_API_KEY` it simply doesn't run,
+> and any web error falls back to "needs an account" — it can't block or
+> mis-code anything.
+
+---
+
+## 2. Apply the schema (one-time, adds 3 columns)
+The bridge added `transport`, `bridgeUrl`, `bridgeSecret` to `qbo_connections`.
+On a fresh DB they're created automatically. On the existing SQLite DB, add them:
+
+```sql
+ALTER TABLE qbo_connections ADD COLUMN transport text DEFAULT 'native' NOT NULL;
+ALTER TABLE qbo_connections ADD COLUMN bridgeUrl text;
+ALTER TABLE qbo_connections ADD COLUMN bridgeSecret text;
+```
+(or run your normal drizzle-kit push if you use it — same result.)
+
+---
+
+## 3. Register the bridged clients (idempotent)
+```sh
+FIGGY_MAKE_API_TOKEN=••• node --experimental-strip-types scripts/seed-clark-os-bridge.ts
+```
+Registers Clark OS (realm 9341456017349963 → scenario 5347484) and Clark CW
+(realm 13633946244024404 → scenario 5347489), each as one active bridge
+connection. Re-running is safe. Expect "Active connections for client #X: 1".
+
+---
+
+## 4. Generate suggestions into Triage (read-only)
+Make a small candidates file (one row per document you want coded), e.g.
+`clarkos.json`:
+```json
+[
+  { "vendorName": "Walker Aggregates", "invoiceNumber": "17890", "total": 1200.00, "txnDate": "2026-06-10", "rowId": "RQ-001" },
+  { "vendorName": "Esso", "total": 88.40, "txnDate": "2026-06-09", "rowId": "RQ-002" }
+]
+```
+Then run the brain over it (use the client id printed in step 3):
+```sh
+node --experimental-strip-types scripts/figgy-suggest-backlog.ts <clientId> clarkos.json
+```
+It prints each verdict (🟢/🟡/🔴) and writes a finding. **No QBO writes.**
+
+---
+
+## 5. Review in the app
+Open **Figgy Jr → Triage → New**. Each card shows the traffic light, confidence,
+and the "Why". Edit anything wrong, add a note to teach Figgy, then Approve,
+Dismiss, or Ask the client. Approving a clean suggestion is how Figgy learns the
+vendor for next time.
+
+---
+
+## Turn it off / roll back
+- **Disable web lookup:** set `FIGGY_WEB_CLASSIFY=off` (name-based hints still work).
+- **Disable a client's live reads:** set its `qbo_connections.isActive = 0`
+  (the brain then reports "not connected" rather than guessing).
+- **Nothing to undo in QBO** — the brain never wrote to it.
+
+## Guardrails (unchanged)
+- All Make posters/auto-approve clones stay OFF.
+- Chart of accounts is locked; Figgy never invents an account.
+- Clark OS and Clark CW remain permanently separate.
+- 🟢 green = "matches this vendor's history", not "provably correct" — the human
+  review gate is the backstop and stays on.

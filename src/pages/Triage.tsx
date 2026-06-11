@@ -13,6 +13,27 @@ const severityConfig: Record<string, { icon: any; color: string; border: string;
   info: { icon: Info, color: "text-blue-600", border: "border-l-blue-500", badge: "secondary", rank: 2 },
 };
 
+// Account Brain triage (traffic-light) — green = strong history (one-click-ready),
+// yellow = worth a look, red = no basis (Figgy won't guess). Driven by the Brain's
+// confidence + triage in sourceData; falls back to the stored confidence column.
+const triageConfig: Record<"green" | "yellow" | "red", { dot: string; text: string; label: string }> = {
+  green: { dot: "bg-lime-500", text: "text-lime-700", label: "Strong history" },
+  yellow: { dot: "bg-amber-500", text: "text-amber-700", label: "Review" },
+  red: { dot: "bg-red-500", text: "text-red-700", label: "Needs decision" },
+};
+
+function codingTriage(f: any, meta: any): { color: "green" | "yellow" | "red"; confidence: number | null; rationale: string | null } | null {
+  const confidence =
+    typeof meta.confidence === "number" ? Math.round(meta.confidence)
+    : typeof f.confidence === "number" ? Math.round(f.confidence * 100)
+    : null;
+  let color = (meta.triage === "green" || meta.triage === "yellow" || meta.triage === "red") ? meta.triage : undefined;
+  if (!color && confidence != null) color = confidence >= 85 ? "green" : confidence >= 60 ? "yellow" : "red";
+  const rationale = typeof meta.rationale === "string" && meta.rationale ? meta.rationale : null;
+  if (!color && confidence == null && !rationale) return null;
+  return { color: color ?? "yellow", confidence, rationale };
+}
+
 const TABS = ["new", "awaiting_client", "approved", "dismissed"] as const;
 type Tab = typeof TABS[number];
 const tabLabel: Record<Tab, string> = { new: "New", awaiting_client: "Awaiting Client", approved: "Approved", dismissed: "Dismissed" };
@@ -110,6 +131,7 @@ export default function Triage() {
           const editing = editId === f.id;
           const asking = askId === f.id;
           const meta = parseMeta(f);
+          const coding = codingTriage(f, meta);
           const receiptUrl = meta.gmailMsgId ? "https://mail.google.com/mail/u/0/#all/" + meta.gmailMsgId : null;
           const canResolve = tab === "new" || tab === "awaiting_client";
           return (
@@ -137,6 +159,12 @@ export default function Triage() {
                           <span className="font-semibold text-sm">{f.title}</span>
                           <Badge variant={cfg.badge} className="text-xs">{f.severity}</Badge>
                           {f.agentName && <Badge variant="outline" className="text-xs">{f.agentName}</Badge>}
+                          {coding && (
+                            <span className={cn("inline-flex items-center gap-1 text-xs font-medium", triageConfig[coding.color].text)} title="Account Brain confidence">
+                              <span className={cn("h-2 w-2 rounded-full", triageConfig[coding.color].dot)} />
+                              {coding.confidence != null ? `${coding.confidence}% · ` : ""}{triageConfig[coding.color].label}
+                            </span>
+                          )}
                         </div>
                         {(meta.vendor || meta.amount || meta.date || meta.category || meta.hst) && (
                           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-600 mb-1">
@@ -146,6 +174,11 @@ export default function Triage() {
                             {meta.category && <span><span className="text-slate-400">Category:</span> {meta.category}</span>}
                             {meta.hst && <span><span className="text-slate-400">HST:</span> {meta.hst}</span>}
                           </div>
+                        )}
+                        {coding?.rationale && (
+                          <p className="text-xs text-slate-500 break-words mb-1">
+                            <span className="text-slate-400">Why:</span> {coding.rationale}
+                          </p>
                         )}
                         {f.description && <p className="text-sm text-slate-600 break-words">{f.description}</p>}
                         {f.suggestedAction && <p className="text-xs text-slate-400 mt-1">Suggested: {f.suggestedAction}</p>}

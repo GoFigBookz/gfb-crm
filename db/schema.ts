@@ -62,6 +62,12 @@ export const qboConnections = sqliteTable("qbo_connections", {
   refreshToken: text("refreshToken"),
   expiresAt: integer("expiresAt", { mode: "timestamp" }),
   environment: text("environment", { enum: ["sandbox", "production"] }).default("sandbox").notNull(),
+  // Transport: "native" = our OAuth tokens (accessToken/refreshToken above);
+  // "make_bridge" = proxy QBO calls through a Make per-realm webhook (Make holds
+  // the tokens). Lets the brain run live before native OAuth is finished.
+  transport: text("transport", { enum: ["native", "make_bridge"] }).default("native").notNull(),
+  bridgeUrl: text("bridgeUrl"),       // Make scenario-run endpoint for this realm's QBO tool (make_bridge only)
+  bridgeSecret: text("bridgeSecret"), // per-conn Make API token override (else env FIGGY_MAKE_API_TOKEN)
   // Multi-account support: personal_business, ca_clients, us_clients
   accountType: text("accountType", { enum: ["personal_business", "ca_clients", "us_clients"] }).default("ca_clients").notNull(),
   // Which CRM client this QBO company belongs to (NULL = unassigned/triage)
@@ -195,6 +201,26 @@ export const qboAccounts = sqliteTable("qbo_accounts", {
   currencyRef: text("currencyRef"),
   active: integer("active", { mode: "boolean" }).default(true),
   lastUpdatedAt: integer("lastUpdatedAt", { mode: "timestamp" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// ========== VENDOR MEMORY (Figgy Jr Account-Selection Brain cache) ==========
+// Learned vendor -> preferred account/tax, derived from live QBO vendor history
+// and re-validated each run. QBO's Vendor entity has no native account/tax
+// field, so the coding brain's memory lives here (contact fields write back to
+// the QBO vendor card; coding stays in this cache).
+export const vendorMemory = sqliteTable("vendor_memory", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  connectionId: integer("connectionId").notNull(),
+  clientId: integer("clientId"),
+  qboVendorId: text("qboVendorId").notNull(),
+  vendorName: text("vendorName"),
+  preferredAccountId: text("preferredAccountId"),
+  preferredAccountName: text("preferredAccountName"),
+  preferredTaxCode: text("preferredTaxCode"),
+  sampleCount: integer("sampleCount").default(0),
+  lastValidatedAt: integer("lastValidatedAt", { mode: "timestamp" }),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
