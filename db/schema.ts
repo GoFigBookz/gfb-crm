@@ -199,6 +199,26 @@ export const qboAccounts = sqliteTable("qbo_accounts", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// ========== VENDOR MEMORY (Figgy Jr Account-Selection Brain cache) ==========
+// Learned vendor -> preferred account/tax, derived from live QBO vendor history
+// and re-validated each run. QBO's Vendor entity has no native account/tax
+// field, so the coding brain's memory lives here (contact fields write back to
+// the QBO vendor card; coding stays in this cache).
+export const vendorMemory = sqliteTable("vendor_memory", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  connectionId: integer("connectionId").notNull(),
+  clientId: integer("clientId"),
+  qboVendorId: text("qboVendorId").notNull(),
+  vendorName: text("vendorName"),
+  preferredAccountId: text("preferredAccountId"),
+  preferredAccountName: text("preferredAccountName"),
+  preferredTaxCode: text("preferredTaxCode"),
+  sampleCount: integer("sampleCount").default(0),
+  lastValidatedAt: integer("lastValidatedAt", { mode: "timestamp" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // ========== CLIENTS (Enhanced with workflow + onboarding) ==========
 export const clients = sqliteTable("clients", {
   id: integer("id").primaryKey({ autoIncrement: true }),

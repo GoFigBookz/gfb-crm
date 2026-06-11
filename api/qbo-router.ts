@@ -26,7 +26,7 @@ function getCredentials() {
 }
 
 // Helper: make an authenticated request to QBO API
-async function qboRequest(
+export async function qboRequest(
   connection: typeof qboConnections.$inferSelect,
   endpoint: string,
   method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
@@ -86,7 +86,7 @@ async function refreshToken(connection: typeof qboConnections.$inferSelect) {
 }
 
 // Helper: ensure token is valid before making a request
-async function ensureValidToken(connection: typeof qboConnections.$inferSelect) {
+export async function ensureValidToken(connection: typeof qboConnections.$inferSelect) {
   const now = new Date();
   const expiry = connection.expiresAt;
   if (!expiry || expiry.getTime() - now.getTime() < 5 * 60 * 1000) {
