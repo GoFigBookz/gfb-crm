@@ -265,10 +265,15 @@ export default function Triage() {
                           <span className="font-semibold text-sm">{f.title}</span>
                           <Badge variant={cfg.badge} className="text-xs">{f.severity}</Badge>
                           {f.agentName && <Badge variant="outline" className="text-xs">{f.agentName}</Badge>}
-                          {coding && (
-                            <span className={cn("inline-flex items-center gap-1 text-xs font-medium", triageConfig[coding.color].text)} title="Account Brain confidence">
-                              <span className={cn("h-2 w-2 rounded-full", triageConfig[coding.color].dot)} />
+                          {coding ? (
+                            <span className={cn("inline-flex items-center gap-1.5 text-xs font-semibold rounded-full border px-2 py-0.5", triageConfig[coding.color].text)} title="Figgy's confidence (from this vendor's QuickBooks history)">
+                              <span className={cn("h-3 w-3 rounded-full", triageConfig[coding.color].dot)} />
                               {coding.confidence != null ? `${coding.confidence}% · ` : ""}{triageConfig[coding.color].label}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-xs rounded-full border px-2 py-0.5 text-slate-400" title="Tap ✨ Get Figgy's suggestions to code this">
+                              <span className="h-3 w-3 rounded-full bg-slate-300" />
+                              not coded yet
                             </span>
                           )}
                         </div>
@@ -277,9 +282,21 @@ export default function Triage() {
                             {meta.vendor && <span><span className="text-slate-400">Vendor:</span> {meta.vendor}</span>}
                             {meta.amount && <span><span className="text-slate-400">Amount:</span> {meta.amount}{meta.currency ? " " + meta.currency : ""}</span>}
                             {meta.date && <span><span className="text-slate-400">Date:</span> {meta.date}</span>}
-                            {meta.category && <span><span className="text-slate-400">Category:</span> {meta.category}</span>}
                             {meta.hst && <span><span className="text-slate-400">HST:</span> {meta.hst}</span>}
                           </div>
+                        )}
+                        {/* Figgy's REAL account (from the locked QBO chart, based on history) —
+                            never the intake AI's free-text guess. */}
+                        {meta.suggestedAccount ? (
+                          <p className="text-sm font-medium text-purple-700 mb-0.5">
+                            Figgy suggests: {meta.suggestedAccount}
+                            {meta.suggestedTaxCode ? <span className="text-purple-400 font-normal"> · tax code {meta.suggestedTaxCode}</span> : null}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-slate-400 italic mb-0.5">
+                            No account suggested yet — tap ✨ Get Figgy&apos;s suggestions
+                            {meta.category ? <span> · (intake&apos;s rough guess was &ldquo;{meta.category}&rdquo; — not a QBO account)</span> : null}
+                          </p>
                         )}
                         {coding?.rationale && (
                           <p className="text-xs text-slate-500 break-words mb-1">
