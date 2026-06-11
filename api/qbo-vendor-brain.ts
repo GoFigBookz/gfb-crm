@@ -258,22 +258,27 @@ export const qboBrainRouter = createRouter({
       const status = input?.status ?? "new";
       const rows = await db.select().from(triageFindings)
         .where(eq(triageFindings.status, status)).orderBy(desc(triageFindings.createdAt)).limit(limit);
-      let enriched = 0, skipped = 0;
+      let enriched = 0;
+      const skip = { noClient: 0, noVendor: 0, already: 0, notConnected: 0, error: 0 };
       const errors: string[] = [];
       for (const f of rows) {
         try {
-          if (!f.clientId) { skipped++; continue; }
+          if (!f.clientId) { skip.noClient++; continue; }
           let meta: any = {};
           try { meta = JSON.parse(f.sourceData || "{}"); } catch { meta = {}; }
-          if (!meta || typeof meta !== "object" || !meta.vendor) { skipped++; continue; }
-          if (meta.triage && !input?.reenrich) { skipped++; continue; } // already enriched
+          if (!meta || typeof meta !== "object" || !meta.vendor) { skip.noVendor++; continue; }
+          if (meta.triage && !input?.reenrich) { skip.already++; continue; } // already enriched
           const r = await suggestForClient(f.clientId, {
             vendorName: String(meta.vendor),
             invoiceNumber: meta.invoiceNumber ? String(meta.invoiceNumber) : undefined,
             total: parseAmt(meta.amount),
             txnDate: meta.date ? String(meta.date) : undefined,
           });
-          if (!r.ok) { skipped++; if (errors.length < 5) errors.push(`#${f.id}: ${r.error}`); continue; }
+          if (!r.ok) {
+            if (String(r.error).includes("no_active") || String(r.error).includes("ambiguous")) skip.notConnected++;
+            else { skip.error++; if (errors.length < 5) errors.push(`#${f.id}: ${r.error}`); }
+            continue;
+          }
           const c: any = r.coding ?? {};
           const triage: "green" | "yellow" | "red" = c.triage ?? "red";
           const confidence = typeof c.confidence === "number" ? c.confidence : 0;
@@ -291,9 +296,10 @@ export const qboBrainRouter = createRouter({
           await db.update(triageFindings).set({ sourceData: JSON.stringify(newMeta) }).where(eq(triageFindings.id, f.id));
           enriched++;
         } catch (e: any) {
-          skipped++; if (errors.length < 5) errors.push(`#${f.id}: ${e?.message || String(e)}`);
+          skip.error++; if (errors.length < 5) errors.push(`#${f.id}: ${e?.message || String(e)}`);
         }
       }
-      return { enriched, skipped, scanned: rows.length, errors };
+      const skipped = skip.noClient + skip.noVendor + skip.already + skip.notConnected + skip.error;
+      return { enriched, skipped, scanned: rows.length, breakdown: skip, errors };
     }),
 });

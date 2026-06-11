@@ -64,9 +64,16 @@ export default function Triage() {
   const enrich = trpc.qboBrain.enrichFindings.useMutation({
     onSuccess: (res: any) => {
       refresh();
+      const b = res.breakdown || {};
+      const why: string[] = [];
+      if (b.notConnected) why.push(`${b.notConnected} for companies not connected yet`);
+      if (b.noClient) why.push(`${b.noClient} not linked to a company`);
+      if (b.noVendor) why.push(`${b.noVendor} missing a vendor name`);
+      if (b.already) why.push(`${b.already} already done`);
+      if (b.error) why.push(`${b.error} had errors`);
       const parts = [`Figgy coded ${res.enriched} of ${res.scanned}`];
-      if (res.skipped) parts.push(`${res.skipped} skipped`);
-      if (res.errors?.length) parts.push(`issues: ${res.errors.join("; ")}`);
+      if (why.length) parts.push(`skipped: ${why.join(", ")}`);
+      if (res.errors?.length) parts.push(`details: ${res.errors.join("; ")}`);
       setEnrichMsg(parts.join(" · "));
     },
     onError: (e: any) => setEnrichMsg(`Error: ${e?.message || "failed"}`),
