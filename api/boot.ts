@@ -15,6 +15,7 @@ import { Paths } from "@contracts/constants";
 import { getDb } from "./queries/connection";
 import { connectedAccounts, qboConnections, triageFindings, clients } from "../db/schema";
 import { eq, sql, like } from "drizzle-orm";
+import { matchClientIdByName } from "./client-match";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
@@ -339,8 +340,10 @@ app.post("/api/figgy-jr-sync", async (c) => {
       if (!rowId) continue;
       const attachment = String(row[19] || "").trim();
       const gmailMsgId = attachment.includes("::") ? attachment.split("::")[0].trim() : "";
+      const clientName = String(row[2] || "").trim();
+      const clientId: number | undefined = (clientName ? await matchClientIdByName(clientName) : null) ?? undefined;
       const sourceData = JSON.stringify({
-        rowId, gmailMsgId, attachment,
+        rowId, gmailMsgId, attachment, clientName,
         vendor: String(row[7] || "").trim(),
         amount: String(row[8] || "").trim(),
         currency: String(row[9] || "").trim(),
@@ -351,17 +354,12 @@ app.post("/api/figgy-jr-sync", async (c) => {
       });
       const existing = await db.select().from(triageFindings).where(like(triageFindings.sourceData, "%" + rowId + "%")).limit(1);
       if (existing[0]) {
-        if (existing[0].sourceData !== sourceData) {
-          await db.update(triageFindings).set({ sourceData }).where(eq(triageFindings.id, existing[0].id));
-        }
+        const patch: Record<string, any> = {};
+        if (existing[0].sourceData !== sourceData) patch.sourceData = sourceData;
+        if (clientId && existing[0].clientId !== clientId) patch.clientId = clientId;
+        if (Object.keys(patch).length) await db.update(triageFindings).set(patch).where(eq(triageFindings.id, existing[0].id));
         skipped++;
         continue;
-      }
-      const clientName = String(row[2] || "").trim();
-      let clientId: number | undefined;
-      if (clientName) {
-        const cc = await db.select().from(clients).where(eq(clients.name, clientName)).limit(1);
-        if (cc[0]) clientId = cc[0].id;
       }
       const vendor = String(row[7] || "").trim();
       const docType = String(row[5] || "").trim();
