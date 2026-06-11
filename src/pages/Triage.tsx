@@ -61,6 +61,11 @@ export default function Triage() {
   const update = trpc.agentWebhook.updateFinding.useMutation({ onSuccess: () => { refresh(); setEditId(null); } });
   const askClient = trpc.agentWebhook.askClient.useMutation({ onSuccess: () => { refresh(); setAskId(null); } });
   const del = trpc.agentWebhook.deleteFinding.useMutation({ onSuccess: refresh });
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const clearSel = () => setSelected(new Set());
+  const bulkReview = trpc.agentWebhook.reviewFindings.useMutation({ onSuccess: () => { refresh(); clearSel(); } });
+  const bulkDelete = trpc.agentWebhook.deleteFindings.useMutation({ onSuccess: () => { refresh(); clearSel(); } });
+  const toggleSel = (id: number) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [enrichMsg, setEnrichMsg] = useState<string>("");
   const enrich = trpc.qboBrain.enrichFindings.useMutation({
     onSuccess: (res: any) => {
@@ -130,7 +135,7 @@ export default function Triage() {
 
       <div className="flex gap-2 flex-wrap items-center">
         {TABS.map((t) => (
-          <Button key={t} size="sm" variant={tab === t ? "default" : "outline"} onClick={() => { setTab(t); setEditId(null); setAskId(null); }}>
+          <Button key={t} size="sm" variant={tab === t ? "default" : "outline"} onClick={() => { setTab(t); setEditId(null); setAskId(null); clearSel(); }}>
             {tabLabel[t]}
           </Button>
         ))}
@@ -141,6 +146,38 @@ export default function Triage() {
           </Button>
         </div>
       </div>
+
+      {/* Batch bar — select many, act once (like QBO bank-feed bulk actions) */}
+      {items.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          <Button size="sm" variant="outline" className="h-7 text-xs"
+            onClick={() => setSelected(selected.size === items.length ? new Set() : new Set(items.map((f: any) => f.id)))}>
+            {selected.size === items.length ? "Unselect all" : `Select all (${items.length})`}
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 text-xs border-lime-300 text-lime-700"
+            onClick={() => setSelected(new Set(items.filter((f: any) => codingTriage(f, parseMeta(f))?.color === "green").map((f: any) => f.id)))}>
+            Select all 🟢 green
+          </Button>
+          {selected.size > 0 && (
+            <>
+              <span className="text-slate-500 font-medium">{selected.size} selected:</span>
+              {(tab === "new" || tab === "awaiting_client") && (
+                <>
+                  <Button size="sm" className="h-7 text-xs bg-lime-500 hover:bg-lime-600" disabled={bulkReview.isPending}
+                    onClick={() => bulkReview.mutate({ ids: [...selected], action: "approve" })}>Approve selected</Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" disabled={bulkReview.isPending}
+                    onClick={() => bulkReview.mutate({ ids: [...selected], action: "dismiss" })}>Dismiss selected</Button>
+                </>
+              )}
+              <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500 hover:bg-red-50" disabled={bulkDelete.isPending}
+                onClick={() => { if (window.confirm(`Delete ${selected.size} card(s) permanently? This can't be undone.`)) bulkDelete.mutate({ ids: [...selected] }); }}>
+                Delete selected
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={clearSel}>Clear</Button>
+            </>
+          )}
+        </div>
+      )}
 
       {isLoading && <p className="text-slate-500">Loading&hellip;</p>}
       {!isLoading && items.length === 0 && (
@@ -188,6 +225,8 @@ export default function Triage() {
                 ) : (
                   <>
                     <div className="flex items-start gap-3">
+                      <input type="checkbox" className="mt-1 h-4 w-4 flex-shrink-0 accent-purple-600 cursor-pointer"
+                        checked={selected.has(f.id)} onChange={() => toggleSel(f.id)} />
                       <Icon className={cn("h-5 w-5 mt-0.5 flex-shrink-0", cfg.color)} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
