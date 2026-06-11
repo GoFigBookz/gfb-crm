@@ -53,10 +53,15 @@ import { classifyVendorByWeb } from "./qbo-vendor-web-classify";
 // classifier. Keyed by realmId so it can never apply one client's accounts to
 // another. Add a realm's entries as its chart is verified live.
 const CATEGORY_MAPS: Record<string, CategoryCodingMap> = {
-  // Clark OS (Owen Sound) — verified live 2026-06-11.
+  // Clark OS (Owen Sound) — verified live 2026-06-11. Tax: HSTon 6 / M&E 7.
   "9341456017349963": {
     meals: { accountId: "1150040020", accountName: "Meals & Entertainment", taxCode: "7" }, // M&E 50%, rate ref 15
     fuel: { accountId: "1150040005", accountName: "Fuel", taxCode: "6" },                     // HST on
+  },
+  // Clark CW (Collingwood) — verified live 2026-06-11. NON-STANDARD tax: HSTon 7 / M&E 9.
+  "13633946244024404": {
+    meals: { accountId: "142", accountName: "Meals and entertainment", taxCode: "9" }, // M&E, rate ref 18
+    fuel: { accountId: "108", accountName: "Vehicle - Fuel", taxCode: "7" },             // HST on
   },
 };
 

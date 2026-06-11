@@ -11,9 +11,10 @@
  * bad/empty response, timeout). A web hiccup can never block coding or inject a
  * wrong account — the brain just falls back to the plain "needs an account" flag.
  *
- * OFF BY DEFAULT: requires BOTH `ANTHROPIC_API_KEY` and `FIGGY_WEB_CLASSIFY=on`.
- * Model via `FIGGY_CLASSIFY_MODEL` (default `claude-opus-4-8`; set
- * `claude-haiku-4-5` for ~5x cheaper high-volume classification).
+ * ON BY DEFAULT once a key is present (Markie 2026-06-11): fires whenever
+ * `ANTHROPIC_API_KEY` is set; disable with `FIGGY_WEB_CLASSIFY=off`. Model via
+ * `FIGGY_CLASSIFY_MODEL` (default `claude-haiku-4-5` — Markie's pick, ~5x cheaper
+ * than Opus and plenty for "is this a restaurant?"; override per env if desired).
  *
  * Raw REST (not the SDK) deliberately: one optional call against the stable
  * documented Messages endpoint, so the CRM doesn't take on a new dependency for
@@ -38,8 +39,9 @@ export async function classifyVendorByWeb(
   opts?: { timeoutMs?: number },
 ): Promise<{ category: VendorCategoryId; label: string } | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey || process.env.FIGGY_WEB_CLASSIFY !== "on" || !name?.trim()) return null;
-  const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-opus-4-8";
+  // On whenever a key is present; opt out with FIGGY_WEB_CLASSIFY=off.
+  if (!apiKey || process.env.FIGGY_WEB_CLASSIFY === "off" || !name?.trim()) return null;
+  const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
   const list = CATEGORIES.join(", ");
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), opts?.timeoutMs ?? 15_000);

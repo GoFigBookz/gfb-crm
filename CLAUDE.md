@@ -58,8 +58,10 @@ ONCE on consolidated rails — never per-client clones.**
   scenario per realm (design-time-bound connection). Schema: `qbo_connections` +
   `transport/bridgeUrl/bridgeSecret` (bridgeUrl=run endpoint; bridgeSecret=token
   override). Seed: `scripts/seed-clark-os-bridge.ts` (realm 9341456017349963 →
-  client, bridgeUrl defaults to scenario-5347484 run URL, idempotent). Backlog →
-  Triage (read-only, posters OFF): `scripts/figgy-suggest-backlog.ts`.
+  client, idempotent — now seeds BOTH Clark OS (realm 9341456017349963 → scenario
+  5347484) AND Clark CW (realm 13633946244024404 → scenario 5347489)). Backlog →
+  Triage (read-only, posters OFF): `scripts/figgy-suggest-backlog.ts`. GO-LIVE
+  RUNBOOK: `docs/FIGGY_JR_GO_LIVE_RUNBOOK.md` (env vars, 3-col ALTER, seed, run).
   LIVE-VERIFIED (responsive run): Walker(653) 3 bills→🟡81%, Highbury(225) 8 bills
   →🟢95% (both all 1150040016/tax6, correctly coded), dup-catch on reformatted
   invoice#. NON-BILL EXPENSES WIDENED (2026-06-11): report path now works end to
@@ -161,9 +163,11 @@ a realm). Vendor Memory cache is keyed by `(connectionId, vendorId)`.
   until Markie confirms (then it's history-based). Layer 2 = LIVE WEB LOOKUP
   (Markie chose live runtime 2026-06-11): `api/qbo-vendor-web-classify.ts` calls
   Claude w/ server-side web_search to classify names keywords miss, fed through
-  the SAME review-gated hint (source="web"). OFF by default — needs
-  `ANTHROPIC_API_KEY` + `FIGGY_WEB_CLASSIFY=on`; model `FIGGY_CLASSIFY_MODEL`
-  (default `claude-opus-4-8`; `claude-haiku-4-5` ~5x cheaper for high volume).
+  the SAME review-gated hint (source="web"). ON once `ANTHROPIC_API_KEY` set
+  (Markie 2026-06-11; disable w/ `FIGGY_WEB_CLASSIFY=off`); model
+  `FIGGY_CLASSIFY_MODEL` default `claude-haiku-4-5` (Markie's pick, ~5x cheaper).
+  Clark CW now in `CATEGORY_MAPS` too (realm 13633946244024404): meals→Meals and
+  entertainment(142, tax 9 M&E), fuel→Vehicle - Fuel(108, tax 7 HST).
   Fully defensive: any failure → null → brain falls back to plain no_history flag
   (web hiccup can't block/poison coding). Uses stable REST endpoint via fetch (no
   new dep). Wired into `suggestCoding` no_history branch. 27/27 checks.
