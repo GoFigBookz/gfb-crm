@@ -30,10 +30,10 @@
  * =============================================================================
  */
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { createRouter, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { qboConnections, vendorMemory } from "../db/schema";
+import { qboConnections, vendorMemory, triageFindings } from "../db/schema";
 import { qboRequest, ensureValidToken } from "./qbo-router";
 import {
   type CodingEntry,
@@ -154,6 +154,78 @@ async function getConnectionForClient(
   return { conn: await ensureValidToken(rows[0]) };
 }
 
+/** Parse a money-ish string ("$1,234.56", "1234.56") into a number, or undefined. */
+function parseAmt(v: any): number | undefined {
+  if (v == null || v === "") return undefined;
+  const n = Number(String(v).replace(/[^0-9.\-]/g, ""));
+  return Number.isFinite(n) && n !== 0 ? n : undefined;
+}
+
+/** Core brain run for one client + document. READ-ONLY against QBO; never posts.
+ *  Shared by the suggestCoding endpoint and the findings enrichment. */
+export async function suggestForClient(
+  clientId: number,
+  input: { vendorName: string; invoiceNumber?: string; total?: number; txnDate?: string; historySinceISO?: string; autoApproveThreshold?: number },
+) {
+  const connResult = await getConnectionForClient(clientId);
+  if ("error" in connResult) return { ok: false as const, error: connResult.error };
+  const conn = connResult.conn;
+
+  const resolution = await qboResolveVendor(conn, input.vendorName);
+  if (resolution.status === "unresolved") {
+    return { ok: true as const, resolution, coding: { status: "flag", flagReason: "vendor_unresolved" } as Partial<CodingDecision>, dedup: null };
+  }
+  if (resolution.status === "ambiguous") {
+    return { ok: true as const, resolution, coding: { status: "flag", flagReason: "vendor_ambiguous" } as Partial<CodingDecision>, dedup: null };
+  }
+
+  const since = input.historySinceISO ?? new Date(Date.now() - 730 * 86_400_000).toISOString().slice(0, 10);
+  const history = await qboVendorHistory(conn, resolution.vendorId, since);
+  let coding = decideCoding(history, input.autoApproveThreshold ?? 85);
+
+  // COLD START: no history -> review-gated classifier HINT (name keywords, then
+  // live web lookup if enabled). Stays FLAGGED — never auto-posts/caches.
+  if (coding.status === "flag" && coding.flagReason === "no_history") {
+    const map = CATEGORY_MAPS[conn.realmId] ?? {};
+    const vname = resolution.displayName || input.vendorName;
+    let hint = codingHintForVendor(vname, map);
+    if (!hint && Object.keys(map).length > 0) {
+      const web = await classifyVendorByWeb(vname);
+      if (web) hint = codingHintForVendor(vname, map, web);
+    }
+    if (hint) {
+      coding = {
+        ...coding,
+        suggestedAccountId: hint.accountId, suggestedAccountName: hint.accountName,
+        suggestedTaxCode: hint.taxCode, confidence: hint.confidence, triage: "yellow", rationale: hint.rationale,
+      };
+    }
+  }
+  const dedup = decideDedup(
+    { invoiceNumber: input.invoiceNumber, total: input.total, txnDate: input.txnDate },
+    history.map((h) => ({ docNumber: h.docNumber, amount: h.amount, date: h.date, txnId: h.txnId })),
+  );
+
+  // Cache the confident suggestion in Vendor Memory (re-validated each run).
+  if (coding.status === "suggested" && coding.suggestedAccountId) {
+    try {
+      const db = getDb();
+      const existing = await db.select().from(vendorMemory)
+        .where(and(eq(vendorMemory.connectionId, conn.id), eq(vendorMemory.qboVendorId, resolution.vendorId))).limit(1);
+      const patch = {
+        connectionId: conn.id, clientId, qboVendorId: resolution.vendorId,
+        vendorName: resolution.displayName, preferredAccountId: coding.suggestedAccountId,
+        preferredAccountName: coding.suggestedAccountName, preferredTaxCode: coding.suggestedTaxCode,
+        sampleCount: coding.sampleCount, lastValidatedAt: new Date(),
+      };
+      if (existing[0]) await db.update(vendorMemory).set(patch).where(eq(vendorMemory.id, existing[0].id));
+      else await db.insert(vendorMemory).values(patch);
+    } catch { /* cache is best-effort */ }
+  }
+
+  return { ok: true as const, resolution, coding, dedup };
+}
+
 export const qboBrainRouter = createRouter({
   /** Suggest coding for an incoming document. READ-ONLY — never posts. */
   suggestCoding: staffQuery
@@ -166,70 +238,62 @@ export const qboBrainRouter = createRouter({
       historySinceISO: z.string().optional(),
       autoApproveThreshold: z.number().min(0).max(100).optional(),
     }))
+    .mutation(async ({ input }) => suggestForClient(input.clientId, input)),
+
+  /**
+   * Run the brain over existing Triage findings and fold its traffic-light /
+   * confidence / rationale into each finding's sourceData so the cards light up.
+   * READ-ONLY against QBO. Defensive per-finding (one bad row can't stop the
+   * batch) and returns a few error samples for remote diagnosis.
+   */
+  enrichFindings: staffQuery
+    .input(z.object({
+      limit: z.number().min(1).max(200).optional(),
+      status: z.enum(["new", "approved", "dismissed", "awaiting_client"]).optional(),
+      reenrich: z.boolean().optional(),
+    }).optional())
     .mutation(async ({ input }) => {
-      const connResult = await getConnectionForClient(input.clientId);
-      if ("error" in connResult) return { ok: false as const, error: connResult.error };
-      const conn = connResult.conn;
-
-      const resolution = await qboResolveVendor(conn, input.vendorName);
-      if (resolution.status === "unresolved") {
-        return { ok: true as const, resolution, coding: { status: "flag", flagReason: "vendor_unresolved" } as Partial<CodingDecision>, dedup: null };
-      }
-      if (resolution.status === "ambiguous") {
-        return { ok: true as const, resolution, coding: { status: "flag", flagReason: "vendor_ambiguous" } as Partial<CodingDecision>, dedup: null };
-      }
-
-      const since = input.historySinceISO ?? new Date(Date.now() - 730 * 86_400_000).toISOString().slice(0, 10);
-      const history = await qboVendorHistory(conn, resolution.vendorId, since);
-      let coding = decideCoding(history, input.autoApproveThreshold ?? 85);
-
-      // COLD START: no history -> offer a review-gated classifier HINT instead of
-      // a blank "needs an account". Layer 1 = name keywords (instant); layer 2 =
-      // live web lookup for names keywords miss (gated by FIGGY_WEB_CLASSIFY +
-      // ANTHROPIC_API_KEY). Stays FLAGGED (low confidence, yellow) — never
-      // auto-posts, never cached until Markie confirms.
-      if (coding.status === "flag" && coding.flagReason === "no_history") {
-        const map = CATEGORY_MAPS[conn.realmId] ?? {};
-        const vname = resolution.displayName || input.vendorName;
-        let hint = codingHintForVendor(vname, map);
-        if (!hint && Object.keys(map).length > 0) {
-          const web = await classifyVendorByWeb(vname); // null unless enabled/recognized
-          if (web) hint = codingHintForVendor(vname, map, web);
-        }
-        if (hint) {
-          coding = {
-            ...coding,
-            suggestedAccountId: hint.accountId,
-            suggestedAccountName: hint.accountName,
-            suggestedTaxCode: hint.taxCode,
-            confidence: hint.confidence,
-            triage: "yellow",
-            rationale: hint.rationale,
-          };
-        }
-      }
-      const dedup = decideDedup(
-        { invoiceNumber: input.invoiceNumber, total: input.total, txnDate: input.txnDate },
-        history.map((h) => ({ docNumber: h.docNumber, amount: h.amount, date: h.date, txnId: h.txnId })),
-      );
-
-      // Cache the confident suggestion in Vendor Memory (re-validated each run).
-      if (coding.status === "suggested" && coding.suggestedAccountId) {
+      const db = getDb();
+      const limit = input?.limit ?? 50;
+      const status = input?.status ?? "new";
+      const rows = await db.select().from(triageFindings)
+        .where(eq(triageFindings.status, status)).orderBy(desc(triageFindings.createdAt)).limit(limit);
+      let enriched = 0, skipped = 0;
+      const errors: string[] = [];
+      for (const f of rows) {
         try {
-          const db = getDb();
-          const existing = await db.select().from(vendorMemory)
-            .where(and(eq(vendorMemory.connectionId, conn.id), eq(vendorMemory.qboVendorId, resolution.vendorId))).limit(1);
-          const patch = {
-            connectionId: conn.id, clientId: input.clientId, qboVendorId: resolution.vendorId,
-            vendorName: resolution.displayName, preferredAccountId: coding.suggestedAccountId,
-            preferredAccountName: coding.suggestedAccountName, preferredTaxCode: coding.suggestedTaxCode,
-            sampleCount: coding.sampleCount, lastValidatedAt: new Date(),
+          if (!f.clientId) { skipped++; continue; }
+          let meta: any = {};
+          try { meta = JSON.parse(f.sourceData || "{}"); } catch { meta = {}; }
+          if (!meta || typeof meta !== "object" || !meta.vendor) { skipped++; continue; }
+          if (meta.triage && !input?.reenrich) { skipped++; continue; } // already enriched
+          const r = await suggestForClient(f.clientId, {
+            vendorName: String(meta.vendor),
+            invoiceNumber: meta.invoiceNumber ? String(meta.invoiceNumber) : undefined,
+            total: parseAmt(meta.amount),
+            txnDate: meta.date ? String(meta.date) : undefined,
+          });
+          if (!r.ok) { skipped++; if (errors.length < 5) errors.push(`#${f.id}: ${r.error}`); continue; }
+          const c: any = r.coding ?? {};
+          const triage: "green" | "yellow" | "red" = c.triage ?? "red";
+          const confidence = typeof c.confidence === "number" ? c.confidence : 0;
+          const rationale = c.rationale ??
+            (c.flagReason === "vendor_unresolved" ? "Couldn't find this vendor in QBO — needs a human."
+            : c.flagReason === "vendor_ambiguous" ? "More than one QBO vendor matches this name — pick one."
+            : "Needs an account.");
+          const newMeta = {
+            ...meta, triage, confidence, rationale,
+            suggestedAccount: c.suggestedAccountName ?? null,
+            suggestedAccountId: c.suggestedAccountId ?? null,
+            suggestedTaxCode: c.suggestedTaxCode ?? null,
+            dedup: r.dedup && r.dedup.isDuplicate ? r.dedup : null,
           };
-          if (existing[0]) await db.update(vendorMemory).set(patch).where(eq(vendorMemory.id, existing[0].id));
-          else await db.insert(vendorMemory).values(patch);
-        } catch { /* cache is best-effort */ }
+          await db.update(triageFindings).set({ sourceData: JSON.stringify(newMeta) }).where(eq(triageFindings.id, f.id));
+          enriched++;
+        } catch (e: any) {
+          skipped++; if (errors.length < 5) errors.push(`#${f.id}: ${e?.message || String(e)}`);
+        }
       }
-
-      return { ok: true as const, resolution, coding, dedup };
+      return { enriched, skipped, scanned: rows.length, errors };
     }),
 });

@@ -60,6 +60,17 @@ export default function Triage() {
   const review = trpc.agentWebhook.reviewFinding.useMutation({ onSuccess: refresh });
   const update = trpc.agentWebhook.updateFinding.useMutation({ onSuccess: () => { refresh(); setEditId(null); } });
   const askClient = trpc.agentWebhook.askClient.useMutation({ onSuccess: () => { refresh(); setAskId(null); } });
+  const [enrichMsg, setEnrichMsg] = useState<string>("");
+  const enrich = trpc.qboBrain.enrichFindings.useMutation({
+    onSuccess: (res: any) => {
+      refresh();
+      const parts = [`Figgy coded ${res.enriched} of ${res.scanned}`];
+      if (res.skipped) parts.push(`${res.skipped} skipped`);
+      if (res.errors?.length) parts.push(`issues: ${res.errors.join("; ")}`);
+      setEnrichMsg(parts.join(" · "));
+    },
+    onError: (e: any) => setEnrichMsg(`Error: ${e?.message || "failed"}`),
+  });
 
   const clientOf = (id: number | null) => (clientList || []).find((c: any) => c.id === id) as any;
 
@@ -109,12 +120,18 @@ export default function Triage() {
         Receipts &amp; documents Figgy Jr processed. Edit anything wrong, add a note to teach Figgy, then approve, dismiss, or ask the client for missing info.
       </p>
 
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         {TABS.map((t) => (
           <Button key={t} size="sm" variant={tab === t ? "default" : "outline"} onClick={() => { setTab(t); setEditId(null); setAskId(null); }}>
             {tabLabel[t]}
           </Button>
         ))}
+        <div className="ml-auto flex items-center gap-2">
+          {enrichMsg && <span className="text-xs text-slate-500 max-w-md truncate" title={enrichMsg}>{enrichMsg}</span>}
+          <Button size="sm" className="bg-purple-600 hover:bg-purple-700" disabled={enrich.isPending} onClick={() => { setEnrichMsg(""); enrich.mutate({ status: tab }); }}>
+            {enrich.isPending ? "Coding…" : "✨ Get Figgy's suggestions"}
+          </Button>
+        </div>
       </div>
 
       {isLoading && <p className="text-slate-500">Loading&hellip;</p>}

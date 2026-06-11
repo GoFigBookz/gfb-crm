@@ -160,6 +160,13 @@ a realm). Vendor Memory cache is keyed by `(connectionId, vendorId)`.
   / dismissed), backed by `api/agent-webhook-router.ts` (tRPC `agentWebhook`).
   Agents POST findings to `submitFinding` (X-Agent-Token), deduped by
   `sourceData` (Review Queue Row ID). This is where Brain flags should surface.
+- **Enrich-on-click (2026-06-11):** Triage has a "✨ Get Figgy's suggestions"
+  button → tRPC `qboBrain.enrichFindings` runs the brain over current-tab findings
+  and folds triage/confidence/rationale/suggestedAccount into each `sourceData`
+  (read-only QBO, defensive per-finding, returns error samples for remote debug).
+  Shared core extracted to `suggestForClient(clientId, input)`. This is the live
+  end-to-end test of the webhook bridge: click it, the cards light up (or the
+  status line shows the bridge error to diagnose).
 - **Brain triage on the cards (P0 done 2026-06-11):** Triage renders a
   traffic-light pill + confidence% + plain-English "Why" from the finding's
   `sourceData` JSON. Contract — posters/bridge include in `sourceData`:
