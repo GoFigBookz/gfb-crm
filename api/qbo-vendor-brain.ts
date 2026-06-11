@@ -137,6 +137,7 @@ export const qboBrainRouter = createRouter({
       total: z.number().optional(),
       txnDate: z.string().optional(),
       historySinceISO: z.string().optional(),
+      autoApproveThreshold: z.number().min(0).max(100).optional(),
     }))
     .mutation(async ({ input }) => {
       const connResult = await getConnectionForClient(input.clientId);
@@ -153,7 +154,7 @@ export const qboBrainRouter = createRouter({
 
       const since = input.historySinceISO ?? new Date(Date.now() - 730 * 86_400_000).toISOString().slice(0, 10);
       const history = await qboVendorHistory(conn, resolution.vendorId, since);
-      const coding = decideCoding(history);
+      const coding = decideCoding(history, input.autoApproveThreshold ?? 85);
       const dedup = decideDedup(
         { invoiceNumber: input.invoiceNumber, total: input.total, txnDate: input.txnDate },
         history.map((h) => ({ docNumber: h.docNumber, amount: h.amount, date: h.date, txnId: h.txnId })),

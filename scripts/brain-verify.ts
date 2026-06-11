@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import {
   normalizeVendorName,
+  normalizeInvoiceNumber,
   vendorNameSimilarity,
   resolveVendorFromCandidates,
   parseBillHistory,
@@ -56,22 +57,38 @@ check("captures expense via other_account, skips -Split-", () => {
   const e = parseExpenseReport(rep); assert.equal(e.length, 1); assert.equal(e[0].accountId, "1150040016"); assert.equal(e[0].amount, 21.01);
 });
 
-console.log("decideCoding (the core rule)");
-check("no history -> FLAG no_history", () => { const d = decideCoding([]); assert.equal(d.status, "flag"); assert.equal(d.flagReason, "no_history"); });
-check("one account -> confident suggestion (real Walker)", () => { const d = decideCoding(parseBillHistory(WALKER_BILLS)); assert.equal(d.status, "suggested"); assert.equal(d.suggestedAccountId, "1150040016"); assert.equal(d.suggestedTaxCode, "6"); assert.equal(d.sampleCount, 2); });
-check("two+ accounts -> ALWAYS FLAG with ranked list", () => {
+console.log("normalizeInvoiceNumber (P0 dedup normalization)");
+check("strips spaces/dashes/prefix, uppercases", () => { assert.equal(normalizeInvoiceNumber("inv-17 314"), "17314"); assert.equal(normalizeInvoiceNumber("#CSC-70350"), "CSC70350"); });
+
+console.log("decideCoding (the core rule + P0 confidence/triage/rationale)");
+check("no history -> FLAG no_history, red, conf 0", () => { const d = decideCoding([]); assert.equal(d.status, "flag"); assert.equal(d.flagReason, "no_history"); assert.equal(d.triage, "red"); assert.equal(d.confidence, 0); });
+check("one account -> suggestion w/ confidence+rationale", () => {
+  const d = decideCoding(parseBillHistory(WALKER_BILLS));
+  assert.equal(d.status, "suggested"); assert.equal(d.suggestedAccountId, "1150040016"); assert.equal(d.suggestedTaxCode, "6"); assert.equal(d.sampleCount, 2);
+  assert.equal(d.confidence, 74); // 60 + 2*7
+  assert.equal(d.triage, "yellow"); // below default green threshold 85
+  assert.match(d.rationale, /Parts\/Goods COGS/);
+});
+check("deep clean history -> green (auto-approve-eligible)", () => {
+  const many = Array.from({ length: 6 }, (_, i) => ({ accountId: "X", accountName: "Materials", taxCode: "6", source: "bill" as const, date: `2026-0${(i % 9) + 1}-01`, amount: 100, txnId: String(i), docNumber: String(i) }));
+  const d = decideCoding(many); assert.equal(d.triage, "green"); assert.equal(d.confidence, 95);
+});
+check("two+ accounts -> FLAG yellow + ranked rationale", () => {
   const d = decideCoding([
     { accountId: "A", accountName: "Repairs", taxCode: "6", source: "bill", date: "2026-01-01", amount: 100, txnId: "1", docNumber: "1" },
     { accountId: "A", accountName: "Repairs", taxCode: "6", source: "bill", date: "2026-02-01", amount: 100, txnId: "2", docNumber: "2" },
     { accountId: "B", accountName: "Fuel", taxCode: "6", source: "expense", date: "2026-03-01", amount: 50, txnId: "3", docNumber: "3" },
   ]);
-  assert.equal(d.status, "flag"); assert.equal(d.flagReason, "multiple_accounts");
+  assert.equal(d.status, "flag"); assert.equal(d.flagReason, "multiple_accounts"); assert.equal(d.triage, "yellow");
   assert.deepEqual(d.ranked.map((r) => r.accountId), ["A", "B"]); assert.equal(d.suggestedAccountId, "A");
+  assert.equal(d.confidence, 67); // 2/3 dominance
+  assert.match(d.rationale, /Repairs/);
 });
 
 console.log("decideDedup (same lookup, two jobs)");
 const existing = [{ docNumber: "17314", amount: 1184.03, date: "2026-05-12", txnId: "890" }];
 check("invoice# match -> duplicate", () => { const v = decideDedup({ invoiceNumber: "17314", total: 1184.03, txnDate: "2026-05-12" }, existing); assert.equal(v.isDuplicate, true); assert.equal(v.reason, "invoice_match"); });
+check("invoice# match despite formatting (P0 normalization)", () => { const v = decideDedup({ invoiceNumber: "INV-17 314", total: 9.99, txnDate: "2020-01-01" }, existing); assert.equal(v.isDuplicate, true); assert.equal(v.reason, "invoice_match"); });
 check("amount+date match -> duplicate", () => { const v = decideDedup({ total: 1184.03, txnDate: "2026-05-13" }, existing); assert.equal(v.isDuplicate, true); assert.equal(v.reason, "amount_date_match"); });
 check("different -> not duplicate", () => { const v = decideDedup({ invoiceNumber: "99999", total: 10, txnDate: "2026-05-12" }, existing); assert.equal(v.isDuplicate, false); });
 

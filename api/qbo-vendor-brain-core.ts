@@ -39,6 +39,13 @@ export type CodingDecision = {
   suggestedTaxCode: string | null;
   ranked: RankedAccount[];
   sampleCount: number;
+  /** 0-100 certainty in the suggestion (history depth + account dominance). */
+  confidence: number;
+  /** Review triage color: green = auto-approve-eligible, yellow = review,
+   *  red = must decide (no/ambiguous basis). Caller applies per-client threshold. */
+  triage: "green" | "yellow" | "red";
+  /** Plain-English "why" for the reviewer (explainability). */
+  rationale: string;
 };
 
 export type DedupVerdict = {
@@ -61,6 +68,18 @@ export function normalizeVendorName(raw: string): string {
     .replace(/[.,&'"/()]/g, " ")
     .replace(/\b(inc|incorporated|ltd|limited|llc|co|corp|corporation|company|the)\b/g, " ")
     .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Normalize an invoice / document number for dedup comparison: uppercase,
+ *  strip spaces/dashes/dots/slashes, and drop a leading "INV"/"#"/"NO" prefix.
+ *  (Industry best practice — exact match alone misses the majority of dupes
+ *  because of trivial formatting variation.) */
+export function normalizeInvoiceNumber(raw: string | null | undefined): string {
+  return (raw ?? "")
+    .toUpperCase()
+    .replace(/[\s\-.\/#]/g, "")
+    .replace(/^(INVOICE|INV|NO)/, "")
     .trim();
 }
 
@@ -154,10 +173,17 @@ export function parseExpenseReport(reportBody: any): CodingEntry[] {
 }
 
 /** The core decision: given a vendor's coding history, pick the account or flag.
- *  0 history -> FLAG. 1 account -> suggest. 2+ -> ALWAYS FLAG w/ ranked list. */
-export function decideCoding(entries: CodingEntry[]): CodingDecision {
+ *  0 history -> FLAG. 1 account -> suggest. 2+ -> ALWAYS FLAG w/ ranked list.
+ *  Also returns a 0-100 confidence, a triage color, and a plain-English rationale.
+ *  `greenThreshold` is the per-client auto-approve-eligible cutoff (default 85). */
+export function decideCoding(entries: CodingEntry[], greenThreshold = 85): CodingDecision {
   if (entries.length === 0) {
-    return { status: "flag", flagReason: "no_history", suggestedAccountId: null, suggestedAccountName: null, suggestedTaxCode: null, ranked: [], sampleCount: 0 };
+    return {
+      status: "flag", flagReason: "no_history",
+      suggestedAccountId: null, suggestedAccountName: null, suggestedTaxCode: null,
+      ranked: [], sampleCount: 0, confidence: 0, triage: "red",
+      rationale: "No prior transactions for this vendor — needs an account. Chart of accounts is locked; Figgy never guesses.",
+    };
   }
 
   const byAccount = new Map<string, RankedAccount & { taxCounts: Map<string, number> }>();
@@ -184,23 +210,50 @@ export function decideCoding(entries: CodingEntry[]): CodingDecision {
     .sort((a, b) => b.count - a.count || (a.lastDate < b.lastDate ? 1 : a.lastDate > b.lastDate ? -1 : 0) || b.totalAmount - a.totalAmount);
 
   const sampleCount = entries.length;
+  const top = ranked[0];
+  const topShare = top.count / sampleCount; // dominance of the leading account
+
+  // 2+ distinct accounts -> ALWAYS FLAG with a ranked breakdown (Markie's rule).
   if (ranked.length >= 2) {
-    return { status: "flag", flagReason: "multiple_accounts", suggestedAccountId: ranked[0].accountId, suggestedAccountName: ranked[0].accountName, suggestedTaxCode: ranked[0].taxCode, ranked, sampleCount };
+    const confidence = Math.round(topShare * 100);
+    const list = ranked.map((r) => `${r.accountName} (${r.count}/${sampleCount})`).join(", ");
+    return {
+      status: "flag", flagReason: "multiple_accounts",
+      suggestedAccountId: top.accountId, suggestedAccountName: top.accountName, suggestedTaxCode: top.taxCode,
+      ranked, sampleCount, confidence, triage: "yellow",
+      rationale: `This vendor's past transactions used ${ranked.length} different accounts — pick one: ${list}. Most-used: ${top.accountName}.`,
+    };
   }
-  return { status: "suggested", flagReason: null, suggestedAccountId: ranked[0].accountId, suggestedAccountName: ranked[0].accountName, suggestedTaxCode: ranked[0].taxCode, ranked, sampleCount };
+
+  // Exactly one account in history -> confident suggestion (still human-reviewed).
+  // Confidence grows with how much history backs it: 1 sample=70 … 5+=95.
+  const confidence = Math.min(99, 60 + Math.min(sampleCount, 5) * 7);
+  const triage: CodingDecision["triage"] = confidence >= greenThreshold ? "green" : "yellow";
+  const taxClause = top.taxCode ? ` at tax code ${top.taxCode}` : "";
+  return {
+    status: "suggested", flagReason: null,
+    suggestedAccountId: top.accountId, suggestedAccountName: top.accountName, suggestedTaxCode: top.taxCode,
+    ranked, sampleCount, confidence, triage,
+    rationale: `Coded to ${top.accountName} (${top.accountId})${taxClause} — all ${sampleCount} of this vendor's prior transaction${sampleCount === 1 ? "" : "s"} used it.`,
+  };
 }
 
 /** Dedup against the vendor's existing transactions. Invoice# is the strongest
- *  key; amount+date within tolerance is the fallback. */
+ *  key (compared after NORMALIZATION — dashes/spaces/prefixes stripped — since
+ *  exact match alone misses most real duplicates); amount+date within tolerance
+ *  is the fallback. */
 export function decideDedup(
   candidate: { invoiceNumber?: string | null; total?: number | null; txnDate?: string | null },
   existing: { docNumber: string | null; amount: number; date: string; txnId: string }[],
   amountTolerance = 0.01,
   dateToleranceDays = 3,
 ): DedupVerdict {
-  const inv = (candidate.invoiceNumber ?? "").trim();
+  const inv = normalizeInvoiceNumber(candidate.invoiceNumber);
   if (inv) {
-    const hit = existing.find((e) => (e.docNumber ?? "").trim() && (e.docNumber ?? "").trim() === inv);
+    const hit = existing.find((e) => {
+      const d = normalizeInvoiceNumber(e.docNumber);
+      return d !== "" && d === inv;
+    });
     if (hit) return { isDuplicate: true, reason: "invoice_match", matchedTxnId: hit.txnId, matchedDocNumber: hit.docNumber };
   }
   const total = candidate.total ?? null;
