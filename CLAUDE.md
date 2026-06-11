@@ -158,10 +158,15 @@ a realm). Vendor Memory cache is keyed by `(connectionId, vendorId)`.
   ref 15); also courier→shipping, telecom buckets. GOLDEN-RULE SAFE: maps only to
   REAL locked-chart accounts (per-realm `CATEGORY_MAPS` in qbo-vendor-brain.ts),
   always LOW confidence (40) + yellow + flagged, NEVER auto-posts, NOT cached
-  until Markie confirms (then it's history-based). Layer 2 = WEB LOOKUP for names
-  keywords miss (`codingHintForVendor(name, map, webCategory?)` already accepts a
-  web result, source="web") — runtime wiring PENDING Markie's choice (live search
-  vs staged). Wired into `suggestCoding` no_history branch. 26/26 checks.
+  until Markie confirms (then it's history-based). Layer 2 = LIVE WEB LOOKUP
+  (Markie chose live runtime 2026-06-11): `api/qbo-vendor-web-classify.ts` calls
+  Claude w/ server-side web_search to classify names keywords miss, fed through
+  the SAME review-gated hint (source="web"). OFF by default — needs
+  `ANTHROPIC_API_KEY` + `FIGGY_WEB_CLASSIFY=on`; model `FIGGY_CLASSIFY_MODEL`
+  (default `claude-opus-4-8`; `claude-haiku-4-5` ~5x cheaper for high volume).
+  Fully defensive: any failure → null → brain falls back to plain no_history flag
+  (web hiccup can't block/poison coding). Uses stable REST endpoint via fetch (no
+  new dep). Wired into `suggestCoding` no_history branch. 27/27 checks.
 - **Brain P0 core upgrades (`api/qbo-vendor-brain-core.ts`, 19/19 checks):**
   `decideCoding(entries, greenThreshold=85)` now returns `confidence` (0-100),
   `triage`, `rationale`; `decideDedup` compares invoice#s via

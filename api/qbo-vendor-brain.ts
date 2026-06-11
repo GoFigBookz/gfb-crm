@@ -47,6 +47,7 @@ import {
   decideDedup,
 } from "./qbo-vendor-brain-core";
 import { type CategoryCodingMap, codingHintForVendor } from "./qbo-vendor-classify";
+import { classifyVendorByWeb } from "./qbo-vendor-web-classify";
 
 // Per-client (realm) category -> REAL locked-chart account map for the cold-start
 // classifier. Keyed by realmId so it can never apply one client's accounts to
@@ -177,11 +178,19 @@ export const qboBrainRouter = createRouter({
       const history = await qboVendorHistory(conn, resolution.vendorId, since);
       let coding = decideCoding(history, input.autoApproveThreshold ?? 85);
 
-      // COLD START: no history -> offer a review-gated classifier HINT (name now;
-      // web lookup later) instead of a blank "needs an account". Stays FLAGGED
-      // (low confidence, yellow) — never auto-posts, never cached until confirmed.
+      // COLD START: no history -> offer a review-gated classifier HINT instead of
+      // a blank "needs an account". Layer 1 = name keywords (instant); layer 2 =
+      // live web lookup for names keywords miss (gated by FIGGY_WEB_CLASSIFY +
+      // ANTHROPIC_API_KEY). Stays FLAGGED (low confidence, yellow) — never
+      // auto-posts, never cached until Markie confirms.
       if (coding.status === "flag" && coding.flagReason === "no_history") {
-        const hint = codingHintForVendor(resolution.displayName || input.vendorName, CATEGORY_MAPS[conn.realmId] ?? {});
+        const map = CATEGORY_MAPS[conn.realmId] ?? {};
+        const vname = resolution.displayName || input.vendorName;
+        let hint = codingHintForVendor(vname, map);
+        if (!hint && Object.keys(map).length > 0) {
+          const web = await classifyVendorByWeb(vname); // null unless enabled/recognized
+          if (web) hint = codingHintForVendor(vname, map, web);
+        }
         if (hint) {
           coding = {
             ...coding,

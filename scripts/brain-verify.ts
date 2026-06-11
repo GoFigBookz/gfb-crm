@@ -138,4 +138,10 @@ check("invoice# match despite formatting (P0 normalization)", () => { const v = 
 check("amount+date match -> duplicate", () => { const v = decideDedup({ total: 1184.03, txnDate: "2026-05-13" }, existing); assert.equal(v.isDuplicate, true); assert.equal(v.reason, "amount_date_match"); });
 check("different -> not duplicate", () => { const v = decideDedup({ invoiceNumber: "99999", total: 10, txnDate: "2026-05-12" }, existing); assert.equal(v.isDuplicate, false); });
 
+// Web classifier (layer 2) — must be OFF/safe by default (no key + flag unset).
+const { classifyVendorByWeb } = await import("../api/qbo-vendor-web-classify.ts");
+delete process.env.ANTHROPIC_API_KEY; delete process.env.FIGGY_WEB_CLASSIFY;
+assert.equal(await classifyVendorByWeb("Some Unknown Vendor LLC"), null);
+pass++; console.log("  ✓ web classifier OFF by default (no key/flag) -> null (safe degrade)");
+
 console.log(`\nALL ${pass} CHECKS PASSED`);
