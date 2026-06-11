@@ -105,4 +105,16 @@ a realm). Vendor Memory cache is keyed by `(connectionId, vendorId)`.
   / dismissed), backed by `api/agent-webhook-router.ts` (tRPC `agentWebhook`).
   Agents POST findings to `submitFinding` (X-Agent-Token), deduped by
   `sourceData` (Review Queue Row ID). This is where Brain flags should surface.
+- **Brain triage on the cards (P0 done 2026-06-11):** Triage renders a
+  traffic-light pill + confidence% + plain-English "Why" from the finding's
+  `sourceData` JSON. Contract — posters/bridge include in `sourceData`:
+  `triage` ("green"|"yellow"|"red"), `confidence` (0-100), `rationale` (string),
+  optional `suggestedAccount`; alongside existing `vendor/amount/date/category/
+  hst/gmailMsgId`. UI falls back to deriving color from the stored `confidence`
+  (0-1) column if `triage` absent (`src/pages/Triage.tsx` `codingTriage`).
+- **Brain P0 core upgrades (`api/qbo-vendor-brain-core.ts`, 19/19 checks):**
+  `decideCoding(entries, greenThreshold=85)` now returns `confidence` (0-100),
+  `triage`, `rationale`; `decideDedup` compares invoice#s via
+  `normalizeInvoiceNumber` (strip spaces/dashes/`INV`/`#`). tRPC
+  `qboBrain.suggestCoding` takes optional `autoApproveThreshold`.
 - Dev branch this session: `claude/figgy-junior-handoff-yiejeq`.
