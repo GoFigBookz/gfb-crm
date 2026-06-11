@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import { Shield, AlertTriangle, XCircle, Info, CheckCircle2, ChevronLeft, Pencil, ExternalLink, Send } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,6 +43,38 @@ function parseMeta(f: any): any {
 }
 
 type EditForm = { title: string; description: string; suggestedAction: string; severity: string };
+
+/** Dictation button (browser speech-to-text — Chrome/Edge/Safari). Appends each
+ *  finished phrase via onText. Hidden when the browser doesn't support it. */
+function MicButton({ onText }: { onText: (t: string) => void }) {
+  const [listening, setListening] = useState(false);
+  const recRef = useRef<any>(null);
+  const SR = typeof window !== "undefined" ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null;
+  if (!SR) return null;
+  const toggle = () => {
+    if (listening) { try { recRef.current?.stop(); } catch { /* noop */ } return; }
+    const rec = new SR();
+    rec.lang = "en-CA";
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.onresult = (e: any) => {
+      let t = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) t += e.results[i][0].transcript;
+      if (t.trim()) onText(t.trim());
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    recRef.current = rec;
+    try { rec.start(); setListening(true); } catch { setListening(false); }
+  };
+  return (
+    <button type="button" onClick={toggle} title={listening ? "Stop dictating" : "Dictate with your voice"}
+      className={cn("h-8 w-8 flex-shrink-0 inline-flex items-center justify-center rounded border text-sm",
+        listening ? "border-red-300 bg-red-50 animate-pulse" : "border-slate-200 hover:bg-slate-50")}>
+      🎤
+    </button>
+  );
+}
 
 export default function Triage() {
   const navigate = useNavigate();
@@ -290,7 +322,10 @@ export default function Triage() {
                         <p className="text-xs text-slate-500">
                           To: {clientOf(f.clientId)?.email || <span className="text-amber-600">no client email on file — you can fill it in Gmail</span>}
                         </p>
-                        <textarea className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300" rows={5} value={askText} onChange={(e) => setAskText(e.target.value)} />
+                        <div className="flex items-start gap-1.5">
+                          <textarea className="flex-1 text-sm border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300" rows={5} value={askText} onChange={(e) => setAskText(e.target.value)} />
+                          <MicButton onText={(t) => setAskText((prev) => (prev + " " + t).trim())} />
+                        </div>
                         <div className="flex items-center gap-2">
                           <Button size="sm" className="h-7 text-xs bg-purple-600 hover:bg-purple-700" disabled={askClient.isPending} onClick={() => sendAsk(f, meta)}>
                             <Send className="h-3 w-3 mr-1" />Open Gmail &amp; mark asked
@@ -301,7 +336,10 @@ export default function Triage() {
                     )}
 
                     {tab === "new" && !asking && (
-                      <input type="text" className="mt-2 w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300" placeholder="Add a note for Figgy (optional) — e.g. 'this vendor is always Job Materials' — helps it learn" value={notes[f.id] || ""} onChange={(e) => setNotes((n) => ({ ...n, [f.id]: e.target.value }))} />
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <input type="text" className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300" placeholder="Add a note for Figgy (optional) — type or tap 🎤 to dictate — saved when you Approve/Dismiss" value={notes[f.id] || ""} onChange={(e) => setNotes((n) => ({ ...n, [f.id]: e.target.value }))} />
+                        <MicButton onText={(t) => setNotes((n) => ({ ...n, [f.id]: ((n[f.id] || "") + " " + t).trim() }))} />
+                      </div>
                     )}
                   </>
                 )}
