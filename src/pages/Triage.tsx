@@ -60,6 +60,7 @@ export default function Triage() {
   const review = trpc.agentWebhook.reviewFinding.useMutation({ onSuccess: refresh });
   const update = trpc.agentWebhook.updateFinding.useMutation({ onSuccess: () => { refresh(); setEditId(null); } });
   const askClient = trpc.agentWebhook.askClient.useMutation({ onSuccess: () => { refresh(); setAskId(null); } });
+  const del = trpc.agentWebhook.deleteFinding.useMutation({ onSuccess: refresh });
   const [enrichMsg, setEnrichMsg] = useState<string>("");
   const enrich = trpc.qboBrain.enrichFindings.useMutation({
     onSuccess: (res: any) => {
@@ -156,7 +157,17 @@ export default function Triage() {
           const asking = askId === f.id;
           const meta = parseMeta(f);
           const coding = codingTriage(f, meta);
-          const receiptUrl = meta.gmailMsgId ? "https://mail.google.com/mail/u/0/#all/" + meta.gmailMsgId : null;
+          // Prefer the document itself (Drive file = the receipt image); Gmail is
+          // the fallback for email-only items. Old findings stored "drive::<id>"
+          // in attachment (and mis-set gmailMsgId="drive"), so parse both.
+          const att = String(meta.attachment || "");
+          const driveId = meta.driveFileId || (att.startsWith("drive::") ? att.slice(7).trim() : "");
+          const receiptUrl = driveId
+            ? "https://drive.google.com/file/d/" + driveId + "/view"
+            : (meta.gmailMsgId && meta.gmailMsgId !== "drive")
+              ? "https://mail.google.com/mail/u/0/#all/" + meta.gmailMsgId
+              : null;
+          const receiptLabel = driveId ? "View receipt" : "Open email";
           const canResolve = tab === "new" || tab === "awaiting_client";
           return (
             <Card key={f.id} className={cn("border-l-4", cfg.border)}>
@@ -211,7 +222,7 @@ export default function Triage() {
                       <div className="flex flex-col gap-1 flex-shrink-0">
                         {receiptUrl && (
                           <a href={receiptUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center h-7 px-2 text-xs rounded border border-blue-200 text-blue-700 hover:bg-blue-50">
-                            <ExternalLink className="h-3 w-3 mr-1" />Receipt
+                            <ExternalLink className="h-3 w-3 mr-1" />{receiptLabel}
                           </a>
                         )}
                         <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => startEdit(f)}>
@@ -228,6 +239,10 @@ export default function Triage() {
                             <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-500" disabled={review.isPending} onClick={() => act(f.id, "dismiss")}>Dismiss</Button>
                           </>
                         )}
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500 hover:bg-red-50" disabled={del.isPending}
+                          onClick={() => { if (window.confirm("Delete this card permanently? This can't be undone.")) del.mutate({ id: f.id }); }}>
+                          Delete
+                        </Button>
                       </div>
                     </div>
 

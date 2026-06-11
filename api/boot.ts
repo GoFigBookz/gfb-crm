@@ -339,11 +339,14 @@ app.post("/api/figgy-jr-sync", async (c) => {
       const rowId = String(row[0] || "").trim();
       if (!rowId) continue;
       const attachment = String(row[19] || "").trim();
-      const gmailMsgId = attachment.includes("::") ? attachment.split("::")[0].trim() : "";
+      // "drive::<fileId>" = Drive upload (link to the file itself);
+      // otherwise "<gmailMsgId>::..." = email attachment.
+      const driveFileId = attachment.startsWith("drive::") ? attachment.slice("drive::".length).trim() : "";
+      const gmailMsgId = !driveFileId && attachment.includes("::") ? attachment.split("::")[0].trim() : "";
       const clientName = String(row[2] || "").trim();
       const clientId: number | undefined = (clientName ? await matchClientIdByName(clientName) : null) ?? undefined;
       const sourceData = JSON.stringify({
-        rowId, gmailMsgId, attachment, clientName,
+        rowId, gmailMsgId, driveFileId, attachment, clientName,
         vendor: String(row[7] || "").trim(),
         amount: String(row[8] || "").trim(),
         currency: String(row[9] || "").trim(),
