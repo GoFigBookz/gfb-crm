@@ -77,8 +77,13 @@ export async function qboVendorHistory(conn: Conn, vendorId: string, sinceISO: s
   // this into a projection.
   const billData = await qboRequest(conn, `/query?query=${encodeURIComponent(`SELECT * FROM Bill WHERE VendorRef = '${vendorId}' ORDERBY TxnDate DESC MAXRESULTS 50`)}`);
   const bills = parseBillHistory(billData);
-  // Non-bill expenses via the vendor-filtered TransactionList report.
-  const reportPath = `/reports/TransactionList?vendor=${vendorId}&start_date=${sinceISO}&columns=tx_date,txn_type,doc_num,other_account,subt_nat_amount`;
+  // Non-bill expenses (Purchase/Expense — card/cheque/cash) via the
+  // vendor-filtered TransactionList report. MUST send BOTH start_date AND
+  // end_date: with start_date alone QBO keeps its default "month-to-date" macro
+  // and returns nothing (verified live 2026-06-11). Clark OS had 402 Purchases,
+  // so this is real coverage, not an edge case.
+  const today = new Date().toISOString().slice(0, 10);
+  const reportPath = `/reports/TransactionList?vendor=${vendorId}&start_date=${sinceISO}&end_date=${today}&columns=tx_date,txn_type,doc_num,other_account,subt_nat_amount`;
   let expenses: CodingEntry[] = [];
   try {
     const rep = await qboRequest(conn, reportPath);

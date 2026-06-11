@@ -24,16 +24,23 @@
  */
 export type MakeBridgeConfig = { bridgeUrl: string; apiToken: string; realmId: string };
 
-/** Split an endpoint the brain built (e.g. "/query?query=SELECT..%20") into the
- *  url + qs_query the per-realm scenario expects. The brain encodes SQL as
- *  `?query=<urlencoded>`; the scenario wants the raw SQL in `qs_query`. Other
- *  endpoints (e.g. reports) pass their path through as `url`. */
+/** Split an endpoint the brain built into the url + qs_query the per-realm
+ *  scenario expects.
+ *  - "/query?query=<urlencoded SQL>"  -> the scenario maps a SINGLE `query` qs
+ *    param, so the raw SQL goes in `qs_query`.
+ *  - everything else (e.g. "/reports/TransactionList?vendor=..&start_date=..&
+ *    end_date=..&columns=..") has MULTIPLE params the scenario can't map one by
+ *    one, so we keep the whole querystring in `url` (the scenario's empty `query`
+ *    qs is harmless — QBO ignores it). Verified live 2026-06-11. */
 export function toMakeRequest(endpoint: string): { url: string; qs_query: string } {
   const qIdx = endpoint.indexOf("?");
-  const url = qIdx >= 0 ? endpoint.slice(0, qIdx) : endpoint;
-  let qs_query = qIdx >= 0 ? endpoint.slice(qIdx + 1) : "";
-  if (qs_query.startsWith("query=")) qs_query = decodeURIComponent(qs_query.slice("query=".length));
-  return { url, qs_query };
+  if (qIdx < 0) return { url: endpoint, qs_query: "" };
+  const path = endpoint.slice(0, qIdx);
+  const query = endpoint.slice(qIdx + 1);
+  if (path === "/query" && query.startsWith("query=")) {
+    return { url: path, qs_query: decodeURIComponent(query.slice("query=".length)) };
+  }
+  return { url: endpoint, qs_query: "" };
 }
 
 /** Pull the bare QBO body out of a responsive scenario-run response (tolerates

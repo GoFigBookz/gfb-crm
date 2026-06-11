@@ -56,6 +56,22 @@ check("captures expense via other_account, skips -Split-", () => {
     ] } };
   const e = parseExpenseReport(rep); assert.equal(e.length, 1); assert.equal(e[0].accountId, "1150040016"); assert.equal(e[0].amount, 21.01);
 });
+check("REAL Clark OS shape: Expense/BillPayment rows posting to A/P are NOT learned (no poisoning)", () => {
+  const rep = { Columns: { Column: [{ ColType: "tx_date" }, { ColType: "txn_type" }, { ColType: "doc_num" }, { ColType: "other_account" }, { ColType: "subt_nat_amount" }] },
+    Rows: { Row: [
+      { type: "Data", ColData: [{ value: "2026-04-07" }, { value: "Expense", id: "410" }, { value: "" }, { value: "Accounts Payable (A/P)", id: "26" }, { value: "1650.96" }] },
+      { type: "Data", ColData: [{ value: "2026-03-30" }, { value: "Bill Payment (Credit Card)", id: "391" }, { value: "" }, { value: "Accounts Payable (A/P)", id: "26" }, { value: "592.37" }] },
+      { type: "Data", ColData: [{ value: "2026-03-30" }, { value: "Bill", id: "155" }, { value: "914811" }, { value: "Construction COGS", id: "1150040006" }, { value: "592.37" }] },
+    ] } };
+  assert.equal(parseExpenseReport(rep).length, 0);
+});
+check("genuine direct credit-card expense to a real account IS learned", () => {
+  const rep = { Columns: { Column: [{ ColType: "tx_date" }, { ColType: "txn_type" }, { ColType: "doc_num" }, { ColType: "other_account" }, { ColType: "subt_nat_amount" }] },
+    Rows: { Row: [
+      { type: "Data", ColData: [{ value: "2026-06-03" }, { value: "Credit Card Expense", id: "878" }, { value: "" }, { value: "Auto Repairs & Maint.", id: "1150040013" }, { value: "95.51" }] },
+    ] } };
+  const e = parseExpenseReport(rep); assert.equal(e.length, 1); assert.equal(e[0].accountId, "1150040013");
+});
 
 console.log("normalizeInvoiceNumber (P0 dedup normalization)");
 check("strips spaces/dashes/prefix, uppercases", () => { assert.equal(normalizeInvoiceNumber("inv-17 314"), "17314"); assert.equal(normalizeInvoiceNumber("#CSC-70350"), "CSC70350"); });

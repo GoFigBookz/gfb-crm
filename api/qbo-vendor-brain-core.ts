@@ -136,8 +136,24 @@ export function parseBillHistory(queryResponseBody: any): CodingEntry[] {
   return out;
 }
 
+/** Control / clearing / settlement accounts that are NEVER an expense category.
+ *  The TransactionList `other_account` shows these for bill-payment rows and for
+ *  expenses applied to A/P — ingesting them would poison coding history with
+ *  e.g. "Accounts Payable". Verified live on Clark OS 2026-06-11. */
+const NON_EXPENSE_ACCOUNT = /payable|receivable|clearing|undeposited|opening balance|retained earnings|owner|equity/i;
+
+/** True only for transaction types that POST a direct expense (not a payment,
+ *  bill, transfer, invoice, deposit, journal, refund). "Bill Payment (Credit
+ *  Card)" is excluded by the `payment` guard. */
+function isDirectSpendType(t: string): boolean {
+  return /expense|purchase|check|cheque|charge|cash|debit/i.test(t) && !/payment/i.test(t);
+}
+
 /** Parse a vendor-filtered TransactionList report (`other_account` = expense
- *  side). Skips Bills (covered by SQL) and "-Split-" rows. */
+ *  side). CONSERVATIVE by design — it is better to miss an expense than to learn
+ *  a wrong account: skips Bills (covered by SQL), "-Split-" rows, non-spend
+ *  transaction types (payments/transfers/etc.), and any control/clearing/payable
+ *  account. */
 export function parseExpenseReport(reportBody: any): CodingEntry[] {
   const cols: { ColType: string }[] = reportBody?.Columns?.Column ?? [];
   const idx = (t: string) => cols.findIndex((c) => c.ColType === t);
@@ -154,10 +170,12 @@ export function parseExpenseReport(reportBody: any): CodingEntry[] {
     if (row.type && row.type !== "Data") continue;
     const cd = row.ColData;
     if (!cd) continue;
-    const txnType = iType >= 0 ? cd[iType]?.value : "";
-    if (txnType === "Bill") continue;
+    const txnType = iType >= 0 ? String(cd[iType]?.value ?? "") : "";
+    if (txnType === "Bill") continue;          // covered by SQL (avoid double-count)
+    if (!isDirectSpendType(txnType)) continue; // skip payments/transfers/invoices/etc.
     const acct = cd[iOther];
     if (!acct?.id || !acct.value || acct.value === "-Split-") continue;
+    if (NON_EXPENSE_ACCOUNT.test(String(acct.value))) continue; // skip A/P, clearing, …
     out.push({
       accountId: String(acct.id),
       accountName: String(acct.value),

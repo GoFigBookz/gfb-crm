@@ -62,9 +62,18 @@ ONCE on consolidated rails — never per-client clones.**
   Triage (read-only, posters OFF): `scripts/figgy-suggest-backlog.ts`.
   LIVE-VERIFIED (responsive run): Walker(653) 3 bills→🟡81%, Highbury(225) 8 bills
   →🟢95% (both all 1150040016/tax6, correctly coded), dup-catch on reformatted
-  invoice#. NOTE: report path (TransactionList) needs full querystring pass-through
-  — current scenario only maps a single `query` qs param, so non-bill expense
-  history degrades (brain falls back to Bills; fine for bill-heavy Clark OS).
+  invoice#. NON-BILL EXPENSES WIDENED (2026-06-11): report path now works end to
+  end — bridge keeps multi-param querystrings in `url` (scenario's single `query`
+  qs only fits /query SQL), and the brain sends BOTH start_date AND end_date (QBO
+  keeps a "month-to-date" macro otherwise → empty). Clark OS has 402 Purchases, so
+  real coverage. SAFETY HARDENING (critical): `parseExpenseReport` is now
+  conservative — skips non-spend txn types (Bill/Bill Payment/transfer/…) AND any
+  control account (A/P/receivable/clearing/undeposited/equity). Without this the
+  end_date fix would have POISONED history: Central Spa(27) "Expense" rows post
+  `other_account`=Accounts Payable(26), which would've been learned as the coding.
+  Bills stay the trusted spine; report is best-effort. FUTURE (cleaner): ingest
+  the Purchase entity directly (line-level AccountRef, client-side EntityRef
+  filter) instead of the noisy TransactionList other_account.
   **REMAINING WIRING (1 step):** set `FIGGY_MAKE_API_TOKEN` on the deployed CRM,
   then run `seed-clark-os-bridge` + `figgy-suggest-backlog` → Triage lights up.
   (Server can't call MCP tools at runtime — uses Make's HTTP run API instead.)
