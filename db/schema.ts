@@ -62,6 +62,12 @@ export const qboConnections = sqliteTable("qbo_connections", {
   refreshToken: text("refreshToken"),
   expiresAt: integer("expiresAt", { mode: "timestamp" }),
   environment: text("environment", { enum: ["sandbox", "production"] }).default("sandbox").notNull(),
+  // Transport: "native" = our OAuth tokens (accessToken/refreshToken above);
+  // "make_bridge" = proxy QBO calls through a Make per-realm webhook (Make holds
+  // the tokens). Lets the brain run live before native OAuth is finished.
+  transport: text("transport", { enum: ["native", "make_bridge"] }).default("native").notNull(),
+  bridgeUrl: text("bridgeUrl"),       // Make webhook proxy URL (make_bridge only)
+  bridgeSecret: text("bridgeSecret"), // HMAC shared secret for the proxy (falls back to env)
   // Multi-account support: personal_business, ca_clients, us_clients
   accountType: text("accountType", { enum: ["personal_business", "ca_clients", "us_clients"] }).default("ca_clients").notNull(),
   // Which CRM client this QBO company belongs to (NULL = unassigned/triage)

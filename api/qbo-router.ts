@@ -3,6 +3,7 @@ import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, clients } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { qboRequestViaMake } from "./qbo-make-bridge";
 
 // QBO API base URLs
 const QBO_BASE_URLS = {
@@ -32,6 +33,19 @@ export async function qboRequest(
   method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
   body?: unknown
 ) {
+  // Bridge transport: proxy through Make's per-realm webhook (Make holds tokens).
+  if (connection.transport === "make_bridge") {
+    return qboRequestViaMake(
+      {
+        bridgeUrl: connection.bridgeUrl || "",
+        bridgeSecret: connection.bridgeSecret || process.env.FIGGY_BRIDGE_SECRET || "",
+        realmId: connection.realmId,
+      },
+      endpoint,
+      method,
+      body,
+    );
+  }
   const base = QBO_BASE_URLS[connection.environment as "sandbox" | "production"];
   const url = `${base}/v3/company/${connection.realmId}${endpoint}`;
   const headers: Record<string, string> = {
@@ -87,6 +101,8 @@ async function refreshToken(connection: typeof qboConnections.$inferSelect) {
 
 // Helper: ensure token is valid before making a request
 export async function ensureValidToken(connection: typeof qboConnections.$inferSelect) {
+  // Bridge connections have no local tokens — Make refreshes its own.
+  if (connection.transport === "make_bridge") return connection;
   const now = new Date();
   const expiry = connection.expiresAt;
   if (!expiry || expiry.getTime() - now.getTime() < 5 * 60 * 1000) {

@@ -48,6 +48,20 @@ ONCE on consolidated rails — never per-client clones.**
   webhooks+CDC (retire Make polling), managed Postgres in a Canadian region
   (AWS ca-central-1 / GCP Montreal), 3-2-1-1-0 backups. AVOID: auto-posting,
   cross-client learning, per-client-priced SaaS dependency.
+- **BRIDGE BUILT (2026-06-11, proven on live Clark OS):** transport seam so the
+  brain runs on real books NOW via Make. `qboRequest`/`ensureValidToken`
+  (`api/qbo-router.ts`) are transport-aware; `transport="make_bridge"` connections
+  proxy QBO through a Make per-realm webhook (`api/qbo-make-bridge.ts`,
+  HMAC-SHA256 signed, normalizes raw/`tool_output.body`/`body`). Schema:
+  `qbo_connections` + `transport/bridgeUrl/bridgeSecret`. Seed Clark OS:
+  `scripts/seed-clark-os-bridge.ts` (realm 9341456017349963 → client, idempotent).
+  Backlog → Triage (read-only, posters OFF): `scripts/figgy-suggest-backlog.ts`.
+  LIVE-VERIFIED via Make tool s5347484: Walker Aggregates (653) → 3 bills all
+  1150040016/tax6 → SUGGESTED 🟡81%; dup-catch on reformatted invoice#.
+  **REMAINING WIRING (1 step):** create the Make webhook proxy scenario (takes
+  {realmId,url,method,qs_query,body} → per-realm QBO call → returns body) and set
+  `FIGGY_CLARKOS_BRIDGE_URL`/`FIGGY_BRIDGE_SECRET`; then seed + run backlog on the
+  deployed CRM. (Server can't call MCP tools at runtime — needs the webhook.)
 - **Connection-layer design:** `docs/FIGGY_JR_QBO_CONNECTION_DESIGN.md`. Decision
   (Markie 2026-06-11): bridge brain to live Make QBO tools NOW + build native
   OAuth in parallel, cut over later. QBO facts: access token 1h; refresh 100-day
