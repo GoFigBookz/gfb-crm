@@ -19,34 +19,23 @@ not in a dev session.
 
 ---
 
-## 1. Set the secrets (environment variables)
-| Variable | Value | Why |
+## 1. The bridge — ZERO setup (nothing to do)
+The live QBO bridge now self-configures on startup (`api/bridge-bootstrap.ts`):
+it adds the 3 bridge columns and binds Clark OS (realm 9341456017349963) and
+Clark CW (realm 13633946244024404) to your EXISTING CRM clients (matched by city)
+through **read-only Make webhook proxies** (scenarios 5359685 / 5359734, GET-only).
+No Make token, no env vars, no commands. On the next deploy it's live. (Opt out
+with `FIGGY_BRIDGE_DISABLE=on`.) Native per-realm OAuth replaces this later.
+
+| Optional variable | Value | Why |
 |---|---|---|
-| `FIGGY_MAKE_API_TOKEN` | a Make API token (Team 2327575) | lets the CRM run the per-realm QBO tool scenarios |
-| `FIGGY_MAKE_REGION` | `us2` (default — only set if different) | Make region for the scenario-run URL |
-| `ANTHROPIC_API_KEY` | an Anthropic API key | powers the web lookup for unknown vendors |
-| `FIGGY_CLASSIFY_MODEL` | `claude-haiku-4-5` (already the default) | cheap model for vendor web lookup |
-| `FIGGY_WEB_CLASSIFY` | *(leave unset)* | web lookup is ON by default once a key is present; set `off` to disable |
-| `AGENT_WEBHOOK_TOKEN` | your finding-post token (default `figgy-webhook-2026`) | auth for writing findings |
-
-> The web lookup is **safe**: with no `ANTHROPIC_API_KEY` it simply doesn't run,
-> and any web error falls back to "needs an account" — it can't block or
-> mis-code anything.
+| `ANTHROPIC_API_KEY` | an Anthropic key | only powers the web lookup for unfamiliar vendors; everything else works without it |
+| `FIGGY_WEB_CLASSIFY` | *(leave unset)* | web lookup is ON once a key is present; set `off` to disable |
+| `AGENT_WEBHOOK_TOKEN` | finding-post token (default `figgy-webhook-2026`) | auth for writing findings |
 
 ---
 
-## 2. Schema + bridge setup — AUTOMATIC (nothing to run)
-On startup the server now self-configures (`api/bridge-bootstrap.ts`): it adds the
-3 bridge columns and, once `FIGGY_MAKE_API_TOKEN` is set, binds Clark OS (realm
-9341456017349963 → scenario 5347484) and Clark CW (realm 13633946244024404 →
-scenario 5347489) to your EXISTING CRM clients (matched by city — never creates a
-duplicate). Idempotent, no QBO writes. So after step 1, just let it redeploy.
-(Manual trigger if ever needed: `node --experimental-strip-types
-scripts/seed-clark-os-bridge.ts` with `FIGGY_MAKE_API_TOKEN` set.)
-
----
-
-## 3. Generate suggestions into Triage (read-only)
+## 2. Generate suggestions into Triage (read-only)
 Make a small candidates file (one row per document you want coded), e.g.
 `clarkos.json`:
 ```json

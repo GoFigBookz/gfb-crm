@@ -61,13 +61,21 @@ ONCE on consolidated rails — never per-client clones.**
   client, idempotent — now seeds BOTH Clark OS (realm 9341456017349963 → scenario
   5347484) AND Clark CW (realm 13633946244024404 → scenario 5347489)). Backlog →
   Triage (read-only, posters OFF): `scripts/figgy-suggest-backlog.ts`. GO-LIVE
-  RUNBOOK: `docs/FIGGY_JR_GO_LIVE_RUNBOOK.md`. SELF-CONFIGURES ON BOOT
-  (`api/bridge-bootstrap.ts`, called from `boot.ts startServer`): ensures the 3
-  columns + (when FIGGY_MAKE_API_TOKEN set) binds Clark OS/CW to EXISTING CRM
-  clients matched by city ("Clark Pools Owen Sound"/"...Collingwood" already in
-  the clients table — NEVER creates a dup). So go-live = just set 2 env vars on
-  Railway (FIGGY_MAKE_API_TOKEN + ANTHROPIC_API_KEY); redeploy auto-wires the
-  bridge. Deploy: figgy.gofig.ca on Railway, auto-deploys from GitHub main.
+  RUNBOOK: `docs/FIGGY_JR_GO_LIVE_RUNBOOK.md`. ZERO-TOUCH SELF-CONFIG ON BOOT
+  (`api/bridge-bootstrap.ts` ← `boot.ts startServer`): ensures the 3 columns +
+  binds Clark OS/CW to EXISTING CRM clients matched by city ("Clark Pools Owen
+  Sound"/"...Collingwood" already in clients table — NEVER creates a dup).
+  Transport = READ-ONLY (GET-only) Make WEBHOOK PROXIES I built (team 2327575):
+  Clark OS hook 2441572/scenario 5359685/conn 9302460 →
+  hook.us2.make.com/zwooriouroqy1hiqrfwfjueni6ju1uq6 ; Clark CW hook
+  2441594/scenario 5359734/conn 9291854 →
+  hook.us2.make.com/2s1inh9yfy749c3o42yx6bm4hohfios3. URLs are capability secrets
+  committed in code (private repo) so go-live is TRULY zero-touch — no Make token,
+  no env vars. `qboRequestViaMake` auto-detects hook.* host → flat POST no-auth.
+  INTERIM SECURITY TRADE-OFF (close w/ native OAuth): read-only QBO via committed
+  webhook URL. Opt out: FIGGY_BRIDGE_DISABLE=on. Deploy: figgy.gofig.ca on Railway,
+  auto-deploys from GitHub main → bridge live on next deploy with NO action.
+  Only optional secret left: ANTHROPIC_API_KEY (web lookup; everything works w/o).
   LIVE-VERIFIED (responsive run): Walker(653) 3 bills→🟡81%, Highbury(225) 8 bills
   →🟢95% (both all 1150040016/tax6, correctly coded), dup-catch on reformatted
   invoice#. NON-BILL EXPENSES WIDENED (2026-06-11): report path now works end to

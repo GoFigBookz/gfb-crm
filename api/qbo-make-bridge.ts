@@ -55,18 +55,27 @@ export async function qboRequestViaMake(
   method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
   body?: unknown,
 ): Promise<any> {
-  if (!cfg.bridgeUrl) throw new Error("Make bridge not configured: missing bridgeUrl (scenario run endpoint)");
-  if (!cfg.apiToken) throw new Error("Make bridge not configured: missing apiToken (set FIGGY_MAKE_API_TOKEN)");
+  if (!cfg.bridgeUrl) throw new Error("Make bridge not configured: missing bridgeUrl");
+  // Two shapes: a Make WEBHOOK (hook.* host) takes a flat {url,method,qs_query,body}
+  // and needs no token (capability URL); the scenario-RUN API takes
+  // {responsive,data} + a Token. The webhook proxy scenarios are GET-only
+  // (read-only) for safety.
+  const isWebhook = /:\/\/hook\./.test(cfg.bridgeUrl);
+  if (!isWebhook && !cfg.apiToken) throw new Error("Make bridge not configured: missing apiToken (set FIGGY_MAKE_API_TOKEN)");
   const { url, qs_query } = toMakeRequest(endpoint);
   const bodyStr = body == null ? "" : typeof body === "string" ? body : JSON.stringify(body);
   const res = await fetch(cfg.bridgeUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Token ${cfg.apiToken}` },
-    body: JSON.stringify({ responsive: true, data: { url, method, qs_query, body: bodyStr } }),
+    headers: isWebhook
+      ? { "Content-Type": "application/json" }
+      : { "Content-Type": "application/json", Authorization: `Token ${cfg.apiToken}` },
+    body: JSON.stringify(isWebhook
+      ? { url, method, qs_query, body: bodyStr }
+      : { responsive: true, data: { url, method, qs_query, body: bodyStr } }),
   });
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Make bridge run ${method} ${url} failed: ${res.status} ${errText}`);
+    throw new Error(`Make bridge ${method} ${url} failed: ${res.status} ${errText}`);
   }
   const data = await res.json();
   return unwrapRunResponse(data);
