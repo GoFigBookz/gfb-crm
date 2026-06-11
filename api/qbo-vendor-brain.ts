@@ -48,6 +48,7 @@ import {
 } from "./qbo-vendor-brain-core";
 import { type CategoryCodingMap, codingHintForVendor } from "./qbo-vendor-classify";
 import { classifyVendorByWeb } from "./qbo-vendor-web-classify";
+import { matchClientIdByName } from "./client-match";
 
 // Per-client (realm) category -> REAL locked-chart account map for the cold-start
 // classifier. Keyed by realmId so it can never apply one client's accounts to
@@ -263,12 +264,13 @@ export const qboBrainRouter = createRouter({
       const errors: string[] = [];
       for (const f of rows) {
         try {
-          if (!f.clientId) { skip.noClient++; continue; }
           let meta: any = {};
           try { meta = JSON.parse(f.sourceData || "{}"); } catch { meta = {}; }
           if (!meta || typeof meta !== "object" || !meta.vendor) { skip.noVendor++; continue; }
+          const clientId = f.clientId ?? (meta.clientName ? await matchClientIdByName(String(meta.clientName)) : null);
+          if (!clientId) { skip.noClient++; continue; }
           if (meta.triage && !input?.reenrich) { skip.already++; continue; } // already enriched
-          const r = await suggestForClient(f.clientId, {
+          const r = await suggestForClient(clientId, {
             vendorName: String(meta.vendor),
             invoiceNumber: meta.invoiceNumber ? String(meta.invoiceNumber) : undefined,
             total: parseAmt(meta.amount),
