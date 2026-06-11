@@ -7,7 +7,7 @@ import { z } from "zod";
 import { createRouter, publicQuery, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { triageFindings, notifications, clients } from "../db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, inArray } from "drizzle-orm";
 
 function validateAgentToken(token: string): boolean {
   const validToken = process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026";
@@ -116,6 +116,34 @@ export const agentWebhookRouter = createRouter({
         })
         .where(eq(triageFindings.id, input.id));
       return { success: true };
+    }),
+
+  // Staff: Batch review — approve/dismiss many findings in one go
+  reviewFindings: staffQuery
+    .input(z.object({
+      ids: z.array(z.number()).min(1).max(500),
+      action: z.enum(["approve", "dismiss"]),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.update(triageFindings)
+        .set({
+          status: input.action === "approve" ? "approved" : "dismissed",
+          reviewedNotes: input.notes,
+          reviewedAt: new Date(),
+        })
+        .where(inArray(triageFindings.id, input.ids));
+      return { success: true, updated: input.ids.length };
+    }),
+
+  // Staff: Batch delete — permanently remove many findings
+  deleteFindings: staffQuery
+    .input(z.object({ ids: z.array(z.number()).min(1).max(500) }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.delete(triageFindings).where(inArray(triageFindings.id, input.ids));
+      return { success: true, deleted: input.ids.length };
     }),
 
   // Staff: Permanently delete a finding (Dismiss keeps it for the record; this removes it)
