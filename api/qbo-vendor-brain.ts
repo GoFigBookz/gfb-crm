@@ -71,6 +71,10 @@ export async function qboResolveVendor(conn: Conn, rawName: string): Promise<Ven
 
 export async function qboVendorHistory(conn: Conn, vendorId: string, sinceISO: string): Promise<CodingEntry[]> {
   // Bills via SQL (precise line-level account + tax).
+  // ⚠️ MUST be `SELECT *` — a COLUMN-PROJECTED Bill query (e.g. SELECT Id,Line)
+  // returns the Line WITHOUT AccountBasedExpenseLineDetail, so the AccountRef is
+  // silently dropped and coding breaks. Verified live 2026-06-11. Do not "optimize"
+  // this into a projection.
   const billData = await qboRequest(conn, `/query?query=${encodeURIComponent(`SELECT * FROM Bill WHERE VendorRef = '${vendorId}' ORDERBY TxnDate DESC MAXRESULTS 50`)}`);
   const bills = parseBillHistory(billData);
   // Non-bill expenses via the vendor-filtered TransactionList report.

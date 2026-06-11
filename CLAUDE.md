@@ -117,8 +117,18 @@ a realm). Vendor Memory cache is keyed by `(connectionId, vendorId)`.
 ## Open items
 - QBO #970 (Latham freight) + #983 (Walker split): blocked on source invoices.
 - 4 TEST pdfs in the Clark OS drop folder — harmless, delete for tidiness.
-- Re-code the 16 June OS posts (mostly miscoded to 1150040016) from vendor
-  history once the Account Brain exists — not by guessing now.
+- MISCODE SWEEP (live, 2026-06-11): the "16 June posts mostly miscoded to
+  1150040016" worry looks OVERSTATED — sampled Clark OS history is largely
+  vendor-appropriate + consistent: Bumper to Bumper 6/6 → Auto Repairs & Maint
+  (1150040013), Walker/Highbury → Parts/Goods COGS (1150040016), Sunbelt 2/2 →
+  Equipment:General Shop Equipment (1150040053). Only Sunbelt (equipment rental →
+  equipment sub-account) warrants a human confirm. Run `figgy-suggest-backlog`
+  on deploy for the FULL systematic sweep; don't hand-recode on the old assumption.
+- GOTCHA (verified): a COLUMN-PROJECTED `Bill` query drops the line AccountRef —
+  must use `SELECT *` (guard-commented in `qboVendorHistory`).
+- CAVEAT (history-trust): the brain repeats history confidently, so a CONSISTENT
+  miscode would still go 🟢green — green = "matches this vendor's history", not
+  "provably correct". Human review gate stays the backstop.
 
 ## CRM repo notes
 - Human review = `src/pages/Triage.tsx` (tabs: new / awaiting_client / approved
