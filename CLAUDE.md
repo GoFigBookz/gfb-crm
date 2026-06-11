@@ -51,17 +51,23 @@ ONCE on consolidated rails — never per-client clones.**
 - **BRIDGE BUILT (2026-06-11, proven on live Clark OS):** transport seam so the
   brain runs on real books NOW via Make. `qboRequest`/`ensureValidToken`
   (`api/qbo-router.ts`) are transport-aware; `transport="make_bridge"` connections
-  proxy QBO through a Make per-realm webhook (`api/qbo-make-bridge.ts`,
-  HMAC-SHA256 signed, normalizes raw/`tool_output.body`/`body`). Schema:
-  `qbo_connections` + `transport/bridgeUrl/bridgeSecret`. Seed Clark OS:
-  `scripts/seed-clark-os-bridge.ts` (realm 9341456017349963 → client, idempotent).
-  Backlog → Triage (read-only, posters OFF): `scripts/figgy-suggest-backlog.ts`.
-  LIVE-VERIFIED via Make tool s5347484: Walker Aggregates (653) → 3 bills all
-  1150040016/tax6 → SUGGESTED 🟡81%; dup-catch on reformatted invoice#.
-  **REMAINING WIRING (1 step):** create the Make webhook proxy scenario (takes
-  {realmId,url,method,qs_query,body} → per-realm QBO call → returns body) and set
-  `FIGGY_CLARKOS_BRIDGE_URL`/`FIGGY_BRIDGE_SECRET`; then seed + run backlog on the
-  deployed CRM. (Server can't call MCP tools at runtime — needs the webhook.)
+  call Make's **scenario-run API (responsive)** against the existing per-realm QBO
+  tool scenario (Clark OS 5347484 / Clark CW 5347489) — `api/qbo-make-bridge.ts`
+  POSTs `{responsive:true,data:{url,method,qs_query,body}}` w/ `Authorization:
+  Token <FIGGY_MAKE_API_TOKEN>`, reads `outputs.tool_output.body`. Isolation = one
+  scenario per realm (design-time-bound connection). Schema: `qbo_connections` +
+  `transport/bridgeUrl/bridgeSecret` (bridgeUrl=run endpoint; bridgeSecret=token
+  override). Seed: `scripts/seed-clark-os-bridge.ts` (realm 9341456017349963 →
+  client, bridgeUrl defaults to scenario-5347484 run URL, idempotent). Backlog →
+  Triage (read-only, posters OFF): `scripts/figgy-suggest-backlog.ts`.
+  LIVE-VERIFIED (responsive run): Walker(653) 3 bills→🟡81%, Highbury(225) 8 bills
+  →🟢95% (both all 1150040016/tax6, correctly coded), dup-catch on reformatted
+  invoice#. NOTE: report path (TransactionList) needs full querystring pass-through
+  — current scenario only maps a single `query` qs param, so non-bill expense
+  history degrades (brain falls back to Bills; fine for bill-heavy Clark OS).
+  **REMAINING WIRING (1 step):** set `FIGGY_MAKE_API_TOKEN` on the deployed CRM,
+  then run `seed-clark-os-bridge` + `figgy-suggest-backlog` → Triage lights up.
+  (Server can't call MCP tools at runtime — uses Make's HTTP run API instead.)
 - **Connection-layer design:** `docs/FIGGY_JR_QBO_CONNECTION_DESIGN.md`. Decision
   (Markie 2026-06-11): bridge brain to live Make QBO tools NOW + build native
   OAuth in parallel, cut over later. QBO facts: access token 1h; refresh 100-day

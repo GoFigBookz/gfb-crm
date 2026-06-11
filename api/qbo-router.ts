@@ -33,12 +33,12 @@ export async function qboRequest(
   method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
   body?: unknown
 ) {
-  // Bridge transport: proxy through Make's per-realm webhook (Make holds tokens).
+  // Bridge transport: run the per-realm Make scenario (Make holds the tokens).
   if (connection.transport === "make_bridge") {
     return qboRequestViaMake(
       {
         bridgeUrl: connection.bridgeUrl || "",
-        bridgeSecret: connection.bridgeSecret || process.env.FIGGY_BRIDGE_SECRET || "",
+        apiToken: connection.bridgeSecret || process.env.FIGGY_MAKE_API_TOKEN || "",
         realmId: connection.realmId,
       },
       endpoint,

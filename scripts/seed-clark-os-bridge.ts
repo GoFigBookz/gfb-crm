@@ -1,13 +1,13 @@
 /**
  * STEP 2 — Register Clark OS as a connected client via the Make bridge.
- * Idempotent. Run on the deployed CRM (needs data/crm.db + the bridge webhook):
- *   FIGGY_CLARKOS_BRIDGE_URL=https://hook.us2.make.com/xxxx \
- *   FIGGY_BRIDGE_SECRET=... \
+ * Idempotent. Run on the deployed CRM (needs data/crm.db + FIGGY_MAKE_API_TOKEN):
+ *   FIGGY_MAKE_API_TOKEN=<make api token> \
  *   node --experimental-strip-types scripts/seed-clark-os-bridge.ts
  *
  * Creates/updates ONE active qbo_connections row (transport=make_bridge) bound
  * to the Clark OS realm and the CRM client — the single isolation boundary
- * getConnectionForClient() resolves. Never touches Clark CW.
+ * getConnectionForClient() resolves. bridgeUrl = the Clark OS per-realm QBO tool
+ * scenario's responsive-run endpoint (scenario 5347484). Never touches Clark CW.
  */
 import { eq, and } from "drizzle-orm";
 import { getDb } from "../api/queries/connection.ts";
@@ -15,7 +15,8 @@ import { clients, qboConnections } from "../db/schema.ts";
 
 const REALM_ID = "9341456017349963"; // Clark Pools and Spas Owen Sound Inc.
 const COMPANY = "Clark Pools and Spas Owen Sound Inc.";
-const BRIDGE_URL = process.env.FIGGY_CLARKOS_BRIDGE_URL || "";
+// Clark OS per-realm QBO tool scenario (region us2). Override via env if needed.
+const BRIDGE_URL = process.env.FIGGY_CLARKOS_BRIDGE_URL || "https://us2.make.com/api/v2/scenarios/5347484/run";
 
 async function main() {
   const db = getDb();
