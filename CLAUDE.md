@@ -36,6 +36,25 @@ ONCE on consolidated rails — never per-client clones.**
   the brain to the existing live Make per-realm QBO tools in the interim.
 - Tracked after: P3 robust poster, P4 config-drive + retire clones + webhooks.
   Spec/reasoning: `docs/FIGGY_JR_NEXT_STEP_2026-06-11.md`.
+- **Competitive research done (2026-06-11):** `docs/FIGGY_JR_COMPETITIVE_RESEARCH_2026-06-11.md`
+  (teardown of Karbon/TaxDome/Canopy/Client Hub + Dext/Hubdoc/AutoEntry/Uncat/
+  Keeper/Booke/Docyt/Truewind/Digits + multi-tenant QBO + hosting). Verdict:
+  Figgy is AHEAD of the auto-posting crowd on isolation+review+history-coding;
+  market is converging on the same bet (Botkeeper shut down Feb-2026, Booke
+  "books got messed up" — both auto-posted). Adopt-next: P0 dedup-normalization +
+  confidence/color triage + explainability line; P1 native per-realm OAuth (token
+  rotation persisted, keep-alive, no cascade) + Uncat-grade magic-link client loop
+  w/ memo write-back (`//Comment//`) + answers write vendorMemory rules; P2
+  webhooks+CDC (retire Make polling), managed Postgres in a Canadian region
+  (AWS ca-central-1 / GCP Montreal), 3-2-1-1-0 backups. AVOID: auto-posting,
+  cross-client learning, per-client-priced SaaS dependency.
+- **Connection-layer design:** `docs/FIGGY_JR_QBO_CONNECTION_DESIGN.md`. Decision
+  (Markie 2026-06-11): bridge brain to live Make QBO tools NOW + build native
+  OAuth in parallel, cut over later. QBO facts: access token 1h; refresh 100-day
+  rolling, ROTATES ~24h (persist new token every refresh or invalid_grant); 500
+  req/min + 10 concurrent per realm; batch ≤30 ops; webhooks = 1 callback/app,
+  HMAC-SHA256 raw-body verify; CDC backstop. Hosting: managed > self-host (no ops
+  team); move SQLite→Postgres for prod.
 
 ## Per-client isolation (guaranteed — Markie's requirement)
 The brain CANNOT cross-pollinate clients: every QBO read goes through ONE
