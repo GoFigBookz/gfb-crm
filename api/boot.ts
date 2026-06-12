@@ -566,6 +566,38 @@ app.post("/api/admin/import-clients", async (c) => {
 });
 
 // ================================================================
+// FIGGY ADMIN (token-gated, read-only-ish) — lets the build self-test the
+// coding pipeline remotely via Make without browser/login access.
+// ================================================================
+app.post("/api/admin/figgy", async (c) => {
+  const token = c.req.header("x-agent-token") || "";
+  if (token !== (process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026")) {
+    return c.json({ success: false, error: "Invalid agent token" }, 401);
+  }
+  let body: any = {};
+  try { body = await c.req.json(); } catch { body = {}; }
+  const op = String(body?.op || "health");
+  try {
+    const brain = await import("./qbo-vendor-brain");
+    if (op === "enrich") {
+      const res = await brain.runEnrichment({ limit: body.limit, status: body.status, reenrich: body.reenrich });
+      return c.json({ success: true, op, ...res });
+    }
+    if (op === "rebridge") {
+      const { ensureBridgeReady } = await import("./bridge-bootstrap");
+      const { relinkFindings } = await import("./relink-findings");
+      await ensureBridgeReady();
+      await relinkFindings();
+      return c.json({ success: true, op, health: await brain.bridgeHealth() });
+    }
+    // default: health
+    return c.json({ success: true, op: "health", health: await brain.bridgeHealth() });
+  } catch (e: any) {
+    return c.json({ success: false, op, error: e?.message || String(e) }, 500);
+  }
+});
+
+// ================================================================
 // tRPC API
 // ================================================================
 app.use("/api/trpc/*", async (c) => {
