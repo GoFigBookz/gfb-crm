@@ -40,7 +40,10 @@ async function ensureColumns(db: any): Promise<void> {
 
   // Add nullable columns (NOT NULL on ALTER is what was failing on the live DB).
   // The schema marks them notNull for types; the DEFAULT covers existing rows.
+  // clientId was ALSO missing on the live table — without it every connection
+  // lookup (which selects clientId) crashed.
   const adds: Array<[string, any]> = [
+    ["clientId", sql`ALTER TABLE qbo_connections ADD COLUMN "clientId" integer`],
     ["transport", sql`ALTER TABLE qbo_connections ADD COLUMN transport text DEFAULT 'native'`],
     ["bridgeUrl", sql`ALTER TABLE qbo_connections ADD COLUMN "bridgeUrl" text`],
     ["bridgeSecret", sql`ALTER TABLE qbo_connections ADD COLUMN "bridgeSecret" text`],
