@@ -30,7 +30,7 @@
  * =============================================================================
  */
 import { z } from "zod";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { createRouter, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { qboConnections, vendorMemory, triageFindings } from "../db/schema";
@@ -227,6 +227,86 @@ export async function suggestForClient(
   return { ok: true as const, resolution, coding, dedup };
 }
 
+/** Run the brain over existing Triage findings and fold its traffic-light /
+ *  confidence / rationale into each finding's sourceData. READ-ONLY against QBO,
+ *  defensive per-finding. Shared by the Triage button and the admin self-test. */
+export async function runEnrichment(input?: { limit?: number; status?: "new" | "approved" | "dismissed" | "awaiting_client"; reenrich?: boolean }) {
+  const db = getDb();
+  const limit = input?.limit ?? 50;
+  const status = input?.status ?? "new";
+  const rows = await db.select().from(triageFindings)
+    .where(eq(triageFindings.status, status)).orderBy(desc(triageFindings.createdAt)).limit(limit);
+  let enriched = 0;
+  const skip = { noClient: 0, noVendor: 0, already: 0, notConnected: 0, error: 0 };
+  const errors: string[] = [];
+  for (const f of rows) {
+    try {
+      let meta: any = {};
+      try { meta = JSON.parse(f.sourceData || "{}"); } catch { meta = {}; }
+      if (!meta || typeof meta !== "object" || !meta.vendor) { skip.noVendor++; continue; }
+      const clientId = f.clientId ?? (meta.clientName ? await matchClientIdByName(String(meta.clientName)) : null);
+      if (!clientId) { skip.noClient++; continue; }
+      if (meta.triage && !input?.reenrich) { skip.already++; continue; } // already enriched
+      const r = await suggestForClient(clientId, {
+        vendorName: String(meta.vendor),
+        invoiceNumber: meta.invoiceNumber ? String(meta.invoiceNumber) : undefined,
+        total: parseAmt(meta.amount),
+        txnDate: meta.date ? String(meta.date) : undefined,
+      });
+      if (!r.ok) {
+        if (String(r.error).includes("no_active") || String(r.error).includes("ambiguous")) skip.notConnected++;
+        else { skip.error++; if (errors.length < 5) errors.push(`#${f.id}: ${r.error}`); }
+        continue;
+      }
+      const c: any = r.coding ?? {};
+      const triage: "green" | "yellow" | "red" = c.triage ?? "red";
+      const confidence = typeof c.confidence === "number" ? c.confidence : 0;
+      const rationale = c.rationale ??
+        (c.flagReason === "vendor_unresolved" ? "Couldn't find this vendor in QBO — needs a human."
+        : c.flagReason === "vendor_ambiguous" ? "More than one QBO vendor matches this name — pick one."
+        : "Needs an account.");
+      const newMeta = {
+        ...meta, triage, confidence, rationale,
+        suggestedAccount: c.suggestedAccountName ?? null,
+        suggestedAccountId: c.suggestedAccountId ?? null,
+        suggestedTaxCode: c.suggestedTaxCode ?? null,
+        dedup: r.dedup && r.dedup.isDuplicate ? r.dedup : null,
+      };
+      await db.update(triageFindings).set({ sourceData: JSON.stringify(newMeta) }).where(eq(triageFindings.id, f.id));
+      enriched++;
+    } catch (e: any) {
+      skip.error++; if (errors.length < 5) errors.push(`#${f.id}: ${e?.message || String(e)}`);
+    }
+  }
+  const skipped = skip.noClient + skip.noVendor + skip.already + skip.notConnected + skip.error;
+  return { enriched, skipped, scanned: rows.length, breakdown: skip, errors };
+}
+
+/** Health snapshot for remote diagnosis: bridge columns present? connections?
+ *  finding counts? READ-ONLY. */
+export async function bridgeHealth() {
+  const db = getDb();
+  const out: any = { columns: [] as string[], connections: [] as any[], findings: {}, error: null };
+  try {
+    const ti: any = await db.run(sql`PRAGMA table_info(qbo_connections)`);
+    out.columns = [...(ti?.rows ?? ti ?? [])].map((r: any) => r.name ?? r[1]);
+  } catch (e: any) { out.error = `table_info: ${e?.message || e}`; }
+  try {
+    const conns = await db.select().from(qboConnections);
+    out.connections = conns.map((c: any) => ({ id: c.id, clientId: c.clientId, realmId: c.realmId, transport: c.transport, isActive: c.isActive, hasBridgeUrl: !!c.bridgeUrl }));
+  } catch (e: any) { out.error = (out.error ? out.error + " | " : "") + `connections: ${e?.message || e}`; }
+  try {
+    const all = await db.select().from(triageFindings);
+    out.findings = {
+      total: all.length,
+      new: all.filter((f: any) => f.status === "new").length,
+      withClient: all.filter((f: any) => f.clientId).length,
+      withTriage: all.filter((f: any) => { try { return !!JSON.parse(f.sourceData || "{}").triage; } catch { return false; } }).length,
+    };
+  } catch (e: any) { out.error = (out.error ? out.error + " | " : "") + `findings: ${e?.message || e}`; }
+  return out;
+}
+
 export const qboBrainRouter = createRouter({
   /** Suggest coding for an incoming document. READ-ONLY — never posts. */
   suggestCoding: staffQuery
@@ -253,55 +333,5 @@ export const qboBrainRouter = createRouter({
       status: z.enum(["new", "approved", "dismissed", "awaiting_client"]).optional(),
       reenrich: z.boolean().optional(),
     }).optional())
-    .mutation(async ({ input }) => {
-      const db = getDb();
-      const limit = input?.limit ?? 50;
-      const status = input?.status ?? "new";
-      const rows = await db.select().from(triageFindings)
-        .where(eq(triageFindings.status, status)).orderBy(desc(triageFindings.createdAt)).limit(limit);
-      let enriched = 0;
-      const skip = { noClient: 0, noVendor: 0, already: 0, notConnected: 0, error: 0 };
-      const errors: string[] = [];
-      for (const f of rows) {
-        try {
-          let meta: any = {};
-          try { meta = JSON.parse(f.sourceData || "{}"); } catch { meta = {}; }
-          if (!meta || typeof meta !== "object" || !meta.vendor) { skip.noVendor++; continue; }
-          const clientId = f.clientId ?? (meta.clientName ? await matchClientIdByName(String(meta.clientName)) : null);
-          if (!clientId) { skip.noClient++; continue; }
-          if (meta.triage && !input?.reenrich) { skip.already++; continue; } // already enriched
-          const r = await suggestForClient(clientId, {
-            vendorName: String(meta.vendor),
-            invoiceNumber: meta.invoiceNumber ? String(meta.invoiceNumber) : undefined,
-            total: parseAmt(meta.amount),
-            txnDate: meta.date ? String(meta.date) : undefined,
-          });
-          if (!r.ok) {
-            if (String(r.error).includes("no_active") || String(r.error).includes("ambiguous")) skip.notConnected++;
-            else { skip.error++; if (errors.length < 5) errors.push(`#${f.id}: ${r.error}`); }
-            continue;
-          }
-          const c: any = r.coding ?? {};
-          const triage: "green" | "yellow" | "red" = c.triage ?? "red";
-          const confidence = typeof c.confidence === "number" ? c.confidence : 0;
-          const rationale = c.rationale ??
-            (c.flagReason === "vendor_unresolved" ? "Couldn't find this vendor in QBO — needs a human."
-            : c.flagReason === "vendor_ambiguous" ? "More than one QBO vendor matches this name — pick one."
-            : "Needs an account.");
-          const newMeta = {
-            ...meta, triage, confidence, rationale,
-            suggestedAccount: c.suggestedAccountName ?? null,
-            suggestedAccountId: c.suggestedAccountId ?? null,
-            suggestedTaxCode: c.suggestedTaxCode ?? null,
-            dedup: r.dedup && r.dedup.isDuplicate ? r.dedup : null,
-          };
-          await db.update(triageFindings).set({ sourceData: JSON.stringify(newMeta) }).where(eq(triageFindings.id, f.id));
-          enriched++;
-        } catch (e: any) {
-          skip.error++; if (errors.length < 5) errors.push(`#${f.id}: ${e?.message || String(e)}`);
-        }
-      }
-      const skipped = skip.noClient + skip.noVendor + skip.already + skip.notConnected + skip.error;
-      return { enriched, skipped, scanned: rows.length, breakdown: skip, errors };
-    }),
+    .mutation(async ({ input }) => runEnrichment(input ?? undefined)),
 });
