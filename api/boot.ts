@@ -576,11 +576,15 @@ app.post("/api/admin/figgy", async (c) => {
   }
   let body: any = {};
   try { body = await c.req.json(); } catch { body = {}; }
-  const op = String(body?.op || "health");
+  // Prefer URL query (?op=enrich) — Make mangles braces in a JSON body.
+  const op = String(c.req.query("op") || body?.op || "health");
+  const limit = Number(c.req.query("limit")) || body?.limit || undefined;
+  const status = (c.req.query("status") || body?.status || undefined) as any;
+  const reenrich = c.req.query("reenrich") === "1" || !!body?.reenrich;
   try {
     const brain = await import("./qbo-vendor-brain");
     if (op === "enrich") {
-      const res = await brain.runEnrichment({ limit: body.limit, status: body.status, reenrich: body.reenrich });
+      const res = await brain.runEnrichment({ limit, status, reenrich });
       return c.json({ success: true, op, ...res });
     }
     if (op === "rebridge") {
