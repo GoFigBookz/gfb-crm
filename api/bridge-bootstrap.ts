@@ -1,33 +1,24 @@
 /**
- * BRIDGE BOOTSTRAP — makes the live QBO bridge self-configure on startup so the
- * deployed CRM needs ZERO setup (no commands, no API token, no env vars).
+ * BRIDGE BOOTSTRAP — self-configures the live QBO bridge on startup.
  *
- * What it does on every boot (idempotent, safe):
- *  1) Ensures the 3 bridge columns exist on qbo_connections (additive ALTERs).
- *  2) Binds each Clark realm to its EXISTING CRM client (matched by city) via a
- *     make_bridge connection whose bridgeUrl is a READ-ONLY Make webhook proxy.
- *
- * The webhook proxy scenarios (Make, team 2327575) are GET-only — they can read
- * QBO but cannot write — and need no token (the unguessable hook URL is the
- * capability). This is the INTERIM transport; native per-realm OAuth replaces it
- * and is the permanent, more-secure path. Until then these URLs live in code so
- * go-live is truly zero-touch (repo is private; scenarios are read-only).
- *
- * Safety: never creates a client (no duplicates), never writes to QBO, idempotent
- * by realmId, opt-out via FIGGY_BRIDGE_DISABLE=on, and wrapped so a failure can
- * never crash the server.
+ * Transport = Make's scenario-RUN API (responsive) against the per-realm QBO tool
+ * scenarios (Clark OS 5347484 / Clark CW 5347489) — proven to return QBO JSON
+ * synchronously. (The earlier webhook approach returned async "Accepted" and is
+ * abandoned.) Needs one env var: FIGGY_MAKE_API_TOKEN. Native per-realm OAuth is
+ * the permanent replacement.
  */
 import { getDb } from "./queries/connection";
 import { clients, qboConnections } from "../db/schema";
 import { eq, sql } from "drizzle-orm";
 
-// Verified live 2026-06-11. GET-only webhook proxies; `match` is a lowercase
-// substring of the existing CRM client name/company.
+const REGION = process.env.FIGGY_MAKE_REGION || "us2";
+const runUrl = (scenarioId: number) => `https://${REGION}.make.com/api/v2/scenarios/${scenarioId}/run`;
+
+// Verified live 2026-06-11. `match` is a lowercase substring of the existing
+// CRM client name/company.
 const BRIDGED = [
-  { realmId: "9341456017349963", company: "Clark Pools and Spas Owen Sound Inc.", match: "owen sound",
-    webhookUrl: "https://hook.us2.make.com/zwooriouroqy1hiqrfwfjueni6ju1uq6" },   // scenario 5359685, conn 9302460
-  { realmId: "13633946244024404", company: "Clark Pools and Spas Collingwood Inc", match: "collingwood",
-    webhookUrl: "https://hook.us2.make.com/2s1inh9yfy749c3o42yx6bm4hohfios3" },  // scenario 5359734, conn 9291854
+  { realmId: "9341456017349963", company: "Clark Pools and Spas Owen Sound Inc.", match: "owen sound", bridgeUrl: runUrl(5347484) },   // conn 9302460
+  { realmId: "13633946244024404", company: "Clark Pools and Spas Collingwood Inc", match: "collingwood", bridgeUrl: runUrl(5347489) }, // conn 9291854
 ];
 
 async function ensureColumns(db: any): Promise<void> {
@@ -70,12 +61,12 @@ export async function ensureBridgeReady(): Promise<void> {
       const existing = (await db.select().from(qboConnections).where(eq(qboConnections.realmId, b.realmId)).limit(1))[0];
       const patch = {
         userId: 1, realmId: b.realmId, companyName: b.company, environment: "production" as const,
-        transport: "make_bridge" as const, bridgeUrl: b.webhookUrl,
+        transport: "make_bridge" as const, bridgeUrl: b.bridgeUrl,
         accountType: "ca_clients" as const, clientId: client.id, isActive: true, updatedAt: new Date(),
       };
       if (existing) await db.update(qboConnections).set(patch).where(eq(qboConnections.id, existing.id));
       else await db.insert(qboConnections).values(patch);
-      console.log(`[bridge] linked ${b.company} -> client #${client.id} (read-only webhook proxy)`);
+      console.log(`[bridge] linked ${b.company} -> client #${client.id} (scenario-run API)`);
     }
   } catch (e) {
     console.error("[bridge] ensureBridgeReady failed (non-fatal):", e instanceof Error ? e.message : e);
