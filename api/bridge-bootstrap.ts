@@ -31,12 +31,24 @@ const BRIDGED = [
 ];
 
 async function ensureColumns(db: any): Promise<void> {
-  for (const stmt of [
-    "ALTER TABLE qbo_connections ADD COLUMN transport text DEFAULT 'native' NOT NULL",
-    "ALTER TABLE qbo_connections ADD COLUMN bridgeUrl text",
-    "ALTER TABLE qbo_connections ADD COLUMN bridgeSecret text",
-  ]) {
-    try { await db.run(sql.raw(stmt)); } catch { /* column already exists — fine */ }
+  // Find existing columns first (don't rely on catching "duplicate column").
+  const have = new Set<string>();
+  try {
+    const res: any = await db.run(sql`PRAGMA table_info(qbo_connections)`);
+    for (const r of (res?.rows ?? res ?? [])) have.add(String((r as any).name ?? (r as any)[1] ?? ""));
+  } catch (e) { console.error("[bridge] table_info(qbo_connections) failed:", e instanceof Error ? e.message : e); }
+
+  // Add nullable columns (NOT NULL on ALTER is what was failing on the live DB).
+  // The schema marks them notNull for types; the DEFAULT covers existing rows.
+  const adds: Array<[string, any]> = [
+    ["transport", sql`ALTER TABLE qbo_connections ADD COLUMN transport text DEFAULT 'native'`],
+    ["bridgeUrl", sql`ALTER TABLE qbo_connections ADD COLUMN "bridgeUrl" text`],
+    ["bridgeSecret", sql`ALTER TABLE qbo_connections ADD COLUMN "bridgeSecret" text`],
+  ];
+  for (const [col, stmt] of adds) {
+    if (have.has(col)) continue;
+    try { await db.run(stmt); console.log("[bridge] added column:", col); }
+    catch (e) { console.error("[bridge] add column", col, "failed:", e instanceof Error ? e.message : e); }
   }
 }
 
