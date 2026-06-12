@@ -586,16 +586,15 @@ async function startServer() {
   const { serveStaticFiles } = await import("./lib/vite");
   serveStaticFiles(app);
 
-  const { startSyncScheduler } = await import("./sync-scheduler");
-  startSyncScheduler();
-
-  // Self-configure the live QBO bridge (idempotent; links existing clients only).
+  // Self-configure the live QBO bridge FIRST (adds the bridge columns before
+  // anything queries qbo_connections), then back-fill finding links.
   const { ensureBridgeReady } = await import("./bridge-bootstrap");
   await ensureBridgeReady();
-
-  // Back-fill company links on findings created before intake stored clientName.
   const { relinkFindings } = await import("./relink-findings");
   await relinkFindings();
+
+  const { startSyncScheduler } = await import("./sync-scheduler");
+  startSyncScheduler();
 
   const port = parseInt(process.env.PORT || "3000");
   serve({ fetch: app.fetch, port }, () => {
