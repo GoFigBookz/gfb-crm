@@ -11,14 +11,20 @@ import { getDb } from "./queries/connection";
 import { clients, qboConnections } from "../db/schema";
 import { eq, sql } from "drizzle-orm";
 
-const REGION = process.env.FIGGY_MAKE_REGION || "us2";
-const runUrl = (scenarioId: number) => `https://${REGION}.make.com/api/v2/scenarios/${scenarioId}/run`;
-
-// Verified live 2026-06-11. `match` is a lowercase substring of the existing
-// CRM client name/company.
+// TRANSPORT = no-token Make WEBHOOK PROXIES (read-only, GET-only) I built in
+// team 2327575. Each is an instant webhook scenario:
+//   CustomWebHook (parses {url,method,qs_query,body}) -> quickbooks:MakeApiCall
+//   (that realm's connection, method=GET) -> WebhookRespond {{2.body}} (200).
+// The WebhookRespond module makes the call SYNCHRONOUS, so the CRM gets the bare
+// QBO JSON back on the same request — no Make API token, no env var. The hook
+// UDIDs are capability secrets committed here (private repo) so go-live is truly
+// zero-touch. `qboRequestViaMake` auto-detects the hook.* host and POSTs the flat
+// {url,method,qs_query,body} with no auth. (The earlier scenario-RUN API path
+// needed FIGGY_MAKE_API_TOKEN — abandoned in favour of these. Native per-realm
+// OAuth remains the permanent replacement.)
 const BRIDGED = [
-  { realmId: "9341456017349963", company: "Clark Pools and Spas Owen Sound Inc.", match: "owen sound", bridgeUrl: runUrl(5347484) },   // conn 9302460
-  { realmId: "13633946244024404", company: "Clark Pools and Spas Collingwood Inc", match: "collingwood", bridgeUrl: runUrl(5347489) }, // conn 9291854
+  { realmId: "9341456017349963", company: "Clark Pools and Spas Owen Sound Inc.", match: "owen sound", bridgeUrl: "https://hook.us2.make.com/zwooriouroqy1hiqrfwfjueni6ju1uq6" }, // hook 2441572 / scenario 5359685 / conn 9302460
+  { realmId: "13633946244024404", company: "Clark Pools and Spas Collingwood Inc", match: "collingwood", bridgeUrl: "https://hook.us2.make.com/2s1inh9yfy749c3o42yx6bm4hohfios3" }, // hook 2441594 / scenario 5359734 / conn 9291854
 ];
 
 async function ensureColumns(db: any): Promise<void> {
