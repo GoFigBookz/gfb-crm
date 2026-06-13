@@ -8,6 +8,29 @@ import { createRouter, publicQuery, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { triageFindings, notifications, clients } from "../db/schema";
 import { eq, desc, and, inArray } from "drizzle-orm";
+import { learnFromApprovals } from "./vendor-learning";
+
+/** Stamp an explicit human account override into a finding's sourceData so the
+ *  learning loop (and the card) reflect Markie's correction, not Figgy's guess. */
+async function applyAccountOverride(
+  db: ReturnType<typeof getDb>, ids: number[],
+  o: { confirmedAccountId?: string; confirmedAccountName?: string; confirmedTaxCode?: string },
+): Promise<void> {
+  if (!o.confirmedAccountId) return;
+  for (const id of ids) {
+    try {
+      const row = (await db.select().from(triageFindings).where(eq(triageFindings.id, id)).limit(1))[0];
+      if (!row) continue;
+      let meta: any = {};
+      try { meta = JSON.parse(row.sourceData || "{}"); } catch { meta = {}; }
+      if (!meta || typeof meta !== "object") meta = {};
+      meta.confirmedAccountId = o.confirmedAccountId;
+      if (o.confirmedAccountName) meta.confirmedAccountName = o.confirmedAccountName;
+      if (o.confirmedTaxCode) meta.confirmedTaxCode = o.confirmedTaxCode;
+      await db.update(triageFindings).set({ sourceData: JSON.stringify(meta) }).where(eq(triageFindings.id, id));
+    } catch { /* best-effort */ }
+  }
+}
 
 function validateAgentToken(token: string): boolean {
   const validToken = process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026";
@@ -105,6 +128,11 @@ export const agentWebhookRouter = createRouter({
       id: z.number(),
       action: z.enum(["approve", "dismiss"]),
       notes: z.string().optional(),
+      // Optional: Markie corrects the account before approving (else Figgy's
+      // own suggestion on the card is what gets confirmed/learned).
+      confirmedAccountId: z.string().optional(),
+      confirmedAccountName: z.string().optional(),
+      confirmedTaxCode: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = getDb();
@@ -115,6 +143,13 @@ export const agentWebhookRouter = createRouter({
           reviewedAt: new Date(),
         })
         .where(eq(triageFindings.id, input.id));
+      // Approve teaches the brain: confirm a vendorMemory rule from the card.
+      if (input.action === "approve") {
+        try {
+          await applyAccountOverride(db, [input.id], input);
+          await learnFromApprovals([input.id]);
+        } catch { /* learning is best-effort — never block the approve */ }
+      }
       return { success: true };
     }),
 
@@ -134,7 +169,13 @@ export const agentWebhookRouter = createRouter({
           reviewedAt: new Date(),
         })
         .where(inArray(triageFindings.id, input.ids));
-      return { success: true, updated: input.ids.length };
+      // Approve teaches the brain: confirm a vendorMemory rule per approved card.
+      let learned = 0;
+      if (input.action === "approve") {
+        try { learned = (await learnFromApprovals(input.ids)).learned; }
+        catch { /* best-effort — never block the batch approve */ }
+      }
+      return { success: true, updated: input.ids.length, learned };
     }),
 
   // Staff: Batch delete — permanently remove many findings
