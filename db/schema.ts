@@ -220,6 +220,10 @@ export const vendorMemory = sqliteTable("vendor_memory", {
   preferredAccountName: text("preferredAccountName"),
   preferredTaxCode: text("preferredTaxCode"),
   sampleCount: integer("sampleCount").default(0),
+  // Human-confirmed coding (Markie approved a card for this vendor). A confirmed
+  // rule WINS over history-derived coding and is never overwritten by it.
+  confirmedByHuman: integer("confirmedByHuman", { mode: "boolean" }).default(false),
+  confirmedAt: integer("confirmedAt", { mode: "timestamp" }),
   lastValidatedAt: integer("lastValidatedAt", { mode: "timestamp" }),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),

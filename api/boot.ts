@@ -589,8 +589,10 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "rebridge") {
       const { ensureBridgeReady } = await import("./bridge-bootstrap");
+      const { ensureVendorMemoryColumns } = await import("./vendor-learning");
       const { relinkFindings } = await import("./relink-findings");
       await ensureBridgeReady();
+      await ensureVendorMemoryColumns();
       await relinkFindings();
       return c.json({ success: true, op, health: await brain.bridgeHealth() });
     }
@@ -626,6 +628,8 @@ async function startServer() {
   // anything queries qbo_connections), then back-fill finding links.
   const { ensureBridgeReady } = await import("./bridge-bootstrap");
   await ensureBridgeReady();
+  const { ensureVendorMemoryColumns } = await import("./vendor-learning");
+  await ensureVendorMemoryColumns();
   const { relinkFindings } = await import("./relink-findings");
   await relinkFindings();
 

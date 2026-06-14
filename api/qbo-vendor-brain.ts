@@ -184,6 +184,27 @@ export async function suggestForClient(
   const history = await qboVendorHistory(conn, resolution.vendorId, since);
   let coding = decideCoding(history, input.autoApproveThreshold ?? 85);
 
+  // HUMAN-CONFIRMED RULE WINS: if Markie approved a coding for this vendor, use
+  // it directly (green) over history/cold-start, and don't re-cache from history.
+  let isConfirmed = false;
+  try {
+    const db = getDb();
+    const rule = (await db.select().from(vendorMemory)
+      .where(and(eq(vendorMemory.connectionId, conn.id), eq(vendorMemory.qboVendorId, resolution.vendorId))).limit(1))[0];
+    if (rule?.confirmedByHuman && rule.preferredAccountId) {
+      isConfirmed = true;
+      coding = {
+        ...coding,
+        status: "suggested", flagReason: null,
+        suggestedAccountId: rule.preferredAccountId,
+        suggestedAccountName: rule.preferredAccountName ?? coding.suggestedAccountName,
+        suggestedTaxCode: rule.preferredTaxCode ?? coding.suggestedTaxCode,
+        confidence: 99, triage: "green",
+        rationale: `Confirmed by Markie for ${rule.vendorName ?? resolution.displayName} → ${rule.preferredAccountName ?? rule.preferredAccountId}.`,
+      };
+    }
+  } catch { /* confirmed-rule lookup is best-effort */ }
+
   // COLD START: no history -> review-gated classifier HINT (name keywords, then
   // live web lookup if enabled). Stays FLAGGED — never auto-posts/caches.
   if (coding.status === "flag" && coding.flagReason === "no_history") {
@@ -208,7 +229,8 @@ export async function suggestForClient(
   );
 
   // Cache the confident suggestion in Vendor Memory (re-validated each run).
-  if (coding.status === "suggested" && coding.suggestedAccountId) {
+  // Skip when a human-confirmed rule is in force — never overwrite it with history.
+  if (!isConfirmed && coding.status === "suggested" && coding.suggestedAccountId) {
     try {
       const db = getDb();
       const existing = await db.select().from(vendorMemory)
@@ -224,7 +246,7 @@ export async function suggestForClient(
     } catch { /* cache is best-effort */ }
   }
 
-  return { ok: true as const, resolution, coding, dedup };
+  return { ok: true as const, connectionId: conn.id, resolution, coding, dedup };
 }
 
 /** Run the brain over existing Triage findings and fold its traffic-light /
@@ -270,6 +292,9 @@ export async function runEnrichment(input?: { limit?: number; status?: "new" | "
         suggestedAccount: c.suggestedAccountName ?? null,
         suggestedAccountId: c.suggestedAccountId ?? null,
         suggestedTaxCode: c.suggestedTaxCode ?? null,
+        // QBO identity so Approve can write a confirmed vendorMemory rule offline.
+        vendorId: r.resolution && r.resolution.status === "resolved" ? r.resolution.vendorId : (meta.vendorId ?? null),
+        connectionId: (r as any).connectionId ?? meta.connectionId ?? null,
         dedup: r.dedup && r.dedup.isDuplicate ? r.dedup : null,
       };
       await db.update(triageFindings).set({ sourceData: JSON.stringify(newMeta) }).where(eq(triageFindings.id, f.id));
