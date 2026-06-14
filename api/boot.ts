@@ -596,6 +596,11 @@ app.post("/api/admin/figgy", async (c) => {
       await relinkFindings();
       return c.json({ success: true, op, health: await brain.bridgeHealth() });
     }
+    if (op === "dedupeClients") {
+      const { dedupeClients } = await import("./dedupe-clients");
+      const confirm = c.req.query("confirm") === "1" || !!body?.confirm;
+      return c.json({ success: true, op, ...(await dedupeClients(confirm)) });
+    }
     if (op === "clients") {
       // Read-only: list CRM clients + which have an active QBO connection, so
       // new client→realm bridge links can be verified by name.
