@@ -596,6 +596,23 @@ app.post("/api/admin/figgy", async (c) => {
       await relinkFindings();
       return c.json({ success: true, op, health: await brain.bridgeHealth() });
     }
+    if (op === "clients") {
+      // Read-only: list CRM clients + which have an active QBO connection, so
+      // new client→realm bridge links can be verified by name.
+      const { getDb } = await import("./queries/connection");
+      const { clients, qboConnections } = await import("../db/schema");
+      const db = getDb();
+      const cs = await db.select().from(clients);
+      const conns = await db.select().from(qboConnections);
+      const byClient = new Map<number, any[]>();
+      for (const cn of conns as any[]) {
+        if (cn.clientId == null) continue;
+        if (!byClient.has(cn.clientId)) byClient.set(cn.clientId, []);
+        byClient.get(cn.clientId)!.push({ realmId: cn.realmId, transport: cn.transport, isActive: cn.isActive });
+      }
+      const list = (cs as any[]).map((c2) => ({ id: c2.id, name: c2.name, company: c2.company, connections: byClient.get(c2.id) || [] }));
+      return c.json({ success: true, op, count: list.length, clients: list });
+    }
     // default: health
     return c.json({ success: true, op: "health", health: await brain.bridgeHealth() });
   } catch (e: any) {

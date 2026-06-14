@@ -25,6 +25,13 @@ import { eq, sql } from "drizzle-orm";
 const BRIDGED = [
   { realmId: "9341456017349963", company: "Clark Pools and Spas Owen Sound Inc.", match: "owen sound", bridgeUrl: "https://hook.us2.make.com/zwooriouroqy1hiqrfwfjueni6ju1uq6" }, // hook 2441572 / scenario 5359685 / conn 9302460
   { realmId: "13633946244024404", company: "Clark Pools and Spas Collingwood Inc", match: "collingwood", bridgeUrl: "https://hook.us2.make.com/2s1inh9yfy749c3o42yx6bm4hohfios3" }, // hook 2441594 / scenario 5359734 / conn 9291854
+  // Wave 2 (2026-06-14) — already-authorized QBO companies, one read-only proxy each.
+  { realmId: "9130348545738576", company: "Universal Construction Group Inc.", match: "universal", bridgeUrl: "https://hook.us2.make.com/pu75kvdginyxool3fuoj5nb267poso21" }, // hook 2454385 / scenario 5388644 / conn 9309073
+  { realmId: "9341454721167426", company: "Alderson Development Ltd", match: "alderson", bridgeUrl: "https://hook.us2.make.com/nqf3obsko1zd6s233tt7pa7y62phfxw1" },             // hook 2454386 / scenario 5388646 / conn 9328844
+  { realmId: "193514344934582", company: "Ovita Construction Ltd.", match: "ovita construction", bridgeUrl: "https://hook.us2.make.com/jj4cyyftgcjm4ndclxtq3lxma984qtrl" },     // hook 2454388 / scenario 5388647 / conn 9328857
+  { realmId: "193514710535449", company: "Ovita Holdings Inc.", match: "ovita holdings", bridgeUrl: "https://hook.us2.make.com/hc0ojfuggi63emfgi9dmuz0yjes54p5b" },             // hook 2454389 / scenario 5388649 / conn 9328866
+  { realmId: "193514521441614", company: "2303851 Ontario Inc.", match: "2303851", bridgeUrl: "https://hook.us2.make.com/mx3sm5fkrigeypmnvtubag7mxpqrvhca" },                   // hook 2454390 / scenario 5388650 / conn 9328873
+  { realmId: "193514640962249", company: "Adbank Inc", match: "adbank", bridgeUrl: "https://hook.us2.make.com/7lwardr2ibnu7ayeho95egmls6wqqqw8" },                               // hook 2454392 / scenario 5388651 / conn 9328881
 ];
 
 async function ensureColumns(db: any): Promise<void> {
