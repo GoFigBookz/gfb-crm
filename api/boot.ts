@@ -601,6 +601,10 @@ app.post("/api/admin/figgy", async (c) => {
       const confirm = c.req.query("confirm") === "1" || !!body?.confirm;
       return c.json({ success: true, op, ...(await dedupeClients(confirm)) });
     }
+    if (op === "importClientMaster") {
+      const { importClientMaster } = await import("./import-client-master");
+      return c.json({ success: true, op, ...(await importClientMaster()) });
+    }
     if (op === "clients") {
       // Read-only: list CRM clients + which have an active QBO connection, so
       // new client→realm bridge links can be verified by name.
