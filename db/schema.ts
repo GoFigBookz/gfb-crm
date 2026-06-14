@@ -286,6 +286,11 @@ export const clients = sqliteTable("clients", {
 
   assignedTo: text("assignedTo"),
   oneDriveFolderId: text("oneDriveFolderId"),
+  // Master-intake reference (imported from MASTER_INTAKE_DATABASE sheet)
+  payrollRpNumber: text("payrollRpNumber"),
+  driveFolderUrl: text("driveFolderUrl"),
+  clientInfoDocUrl: text("clientInfoDocUrl"),
+  nextPayday: text("nextPayday"),
   qboCustomerId: text("qboCustomerId"),
   // Multi-QBO firm mapping: which QBO firm this client belongs to
   qboConnectionId: integer("qboConnectionId"),
