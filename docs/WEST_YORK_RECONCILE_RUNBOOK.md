@@ -81,6 +81,14 @@ manually, via bank feed, or CSV import). Anything on the statement but not in QB
 is the `missing-in-QBO` list and is entered via the gated write — **every line,
 no exceptions** — before the month ties.
 
+Status (Markie, 2026-06-15): the 2025 BMO CSV is believed already imported into
+QBO for the year, so most months should be **matching, not entry**. VERIFY live
+per month — a CSV import can still carry errors, and reconciling against the
+authoritative statement is exactly what catches them (e.g. the $501.62 interest:
+if QBO got $601.62 from the CSV the month lands $100 out → correct QBO to the
+statement, never plug). Caveat: `bmo_mc_ALL.csv` starts **Jan 29, 2025**, so the
+January statement period isn't fully covered and Jan-2025 will likely have gaps.
+
 ## Monthly procedure (per statement month)
 1. **Statement** — the monthly BMO statement PDF lives in Drive `4 - Statements /
    BMO MasterCard`. It is ONE statement for the shared account covering BOTH cards
