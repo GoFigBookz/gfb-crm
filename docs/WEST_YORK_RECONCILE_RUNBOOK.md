@@ -10,8 +10,11 @@ statement disagree, **QBO is what gets corrected** — never the statement. The
 engine encodes this: the statement's ending balance is the *target* and matched
 QBO register lines are driven to it. A non-zero self-check therefore means our
 **opening balance or parse** is off (or QBO is incomplete), not that the
-statement is wrong. (Worked example: Dec-2025 interest is **$601.62** per the
-statement; the handoff summary's $501.62 was the error.)
+statement is wrong. (Worked example: Dec-2025 BMO interest is **$501.62** per the
+statement, and it ties: opening $31,728.51 − payments $29,674.93 + purchases
+$23,658.74 + interest $501.62 = **$26,213.94** ending. A `$601.62` figure that
+surfaced in a CSV export is the error — entering it would put the month $100 out
+and it would NOT tie; the fix is to correct QBO to $501.62, never to plug.)
 
 **No plugging (golden rule, Markie 2026-06-15).** A difference is resolved ONLY
 by entering/finding a real transaction or correcting a real error — never by
@@ -71,10 +74,18 @@ FIGGY_MAKE_API_TOKEN=<make token> node --experimental-strip-types \
     --csv bmo_dec_4686.csv:4686 --csv bmo_dec_6311.csv:6311
 ```
 
+## Prerequisite — transactions must already be in QBO
+Reconciliation matches what's ENTERED in QBO. Before a month can close, the
+card's transactions for that period must already be posted in QBO (entered
+manually, via bank feed, or CSV import). Anything on the statement but not in QBO
+is the `missing-in-QBO` list and is entered via the gated write — **every line,
+no exceptions** — before the month ties.
+
 ## Monthly procedure (per statement month)
-1. **Statement** — BMO CSV(s) for the month live in Drive `4 - Statements /
-   BMO MasterCard` (one per card; merge both into the month). Opening balance =
-   prior statement's closing; ending balance + closing date come off the statement.
+1. **Statement** — the monthly BMO statement PDF lives in Drive `4 - Statements /
+   BMO MasterCard`. It is ONE statement for the shared account covering BOTH cards
+   (·4686 Frank + ·6311 Joe → QBO acct 137). Opening balance = prior statement's
+   closing; ending balance + closing date come off the statement.
 2. **Match** — call `reconcile.runMonth` with the CSV text(s), acct `137`, the
    period, opening + ending balances. Read the packet:
    - `✅ TIES` → every statement line is in QBO and the difference is $0.
