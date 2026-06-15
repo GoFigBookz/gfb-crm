@@ -11,6 +11,11 @@ ONCE on consolidated rails — never per-client clones.**
 
 ## Golden rules (never violate)
 - Nothing posts to QBO without Markie's review. All posters stay OFF.
+- **NEVER guess or "plug" a number** — no fabricated amounts, balances, totals,
+  or balancing adjustments to force a match/reconcile. Every figure must trace to
+  a real source document or live QBO. Plugging is a RARE exception that requires
+  Markie's explicit per-case authorization. If a number is missing, FLAG it; do
+  not invent it.
 - Chart of accounts is LOCKED — Figgy never invents/guesses an account.
 - **Clark OS (Owen Sound)** and **Clark CW (Collingwood)** are permanently
   separate entities/books — never merge. Judge client by the bill-to + location

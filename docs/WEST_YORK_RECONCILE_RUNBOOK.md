@@ -13,6 +13,12 @@ QBO register lines are driven to it. A non-zero self-check therefore means our
 statement is wrong. (Worked example: Dec-2025 interest is **$601.62** per the
 statement; the handoff summary's $501.62 was the error.)
 
+**No plugging (golden rule, Markie 2026-06-15).** A difference is resolved ONLY
+by entering/finding a real transaction or correcting a real error — never by
+fabricating an amount or a balancing adjustment. The opening balance comes from
+the prior statement, never back-solved. If a number is missing, FLAG it. Plugging
+is a rare exception requiring Markie's explicit per-case authorization.
+
 
 ## The hard truth about QBO + reconcile
 QuickBooks has **no API for reconciliation** — marking transactions cleared and
