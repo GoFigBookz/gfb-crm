@@ -54,8 +54,7 @@ Finished AND statement attached. The engine's `ties` flag already requires every
 statement line matched with a $0 difference — but `ties` is the *matching* gate;
 the QBO Finish + attach (browser) is the *closing* gate. Both are required.
 
-## Architecture (built)
-- `api/reconcile-core.ts` — pure month matcher (statement ↔ register), owed-cents
+## Architecture (built)- `api/reconcile-core.ts` — pure month matcher (statement ↔ register), owed-cents
   convention, fuzzy-payee + nearest-date matching, self-check, difference.
   Verified `node --experimental-strip-types scripts/reconcile-verify.ts` (8/8 on
   the real BMO Dec-2025 statement).
