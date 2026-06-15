@@ -4,6 +4,16 @@
 ·6311 → **one** QBO account **137**). One statement **month at a time**, oldest
 first, never combined. Gated write approved for entering missing charges.
 
+## Source of truth: the statement always wins
+The **bank statement is authoritative** (Markie, 2026-06-15). When QBO and the
+statement disagree, **QBO is what gets corrected** — never the statement. The
+engine encodes this: the statement's ending balance is the *target* and matched
+QBO register lines are driven to it. A non-zero self-check therefore means our
+**opening balance or parse** is off (or QBO is incomplete), not that the
+statement is wrong. (Worked example: Dec-2025 interest is **$601.62** per the
+statement; the handoff summary's $501.62 was the error.)
+
+
 ## The hard truth about QBO + reconcile
 QuickBooks has **no API for reconciliation** — marking transactions cleared and
 locking a period is UI-only. So no QBO connection (read *or* write) can "do" the
