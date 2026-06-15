@@ -96,5 +96,30 @@ export async function dedupeClients(confirm: boolean) {
     await db.run(sql.raw(`DELETE FROM clients WHERE id IN (${toDelete.join(",")})`));
     report.deleted = toDelete.length;
   }
+
+  // 5) Collapse now-identical records on the surviving clients (the re-pointed
+  //    tasks/rules/onboarding etc. are triplicated). Keep the lowest id of each
+  //    group that is identical on EVERY column except id/createdAt/updatedAt —
+  //    so genuinely-distinct rows (e.g. onboarding rows with unique tokens) are
+  //    never collapsed. Scoped to the merge-target (canonical) clients only.
+  const canonicalIds = [...new Set(mapping.map((m) => m.canonical))];
+  report.dedupedRecords = {} as Record<string, number>;
+  if (canonicalIds.length) {
+    const inList = canonicalIds.join(",");
+    for (const t of refTables) {
+      try {
+        const cols = asRows(await db.run(sql.raw(`PRAGMA table_info("${t}")`)))
+          .map((c: any) => String(c.name ?? c[1]))
+          .filter((name) => !["id", "createdAt", "updatedAt"].includes(name));
+        if (cols.length === 0) continue;
+        const grp = cols.map((c) => `"${c}"`).join(",");
+        const n = num(await db.run(sql.raw(
+          `DELETE FROM "${t}" WHERE "clientId" IN (${inList}) AND id NOT IN ` +
+          `(SELECT MIN(id) FROM "${t}" WHERE "clientId" IN (${inList}) GROUP BY ${grp})`,
+        )));
+        if (n) report.dedupedRecords[t] = n;
+      } catch { /* best-effort per table */ }
+    }
+  }
   return report;
 }
