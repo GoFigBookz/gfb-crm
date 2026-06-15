@@ -21,6 +21,21 @@ reconcile. What Figgy automates is the **matching** (the tedious 95%); the final
 **Finish + attach statement** is done by driving the QBO Reconcile screen in
 Chrome (Claude-in-Chrome), with Markie approving the Finish.
 
+## HARD RULE — completeness, no exceptions (Markie, 2026-06-15)
+1. **Every transaction on every month's statement must be posted in QBO and
+   matched.** No exceptions, no skipping a line. Any statement line not already
+   in QBO is ENTERED (gated write, reviewed) until `missing-in-QBO = 0`.
+2. **Every month is reconciled to its statement and the statement PDF is attached
+   to the finished reconcile report in QBO.** A month is not "done" until the QBO
+   Reconcile is **Finished** (difference $0) with the statement attached.
+3. Months are done **oldest → newest**, one statement at a time, never combined.
+
+A month is COMPLETE only when ALL hold: `missing-in-QBO = 0` AND `extra-in-QBO`
+reviewed/resolved AND `difference = $0` (engine `ties = true`) AND QBO Reconcile
+Finished AND statement attached. The engine's `ties` flag already requires every
+statement line matched with a $0 difference — but `ties` is the *matching* gate;
+the QBO Finish + attach (browser) is the *closing* gate. Both are required.
+
 ## Architecture (built)
 - `api/reconcile-core.ts` — pure month matcher (statement ↔ register), owed-cents
   convention, fuzzy-payee + nearest-date matching, self-check, difference.
