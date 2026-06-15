@@ -74,6 +74,18 @@ FIGGY_MAKE_API_TOKEN=<make token> node --experimental-strip-types \
     --csv bmo_dec_4686.csv:4686 --csv bmo_dec_6311.csv:6311
 ```
 
+## Where statements live (per-client convention — build once, not per-client)
+Every client has the SAME Drive folder layout, so statement-finding generalizes
+across all clients (consolidated rails, no per-client clones):
+
+  <client root folder> / `4 - Statements` / <account subfolder> / <monthly PDFs>
+
+The client root folder id is stored per client (client master / `import-client-master.ts`
+`folder`). For West York: root `1LlGVkPyMnZ46IPs9UPY66ws3IR_2bAxo` → `4 - Statements`
+(`11sB2LcT4GDUpFjRFDXM7vvNLpXIW71NY`) → `BMO MasterCard` (`1h3dLGS8yajtVxhJmjPaTexPO0fVzq9eo`).
+So the reconcile step resolves any client's statements by walking this same path —
+never a hard-coded per-client lookup.
+
 ## Prerequisite — transactions must already be in QBO
 Reconciliation matches what's ENTERED in QBO. Before a month can close, the
 card's transactions for that period must already be posted in QBO (entered
