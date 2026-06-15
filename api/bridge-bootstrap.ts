@@ -34,6 +34,19 @@ const BRIDGED = [
   { realmId: "193514640962249", company: "Adbank Inc", match: "adbank", bridgeUrl: "https://hook.us2.make.com/7lwardr2ibnu7ayeho95egmls6wqqqw8" },                               // hook 2454392 / scenario 5388651 / conn 9328881
 ];
 
+// WRITE-CAPABLE route (scenario-RUN API, needs FIGGY_MAKE_API_TOKEN). Used where
+// we need POST as well as GET — e.g. West York Paving's monthly reconciliation,
+// which can enter missing credit-card charges (GATED behind Markie's review).
+// The read-only webhook proxies above are GET-only, so they can't do this. Each
+// entry binds to ONE per-realm QBO tool scenario (design-time isolation). These
+// activate only when the token is present; without it they're skipped (the
+// run API can't authenticate anyway).
+const BRIDGED_RUN = [
+  // West York Paving Ltd. — QBO tool scenario 5389401 / conn 9409879.
+  { realmId: "123145963468664", company: "West York Paving Ltd.", match: "west york",
+    bridgeUrl: "https://us2.make.com/api/v2/scenarios/5389401/run" },
+];
+
 async function ensureColumns(db: any): Promise<void> {
   // Find existing columns first (don't rely on catching "duplicate column").
   const have = new Set<string>();
@@ -79,7 +92,26 @@ export async function ensureBridgeReady(): Promise<void> {
       };
       if (existing) await db.update(qboConnections).set(patch).where(eq(qboConnections.id, existing.id));
       else await db.insert(qboConnections).values(patch);
-      console.log(`[bridge] linked ${b.company} -> client #${client.id} (scenario-run API)`);
+      console.log(`[bridge] linked ${b.company} -> client #${client.id} (read-only webhook proxy)`);
+    }
+
+    // Write-capable scenario-run connections — only when the Make token is set.
+    if (process.env.FIGGY_MAKE_API_TOKEN) {
+      for (const b of BRIDGED_RUN) {
+        const client = all.find((c: any) => `${c.name ?? ""} ${c.company ?? ""}`.toLowerCase().includes(b.match));
+        if (!client) { console.warn(`[bridge] no CRM client matched "${b.match}" — skipping ${b.company}`); continue; }
+        const existing = (await db.select().from(qboConnections).where(eq(qboConnections.realmId, b.realmId)).limit(1))[0];
+        const patch = {
+          userId: 1, realmId: b.realmId, companyName: b.company, environment: "production" as const,
+          transport: "make_bridge" as const, bridgeUrl: b.bridgeUrl,
+          accountType: "ca_clients" as const, clientId: client.id, isActive: true, updatedAt: new Date(),
+        };
+        if (existing) await db.update(qboConnections).set(patch).where(eq(qboConnections.id, existing.id));
+        else await db.insert(qboConnections).values(patch);
+        console.log(`[bridge] linked ${b.company} -> client #${client.id} (scenario-run API, write-capable)`);
+      }
+    } else {
+      console.log("[bridge] FIGGY_MAKE_API_TOKEN not set — write-capable connections (West York reconcile) left dormant.");
     }
   } catch (e) {
     console.error("[bridge] ensureBridgeReady failed (non-fatal):", e instanceof Error ? e.message : e);

@@ -17,6 +17,7 @@ import { aiAgentRouter } from "./ai-agent-router";
 import { settingsRouter } from "./settings-router";
 import { qboRouter } from "./qbo-router";
 import { qboBrainRouter } from "./qbo-vendor-brain";
+import { reconcileRouter } from "./reconcile";
 import { vaultRouter } from "./vault-router";
 import { onboardingRouter } from "./onboarding-router";
 import { clientDashboardRouter } from "./client-dashboard-router";
@@ -56,6 +57,7 @@ export const appRouter = createRouter({
   settings: settingsRouter,
   qbo: qboRouter,
   qboBrain: qboBrainRouter,
+  reconcile: reconcileRouter,
   vault: vaultRouter,
   onboarding: onboardingRouter,
   govRep: govRepRouter,
