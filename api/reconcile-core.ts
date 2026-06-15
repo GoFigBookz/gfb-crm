@@ -191,3 +191,89 @@ export function reconcileMonth(input: MonthReconcileInput): MonthReconcileResult
 function byDateAmt(a: { date: string; chargeCents: number }, b: { date: string; chargeCents: number }) {
   return a.date < b.date ? -1 : a.date > b.date ? 1 : a.chargeCents - b.chargeCents;
 }
+
+// ----------------------------------------------------------------------------
+// Pure QBO-report parsing + packet formatting (no I/O — kept here so a
+// standalone runner needs no DB, mirroring the vendor brain's core/IO split).
+// ----------------------------------------------------------------------------
+
+/** Walk a (possibly nested) QBO report and collect every Data row's ColData. */
+function collectDataRows(rows: any): any[] {
+  const out: any[] = [];
+  for (const row of rows?.Row ?? []) {
+    if (row?.ColData) out.push(row.ColData);
+    if (row?.Rows) out.push(...collectDataRows(row.Rows)); // nested account sections
+  }
+  return out;
+}
+
+/**
+ * Parse a QBO General Ledger report (single account) into RegisterLines, owed-
+ * cents convention: a credit increases a credit-card liability (= a charge), a
+ * debit decreases it (= a payment), so chargeCents = credit - debit. Falls back
+ * to the signed net amount column if debit/credit columns aren't present.
+ */
+export function parseGeneralLedger(reportBody: any): RegisterLine[] {
+  const cols: { ColType: string }[] = reportBody?.Columns?.Column ?? [];
+  const idx = (t: string) => cols.findIndex((c) => c.ColType === t);
+  const iDate = idx("tx_date"), iType = idx("txn_type"), iName = idx("name");
+  const iMemo = idx("memo"), iDebit = idx("debt_amt"), iCredit = idx("credit_amt"), iAmt = idx("subt_nat_amount");
+  const num = (v: any) => {
+    const n = Number(String(v ?? "").replace(/[^0-9.\-]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  };
+  const out: RegisterLine[] = [];
+  for (const cd of collectDataRows(reportBody?.Rows)) {
+    if (!Array.isArray(cd)) continue;
+    const typeCell = iType >= 0 ? cd[iType] : undefined;
+    const id = typeCell?.id != null ? String(typeCell.id) : "";
+    if (!id) continue; // section / summary rows carry no txn id
+    const chargeCents = (iDebit >= 0 || iCredit >= 0)
+      ? Math.round((num(cd[iCredit]?.value) - num(cd[iDebit]?.value)) * 100)
+      : Math.round(num(cd[iAmt]?.value) * 100);
+    const desc = [iName >= 0 ? cd[iName]?.value : "", iMemo >= 0 ? cd[iMemo]?.value : ""]
+      .filter(Boolean).join(" ").trim();
+    out.push({
+      id,
+      date: iDate >= 0 ? String(cd[iDate]?.value ?? "") : "",
+      description: desc || String(typeCell?.value ?? ""),
+      chargeCents,
+      type: typeCell?.value ? String(typeCell.value) : undefined,
+    });
+  }
+  return out;
+}
+
+/** General Ledger report path for ONE account over [startISO, endISO].
+ *  NOTE (learned from the brain): a report MUST send BOTH start_date AND
+ *  end_date or QBO keeps its "month-to-date" macro and returns nothing. */
+export function generalLedgerPath(accountId: string, startISO: string, endISO: string): string {
+  return `/reports/GeneralLedger?start_date=${startISO}&end_date=${endISO}` +
+    `&account=${encodeURIComponent(accountId)}` +
+    `&columns=tx_date,txn_type,doc_num,name,memo,subt_nat_amount,debt_amt,credit_amt`;
+}
+
+export const centsToStr = (c: number) => `${c < 0 ? "-" : ""}$${(Math.abs(c) / 100).toFixed(2)}`;
+
+/** Human-readable monthly reconciliation packet for review (Triage / report). */
+export function formatPacket(
+  meta: { accountId: string; periodStart: string; periodEnd: string; openingBalanceCents: number; statementEndingBalanceCents: number },
+  r: MonthReconcileResult,
+): string {
+  const L: string[] = [];
+  L.push(`RECONCILIATION — account ${meta.accountId} — ${meta.periodStart} to ${meta.periodEnd}`);
+  L.push(`Opening ${centsToStr(meta.openingBalanceCents)} → statement ending ${centsToStr(meta.statementEndingBalanceCents)}`);
+  L.push(`Matched ${r.matched.length} • missing-in-QBO ${r.missingInQbo.length} • extra-in-QBO ${r.extraInQbo.length}`);
+  L.push(`QBO Reconcile difference (clear matched): ${centsToStr(r.totals.differenceCents)}  ${r.ties ? "✅ TIES" : "⚠️ does not tie yet"}`);
+  if (r.totals.statementSelfCheckCents !== 0)
+    L.push(`⚠️ Statement self-check off by ${centsToStr(r.totals.statementSelfCheckCents)} — the statement is authoritative, so verify the OPENING balance / parse, not the statement.`);
+  if (r.missingInQbo.length) {
+    L.push(`\nON STATEMENT, NOT IN QBO (enter these — gated):`);
+    for (const s of r.missingInQbo) L.push(`  ${s.date}  ${centsToStr(s.chargeCents)}  ${s.description}${s.card ? `  ·${s.card}` : ""}`);
+  }
+  if (r.extraInQbo.length) {
+    L.push(`\nIN QBO, NOT ON STATEMENT (review — wrong period / duplicate / error):`);
+    for (const x of r.extraInQbo) L.push(`  ${x.date}  ${centsToStr(x.chargeCents)}  ${x.description}  (${x.type ?? "?"} ${x.id})`);
+  }
+  return L.join("\n");
+}

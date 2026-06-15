@@ -28,6 +28,10 @@ import { qboConnections } from "../db/schema";
 import {
   parseBmoCsv,
   reconcileMonth,
+  parseGeneralLedger,
+  generalLedgerPath,
+  formatPacket,
+  centsToStr,
   type RegisterLine,
   type StatementLine,
   type MonthReconcileResult,
@@ -35,70 +39,16 @@ import {
 
 type Conn = typeof qboConnections.$inferSelect;
 
-const centsToStr = (c: number) => `${c < 0 ? "-" : ""}$${(Math.abs(c) / 100).toFixed(2)}`;
-
-/** Walk a (possibly nested) QBO report and collect every Data row's ColData. */
-function collectDataRows(rows: any): any[] {
-  const out: any[] = [];
-  for (const row of rows?.Row ?? []) {
-    if (row?.ColData) out.push(row.ColData);
-    if (row?.Rows) out.push(...collectDataRows(row.Rows)); // nested account sections
-  }
-  return out;
-}
-
-/**
- * Read ONE account's register for [startISO, endISO] from QBO's General Ledger
- * report and normalize to the owed-cents convention (credit increases a credit-
- * card liability = a charge; debit decreases it = a payment).
- *
- * NOTE (learned from the brain): a report MUST send BOTH start_date AND end_date
- * or QBO keeps its "month-to-date" macro and returns nothing.
- */
+/** Read ONE account's register for [startISO, endISO] from QBO and normalize to
+ *  the owed-cents convention (transport-aware, so it works over the Make bridge). */
 export async function fetchRegisterLines(
   conn: Conn,
   accountId: string,
   startISO: string,
   endISO: string,
 ): Promise<RegisterLine[]> {
-  const path =
-    `/reports/GeneralLedger?start_date=${startISO}&end_date=${endISO}` +
-    `&account=${encodeURIComponent(accountId)}` +
-    `&columns=tx_date,txn_type,doc_num,name,memo,subt_nat_amount,debt_amt,credit_amt`;
-  const rep = await qboRequest(conn, path);
-  const cols: { ColType: string }[] = rep?.Columns?.Column ?? [];
-  const idx = (t: string) => cols.findIndex((c) => c.ColType === t);
-  const iDate = idx("tx_date"), iType = idx("txn_type"), iName = idx("name");
-  const iMemo = idx("memo"), iDebit = idx("debt_amt"), iCredit = idx("credit_amt"), iAmt = idx("subt_nat_amount");
-
-  const num = (v: any) => {
-    const n = Number(String(v ?? "").replace(/[^0-9.\-]/g, ""));
-    return Number.isFinite(n) ? n : 0;
-  };
-  const out: RegisterLine[] = [];
-  for (const cd of collectDataRows(rep?.Rows)) {
-    if (!Array.isArray(cd)) continue;
-    const typeCell = iType >= 0 ? cd[iType] : undefined;
-    const id = typeCell?.id != null ? String(typeCell.id) : "";
-    if (!id) continue; // section/summary rows have no txn id
-    // Prefer debit/credit columns; fall back to the signed net amount.
-    let chargeCents: number;
-    if (iDebit >= 0 || iCredit >= 0) {
-      chargeCents = Math.round((num(cd[iCredit]?.value) - num(cd[iDebit]?.value)) * 100);
-    } else {
-      chargeCents = Math.round(num(cd[iAmt]?.value) * 100);
-    }
-    const desc = [iName >= 0 ? cd[iName]?.value : "", iMemo >= 0 ? cd[iMemo]?.value : ""]
-      .filter(Boolean).join(" ").trim();
-    out.push({
-      id,
-      date: iDate >= 0 ? String(cd[iDate]?.value ?? "") : "",
-      description: desc || (typeCell?.value ?? ""),
-      chargeCents,
-      type: typeCell?.value ? String(typeCell.value) : undefined,
-    });
-  }
-  return out;
+  const rep = await qboRequest(conn, generalLedgerPath(accountId, startISO, endISO));
+  return parseGeneralLedger(rep);
 }
 
 export type ReconcileMonthInput = {
@@ -146,7 +96,12 @@ export async function reconcileMonthForClient(input: ReconcileMonthInput): Promi
   return {
     ok: true,
     result,
-    packet: formatPacket(input, result),
+    packet: formatPacket(
+      { accountId: input.accountId, periodStart: input.periodStart, periodEnd: input.periodEnd,
+        openingBalanceCents: Math.round(input.openingBalance * 100),
+        statementEndingBalanceCents: Math.round(input.statementEndingBalance * 100) },
+      result,
+    ),
     summary: {
       matched: result.matched.length,
       missingInQbo: result.missingInQbo.length,
@@ -155,26 +110,6 @@ export async function reconcileMonthForClient(input: ReconcileMonthInput): Promi
       ties: result.ties,
     },
   };
-}
-
-/** Human-readable monthly reconciliation packet for review (Triage / report). */
-export function formatPacket(input: ReconcileMonthInput, r: MonthReconcileResult): string {
-  const L: string[] = [];
-  L.push(`RECONCILIATION — account ${input.accountId} — ${input.periodStart} to ${input.periodEnd}`);
-  L.push(`Opening ${centsToStr(Math.round(input.openingBalance * 100))} → statement ending ${centsToStr(Math.round(input.statementEndingBalance * 100))}`);
-  L.push(`Matched ${r.matched.length} • missing-in-QBO ${r.missingInQbo.length} • extra-in-QBO ${r.extraInQbo.length}`);
-  L.push(`QBO Reconcile difference (clear matched): ${centsToStr(r.totals.differenceCents)}  ${r.ties ? "✅ TIES" : "⚠️ does not tie yet"}`);
-  if (r.totals.statementSelfCheckCents !== 0)
-    L.push(`⚠️ Statement self-check off by ${centsToStr(r.totals.statementSelfCheckCents)} — verify the opening balance / completeness.`);
-  if (r.missingInQbo.length) {
-    L.push(`\nON STATEMENT, NOT IN QBO (enter these — gated):`);
-    for (const s of r.missingInQbo) L.push(`  ${s.date}  ${centsToStr(s.chargeCents)}  ${s.description}${s.card ? `  ·${s.card}` : ""}`);
-  }
-  if (r.extraInQbo.length) {
-    L.push(`\nIN QBO, NOT ON STATEMENT (review — wrong period / duplicate / error):`);
-    for (const x of r.extraInQbo) L.push(`  ${x.date}  ${centsToStr(x.chargeCents)}  ${x.description}  (${x.type ?? "?"} ${x.id})`);
-  }
-  return L.join("\n");
 }
 
 /**

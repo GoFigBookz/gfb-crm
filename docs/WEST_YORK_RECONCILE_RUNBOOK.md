@@ -38,6 +38,18 @@ Set **`FIGGY_MAKE_API_TOKEN`** on the deployed CRM (figgy.gofig.ca / Railway).
 That activates West York's connection (read + gated write). On next boot the
 bridge links realm 123145963468664 → the West York CRM client automatically.
 
+## Fastest path: the one-command runner
+`scripts/reconcile-west-york.ts` pulls the LIVE QBO register for acct 137 and
+prints the review packet in one shot (read-only, no DB needed):
+
+```
+FIGGY_MAKE_API_TOKEN=<make token> node --experimental-strip-types \
+  scripts/reconcile-west-york.ts \
+    --start 2025-11-29 --end 2025-12-28 \
+    --opening 31728.51 --ending <statement closing balance> \
+    --csv bmo_dec_4686.csv:4686 --csv bmo_dec_6311.csv:6311
+```
+
 ## Monthly procedure (per statement month)
 1. **Statement** — BMO CSV(s) for the month live in Drive `4 - Statements /
    BMO MasterCard` (one per card; merge both into the month). Opening balance =
