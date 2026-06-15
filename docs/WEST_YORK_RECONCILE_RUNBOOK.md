@@ -130,8 +130,7 @@ January statement period isn't fully covered and Jan-2025 will likely have gaps.
    never force), attach the statement PDF, Markie approves Finish (locks it).
 5. Move to the next month.
 
-## BMO 2025 statement coverage — ALL 12 MONTHS PRESENT (verified 2026-06-15)
-Every 2025 BMO MasterCard statement (acct 137) is in Drive `4 - Statements /
+## BMO 2025 statement coverage — ALL 12 MONTHS PRESENT (verified 2026-06-15)Every 2025 BMO MasterCard statement (acct 137) is in Drive `4 - Statements /
 BMO MasterCard / 2025` as a PDF — Jan through Dec, one each. The earlier "Jan
 missing / compile Feb–Dec closings" note is RESOLVED: Jan is present (closing
 **$16,134.92**), and each month's opening/closing/closing-date comes straight off
@@ -146,3 +145,28 @@ Remaining real prerequisites (not data gaps):
   statement PDF governs.
 - TD Visa (Joe ·1645 / Frank ·1798) + TD chequing are out of scope until BMO is
   done; TD chequing still needs real monthly statements (only a screenshot today).
+
+## BMO MasterCard (acct 137) — RECONCILE TARGETS, all 12 months verified 2026-06-15
+Compiled from each statement's summary box; EVERY month's arithmetic ties and the
+chain is continuous (each closing = next month's opening). Enter the ending date +
+ending balance into QBO Reconcile, oldest first. The statement is authoritative.
+
+| Stmt date     | Opening    | Payments/credits | Purchases  | Interest | Fees  | ENDING (target) |
+|---------------|-----------:|-----------------:|-----------:|---------:|------:|----------------:|
+| Jan 28, 2025  |  (Dec'24)  |                  |            |   349.09 |       |  **$16,134.92** |
+| Feb 28, 2025  | 16,134.92  |      -11,000.02  | +10,040.54 |   300.78 |  0.00 |  **$15,476.22** |
+| Mar 28, 2025  | 15,476.22  |      -11,313.68  |  +7,438.51 |   341.02 |  0.00 |  **$11,942.07** |
+| Apr 28, 2025  | 11,942.07  |       -8,002.28  | +11,456.25 |   214.05 |  0.00 |  **$15,610.09** |
+| May 28, 2025  | 15,610.09  |      -10,754.23  | +19,002.26 |   302.50 |  0.00 |  **$24,160.62** |
+| Jun 28, 2025  | 24,160.62  |      -20,000.00  | +12,683.84 |   392.18 |  0.00 |  **$17,236.64** |
+| Jul 28, 2025  | 17,236.64  |      -10,000.00  |  +8,766.35 |   363.85 |  0.00 |  **$16,366.84** |
+| Aug 28, 2025  | 16,366.84  |      -13,000.01  | +13,588.81 |   291.82 |  0.00 |  **$17,247.46** |
+| Sep 28, 2025  | 17,247.46  |      -12,131.67  | +12,995.91 |   393.96 |  0.00 |  **$18,505.66** |
+| Oct 28, 2025  | 18,505.66  |          -99.44  | +15,793.70 |   473.20 |  0.00 |  **$34,673.12** |
+| Nov 28, 2025  | 34,673.12  |      -24,278.80  | +20,727.98 |   577.21 | 29.00 |  **$31,728.51** |
+| Dec 28, 2025  | 31,728.51  |      -29,674.93  | +23,658.74 |   501.62 |  0.00 |  **$26,213.94** |
+
+Notes: Oct shows only a $99.44 credit (a refund) — they missed a payment, so the
+balance jumped and the rate went to 24.99% from Nov. Dec interest is $501.62 (the
+OCR'd CSV's $601.62 is wrong). Each month's statement PDF is the one to attach.
+
