@@ -22,6 +22,15 @@ fabricating an amount or a balancing adjustment. The opening balance comes from
 the prior statement, never back-solved. If a number is missing, FLAG it. Plugging
 is a rare exception requiring Markie's explicit per-case authorization.
 
+**The folder CSVs are OCR'd from the statement images — NOT authoritative.** The
+`.csv` files under `4 - Statements / BMO MasterCard` were scanned/OCR'd from the
+statement, so they carry scan errors ("AMZN Mkip", "TIMHORTONS", "8C"→"BC",
+"666"→"866", and crucially digit errors in AMOUNTS). Real example: the ·4686 Dec
+CSV reads interest `-601.62`, but the statement says `-501.62` (which ties to the
+$26,213.94 ending). The statement governs; where a CSV amount disagrees, correct
+to the statement — never carry the OCR value into QBO, and never plug. Treat the
+CSVs only as a convenience list to be checked against the statement.
+
 
 ## The hard truth about QBO + reconcile
 QuickBooks has **no API for reconciliation** — marking transactions cleared and
