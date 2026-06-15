@@ -130,10 +130,19 @@ January statement period isn't fully covered and Jan-2025 will likely have gaps.
    never force), attach the statement PDF, Markie approves Finish (locks it).
 5. Move to the next month.
 
-## Known data gaps (from the 2026-06-13 handoff)
-- **BMO Jan-2025 statement missing** (only a partial screenshot; closing target
-  $16,134.92). Source from BMO login before closing Jan.
-- BMO Feb–Dec 2025 monthly closing balances need compiling from the split PDFs.
-- TD Visa (Joe ·1645 / Frank ·1798) and TD chequing are **out of scope for now**
-  (BMO first); TD chequing also needs real monthly statements (only a screenshot
-  exists today).
+## BMO 2025 statement coverage — ALL 12 MONTHS PRESENT (verified 2026-06-15)
+Every 2025 BMO MasterCard statement (acct 137) is in Drive `4 - Statements /
+BMO MasterCard / 2025` as a PDF — Jan through Dec, one each. The earlier "Jan
+missing / compile Feb–Dec closings" note is RESOLVED: Jan is present (closing
+**$16,134.92**), and each month's opening/closing/closing-date comes straight off
+its own statement (authoritative). Run order is **oldest → newest** (Jan→Dec),
+one statement at a time, never combined, each to a $0 tie + Finish + attach.
+
+Remaining real prerequisites (not data gaps):
+- Live QBO read access for the matching step (the connection/trigger).
+- Per month, confirm the card's transactions are already ENTERED in QBO for that
+  period (reconcile matches entered txns); load the month first if not.
+- The folder also has OCR'd `.csv` helpers — NOT authoritative (see above); the
+  statement PDF governs.
+- TD Visa (Joe ·1645 / Frank ·1798) + TD chequing are out of scope until BMO is
+  done; TD chequing still needs real monthly statements (only a screenshot today).
