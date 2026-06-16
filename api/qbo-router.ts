@@ -22,7 +22,9 @@ function getCredentials() {
   return {
     clientId: process.env.QBO_CLIENT_ID || process.env.SANDBOX_QBO_CLIENT_ID || "",
     clientSecret: process.env.QBO_CLIENT_SECRET || process.env.SANDBOX_QBO_CLIENT_SECRET || "",
-    redirectUri: `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/qbo/callback`,
+    // Default to the production domain so the QBO redirect never silently falls back to
+    // localhost (which can't be registered for a live connect). Override with VITE_APP_URL.
+    redirectUri: `${process.env.VITE_APP_URL || "https://figgy.gofig.ca"}/api/qbo/callback`,
   };
 }
 

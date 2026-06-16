@@ -70,7 +70,7 @@ app.get("/api/qbo/callback", async (c) => {
 
     const clientId = process.env.QBO_CLIENT_ID || process.env.SANDBOX_QBO_CLIENT_ID || "";
     const clientSecret = process.env.QBO_CLIENT_SECRET || process.env.SANDBOX_QBO_CLIENT_SECRET || "";
-    const redirectUri = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/qbo/callback`;
+    const redirectUri = `${process.env.VITE_APP_URL || "https://figgy.gofig.ca"}/api/qbo/callback`;
     const tokenUrl = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
 
     // Exchange code for tokens
