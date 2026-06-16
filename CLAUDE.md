@@ -144,6 +144,32 @@ a realm). Vendor Memory cache is keyed by `(connectionId, vendorId)`.
   `19dE9npuJX82K7UOMPvQHSMpQn92Rw6qk`; Figgy Junior folder
   `15QYs3Ujgm9irHn3nXzdxoeuV2VPtmjT_` (companion docs live here).
 
+## Posting rules (poster is OFF — this is the SPEC for the rebuild) — Markie 2026-06-16
+Decision by payment status (from the captured payment method/account w/ last-4 +
+bill-vs-expense flag):
+- **Paid by credit card → post an EXPENSE** (QBO `Purchase`, `PaymentType:CreditCard`,
+  `AccountRef` = the ACTUAL credit-card account matched by last-4 — NEVER a clearing
+  account).
+- **Not paid → post a BILL** (QBO `Bill`, to Accounts Payable).
+- (Edge, confirm w/ Markie: paid by cash/cheque/debit → Expense paid from that real
+  account. Never cash-to-clearing.)
+FULL DETAILS on BOTH (non-negotiable): payee = **`EntityRef`/`VendorRef` set to the
+resolved vendor (NEVER blank)**, `TxnDate`, `DocNumber` (invoice #), line
+`AccountRef` (coded from brain/history), correct `TaxCodeRef` (HST/M&E), amount,
+description, and the source receipt/invoice ATTACHED. NEVER post to Figgy Clearing,
+NEVER no-payee, NEVER as bare Cash, NEVER without human review.
+- **INCIDENT 2026-06-16 (root-caused):** the old Clark OS poster (Make `5325584`) was
+  left ACTIVE on a 15-min schedule June 10–11 and auto-flushed the backlog. Its
+  blueprint hardcodes a **Cash `Purchase` to `AccountRef:"53"` (Figgy Clearing) with
+  NO `EntityRef`** → so it posted bills AS expenses, to clearing, with no payee
+  (exactly the 3 symptoms). Markie stopped it 06-11 09:22 (now `isActive:false`),
+  deleted the bad entries + the Figgy Clearing account (acct 53 now inactive →
+  QBO calls referencing it error, e.g. 06-14 "Object Not Found … made inactive" — a
+  useful tripwire). ALL posters/auto-approves confirmed OFF across every client. The
+  poster must NOT be re-enabled until rebuilt to the rule above + review-gated (this
+  IS the P3 "robust poster"). Posting decision logic lives in the Make poster, NOT in
+  the CRM repo (the brain is read-only; it only suggests coding).
+
 ## Open items
 - QBO #970 (Latham freight) + #983 (Walker split): blocked on source invoices.
 - 4 TEST pdfs in the Clark OS drop folder — harmless, delete for tidiness.
