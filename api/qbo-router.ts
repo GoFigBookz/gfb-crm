@@ -334,10 +334,10 @@ export const qboRouter = createRouter({
     }))
     .query(async ({ input }) => {
       const { clientId, redirectUri } = getCredentials();
-      const scopes = [
-        "com.intuit.quickbooks.accounting",
-        "com.intuit.quickbooks.payment",
-      ].join(" ");
+      // Accounting scope only — it's all the agent needs (read + post bills/expenses +
+      // attachments). Requesting the payments scope when the app doesn't have the Payments
+      // capability enabled makes Intuit reject the whole connect ("didn't connect" error).
+      const scopes = "com.intuit.quickbooks.accounting";
       const state = Buffer.from(JSON.stringify({
         env: input.environment,
         accountType: input.accountType,
