@@ -1,80 +1,68 @@
-# Figgy — the recommended plan (researched 2026-06-16), supersedes the agent-browser idea
+# Figgy — the recommended plan (researched 2026-06-16, rev. 2)
 
-Written after actually researching what QBO does natively in 2026 vs. what's being
-custom-built. Goal = Markie's real needs: reliable, owned, cheap, less of his time,
-learns per client, and **stops breaking**.
+Researched, not asserted. Corrects an earlier error (Hubdoc DOES work with QBO — it
+was wrongly called Xero-only). Goal = Markie's real needs: reliable, owned, cheap,
+less of his time, learns per client, and **stops breaking**.
 
-## The hard verdict
-You've been **custom-building (and constantly repairing) fragile versions of things
-QuickBooks now does natively, for free, and maintains itself.** That's the root of
-"it keeps breaking." The fix isn't a bigger custom build (agent browser, self-hosted
-server, autonomous poster) — it's the opposite: **lean on QBO's maintained rails for
-the commodity 80%, and own only the thin slice that's actually your IP.**
+## The architecture (recommended)
+**Hubdoc (capture) → QuickBooks Online → your AI agent (review + smart coding + learn → gated post)**
 
-## What the research changed (facts, not assertions)
-- **QBO has native receipt capture on every plan** (Simple Start→Advanced): email or
-  snap a receipt to a QBO address → it **extracts vendor, date, amount, and the card
-  last-4, attaches the document, creates a reviewable expense, and matches it to the
-  bank feed.** Free, Intuit-maintained. (Intuit help: email receipts / upload receipts.)
-  → This is most of what the Make+OpenAI intake pipeline does by hand.
-- **Hubdoc is NOT a QBO option** — it's a Xero product now. (So that's off the table.)
-- **QBO bank feeds + Rules + AI auto-match** became the default in May 2026, ~50%
-  faster — most reconciliation *matching* is now automatic; only the final Finish is
-  manual-in-UI. → No browser bot needed to reconcile.
-- **QBO still has NO reconcile API** (confirmed) and **capture tools still don't do
-  firm-grade account-coding from a vendor's history** — that coding brain is the part
-  that's genuinely yours to own.
+- **Hubdoc = capture.** Snap/email/auto-fetch receipts, bills, statements; extract
+  vendor/amount/invoice#/date; attach the source doc; **publish into QBO**. Keep it —
+  it's better than QBO native (which is slow/clunky), it's maintained by Xero (so no
+  Make/OpenAI model-churn on your side), and it works with QBO (confirmed). Hubdoc has
+  **no public API** — you don't need one (see below).
+- **QuickBooks Online = the integration point.** Hubdoc lands the coded transaction +
+  attachment in QBO, and QBO has a full API. So your agent works *downstream in QBO*,
+  never talking to Hubdoc directly. This is why "no Hubdoc API" doesn't matter.
+- **Your AI agent = the differentiator (the only thing worth building/owning).** On
+  native QBO OAuth, it reads what Hubdoc created, then:
+  - re-codes the account from the vendor's **history** (vendorMemory — already built),
+  - applies HST/M&E nuance + bill-vs-expense + payment-account-by-last-4,
+  - surfaces ONE firm-wide review queue (your CRM Triage) across all client files,
+  - **learns from your corrections** ("trains" per client),
+  - finalizes/posts via the QBO API **on your approval** (or batch-approve a vendor
+    pattern it has earned). Human gate stays — autonomous posting is what broke 6 books.
 
-## Build vs. buy — the split
-| Job | Best source | Why |
-|---|---|---|
-| Capture: extract vendor/date/amount/last-4, attach doc, create reviewable expense, match feed | **QBO native (free)** | Intuit maintains it; won't break on Make/OpenAI churn; per-client QBO file = automatic isolation |
-| Recurring categorization | **QBO bank-feed Rules** | Built-in, free |
-| Reconcile matching | **QBO AI bank feeds** | Default 2026, fast; Finish is a quick manual step |
-| **Account-coding from vendor history + HST/M&E nuance + firm-wide review queue** | **OWN this (thin layer)** | The real differentiator; small + stable; "learns per client" lives here (vendorMemory, already built) |
-| Posting/attaching beyond native | **Native QBO OAuth API** (Bill/Purchase/Attachable) | API-backed, reliable; only if native capture isn't enough |
-
-## What to STOP doing (my honest disagreement with the current direction)
-- **Don't build a custom AI agent browser.** Browser automation of QBO is the flakiest
-  possible layer; it would become the next thing that breaks, and only you could fix it.
-- **Don't self-host a server.** Your own competitive notes already concluded "managed >
-  self-host (no ops team)." Cutting Make ≠ becoming your own sysadmin. Use managed hosting.
-- **Don't rebuild QBO's native capture in Make+OpenAI.** That's the churn treadmill
-  (every model/module retirement breaks you). Let Intuit own that plumbing.
-- **Don't chase autonomous posting.** It broke six books. Human gate stays.
-
-## The recommended build (smallest reliable system that meets the need)
-1. **Capture → switch to QBO native.** Each client forwards/snaps receipts to *their*
-   QBO receipt email (or connects the bank feed). QBO extracts + attaches + creates the
-   reviewable expense and matches the feed. Retire the Make Gmail/Drive intake pipeline
-   (it's the part that keeps breaking and Intuit now does it free).
-2. **Own the coding brain + firm review layer** (this is your CRM, ~built): a thin
-   service on **native QBO OAuth** that, per client, reads the captured/feed items,
-   applies **account-coding from vendor history** (vendorMemory) + HST/M&E rules, and
-   surfaces *one cross-client review queue* (Triage) where you approve. On approve it
-   sets the coding via the API. This is the differentiator and the only thing worth
-   maintaining.
-3. **Posting:** prefer reviewing/approving QBO's native-created expenses (receipt already
-   attached). For anything programmatic, post Bill/Purchase via the OAuth API, gated,
-   per the corrected rules (paid→Expense to real account / unpaid→Bill, payee set, clean
-   memo, attach) — but only where native doesn't cover it. No auto-poster, no clearing acct.
-4. **Reconcile:** connect bank feeds + set Rules; QBO auto-matches; you Finish in-UI
-   (minutes/account, with the verified balances already compiled). No browser agent.
-5. **Hosting:** managed (the CRM is already deployable that way) + managed Postgres +
-   your own Intuit OAuth app. Own the connection and the data; don't own the box.
-
-## Why this is the best fit for the stated needs
-- **Stops breaking:** the breakable commodity parts become Intuit's maintained features,
-  not your Make/OpenAI pipeline. Far less surface area to fail.
-- **Cheaper + less time:** you stop paying Make ops + maintaining clones; native capture
-  is free; you maintain one thin coding layer instead of a sprawling pipeline.
-- **Owned where it matters:** you own the coding intelligence + review (your IP) and the
-  QBO connection + data — not a fragile server/agent.
-- **Learns per client:** vendorMemory keeps doing exactly that, on stable rails.
+## Why this fits the needs
+- **Stops breaking:** Hubdoc owns the fragile OCR/capture (maintained by Xero, no model
+  churn); your agent runs on the stable QBO API. The Make+OpenAI intake pipeline — the
+  thing that keeps breaking on every model/module retirement — gets **retired.**
+- **Cheaper + less time:** Hubdoc ~$12/mo per business; you stop paying Make ops and
+  stop maintaining per-client clones. One agent, one review queue.
+- **Owned where it matters:** you own the coding brain + review + learning (your IP) and
+  the QBO connection/data. You don't own fragile OCR or a browser bot.
+- **Learns per client:** vendorMemory + learning from corrections, on stable rails.
 - **Isolation by construction:** per-client QBO files can't cross-pollinate.
 
-## Honest caveats
-- QBO native capture is per-company; a firm-wide "all clients in one queue" view is the
-  thing you build (small). If native extraction/coding proves too basic for some clients,
-  a paid capture tool (e.g. Dext) is the buy option for *that layer* — still don't build it.
-- This means retiring most of the Make build. That's the point: less to break.
+## Hubdoc's known gaps (why the agent layer is justified, not redundant)
+Reviews report OCR accuracy issues, missing line items, an outdated UI, and bank feeds
+that sometimes break + storage limits. "OCR should not be relied upon 100% — review
+before publishing." → Your agent's review + history-based coding is exactly that missing
+layer. Hubdoc captures; your agent makes it correct.
+
+## Reconciliation
+No QBO reconcile API (confirmed). Use QBO **bank feeds + Rules + AI auto-match** (default
+2026, ~50% faster) — most matching is automatic; the Finish is a quick manual step (with
+the verified balances already compiled). **No browser bot, no agent-browser.**
+
+## Hosting / ownership
+Managed hosting (the CRM already deploys that way) + managed Postgres + your own Intuit
+OAuth app. Own the connection and data; don't run your own server (your own notes:
+"managed > self-host, no ops team").
+
+## What to STOP (honest disagreement with earlier directions)
+- No custom **AI agent browser** — flakiest possible layer; would be the next thing to break.
+- No **self-hosted server** — cutting Make ≠ becoming your own sysadmin.
+- No **rebuilding capture in Make+OpenAI** — that's the churn treadmill; Hubdoc owns it.
+- No **autonomous posting** — it broke six books; keep the human gate / earned autonomy.
+
+## Build order
+1. **Native QBO OAuth** (your Intuit app; per-realm token rotation persisted). Kills Make.
+2. **Agent reads Hubdoc-published QBO transactions** → re-codes from vendorMemory → ONE
+   review queue (Triage). Prove the coding/review on one client.
+3. **Gated finalize/post** via QBO API (corrected rules: paid→Expense to real account /
+   unpaid→Bill, payee set, memo = receipt+Figgy#, attach). Prove on one entry.
+4. **Learning loop:** capture your corrections → improve per-client coding → earn batch
+   auto-approve on proven vendor patterns.
+5. Connect **bank feeds + Rules**; reconcile via QBO with verified balances.
