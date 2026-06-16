@@ -174,6 +174,22 @@ human review, NEVER without the receipt attached.
   poster must NOT be re-enabled until rebuilt to the rule above + review-gated (this
   IS the P3 "robust poster"). Posting decision logic lives in the Make poster, NOT in
   the CRM repo (the brain is read-only; it only suggests coding).
+- **REBUILD DESIGN (agreed Markie 2026-06-16) — poster stays OFF until proven on 1 entry.**
+  STRUCTURAL ROOT CAUSE found: the poster reads Review Queue range **A:Z** but the
+  capture's `Payment Method`/`Payment Account`/`Bill vs Expense` are cols **AE–AG**, so
+  it never saw payment status → dumped everything as cash-to-clearing. The 34-col
+  capture header (idx 0-based): 0 RowID, 7 Vendor/Payee, 8 Amount, 11 HST Amt, 12 HST
+  Treatment, 13 AI Category, 14 Action Needed, 19 Attachment(receipt `msgId::file`),
+  22 Posted-to-QBO, 27 Invoice#, 28 Subtotal, 29 Total, 30 Payment Method, 31 Payment
+  Account, 32 Bill-vs-Expense, 33 Email Instructions. CORRECTED POSTER must: (1) read
+  FULL row A:AH; (2) **capture the card # (e.g. Visa ·6231) in Payment Account** and
+  **match it at RUNTIME to the real QBO account** (query Account, find the one whose
+  name carries the last-4 — never a typed-in id, never clearing); (3) branch: paid →
+  Expense to that matched account / not paid → Bill to A/P; (4) **payee = resolve col 7
+  Vendor/Payee → QBO Vendor Id** (no match → flag, don't post); (5) **memo = receipt
+  filename + Figgy # (RowID) ONLY** — no "auto-post/Overhead"; (6) attach receipt +
+  read-back verify. Clark OS card so far: **Visa ·6231**. Vendor name IS already
+  captured (col 7) — old poster just never set it as payee.
 
 ## Open items
 - QBO #970 (Latham freight) + #983 (Walker split): blocked on source invoices.
