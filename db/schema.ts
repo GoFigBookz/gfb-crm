@@ -61,6 +61,12 @@ export const qboConnections = sqliteTable("qbo_connections", {
   accessToken: text("accessToken"),
   refreshToken: text("refreshToken"),
   expiresAt: integer("expiresAt", { mode: "timestamp" }),
+  // Native-OAuth token lifecycle (Phase 0). lastRefreshAt drives keep-alive of
+  // the rotating refresh token; authError holds the reason a connection needs
+  // re-authorization (e.g. invalid_grant) so a dead realm is surfaced, not
+  // silently retried. Both NULL for healthy/bridge connections.
+  lastRefreshAt: integer("lastRefreshAt", { mode: "timestamp" }),
+  authError: text("authError"),
   environment: text("environment", { enum: ["sandbox", "production"] }).default("sandbox").notNull(),
   // Transport: "native" = our OAuth tokens (accessToken/refreshToken above);
   // "make_bridge" = proxy QBO calls through a Make per-realm webhook (Make holds

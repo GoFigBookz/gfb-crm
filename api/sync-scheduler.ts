@@ -33,6 +33,18 @@ export function startSyncScheduler() {
 
 async function runAutoSync() {
   const db = getDb();
+
+  // Keep-alive FIRST: refresh native connections whose rotating refresh token
+  // is going idle, so a quiet realm never silently expires (100-day window).
+  try {
+    const { keepAliveNativeConnections } = await import("./qbo-router");
+    const ka = await keepAliveNativeConnections();
+    const acted = ka.filter((r) => r.action !== "skipped");
+    if (acted.length) console.log("[SYNC] keep-alive:", JSON.stringify(acted));
+  } catch (err) {
+    console.error("[SYNC] keep-alive failed:", err);
+  }
+
   const connections = await db.select().from(qboConnections).where(eq(qboConnections.isActive, true));
 
   console.log(`[SYNC] Starting auto-sync for ${connections.length} QBO connections`);

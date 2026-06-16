@@ -4,6 +4,7 @@ import { getDb } from "./queries/connection";
 import { qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, clients } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { qboRequestViaMake } from "./qbo-make-bridge";
+import { accessTokenExpired, applyTokenRotation, isInvalidGrant, needsKeepAlive } from "./qbo-oauth-core";
 
 // QBO API base URLs
 const QBO_BASE_URLS = {
@@ -65,8 +66,24 @@ export async function qboRequest(
   return res.json();
 }
 
-// Helper: refresh an access token
-async function refreshToken(connection: typeof qboConnections.$inferSelect) {
+// Raised when a realm's refresh token is spent/revoked (invalid_grant). The
+// connection is marked inactive + authError set; it needs re-authorization.
+// Callers should surface this, not retry — retrying won't fix a dead grant.
+export class QboReauthRequiredError extends Error {
+  constructor(public readonly connectionId: number, public readonly realmId: string, detail: string) {
+    super(`QBO connection ${connectionId} (realm ${realmId}) needs re-authorization: ${detail}`);
+    this.name = "QboReauthRequiredError";
+  }
+}
+
+// SINGLE-FLIGHT refresh: concurrent requests on the same expired connection must
+// share ONE token refresh. Each refresh rotates (spends) QBO's refresh token, so
+// two parallel refreshes would invalidate each other -> dead realm. Keyed by
+// connection id; the entry is cleared once the refresh settles.
+const inFlightRefresh = new Map<number, Promise<typeof qboConnections.$inferSelect>>();
+
+// Helper: refresh an access token (rotation persisted, invalid_grant surfaced).
+async function doRefresh(connection: typeof qboConnections.$inferSelect) {
   const { clientId, clientSecret } = getCredentials();
   const tokenUrl = TOKEN_URLS[connection.environment as "sandbox" | "production"];
   const params = new URLSearchParams();
@@ -82,33 +99,89 @@ async function refreshToken(connection: typeof qboConnections.$inferSelect) {
   });
   if (!res.ok) {
     const err = await res.text();
+    const db = getDb();
+    // Spent/revoked grant -> flag for re-auth instead of cascading failures.
+    if (isInvalidGrant(res.status, err)) {
+      await db
+        .update(qboConnections)
+        .set({ isActive: false, authError: `invalid_grant @ ${new Date().toISOString()}` })
+        .where(eq(qboConnections.id, connection.id));
+      throw new QboReauthRequiredError(connection.id, connection.realmId, err);
+    }
     throw new Error(`Token refresh failed: ${res.status} ${err}`);
   }
   const data = await res.json();
-  const newAccessToken = data.access_token;
-  const newRefreshToken = data.refresh_token || connection.refreshToken;
-  const expiresIn = data.expires_in || 3600;
-  const expiresAt = new Date(Date.now() + expiresIn * 1000);
+  // ALWAYS persist the rotated refresh token (core decides; never drop one).
+  const rotated = applyTokenRotation({ refreshToken: connection.refreshToken }, data, new Date());
 
   const db = getDb();
   await db
     .update(qboConnections)
-    .set({ accessToken: newAccessToken, refreshToken: newRefreshToken, expiresAt })
+    .set({
+      accessToken: rotated.accessToken,
+      refreshToken: rotated.refreshToken,
+      expiresAt: rotated.expiresAt,
+      lastRefreshAt: rotated.lastRefreshAt,
+      authError: rotated.authError,
+    })
     .where(eq(qboConnections.id, connection.id));
 
-  return { ...connection, accessToken: newAccessToken, refreshToken: newRefreshToken, expiresAt };
+  return { ...connection, ...rotated, isActive: true };
+}
+
+// Refresh with single-flight de-duplication per connection.
+function refreshToken(connection: typeof qboConnections.$inferSelect) {
+  const existing = inFlightRefresh.get(connection.id);
+  if (existing) return existing;
+  const p = doRefresh(connection).finally(() => inFlightRefresh.delete(connection.id));
+  inFlightRefresh.set(connection.id, p);
+  return p;
 }
 
 // Helper: ensure token is valid before making a request
 export async function ensureValidToken(connection: typeof qboConnections.$inferSelect) {
   // Bridge connections have no local tokens — Make refreshes its own.
   if (connection.transport === "make_bridge") return connection;
-  const now = new Date();
-  const expiry = connection.expiresAt;
-  if (!expiry || expiry.getTime() - now.getTime() < 5 * 60 * 1000) {
+  if (accessTokenExpired(connection.expiresAt, new Date())) {
     return refreshToken(connection);
   }
   return connection;
+}
+
+/**
+ * Keep-alive sweep: proactively refresh native connections whose rotating
+ * refresh token has been idle long enough to risk the 100-day expiry. Safe to
+ * call on a schedule; bridge/inactive/already-fresh connections are skipped.
+ * Returns a per-connection summary for logging.
+ */
+export async function keepAliveNativeConnections() {
+  const db = getDb();
+  const rows = await db.select().from(qboConnections).where(eq(qboConnections.transport, "native"));
+  const now = new Date();
+  const results: { id: number; realmId: string; action: "refreshed" | "skipped" | "reauth_required" | "error"; detail?: string }[] = [];
+  for (const conn of rows) {
+    const due = needsKeepAlive(
+      {
+        transport: conn.transport,
+        isActive: conn.isActive,
+        lastRefreshAtMs: conn.lastRefreshAt ? new Date(conn.lastRefreshAt).getTime() : null,
+        fallbackMs: conn.updatedAt ? new Date(conn.updatedAt).getTime() : null,
+      },
+      now,
+    );
+    if (!due) { results.push({ id: conn.id, realmId: conn.realmId, action: "skipped" }); continue; }
+    try {
+      await refreshToken(conn);
+      results.push({ id: conn.id, realmId: conn.realmId, action: "refreshed" });
+    } catch (e) {
+      if (e instanceof QboReauthRequiredError) {
+        results.push({ id: conn.id, realmId: conn.realmId, action: "reauth_required" });
+      } else {
+        results.push({ id: conn.id, realmId: conn.realmId, action: "error", detail: e instanceof Error ? e.message : String(e) });
+      }
+    }
+  }
+  return results;
 }
 
 // Simple fuzzy string matcher (Jaccard similarity on word sets)

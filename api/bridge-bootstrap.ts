@@ -64,6 +64,9 @@ async function ensureColumns(db: any): Promise<void> {
     ["transport", sql`ALTER TABLE qbo_connections ADD COLUMN transport text DEFAULT 'native'`],
     ["bridgeUrl", sql`ALTER TABLE qbo_connections ADD COLUMN "bridgeUrl" text`],
     ["bridgeSecret", sql`ALTER TABLE qbo_connections ADD COLUMN "bridgeSecret" text`],
+    // Native-OAuth token lifecycle (Phase 0): keep-alive anchor + re-auth flag.
+    ["lastRefreshAt", sql`ALTER TABLE qbo_connections ADD COLUMN "lastRefreshAt" integer`],
+    ["authError", sql`ALTER TABLE qbo_connections ADD COLUMN "authError" text`],
   ];
   for (const [col, stmt] of adds) {
     if (have.has(col)) continue;
