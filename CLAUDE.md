@@ -151,18 +151,23 @@ bill-vs-expense flag):
   `AccountRef` = the ACTUAL credit-card account matched by last-4 — NEVER a clearing
   account).
 - **Not paid → post a BILL** (QBO `Bill`, to Accounts Payable).
-- (Edge, confirm w/ Markie: paid by cash/cheque/debit → Expense paid from that real
-  account. Never cash-to-clearing.)
+- **Paid by cash / cheque / debit → also an EXPENSE** (Markie confirmed 2026-06-16),
+  paid from that ACTUAL account — never a clearing account. So the rule generalizes:
+  **PAID (any method) → Expense from the real paying account; NOT paid → Bill.**
 FULL DETAILS on BOTH (non-negotiable): payee = **`EntityRef`/`VendorRef` set to the
 resolved vendor (NEVER blank)**, `TxnDate`, `DocNumber` (invoice #), line
 `AccountRef` (coded from brain/history), correct `TaxCodeRef` (HST/M&E), amount,
-description, and the source receipt/invoice ATTACHED. NEVER post to Figgy Clearing,
-NEVER no-payee, NEVER as bare Cash, NEVER without human review.
+description, and the source receipt/invoice ATTACHED **and verified present in QBO
+(read-back)** — attach must be mandatory + confirmed, not a best-effort skip.
+NEVER post to Figgy Clearing, NEVER no-payee, NEVER as bare Cash, NEVER without
+human review, NEVER without the receipt attached.
 - **INCIDENT 2026-06-16 (root-caused):** the old Clark OS poster (Make `5325584`) was
   left ACTIVE on a 15-min schedule June 10–11 and auto-flushed the backlog. Its
   blueprint hardcodes a **Cash `Purchase` to `AccountRef:"53"` (Figgy Clearing) with
-  NO `EntityRef`** → so it posted bills AS expenses, to clearing, with no payee
-  (exactly the 3 symptoms). Markie stopped it 06-11 09:22 (now `isActive:false`),
+  NO `EntityRef`**, and its receipt-attach is a fragile exact-filename-match branch
+  that silently skips → so it posted bills AS expenses, to clearing, with no payee,
+  and with NO attachment (all 4 symptoms Markie reported). Markie stopped it 06-11
+  09:22 (now `isActive:false`),
   deleted the bad entries + the Figgy Clearing account (acct 53 now inactive →
   QBO calls referencing it error, e.g. 06-14 "Object Not Found … made inactive" — a
   useful tripwire). ALL posters/auto-approves confirmed OFF across every client. The
