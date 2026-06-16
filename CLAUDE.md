@@ -11,6 +11,11 @@ ONCE on consolidated rails — never per-client clones.**
 
 ## Golden rules (never violate)
 - Nothing posts to QBO without Markie's review. All posters stay OFF.
+- **NEVER guess or "plug" a number** — no fabricated amounts, balances, totals,
+  or balancing adjustments to force a match/reconcile. Every figure must trace to
+  a real source document or live QBO. Plugging is a RARE exception that requires
+  Markie's explicit per-case authorization. If a number is missing, FLAG it; do
+  not invent it.
 - Chart of accounts is LOCKED — Figgy never invents/guesses an account.
 - **Clark OS (Owen Sound)** and **Clark CW (Collingwood)** are permanently
   separate entities/books — never merge. Judge client by the bill-to + location
@@ -138,6 +143,53 @@ a realm). Vendor Memory cache is keyed by `(connectionId, vendorId)`.
 - Drive: Clark OS drop `1GdgYGv_OAiui8_GxvPFX_vo5bU4ByOjF`; Gmail→Drive staging
   `19dE9npuJX82K7UOMPvQHSMpQn92Rw6qk`; Figgy Junior folder
   `15QYs3Ujgm9irHn3nXzdxoeuV2VPtmjT_` (companion docs live here).
+
+## Posting rules (poster is OFF — this is the SPEC for the rebuild) — Markie 2026-06-16
+Decision by payment status (from the captured payment method/account w/ last-4 +
+bill-vs-expense flag):
+- **Paid by credit card → post an EXPENSE** (QBO `Purchase`, `PaymentType:CreditCard`,
+  `AccountRef` = the ACTUAL credit-card account matched by last-4 — NEVER a clearing
+  account).
+- **Not paid → post a BILL** (QBO `Bill`, to Accounts Payable).
+- **Paid by cash / cheque / debit → also an EXPENSE** (Markie confirmed 2026-06-16),
+  paid from that ACTUAL account — never a clearing account. So the rule generalizes:
+  **PAID (any method) → Expense from the real paying account; NOT paid → Bill.**
+FULL DETAILS on BOTH (non-negotiable): payee = **`EntityRef`/`VendorRef` set to the
+resolved vendor (NEVER blank)**, `TxnDate`, `DocNumber` (invoice #), line
+`AccountRef` (coded from brain/history), correct `TaxCodeRef` (HST/M&E), amount,
+description, and the source receipt/invoice ATTACHED **and verified present in QBO
+(read-back)** — attach must be mandatory + confirmed, not a best-effort skip.
+NEVER post to Figgy Clearing, NEVER no-payee, NEVER as bare Cash, NEVER without
+human review, NEVER without the receipt attached.
+- **INCIDENT 2026-06-16 (root-caused):** the old Clark OS poster (Make `5325584`) was
+  left ACTIVE on a 15-min schedule June 10–11 and auto-flushed the backlog. Its
+  blueprint hardcodes a **Cash `Purchase` to `AccountRef:"53"` (Figgy Clearing) with
+  NO `EntityRef`**, and its receipt-attach is a fragile exact-filename-match branch
+  that silently skips → so it posted bills AS expenses, to clearing, with no payee,
+  and with NO attachment (all 4 symptoms Markie reported). Markie stopped it 06-11
+  09:22 (now `isActive:false`),
+  deleted the bad entries + the Figgy Clearing account (acct 53 now inactive →
+  QBO calls referencing it error, e.g. 06-14 "Object Not Found … made inactive" — a
+  useful tripwire). ALL posters/auto-approves confirmed OFF across every client. The
+  poster must NOT be re-enabled until rebuilt to the rule above + review-gated (this
+  IS the P3 "robust poster"). Posting decision logic lives in the Make poster, NOT in
+  the CRM repo (the brain is read-only; it only suggests coding).
+- **REBUILD DESIGN (agreed Markie 2026-06-16) — poster stays OFF until proven on 1 entry.**
+  STRUCTURAL ROOT CAUSE found: the poster reads Review Queue range **A:Z** but the
+  capture's `Payment Method`/`Payment Account`/`Bill vs Expense` are cols **AE–AG**, so
+  it never saw payment status → dumped everything as cash-to-clearing. The 34-col
+  capture header (idx 0-based): 0 RowID, 7 Vendor/Payee, 8 Amount, 11 HST Amt, 12 HST
+  Treatment, 13 AI Category, 14 Action Needed, 19 Attachment(receipt `msgId::file`),
+  22 Posted-to-QBO, 27 Invoice#, 28 Subtotal, 29 Total, 30 Payment Method, 31 Payment
+  Account, 32 Bill-vs-Expense, 33 Email Instructions. CORRECTED POSTER must: (1) read
+  FULL row A:AH; (2) **capture the card # (e.g. Visa ·6231) in Payment Account** and
+  **match it at RUNTIME to the real QBO account** (query Account, find the one whose
+  name carries the last-4 — never a typed-in id, never clearing); (3) branch: paid →
+  Expense to that matched account / not paid → Bill to A/P; (4) **payee = resolve col 7
+  Vendor/Payee → QBO Vendor Id** (no match → flag, don't post); (5) **memo = receipt
+  filename + Figgy # (RowID) ONLY** — no "auto-post/Overhead"; (6) attach receipt +
+  read-back verify. Clark OS card so far: **Visa ·6231**. Vendor name IS already
+  captured (col 7) — old poster just never set it as payee.
 
 ## Open items
 - QBO #970 (Latham freight) + #983 (Walker split): blocked on source invoices.
