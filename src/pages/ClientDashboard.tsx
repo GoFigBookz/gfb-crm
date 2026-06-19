@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/providers/trpc";
+import { cn } from "@/lib/utils";
 import { format, isPast, isToday } from "date-fns";
 
 export default function ClientDashboard() {
