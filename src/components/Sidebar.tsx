@@ -6,7 +6,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, Import, ShieldCheck,
+  Plus, TrendingUp, Lock, Import, ShieldCheck, Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,6 +31,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const dailyItems = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+    { to: "/month-end-close", icon: Gauge, label: "Month-End Close" },
     { to: "/triage", icon: ShieldCheck, label: "Figgy Jr" },
     { to: "/tasks", icon: CheckSquare, label: "Tasks" },
     { to: "/quick-add", icon: Plus, label: "Quick Add" },

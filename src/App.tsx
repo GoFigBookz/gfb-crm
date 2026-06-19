@@ -39,6 +39,7 @@ import Signatures from "./pages/Signatures";
 import ClientPlaybook from "./pages/ClientPlaybook";
 import StaffWorkload from "./pages/StaffWorkload";
 import MonthlyCloseChecklist from "./pages/MonthlyCloseChecklist";
+import MonthEndClose from "./pages/MonthEndClose";
 import PricingCalculator from "./pages/PricingCalculator";
 import SatisfactionScores from "./pages/SatisfactionScores";
 import ClientImport from "./pages/ClientImport";
@@ -93,6 +94,7 @@ function AppRoutes() {
         <Route path="/playbook" element={<ClientPlaybook />} />
         <Route path="/staff-workload" element={<StaffWorkload />} />
         <Route path="/monthly-close" element={<MonthlyCloseChecklist />} />
+        <Route path="/month-end-close" element={<MonthEndClose />} />
         <Route path="/pricing-calculator" element={<PricingCalculator />} />
         <Route path="/satisfaction" element={<SatisfactionScores />} />
         <Route path="/client-import" element={<ClientImport />} />
