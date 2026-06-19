@@ -188,6 +188,9 @@ export default function Integrations() {
                 lastSyncedAt: c.lastSyncedAt,
                 createdAt: c.createdAt,
                 updatedAt: c.updatedAt,
+                reconnectReason: (c as any).reconnectReason ?? null,
+                realmId: c.realmId,
+                clientId: c.clientId,
               }))
             // For per-client providers, use filtered connected accounts
             : PER_CLIENT_PROVIDERS.includes(provider.id)
@@ -261,6 +264,13 @@ export default function Integrations() {
                             </>
                           ) : provider.id === "quickbooks" ? (
                             <>
+                              {(account as any).reconnectReason ? (
+                                <Button variant="ghost" size="sm" className="text-amber-600"
+                                  title={`Reconnect needed: ${(account as any).reconnectReason}`}
+                                  onClick={() => { window.location.href = `/api/qbo/connect${(account as any).clientId ? `?clientId=${(account as any).clientId}` : ""}`; }}>
+                                  ⚠ Reconnect
+                                </Button>
+                              ) : null}
                               <Button variant="ghost" size="sm" onClick={() => syncQbo.mutate({ connectionId: account.id })} disabled={syncQbo.isPending}>
                                 {syncQbo.isPending ? "Syncing..." : "Sync QBO"}
                               </Button>

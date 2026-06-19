@@ -9,6 +9,23 @@ Work smarter not harder: **less of Markie's time, less money (Make ops),
 accurate books on cheap autopilot, an AI that learns & grows per client. Build
 ONCE on consolidated rails — never per-client clones.**
 
+## Operating preference (Markie, 2026-06-19)
+**"Always do which one is best."** When there's a clearly-best technical option,
+PICK IT and proceed — don't stop to make me choose. Still flag genuinely
+my-call decisions (irreversible, money/business, taste), but default to action
+on the strongest option with a one-line note on why.
+
+## Product north star (what this is FOR — Markie, 2026-06-19)
+The CRM is Markie's **month-end-close cockpit**: at a glance, where each client
+stands — how many transactions need posting/review, who's due for HST and is it
+filed, is year-end done, is it reconciled. Per-client status + a portfolio
+"who's behind" board, all fed by the live QBO connection. The vendor brain +
+Triage answers "what needs posting"; the month-end status layer answers "where
+is each client in their close." Build the per-client status engine ONCE, cache
+to a snapshot (cheap — don't fan out live QBO on every board load → Make ops
+cap), then surface it as the per-client cockpit, the portfolio board, and the
+auto-driven close checklist.
+
 ## Golden rules (never violate)
 - Nothing posts to QBO without Markie's review. All posters stay OFF.
 - Chart of accounts is LOCKED — Figgy never invents/guesses an account.
@@ -93,6 +110,26 @@ ONCE on consolidated rails — never per-client clones.**
   **REMAINING WIRING (1 step):** set `FIGGY_MAKE_API_TOKEN` on the deployed CRM,
   then run `seed-clark-os-bridge` + `figgy-suggest-backlog` → Triage lights up.
   (Server can't call MCP tools at runtime — uses Make's HTTP run API instead.)
+- **NATIVE PER-REALM OAUTH — BUILT (2026-06-19, `api/qbo-oauth.ts`).** The durable
+  rail (design Option A) now exists beside the Make bridge; both transports coexist
+  (`transport`=`native`|`make_bridge`) so realms cut over one at a time. Tokens
+  ENCRYPTED at rest (AES-256-GCM `enc:v1:` envelope; legacy plaintext passes
+  through + re-encrypts on next refresh); OAuth state SIGNED + time-boxed (HMAC,
+  binds realm→clientId = isolation at authorize time, CSRF-safe); refresh-token
+  ROTATION persisted EVERY call; `invalid_grant`→inactive + `reconnectReason`
+  column + `ReconnectRequiredError` (never silent → brain sees inactive = "not
+  connected", UI shows "⚠ Reconnect"); KEEP-ALIVE job (boot+daily) so a quiet
+  client's rolling 100-day window never lapses. Flow: `GET /api/qbo/connect?clientId=N`
+  → Intuit authorize (scope accounting-only, signed state) → `GET /api/qbo/callback`
+  → `exchangeAndPersist`. `qboRequest`/`ensureValidToken` delegate native
+  refresh+decrypt to qbo-oauth (ONE hardened path; removed the old duplicate
+  refresh). Key = `FIGGY_TOKEN_KEY` (or `APP_SECRET`); keyless = plaintext+unsigned
+  +warn (dev only). Tests `api/qbo-oauth.test.ts` 11/11; suite 26/26; brain 27/27;
+  build green. GO-LIVE: register prod Intuit app, set `QBO_CLIENT_ID`/`QBO_CLIENT_SECRET`
+  /`FIGGY_TOKEN_KEY` + redirect `https://figgy.gofig.ca/api/qbo/callback`, click
+  Connect per company, retire that realm's Make tool once authorized. Also fixed
+  build health this session: vitest missing `@db` alias (suite couldn't load) +
+  package-lock pinned to the blocked npmmirror registry (now npmjs.org).
 - **Connection-layer design:** `docs/FIGGY_JR_QBO_CONNECTION_DESIGN.md`. Decision
   (Markie 2026-06-11): bridge brain to live Make QBO tools NOW + build native
   OAuth in parallel, cut over later. QBO facts: access token 1h; refresh 100-day

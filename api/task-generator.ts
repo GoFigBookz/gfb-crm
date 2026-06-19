@@ -431,7 +431,7 @@ export async function createClientTaskRules(data: OnboardingData) {
       createdRules.push(rule);
 
       const taskData = generateTaskFromRule(rule, 1);
-      const [task] = await db.insert(tasks).values(taskData);
+      const [task] = await db.insert(tasks).values(taskData).returning();
       if (task) {
         createdTasks.push(task);
       }

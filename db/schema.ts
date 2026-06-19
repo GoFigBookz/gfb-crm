@@ -73,6 +73,9 @@ export const qboConnections = sqliteTable("qbo_connections", {
   // Which CRM client this QBO company belongs to (NULL = unassigned/triage)
   clientId: integer("clientId"),
   isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(),
+  // Set when a native token refresh fails (e.g. invalid_grant) — surfaces a
+  // one-click reconnect in the UI; the brain treats inactive as not-connected.
+  reconnectReason: text("reconnectReason"),
   lastSyncedAt: integer("lastSyncedAt", { mode: "timestamp" }),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),

@@ -21,9 +21,10 @@
  * =============================================================================
  */
 import { getDb } from "./queries/connection";
-import { clients, clientVault } from "../db/schema";
+import { clients, clientVault, clientTaskRules } from "../db/schema";
 import { eq, sql } from "drizzle-orm";
 import { matchClientIdByName } from "./client-match";
+import { createClientTaskRules, type OnboardingData } from "./task-generator";
 
 type Row = {
   name: string; bn: string; pay: string; hst: string; wsib: string; ye: string;
@@ -74,6 +75,35 @@ const ROWS: Row[] = [
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const payMap: Record<string, string> = { weekly: "weekly", "bi-weekly": "bi-weekly", "semi-monthly": "semi-monthly", monthly: "monthly" };
 const hstMap: Record<string, string> = { annually: "annual", quarterly: "quarterly", monthly: "monthly" };
+// Master sheet cadence -> the tokens task-generator's buildTaskRules expects.
+const hstFreqForTasks: Record<string, string> = { annually: "annually", quarterly: "quarterly", monthly: "monthly" };
+const payFreqForTasks: Record<string, string> = { weekly: "weekly", "bi-weekly": "biweekly", "semi-monthly": "semi_monthly", monthly: "monthly" };
+
+/** Build the task-generator's OnboardingData straight from a master ROW (we have
+ *  the exact fiscal year-end here, so deadlines land on the right day). */
+function onboardingFromRow(clientId: number, r: Row): OnboardingData {
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(r.ye);
+  const fiscalYearEnd = m ? `${MONTHS[Number(m[1]) - 1]} ${Number(m[2])}` : null; // e.g. "Sep 30" (parseable)
+  return {
+    clientId,
+    userId: 1,
+    assignedTo: "Markie",
+    fiscalYearEnd,
+    hstGstFrequency: r.hst ? (hstFreqForTasks[r.hst.toLowerCase()] ?? null) : null,
+    payrollFrequency: r.pay ? (payFreqForTasks[r.pay.toLowerCase()] ?? null) : null,
+    hasEmployees: Boolean(r.pay),
+    wsibRequired: Boolean(r.wsib),
+    needsYearEnd: true,
+    usesStripe: Boolean(r.stripe),
+    usesJobber: Boolean(r.jobber),
+    usesSquare: false,
+  };
+}
+
+/** Clean legal name (drop the parenthetical trade name) for the company field. */
+function legalName(name: string): string {
+  return name.replace(/\([^)]*\)/g, "").trim() || name;
+}
 
 /** Derive the trade name inside parentheses AND the bare legal name, so either
  *  can match a CRM client (e.g. "1000235299 ONTARIO LTD. (The Auld Spot Pub)"). */
@@ -82,7 +112,15 @@ function matchKeys(name: string): string[] {
   const paren = name.match(/\(([^)]+)\)/);
   const bare = name.replace(/\([^)]*\)/g, "").trim();
   if (bare) keys.push(bare);
-  if (paren) keys.push(paren[1].trim());
+  // Only use the parenthetical as a trade-name key if it's a real distinct name —
+  // NOT a region marker ("(USA)") or an alias note ("(fka Kaavio)"), which would
+  // loose-match the wrong company (e.g. "USA" → "UNIMAX (USA)").
+  if (paren) {
+    const p = paren[1].trim();
+    if (p.length >= 5 && !/^(u\.?s\.?a?\.?|us|usa|canada|can|fka\b|f\/k\/a\b|formerly\b|aka\b)/i.test(p)) {
+      keys.push(p);
+    }
+  }
   return keys;
 }
 
@@ -108,13 +146,31 @@ export async function ensureClientMasterColumns(): Promise<void> {
 export async function importClientMaster() {
   await ensureClientMasterColumns();
   const db = getDb();
-  const report = { rows: ROWS.length, matched: 0, updated: 0, vaults: 0, unmatched: [] as string[] };
+  const report = { rows: ROWS.length, matched: 0, created: 0, updated: 0, vaults: 0, rulesCreated: 0, tasksCreated: 0, unmatched: [] as string[] };
 
   for (const r of ROWS) {
     let clientId: number | null = null;
     for (const k of matchKeys(r.name)) { clientId = await matchClientIdByName(k); if (clientId) break; }
-    if (!clientId) { report.unmatched.push(r.name); continue; }
-    report.matched++;
+
+    // CREATE the client card if the master directory has someone the CRM doesn't.
+    // This is what turns the master list INTO the client roster (idempotent — a
+    // matched client is patched, never duplicated).
+    if (!clientId) {
+      const inserted = await db.insert(clients).values({
+        userId: 1,
+        name: r.name,
+        email: "", // real contact email filled by staff later; never fabricated
+        company: legalName(r.name),
+        status: "active",
+        workflowStatus: "active",
+        assignedTo: "Markie",
+      }).returning({ id: clients.id });
+      clientId = inserted[0]?.id ?? null;
+      if (!clientId) { report.unmatched.push(r.name); continue; }
+      report.created++;
+    } else {
+      report.matched++;
+    }
 
     const payFreq = payMap[r.pay.toLowerCase()] ?? null;
     const hstPeriod = hstMap[r.hst.toLowerCase()] ?? null;
@@ -148,6 +204,20 @@ export async function importClientMaster() {
       if (existing) await db.update(clientVault).set(v).where(eq(clientVault.id, existing.id));
       else await db.insert(clientVault).values(v);
       report.vaults++;
+    }
+
+    // Generate the client's recurring deadline tasks (HST, payroll, year-end,
+    // T4/T5, WSIB) from the master cadence — so "what's due" actually shows up.
+    // Idempotent: skip if this client already has rules.
+    try {
+      const hasRules = (await db.select().from(clientTaskRules).where(eq(clientTaskRules.clientId, clientId)).limit(1)).length > 0;
+      if (!hasRules) {
+        const res = await createClientTaskRules(onboardingFromRow(clientId, r));
+        report.rulesCreated += res.rules.length;
+        report.tasksCreated += res.tasks.length;
+      }
+    } catch (e) {
+      console.error("[import] task-rule generation failed for", r.name, ":", e instanceof Error ? e.message : e);
     }
   }
   return report;

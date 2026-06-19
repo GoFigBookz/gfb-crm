@@ -4,6 +4,7 @@ import { getDb } from "./queries/connection";
 import { qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, clients } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { qboRequestViaMake } from "./qbo-make-bridge";
+import { accessTokenFor, refreshNativeToken, ensureValidNativeToken, buildAuthorizeUrl, exchangeAndPersist } from "./qbo-oauth";
 
 // QBO API base URLs
 const QBO_BASE_URLS = {
@@ -11,19 +12,13 @@ const QBO_BASE_URLS = {
   production: "https://quickbooks.api.intuit.com",
 };
 
-// Token endpoints
-const TOKEN_URLS = {
-  sandbox: "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer",
-  production: "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer",
-};
+// OAuth (authorize URL, token exchange, refresh, encryption) lives in qbo-oauth.ts.
 
-// Client credentials from env
-function getCredentials() {
-  return {
-    clientId: process.env.QBO_CLIENT_ID || process.env.SANDBOX_QBO_CLIENT_ID || "",
-    clientSecret: process.env.QBO_CLIENT_SECRET || process.env.SANDBOX_QBO_CLIENT_SECRET || "",
-    redirectUri: `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/qbo/callback`,
-  };
+// Strip token/secret fields before a connection is sent to the browser. Tokens
+// are encrypted at rest, but the UI never needs them — don't expose them at all.
+function safeConnection(c: typeof qboConnections.$inferSelect) {
+  const { accessToken, refreshToken, bridgeSecret, ...safe } = c;
+  return { ...safe, connected: Boolean(accessToken) || c.transport === "make_bridge" };
 }
 
 // Helper: make an authenticated request to QBO API
@@ -48,8 +43,9 @@ export async function qboRequest(
   }
   const base = QBO_BASE_URLS[connection.environment as "sandbox" | "production"];
   const url = `${base}/v3/company/${connection.realmId}${endpoint}`;
+  // Tokens are encrypted at rest — decrypt just-in-time for the Bearer header.
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${connection.accessToken}`,
+    Authorization: `Bearer ${accessTokenFor(connection)}`,
     Accept: "application/json",
     "Content-Type": "application/json",
   };
@@ -65,50 +61,13 @@ export async function qboRequest(
   return res.json();
 }
 
-// Helper: refresh an access token
-async function refreshToken(connection: typeof qboConnections.$inferSelect) {
-  const { clientId, clientSecret } = getCredentials();
-  const tokenUrl = TOKEN_URLS[connection.environment as "sandbox" | "production"];
-  const params = new URLSearchParams();
-  params.append("grant_type", "refresh_token");
-  params.append("refresh_token", connection.refreshToken || "");
-  params.append("client_id", clientId);
-  params.append("client_secret", clientSecret);
-
-  const res = await fetch(tokenUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: params.toString(),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Token refresh failed: ${res.status} ${err}`);
-  }
-  const data = await res.json();
-  const newAccessToken = data.access_token;
-  const newRefreshToken = data.refresh_token || connection.refreshToken;
-  const expiresIn = data.expires_in || 3600;
-  const expiresAt = new Date(Date.now() + expiresIn * 1000);
-
-  const db = getDb();
-  await db
-    .update(qboConnections)
-    .set({ accessToken: newAccessToken, refreshToken: newRefreshToken, expiresAt })
-    .where(eq(qboConnections.id, connection.id));
-
-  return { ...connection, accessToken: newAccessToken, refreshToken: newRefreshToken, expiresAt };
-}
-
-// Helper: ensure token is valid before making a request
+// Helper: ensure token is valid before making a request. Native refresh +
+// token encryption + rotation persistence + reconnect handling all live in
+// qbo-oauth.ts (the single hardened OAuth path).
 export async function ensureValidToken(connection: typeof qboConnections.$inferSelect) {
   // Bridge connections have no local tokens — Make refreshes its own.
   if (connection.transport === "make_bridge") return connection;
-  const now = new Date();
-  const expiry = connection.expiresAt;
-  if (!expiry || expiry.getTime() - now.getTime() < 5 * 60 * 1000) {
-    return refreshToken(connection);
-  }
-  return connection;
+  return ensureValidNativeToken(connection);
 }
 
 // Simple fuzzy string matcher (Jaccard similarity on word sets)
@@ -329,146 +288,55 @@ export const qboRouter = createRouter({
 
   getAuthUrl: publicQuery
     .input(z.object({
-      environment: z.enum(["sandbox", "production"]).optional().default("sandbox"),
-      accountType: z.enum(["ca_clients", "us_clients", "personal_business"]).optional().default("ca_clients"),
+      environment: z.enum(["sandbox", "production"]).optional().default("production"),
+      // Which CRM client this QBO company belongs to. Carried (signed) in state
+      // so the callback binds the realm to the right client = per-client isolation.
+      clientId: z.number().optional(),
     }))
     .query(async ({ input }) => {
-      const { clientId, redirectUri } = getCredentials();
-      const scopes = [
-        "com.intuit.quickbooks.accounting",
-        "com.intuit.quickbooks.payment",
-      ].join(" ");
-      const state = Buffer.from(JSON.stringify({
-        env: input.environment,
-        accountType: input.accountType,
-        ts: Date.now(),
-      })).toString("base64url");
-
-      const url = `https://appcenter.intuit.com/connect/oauth2?${new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        scope: scopes,
-        response_type: "code",
-        state,
-      })}`;
-
-      return { url, state, accountType: input.accountType };
+      const { url, state } = buildAuthorizeUrl({ clientId: input.clientId ?? null, env: input.environment });
+      return { url, state };
     }),
 
+  // The live callback is the HTTP GET route /api/qbo/callback (Intuit redirects
+  // the browser there). This mutation is kept for programmatic use and shares
+  // the SAME hardened path: signed-state verification, client binding, and
+  // encrypted-at-rest token storage all live in qbo-oauth.exchangeAndPersist.
   callback: publicQuery
     .input(z.object({
       code: z.string(),
       realmId: z.string(),
       state: z.string(),
-      clientId: z.number().optional(), // NEW: which CRM client this QBO belongs to
     }))
     .mutation(async ({ input }) => {
-      let env: string = "sandbox";
-      let accountType: string = "ca_clients";
-      try {
-        const parsed = JSON.parse(Buffer.from(input.state, "base64url").toString());
-        env = parsed.env || "sandbox";
-        accountType = parsed.accountType || "ca_clients";
-      } catch { /* ignore */ }
-
-      const { clientId, clientSecret, redirectUri } = getCredentials();
-      const tokenUrl = TOKEN_URLS[env as "sandbox" | "production"];
-
-      const params = new URLSearchParams();
-      params.append("grant_type", "authorization_code");
-      params.append("code", input.code);
-      params.append("redirect_uri", redirectUri);
-      params.append("client_id", clientId);
-      params.append("client_secret", clientSecret);
-
-      const res = await fetch(tokenUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: params.toString(),
-      });
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`OAuth callback failed: ${res.status} ${err}`);
-      }
-      const data = await res.json();
-
-      // Fetch company info
-      const companyInfo = await fetch(
-        `${QBO_BASE_URLS[env as "sandbox" | "production"]}/v3/company/${input.realmId}/companyinfo/${input.realmId}`,
-        { headers: { Authorization: `Bearer ${data.access_token}`, Accept: "application/json" } }
-      );
-      let companyName: string | null = null;
-      let companyEmail: string | null = null;
-      if (companyInfo.ok) {
-        const cInfo = await companyInfo.json();
-        companyName = cInfo.CompanyInfo?.CompanyName || null;
-        companyEmail = cInfo.CompanyInfo?.Email?.Address || null;
-      }
-
-      const db = getDb();
-      // Check if connection already exists for this realm
-      const existing = await db
-        .select()
-        .from(qboConnections)
-        .where(eq(qboConnections.realmId, input.realmId))
-        .limit(1);
-
-      if (existing[0]) {
-        // Update existing
-        await db.update(qboConnections)
-          .set({
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token,
-            expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
-            companyName: companyName || existing[0].companyName,
-            companyEmail: companyEmail || existing[0].companyEmail,
-            accountType: accountType as "ca_clients" | "us_clients" | "personal_business",
-            clientId: input.clientId || existing[0].clientId, // NEW: preserve or update clientId
-            isActive: true,
-            updatedAt: new Date(),
-          })
-          .where(eq(qboConnections.id, existing[0].id));
-
-        return {
-          success: true,
-          realmId: input.realmId,
-          companyName,
-          accountType,
-          updated: true,
-          clientId: input.clientId || existing[0].clientId,
-        };
-      }
-
-      await db.insert(qboConnections).values({
-        userId: 1,
-        realmId: input.realmId,
-        companyName,
-        companyEmail,
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
-        environment: env as "sandbox" | "production",
-        accountType: accountType as "ca_clients" | "us_clients" | "personal_business",
-        clientId: input.clientId || null, // NEW
-        isActive: true,
-      });
-
-      return {
-        success: true,
-        realmId: input.realmId,
-        companyName,
-        accountType,
-        updated: false,
-        clientId: input.clientId || null,
-      };
+      const r = await exchangeAndPersist({ code: input.code, realmId: input.realmId, stateRaw: input.state });
+      return { success: true, ...r };
     }),
 
   // --- Connection Management ---
 
+  // NOTE: never ship tokens/secrets to the browser — project only safe fields.
   listConnections: publicQuery.query(async () => {
     const db = getDb();
-    return db.select().from(qboConnections).orderBy(desc(qboConnections.createdAt));
+    const rows = await db.select().from(qboConnections).orderBy(desc(qboConnections.createdAt));
+    return rows.map(safeConnection);
   }),
+
+  // Per-client connection summary for the client page's Connect/Reconnect control.
+  // Mirrors the brain's isolation rule: 0 = none, 2+ = ambiguous (never picks one).
+  connectionForClient: publicQuery
+    .input(z.object({ clientId: z.number() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const rows = await db.select().from(qboConnections)
+        .where(eq(qboConnections.clientId, input.clientId)).orderBy(desc(qboConnections.createdAt));
+      const active = rows.filter((r) => r.isActive);
+      return {
+        connection: rows[0] ? safeConnection(rows[0]) : null,
+        count: rows.length,
+        ambiguous: active.length > 1,
+      };
+    }),
 
   getConnectionByType: publicQuery
     .input(z.object({ accountType: z.enum(["ca_clients", "us_clients", "personal_business"]) }))

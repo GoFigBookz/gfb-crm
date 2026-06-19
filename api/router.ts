@@ -32,6 +32,7 @@ import { timeRouter } from "./time-router";
 import { workloadRouter } from "./workload-router";
 import { expirationRouter } from "./expiration-router";
 import { monthlyCloseRouter } from "./monthly-close-router";
+import { monthEndRouter } from "./month-end-router";
 import { agentWebhookRouter } from "./agent-webhook-router";
 import { sheetExportRouter } from "./sheet-export-router";
 import { senderRulesRouter } from "./sender-rules-router";
@@ -72,6 +73,7 @@ export const appRouter = createRouter({
   workload: workloadRouter,
   expiration: expirationRouter,
   monthlyClose: monthlyCloseRouter,
+  monthEnd: monthEndRouter,
   agentWebhook: agentWebhookRouter,
   sheetExport: sheetExportRouter,
   localAuth: localAuthRouter,
