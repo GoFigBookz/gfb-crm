@@ -15,6 +15,9 @@ export type OnboardingData = {
   hasSubcontractors?: boolean | null;
   hasInvestments?: boolean | null;
   paysDividends?: boolean | null;
+  hasEHT?: boolean | null;          // Ontario Employer Health Tax
+  monthsBehind?: number | null;     // catch-up / cleanup scope
+  employeeCount?: number | null;
   wsibRequired?: boolean | null;
   bankAccountCount?: number | null;
   creditCardCount?: number | null;
@@ -222,6 +225,52 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
         fiscalYearEndDay: fy.day,
       });
     }
+
+    // T2 corporate tax — filed by the external accountant. We coordinate:
+    // 1) confirm whether CRA requires T2 installments and add them if so
+    //    (installments don't apply to every client — hence a "check" reminder),
+    rules.push({
+      ruleType: "t2_installments_check",
+      title: "Confirm T2 installments with accountant",
+      description: "Ask the client's accountant whether CRA requires corporate (T2) tax installments this year. If yes, get the schedule/amounts and add the installment payment tasks. Not every client has installments — confirm each year.",
+      category: "Tax",
+      priority: "medium",
+      frequency: "yearly",
+      dueDayOfMonth: fy.day,
+      daysBeforeDue: 30,
+      fiscalYearEndMonth: fy.month,
+      fiscalYearEndDay: fy.day,
+    });
+    // 2) confirm the T2 return itself was filed (due ~6 months after year-end).
+    rules.push({
+      ruleType: "t2_filing_confirm",
+      title: "Confirm T2 filed by accountant",
+      description: "Send the year-end package to the accountant and confirm the T2 corporate tax return is filed (due 6 months after fiscal year-end) and any balance paid.",
+      category: "Tax",
+      priority: "high",
+      frequency: "yearly",
+      dueDayOfMonth: fy.day,
+      daysBeforeDue: 0,  // ~at the 6-month mark; calculateNextDueDate offsets from YE
+      fiscalYearEndMonth: fy.month,
+      fiscalYearEndDay: fy.day,
+    });
+  }
+
+  // === EHT — Ontario Employer Health Tax (only when applicable) ===
+  if (data.hasEHT) {
+    rules.push({
+      ruleType: "eht_annual",
+      title: "EHT Annual Return (Ontario)",
+      description: "Prepare and file the Ontario Employer Health Tax annual return (due Mar 15). If over the installment threshold, confirm monthly installments are remitted.",
+      category: "Payroll",
+      priority: "high",
+      frequency: "yearly",
+      dueDayOfMonth: 15,
+      dueMonth: 3,
+      daysBeforeDue: 21,
+      fiscalYearEndMonth: fy?.month,
+      fiscalYearEndDay: fy?.day,
+    });
   }
 
   // === HST/GST FILING ===
@@ -453,6 +502,7 @@ export function generateTaskFromRule(
 export async function ensureSetupTasks(opts: {
   clientId: number; userId: number; assignedTo?: string | null;
   hasPayroll?: boolean | null; hasWsib?: boolean | null; usesHubdoc?: boolean | null;
+  monthsBehind?: number | null;
 }): Promise<number> {
   const db = getDb();
   const dueDate = new Date(Date.now() + 14 * 86_400_000); // ~2 weeks to get access set up
@@ -473,6 +523,10 @@ export async function ensureSetupTasks(opts: {
   if (opts.usesHubdoc) items.push({
     title: "Connect Hubdoc",
     description: "Set up / connect this client's Hubdoc so receipts and bills flow into QuickBooks automatically.",
+  });
+  if (opts.monthsBehind && opts.monthsBehind > 0) items.push({
+    title: `Catch-up bookkeeping (${opts.monthsBehind} months behind)`,
+    description: `One-time cleanup: bring the books current — ${opts.monthsBehind} month(s) behind. Gather statements, reconcile, and catch up before the recurring cadence starts. Price this as a separate cleanup project.`,
   });
 
   let created = 0;
@@ -559,6 +613,7 @@ export async function createClientTaskRules(data: OnboardingData) {
     hasPayroll: Boolean(data.payrollFrequency && data.payrollFrequency !== "none") || Boolean(data.hasEmployees),
     hasWsib: Boolean(data.wsibRequired),
     usesHubdoc: Boolean(data.usesHubdoc),
+    monthsBehind: data.monthsBehind ?? 0,
   });
 
   return { rules: createdRules, tasks: createdTasks, setupTasks: setupCreated };

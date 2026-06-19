@@ -22775,6 +22775,9 @@ var init_schema = __esm({
       salesEntryFrequency: text("salesEntryFrequency", { enum: ["daily", "weekly", "monthly", "none"] }).default("monthly"),
       // NEW: scope / responsibilities (factor into pricing)
       paysDividends: integer2("paysDividends", { mode: "boolean" }).default(false),
+      hasEHT: integer2("hasEHT", { mode: "boolean" }).default(false),
+      employeeCount: integer2("employeeCount").default(0),
+      monthsBehind: integer2("monthsBehind").default(0),
       bookkeepingFrequency: text("bookkeepingFrequency", { enum: ["monthly", "quarterly", "annual", "none"] }).default("monthly"),
       usesHubdoc: integer2("usesHubdoc", { mode: "boolean" }).default(false),
       hasJobCosting: integer2("hasJobCosting", { mode: "boolean" }).default(false),
@@ -40315,6 +40318,46 @@ function buildTaskRules(data) {
         fiscalYearEndDay: fy.day
       });
     }
+    rules.push({
+      ruleType: "t2_installments_check",
+      title: "Confirm T2 installments with accountant",
+      description: "Ask the client's accountant whether CRA requires corporate (T2) tax installments this year. If yes, get the schedule/amounts and add the installment payment tasks. Not every client has installments \u2014 confirm each year.",
+      category: "Tax",
+      priority: "medium",
+      frequency: "yearly",
+      dueDayOfMonth: fy.day,
+      daysBeforeDue: 30,
+      fiscalYearEndMonth: fy.month,
+      fiscalYearEndDay: fy.day
+    });
+    rules.push({
+      ruleType: "t2_filing_confirm",
+      title: "Confirm T2 filed by accountant",
+      description: "Send the year-end package to the accountant and confirm the T2 corporate tax return is filed (due 6 months after fiscal year-end) and any balance paid.",
+      category: "Tax",
+      priority: "high",
+      frequency: "yearly",
+      dueDayOfMonth: fy.day,
+      daysBeforeDue: 0,
+      // ~at the 6-month mark; calculateNextDueDate offsets from YE
+      fiscalYearEndMonth: fy.month,
+      fiscalYearEndDay: fy.day
+    });
+  }
+  if (data.hasEHT) {
+    rules.push({
+      ruleType: "eht_annual",
+      title: "EHT Annual Return (Ontario)",
+      description: "Prepare and file the Ontario Employer Health Tax annual return (due Mar 15). If over the installment threshold, confirm monthly installments are remitted.",
+      category: "Payroll",
+      priority: "high",
+      frequency: "yearly",
+      dueDayOfMonth: 15,
+      dueMonth: 3,
+      daysBeforeDue: 21,
+      fiscalYearEndMonth: fy?.month,
+      fiscalYearEndDay: fy?.day
+    });
   }
   if (data.hstGstFrequency && data.hstGstFrequency !== "none") {
     if (data.hstGstFrequency === "monthly") {
@@ -40534,6 +40577,10 @@ async function ensureSetupTasks(opts) {
     title: "Connect Hubdoc",
     description: "Set up / connect this client's Hubdoc so receipts and bills flow into QuickBooks automatically."
   });
+  if (opts.monthsBehind && opts.monthsBehind > 0) items.push({
+    title: `Catch-up bookkeeping (${opts.monthsBehind} months behind)`,
+    description: `One-time cleanup: bring the books current \u2014 ${opts.monthsBehind} month(s) behind. Gather statements, reconcile, and catch up before the recurring cadence starts. Price this as a separate cleanup project.`
+  });
   let created = 0;
   for (const it of items) {
     const existing = await db.select().from(tasks).where(and(eq(tasks.clientId, opts.clientId), eq(tasks.title, it.title))).limit(1);
@@ -40615,7 +40662,8 @@ async function createClientTaskRules(data) {
     assignedTo: data.assignedTo,
     hasPayroll: Boolean(data.payrollFrequency && data.payrollFrequency !== "none") || Boolean(data.hasEmployees),
     hasWsib: Boolean(data.wsibRequired),
-    usesHubdoc: Boolean(data.usesHubdoc)
+    usesHubdoc: Boolean(data.usesHubdoc),
+    monthsBehind: data.monthsBehind ?? 0
   });
   return { rules: createdRules, tasks: createdTasks, setupTasks: setupCreated };
 }
@@ -43667,6 +43715,9 @@ var init_onboarding_router = __esm({
         hasSubcontractors: external_exports.boolean().default(false),
         hasInvestments: external_exports.boolean().default(false),
         paysDividends: external_exports.boolean().default(false),
+        hasEHT: external_exports.boolean().default(false),
+        employeeCount: external_exports.number().min(0).default(0),
+        monthsBehind: external_exports.number().min(0).default(0),
         wsibRequired: external_exports.boolean().default(false),
         bankAccountCount: external_exports.number().min(0).default(1),
         creditCardCount: external_exports.number().min(0).default(0),
@@ -43741,6 +43792,9 @@ var init_onboarding_router = __esm({
           hasSubcontractors: input.hasSubcontractors,
           hasInvestments: input.hasInvestments,
           paysDividends: input.paysDividends,
+          hasEHT: input.hasEHT,
+          employeeCount: input.employeeCount,
+          monthsBehind: input.monthsBehind,
           wsibRequired: input.wsibRequired,
           bankAccountCount: input.bankAccountCount,
           creditCardCount: input.creditCardCount,
@@ -43776,6 +43830,9 @@ var init_onboarding_router = __esm({
           hasSubcontractors: input.hasSubcontractors,
           hasInvestments: input.hasInvestments,
           paysDividends: input.paysDividends,
+          hasEHT: input.hasEHT,
+          employeeCount: input.employeeCount,
+          monthsBehind: input.monthsBehind,
           wsibRequired: input.wsibRequired,
           bankAccountCount: input.bankAccountCount,
           creditCardCount: input.creditCardCount,
@@ -49342,6 +49399,9 @@ async function ensureOnboardingColumns() {
   const adds = [
     ["usesTouchBistro", "integer DEFAULT 0"],
     ["paysDividends", "integer DEFAULT 0"],
+    ["hasEHT", "integer DEFAULT 0"],
+    ["employeeCount", "integer DEFAULT 0"],
+    ["monthsBehind", "integer DEFAULT 0"],
     ["bookkeepingFrequency", "text DEFAULT 'monthly'"],
     ["usesHubdoc", "integer DEFAULT 0"],
     ["hasJobCosting", "integer DEFAULT 0"],
