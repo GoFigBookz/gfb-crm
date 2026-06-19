@@ -583,15 +583,31 @@ async function startServer() {
   const { serveStaticFiles } = await import("./lib/vite");
   serveStaticFiles(app);
 
-  // Populate the client roster from the master directory FIRST (creates missing
-  // client cards + generates their recurring deadline tasks) — the master list
-  // IS the onboard. Must run before the bridge so Clark OS/CW have client cards
-  // to bind to. Idempotent. Opt out with FIGGY_SKIP_CLIENT_SEED=on.
+  // CRITICAL, must run before anything reads `clients`: the live DB's clients
+  // table is missing columns the app SELECTs, which makes every read throw (empty
+  // Clients page). Add any missing columns first.
+  try {
+    const { ensureClientsColumns } = await import("./ensure-clients-schema");
+    await ensureClientsColumns();
+  } catch (e) {
+    console.error("[schema] ensureClientsColumns failed (non-fatal):", e instanceof Error ? e.message : e);
+  }
+
+  // Collapse exact-duplicate client rows (the live DB accumulated ~3 copies each),
+  // then populate/enrich from the master directory + generate recurring deadline
+  // tasks. Idempotent; the master list IS the onboard. Opt out: FIGGY_SKIP_CLIENT_SEED=on.
   if (process.env.FIGGY_SKIP_CLIENT_SEED !== "on") {
+    try {
+      const { dedupeClients } = await import("./dedupe-clients");
+      const d = await dedupeClients(true);
+      console.log(`[dedupe] clients: ${d.totalClients} -> ${d.keep} kept, ${d.deleted} removed`);
+    } catch (e) {
+      console.error("[dedupe] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
     try {
       const { importClientMaster } = await import("./import-client-master");
       const r = await importClientMaster();
-      console.log(`[seed] clients: +${r.created} created, ${r.matched} updated, ${r.rulesCreated} rules, ${r.tasksCreated} tasks`);
+      console.log(`[seed] clients: +${r.created} created, ${r.matched} matched, ${r.merged} variants merged, ${r.rulesCreated} rules, ${r.tasksCreated} tasks`);
     } catch (e) {
       console.error("[seed] importClientMaster failed (non-fatal):", e instanceof Error ? e.message : e);
     }

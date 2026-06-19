@@ -4,7 +4,7 @@
  * Also triggers agent finding refreshes and dashboard updates.
  */
 import { getDb } from "./queries/connection";
-import { qboConnections, qboSyncLogs } from "../db/schema";
+import { qboConnections } from "../db/schema";
 import { eq } from "drizzle-orm";
 
 let schedulerRunning = false;
@@ -47,13 +47,9 @@ async function runAutoSync() {
         // Token refresh would be triggered here via the QBO router
       }
 
-      // Log the sync attempt
-      await db.insert(qboSyncLogs).values({
-        connectionId: conn.id,
-        status: "started",
-        startedAt: new Date(),
-      });
-
+      // (No-op heartbeat: the real per-entity sync logs its own rows with a valid
+      // entityType. We intentionally don't insert a placeholder log here — the old
+      // insert omitted the required entityType and crashed every cycle.)
       console.log(`[SYNC] Queued sync for ${conn.companyName} (${conn.accountType})`);
 
       // After sync, invalidate dashboard caches
