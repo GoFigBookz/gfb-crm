@@ -6,7 +6,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, Import, ShieldCheck, Gauge,
+  Plus, TrendingUp, Lock, Import, ShieldCheck, Gauge, UserPlus, Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -41,6 +41,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const clientItems = [
     { to: "/clients", icon: Users, label: "Clients" },
+    { to: "/onboarding", icon: UserPlus, label: "New Client Intake" },
+    { to: "/intake", icon: Inbox, label: "Document Intake" },
     { to: "/invoices", icon: Receipt, label: "Invoices" },
     { to: "/files", icon: FolderOpen, label: "Files" },
     { to: "/employees", icon: Briefcase, label: "Employees" },
