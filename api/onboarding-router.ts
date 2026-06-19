@@ -173,6 +173,7 @@ export const onboardingRouter = createRouter({
       usesHubdoc: z.boolean().default(false),
       hasJobCosting: z.boolean().default(false),
       avgMonthlyTransactions: z.number().min(0).default(0),
+      bookkeepingFrequency: z.enum(["monthly", "quarterly", "annual", "none"]).default("monthly"),
       invoicingResponsibility: z.enum(["we_invoice", "client_invoices", "none"]).default("none"),
       billPayResponsibility: z.enum(["we_pay", "client_pays", "none"]).default("none"),
       currentAccountingSoftware: z.string().optional(),
@@ -251,6 +252,7 @@ export const onboardingRouter = createRouter({
         usesHubdoc: input.usesHubdoc,
         hasJobCosting: input.hasJobCosting,
         avgMonthlyTransactions: input.avgMonthlyTransactions,
+        bookkeepingFrequency: input.bookkeepingFrequency,
         invoicingResponsibility: input.invoicingResponsibility,
         billPayResponsibility: input.billPayResponsibility,
         currentAccountingSoftware: input.currentAccountingSoftware || null,
@@ -290,6 +292,7 @@ export const onboardingRouter = createRouter({
         usesHubdoc: input.usesHubdoc,
         hasJobCosting: input.hasJobCosting,
         avgMonthlyTransactions: input.avgMonthlyTransactions,
+        bookkeepingFrequency: input.bookkeepingFrequency,
         invoicingResponsibility: input.invoicingResponsibility,
         billPayResponsibility: input.billPayResponsibility,
       });

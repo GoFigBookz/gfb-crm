@@ -25,6 +25,7 @@ export type OnboardingData = {
   usesTouchBistro?: boolean | null;
   salesEntryFrequency?: string | null;
   // Scope / responsibilities (drive recurring work + cost)
+  bookkeepingFrequency?: string | null;  // "monthly" | "quarterly" | "annual" | "none"
   usesHubdoc?: boolean | null;
   hasJobCosting?: boolean | null;
   avgMonthlyTransactions?: number | null;
@@ -77,19 +78,24 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
   const rules: TaskRuleConfig[] = [];
   const fy = parseFiscalYearEnd(data.fiscalYearEnd);
 
-  // === MONTHLY RECONCILIATION (for ALL clients) ===
-  rules.push({
-    ruleType: "monthly_reconcile_all",
-    title: "Monthly Reconciliation — All Statements",
-    description: "Reconcile all bank accounts, credit cards, and loan statements for the month. Ensure all transactions are categorized and uncleared items are reviewed.",
-    category: "Reconciliation",
-    priority: "high",
-    frequency: "monthly",
-    dueDayOfMonth: 15,
-    daysBeforeDue: 5,
-    fiscalYearEndMonth: fy?.month,
-    fiscalYearEndDay: fy?.day,
-  });
+  // === BOOKKEEPING / RECONCILIATION (cadence = scope) ===
+  const bkFreq = data.bookkeepingFrequency || "monthly";
+  if (bkFreq !== "none") {
+    const bkLabel = bkFreq === "quarterly" ? "Quarterly" : bkFreq === "annual" ? "Annual" : "Monthly";
+    const bkEnum: any = bkFreq === "quarterly" ? "quarterly" : bkFreq === "annual" ? "yearly" : "monthly";
+    rules.push({
+      ruleType: "bookkeeping_reconcile",
+      title: `${bkLabel} Bookkeeping — Reconcile All Statements`,
+      description: "Reconcile all bank accounts, credit cards, and loan statements for the period. Categorize all transactions and review uncleared items.",
+      category: "Reconciliation",
+      priority: "high",
+      frequency: bkEnum,
+      dueDayOfMonth: 15,
+      daysBeforeDue: 5,
+      fiscalYearEndMonth: fy?.month,
+      fiscalYearEndDay: fy?.day,
+    });
+  }
 
   // === SALES ENTRY (Stripe / Square / Jobber / TouchBistro) ===
   if (data.usesStripe || data.usesSquare || data.usesJobber || data.usesTouchBistro) {

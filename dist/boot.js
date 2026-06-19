@@ -22774,6 +22774,7 @@ var init_schema = __esm({
       usesTouchBistro: integer2("usesTouchBistro", { mode: "boolean" }).default(false),
       salesEntryFrequency: text("salesEntryFrequency", { enum: ["daily", "weekly", "monthly", "none"] }).default("monthly"),
       // NEW: scope / responsibilities (factor into pricing)
+      bookkeepingFrequency: text("bookkeepingFrequency", { enum: ["monthly", "quarterly", "annual", "none"] }).default("monthly"),
       usesHubdoc: integer2("usesHubdoc", { mode: "boolean" }).default(false),
       hasJobCosting: integer2("hasJobCosting", { mode: "boolean" }).default(false),
       avgMonthlyTransactions: integer2("avgMonthlyTransactions").default(0),
@@ -40177,18 +40178,23 @@ function parseFiscalYearEnd(fiscalYearEnd) {
 function buildTaskRules(data) {
   const rules = [];
   const fy = parseFiscalYearEnd(data.fiscalYearEnd);
-  rules.push({
-    ruleType: "monthly_reconcile_all",
-    title: "Monthly Reconciliation \u2014 All Statements",
-    description: "Reconcile all bank accounts, credit cards, and loan statements for the month. Ensure all transactions are categorized and uncleared items are reviewed.",
-    category: "Reconciliation",
-    priority: "high",
-    frequency: "monthly",
-    dueDayOfMonth: 15,
-    daysBeforeDue: 5,
-    fiscalYearEndMonth: fy?.month,
-    fiscalYearEndDay: fy?.day
-  });
+  const bkFreq = data.bookkeepingFrequency || "monthly";
+  if (bkFreq !== "none") {
+    const bkLabel = bkFreq === "quarterly" ? "Quarterly" : bkFreq === "annual" ? "Annual" : "Monthly";
+    const bkEnum = bkFreq === "quarterly" ? "quarterly" : bkFreq === "annual" ? "yearly" : "monthly";
+    rules.push({
+      ruleType: "bookkeeping_reconcile",
+      title: `${bkLabel} Bookkeeping \u2014 Reconcile All Statements`,
+      description: "Reconcile all bank accounts, credit cards, and loan statements for the period. Categorize all transactions and review uncleared items.",
+      category: "Reconciliation",
+      priority: "high",
+      frequency: bkEnum,
+      dueDayOfMonth: 15,
+      daysBeforeDue: 5,
+      fiscalYearEndMonth: fy?.month,
+      fiscalYearEndDay: fy?.day
+    });
+  }
   if (data.usesStripe || data.usesSquare || data.usesJobber || data.usesTouchBistro) {
     const platforms = [];
     if (data.usesStripe) platforms.push("Stripe");
@@ -43660,6 +43666,7 @@ var init_onboarding_router = __esm({
         usesHubdoc: external_exports.boolean().default(false),
         hasJobCosting: external_exports.boolean().default(false),
         avgMonthlyTransactions: external_exports.number().min(0).default(0),
+        bookkeepingFrequency: external_exports.enum(["monthly", "quarterly", "annual", "none"]).default("monthly"),
         invoicingResponsibility: external_exports.enum(["we_invoice", "client_invoices", "none"]).default("none"),
         billPayResponsibility: external_exports.enum(["we_pay", "client_pays", "none"]).default("none"),
         currentAccountingSoftware: external_exports.string().optional(),
@@ -43732,6 +43739,7 @@ var init_onboarding_router = __esm({
           usesHubdoc: input.usesHubdoc,
           hasJobCosting: input.hasJobCosting,
           avgMonthlyTransactions: input.avgMonthlyTransactions,
+          bookkeepingFrequency: input.bookkeepingFrequency,
           invoicingResponsibility: input.invoicingResponsibility,
           billPayResponsibility: input.billPayResponsibility,
           currentAccountingSoftware: input.currentAccountingSoftware || null,
@@ -43765,6 +43773,7 @@ var init_onboarding_router = __esm({
           usesHubdoc: input.usesHubdoc,
           hasJobCosting: input.hasJobCosting,
           avgMonthlyTransactions: input.avgMonthlyTransactions,
+          bookkeepingFrequency: input.bookkeepingFrequency,
           invoicingResponsibility: input.invoicingResponsibility,
           billPayResponsibility: input.billPayResponsibility
         });
@@ -49317,6 +49326,7 @@ async function ensureOnboardingColumns() {
   }
   const adds = [
     ["usesTouchBistro", "integer DEFAULT 0"],
+    ["bookkeepingFrequency", "text DEFAULT 'monthly'"],
     ["usesHubdoc", "integer DEFAULT 0"],
     ["hasJobCosting", "integer DEFAULT 0"],
     ["avgMonthlyTransactions", "integer DEFAULT 0"],
