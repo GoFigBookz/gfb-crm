@@ -583,8 +583,22 @@ async function startServer() {
   const { serveStaticFiles } = await import("./lib/vite");
   serveStaticFiles(app);
 
-  // Self-configure the live QBO bridge FIRST (adds the bridge columns before
-  // anything queries qbo_connections), then back-fill finding links.
+  // Populate the client roster from the master directory FIRST (creates missing
+  // client cards + generates their recurring deadline tasks) — the master list
+  // IS the onboard. Must run before the bridge so Clark OS/CW have client cards
+  // to bind to. Idempotent. Opt out with FIGGY_SKIP_CLIENT_SEED=on.
+  if (process.env.FIGGY_SKIP_CLIENT_SEED !== "on") {
+    try {
+      const { importClientMaster } = await import("./import-client-master");
+      const r = await importClientMaster();
+      console.log(`[seed] clients: +${r.created} created, ${r.matched} updated, ${r.rulesCreated} rules, ${r.tasksCreated} tasks`);
+    } catch (e) {
+      console.error("[seed] importClientMaster failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+  }
+
+  // Self-configure the live QBO bridge (adds the bridge columns, binds Clark
+  // OS/CW to the now-seeded client cards), then back-fill finding links.
   const { ensureBridgeReady } = await import("./bridge-bootstrap");
   await ensureBridgeReady();
   const { ensureVendorMemoryColumns } = await import("./vendor-learning");

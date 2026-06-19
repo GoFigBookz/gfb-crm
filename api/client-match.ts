@@ -19,12 +19,16 @@ export async function matchClientIdByName(raw: string): Promise<number | null> {
   let hit = all.find((c) => norm(c.name) === t || norm(c.company) === t);
   if (hit) return hit.id;
 
-  // 2) one fully contains the other (length-guarded to avoid loose hits)
-  hit = all.find((c) => {
-    const n = norm(c.name), co = norm(c.company);
-    return (n.length >= 6 && (t.includes(n) || n.includes(t))) || (co.length >= 6 && (t.includes(co) || co.includes(t)));
-  });
-  if (hit) return hit.id;
+  // 2) one fully contains the other (length-guarded to avoid loose hits). Guard
+  //    BOTH the query and the candidate length: a short query like "USA" must
+  //    never substring-match a longer company name ("UNIMAX USA").
+  if (t.length >= 6) {
+    hit = all.find((c) => {
+      const n = norm(c.name), co = norm(c.company);
+      return (n.length >= 6 && (t.includes(n) || n.includes(t))) || (co.length >= 6 && (t.includes(co) || co.includes(t)));
+    });
+    if (hit) return hit.id;
+  }
 
   // 3) distinctive city keyword — unique per Clark entity, so isolation-safe
   for (const kw of ["owen sound", "collingwood"]) {
