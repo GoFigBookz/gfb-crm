@@ -606,8 +606,9 @@ async function startServer() {
   // table is missing columns the app SELECTs, which makes every read throw (empty
   // Clients page). Add any missing columns first.
   try {
-    const { ensureClientsColumns } = await import("./ensure-clients-schema");
+    const { ensureClientsColumns, ensureOnboardingColumns } = await import("./ensure-clients-schema");
     await ensureClientsColumns();
+    await ensureOnboardingColumns();
   } catch (e) {
     console.error("[schema] ensureClientsColumns failed (non-fatal):", e instanceof Error ? e.message : e);
   }
@@ -629,6 +630,15 @@ async function startServer() {
       console.log(`[seed] clients: +${r.created} created, ${r.matched} matched, ${r.merged} variants merged, ${r.rulesCreated} rules, ${r.tasksCreated} tasks`);
     } catch (e) {
       console.error("[seed] importClientMaster failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Backfill the one-time setup tasks (CRA Represent-a-Client, Service Canada,
+    // WSIB) for every active client — incl. the already-seeded ones.
+    try {
+      const { backfillSetupTasks } = await import("./task-generator");
+      const s = await backfillSetupTasks();
+      console.log(`[setup-tasks] ensured for ${s.clients} clients, +${s.created} created`);
+    } catch (e) {
+      console.error("[setup-tasks] backfill failed (non-fatal):", e instanceof Error ? e.message : e);
     }
   }
 

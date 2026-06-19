@@ -67,3 +67,25 @@ export async function ensureClientsColumns(): Promise<{ added: string[] }> {
   if (added.length) console.log("[schema] clients: added missing columns:", added.join(", "));
   return { added };
 }
+
+/** Add newer client_onboarding columns the live DB may be missing (e.g.
+ *  usesTouchBistro), so intake inserts don't fail. Idempotent. */
+export async function ensureOnboardingColumns(): Promise<void> {
+  const db = getDb();
+  const have = new Set<string>();
+  try {
+    const res: any = await db.run(sql`PRAGMA table_info(client_onboarding)`);
+    for (const r of (res?.rows ?? res ?? [])) have.add(String((r as any).name ?? (r as any)[1] ?? ""));
+  } catch (e) {
+    console.error("[schema] table_info(client_onboarding) failed:", e instanceof Error ? e.message : e);
+    return;
+  }
+  const adds: Array<[string, string]> = [
+    ["usesTouchBistro", "integer DEFAULT 0"],
+  ];
+  for (const [col, type] of adds) {
+    if (have.has(col)) continue;
+    try { await db.run(sql.raw(`ALTER TABLE client_onboarding ADD COLUMN "${col}" ${type}`)); console.log("[schema] client_onboarding: added", col); }
+    catch (e) { console.error("[schema] add client_onboarding column", col, "failed:", e instanceof Error ? e.message : e); }
+  }
+}

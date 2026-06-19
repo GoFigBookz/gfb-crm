@@ -96,6 +96,7 @@ function onboardingFromRow(clientId: number, r: Row): OnboardingData {
     needsYearEnd: true,
     usesStripe: Boolean(r.stripe),
     usesJobber: Boolean(r.jobber),
+    usesTouchBistro: Boolean(r.touchbistro),
     usesSquare: false,
   };
 }

@@ -449,6 +449,7 @@ export const clientOnboarding = sqliteTable("client_onboarding", {
   usesStripe: integer("usesStripe", { mode: "boolean" }).default(false),
   usesSquare: integer("usesSquare", { mode: "boolean" }).default(false),
   usesJobber: integer("usesJobber", { mode: "boolean" }).default(false),
+  usesTouchBistro: integer("usesTouchBistro", { mode: "boolean" }).default(false),
   salesEntryFrequency: text("salesEntryFrequency", { enum: ["daily", "weekly", "monthly", "none"] }).default("monthly"),
   
   // Status

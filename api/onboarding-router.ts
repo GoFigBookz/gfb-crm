@@ -168,6 +168,7 @@ export const onboardingRouter = createRouter({
       usesStripe: z.boolean().default(false),
       usesSquare: z.boolean().default(false),
       usesJobber: z.boolean().default(false),
+      usesTouchBistro: z.boolean().default(false),
       salesEntryFrequency: z.enum(["daily", "weekly", "monthly", "none"]).default("none"),
       currentAccountingSoftware: z.string().optional(),
       currentPayrollProvider: z.string().optional(),
@@ -239,6 +240,7 @@ export const onboardingRouter = createRouter({
         usesStripe: input.usesStripe,
         usesSquare: input.usesSquare,
         usesJobber: input.usesJobber,
+        usesTouchBistro: input.usesTouchBistro,
         salesEntryFrequency: input.salesEntryFrequency,
         currentAccountingSoftware: input.currentAccountingSoftware || null,
         currentPayrollProvider: input.currentPayrollProvider || null,
@@ -272,6 +274,7 @@ export const onboardingRouter = createRouter({
         usesStripe: input.usesStripe,
         usesSquare: input.usesSquare,
         usesJobber: input.usesJobber,
+        usesTouchBistro: input.usesTouchBistro,
         salesEntryFrequency: input.salesEntryFrequency,
       });
 

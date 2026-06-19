@@ -22771,6 +22771,7 @@ var init_schema = __esm({
       usesStripe: integer2("usesStripe", { mode: "boolean" }).default(false),
       usesSquare: integer2("usesSquare", { mode: "boolean" }).default(false),
       usesJobber: integer2("usesJobber", { mode: "boolean" }).default(false),
+      usesTouchBistro: integer2("usesTouchBistro", { mode: "boolean" }).default(false),
       salesEntryFrequency: text("salesEntryFrequency", { enum: ["daily", "weekly", "monthly", "none"] }).default("monthly"),
       // Status
       status: text("status", { enum: ["pending", "submitted", "reviewed", "approved"] }).default("pending").notNull(),
@@ -40135,6 +40136,19 @@ var init_client_router = __esm({
 });
 
 // api/task-generator.ts
+var task_generator_exports = {};
+__export(task_generator_exports, {
+  backfillSetupTasks: () => backfillSetupTasks,
+  buildTaskRules: () => buildTaskRules,
+  calculateNextDueDate: () => calculateNextDueDate,
+  createClientTaskRules: () => createClientTaskRules,
+  ensureSetupTasks: () => ensureSetupTasks,
+  generateNextTaskInstance: () => generateNextTaskInstance,
+  generateTaskFromRule: () => generateTaskFromRule,
+  getClientTaskRules: () => getClientTaskRules,
+  parseFiscalYearEnd: () => parseFiscalYearEnd,
+  setRuleActive: () => setRuleActive
+});
 function parseFiscalYearEnd(fiscalYearEnd) {
   if (!fiscalYearEnd) return null;
   const s = fiscalYearEnd.trim();
@@ -40169,11 +40183,12 @@ function buildTaskRules(data) {
     fiscalYearEndMonth: fy?.month,
     fiscalYearEndDay: fy?.day
   });
-  if (data.usesStripe || data.usesSquare || data.usesJobber) {
+  if (data.usesStripe || data.usesSquare || data.usesJobber || data.usesTouchBistro) {
     const platforms = [];
     if (data.usesStripe) platforms.push("Stripe");
     if (data.usesSquare) platforms.push("Square");
     if (data.usesJobber) platforms.push("Jobber");
+    if (data.usesTouchBistro) platforms.push("TouchBistro");
     const freq = data.salesEntryFrequency || "monthly";
     const freqLabel = freq === "daily" ? "Daily" : freq === "weekly" ? "Weekly" : "Monthly";
     const freqEnum = freq === "daily" ? "daily" : freq === "weekly" ? "weekly" : "monthly";
@@ -40446,6 +40461,63 @@ function generateTaskFromRule(rule, instanceNumber = 1) {
     completed: false
   };
 }
+async function ensureSetupTasks(opts) {
+  const db = getDb();
+  const dueDate = new Date(Date.now() + 14 * 864e5);
+  const items = [
+    {
+      title: "Get CRA Represent a Client (RAC) access",
+      description: "Request and confirm Represent a Client authorization with CRA so we can manage this client's CRA accounts (RC59 / online authorization request). Required before we can file or view CRA data."
+    }
+  ];
+  if (opts.hasPayroll) items.push({
+    title: "Set up Service Canada (ROE Web) access",
+    description: "Register / obtain Service Canada ROE Web access for this client's payroll so Records of Employment can be issued and filed."
+  });
+  if (opts.hasWsib) items.push({
+    title: "Set up WSIB account & access",
+    description: "Set up or confirm the client's WSIB account and online access (registration, clearance certificate, premium reporting)."
+  });
+  let created = 0;
+  for (const it of items) {
+    const existing = await db.select().from(tasks).where(and(eq(tasks.clientId, opts.clientId), eq(tasks.title, it.title))).limit(1);
+    if (existing[0]) continue;
+    await db.insert(tasks).values({
+      userId: opts.userId,
+      clientId: opts.clientId,
+      title: it.title,
+      description: it.description,
+      category: "Setup",
+      priority: "high",
+      completed: false,
+      dueDate,
+      assignedTo: opts.assignedTo || null,
+      isRecurring: false,
+      recurrenceCount: 0,
+      status: "pending"
+    });
+    created++;
+  }
+  return created;
+}
+async function backfillSetupTasks() {
+  const db = getDb();
+  const all = await db.select().from(clients).where(eq(clients.status, "active"));
+  let created = 0;
+  for (const c of all) {
+    try {
+      created += await ensureSetupTasks({
+        clientId: c.id,
+        userId: c.userId ?? 1,
+        assignedTo: c.assignedTo ?? null,
+        hasPayroll: Boolean(c.hasPayroll),
+        hasWsib: Boolean(c.hasWSIB)
+      });
+    } catch {
+    }
+  }
+  return { clients: all.length, created };
+}
 async function createClientTaskRules(data) {
   const db = getDb();
   const rules = buildTaskRules(data);
@@ -40481,7 +40553,14 @@ async function createClientTaskRules(data) {
       await db.update(clientTaskRules).set({ lastGeneratedDate: /* @__PURE__ */ new Date() }).where(eq(clientTaskRules.id, rule.id));
     }
   }
-  return { rules: createdRules, tasks: createdTasks };
+  const setupCreated = await ensureSetupTasks({
+    clientId: data.clientId,
+    userId: data.userId,
+    assignedTo: data.assignedTo,
+    hasPayroll: Boolean(data.payrollFrequency && data.payrollFrequency !== "none") || Boolean(data.hasEmployees),
+    hasWsib: Boolean(data.wsibRequired)
+  });
+  return { rules: createdRules, tasks: createdTasks, setupTasks: setupCreated };
 }
 async function generateNextTaskInstance(completedTaskId) {
   const db = getDb();
@@ -40510,6 +40589,14 @@ async function generateNextTaskInstance(completedTaskId) {
   const nextTask = generateTaskFromRule({ ...rule, nextDueDate }, newInstanceCount);
   const [newTask] = await db.insert(tasks).values(nextTask);
   return newTask;
+}
+async function getClientTaskRules(clientId) {
+  const db = getDb();
+  return db.select().from(clientTaskRules).where(eq(clientTaskRules.clientId, clientId));
+}
+async function setRuleActive(ruleId, active) {
+  const db = getDb();
+  await db.update(clientTaskRules).set({ active }).where(eq(clientTaskRules.id, ruleId));
 }
 var init_task_generator = __esm({
   "api/task-generator.ts"() {
@@ -43529,6 +43616,7 @@ var init_onboarding_router = __esm({
         usesStripe: external_exports.boolean().default(false),
         usesSquare: external_exports.boolean().default(false),
         usesJobber: external_exports.boolean().default(false),
+        usesTouchBistro: external_exports.boolean().default(false),
         salesEntryFrequency: external_exports.enum(["daily", "weekly", "monthly", "none"]).default("none"),
         currentAccountingSoftware: external_exports.string().optional(),
         currentPayrollProvider: external_exports.string().optional(),
@@ -43594,6 +43682,7 @@ var init_onboarding_router = __esm({
           usesStripe: input.usesStripe,
           usesSquare: input.usesSquare,
           usesJobber: input.usesJobber,
+          usesTouchBistro: input.usesTouchBistro,
           salesEntryFrequency: input.salesEntryFrequency,
           currentAccountingSoftware: input.currentAccountingSoftware || null,
           currentPayrollProvider: input.currentPayrollProvider || null,
@@ -43621,6 +43710,7 @@ var init_onboarding_router = __esm({
           usesStripe: input.usesStripe,
           usesSquare: input.usesSquare,
           usesJobber: input.usesJobber,
+          usesTouchBistro: input.usesTouchBistro,
           salesEntryFrequency: input.salesEntryFrequency
         });
         return {
@@ -45432,11 +45522,17 @@ async function statusForClient(db, client, asOf) {
   });
   const yearEnd = computeYearEndStatus({ yearEndMonth: client.yearEndMonth ?? null, asOf });
   const roll = rollUpCloseStatus({ toReview, checklistPercent, hst, yearEnd });
+  const missing = [];
+  if (!client.taxId) missing.push("CRA #");
+  if (client.hasHST && !client.hstNumber) missing.push("HST #");
+  if (client.hasPayroll && !client.payrollRpNumber) missing.push("Payroll #");
+  if (client.hasWSIB && !client.wsibAccountNumber) missing.push("WSIB #");
   return {
     clientId: client.id,
     clientName: client.name,
     company: client.company ?? null,
     lastReconciled: sc.lastReconciled ? sc.lastReconciled.toISOString().slice(0, 10) : null,
+    missing,
     ...roll
   };
 }
@@ -47945,6 +48041,7 @@ function onboardingFromRow(clientId, r) {
     needsYearEnd: true,
     usesStripe: Boolean(r.stripe),
     usesJobber: Boolean(r.jobber),
+    usesTouchBistro: Boolean(r.touchbistro),
     usesSquare: false
   };
 }
@@ -49127,7 +49224,8 @@ var init_vite = __esm({
 // api/ensure-clients-schema.ts
 var ensure_clients_schema_exports = {};
 __export(ensure_clients_schema_exports, {
-  ensureClientsColumns: () => ensureClientsColumns
+  ensureClientsColumns: () => ensureClientsColumns,
+  ensureOnboardingColumns: () => ensureOnboardingColumns
 });
 async function ensureClientsColumns() {
   const db = getDb();
@@ -49151,6 +49249,29 @@ async function ensureClientsColumns() {
   }
   if (added.length) console.log("[schema] clients: added missing columns:", added.join(", "));
   return { added };
+}
+async function ensureOnboardingColumns() {
+  const db = getDb();
+  const have = /* @__PURE__ */ new Set();
+  try {
+    const res = await db.run(sql`PRAGMA table_info(client_onboarding)`);
+    for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
+  } catch (e) {
+    console.error("[schema] table_info(client_onboarding) failed:", e instanceof Error ? e.message : e);
+    return;
+  }
+  const adds = [
+    ["usesTouchBistro", "integer DEFAULT 0"]
+  ];
+  for (const [col, type] of adds) {
+    if (have.has(col)) continue;
+    try {
+      await db.run(sql.raw(`ALTER TABLE client_onboarding ADD COLUMN "${col}" ${type}`));
+      console.log("[schema] client_onboarding: added", col);
+    } catch (e) {
+      console.error("[schema] add client_onboarding column", col, "failed:", e instanceof Error ? e.message : e);
+    }
+  }
 }
 var COLUMNS;
 var init_ensure_clients_schema = __esm({
@@ -53900,7 +54021,7 @@ app.post("/api/admin/import-clients", async (c) => {
       return c.json({ error: "Invalid token" }, 401);
     }
     const db = getDb();
-    const { clients: clients3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { clients: clients2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const { eq: eq2 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const { createRecurringTasksForClient: createRecurringTasksForClient2 } = await Promise.resolve().then(() => (init_client_task_creator(), client_task_creator_exports));
     const CLIENTS_DATA2 = [
@@ -53928,12 +54049,12 @@ app.post("/api/admin/import-clients", async (c) => {
     const results = { imported: 0, skipped: 0, tasksCreated: 0, errors: [] };
     for (const clientData of CLIENTS_DATA2) {
       try {
-        const existing = await db.select().from(clients3).where(eq2(clients3.name, clientData.name)).limit(1);
+        const existing = await db.select().from(clients2).where(eq2(clients2.name, clientData.name)).limit(1);
         if (existing.length > 0) {
           results.skipped++;
           continue;
         }
-        const [client] = await db.insert(clients3).values({
+        const [client] = await db.insert(clients2).values({
           ...clientData,
           userId: 1,
           createdAt: /* @__PURE__ */ new Date(),
@@ -54011,9 +54132,9 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "clients") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, qboConnections: qboConnections3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients2, qboConnections: qboConnections3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const db = getDb2();
-      const cs = await db.select().from(clients3);
+      const cs = await db.select().from(clients2);
       const conns = await db.select().from(qboConnections3);
       const byClient = /* @__PURE__ */ new Map();
       for (const cn of conns) {
@@ -54045,8 +54166,9 @@ async function startServer() {
   const { serveStaticFiles: serveStaticFiles2 } = await Promise.resolve().then(() => (init_vite(), vite_exports));
   serveStaticFiles2(app);
   try {
-    const { ensureClientsColumns: ensureClientsColumns2 } = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
+    const { ensureClientsColumns: ensureClientsColumns2, ensureOnboardingColumns: ensureOnboardingColumns2 } = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
     await ensureClientsColumns2();
+    await ensureOnboardingColumns2();
   } catch (e) {
     console.error("[schema] ensureClientsColumns failed (non-fatal):", e instanceof Error ? e.message : e);
   }
@@ -54064,6 +54186,13 @@ async function startServer() {
       console.log(`[seed] clients: +${r.created} created, ${r.matched} matched, ${r.merged} variants merged, ${r.rulesCreated} rules, ${r.tasksCreated} tasks`);
     } catch (e) {
       console.error("[seed] importClientMaster failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { backfillSetupTasks: backfillSetupTasks2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
+      const s = await backfillSetupTasks2();
+      console.log(`[setup-tasks] ensured for ${s.clients} clients, +${s.created} created`);
+    } catch (e) {
+      console.error("[setup-tasks] backfill failed (non-fatal):", e instanceof Error ? e.message : e);
     }
   }
   const { ensureBridgeReady: ensureBridgeReady2 } = await Promise.resolve().then(() => (init_bridge_bootstrap(), bridge_bootstrap_exports));

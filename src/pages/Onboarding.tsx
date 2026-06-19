@@ -73,7 +73,7 @@ export default function Onboarding() {
     payrollFrequency: "none" as "weekly" | "biweekly" | "semi_monthly" | "monthly" | "none",
     hasEmployees: false, hasSubcontractors: false, hasInvestments: false,
     wsibRequired: false, bankAccountCount: 1, creditCardCount: 0,
-    needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false,
+    needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
     salesEntryFrequency: "none" as "daily" | "weekly" | "monthly" | "none",
     currentAccountingSoftware: "", currentPayrollProvider: "",
     servicesNeeded: "", painPoints: "", expectations: "",
@@ -92,7 +92,7 @@ export default function Onboarding() {
     hstGstFrequency: "none", payrollFrequency: "none",
     hasEmployees: false, hasSubcontractors: false, hasInvestments: false,
     wsibRequired: false, bankAccountCount: 1, creditCardCount: 0,
-    needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false,
+    needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
     salesEntryFrequency: "none",
     currentAccountingSoftware: "", currentPayrollProvider: "",
     servicesNeeded: "", painPoints: "", expectations: "",
@@ -264,25 +264,17 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              {/* Banking */}
+              {/* Accounts (how many to reconcile — not the account numbers) */}
               <div className="bg-slate-50 rounded-lg p-4 space-y-4">
-                <h3 className="font-medium text-slate-700">Banking</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <h3 className="font-medium text-slate-700">Accounts to Reconcile</h3>
+                <div className="grid grid-cols-2 gap-4 max-w-md">
                   <div className="space-y-2">
-                    <Label>Bank Name</Label>
-                    <Input value={intake.bankName} onChange={e => setIntake({...intake, bankName: e.target.value})} placeholder="RBC" />
+                    <Label># of Bank Accounts</Label>
+                    <Input type="number" min="0" value={intake.bankAccountCount} onChange={e => setIntake({...intake, bankAccountCount: parseInt(e.target.value) || 0})} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Account Number</Label>
-                    <Input value={intake.bankAccountNumber} onChange={e => setIntake({...intake, bankAccountNumber: e.target.value})} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Routing / Transit</Label>
-                    <Input value={intake.bankRoutingNumber} onChange={e => setIntake({...intake, bankRoutingNumber: e.target.value})} placeholder="003" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Credit Cards</Label>
-                    <Input type="number" value={intake.creditCardCount} onChange={e => setIntake({...intake, creditCardCount: parseInt(e.target.value) || 0})} />
+                    <Label># of Credit Cards</Label>
+                    <Input type="number" min="0" value={intake.creditCardCount} onChange={e => setIntake({...intake, creditCardCount: parseInt(e.target.value) || 0})} />
                   </div>
                 </div>
               </div>
@@ -303,8 +295,12 @@ export default function Onboarding() {
                     <Checkbox checked={intake.usesJobber} onCheckedChange={v => setIntake({...intake, usesJobber: !!v})} />
                     <span className="text-sm">Jobber</span>
                   </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={intake.usesTouchBistro} onCheckedChange={v => setIntake({...intake, usesTouchBistro: !!v})} />
+                    <span className="text-sm">TouchBistro</span>
+                  </label>
                 </div>
-                {((intake.usesStripe || intake.usesSquare || intake.usesJobber)) && (
+                {((intake.usesStripe || intake.usesSquare || intake.usesJobber || intake.usesTouchBistro)) && (
                   <div className="space-y-2 w-48">
                     <Label>Sales Entry Frequency</Label>
                     <Select value={intake.salesEntryFrequency} onValueChange={(v: any) => setIntake({...intake, salesEntryFrequency: v})}>
