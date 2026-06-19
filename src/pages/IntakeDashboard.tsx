@@ -80,7 +80,7 @@ export default function IntakeDashboard() {
     onSuccess: () => { refetch(); toast.success("Updated"); },
   });
 
-  const isAdmin = can("admin");
+  const isAdmin = can.admin;
 
   const toggleSelect = (id: number) => {
     const next = new Set(selected);
