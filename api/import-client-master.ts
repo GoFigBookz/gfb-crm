@@ -36,7 +36,7 @@ type Row = {
 // captured 2026-06-14. bn = 9-digit CRA business number; "" = none/not applicable.
 const F = "https://drive.google.com/drive/folders/";
 const D = "https://docs.google.com/document/d/";
-const ROWS: Row[] = [
+export const ROWS: Row[] = [
   { name: "2303851 ONTARIO INC.", bn: "847759909", pay: "Monthly", hst: "Annually", wsib: "", ye: "2025-09-30", stripe: true, paypal: true, folder: F + "1FQw4yxOHXU9yDilc9Jy5yP1cKbBQaNCQ", doc: D + "1fLLB27VahF5Kc8mw9CkPikyh4een07iv0NX9YTyiBTE" },
   { name: "ORIGINALITY.AI INC.", bn: "786440610", pay: "Semi-Monthly", hst: "Quarterly", wsib: "", ye: "2025-09-30", stripe: true, folder: F + "1aaqB12rJ5Ou4kX_tWF24JFq7OjEXHL2o", doc: D + "1LTWesMl3XR7wQdjNObAJ3yte2V7Ov8aijMJuSDafG7o" },
   { name: "CLARK POOLS AND SPAS COLLINGWOOD INC.", bn: "770298602", pay: "Bi-Weekly", hst: "Quarterly", wsib: "8989514", ye: "2025-09-30", jobber: true, folder: F + "10qXdEt4KVgW2w3s5VOIph1chSFPUErtH", doc: D + "1B2Mx0H5-CjJyPKcqBy2zSUm7MA-1sZX8PREZxeLcne4" },
@@ -143,34 +143,98 @@ export async function ensureClientMasterColumns(): Promise<void> {
   }
 }
 
+const norm2 = (s: any): string => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+const asRows = (res: any): any[] => [...(res?.rows ?? res ?? [])];
+const numAff = (res: any): number => Number(res?.rowsAffected ?? res?.changes ?? 0);
+
+/** Discover every table (besides clients) that has a clientId column, so a merge
+ *  re-points references instead of orphaning them. */
+async function refTablesWithClientId(db: any): Promise<string[]> {
+  const out: string[] = [];
+  const tables = asRows(await db.run(sql`SELECT name FROM sqlite_master WHERE type='table'`)).map((t: any) => String(t.name ?? t[0]));
+  for (const t of tables) {
+    if (t === "clients" || t.startsWith("sqlite_")) continue;
+    try {
+      const cols = asRows(await db.run(sql.raw(`PRAGMA table_info("${t}")`))).map((c: any) => String(c.name ?? c[1]));
+      if (cols.includes("clientId")) out.push(t);
+    } catch { /* skip */ }
+  }
+  return out;
+}
+
+/** Does a client (name/company) match one of a master row's keys? Conservative:
+ *  exact normalized, length-guarded contains, or a distinctive city keyword. */
+function clientMatchesKeys(cName: string, cCompany: string, keys: string[], rowNameNorm: string): boolean {
+  const n = norm2(cName), co = norm2(cCompany);
+  for (const raw of keys) {
+    const k = norm2(raw);
+    if (!k) continue;
+    if (n === k || co === k) return true;
+    if (k.length >= 6) {
+      if (n.length >= 6 && (n.includes(k) || k.includes(n))) return true;
+      if (co.length >= 6 && (co.includes(k) || k.includes(co))) return true;
+    }
+  }
+  for (const kw of ["owen sound", "collingwood"]) {
+    if (rowNameNorm.includes(kw) && `${n} ${co}`.includes(kw)) return true;
+  }
+  return false;
+}
+
 export async function importClientMaster() {
   await ensureClientMasterColumns();
   const db = getDb();
-  const report = { rows: ROWS.length, matched: 0, created: 0, updated: 0, vaults: 0, rulesCreated: 0, tasksCreated: 0, unmatched: [] as string[] };
+  const report = { rows: ROWS.length, matched: 0, created: 0, merged: 0, updated: 0, vaults: 0, rulesCreated: 0, tasksCreated: 0, unmatched: [] as string[] };
+
+  // Load all clients once + discover reference tables (for variant merges).
+  const refTables = await refTablesWithClientId(db);
+  let allClients: any[] = asRows(await db.run(sql`SELECT id, name, company, qboConnectionId FROM clients`))
+    .map((r: any) => ({ id: Number(r.id ?? r[0]), name: String(r.name ?? r[1] ?? ""), company: String(r.company ?? r[2] ?? ""), qboConnectionId: r.qboConnectionId ?? r[3] ?? null }));
+  const claimed = new Set<number>(); // a client can be claimed by at most one master row
 
   for (const r of ROWS) {
-    let clientId: number | null = null;
-    for (const k of matchKeys(r.name)) { clientId = await matchClientIdByName(k); if (clientId) break; }
+    const keys = matchKeys(r.name);
+    const rowNameNorm = norm2(r.name);
 
-    // CREATE the client card if the master directory has someone the CRM doesn't.
-    // This is what turns the master list INTO the client roster (idempotent — a
-    // matched client is patched, never duplicated).
-    if (!clientId) {
+    // Find ALL existing clients that are this company (any spelling variant),
+    // excluding ones already claimed by an earlier master row.
+    const candidates = allClients.filter((c) => !claimed.has(c.id) && clientMatchesKeys(c.name, c.company, keys, rowNameNorm));
+    let clientId: number | null = null;
+
+    if (candidates.length === 0) {
+      // The master has someone the CRM doesn't — create the client card.
       const inserted = await db.insert(clients).values({
-        userId: 1,
-        name: r.name,
-        email: "", // real contact email filled by staff later; never fabricated
-        company: legalName(r.name),
-        status: "active",
-        workflowStatus: "active",
-        assignedTo: "Markie",
+        userId: 1, name: r.name, email: "", company: legalName(r.name),
+        status: "active", workflowStatus: "active", assignedTo: "Markie",
       }).returning({ id: clients.id });
       clientId = inserted[0]?.id ?? null;
       if (!clientId) { report.unmatched.push(r.name); continue; }
+      allClients.push({ id: clientId, name: r.name, company: legalName(r.name), qboConnectionId: null });
       report.created++;
     } else {
+      // Canonical = the one with a live QBO connection if any, else lowest id.
+      candidates.sort((a, b) => a.id - b.id);
+      const canonical = candidates.find((c) => c.qboConnectionId) ?? candidates[0];
+      clientId = canonical.id;
       report.matched++;
+
+      // MERGE every other spelling-variant into the canonical: re-point all
+      // references, then delete the duplicate client rows. Never orphan data.
+      const dupes = candidates.filter((c) => c.id !== canonical.id).map((c) => c.id);
+      if (dupes.length) {
+        for (const t of refTables) {
+          for (const d of dupes) {
+            try { await db.run(sql.raw(`UPDATE "${t}" SET "clientId" = ${canonical.id} WHERE "clientId" = ${d}`)); } catch { /* held */ }
+          }
+        }
+        try {
+          await db.run(sql.raw(`DELETE FROM clients WHERE id IN (${dupes.join(",")})`));
+          report.merged += dupes.length;
+        } catch (e) { console.error("[import] merge-delete failed for", r.name, ":", e instanceof Error ? e.message : e); }
+        allClients = allClients.filter((c) => !dupes.includes(c.id));
+      }
     }
+    claimed.add(clientId);
 
     const payFreq = payMap[r.pay.toLowerCase()] ?? null;
     const hstPeriod = hstMap[r.hst.toLowerCase()] ?? null;
