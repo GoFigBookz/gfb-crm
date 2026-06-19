@@ -57,6 +57,11 @@ export default function ClientDashboard() {
     { enabled: !!id }
   );
 
+  const { data: closeStatus } = trpc.monthEnd.getClientStatus.useQuery(
+    { clientId: id },
+    { enabled: !!id }
+  );
+
   const utils = trpc.useUtils();
   const saveSnapshot = trpc.clientDashboard.saveSnapshot.useMutation({
     onSuccess: () => utils.clientDashboard.getByClient.invalidate({ clientId: id }),
@@ -137,6 +142,91 @@ export default function ClientDashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Month-End Close cockpit — where this client stands right now */}
+      {closeStatus && (
+        <Card className={cn(
+          "border-l-4",
+          closeStatus.status === "red" ? "border-l-red-500" :
+          closeStatus.status === "yellow" ? "border-l-amber-400" : "border-l-emerald-500"
+        )}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <span className={cn("inline-block w-2.5 h-2.5 rounded-full",
+                  closeStatus.status === "red" ? "bg-red-500" :
+                  closeStatus.status === "yellow" ? "bg-amber-400" : "bg-emerald-500"
+                )} />
+                Month-End Close
+              </CardTitle>
+              <span className="text-xs text-slate-500">
+                {closeStatus.status === "green" ? "On track" : closeStatus.status === "yellow" ? "Needs attention" : "Behind"}
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Transactions to review */}
+              <div>
+                <p className="text-xs uppercase font-semibold text-slate-500">To review</p>
+                <p className={cn("text-2xl font-bold", closeStatus.toReview > 0 ? "text-amber-600" : "text-emerald-600")}>
+                  {closeStatus.toReview}
+                </p>
+                <p className="text-xs text-slate-400">transactions</p>
+              </div>
+              {/* HST */}
+              <div>
+                <p className="text-xs uppercase font-semibold text-slate-500">HST</p>
+                {closeStatus.hst.applicable ? (
+                  <>
+                    <p className={cn("text-sm font-semibold",
+                      closeStatus.hst.status === "red" ? "text-red-600" :
+                      closeStatus.hst.status === "yellow" ? "text-amber-600" : "text-emerald-600"
+                    )}>
+                      {closeStatus.hst.filed ? "Filed" : closeStatus.hst.overdue ? "Overdue" : "Due"}
+                    </p>
+                    <p className="text-xs text-slate-400">{closeStatus.hst.periodLabel}{closeStatus.hst.dueDate ? ` · due ${closeStatus.hst.dueDate}` : ""}</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-400">n/a</p>
+                )}
+              </div>
+              {/* Year-end */}
+              <div>
+                <p className="text-xs uppercase font-semibold text-slate-500">Year-end</p>
+                {closeStatus.yearEnd.applicable ? (
+                  <>
+                    <p className={cn("text-sm font-semibold",
+                      closeStatus.yearEnd.status === "red" ? "text-red-600" :
+                      closeStatus.yearEnd.status === "yellow" ? "text-amber-600" : "text-emerald-600"
+                    )}>
+                      {closeStatus.yearEnd.lastFyeDate}
+                    </p>
+                    <p className="text-xs text-slate-400">{closeStatus.yearEnd.daysSinceFye}d ago</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-400">n/a</p>
+                )}
+              </div>
+              {/* Checklist / reconciled */}
+              <div>
+                <p className="text-xs uppercase font-semibold text-slate-500">Close checklist</p>
+                <p className="text-2xl font-bold text-slate-700">
+                  {closeStatus.checklistPercent == null ? "—" : `${closeStatus.checklistPercent}%`}
+                </p>
+                <p className="text-xs text-slate-400">{closeStatus.lastReconciled ? `rec'd ${closeStatus.lastReconciled}` : "not reconciled"}</p>
+              </div>
+            </div>
+            {closeStatus.reasons.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {closeStatus.reasons.map((r, i) => (
+                  <Badge key={i} variant="outline" className="text-xs font-normal text-slate-600">{r}</Badge>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Key Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

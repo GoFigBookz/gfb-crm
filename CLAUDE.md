@@ -9,6 +9,23 @@ Work smarter not harder: **less of Markie's time, less money (Make ops),
 accurate books on cheap autopilot, an AI that learns & grows per client. Build
 ONCE on consolidated rails — never per-client clones.**
 
+## Operating preference (Markie, 2026-06-19)
+**"Always do which one is best."** When there's a clearly-best technical option,
+PICK IT and proceed — don't stop to make me choose. Still flag genuinely
+my-call decisions (irreversible, money/business, taste), but default to action
+on the strongest option with a one-line note on why.
+
+## Product north star (what this is FOR — Markie, 2026-06-19)
+The CRM is Markie's **month-end-close cockpit**: at a glance, where each client
+stands — how many transactions need posting/review, who's due for HST and is it
+filed, is year-end done, is it reconciled. Per-client status + a portfolio
+"who's behind" board, all fed by the live QBO connection. The vendor brain +
+Triage answers "what needs posting"; the month-end status layer answers "where
+is each client in their close." Build the per-client status engine ONCE, cache
+to a snapshot (cheap — don't fan out live QBO on every board load → Make ops
+cap), then surface it as the per-client cockpit, the portfolio board, and the
+auto-driven close checklist.
+
 ## Golden rules (never violate)
 - Nothing posts to QBO without Markie's review. All posters stay OFF.
 - Chart of accounts is LOCKED — Figgy never invents/guesses an account.
