@@ -71,11 +71,20 @@ async function statusForClient(db: any, client: typeof clients.$inferSelect, asO
   });
   const yearEnd = computeYearEndStatus({ yearEndMonth: (client.yearEndMonth as MonthAbbr | null) ?? null, asOf });
   const roll = rollUpCloseStatus({ toReview, checklistPercent, hst, yearEnd });
+
+  // Missing required setup info (CRA BN is the urgent one).
+  const missing: string[] = [];
+  if (!client.taxId) missing.push("CRA #");
+  if (client.hasHST && !client.hstNumber) missing.push("HST #");
+  if (client.hasPayroll && !(client as any).payrollRpNumber) missing.push("Payroll #");
+  if (client.hasWSIB && !client.wsibAccountNumber) missing.push("WSIB #");
+
   return {
     clientId: client.id,
     clientName: client.name,
     company: client.company ?? null,
     lastReconciled: sc.lastReconciled ? sc.lastReconciled.toISOString().slice(0, 10) : null,
+    missing,
     ...roll,
   };
 }

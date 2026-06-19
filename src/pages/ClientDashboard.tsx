@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useNavigate } from "react-router";
 import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -63,7 +63,14 @@ export default function ClientDashboard() {
     { enabled: !!id }
   );
 
+  const navigate = useNavigate();
   const utils = trpc.useUtils();
+  const archiveClient = trpc.crmClient.archive.useMutation({
+    onSuccess: () => { utils.crmClient.list.invalidate(); navigate("/clients"); },
+  });
+  const deleteClient = trpc.crmClient.delete.useMutation({
+    onSuccess: () => { utils.crmClient.list.invalidate(); navigate("/clients"); },
+  });
   const saveSnapshot = trpc.clientDashboard.saveSnapshot.useMutation({
     onSuccess: () => utils.clientDashboard.getByClient.invalidate({ clientId: id }),
   });
@@ -141,8 +148,35 @@ export default function ClientDashboard() {
           <Button size="sm" variant="outline" className="border-lime-300 text-lime-700" onClick={() => setShowLogTime(true)}>
             <Timer className="h-3.5 w-3.5 mr-1" /> Log Time
           </Button>
+          <Button size="sm" variant="outline" className="border-slate-300 text-slate-600"
+            onClick={() => { if (confirm(`Archive ${client.name}? It will be hidden from the active client list (not deleted).`)) archiveClient.mutate({ id }); }}>
+            Archive
+          </Button>
+          <Button size="sm" variant="outline" className="border-red-300 text-red-600"
+            onClick={() => { if (confirm(`PERMANENTLY DELETE ${client.name} and all its data? This cannot be undone.`)) deleteClient.mutate({ id }); }}>
+            Delete
+          </Button>
         </div>
       </div>
+
+      {/* Missing-info flag — CRA Business Number is required */}
+      {(() => {
+        const missing: string[] = [];
+        if (!client.taxId) missing.push("CRA Business Number");
+        if (client.hasHST && !client.hstNumber) missing.push("HST/GST Number");
+        if (client.hasPayroll && !(client as any).payrollRpNumber) missing.push("Payroll (RP) Number");
+        if (client.hasWSIB && !client.wsibAccountNumber) missing.push("WSIB Account Number");
+        if (missing.length === 0) return null;
+        return (
+          <div className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-3">
+            <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-red-700">Missing required info</p>
+              <p className="text-sm text-red-600">{missing.join(" · ")} — add via the client's record so filings and Figgy coding work.</p>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Month-End Close cockpit — where this client stands right now */}
       {closeStatus && (

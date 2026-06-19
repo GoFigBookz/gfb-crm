@@ -60,7 +60,14 @@ export default function MonthEndClose() {
                   <div className="col-span-12 md:col-span-4 flex items-center gap-2">
                     <span className={cn("inline-block w-2.5 h-2.5 rounded-full shrink-0", DOT[c.status])} />
                     <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{c.clientName}</p>
+                      <p className="font-medium text-sm truncate flex items-center gap-1.5">
+                        {c.clientName}
+                        {c.missing && c.missing.length > 0 && (
+                          <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 whitespace-nowrap">
+                            ⚠ missing {c.missing.join(", ")}
+                          </span>
+                        )}
+                      </p>
                       {c.reasons[0] && <p className="text-xs text-slate-400 truncate">{c.reasons.join(" · ")}</p>}
                     </div>
                   </div>

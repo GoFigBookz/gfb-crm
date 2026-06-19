@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getDb } from "./queries/connection";
 import { clientTaskRules, tasks, clients } from "../db/schema";
 import type { InferSelectModel } from "drizzle-orm";
@@ -22,6 +22,7 @@ export type OnboardingData = {
   usesStripe?: boolean | null;
   usesSquare?: boolean | null;
   usesJobber?: boolean | null;
+  usesTouchBistro?: boolean | null;
   salesEntryFrequency?: string | null;
 };
 
@@ -84,12 +85,13 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
     fiscalYearEndDay: fy?.day,
   });
 
-  // === SALES ENTRY (Stripe / Square / Jobber) ===
-  if (data.usesStripe || data.usesSquare || data.usesJobber) {
+  // === SALES ENTRY (Stripe / Square / Jobber / TouchBistro) ===
+  if (data.usesStripe || data.usesSquare || data.usesJobber || data.usesTouchBistro) {
     const platforms: string[] = [];
     if (data.usesStripe) platforms.push("Stripe");
     if (data.usesSquare) platforms.push("Square");
     if (data.usesJobber) platforms.push("Jobber");
+    if (data.usesTouchBistro) platforms.push("TouchBistro");
     
     const freq = data.salesEntryFrequency || "monthly";
     const freqLabel = freq === "daily" ? "Daily" : freq === "weekly" ? "Weekly" : "Monthly";
@@ -397,6 +399,65 @@ export function generateTaskFromRule(
   };
 }
 
+/**
+ * One-time SETUP tasks every new client needs — created idempotently (by title)
+ * so re-running never duplicates them. CRA Represent-a-Client access is mandatory
+ * for all; Service Canada (ROE Web) when there's payroll; WSIB when applicable.
+ */
+export async function ensureSetupTasks(opts: {
+  clientId: number; userId: number; assignedTo?: string | null;
+  hasPayroll?: boolean | null; hasWsib?: boolean | null;
+}): Promise<number> {
+  const db = getDb();
+  const dueDate = new Date(Date.now() + 14 * 86_400_000); // ~2 weeks to get access set up
+  const items: Array<{ title: string; description: string }> = [
+    {
+      title: "Get CRA Represent a Client (RAC) access",
+      description: "Request and confirm Represent a Client authorization with CRA so we can manage this client's CRA accounts (RC59 / online authorization request). Required before we can file or view CRA data.",
+    },
+  ];
+  if (opts.hasPayroll) items.push({
+    title: "Set up Service Canada (ROE Web) access",
+    description: "Register / obtain Service Canada ROE Web access for this client's payroll so Records of Employment can be issued and filed.",
+  });
+  if (opts.hasWsib) items.push({
+    title: "Set up WSIB account & access",
+    description: "Set up or confirm the client's WSIB account and online access (registration, clearance certificate, premium reporting).",
+  });
+
+  let created = 0;
+  for (const it of items) {
+    const existing = await db.select().from(tasks)
+      .where(and(eq(tasks.clientId, opts.clientId), eq(tasks.title, it.title))).limit(1);
+    if (existing[0]) continue;
+    await db.insert(tasks).values({
+      userId: opts.userId, clientId: opts.clientId, title: it.title, description: it.description,
+      category: "Setup", priority: "high", completed: false, dueDate,
+      assignedTo: opts.assignedTo || null, isRecurring: false, recurrenceCount: 0, status: "pending",
+    });
+    created++;
+  }
+  return created;
+}
+
+/** Ensure every active client has its one-time setup tasks (backfill on boot —
+ *  the already-seeded clients have rules so the seed skips them, but they still
+ *  need CRA/Service Canada/WSIB setup tasks). Idempotent. */
+export async function backfillSetupTasks(): Promise<{ clients: number; created: number }> {
+  const db = getDb();
+  const all = await db.select().from(clients).where(eq(clients.status, "active"));
+  let created = 0;
+  for (const c of all as any[]) {
+    try {
+      created += await ensureSetupTasks({
+        clientId: c.id, userId: c.userId ?? 1, assignedTo: c.assignedTo ?? null,
+        hasPayroll: Boolean(c.hasPayroll), hasWsib: Boolean(c.hasWSIB),
+      });
+    } catch { /* best effort per client */ }
+  }
+  return { clients: all.length, created };
+}
+
 // Save rules to database and generate first tasks
 export async function createClientTaskRules(data: OnboardingData) {
   const db = getDb();
@@ -442,7 +503,14 @@ export async function createClientTaskRules(data: OnboardingData) {
     }
   }
 
-  return { rules: createdRules, tasks: createdTasks };
+  // One-time setup tasks (CRA RAC always; Service Canada if payroll; WSIB if applicable).
+  const setupCreated = await ensureSetupTasks({
+    clientId: data.clientId, userId: data.userId, assignedTo: data.assignedTo,
+    hasPayroll: Boolean(data.payrollFrequency && data.payrollFrequency !== "none") || Boolean(data.hasEmployees),
+    hasWsib: Boolean(data.wsibRequired),
+  });
+
+  return { rules: createdRules, tasks: createdTasks, setupTasks: setupCreated };
 }
 
 // When a recurring task is completed, generate the next instance
