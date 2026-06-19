@@ -75,6 +75,7 @@ export default function Onboarding() {
     wsibRequired: false, paysDividends: false, bankAccountCount: 1, creditCardCount: 0,
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
+    hasEHT: false, employeeCount: 0, monthsBehind: 0,
     bookkeepingFrequency: "monthly" as "monthly" | "quarterly" | "annual" | "none",
     invoicingResponsibility: "none" as "we_invoice" | "client_invoices" | "none",
     billPayResponsibility: "none" as "we_pay" | "client_pays" | "none",
@@ -98,6 +99,7 @@ export default function Onboarding() {
     wsibRequired: false, paysDividends: false, bankAccountCount: 1, creditCardCount: 0,
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
+    hasEHT: false, employeeCount: 0, monthsBehind: 0,
     bookkeepingFrequency: "monthly" as "monthly" | "quarterly" | "annual" | "none",
     invoicingResponsibility: "none" as "we_invoice" | "client_invoices" | "none",
     billPayResponsibility: "none" as "we_pay" | "client_pays" | "none",
@@ -245,6 +247,10 @@ export default function Onboarding() {
                     <span className="text-sm">WSIB Required</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={intake.hasEHT} onCheckedChange={v => setIntake({...intake, hasEHT: !!v})} />
+                    <span className="text-sm">EHT (Ontario)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <Checkbox checked={intake.needsYearEnd} onCheckedChange={v => setIntake({...intake, needsYearEnd: !!v})} />
                     <span className="text-sm">Needs Year-End</span>
                   </label>
@@ -347,6 +353,16 @@ export default function Onboarding() {
                     <Label>Avg. monthly transactions</Label>
                     <Input type="number" min="0" value={intake.avgMonthlyTransactions}
                       onChange={e => setIntake({...intake, avgMonthlyTransactions: parseInt(e.target.value) || 0})} placeholder="e.g. 150" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label># of Employees</Label>
+                    <Input type="number" min="0" value={intake.employeeCount}
+                      onChange={e => setIntake({...intake, employeeCount: parseInt(e.target.value) || 0})} placeholder="e.g. 3" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Months behind (catch-up)</Label>
+                    <Input type="number" min="0" value={intake.monthsBehind}
+                      onChange={e => setIntake({...intake, monthsBehind: parseInt(e.target.value) || 0})} placeholder="0 = current" />
                   </div>
                   <div className="space-y-2">
                     <Label>Invoicing</Label>

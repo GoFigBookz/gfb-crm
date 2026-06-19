@@ -83,6 +83,9 @@ export async function ensureOnboardingColumns(): Promise<void> {
   const adds: Array<[string, string]> = [
     ["usesTouchBistro", "integer DEFAULT 0"],
     ["paysDividends", "integer DEFAULT 0"],
+    ["hasEHT", "integer DEFAULT 0"],
+    ["employeeCount", "integer DEFAULT 0"],
+    ["monthsBehind", "integer DEFAULT 0"],
     ["bookkeepingFrequency", "text DEFAULT 'monthly'"],
     ["usesHubdoc", "integer DEFAULT 0"],
     ["hasJobCosting", "integer DEFAULT 0"],

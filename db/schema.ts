@@ -454,6 +454,9 @@ export const clientOnboarding = sqliteTable("client_onboarding", {
 
   // NEW: scope / responsibilities (factor into pricing)
   paysDividends: integer("paysDividends", { mode: "boolean" }).default(false),
+  hasEHT: integer("hasEHT", { mode: "boolean" }).default(false),
+  employeeCount: integer("employeeCount").default(0),
+  monthsBehind: integer("monthsBehind").default(0),
   bookkeepingFrequency: text("bookkeepingFrequency", { enum: ["monthly", "quarterly", "annual", "none"] }).default("monthly"),
   usesHubdoc: integer("usesHubdoc", { mode: "boolean" }).default(false),
   hasJobCosting: integer("hasJobCosting", { mode: "boolean" }).default(false),
