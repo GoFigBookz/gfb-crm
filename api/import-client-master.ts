@@ -105,6 +105,44 @@ function legalName(name: string): string {
   return name.replace(/\([^)]*\)/g, "").trim() || name;
 }
 
+// Brand-name casings a generic title-case would mangle (keyed by normalized name).
+const NAME_OVERRIDES: Record<string, string> = {
+  "gotomarket agility inc.": "GoToMarket Agility Inc.",
+  "originality.ai inc.": "Originality.AI Inc.",
+  "listingeagle.com inc.": "ListingEagle.com Inc.",
+  "fractal saas inc.": "Fractal SaaS Inc.",
+  "align by design hd inc.": "Align by Design HD Inc.",
+  "m.m. kapala medicine professional corporation": "M.M. Kapala Medicine Professional Corporation",
+  "1000235299 ontario ltd. (the auld spot pub)": "1000235299 Ontario Ltd. (The Auld Spot Pub)",
+  "1001196626 ontario ltd. (sher-e-punjab)": "1001196626 Ontario Ltd. (Sher-E-Punjab)",
+  "1001411380 ontario inc. (columbus cafe)": "1001411380 Ontario Inc. (Columbus Cafe)",
+  "fleming advisory inc. (fka kaavio)": "Fleming Advisory Inc. (fka Kaavio)",
+  "unimax (usa)": "Unimax (USA)",
+  "universal drywall (usa)": "Universal Drywall (USA)",
+};
+
+const SMALL_WORDS = new Set(["and", "by", "of", "the", "for", "to"]);
+
+/** Convert an ALL-CAPS company name to clean display casing. */
+function prettyName(raw: string): string {
+  const over = NAME_OVERRIDES[raw.trim().toLowerCase()];
+  if (over) return over;
+  return raw.toLowerCase().split(/\s+/).map((w, i) => {
+    if (/^\d/.test(w)) return w;                                   // numbered companies / codes
+    if (i > 0 && SMALL_WORDS.has(w)) return w;                     // "and", "by" stay lowercase mid-name
+    let s = w.replace(/\b([a-z])/, (c) => c.toUpperCase());        // capitalize first letter
+    s = s.replace(/-([a-z])/g, (_, c) => "-" + c.toUpperCase());   // hyphenated parts (Sher-E-Punjab)
+    return s
+      .replace(/^(Inc|Ltd|Corp|Co)\.?$/i, (m) => m.replace(/\.?$/, ".").replace(/^\w/, (c) => c.toUpperCase()))
+      .replace(/^Llc$/i, "LLC").replace(/^Usa$/i, "USA").replace(/^Hd$/i, "HD").replace(/^Saas$/i, "SaaS");
+  }).join(" ").trim();
+}
+
+/** Pretty display name for the company field (no parenthetical trade name). */
+function prettyCompany(raw: string): string {
+  return prettyName(legalName(raw));
+}
+
 /** Derive the trade name inside parentheses AND the bare legal name, so either
  *  can match a CRM client (e.g. "1000235299 ONTARIO LTD. (The Auld Spot Pub)"). */
 function matchKeys(name: string): string[] {
@@ -204,7 +242,7 @@ export async function importClientMaster() {
     if (candidates.length === 0) {
       // The master has someone the CRM doesn't — create the client card.
       const inserted = await db.insert(clients).values({
-        userId: 1, name: r.name, email: "", company: legalName(r.name),
+        userId: 1, name: prettyName(r.name), email: "", company: prettyCompany(r.name),
         status: "active", workflowStatus: "active", assignedTo: "Markie",
       }).returning({ id: clients.id });
       clientId = inserted[0]?.id ?? null;
@@ -241,6 +279,8 @@ export async function importClientMaster() {
     const yearEndMonth = /^\d{4}-(\d{2})-\d{2}$/.test(r.ye) ? MONTHS[Number(r.ye.slice(5, 7)) - 1] : null;
 
     const patch: Record<string, any> = {
+      name: prettyName(r.name),          // fix ALL-CAPS -> clean display casing
+      company: prettyCompany(r.name),
       assignedTo: "Markie",
       driveFolderUrl: r.folder || null,
       clientInfoDocUrl: r.doc || null,
