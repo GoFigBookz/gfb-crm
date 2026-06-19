@@ -75,6 +75,7 @@ export default function Onboarding() {
     wsibRequired: false, bankAccountCount: 1, creditCardCount: 0,
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
+    bookkeepingFrequency: "monthly" as "monthly" | "quarterly" | "annual" | "none",
     invoicingResponsibility: "none" as "we_invoice" | "client_invoices" | "none",
     billPayResponsibility: "none" as "we_pay" | "client_pays" | "none",
     salesEntryFrequency: "none" as "daily" | "weekly" | "monthly" | "none",
@@ -97,6 +98,7 @@ export default function Onboarding() {
     wsibRequired: false, bankAccountCount: 1, creditCardCount: 0,
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
+    bookkeepingFrequency: "monthly" as "monthly" | "quarterly" | "annual" | "none",
     invoicingResponsibility: "none" as "we_invoice" | "client_invoices" | "none",
     billPayResponsibility: "none" as "we_pay" | "client_pays" | "none",
     salesEntryFrequency: "none",
@@ -204,33 +206,8 @@ export default function Onboarding() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>HST/GST Frequency</Label>
-                    <Select value={intake.hstGstFrequency} onValueChange={(v: any) => setIntake({...intake, hstGstFrequency: v})}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None / Not Registered</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="quarterly">Quarterly</SelectItem>
-                        <SelectItem value="annually">Annually</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
                     <Label>HST/GST Number</Label>
                     <Input value={intake.hstGstNumber} onChange={e => setIntake({...intake, hstGstNumber: e.target.value})} placeholder="123456789RT0001" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Payroll Frequency</Label>
-                    <Select value={intake.payrollFrequency} onValueChange={(v: any) => setIntake({...intake, payrollFrequency: v})}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None / No Payroll</SelectItem>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="biweekly">Bi-Weekly</SelectItem>
-                        <SelectItem value="semi_monthly">Semi-Monthly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>Payroll Account Number</Label>
@@ -321,24 +298,51 @@ export default function Onboarding() {
                 )}
               </div>
 
-              {/* Scope & Responsibilities (these factor into pricing) */}
-              <div className="bg-slate-50 rounded-lg p-4 space-y-4">
-                <h3 className="font-medium text-slate-700">Scope &amp; Responsibilities</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Scope & Responsibilities — drives the quote */}
+              <div className="bg-lime-50 rounded-lg p-4 space-y-4 border border-lime-200">
+                <h3 className="font-medium text-slate-700">Scope &amp; Responsibilities <span className="text-xs font-normal text-slate-500">(drives the quote)</span></h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Bookkeeping Frequency</Label>
+                    <Select value={intake.bookkeepingFrequency} onValueChange={(v: any) => setIntake({...intake, bookkeepingFrequency: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="annual">Annual</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>HST Filing Frequency</Label>
+                    <Select value={intake.hstGstFrequency} onValueChange={(v: any) => setIntake({...intake, hstGstFrequency: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None / Not Registered</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="annually">Annually</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Payroll Frequency</Label>
+                    <Select value={intake.payrollFrequency} onValueChange={(v: any) => setIntake({...intake, payrollFrequency: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None / No Payroll</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="biweekly">Bi-Weekly</SelectItem>
+                        <SelectItem value="semi_monthly">Semi-Monthly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="space-y-2">
                     <Label>Avg. monthly transactions</Label>
                     <Input type="number" min="0" value={intake.avgMonthlyTransactions}
                       onChange={e => setIntake({...intake, avgMonthlyTransactions: parseInt(e.target.value) || 0})} placeholder="e.g. 150" />
-                  </div>
-                  <div className="flex flex-wrap items-end gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox checked={intake.usesHubdoc} onCheckedChange={v => setIntake({...intake, usesHubdoc: !!v})} />
-                      <span className="text-sm">Uses Hubdoc</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox checked={intake.hasJobCosting} onCheckedChange={v => setIntake({...intake, hasJobCosting: !!v})} />
-                      <span className="text-sm">Job costing</span>
-                    </label>
                   </div>
                   <div className="space-y-2">
                     <Label>Invoicing</Label>
@@ -363,13 +367,23 @@ export default function Onboarding() {
                     </Select>
                   </div>
                 </div>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={intake.usesHubdoc} onCheckedChange={v => setIntake({...intake, usesHubdoc: !!v})} />
+                    <span className="text-sm">Uses Hubdoc</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={intake.hasJobCosting} onCheckedChange={v => setIntake({...intake, hasJobCosting: !!v})} />
+                    <span className="text-sm">Job costing</span>
+                  </label>
+                </div>
+                <div className="space-y-2">
+                  <Label>Services Needed</Label>
+                  <Input value={intake.servicesNeeded} onChange={e => setIntake({...intake, servicesNeeded: e.target.value})} placeholder="Bookkeeping, payroll, HST filing, year-end..." />
+                </div>
               </div>
 
               {/* Notes */}
-              <div className="space-y-2">
-                <Label>Services Needed</Label>
-                <Input value={intake.servicesNeeded} onChange={e => setIntake({...intake, servicesNeeded: e.target.value})} placeholder="Bookkeeping, payroll, HST filing..." />
-              </div>
               <div className="space-y-2">
                 <Label>Pain Points</Label>
                 <Input value={intake.painPoints} onChange={e => setIntake({...intake, painPoints: e.target.value})} placeholder="What problems are they facing?" />
