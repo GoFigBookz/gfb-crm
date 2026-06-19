@@ -453,6 +453,7 @@ export const clientOnboarding = sqliteTable("client_onboarding", {
   salesEntryFrequency: text("salesEntryFrequency", { enum: ["daily", "weekly", "monthly", "none"] }).default("monthly"),
 
   // NEW: scope / responsibilities (factor into pricing)
+  paysDividends: integer("paysDividends", { mode: "boolean" }).default(false),
   bookkeepingFrequency: text("bookkeepingFrequency", { enum: ["monthly", "quarterly", "annual", "none"] }).default("monthly"),
   usesHubdoc: integer("usesHubdoc", { mode: "boolean" }).default(false),
   hasJobCosting: integer("hasJobCosting", { mode: "boolean" }).default(false),

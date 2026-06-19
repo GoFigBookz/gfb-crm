@@ -22774,6 +22774,7 @@ var init_schema = __esm({
       usesTouchBistro: integer2("usesTouchBistro", { mode: "boolean" }).default(false),
       salesEntryFrequency: text("salesEntryFrequency", { enum: ["daily", "weekly", "monthly", "none"] }).default("monthly"),
       // NEW: scope / responsibilities (factor into pricing)
+      paysDividends: integer2("paysDividends", { mode: "boolean" }).default(false),
       bookkeepingFrequency: text("bookkeepingFrequency", { enum: ["monthly", "quarterly", "annual", "none"] }).default("monthly"),
       usesHubdoc: integer2("usesHubdoc", { mode: "boolean" }).default(false),
       hasJobCosting: integer2("hasJobCosting", { mode: "boolean" }).default(false),
@@ -40195,23 +40196,34 @@ function buildTaskRules(data) {
       fiscalYearEndDay: fy?.day
     });
   }
-  if (data.usesStripe || data.usesSquare || data.usesJobber || data.usesTouchBistro) {
-    const platforms = [];
-    if (data.usesStripe) platforms.push("Stripe");
-    if (data.usesSquare) platforms.push("Square");
-    if (data.usesJobber) platforms.push("Jobber");
-    if (data.usesTouchBistro) platforms.push("TouchBistro");
-    const freq = data.salesEntryFrequency || "monthly";
-    const freqLabel = freq === "daily" ? "Daily" : freq === "weekly" ? "Weekly" : "Monthly";
-    const freqEnum = freq === "daily" ? "daily" : freq === "weekly" ? "weekly" : "monthly";
+  const receiptPlatforms = [];
+  if (data.usesStripe) receiptPlatforms.push("Stripe");
+  if (data.usesSquare) receiptPlatforms.push("Square");
+  if (data.usesTouchBistro) receiptPlatforms.push("TouchBistro");
+  if (receiptPlatforms.length > 0) {
+    const p = receiptPlatforms.join(" / ");
     rules.push({
-      ruleType: "sales_entry",
-      title: `${freqLabel} Sales Entry (${platforms.join(" / ")})`,
-      description: `Enter sales transactions from ${platforms.join(", ")} into QuickBooks. Ensure all payments, fees, and deposits are properly categorized. Reconcile to bank deposits.`,
+      ruleType: "sales_receipts",
+      title: `Monthly Sales Receipts \u2014 ${p}`,
+      description: `Pull the monthly sales report from ${p}. Break out net sales and HST/GST, save the report as backup/proof, then create the monthly Sales Receipt in QuickBooks and reconcile to the bank deposit (net of processor fees).`,
       category: "Sales",
       priority: "high",
-      frequency: freqEnum,
-      dueDayOfMonth: freq === "daily" ? 1 : freq === "weekly" ? 5 : 10,
+      frequency: "monthly",
+      dueDayOfMonth: 10,
+      daysBeforeDue: 0,
+      fiscalYearEndMonth: fy?.month,
+      fiscalYearEndDay: fy?.day
+    });
+  }
+  if (data.usesJobber) {
+    rules.push({
+      ruleType: "sales_invoicing_jobber",
+      title: "Monthly Invoicing \u2014 Jobber (A/R)",
+      description: "Pull the monthly Jobber invoicing report. Break out invoiced revenue and HST/GST, save the report as backup/proof, then enter the invoices (A/R) in QuickBooks and reconcile against payments received.",
+      category: "Sales",
+      priority: "high",
+      frequency: "monthly",
+      dueDayOfMonth: 10,
       daysBeforeDue: 0,
       fiscalYearEndMonth: fy?.month,
       fiscalYearEndDay: fy?.day
@@ -40273,11 +40285,11 @@ function buildTaskRules(data) {
         fiscalYearEndDay: fy.day
       });
     }
-    if (data.hasInvestments) {
+    if (data.hasInvestments || data.paysDividends) {
       rules.push({
         ruleType: "t5_annual",
-        title: "Prepare & File T5 Slips",
-        description: "Prepare T5 slips for investment income (dividends, interest). Distribute to recipients and file with CRA by Feb 28.",
+        title: "Prepare & File T5 Slips (Dividends)",
+        description: "Prepare T5 slips for dividends paid to shareholders (and any investment income). Distribute to recipients and file with CRA by Feb 28.",
         category: "Tax",
         priority: "high",
         frequency: "yearly",
@@ -43654,6 +43666,7 @@ var init_onboarding_router = __esm({
         hasEmployees: external_exports.boolean().default(false),
         hasSubcontractors: external_exports.boolean().default(false),
         hasInvestments: external_exports.boolean().default(false),
+        paysDividends: external_exports.boolean().default(false),
         wsibRequired: external_exports.boolean().default(false),
         bankAccountCount: external_exports.number().min(0).default(1),
         creditCardCount: external_exports.number().min(0).default(0),
@@ -43727,6 +43740,7 @@ var init_onboarding_router = __esm({
           hasEmployees: input.hasEmployees,
           hasSubcontractors: input.hasSubcontractors,
           hasInvestments: input.hasInvestments,
+          paysDividends: input.paysDividends,
           wsibRequired: input.wsibRequired,
           bankAccountCount: input.bankAccountCount,
           creditCardCount: input.creditCardCount,
@@ -43761,6 +43775,7 @@ var init_onboarding_router = __esm({
           hasEmployees: input.hasEmployees,
           hasSubcontractors: input.hasSubcontractors,
           hasInvestments: input.hasInvestments,
+          paysDividends: input.paysDividends,
           wsibRequired: input.wsibRequired,
           bankAccountCount: input.bankAccountCount,
           creditCardCount: input.creditCardCount,
@@ -49326,6 +49341,7 @@ async function ensureOnboardingColumns() {
   }
   const adds = [
     ["usesTouchBistro", "integer DEFAULT 0"],
+    ["paysDividends", "integer DEFAULT 0"],
     ["bookkeepingFrequency", "text DEFAULT 'monthly'"],
     ["usesHubdoc", "integer DEFAULT 0"],
     ["hasJobCosting", "integer DEFAULT 0"],
