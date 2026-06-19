@@ -12,6 +12,7 @@ export type OnboardingData = {
   hstGstFrequency?: string | null;
   payrollFrequency?: string | null;
   hasEmployees?: boolean | null;
+  payrollRemitterFreq?: string | null;  // "regular" | "quarterly" | "accelerated"
   hasSubcontractors?: boolean | null;
   hasInvestments?: boolean | null;
   paysDividends?: boolean | null;
@@ -317,33 +318,32 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
     }
   }
 
-  // === PAYROLL REMITTANCES ===
+  // === PAYROLL REMITTANCES (PD7A) — cadence driven by CRA remitter type ===
   if (data.payrollFrequency && data.payrollFrequency !== "none") {
-    if (data.payrollFrequency === "weekly" || data.payrollFrequency === "biweekly") {
+    const remitter = data.payrollRemitterFreq || "regular";
+    if (remitter === "quarterly") {
       rules.push({
-        ruleType: "payroll_weekly",
-        title: "Payroll Remittance (PD7A)",
-        description: "Prepare and remit source deductions (CPP, EI, income tax) via PD7A. Due 15th of following month.",
-        category: "Payroll",
-        priority: "high",
-        frequency: "monthly",
-        dueDayOfMonth: 15,
-        daysBeforeDue: 3,
-        fiscalYearEndMonth: fy?.month,
-        fiscalYearEndDay: fy?.day,
+        ruleType: "payroll_remit_quarterly",
+        title: "Payroll Remittance (PD7A) — Quarterly",
+        description: "QUARTERLY remitter: remit source deductions (CPP, EI, income tax) via PD7A by the 15th of the month following each quarter.",
+        category: "Payroll", priority: "high", frequency: "quarterly",
+        dueDayOfMonth: 15, daysBeforeDue: 5, fiscalYearEndMonth: fy?.month, fiscalYearEndDay: fy?.day,
       });
-    } else if (data.payrollFrequency === "semi_monthly" || data.payrollFrequency === "monthly") {
+    } else if (remitter === "accelerated") {
       rules.push({
-        ruleType: "payroll_monthly",
+        ruleType: "payroll_remit_accelerated",
+        title: "Payroll Remittance (PD7A) — ACCELERATED",
+        description: "ACCELERATED remitter — remit source deductions much sooner than regular: Threshold 1 = twice a month (by the 25th for the 1st–15th pay period, by the 10th of next month for the 16th–end); Threshold 2 = within 3 business days of each payday. Confirm the client's threshold.",
+        category: "Payroll", priority: "high", frequency: "biweekly",
+        dueDayOfMonth: 10, daysBeforeDue: 2, fiscalYearEndMonth: fy?.month, fiscalYearEndDay: fy?.day,
+      });
+    } else {
+      rules.push({
+        ruleType: "payroll_remit_regular",
         title: "Payroll Remittance (PD7A)",
-        description: "Prepare and remit source deductions (CPP, EI, income tax) via PD7A. Due 15th of following month.",
-        category: "Payroll",
-        priority: "high",
-        frequency: "monthly",
-        dueDayOfMonth: 15,
-        daysBeforeDue: 3,
-        fiscalYearEndMonth: fy?.month,
-        fiscalYearEndDay: fy?.day,
+        description: "Regular remitter: remit source deductions (CPP, EI, income tax) via PD7A by the 15th of the following month.",
+        category: "Payroll", priority: "high", frequency: "monthly",
+        dueDayOfMonth: 15, daysBeforeDue: 3, fiscalYearEndMonth: fy?.month, fiscalYearEndDay: fy?.day,
       });
     }
   }
