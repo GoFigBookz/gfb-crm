@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enterprise Bookkeeper CRM - Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .gradient-bg { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); }
+    .card-glow { box-shadow: 0 0 40px rgba(16, 185, 129, 0.1); }
+    .feature-icon { background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); }
+  </style>
+</head>
+<body class="bg-slate-50">
+  <!-- Hero -->
+  <div class="gradient-bg text-white min-h-screen">
+    <nav class="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-emerald-500 flex items-center justify-center">
+          <i class="fas fa-receipt text-white text-lg"></i>
+        </div>
+        <span class="text-xl font-bold tracking-tight">Bookkeeper CRM</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-sm border border-emerald-500/30">
+          <i class="fas fa-server mr-1"></i> Self-Hosted
+        </span>
+        <span class="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm border border-blue-500/30">
+          <i class="fas fa-robot mr-1"></i> AI Ready
+        </span>
+      </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-8 py-16 text-center">
+      <h1 class="text-5xl font-extrabold mb-6 leading-tight">
+        Your Complete Bookkeeping
+        <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-blue-500"> Command Center</span>
+      </h1>
+      <p class="text-xl text-slate-400 max-w-3xl mx-auto mb-10">
+        Multi-account CRM connecting all your Gmail, Outlook, Google Drive, OneDrive, and Calendars 
+        in one place. Built for bookkeepers who manage multiple clients across multiple platforms.
+      </p>
+      <div class="flex items-center justify-center gap-4 mb-16">
+        <button onclick="enterDemo()" class="px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-semibold text-lg transition-all hover:scale-105 shadow-lg shadow-emerald-500/25">
+          <i class="fas fa-play mr-2"></i> Launch Demo Mode
+        </button>
+        <a href="#features" class="px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold text-lg transition-all border border-white/20">
+          <i class="fas fa-list mr-2"></i> View Features
+        </a>
+      </div>
+
+      <!-- Stats Banner -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+        <div class="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
+          <div class="text-3xl font-bold text-emerald-400">3+</div>
+          <div class="text-sm text-slate-400">Gmail Accounts</div>
+        </div>
+        <div class="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
+          <div class="text-3xl font-bold text-blue-400">3+</div>
+          <div class="text-sm text-slate-400">Outlook Accounts</div>
+        </div>
+        <div class="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
+          <div class="text-3xl font-bold text-purple-400">3+</div>
+          <div class="text-sm text-slate-400">Google Drives</div>
+        </div>
+        <div class="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4">
+          <div class="text-3xl font-bold text-orange-400">3+</div>
+          <div class="text-sm text-slate-400">OneDrives</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <section id="features" class="py-20 max-w-7xl mx-auto px-8">
+    <h2 class="text-3xl font-bold text-slate-900 text-center mb-12">Everything You Need</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Client Management -->
+      <div class="bg-white rounded-2xl p-6 card-glow border border-slate-200 hover:border-emerald-300 transition-all">
+        <div class="w-12 h-12 rounded-xl feature-icon flex items-center justify-center mb-4">
+          <i class="fas fa-users text-white text-xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Client Management</h3>
+        <p class="text-slate-500 text-sm">Track all clients with contact info, company details, tax IDs, status tracking, and notes.</p>
+        <div class="mt-4 flex gap-2">
+          <span class="px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-xs">Active</span>
+          <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">Prospect</span>
+          <span class="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs">Inactive</span>
+        </div>
+      </div>
+
+      <!-- Unified Inbox -->
+      <div class="bg-white rounded-2xl p-6 card-glow border border-slate-200 hover:border-emerald-300 transition-all">
+        <div class="w-12 h-12 rounded-xl feature-icon flex items-center justify-center mb-4">
+          <i class="fas fa-envelope text-white text-xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Unified Inbox</h3>
+        <p class="text-slate-500 text-sm">All emails from multiple Gmail and Outlook accounts in one place. Never miss a client message.</p>
+        <div class="mt-4 flex gap-2">
+          <span class="px-2 py-1 bg-red-50 text-red-700 rounded text-xs">Gmail x3</span>
+          <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">Outlook x3</span>
+        </div>
+      </div>
+
+      <!-- Task Management -->
+      <div class="bg-white rounded-2xl p-6 card-glow border border-slate-200 hover:border-emerald-300 transition-all">
+        <div class="w-12 h-12 rounded-xl feature-icon flex items-center justify-center mb-4">
+          <i class="fas fa-check-square text-white text-xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Tasks & Recurring</h3>
+        <p class="text-slate-500 text-sm">One-time and auto-recurring tasks. Set frequency: daily, weekly, monthly, quarterly, yearly.</p>
+        <div class="mt-4 flex gap-2">
+          <span class="px-2 py-1 bg-red-50 text-red-700 rounded text-xs">High</span>
+          <span class="px-2 py-1 bg-amber-50 text-amber-700 rounded text-xs">Medium</span>
+          <span class="px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-xs">Low</span>
+        </div>
+      </div>
+
+      <!-- Calendar -->
+      <div class="bg-white rounded-2xl p-6 card-glow border border-slate-200 hover:border-emerald-300 transition-all">
+        <div class="w-12 h-12 rounded-xl feature-icon flex items-center justify-center mb-4">
+          <i class="fas fa-calendar-alt text-white text-xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Unified Calendar</h3>
+        <p class="text-slate-500 text-sm">View all events across Google Calendar and Outlook Calendar. Schedule client meetings in one view.</p>
+        <div class="mt-4 flex gap-2">
+          <span class="px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-xs">Google</span>
+          <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">Outlook</span>
+        </div>
+      </div>
+
+      <!-- Files -->
+      <div class="bg-white rounded-2xl p-6 card-glow border border-slate-200 hover:border-emerald-300 transition-all">
+        <div class="w-12 h-12 rounded-xl feature-icon flex items-center justify-center mb-4">
+          <i class="fas fa-folder-open text-white text-xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Unified Files</h3>
+        <p class="text-slate-500 text-sm">Access all files from multiple Google Drives and OneDrives in one file browser.</p>
+        <div class="mt-4 flex gap-2">
+          <span class="px-2 py-1 bg-red-50 text-red-700 rounded text-xs">Drive x3</span>
+          <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">OneDrive x3</span>
+        </div>
+      </div>
+
+      <!-- Invoices -->
+      <div class="bg-white rounded-2xl p-6 card-glow border border-slate-200 hover:border-emerald-300 transition-all">
+        <div class="w-12 h-12 rounded-xl feature-icon flex items-center justify-center mb-4">
+          <i class="fas fa-file-invoice-dollar text-white text-xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Invoicing</h3>
+        <p class="text-slate-500 text-sm">Create, send, and track invoices. Monitor revenue and outstanding amounts per client.</p>
+        <div class="mt-4 flex gap-2">
+          <span class="px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-xs">Paid</span>
+          <span class="px-2 py-1 bg-amber-50 text-amber-700 rounded text-xs">Sent</span>
+          <span class="px-2 py-1 bg-red-50 text-red-700 rounded text-xs">Overdue</span>
+        </div>
+      </div>
+
+      <!-- AI Agents -->
+      <div class="bg-white rounded-2xl p-6 card-glow border border-slate-200 hover:border-emerald-300 transition-all md:col-span-2 lg:col-span-1">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center mb-4">
+          <i class="fas fa-robot text-white text-xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">AI Agent Integration</h3>
+        <p class="text-slate-500 text-sm">Connect your AI bookkeeper, executive assistant, and custom agents via webhooks.</p>
+        <div class="mt-4 flex gap-2">
+          <span class="px-2 py-1 bg-purple-50 text-purple-700 rounded text-xs">Bookkeeper</span>
+          <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">Assistant</span>
+        </div>
+      </div>
+
+      <!-- Self-Hosted -->
+      <div class="bg-white rounded-2xl p-6 card-glow border border-slate-200 hover:border-emerald-300 transition-all md:col-span-2 lg:col-span-2">
+        <div class="flex items-start gap-6">
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-server text-white text-xl"></i>
+          </div>
+          <div class="flex-1">
+            <h3 class="text-lg font-bold text-slate-900 mb-2">Self-Hosted on Your Infrastructure</h3>
+            <p class="text-slate-500 text-sm mb-4">Complete data ownership. Host on your VPS, cloud server, or local machine. Docker + Docker Compose ready.</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium"><i class="fab fa-docker mr-1"></i> Docker</span>
+              <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium"><i class="fas fa-database mr-1"></i> MySQL</span>
+              <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium"><i class="fas fa-bolt mr-1"></i> tRPC</span>
+              <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium"><i class="fab fa-react mr-1"></i> React 19</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack -->
+  <section class="py-16 bg-white border-y border-slate-200">
+    <div class="max-w-7xl mx-auto px-8 text-center">
+      <h2 class="text-2xl font-bold text-slate-900 mb-8">Built for Scale</h2>
+      <div class="flex flex-wrap items-center justify-center gap-8">
+        <div class="flex items-center gap-2 text-slate-600"><i class="fab fa-react text-2xl text-blue-500"></i> React 19</div>
+        <div class="flex items-center gap-2 text-slate-600"><i class="fas fa-bolt text-2xl text-yellow-500"></i> Vite</div>
+        <div class="flex items-center gap-2 text-slate-600"><i class="fas fa-wind text-2xl text-cyan-500"></i> Tailwind CSS</div>
+        <div class="flex items-center gap-2 text-slate-600"><i class="fas fa-server text-2xl text-slate-700"></i> Hono</div>
+        <div class="flex items-center gap-2 text-slate-600"><i class="fas fa-plug text-2xl text-emerald-500"></i> tRPC</div>
+        <div class="flex items-center gap-2 text-slate-600"><i class="fas fa-database text-2xl text-orange-500"></i> Drizzle ORM</div>
+        <div class="flex items-center gap-2 text-slate-600"><i class="fas fa-shield-alt text-2xl text-blue-600"></i> OAuth 2.0</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-slate-900 text-slate-400 py-12">
+    <div class="max-w-7xl mx-auto px-8 text-center">
+      <div class="flex items-center justify-center gap-3 mb-4">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
+          <i class="fas fa-receipt text-white"></i>
+        </div>
+        <span class="text-lg font-bold text-white">Bookkeeper CRM</span>
+      </div>
+      <p class="text-sm">Enterprise-grade CRM for bookkeepers. Multi-account. Self-hosted. AI-ready.</p>
+      <p class="text-xs mt-4 text-slate-600">Version 2.0.0 | Built with tRPC + Drizzle + React</p>
+    </div>
+  </footer>
+
+  <script>
+    function enterDemo() {
+      localStorage.setItem('demo-mode', 'true');
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>

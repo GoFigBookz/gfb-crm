@@ -579,6 +579,7 @@ app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 export default app;
 
 async function startServer() {
+  console.log("[BOOT] gfb-crm starting — build 2026-06-19c (clients-fix: schema+dedupe+casing)");
   const { serve } = await import("@hono/node-server");
   const { serveStaticFiles } = await import("./lib/vite");
   serveStaticFiles(app);
