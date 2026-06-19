@@ -14,6 +14,13 @@ const QBO_BASE_URLS = {
 
 // OAuth (authorize URL, token exchange, refresh, encryption) lives in qbo-oauth.ts.
 
+// Strip token/secret fields before a connection is sent to the browser. Tokens
+// are encrypted at rest, but the UI never needs them — don't expose them at all.
+function safeConnection(c: typeof qboConnections.$inferSelect) {
+  const { accessToken, refreshToken, bridgeSecret, ...safe } = c;
+  return { ...safe, connected: Boolean(accessToken) || c.transport === "make_bridge" };
+}
+
 // Helper: make an authenticated request to QBO API
 export async function qboRequest(
   connection: typeof qboConnections.$inferSelect,
@@ -308,10 +315,28 @@ export const qboRouter = createRouter({
 
   // --- Connection Management ---
 
+  // NOTE: never ship tokens/secrets to the browser — project only safe fields.
   listConnections: publicQuery.query(async () => {
     const db = getDb();
-    return db.select().from(qboConnections).orderBy(desc(qboConnections.createdAt));
+    const rows = await db.select().from(qboConnections).orderBy(desc(qboConnections.createdAt));
+    return rows.map(safeConnection);
   }),
+
+  // Per-client connection summary for the client page's Connect/Reconnect control.
+  // Mirrors the brain's isolation rule: 0 = none, 2+ = ambiguous (never picks one).
+  connectionForClient: publicQuery
+    .input(z.object({ clientId: z.number() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const rows = await db.select().from(qboConnections)
+        .where(eq(qboConnections.clientId, input.clientId)).orderBy(desc(qboConnections.createdAt));
+      const active = rows.filter((r) => r.isActive);
+      return {
+        connection: rows[0] ? safeConnection(rows[0]) : null,
+        count: rows.length,
+        ambiguous: active.length > 1,
+      };
+    }),
 
   getConnectionByType: publicQuery
     .input(z.object({ accountType: z.enum(["ca_clients", "us_clients", "personal_business"]) }))

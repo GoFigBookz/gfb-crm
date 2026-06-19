@@ -52,6 +52,11 @@ export default function ClientDashboard() {
     { enabled: !!id }
   );
 
+  const { data: qboConn } = trpc.qbo.connectionForClient.useQuery(
+    { clientId: id },
+    { enabled: !!id }
+  );
+
   const utils = trpc.useUtils();
   const saveSnapshot = trpc.clientDashboard.saveSnapshot.useMutation({
     onSuccess: () => utils.clientDashboard.getByClient.invalidate({ clientId: id }),
@@ -105,6 +110,27 @@ export default function ClientDashboard() {
               <Users className="h-3 w-3" />
               Assigned: {client.assignedTo}
             </Badge>
+          )}
+          {/* QuickBooks per-client connection: Connect / Reconnect / Connected */}
+          {qboConn?.ambiguous ? (
+            <Badge variant="outline" className="flex items-center gap-1 border-amber-300 text-amber-700">
+              <AlertCircle className="h-3 w-3" /> Multiple QBO connections
+            </Badge>
+          ) : qboConn?.connection && qboConn.connection.isActive && !qboConn.connection.reconnectReason ? (
+            <Badge variant="outline" className="flex items-center gap-1 border-emerald-300 text-emerald-700">
+              <CheckCircle className="h-3 w-3" /> QuickBooks{qboConn.connection.transport === "make_bridge" ? " (bridge)" : ""}
+            </Badge>
+          ) : qboConn?.connection && (qboConn.connection.reconnectReason || !qboConn.connection.isActive) && qboConn.connection.transport !== "make_bridge" ? (
+            <Button size="sm" variant="outline" className="border-amber-300 text-amber-700"
+              title={qboConn.connection.reconnectReason ? `Reconnect needed: ${qboConn.connection.reconnectReason}` : "Connection inactive"}
+              onClick={() => { window.location.href = `/api/qbo/connect?clientId=${id}`; }}>
+              <AlertCircle className="h-3.5 w-3.5 mr-1" /> Reconnect QuickBooks
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" className="border-green-300 text-green-700"
+              onClick={() => { window.location.href = `/api/qbo/connect?clientId=${id}`; }}>
+              <Link2 className="h-3.5 w-3.5 mr-1" /> Connect QuickBooks
+            </Button>
           )}
           <Button size="sm" variant="outline" className="border-lime-300 text-lime-700" onClick={() => setShowLogTime(true)}>
             <Timer className="h-3.5 w-3.5 mr-1" /> Log Time
