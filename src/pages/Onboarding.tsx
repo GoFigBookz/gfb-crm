@@ -76,6 +76,7 @@ export default function Onboarding() {
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
     hasEHT: false, employeeCount: 0, monthsBehind: 0,
+    payrollRemitterFreq: "regular" as "regular" | "quarterly" | "accelerated",
     bookkeepingFrequency: "monthly" as "monthly" | "quarterly" | "annual" | "none",
     invoicingResponsibility: "none" as "we_invoice" | "client_invoices" | "none",
     billPayResponsibility: "none" as "we_pay" | "client_pays" | "none",
@@ -100,6 +101,7 @@ export default function Onboarding() {
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
     hasEHT: false, employeeCount: 0, monthsBehind: 0,
+    payrollRemitterFreq: "regular" as "regular" | "quarterly" | "accelerated",
     bookkeepingFrequency: "monthly" as "monthly" | "quarterly" | "annual" | "none",
     invoicingResponsibility: "none" as "we_invoice" | "client_invoices" | "none",
     billPayResponsibility: "none" as "we_pay" | "client_pays" | "none",
@@ -346,6 +348,17 @@ export default function Onboarding() {
                         <SelectItem value="biweekly">Bi-Weekly</SelectItem>
                         <SelectItem value="semi_monthly">Semi-Monthly</SelectItem>
                         <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>CRA Remitter Frequency</Label>
+                    <Select value={intake.payrollRemitterFreq} onValueChange={(v: any) => setIntake({...intake, payrollRemitterFreq: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="regular">Regular (15th of next month)</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="accelerated">Accelerated</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

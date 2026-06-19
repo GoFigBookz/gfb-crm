@@ -22624,6 +22624,8 @@ var init_schema = __esm({
       wsibQuarter: text("wsibQuarter", { enum: ["Q1", "Q2", "Q3", "Q4", "all"] }),
       hasPayroll: integer2("hasPayroll", { mode: "boolean" }).default(false),
       payrollFrequency: text("payrollFrequency", { enum: ["weekly", "bi-weekly", "semi-monthly", "monthly", "self"] }),
+      // CRA source-deduction remitter type — drives the PD7A remittance due date.
+      payrollRemitterFreq: text("payrollRemitterFreq", { enum: ["regular", "quarterly", "accelerated"] }).default("regular"),
       yearEndMonth: text("yearEndMonth", { enum: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] }),
       // Quote & Engagement Letter
       quoteAmount: real("quoteAmount"),
@@ -40402,24 +40404,38 @@ function buildTaskRules(data) {
     }
   }
   if (data.payrollFrequency && data.payrollFrequency !== "none") {
-    if (data.payrollFrequency === "weekly" || data.payrollFrequency === "biweekly") {
+    const remitter = data.payrollRemitterFreq || "regular";
+    if (remitter === "quarterly") {
       rules.push({
-        ruleType: "payroll_weekly",
-        title: "Payroll Remittance (PD7A)",
-        description: "Prepare and remit source deductions (CPP, EI, income tax) via PD7A. Due 15th of following month.",
+        ruleType: "payroll_remit_quarterly",
+        title: "Payroll Remittance (PD7A) \u2014 Quarterly",
+        description: "QUARTERLY remitter: remit source deductions (CPP, EI, income tax) via PD7A by the 15th of the month following each quarter.",
         category: "Payroll",
         priority: "high",
-        frequency: "monthly",
+        frequency: "quarterly",
         dueDayOfMonth: 15,
-        daysBeforeDue: 3,
+        daysBeforeDue: 5,
         fiscalYearEndMonth: fy?.month,
         fiscalYearEndDay: fy?.day
       });
-    } else if (data.payrollFrequency === "semi_monthly" || data.payrollFrequency === "monthly") {
+    } else if (remitter === "accelerated") {
       rules.push({
-        ruleType: "payroll_monthly",
+        ruleType: "payroll_remit_accelerated",
+        title: "Payroll Remittance (PD7A) \u2014 ACCELERATED",
+        description: "ACCELERATED remitter \u2014 remit source deductions much sooner than regular: Threshold 1 = twice a month (by the 25th for the 1st\u201315th pay period, by the 10th of next month for the 16th\u2013end); Threshold 2 = within 3 business days of each payday. Confirm the client's threshold.",
+        category: "Payroll",
+        priority: "high",
+        frequency: "biweekly",
+        dueDayOfMonth: 10,
+        daysBeforeDue: 2,
+        fiscalYearEndMonth: fy?.month,
+        fiscalYearEndDay: fy?.day
+      });
+    } else {
+      rules.push({
+        ruleType: "payroll_remit_regular",
         title: "Payroll Remittance (PD7A)",
-        description: "Prepare and remit source deductions (CPP, EI, income tax) via PD7A. Due 15th of following month.",
+        description: "Regular remitter: remit source deductions (CPP, EI, income tax) via PD7A by the 15th of the following month.",
         category: "Payroll",
         priority: "high",
         frequency: "monthly",
@@ -43711,6 +43727,7 @@ var init_onboarding_router = __esm({
         outstandingFilings: external_exports.string().optional(),
         hstGstFrequency: external_exports.enum(["monthly", "quarterly", "annually", "none"]).default("none"),
         payrollFrequency: external_exports.enum(["weekly", "biweekly", "semi_monthly", "monthly", "none"]).default("none"),
+        payrollRemitterFreq: external_exports.enum(["regular", "quarterly", "accelerated"]).default("regular"),
         hasEmployees: external_exports.boolean().default(false),
         hasSubcontractors: external_exports.boolean().default(false),
         hasInvestments: external_exports.boolean().default(false),
@@ -43757,6 +43774,7 @@ var init_onboarding_router = __esm({
           contactName: input.contactName || null,
           notes: input.notes || null,
           transactionsPerMonth: input.avgMonthlyTransactions || 0,
+          payrollRemitterFreq: input.payrollRemitterFreq,
           createdAt: /* @__PURE__ */ new Date(),
           updatedAt: /* @__PURE__ */ new Date()
         }).returning();
@@ -43826,6 +43844,7 @@ var init_onboarding_router = __esm({
           fiscalYearEnd: input.fiscalYearEnd,
           hstGstFrequency: input.hstGstFrequency,
           payrollFrequency: input.payrollFrequency,
+          payrollRemitterFreq: input.payrollRemitterFreq,
           hasEmployees: input.hasEmployees,
           hasSubcontractors: input.hasSubcontractors,
           hasInvestments: input.hasInvestments,
@@ -49453,6 +49472,7 @@ var init_ensure_clients_schema = __esm({
       ["wsibQuarter", "text"],
       ["hasPayroll", "integer DEFAULT 0"],
       ["payrollFrequency", "text"],
+      ["payrollRemitterFreq", "text DEFAULT 'regular'"],
       ["yearEndMonth", "text"],
       ["quoteAmount", "real"],
       ["quoteSentAt", "integer"],

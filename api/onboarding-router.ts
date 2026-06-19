@@ -158,6 +158,7 @@ export const onboardingRouter = createRouter({
       outstandingFilings: z.string().optional(),
       hstGstFrequency: z.enum(["monthly", "quarterly", "annually", "none"]).default("none"),
       payrollFrequency: z.enum(["weekly", "biweekly", "semi_monthly", "monthly", "none"]).default("none"),
+      payrollRemitterFreq: z.enum(["regular", "quarterly", "accelerated"]).default("regular"),
       hasEmployees: z.boolean().default(false),
       hasSubcontractors: z.boolean().default(false),
       hasInvestments: z.boolean().default(false),
@@ -207,6 +208,7 @@ export const onboardingRouter = createRouter({
         contactName: input.contactName || null,
         notes: input.notes || null,
         transactionsPerMonth: input.avgMonthlyTransactions || 0,
+        payrollRemitterFreq: input.payrollRemitterFreq,
         createdAt: new Date(),
         updatedAt: new Date(),
       }).returning();
@@ -285,6 +287,7 @@ export const onboardingRouter = createRouter({
         fiscalYearEnd: input.fiscalYearEnd,
         hstGstFrequency: input.hstGstFrequency,
         payrollFrequency: input.payrollFrequency,
+        payrollRemitterFreq: input.payrollRemitterFreq,
         hasEmployees: input.hasEmployees,
         hasSubcontractors: input.hasSubcontractors,
         hasInvestments: input.hasInvestments,

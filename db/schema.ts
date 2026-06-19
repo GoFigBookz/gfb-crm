@@ -276,6 +276,8 @@ export const clients = sqliteTable("clients", {
   wsibQuarter: text("wsibQuarter", { enum: ["Q1", "Q2", "Q3", "Q4", "all"] }),
   hasPayroll: integer("hasPayroll", { mode: "boolean" }).default(false),
   payrollFrequency: text("payrollFrequency", { enum: ["weekly", "bi-weekly", "semi-monthly", "monthly", "self"] }),
+  // CRA source-deduction remitter type — drives the PD7A remittance due date.
+  payrollRemitterFreq: text("payrollRemitterFreq", { enum: ["regular", "quarterly", "accelerated"] }).default("regular"),
   yearEndMonth: text("yearEndMonth", { enum: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] }),
 
   // Quote & Engagement Letter

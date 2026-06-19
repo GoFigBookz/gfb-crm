@@ -32,7 +32,7 @@ const COLUMNS: Array<[string, string]> = [
   ["onboardingSentAt", "integer"], ["onboardingCompletedAt", "integer"], ["onboardingToken", "text"],
   ["hasHST", "integer DEFAULT 0"], ["hstNumber", "text"], ["hstPeriod", "text"],
   ["hasWSIB", "integer DEFAULT 0"], ["wsibAccountNumber", "text"], ["wsibQuarter", "text"],
-  ["hasPayroll", "integer DEFAULT 0"], ["payrollFrequency", "text"], ["yearEndMonth", "text"],
+  ["hasPayroll", "integer DEFAULT 0"], ["payrollFrequency", "text"], ["payrollRemitterFreq", "text DEFAULT 'regular'"], ["yearEndMonth", "text"],
   ["quoteAmount", "real"], ["quoteSentAt", "integer"], ["quoteApprovedAt", "integer"],
   ["transactionsPerMonth", "integer DEFAULT 0"],
   ["engagementSentAt", "integer"], ["engagementSignedAt", "integer"], ["engagementLetterUrl", "text"],
