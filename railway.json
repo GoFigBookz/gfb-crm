@@ -1,8 +1,12 @@
 {
-  "name": "gfb-crm",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "start": "NODE_ENV=production node dist/boot.js"
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "startCommand": "/app/init.sh",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
   }
 }

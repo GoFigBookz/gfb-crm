@@ -1,30 +1,23 @@
-# Multi-stage build for Enterprise Bookkeeper CRM
-# Build stage
-FROM node:20-alpine AS builder
+# Enterprise Bookkeeper CRM — runs a PRE-BUILT dist shipped in the repo.
+# The app is compiled locally/CI (npm run build) and the resulting dist/ is
+# committed, so Railway never runs the frontend build (which was failing / serving
+# a stale cache and keeping the OLD version live). Railway only installs runtime
+# deps and starts the prebuilt server — deterministic, no build step to break.
+FROM node:20-alpine
 WORKDIR /app
-COPY package*.json ./
-COPY tsconfig*.json ./
-COPY drizzle.config.ts ./
-RUN npm ci
-COPY . .
-RUN npm run build
 
-# Production stage
-FROM node:20-alpine AS production
-WORKDIR /app
+# Runtime dependencies only (includes the native @libsql/client binding, which
+# must be installed on the target platform — can't be bundled/committed).
 COPY package*.json ./
-COPY tsconfig*.json ./
-COPY drizzle.config.ts ./
 RUN npm ci --omit=dev
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/api ./api
-COPY --from=builder /app/contracts ./contracts
-COPY --from=builder /app/db ./db
-COPY --from=builder /app/db/schema.sql ./db/schema.sql
-COPY --from=builder /app/db/full-seed.sql ./db/full-seed.sql
-COPY --from=builder /app/db/seed.sql ./db/seed.sql
-COPY --from=builder /app/db/seed-clients.sql ./db/seed-clients.sql
-COPY --from=builder /app/init.sh ./init.sh
+
+# Prebuilt server + frontend, plus the SQL/init assets boot needs.
+COPY dist ./dist
+COPY api ./api
+COPY contracts ./contracts
+COPY db ./db
+COPY init.sh ./init.sh
+
 RUN mkdir -p /app/data && chmod +x /app/init.sh
 RUN apk add --no-cache sqlite
 EXPOSE 3000
