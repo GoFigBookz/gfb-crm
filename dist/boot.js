@@ -22773,6 +22773,12 @@ var init_schema = __esm({
       usesJobber: integer2("usesJobber", { mode: "boolean" }).default(false),
       usesTouchBistro: integer2("usesTouchBistro", { mode: "boolean" }).default(false),
       salesEntryFrequency: text("salesEntryFrequency", { enum: ["daily", "weekly", "monthly", "none"] }).default("monthly"),
+      // NEW: scope / responsibilities (factor into pricing)
+      usesHubdoc: integer2("usesHubdoc", { mode: "boolean" }).default(false),
+      hasJobCosting: integer2("hasJobCosting", { mode: "boolean" }).default(false),
+      avgMonthlyTransactions: integer2("avgMonthlyTransactions").default(0),
+      invoicingResponsibility: text("invoicingResponsibility", { enum: ["we_invoice", "client_invoices", "none"] }).default("none"),
+      billPayResponsibility: text("billPayResponsibility", { enum: ["we_pay", "client_pays", "none"] }).default("none"),
       // Status
       status: text("status", { enum: ["pending", "submitted", "reviewed", "approved"] }).default("pending").notNull(),
       submittedAt: integer2("submittedAt", { mode: "timestamp" }),
@@ -40205,6 +40211,34 @@ function buildTaskRules(data) {
       fiscalYearEndDay: fy?.day
     });
   }
+  if (data.invoicingResponsibility === "we_invoice") {
+    rules.push({
+      ruleType: "client_invoicing",
+      title: "Client Invoicing",
+      description: "Prepare and send this client's customer invoices in QuickBooks for the period, then follow up on A/R.",
+      category: "Invoicing",
+      priority: "high",
+      frequency: "monthly",
+      dueDayOfMonth: 5,
+      daysBeforeDue: 0,
+      fiscalYearEndMonth: fy?.month,
+      fiscalYearEndDay: fy?.day
+    });
+  }
+  if (data.billPayResponsibility === "we_pay") {
+    rules.push({
+      ruleType: "bill_payments",
+      title: "Bill Payments (A/P run)",
+      description: "Review and pay this client's vendor bills for the period (A/P run), then record payments in QuickBooks.",
+      category: "Accounts Payable",
+      priority: "high",
+      frequency: "monthly",
+      dueDayOfMonth: 20,
+      daysBeforeDue: 0,
+      fiscalYearEndMonth: fy?.month,
+      fiscalYearEndDay: fy?.day
+    });
+  }
   if (data.needsYearEnd !== false && fy) {
     rules.push({
       ruleType: "year_end",
@@ -40478,6 +40512,10 @@ async function ensureSetupTasks(opts) {
     title: "Set up WSIB account & access",
     description: "Set up or confirm the client's WSIB account and online access (registration, clearance certificate, premium reporting)."
   });
+  if (opts.usesHubdoc) items.push({
+    title: "Connect Hubdoc",
+    description: "Set up / connect this client's Hubdoc so receipts and bills flow into QuickBooks automatically."
+  });
   let created = 0;
   for (const it of items) {
     const existing = await db.select().from(tasks).where(and(eq(tasks.clientId, opts.clientId), eq(tasks.title, it.title))).limit(1);
@@ -40558,7 +40596,8 @@ async function createClientTaskRules(data) {
     userId: data.userId,
     assignedTo: data.assignedTo,
     hasPayroll: Boolean(data.payrollFrequency && data.payrollFrequency !== "none") || Boolean(data.hasEmployees),
-    hasWsib: Boolean(data.wsibRequired)
+    hasWsib: Boolean(data.wsibRequired),
+    usesHubdoc: Boolean(data.usesHubdoc)
   });
   return { rules: createdRules, tasks: createdTasks, setupTasks: setupCreated };
 }
@@ -43618,6 +43657,11 @@ var init_onboarding_router = __esm({
         usesJobber: external_exports.boolean().default(false),
         usesTouchBistro: external_exports.boolean().default(false),
         salesEntryFrequency: external_exports.enum(["daily", "weekly", "monthly", "none"]).default("none"),
+        usesHubdoc: external_exports.boolean().default(false),
+        hasJobCosting: external_exports.boolean().default(false),
+        avgMonthlyTransactions: external_exports.number().min(0).default(0),
+        invoicingResponsibility: external_exports.enum(["we_invoice", "client_invoices", "none"]).default("none"),
+        billPayResponsibility: external_exports.enum(["we_pay", "client_pays", "none"]).default("none"),
         currentAccountingSoftware: external_exports.string().optional(),
         currentPayrollProvider: external_exports.string().optional(),
         servicesNeeded: external_exports.string().optional(),
@@ -43641,6 +43685,7 @@ var init_onboarding_router = __esm({
           figgyEmail: `markie+${input.name.toLowerCase().replace(/[^a-z0-9]/g, "")}@gofig.ca`,
           contactName: input.contactName || null,
           notes: input.notes || null,
+          transactionsPerMonth: input.avgMonthlyTransactions || 0,
           createdAt: /* @__PURE__ */ new Date(),
           updatedAt: /* @__PURE__ */ new Date()
         }).returning();
@@ -43684,6 +43729,11 @@ var init_onboarding_router = __esm({
           usesJobber: input.usesJobber,
           usesTouchBistro: input.usesTouchBistro,
           salesEntryFrequency: input.salesEntryFrequency,
+          usesHubdoc: input.usesHubdoc,
+          hasJobCosting: input.hasJobCosting,
+          avgMonthlyTransactions: input.avgMonthlyTransactions,
+          invoicingResponsibility: input.invoicingResponsibility,
+          billPayResponsibility: input.billPayResponsibility,
           currentAccountingSoftware: input.currentAccountingSoftware || null,
           currentPayrollProvider: input.currentPayrollProvider || null,
           servicesNeeded: input.servicesNeeded || null,
@@ -43711,7 +43761,12 @@ var init_onboarding_router = __esm({
           usesSquare: input.usesSquare,
           usesJobber: input.usesJobber,
           usesTouchBistro: input.usesTouchBistro,
-          salesEntryFrequency: input.salesEntryFrequency
+          salesEntryFrequency: input.salesEntryFrequency,
+          usesHubdoc: input.usesHubdoc,
+          hasJobCosting: input.hasJobCosting,
+          avgMonthlyTransactions: input.avgMonthlyTransactions,
+          invoicingResponsibility: input.invoicingResponsibility,
+          billPayResponsibility: input.billPayResponsibility
         });
         return {
           success: true,
@@ -49261,7 +49316,12 @@ async function ensureOnboardingColumns() {
     return;
   }
   const adds = [
-    ["usesTouchBistro", "integer DEFAULT 0"]
+    ["usesTouchBistro", "integer DEFAULT 0"],
+    ["usesHubdoc", "integer DEFAULT 0"],
+    ["hasJobCosting", "integer DEFAULT 0"],
+    ["avgMonthlyTransactions", "integer DEFAULT 0"],
+    ["invoicingResponsibility", "text DEFAULT 'none'"],
+    ["billPayResponsibility", "text DEFAULT 'none'"]
   ];
   for (const [col, type] of adds) {
     if (have.has(col)) continue;

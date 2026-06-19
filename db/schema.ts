@@ -451,7 +451,14 @@ export const clientOnboarding = sqliteTable("client_onboarding", {
   usesJobber: integer("usesJobber", { mode: "boolean" }).default(false),
   usesTouchBistro: integer("usesTouchBistro", { mode: "boolean" }).default(false),
   salesEntryFrequency: text("salesEntryFrequency", { enum: ["daily", "weekly", "monthly", "none"] }).default("monthly"),
-  
+
+  // NEW: scope / responsibilities (factor into pricing)
+  usesHubdoc: integer("usesHubdoc", { mode: "boolean" }).default(false),
+  hasJobCosting: integer("hasJobCosting", { mode: "boolean" }).default(false),
+  avgMonthlyTransactions: integer("avgMonthlyTransactions").default(0),
+  invoicingResponsibility: text("invoicingResponsibility", { enum: ["we_invoice", "client_invoices", "none"] }).default("none"),
+  billPayResponsibility: text("billPayResponsibility", { enum: ["we_pay", "client_pays", "none"] }).default("none"),
+
   // Status
   status: text("status", { enum: ["pending", "submitted", "reviewed", "approved"] }).default("pending").notNull(),
   submittedAt: integer("submittedAt", { mode: "timestamp" }),
