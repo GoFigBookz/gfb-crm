@@ -53567,6 +53567,21 @@ app.get(
   (c) => c.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || "" })
 );
 app.get("/api/health", (c) => c.json({ status: "ok", time: Date.now() }));
+var recentClientErrors = [];
+app.post("/api/client-error", async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const entry = { ...body, at: (/* @__PURE__ */ new Date()).toISOString() };
+    recentClientErrors.unshift(entry);
+    if (recentClientErrors.length > 25) recentClientErrors.pop();
+    console.error("[client-error]", entry.url, "\u2014", entry.message, "\n", entry.componentStack);
+  } catch {
+  }
+  return c.json({ ok: true });
+});
+function getRecentClientErrors() {
+  return recentClientErrors;
+}
 app.get("/api/qbo/connect", async (c) => {
   const { buildAuthorizeUrl: buildAuthorizeUrl2 } = await Promise.resolve().then(() => (init_qbo_oauth(), qbo_oauth_exports));
   const clientIdRaw = c.req.query("clientId");
@@ -53991,6 +54006,9 @@ app.post("/api/admin/figgy", async (c) => {
       const { importClientMaster: importClientMaster2 } = await Promise.resolve().then(() => (init_import_client_master(), import_client_master_exports));
       return c.json({ success: true, op, ...await importClientMaster2() });
     }
+    if (op === "clientErrors") {
+      return c.json({ success: true, op, count: recentClientErrors.length, errors: recentClientErrors });
+    }
     if (op === "clients") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, qboConnections: qboConnections3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
@@ -54073,7 +54091,8 @@ async function startServer() {
 }
 startServer();
 export {
-  boot_default as default
+  boot_default as default,
+  getRecentClientErrors
 };
 /*! Bundled license information:
 

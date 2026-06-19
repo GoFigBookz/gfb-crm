@@ -42,6 +42,21 @@ app.get("/api/auth/config", (c) =>
 // Health check endpoint
 app.get("/api/health", (c) => c.json({ status: "ok", time: Date.now() }));
 
+// Client-side error capture — the frontend ErrorBoundary POSTs render crashes
+// here so white-screen bugs can be diagnosed server-side (read via admin op).
+const recentClientErrors: any[] = [];
+app.post("/api/client-error", async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const entry = { ...body, at: new Date().toISOString() };
+    recentClientErrors.unshift(entry);
+    if (recentClientErrors.length > 25) recentClientErrors.pop();
+    console.error("[client-error]", entry.url, "—", entry.message, "\n", entry.componentStack);
+  } catch { /* ignore */ }
+  return c.json({ ok: true });
+});
+export function getRecentClientErrors() { return recentClientErrors; }
+
 // ================================================================
 // QBO OAUTH CALLBACK — Inline handler (no tRPC caller needed)
 // ================================================================
@@ -537,6 +552,9 @@ app.post("/api/admin/figgy", async (c) => {
     if (op === "importClientMaster") {
       const { importClientMaster } = await import("./import-client-master");
       return c.json({ success: true, op, ...(await importClientMaster()) });
+    }
+    if (op === "clientErrors") {
+      return c.json({ success: true, op, count: recentClientErrors.length, errors: recentClientErrors });
     }
     if (op === "clients") {
       // Read-only: list CRM clients + which have an active QBO connection, so
