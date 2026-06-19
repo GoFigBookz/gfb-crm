@@ -14,6 +14,7 @@ export type OnboardingData = {
   hasEmployees?: boolean | null;
   hasSubcontractors?: boolean | null;
   hasInvestments?: boolean | null;
+  paysDividends?: boolean | null;
   wsibRequired?: boolean | null;
   bankAccountCount?: number | null;
   creditCardCount?: number | null;
@@ -97,26 +98,37 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
     });
   }
 
-  // === SALES ENTRY (Stripe / Square / Jobber / TouchBistro) ===
-  if (data.usesStripe || data.usesSquare || data.usesJobber || data.usesTouchBistro) {
-    const platforms: string[] = [];
-    if (data.usesStripe) platforms.push("Stripe");
-    if (data.usesSquare) platforms.push("Square");
-    if (data.usesJobber) platforms.push("Jobber");
-    if (data.usesTouchBistro) platforms.push("TouchBistro");
-    
-    const freq = data.salesEntryFrequency || "monthly";
-    const freqLabel = freq === "daily" ? "Daily" : freq === "weekly" ? "Weekly" : "Monthly";
-    const freqEnum: any = freq === "daily" ? "daily" : freq === "weekly" ? "weekly" : "monthly";
-    
+  // === SALES ENTRY ===
+  // Receipt-based platforms (cash already collected) -> monthly Sales Receipt in QBO.
+  const receiptPlatforms: string[] = [];
+  if (data.usesStripe) receiptPlatforms.push("Stripe");
+  if (data.usesSquare) receiptPlatforms.push("Square");
+  if (data.usesTouchBistro) receiptPlatforms.push("TouchBistro");
+  if (receiptPlatforms.length > 0) {
+    const p = receiptPlatforms.join(" / ");
     rules.push({
-      ruleType: "sales_entry",
-      title: `${freqLabel} Sales Entry (${platforms.join(" / ")})`,
-      description: `Enter sales transactions from ${platforms.join(", ")} into QuickBooks. Ensure all payments, fees, and deposits are properly categorized. Reconcile to bank deposits.`,
+      ruleType: "sales_receipts",
+      title: `Monthly Sales Receipts — ${p}`,
+      description: `Pull the monthly sales report from ${p}. Break out net sales and HST/GST, save the report as backup/proof, then create the monthly Sales Receipt in QuickBooks and reconcile to the bank deposit (net of processor fees).`,
       category: "Sales",
       priority: "high",
-      frequency: freqEnum,
-      dueDayOfMonth: freq === "daily" ? 1 : freq === "weekly" ? 5 : 10,
+      frequency: "monthly",
+      dueDayOfMonth: 10,
+      daysBeforeDue: 0,
+      fiscalYearEndMonth: fy?.month,
+      fiscalYearEndDay: fy?.day,
+    });
+  }
+  // Jobber is A/R — record what was invoiced (not a cash receipt).
+  if (data.usesJobber) {
+    rules.push({
+      ruleType: "sales_invoicing_jobber",
+      title: "Monthly Invoicing — Jobber (A/R)",
+      description: "Pull the monthly Jobber invoicing report. Break out invoiced revenue and HST/GST, save the report as backup/proof, then enter the invoices (A/R) in QuickBooks and reconcile against payments received.",
+      category: "Sales",
+      priority: "high",
+      frequency: "monthly",
+      dueDayOfMonth: 10,
       daysBeforeDue: 0,
       fiscalYearEndMonth: fy?.month,
       fiscalYearEndDay: fy?.day,
@@ -177,12 +189,12 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
       });
     }
 
-    // T5 filing
-    if (data.hasInvestments) {
+    // T5 filing — dividends paid to shareholders and/or investment income
+    if (data.hasInvestments || data.paysDividends) {
       rules.push({
         ruleType: "t5_annual",
-        title: "Prepare & File T5 Slips",
-        description: "Prepare T5 slips for investment income (dividends, interest). Distribute to recipients and file with CRA by Feb 28.",
+        title: "Prepare & File T5 Slips (Dividends)",
+        description: "Prepare T5 slips for dividends paid to shareholders (and any investment income). Distribute to recipients and file with CRA by Feb 28.",
         category: "Tax",
         priority: "high",
         frequency: "yearly",

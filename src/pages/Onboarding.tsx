@@ -72,7 +72,7 @@ export default function Onboarding() {
     hstGstFrequency: "none" as "monthly" | "quarterly" | "annually" | "none",
     payrollFrequency: "none" as "weekly" | "biweekly" | "semi_monthly" | "monthly" | "none",
     hasEmployees: false, hasSubcontractors: false, hasInvestments: false,
-    wsibRequired: false, bankAccountCount: 1, creditCardCount: 0,
+    wsibRequired: false, paysDividends: false, bankAccountCount: 1, creditCardCount: 0,
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
     bookkeepingFrequency: "monthly" as "monthly" | "quarterly" | "annual" | "none",
@@ -95,7 +95,7 @@ export default function Onboarding() {
     fiscalYearEnd: "December 31", lastFiledYear: "", outstandingFilings: "",
     hstGstFrequency: "none", payrollFrequency: "none",
     hasEmployees: false, hasSubcontractors: false, hasInvestments: false,
-    wsibRequired: false, bankAccountCount: 1, creditCardCount: 0,
+    wsibRequired: false, paysDividends: false, bankAccountCount: 1, creditCardCount: 0,
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
     bookkeepingFrequency: "monthly" as "monthly" | "quarterly" | "annual" | "none",
@@ -235,6 +235,10 @@ export default function Onboarding() {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <Checkbox checked={intake.hasInvestments} onCheckedChange={v => setIntake({...intake, hasInvestments: !!v})} />
                     <span className="text-sm">Has Investments (T5)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={intake.paysDividends} onCheckedChange={v => setIntake({...intake, paysDividends: !!v})} />
+                    <span className="text-sm">Pays Dividends (T5)</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <Checkbox checked={intake.wsibRequired} onCheckedChange={v => setIntake({...intake, wsibRequired: !!v})} />
