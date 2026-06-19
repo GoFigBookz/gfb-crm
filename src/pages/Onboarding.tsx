@@ -74,6 +74,9 @@ export default function Onboarding() {
     hasEmployees: false, hasSubcontractors: false, hasInvestments: false,
     wsibRequired: false, bankAccountCount: 1, creditCardCount: 0,
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
+    usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
+    invoicingResponsibility: "none" as "we_invoice" | "client_invoices" | "none",
+    billPayResponsibility: "none" as "we_pay" | "client_pays" | "none",
     salesEntryFrequency: "none" as "daily" | "weekly" | "monthly" | "none",
     currentAccountingSoftware: "", currentPayrollProvider: "",
     servicesNeeded: "", painPoints: "", expectations: "",
@@ -93,6 +96,9 @@ export default function Onboarding() {
     hasEmployees: false, hasSubcontractors: false, hasInvestments: false,
     wsibRequired: false, bankAccountCount: 1, creditCardCount: 0,
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
+    usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
+    invoicingResponsibility: "none" as "we_invoice" | "client_invoices" | "none",
+    billPayResponsibility: "none" as "we_pay" | "client_pays" | "none",
     salesEntryFrequency: "none",
     currentAccountingSoftware: "", currentPayrollProvider: "",
     servicesNeeded: "", painPoints: "", expectations: "",
@@ -313,6 +319,50 @@ export default function Onboarding() {
                     </Select>
                   </div>
                 )}
+              </div>
+
+              {/* Scope & Responsibilities (these factor into pricing) */}
+              <div className="bg-slate-50 rounded-lg p-4 space-y-4">
+                <h3 className="font-medium text-slate-700">Scope &amp; Responsibilities</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Avg. monthly transactions</Label>
+                    <Input type="number" min="0" value={intake.avgMonthlyTransactions}
+                      onChange={e => setIntake({...intake, avgMonthlyTransactions: parseInt(e.target.value) || 0})} placeholder="e.g. 150" />
+                  </div>
+                  <div className="flex flex-wrap items-end gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox checked={intake.usesHubdoc} onCheckedChange={v => setIntake({...intake, usesHubdoc: !!v})} />
+                      <span className="text-sm">Uses Hubdoc</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox checked={intake.hasJobCosting} onCheckedChange={v => setIntake({...intake, hasJobCosting: !!v})} />
+                      <span className="text-sm">Job costing</span>
+                    </label>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Invoicing</Label>
+                    <Select value={intake.invoicingResponsibility} onValueChange={(v: any) => setIntake({...intake, invoicingResponsibility: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">N/A</SelectItem>
+                        <SelectItem value="we_invoice">We invoice their customers</SelectItem>
+                        <SelectItem value="client_invoices">Client invoices themselves</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Bill payment</Label>
+                    <Select value={intake.billPayResponsibility} onValueChange={(v: any) => setIntake({...intake, billPayResponsibility: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">N/A</SelectItem>
+                        <SelectItem value="we_pay">We pay their bills</SelectItem>
+                        <SelectItem value="client_pays">Client pays their own bills</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
 
               {/* Notes */}

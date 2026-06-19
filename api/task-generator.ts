@@ -24,6 +24,12 @@ export type OnboardingData = {
   usesJobber?: boolean | null;
   usesTouchBistro?: boolean | null;
   salesEntryFrequency?: string | null;
+  // Scope / responsibilities (drive recurring work + cost)
+  usesHubdoc?: boolean | null;
+  hasJobCosting?: boolean | null;
+  avgMonthlyTransactions?: number | null;
+  invoicingResponsibility?: string | null;  // "we_invoice" | "client_invoices" | "none"
+  billPayResponsibility?: string | null;     // "we_pay" | "client_pays" | "none"
 };
 
 export type TaskRuleConfig = {
@@ -108,6 +114,28 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
       daysBeforeDue: 0,
       fiscalYearEndMonth: fy?.month,
       fiscalYearEndDay: fy?.day,
+    });
+  }
+
+  // === CLIENT INVOICING (only when WE issue their invoices) ===
+  if (data.invoicingResponsibility === "we_invoice") {
+    rules.push({
+      ruleType: "client_invoicing",
+      title: "Client Invoicing",
+      description: "Prepare and send this client's customer invoices in QuickBooks for the period, then follow up on A/R.",
+      category: "Invoicing", priority: "high", frequency: "monthly",
+      dueDayOfMonth: 5, daysBeforeDue: 0, fiscalYearEndMonth: fy?.month, fiscalYearEndDay: fy?.day,
+    });
+  }
+
+  // === BILL PAYMENTS / A/P (only when WE pay their bills) ===
+  if (data.billPayResponsibility === "we_pay") {
+    rules.push({
+      ruleType: "bill_payments",
+      title: "Bill Payments (A/P run)",
+      description: "Review and pay this client's vendor bills for the period (A/P run), then record payments in QuickBooks.",
+      category: "Accounts Payable", priority: "high", frequency: "monthly",
+      dueDayOfMonth: 20, daysBeforeDue: 0, fiscalYearEndMonth: fy?.month, fiscalYearEndDay: fy?.day,
     });
   }
 
@@ -406,7 +434,7 @@ export function generateTaskFromRule(
  */
 export async function ensureSetupTasks(opts: {
   clientId: number; userId: number; assignedTo?: string | null;
-  hasPayroll?: boolean | null; hasWsib?: boolean | null;
+  hasPayroll?: boolean | null; hasWsib?: boolean | null; usesHubdoc?: boolean | null;
 }): Promise<number> {
   const db = getDb();
   const dueDate = new Date(Date.now() + 14 * 86_400_000); // ~2 weeks to get access set up
@@ -423,6 +451,10 @@ export async function ensureSetupTasks(opts: {
   if (opts.hasWsib) items.push({
     title: "Set up WSIB account & access",
     description: "Set up or confirm the client's WSIB account and online access (registration, clearance certificate, premium reporting).",
+  });
+  if (opts.usesHubdoc) items.push({
+    title: "Connect Hubdoc",
+    description: "Set up / connect this client's Hubdoc so receipts and bills flow into QuickBooks automatically.",
   });
 
   let created = 0;
@@ -508,6 +540,7 @@ export async function createClientTaskRules(data: OnboardingData) {
     clientId: data.clientId, userId: data.userId, assignedTo: data.assignedTo,
     hasPayroll: Boolean(data.payrollFrequency && data.payrollFrequency !== "none") || Boolean(data.hasEmployees),
     hasWsib: Boolean(data.wsibRequired),
+    usesHubdoc: Boolean(data.usesHubdoc),
   });
 
   return { rules: createdRules, tasks: createdTasks, setupTasks: setupCreated };

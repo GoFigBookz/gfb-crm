@@ -170,6 +170,11 @@ export const onboardingRouter = createRouter({
       usesJobber: z.boolean().default(false),
       usesTouchBistro: z.boolean().default(false),
       salesEntryFrequency: z.enum(["daily", "weekly", "monthly", "none"]).default("none"),
+      usesHubdoc: z.boolean().default(false),
+      hasJobCosting: z.boolean().default(false),
+      avgMonthlyTransactions: z.number().min(0).default(0),
+      invoicingResponsibility: z.enum(["we_invoice", "client_invoices", "none"]).default("none"),
+      billPayResponsibility: z.enum(["we_pay", "client_pays", "none"]).default("none"),
       currentAccountingSoftware: z.string().optional(),
       currentPayrollProvider: z.string().optional(),
       servicesNeeded: z.string().optional(),
@@ -196,6 +201,7 @@ export const onboardingRouter = createRouter({
         figgyEmail: `markie+${input.name.toLowerCase().replace(/[^a-z0-9]/g, "")}@gofig.ca`,
         contactName: input.contactName || null,
         notes: input.notes || null,
+        transactionsPerMonth: input.avgMonthlyTransactions || 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       }).returning();
@@ -242,6 +248,11 @@ export const onboardingRouter = createRouter({
         usesJobber: input.usesJobber,
         usesTouchBistro: input.usesTouchBistro,
         salesEntryFrequency: input.salesEntryFrequency,
+        usesHubdoc: input.usesHubdoc,
+        hasJobCosting: input.hasJobCosting,
+        avgMonthlyTransactions: input.avgMonthlyTransactions,
+        invoicingResponsibility: input.invoicingResponsibility,
+        billPayResponsibility: input.billPayResponsibility,
         currentAccountingSoftware: input.currentAccountingSoftware || null,
         currentPayrollProvider: input.currentPayrollProvider || null,
         servicesNeeded: input.servicesNeeded || null,
@@ -276,6 +287,11 @@ export const onboardingRouter = createRouter({
         usesJobber: input.usesJobber,
         usesTouchBistro: input.usesTouchBistro,
         salesEntryFrequency: input.salesEntryFrequency,
+        usesHubdoc: input.usesHubdoc,
+        hasJobCosting: input.hasJobCosting,
+        avgMonthlyTransactions: input.avgMonthlyTransactions,
+        invoicingResponsibility: input.invoicingResponsibility,
+        billPayResponsibility: input.billPayResponsibility,
       });
 
       return {
