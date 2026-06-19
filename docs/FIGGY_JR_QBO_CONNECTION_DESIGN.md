@@ -56,3 +56,36 @@ brain code doesn't change either way — only the injected connection does.
 ## What's already done (this session)
 - Brain core + I/O + `qboBrain.suggestCoding` (read-only), `vendorMemory` table,
   16/16 pure-logic checks green, isolation boundary that refuses to guess.
+
+## NATIVE OAUTH LAYER — BUILT (2026-06-19, `api/qbo-oauth.ts`)
+Option A (the durable rail) is now implemented alongside the interim Make bridge;
+both transports coexist (`qbo_connections.transport` = `native` | `make_bridge`),
+so we can authorize companies onto native one at a time and retire the bridge per
+realm. Best-practices from this doc, now in code:
+- **Tokens encrypted at rest** — AES-256-GCM, self-describing `enc:v1:` envelope.
+  Legacy plaintext rows pass through and re-encrypt on next refresh (seamless
+  cutover). `qboRequest` decrypts the access token just-in-time for the Bearer.
+- **Signed, time-boxed OAuth state** — HMAC-SHA256 over `{clientId, env, nonce,
+  ts}` (15-min TTL). Verified on callback ⇒ CSRF-safe AND binds the realm to the
+  right CRM client (per-client isolation at authorize time).
+- **Rotation persisted on every refresh** — the rotating 100-day refresh token is
+  re-saved each call (the classic lockout bug, closed). `invalid_grant` ⇒ mark
+  connection inactive + `reconnectReason` (new column) + throw
+  `ReconnectRequiredError`; never silent. The brain then sees inactive ⇒ "not
+  connected" rather than guessing; the UI shows a "⚠ Reconnect" link.
+- **Keep-alive** — `keepAliveNativeConnections()` runs ~1 min after boot then
+  daily; refreshes near-expiry or >7-day-stale native connections so a quiet
+  client's rolling window never lapses. Best-effort, per-connection isolated.
+- **Flow** — `GET /api/qbo/connect?clientId=N` → Intuit authorize (minimal scope
+  `com.intuit.quickbooks.accounting`, signed state) → `GET /api/qbo/callback` →
+  `exchangeAndPersist` (verify state, bind client, encrypt, upsert). tRPC
+  `qbo.getAuthUrl({clientId})` / `qbo.callback` share the same hardened path.
+- **Key material** — `FIGGY_TOKEN_KEY` (or `APP_SECRET`) derives the AES + HMAC
+  keys. Keyless = plaintext + unsigned with a loud warn (local dev only).
+- **Tests** — `api/qbo-oauth.test.ts` (11): encryption round-trip, tamper/auth-tag
+  fail-closed, no-double-wrap, legacy pass-through, state sign/verify, tamper +
+  expiry + missing-signature rejection. Full suite 26/26; brain-verify 27/27.
+- **Remaining to go live on native:** register the production Intuit app, set
+  `QBO_CLIENT_ID` / `QBO_CLIENT_SECRET` / `FIGGY_TOKEN_KEY` + redirect URI, then
+  click "Connect" per company (binds via `clientId`). Cut each realm over from
+  `make_bridge` once authorized; retire the Make QBO tools when all are native.
