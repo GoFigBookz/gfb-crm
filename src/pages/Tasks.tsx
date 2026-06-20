@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router";
-import { Plus, Search, Check, Repeat, Sparkles, LayoutGrid, List as ListIcon, Calendar as CalendarIcon } from "lucide-react";
+import { useSearchParams, Link } from "react-router";
+import { Plus, Search, Check, Repeat, Sparkles, LayoutGrid, List as ListIcon, Calendar as CalendarIcon, Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,12 +41,20 @@ export default function Tasks() {
     onSuccess: () => { utils.task.listRecurring.invalidate(); setIsRecurringOpen(false); }
   });
 
+  const { data: clientList } = trpc.crmClient.list.useQuery({ status: "active" });
+  const clientName = (cid: number | null | undefined) =>
+    (clientList || []).find((c: any) => c.id === cid)?.name ?? null;
+  const TASK_CATEGORIES = ["Bookkeeping", "HST", "Payroll", "Year-End", "Reconciliation", "Sales", "Setup", "Client", "Admin", "Other"];
+  const ASSIGNEES = ["Markie", "Rachelle"];
+
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
     dueDate: "",
     priority: "medium" as const,
     category: "",
+    clientId: "" as string,
+    assignedTo: "" as string,
     isRecurring: false,
     frequency: "monthly" as string,
   });
@@ -114,6 +122,15 @@ export default function Tasks() {
                   task.priority === "high" ? "bg-red-500" : task.priority === "medium" ? "bg-amber-500" : "bg-lime-500"
                 )} />
                 {task.category && <Badge variant="secondary" className="text-xs">{task.category}</Badge>}
+                {task.clientId && clientName(task.clientId) && (
+                  <Link
+                    to={`/clients/${task.clientId}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs text-lime-700 hover:underline inline-flex items-center gap-1"
+                  >
+                    <Building2 className="h-3 w-3" />{clientName(task.clientId)}
+                  </Link>
+                )}
                 {task.assignedTo && <span className="text-xs text-slate-500">@{task.assignedTo}</span>}
               </div>
             </div>
@@ -182,10 +199,36 @@ export default function Tasks() {
             <DialogContent>
               <DialogHeader><DialogTitle>New Task</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
-                <div className="space-y-2"><Label>Title *</Label><Input value={newTask.title} onChange={(e) => setNewTask({...newTask, title: e.target.value})} /></div>
-                <div className="space-y-2"><Label>Description</Label><Input value={newTask.description} onChange={(e) => setNewTask({...newTask, description: e.target.value})} /></div>
+                <div className="space-y-2"><Label>Title *</Label><Input placeholder="What needs doing?" value={newTask.title} onChange={(e) => setNewTask({...newTask, title: e.target.value})} /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Due Date</Label><Input type="date" value={newTask.dueDate} onChange={(e) => setNewTask({...newTask, dueDate: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>Client</Label>
+                    <Select value={newTask.clientId} onValueChange={(v) => setNewTask({...newTask, clientId: v})}>
+                      <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                      <SelectContent className="max-h-64">
+                        <SelectItem value="none">No client (internal)</SelectItem>
+                        {(clientList || []).map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2"><Label>Assignee</Label>
+                    <Select value={newTask.assignedTo} onValueChange={(v) => setNewTask({...newTask, assignedTo: v})}>
+                      <SelectTrigger><SelectValue placeholder="Assign to" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {ASSIGNEES.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Category</Label>
+                    <Select value={newTask.category} onValueChange={(v) => setNewTask({...newTask, category: v})}>
+                      <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                      <SelectContent>
+                        {TASK_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="space-y-2"><Label>Priority</Label>
                     <Select value={newTask.priority} onValueChange={(v) => setNewTask({...newTask, priority: v as typeof newTask.priority})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -193,7 +236,9 @@ export default function Tasks() {
                     </Select>
                   </div>
                 </div>
-                
+                <div className="space-y-2"><Label>Due Date</Label><Input type="date" value={newTask.dueDate} onChange={(e) => setNewTask({...newTask, dueDate: e.target.value})} /></div>
+                <div className="space-y-2"><Label>Description</Label><Input placeholder="Optional details" value={newTask.description} onChange={(e) => setNewTask({...newTask, description: e.target.value})} /></div>
+
                 {/* NEW: Make recurring from the same dialog */}
                 <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
                   <input
@@ -213,48 +258,47 @@ export default function Tasks() {
                 </div>
 
                 {newTask.isRecurring && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Frequency *</Label>
-                      <Select value={newTask.frequency || "monthly"} onValueChange={(v) => setNewTask({...newTask, frequency: v})}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                          <SelectItem value="biweekly">Bi-weekly</SelectItem>
-                          <SelectItem value="monthly">Monthly</SelectItem>
-                          <SelectItem value="quarterly">Quarterly</SelectItem>
-                          <SelectItem value="yearly">Yearly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Category</Label>
-                      <Input placeholder="e.g. Payroll, HST, Reconciliation" value={newTask.category || ""} onChange={(e) => setNewTask({...newTask, category: e.target.value})} />
-                    </div>
+                  <div className="space-y-2">
+                    <Label>Frequency *</Label>
+                    <Select value={newTask.frequency || "monthly"} onValueChange={(v) => setNewTask({...newTask, frequency: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="biweekly">Bi-weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="yearly">Yearly</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
 
-                <Button 
+                <Button
                   onClick={() => {
                     if (!newTask.title) return;
+                    const cid = newTask.clientId && newTask.clientId !== "none" ? Number(newTask.clientId) : undefined;
+                    const assignedTo = newTask.assignedTo && newTask.assignedTo !== "unassigned" ? newTask.assignedTo : undefined;
+                    const category = newTask.category || undefined;
                     if (newTask.isRecurring && newTask.frequency) {
-                      // Create as recurring task rule
                       createRecurring.mutate({
                         title: newTask.title,
                         description: newTask.description,
                         frequency: newTask.frequency as any,
                         startDate: newTask.dueDate ? new Date(newTask.dueDate) : new Date(),
                         priority: newTask.priority,
+                        clientId: cid, assignedTo, category,
                       });
                     } else {
-                      // Create as one-time task
                       createTask.mutate({
-                        ...newTask,
+                        title: newTask.title,
+                        description: newTask.description,
+                        priority: newTask.priority,
                         dueDate: newTask.dueDate ? new Date(newTask.dueDate) : undefined,
+                        clientId: cid, assignedTo, category,
                       });
                     }
-                  }} 
+                  }}
                   className="w-full"
                 >
                   {newTask.isRecurring ? "Create Recurring Task" : "Create Task"}
