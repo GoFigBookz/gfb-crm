@@ -14,6 +14,7 @@ import {
   isSameMonth, isSameDay, eachDayOfInterval, eachMonthOfInterval, isWithinInterval, differenceInCalendarDays,
 } from "date-fns";
 import { cn } from "@/lib/utils";
+import { TaskDetailDialog } from "@/components/TaskDetailDialog";
 
 type ViewType = "day" | "week" | "month" | "year" | "list" | "gantt";
 const VIEWS: ViewType[] = ["day", "week", "month", "year", "list", "gantt"];
@@ -45,6 +46,23 @@ export default function CalendarPage() {
   const createEvent = trpc.calendar.create.useMutation({ onSuccess: () => { utils.calendar.list.invalidate(); setIsAddOpen(false); } });
   const [newEvent, setNewEvent] = useState({ title: "", startDate: "", endDate: "", description: "" });
 
+  // Task interactions on the calendar: click to edit, drag to reschedule.
+  const [openTask, setOpenTask] = useState<any | null>(null);
+  const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const rescheduleTask = trpc.task.update.useMutation({
+    onSuccess: () => { utils.task.list.invalidate(); utils.task.upcoming.invalidate(); utils.task.overdue.invalidate(); },
+    onError: (e) => alert(`Could not reschedule: ${e.message}`),
+  });
+  const dropOnDay = (date: Date) => {
+    if (draggingTaskId != null) {
+      const due = new Date(date); due.setHours(9, 0, 0, 0);
+      rescheduleTask.mutate({ id: draggingTaskId, dueDate: due });
+    }
+    setDraggingTaskId(null);
+    setDragOverKey(null);
+  };
+
   // Unified items: calendar events + tasks-with-due-dates.
   type Item = { id: string; title: string; date: Date; end: Date; kind: "event" | "task"; clientId: any; color: string; overdue: boolean; raw: any };
   const items: Item[] = [
@@ -72,12 +90,17 @@ export default function CalendarPage() {
 
   const ItemPill = ({ it }: { it: Item }) => (
     <div
+      draggable={it.kind === "task"}
+      onDragStart={it.kind === "task" ? (e) => { setDraggingTaskId(it.raw.id); e.dataTransfer.effectAllowed = "move"; } : undefined}
+      onDragEnd={it.kind === "task" ? () => { setDraggingTaskId(null); setDragOverKey(null); } : undefined}
       className={cn("text-xs truncate px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 flex items-center gap-1",
+        it.kind === "task" && "cursor-grab active:cursor-grabbing",
+        draggingTaskId === it.raw.id && "opacity-40",
         it.kind === "task" ? (it.overdue ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700")
           : it.color === "purple" ? "bg-purple-100 text-purple-700" : "bg-lime-100 text-lime-700")}
       onClick={(ev) => {
         ev.stopPropagation();
-        if (it.kind === "task" && it.clientId) navigate(`/client/${it.clientId}`);
+        if (it.kind === "task") setOpenTask(it.raw);
         else if (it.raw.title?.includes("Discovery Call") && it.raw.clientId) navigate(`/discovery?clientId=${it.raw.clientId}`);
       }}
       title={it.title}
@@ -147,8 +170,13 @@ export default function CalendarPage() {
                   const dayItems = itemsForDay(date);
                   const isCur = isSameMonth(date, currentDate);
                   const isToday = isSameDay(date, new Date());
+                  const key = format(date, "yyyy-MM-dd");
                   return (
-                    <div key={i} onClick={() => { setCurrentDate(date); setView("day"); }} className={cn("min-h-[110px] p-2 border rounded-lg cursor-pointer transition-colors", !isCur && "bg-slate-50 text-slate-400", isCur && "hover:bg-slate-50", isToday && "ring-2 ring-lime-500 ring-inset")}>
+                    <div key={i} onClick={() => { setCurrentDate(date); setView("day"); }}
+                      onDragOver={(e) => { if (draggingTaskId != null) { e.preventDefault(); setDragOverKey(key); } }}
+                      onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOverKey(null); }}
+                      onDrop={(e) => { e.stopPropagation(); dropOnDay(date); }}
+                      className={cn("min-h-[110px] p-2 border rounded-lg cursor-pointer transition-colors", !isCur && "bg-slate-50 text-slate-400", isCur && "hover:bg-slate-50", isToday && "ring-2 ring-lime-500 ring-inset", dragOverKey === key && "bg-lime-50 ring-2 ring-lime-400 ring-inset")}>
                       <div className="flex items-center justify-between mb-1">
                         <span className={cn("text-sm font-medium", isToday && "text-lime-600")}>{format(date, "d")}</span>
                         {dayItems.length > 0 && <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600">{dayItems.length}</span>}
@@ -171,8 +199,13 @@ export default function CalendarPage() {
             {eachDayOfInterval({ start: startOfWeek(currentDate), end: endOfWeek(currentDate) }).map((date, i) => {
               const dayItems = itemsForDay(date);
               const isToday = isSameDay(date, new Date());
+              const key = format(date, "yyyy-MM-dd");
               return (
-                <div key={i} className={cn("min-h-[300px] p-2 border rounded-lg", isToday && "ring-2 ring-lime-500 ring-inset")}>
+                <div key={i}
+                  onDragOver={(e) => { if (draggingTaskId != null) { e.preventDefault(); setDragOverKey(key); } }}
+                  onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOverKey(null); }}
+                  onDrop={() => dropOnDay(date)}
+                  className={cn("min-h-[300px] p-2 border rounded-lg transition-colors", isToday && "ring-2 ring-lime-500 ring-inset", dragOverKey === key && "bg-lime-50 ring-2 ring-lime-400 ring-inset")}>
                   <div className="text-center mb-2">
                     <div className="text-xs text-slate-500">{format(date, "EEE")}</div>
                     <div className={cn("text-lg font-semibold", isToday && "text-lime-600")}>{format(date, "d")}</div>
@@ -191,13 +224,13 @@ export default function CalendarPage() {
             {itemsForDay(currentDate).length === 0
               ? <p className="text-slate-400 py-8 text-center">Nothing scheduled or due this day.</p>
               : itemsForDay(currentDate).map(it => (
-                <div key={it.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                <div key={it.id} onClick={() => { if (it.kind === "task") setOpenTask(it.raw); }} className={cn("flex items-center gap-3 p-3 border rounded-lg", it.kind === "task" && "cursor-pointer hover:bg-slate-50")}>
                   <span className={cn("w-2 h-2 rounded-full shrink-0", it.kind === "task" ? (it.overdue ? "bg-red-500" : "bg-amber-500") : "bg-lime-500")} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{it.title}</p>
                     <p className="text-xs text-slate-500">{it.kind === "event" ? format(it.date, "h:mm a") : "Task due"}{it.clientId && clientName(it.clientId) ? ` · ${clientName(it.clientId)}` : ""}</p>
                   </div>
-                  {it.clientId && <Link to={`/client/${it.clientId}`} className="text-xs text-lime-700 hover:underline shrink-0"><Building2 className="h-3.5 w-3.5" /></Link>}
+                  {it.clientId && <Link to={`/client/${it.clientId}`} onClick={(e) => e.stopPropagation()} className="text-xs text-lime-700 hover:underline shrink-0"><Building2 className="h-3.5 w-3.5" /></Link>}
                 </div>
               ))}
           </div>
@@ -239,10 +272,10 @@ export default function CalendarPage() {
                   <div className="text-xs font-semibold text-slate-500 mb-1">{format(new Date(k), "EEEE, MMM d")}</div>
                   <div className="space-y-1">
                     {its.map(it => (
-                      <div key={it.id} className="flex items-center gap-3 p-2 border rounded-lg">
+                      <div key={it.id} onClick={() => { if (it.kind === "task") setOpenTask(it.raw); }} className={cn("flex items-center gap-3 p-2 border rounded-lg", it.kind === "task" && "cursor-pointer hover:bg-slate-50")}>
                         <span className={cn("w-2 h-2 rounded-full shrink-0", it.kind === "task" ? (it.overdue ? "bg-red-500" : "bg-amber-500") : "bg-lime-500")} />
                         <span className="flex-1 text-sm truncate">{it.title}</span>
-                        {it.clientId && clientName(it.clientId) && <Link to={`/client/${it.clientId}`} className="text-xs text-lime-700 hover:underline shrink-0">{clientName(it.clientId)}</Link>}
+                        {it.clientId && clientName(it.clientId) && <Link to={`/client/${it.clientId}`} onClick={(e) => e.stopPropagation()} className="text-xs text-lime-700 hover:underline shrink-0">{clientName(it.clientId)}</Link>}
                         <span className="text-xs text-slate-400 shrink-0">{it.kind === "task" ? "due" : format(it.date, "h:mm a")}</span>
                       </div>
                     ))}
@@ -290,6 +323,8 @@ export default function CalendarPage() {
           );
         })()}
       </CardContent></Card>
+
+      {openTask && <TaskDetailDialog task={openTask} onClose={() => setOpenTask(null)} />}
     </div>
   );
 }
