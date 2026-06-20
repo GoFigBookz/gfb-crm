@@ -34,8 +34,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     { to: "/month-end-close", icon: Gauge, label: "Month-End Close" },
     { to: "/triage", icon: ShieldCheck, label: "Figgy Jr" },
     { to: "/tasks", icon: CheckSquare, label: "Tasks" },
-    { to: "/quick-add", icon: Plus, label: "Quick Add" },
+    { to: "/payroll", icon: Wallet, label: "Payroll" },
     { to: "/calendar", icon: CalendarDays, label: "Calendar" },
+    { to: "/quick-add", icon: Plus, label: "Quick Add" },
     { to: "/emails", icon: Mail, label: "Emails" },
   ];
 
@@ -46,7 +47,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     { to: "/invoices", icon: Receipt, label: "Invoices" },
     { to: "/files", icon: FolderOpen, label: "Files" },
     { to: "/employees", icon: Briefcase, label: "Employees" },
-    { to: "/payroll", icon: Wallet, label: "Payroll" },
     { to: "/engagement", icon: FileSpreadsheet, label: "Engagement Letters" },
     { to: "/client-import", icon: Import, label: "Client Import" },
   ];

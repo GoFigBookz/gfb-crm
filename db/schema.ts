@@ -974,6 +974,7 @@ export const employees = sqliteTable("employees", {
   t4Box20Rpp: real("t4Box20Rpp"),
   t4Box44UnionDues: real("t4Box44UnionDues"),
   t4Box46Charitable: real("t4Box46Charitable"),
+  contractUrl: text("contractUrl"),
   notes: text("notes"),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),

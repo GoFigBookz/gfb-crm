@@ -39,6 +39,7 @@ export const employeeRouter = createRouter({
       phone: z.string().optional(),
       address: z.string().optional(),
       isContractor: z.boolean().optional(),
+      contractUrl: z.string().optional(),
       notes: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
@@ -77,6 +78,7 @@ export const employeeRouter = createRouter({
       grantType: z.string().optional(),
       grantStartDate: z.date().optional(),
       grantEndDate: z.date().optional(),
+      contractUrl: z.string().optional(),
       notes: z.string().optional(),
     }))
     .mutation(async ({ input }) => {

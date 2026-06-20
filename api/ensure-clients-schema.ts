@@ -156,7 +156,7 @@ export async function ensurePayrollTables(): Promise<void> {
       onGovernmentGrant INTEGER DEFAULT 0, grantType TEXT, grantStartDate INTEGER, grantEndDate INTEGER,
       federalTaxCredits TEXT, provincialTaxCredits TEXT,
       t4Box14Wages REAL, t4Box16Cpp REAL, t4Box18Ei REAL, t4Box20Rpp REAL,
-      t4Box44UnionDues REAL, t4Box46Charitable REAL,
+      t4Box44UnionDues REAL, t4Box46Charitable REAL, contractUrl TEXT,
       notes TEXT, createdAt INTEGER, updatedAt INTEGER
     )`));
     // ALTER guards for columns added after the tables first shipped on live.
@@ -168,6 +168,7 @@ export async function ensurePayrollTables(): Promise<void> {
         if (!have.has(col)) await db.run(sql.raw(`ALTER TABLE ${table} ADD COLUMN "${col}" ${type}`));
       } catch (e) { console.error(`[schema] add ${table}.${col} failed:`, e instanceof Error ? e.message : e); }
     };
+    await addCol("employees", "contractUrl", "TEXT");
     await addCol("pay_run_lines", "shareBonus", "REAL DEFAULT 0");
     await addCol("pay_run_lines", "statHolidayPay", "REAL DEFAULT 0");
     await addCol("pay_runs", "approvalToken", "TEXT");

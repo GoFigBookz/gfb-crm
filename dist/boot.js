@@ -11220,13 +11220,13 @@ function _promise(Class2, innerType) {
 }
 // @__NO_SIDE_EFFECTS__
 function _custom(Class2, fn, _params) {
-  const norm4 = normalizeParams(_params);
-  norm4.abort ?? (norm4.abort = true);
+  const norm5 = normalizeParams(_params);
+  norm5.abort ?? (norm5.abort = true);
   const schema = new Class2({
     type: "custom",
     check: "custom",
     fn,
-    ...norm4
+    ...norm5
   });
   return schema;
 }
@@ -23254,6 +23254,7 @@ var init_schema = __esm({
       t4Box20Rpp: real("t4Box20Rpp"),
       t4Box44UnionDues: real("t4Box44UnionDues"),
       t4Box46Charitable: real("t4Box46Charitable"),
+      contractUrl: text("contractUrl"),
       notes: text("notes"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
@@ -44965,6 +44966,7 @@ var init_employee_router = __esm({
         phone: external_exports.string().optional(),
         address: external_exports.string().optional(),
         isContractor: external_exports.boolean().optional(),
+        contractUrl: external_exports.string().optional(),
         notes: external_exports.string().optional()
       })).mutation(async ({ input }) => {
         const db = getDb();
@@ -45000,6 +45002,7 @@ var init_employee_router = __esm({
         grantType: external_exports.string().optional(),
         grantStartDate: external_exports.date().optional(),
         grantEndDate: external_exports.date().optional(),
+        contractUrl: external_exports.string().optional(),
         notes: external_exports.string().optional()
       })).mutation(async ({ input }) => {
         const { id, ...data } = input;
@@ -50474,11 +50477,30 @@ var init_payroll_employee_seed = __esm({
   }
 });
 
+// api/payroll-contract-links.ts
+var PAYROLL_CONTRACT_LINKS;
+var init_payroll_contract_links = __esm({
+  "api/payroll-contract-links.ts"() {
+    PAYROLL_CONTRACT_LINKS = [];
+  }
+});
+
 // api/seed-payroll-employees.ts
 var seed_payroll_employees_exports = {};
 __export(seed_payroll_employees_exports, {
   seedPayrollEmployees: () => seedPayrollEmployees
 });
+function annualFromNotes(notes) {
+  if (!notes) return void 0;
+  const m = notes.match(/(monthly|weekly|annual|yearly)\s+salary\s*\$?([\d,]+(?:\.\d+)?)/i);
+  if (!m) return void 0;
+  const amt = parseFloat(m[2].replace(/,/g, ""));
+  if (isNaN(amt)) return void 0;
+  const per = m[1].toLowerCase();
+  if (per === "monthly") return Math.round(amt * 12 * 100) / 100;
+  if (per === "weekly") return Math.round(amt * 52 * 100) / 100;
+  return Math.round(amt * 100) / 100;
+}
 async function seedPayrollEmployees() {
   const db = getDb();
   const result = { matched: 0, added: 0, skipped: 0, removed: 0, unmatched: [] };
@@ -50529,15 +50551,60 @@ async function seedPayrollEmployees() {
       result.added++;
     }
   }
-  if (result.added || result.removed) console.log(`[seed] payroll employees: +${result.added} -${result.removed} across ${result.matched} clients`);
-  return result;
+  let moved = 0;
+  const clientsNow = await db.select().from(clients);
+  for (const mv of PAYROLL_EMPLOYEE_MOVES) {
+    const to = findClient(clientsNow, mv.toMatch);
+    if (!to) continue;
+    const matches = (await db.select().from(employees)).filter((e) => norm3(e.firstName) === norm3(mv.firstName) && norm3(e.lastName) === norm3(mv.lastName));
+    for (const e of matches) {
+      if (e.clientId === to.id) continue;
+      const from = findClient(clientsNow, mv.fromMatch);
+      if (from && e.clientId !== from.id) continue;
+      await db.update(employees).set({ clientId: to.id, notes: mv.note || e.notes, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, e.id));
+      moved++;
+    }
+  }
+  let filled = 0;
+  for (const e of await db.select().from(employees)) {
+    if (e.payType === "salary" && (e.annualSalary == null || e.annualSalary === 0)) {
+      const annual = annualFromNotes(e.notes);
+      if (annual) {
+        await db.update(employees).set({ annualSalary: annual, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, e.id));
+        filled++;
+      }
+    }
+  }
+  let contracts = 0;
+  if (PAYROLL_CONTRACT_LINKS.length) {
+    const all = await db.select().from(employees);
+    for (const link of PAYROLL_CONTRACT_LINKS) {
+      const client = findClient(clientsNow, link.clientMatch);
+      if (!client) continue;
+      const emp = all.find((e) => e.clientId === client.id && norm3(e.firstName) === norm3(link.firstName) && (!link.lastName || norm3(e.lastName) === norm3(link.lastName)));
+      if (emp && !emp.contractUrl) {
+        await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
+        contracts++;
+      }
+    }
+  }
+  if (result.added || result.removed || moved || filled || contracts)
+    console.log(`[seed] payroll employees: +${result.added} -${result.removed} moved ${moved} salary-filled ${filled} contracts ${contracts}`);
+  return { ...result, moved, filled, contracts };
 }
+var PAYROLL_EMPLOYEE_MOVES, norm3, findClient;
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
     init_drizzle_orm();
     init_schema();
     init_payroll_employee_seed();
+    init_payroll_contract_links();
+    PAYROLL_EMPLOYEE_MOVES = [
+      { firstName: "Stacey", lastName: "Gillham", fromMatch: "2303851", toMatch: "originality", note: "Moved to Originality as of the 15th" }
+    ];
+    norm3 = (s) => (s || "").toLowerCase().trim();
+    findClient = (all, match2) => all.find((c) => norm3(c.name).includes(norm3(match2)));
   }
 });
 
@@ -51573,7 +51640,7 @@ async function ensurePayrollTables() {
       onGovernmentGrant INTEGER DEFAULT 0, grantType TEXT, grantStartDate INTEGER, grantEndDate INTEGER,
       federalTaxCredits TEXT, provincialTaxCredits TEXT,
       t4Box14Wages REAL, t4Box16Cpp REAL, t4Box18Ei REAL, t4Box20Rpp REAL,
-      t4Box44UnionDues REAL, t4Box46Charitable REAL,
+      t4Box44UnionDues REAL, t4Box46Charitable REAL, contractUrl TEXT,
       notes TEXT, createdAt INTEGER, updatedAt INTEGER
     )`));
     const addCol = async (table, col, type) => {
@@ -51586,6 +51653,7 @@ async function ensurePayrollTables() {
         console.error(`[schema] add ${table}.${col} failed:`, e instanceof Error ? e.message : e);
       }
     };
+    await addCol("employees", "contractUrl", "TEXT");
     await addCol("pay_run_lines", "shareBonus", "REAL DEFAULT 0");
     await addCol("pay_run_lines", "statHolidayPay", "REAL DEFAULT 0");
     await addCol("pay_runs", "approvalToken", "TEXT");
@@ -51711,7 +51779,7 @@ async function linkDriveFolders() {
   let linked = 0, alreadySet = 0;
   const unmatched = [];
   for (const c of all) {
-    const folderId = NAME_TO_FOLDER[norm3(c.name)] ?? NAME_TO_FOLDER[norm3(c.company)];
+    const folderId = NAME_TO_FOLDER[norm4(c.name)] ?? NAME_TO_FOLDER[norm4(c.company)];
     if (!folderId) {
       unmatched.push(c.name);
       continue;
@@ -51731,7 +51799,7 @@ async function linkDriveFolders() {
   if (unmatched.length) console.log(`[drive-link] no folder mapping for: ${unmatched.join(", ")}`);
   return { linked, alreadySet, unmatched };
 }
-var GFB_CLIENTS_PARENT_FOLDER_ID, GFB_INACTIVE_FOLDER_ID, folderUrl, norm3, NAME_TO_FOLDER;
+var GFB_CLIENTS_PARENT_FOLDER_ID, GFB_INACTIVE_FOLDER_ID, folderUrl, norm4, NAME_TO_FOLDER;
 var init_link_drive_folders = __esm({
   "api/link-drive-folders.ts"() {
     init_connection();
@@ -51740,7 +51808,7 @@ var init_link_drive_folders = __esm({
     GFB_CLIENTS_PARENT_FOLDER_ID = "1OdxTvo0DiWnDL0e9g2ii6eG5ysBke_0G";
     GFB_INACTIVE_FOLDER_ID = "1GW6V_LAwGiqpM6KRtelZOS5k5jTJmvdg";
     folderUrl = (id) => `https://drive.google.com/drive/folders/${id}`;
-    norm3 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    norm4 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
     NAME_TO_FOLDER = {
       "originality ai inc": "1aaqB12rJ5Ou4kX_tWF24JFq7OjEXHL2o",
       "clark pools and spas collingwood inc": "10qXdEt4KVgW2w3s5VOIph1chSFPUErtH",
