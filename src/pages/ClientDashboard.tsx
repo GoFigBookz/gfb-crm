@@ -103,9 +103,13 @@ export default function ClientDashboard() {
     onSuccess: () => {
       utils.clientDashboard.getByClient.invalidate({ clientId: id });
       utils.crmClient.get.invalidate({ id });
+      utils.crmClient.list.invalidate();
       utils.quote.forClient.invalidate({ clientId: id });
+      utils.monthEnd.getClientStatus.invalidate({ clientId: id });
+      utils.onboarding.getRecord.invalidate({ clientId: id });
       setEditingIntake(false);
     },
+    onError: (e) => alert(`Could not save intake: ${e.message}`),
   });
   const invalidateTasks = () => utils.clientDashboard.getByClient.invalidate({ clientId: id });
   const completeTask = trpc.task.complete.useMutation({ onSuccess: invalidateTasks });

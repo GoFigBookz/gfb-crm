@@ -55445,6 +55445,34 @@ app.post("/api/admin/figgy", async (c) => {
       const { dedupeTasks: dedupeTasks2 } = await Promise.resolve().then(() => (init_dedupe_tasks(), dedupe_tasks_exports));
       return c.json({ success: true, op, ...await dedupeTasks2() });
     }
+    if (op === "onbget") {
+      const clientId = Number(c.req.query("clientId") || body?.clientId);
+      if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
+      const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+      const { clients: clients2, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const db = getDb2();
+      const cl = (await db.select().from(clients2).where(eq3(clients2.id, clientId)).limit(1))[0];
+      if (!cl) return c.json({ success: false, op, error: "not found" }, 404);
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      return c.json({ success: true, op, client: {
+        name: cl.name,
+        hasWSIB: cl.hasWSIB,
+        wsibAccountNumber: cl.wsibAccountNumber,
+        taxId: cl.taxId,
+        hasHST: cl.hasHST,
+        hstNumber: cl.hstNumber,
+        hasPayroll: cl.hasPayroll,
+        transactionsPerMonth: cl.transactionsPerMonth,
+        monthlyFee: cl.monthlyFee
+      }, onboarding: onb ? {
+        id: onb.id,
+        avgMonthlyTransactions: onb.avgMonthlyTransactions,
+        employeeCount: onb.employeeCount,
+        wsibAccountNumber: onb.wsibAccountNumber,
+        bookkeepingFrequency: onb.bookkeepingFrequency
+      } : null });
+    }
     if (op === "quote") {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
