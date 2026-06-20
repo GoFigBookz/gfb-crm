@@ -62,6 +62,8 @@ export async function nextQuoteNumber(db: any): Promise<string> {
   return `Q-${max + 1}`;
 }
 
+export function servicesForEngagement(client: any, onb: any): string[] { return servicesFromClient(client, onb); }
+export function clientAppsForEngagement(onb: any): string[] { return clientAppsList(onb); }
 function servicesFromClient(client: any, onb: any): string[] {
   const s: string[] = [
     "Bookkeeping, transaction categorization, and monthly bank/credit-card reconciliation",

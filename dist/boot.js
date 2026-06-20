@@ -46477,9 +46477,11 @@ var init_quote_doc = __esm({
 var quote_router_exports = {};
 __export(quote_router_exports, {
   buildScopeForClient: () => buildScopeForClient,
+  clientAppsForEngagement: () => clientAppsForEngagement,
   createAndSendDoc: () => createAndSendDoc,
   nextQuoteNumber: () => nextQuoteNumber,
-  quoteRouter: () => quoteRouter
+  quoteRouter: () => quoteRouter,
+  servicesForEngagement: () => servicesForEngagement
 });
 import crypto6 from "crypto";
 async function createAndSendDoc(opts) {
@@ -46520,6 +46522,12 @@ async function nextQuoteNumber(db) {
     if (m) max2 = Math.max(max2, Number(m[1]));
   }
   return `Q-${max2 + 1}`;
+}
+function servicesForEngagement(client, onb) {
+  return servicesFromClient(client, onb);
+}
+function clientAppsForEngagement(onb) {
+  return clientAppsList(onb);
 }
 function servicesFromClient(client, onb) {
   const s = [
@@ -55642,6 +55650,48 @@ app.post("/api/admin/figgy", async (c) => {
       });
       await db.update(clients2).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: /* @__PURE__ */ new Date(), workflowStatus: "quote_sent" }).where(eq3(clients2.id, cl.id));
       return c.json({ success: true, op, clientName: cl.name, recurringMonthly: quote.recurringMonthly, nearestPackage: quote.nearestPackage, ...res });
+    }
+    if (op === "genengage") {
+      const clientId = Number(c.req.query("clientId") || body?.clientId);
+      if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
+      const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+      const { clients: clients2, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { computeQuote: computeQuote2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
+      const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
+      const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
+      const { renderEngagementHtml: renderEngagementHtml2 } = await Promise.resolve().then(() => (init_quote_doc(), quote_doc_exports));
+      const db = getDb2();
+      const cl = (await db.select().from(clients2).where(eq3(clients2.id, clientId)).limit(1))[0];
+      if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const quote = computeQuote2(buildScopeForClient2(cl, onb));
+      const content = renderEngagementHtml2({
+        firm: getFirmSettings2(),
+        clientName: cl.name,
+        clientCompany: cl.company,
+        monthlyFee: cl.monthlyFee ?? null,
+        quote,
+        services: servicesForEngagement2(cl, onb),
+        yearEnd: cl.yearEndMonth ?? null,
+        contactName: cl.contactName || onb?.primaryContactName || null,
+        contactEmail: cl.email || onb?.primaryContactEmail || null,
+        address: cl.address || null,
+        closeSchedule: onb?.bookkeepingFrequency || "monthly",
+        clientApps: clientAppsForEngagement2(onb),
+        isCanadian: (cl.qboAccountType ?? "ca_clients") !== "us_clients"
+      });
+      const res = await createAndSendDoc2({
+        db,
+        clientId: cl.id,
+        userId: cl.userId ?? 1,
+        title: `Letter of Engagement \u2014 ${cl.company || cl.name}`,
+        description: "Engagement terms for signature",
+        content,
+        documentType: "engagement_letter",
+        clientEmail: cl.email || null
+      });
+      return c.json({ success: true, op, clientName: cl.name, ...res });
     }
     return c.json({ success: true, op: "health", health: await brain.bridgeHealth() });
   } catch (e) {
