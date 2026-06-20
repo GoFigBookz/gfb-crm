@@ -46324,8 +46324,8 @@ var init_firm_settings = __esm({
       phone: "416-456-5760",
       email: "markie@gofig.ca",
       website: "www.gofig.ca",
-      craRepId: "",
-      // TODO: Markie's CRA Represent-a-Client RepID
+      craRepId: "YY7F3GN",
+      // Markie's CRA Represent-a-Client RepID
       logoDataUri: GFB_LOGO_DATA_URI,
       accent: "#65a30d"
       // lime-600, matches the CRM
@@ -46413,29 +46413,54 @@ function renderCraAuthRequestHtml(opts) {
 function renderEngagementHtml(opts) {
   const { firm } = opts;
   const fee = opts.monthlyFee && opts.monthlyFee > 0 ? opts.monthlyFee : opts.quote.recurringMonthly;
-  const servicesList = opts.services.map((s) => `<li style="margin:4px 0;">${esc2(s)}</li>`).join("");
+  const legal = opts.clientCompany || opts.clientName;
+  const firstName = (opts.contactName || "").trim().split(/\s+/)[0] || "there";
+  const close = opts.closeSchedule || "monthly";
+  const apps = opts.clientApps && opts.clientApps.length ? opts.clientApps.join(", ") : "as applicable";
+  const servicesList = opts.services.map((s) => `<li style="margin:5px 0;">${esc2(s)}</li>`).join("");
+  const h = (t2) => `<h3 style="color:${firm.accent};font-size:13px;text-transform:uppercase;letter-spacing:1px;margin:20px 0 6px;">${t2}</h3>`;
   return wrap(`
     ${header(firm, "Letter of Engagement")}
-    <p style="margin:0 0 4px;">Between</p>
-    <div style="font-size:16px;font-weight:600;">${esc2(firm.legalName)} ${esc2(firm.legalSuffix)}</div>
-    <p style="margin:8px 0 4px;">and</p>
-    <div style="font-size:16px;font-weight:600;margin-bottom:18px;">${esc2(opts.clientCompany || opts.clientName)}</div>
+    <div style="font-size:12px;color:#64748b;">${today()}</div>
+    <div style="font-size:16px;font-weight:700;margin-top:10px;">${esc2(legal)}</div>
+    ${opts.address ? `<div style="font-size:13px;color:#475569;">${esc2(opts.address)}</div>` : ""}
+    ${opts.contactName ? `<div style="font-size:13px;color:#475569;">Attention: ${esc2(opts.contactName)}</div>` : ""}
+    ${opts.contactEmail ? `<div style="font-size:13px;color:#475569;">${esc2(opts.contactEmail)}</div>` : ""}
 
-    <p>This letter confirms the terms under which ${esc2(firm.displayName)} will provide bookkeeping and related services to ${esc2(opts.clientCompany || opts.clientName)} ("the Client").</p>
+    <p style="margin-top:16px;">Dear ${esc2(firstName)},</p>
+    <p>We appreciate the opportunity of providing bookkeeping and accounting services to ${esc2(legal)}. To ensure a complete understanding between us, this letter describes the scope and limitations of the services we will provide for you. Markie Antle of ${esc2(firm.displayName)} will be the contact person for this engagement.</p>
 
-    <h3 style="color:${firm.accent};font-size:14px;text-transform:uppercase;letter-spacing:1px;margin-top:20px;">Scope of services</h3>
+    ${h("Scope of services")}
+    <p style="margin:0 0 4px;">On a ${esc2(close)} basis, ${esc2(firm.displayName)} will provide the following services for ${esc2(legal)}:</p>
     <ul style="margin:6px 0;padding-left:20px;">${servicesList || "<li>Bookkeeping &amp; accounting</li>"}</ul>
+    <p>On an annual basis, we will prepare the year-end financial package for your accountant and liaise with your accountant on any year-end questions that may arise.</p>
 
-    <h3 style="color:${firm.accent};font-size:14px;text-transform:uppercase;letter-spacing:1px;margin-top:20px;">Fees</h3>
-    <p>Recurring professional fee of <strong>${money(fee)}/month</strong> plus applicable GST/HST, billed monthly. One-time setup/catch-up billed separately as quoted. Fees are reviewed if scope or transaction volume changes materially.</p>
+    ${h("What we need from you")}
+    <p>To perform our services effectively, we will need timely access to: bank statements, customer invoices and receipts, sales-tax account information, vendor invoices, payroll and employee data, and any other documents necessary to complete this engagement. ${esc2(legal)} is solely responsible for supplying ${esc2(firm.displayName)} all information necessary, and acknowledges that the accuracy of financial information supplied is its sole responsibility.</p>
 
-    <h3 style="color:${firm.accent};font-size:14px;text-transform:uppercase;letter-spacing:1px;margin-top:20px;">Responsibilities</h3>
-    <p>The Client is responsible for the completeness and accuracy of records provided and for timely access to source documents and accounts. ${esc2(firm.displayName)} will maintain the books, prepare the agreed filings, and keep the Client informed of deadlines. ${esc2(firm.displayName)} does not audit the records and relies on information provided.</p>
+    ${h("Software & system access")}
+    <p>${esc2(legal)} agrees to provide ${esc2(firm.displayName)} access to all current accounting and business software (accounting software, banking portals / bank feeds, payroll platform, payment processors \u2014 ${esc2(apps)}, document management such as Hubdoc/Dext/Drive, and any other platforms used to manage business finances).</p>
 
-    <h3 style="color:${firm.accent};font-size:14px;text-transform:uppercase;letter-spacing:1px;margin-top:20px;">Term</h3>
-    <p>This engagement begins on acceptance and continues month-to-month until terminated by either party with 30 days' written notice.${opts.yearEnd ? ` The Client's fiscal year-end is ${esc2(opts.yearEnd)}.` : ""}</p>
+    ${opts.isCanadian !== false ? `
+    ${h("CRA representative authorization")}
+    <p>${esc2(legal)} agrees to authorize Markie Antle of ${esc2(firm.displayName)} as an authorized representative with the Canada Revenue Agency (CRA), allowing us to communicate with CRA on your behalf, file returns, and respond to CRA inquiries.</p>
+    <p style="font-size:13px;"><strong>CRA Representative ID: ${esc2(firm.craRepId || "[RepID]")}</strong> \xB7 Markie Antle \xB7 ${esc2(firm.email)}. Please complete this authorization within 5 business days of signing (My Business Account \u2192 Authorize a representative \u2192 Level 2).</p>` : ""}
 
-    <p style="margin-top:18px;">By signing below, the Client accepts this letter of engagement and its terms.</p>
+    ${h("Term & termination")}
+    <p>This engagement begins on acceptance and continues on a monthly basis until terminated by either party. Either party may terminate for convenience with thirty (30) days' written notice.${opts.yearEnd ? ` The Client's fiscal year-end is ${esc2(opts.yearEnd)}.` : ""}</p>
+
+    ${h("Fees & pricing")}
+    <p>Our fee for the services above is <strong>${money(fee)} per month</strong>, plus applicable GST/HST, billed at the beginning of each month and payable within 15 days of the invoice date. Pre-approved out-of-pocket expenses are billed separately. Services outside this scope will be quoted and require a separate engagement letter.</p>
+
+    ${h("Standard of performance")}
+    <p>${esc2(firm.displayName)} agrees to follow the highest professional standards and adhere to all Generally Accepted Accounting Principles (GAAP).</p>
+
+    ${h("Confidentiality")}
+    <p>${esc2(firm.displayName)} agrees to hold all confidential or proprietary information of ${esc2(legal)} in strict confidence and shall not disclose it to third parties or use it for any purpose other than performing this engagement. These obligations survive termination.</p>
+
+    ${h("Approvals & signatures")}
+    <p>We are pleased to have you as a client. By signing below, ${esc2(legal)} accepts this letter of engagement and its terms.</p>
+    <p style="margin-top:10px;">Sincerely,<br/><strong>Markie Antle</strong> \u2014 ${esc2(firm.displayName)}<br/>${esc2(firm.email)} \xB7 ${esc2(firm.phone)}</p>
     ${footer(firm)}
   `);
 }
@@ -46496,13 +46521,31 @@ async function nextQuoteNumber(db) {
   }
   return `Q-${max2 + 1}`;
 }
-function servicesFromClient(client) {
-  const s = ["Bookkeeping & accounting", "Monthly reconciliation"];
-  if (client.hasHST) s.push(`HST/GST filing (${client.hstPeriod || "quarterly"})`);
-  if (client.hasPayroll) s.push(`Payroll & PD7A remittance (${client.payrollFrequency || "as scheduled"})`);
-  if (client.hasWSIB) s.push("WSIB reporting");
-  s.push("Year-end file preparation");
+function servicesFromClient(client, onb) {
+  const s = [
+    "Bookkeeping, transaction categorization, and monthly bank/credit-card reconciliation",
+    "Monthly financial reporting (profit & loss, balance sheet)"
+  ];
+  if (client.hasHST) s.push(`HST/GST preparation and filing (${client.hstPeriod || "quarterly"})`);
+  if (client.hasPayroll) {
+    s.push(`Payroll processing and source-deduction remittances (PD7A, ${client.payrollFrequency || "as scheduled"})`);
+    s.push("T4 preparation and filing");
+  }
+  if (onb?.paysDividends || onb?.hasInvestments) s.push("T5 preparation");
+  if (onb?.hasSubcontractors) s.push("T5018 subcontractor reporting");
+  if (client.hasWSIB) s.push("WSIB reporting and remittance");
+  if (onb?.hasEHT) s.push("Employer Health Tax (EHT) reporting");
   return s;
+}
+function clientAppsList(onb) {
+  const a = [];
+  if (onb?.usesStripe) a.push("Stripe");
+  if (onb?.usesSquare) a.push("Square");
+  if (onb?.usesJobber) a.push("Jobber");
+  if (onb?.usesTouchBistro) a.push("TouchBistro");
+  if (onb?.usesPayPal) a.push("PayPal");
+  if (onb?.usesHubdoc) a.push("Hubdoc");
+  return a;
 }
 function buildScopeForClient(client, onb) {
   const num2 = (...vals) => {
@@ -46694,8 +46737,14 @@ var init_quote_router = __esm({
           clientCompany: client.company,
           monthlyFee: client.monthlyFee ?? null,
           quote,
-          services: servicesFromClient(client),
-          yearEnd: client.yearEndMonth ?? null
+          services: servicesFromClient(client, onb),
+          yearEnd: client.yearEndMonth ?? null,
+          contactName: client.contactName || onb?.primaryContactName || null,
+          contactEmail: client.email || onb?.primaryContactEmail || null,
+          address: client.address || null,
+          closeSchedule: onb?.bookkeepingFrequency || "monthly",
+          clientApps: clientAppsList(onb),
+          isCanadian: (client.qboAccountType ?? "ca_clients") !== "us_clients"
         });
         const res = await createAndSendDoc({
           db,
