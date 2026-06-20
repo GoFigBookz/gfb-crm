@@ -45406,6 +45406,7 @@ var init_payroll_router = __esm({
         }).where(eq(payRuns.id, input.runId));
         return { token };
       }),
+<<<<<<< HEAD
       // AUTOMATIC withholding check (vs CRA), per employee, computed from the
       // client's actual pay runs this calendar year — mirrors the Originality sheet's
       // "Expected CRA Deduction (YTD)" vs "Actual Tax Deducted (YTD)" columns. No
@@ -45448,6 +45449,8 @@ var init_payroll_router = __esm({
         }).filter((r) => r.ytdGross > 0).sort((a, b) => a.name.localeCompare(b.name));
         return { year: year2, periodsPerYear: ppy, runsCount, fraction, rows };
       }),
+=======
+>>>>>>> origin/main
       // Which tax tables the reconciliation is using (for the UI banner).
       taxTables: staffQuery.query(() => ({
         year: TAX_2026.year,

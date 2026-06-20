@@ -271,6 +271,7 @@ export const payrollRouter = createRouter({
       return { token };
     }),
 
+<<<<<<< HEAD
   // AUTOMATIC withholding check (vs CRA), per employee, computed from the
   // client's actual pay runs this calendar year — mirrors the Originality sheet's
   // "Expected CRA Deduction (YTD)" vs "Actual Tax Deducted (YTD)" columns. No
@@ -318,6 +319,8 @@ export const payrollRouter = createRouter({
       return { year, periodsPerYear: ppy, runsCount, fraction, rows };
     }),
 
+=======
+>>>>>>> origin/main
   // Which tax tables the reconciliation is using (for the UI banner).
   taxTables: staffQuery.query(() => ({
     year: TAX_2026.year,
