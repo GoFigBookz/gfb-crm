@@ -505,7 +505,7 @@ export default function ClientPortal() {
                               onClick={() => signDocument.mutate({
                                 id: doc.id,
                                 signedBy: signatureName,
-                                signedByEmail: portalData?.email || undefined,
+                                signedByEmail: (portalData?.email && portalData.email.includes("@")) ? portalData.email : undefined,
                                 signatureType: "type_name",
                                 signatureData: JSON.stringify({ name: signatureName, date: new Date().toISOString(), method: "type_name" }),
                               })}

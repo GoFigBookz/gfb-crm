@@ -164,7 +164,7 @@ export const signatureRouter = createRouter({
     .input(z.object({
       id: z.number(),
       signedBy: z.string().min(1),
-      signedByEmail: z.string().email().optional(),
+      signedByEmail: z.string().optional(), // not strictly validated — optional record only
       signatureType: z.enum(["type_name", "draw", "click"]).default("type_name"),
       signatureData: z.string(), // JSON string with signature details
       ipAddress: z.string().optional(),
