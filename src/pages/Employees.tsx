@@ -36,7 +36,6 @@ export default function Employees() {
       clientId: selectedClient,
       firstName: form.firstName || "",
       lastName: form.lastName || "",
-      sin: form.sin || undefined,
       position: form.position || undefined,
       department: form.department || undefined,
       payType: (form.payType || "salary") as any,
@@ -104,7 +103,6 @@ export default function Employees() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2"><Label>First Name *</Label><Input value={form.firstName || ""} onChange={e => setForm({...form, firstName: e.target.value})} /></div>
                   <div className="space-y-2"><Label>Last Name *</Label><Input value={form.lastName || ""} onChange={e => setForm({...form, lastName: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>SIN</Label><Input value={form.sin || ""} onChange={e => setForm({...form, sin: e.target.value})} placeholder="123-456-789" /></div>
                   <div className="space-y-2"><Label>Position</Label><Input value={form.position || ""} onChange={e => setForm({...form, position: e.target.value})} /></div>
                   <div className="space-y-2"><Label>Department</Label><Input value={form.department || ""} onChange={e => setForm({...form, department: e.target.value})} /></div>
                   <div className="space-y-2"><Label>Pay Type</Label>
@@ -173,7 +171,6 @@ export default function Employees() {
                   {isExpanded && (
                     <CardContent className="border-t pt-4 space-y-4">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div><p className="text-slate-500 text-xs">SIN</p><p className="font-medium">{emp.sin || "—"}</p></div>
                         <div><p className="text-slate-500 text-xs">Date of Birth</p><p className="font-medium">{emp.dateOfBirth ? format(new Date(emp.dateOfBirth), "MMM d, yyyy") : "—"}</p></div>
                         <div><p className="text-slate-500 text-xs">Hire Date</p><p className="font-medium">{emp.hireDate ? format(new Date(emp.hireDate), "MMM d, yyyy") : "—"}</p></div>
                         <div><p className="text-slate-500 text-xs">Start Date</p><p className="font-medium">{emp.startDate ? format(new Date(emp.startDate), "MMM d, yyyy") : "—"}</p></div>
