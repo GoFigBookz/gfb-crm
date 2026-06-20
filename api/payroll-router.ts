@@ -24,6 +24,16 @@ async function ytdGrossBeforeRun(db: any, employeeId: number, run: any): Promise
   return round2(opening + prior.reduce((s, l) => s + (l.grossPay || 0), 0));
 }
 
+/** FUTURE: pull official T4 amounts from QuickBooks (Payroll) for the realm
+ *  bound to this client. Returns null until the QBO Payroll connection is live,
+ *  so callers fall back to the CRM pay-run computation. This is the seam — when
+ *  the per-realm QBO connection + payroll scope are available, fill the boxes
+ *  from QBO's T4 / payroll-summary data here so QuickBooks stays the source of
+ *  record (the CRM pay runs become a cross-check, not the slip source). */
+async function pullT4FromQbo(_clientId: number, _year: number): Promise<null> {
+  return null;
+}
+
 /** Pay periods already elapsed in the year before this run's period start —
  *  drives the prorated CPP basic exemption in the CRA calc. */
 function periodsElapsedBeforeRun(run: any): number {
@@ -409,14 +419,20 @@ export const payrollRouter = createRouter({
       return reconcileWithholding(input.ytdGross, input.ytdTaxDeducted, frac);
     }),
 
-  // T4 slips — aggregate each employee's pay-run lines for the calendar year
-  // into the CRA T4 boxes. SIN is NOT included (reveal per employee with the
-  // code gate when printing).
+  // T4 slips. QBO Payroll is the system of record for T4s — once the per-realm
+  // QBO connection is live this pulls the official T4 amounts from QuickBooks.
+  // Until then we compute from the CRM pay runs as a fallback (source label
+  // tells the UI which). SIN is NOT included (reveal via the code gate).
   t4Slips: staffQuery
     .input(z.object({ clientId: z.number(), year: z.number().optional() }))
     .query(async ({ input }) => {
       const db = getDb();
       const year = input.year ?? new Date().getFullYear();
+
+      // Future path: pull official T4 data from QuickBooks (Payroll). Returns
+      // null today (no live QBO Payroll connection) → fall back to CRM pay runs.
+      const fromQbo = await pullT4FromQbo(input.clientId, year);
+      if (fromQbo) return { ...fromQbo, source: "qbo" as const, note: null };
       const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0] as any;
       const allRuns = (await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId))) as any[];
       const runIds = new Set(allRuns.filter((r) => new Date(r.payPeriodEnd).getFullYear() === year).map((r) => r.id));
@@ -457,6 +473,8 @@ export const payrollRouter = createRouter({
         year,
         payer: client ? { name: client.company || client.name, address: client.address || "", bn: client.taxId || "", rp: client.payrollRpNumber || "" } : null,
         slips,
+        source: "crm_payroll" as const,
+        note: "Computed from CRM pay runs — will pull from QuickBooks once the QBO Payroll connection is live.",
       };
     }),
 });
