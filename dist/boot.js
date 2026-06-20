@@ -50330,6 +50330,14 @@ var init_payroll_employee_seed = __esm({
         { firstName: "Dhiren", lastName: "Gurung", position: "BOH", payType: "hourly", notes: "Hourly; sheet rate ~$18.00 (alignment unconfirmed); recent periods 0 hrs" },
         { firstName: "Suraj", lastName: "Limbu", position: "BOH", payType: "hourly", notes: "Hourly; sheet rate ~$18.00 (alignment unconfirmed)" },
         { firstName: "Deepak", lastName: "Vasisth", position: "FOH", payType: "hourly", notes: "Hourly; sheet rate ~$17.60 (alignment unconfirmed); 'ROE?' note on sheet" }
+      ] },
+      // ---------------------------------------------------------------------------
+      // FRACTAL SAAS INC. — single salaried employee, auto-paid in QuickBooks.
+      // Per Markie: only one employee, Andrew, on salary, QBO autopay. (Surfaced for
+      // visibility; no manual run needed.)
+      // ---------------------------------------------------------------------------
+      { clientMatch: "fractal", replace: true, employees: [
+        { firstName: "Andrew", payType: "salary", notes: "QBO autopay; salaried (rate not stated)" }
       ] }
     ];
   }
