@@ -50293,10 +50293,11 @@ __export(seed_payroll_employees_exports, {
 });
 async function seedPayrollEmployees() {
   const db = getDb();
-  const result = { matched: 0, added: 0, skipped: 0, unmatched: [] };
+  const result = { matched: 0, added: 0, skipped: 0, removed: 0, unmatched: [] };
   if (!PAYROLL_EMPLOYEE_SEED.length) return result;
   const allClients = await db.select().from(clients);
-  const allEmps = await db.select().from(employees);
+  const usedLines = await db.select().from(payRunLines);
+  const usedEmpIds = new Set(usedLines.map((l) => l.employeeId));
   for (const roster of PAYROLL_EMPLOYEE_SEED) {
     const match2 = roster.clientMatch.toLowerCase();
     const client = allClients.find((c) => (c.name || "").toLowerCase().includes(match2));
@@ -50305,8 +50306,18 @@ async function seedPayrollEmployees() {
       continue;
     }
     result.matched++;
+    if (roster.replace === true) {
+      const current = await db.select().from(employees).where(eq(employees.clientId, client.id));
+      for (const e of current) {
+        if (!usedEmpIds.has(e.id)) {
+          await db.delete(employees).where(eq(employees.id, e.id));
+          result.removed++;
+        }
+      }
+    }
+    const refreshed = await db.select().from(employees).where(eq(employees.clientId, client.id));
     const existing = new Set(
-      allEmps.filter((e) => e.clientId === client.id).map((e) => `${(e.firstName || "").toLowerCase()} ${(e.lastName || "").toLowerCase()}`.trim())
+      refreshed.map((e) => `${(e.firstName || "").toLowerCase()} ${(e.lastName || "").toLowerCase()}`.trim())
     );
     for (const emp of roster.employees) {
       const key = `${(emp.firstName || "").toLowerCase()} ${(emp.lastName || "").toLowerCase()}`.trim();
@@ -50330,12 +50341,13 @@ async function seedPayrollEmployees() {
       result.added++;
     }
   }
-  if (result.added) console.log(`[seed] payroll employees: +${result.added} across ${result.matched} clients`);
+  if (result.added || result.removed) console.log(`[seed] payroll employees: +${result.added} -${result.removed} across ${result.matched} clients`);
   return result;
 }
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
+    init_drizzle_orm();
     init_schema();
     init_payroll_employee_seed();
   }
