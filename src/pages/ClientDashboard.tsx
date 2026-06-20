@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
-import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet } from "lucide-react";
+import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -575,14 +575,21 @@ export default function ClientDashboard() {
                 <CardTitle className="text-lg">Quick Stats</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <span className="text-sm text-slate-600">Employees</span>
-                  <span className="font-medium">{employees?.length || 0}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                {client.hasPayroll ? (
+                  <Link to={`/payroll?clientId=${id}`} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+                    <span className="text-sm text-slate-600">Employees</span>
+                    <span className="font-medium inline-flex items-center gap-1">{employees?.length || 0} <ChevronRight className="h-3.5 w-3.5 text-slate-400" /></span>
+                  </Link>
+                ) : (
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <span className="text-sm text-slate-600">Employees</span>
+                    <span className="font-medium">{employees?.length || 0}</span>
+                  </div>
+                )}
+                <button onClick={() => setActiveTab("tasks")} className="w-full flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
                   <span className="text-sm text-slate-600">Open Tasks</span>
-                  <span className="font-medium">{openTasks.length}</span>
-                </div>
+                  <span className="font-medium inline-flex items-center gap-1">{openTasks.length} <ChevronRight className="h-3.5 w-3.5 text-slate-400" /></span>
+                </button>
                 <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                   <span className="text-sm text-slate-600">HST Frequency</span>
                   <span className="font-medium capitalize">{onboarding?.hstGstFrequency || "N/A"}</span>
