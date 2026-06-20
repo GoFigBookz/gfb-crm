@@ -807,20 +807,30 @@ function DepreciationCalculator() {
         {/* CCA Quick Select */}
         <div className="space-y-2">
           <Label>Quick Select — CRA CCA Class</Label>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-            {ccaClasses.map((cls) => (
-              <Button
-                key={cls.class}
-                variant={rate === cls.rate ? "default" : "outline"}
-                size="sm"
-                onClick={() => { setRate(cls.rate); setMethod("declining"); }}
-                className={rate === cls.rate ? "bg-lime-500 text-xs" : "text-xs"}
-              >
-                {cls.class} ({cls.rate}%)
-              </Button>
-            ))}
+          <p className="text-xs text-slate-400">Pick the class that matches the asset — the description tells you what each CRA class covers.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {ccaClasses.map((cls) => {
+              const selected = rate === cls.rate;
+              return (
+                <button
+                  key={cls.class}
+                  type="button"
+                  onClick={() => { setRate(cls.rate); setMethod("declining"); }}
+                  className={`text-left rounded-lg border p-2.5 transition-colors ${
+                    selected
+                      ? "border-lime-500 bg-lime-50 ring-1 ring-lime-400"
+                      : "border-slate-200 bg-white hover:border-lime-300 hover:bg-lime-50/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-slate-800">{cls.class}</span>
+                    <span className={`text-xs font-medium rounded-full px-1.5 py-0.5 ${selected ? "bg-lime-500 text-white" : "bg-slate-100 text-slate-600"}`}>{cls.rate}%</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1 leading-snug">{cls.desc}</p>
+                </button>
+              );
+            })}
           </div>
-          <p className="text-xs text-slate-400">{ccaClasses.find((c) => c.rate === rate)?.desc || ""}</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
