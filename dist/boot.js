@@ -40889,6 +40889,61 @@ var init_task_generator = __esm({
   }
 });
 
+// api/workflow-templates.ts
+function getWorkflowTemplate(key) {
+  return WORKFLOW_TEMPLATES.find((t2) => t2.key === key);
+}
+var WORKFLOW_TEMPLATES;
+var init_workflow_templates = __esm({
+  "api/workflow-templates.ts"() {
+    WORKFLOW_TEMPLATES = [
+      { key: "monthly_close", name: "Monthly Close", category: "Bookkeeping", steps: [
+        "Import & categorize transactions",
+        "Reconcile bank account(s)",
+        "Reconcile credit card(s)",
+        "Review uncategorized / ask client",
+        "Post adjusting entries",
+        "Prepare monthly reports (P&L, balance sheet)",
+        "Send reports to client"
+      ] },
+      { key: "year_end", name: "Year-End", category: "Year-End", steps: [
+        "Confirm year-end date & scope",
+        "Reconcile all accounts to year-end",
+        "Review fixed assets & amortization",
+        "Prepare year-end working papers",
+        "Prepare T4/T5 slips (if applicable)",
+        "Send year-end package to accountant",
+        "Record accountant's adjusting entries"
+      ] },
+      { key: "onboarding", name: "New Client Onboarding", category: "Setup", steps: [
+        "Signed engagement letter on file",
+        "CRA Represent-a-Client (RAC) access",
+        "Collect compliance numbers (CRA / HST / Payroll / WSIB)",
+        "Connect QBO + bank feeds",
+        "Connect Hubdoc / document flow",
+        "Chart of accounts review",
+        "Catch-up plan (if behind)"
+      ] },
+      { key: "hst_filing", name: "HST Filing", category: "HST", steps: [
+        "Reconcile the filing period",
+        "Review HST collected vs ITCs",
+        "Prepare the HST return",
+        "Client review & approve",
+        "File with CRA",
+        "Record the payment / refund"
+      ] },
+      { key: "payroll_run", name: "Payroll Run", category: "Payroll", steps: [
+        "Collect hours / changes",
+        "Process payroll",
+        "Review & approve",
+        "Submit direct deposit",
+        "Remit source deductions (PD7A)",
+        "Issue ROE (if needed)"
+      ] }
+    ];
+  }
+});
+
 // api/task-router.ts
 var taskRouter;
 var init_task_router = __esm({
@@ -40900,6 +40955,8 @@ var init_task_router = __esm({
     init_drizzle_orm();
     init_task_generator();
     init_sync_hooks();
+    init_workflow_templates();
+    init_schema();
     taskRouter = createRouter({
       // List tasks
       list: authedQuery.input(external_exports.object({
@@ -41011,6 +41068,49 @@ var init_task_router = __esm({
           ...done ? { completed: true, status: "completed", completedAt: /* @__PURE__ */ new Date() } : { completed: false, status: input.stage === "in_progress" ? "in_progress" : "pending" }
         }).where(eq(tasks.id, input.id));
         return { success: true };
+      }),
+      // List the available reusable workflow templates (Financial Cents-style).
+      listWorkflows: authedQuery.query(async () => {
+        return WORKFLOW_TEMPLATES.map((t2) => ({ key: t2.key, name: t2.name, category: t2.category, stepCount: t2.steps.length }));
+      }),
+      // Apply a workflow template to a client: spins up one task per step,
+      // staged to-do, assigned to the client's bookkeeper, due-dated across the
+      // next two weeks so they don't all stack on one day.
+      applyWorkflow: authedQuery.input(external_exports.object({
+        clientId: external_exports.number(),
+        templateKey: external_exports.string(),
+        dueDate: external_exports.date().optional()
+      })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const tpl = getWorkflowTemplate(input.templateKey);
+        if (!tpl) throw new Error(`Unknown workflow template: ${input.templateKey}`);
+        const clientRows = await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1);
+        const client = clientRows[0];
+        const assignedTo = client?.assignedTo || ctx.user.name || ctx.user.email;
+        const baseDue = input.dueDate ?? /* @__PURE__ */ new Date();
+        const created = [];
+        for (let i = 0; i < tpl.steps.length; i++) {
+          const due = new Date(baseDue);
+          due.setDate(due.getDate() + i * 2);
+          const [task] = await db.insert(tasks).values({
+            clientId: input.clientId,
+            title: tpl.steps[i],
+            description: `${tpl.name} workflow${client?.name ? ` \u2014 ${client.name}` : ""}`,
+            dueDate: due,
+            priority: "medium",
+            category: tpl.category,
+            assignedTo,
+            userId: ctx.user.id,
+            status: "pending",
+            stage: "todo",
+            completed: false
+          }).returning();
+          if (task) {
+            syncInsert("tasks", task);
+            created.push(task.id);
+          }
+        }
+        return { success: true, created: created.length, templateName: tpl.name };
       }),
       // Update task
       update: authedQuery.input(external_exports.object({

@@ -5,6 +5,8 @@ import { tasks, recurringTasks, clientTaskRules } from "../db/schema";
 import { eq, and, gte, lte, lt, desc, or, sql } from "drizzle-orm";
 import { generateNextTaskInstance } from "./task-generator";
 import { syncInsert, syncUpdate } from "./sync-hooks";
+import { getWorkflowTemplate, WORKFLOW_TEMPLATES } from "./workflow-templates";
+import { clients } from "../db/schema";
 
 export const taskRouter = createRouter({
   // List tasks
@@ -175,6 +177,52 @@ export const taskRouter = createRouter({
                  : { completed: false, status: input.stage === "in_progress" ? "in_progress" : "pending" }),
       }).where(eq(tasks.id, input.id));
       return { success: true };
+    }),
+
+  // List the available reusable workflow templates (Financial Cents-style).
+  listWorkflows: authedQuery.query(async () => {
+    return WORKFLOW_TEMPLATES.map((t) => ({ key: t.key, name: t.name, category: t.category, stepCount: t.steps.length }));
+  }),
+
+  // Apply a workflow template to a client: spins up one task per step,
+  // staged to-do, assigned to the client's bookkeeper, due-dated across the
+  // next two weeks so they don't all stack on one day.
+  applyWorkflow: authedQuery
+    .input(z.object({
+      clientId: z.number(),
+      templateKey: z.string(),
+      dueDate: z.date().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const tpl = getWorkflowTemplate(input.templateKey);
+      if (!tpl) throw new Error(`Unknown workflow template: ${input.templateKey}`);
+
+      const clientRows = await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1);
+      const client = clientRows[0];
+      const assignedTo = client?.assignedTo || ctx.user.name || ctx.user.email;
+      const baseDue = input.dueDate ?? new Date();
+
+      const created: number[] = [];
+      for (let i = 0; i < tpl.steps.length; i++) {
+        const due = new Date(baseDue);
+        due.setDate(due.getDate() + i * 2); // spread two days apart
+        const [task] = await db.insert(tasks).values({
+          clientId: input.clientId,
+          title: tpl.steps[i],
+          description: `${tpl.name} workflow${client?.name ? ` — ${client.name}` : ""}`,
+          dueDate: due,
+          priority: "medium",
+          category: tpl.category,
+          assignedTo,
+          userId: ctx.user.id,
+          status: "pending",
+          stage: "todo",
+          completed: false,
+        }).returning();
+        if (task) { syncInsert("tasks", task); created.push(task.id); }
+      }
+      return { success: true, created: created.length, templateName: tpl.name };
     }),
 
   // Update task
