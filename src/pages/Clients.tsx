@@ -204,6 +204,22 @@ export default function Clients() {
                     )}
                   </div>
 
+                  {(() => {
+                    const c: any = client;
+                    const missing: string[] = [];
+                    if (!c.taxId) missing.push("CRA#");
+                    if (c.hasHST && !c.hstNumber) missing.push("HST#");
+                    if (c.hasPayroll && !c.payrollRpNumber) missing.push("Payroll#");
+                    if (c.hasWSIB && !c.wsibAccountNumber) missing.push("WSIB#");
+                    return missing.length > 0 ? (
+                      <div className="mb-2 flex flex-wrap gap-1">
+                        {missing.map((m) => (
+                          <span key={m} className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">⚠ {m}</span>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
+
                   <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                     <Badge variant="outline" className={cn(
                       "text-xs capitalize",
