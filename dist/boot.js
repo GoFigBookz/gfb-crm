@@ -45159,6 +45159,7 @@ function payrollKind(name2) {
   if (n.includes("originality")) return { kind: "clockify", note: "Hourly staff hours come from Clockify; salaried staff are entered manually." };
   if (n.includes("clark")) return { kind: "jobber", note: "Employee hours come from Jobber timesheets (import coming in Phase 3). Enter or adjust manually here." };
   if (n.includes("old spot") || n.includes("sher") || n.includes("punjab")) return { kind: "touchbistro", note: "Hours come from TouchBistro \u2014 enter or adjust them manually here (no direct API)." };
+  if (n.includes("fractal")) return { kind: "qbo_autopay", note: "Auto-paid in QuickBooks \u2014 one salaried employee (Andrew). Surfaced for visibility; no manual run needed." };
   return { kind: "manual" };
 }
 async function recomputeRunTotals(runId) {
@@ -50263,14 +50264,16 @@ var init_payroll_employee_seed = __esm({
         { firstName: "Vittorio", lastName: "Sottile", payType: "hourly", hourlyRate: 41.25 }
       ] },
       // ---------------------------------------------------------------------------
-      // CLARK POOLS AND SPAS — Employee Summary (single combined roster found in
-      // Due Diligence; the sheet does not split Owen Sound vs Collingwood, so this
-      // is recorded under a generic "clark" match. NOTE: Clark OS and Clark CW are
-      // permanently separate entities — confirm which store each employee belongs to
-      // before splitting; do not assume.
-      // Source: 1BbnBDFhBFRA8CKs__jV-YNKIpKyfavkQ (Clark Pools_ Employee Summary)
+      // CLARK POOLS AND SPAS — OWEN SOUND (Clark OS, realm 9341456017349963).
+      // Source: 1BbnBDFhBFRA8CKs__jV-YNKIpKyfavkQ ("Clark Pools_ Employee Summary")
+      // This roster lives in the Owen Sound entity's Due-Diligence tree
+      // ("Finance - Clark Pools Owen Sound" → 1 - Company Documentation → Due
+      // Diligence Items → 11 - Employee Information). Its 10 names have ZERO overlap
+      // with the Collingwood T4 (below), confirming it is the Owen Sound store roster
+      // (the combined "clark" seed has been split — replace:true self-corrects it).
+      // Rates/positions are exactly as the Employee Summary shows.
       // ---------------------------------------------------------------------------
-      { clientMatch: "clark", sourceFileId: "1BbnBDFhBFRA8CKs__jV-YNKIpKyfavkQ", employees: [
+      { clientMatch: "owen sound", replace: true, sourceFileId: "1BbnBDFhBFRA8CKs__jV-YNKIpKyfavkQ", employees: [
         { firstName: "Cathy", lastName: "Bartley", payType: "hourly", hourlyRate: 19, position: "Store Clerk", notes: "Part time; start April 2025; vac 4%" },
         { firstName: "Dustin", lastName: "Bowlby", payType: "hourly", hourlyRate: 22, position: "Labourer", notes: "Full time seasonal; start Sept 2024; vac 4%" },
         { firstName: "Jammie", lastName: "Cook", payType: "hourly", hourlyRate: 31, position: "Technician", notes: "Full time/seasonal; start April 2024; vac 6%; winter hot-tub work as needed" },
@@ -50281,6 +50284,60 @@ var init_payroll_employee_seed = __esm({
         { firstName: "Bradly", lastName: "Shaw", payType: "hourly", hourlyRate: 26, position: "Labourer", notes: "Full time seasonal; start April 2021; vac 4%" },
         { firstName: "Chris", lastName: "Prentice", payType: "salary", position: "Estimator/Project Manager", notes: "Biweekly salary $6,120.00; vac 8%" },
         { firstName: "Jennifer", lastName: "Prentice", payType: "salary", position: "AP/Bank Rec, Govt Remit/Acct", notes: "Biweekly salary $3,766.14; vac 8%" }
+      ] },
+      // ---------------------------------------------------------------------------
+      // CLARK POOLS AND SPAS — COLLINGWOOD (Clark CW, realm 13633946244024404).
+      // Source: 1xvr6OL_HU6hBgIK05x2bhzwJRLV6Ft7w
+      // (T4EmployerSlips_ClarkPoolsandSpasCollingwoodInc_TaxYear2025.xml — CRA T4
+      // employer slips, BN 770298602RP0001, the Collingwood payroll account per its
+      // Client Info doc). 14 T4 slips for tax year 2025. T4 slips list employee NAMES
+      // only — no hourly rate / pay type, so those are omitted (never guessed). Where
+      // a slip shows commission income (box 42) it is flagged in notes.
+      // replace:true so the prior combined "clark" seed self-corrects.
+      // ---------------------------------------------------------------------------
+      { clientMatch: "collingwood", replace: true, sourceFileId: "1xvr6OL_HU6hBgIK05x2bhzwJRLV6Ft7w", employees: [
+        { firstName: "Alan", lastName: "Weaver" },
+        { firstName: "Chris", lastName: "Thompson", notes: "T4 init E" },
+        { firstName: "John", lastName: "Chapman" },
+        { firstName: "Lisa", lastName: "Venditti" },
+        { firstName: "Adrian", lastName: "Robbeson" },
+        { firstName: "Brendan", lastName: "Essex", notes: "Highest-paid slip ($102,045 incl. $30,814 commission) \u2014 likely owner/manager" },
+        { firstName: "Chris", lastName: "Hawton", notes: "$105,783 incl. $30,413 commission; Owen Sound address but on Collingwood T4 \u2014 verify if dual-store" },
+        { firstName: "Chris", lastName: "Haight", notes: "T4 init L" },
+        { firstName: "Adam", lastName: "Holt", notes: "Owen Sound address but on Collingwood T4" },
+        { firstName: "Corey", lastName: "Hawton", notes: "Owen Sound address but on Collingwood T4" },
+        { firstName: "Matteo", lastName: "Companion" },
+        { firstName: "Ty", lastName: "Johnston" },
+        { firstName: "Riki", lastName: "Reynolds", notes: "T4 init C" },
+        { firstName: "Logan", lastName: "Greig" }
+      ] },
+      // ---------------------------------------------------------------------------
+      // 1001196626 ONTARIO LTD (SHER-E-PUNJAB) — TouchBistro restaurant payroll.
+      // Source: 1BsiHTPaSnFhXZPwI_5YnLK32rdJhFOi6EWdCeujnPIo ("Sher-E-Punja Payroll"
+      // Google Sheet; most recent pay date 6/12/2026, period May 27–Jun 9). The sheet
+      // lists named employees with positions; corroborated by paystubs
+      // (1OjsWUtNerJRVKe-VLGmIeeY-zSAC4Oun, "Sher-e-paystub 2024") and PD7A files.
+      // The sheet's per-row hourly rates ($21/$17.60/$19/$18/$18/$17.60) cannot be
+      // unambiguously aligned to each name from the flattened export, so rates are
+      // captured in notes rather than hard-assigned (never guessed). The Chef row
+      // carries a $70,000 annual salary line on the sheet.
+      // ---------------------------------------------------------------------------
+      { clientMatch: "sher", sourceFileId: "1BsiHTPaSnFhXZPwI_5YnLK32rdJhFOi6EWdCeujnPIo", employees: [
+        { firstName: "Surya", lastName: "Bhattrai", position: "Chef", payType: "salary", notes: "Sheet shows $70,000 annual salary line for the Chef row" },
+        { firstName: "Upendra", lastName: "Bahadur Poudel", position: "BOH", payType: "hourly", notes: "Hourly; rate per sheet rate column (approx $17.60-$21 range, exact alignment unconfirmed)" },
+        { firstName: "Akash", lastName: "Dahal", position: "FOH", payType: "hourly", notes: "Hourly; sheet rate ~$19.00 (alignment unconfirmed)" },
+        { firstName: "Rohit", lastName: "Dhimal", position: "BOH / Kitchen Manager", payType: "hourly", notes: "2024 paystub shows Kitchen Manager $25.00/hr; current sheet rate lower (~$18) \u2014 verify" },
+        { firstName: "Dhiren", lastName: "Gurung", position: "BOH", payType: "hourly", notes: "Hourly; sheet rate ~$18.00 (alignment unconfirmed); recent periods 0 hrs" },
+        { firstName: "Suraj", lastName: "Limbu", position: "BOH", payType: "hourly", notes: "Hourly; sheet rate ~$18.00 (alignment unconfirmed)" },
+        { firstName: "Deepak", lastName: "Vasisth", position: "FOH", payType: "hourly", notes: "Hourly; sheet rate ~$17.60 (alignment unconfirmed); 'ROE?' note on sheet" }
+      ] },
+      // ---------------------------------------------------------------------------
+      // FRACTAL SAAS INC. — single salaried employee, auto-paid in QuickBooks.
+      // Per Markie: only one employee, Andrew, on salary, QBO autopay. (Surfaced for
+      // visibility; no manual run needed.)
+      // ---------------------------------------------------------------------------
+      { clientMatch: "fractal", replace: true, employees: [
+        { firstName: "Andrew", payType: "salary", notes: "QBO autopay; salaried (rate not stated)" }
       ] }
     ];
   }
@@ -50293,10 +50350,11 @@ __export(seed_payroll_employees_exports, {
 });
 async function seedPayrollEmployees() {
   const db = getDb();
-  const result = { matched: 0, added: 0, skipped: 0, unmatched: [] };
+  const result = { matched: 0, added: 0, skipped: 0, removed: 0, unmatched: [] };
   if (!PAYROLL_EMPLOYEE_SEED.length) return result;
   const allClients = await db.select().from(clients);
-  const allEmps = await db.select().from(employees);
+  const usedLines = await db.select().from(payRunLines);
+  const usedEmpIds = new Set(usedLines.map((l) => l.employeeId));
   for (const roster of PAYROLL_EMPLOYEE_SEED) {
     const match2 = roster.clientMatch.toLowerCase();
     const client = allClients.find((c) => (c.name || "").toLowerCase().includes(match2));
@@ -50305,8 +50363,18 @@ async function seedPayrollEmployees() {
       continue;
     }
     result.matched++;
+    if (roster.replace === true) {
+      const current = await db.select().from(employees).where(eq(employees.clientId, client.id));
+      for (const e of current) {
+        if (!usedEmpIds.has(e.id)) {
+          await db.delete(employees).where(eq(employees.id, e.id));
+          result.removed++;
+        }
+      }
+    }
+    const refreshed = await db.select().from(employees).where(eq(employees.clientId, client.id));
     const existing = new Set(
-      allEmps.filter((e) => e.clientId === client.id).map((e) => `${(e.firstName || "").toLowerCase()} ${(e.lastName || "").toLowerCase()}`.trim())
+      refreshed.map((e) => `${(e.firstName || "").toLowerCase()} ${(e.lastName || "").toLowerCase()}`.trim())
     );
     for (const emp of roster.employees) {
       const key = `${(emp.firstName || "").toLowerCase()} ${(emp.lastName || "").toLowerCase()}`.trim();
@@ -50330,12 +50398,13 @@ async function seedPayrollEmployees() {
       result.added++;
     }
   }
-  if (result.added) console.log(`[seed] payroll employees: +${result.added} across ${result.matched} clients`);
+  if (result.added || result.removed) console.log(`[seed] payroll employees: +${result.added} -${result.removed} across ${result.matched} clients`);
   return result;
 }
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
+    init_drizzle_orm();
     init_schema();
     init_payroll_employee_seed();
   }

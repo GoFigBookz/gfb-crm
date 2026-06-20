@@ -41,6 +41,7 @@ function payrollKind(name: string | null | undefined): { kind: string; note?: st
   if (n.includes("originality")) return { kind: "clockify", note: "Hourly staff hours come from Clockify; salaried staff are entered manually." };
   if (n.includes("clark")) return { kind: "jobber", note: "Employee hours come from Jobber timesheets (import coming in Phase 3). Enter or adjust manually here." };
   if (n.includes("old spot") || n.includes("sher") || n.includes("punjab")) return { kind: "touchbistro", note: "Hours come from TouchBistro — enter or adjust them manually here (no direct API)." };
+  if (n.includes("fractal")) return { kind: "qbo_autopay", note: "Auto-paid in QuickBooks — one salaried employee (Andrew). Surfaced for visibility; no manual run needed." };
   return { kind: "manual" };
 }
 
