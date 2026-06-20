@@ -408,4 +408,55 @@ export const payrollRouter = createRouter({
         ?? (input.periodsElapsed && input.periodsPerYear ? input.periodsElapsed / input.periodsPerYear : 0.5);
       return reconcileWithholding(input.ytdGross, input.ytdTaxDeducted, frac);
     }),
+
+  // T4 slips — aggregate each employee's pay-run lines for the calendar year
+  // into the CRA T4 boxes. SIN is NOT included (reveal per employee with the
+  // code gate when printing).
+  t4Slips: staffQuery
+    .input(z.object({ clientId: z.number(), year: z.number().optional() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const year = input.year ?? new Date().getFullYear();
+      const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0] as any;
+      const allRuns = (await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId))) as any[];
+      const runIds = new Set(allRuns.filter((r) => new Date(r.payPeriodEnd).getFullYear() === year).map((r) => r.id));
+      const emps = (await db.select().from(employees).where(eq(employees.clientId, input.clientId))) as any[];
+      const empById = new Map(emps.map((e) => [e.id, e]));
+      const allLines = (await db.select().from(payRunLines)) as any[];
+      const lines = allLines.filter((l) => runIds.has(l.payRunId));
+
+      const agg = new Map<number, any>();
+      for (const l of lines) {
+        const a = agg.get(l.employeeId) || { gross: 0, cpp: 0, cpp2: 0, ei: 0, tax: 0 };
+        a.gross += l.grossPay || 0;
+        a.cpp += l.cppEmployee || 0;
+        a.cpp2 += l.cpp2Employee || 0;
+        a.ei += l.eiEmployee || 0;
+        a.tax += (l.federalTax || 0) + (l.provincialTax || 0);
+        agg.set(l.employeeId, a);
+      }
+      const slips = Array.from(agg.entries()).map(([empId, a]) => {
+        const e = empById.get(empId);
+        const box14 = round2(a.gross);
+        return {
+          employeeId: empId,
+          name: e ? `${e.firstName} ${e.lastName}` : `Employee #${empId}`,
+          address: e?.address || "",
+          hasSin: !!e?.sin,
+          box14, // employment income
+          box16: round2(a.cpp),                                   // CPP base
+          box16A: round2(a.cpp2),                                 // CPP2
+          box18: round2(a.ei),                                    // EI premiums
+          box22: round2(a.tax),                                   // income tax deducted
+          box24: round2(Math.min(box14, CRA_2026.ei.mie)),        // EI insurable earnings
+          box26: round2(Math.min(box14, CRA_2026.cpp.yampe)),     // CPP pensionable earnings
+        };
+      }).filter((s) => s.box14 > 0).sort((a, b) => a.name.localeCompare(b.name));
+
+      return {
+        year,
+        payer: client ? { name: client.company || client.name, address: client.address || "", bn: client.taxId || "", rp: client.payrollRpNumber || "" } : null,
+        slips,
+      };
+    }),
 });
