@@ -3,7 +3,7 @@ import { createRouter, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { payRuns, payRunLines, employees, clients } from "../db/schema";
 import { eq, desc, and } from "drizzle-orm";
-import { estimateFromGross, estimateFromNet, salaryPerPeriod, round2 } from "./payroll-core";
+import { estimateFromGross, estimateFromNet, salaryPerPeriod, round2, periodsPerYear, normalizeFrequency } from "./payroll-core";
 import { reconcileWithholding, annualIncomeTax, TAX_2026 } from "./payroll-tax-core";
 
 /**
@@ -269,6 +269,53 @@ export const payrollRouter = createRouter({
         updatedAt: new Date(),
       }).where(eq(payRuns.id, input.runId));
       return { token };
+    }),
+
+  // AUTOMATIC withholding check (vs CRA), per employee, computed from the
+  // client's actual pay runs this calendar year — mirrors the Originality sheet's
+  // "Expected CRA Deduction (YTD)" vs "Actual Tax Deducted (YTD)" columns. No
+  // manual entry: YTD gross + YTD tax are summed across runs and reconciled.
+  withholdingCheck: staffQuery
+    .input(z.object({ clientId: z.number(), year: z.number().optional() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const year = input.year ?? new Date().getFullYear();
+      const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0] as any;
+      const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId));
+      const yrRuns = (allRuns as any[]).filter((r) => new Date(r.payPeriodEnd).getFullYear() === year);
+      const runIds = new Set(yrRuns.map((r) => r.id));
+      if (!yrRuns.length) return { year, periodsPerYear: 0, runsCount: 0, fraction: 0, rows: [] as any[] };
+
+      const emps = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
+      const empById = new Map((emps as any[]).map((e) => [e.id, e]));
+      const allLines = await db.select().from(payRunLines);
+      const lines = (allLines as any[]).filter((l) => runIds.has(l.payRunId));
+
+      const ppy = periodsPerYear(normalizeFrequency(client?.payrollFrequency));
+      const runsCount = yrRuns.length;
+      const fraction = Math.min(1, Math.max(0.0001, runsCount / ppy));
+
+      const agg = new Map<number, { gross: number; tax: number }>();
+      for (const l of lines) {
+        const a = agg.get(l.employeeId) || { gross: 0, tax: 0 };
+        a.gross += l.grossPay || 0;
+        a.tax += (l.federalTax || 0) + (l.provincialTax || 0);
+        agg.set(l.employeeId, a);
+      }
+
+      const rows = Array.from(agg.entries()).map(([empId, a]) => {
+        const e = empById.get(empId);
+        const rec = reconcileWithholding(a.gross, a.tax, fraction);
+        return {
+          employeeId: empId,
+          name: e ? `${e.firstName} ${e.lastName}` : `Employee #${empId}`,
+          ytdGross: rec.ytdGross, ytdTax: rec.ytdTaxDeducted,
+          annualizedIncome: rec.annualizedIncome, expectedYtdTax: rec.expectedYtdTax,
+          variance: rec.variance, underWithheld: rec.underWithheld,
+        };
+      }).filter((r) => r.ytdGross > 0).sort((a, b) => a.name.localeCompare(b.name));
+
+      return { year, periodsPerYear: ppy, runsCount, fraction, rows };
     }),
 
   // Which tax tables the reconciliation is using (for the UI banner).
