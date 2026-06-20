@@ -975,6 +975,10 @@ export const employees = sqliteTable("employees", {
   t4Box44UnionDues: real("t4Box44UnionDues"),
   t4Box46Charitable: real("t4Box46Charitable"),
   contractUrl: text("contractUrl"),
+  // Recurring per-pay add-ons (per-employee, editable on the card).
+  phoneAllowance: real("phoneAllowance"),         // $ per pay period, if any
+  reimbursementAmount: real("reimbursementAmount"), // $ per pay period, if any
+  reimbursementNote: text("reimbursementNote"),     // what the reimbursement is for
   notes: text("notes"),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),

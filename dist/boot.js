@@ -23258,6 +23258,13 @@ var init_schema = __esm({
       t4Box44UnionDues: real("t4Box44UnionDues"),
       t4Box46Charitable: real("t4Box46Charitable"),
       contractUrl: text("contractUrl"),
+      // Recurring per-pay add-ons (per-employee, editable on the card).
+      phoneAllowance: real("phoneAllowance"),
+      // $ per pay period, if any
+      reimbursementAmount: real("reimbursementAmount"),
+      // $ per pay period, if any
+      reimbursementNote: text("reimbursementNote"),
+      // what the reimbursement is for
       notes: text("notes"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
@@ -45035,6 +45042,9 @@ var init_employee_router = __esm({
         address: external_exports.string().optional(),
         isContractor: external_exports.boolean().optional(),
         contractUrl: external_exports.string().optional(),
+        phoneAllowance: external_exports.number().nullable().optional(),
+        reimbursementAmount: external_exports.number().nullable().optional(),
+        reimbursementNote: external_exports.string().optional(),
         notes: external_exports.string().optional()
       })).mutation(async ({ input }) => {
         const db = getDb();
@@ -45070,6 +45080,9 @@ var init_employee_router = __esm({
         grantStartDate: external_exports.date().optional(),
         grantEndDate: external_exports.date().optional(),
         contractUrl: external_exports.string().optional(),
+        phoneAllowance: external_exports.number().nullable().optional(),
+        reimbursementAmount: external_exports.number().nullable().optional(),
+        reimbursementNote: external_exports.string().optional(),
         notes: external_exports.string().optional()
       })).mutation(async ({ input }) => {
         const { id, ...data } = input;
@@ -50783,8 +50796,8 @@ var init_payroll_employee_seed = __esm({
       // replace:true so the prior combined "clark" / T4 seed self-corrects.
       // ---------------------------------------------------------------------------
       { clientMatch: "collingwood", replace: true, sourceFileId: "1P-m-fBBbKT-L8VrcYG6Fd73DeskmUfrO6z7HWOlnR7k", employees: [
-        { firstName: "Chris", lastName: "Hawton", payType: "salary", position: "Manager/Salaried", email: "chris@clarkpoolscollingwood.com", notes: "Annual salary $60,000 (biweekly $2,330.77); 10% net-profit share paid quarterly; earned-equity per shareholder agreement; start Nov 15 2021. On 2025 T4 with Owen Sound mailing address but runs on the Collingwood payroll" },
-        { firstName: "Brendan", lastName: "Essex", payType: "salary", position: "Salaried (33% owner)", email: "essexbrendan@gmail.com", notes: "Annual salary $80,000 on Jun 12 2026 run (was $60,000 earlier in 2026); 10% net-profit share quarterly; 33% ownership buy-in per cap table; start Sept 20 2022" },
+        { firstName: "Chris", lastName: "Hawton", payType: "salary", annualSalary: 6e4, position: "Manager/Salaried", email: "chris@clarkpoolscollingwood.com", notes: "Annual salary $60,000 (biweekly $2,330.77); 10% net-profit share paid quarterly; earned-equity per shareholder agreement; start Nov 15 2021. On 2025 T4 with Owen Sound mailing address but runs on the Collingwood payroll" },
+        { firstName: "Brendan", lastName: "Essex", payType: "salary", annualSalary: 8e4, position: "Salaried (33% owner)", email: "essexbrendan@gmail.com", notes: "Annual salary $80,000 on Jun 12 2026 run (was $60,000 earlier in 2026); 10% net-profit share quarterly; 33% ownership buy-in per cap table; start Sept 20 2022" },
         { firstName: "Chris", lastName: "Haight", payType: "hourly", hourlyRate: 27, position: "Senior Technician", notes: "Construction bonus pending; start Nov 15 2021" },
         { firstName: "Corey", lastName: "Hawton", payType: "hourly", hourlyRate: 26.5, position: "Senior Technician", notes: "On 2025 T4 with Owen Sound mailing address but on the current Collingwood payroll run" },
         { firstName: "Lisa", lastName: "Venditti", payType: "hourly", hourlyRate: 25, position: "Senior Technician", notes: "Start Nov 15 2021" },
@@ -52015,6 +52028,9 @@ async function ensurePayrollTables() {
       }
     };
     await addCol("employees", "contractUrl", "TEXT");
+    await addCol("employees", "phoneAllowance", "REAL");
+    await addCol("employees", "reimbursementAmount", "REAL");
+    await addCol("employees", "reimbursementNote", "TEXT");
     await addCol("pay_run_lines", "shareBonus", "REAL DEFAULT 0");
     await addCol("pay_run_lines", "statHolidayPay", "REAL DEFAULT 0");
     await addCol("pay_runs", "approvalToken", "TEXT");
