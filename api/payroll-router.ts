@@ -26,7 +26,7 @@ const WEST_YORK_META = {
 // as payroll if it matches one of these OR has hasPayroll set — so the payroll
 // page lists ONLY real payroll clients, not anyone who happens to have an
 // employee record.
-const KNOWN_PAYROLL = ["west york", "selective", "originality", "clark", "2303851", "fractal"];
+const KNOWN_PAYROLL = ["west york", "selective", "originality", "clark", "2303851", "fractal", "old spot", "sher", "punjab"];
 
 function isPayrollClient(c: any): boolean {
   if (c.hasPayroll) return true;
@@ -39,7 +39,8 @@ function payrollKind(name: string | null | undefined): { kind: string; note?: st
   if (n.includes("west york")) return { kind: "qbo_autopay", note: WEST_YORK_META.note, meta: WEST_YORK_META };
   if (n.includes("selective")) return { kind: "estimator", note: "Monthly flat-rate estimator: enter gross (or net) and Figgy fills CPP/EI/tax + the CRA remittance." };
   if (n.includes("originality")) return { kind: "clockify", note: "Hourly staff hours come from Clockify; salaried staff are entered manually." };
-  if (n.includes("clark")) return { kind: "jobber", note: "Employee hours come from Jobber timesheets (import coming in Phase 3)." };
+  if (n.includes("clark")) return { kind: "jobber", note: "Employee hours come from Jobber timesheets (import coming in Phase 3). Enter or adjust manually here." };
+  if (n.includes("old spot") || n.includes("sher") || n.includes("punjab")) return { kind: "touchbistro", note: "Hours come from TouchBistro — enter or adjust them manually here (no direct API)." };
   return { kind: "manual" };
 }
 
@@ -137,6 +138,58 @@ export const payrollRouter = createRouter({
       }
       await recomputeRunTotals(run.id);
       return run;
+    }),
+
+  // Add a line to a run — for an EXISTING employee, or create a new employee
+  // inline (so a client with no employees on file can still build a timesheet).
+  addLine: staffQuery
+    .input(z.object({
+      payRunId: z.number(),
+      employeeId: z.number().optional(),
+      newEmployee: z.object({
+        firstName: z.string().min(1),
+        lastName: z.string().optional(),
+        payType: z.enum(["salary", "hourly", "commission", "contract"]).optional(),
+        hourlyRate: z.number().optional(),
+        annualSalary: z.number().optional(),
+      }).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const run = (await db.select().from(payRuns).where(eq(payRuns.id, input.payRunId)).limit(1))[0] as any;
+      if (!run) throw new Error("Pay run not found");
+
+      let employeeId = input.employeeId;
+      if (!employeeId && input.newEmployee) {
+        const [emp] = await db.insert(employees).values({
+          clientId: run.clientId,
+          firstName: input.newEmployee.firstName,
+          lastName: input.newEmployee.lastName || "",
+          payType: input.newEmployee.payType || "hourly",
+          hourlyRate: input.newEmployee.hourlyRate,
+          annualSalary: input.newEmployee.annualSalary,
+          isActive: true,
+        }).returning();
+        employeeId = emp.id;
+      }
+      if (!employeeId) throw new Error("Provide an employee or new employee details");
+
+      const emp = (await db.select().from(employees).where(eq(employees.id, employeeId)).limit(1))[0] as any;
+      const gross = emp?.payType === "salary" ? salaryPerPeriod(emp.annualSalary, run.frequency) : 0;
+      const [line] = await db.insert(payRunLines).values({ payRunId: input.payRunId, employeeId, grossPay: gross }).returning();
+      await recomputeRunTotals(input.payRunId);
+      return line;
+    }),
+
+  // Remove a single line from a run.
+  removeLine: staffQuery
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const row = (await db.select().from(payRunLines).where(eq(payRunLines.id, input.id)).limit(1))[0] as any;
+      await db.delete(payRunLines).where(eq(payRunLines.id, input.id));
+      if (row) await recomputeRunTotals(row.payRunId);
+      return { success: true };
     }),
 
   // Edit a single pay line. Recomputes the run totals after.
