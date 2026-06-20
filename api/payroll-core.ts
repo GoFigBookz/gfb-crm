@@ -68,3 +68,57 @@ export function salaryPerPeriod(annualSalary: number | null | undefined, freq: s
   if (!annualSalary) return 0;
   return round2(annualSalary / periodsPerYear(freq));
 }
+
+export type PayFreq = "weekly" | "biweekly" | "semi_monthly" | "monthly";
+
+/** Normalize the loose client.payrollFrequency values to our enum. */
+export function normalizeFrequency(f: string | null | undefined): PayFreq {
+  const s = (f || "").toLowerCase().replace(/[\s-]/g, "_");
+  if (s.startsWith("week")) return "weekly";
+  if (s.startsWith("bi")) return "biweekly";
+  if (s.startsWith("semi")) return "semi_monthly";
+  return "monthly";
+}
+
+const addDays = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+
+/**
+ * The NEXT pay period for a frequency, following the previous run's period (so
+ * "New pay run" auto-advances). If no previous run, returns the current period.
+ */
+export function nextPayPeriod(
+  frequency: string | null | undefined,
+  lastStart?: Date | null,
+  lastEnd?: Date | null,
+): { start: Date; end: Date; payDate: Date } {
+  const f = normalizeFrequency(frequency);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  if (f === "weekly" || f === "biweekly") {
+    const span = f === "weekly" ? 7 : 14;
+    const start = lastEnd ? addDays(new Date(lastEnd), 1) : today;
+    const end = addDays(start, span - 1);
+    return { start, end, payDate: end };
+  }
+
+  if (f === "semi_monthly") {
+    let start: Date, end: Date;
+    if (lastStart) {
+      const y = lastStart.getFullYear(), m = lastStart.getMonth();
+      if (lastStart.getDate() <= 15) { start = new Date(y, m, 16); end = new Date(y, m + 1, 0); }
+      else { start = new Date(y, m + 1, 1); end = new Date(y, m + 1, 15); }
+    } else {
+      const y = today.getFullYear(), m = today.getMonth();
+      if (today.getDate() <= 15) { start = new Date(y, m, 1); end = new Date(y, m, 15); }
+      else { start = new Date(y, m, 16); end = new Date(y, m + 1, 0); }
+    }
+    return { start, end, payDate: end };
+  }
+
+  // monthly
+  const base = lastEnd ? new Date(lastEnd.getFullYear(), lastEnd.getMonth() + 1, 1)
+                       : new Date(today.getFullYear(), today.getMonth(), 1);
+  const start = new Date(base.getFullYear(), base.getMonth(), 1);
+  const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+  return { start, end, payDate: end };
+}

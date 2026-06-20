@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { estimateFromGross, estimateFromNet, salaryPerPeriod, periodsPerYear, SELECTIVE_RATES } from "./payroll-core";
+import { estimateFromGross, estimateFromNet, salaryPerPeriod, periodsPerYear, SELECTIVE_RATES, nextPayPeriod, normalizeFrequency } from "./payroll-core";
 
 describe("payroll-core — Selective Painting flat estimator", () => {
   it("gross→net uses the verified 0.7739 factor", () => {
@@ -43,5 +43,36 @@ describe("payroll-core — salary per period", () => {
     expect(salaryPerPeriod(120000, "monthly")).toBe(10000);
     expect(salaryPerPeriod(52000, "weekly")).toBe(1000);
     expect(salaryPerPeriod(null, "monthly")).toBe(0);
+  });
+});
+
+describe("payroll-core — frequency + next pay period", () => {
+  it("normalizes loose frequency strings", () => {
+    expect(normalizeFrequency("Bi-weekly")).toBe("biweekly");
+    expect(normalizeFrequency("Semi-Monthly")).toBe("semi_monthly");
+    expect(normalizeFrequency("Weekly")).toBe("weekly");
+    expect(normalizeFrequency("self")).toBe("monthly");
+  });
+
+  it("monthly advances to the next calendar month", () => {
+    const p = nextPayPeriod("monthly", new Date(2026, 5, 1), new Date(2026, 5, 30));
+    expect(p.start.getMonth()).toBe(6); // July
+    expect(p.start.getDate()).toBe(1);
+    expect(p.end.getMonth()).toBe(6);
+    expect(p.end.getDate()).toBe(31);
+  });
+
+  it("biweekly advances 14 days from the day after last end", () => {
+    const p = nextPayPeriod("biweekly", new Date(2026, 5, 1), new Date(2026, 5, 14));
+    expect(p.start.getDate()).toBe(15);
+    expect(p.end.getDate()).toBe(28); // 15 + 13
+  });
+
+  it("semi-monthly toggles 1-15 <-> 16-EOM", () => {
+    const firstHalf = nextPayPeriod("semi_monthly", new Date(2026, 5, 1), new Date(2026, 5, 15));
+    expect(firstHalf.start.getDate()).toBe(16);
+    const secondHalf = nextPayPeriod("semi_monthly", new Date(2026, 5, 16), new Date(2026, 5, 30));
+    expect(secondHalf.start.getDate()).toBe(1);
+    expect(secondHalf.start.getMonth()).toBe(6); // next month
   });
 });
