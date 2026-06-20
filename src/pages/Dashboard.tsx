@@ -316,84 +316,25 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Figgy Junior — AI Triage Preview */}
-      <Card className="border-l-4 border-l-purple-500 bg-purple-50/20">
-        <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-purple-500" />
-              <h2 className="text-lg font-bold text-slate-800">Figgy Junior — AI Triage</h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                94% accuracy this week
-              </Badge>
-              <Button size="sm" variant="outline" onClick={() => navigate("/triage")}>
-                Review & Approve <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Triage mini stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div className="bg-white rounded-lg p-3 border border-slate-200">
-              <div className="flex items-center gap-1.5 text-amber-600">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="text-xs font-semibold">Needs Attention</span>
-              </div>
-              <p className="text-2xl font-bold text-slate-900">{triageItems.length}</p>
-            </div>
-            <div className="bg-white rounded-lg p-3 border border-slate-200">
-              <div className="flex items-center gap-1.5 text-red-600">
-                <XCircle className="h-4 w-4" />
-                <span className="text-xs font-semibold">Critical</span>
-              </div>
-              <p className="text-2xl font-bold text-slate-900">{triageItems.filter(i => i.severity === "critical").length}</p>
-            </div>
-            <div className="bg-white rounded-lg p-3 border border-slate-200">
-              <div className="flex items-center gap-1.5 text-lime-600">
-                <UserCheck className="h-4 w-4" />
-                <span className="text-xs font-semibold">Approved Today</span>
-              </div>
-              <p className="text-2xl font-bold text-slate-900">1</p>
-            </div>
-            <div className="bg-white rounded-lg p-3 border border-slate-200">
-              <div className="flex items-center gap-1.5 text-blue-600">
-                <TrendingUp className="h-4 w-4" />
-                <span className="text-xs font-semibold">AI Accuracy</span>
-              </div>
-              <p className="text-2xl font-bold text-slate-900">94%</p>
-            </div>
-          </div>
-
-          {/* Top 3 triage items */}
-          <div className="space-y-2">
-            {triageItems.slice(0, 3).map((item) => {
-              const cfg = severityConfig[item.severity];
-              const Icon = cfg.icon;
-              return (
-                <div
-                  key={item.id}
-                  className={cn("flex items-start gap-3 p-3 rounded-lg border", cfg.bg, cfg.border)}
-                >
-                  <Icon className={cn("h-5 w-5 mt-0.5 flex-shrink-0", cfg.color)} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-medium text-sm truncate">{item.title}</span>
-                      <Badge variant={cfg.badge} className="text-xs">{item.severity}</Badge>
-                    </div>
-                    <p className="text-sm text-slate-600 truncate">{item.description}</p>
-                    <p className="text-xs text-slate-400 mt-1">{item.clientName} • Suggested: {item.suggestedAction}</p>
-                  </div>
-                </div>
-              );
-            })}
-            {triageItems.length > 3 && (
-              <p className="text-xs text-purple-600 pl-1">+{triageItems.length - 3} more items in full triage</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Figgy Junior — compact summary (full view lives on the Triage page) */}
+      <button
+        onClick={() => navigate("/triage")}
+        className="w-full flex items-center justify-between gap-3 rounded-lg border border-l-4 border-l-purple-500 bg-purple-50/30 px-4 py-2.5 text-left hover:bg-purple-50 transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <Shield className="h-4 w-4 text-purple-500 shrink-0" />
+          <span className="font-semibold text-sm text-slate-800">Figgy Junior</span>
+          <span className="text-sm text-slate-500 truncate">
+            {triageItems.length} need{triageItems.length === 1 ? "s" : ""} review
+            {triageItems.filter(i => i.severity === "critical").length > 0
+              ? ` · ${triageItems.filter(i => i.severity === "critical").length} critical`
+              : ""}
+          </span>
+        </div>
+        <span className="flex items-center gap-1 text-sm text-purple-600 shrink-0">
+          Review <ChevronRight className="h-4 w-4" />
+        </span>
+      </button>
 
       {/* Stats Grid — 6 cards: 3x2 on desktop, 2x3 on tablet, 1x6 on mobile */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
