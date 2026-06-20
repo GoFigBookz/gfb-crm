@@ -607,6 +607,32 @@ app.post("/api/admin/figgy", async (c) => {
       const comparison = compareToFlatFee(quote.recurringMonthly, cl.monthlyFee ?? null);
       return c.json({ success: true, op, clientName: cl.name, flatFee: cl.monthlyFee ?? null, scope, quote, comparison });
     }
+    if (op === "genquote") {
+      // Generate + send a branded signable quote for a client (review aid).
+      const clientId = Number(c.req.query("clientId") || body?.clientId);
+      if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
+      const { getDb } = await import("./queries/connection");
+      const { clients, clientOnboarding } = await import("../db/schema");
+      const { eq, desc } = await import("drizzle-orm");
+      const { computeQuote, compareToFlatFee } = await import("./quote-core");
+      const { buildScopeForClient, createAndSendDoc } = await import("./quote-router");
+      const { getFirmSettings } = await import("./firm-settings");
+      const { renderQuoteHtml } = await import("./quote-doc");
+      const db = getDb();
+      const cl = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
+      if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
+      const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
+      const quote = computeQuote(buildScopeForClient(cl, onb));
+      const comparison = compareToFlatFee(quote.recurringMonthly, cl.monthlyFee ?? null);
+      const content = renderQuoteHtml({ firm: getFirmSettings(), clientName: cl.name, clientCompany: cl.company, quote, comparison });
+      const res = await createAndSendDoc({
+        db, clientId: cl.id, userId: cl.userId ?? 1,
+        title: `Quote — ${cl.company || cl.name}`, description: `Scope-based quote · ${quote.recurringMonthly}/mo`,
+        content, documentType: "custom", clientEmail: cl.email || null,
+      });
+      await db.update(clients).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: new Date(), workflowStatus: "quote_sent" }).where(eq(clients.id, cl.id));
+      return c.json({ success: true, op, clientName: cl.name, recurringMonthly: quote.recurringMonthly, nearestPackage: quote.nearestPackage, ...res });
+    }
     // default: health
     return c.json({ success: true, op: "health", health: await brain.bridgeHealth() });
   } catch (e: any) {

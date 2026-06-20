@@ -22,7 +22,7 @@ import { renderQuoteHtml, renderEngagementHtml } from "./quote-doc";
 /** Create a signable document on the e-sign rail and send it: enables the
  *  client portal, mints/reuses a token, inserts the signatureDocument as "sent",
  *  and returns the client-facing portal URL. Shared by quote + engagement. */
-async function createAndSendDoc(opts: {
+export async function createAndSendDoc(opts: {
   db: any; clientId: number; userId: number; title: string; description: string;
   content: string; documentType: "engagement_letter" | "custom"; clientEmail: string | null;
 }): Promise<{ documentId: number; portalUrl: string }> {
