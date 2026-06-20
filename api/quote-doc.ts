@@ -17,12 +17,9 @@ const today = () => new Date().toLocaleDateString("en-CA", { year: "numeric", mo
 function header(firm: FirmSettings, docTitle: string): string {
   return `
   <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid ${firm.accent};padding-bottom:16px;margin-bottom:24px;">
-    <div style="display:flex;align-items:center;gap:14px;">
-      <img src="${firm.logoDataUri}" alt="${esc(firm.displayName)}" style="height:56px;width:auto;border-radius:6px;" />
-      <div>
-        <div style="font-size:22px;font-weight:700;color:#1e293b;">${esc(firm.displayName)}</div>
-        <div style="font-size:12px;color:#64748b;">${esc(firm.email)} · ${esc(firm.phone)} · ${esc(firm.website)}</div>
-      </div>
+    <div>
+      <img src="${firm.logoDataUri}" alt="${esc(firm.displayName)}" style="height:64px;width:auto;display:block;margin-bottom:6px;" />
+      <div style="font-size:12px;color:#64748b;line-height:1.5;">${esc(firm.email)} · ${esc(firm.phone)}<br/>${esc(firm.website)}</div>
     </div>
     <div style="text-align:right;">
       <div style="font-size:18px;font-weight:600;color:${firm.accent};text-transform:uppercase;letter-spacing:1px;">${esc(docTitle)}</div>

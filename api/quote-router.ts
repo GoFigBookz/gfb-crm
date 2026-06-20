@@ -96,6 +96,9 @@ export function buildScopeForClient(client: any, onb: any | null): QuoteScope {
     billPayByUs: onb?.billPayResponsibility === "we_pay",
     hasJobCosting: bool(onb?.hasJobCosting),
     monthsBehind: num(onb?.monthsBehind),
+    qboSoftwareTier: (onb?.qboSoftwareTier as any) ?? "none",
+    qboSoftwareWholesale: bool(onb?.qboSoftwareWholesale),
+    qboPayrollWholesale: bool(onb?.qboPayrollWholesale),
   };
 }
 

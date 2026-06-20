@@ -93,6 +93,9 @@ export async function ensureOnboardingColumns(): Promise<void> {
     ["avgMonthlyTransactions", "integer DEFAULT 0"],
     ["invoicingResponsibility", "text DEFAULT 'none'"],
     ["billPayResponsibility", "text DEFAULT 'none'"],
+    ["qboSoftwareTier", "text DEFAULT 'none'"],
+    ["qboSoftwareWholesale", "integer DEFAULT 0"],
+    ["qboPayrollWholesale", "integer DEFAULT 0"],
   ];
   for (const [col, type] of adds) {
     if (have.has(col)) continue;
