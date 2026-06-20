@@ -25,6 +25,7 @@ import UsersManagement from "./pages/UsersManagement";
 import Employees from "./pages/Employees";
 import Payroll from "./pages/Payroll";
 import PayrollApproval from "./pages/PayrollApproval";
+import PayrollCalculator from "./pages/PayrollCalculator";
 import EngagementLetters from "./pages/EngagementLetters";
 import BankConverter from "./pages/BankConverter";
 import TaxDeadlines from "./pages/TaxDeadlines";
@@ -84,6 +85,7 @@ function AppRoutes() {
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/employees" element={<Employees />} />
         <Route path="/payroll" element={<Payroll />} />
+        <Route path="/payroll-calculator" element={<PayrollCalculator />} />
         <Route path="/engagement" element={<EngagementLetters />} />
         <Route path="/bank-converter" element={<BankConverter />} />
         <Route path="/tax-deadlines" element={<TaxDeadlines />} />

@@ -59,6 +59,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   ];
 
   const toolItems = [
+    { to: "/payroll-calculator", icon: Calculator, label: "Paycheck Calc" },
     { to: "/calculators", icon: Calculator, label: "Calculators" },
     { to: "/bank-converter", icon: ArrowRightLeft, label: "Bank → QBO" },
     { to: "/qbo", icon: Receipt, label: "QBO Review" },
