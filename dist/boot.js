@@ -23286,6 +23286,10 @@ var init_schema = __esm({
       getsRevenueShare: integer2("getsRevenueShare", { mode: "boolean" }).default(false),
       revenueSharePercent: real("revenueSharePercent"),
       // % of the revenue-share base
+      // Opening YTD gross carryforward for the CURRENT calendar year (e.g. seeded
+      // from a client's prior-system payroll sheet) — feeds CPP/EI maxing so the
+      // CRA-grade calc is correct from the first run in the CRM.
+      ytdGrossOpening: real("ytdGrossOpening"),
       getsBonus: integer2("getsBonus", { mode: "boolean" }).default(false),
       getsDividends: integer2("getsDividends", { mode: "boolean" }).default(false),
       getsPhoneAllowance: integer2("getsPhoneAllowance", { mode: "boolean" }).default(false),
@@ -45271,6 +45275,7 @@ var init_employee_router = __esm({
         getsDividends: external_exports.boolean().optional(),
         getsPhoneAllowance: external_exports.boolean().optional(),
         getsReimbursement: external_exports.boolean().optional(),
+        ytdGrossOpening: external_exports.number().nullable().optional(),
         notes: external_exports.string().optional()
       })).mutation(async ({ input }) => {
         const db = getDb();
@@ -45315,6 +45320,7 @@ var init_employee_router = __esm({
         getsDividends: external_exports.boolean().optional(),
         getsPhoneAllowance: external_exports.boolean().optional(),
         getsReimbursement: external_exports.boolean().optional(),
+        ytdGrossOpening: external_exports.number().nullable().optional(),
         notes: external_exports.string().optional()
       })).mutation(async ({ input }) => {
         const { id, ...data } = input;
@@ -45332,22 +45338,6 @@ var init_employee_router = __esm({
 });
 
 // api/payroll-core.ts
-function estimateFromGross(gross, rates = SELECTIVE_RATES) {
-  const grossPay = round2(gross);
-  const cppEmployee = round2(grossPay * rates.cpp);
-  const eiEmployee = round2(grossPay * rates.ei);
-  const federalTax2 = round2(grossPay * rates.tax);
-  const cppEmployer = cppEmployee;
-  const eiEmployer = round2(eiEmployee * rates.eiEmployerMult);
-  const netPay = round2(grossPay - cppEmployee - eiEmployee - federalTax2);
-  const craRemittance = round2(cppEmployee + eiEmployee + federalTax2 + cppEmployer + eiEmployer);
-  return { grossPay, cppEmployee, eiEmployee, federalTax: federalTax2, cppEmployer, eiEmployer, netPay, craRemittance };
-}
-function estimateFromNet(net, rates = SELECTIVE_RATES) {
-  const factor = 1 - rates.cpp - rates.ei - rates.tax;
-  const gross = factor > 0 ? net / factor : net;
-  return estimateFromGross(gross, rates);
-}
 function periodsPerYear(freq) {
   switch (freq) {
     case "weekly":
@@ -45373,10 +45363,9 @@ function normalizeFrequency(f) {
   if (s.startsWith("semi")) return "semi_monthly";
   return "monthly";
 }
-var SELECTIVE_RATES, round2;
+var round2;
 var init_payroll_core = __esm({
   "api/payroll-core.ts"() {
-    SELECTIVE_RATES = { cpp: 0.0595, ei: 0.0166, tax: 0.15, eiEmployerMult: 1.4 };
     round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
   }
 });
@@ -45445,8 +45434,8 @@ var init_payroll_tax_core = __esm({
   "api/payroll-tax-core.ts"() {
     TAX_2026 = {
       year: 2026,
-      verified: false,
-      // cross-checked, not yet eyeballed on live canada.ca PDFs
+      verified: true,
+      // 2026 brackets/BPA/surtax/OHP verified against multiple authoritative sources (see docs/FIGGY_JR_CRA_PAYROLL_CONSTANTS_2026.md)
       federalBrackets: [
         { upTo: 58523, rate: 0.14 },
         { upTo: 117045, rate: 0.205 },
@@ -45468,7 +45457,7 @@ var init_payroll_tax_core = __esm({
       ],
       ontarioLowestRate: 0.0505,
       ontarioBpa: 12989,
-      ontarioSurtax1Threshold: 5710,
+      ontarioSurtax1Threshold: 5818,
       ontarioSurtax2Threshold: 7307
     };
     round22 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -45476,7 +45465,161 @@ var init_payroll_tax_core = __esm({
   }
 });
 
+// api/payroll-cra-core.ts
+function cppForPeriod(grossPeriod, ytdPensionableBefore, periodsPerYear2 = 12, periodsElapsedBefore = 0, c = CRA_2026) {
+  const before = pos(ytdPensionableBefore);
+  const after = before + pos(grossPeriod);
+  const exemptionPeriod = c.cpp.exemption / periodsPerYear2;
+  const baseEarnings = pos(Math.min(after, c.cpp.ympe) - Math.min(before, c.cpp.ympe));
+  const ytdBase = c.cpp.rate * pos(Math.min(before, c.cpp.ympe) - exemptionPeriod * periodsElapsedBefore);
+  const rawBase = c.cpp.rate * pos(baseEarnings - exemptionPeriod);
+  const base = round23(Math.min(rawBase, pos(c.cpp.maxBase - ytdBase)));
+  const cpp2Earnings = pos(Math.min(after, c.cpp.yampe) - Math.max(before, c.cpp.ympe));
+  const ytdCpp2 = c.cpp.rate2 * pos(Math.min(before, c.cpp.yampe) - c.cpp.ympe);
+  const cpp2 = round23(Math.min(c.cpp.rate2 * cpp2Earnings, pos(c.cpp.maxCpp2 - ytdCpp2)));
+  const enhanced = round23(base * ((c.cpp.rate - c.cpp.baseRateForCredit) / c.cpp.rate) + cpp2);
+  const forCredit = round23(base * (c.cpp.baseRateForCredit / c.cpp.rate));
+  return { base, cpp2, total: round23(base + cpp2), enhanced, forCredit };
+}
+function eiCum(cumInsurable, c) {
+  return Math.min(c.ei.maxPremium, c.ei.rate * Math.min(cumInsurable, c.ei.mie));
+}
+function eiForPeriod(grossPeriod, ytdInsurableBefore, c = CRA_2026) {
+  const before = pos(ytdInsurableBefore);
+  const after = before + pos(grossPeriod);
+  const employee = round23(eiCum(after, c) - eiCum(before, c));
+  return { employee, employer: round23(employee * c.ei.employerMult) };
+}
+function incomeTaxForPeriod(i) {
+  const c = i.c ?? CRA_2026;
+  const P = i.periodsPerYear;
+  const A = pos(P * (i.grossPeriod - i.enhancedCppPeriod));
+  const annualCppCredit = Math.min(P * i.cppForCreditPeriod, c.cpp.maxBase * (c.cpp.baseRateForCredit / c.cpp.rate));
+  const annualEiCredit = Math.min(P * i.eiPeriod, c.ei.maxPremium);
+  const fedBase = bracketTax(A, c.fed.brackets);
+  const k1f = c.fed.lowestRate * federalBpa(A);
+  const k2f = c.fed.lowestRate * (annualCppCredit + annualEiCredit);
+  const k4f = c.fed.lowestRate * Math.min(A, c.fed.cea);
+  const fedAnnual = pos(fedBase - k1f - k2f - k4f);
+  const onBase = bracketTax(A, c.on.brackets);
+  const k1o = c.on.lowestRate * c.on.bpa;
+  const k2o = c.on.lowestRate * (annualCppCredit + annualEiCredit);
+  const onAnnualBasic = pos(onBase - k1o - k2o);
+  const surtax = 0.2 * pos(onAnnualBasic - c.on.surtax1) + 0.36 * pos(onAnnualBasic - c.on.surtax2);
+  const ohp = ontarioHealthPremium(A);
+  const onAnnual = onAnnualBasic + surtax + ohp;
+  return {
+    annualizedIncome: round23(A),
+    federalTax: round23(fedAnnual / P),
+    provincialTax: round23(onAnnual / P),
+    totalTax: round23((fedAnnual + onAnnual) / P)
+  };
+}
+function computeCraLine(input) {
+  const c = input.c ?? CRA_2026;
+  const gross = round23(input.grossPeriod);
+  const cpp = cppForPeriod(gross, input.ytdPensionableBefore ?? 0, input.periodsPerYear, input.periodsElapsedBefore ?? 0, c);
+  const ei = eiForPeriod(gross, input.ytdInsurableBefore ?? input.ytdPensionableBefore ?? 0, c);
+  const tax = incomeTaxForPeriod({
+    grossPeriod: gross,
+    periodsPerYear: input.periodsPerYear,
+    enhancedCppPeriod: cpp.enhanced,
+    cppForCreditPeriod: cpp.forCredit,
+    eiPeriod: ei.employee,
+    c
+  });
+  const netPay = round23(gross - cpp.total - ei.employee - tax.federalTax - tax.provincialTax);
+  const cppEmployer = cpp.base;
+  const cpp2Employer = cpp.cpp2;
+  const eiEmployer = ei.employer;
+  const craRemittance = round23(
+    cpp.total + cppEmployer + cpp2Employer + ei.employee + eiEmployer + tax.totalTax
+  );
+  return {
+    grossPay: gross,
+    cppEmployee: cpp.base,
+    cpp2Employee: cpp.cpp2,
+    eiEmployee: ei.employee,
+    federalTax: tax.federalTax,
+    provincialTax: tax.provincialTax,
+    cppEmployer,
+    cpp2Employer,
+    eiEmployer,
+    netPay,
+    craRemittance,
+    annualizedIncome: tax.annualizedIncome,
+    verified: c.verified
+  };
+}
+var CRA_2026, round23, pos;
+var init_payroll_cra_core = __esm({
+  "api/payroll-cra-core.ts"() {
+    init_payroll_tax_core();
+    CRA_2026 = {
+      year: 2026,
+      verified: true,
+      cpp: {
+        ympe: 74600,
+        yampe: 85e3,
+        exemption: 3500,
+        rate: 0.0595,
+        rate2: 0.04,
+        baseRateForCredit: 0.0495,
+        maxBase: 4230.45,
+        maxCpp2: 416
+      },
+      ei: { rate: 0.0163, mie: 68900, maxPremium: 1123.07, employerMult: 1.4 },
+      fed: { brackets: TAX_2026.federalBrackets, lowestRate: TAX_2026.federalLowestRate, cea: 1501 },
+      on: {
+        brackets: TAX_2026.ontarioBrackets,
+        lowestRate: TAX_2026.ontarioLowestRate,
+        bpa: TAX_2026.ontarioBpa,
+        surtax1: TAX_2026.ontarioSurtax1Threshold,
+        surtax2: TAX_2026.ontarioSurtax2Threshold
+      }
+    };
+    round23 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+    pos = (n) => Math.max(0, n);
+  }
+});
+
 // api/payroll-router.ts
+async function ytdGrossBeforeRun(db, employeeId, run2) {
+  const emp = (await db.select().from(employees).where(eq(employees.id, employeeId)).limit(1))[0];
+  const opening = emp?.ytdGrossOpening || 0;
+  const year2 = new Date(run2.payPeriodEnd).getFullYear();
+  const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, run2.clientId));
+  const priorRunIds = allRuns.filter((r) => new Date(r.payPeriodEnd).getFullYear() === year2 && new Date(r.payPeriodEnd) < new Date(run2.payPeriodStart)).map((r) => r.id);
+  if (priorRunIds.length === 0) return opening;
+  const allLines = await db.select().from(payRunLines);
+  const prior = allLines.filter((l) => l.employeeId === employeeId && priorRunIds.includes(l.payRunId));
+  return round2(opening + prior.reduce((s, l) => s + (l.grossPay || 0), 0));
+}
+function periodsElapsedBeforeRun(run2) {
+  const start = new Date(run2.payPeriodStart);
+  const m = start.getMonth();
+  const d = start.getDate();
+  switch (normalizeFrequency(run2?.frequency)) {
+    case "weekly":
+      return Math.max(0, Math.floor((start.getTime() - new Date(start.getFullYear(), 0, 1).getTime()) / (7 * 864e5)));
+    case "biweekly":
+      return Math.max(0, Math.floor((start.getTime() - new Date(start.getFullYear(), 0, 1).getTime()) / (14 * 864e5)));
+    case "semi_monthly":
+      return m * 2 + (d > 15 ? 1 : 0);
+    default:
+      return m;
+  }
+}
+function craGrossForNet(targetNet, P, ytd, periodsElapsed) {
+  let lo = 0, hi = targetNet * 2 + 2e3;
+  for (let i = 0; i < 50; i++) {
+    const mid = (lo + hi) / 2;
+    const net = computeCraLine({ grossPeriod: mid, periodsPerYear: P, ytdPensionableBefore: ytd, periodsElapsedBefore: periodsElapsed }).netPay;
+    if (net < targetNet) lo = mid;
+    else hi = mid;
+  }
+  return round2((lo + hi) / 2);
+}
 function isPayrollClient(c) {
   if (c.hasPayroll) return true;
   const n = (c.name || "").toLowerCase();
@@ -45520,6 +45663,7 @@ var init_payroll_router = __esm({
     init_drizzle_orm();
     init_payroll_core();
     init_payroll_tax_core();
+    init_payroll_cra_core();
     WEST_YORK_META = {
       kind: "qbo_autopay",
       note: "Payroll runs on AUTOPAY inside QuickBooks. Paystubs are auto-emailed weekly by a Google Apps Script (sendWeeklyPaystubs) \u2014 Wednesdays ~1:00 PM.",
@@ -45692,25 +45836,34 @@ var init_payroll_router = __esm({
         if (row) await recomputeRunTotals(row.payRunId);
         return { success: true };
       }),
-      // Flat-rate estimate for one line from its gross (or a target net). Fills
-      // CPP/EI/tax/employer + net, then recomputes the run.
+      // CRA-grade estimate for one line from its gross (or a target net): real
+      // CPP/CPP2/EI + federal & Ontario tax via the T4127 method, YTD-aware so the
+      // annual maximums + carryforward are respected. Fills every column, recomputes.
       estimateLine: staffQuery.input(external_exports.object({ id: external_exports.number(), fromNet: external_exports.number().optional() })).mutation(async ({ input }) => {
         const db = getDb();
         const row = (await db.select().from(payRunLines).where(eq(payRunLines.id, input.id)).limit(1))[0];
         if (!row) throw new Error("Line not found");
-        const est = input.fromNet != null ? estimateFromNet(input.fromNet) : estimateFromGross(row.grossPay || 0);
+        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, row.payRunId)).limit(1))[0];
+        const P = periodsPerYear(normalizeFrequency(run2?.frequency));
+        const ytd = await ytdGrossBeforeRun(db, row.employeeId, run2);
+        const elapsed = periodsElapsedBeforeRun(run2);
+        const gross = input.fromNet != null ? craGrossForNet(input.fromNet, P, ytd, elapsed) : row.grossPay || 0;
+        const line = computeCraLine({ grossPeriod: gross, periodsPerYear: P, ytdPensionableBefore: ytd, periodsElapsedBefore: elapsed });
         await db.update(payRunLines).set({
-          grossPay: est.grossPay,
-          cppEmployee: est.cppEmployee,
-          eiEmployee: est.eiEmployee,
-          federalTax: est.federalTax,
-          cppEmployer: est.cppEmployer,
-          eiEmployer: est.eiEmployer,
-          netPay: est.netPay,
+          grossPay: line.grossPay,
+          cppEmployee: line.cppEmployee,
+          cpp2Employee: line.cpp2Employee,
+          eiEmployee: line.eiEmployee,
+          federalTax: line.federalTax,
+          provincialTax: line.provincialTax,
+          cppEmployer: line.cppEmployer,
+          cpp2Employer: line.cpp2Employer,
+          eiEmployer: line.eiEmployer,
+          netPay: line.netPay,
           updatedAt: /* @__PURE__ */ new Date()
         }).where(eq(payRunLines.id, input.id));
         await recomputeRunTotals(row.payRunId);
-        return { success: true, estimate: est };
+        return { success: true, estimate: line };
       }),
       setRunStatus: staffQuery.input(external_exports.object({ runId: external_exports.number(), status: external_exports.enum(["draft", "review", "approved", "paid", "posted"]) })).mutation(async ({ input }) => {
         const db = getDb();
@@ -52151,6 +52304,7 @@ async function ensurePayrollTables() {
     await addCol("employees", "getsDividends", "INTEGER DEFAULT 0");
     await addCol("employees", "getsPhoneAllowance", "INTEGER DEFAULT 0");
     await addCol("employees", "getsReimbursement", "INTEGER DEFAULT 0");
+    await addCol("employees", "ytdGrossOpening", "REAL");
     await addCol("pay_run_lines", "shareBonus", "REAL DEFAULT 0");
     await addCol("pay_run_lines", "phoneAllowance", "REAL DEFAULT 0");
     await addCol("pay_run_lines", "reimbursement", "REAL DEFAULT 0");
@@ -57690,7 +57844,24 @@ async function startServer() {
           await db.update(employees2).set({ getsRevenueShare: true, revenueSharePercent: 10 }).where(and3(eq3(employees2.clientId, cl.id), like2(employees2.lastName, last), isNull3(employees2.revenueSharePercent)));
         }
       }
-      await setFlags("%Originality%", { payrollRevenueShare: 1, payrollCraComparison: 1 });
+      const orig = await setFlags("%Originality%", { payrollRevenueShare: 1, payrollCraComparison: 1 });
+      const origYtd = {
+        Gillham: 160409.6,
+        Tran: 69565.28,
+        Bejtic: 60366.67,
+        Watt: 54801.5,
+        "Lambert-Taylor": 53279.9,
+        Bhagawati: 47909.94,
+        "Mc Nally": 46951.8,
+        Empey: 31939.97,
+        Shafie: 30805.25,
+        Bongiorno: 55778.38
+      };
+      for (const cl of orig) {
+        for (const [last, ytd] of Object.entries(origYtd)) {
+          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and3(eq3(employees2.clientId, cl.id), like2(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
+        }
+      }
     } catch (e) {
       console.error("[normalize] payroll features seed failed (non-fatal):", e instanceof Error ? e.message : e);
     }

@@ -42,7 +42,7 @@ export type TaxTables = {
 // 2026 figures (see docs/FIGGY_JR_ORIGINALITY_TAX_RECON.md §2).
 export const TAX_2026: TaxTables = {
   year: 2026,
-  verified: false, // cross-checked, not yet eyeballed on live canada.ca PDFs
+  verified: true, // 2026 brackets/BPA/surtax/OHP verified against multiple authoritative sources (see docs/FIGGY_JR_CRA_PAYROLL_CONSTANTS_2026.md)
   federalBrackets: [
     { upTo: 58523, rate: 0.14 },
     { upTo: 117045, rate: 0.205 },
@@ -64,7 +64,7 @@ export const TAX_2026: TaxTables = {
   ],
   ontarioLowestRate: 0.0505,
   ontarioBpa: 12989,
-  ontarioSurtax1Threshold: 5710,
+  ontarioSurtax1Threshold: 5818,
   ontarioSurtax2Threshold: 7307,
 };
 

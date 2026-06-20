@@ -181,6 +181,7 @@ export async function ensurePayrollTables(): Promise<void> {
     await addCol("employees", "getsDividends", "INTEGER DEFAULT 0");
     await addCol("employees", "getsPhoneAllowance", "INTEGER DEFAULT 0");
     await addCol("employees", "getsReimbursement", "INTEGER DEFAULT 0");
+    await addCol("employees", "ytdGrossOpening", "REAL");
     await addCol("pay_run_lines", "shareBonus", "REAL DEFAULT 0");
     await addCol("pay_run_lines", "phoneAllowance", "REAL DEFAULT 0");
     await addCol("pay_run_lines", "reimbursement", "REAL DEFAULT 0");
