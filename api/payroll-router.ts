@@ -5,6 +5,50 @@ import { payRuns, payRunLines, employees, clients } from "../db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { estimateFromGross, estimateFromNet, salaryPerPeriod, round2, periodsPerYear, normalizeFrequency } from "./payroll-core";
 import { reconcileWithholding, annualIncomeTax, TAX_2026 } from "./payroll-tax-core";
+import { computeCraLine, CRA_2026 } from "./payroll-cra-core";
+
+/** YTD pensionable gross for an employee BEFORE the given run, this calendar
+ *  year = opening carryforward (employee.ytdGrossOpening) + gross from earlier
+ *  runs. Makes CPP/CPP2/EI max out correctly across the year. */
+async function ytdGrossBeforeRun(db: any, employeeId: number, run: any): Promise<number> {
+  const emp = (await db.select().from(employees).where(eq(employees.id, employeeId)).limit(1))[0] as any;
+  const opening = emp?.ytdGrossOpening || 0;
+  const year = new Date(run.payPeriodEnd).getFullYear();
+  const allRuns = (await db.select().from(payRuns).where(eq(payRuns.clientId, run.clientId))) as any[];
+  const priorRunIds = allRuns
+    .filter((r) => new Date(r.payPeriodEnd).getFullYear() === year && new Date(r.payPeriodEnd) < new Date(run.payPeriodStart))
+    .map((r) => r.id);
+  if (priorRunIds.length === 0) return opening;
+  const allLines = (await db.select().from(payRunLines)) as any[];
+  const prior = allLines.filter((l) => l.employeeId === employeeId && priorRunIds.includes(l.payRunId));
+  return round2(opening + prior.reduce((s, l) => s + (l.grossPay || 0), 0));
+}
+
+/** Pay periods already elapsed in the year before this run's period start —
+ *  drives the prorated CPP basic exemption in the CRA calc. */
+function periodsElapsedBeforeRun(run: any): number {
+  const start = new Date(run.payPeriodStart);
+  const m = start.getMonth(); // 0-11
+  const d = start.getDate();
+  switch (normalizeFrequency(run?.frequency)) {
+    case "weekly": return Math.max(0, Math.floor((start.getTime() - new Date(start.getFullYear(), 0, 1).getTime()) / (7 * 86400000)));
+    case "biweekly": return Math.max(0, Math.floor((start.getTime() - new Date(start.getFullYear(), 0, 1).getTime()) / (14 * 86400000)));
+    case "semi_monthly": return m * 2 + (d > 15 ? 1 : 0);
+    default: return m; // monthly
+  }
+}
+
+/** Solve the gross that yields a target net under the CRA engine (Selective's
+ *  "enter net" workflow), via binary search. */
+function craGrossForNet(targetNet: number, P: number, ytd: number, periodsElapsed: number): number {
+  let lo = 0, hi = targetNet * 2 + 2000;
+  for (let i = 0; i < 50; i++) {
+    const mid = (lo + hi) / 2;
+    const net = computeCraLine({ grossPeriod: mid, periodsPerYear: P, ytdPensionableBefore: ytd, periodsElapsedBefore: periodsElapsed }).netPay;
+    if (net < targetNet) lo = mid; else hi = mid;
+  }
+  return round2((lo + hi) / 2);
+}
 
 /**
  * Per-client special handling, keyed by a case-insensitive name match. Lets the
@@ -234,22 +278,29 @@ export const payrollRouter = createRouter({
       return { success: true };
     }),
 
-  // Flat-rate estimate for one line from its gross (or a target net). Fills
-  // CPP/EI/tax/employer + net, then recomputes the run.
+  // CRA-grade estimate for one line from its gross (or a target net): real
+  // CPP/CPP2/EI + federal & Ontario tax via the T4127 method, YTD-aware so the
+  // annual maximums + carryforward are respected. Fills every column, recomputes.
   estimateLine: staffQuery
     .input(z.object({ id: z.number(), fromNet: z.number().optional() }))
     .mutation(async ({ input }) => {
       const db = getDb();
       const row = (await db.select().from(payRunLines).where(eq(payRunLines.id, input.id)).limit(1))[0] as any;
       if (!row) throw new Error("Line not found");
-      const est = input.fromNet != null ? estimateFromNet(input.fromNet) : estimateFromGross(row.grossPay || 0);
+      const run = (await db.select().from(payRuns).where(eq(payRuns.id, row.payRunId)).limit(1))[0] as any;
+      const P = periodsPerYear(normalizeFrequency(run?.frequency));
+      const ytd = await ytdGrossBeforeRun(db, row.employeeId, run);
+      const elapsed = periodsElapsedBeforeRun(run);
+      const gross = input.fromNet != null ? craGrossForNet(input.fromNet, P, ytd, elapsed) : (row.grossPay || 0);
+      const line = computeCraLine({ grossPeriod: gross, periodsPerYear: P, ytdPensionableBefore: ytd, periodsElapsedBefore: elapsed });
       await db.update(payRunLines).set({
-        grossPay: est.grossPay, cppEmployee: est.cppEmployee, eiEmployee: est.eiEmployee,
-        federalTax: est.federalTax, cppEmployer: est.cppEmployer, eiEmployer: est.eiEmployer,
-        netPay: est.netPay, updatedAt: new Date(),
+        grossPay: line.grossPay, cppEmployee: line.cppEmployee, cpp2Employee: line.cpp2Employee,
+        eiEmployee: line.eiEmployee, federalTax: line.federalTax, provincialTax: line.provincialTax,
+        cppEmployer: line.cppEmployer, cpp2Employer: line.cpp2Employer, eiEmployer: line.eiEmployer,
+        netPay: line.netPay, updatedAt: new Date(),
       }).where(eq(payRunLines.id, input.id));
       await recomputeRunTotals(row.payRunId);
-      return { success: true, estimate: est };
+      return { success: true, estimate: line };
     }),
 
   setRunStatus: staffQuery

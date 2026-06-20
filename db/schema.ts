@@ -999,6 +999,10 @@ export const employees = sqliteTable("employees", {
   // features actually apply to THIS person (e.g. only 2 staff get revenue share).
   getsRevenueShare: integer("getsRevenueShare", { mode: "boolean" }).default(false),
   revenueSharePercent: real("revenueSharePercent"), // % of the revenue-share base
+  // Opening YTD gross carryforward for the CURRENT calendar year (e.g. seeded
+  // from a client's prior-system payroll sheet) — feeds CPP/EI maxing so the
+  // CRA-grade calc is correct from the first run in the CRM.
+  ytdGrossOpening: real("ytdGrossOpening"),
   getsBonus: integer("getsBonus", { mode: "boolean" }).default(false),
   getsDividends: integer("getsDividends", { mode: "boolean" }).default(false),
   getsPhoneAllowance: integer("getsPhoneAllowance", { mode: "boolean" }).default(false),

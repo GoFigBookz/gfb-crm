@@ -48,6 +48,7 @@ export const employeeRouter = createRouter({
       getsDividends: z.boolean().optional(),
       getsPhoneAllowance: z.boolean().optional(),
       getsReimbursement: z.boolean().optional(),
+      ytdGrossOpening: z.number().nullable().optional(),
       notes: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
@@ -95,6 +96,7 @@ export const employeeRouter = createRouter({
       getsDividends: z.boolean().optional(),
       getsPhoneAllowance: z.boolean().optional(),
       getsReimbursement: z.boolean().optional(),
+      ytdGrossOpening: z.number().nullable().optional(),
       notes: z.string().optional(),
     }))
     .mutation(async ({ input }) => {

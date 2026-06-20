@@ -964,7 +964,21 @@ async function startServer() {
         }
       }
       // Originality: revenue share + CRA comparison.
-      await setFlags("%Originality%", { payrollRevenueShare: 1, payrollCraComparison: 1 });
+      const orig = await setFlags("%Originality%", { payrollRevenueShare: 1, payrollCraComparison: 1 });
+      // Seed Originality's 2026 YTD gross carryforward (from their payroll sheet,
+      // as of the Jun 15 2026 run) so the CRA calc maxes CPP/EI correctly. Only
+      // fills employees whose opening is still null. Matched by last name.
+      const origYtd: Record<string, number> = {
+        Gillham: 160409.60, Tran: 69565.28, Bejtic: 60366.67, Watt: 54801.50,
+        "Lambert-Taylor": 53279.90, Bhagawati: 47909.94, "Mc Nally": 46951.80,
+        Empey: 31939.97, Shafie: 30805.25, Bongiorno: 55778.38,
+      };
+      for (const cl of orig) {
+        for (const [last, ytd] of Object.entries(origYtd)) {
+          await db.update(employees).set({ ytdGrossOpening: ytd })
+            .where(and(eq(employees.clientId, cl.id), like(employees.lastName, last), isNull(employees.ytdGrossOpening)));
+        }
+      }
     } catch (e) { console.error("[normalize] payroll features seed failed (non-fatal):", e instanceof Error ? e.message : e); }
     // Privacy: we do NOT store SINs in the CRM. Scrub any that exist (idempotent).
     try {

@@ -11,8 +11,9 @@
  * Assumes basic TD1, all earnings pensionable & insurable, no YTD caps reached.
  * =============================================================================
  */
-import { annualIncomeTax, federalTax, ontarioTax, TaxTables, TAX_2026 } from "./payroll-tax-core";
+import { TaxTables, TAX_2026 } from "./payroll-tax-core";
 import { periodsPerYear } from "./payroll-core";
+import { computeCraLine } from "./payroll-cra-core";
 
 export type CppEiConstants = {
   year: number;
@@ -26,12 +27,11 @@ export type CppEiConstants = {
 export const CPP_EI_2026: CppEiConstants = {
   year: 2026,
   cppRate: 0.0595, cppExemption: 3500, ympe: 74600, cppMaxAnnual: 4230.45,
-  cpp2Rate: 0.04, yampe: 85700, cpp2MaxAnnual: 444.0,
+  cpp2Rate: 0.04, yampe: 85000, cpp2MaxAnnual: 416.0,
   eiRate: 0.0163, mie: 68900, eiMaxAnnual: 1123.07, eiEmployerMult: 1.4,
 };
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 export type Paycheck = {
   gross: number;
@@ -60,44 +60,34 @@ export type Paycheck = {
 export function computePaycheck(
   gross: number,
   frequency: string,
-  tax: TaxTables = TAX_2026,
-  cpe: CppEiConstants = CPP_EI_2026,
+  _tax: TaxTables = TAX_2026,
+  _cpe: CppEiConstants = CPP_EI_2026,
 ): Paycheck {
   const p = periodsPerYear(frequency);
-  const annual = round2(Math.max(0, gross) * p);
-
-  // CPP (annual method ÷ periods), capped at the annual maximums.
-  const cppBaseAnnual = clamp(Math.max(0, Math.min(annual, cpe.ympe) - cpe.cppExemption) * cpe.cppRate, 0, cpe.cppMaxAnnual);
-  const cpp2Annual = clamp(Math.max(0, Math.min(annual, cpe.yampe) - cpe.ympe) * cpe.cpp2Rate, 0, cpe.cpp2MaxAnnual);
-  const eiAnnual = clamp(Math.min(annual, cpe.mie) * cpe.eiRate, 0, cpe.eiMaxAnnual);
-
-  const cpp = round2(cppBaseAnnual / p);
-  const cpp2 = round2(cpp2Annual / p);
-  const ei = round2(eiAnnual / p);
-
-  // Income tax: annual fed + ON on the annualized gross, less the CPP/EI tax
-  // credit (at the lowest federal rate), ÷ periods. Mirrors PDOC's K2 credit.
-  const fedAnnual = federalTax(annual, tax);
-  const onAnnual = ontarioTax(annual, tax);
-  const cppEiCredit = (cppBaseAnnual + eiAnnual) * tax.federalLowestRate;
-  const fedAnnualNet = Math.max(0, fedAnnual - cppEiCredit);
-  const federalTaxPeriod = round2(fedAnnualNet / p);
-  const provincialTaxPeriod = round2(onAnnual / p);
-  const incomeTax = round2(federalTaxPeriod + provincialTaxPeriod);
-
-  const totalDeductions = round2(cpp + cpp2 + ei + incomeTax);
-  const netPay = round2(gross - totalDeductions);
-
-  const employerCpp = cpp;
-  const employerCpp2 = cpp2;
-  const employerEi = round2(ei * cpe.eiEmployerMult);
-  const employerCost = round2(gross + employerCpp + employerCpp2 + employerEi);
-
+  const g = Math.max(0, gross);
+  // Amortized per-cheque for someone earning `g` every period all year, via the
+  // single verified CRA engine. Simulating the whole year captures CPP2 and the
+  // EI/CPP max-out (averaged), so the "typical cheque" is representative.
+  let cum = 0, cpp = 0, cpp2 = 0, ei = 0, fed = 0, prov = 0, eCpp = 0, eCpp2 = 0, eEi = 0;
+  for (let i = 0; i < p; i++) {
+    const l = computeCraLine({ grossPeriod: g, periodsPerYear: p, ytdPensionableBefore: cum, periodsElapsedBefore: i });
+    cpp += l.cppEmployee; cpp2 += l.cpp2Employee; ei += l.eiEmployee;
+    fed += l.federalTax; prov += l.provincialTax;
+    eCpp += l.cppEmployer; eCpp2 += l.cpp2Employer; eEi += l.eiEmployer;
+    cum += g;
+  }
+  const perCpp = round2(cpp / p), perCpp2 = round2(cpp2 / p), perEi = round2(ei / p);
+  const perFed = round2(fed / p), perProv = round2(prov / p);
+  const incomeTax = round2(perFed + perProv);
+  const totalDeductions = round2(perCpp + perCpp2 + perEi + incomeTax);
+  const employerCpp = round2(eCpp / p), employerCpp2 = round2(eCpp2 / p), employerEi = round2(eEi / p);
   return {
-    gross: round2(gross), frequency, periodsPerYear: p, annualizedGross: annual,
-    cpp, cpp2, ei, incomeTax, federalTax: federalTaxPeriod, provincialTax: provincialTaxPeriod,
-    totalDeductions, netPay,
-    employerCpp, employerCpp2, employerEi, employerCost,
+    gross: round2(g), frequency, periodsPerYear: p, annualizedGross: round2(g * p),
+    cpp: perCpp, cpp2: perCpp2, ei: perEi, incomeTax,
+    federalTax: perFed, provincialTax: perProv,
+    totalDeductions, netPay: round2(g - totalDeductions),
+    employerCpp, employerCpp2, employerEi,
+    employerCost: round2(g + employerCpp + employerCpp2 + employerEi),
   };
 }
 

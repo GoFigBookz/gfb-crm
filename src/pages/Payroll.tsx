@@ -353,7 +353,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
           pending={addLine.isPending}
         />
 
-        <p className="text-[11px] text-slate-400">Deductions are a flat-rate estimate (CPP 5.95% · EI 1.66% · tax 15%), editable per cell. Not a CRA-grade calc — review before remitting.</p>
+        <p className="text-[11px] text-slate-400">Deductions use the CRA T4127 method (real CPP/CPP2 · EI · federal + Ontario tax, 2026 tables), YTD-aware via each employee's opening carryforward. Click the <Calculator className="h-3 w-3 inline" /> to calculate a line. Every cell stays editable — review before remitting.</p>
       </CardContent>
     </Card>
   );
@@ -668,6 +668,7 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
     getsDividends: employee.getsDividends ?? false,
     getsPhoneAllowance: employee.getsPhoneAllowance ?? ((employee.phoneAllowance ?? 0) > 0),
     getsReimbursement: employee.getsReimbursement ?? ((employee.reimbursementAmount ?? 0) > 0),
+    ytdGrossOpening: employee.ytdGrossOpening != null ? String(employee.ytdGrossOpening) : "",
     notes: employee.notes || "",
   });
   const set = (k: string, v: any) => setF({ ...f, [k]: v });
@@ -746,6 +747,10 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
             )}
           </div>
           <div>
+            <Label>Opening YTD gross (this year)</Label>
+            <Input type="number" value={f.ytdGrossOpening} onChange={(e) => set("ytdGrossOpening", e.target.value)} placeholder="Carryforward from prior payroll — feeds CPP/EI maxing" />
+          </div>
+          <div>
             <Label>Notes / history</Label>
             <Textarea value={f.notes} onChange={(e) => set("notes", e.target.value)} rows={3} placeholder="Rate changes, start/end dates, anything to track on this employee's card…" />
           </div>
@@ -771,6 +776,7 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
               revenueSharePercent: f.revenueSharePercent.trim() === "" ? null : num(f.revenueSharePercent),
               getsBonus: !!f.getsBonus, getsDividends: !!f.getsDividends,
               getsPhoneAllowance: !!f.getsPhoneAllowance, getsReimbursement: !!f.getsReimbursement,
+              ytdGrossOpening: f.ytdGrossOpening.trim() === "" ? null : num(f.ytdGrossOpening),
               isActive: f.isActive, notes: f.notes.trim() || undefined,
             })}>{pending ? "Saving…" : isNew ? "Create" : "Save"}</Button>
           </div>
