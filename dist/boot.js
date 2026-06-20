@@ -46373,52 +46373,29 @@ function wrap(inner) {
 }
 function renderQuoteHtml(opts) {
   const { firm, quote } = opts;
-  const rows = quote.monthlyLineItems.map((li) => `
-    <tr>
-      <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
-        <div style="font-weight:500;">${esc2(li.label)}</div>
-        <div style="font-size:12px;color:#94a3b8;">${esc2(li.rationale)}</div>
-      </td>
-      <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;text-align:right;white-space:nowrap;">${money(li.amount)}/mo</td>
-    </tr>`).join("");
-  const oneTime = quote.oneTimeLineItems.map((li) => `
-    <tr>
-      <td style="padding:6px 0;color:#475569;">${esc2(li.label)}<div style="font-size:12px;color:#94a3b8;">${esc2(li.rationale)}</div></td>
-      <td style="padding:6px 0;text-align:right;white-space:nowrap;color:#475569;">${money(li.amount)}</td>
-    </tr>`).join("");
+  const included = quote.monthlyLineItems.map((li) => `
+    <li style="margin:5px 0;">${esc2(li.label)}</li>`).join("");
   return wrap(`
     ${header(firm, "Quote")}
     <p style="margin:0 0 4px;">Prepared for</p>
     <div style="font-size:18px;font-weight:600;margin-bottom:18px;">${esc2(opts.clientCompany || opts.clientName)}</div>
 
-    <p>Thank you for the opportunity to support your bookkeeping. Below is a scope-based monthly quote built from the services your business needs (${esc2(quote.tier)}).</p>
+    <p>Thank you for the opportunity to support your bookkeeping. Your monthly engagement includes:</p>
 
-    <table style="width:100%;border-collapse:collapse;margin-top:12px;">
-      <thead><tr>
-        <th style="text-align:left;font-size:12px;text-transform:uppercase;color:#94a3b8;padding-bottom:6px;">Monthly services</th>
-        <th style="text-align:right;font-size:12px;text-transform:uppercase;color:#94a3b8;padding-bottom:6px;">Amount</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot><tr>
-        <td style="padding-top:12px;font-weight:700;font-size:16px;">Recurring monthly total</td>
-        <td style="padding-top:12px;font-weight:700;font-size:16px;text-align:right;color:${firm.accent};">${money(quote.recurringMonthly)}/mo</td>
-      </tr></tfoot>
-    </table>
+    <ul style="margin:8px 0 18px;padding-left:20px;color:#334155;">${included}</ul>
 
-    ${oneTime ? `
-    <table style="width:100%;border-collapse:collapse;margin-top:20px;">
-      <thead><tr>
-        <th style="text-align:left;font-size:12px;text-transform:uppercase;color:#94a3b8;padding-bottom:6px;">One-time</th>
-        <th style="text-align:right;font-size:12px;text-transform:uppercase;color:#94a3b8;padding-bottom:6px;">Amount</th>
-      </tr></thead>
-      <tbody>${oneTime}</tbody>
-      <tfoot><tr>
-        <td style="padding-top:8px;font-weight:600;">One-time total</td>
-        <td style="padding-top:8px;font-weight:600;text-align:right;">${money(quote.oneTimeTotal)}</td>
-      </tr></tfoot>
-    </table>` : ""}
+    <div style="display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin-top:8px;">
+      <div style="font-size:16px;font-weight:700;color:#1e293b;">Monthly total</div>
+      <div style="font-size:24px;font-weight:800;color:${firm.accent};">${money(quote.recurringMonthly)}<span style="font-size:14px;font-weight:600;color:#64748b;">/month</span></div>
+    </div>
 
-    <p style="font-size:12px;color:#64748b;margin-top:16px;">All amounts in CAD and exclusive of GST/HST. Quote valid for 30 days. Recurring fees billed monthly; scope reviewed if transaction volume or services change.</p>
+    ${quote.oneTimeTotal > 0 ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;border-radius:10px;padding:10px 20px;margin-top:10px;">
+      <div style="font-size:14px;font-weight:600;color:#475569;">One-time setup${quote.oneTimeLineItems.some((l) => /catch/i.test(l.label)) ? " &amp; catch-up" : ""}</div>
+      <div style="font-size:16px;font-weight:700;color:#475569;">${money(quote.oneTimeTotal)}</div>
+    </div>` : ""}
+
+    <p style="font-size:12px;color:#64748b;margin-top:16px;">All amounts in CAD, plus applicable GST/HST. Quote valid for 30 days. Fees are reviewed if transaction volume or the scope of services changes.</p>
     <p style="margin-top:18px;">By signing below, you accept this quote and authorize ${esc2(firm.displayName)} to proceed to a letter of engagement.</p>
     ${footer(firm)}
   `);
