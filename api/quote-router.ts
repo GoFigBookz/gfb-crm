@@ -147,7 +147,13 @@ export const quoteRouter = createRouter({
   // Recompute the quote with an overridden monthly transaction count (live
   // preview in the editor before the real numbers come from QBO).
   preview: authedQuery
-    .input(z.object({ clientId: z.number(), avgMonthlyTransactions: z.number().min(0) }))
+    .input(z.object({
+      clientId: z.number(),
+      avgMonthlyTransactions: z.number().min(0),
+      employeeCount: z.number().min(0).optional(),
+      creditCardCount: z.number().min(0).optional(),
+      bankAccountCount: z.number().min(0).optional(),
+    }))
     .query(async ({ input }) => {
       const db = getDb();
       const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0] as any;
@@ -155,6 +161,9 @@ export const quoteRouter = createRouter({
       const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
       const scope = buildScopeForClient(client, onb);
       scope.avgMonthlyTransactions = input.avgMonthlyTransactions;
+      if (input.employeeCount != null) { scope.employeeCount = input.employeeCount; scope.hasPayroll = input.employeeCount > 0; }
+      if (input.creditCardCount != null) scope.creditCardCount = input.creditCardCount;
+      if (input.bankAccountCount != null) scope.bankAccountCount = input.bankAccountCount;
       const quote = computeQuote(scope);
       return { quote, comparison: compareToFlatFee(quote.recurringMonthly, client.monthlyFee ?? null) };
     }),

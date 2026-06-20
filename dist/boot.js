@@ -45903,7 +45903,7 @@ function computeQuote(scope) {
       rationale: `Prepare + file ${scope.hstPeriod} HST return`
     });
   }
-  if (scope.hasPayroll) {
+  if (scope.hasPayroll && (scope.employeeCount || 0) > 0) {
     const emp = Math.max(0, scope.employeeCount || 0);
     const runMult = RATE_CARD.payroll.runFrequencyMultiplier[scope.payrollFrequency] ?? 1;
     const payrollAmt = (RATE_CARD.payroll.base + emp * RATE_CARD.payroll.perEmployee) * runMult;
@@ -46392,13 +46392,25 @@ var init_quote_router = __esm({
       }),
       // Recompute the quote with an overridden monthly transaction count (live
       // preview in the editor before the real numbers come from QBO).
-      preview: authedQuery.input(external_exports.object({ clientId: external_exports.number(), avgMonthlyTransactions: external_exports.number().min(0) })).query(async ({ input }) => {
+      preview: authedQuery.input(external_exports.object({
+        clientId: external_exports.number(),
+        avgMonthlyTransactions: external_exports.number().min(0),
+        employeeCount: external_exports.number().min(0).optional(),
+        creditCardCount: external_exports.number().min(0).optional(),
+        bankAccountCount: external_exports.number().min(0).optional()
+      })).query(async ({ input }) => {
         const db = getDb();
         const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
         if (!client) return null;
         const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
         const scope = buildScopeForClient(client, onb);
         scope.avgMonthlyTransactions = input.avgMonthlyTransactions;
+        if (input.employeeCount != null) {
+          scope.employeeCount = input.employeeCount;
+          scope.hasPayroll = input.employeeCount > 0;
+        }
+        if (input.creditCardCount != null) scope.creditCardCount = input.creditCardCount;
+        if (input.bankAccountCount != null) scope.bankAccountCount = input.bankAccountCount;
         const quote = computeQuote(scope);
         return { quote, comparison: compareToFlatFee(quote.recurringMonthly, client.monthlyFee ?? null) };
       }),

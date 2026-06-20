@@ -187,8 +187,9 @@ export function computeQuote(scope: QuoteScope): QuoteResult {
     });
   }
 
-  // 4) Payroll.
-  if (scope.hasPayroll) {
+  // 4) Payroll — only charge when there's at least one employee. (No employees
+  // = no payroll line, even if the hasPayroll flag is set.)
+  if (scope.hasPayroll && (scope.employeeCount || 0) > 0) {
     const emp = Math.max(0, scope.employeeCount || 0);
     const runMult = RATE_CARD.payroll.runFrequencyMultiplier[scope.payrollFrequency] ?? 1.0;
     const payrollAmt = (RATE_CARD.payroll.base + emp * RATE_CARD.payroll.perEmployee) * runMult;
