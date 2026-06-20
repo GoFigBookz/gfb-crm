@@ -878,6 +878,43 @@ async function startServer() {
     await ensurePayrollTables();
     await ensureClientRequestTables();
     await ensureSmsTable();
+    // Repair legacy date rows stored in MILLISECONDS in a seconds column (they
+    // render as year ~58000). Anything above year-2100-in-seconds is really ms → ÷1000.
+    try {
+      const { getDb } = await import("./queries/connection");
+      const { sql } = await import("drizzle-orm");
+      const db = getDb();
+      const THRESH = 4102444800; // 2100-01-01 in epoch SECONDS
+      for (const [t, cols] of [
+        ["tasks", ["dueDate", "completedAt", "createdAt", "updatedAt"]],
+        ["recurring_tasks", ["nextDueDate", "startDate", "endDate", "createdAt", "updatedAt"]],
+        ["client_task_rules", ["nextDueDate", "lastRunAt", "createdAt", "updatedAt"]],
+      ] as Array<[string, string[]]>) {
+        for (const col of cols) {
+          try { await db.run(sql.raw(`UPDATE ${t} SET "${col}" = "${col}"/1000 WHERE "${col}" > ${THRESH}`)); } catch { /* col may not exist */ }
+        }
+      }
+    } catch (e) { console.error("[repair] task date repair failed (non-fatal):", e instanceof Error ? e.message : e); }
+    // Numbered-company display: show the operating name first, numbered legal
+    // entity second (e.g. "Sher-E-Punjab (1001196626 Ontario Ltd.)"). Idempotent.
+    try {
+      const { getDb } = await import("./queries/connection");
+      const { clients } = await import("../db/schema");
+      const { eq } = await import("drizzle-orm");
+      const { reorderNumberedName } = await import("./client-name");
+      const db = getDb();
+      const rows = (await db.select().from(clients)) as any[];
+      for (const cl of rows) {
+        const patch: Record<string, string> = {};
+        const newName = reorderNumberedName(cl.name);
+        if (newName && newName !== cl.name) patch.name = newName;
+        const newCompany = reorderNumberedName(cl.company);
+        if (newCompany && newCompany !== cl.company) patch.company = newCompany;
+        if (Object.keys(patch).length) {
+          try { await db.update(clients).set(patch).where(eq(clients.id, cl.id)); } catch { /* ignore per-row */ }
+        }
+      }
+    } catch (e) { console.error("[repair] client name reorder failed (non-fatal):", e instanceof Error ? e.message : e); }
     // Privacy: we do NOT store SINs in the CRM. Scrub any that exist (idempotent).
     try {
       const { getDb } = await import("./queries/connection");

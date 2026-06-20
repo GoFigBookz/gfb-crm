@@ -50273,6 +50273,31 @@ var init_dedupe_clients = __esm({
   }
 });
 
+// api/client-name.ts
+var client_name_exports = {};
+__export(client_name_exports, {
+  reorderNumberedName: () => reorderNumberedName
+});
+function reorderNumberedName(name2) {
+  const raw2 = (name2 ?? "").trim();
+  if (!raw2) return raw2;
+  const m = raw2.match(NUMBERED_WITH_TRADE);
+  if (!m) return raw2;
+  const legal = tidyLegalEntity(m[1]);
+  const trade = m[2].trim();
+  if (!trade) return raw2;
+  return `${trade} (${legal})`;
+}
+function tidyLegalEntity(s) {
+  return s.trim().split(/\s+/).map((w) => /^\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+}
+var NUMBERED_WITH_TRADE;
+var init_client_name = __esm({
+  "api/client-name.ts"() {
+    NUMBERED_WITH_TRADE = /^\s*(\d{6,}\s+(?:ontario|canada)\s+(?:inc|ltd|corp|corporation)\.?)\s*\((.+)\)\s*$/i;
+  }
+});
+
 // api/import-client-master.ts
 var import_client_master_exports = {};
 __export(import_client_master_exports, {
@@ -50397,7 +50422,7 @@ async function importClientMaster() {
     if (candidates.length === 0) {
       const inserted = await db.insert(clients).values({
         userId: 1,
-        name: prettyName(r.name),
+        name: reorderNumberedName(prettyName(r.name)),
         email: "",
         company: prettyCompany(r.name),
         status: "active",
@@ -50440,8 +50465,8 @@ async function importClientMaster() {
     const hstPeriod = hstMap[r.hst.toLowerCase()] ?? null;
     const yearEndMonth = /^\d{4}-(\d{2})-\d{2}$/.test(r.ye) ? MONTHS3[Number(r.ye.slice(5, 7)) - 1] : null;
     const patch = {
-      name: prettyName(r.name),
-      // fix ALL-CAPS -> clean display casing
+      name: reorderNumberedName(prettyName(r.name)),
+      // clean casing + operating-name-first
       company: prettyCompany(r.name),
       assignedTo: "Markie",
       // The master list = current, ACTIVE clients — so mark them active (they're
@@ -50505,6 +50530,7 @@ var init_import_client_master = __esm({
     init_schema();
     init_drizzle_orm();
     init_task_generator();
+    init_client_name();
     F = "https://drive.google.com/drive/folders/";
     D = "https://docs.google.com/document/d/";
     ROWS = [
@@ -57434,6 +57460,49 @@ async function startServer() {
     await ensurePayrollTables2();
     await ensureClientRequestTables2();
     await ensureSmsTable2();
+    try {
+      const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+      const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const db = getDb2();
+      const THRESH = 4102444800;
+      for (const [t2, cols] of [
+        ["tasks", ["dueDate", "completedAt", "createdAt", "updatedAt"]],
+        ["recurring_tasks", ["nextDueDate", "startDate", "endDate", "createdAt", "updatedAt"]],
+        ["client_task_rules", ["nextDueDate", "lastRunAt", "createdAt", "updatedAt"]]
+      ]) {
+        for (const col of cols) {
+          try {
+            await db.run(sql4.raw(`UPDATE ${t2} SET "${col}" = "${col}"/1000 WHERE "${col}" > ${THRESH}`));
+          } catch {
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[repair] task date repair failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+      const { clients: clients3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { reorderNumberedName: reorderNumberedName2 } = await Promise.resolve().then(() => (init_client_name(), client_name_exports));
+      const db = getDb2();
+      const rows = await db.select().from(clients3);
+      for (const cl of rows) {
+        const patch = {};
+        const newName = reorderNumberedName2(cl.name);
+        if (newName && newName !== cl.name) patch.name = newName;
+        const newCompany = reorderNumberedName2(cl.company);
+        if (newCompany && newCompany !== cl.company) patch.company = newCompany;
+        if (Object.keys(patch).length) {
+          try {
+            await db.update(clients3).set(patch).where(eq3(clients3.id, cl.id));
+          } catch {
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[repair] client name reorder failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));

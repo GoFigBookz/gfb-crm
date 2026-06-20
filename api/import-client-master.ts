@@ -25,6 +25,7 @@ import { clients, clientVault, clientTaskRules } from "../db/schema";
 import { eq, sql } from "drizzle-orm";
 import { matchClientIdByName } from "./client-match";
 import { createClientTaskRules, type OnboardingData } from "./task-generator";
+import { reorderNumberedName } from "./client-name";
 
 type Row = {
   name: string; bn: string; pay: string; hst: string; wsib: string; ye: string;
@@ -243,7 +244,7 @@ export async function importClientMaster() {
     if (candidates.length === 0) {
       // The master has someone the CRM doesn't — create the client card.
       const inserted = await db.insert(clients).values({
-        userId: 1, name: prettyName(r.name), email: "", company: prettyCompany(r.name),
+        userId: 1, name: reorderNumberedName(prettyName(r.name)), email: "", company: prettyCompany(r.name),
         status: "active", workflowStatus: "active", assignedTo: "Markie",
       }).returning({ id: clients.id });
       clientId = inserted[0]?.id ?? null;
@@ -280,7 +281,7 @@ export async function importClientMaster() {
     const yearEndMonth = /^\d{4}-(\d{2})-\d{2}$/.test(r.ye) ? MONTHS[Number(r.ye.slice(5, 7)) - 1] : null;
 
     const patch: Record<string, any> = {
-      name: prettyName(r.name),          // fix ALL-CAPS -> clean display casing
+      name: reorderNumberedName(prettyName(r.name)),  // clean casing + operating-name-first
       company: prettyCompany(r.name),
       assignedTo: "Markie",
       // The master list = current, ACTIVE clients — so mark them active (they're
