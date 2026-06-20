@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { MessageSquare, Send, Building2, AlertCircle } from "lucide-react";
+import { MessageSquare, Send, Building2, AlertCircle, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,10 @@ export default function Messages() {
   const markRead = trpc.message.markRead.useMutation({ onSuccess: () => utils.message.threads.invalidate() });
   const send = trpc.message.send.useMutation({
     onSuccess: (r) => { setDraft(""); utils.message.thread.invalidate({ counterparty: active! }); utils.message.threads.invalidate(); if (!r.success) alert(`Not sent: ${r.error}`); },
+    onError: (e) => alert(e.message),
+  });
+  const suggest = trpc.message.suggestReply.useMutation({
+    onSuccess: (r) => { if (r.ok) setDraft(r.reply); else alert(r.reason); },
     onError: (e) => alert(e.message),
   });
   const openThread = (cp: string) => { setActive(cp); markRead.mutate({ counterparty: cp }); };
@@ -93,7 +97,12 @@ export default function Messages() {
                 ))}
               </CardContent>
               <div className="border-t p-2 flex gap-2">
-                <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Type a reply…"
+                {gw?.aiConfigured && (
+                  <Button variant="outline" title="Draft a reply with AI" disabled={suggest.isPending} onClick={() => suggest.mutate({ counterparty: active })}>
+                    <Sparkles className="h-4 w-4" />
+                  </Button>
+                )}
+                <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={suggest.isPending ? "Drafting…" : "Type a reply…"}
                   onKeyDown={(e) => { if (e.key === "Enter" && draft.trim()) send.mutate({ counterparty: active, body: draft.trim() }); }} />
                 <Button disabled={!draft.trim() || send.isPending} onClick={() => send.mutate({ counterparty: active, body: draft.trim() })}>
                   <Send className="h-4 w-4" />

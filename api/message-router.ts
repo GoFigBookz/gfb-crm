@@ -3,6 +3,7 @@ import { createRouter, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { smsMessages, clients } from "../db/schema";
 import { eq, desc, and } from "drizzle-orm";
+import { draftSmsReply, type SmsTurn } from "./sms-ai";
 
 /** Keep last 10 digits so "+1 (416) 555-1212" and "4165551212" match. */
 export function normalizePhone(raw: string): string {
@@ -33,7 +34,27 @@ export async function ingestInboundSms(from: string, body: string, externalId: s
     externalId: externalId ? String(externalId) : null,
     read: false,
   }).returning();
+  // Auto-respond (opt-in): only for a KNOWN client, only when explicitly enabled.
+  if (process.env.FIGGY_SMS_AUTORESPOND === "on" && client) {
+    maybeAutoRespond(counterparty, client).catch(() => { /* best-effort */ });
+  }
   return row;
+}
+
+/** Generate + SEND an AI reply to a known client's inbound text. Off unless
+ *  FIGGY_SMS_AUTORESPOND=on. Logged as an outbound message (sentBy null = AI). */
+async function maybeAutoRespond(counterparty: string, client: { id: number; name: string }) {
+  const db = getDb();
+  const rows = await db.select().from(smsMessages).where(eq(smsMessages.counterparty, counterparty)).orderBy(smsMessages.createdAt);
+  const thread: SmsTurn[] = (rows as any[]).map((m) => ({ direction: m.direction, body: m.body }));
+  const reply = await draftSmsReply({ clientName: client.name, thread });
+  if (!reply) return;
+  const sent = await gatewaySend(counterparty, reply);
+  await db.insert(smsMessages).values({
+    clientId: client.id, direction: "outbound", counterparty, body: reply,
+    status: sent.ok ? "sent" : "failed", externalId: sent.id ?? null, read: true,
+    sentBy: null, // null = sent by the AI auto-responder
+  });
 }
 
 /** Send an outbound SMS via the Android gateway's API (if configured). */
@@ -115,6 +136,24 @@ export const messageRouter = createRouter({
       return { success: sent.ok, error: sent.error, message: row };
     }),
 
+  // AI-drafted reply suggestion for a thread (read-only — does NOT send).
+  suggestReply: staffQuery
+    .input(z.object({ counterparty: z.string() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const cp = normalizePhone(input.counterparty);
+      const rows = await db.select().from(smsMessages).where(eq(smsMessages.counterparty, cp)).orderBy(smsMessages.createdAt);
+      const client = await matchClientByPhone(cp);
+      const thread: SmsTurn[] = (rows as any[]).map((m) => ({ direction: m.direction, body: m.body }));
+      const reply = await draftSmsReply({ clientName: client?.name, thread });
+      if (!reply) return { ok: false as const, reason: "AI reply unavailable (set ANTHROPIC_API_KEY, or no inbound message to reply to)." };
+      return { ok: true as const, reply };
+    }),
+
   // Whether outbound sending is wired up yet (UI hint).
-  gatewayStatus: staffQuery.query(() => ({ configured: !!(process.env.SMS_GATEWAY_URL && process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASS) })),
+  gatewayStatus: staffQuery.query(() => ({
+    configured: !!(process.env.SMS_GATEWAY_URL && process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASS),
+    aiConfigured: !!process.env.ANTHROPIC_API_KEY && process.env.FIGGY_SMS_AI !== "off",
+    autoRespond: process.env.FIGGY_SMS_AUTORESPOND === "on",
+  })),
 });
