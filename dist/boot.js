@@ -46075,6 +46075,7 @@ var init_payroll_router = __esm({
         const frac = input.fractionOfYear ?? (input.periodsElapsed && input.periodsPerYear ? input.periodsElapsed / input.periodsPerYear : 0.5);
         return reconcileWithholding(input.ytdGross, input.ytdTaxDeducted, frac);
       }),
+<<<<<<< HEAD
       // T4 slips. QBO Payroll is the system of record for T4s — once the per-realm
       // QBO connection is live this pulls the official T4 amounts from QuickBooks.
       // Until then we compute from the CRM pay runs as a fallback (source label
@@ -46084,6 +46085,14 @@ var init_payroll_router = __esm({
         const year2 = input.year ?? (/* @__PURE__ */ new Date()).getFullYear();
         const fromQbo = await pullT4FromQbo(input.clientId, year2);
         if (fromQbo) return { ...fromQbo, source: "qbo", note: null };
+=======
+      // T4 slips — aggregate each employee's pay-run lines for the calendar year
+      // into the CRA T4 boxes. SIN is NOT included (reveal per employee with the
+      // code gate when printing).
+      t4Slips: staffQuery.input(external_exports.object({ clientId: external_exports.number(), year: external_exports.number().optional() })).query(async ({ input }) => {
+        const db = getDb();
+        const year2 = input.year ?? (/* @__PURE__ */ new Date()).getFullYear();
+>>>>>>> origin/main
         const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
         const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId));
         const runIds = new Set(allRuns.filter((r) => new Date(r.payPeriodEnd).getFullYear() === year2).map((r) => r.id));
@@ -46128,9 +46137,13 @@ var init_payroll_router = __esm({
         return {
           year: year2,
           payer: client ? { name: client.company || client.name, address: client.address || "", bn: client.taxId || "", rp: client.payrollRpNumber || "" } : null,
+<<<<<<< HEAD
           slips,
           source: "crm_payroll",
           note: "Computed from CRM pay runs \u2014 will pull from QuickBooks once the QBO Payroll connection is live."
+=======
+          slips
+>>>>>>> origin/main
         };
       })
     });

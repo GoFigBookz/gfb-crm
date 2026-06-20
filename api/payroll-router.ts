@@ -419,20 +419,29 @@ export const payrollRouter = createRouter({
       return reconcileWithholding(input.ytdGross, input.ytdTaxDeducted, frac);
     }),
 
+<<<<<<< HEAD
   // T4 slips. QBO Payroll is the system of record for T4s — once the per-realm
   // QBO connection is live this pulls the official T4 amounts from QuickBooks.
   // Until then we compute from the CRM pay runs as a fallback (source label
   // tells the UI which). SIN is NOT included (reveal via the code gate).
+=======
+  // T4 slips — aggregate each employee's pay-run lines for the calendar year
+  // into the CRA T4 boxes. SIN is NOT included (reveal per employee with the
+  // code gate when printing).
+>>>>>>> origin/main
   t4Slips: staffQuery
     .input(z.object({ clientId: z.number(), year: z.number().optional() }))
     .query(async ({ input }) => {
       const db = getDb();
       const year = input.year ?? new Date().getFullYear();
+<<<<<<< HEAD
 
       // Future path: pull official T4 data from QuickBooks (Payroll). Returns
       // null today (no live QBO Payroll connection) → fall back to CRM pay runs.
       const fromQbo = await pullT4FromQbo(input.clientId, year);
       if (fromQbo) return { ...fromQbo, source: "qbo" as const, note: null };
+=======
+>>>>>>> origin/main
       const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0] as any;
       const allRuns = (await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId))) as any[];
       const runIds = new Set(allRuns.filter((r) => new Date(r.payPeriodEnd).getFullYear() === year).map((r) => r.id));
@@ -473,8 +482,11 @@ export const payrollRouter = createRouter({
         year,
         payer: client ? { name: client.company || client.name, address: client.address || "", bn: client.taxId || "", rp: client.payrollRpNumber || "" } : null,
         slips,
+<<<<<<< HEAD
         source: "crm_payroll" as const,
         note: "Computed from CRM pay runs — will pull from QuickBooks once the QBO Payroll connection is live.",
+=======
+>>>>>>> origin/main
       };
     }),
 });
