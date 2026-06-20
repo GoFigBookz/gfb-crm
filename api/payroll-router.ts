@@ -4,6 +4,7 @@ import { getDb } from "./queries/connection";
 import { payRuns, payRunLines, employees, clients } from "../db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { estimateFromGross, estimateFromNet, salaryPerPeriod, round2 } from "./payroll-core";
+import { reconcileWithholding, annualIncomeTax, TAX_2026 } from "./payroll-tax-core";
 
 /**
  * Per-client special handling, keyed by a case-insensitive name match. Lets the
@@ -180,5 +181,31 @@ export const payrollRouter = createRouter({
       await db.delete(payRunLines).where(eq(payRunLines.payRunId, input.runId));
       await db.delete(payRuns).where(eq(payRuns.id, input.runId));
       return { success: true };
+    }),
+
+  // Which tax tables the reconciliation is using (for the UI banner).
+  taxTables: staffQuery.query(() => ({
+    year: TAX_2026.year,
+    verified: TAX_2026.verified,
+    federalBpa: TAX_2026.federalBpaMax,
+    ontarioBpa: TAX_2026.ontarioBpa,
+    sampleAnnualTaxOn100k: annualIncomeTax(100000),
+  })),
+
+  // Withholding reconciliation for revenue-share / any employee: compare what
+  // QBO actually deducted YTD vs CRA-expected tax on the accumulated income.
+  reconcileTax: staffQuery
+    .input(z.object({
+      ytdGross: z.number().min(0),
+      ytdTaxDeducted: z.number().min(0),
+      // Provide EITHER fractionOfYear OR (periodsElapsed + periodsPerYear).
+      fractionOfYear: z.number().min(0).max(1).optional(),
+      periodsElapsed: z.number().min(0).optional(),
+      periodsPerYear: z.number().min(1).optional(),
+    }))
+    .query(({ input }) => {
+      const frac = input.fractionOfYear
+        ?? (input.periodsElapsed && input.periodsPerYear ? input.periodsElapsed / input.periodsPerYear : 0.5);
+      return reconcileWithholding(input.ytdGross, input.ytdTaxDeducted, frac);
     }),
 });
