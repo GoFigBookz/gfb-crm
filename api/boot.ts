@@ -678,6 +678,15 @@ async function startServer() {
     } catch (e) {
       console.error("[remitter] overrides failed (non-fatal):", e instanceof Error ? e.message : e);
     }
+    // Link each client to its existing Drive folder under "GFB → GFB Clients"
+    // so the client page's Google Drive button jumps to their files.
+    try {
+      const { linkDriveFolders } = await import("./link-drive-folders");
+      const r = await linkDriveFolders();
+      console.log(`[drive-link] linked ${r.linked}, already ${r.alreadySet}, unmatched ${r.unmatched.length}`);
+    } catch (e) {
+      console.error("[drive-link] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
   }
 
   // Self-configure the live QBO bridge (adds the bridge columns, binds Clark
