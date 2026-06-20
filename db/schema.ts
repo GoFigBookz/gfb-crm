@@ -997,6 +997,12 @@ export const payRuns = sqliteTable("pay_runs", {
   totalNet: real("totalNet").default(0),
   totalEmployeeDeductions: real("totalEmployeeDeductions").default(0),
   totalEmployerCost: real("totalEmployerCost").default(0),
+  // Client hours-approval flow
+  approvalToken: text("approvalToken"),
+  approvalStatus: text("approvalStatus", { enum: ["none", "sent", "approved", "changes_requested"] }).default("none"),
+  approvedByName: text("approvedByName"),
+  approvedAt: integer("approvedAt", { mode: "timestamp" }),
+  approvalNote: text("approvalNote"),
   notes: text("notes"),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
@@ -1013,8 +1019,10 @@ export const payRunLines = sqliteTable("pay_run_lines", {
   vacationHours: real("vacationHours").default(0),
   statHolidayHours: real("statHolidayHours").default(0),
   sickHours: real("sickHours").default(0),
-  // Earnings
+  // Earnings (mirrors the client sheet columns)
   grossPay: real("grossPay").default(0),
+  shareBonus: real("shareBonus").default(0),
+  statHolidayPay: real("statHolidayPay").default(0),
   vacationPayAccrued: real("vacationPayAccrued").default(0),
   vacationPayPaid: real("vacationPayPaid").default(0),
   // Employee deductions

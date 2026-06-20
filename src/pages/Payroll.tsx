@@ -19,10 +19,10 @@ const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 
 /** Download a run's hours as CSV (opens directly in Google Sheets / Excel). */
 function exportRunCsv(run: any, lines: any[]) {
-  const head = ["Employee", "Pay type", "Reg hrs", "OT hrs", "Vac hrs", "Stat hrs", "Gross", "CPP", "EI", "Tax", "Net"];
+  const head = ["Employee", "Pay type", "Rate", "Reg hrs", "OT hrs", "Stat $", "Share bonus", "Gross", "CPP", "EI", "Tax", "Net"];
   const rows = lines.map((l: any) => [
-    l.employeeName, l.payType || "", l.regularHours ?? 0, l.overtimeHours ?? 0, l.vacationHours ?? 0,
-    l.statHolidayHours ?? 0, l.grossPay ?? 0, l.cppEmployee ?? 0, l.eiEmployee ?? 0, l.federalTax ?? 0, l.netPay ?? 0,
+    l.employeeName, l.payType || "", l.hourlyRate ?? "", l.regularHours ?? 0, l.overtimeHours ?? 0,
+    l.statHolidayPay ?? 0, l.shareBonus ?? 0, l.grossPay ?? 0, l.cppEmployee ?? 0, l.eiEmployee ?? 0, l.federalTax ?? 0, l.netPay ?? 0,
   ]);
   const esc = (v: any) => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   const csv = [head, ...rows].map((r) => r.map(esc).join(",")).join("\n");
@@ -246,6 +246,7 @@ function RunDetail({ runId, onDelete, onEditEmployee }: { runId: number; onDelet
   const setStatus = trpc.payroll.setRunStatus.useMutation({ onSuccess: invalidate });
   const addLine = trpc.payroll.addLine.useMutation({ onSuccess: () => { invalidate(); if (data?.run.clientId) utils.employee.list.invalidate({ clientId: data.run.clientId }); }, onError: (e) => alert(e.message) });
   const removeLine = trpc.payroll.removeLine.useMutation({ onSuccess: invalidate });
+  const createApprovalLink = trpc.payroll.createApprovalLink.useMutation({ onSuccess: invalidate, onError: (e) => alert(e.message) });
   const { data: clientEmps } = trpc.employee.list.useQuery({ clientId: data?.run.clientId ?? 0 }, { enabled: !!data?.run.clientId });
 
   if (!data) return <div className="text-sm text-slate-400 p-3">Loading…</div>;
@@ -272,6 +273,8 @@ function RunDetail({ runId, onDelete, onEditEmployee }: { runId: number; onDelet
           </div>
         </div>
 
+        <ApprovalBar run={run} onCreateLink={() => createApprovalLink.mutate({ runId })} creating={createApprovalLink.isPending} />
+
         {lines.length === 0 ? (
           <p className="text-sm text-slate-400 py-3 text-center">No employees on this run yet — add one below to start the timesheet.</p>
         ) : (
@@ -280,8 +283,11 @@ function RunDetail({ runId, onDelete, onEditEmployee }: { runId: number; onDelet
               <thead>
                 <tr className="text-xs text-slate-500 border-b">
                   <th className="text-left py-1.5 pr-2">Employee</th>
+                  <th className="text-right px-1">Rate</th>
                   <th className="text-right px-1">Reg hrs</th>
                   <th className="text-right px-1">OT</th>
+                  <th className="text-right px-1">Stat $</th>
+                  <th className="text-right px-1">Share bonus</th>
                   <th className="text-right px-1">Gross</th>
                   <th className="text-right px-1">CPP</th>
                   <th className="text-right px-1">EI</th>
@@ -302,14 +308,14 @@ function RunDetail({ runId, onDelete, onEditEmployee }: { runId: number; onDelet
               <tfoot>
                 <tr className="border-t font-semibold">
                   <td className="py-1.5 pr-2">Totals</td>
-                  <td></td><td></td>
+                  <td colSpan={5}></td>
                   <td className="text-right px-1 text-lime-700">{money(run.totalGross)}</td>
                   <td colSpan={3} className="text-right px-1 text-slate-500">deduct {money(run.totalEmployeeDeductions)}</td>
                   <td className="text-right px-1">{money(run.totalNet)}</td>
                   <td></td>
                 </tr>
                 <tr className="text-xs text-slate-500">
-                  <td className="pt-1" colSpan={9}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))}</td>
+                  <td className="pt-1" colSpan={12}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))}</td>
                 </tr>
               </tfoot>
             </table>
@@ -332,10 +338,18 @@ function RunDetail({ runId, onDelete, onEditEmployee }: { runId: number; onDelet
 function LineRow({ line, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
   const [v, setV] = useState({
     regularHours: line.regularHours ?? 0, overtimeHours: line.overtimeHours ?? 0,
+    statHolidayPay: line.statHolidayPay ?? 0, shareBonus: line.shareBonus ?? 0,
     grossPay: line.grossPay ?? 0, cppEmployee: line.cppEmployee ?? 0, eiEmployee: line.eiEmployee ?? 0,
     federalTax: line.federalTax ?? 0, netPay: line.netPay ?? 0,
   });
   const num = (s: string) => { const n = parseFloat(s); return isNaN(n) ? 0 : n; };
+  const rate = line.hourlyRate ?? null;
+  // Sum the components into gross (hrs×rate + OT×1.5 + stat$ + share bonus).
+  const sumGross = () => {
+    const r = rate || 0;
+    const g = Math.round(((v.regularHours * r) + (v.overtimeHours * r * 1.5) + v.statHolidayPay + v.shareBonus) * 100) / 100;
+    setV({ ...v, grossPay: g }); onSave({ grossPay: g });
+  };
   const cell = (key: keyof typeof v) => (
     <Input type="number" value={v[key]} onChange={(e) => setV({ ...v, [key]: num(e.target.value) })}
       onBlur={() => { if (v[key] !== (line[key] ?? 0)) onSave({ [key]: v[key] }); }}
@@ -347,18 +361,56 @@ function LineRow({ line, onSave, onEstimate, onRemove, onEditEmployee }: { line:
         <button className="hover:text-lime-700 hover:underline text-left" title="Edit employee card" onClick={onEditEmployee}>{line.employeeName}</button>
         {line.payType ? <span className="text-[10px] text-slate-400 ml-1">{line.payType}</span> : null}
       </td>
+      <td className="px-1 text-right text-xs text-slate-500">{rate != null ? `$${rate}` : "—"}</td>
       <td className="px-1">{cell("regularHours")}</td>
       <td className="px-1">{cell("overtimeHours")}</td>
+      <td className="px-1">{cell("statHolidayPay")}</td>
+      <td className="px-1">{cell("shareBonus")}</td>
       <td className="px-1">{cell("grossPay")}</td>
       <td className="px-1">{cell("cppEmployee")}</td>
       <td className="px-1">{cell("eiEmployee")}</td>
       <td className="px-1">{cell("federalTax")}</td>
       <td className="px-1">{cell("netPay")}</td>
       <td className="px-1 whitespace-nowrap">
+        <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" title="Sum hours×rate + OT + stat + bonus into gross" onClick={sumGross}>∑</Button>
         <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" title="Estimate deductions from gross" onClick={onEstimate}><Calculator className="h-3.5 w-3.5" /></Button>
         <Button size="sm" variant="ghost" className="h-7 px-1.5 text-red-400 hover:text-red-600" title="Remove from run" onClick={onRemove}><Trash2 className="h-3.5 w-3.5" /></Button>
       </td>
     </tr>
+  );
+}
+
+/** Client hours-approval bar: generate a shareable link, show status. */
+function ApprovalBar({ run, onCreateLink, creating }: { run: any; onCreateLink: () => void; creating: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const token = run.approvalToken;
+  const url = token ? `${window.location.origin}/approve/${token}` : "";
+  const status = run.approvalStatus || "none";
+  const badge = status === "approved" ? "bg-lime-100 text-lime-700"
+    : status === "changes_requested" ? "bg-amber-100 text-amber-700"
+    : status === "sent" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600";
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 border p-2">
+      <span className="text-xs font-medium text-slate-600">Client approval:</span>
+      <Badge variant="outline" className={`text-[10px] ${badge}`}>
+        {status === "none" ? "not sent" : status === "changes_requested" ? "changes requested" : status}
+      </Badge>
+      {run.approvedByName && <span className="text-[11px] text-slate-500">by {run.approvedByName}</span>}
+      {!token ? (
+        <Button size="sm" variant="outline" className="h-7 text-xs" disabled={creating} onClick={onCreateLink}>
+          <Mail className="h-3.5 w-3.5 mr-1" /> Create approval link
+        </Button>
+      ) : (
+        <>
+          <Input readOnly value={url} className="h-7 text-xs flex-1 min-w-[200px]" onFocus={(e) => e.target.select()} />
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { navigator.clipboard?.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
+            {copied ? "Copied!" : "Copy link"}
+          </Button>
+          <a href={`mailto:?subject=${encodeURIComponent("Payroll hours for approval")}&body=${encodeURIComponent(`Please review and approve the payroll hours: ${url}`)}`}
+            className="text-xs text-lime-700 hover:underline">email</a>
+        </>
+      )}
+    </div>
   );
 }
 

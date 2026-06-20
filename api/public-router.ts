@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { clients, clientOnboarding, workflowLogs } from "../db/schema";
+import { clients, clientOnboarding, workflowLogs, payRuns, payRunLines, employees } from "../db/schema";
 import { eq } from "drizzle-orm";
 
 export const publicRouter = createRouter({
@@ -104,5 +104,56 @@ export const publicRouter = createRouter({
       });
 
       return { success: true, clientId, token };
+    }),
+
+  // ===== PAYROLL HOURS APPROVAL (public, token-gated — for clients) =====
+  payrollApprovalGet: publicQuery
+    .input(z.object({ token: z.string().min(6) }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const run = (await db.select().from(payRuns).where(eq(payRuns.approvalToken, input.token)).limit(1))[0] as any;
+      if (!run) return null;
+      const client = (await db.select().from(clients).where(eq(clients.id, run.clientId)).limit(1))[0] as any;
+      const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run.id));
+      const emps = await db.select().from(employees).where(eq(employees.clientId, run.clientId));
+      const byId = new Map((emps as any[]).map((e) => [e.id, e]));
+      const rows = (lines as any[]).map((l) => {
+        const e = byId.get(l.employeeId);
+        return {
+          name: e ? `${e.firstName} ${e.lastName}` : `Employee #${l.employeeId}`,
+          regularHours: l.regularHours ?? 0, overtimeHours: l.overtimeHours ?? 0,
+          statHolidayPay: l.statHolidayPay ?? 0, shareBonus: l.shareBonus ?? 0, grossPay: l.grossPay ?? 0,
+        };
+      }).sort((a, b) => a.name.localeCompare(b.name));
+      return {
+        clientName: client?.name ?? "Your company",
+        payPeriodStart: run.payPeriodStart, payPeriodEnd: run.payPeriodEnd, payDate: run.payDate,
+        status: run.approvalStatus ?? "sent", approvedByName: run.approvedByName ?? null,
+        approvedAt: run.approvedAt ?? null, approvalNote: run.approvalNote ?? null,
+        lines: rows,
+      };
+    }),
+
+  payrollApprovalSubmit: publicQuery
+    .input(z.object({
+      token: z.string().min(6),
+      approverName: z.string().min(1),
+      decision: z.enum(["approved", "changes_requested"]),
+      note: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const run = (await db.select().from(payRuns).where(eq(payRuns.approvalToken, input.token)).limit(1))[0] as any;
+      if (!run) throw new Error("This approval link is not valid.");
+      await db.update(payRuns).set({
+        approvalStatus: input.decision,
+        approvedByName: input.approverName,
+        approvedAt: new Date(),
+        approvalNote: input.note || null,
+        // When the client approves the hours, advance the run to "approved".
+        ...(input.decision === "approved" ? { status: "approved" } : {}),
+        updatedAt: new Date(),
+      }).where(eq(payRuns.id, run.id));
+      return { success: true };
     }),
 });
