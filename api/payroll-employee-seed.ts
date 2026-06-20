@@ -98,9 +98,17 @@ export const PAYROLL_EMPLOYEE_SEED: SeedClientRoster[] = [
   // This roster lives in the Owen Sound entity's Due-Diligence tree
   // ("Finance - Clark Pools Owen Sound" → 1 - Company Documentation → Due
   // Diligence Items → 11 - Employee Information). Its 10 names have ZERO overlap
-  // with the Collingwood T4 (below), confirming it is the Owen Sound store roster
-  // (the combined "clark" seed has been split — replace:true self-corrects it).
-  // Rates/positions are exactly as the Employee Summary shows.
+  // with the corrected Collingwood roster (below), confirming it is the Owen Sound
+  // store roster (the combined "clark" seed has been split — replace:true
+  // self-corrects it). Rates/positions are exactly as the Employee Summary shows.
+  // VERIFIED 2026-06-20 against the live source (1BbnBDFhBFRA8CKs__jV-YNKIpKyfavkQ):
+  // all 10 names/rates/positions still match the Employee Summary, so this entry is
+  // kept as-is per the brief. NOTE (not applied — outside this fix's scope): the
+  // current Owen Sound payroll run (CP-Owen Sound.xlsx, 1j8BWT81WZiB60IYh7eoCoU65n4RRLUY4,
+  // run May 1 2026) has drifted from the Summary — it adds Adam Holt (salary $60k,
+  // the dual-store person removed from Collingwood), Grace Dickinson, Bruce Funston,
+  // Jamie Moseley, Alexis Montgomery, Neil Korchak, Ethan/Isabella Holt, and drops
+  // some Summary names. Re-baseline this roster to the live run when OS is in scope.
   // ---------------------------------------------------------------------------
   { clientMatch: "owen sound", replace: true, sourceFileId: "1BbnBDFhBFRA8CKs__jV-YNKIpKyfavkQ", employees: [
     { firstName: "Cathy", lastName: "Bartley", payType: "hourly", hourlyRate: 19.00, position: "Store Clerk", notes: "Part time; start April 2025; vac 4%" },
@@ -117,29 +125,37 @@ export const PAYROLL_EMPLOYEE_SEED: SeedClientRoster[] = [
 
   // ---------------------------------------------------------------------------
   // CLARK POOLS AND SPAS — COLLINGWOOD (Clark CW, realm 13633946244024404).
-  // Source: 1xvr6OL_HU6hBgIK05x2bhzwJRLV6Ft7w
-  // (T4EmployerSlips_ClarkPoolsandSpasCollingwoodInc_TaxYear2025.xml — CRA T4
-  // employer slips, BN 770298602RP0001, the Collingwood payroll account per its
-  // Client Info doc). 14 T4 slips for tax year 2025. T4 slips list employee NAMES
-  // only — no hourly rate / pay type, so those are omitted (never guessed). Where
-  // a slip shows commission income (box 42) it is flagged in notes.
-  // replace:true so the prior combined "clark" seed self-corrects.
+  // CORRECTED 2026-06-20: rebuilt from the CURRENT payroll register, replacing the
+  // stale 2025 T4 (1xvr6OL_HU6hBgIK05x2bhzwJRLV6Ft7w), which listed names only,
+  // included terminated/seasonal people paid sometime in 2025, and lumped in Owen
+  // Sound staff (Adam Holt, etc.) whose mailing address showed Owen Sound.
+  // Source: "CP-Collingwood Payroll & Cap Table" — most recent run Jun 12, 2026
+  // (Sheet 1P-m-fBBbKT-L8VrcYG6Fd73DeskmUfrO6z7HWOlnR7k), cross-checked against the
+  // Payroll Master "Rosters" tab (positions/rates). These 14 are the active roster
+  // on the Jun-12-2026 run. Rates/positions/salaries are exactly as the run shows.
+  // Dual-store resolution: Chris Hawton (chris@clarkpoolscollingwood.com) + Corey
+  // Hawton both run on the CW payroll → kept in Collingwood (their 2025-T4 Owen
+  // Sound mailing address is not their store). Adam Holt is on the CURRENT Owen
+  // Sound payroll run + Rosters tab → he is Owen Sound, REMOVED from Collingwood.
+  // Dropped from old seed (not on any current CW run): John Chapman, Ty Johnston,
+  // Riki Reynolds — 2025 T4 only, no longer active.
+  // replace:true so the prior combined "clark" / T4 seed self-corrects.
   // ---------------------------------------------------------------------------
-  { clientMatch: "collingwood", replace: true, sourceFileId: "1xvr6OL_HU6hBgIK05x2bhzwJRLV6Ft7w", employees: [
-    { firstName: "Alan", lastName: "Weaver" },
-    { firstName: "Chris", lastName: "Thompson", notes: "T4 init E" },
-    { firstName: "John", lastName: "Chapman" },
-    { firstName: "Lisa", lastName: "Venditti" },
-    { firstName: "Adrian", lastName: "Robbeson" },
-    { firstName: "Brendan", lastName: "Essex", notes: "Highest-paid slip ($102,045 incl. $30,814 commission) — likely owner/manager" },
-    { firstName: "Chris", lastName: "Hawton", notes: "$105,783 incl. $30,413 commission; Owen Sound address but on Collingwood T4 — verify if dual-store" },
-    { firstName: "Chris", lastName: "Haight", notes: "T4 init L" },
-    { firstName: "Adam", lastName: "Holt", notes: "Owen Sound address but on Collingwood T4" },
-    { firstName: "Corey", lastName: "Hawton", notes: "Owen Sound address but on Collingwood T4" },
-    { firstName: "Matteo", lastName: "Companion" },
-    { firstName: "Ty", lastName: "Johnston" },
-    { firstName: "Riki", lastName: "Reynolds", notes: "T4 init C" },
-    { firstName: "Logan", lastName: "Greig" },
+  { clientMatch: "collingwood", replace: true, sourceFileId: "1P-m-fBBbKT-L8VrcYG6Fd73DeskmUfrO6z7HWOlnR7k", employees: [
+    { firstName: "Chris", lastName: "Hawton", payType: "salary", position: "Manager/Salaried", email: "chris@clarkpoolscollingwood.com", notes: "Annual salary $60,000 (biweekly $2,330.77); 10% net-profit share paid quarterly; earned-equity per shareholder agreement; start Nov 15 2021. On 2025 T4 with Owen Sound mailing address but runs on the Collingwood payroll" },
+    { firstName: "Brendan", lastName: "Essex", payType: "salary", position: "Salaried (33% owner)", email: "essexbrendan@gmail.com", notes: "Annual salary $80,000 on Jun 12 2026 run (was $60,000 earlier in 2026); 10% net-profit share quarterly; 33% ownership buy-in per cap table; start Sept 20 2022" },
+    { firstName: "Chris", lastName: "Haight", payType: "hourly", hourlyRate: 27.00, position: "Senior Technician", notes: "Construction bonus pending; start Nov 15 2021" },
+    { firstName: "Corey", lastName: "Hawton", payType: "hourly", hourlyRate: 26.50, position: "Senior Technician", notes: "On 2025 T4 with Owen Sound mailing address but on the current Collingwood payroll run" },
+    { firstName: "Lisa", lastName: "Venditti", payType: "hourly", hourlyRate: 25.00, position: "Senior Technician", notes: "Start Nov 15 2021" },
+    { firstName: "Adrian", lastName: "Robbeson", payType: "hourly", hourlyRate: 24.00, position: "Technician" },
+    { firstName: "Chris", lastName: "Thompson", payType: "hourly", hourlyRate: 24.00, position: "Technician" },
+    { firstName: "Dave", lastName: "Lally", payType: "hourly", hourlyRate: 24.00, position: "Technician" },
+    { firstName: "Logan", lastName: "Greig", payType: "hourly", hourlyRate: 24.00, position: "Technician" },
+    { firstName: "Justin", lastName: "Koutsomichos", payType: "hourly", hourlyRate: 23.00, position: "Technician" },
+    { firstName: "Justin", lastName: "Pool", payType: "hourly", hourlyRate: 22.00, position: "Technician", notes: "Last day Jun 3 2026 (terminating)" },
+    { firstName: "Aidan", lastName: "MacDonald", payType: "hourly", hourlyRate: 21.00, position: "Technician" },
+    { firstName: "Matteo", lastName: "Companion", payType: "hourly", hourlyRate: 18.00, position: "Technician" },
+    { firstName: "Alan", lastName: "Weaver", payType: "hourly", hourlyRate: 35.00, position: "Technician/Specialist", notes: "Start Nov 15 2021" },
   ] },
 
   // ---------------------------------------------------------------------------
