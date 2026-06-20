@@ -847,11 +847,12 @@ async function startServer() {
   // table is missing columns the app SELECTs, which makes every read throw (empty
   // Clients page). Add any missing columns first.
   try {
-    const { ensureClientsColumns, ensureOnboardingColumns, ensureTaskColumns, ensurePayrollTables } = await import("./ensure-clients-schema");
+    const { ensureClientsColumns, ensureOnboardingColumns, ensureTaskColumns, ensurePayrollTables, ensureClientRequestTables } = await import("./ensure-clients-schema");
     await ensureClientsColumns();
     await ensureOnboardingColumns();
     await ensureTaskColumns();
     await ensurePayrollTables();
+    await ensureClientRequestTables();
     if (process.env.FIGGY_SKIP_EMPLOYEE_SEED !== "on") {
       try { const { seedPayrollEmployees } = await import("./seed-payroll-employees"); await seedPayrollEmployees(); }
       catch (e) { console.error("[seed] payroll employees failed (non-fatal):", e instanceof Error ? e.message : e); }

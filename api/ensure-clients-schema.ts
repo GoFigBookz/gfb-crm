@@ -182,6 +182,41 @@ export async function ensurePayrollTables(): Promise<void> {
   }
 }
 
+/** Create the client-requests tables (Karbon-style document checklists). */
+export async function ensureClientRequestTables(): Promise<void> {
+  const db = getDb();
+  try {
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS client_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      message TEXT,
+      token TEXT NOT NULL,
+      status TEXT DEFAULT 'open' NOT NULL,
+      dueDate INTEGER,
+      reminderCount INTEGER DEFAULT 0,
+      lastReminderAt INTEGER,
+      createdBy INTEGER,
+      completedAt INTEGER,
+      createdAt INTEGER,
+      updatedAt INTEGER
+    )`));
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS client_request_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      requestId INTEGER NOT NULL,
+      label TEXT NOT NULL,
+      status TEXT DEFAULT 'pending' NOT NULL,
+      response TEXT,
+      providedAt INTEGER,
+      sortOrder INTEGER DEFAULT 0,
+      createdAt INTEGER
+    )`));
+    console.log("[schema] client-request tables ensured");
+  } catch (e) {
+    console.error("[schema] ensureClientRequestTables failed:", e instanceof Error ? e.message : e);
+  }
+}
+
 /** Add newer client_onboarding columns the live DB may be missing (e.g.
  *  usesTouchBistro), so intake inserts don't fail. Idempotent. */
 export async function ensureOnboardingColumns(): Promise<void> {
