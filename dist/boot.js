@@ -46231,11 +46231,16 @@ var init_quote_core = __esm({
       // Core transaction-processing base only ($150 floor → $250 max). Add-ons
       // (HST, payroll, year-end, etc.) stack on top as separate line items.
       transactionTiers: [
-        { max: 50, base: 150, label: "Up to 50 txns/mo" },
-        { max: 100, base: 175, label: "51\u2013100 txns/mo" },
-        { max: 150, base: 200, label: "101\u2013150 txns/mo" },
-        { max: 200, base: 225, label: "151\u2013200 txns/mo" },
-        { max: 250, base: 250, label: "201\u2013250 txns/mo" }
+        { max: 25, base: 150, label: "1\u201325 txns/mo" },
+        { max: 50, base: 160, label: "26\u201350 txns/mo" },
+        { max: 75, base: 175, label: "51\u201375 txns/mo" },
+        { max: 100, base: 190, label: "76\u2013100 txns/mo" },
+        { max: 125, base: 200, label: "101\u2013125 txns/mo" },
+        { max: 150, base: 210, label: "126\u2013150 txns/mo" },
+        { max: 175, base: 220, label: "151\u2013175 txns/mo" },
+        { max: 200, base: 230, label: "176\u2013200 txns/mo" },
+        { max: 225, base: 240, label: "201\u2013225 txns/mo" },
+        { max: 250, base: 250, label: "226\u2013250 txns/mo" }
       ],
       highVolume: { floor: 250, perTxnOver750: 0, label: "250+ txns/mo (base capped)" },
       // How often we actually do the books changes the recurring labour.
