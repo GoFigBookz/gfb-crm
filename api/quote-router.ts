@@ -71,7 +71,7 @@ export function buildScopeForClient(client: any, onb: any | null): QuoteScope {
   const bool = (...vals: any[]) => vals.some((v) => v === true || v === 1);
 
   const salesPlatformCount = onb
-    ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro].filter((v) => v === true || v === 1).length
+    ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro, onb.usesPayPal].filter((v) => v === true || v === 1).length
     : 0;
 
   return {

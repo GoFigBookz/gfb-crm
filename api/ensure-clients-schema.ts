@@ -82,6 +82,7 @@ export async function ensureOnboardingColumns(): Promise<void> {
   }
   const adds: Array<[string, string]> = [
     ["usesTouchBistro", "integer DEFAULT 0"],
+    ["usesPayPal", "integer DEFAULT 0"],
     ["paysDividends", "integer DEFAULT 0"],
     ["hasEHT", "integer DEFAULT 0"],
     ["employeeCount", "integer DEFAULT 0"],

@@ -22774,6 +22774,7 @@ var init_schema = __esm({
       usesSquare: integer2("usesSquare", { mode: "boolean" }).default(false),
       usesJobber: integer2("usesJobber", { mode: "boolean" }).default(false),
       usesTouchBistro: integer2("usesTouchBistro", { mode: "boolean" }).default(false),
+      usesPayPal: integer2("usesPayPal", { mode: "boolean" }).default(false),
       salesEntryFrequency: text("salesEntryFrequency", { enum: ["daily", "weekly", "monthly", "none"] }).default("monthly"),
       // NEW: scope / responsibilities (factor into pricing)
       paysDividends: integer2("paysDividends", { mode: "boolean" }).default(false),
@@ -40254,6 +40255,7 @@ function buildTaskRules(data) {
   if (data.usesStripe) receiptPlatforms.push("Stripe");
   if (data.usesSquare) receiptPlatforms.push("Square");
   if (data.usesTouchBistro) receiptPlatforms.push("TouchBistro");
+  if (data.usesPayPal) receiptPlatforms.push("PayPal");
   if (receiptPlatforms.length > 0) {
     const p = receiptPlatforms.join(" / ");
     rules.push({
@@ -43854,6 +43856,7 @@ var init_onboarding_router = __esm({
         usesSquare: external_exports.boolean().default(false),
         usesJobber: external_exports.boolean().default(false),
         usesTouchBistro: external_exports.boolean().default(false),
+        usesPayPal: external_exports.boolean().default(false),
         salesEntryFrequency: external_exports.enum(["daily", "weekly", "monthly", "none"]).default("none"),
         usesHubdoc: external_exports.boolean().default(false),
         hasJobCosting: external_exports.boolean().default(false),
@@ -43932,6 +43935,7 @@ var init_onboarding_router = __esm({
           usesSquare: input.usesSquare,
           usesJobber: input.usesJobber,
           usesTouchBistro: input.usesTouchBistro,
+          usesPayPal: input.usesPayPal,
           salesEntryFrequency: input.salesEntryFrequency,
           usesHubdoc: input.usesHubdoc,
           hasJobCosting: input.hasJobCosting,
@@ -43971,6 +43975,7 @@ var init_onboarding_router = __esm({
           usesSquare: input.usesSquare,
           usesJobber: input.usesJobber,
           usesTouchBistro: input.usesTouchBistro,
+          usesPayPal: input.usesPayPal,
           salesEntryFrequency: input.salesEntryFrequency,
           usesHubdoc: input.usesHubdoc,
           hasJobCosting: input.hasJobCosting,
@@ -44030,6 +44035,8 @@ var init_onboarding_router = __esm({
                 usesStripe: row[0].usesStripe || false,
                 usesSquare: row[0].usesSquare || false,
                 usesJobber: row[0].usesJobber || false,
+                usesTouchBistro: row[0].usesTouchBistro || false,
+                usesPayPal: row[0].usesPayPal || false,
                 salesEntryFrequency: row[0].salesEntryFrequency || "monthly"
               });
             }
@@ -46310,7 +46317,7 @@ function buildScopeForClient(client, onb) {
     return 0;
   };
   const bool = (...vals) => vals.some((v) => v === true || v === 1);
-  const salesPlatformCount = onb ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro].filter((v) => v === true || v === 1).length : 0;
+  const salesPlatformCount = onb ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro, onb.usesPayPal].filter((v) => v === true || v === 1).length : 0;
   return {
     avgMonthlyTransactions: num2(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
     bookkeepingFrequency: onb?.bookkeepingFrequency ?? "monthly",
@@ -50285,6 +50292,7 @@ async function ensureOnboardingColumns() {
   }
   const adds = [
     ["usesTouchBistro", "integer DEFAULT 0"],
+    ["usesPayPal", "integer DEFAULT 0"],
     ["paysDividends", "integer DEFAULT 0"],
     ["hasEHT", "integer DEFAULT 0"],
     ["employeeCount", "integer DEFAULT 0"],

@@ -29,6 +29,7 @@ export type OnboardingData = {
   usesSquare?: boolean | null;
   usesJobber?: boolean | null;
   usesTouchBistro?: boolean | null;
+  usesPayPal?: boolean | null;
   salesEntryFrequency?: string | null;
   // Scope / responsibilities (drive recurring work + cost)
   bookkeepingFrequency?: string | null;  // "monthly" | "quarterly" | "annual" | "none"
@@ -109,6 +110,7 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
   if (data.usesStripe) receiptPlatforms.push("Stripe");
   if (data.usesSquare) receiptPlatforms.push("Square");
   if (data.usesTouchBistro) receiptPlatforms.push("TouchBistro");
+  if (data.usesPayPal) receiptPlatforms.push("PayPal");
   if (receiptPlatforms.length > 0) {
     const p = receiptPlatforms.join(" / ");
     rules.push({
