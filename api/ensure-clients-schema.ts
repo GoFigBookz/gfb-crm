@@ -169,6 +169,9 @@ export async function ensurePayrollTables(): Promise<void> {
       } catch (e) { console.error(`[schema] add ${table}.${col} failed:`, e instanceof Error ? e.message : e); }
     };
     await addCol("employees", "contractUrl", "TEXT");
+    await addCol("employees", "phoneAllowance", "REAL");
+    await addCol("employees", "reimbursementAmount", "REAL");
+    await addCol("employees", "reimbursementNote", "TEXT");
     await addCol("pay_run_lines", "shareBonus", "REAL DEFAULT 0");
     await addCol("pay_run_lines", "statHolidayPay", "REAL DEFAULT 0");
     await addCol("pay_runs", "approvalToken", "TEXT");

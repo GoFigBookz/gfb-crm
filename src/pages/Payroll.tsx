@@ -650,6 +650,9 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
     position: employee.position || "", email: employee.email || "", phone: employee.phone || "",
     isActive: employee.isActive !== false,
     contractUrl: employee.contractUrl || "",
+    phoneAllowance: employee.phoneAllowance != null ? String(employee.phoneAllowance) : "",
+    reimbursementAmount: employee.reimbursementAmount != null ? String(employee.reimbursementAmount) : "",
+    reimbursementNote: employee.reimbursementNote || "",
     notes: employee.notes || "",
   });
   const set = (k: string, v: any) => setF({ ...f, [k]: v });
@@ -697,6 +700,14 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
             </Label>
             <Input value={f.contractUrl} onChange={(e) => set("contractUrl", e.target.value)} placeholder="Google Drive link to the signed contract…" />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Phone allowance ($/pay)</Label><Input type="number" value={f.phoneAllowance} onChange={(e) => set("phoneAllowance", e.target.value)} placeholder="0.00" /></div>
+            <div><Label>Reimbursement ($/pay)</Label><Input type="number" value={f.reimbursementAmount} onChange={(e) => set("reimbursementAmount", e.target.value)} placeholder="0.00" /></div>
+          </div>
+          <div>
+            <Label>Reimbursement note</Label>
+            <Input value={f.reimbursementNote} onChange={(e) => set("reimbursementNote", e.target.value)} placeholder="What the reimbursement / allowance is for…" />
+          </div>
           <div>
             <Label>Notes / history</Label>
             <Textarea value={f.notes} onChange={(e) => set("notes", e.target.value)} rows={3} placeholder="Rate changes, start/end dates, anything to track on this employee's card…" />
@@ -716,6 +727,9 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
               position: f.position.trim() || undefined,
               email: f.email.trim() || undefined, phone: f.phone.trim() || undefined,
               contractUrl: f.contractUrl.trim() || undefined,
+              phoneAllowance: f.phoneAllowance.trim() === "" ? null : num(f.phoneAllowance),
+              reimbursementAmount: f.reimbursementAmount.trim() === "" ? null : num(f.reimbursementAmount),
+              reimbursementNote: f.reimbursementNote.trim() || undefined,
               isActive: f.isActive, notes: f.notes.trim() || undefined,
             })}>{pending ? "Saving…" : isNew ? "Create" : "Save"}</Button>
           </div>
