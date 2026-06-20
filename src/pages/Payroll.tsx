@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download, Pencil, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { trpc } from "@/providers/trpc";
 import { format } from "date-fns";
-import { reconcileWithholding, TAX_2026 } from "../../api/payroll-tax-core";
+import { TAX_2026 } from "../../api/payroll-tax-core";
 import { nextPayPeriod, normalizeFrequency } from "../../api/payroll-core";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
@@ -480,104 +480,75 @@ function AddLineForm({ available, onAddExisting, onAddNew, pending }: {
 }
 
 /**
- * Tax-withholding check (vs CRA) — the Originality revenue-share use case.
- * Enter each employee's YTD gross + YTD income tax QBO actually deducted; the
- * panel annualizes, computes CRA-expected tax on the accumulated income, and
- * flags under-withholding (QBO has under-withheld revenue-share pay before).
+ * Tax-withholding check (vs CRA) — AUTOMATIC. Pulls each employee's YTD gross +
+ * YTD income tax from the client's actual pay runs this year, annualizes, and
+ * flags under-withholding. No manual entry — mirrors the Originality sheet's
+ * "Expected CRA Deduction (YTD)" vs "Actual Tax Deducted (YTD)" columns.
  */
-type ReconRow = { name: string; ytdGross: string; ytdTax: string };
-
 function TaxReconPanel({ clientId, highlight }: { clientId: number; highlight: boolean }) {
   const [open, setOpen] = useState(highlight);
-  const { data: emps } = trpc.employee.list.useQuery({ clientId });
-  const [periodsElapsed, setPeriodsElapsed] = useState("12");
-  const [periodsPerYear, setPeriodsPerYear] = useState("24");
-  const [rows, setRows] = useState<ReconRow[]>([{ name: "", ytdGross: "", ytdTax: "" }]);
-
-  // Seed rows from the client's employees once they load (only if untouched).
-  useEffect(() => {
-    if (emps && emps.length && rows.length === 1 && !rows[0].name && !rows[0].ytdGross) {
-      setRows(emps.map((e: any) => ({ name: `${e.firstName} ${e.lastName}`, ytdGross: "", ytdTax: "" })));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emps, clientId]);
-
-  const frac = Math.min(1, Math.max(0.0001, (parseFloat(periodsElapsed) || 0) / (parseFloat(periodsPerYear) || 24)));
-  const num = (s: string) => { const n = parseFloat(s); return isNaN(n) ? 0 : n; };
+  const { data } = trpc.payroll.withholdingCheck.useQuery({ clientId });
+  const rows = data?.rows || [];
+  const underCount = rows.filter((r: any) => r.underWithheld).length;
 
   return (
     <Card className={highlight ? "border-emerald-200" : ""}>
       <CardHeader className="pb-2 cursor-pointer" onClick={() => setOpen((o) => !o)}>
         <CardTitle className="text-base flex items-center gap-2">
           <Calculator className="h-4 w-4 text-emerald-600" /> Tax withholding check (vs CRA)
+          {underCount > 0 && <Badge variant="outline" className="text-[10px] bg-red-100 text-red-700">{underCount} under-withheld</Badge>}
           <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
         </CardTitle>
-        <CardDescription>Catch QBO under-withholding on revenue-share / commission pay before year-end.</CardDescription>
+        <CardDescription>Auto-computed from this client's pay runs this year — catches QBO under-withholding before year-end.</CardDescription>
       </CardHeader>
       {open && (
         <CardContent className="space-y-3">
           {!TAX_2026.verified && (
             <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-              Using {TAX_2026.year} federal + Ontario tables (brackets, BPA, ON surtax + health premium) — cross-checked vs CRA/TaxTips; confirm against the live CRA T4127 before remitting. This is a CHECK/estimate, not a filing. Income tax only (CPP/EI excluded); assumes basic TD1.
+              Using {TAX_2026.year} federal + Ontario tables (brackets, BPA, ON surtax + health premium) — cross-checked vs CRA/TaxTips; confirm against the live CRA T4127 before remitting. Income tax only (CPP/EI excluded); assumes basic TD1.
             </div>
           )}
-          <div className="flex items-center gap-3 text-sm">
-            <div className="flex items-center gap-1">
-              <Label className="text-xs">Pay periods elapsed</Label>
-              <Input type="number" value={periodsElapsed} onChange={(e) => setPeriodsElapsed(e.target.value)} className="h-7 w-16 text-xs" />
-            </div>
-            <div className="flex items-center gap-1">
-              <Label className="text-xs">of</Label>
-              <Input type="number" value={periodsPerYear} onChange={(e) => setPeriodsPerYear(e.target.value)} className="h-7 w-16 text-xs" />
-              <span className="text-xs text-slate-400">/yr ({Math.round(frac * 100)}% of year)</span>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-slate-500 border-b">
-                  <th className="text-left py-1.5 pr-2">Employee</th>
-                  <th className="text-right px-1">YTD gross</th>
-                  <th className="text-right px-1">YTD tax (QBO)</th>
-                  <th className="text-right px-1">Annualized</th>
-                  <th className="text-right px-1">Expected YTD tax</th>
-                  <th className="text-right px-1">Variance</th>
-                  <th className="px-1"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  const rec = reconcileWithholding(num(r.ytdGross), num(r.ytdTax), frac);
-                  const has = num(r.ytdGross) > 0;
-                  return (
-                    <tr key={i} className="border-b last:border-0">
-                      <td className="py-1 pr-2">
-                        <Input value={r.name} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} className="h-7 w-40 text-xs" placeholder="Employee" />
-                      </td>
-                      <td className="px-1"><Input type="number" value={r.ytdGross} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, ytdGross: e.target.value } : x))} className="h-7 w-24 text-right text-xs" /></td>
-                      <td className="px-1"><Input type="number" value={r.ytdTax} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, ytdTax: e.target.value } : x))} className="h-7 w-24 text-right text-xs" /></td>
-                      <td className="px-1 text-right text-slate-500">{has ? money(rec.annualizedIncome) : "—"}</td>
-                      <td className="px-1 text-right">{has ? money(rec.expectedYtdTax) : "—"}</td>
-                      <td className={`px-1 text-right font-medium ${!has ? "" : rec.underWithheld ? "text-red-600" : "text-lime-700"}`}>
-                        {has ? (
-                          <span className="inline-flex items-center gap-1 justify-end">
-                            {rec.underWithheld ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                            {money(rec.variance)}
-                          </span>
-                        ) : "—"}
-                      </td>
-                      <td className="px-1">
-                        <Button size="sm" variant="ghost" className="h-7 px-1.5 text-red-400 hover:text-red-600" onClick={() => setRows(rows.filter((_, j) => j !== i))}><Trash2 className="h-3.5 w-3.5" /></Button>
-                      </td>
+          {!data || data.runsCount === 0 ? (
+            <p className="text-sm text-slate-400 py-3 text-center">No pay runs yet this year — the check fills in automatically as you run each payroll (gross + tax per employee).</p>
+          ) : rows.length === 0 ? (
+            <p className="text-sm text-slate-400 py-3 text-center">Pay runs exist but no gross entered yet — enter each employee's gross + tax on the runs above.</p>
+          ) : (
+            <>
+              <p className="text-xs text-slate-500">As of <b>{data.runsCount}</b> of {data.periodsPerYear} pay periods this year ({Math.round(data.fraction * 100)}% of year).</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-slate-500 border-b">
+                      <th className="text-left py-1.5 pr-2">Employee</th>
+                      <th className="text-right px-1">YTD gross</th>
+                      <th className="text-right px-1">YTD tax (deducted)</th>
+                      <th className="text-right px-1">Annualized</th>
+                      <th className="text-right px-1">Expected YTD tax</th>
+                      <th className="text-right px-1">Variance</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <Button size="sm" variant="outline" onClick={() => setRows([...rows, { name: "", ytdGross: "", ytdTax: "" }])}><Plus className="h-3.5 w-3.5 mr-1" /> Add employee</Button>
-          <p className="text-[11px] text-slate-400">Variance = QBO tax deducted − CRA-expected on accumulated income. <span className="text-red-600">Negative (red) = under-withheld</span> — top it up before year-end. Method: annualize YTD gross → federal + Ontario tax (incl. surtax + health premium) → prorate to date.</p>
+                  </thead>
+                  <tbody>
+                    {rows.map((r: any) => (
+                      <tr key={r.employeeId} className="border-b last:border-0">
+                        <td className="py-1 pr-2 font-medium">{r.name}</td>
+                        <td className="px-1 text-right">{money(r.ytdGross)}</td>
+                        <td className="px-1 text-right">{money(r.ytdTax)}</td>
+                        <td className="px-1 text-right text-slate-500">{money(r.annualizedIncome)}</td>
+                        <td className="px-1 text-right">{money(r.expectedYtdTax)}</td>
+                        <td className={`px-1 text-right font-medium ${r.underWithheld ? "text-red-600" : "text-lime-700"}`}>
+                          <span className="inline-flex items-center gap-1 justify-end">
+                            {r.underWithheld ? <AlertTriangle className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                            {money(r.variance)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[11px] text-slate-400">Variance = tax deducted − CRA-expected on accumulated income. <span className="text-red-600">Negative (red) = under-withheld</span> — top it up before year-end. Method: annualize YTD gross → federal + Ontario tax (incl. surtax + health premium) → prorate to {Math.round(data.fraction * 100)}% of year. Most accurate later in the year for lumpy revenue-share pay.</p>
+            </>
+          )}
         </CardContent>
       )}
     </Card>
