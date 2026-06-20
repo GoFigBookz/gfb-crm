@@ -175,9 +175,14 @@ function RunDetail({ runId, onDelete }: { runId: number; onDelete: () => void })
   const updateLine = trpc.payroll.updateLine.useMutation({ onSuccess: invalidate });
   const estimateLine = trpc.payroll.estimateLine.useMutation({ onSuccess: invalidate });
   const setStatus = trpc.payroll.setRunStatus.useMutation({ onSuccess: invalidate });
+  const addLine = trpc.payroll.addLine.useMutation({ onSuccess: () => { invalidate(); if (data?.run.clientId) utils.employee.list.invalidate({ clientId: data.run.clientId }); }, onError: (e) => alert(e.message) });
+  const removeLine = trpc.payroll.removeLine.useMutation({ onSuccess: invalidate });
+  const { data: clientEmps } = trpc.employee.list.useQuery({ clientId: data?.run.clientId ?? 0 }, { enabled: !!data?.run.clientId });
 
   if (!data) return <div className="text-sm text-slate-400 p-3">Loading…</div>;
   const { run, lines } = data;
+  const inRun = new Set(lines.map((l: any) => l.employeeId));
+  const availableEmps = (clientEmps || []).filter((e: any) => !inRun.has(e.id));
 
   return (
     <Card className="mt-1 border-lime-200">
@@ -196,7 +201,7 @@ function RunDetail({ runId, onDelete }: { runId: number; onDelete: () => void })
         </div>
 
         {lines.length === 0 ? (
-          <p className="text-sm text-slate-400 py-4 text-center">No employees on file for this client. Add employees first, then recreate the run.</p>
+          <p className="text-sm text-slate-400 py-3 text-center">No employees on this run yet — add one below to start the timesheet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -215,7 +220,10 @@ function RunDetail({ runId, onDelete }: { runId: number; onDelete: () => void })
               </thead>
               <tbody>
                 {lines.map((l: any) => (
-                  <LineRow key={l.id} line={l} onSave={(patch) => updateLine.mutate({ id: l.id, ...patch })} onEstimate={() => estimateLine.mutate({ id: l.id })} />
+                  <LineRow key={l.id} line={l}
+                    onSave={(patch) => updateLine.mutate({ id: l.id, ...patch })}
+                    onEstimate={() => estimateLine.mutate({ id: l.id })}
+                    onRemove={() => { if (confirm(`Remove ${l.employeeName} from this run?`)) removeLine.mutate({ id: l.id }); }} />
                 ))}
               </tbody>
               <tfoot>
@@ -234,13 +242,21 @@ function RunDetail({ runId, onDelete }: { runId: number; onDelete: () => void })
             </table>
           </div>
         )}
+
+        <AddLineForm
+          available={availableEmps}
+          onAddExisting={(employeeId) => addLine.mutate({ payRunId: runId, employeeId })}
+          onAddNew={(ne) => addLine.mutate({ payRunId: runId, newEmployee: ne })}
+          pending={addLine.isPending}
+        />
+
         <p className="text-[11px] text-slate-400">Deductions are a flat-rate estimate (CPP 5.95% · EI 1.66% · tax 15%), editable per cell. Not a CRA-grade calc — review before remitting.</p>
       </CardContent>
     </Card>
   );
 }
 
-function LineRow({ line, onSave, onEstimate }: { line: any; onSave: (patch: any) => void; onEstimate: () => void }) {
+function LineRow({ line, onSave, onEstimate, onRemove }: { line: any; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void }) {
   const [v, setV] = useState({
     regularHours: line.regularHours ?? 0, overtimeHours: line.overtimeHours ?? 0,
     grossPay: line.grossPay ?? 0, cppEmployee: line.cppEmployee ?? 0, eiEmployee: line.eiEmployee ?? 0,
@@ -262,10 +278,76 @@ function LineRow({ line, onSave, onEstimate }: { line: any; onSave: (patch: any)
       <td className="px-1">{cell("eiEmployee")}</td>
       <td className="px-1">{cell("federalTax")}</td>
       <td className="px-1">{cell("netPay")}</td>
-      <td className="px-1">
+      <td className="px-1 whitespace-nowrap">
         <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" title="Estimate deductions from gross" onClick={onEstimate}><Calculator className="h-3.5 w-3.5" /></Button>
+        <Button size="sm" variant="ghost" className="h-7 px-1.5 text-red-400 hover:text-red-600" title="Remove from run" onClick={onRemove}><Trash2 className="h-3.5 w-3.5" /></Button>
       </td>
     </tr>
+  );
+}
+
+/** Add an employee to the run: pick an existing one, or create a new employee
+ *  inline (so a client with no employees on file can still build a timesheet). */
+function AddLineForm({ available, onAddExisting, onAddNew, pending }: {
+  available: any[];
+  onAddExisting: (employeeId: number) => void;
+  onAddNew: (ne: { firstName: string; lastName?: string; payType?: string; hourlyRate?: number; annualSalary?: number }) => void;
+  pending: boolean;
+}) {
+  const [mode, setMode] = useState<"existing" | "new">(available.length ? "existing" : "new");
+  const [pick, setPick] = useState("");
+  const [first, setFirst] = useState("");
+  const [last, setLast] = useState("");
+  const [payType, setPayType] = useState("hourly");
+  const [rate, setRate] = useState("");
+  const num = (s: string) => { const n = parseFloat(s); return isNaN(n) ? undefined : n; };
+
+  return (
+    <div className="border-t pt-3 flex flex-wrap items-end gap-2">
+      <div className="flex rounded-lg border bg-white p-0.5">
+        <button onClick={() => setMode("existing")} disabled={!available.length}
+          className={`px-2 py-1 text-xs rounded-md ${mode === "existing" ? "bg-lime-500 text-white" : "text-slate-600"} ${!available.length ? "opacity-40" : ""}`}>Existing</button>
+        <button onClick={() => setMode("new")}
+          className={`px-2 py-1 text-xs rounded-md ${mode === "new" ? "bg-lime-500 text-white" : "text-slate-600"}`}>New employee</button>
+      </div>
+
+      {mode === "existing" ? (
+        <>
+          <Select value={pick} onValueChange={setPick}>
+            <SelectTrigger className="h-8 w-56 text-xs"><SelectValue placeholder={available.length ? "Choose employee" : "All employees already added"} /></SelectTrigger>
+            <SelectContent>
+              {available.map((e: any) => <SelectItem key={e.id} value={String(e.id)}>{e.firstName} {e.lastName} {e.payType ? `· ${e.payType}` : ""}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button size="sm" disabled={!pick || pending} onClick={() => { onAddExisting(Number(pick)); setPick(""); }}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Add
+          </Button>
+        </>
+      ) : (
+        <>
+          <Input value={first} onChange={(e) => setFirst(e.target.value)} placeholder="First name" className="h-8 w-28 text-xs" />
+          <Input value={last} onChange={(e) => setLast(e.target.value)} placeholder="Last name" className="h-8 w-28 text-xs" />
+          <Select value={payType} onValueChange={setPayType}>
+            <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hourly">Hourly</SelectItem>
+              <SelectItem value="salary">Salary</SelectItem>
+              <SelectItem value="commission">Commission</SelectItem>
+              <SelectItem value="contract">Contract</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} placeholder={payType === "salary" ? "Annual $" : "$/hr"} className="h-8 w-24 text-xs" />
+          <Button size="sm" disabled={!first.trim() || pending} onClick={() => {
+            onAddNew({ firstName: first.trim(), lastName: last.trim() || undefined, payType,
+              hourlyRate: payType === "salary" ? undefined : num(rate),
+              annualSalary: payType === "salary" ? num(rate) : undefined });
+            setFirst(""); setLast(""); setRate("");
+          }}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Add
+          </Button>
+        </>
+      )}
+    </div>
   );
 }
 

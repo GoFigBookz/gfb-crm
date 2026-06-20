@@ -45157,7 +45157,8 @@ function payrollKind(name2) {
   if (n.includes("west york")) return { kind: "qbo_autopay", note: WEST_YORK_META.note, meta: WEST_YORK_META };
   if (n.includes("selective")) return { kind: "estimator", note: "Monthly flat-rate estimator: enter gross (or net) and Figgy fills CPP/EI/tax + the CRA remittance." };
   if (n.includes("originality")) return { kind: "clockify", note: "Hourly staff hours come from Clockify; salaried staff are entered manually." };
-  if (n.includes("clark")) return { kind: "jobber", note: "Employee hours come from Jobber timesheets (import coming in Phase 3)." };
+  if (n.includes("clark")) return { kind: "jobber", note: "Employee hours come from Jobber timesheets (import coming in Phase 3). Enter or adjust manually here." };
+  if (n.includes("old spot") || n.includes("sher") || n.includes("punjab")) return { kind: "touchbistro", note: "Hours come from TouchBistro \u2014 enter or adjust them manually here (no direct API)." };
   return { kind: "manual" };
 }
 async function recomputeRunTotals(runId) {
@@ -45197,7 +45198,7 @@ var init_payroll_router = __esm({
       archiveFolderId: "10FgSl5ctYkgxIaAa2-eTir7xOquQ7Xzj",
       driveFolderUrl: "https://drive.google.com/drive/folders/10FgSl5ctYkgxIaAa2-eTir7xOquQ7Xzj"
     };
-    KNOWN_PAYROLL = ["west york", "selective", "originality", "clark", "2303851", "fractal"];
+    KNOWN_PAYROLL = ["west york", "selective", "originality", "clark", "2303851", "fractal", "old spot", "sher", "punjab"];
     payrollRouter = createRouter({
       // Clients that run payroll: hasPayroll flag OR at least one employee on file.
       clients: staffQuery.query(async () => {
@@ -45263,6 +45264,50 @@ var init_payroll_router = __esm({
         }
         await recomputeRunTotals(run2.id);
         return run2;
+      }),
+      // Add a line to a run — for an EXISTING employee, or create a new employee
+      // inline (so a client with no employees on file can still build a timesheet).
+      addLine: staffQuery.input(external_exports.object({
+        payRunId: external_exports.number(),
+        employeeId: external_exports.number().optional(),
+        newEmployee: external_exports.object({
+          firstName: external_exports.string().min(1),
+          lastName: external_exports.string().optional(),
+          payType: external_exports.enum(["salary", "hourly", "commission", "contract"]).optional(),
+          hourlyRate: external_exports.number().optional(),
+          annualSalary: external_exports.number().optional()
+        }).optional()
+      })).mutation(async ({ input }) => {
+        const db = getDb();
+        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.payRunId)).limit(1))[0];
+        if (!run2) throw new Error("Pay run not found");
+        let employeeId = input.employeeId;
+        if (!employeeId && input.newEmployee) {
+          const [emp2] = await db.insert(employees).values({
+            clientId: run2.clientId,
+            firstName: input.newEmployee.firstName,
+            lastName: input.newEmployee.lastName || "",
+            payType: input.newEmployee.payType || "hourly",
+            hourlyRate: input.newEmployee.hourlyRate,
+            annualSalary: input.newEmployee.annualSalary,
+            isActive: true
+          }).returning();
+          employeeId = emp2.id;
+        }
+        if (!employeeId) throw new Error("Provide an employee or new employee details");
+        const emp = (await db.select().from(employees).where(eq(employees.id, employeeId)).limit(1))[0];
+        const gross = emp?.payType === "salary" ? salaryPerPeriod(emp.annualSalary, run2.frequency) : 0;
+        const [line] = await db.insert(payRunLines).values({ payRunId: input.payRunId, employeeId, grossPay: gross }).returning();
+        await recomputeRunTotals(input.payRunId);
+        return line;
+      }),
+      // Remove a single line from a run.
+      removeLine: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+        const db = getDb();
+        const row = (await db.select().from(payRunLines).where(eq(payRunLines.id, input.id)).limit(1))[0];
+        await db.delete(payRunLines).where(eq(payRunLines.id, input.id));
+        if (row) await recomputeRunTotals(row.payRunId);
+        return { success: true };
       }),
       // Edit a single pay line. Recomputes the run totals after.
       updateLine: staffQuery.input(external_exports.object({
