@@ -933,6 +933,39 @@ async function startServer() {
         await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, cl.id), ne(tasks.status, "completed")));
       }
     } catch (e) { console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e); }
+    // Seed client-level payroll features for the clients we know use them, so the
+    // pay run surfaces the right components on deploy. Only fills flags that are
+    // still null/0 → never overrides a choice made in the UI. Idempotent.
+    try {
+      const { getDb } = await import("./queries/connection");
+      const { clients, employees } = await import("../db/schema");
+      const { eq, and, like, isNull } = await import("drizzle-orm");
+      const db = getDb();
+      const setFlags = async (nameLike: string, flags: Record<string, number>) => {
+        const matches = (await db.select().from(clients).where(like(clients.name, nameLike))) as any[];
+        for (const cl of matches) {
+          const patch: Record<string, number> = {};
+          for (const [k, v] of Object.entries(flags)) if (!cl[k]) patch[k] = v;
+          if (Object.keys(patch).length) await db.update(clients).set(patch).where(eq(clients.id, cl.id));
+        }
+        return matches;
+      };
+      // Clark Collingwood: bonuses, dividends, phone allowance, reimbursements, revenue share.
+      const cw = await setFlags("%Collingwood%", {
+        payrollBonuses: 1, payrollDividends: 1, payrollPhoneAllowance: 1,
+        payrollReimbursements: 1, payrollRevenueShare: 1,
+      });
+      // The two Collingwood profit-share owners get 10% revenue share each.
+      for (const cl of cw) {
+        for (const last of ["Hawton", "Essex"]) {
+          await db.update(employees)
+            .set({ getsRevenueShare: true, revenueSharePercent: 10 })
+            .where(and(eq(employees.clientId, cl.id), like(employees.lastName, last), isNull(employees.revenueSharePercent)));
+        }
+      }
+      // Originality: revenue share + CRA comparison.
+      await setFlags("%Originality%", { payrollRevenueShare: 1, payrollCraComparison: 1 });
+    } catch (e) { console.error("[normalize] payroll features seed failed (non-fatal):", e instanceof Error ? e.message : e); }
     // Privacy: we do NOT store SINs in the CRM. Scrub any that exist (idempotent).
     try {
       const { getDb } = await import("./queries/connection");

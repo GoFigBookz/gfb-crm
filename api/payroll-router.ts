@@ -51,7 +51,8 @@ async function recomputeRunTotals(runId: number) {
   let g = 0, n = 0, eded = 0, empc = 0;
   for (const l of lines as any[]) {
     g += l.grossPay || 0;
-    n += l.netPay || 0;
+    // Take-home = net pay + non-taxable add-ons (phone allowance, reimbursement).
+    n += (l.netPay || 0) + (l.phoneAllowance || 0) + (l.reimbursement || 0);
     eded += (l.cppEmployee || 0) + (l.cpp2Employee || 0) + (l.eiEmployee || 0) + (l.federalTax || 0) + (l.provincialTax || 0) + (l.otherDeductions || 0);
     empc += (l.cppEmployer || 0) + (l.cpp2Employer || 0) + (l.eiEmployer || 0);
   }
@@ -77,6 +78,13 @@ export const payrollRouter = createRouter({
         payrollFrequency: c.payrollFrequency ?? null,
         payrollRemitterFreq: c.payrollRemitterFreq ?? null,
         employeeCount: empCount.get(c.id) || 0,
+        // Client-level payroll features (drive what the pay run shows).
+        payrollBonuses: !!c.payrollBonuses,
+        payrollDividends: !!c.payrollDividends,
+        payrollPhoneAllowance: !!c.payrollPhoneAllowance,
+        payrollReimbursements: !!c.payrollReimbursements,
+        payrollRevenueShare: !!c.payrollRevenueShare,
+        payrollCraComparison: !!c.payrollCraComparison,
         ...payrollKind(c.name),
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -183,7 +191,12 @@ export const payrollRouter = createRouter({
 
       const emp = (await db.select().from(employees).where(eq(employees.id, employeeId)).limit(1))[0] as any;
       const gross = emp?.payType === "salary" ? salaryPerPeriod(emp.annualSalary, run.frequency) : 0;
-      const [line] = await db.insert(payRunLines).values({ payRunId: input.payRunId, employeeId, grossPay: gross }).returning();
+      // Seed the recurring add-ons from the employee card so they're pre-filled.
+      const [line] = await db.insert(payRunLines).values({
+        payRunId: input.payRunId, employeeId, grossPay: gross,
+        phoneAllowance: emp?.phoneAllowance ?? 0,
+        reimbursement: emp?.reimbursementAmount ?? 0,
+      }).returning();
       await recomputeRunTotals(input.payRunId);
       return line;
     }),
@@ -206,6 +219,7 @@ export const payrollRouter = createRouter({
       regularHours: z.number().optional(), overtimeHours: z.number().optional(),
       vacationHours: z.number().optional(), statHolidayHours: z.number().optional(), sickHours: z.number().optional(),
       grossPay: z.number().optional(), shareBonus: z.number().optional(), statHolidayPay: z.number().optional(), vacationPayPaid: z.number().optional(),
+      phoneAllowance: z.number().optional(), reimbursement: z.number().optional(),
       cppEmployee: z.number().optional(), cpp2Employee: z.number().optional(), eiEmployee: z.number().optional(),
       federalTax: z.number().optional(), provincialTax: z.number().optional(), otherDeductions: z.number().optional(),
       cppEmployer: z.number().optional(), cpp2Employer: z.number().optional(), eiEmployer: z.number().optional(),

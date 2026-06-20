@@ -282,6 +282,15 @@ export const clients = sqliteTable("clients", {
   wsibAccountNumber: text("wsibAccountNumber"),
   wsibQuarter: text("wsibQuarter", { enum: ["Q1", "Q2", "Q3", "Q4", "all"] }),
   hasPayroll: integer("hasPayroll", { mode: "boolean" }).default(false),
+  // Client-level PAYROLL FEATURES — which pay components this client's payroll
+  // actually has. Drives what the pay run shows/creates (client-specific) so we
+  // never surface bonuses/dividends/etc. for a client that doesn't use them.
+  payrollBonuses: integer("payrollBonuses", { mode: "boolean" }).default(false),
+  payrollDividends: integer("payrollDividends", { mode: "boolean" }).default(false),
+  payrollPhoneAllowance: integer("payrollPhoneAllowance", { mode: "boolean" }).default(false),
+  payrollReimbursements: integer("payrollReimbursements", { mode: "boolean" }).default(false),
+  payrollRevenueShare: integer("payrollRevenueShare", { mode: "boolean" }).default(false),
+  payrollCraComparison: integer("payrollCraComparison", { mode: "boolean" }).default(false),
   payrollFrequency: text("payrollFrequency", { enum: ["weekly", "bi-weekly", "semi-monthly", "monthly", "self"] }),
   // CRA source-deduction remitter type — drives the PD7A remittance due date.
   payrollRemitterFreq: text("payrollRemitterFreq", { enum: ["regular", "quarterly", "accelerated"] }).default("regular"),
@@ -986,6 +995,14 @@ export const employees = sqliteTable("employees", {
   phoneAllowance: real("phoneAllowance"),         // $ per pay period, if any
   reimbursementAmount: real("reimbursementAmount"), // $ per pay period, if any
   reimbursementNote: text("reimbursementNote"),     // what the reimbursement is for
+  // Per-employee PAYROLL FEATURE applicability — which of the client's enabled
+  // features actually apply to THIS person (e.g. only 2 staff get revenue share).
+  getsRevenueShare: integer("getsRevenueShare", { mode: "boolean" }).default(false),
+  revenueSharePercent: real("revenueSharePercent"), // % of the revenue-share base
+  getsBonus: integer("getsBonus", { mode: "boolean" }).default(false),
+  getsDividends: integer("getsDividends", { mode: "boolean" }).default(false),
+  getsPhoneAllowance: integer("getsPhoneAllowance", { mode: "boolean" }).default(false),
+  getsReimbursement: integer("getsReimbursement", { mode: "boolean" }).default(false),
   notes: text("notes"),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
@@ -1035,6 +1052,10 @@ export const payRunLines = sqliteTable("pay_run_lines", {
   grossPay: real("grossPay").default(0),
   shareBonus: real("shareBonus").default(0),
   statHolidayPay: real("statHolidayPay").default(0),
+  // Non-taxable take-home add-ons (paid on top of net), shown only when the
+  // client has the feature enabled.
+  phoneAllowance: real("phoneAllowance").default(0),
+  reimbursement: real("reimbursement").default(0),
   vacationPayAccrued: real("vacationPayAccrued").default(0),
   vacationPayPaid: real("vacationPayPaid").default(0),
   // Employee deductions

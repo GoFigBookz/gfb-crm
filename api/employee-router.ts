@@ -42,6 +42,12 @@ export const employeeRouter = createRouter({
       phoneAllowance: z.number().nullable().optional(),
       reimbursementAmount: z.number().nullable().optional(),
       reimbursementNote: z.string().optional(),
+      getsRevenueShare: z.boolean().optional(),
+      revenueSharePercent: z.number().nullable().optional(),
+      getsBonus: z.boolean().optional(),
+      getsDividends: z.boolean().optional(),
+      getsPhoneAllowance: z.boolean().optional(),
+      getsReimbursement: z.boolean().optional(),
       notes: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
@@ -83,6 +89,12 @@ export const employeeRouter = createRouter({
       phoneAllowance: z.number().nullable().optional(),
       reimbursementAmount: z.number().nullable().optional(),
       reimbursementNote: z.string().optional(),
+      getsRevenueShare: z.boolean().optional(),
+      revenueSharePercent: z.number().nullable().optional(),
+      getsBonus: z.boolean().optional(),
+      getsDividends: z.boolean().optional(),
+      getsPhoneAllowance: z.boolean().optional(),
+      getsReimbursement: z.boolean().optional(),
       notes: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
