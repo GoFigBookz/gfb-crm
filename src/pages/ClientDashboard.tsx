@@ -103,6 +103,7 @@ export default function ClientDashboard() {
   const updateTask = trpc.task.update.useMutation({ onSuccess: invalidateTasks });
   const deleteTask = trpc.task.delete.useMutation({ onSuccess: invalidateTasks });
   const [editingTask, setEditingTask] = useState<any | null>(null);
+  const [editingQuote, setEditingQuote] = useState(false);
 
   if (!client) {
     return (
@@ -357,8 +358,8 @@ export default function ClientDashboard() {
 
             {/* Document lifecycle: quote → engagement → active */}
             <div className="mt-4 pt-3 border-t flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => genQuote.mutate({ clientId: id })} disabled={genQuote.isPending}>
-                <FileText className="h-3.5 w-3.5 mr-1" />{genQuote.isPending ? "Generating…" : "Generate signable quote"}
+              <Button size="sm" onClick={() => setEditingQuote(true)} disabled={genQuote.isPending}>
+                <FileText className="h-3.5 w-3.5 mr-1" />{genQuote.isPending ? "Generating…" : "Edit & send quote"}
               </Button>
               <Button size="sm" variant="outline" onClick={() => genEngagement.mutate({ clientId: id })} disabled={genEngagement.isPending}>
                 <FileText className="h-3.5 w-3.5 mr-1" />{genEngagement.isPending ? "Generating…" : "Generate engagement letter"}
@@ -981,7 +982,85 @@ export default function ClientDashboard() {
 
       <TimeLogDialog open={showLogTime} onClose={() => setShowLogTime(false)} clientId={id}
         tasks={dashboardData?.tasks || []} onSubmit={(data: any) => createTime.mutate(data)} isPending={createTime.isPending} />
+
+      {editingQuote && quote && (
+        <QuoteEditorDialog
+          quote={quote.quote}
+          onClose={() => setEditingQuote(false)}
+          isPending={genQuote.isPending}
+          onGenerate={(lines: any[], oneTime: any[]) => {
+            genQuote.mutate({ clientId: id, lines, oneTime }, { onSuccess: () => setEditingQuote(false) });
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+// Quote Editor Dialog — toggle lines on/off and edit amounts before sending.
+function QuoteEditorDialog({ quote, onClose, onGenerate, isPending }: {
+  quote: any; onClose: () => void; onGenerate: (lines: any[], oneTime: any[]) => void; isPending: boolean;
+}) {
+  const [lines, setLines] = useState<any[]>(
+    (quote.monthlyLineItems || []).map((li: any) => ({ ...li, include: true }))
+  );
+  const [oneTime, setOneTime] = useState<any[]>(
+    (quote.oneTimeLineItems || []).map((li: any) => ({ ...li, include: true }))
+  );
+  const setLine = (i: number, patch: any) => setLines((arr) => arr.map((l, idx) => idx === i ? { ...l, ...patch } : l));
+  const setOne = (i: number, patch: any) => setOneTime((arr) => arr.map((l, idx) => idx === i ? { ...l, ...patch } : l));
+  const monthlyTotal = lines.filter((l) => l.include).reduce((s, l) => s + (Number(l.amount) || 0), 0);
+  const oneTimeTotal = oneTime.filter((l) => l.include).reduce((s, l) => s + (Number(l.amount) || 0), 0);
+
+  const Row = ({ li, i, set }: { li: any; i: number; set: (i: number, p: any) => void }) => (
+    <div className={cn("flex items-center gap-2 py-1.5", !li.include && "opacity-40")}>
+      <input type="checkbox" checked={li.include} onChange={(e) => set(i, { include: e.target.checked })} className="w-4 h-4 accent-lime-500 shrink-0" />
+      <Input value={li.label} onChange={(e) => set(i, { label: e.target.value })} className="h-8 text-sm flex-1" />
+      <div className="flex items-center gap-1 shrink-0">
+        <span className="text-slate-400 text-sm">$</span>
+        <Input type="number" value={li.amount} onChange={(e) => set(i, { amount: Number(e.target.value) })} className="h-8 text-sm w-24 text-right" />
+      </div>
+    </div>
+  );
+
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><FileText className="h-4 w-4" /> Edit quote before sending</DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-slate-500 -mt-2">Untick anything that doesn't apply (e.g. payroll/WSIB when there are no employees) and adjust amounts. The client sees only what you keep.</p>
+
+        <div className="mt-2">
+          <p className="text-xs uppercase font-semibold text-slate-500 mb-1">Monthly services</p>
+          {lines.map((li, i) => <Row key={i} li={li} i={i} set={setLine} />)}
+        </div>
+        <div className="flex justify-between font-semibold text-sm border-t pt-2 mt-1">
+          <span>Recurring monthly total</span><span className="text-lime-700">${monthlyTotal}/mo</span>
+        </div>
+
+        {oneTime.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs uppercase font-semibold text-slate-500 mb-1">One-time</p>
+            {oneTime.map((li, i) => <Row key={i} li={li} i={i} set={setOne} />)}
+            <div className="flex justify-between font-semibold text-sm border-t pt-2 mt-1">
+              <span>One-time total</span><span>${oneTimeTotal}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 pt-3">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button disabled={isPending}
+            onClick={() => onGenerate(
+              lines.filter((l) => l.include).map((l) => ({ label: l.label, amount: Number(l.amount) || 0, rationale: l.rationale || "" })),
+              oneTime.filter((l) => l.include).map((l) => ({ label: l.label, amount: Number(l.amount) || 0, rationale: l.rationale || "" })),
+            )}>
+            {isPending ? "Generating…" : "Generate & send quote"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -160,14 +160,32 @@ export const quoteRouter = createRouter({
     }),
 
   // Generate a branded, signable quote and send it to the client portal.
+  // Accepts optional edited line items so the quote can be tailored per client
+  // (toggle services off, change amounts) before it goes out.
   createSignableQuote: authedQuery
-    .input(z.object({ clientId: z.number() }))
+    .input(z.object({
+      clientId: z.number(),
+      lines: z.array(z.object({ label: z.string(), amount: z.number(), rationale: z.string().optional() })).optional(),
+      oneTime: z.array(z.object({ label: z.string(), amount: z.number(), rationale: z.string().optional() })).optional(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
       const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0] as any;
       if (!client) throw new Error("Client not found");
       const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
-      const quote = computeQuote(buildScopeForClient(client, onb));
+      let quote = computeQuote(buildScopeForClient(client, onb));
+      if (input.lines) {
+        const { nearestPackage } = await import("./quote-core");
+        const monthlyLineItems = input.lines.map((l) => ({ label: l.label, amount: l.amount, rationale: l.rationale ?? "" }));
+        const oneTimeLineItems = (input.oneTime ?? quote.oneTimeLineItems).map((l: any) => ({ label: l.label, amount: l.amount, rationale: l.rationale ?? "" }));
+        const recurringMonthly = Math.round(monthlyLineItems.reduce((s, l) => s + (l.amount || 0), 0));
+        const oneTimeTotal = Math.round(oneTimeLineItems.reduce((s, l) => s + (l.amount || 0), 0));
+        quote = {
+          ...quote, monthlyLineItems, oneTimeLineItems, recurringMonthly, oneTimeTotal,
+          recurringRange: { low: Math.round(recurringMonthly * 0.85 / 5) * 5, high: Math.round(recurringMonthly * 1.15 / 5) * 5 },
+          nearestPackage: nearestPackage(recurringMonthly),
+        };
+      }
       const comparison = compareToFlatFee(quote.recurringMonthly, client.monthlyFee ?? null);
       const firm = getFirmSettings();
       const content = renderQuoteHtml({ firm, clientName: client.name, clientCompany: client.company, quote, comparison });

@@ -29,7 +29,7 @@ export const FIRM: FirmSettings = {
   legalSuffix: "o/a Go Fig Bookz",
   hstNumber: "781088661 RC0001",
   phone: "416-456-5760",
-  email: "markie.antle@gofigbookz.com",
+  email: "markie@gofig.ca",
   website: "www.gofig.ca",
   logoDataUri: GFB_LOGO_DATA_URI,
   accent: "#65a30d", // lime-600, matches the CRM
