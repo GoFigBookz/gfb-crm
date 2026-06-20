@@ -75,7 +75,7 @@ export async function createRecurringTasksForClient(
       .select({ id: tasks.id })
       .from(tasks)
       .where(
-        sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`HST Filing%`} AND ${tasks.dueDate} > ${now.getTime()}`
+        sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`HST Filing%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1000)}`
       )
       .limit(1);
 
@@ -128,7 +128,7 @@ export async function createRecurringTasksForClient(
       .select({ id: tasks.id })
       .from(tasks)
       .where(
-        sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`WSIB Filing%`} AND ${tasks.dueDate} > ${now.getTime()}`
+        sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`WSIB Filing%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1000)}`
       )
       .limit(1);
 
@@ -175,7 +175,7 @@ export async function createRecurringTasksForClient(
       .select({ id: tasks.id })
       .from(tasks)
       .where(
-        sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`Payroll Remittance%`} AND ${tasks.dueDate} > ${now.getTime()}`
+        sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`Payroll Remittance%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1000)}`
       )
       .limit(1);
 
@@ -227,7 +227,7 @@ export async function createRecurringTasksForClient(
       .select({ id: tasks.id })
       .from(tasks)
       .where(
-        sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${t4Title} AND ${tasks.dueDate} > ${now.getTime()}`
+        sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${t4Title} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1000)}`
       )
       .limit(1);
 

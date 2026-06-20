@@ -157,7 +157,7 @@ export const restoreRouter = createRouter({
         // Update client workflow
         await rawClient.execute({
           sql: `UPDATE clients SET workflowStatus = ?, onboardingCompletedAt = ? WHERE id = ?`,
-          args: ["active", Date.now(), clientId]
+          args: ["active", Math.floor(Date.now() / 1000), clientId]
         });
 
         // Create task rules and first tasks using raw SQL (bypass Drizzle schema mismatch)
@@ -172,7 +172,7 @@ export const restoreRouter = createRouter({
                 clientId, userId, rule.title, rule.description || null, rule.category || null,
                 rule.priority, null, rule.ruleType, rule.frequency, rule.dueDayOfMonth,
                 rule.dueMonth || null, rule.daysBeforeDue, rule.fiscalYearEndMonth || null,
-                rule.fiscalYearEndDay || null, nextDue.getTime(), 1, Date.now(), Date.now()
+                rule.fiscalYearEndDay || null, Math.floor(nextDue.getTime() / 1000), 1, Math.floor(Date.now() / 1000), Math.floor(Date.now() / 1000)
               ]
             });
             const ruleId = Number(ruleResult.lastInsertRowid);
@@ -182,8 +182,8 @@ export const restoreRouter = createRouter({
                 sql: `INSERT INTO tasks (userId, clientId, title, description, dueDate, completed, priority, status, category, assignedTo, ruleId, isRecurring, recurrenceCount, createdAt, updatedAt)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 args: [
-                  userId, clientId, rule.title, rule.description || null, nextDue.getTime(),
-                  0, rule.priority, "pending", rule.category || null, null, ruleId, 1, 1, Date.now(), Date.now()
+                  userId, clientId, rule.title, rule.description || null, Math.floor(nextDue.getTime() / 1000),
+                  0, rule.priority, "pending", rule.category || null, null, ruleId, 1, 1, Math.floor(Date.now() / 1000), Math.floor(Date.now() / 1000)
                 ]
               });
             }
