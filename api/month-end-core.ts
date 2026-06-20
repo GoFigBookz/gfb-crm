@@ -38,7 +38,7 @@ export function isOperationalClient(clientType: string | null | undefined): bool
  *  This is what lets the board hide the annual/quarterly one-offs you don't
  *  need to look at every month. */
 export function isRelevantForPeriod(
-  c: { clientType?: string | null; hasPayroll?: boolean | null; yearEndMonth?: string | null },
+  c: { clientType?: string | null; hasPayroll?: boolean | null; yearEndMonth?: string | null; openWork?: boolean | null },
   asOf: Date = new Date(),
 ): boolean {
   const type = (c.clientType || "monthly") as ClientType;
@@ -47,7 +47,11 @@ export function isRelevantForPeriod(
   const m = asOf.getMonth(); // 0-11
   if (type === "quarterly") return m === 0 || m === 3 || m === 6 || m === 9; // Jan/Apr/Jul/Oct
   if (type === "annual") {
-    // Year-end month → relevant in fye month + next 3 (the close window).
+    // Annual clients stay on the board until their year-end work is actually
+    // DONE (not a fixed time window). If the caller knows there's open work,
+    // it's relevant; otherwise fall back to the post-year-end window so a
+    // freshly-year-ended client still appears before its tasks are created.
+    if (c.openWork) return true;
     const fyeIdx = c.yearEndMonth ? MONTHS.indexOf(c.yearEndMonth as MonthAbbr) : 11; // default Dec
     if (fyeIdx < 0) return true;
     const since = (m - fyeIdx + 12) % 12;

@@ -142,12 +142,19 @@ describe("client type — operational + close-board relevance", () => {
     expect(isRelevantForPeriod({ clientType: "quarterly" }, D("2026-05-10"))).toBe(false);
   });
 
-  it("annual is relevant within 3 months after fiscal year-end", () => {
+  it("annual (no open-work signal) falls back to the post-year-end window", () => {
     // Dec year-end → relevant Dec–Mar.
     expect(isRelevantForPeriod({ clientType: "annual", yearEndMonth: "Dec" }, D("2026-02-10"))).toBe(true);
     expect(isRelevantForPeriod({ clientType: "annual", yearEndMonth: "Dec" }, D("2026-07-10"))).toBe(false);
     // Jun year-end → relevant Jun–Sep.
     expect(isRelevantForPeriod({ clientType: "annual", yearEndMonth: "Jun" }, D("2026-08-10"))).toBe(true);
     expect(isRelevantForPeriod({ clientType: "annual", yearEndMonth: "Jun" }, D("2026-02-10"))).toBe(false);
+  });
+
+  it("annual stays visible until the work is done, regardless of window", () => {
+    // Open work outside the window → still relevant ("keep visible until done").
+    expect(isRelevantForPeriod({ clientType: "annual", yearEndMonth: "Dec", openWork: true }, D("2026-07-10"))).toBe(true);
+    // No open work, outside the window → drops off the board.
+    expect(isRelevantForPeriod({ clientType: "annual", yearEndMonth: "Dec", openWork: false }, D("2026-07-10"))).toBe(false);
   });
 });

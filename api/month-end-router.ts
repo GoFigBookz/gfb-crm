@@ -12,8 +12,8 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { clients, triageFindings, monthlyCloseChecklist, qboCustomers } from "../db/schema";
-import { eq, and, count } from "drizzle-orm";
+import { clients, triageFindings, monthlyCloseChecklist, qboCustomers, tasks } from "../db/schema";
+import { eq, and, count, ne } from "drizzle-orm";
 import {
   computeHstStatus, computeYearEndStatus, rollUpCloseStatus,
   isOperationalClient, isRelevantForPeriod,
@@ -26,6 +26,14 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 async function countToReview(db: any, clientId: number): Promise<number> {
   const rows = await db.select({ n: count() }).from(triageFindings)
     .where(and(eq(triageFindings.clientId, clientId), eq(triageFindings.status, "new")));
+  return Number(rows[0]?.n ?? 0);
+}
+
+/** Count a client's still-open (active, not completed) tasks — cheap DB count.
+ *  Used to keep annual clients on the board until their year-end work is done. */
+async function countOpenTasks(db: any, clientId: number): Promise<number> {
+  const rows = await db.select({ n: count() }).from(tasks)
+    .where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
   return Number(rows[0]?.n ?? 0);
 }
 
@@ -116,10 +124,17 @@ export const monthEndRouter = createRouter({
       const out = [];
       for (const c of operational) {
         const row = await statusForClient(db, c, asOf);
+        // Annual clients stay on the board until their year-end work is done —
+        // gauge "open work" from open tasks + backlog + a non-green close.
+        let openWork: boolean | undefined;
+        if (((c as any).clientType) === "annual") {
+          const openTasks = await countOpenTasks(db, c.id);
+          openWork = openTasks > 0 || row.toReview > 0 || row.status !== "green";
+        }
         out.push({
           ...row,
           clientType: ((c as any).clientType || "monthly") as string,
-          relevantThisPeriod: isRelevantForPeriod(c as any, asOf),
+          relevantThisPeriod: isRelevantForPeriod({ ...(c as any), openWork }, asOf),
         });
       }
       const rank = { red: 0, yellow: 1, green: 2 } as const;
