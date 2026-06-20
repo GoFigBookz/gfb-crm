@@ -45013,12 +45013,12 @@ function estimateFromGross(gross, rates = SELECTIVE_RATES) {
   const grossPay = round2(gross);
   const cppEmployee = round2(grossPay * rates.cpp);
   const eiEmployee = round2(grossPay * rates.ei);
-  const federalTax = round2(grossPay * rates.tax);
+  const federalTax2 = round2(grossPay * rates.tax);
   const cppEmployer = cppEmployee;
   const eiEmployer = round2(eiEmployee * rates.eiEmployerMult);
-  const netPay = round2(grossPay - cppEmployee - eiEmployee - federalTax);
-  const craRemittance = round2(cppEmployee + eiEmployee + federalTax + cppEmployer + eiEmployer);
-  return { grossPay, cppEmployee, eiEmployee, federalTax, cppEmployer, eiEmployer, netPay, craRemittance };
+  const netPay = round2(grossPay - cppEmployee - eiEmployee - federalTax2);
+  const craRemittance = round2(cppEmployee + eiEmployee + federalTax2 + cppEmployer + eiEmployer);
+  return { grossPay, cppEmployee, eiEmployee, federalTax: federalTax2, cppEmployer, eiEmployer, netPay, craRemittance };
 }
 function estimateFromNet(net, rates = SELECTIVE_RATES) {
   const factor = 1 - rates.cpp - rates.ei - rates.tax;
@@ -45048,6 +45048,103 @@ var init_payroll_core = __esm({
   "api/payroll-core.ts"() {
     SELECTIVE_RATES = { cpp: 0.0595, ei: 0.0166, tax: 0.15, eiEmployerMult: 1.4 };
     round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+  }
+});
+
+// api/payroll-tax-core.ts
+function bracketTax(income, brackets) {
+  if (income <= 0) return 0;
+  let tax = 0, lower = 0;
+  for (const b of brackets) {
+    if (income > b.upTo) {
+      tax += (b.upTo - lower) * b.rate;
+      lower = b.upTo;
+    } else {
+      tax += (income - lower) * b.rate;
+      break;
+    }
+  }
+  return tax;
+}
+function federalTax(taxable, t2 = TAX_2025) {
+  const gross = bracketTax(taxable, t2.federalBrackets);
+  const credit = t2.federalLowestRate * t2.federalBpa;
+  return Math.max(0, gross - credit);
+}
+function ontarioTax(taxable, t2 = TAX_2025) {
+  const base = Math.max(0, bracketTax(taxable, t2.ontarioBrackets) - t2.ontarioLowestRate * t2.ontarioBpa);
+  let surtax = 0;
+  for (const s of t2.ontarioSurtax) if (base > s.threshold) surtax += (base - s.threshold) * s.rate;
+  let health = 0;
+  for (const h of t2.ontarioHealthPremium) {
+    if (taxable <= h.upTo) {
+      health = h.amount;
+      break;
+    }
+  }
+  return base + surtax + health;
+}
+function annualIncomeTax(taxable, t2 = TAX_2025) {
+  return round22(federalTax(taxable, t2) + ontarioTax(taxable, t2));
+}
+function reconcileWithholding(ytdGross, ytdTaxDeducted, fractionOfYear, t2 = TAX_2025) {
+  const frac = Math.min(1, Math.max(1e-4, fractionOfYear));
+  const annualizedIncome = round22(ytdGross / frac);
+  const annualTaxExpected = annualIncomeTax(annualizedIncome, t2);
+  const expectedYtdTax = round22(annualTaxExpected * frac);
+  const variance = round22(ytdTaxDeducted - expectedYtdTax);
+  return {
+    ytdGross: round22(ytdGross),
+    ytdTaxDeducted: round22(ytdTaxDeducted),
+    fractionOfYear: frac,
+    annualizedIncome,
+    annualTaxExpected,
+    expectedYtdTax,
+    variance,
+    underWithheld: variance < -0.5,
+    // tolerate rounding; flag real shortfalls
+    effectiveAnnualRate: annualizedIncome > 0 ? round22(annualTaxExpected / annualizedIncome * 100) / 100 : 0
+  };
+}
+var TAX_2025, round22;
+var init_payroll_tax_core = __esm({
+  "api/payroll-tax-core.ts"() {
+    TAX_2025 = {
+      year: 2025,
+      verified: false,
+      federalBrackets: [
+        { upTo: 57375, rate: 0.15 },
+        { upTo: 114750, rate: 0.205 },
+        { upTo: 177882, rate: 0.26 },
+        { upTo: 253414, rate: 0.29 },
+        { upTo: Infinity, rate: 0.33 }
+      ],
+      federalBpa: 16129,
+      federalLowestRate: 0.15,
+      ontarioBrackets: [
+        { upTo: 52886, rate: 0.0505 },
+        { upTo: 105775, rate: 0.0915 },
+        { upTo: 15e4, rate: 0.1116 },
+        { upTo: 22e4, rate: 0.1216 },
+        { upTo: Infinity, rate: 0.1316 }
+      ],
+      ontarioBpa: 12747,
+      ontarioLowestRate: 0.0505,
+      ontarioSurtax: [
+        { threshold: 5710, rate: 0.2 },
+        { threshold: 7307, rate: 0.36 }
+        // additional 36% (so 56% combined above the 2nd threshold)
+      ],
+      ontarioHealthPremium: [
+        { upTo: 2e4, amount: 0 },
+        { upTo: 36e3, amount: 300 },
+        { upTo: 48e3, amount: 450 },
+        { upTo: 72e3, amount: 600 },
+        { upTo: 2e5, amount: 750 },
+        { upTo: Infinity, amount: 900 }
+      ]
+    };
+    round22 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
   }
 });
 
@@ -45087,6 +45184,7 @@ var init_payroll_router = __esm({
     init_schema();
     init_drizzle_orm();
     init_payroll_core();
+    init_payroll_tax_core();
     WEST_YORK_META = {
       kind: "qbo_autopay",
       note: "Payroll runs on AUTOPAY inside QuickBooks. Paystubs are auto-emailed weekly by a Google Apps Script (sendWeeklyPaystubs) \u2014 Wednesdays ~1:00 PM.",
@@ -45221,6 +45319,27 @@ var init_payroll_router = __esm({
         await db.delete(payRunLines).where(eq(payRunLines.payRunId, input.runId));
         await db.delete(payRuns).where(eq(payRuns.id, input.runId));
         return { success: true };
+      }),
+      // Which tax tables the reconciliation is using (for the UI banner).
+      taxTables: staffQuery.query(() => ({
+        year: TAX_2025.year,
+        verified: TAX_2025.verified,
+        federalBpa: TAX_2025.federalBpa,
+        ontarioBpa: TAX_2025.ontarioBpa,
+        sampleAnnualTaxOn100k: annualIncomeTax(1e5)
+      })),
+      // Withholding reconciliation for revenue-share / any employee: compare what
+      // QBO actually deducted YTD vs CRA-expected tax on the accumulated income.
+      reconcileTax: staffQuery.input(external_exports.object({
+        ytdGross: external_exports.number().min(0),
+        ytdTaxDeducted: external_exports.number().min(0),
+        // Provide EITHER fractionOfYear OR (periodsElapsed + periodsPerYear).
+        fractionOfYear: external_exports.number().min(0).max(1).optional(),
+        periodsElapsed: external_exports.number().min(0).optional(),
+        periodsPerYear: external_exports.number().min(1).optional()
+      })).query(({ input }) => {
+        const frac = input.fractionOfYear ?? (input.periodsElapsed && input.periodsPerYear ? input.periodsElapsed / input.periodsPerYear : 0.5);
+        return reconcileWithholding(input.ytdGross, input.ytdTaxDeducted, frac);
       })
     });
   }
