@@ -34675,7 +34675,7 @@ var init_google_tasks_router = __esm({
       ).mutation(async ({ ctx, input }) => {
         const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
         const { tasks: tasks4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-        const { eq: eq2, and: and2, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+        const { eq: eq3, and: and2, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
         const db = getDb2();
         const token = await getGoogleToken(ctx.user.id, ctx.db);
         if (!token) {
@@ -34684,7 +34684,7 @@ var init_google_tasks_router = __esm({
             message: "No Google account connected. Connect Google in Integrations."
           });
         }
-        const where = input.clientId ? and2(eq2(tasks4.userId, ctx.user.id), eq2(tasks4.clientId, input.clientId)) : and2(eq2(tasks4.userId, ctx.user.id), isNull3(tasks4.completedAt));
+        const where = input.clientId ? and2(eq3(tasks4.userId, ctx.user.id), eq3(tasks4.clientId, input.clientId)) : and2(eq3(tasks4.userId, ctx.user.id), isNull3(tasks4.completedAt));
         const crmTasks = await db.select().from(tasks4).where(where);
         const results = [];
         for (const task of crmTasks.slice(0, 50)) {
@@ -40971,7 +40971,7 @@ var init_task_router = __esm({
       complete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
         const now = /* @__PURE__ */ new Date();
-        await db.update(tasks).set({ completed: true, status: "completed", completedAt: now }).where(and(eq(tasks.id, input.id), eq(tasks.userId, ctx.user.id)));
+        await db.update(tasks).set({ completed: true, status: "completed", completedAt: now }).where(eq(tasks.id, input.id));
         const taskRows = await db.select().from(tasks).where(eq(tasks.id, input.id)).limit(1);
         const task = taskRows[0];
         if (task) syncUpdate("tasks", task);
@@ -40996,7 +40996,7 @@ var init_task_router = __esm({
       })).mutation(async ({ ctx, input }) => {
         const db = getDb();
         const { id, ...updates } = input;
-        await db.update(tasks).set(updates).where(and(eq(tasks.id, id), eq(tasks.userId, ctx.user.id)));
+        await db.update(tasks).set(updates).where(eq(tasks.id, id));
         const updated = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
         if (updated[0]) syncUpdate("tasks", updated[0]);
         return { success: true };
@@ -41004,7 +41004,7 @@ var init_task_router = __esm({
       // Delete task
       delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
-        await db.delete(tasks).where(and(eq(tasks.id, input.id), eq(tasks.userId, ctx.user.id)));
+        await db.delete(tasks).where(eq(tasks.id, input.id));
         return { success: true };
       }),
       // ===== RECURRING TASKS =====
@@ -48905,6 +48905,64 @@ var init_import_client_master = __esm({
   }
 });
 
+// api/dedupe-tasks.ts
+var dedupe_tasks_exports = {};
+__export(dedupe_tasks_exports, {
+  dedupeTasks: () => dedupeTasks
+});
+async function dedupeTasks() {
+  const db = getDb();
+  let rulesRemoved = 0, tasksRemoved = 0;
+  const allRules = await db.select().from(clientTaskRules);
+  const ruleGroups = /* @__PURE__ */ new Map();
+  for (const r of allRules) {
+    const key = `${r.clientId}::${r.ruleType ?? r.title}`;
+    if (!ruleGroups.has(key)) ruleGroups.set(key, []);
+    ruleGroups.get(key).push(r);
+  }
+  for (const group of ruleGroups.values()) {
+    if (group.length < 2) continue;
+    group.sort((a, b) => a.id - b.id);
+    const keep = group[0];
+    const dropIds = group.slice(1).map((r) => r.id);
+    await db.update(tasks).set({ ruleId: keep.id }).where(inArray(tasks.ruleId, dropIds));
+    await db.delete(clientTaskRules).where(inArray(clientTaskRules.id, dropIds));
+    rulesRemoved += dropIds.length;
+  }
+  const allTasks = await db.select().from(tasks);
+  const taskGroups = /* @__PURE__ */ new Map();
+  for (const t2 of allTasks) {
+    const key = `${t2.clientId}::${(t2.title ?? "").trim().toLowerCase()}::${dayKey(t2.dueDate)}`;
+    if (!taskGroups.has(key)) taskGroups.set(key, []);
+    taskGroups.get(key).push(t2);
+  }
+  for (const group of taskGroups.values()) {
+    if (group.length < 2) continue;
+    group.sort((a, b) => {
+      const ac = a.completed ? 0 : 1, bc = b.completed ? 0 : 1;
+      return ac !== bc ? ac - bc : a.id - b.id;
+    });
+    const dropIds = group.slice(1).map((t2) => t2.id);
+    await db.delete(tasks).where(inArray(tasks.id, dropIds));
+    tasksRemoved += dropIds.length;
+  }
+  if (rulesRemoved || tasksRemoved) console.log(`[dedupe-tasks] removed ${rulesRemoved} dup rules, ${tasksRemoved} dup tasks`);
+  return { rulesRemoved, tasksRemoved };
+}
+var dayKey;
+var init_dedupe_tasks = __esm({
+  "api/dedupe-tasks.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    dayKey = (d) => {
+      if (!d) return "none";
+      const t2 = d instanceof Date ? d : new Date(d);
+      return Number.isNaN(t2.getTime()) ? "none" : t2.toISOString().slice(0, 10);
+    };
+  }
+});
+
 // node_modules/@hono/node-server/dist/index.mjs
 var dist_exports = {};
 __export(dist_exports, {
@@ -54710,7 +54768,7 @@ app.post("/api/admin/import-clients", async (c) => {
     }
     const db = getDb();
     const { clients: clients2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq2 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const { createRecurringTasksForClient: createRecurringTasksForClient2 } = await Promise.resolve().then(() => (init_client_task_creator(), client_task_creator_exports));
     const CLIENTS_DATA2 = [
       { name: "Aim Construction Inc.", email: "aim@example.com", company: "Aim Construction Inc.", status: "active", assignedTo: "Markie", hasHST: true, hstPeriod: "quarterly", hasWSIB: true, wsibQuarter: "all", hasPayroll: true, payrollFrequency: "bi-weekly", yearEndMonth: "Dec", monthlyFee: 500, billingType: "monthly_fixed" },
@@ -54737,7 +54795,7 @@ app.post("/api/admin/import-clients", async (c) => {
     const results = { imported: 0, skipped: 0, tasksCreated: 0, errors: [] };
     for (const clientData of CLIENTS_DATA2) {
       try {
-        const existing = await db.select().from(clients2).where(eq2(clients2.name, clientData.name)).limit(1);
+        const existing = await db.select().from(clients2).where(eq3(clients2.name, clientData.name)).limit(1);
         if (existing.length > 0) {
           results.skipped++;
           continue;
@@ -54847,18 +54905,22 @@ app.post("/api/admin/figgy", async (c) => {
       }));
       return c.json({ success: true, op, count: list.length, clients: list });
     }
+    if (op === "dedupeTasks") {
+      const { dedupeTasks: dedupeTasks2 } = await Promise.resolve().then(() => (init_dedupe_tasks(), dedupe_tasks_exports));
+      return c.json({ success: true, op, ...await dedupeTasks2() });
+    }
     if (op === "quote") {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients2, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq2, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients2).where(eq2(clients2.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients2).where(eq3(clients2.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq2(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const scope = buildScopeForClient2(cl, onb);
       const quote = computeQuote2(scope);
       const comparison = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
@@ -54919,6 +54981,13 @@ async function startServer() {
       if (r.fixed) console.log(`[remitter] corrected ${r.fixed} clients`);
     } catch (e) {
       console.error("[remitter] overrides failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { dedupeTasks: dedupeTasks2 } = await Promise.resolve().then(() => (init_dedupe_tasks(), dedupe_tasks_exports));
+      const r = await dedupeTasks2();
+      if (r.rulesRemoved || r.tasksRemoved) console.log(`[dedupe-tasks] -${r.rulesRemoved} rules, -${r.tasksRemoved} tasks`);
+    } catch (e) {
+      console.error("[dedupe-tasks] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { linkDriveFolders: linkDriveFolders2 } = await Promise.resolve().then(() => (init_link_drive_folders(), link_drive_folders_exports));

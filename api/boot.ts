@@ -585,6 +585,10 @@ app.post("/api/admin/figgy", async (c) => {
       }));
       return c.json({ success: true, op, count: list.length, clients: list });
     }
+    if (op === "dedupeTasks") {
+      const { dedupeTasks } = await import("./dedupe-tasks");
+      return c.json({ success: true, op, ...(await dedupeTasks()) });
+    }
     if (op === "quote") {
       // Scope-based quote for one client (verify the quote engine live).
       const clientId = Number(c.req.query("clientId") || body?.clientId);
@@ -677,6 +681,15 @@ async function startServer() {
       if (r.fixed) console.log(`[remitter] corrected ${r.fixed} clients`);
     } catch (e) {
       console.error("[remitter] overrides failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Collapse legacy duplicate rules/tasks (pre-idempotency boots left dupes,
+    // e.g. Originality showed each task several times).
+    try {
+      const { dedupeTasks } = await import("./dedupe-tasks");
+      const r = await dedupeTasks();
+      if (r.rulesRemoved || r.tasksRemoved) console.log(`[dedupe-tasks] -${r.rulesRemoved} rules, -${r.tasksRemoved} tasks`);
+    } catch (e) {
+      console.error("[dedupe-tasks] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Link each client to its existing Drive folder under "GFB → GFB Clients"
     // so the client page's Google Drive button jumps to their files.
