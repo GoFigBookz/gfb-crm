@@ -27,14 +27,38 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     "Send year-end package to accountant",
     "Record accountant's adjusting entries",
   ] },
+  // Best-of-breed Canadian (Ontario) new-client onboarding — phased, built from
+  // a teardown of Karbon / Financial Cents / TaxDome / Canopy + CRA/WSIB/FINTRAC
+  // requirements. See docs/FIGGY_JR_COMPETITIVE_DEEPDIVE.md.
   { key: "onboarding", name: "New Client Onboarding", category: "Setup", steps: [
-    "Signed engagement letter on file",
-    "CRA Represent-a-Client (RAC) access",
-    "Collect compliance numbers (CRA / HST / Payroll / WSIB)",
-    "Connect QBO + bank feeds",
-    "Connect Hubdoc / document flow",
-    "Chart of accounts review",
-    "Catch-up plan (if behind)",
+    // Engagement & compliance
+    "Send proposal / scope & pricing summary",
+    "Issue & obtain signed engagement letter",
+    "KYC / client identity verification (FINTRAC, if handling funds)",
+    "Open compliance record file (5-yr retention)",
+    // CRA / government access
+    "Submit CRA Represent-a-Client (RAC) authorization request",
+    "Client confirms RAC authorization in My Business Account (≤10 business days)",
+    "Confirm GST/HST (RT) account, filing frequency & deadlines",
+    "Confirm payroll (RP) account + source-deduction setup (if employees)",
+    "Assess WSIB registration / clearance (if Ontario employees)",
+    // Document collection
+    "Request incorporation / business registration documents",
+    "Request prior-year financial statements + tax returns (1–2 yrs)",
+    "Request bank & credit-card statements + void cheque",
+    "Request existing books + prior accountant contact",
+    "Collect compliance numbers (BN / HST / Payroll / WSIB)",
+    // QBO setup
+    "Set up / connect QBO, company info & fiscal year-end",
+    "Review & tailor chart of accounts (locked COA)",
+    "Configure HST sales tax (ON 13%)",
+    "Connect bank & credit-card feeds",
+    "Enter opening balances (tie to last filed return)",
+    // Tools & go-live
+    "Set up Hubdoc / Dext receipt capture + sync to QBO",
+    "Catch-up / cleanup plan (if behind)",
+    "First-period validation & go-live check",
+    "Send client welcome email",
   ] },
   { key: "hst_filing", name: "HST Filing", category: "HST", steps: [
     "Reconcile the filing period",
