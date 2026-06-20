@@ -67,6 +67,10 @@ export default function ClientDashboard() {
     { clientId: id },
     { enabled: !!id }
   );
+  const { data: clientDocs } = trpc.quote.documents.useQuery(
+    { clientId: id },
+    { enabled: !!id }
+  );
 
   const navigate = useNavigate();
   const utils = trpc.useUtils();
@@ -87,6 +91,12 @@ export default function ClientDashboard() {
   });
   const deleteTime = trpc.time.delete.useMutation({
     onSuccess: () => utils.time.getClientMonthlySummary.invalidate({ clientId: id }),
+  });
+  const invalidateDocs = () => { utils.quote.documents.invalidate({ clientId: id }); utils.crmClient.get.invalidate({ id }); };
+  const genQuote = trpc.quote.createSignableQuote.useMutation({ onSuccess: invalidateDocs });
+  const genEngagement = trpc.quote.createEngagementLetter.useMutation({ onSuccess: invalidateDocs });
+  const activateClient = trpc.quote.activateClient.useMutation({
+    onSuccess: () => { invalidateDocs(); utils.clientDashboard.getByClient.invalidate({ clientId: id }); },
   });
   const invalidateTasks = () => utils.clientDashboard.getByClient.invalidate({ clientId: id });
   const completeTask = trpc.task.complete.useMutation({ onSuccess: invalidateTasks });
@@ -339,6 +349,44 @@ export default function ClientDashboard() {
                 ))}
               </div>
             </details>
+
+            {/* Document lifecycle: quote → engagement → active */}
+            <div className="mt-4 pt-3 border-t flex flex-wrap gap-2">
+              <Button size="sm" onClick={() => genQuote.mutate({ clientId: id })} disabled={genQuote.isPending}>
+                <FileText className="h-3.5 w-3.5 mr-1" />{genQuote.isPending ? "Generating…" : "Generate signable quote"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => genEngagement.mutate({ clientId: id })} disabled={genEngagement.isPending}>
+                <FileText className="h-3.5 w-3.5 mr-1" />{genEngagement.isPending ? "Generating…" : "Generate engagement letter"}
+              </Button>
+              <Button size="sm" variant="outline" className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                onClick={() => { if (confirm(`Make ${client.name} an ACTIVE client and generate their recurring tasks?`)) activateClient.mutate({ clientId: id }); }}
+                disabled={activateClient.isPending}>
+                <CheckCircle className="h-3.5 w-3.5 mr-1" />{activateClient.isPending ? "Activating…" : "Make active"}
+              </Button>
+            </div>
+
+            {clientDocs && clientDocs.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                <p className="text-xs uppercase font-semibold text-slate-500">Documents</p>
+                {clientDocs.map((d) => (
+                  <div key={d.id} className="flex items-center justify-between gap-3 text-sm bg-slate-50 rounded-lg px-3 py-2">
+                    <div className="min-w-0">
+                      <span className="block truncate text-slate-700">{d.title}</span>
+                      <span className="text-xs text-slate-400">
+                        {d.documentType === "engagement_letter" ? "Engagement" : "Quote"} · {d.status}
+                        {d.signedBy ? ` · signed by ${d.signedBy}` : ""}
+                      </span>
+                    </div>
+                    {d.portalUrl && (
+                      <a href={d.portalUrl} target="_blank" rel="noopener noreferrer"
+                        className="shrink-0 inline-flex items-center gap-1 text-xs text-lime-700 hover:underline">
+                        Open <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

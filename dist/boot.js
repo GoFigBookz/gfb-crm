@@ -2398,10 +2398,10 @@ function isValidJWT(token, algorithm = null) {
     const tokensParts = token.split(".");
     if (tokensParts.length !== 3)
       return false;
-    const [header] = tokensParts;
-    if (!header)
+    const [header2] = tokensParts;
+    if (!header2)
       return false;
-    const parsedHeader = JSON.parse(atob(header));
+    const parsedHeader = JSON.parse(atob(header2));
     if ("typ" in parsedHeader && parsedHeader?.typ !== "JWT")
       return false;
     if (!parsedHeader.alg)
@@ -24534,8 +24534,8 @@ var require_dist = __commonJS({
       if (typeof report !== "object" || !report || !("header" in report)) {
         return false;
       }
-      const header = report.header;
-      return typeof header === "object" && !!header && "glibcVersionRuntime" in header;
+      const header2 = report.header;
+      return typeof header2 === "object" && !!header2 && "glibcVersionRuntime" in header2;
     }
     function load(dirname) {
       const m = path3.join(dirname, "index.node");
@@ -27722,7 +27722,7 @@ var require_extension = __commonJS({
       if (dest[name2] === void 0) dest[name2] = [elem];
       else dest[name2].push(elem);
     }
-    function parse6(header) {
+    function parse6(header2) {
       const offers = /* @__PURE__ */ Object.create(null);
       let params = /* @__PURE__ */ Object.create(null);
       let mustUnescape = false;
@@ -27734,8 +27734,8 @@ var require_extension = __commonJS({
       let code = -1;
       let end = -1;
       let i = 0;
-      for (; i < header.length; i++) {
-        code = header.charCodeAt(i);
+      for (; i < header2.length; i++) {
+        code = header2.charCodeAt(i);
         if (extensionName === void 0) {
           if (end === -1 && tokenChars[code] === 1) {
             if (start === -1) start = i;
@@ -27746,7 +27746,7 @@ var require_extension = __commonJS({
               throw new SyntaxError(`Unexpected character at index ${i}`);
             }
             if (end === -1) end = i;
-            const name2 = header.slice(start, end);
+            const name2 = header2.slice(start, end);
             if (code === 44) {
               push(offers, name2, params);
               params = /* @__PURE__ */ Object.create(null);
@@ -27767,7 +27767,7 @@ var require_extension = __commonJS({
               throw new SyntaxError(`Unexpected character at index ${i}`);
             }
             if (end === -1) end = i;
-            push(params, header.slice(start, end), true);
+            push(params, header2.slice(start, end), true);
             if (code === 44) {
               push(offers, extensionName, params);
               params = /* @__PURE__ */ Object.create(null);
@@ -27775,7 +27775,7 @@ var require_extension = __commonJS({
             }
             start = end = -1;
           } else if (code === 61 && start !== -1 && end === -1) {
-            paramName = header.slice(start, i);
+            paramName = header2.slice(start, i);
             start = end = -1;
           } else {
             throw new SyntaxError(`Unexpected character at index ${i}`);
@@ -27799,7 +27799,7 @@ var require_extension = __commonJS({
             } else {
               throw new SyntaxError(`Unexpected character at index ${i}`);
             }
-          } else if (code === 34 && header.charCodeAt(i - 1) === 61) {
+          } else if (code === 34 && header2.charCodeAt(i - 1) === 61) {
             inQuotes = true;
           } else if (end === -1 && tokenChars[code] === 1) {
             if (start === -1) start = i;
@@ -27810,7 +27810,7 @@ var require_extension = __commonJS({
               throw new SyntaxError(`Unexpected character at index ${i}`);
             }
             if (end === -1) end = i;
-            let value = header.slice(start, end);
+            let value = header2.slice(start, end);
             if (mustUnescape) {
               value = value.replace(/\\/g, "");
               mustUnescape = false;
@@ -27832,7 +27832,7 @@ var require_extension = __commonJS({
         throw new SyntaxError("Unexpected end of input");
       }
       if (end === -1) end = i;
-      const token = header.slice(start, end);
+      const token = header2.slice(start, end);
       if (extensionName === void 0) {
         push(offers, token, params);
       } else {
@@ -28855,13 +28855,13 @@ var require_subprotocol = __commonJS({
   "node_modules/ws/lib/subprotocol.js"(exports, module) {
     "use strict";
     var { tokenChars } = require_validation();
-    function parse6(header) {
+    function parse6(header2) {
       const protocols = /* @__PURE__ */ new Set();
       let start = -1;
       let end = -1;
       let i = 0;
-      for (i; i < header.length; i++) {
-        const code = header.charCodeAt(i);
+      for (i; i < header2.length; i++) {
+        const code = header2.charCodeAt(i);
         if (end === -1 && tokenChars[code] === 1) {
           if (start === -1) start = i;
         } else if (i !== 0 && (code === 32 || code === 9)) {
@@ -28871,7 +28871,7 @@ var require_subprotocol = __commonJS({
             throw new SyntaxError(`Unexpected character at index ${i}`);
           }
           if (end === -1) end = i;
-          const protocol2 = header.slice(start, end);
+          const protocol2 = header2.slice(start, end);
           if (protocols.has(protocol2)) {
             throw new SyntaxError(`The "${protocol2}" subprotocol is duplicated`);
           }
@@ -28884,7 +28884,7 @@ var require_subprotocol = __commonJS({
       if (start === -1 || end !== -1) {
         throw new SyntaxError("Unexpected end of input");
       }
-      const protocol = header.slice(start, i);
+      const protocol = header2.slice(start, i);
       if (protocols.has(protocol)) {
         throw new SyntaxError(`The "${protocol}" subprotocol is duplicated`);
       }
@@ -34439,16 +34439,16 @@ var init_voice_router = __esm({
         const userId = user.id;
         const userName = user.name || user.email;
         const now = /* @__PURE__ */ new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1e3);
-        const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1e3);
+        const today2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today2.getTime() + 24 * 60 * 60 * 1e3);
+        const nextWeek = new Date(today2.getTime() + 7 * 24 * 60 * 60 * 1e3);
         const allTasks = await db.select().from(tasks).where(eq(tasks.userId, userId)).orderBy(tasks.dueDate);
         const openTasks = allTasks.filter((t2) => !t2.completed);
-        const overdue = openTasks.filter((t2) => t2.dueDate && new Date(t2.dueDate) < today);
+        const overdue = openTasks.filter((t2) => t2.dueDate && new Date(t2.dueDate) < today2);
         const dueToday = openTasks.filter((t2) => {
           if (!t2.dueDate) return false;
           const d = new Date(t2.dueDate);
-          return d >= today && d < tomorrow;
+          return d >= today2 && d < tomorrow;
         });
         const upcoming = openTasks.filter((t2) => {
           if (!t2.dueDate) return false;
@@ -37390,8 +37390,8 @@ function isDisjoint(...headers) {
     return true;
   }
   let acc;
-  for (const header of sources) {
-    const parameters = Object.keys(header);
+  for (const header2 of sources) {
+    const parameters = Object.keys(header2);
     if (!acc || acc.size === 0) {
       acc = new Set(parameters);
       continue;
@@ -38609,7 +38609,7 @@ var require_main = __commonJS({
     var fs = __require("fs");
     var path3 = __require("path");
     var os = __require("os");
-    var crypto7 = __require("crypto");
+    var crypto8 = __require("crypto");
     var TIPS = [
       "\u25C8 encrypted .env [www.dotenvx.com]",
       "\u25C8 secrets for agents [www.dotenvx.com]",
@@ -38853,7 +38853,7 @@ var require_main = __commonJS({
       const authTag = ciphertext.subarray(-16);
       ciphertext = ciphertext.subarray(12, -16);
       try {
-        const aesgcm = crypto7.createDecipheriv("aes-256-gcm", key, nonce);
+        const aesgcm = crypto8.createDecipheriv("aes-256-gcm", key, nonce);
         aesgcm.setAuthTag(authTag);
         return `${aesgcm.update(ciphertext)}${aesgcm.final()}`;
       } catch (error48) {
@@ -43331,8 +43331,8 @@ async function qboResolveVendor(conn, rawName) {
 async function qboVendorHistory(conn, vendorId, sinceISO) {
   const billData = await qboRequest(conn, `/query?query=${encodeURIComponent(`SELECT * FROM Bill WHERE VendorRef = '${vendorId}' ORDERBY TxnDate DESC MAXRESULTS 50`)}`);
   const bills = parseBillHistory(billData);
-  const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-  const reportPath = `/reports/TransactionList?vendor=${vendorId}&start_date=${sinceISO}&end_date=${today}&columns=tx_date,txn_type,doc_num,other_account,subt_nat_amount`;
+  const today2 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const reportPath = `/reports/TransactionList?vendor=${vendorId}&start_date=${sinceISO}&end_date=${today2}&columns=tx_date,txn_type,doc_num,other_account,subt_nat_amount`;
   let expenses = [];
   try {
     const rep = await qboRequest(conn, reportPath);
@@ -46083,12 +46083,198 @@ var init_quote_core = __esm({
   }
 });
 
+// api/gfb-logo.ts
+var GFB_LOGO_DATA_URI;
+var init_gfb_logo = __esm({
+  "api/gfb-logo.ts"() {
+    GFB_LOGO_DATA_URI = "data:image/jpeg;base64,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";
+  }
+});
+
+// api/firm-settings.ts
+function getFirmSettings() {
+  return FIRM;
+}
+var FIRM;
+var init_firm_settings = __esm({
+  "api/firm-settings.ts"() {
+    init_gfb_logo();
+    FIRM = {
+      displayName: "Go Fig Bookz",
+      legalName: "12738988 Canada Inc.",
+      legalSuffix: "o/a Go Fig Bookz",
+      hstNumber: "781088661 RC0001",
+      phone: "416-456-5760",
+      email: "markie.antle@gofigbookz.com",
+      website: "www.gofig.ca",
+      logoDataUri: GFB_LOGO_DATA_URI,
+      accent: "#65a30d"
+      // lime-600, matches the CRM
+    };
+  }
+});
+
+// api/quote-doc.ts
+function header(firm, docTitle) {
+  return `
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid ${firm.accent};padding-bottom:16px;margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <img src="${firm.logoDataUri}" alt="${esc2(firm.displayName)}" style="height:56px;width:auto;border-radius:6px;" />
+      <div>
+        <div style="font-size:22px;font-weight:700;color:#1e293b;">${esc2(firm.displayName)}</div>
+        <div style="font-size:12px;color:#64748b;">${esc2(firm.email)} \xB7 ${esc2(firm.phone)} \xB7 ${esc2(firm.website)}</div>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:18px;font-weight:600;color:${firm.accent};text-transform:uppercase;letter-spacing:1px;">${esc2(docTitle)}</div>
+      <div style="font-size:12px;color:#64748b;">${today()}</div>
+    </div>
+  </div>`;
+}
+function footer(firm) {
+  return `
+  <div style="border-top:1px solid #e2e8f0;margin-top:28px;padding-top:12px;font-size:11px;color:#94a3b8;text-align:center;">
+    ${esc2(firm.legalName)} ${esc2(firm.legalSuffix)} \xB7 GST/HST# ${esc2(firm.hstNumber)} \xB7 ${esc2(firm.website)}
+  </div>`;
+}
+function wrap(inner) {
+  return `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1e293b;max-width:720px;margin:0 auto;padding:8px 4px;line-height:1.5;">${inner}</div>`;
+}
+function renderQuoteHtml(opts) {
+  const { firm, quote } = opts;
+  const rows = quote.monthlyLineItems.map((li) => `
+    <tr>
+      <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:500;">${esc2(li.label)}</div>
+        <div style="font-size:12px;color:#94a3b8;">${esc2(li.rationale)}</div>
+      </td>
+      <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;text-align:right;white-space:nowrap;">${money(li.amount)}/mo</td>
+    </tr>`).join("");
+  const oneTime = quote.oneTimeLineItems.map((li) => `
+    <tr>
+      <td style="padding:6px 0;color:#475569;">${esc2(li.label)}<div style="font-size:12px;color:#94a3b8;">${esc2(li.rationale)}</div></td>
+      <td style="padding:6px 0;text-align:right;white-space:nowrap;color:#475569;">${money(li.amount)}</td>
+    </tr>`).join("");
+  return wrap(`
+    ${header(firm, "Quote")}
+    <p style="margin:0 0 4px;">Prepared for</p>
+    <div style="font-size:18px;font-weight:600;margin-bottom:18px;">${esc2(opts.clientCompany || opts.clientName)}</div>
+
+    <p>Thank you for the opportunity to support your bookkeeping. Below is a scope-based monthly quote built from the services your business needs (${esc2(quote.tier)}).</p>
+
+    <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+      <thead><tr>
+        <th style="text-align:left;font-size:12px;text-transform:uppercase;color:#94a3b8;padding-bottom:6px;">Monthly services</th>
+        <th style="text-align:right;font-size:12px;text-transform:uppercase;color:#94a3b8;padding-bottom:6px;">Amount</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td style="padding-top:12px;font-weight:700;font-size:16px;">Recurring monthly total</td>
+        <td style="padding-top:12px;font-weight:700;font-size:16px;text-align:right;color:${firm.accent};">${money(quote.recurringMonthly)}/mo</td>
+      </tr></tfoot>
+    </table>
+
+    ${oneTime ? `
+    <table style="width:100%;border-collapse:collapse;margin-top:20px;">
+      <thead><tr>
+        <th style="text-align:left;font-size:12px;text-transform:uppercase;color:#94a3b8;padding-bottom:6px;">One-time</th>
+        <th style="text-align:right;font-size:12px;text-transform:uppercase;color:#94a3b8;padding-bottom:6px;">Amount</th>
+      </tr></thead>
+      <tbody>${oneTime}</tbody>
+      <tfoot><tr>
+        <td style="padding-top:8px;font-weight:600;">One-time total</td>
+        <td style="padding-top:8px;font-weight:600;text-align:right;">${money(quote.oneTimeTotal)}</td>
+      </tr></tfoot>
+    </table>` : ""}
+
+    <p style="font-size:12px;color:#64748b;margin-top:16px;">All amounts in CAD and exclusive of GST/HST. Quote valid for 30 days. Recurring fees billed monthly; scope reviewed if transaction volume or services change.</p>
+    <p style="margin-top:18px;">By signing below, you accept this quote and authorize ${esc2(firm.displayName)} to proceed to a letter of engagement.</p>
+    ${footer(firm)}
+  `);
+}
+function renderEngagementHtml(opts) {
+  const { firm } = opts;
+  const fee = opts.monthlyFee && opts.monthlyFee > 0 ? opts.monthlyFee : opts.quote.recurringMonthly;
+  const servicesList = opts.services.map((s) => `<li style="margin:4px 0;">${esc2(s)}</li>`).join("");
+  return wrap(`
+    ${header(firm, "Letter of Engagement")}
+    <p style="margin:0 0 4px;">Between</p>
+    <div style="font-size:16px;font-weight:600;">${esc2(firm.legalName)} ${esc2(firm.legalSuffix)}</div>
+    <p style="margin:8px 0 4px;">and</p>
+    <div style="font-size:16px;font-weight:600;margin-bottom:18px;">${esc2(opts.clientCompany || opts.clientName)}</div>
+
+    <p>This letter confirms the terms under which ${esc2(firm.displayName)} will provide bookkeeping and related services to ${esc2(opts.clientCompany || opts.clientName)} ("the Client").</p>
+
+    <h3 style="color:${firm.accent};font-size:14px;text-transform:uppercase;letter-spacing:1px;margin-top:20px;">Scope of services</h3>
+    <ul style="margin:6px 0;padding-left:20px;">${servicesList || "<li>Bookkeeping &amp; accounting</li>"}</ul>
+
+    <h3 style="color:${firm.accent};font-size:14px;text-transform:uppercase;letter-spacing:1px;margin-top:20px;">Fees</h3>
+    <p>Recurring professional fee of <strong>${money(fee)}/month</strong> plus applicable GST/HST, billed monthly. One-time setup/catch-up billed separately as quoted. Fees are reviewed if scope or transaction volume changes materially.</p>
+
+    <h3 style="color:${firm.accent};font-size:14px;text-transform:uppercase;letter-spacing:1px;margin-top:20px;">Responsibilities</h3>
+    <p>The Client is responsible for the completeness and accuracy of records provided and for timely access to source documents and accounts. ${esc2(firm.displayName)} will maintain the books, prepare the agreed filings, and keep the Client informed of deadlines. ${esc2(firm.displayName)} does not audit the records and relies on information provided.</p>
+
+    <h3 style="color:${firm.accent};font-size:14px;text-transform:uppercase;letter-spacing:1px;margin-top:20px;">Term</h3>
+    <p>This engagement begins on acceptance and continues month-to-month until terminated by either party with 30 days' written notice.${opts.yearEnd ? ` The Client's fiscal year-end is ${esc2(opts.yearEnd)}.` : ""}</p>
+
+    <p style="margin-top:18px;">By signing below, the Client accepts this letter of engagement and its terms.</p>
+    ${footer(firm)}
+  `);
+}
+var esc2, money, today;
+var init_quote_doc = __esm({
+  "api/quote-doc.ts"() {
+    esc2 = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    money = (n) => `$${Number(n || 0).toLocaleString("en-CA", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    today = () => (/* @__PURE__ */ new Date()).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
+  }
+});
+
 // api/quote-router.ts
 var quote_router_exports = {};
 __export(quote_router_exports, {
   buildScopeForClient: () => buildScopeForClient,
   quoteRouter: () => quoteRouter
 });
+import crypto6 from "crypto";
+async function createAndSendDoc(opts) {
+  const { db, clientId } = opts;
+  const ps = await db.select().from(portalSettings).where(eq(portalSettings.clientId, clientId)).limit(1);
+  if (ps.length === 0) {
+    await db.insert(portalSettings).values({ clientId, isEnabled: true, showFinancialOverview: true, showTasks: true, showDocuments: true, showInvoices: true });
+  } else if (!ps[0].isEnabled) {
+    await db.update(portalSettings).set({ isEnabled: true }).where(eq(portalSettings.clientId, clientId));
+  }
+  const existing = await db.select().from(portalTokens).where(and(eq(portalTokens.clientId, clientId), eq(portalTokens.isActive, true))).limit(1);
+  let token;
+  if (existing[0]) token = existing[0].token;
+  else {
+    token = crypto6.randomBytes(32).toString("hex");
+    await db.insert(portalTokens).values({ clientId, token, email: opts.clientEmail, isActive: true, expiresAt: new Date(Date.now() + 90 * 864e5) });
+  }
+  const [doc] = await db.insert(signatureDocuments).values({
+    clientId,
+    userId: opts.userId,
+    title: opts.title,
+    description: opts.description,
+    content: opts.content,
+    documentType: opts.documentType,
+    status: "sent",
+    portalToken: token,
+    sentAt: /* @__PURE__ */ new Date(),
+    sentBy: opts.userId,
+    expiresAt: new Date(Date.now() + 30 * 864e5)
+  }).returning();
+  return { documentId: doc.id, portalUrl: `/portal/${token}?tab=documents` };
+}
+function servicesFromClient(client) {
+  const s = ["Bookkeeping & accounting", "Monthly reconciliation"];
+  if (client.hasHST) s.push(`HST/GST filing (${client.hstPeriod || "quarterly"})`);
+  if (client.hasPayroll) s.push(`Payroll & PD7A remittance (${client.payrollFrequency || "as scheduled"})`);
+  if (client.hasWSIB) s.push("WSIB reporting");
+  s.push("Year-end file preparation");
+  return s;
+}
 function buildScopeForClient(client, onb) {
   const num2 = (...vals) => {
     for (const v of vals) {
@@ -46147,6 +46333,8 @@ var init_quote_router = __esm({
     init_schema();
     init_drizzle_orm();
     init_quote_core();
+    init_firm_settings();
+    init_quote_doc();
     quoteRouter = createRouter({
       // Scope-based quote for one client + comparison to its flat fee.
       forClient: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
@@ -46168,6 +46356,119 @@ var init_quote_router = __esm({
           flatFee: client.monthlyFee ?? null,
           comparison
         };
+      }),
+      // Documents already generated for a client (quote + engagement), newest first.
+      documents: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        const db = getDb();
+        const rows = await db.select().from(signatureDocuments).where(eq(signatureDocuments.clientId, input.clientId)).orderBy(desc(signatureDocuments.id));
+        return rows.map((d) => ({
+          id: d.id,
+          title: d.title,
+          documentType: d.documentType,
+          status: d.status,
+          portalUrl: d.portalToken ? `/portal/${d.portalToken}?tab=documents` : null,
+          sentAt: d.sentAt,
+          signedAt: d.signedAt,
+          signedBy: d.signedBy
+        }));
+      }),
+      // Generate a branded, signable quote and send it to the client portal.
+      createSignableQuote: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        if (!client) throw new Error("Client not found");
+        const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
+        const quote = computeQuote(buildScopeForClient(client, onb));
+        const comparison = compareToFlatFee(quote.recurringMonthly, client.monthlyFee ?? null);
+        const firm = getFirmSettings();
+        const content = renderQuoteHtml({ firm, clientName: client.name, clientCompany: client.company, quote, comparison });
+        const res = await createAndSendDoc({
+          db,
+          clientId: client.id,
+          userId: ctx.user.id,
+          title: `Quote \u2014 ${client.company || client.name}`,
+          description: `Scope-based quote \xB7 ${quote.recurringMonthly}/mo`,
+          content,
+          documentType: "custom",
+          clientEmail: client.email || null
+        });
+        await db.update(clients).set({
+          quoteAmount: quote.recurringMonthly,
+          quoteSentAt: /* @__PURE__ */ new Date(),
+          workflowStatus: "quote_sent"
+        }).where(eq(clients.id, client.id));
+        return res;
+      }),
+      // Generate a branded, signable letter of engagement and send it.
+      createEngagementLetter: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        if (!client) throw new Error("Client not found");
+        const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
+        const quote = computeQuote(buildScopeForClient(client, onb));
+        const firm = getFirmSettings();
+        const content = renderEngagementHtml({
+          firm,
+          clientName: client.name,
+          clientCompany: client.company,
+          monthlyFee: client.monthlyFee ?? null,
+          quote,
+          services: servicesFromClient(client),
+          yearEnd: client.yearEndMonth ?? null
+        });
+        const res = await createAndSendDoc({
+          db,
+          clientId: client.id,
+          userId: ctx.user.id,
+          title: `Letter of Engagement \u2014 ${client.company || client.name}`,
+          description: "Engagement terms for signature",
+          content,
+          documentType: "engagement_letter",
+          clientEmail: client.email || null
+        });
+        await db.update(clients).set({ engagementSentAt: /* @__PURE__ */ new Date(), workflowStatus: "engagement_sent" }).where(eq(clients.id, client.id));
+        return res;
+      }),
+      // Final step: make the client active and generate their recurring tasks.
+      activateClient: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        if (!client) throw new Error("Client not found");
+        await db.update(clients).set({
+          status: "active",
+          workflowStatus: "active",
+          engagementSignedAt: client.engagementSignedAt ?? /* @__PURE__ */ new Date()
+        }).where(eq(clients.id, client.id));
+        const { clientTaskRules: clientTaskRules2, tasks: tasks4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+        const hasRules = (await db.select().from(clientTaskRules2).where(eq(clientTaskRules2.clientId, client.id)).limit(1)).length > 0;
+        let tasksCreated = 0;
+        if (!hasRules) {
+          const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, client.id)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
+          const { createClientTaskRules: createClientTaskRules2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
+          const res = await createClientTaskRules2({
+            clientId: client.id,
+            userId: client.userId ?? ctx.user.id,
+            assignedTo: client.assignedTo ?? null,
+            hasHST: Boolean(client.hasHST),
+            hstPeriod: client.hstPeriod ?? void 0,
+            hasWSIB: Boolean(client.hasWSIB),
+            wsibQuarter: client.wsibQuarter ?? void 0,
+            hasPayroll: Boolean(client.hasPayroll),
+            payrollFrequency: client.payrollFrequency ?? void 0,
+            payrollRemitterFreq: client.payrollRemitterFreq ?? void 0,
+            yearEnd: client.yearEndMonth ?? void 0,
+            bookkeepingFrequency: onb?.bookkeepingFrequency ?? "monthly",
+            hasInvestments: Boolean(onb?.hasInvestments),
+            paysDividends: Boolean(onb?.paysDividends),
+            hasSubcontractors: Boolean(onb?.hasSubcontractors),
+            hasEHT: Boolean(onb?.hasEHT),
+            needsYearEnd: onb ? Boolean(onb?.needsYearEnd) : true
+          });
+          tasksCreated = res.tasks.length;
+        } else {
+          await db.update(clientTaskRules2).set({ active: true }).where(eq(clientTaskRules2.clientId, client.id));
+        }
+        return { success: true, tasksCreated };
       })
     });
   }
@@ -48975,7 +49276,7 @@ import { createServer as createServerHTTP } from "http";
 import { Http2ServerRequest as Http2ServerRequest2, constants as h2constants } from "http2";
 import { Http2ServerRequest } from "http2";
 import { Readable } from "stream";
-import crypto6 from "crypto";
+import crypto7 from "crypto";
 async function readWithoutBlocking(readPromise) {
   return Promise.race([readPromise, Promise.resolve().then(() => Promise.resolve(void 0))]);
 }
@@ -49317,7 +49618,7 @@ var init_dist5 = __esm({
     };
     X_ALREADY_SENT = "x-hono-already-sent";
     if (typeof global.crypto === "undefined") {
-      global.crypto = crypto6;
+      global.crypto = crypto7;
     }
     outgoingEnded = /* @__PURE__ */ Symbol("outgoingEnded");
     incomingDraining = /* @__PURE__ */ Symbol("incomingDraining");
@@ -49389,19 +49690,19 @@ var init_dist5 = __esm({
       }
     };
     responseViaCache = async (res, outgoing) => {
-      let [status, body, header] = res[cacheKey];
+      let [status, body, header2] = res[cacheKey];
       let hasContentLength = false;
-      if (!header) {
-        header = { "content-type": "text/plain; charset=UTF-8" };
-      } else if (header instanceof Headers) {
-        hasContentLength = header.has("content-length");
-        header = buildOutgoingHttpHeaders(header);
-      } else if (Array.isArray(header)) {
-        const headerObj = new Headers(header);
+      if (!header2) {
+        header2 = { "content-type": "text/plain; charset=UTF-8" };
+      } else if (header2 instanceof Headers) {
+        hasContentLength = header2.has("content-length");
+        header2 = buildOutgoingHttpHeaders(header2);
+      } else if (Array.isArray(header2)) {
+        const headerObj = new Headers(header2);
         hasContentLength = headerObj.has("content-length");
-        header = buildOutgoingHttpHeaders(headerObj);
+        header2 = buildOutgoingHttpHeaders(headerObj);
       } else {
-        for (const key in header) {
+        for (const key in header2) {
           if (key.length === 14 && key.toLowerCase() === "content-length") {
             hasContentLength = true;
             break;
@@ -49410,14 +49711,14 @@ var init_dist5 = __esm({
       }
       if (!hasContentLength) {
         if (typeof body === "string") {
-          header["Content-Length"] = Buffer.byteLength(body);
+          header2["Content-Length"] = Buffer.byteLength(body);
         } else if (body instanceof Uint8Array) {
-          header["Content-Length"] = body.byteLength;
+          header2["Content-Length"] = body.byteLength;
         } else if (body instanceof Blob) {
-          header["Content-Length"] = body.size;
+          header2["Content-Length"] = body.size;
         }
       }
-      outgoing.writeHead(status, header);
+      outgoing.writeHead(status, header2);
       if (typeof body === "string" || body instanceof Uint8Array) {
         outgoing.end(body);
       } else if (body instanceof Blob) {
