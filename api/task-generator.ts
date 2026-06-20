@@ -1,6 +1,7 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { getDb } from "./queries/connection";
 import { clientTaskRules, tasks, clients } from "../db/schema";
+import { matchClientIdByName } from "./client-match";
 import type { InferSelectModel } from "drizzle-orm";
 
 // Types
@@ -332,10 +333,10 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
     } else if (remitter === "accelerated") {
       rules.push({
         ruleType: "payroll_remit_accelerated",
-        title: "Payroll Remittance (PD7A) — ACCELERATED",
-        description: "ACCELERATED remitter — remit source deductions much sooner than regular: Threshold 1 = twice a month (by the 25th for the 1st–15th pay period, by the 10th of next month for the 16th–end); Threshold 2 = within 3 business days of each payday. Confirm the client's threshold.",
-        category: "Payroll", priority: "high", frequency: "biweekly",
-        dueDayOfMonth: 10, daysBeforeDue: 2, fiscalYearEndMonth: fy?.month, fiscalYearEndDay: fy?.day,
+        title: "Payroll Remittance (PD7A) - ACCELERATED (due 25th)",
+        description: "ACCELERATED remitter (Threshold 1): remit by the 25th for the 1st-15th pay period (and by the 10th of next month for the 16th-end period). Pay ~2 business days early so CRA receives it on time - penalties are based on receipt date.",
+        category: "Payroll", priority: "high", frequency: "monthly",
+        dueDayOfMonth: 25, daysBeforeDue: 2, fiscalYearEndMonth: fy?.month, fiscalYearEndDay: fy?.day,
       });
     } else {
       rules.push({
@@ -560,6 +561,74 @@ export async function backfillSetupTasks(): Promise<{ clients: number; created: 
     } catch { /* best effort per client */ }
   }
   return { clients: all.length, created };
+}
+
+/** The PD7A remittance rule config for a given CRA remitter type. */
+function payrollRemitConfig(remitter: string): TaskRuleConfig {
+  if (remitter === "quarterly") return {
+    ruleType: "payroll_remit_quarterly", title: "Payroll Remittance (PD7A) - Quarterly",
+    description: "QUARTERLY remitter: remit source deductions (CPP, EI, income tax) via PD7A by the 15th of the month following each quarter.",
+    category: "Payroll", priority: "high", frequency: "quarterly", dueDayOfMonth: 15, daysBeforeDue: 5,
+  };
+  if (remitter === "accelerated") return {
+    ruleType: "payroll_remit_accelerated", title: "Payroll Remittance (PD7A) - ACCELERATED (due 25th)",
+    description: "ACCELERATED remitter (Threshold 1): remit by the 25th for the 1st-15th pay period (and by the 10th of next month for the 16th-end period). Pay ~2 business days early so CRA receives it on time.",
+    category: "Payroll", priority: "high", frequency: "monthly", dueDayOfMonth: 25, daysBeforeDue: 2,
+  };
+  return {
+    ruleType: "payroll_remit_regular", title: "Payroll Remittance (PD7A)",
+    description: "Regular remitter: remit source deductions (CPP, EI, income tax) via PD7A by the 15th of the following month.",
+    category: "Payroll", priority: "high", frequency: "monthly", dueDayOfMonth: 15, daysBeforeDue: 3,
+  };
+}
+
+const PAYROLL_REMIT_RULE_TYPES = [
+  "payroll_weekly", "payroll_monthly", "payroll_remit_regular", "payroll_remit_quarterly", "payroll_remit_accelerated",
+];
+
+/** One-time corrections: set specific clients' CRA remitter type and rebuild their
+ *  PD7A remittance task to the correct cadence. Idempotent (skips when already set). */
+export async function applyPayrollRemitterOverrides(): Promise<{ fixed: number }> {
+  const db = getDb();
+  const OVERRIDES: Array<{ match: string; freq: "regular" | "quarterly" | "accelerated" }> = [
+    { match: "originality", freq: "accelerated" },
+    { match: "2303851", freq: "accelerated" },
+    { match: "align by design", freq: "quarterly" },
+    { match: "fractal", freq: "quarterly" },
+  ];
+  let fixed = 0;
+  for (const o of OVERRIDES) {
+    try {
+      const id = await matchClientIdByName(o.match);
+      if (!id) continue;
+      const c = (await db.select().from(clients).where(eq(clients.id, id)).limit(1))[0] as any;
+      if (!c) continue;
+      if (c.payrollRemitterFreq === o.freq) continue; // already corrected
+      await db.update(clients).set({ payrollRemitterFreq: o.freq }).where(eq(clients.id, id));
+      // remove old PD7A rules + their generated tasks
+      const oldRules = await db.select().from(clientTaskRules)
+        .where(and(eq(clientTaskRules.clientId, id), inArray(clientTaskRules.ruleType, PAYROLL_REMIT_RULE_TYPES)));
+      for (const r of oldRules) await db.delete(tasks).where(eq(tasks.ruleId, r.id));
+      await db.delete(clientTaskRules)
+        .where(and(eq(clientTaskRules.clientId, id), inArray(clientTaskRules.ruleType, PAYROLL_REMIT_RULE_TYPES)));
+      // create the correct PD7A rule + first task
+      const cfg = payrollRemitConfig(o.freq);
+      const nextDueDate = calculateNextDueDate(cfg);
+      const [rule] = await db.insert(clientTaskRules).values({
+        clientId: id, userId: c.userId ?? 1, title: cfg.title, description: cfg.description,
+        category: cfg.category, priority: cfg.priority, assignedTo: c.assignedTo ?? null,
+        ruleType: cfg.ruleType, frequency: cfg.frequency, dueDayOfMonth: cfg.dueDayOfMonth,
+        dueMonth: cfg.dueMonth ?? null, daysBeforeDue: cfg.daysBeforeDue,
+        fiscalYearEndMonth: null, fiscalYearEndDay: null, nextDueDate, active: true,
+      }).returning();
+      if (rule) { const t = generateTaskFromRule(rule, 1); await db.insert(tasks).values(t); }
+      fixed++;
+    } catch (e) {
+      console.error("[remitter] override failed for", o.match, ":", e instanceof Error ? e.message : e);
+    }
+  }
+  if (fixed) console.log(`[remitter] corrected ${fixed} clients' PD7A cadence`);
+  return { fixed };
 }
 
 // Save rules to database and generate first tasks

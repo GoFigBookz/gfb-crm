@@ -640,6 +640,14 @@ async function startServer() {
     } catch (e) {
       console.error("[setup-tasks] backfill failed (non-fatal):", e instanceof Error ? e.message : e);
     }
+    // Correct specific clients' CRA payroll remitter cadence (penalty-sensitive).
+    try {
+      const { applyPayrollRemitterOverrides } = await import("./task-generator");
+      const r = await applyPayrollRemitterOverrides();
+      if (r.fixed) console.log(`[remitter] corrected ${r.fixed} clients`);
+    } catch (e) {
+      console.error("[remitter] overrides failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
   }
 
   // Self-configure the live QBO bridge (adds the bridge columns, binds Clark
