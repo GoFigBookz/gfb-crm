@@ -62,13 +62,32 @@ export async function nextQuoteNumber(db: any): Promise<string> {
   return `Q-${max + 1}`;
 }
 
-function servicesFromClient(client: any): string[] {
-  const s: string[] = ["Bookkeeping & accounting", "Monthly reconciliation"];
-  if (client.hasHST) s.push(`HST/GST filing (${client.hstPeriod || "quarterly"})`);
-  if (client.hasPayroll) s.push(`Payroll & PD7A remittance (${client.payrollFrequency || "as scheduled"})`);
-  if (client.hasWSIB) s.push("WSIB reporting");
-  s.push("Year-end file preparation");
+function servicesFromClient(client: any, onb: any): string[] {
+  const s: string[] = [
+    "Bookkeeping, transaction categorization, and monthly bank/credit-card reconciliation",
+    "Monthly financial reporting (profit & loss, balance sheet)",
+  ];
+  if (client.hasHST) s.push(`HST/GST preparation and filing (${client.hstPeriod || "quarterly"})`);
+  if (client.hasPayroll) {
+    s.push(`Payroll processing and source-deduction remittances (PD7A, ${client.payrollFrequency || "as scheduled"})`);
+    s.push("T4 preparation and filing");
+  }
+  if (onb?.paysDividends || onb?.hasInvestments) s.push("T5 preparation");
+  if (onb?.hasSubcontractors) s.push("T5018 subcontractor reporting");
+  if (client.hasWSIB) s.push("WSIB reporting and remittance");
+  if (onb?.hasEHT) s.push("Employer Health Tax (EHT) reporting");
   return s;
+}
+
+function clientAppsList(onb: any): string[] {
+  const a: string[] = [];
+  if (onb?.usesStripe) a.push("Stripe");
+  if (onb?.usesSquare) a.push("Square");
+  if (onb?.usesJobber) a.push("Jobber");
+  if (onb?.usesTouchBistro) a.push("TouchBistro");
+  if (onb?.usesPayPal) a.push("PayPal");
+  if (onb?.usesHubdoc) a.push("Hubdoc");
+  return a;
 }
 
 /** Map the live client + latest onboarding rows into a QuoteScope. Onboarding is
@@ -254,8 +273,14 @@ export const quoteRouter = createRouter({
       const firm = getFirmSettings();
       const content = renderEngagementHtml({
         firm, clientName: client.name, clientCompany: client.company,
-        monthlyFee: client.monthlyFee ?? null, quote, services: servicesFromClient(client),
+        monthlyFee: client.monthlyFee ?? null, quote, services: servicesFromClient(client, onb),
         yearEnd: client.yearEndMonth ?? null,
+        contactName: client.contactName || onb?.primaryContactName || null,
+        contactEmail: client.email || onb?.primaryContactEmail || null,
+        address: client.address || null,
+        closeSchedule: onb?.bookkeepingFrequency || "monthly",
+        clientApps: clientAppsList(onb),
+        isCanadian: (client.qboAccountType ?? "ca_clients") !== "us_clients",
       });
       const res = await createAndSendDoc({
         db, clientId: client.id, userId: ctx.user.id,
