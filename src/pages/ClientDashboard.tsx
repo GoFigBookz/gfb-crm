@@ -364,11 +364,13 @@ export default function ClientDashboard() {
               <Button size="sm" variant="outline" onClick={() => genEngagement.mutate({ clientId: id })} disabled={genEngagement.isPending}>
                 <FileText className="h-3.5 w-3.5 mr-1" />{genEngagement.isPending ? "Generating…" : "Generate engagement letter"}
               </Button>
-              <Button size="sm" variant="outline" className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-                onClick={() => { if (confirm(`Make ${client.name} an ACTIVE client and generate their recurring tasks?`)) activateClient.mutate({ clientId: id }); }}
-                disabled={activateClient.isPending}>
-                <CheckCircle className="h-3.5 w-3.5 mr-1" />{activateClient.isPending ? "Activating…" : "Make active"}
-              </Button>
+              {client.status !== "active" && (
+                <Button size="sm" variant="outline" className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                  onClick={() => { if (confirm(`Make ${client.name} an ACTIVE client and generate their recurring tasks?`)) activateClient.mutate({ clientId: id }); }}
+                  disabled={activateClient.isPending}>
+                  <CheckCircle className="h-3.5 w-3.5 mr-1" />{activateClient.isPending ? "Activating…" : "Make active"}
+                </Button>
+              )}
             </div>
 
             {clientDocs && clientDocs.length > 0 && (
