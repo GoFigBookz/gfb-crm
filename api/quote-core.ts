@@ -85,11 +85,16 @@ export const RATE_CARD = {
   // Core transaction-processing base only ($150 floor → $250 max). Add-ons
   // (HST, payroll, year-end, etc.) stack on top as separate line items.
   transactionTiers: [
-    { max: 50, base: 150, label: "Up to 50 txns/mo" },
-    { max: 100, base: 175, label: "51–100 txns/mo" },
-    { max: 150, base: 200, label: "101–150 txns/mo" },
-    { max: 200, base: 225, label: "151–200 txns/mo" },
-    { max: 250, base: 250, label: "201–250 txns/mo" },
+    { max: 25, base: 150, label: "1–25 txns/mo" },
+    { max: 50, base: 160, label: "26–50 txns/mo" },
+    { max: 75, base: 175, label: "51–75 txns/mo" },
+    { max: 100, base: 190, label: "76–100 txns/mo" },
+    { max: 125, base: 200, label: "101–125 txns/mo" },
+    { max: 150, base: 210, label: "126–150 txns/mo" },
+    { max: 175, base: 220, label: "151–175 txns/mo" },
+    { max: 200, base: 230, label: "176–200 txns/mo" },
+    { max: 225, base: 240, label: "201–225 txns/mo" },
+    { max: 250, base: 250, label: "226–250 txns/mo" },
   ] as Array<{ max: number; base: number; label: string }>,
   highVolume: { floor: 250, perTxnOver750: 0, label: "250+ txns/mo (base capped)" },
 
