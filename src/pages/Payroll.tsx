@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { trpc } from "@/providers/trpc";
 import { format } from "date-fns";
-import { reconcileWithholding, TAX_2025 } from "../../api/payroll-tax-core";
+import { reconcileWithholding, TAX_2026 } from "../../api/payroll-tax-core";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
 const KIND_BADGE: Record<string, { label: string; cls: string }> = {
@@ -296,9 +296,9 @@ function TaxReconPanel({ clientId, highlight }: { clientId: number; highlight: b
       </CardHeader>
       {open && (
         <CardContent className="space-y-3">
-          {!TAX_2025.verified && (
+          {!TAX_2026.verified && (
             <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-              Using {TAX_2025.year} federal + Ontario tax tables (pending official 2026 CRA verification). This is a CHECK/estimate, not a filing.
+              Using {TAX_2026.year} federal + Ontario tables (brackets, BPA, ON surtax + health premium) — cross-checked vs CRA/TaxTips; confirm against the live CRA T4127 before remitting. This is a CHECK/estimate, not a filing. Income tax only (CPP/EI excluded); assumes basic TD1.
             </div>
           )}
           <div className="flex items-center gap-3 text-sm">

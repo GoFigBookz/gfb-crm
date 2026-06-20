@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { bracketTax, federalTax, ontarioTax, annualIncomeTax, reconcileWithholding, TAX_2025 } from "./payroll-tax-core";
+import { bracketTax, federalTax, ontarioTax, annualIncomeTax, reconcileWithholding, TAX_2026 } from "./payroll-tax-core";
 
 describe("payroll-tax-core — brackets", () => {
-  it("progressive bracket tax sums bands", () => {
-    // first federal band only
-    expect(bracketTax(50000, TAX_2025.federalBrackets)).toBeCloseTo(50000 * 0.15, 2);
-    // crosses into second band
-    const t = bracketTax(100000, TAX_2025.federalBrackets);
-    expect(t).toBeCloseTo(57375 * 0.15 + (100000 - 57375) * 0.205, 2);
+  it("progressive bracket tax sums bands (2026 federal)", () => {
+    // first federal band only (14%)
+    expect(bracketTax(50000, TAX_2026.federalBrackets)).toBeCloseTo(50000 * 0.14, 2);
+    // crosses into second band at $58,523
+    const t = bracketTax(100000, TAX_2026.federalBrackets);
+    expect(t).toBeCloseTo(58523 * 0.14 + (100000 - 58523) * 0.205, 2);
   });
 
   it("federal tax subtracts the BPA credit and never goes negative", () => {

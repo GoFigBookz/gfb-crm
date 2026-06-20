@@ -6,71 +6,70 @@
  * accumulated income, and flag under-withholding — QBO has under-withheld
  * revenue-share pay in past years; this catches it before year-end.
  *
- * METHOD: annualize the YTD income, compute annual federal + Ontario tax
- * (brackets − basic-personal-amount credit + Ontario surtax + Ontario health
- * premium), then expected-YTD tax = annual tax × (fraction of year elapsed).
- * This is an estimate/CHECK tool, not a CRA-grade T4127 engine or a substitute
- * for filing. Tables are isolated below so they swap to verified CRA numbers.
+ * METHOD (matches the existing Originality sheet + CRA T4127 Option 1):
+ *   annual_income     = ytd_gross / fraction_of_year
+ *   annual_tax        = federal + Ontario (brackets − BPA credit + ON surtax + OHP)
+ *   expected_ytd_tax  = annual_tax × fraction_of_year
+ *   variance          = ytd_tax_actual − expected_ytd_tax   (negative = under-withheld)
  *
- * ⚠ TAX TABLES BELOW ARE 2025 VALUES PENDING 2026 CRA VERIFICATION. The
- * reconciliation LOGIC is year-agnostic; only the constants need updating.
+ * This is a year-to-date CHECK, not a per-cheque engine or a filing. 2026 tables
+ * below are cross-checked (canada.ca-cited via TaxTips/Richter/Wealthsimple and
+ * match Originality's own sheet) but the canada.ca PDFs 403'd the researcher —
+ * confirm surtax thresholds + CPP/EI on the live T4127/T4032ON before remitting.
+ * Income tax ONLY (CPP/EI excluded — separate maximums). Assumes basic TD1.
+ * Source: docs/FIGGY_JR_ORIGINALITY_TAX_RECON.md
  * =============================================================================
  */
 
-export type Bracket = { upTo: number; rate: number }; // upTo = upper bound of band (Infinity for top)
+export type Bracket = { upTo: number; rate: number }; // upTo = upper bound (Infinity for top)
 
 export type TaxTables = {
   year: number;
   verified: boolean;
   federalBrackets: Bracket[];
-  federalBpa: number;          // basic personal amount (credit = lowest rate × BPA)
   federalLowestRate: number;
+  federalBpaMax: number;       // BPA at low income
+  federalBpaMin: number;       // BPA floor at high income
+  federalBpaPhaseStart: number;
+  federalBpaPhaseEnd: number;
   ontarioBrackets: Bracket[];
-  ontarioBpa: number;
   ontarioLowestRate: number;
-  // Ontario surtax: additional % on ON tax (after credits) above each threshold.
-  ontarioSurtax: { threshold: number; rate: number }[];
-  // Ontario Health Premium: flat amount by annual taxable income band (approx).
-  ontarioHealthPremium: { upTo: number; amount: number }[];
+  ontarioBpa: number;
+  ontarioSurtax1Threshold: number;  // 20% over this
+  ontarioSurtax2Threshold: number;  // additional 36% over this
 };
 
-// 2025 figures (best-known; replace with verified 2026 when confirmed).
-export const TAX_2025: TaxTables = {
-  year: 2025,
-  verified: false,
+// 2026 figures (see docs/FIGGY_JR_ORIGINALITY_TAX_RECON.md §2).
+export const TAX_2026: TaxTables = {
+  year: 2026,
+  verified: false, // cross-checked, not yet eyeballed on live canada.ca PDFs
   federalBrackets: [
-    { upTo: 57375, rate: 0.15 },
-    { upTo: 114750, rate: 0.205 },
-    { upTo: 177882, rate: 0.26 },
-    { upTo: 253414, rate: 0.29 },
+    { upTo: 58523, rate: 0.14 },
+    { upTo: 117045, rate: 0.205 },
+    { upTo: 181440, rate: 0.26 },
+    { upTo: 258482, rate: 0.29 },
     { upTo: Infinity, rate: 0.33 },
   ],
-  federalBpa: 16129,
-  federalLowestRate: 0.15,
+  federalLowestRate: 0.14,
+  federalBpaMax: 16452,
+  federalBpaMin: 14829,
+  federalBpaPhaseStart: 181440,
+  federalBpaPhaseEnd: 258482,
   ontarioBrackets: [
-    { upTo: 52886, rate: 0.0505 },
-    { upTo: 105775, rate: 0.0915 },
+    { upTo: 53891, rate: 0.0505 },
+    { upTo: 107785, rate: 0.0915 },
     { upTo: 150000, rate: 0.1116 },
     { upTo: 220000, rate: 0.1216 },
     { upTo: Infinity, rate: 0.1316 },
   ],
-  ontarioBpa: 12747,
   ontarioLowestRate: 0.0505,
-  ontarioSurtax: [
-    { threshold: 5710, rate: 0.20 },
-    { threshold: 7307, rate: 0.36 }, // additional 36% (so 56% combined above the 2nd threshold)
-  ],
-  ontarioHealthPremium: [
-    { upTo: 20000, amount: 0 },
-    { upTo: 36000, amount: 300 },
-    { upTo: 48000, amount: 450 },
-    { upTo: 72000, amount: 600 },
-    { upTo: 200000, amount: 750 },
-    { upTo: Infinity, amount: 900 },
-  ],
+  ontarioBpa: 12989,
+  ontarioSurtax1Threshold: 5710,
+  ontarioSurtax2Threshold: 7307,
 };
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 /** Progressive tax across bracket bands. */
 export function bracketTax(income: number, brackets: Bracket[]): number {
@@ -83,52 +82,69 @@ export function bracketTax(income: number, brackets: Bracket[]): number {
   return tax;
 }
 
-/** Federal tax after the basic-personal-amount credit (no other credits in v1). */
-export function federalTax(taxable: number, t: TaxTables = TAX_2025): number {
+/** Federal BPA, straight-line phased down for high incomes. */
+export function federalBpa(income: number, t: TaxTables = TAX_2026): number {
+  const frac = clamp((income - t.federalBpaPhaseStart) / (t.federalBpaPhaseEnd - t.federalBpaPhaseStart), 0, 1);
+  return t.federalBpaMax - (t.federalBpaMax - t.federalBpaMin) * frac;
+}
+
+/** Federal tax after the basic-personal-amount credit (basic TD1 only). */
+export function federalTax(taxable: number, t: TaxTables = TAX_2026): number {
   const gross = bracketTax(taxable, t.federalBrackets);
-  const credit = t.federalLowestRate * t.federalBpa;
+  const credit = t.federalLowestRate * federalBpa(taxable, t);
   return Math.max(0, gross - credit);
 }
 
-/** Ontario tax = bracket tax − BPA credit, then + surtax + health premium. */
-export function ontarioTax(taxable: number, t: TaxTables = TAX_2025): number {
+/**
+ * Ontario Health Premium (T4032ON V2) — lesser-of schedule by taxable income.
+ * §2.4 of the research doc.
+ */
+export function ontarioHealthPremium(taxable: number): number {
+  if (taxable <= 20000) return 0;
+  if (taxable <= 36000) return Math.min(300, 0.06 * (taxable - 20000));
+  if (taxable <= 48000) return Math.min(450, 300 + 0.06 * (taxable - 36000));
+  if (taxable <= 72000) return Math.min(600, 450 + 0.25 * (taxable - 48000));
+  if (taxable <= 200000) return Math.min(750, 600 + 0.25 * (taxable - 72000));
+  return Math.min(900, 750 + 0.25 * (taxable - 200000));
+}
+
+/** Ontario tax = bracket tax − BPA credit, + surtax + health premium. */
+export function ontarioTax(taxable: number, t: TaxTables = TAX_2026): number {
   const base = Math.max(0, bracketTax(taxable, t.ontarioBrackets) - t.ontarioLowestRate * t.ontarioBpa);
-  let surtax = 0;
-  for (const s of t.ontarioSurtax) if (base > s.threshold) surtax += (base - s.threshold) * s.rate;
-  let health = 0;
-  for (const h of t.ontarioHealthPremium) { if (taxable <= h.upTo) { health = h.amount; break; } }
+  const surtax = 0.20 * Math.max(0, base - t.ontarioSurtax1Threshold) + 0.36 * Math.max(0, base - t.ontarioSurtax2Threshold);
+  const health = ontarioHealthPremium(taxable);
   return base + surtax + health;
 }
 
 /** Total annual income tax (federal + Ontario) on a taxable income. */
-export function annualIncomeTax(taxable: number, t: TaxTables = TAX_2025): number {
+export function annualIncomeTax(taxable: number, t: TaxTables = TAX_2026): number {
   return round2(federalTax(taxable, t) + ontarioTax(taxable, t));
 }
 
 export type Reconciliation = {
   ytdGross: number;
   ytdTaxDeducted: number;
-  fractionOfYear: number;     // 0..1 (e.g. pay periods elapsed / periods per year)
-  annualizedIncome: number;   // ytdGross / fraction
-  annualTaxExpected: number;  // CRA tax on the annualized income
-  expectedYtdTax: number;     // annualTax × fraction = expected on accumulated income
-  variance: number;           // actual − expected (negative = under-withheld)
+  fractionOfYear: number;
+  annualizedIncome: number;
+  annualTaxExpected: number;
+  expectedYtdTax: number;
+  variance: number;            // actual − expected (negative = under-withheld)
   underWithheld: boolean;
-  effectiveAnnualRate: number; // annualTax / annualizedIncome
+  effectiveAnnualRate: number;
 };
 
 /**
  * Reconcile actual vs expected withholding on accumulated income.
- * fractionOfYear: how much of the year the YTD figure covers (periods elapsed /
- * periods per year). If gross is already a full-year figure, pass 1.
+ * fractionOfYear: portion of the year the YTD figure covers (periods elapsed /
+ * periods per year). If the gross is already a full-year figure, pass 1.
  */
 export function reconcileWithholding(
   ytdGross: number,
   ytdTaxDeducted: number,
   fractionOfYear: number,
-  t: TaxTables = TAX_2025,
+  t: TaxTables = TAX_2026,
 ): Reconciliation {
-  const frac = Math.min(1, Math.max(0.0001, fractionOfYear));
+  const frac = clamp(fractionOfYear, 0.0001, 1);
   const annualizedIncome = round2(ytdGross / frac);
   const annualTaxExpected = annualIncomeTax(annualizedIncome, t);
   const expectedYtdTax = round2(annualTaxExpected * frac);
@@ -141,7 +157,7 @@ export function reconcileWithholding(
     annualTaxExpected,
     expectedYtdTax,
     variance,
-    underWithheld: variance < -0.5, // tolerate rounding; flag real shortfalls
-    effectiveAnnualRate: annualizedIncome > 0 ? round2(annualTaxExpected / annualizedIncome * 100) / 100 : 0,
+    underWithheld: variance < -0.5,
+    effectiveAnnualRate: annualizedIncome > 0 ? Math.round(annualTaxExpected / annualizedIncome * 1000) / 1000 : 0,
   };
 }

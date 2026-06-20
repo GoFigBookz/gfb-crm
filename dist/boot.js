@@ -45066,29 +45066,34 @@ function bracketTax(income, brackets) {
   }
   return tax;
 }
-function federalTax(taxable, t2 = TAX_2025) {
+function federalBpa(income, t2 = TAX_2026) {
+  const frac = clamp((income - t2.federalBpaPhaseStart) / (t2.federalBpaPhaseEnd - t2.federalBpaPhaseStart), 0, 1);
+  return t2.federalBpaMax - (t2.federalBpaMax - t2.federalBpaMin) * frac;
+}
+function federalTax(taxable, t2 = TAX_2026) {
   const gross = bracketTax(taxable, t2.federalBrackets);
-  const credit = t2.federalLowestRate * t2.federalBpa;
+  const credit = t2.federalLowestRate * federalBpa(taxable, t2);
   return Math.max(0, gross - credit);
 }
-function ontarioTax(taxable, t2 = TAX_2025) {
+function ontarioHealthPremium(taxable) {
+  if (taxable <= 2e4) return 0;
+  if (taxable <= 36e3) return Math.min(300, 0.06 * (taxable - 2e4));
+  if (taxable <= 48e3) return Math.min(450, 300 + 0.06 * (taxable - 36e3));
+  if (taxable <= 72e3) return Math.min(600, 450 + 0.25 * (taxable - 48e3));
+  if (taxable <= 2e5) return Math.min(750, 600 + 0.25 * (taxable - 72e3));
+  return Math.min(900, 750 + 0.25 * (taxable - 2e5));
+}
+function ontarioTax(taxable, t2 = TAX_2026) {
   const base = Math.max(0, bracketTax(taxable, t2.ontarioBrackets) - t2.ontarioLowestRate * t2.ontarioBpa);
-  let surtax = 0;
-  for (const s of t2.ontarioSurtax) if (base > s.threshold) surtax += (base - s.threshold) * s.rate;
-  let health = 0;
-  for (const h of t2.ontarioHealthPremium) {
-    if (taxable <= h.upTo) {
-      health = h.amount;
-      break;
-    }
-  }
+  const surtax = 0.2 * Math.max(0, base - t2.ontarioSurtax1Threshold) + 0.36 * Math.max(0, base - t2.ontarioSurtax2Threshold);
+  const health = ontarioHealthPremium(taxable);
   return base + surtax + health;
 }
-function annualIncomeTax(taxable, t2 = TAX_2025) {
+function annualIncomeTax(taxable, t2 = TAX_2026) {
   return round22(federalTax(taxable, t2) + ontarioTax(taxable, t2));
 }
-function reconcileWithholding(ytdGross, ytdTaxDeducted, fractionOfYear, t2 = TAX_2025) {
-  const frac = Math.min(1, Math.max(1e-4, fractionOfYear));
+function reconcileWithholding(ytdGross, ytdTaxDeducted, fractionOfYear, t2 = TAX_2026) {
+  const frac = clamp(fractionOfYear, 1e-4, 1);
   const annualizedIncome = round22(ytdGross / frac);
   const annualTaxExpected = annualIncomeTax(annualizedIncome, t2);
   const expectedYtdTax = round22(annualTaxExpected * frac);
@@ -45102,49 +45107,42 @@ function reconcileWithholding(ytdGross, ytdTaxDeducted, fractionOfYear, t2 = TAX
     expectedYtdTax,
     variance,
     underWithheld: variance < -0.5,
-    // tolerate rounding; flag real shortfalls
-    effectiveAnnualRate: annualizedIncome > 0 ? round22(annualTaxExpected / annualizedIncome * 100) / 100 : 0
+    effectiveAnnualRate: annualizedIncome > 0 ? Math.round(annualTaxExpected / annualizedIncome * 1e3) / 1e3 : 0
   };
 }
-var TAX_2025, round22;
+var TAX_2026, round22, clamp;
 var init_payroll_tax_core = __esm({
   "api/payroll-tax-core.ts"() {
-    TAX_2025 = {
-      year: 2025,
+    TAX_2026 = {
+      year: 2026,
       verified: false,
+      // cross-checked, not yet eyeballed on live canada.ca PDFs
       federalBrackets: [
-        { upTo: 57375, rate: 0.15 },
-        { upTo: 114750, rate: 0.205 },
-        { upTo: 177882, rate: 0.26 },
-        { upTo: 253414, rate: 0.29 },
+        { upTo: 58523, rate: 0.14 },
+        { upTo: 117045, rate: 0.205 },
+        { upTo: 181440, rate: 0.26 },
+        { upTo: 258482, rate: 0.29 },
         { upTo: Infinity, rate: 0.33 }
       ],
-      federalBpa: 16129,
-      federalLowestRate: 0.15,
+      federalLowestRate: 0.14,
+      federalBpaMax: 16452,
+      federalBpaMin: 14829,
+      federalBpaPhaseStart: 181440,
+      federalBpaPhaseEnd: 258482,
       ontarioBrackets: [
-        { upTo: 52886, rate: 0.0505 },
-        { upTo: 105775, rate: 0.0915 },
+        { upTo: 53891, rate: 0.0505 },
+        { upTo: 107785, rate: 0.0915 },
         { upTo: 15e4, rate: 0.1116 },
         { upTo: 22e4, rate: 0.1216 },
         { upTo: Infinity, rate: 0.1316 }
       ],
-      ontarioBpa: 12747,
       ontarioLowestRate: 0.0505,
-      ontarioSurtax: [
-        { threshold: 5710, rate: 0.2 },
-        { threshold: 7307, rate: 0.36 }
-        // additional 36% (so 56% combined above the 2nd threshold)
-      ],
-      ontarioHealthPremium: [
-        { upTo: 2e4, amount: 0 },
-        { upTo: 36e3, amount: 300 },
-        { upTo: 48e3, amount: 450 },
-        { upTo: 72e3, amount: 600 },
-        { upTo: 2e5, amount: 750 },
-        { upTo: Infinity, amount: 900 }
-      ]
+      ontarioBpa: 12989,
+      ontarioSurtax1Threshold: 5710,
+      ontarioSurtax2Threshold: 7307
     };
     round22 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+    clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
   }
 });
 
@@ -45322,10 +45320,10 @@ var init_payroll_router = __esm({
       }),
       // Which tax tables the reconciliation is using (for the UI banner).
       taxTables: staffQuery.query(() => ({
-        year: TAX_2025.year,
-        verified: TAX_2025.verified,
-        federalBpa: TAX_2025.federalBpa,
-        ontarioBpa: TAX_2025.ontarioBpa,
+        year: TAX_2026.year,
+        verified: TAX_2026.verified,
+        federalBpa: TAX_2026.federalBpaMax,
+        ontarioBpa: TAX_2026.ontarioBpa,
         sampleAnnualTaxOn100k: annualIncomeTax(1e5)
       })),
       // Withholding reconciliation for revenue-share / any employee: compare what

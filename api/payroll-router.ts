@@ -4,7 +4,7 @@ import { getDb } from "./queries/connection";
 import { payRuns, payRunLines, employees, clients } from "../db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { estimateFromGross, estimateFromNet, salaryPerPeriod, round2 } from "./payroll-core";
-import { reconcileWithholding, annualIncomeTax, TAX_2025 } from "./payroll-tax-core";
+import { reconcileWithholding, annualIncomeTax, TAX_2026 } from "./payroll-tax-core";
 
 /**
  * Per-client special handling, keyed by a case-insensitive name match. Lets the
@@ -185,10 +185,10 @@ export const payrollRouter = createRouter({
 
   // Which tax tables the reconciliation is using (for the UI banner).
   taxTables: staffQuery.query(() => ({
-    year: TAX_2025.year,
-    verified: TAX_2025.verified,
-    federalBpa: TAX_2025.federalBpa,
-    ontarioBpa: TAX_2025.ontarioBpa,
+    year: TAX_2026.year,
+    verified: TAX_2026.verified,
+    federalBpa: TAX_2026.federalBpaMax,
+    ontarioBpa: TAX_2026.ontarioBpa,
     sampleAnnualTaxOn100k: annualIncomeTax(100000),
   })),
 
