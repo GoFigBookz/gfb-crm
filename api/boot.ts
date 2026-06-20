@@ -653,6 +653,37 @@ app.post("/api/admin/figgy", async (c) => {
       await db.update(clients).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: new Date(), workflowStatus: "quote_sent" }).where(eq(clients.id, cl.id));
       return c.json({ success: true, op, clientName: cl.name, recurringMonthly: quote.recurringMonthly, nearestPackage: quote.nearestPackage, ...res });
     }
+    if (op === "genengage") {
+      // Generate + send a branded signable engagement letter for a client.
+      const clientId = Number(c.req.query("clientId") || body?.clientId);
+      if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
+      const { getDb } = await import("./queries/connection");
+      const { clients, clientOnboarding } = await import("../db/schema");
+      const { eq, desc } = await import("drizzle-orm");
+      const { computeQuote } = await import("./quote-core");
+      const { buildScopeForClient, createAndSendDoc, servicesForEngagement, clientAppsForEngagement } = await import("./quote-router");
+      const { getFirmSettings } = await import("./firm-settings");
+      const { renderEngagementHtml } = await import("./quote-doc");
+      const db = getDb();
+      const cl = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
+      if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
+      const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
+      const quote = computeQuote(buildScopeForClient(cl, onb));
+      const content = renderEngagementHtml({
+        firm: getFirmSettings(), clientName: cl.name, clientCompany: cl.company,
+        monthlyFee: cl.monthlyFee ?? null, quote, services: servicesForEngagement(cl, onb),
+        yearEnd: cl.yearEndMonth ?? null, contactName: cl.contactName || onb?.primaryContactName || null,
+        contactEmail: cl.email || onb?.primaryContactEmail || null, address: cl.address || null,
+        closeSchedule: onb?.bookkeepingFrequency || "monthly", clientApps: clientAppsForEngagement(onb),
+        isCanadian: (cl.qboAccountType ?? "ca_clients") !== "us_clients",
+      });
+      const res = await createAndSendDoc({
+        db, clientId: cl.id, userId: cl.userId ?? 1,
+        title: `Letter of Engagement — ${cl.company || cl.name}`, description: "Engagement terms for signature",
+        content, documentType: "engagement_letter", clientEmail: cl.email || null,
+      });
+      return c.json({ success: true, op, clientName: cl.name, ...res });
+    }
     // default: health
     return c.json({ success: true, op: "health", health: await brain.bridgeHealth() });
   } catch (e: any) {
