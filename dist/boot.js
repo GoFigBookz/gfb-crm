@@ -39989,6 +39989,7 @@ function isRelevantForPeriod(c, asOf = /* @__PURE__ */ new Date()) {
   const m = asOf.getMonth();
   if (type === "quarterly") return m === 0 || m === 3 || m === 6 || m === 9;
   if (type === "annual") {
+    if (c.openWork) return true;
     const fyeIdx = c.yearEndMonth ? MONTHS.indexOf(c.yearEndMonth) : 11;
     if (fyeIdx < 0) return true;
     const since = (m - fyeIdx + 12) % 12;
@@ -46885,6 +46886,10 @@ async function countToReview(db, clientId) {
   const rows = await db.select({ n: count() }).from(triageFindings).where(and(eq(triageFindings.clientId, clientId), eq(triageFindings.status, "new")));
   return Number(rows[0]?.n ?? 0);
 }
+async function countOpenTasks(db, clientId) {
+  const rows = await db.select({ n: count() }).from(tasks).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
+  return Number(rows[0]?.n ?? 0);
+}
 async function currentChecklistPercent(db, clientId, asOf) {
   const rows = await db.select().from(monthlyCloseChecklist).where(and(
     eq(monthlyCloseChecklist.clientId, clientId),
@@ -46965,10 +46970,15 @@ var init_month_end_router = __esm({
         const out = [];
         for (const c of operational) {
           const row = await statusForClient(db, c, asOf);
+          let openWork;
+          if (c.clientType === "annual") {
+            const openTasks = await countOpenTasks(db, c.id);
+            openWork = openTasks > 0 || row.toReview > 0 || row.status !== "green";
+          }
           out.push({
             ...row,
             clientType: c.clientType || "monthly",
-            relevantThisPeriod: isRelevantForPeriod(c, asOf)
+            relevantThisPeriod: isRelevantForPeriod({ ...c, openWork }, asOf)
           });
         }
         const rank = { red: 0, yellow: 1, green: 2 };
