@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
-import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2 } from "lucide-react";
+import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -163,6 +163,13 @@ export default function ClientDashboard() {
           <p className="text-slate-500 mt-1">{client.company || client.email}</p>
         </div>
         <div className="flex gap-2">
+          {client.hasPayroll && (
+            <Link to={`/payroll?clientId=${id}`}>
+              <Button size="sm" variant="outline" className="border-lime-300 text-lime-700">
+                <Wallet className="h-3.5 w-3.5 mr-1" /> Run payroll
+              </Button>
+            </Link>
+          )}
           {client.assignedTo && (
             <Badge variant="outline" className="flex items-center gap-1">
               <Users className="h-3 w-3" />

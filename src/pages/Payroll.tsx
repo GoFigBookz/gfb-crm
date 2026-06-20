@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router";
+import { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router";
 import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download, Pencil, Users } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -55,6 +55,14 @@ export default function Payroll() {
   const [openRunId, setOpenRunId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
 
+  // Deep-link from the client card: /payroll?clientId=N preselects the company.
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const cid = Number(searchParams.get("clientId"));
+    if (cid && !clientId && clients?.some((c) => c.id === cid)) setClientId(cid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients]);
+
   const selected = clients?.find((c) => c.id === clientId) || null;
   const { data: runs } = trpc.payroll.listRuns.useQuery({ clientId: clientId! }, { enabled: !!clientId });
   const { data: roster } = trpc.employee.list.useQuery({ clientId: clientId! }, { enabled: !!clientId });
@@ -75,47 +83,30 @@ export default function Payroll() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2"><Wallet className="h-6 w-6 text-lime-600" /> Payroll</h1>
-          <p className="text-slate-500">One clean sheet per client — pay runs, hours, and the CRA remittance.</p>
+          <p className="text-slate-500">Pick a company to run its payroll — pay runs, hours, and the CRA remittance.</p>
+        </div>
+        {/* Company picker (dropdown, not a whole column) */}
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-slate-500">Company</Label>
+          <Select value={clientId ? String(clientId) : ""} onValueChange={(v) => { setClientId(Number(v)); setOpenRunId(null); }}>
+            <SelectTrigger className="w-64"><SelectValue placeholder="Select a payroll client…" /></SelectTrigger>
+            <SelectContent className="max-h-80">
+              {(clients || []).map((c) => (
+                <SelectItem key={c.id} value={String(c.id)}>
+                  {c.name} <span className="text-slate-400">· {c.employeeCount} emp</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
-        {/* Client list */}
-        <Card className="h-fit">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Payroll clients</CardTitle></CardHeader>
-          <CardContent className="p-2">
-            {!clients ? <p className="text-sm text-slate-400 p-3">Loading…</p>
-              : clients.length === 0 ? <p className="text-sm text-slate-400 p-3">No payroll clients yet. Add employees to a client first.</p>
-              : (
-                <div className="space-y-1">
-                  {clients.map((c) => {
-                    const b = KIND_BADGE[c.kind] || KIND_BADGE.manual;
-                    return (
-                      <button key={c.id} onClick={() => { setClientId(c.id); setOpenRunId(null); }}
-                        className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${clientId === c.id ? "bg-lime-50 ring-1 ring-lime-300" : "hover:bg-slate-50"}`}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-medium truncate">{c.name}</span>
-                          <ChevronRight className="h-4 w-4 text-slate-300 shrink-0" />
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <Badge variant="outline" className={`text-[10px] ${b.cls}`}>{b.label}</Badge>
-                          <span className="text-[11px] text-slate-400">{c.employeeCount} emp{c.payrollFrequency ? ` · ${c.payrollFrequency}` : ""}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-          </CardContent>
-        </Card>
-
-        {/* Selected client */}
-        <div className="space-y-4">
+      <div className="space-y-4">
           {!selected ? (
-            <Card><CardContent className="py-16 text-center text-slate-400">Select a payroll client to see their pay runs.</CardContent></Card>
+            <Card><CardContent className="py-16 text-center text-slate-400">Choose a company above to see and run its payroll.</CardContent></Card>
           ) : (
             <>
               <div className="flex items-center justify-between">
@@ -202,7 +193,6 @@ export default function Payroll() {
               <TaxReconPanel clientId={selected.id} highlight={selected.kind === "clockify" || selected.name.toLowerCase().includes("originality")} />
             </>
           )}
-        </div>
       </div>
 
       {creating && selected && (() => {
@@ -630,6 +620,7 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
     hoursPerWeek: employee.hoursPerWeek != null ? String(employee.hoursPerWeek) : "",
     position: employee.position || "", email: employee.email || "", phone: employee.phone || "",
     sin: employee.sin || "", isActive: employee.isActive !== false,
+    contractUrl: employee.contractUrl || "",
     notes: employee.notes || "",
   });
   const set = (k: string, v: any) => setF({ ...f, [k]: v });
@@ -672,6 +663,13 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
             <div><Label>Phone</Label><Input value={f.phone} onChange={(e) => set("phone", e.target.value)} /></div>
           </div>
           <div>
+            <Label className="flex items-center justify-between">
+              <span>Contract / agreement link</span>
+              {f.contractUrl ? <a href={f.contractUrl} target="_blank" rel="noreferrer" className="text-xs text-lime-700 hover:underline inline-flex items-center gap-1">open <ExternalLink className="h-3 w-3" /></a> : null}
+            </Label>
+            <Input value={f.contractUrl} onChange={(e) => set("contractUrl", e.target.value)} placeholder="Google Drive link to the signed contract…" />
+          </div>
+          <div>
             <Label>Notes / history</Label>
             <Textarea value={f.notes} onChange={(e) => set("notes", e.target.value)} rows={3} placeholder="Rate changes, start/end dates, anything to track on this employee's card…" />
           </div>
@@ -689,6 +687,7 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
               hoursPerWeek: num(f.hoursPerWeek),
               position: f.position.trim() || undefined, sin: f.sin.trim() || undefined,
               email: f.email.trim() || undefined, phone: f.phone.trim() || undefined,
+              contractUrl: f.contractUrl.trim() || undefined,
               isActive: f.isActive, notes: f.notes.trim() || undefined,
             })}>{pending ? "Saving…" : isNew ? "Create" : "Save"}</Button>
           </div>
