@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router";
+import { useNavigate, Link } from "react-router";
 import {
   Users,
   CheckSquare,
@@ -19,6 +19,7 @@ import {
   XCircle,
   UserCheck,
   ChevronRight,
+  Building2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,37 @@ export default function Dashboard() {
   const { data: pipelineStats } = trpc.crmClient.pipelineStats.useQuery();
   const { data: upcomingTasks } = trpc.task.upcoming.useQuery({ days: 7 });
   const { data: overdueTasks } = trpc.task.overdue.useQuery();
+  const { data: dashClients } = trpc.crmClient.list.useQuery();
+  const dashUtils = trpc.useUtils();
+  const completeUrgent = trpc.task.complete.useMutation({
+    onSuccess: () => { dashUtils.task.overdue.invalidate(); dashUtils.task.upcoming.invalidate(); },
+  });
+  const clientNameFor = (cid: number | null | undefined) =>
+    (dashClients || []).find((c: any) => c.id === cid)?.name ?? null;
+  // Urgent queue: overdue first (oldest first), then next-7-day upcoming, grouped
+  // by client so Markie sees who's behind at a glance.
+  const urgentTasks = [
+    ...((overdueTasks || []).map((t: any) => ({ ...t, _bucket: "overdue" as const }))),
+    ...((upcomingTasks || []).map((t: any) => ({ ...t, _bucket: "upcoming" as const }))),
+  ].sort((a, b) => {
+    if (a._bucket !== b._bucket) return a._bucket === "overdue" ? -1 : 1;
+    return new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime();
+  });
+  const urgentByClient = (() => {
+    const m = new Map<string, { clientId: number | null; name: string; tasks: any[] }>();
+    for (const t of urgentTasks) {
+      const key = String(t.clientId ?? "none");
+      if (!m.has(key)) m.set(key, { clientId: t.clientId ?? null, name: clientNameFor(t.clientId) || "Internal / no client", tasks: [] });
+      m.get(key)!.tasks.push(t);
+    }
+    // groups with an overdue task float up; otherwise by earliest due date
+    return [...m.values()].sort((a, b) => {
+      const ao = a.tasks.some((t) => t._bucket === "overdue") ? 0 : 1;
+      const bo = b.tasks.some((t) => t._bucket === "overdue") ? 0 : 1;
+      if (ao !== bo) return ao - bo;
+      return new Date(a.tasks[0]?.dueDate || 0).getTime() - new Date(b.tasks[0]?.dueDate || 0).getTime();
+    });
+  })();
   const { data: invoiceStats } = trpc.invoice.stats.useQuery();
   const { data: expiringDocs } = trpc.expiration.getExpiringSoon.useQuery({ days: 30 });
 
@@ -174,6 +206,57 @@ export default function Dashboard() {
           View Calendar
         </Button>
       </div>
+
+      {/* URGENT TASKS — overdue + next 7 days, grouped by client, top of page */}
+      <Card className="border-l-4 border-l-red-500">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Flame className="h-5 w-5 text-red-500" /> Urgent — overdue &amp; this week
+            </CardTitle>
+            <div className="flex items-center gap-2 text-xs">
+              <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">{overdueTasks?.length ?? 0} overdue</Badge>
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">{upcomingTasks?.length ?? 0} this week</Badge>
+              <Button size="sm" variant="ghost" className="h-7" onClick={() => navigate("/tasks?tab=overdue")}>All tasks <ChevronRight className="h-4 w-4" /></Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {urgentByClient.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 text-center">Nothing overdue or due this week 🎉</p>
+          ) : (
+            <div className="space-y-4 max-h-[26rem] overflow-auto">
+              {urgentByClient.slice(0, 12).map((grp) => (
+                <div key={String(grp.clientId)}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    {grp.clientId ? (
+                      <Link to={`/clients/${grp.clientId}`} className="text-sm font-semibold text-slate-800 hover:text-lime-700 inline-flex items-center gap-1">
+                        <Building2 className="h-3.5 w-3.5" />{grp.name}
+                      </Link>
+                    ) : (
+                      <span className="text-sm font-semibold text-slate-500 inline-flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />{grp.name}</span>
+                    )}
+                    <span className="text-xs text-slate-400">({grp.tasks.length})</span>
+                  </div>
+                  <div className="space-y-1 pl-1">
+                    {grp.tasks.map((t: any) => (
+                      <div key={t.id} className={cn("flex items-center gap-2 rounded-md px-2 py-1.5", t._bucket === "overdue" ? "bg-red-50" : "bg-amber-50/60")}>
+                        <button title="Mark done" onClick={() => completeUrgent.mutate({ id: t.id })}
+                          className="w-4 h-4 shrink-0 rounded-full border-2 border-slate-300 hover:border-lime-500 hover:bg-lime-100 transition-colors" />
+                        <span className="flex-1 text-sm text-slate-700 truncate">{t.title}</span>
+                        {t.category && <Badge variant="secondary" className="text-[10px] hidden sm:inline-flex">{t.category}</Badge>}
+                        <span className={cn("text-xs whitespace-nowrap", t._bucket === "overdue" ? "text-red-600 font-medium" : "text-amber-600")}>
+                          {t.dueDate ? format(new Date(t.dueDate), "MMM d") : "—"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Morning Brief */}
       {dailyBrief && (
