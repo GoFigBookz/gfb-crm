@@ -331,6 +331,11 @@ export default function ClientDashboard() {
                 <p className="text-xs text-slate-400">setup{quote.scope.monthsBehind > 0 ? " + catch-up" : ""}</p>
               </div>
             </div>
+            {quote.quote.transactions === 0 && (
+              <p className="mt-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                ⚠ Transaction volume not set — this is only a floor estimate. Enter the monthly transaction count in "Edit &amp; send quote" (or pull it from QBO once connected) for an accurate quote.
+              </p>
+            )}
             <p className="mt-3 text-sm text-slate-600">{quote.comparison.message}</p>
             <details className="mt-3">
               <summary className="text-xs font-semibold text-slate-500 cursor-pointer">Scope breakdown ({quote.quote.monthlyLineItems.length} items · {quote.quote.tier})</summary>
@@ -987,11 +992,12 @@ export default function ClientDashboard() {
 
       {editingQuote && quote && (
         <QuoteEditorDialog
+          clientId={id}
           quote={quote.quote}
           onClose={() => setEditingQuote(false)}
           isPending={genQuote.isPending}
-          onGenerate={(lines: any[], oneTime: any[]) => {
-            genQuote.mutate({ clientId: id, lines, oneTime }, { onSuccess: () => setEditingQuote(false) });
+          onGenerate={(lines: any[], oneTime: any[], transactions: number) => {
+            genQuote.mutate({ clientId: id, lines, oneTime, transactions }, { onSuccess: () => setEditingQuote(false) });
           }}
         />
       )}
@@ -999,9 +1005,10 @@ export default function ClientDashboard() {
   );
 }
 
-// Quote Editor Dialog — toggle lines on/off and edit amounts before sending.
-function QuoteEditorDialog({ quote, onClose, onGenerate, isPending }: {
-  quote: any; onClose: () => void; onGenerate: (lines: any[], oneTime: any[]) => void; isPending: boolean;
+// Quote Editor Dialog — set transaction volume, toggle lines on/off, edit
+// amounts before sending.
+function QuoteEditorDialog({ clientId, quote, onClose, onGenerate, isPending }: {
+  clientId: number; quote: any; onClose: () => void; onGenerate: (lines: any[], oneTime: any[], transactions: number) => void; isPending: boolean;
 }) {
   const [lines, setLines] = useState<any[]>(
     (quote.monthlyLineItems || []).map((li: any) => ({ ...li, include: true }))
@@ -1009,6 +1016,19 @@ function QuoteEditorDialog({ quote, onClose, onGenerate, isPending }: {
   const [oneTime, setOneTime] = useState<any[]>(
     (quote.oneTimeLineItems || []).map((li: any) => ({ ...li, include: true }))
   );
+  const [txns, setTxns] = useState<string>(String(quote.transactions || ""));
+  const utils = trpc.useUtils();
+  const [recalcing, setRecalcing] = useState(false);
+  const recalc = async () => {
+    setRecalcing(true);
+    try {
+      const res = await utils.quote.preview.fetch({ clientId, avgMonthlyTransactions: Number(txns) || 0 });
+      if (res?.quote) {
+        setLines((res.quote.monthlyLineItems || []).map((li: any) => ({ ...li, include: true })));
+        setOneTime((res.quote.oneTimeLineItems || []).map((li: any) => ({ ...li, include: true })));
+      }
+    } finally { setRecalcing(false); }
+  };
   const setLine = (i: number, patch: any) => setLines((arr) => arr.map((l, idx) => idx === i ? { ...l, ...patch } : l));
   const setOne = (i: number, patch: any) => setOneTime((arr) => arr.map((l, idx) => idx === i ? { ...l, ...patch } : l));
   const monthlyTotal = lines.filter((l) => l.include).reduce((s, l) => s + (Number(l.amount) || 0), 0);
@@ -1032,6 +1052,19 @@ function QuoteEditorDialog({ quote, onClose, onGenerate, isPending }: {
           <DialogTitle className="flex items-center gap-2"><FileText className="h-4 w-4" /> Edit quote before sending</DialogTitle>
         </DialogHeader>
         <p className="text-xs text-slate-500 -mt-2">Untick anything that doesn't apply (e.g. payroll/WSIB when there are no employees) and adjust amounts. The client sees only what you keep.</p>
+
+        <div className="flex items-end gap-2 mt-3 p-3 bg-slate-50 rounded-lg">
+          <div className="flex-1">
+            <Label className="text-xs">Avg monthly transactions</Label>
+            <Input type="number" placeholder="e.g. 120" value={txns} onChange={(e) => setTxns(e.target.value)} className="h-8" />
+          </div>
+          <Button size="sm" variant="outline" onClick={recalc} disabled={recalcing}>
+            {recalcing ? "Recalculating…" : "Recalculate base"}
+          </Button>
+        </div>
+        {(!txns || Number(txns) === 0) && (
+          <p className="text-xs text-amber-700">Set the transaction volume so the base tier is real — otherwise it's just the floor price.</p>
+        )}
 
         <div className="mt-2">
           <p className="text-xs uppercase font-semibold text-slate-500 mb-1">Monthly services</p>
@@ -1057,6 +1090,7 @@ function QuoteEditorDialog({ quote, onClose, onGenerate, isPending }: {
             onClick={() => onGenerate(
               lines.filter((l) => l.include).map((l) => ({ label: l.label, amount: Number(l.amount) || 0, rationale: l.rationale || "" })),
               oneTime.filter((l) => l.include).map((l) => ({ label: l.label, amount: Number(l.amount) || 0, rationale: l.rationale || "" })),
+              Number(txns) || 0,
             )}>
             {isPending ? "Generating…" : "Generate & send quote"}
           </Button>

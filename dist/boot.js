@@ -46383,6 +46383,18 @@ var init_quote_router = __esm({
           comparison
         };
       }),
+      // Recompute the quote with an overridden monthly transaction count (live
+      // preview in the editor before the real numbers come from QBO).
+      preview: authedQuery.input(external_exports.object({ clientId: external_exports.number(), avgMonthlyTransactions: external_exports.number().min(0) })).query(async ({ input }) => {
+        const db = getDb();
+        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        if (!client) return null;
+        const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
+        const scope = buildScopeForClient(client, onb);
+        scope.avgMonthlyTransactions = input.avgMonthlyTransactions;
+        const quote = computeQuote(scope);
+        return { quote, comparison: compareToFlatFee(quote.recurringMonthly, client.monthlyFee ?? null) };
+      }),
       // Documents already generated for a client (quote + engagement), newest first.
       documents: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
@@ -46403,6 +46415,7 @@ var init_quote_router = __esm({
       // (toggle services off, change amounts) before it goes out.
       createSignableQuote: authedQuery.input(external_exports.object({
         clientId: external_exports.number(),
+        transactions: external_exports.number().min(0).optional(),
         lines: external_exports.array(external_exports.object({ label: external_exports.string(), amount: external_exports.number(), rationale: external_exports.string().optional() })).optional(),
         oneTime: external_exports.array(external_exports.object({ label: external_exports.string(), amount: external_exports.number(), rationale: external_exports.string().optional() })).optional()
       })).mutation(async ({ ctx, input }) => {
@@ -46443,7 +46456,8 @@ var init_quote_router = __esm({
         await db.update(clients).set({
           quoteAmount: quote.recurringMonthly,
           quoteSentAt: /* @__PURE__ */ new Date(),
-          workflowStatus: "quote_sent"
+          workflowStatus: "quote_sent",
+          ...input.transactions != null ? { transactionsPerMonth: input.transactions } : {}
         }).where(eq(clients.id, client.id));
         return res;
       }),
