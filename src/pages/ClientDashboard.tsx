@@ -169,10 +169,18 @@ export default function ClientDashboard() {
           <Button size="sm" variant="outline" className="border-lime-300 text-lime-700" onClick={() => setShowLogTime(true)}>
             <Timer className="h-3.5 w-3.5 mr-1" /> Log Time
           </Button>
-          <Button size="sm" variant="outline" className="border-slate-300 text-slate-600"
-            onClick={() => { if (confirm(`Archive ${client.name}? It will be hidden from the active client list (not deleted).`)) archiveClient.mutate({ id }); }}>
-            Archive
-          </Button>
+          {client.status === "active" ? (
+            <Button size="sm" variant="outline" className="border-slate-300 text-slate-600"
+              onClick={() => { if (confirm(`Archive ${client.name}? It will be hidden from the active client list (not deleted) and its tasks paused.`)) archiveClient.mutate({ id }); }}>
+              Archive
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" className="border-emerald-300 text-emerald-700"
+              onClick={() => { if (confirm(`Reactivate ${client.name}? It returns to the active list and its tasks resume.`)) activateClient.mutate({ clientId: id }); }}
+              disabled={activateClient.isPending}>
+              {activateClient.isPending ? "Reactivating…" : "Reactivate"}
+            </Button>
+          )}
           <Button size="sm" variant="outline" className="border-red-300 text-red-600"
             onClick={() => { if (confirm(`PERMANENTLY DELETE ${client.name} and all its data? This cannot be undone.`)) deleteClient.mutate({ id }); }}>
             Delete

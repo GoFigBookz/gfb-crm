@@ -78,15 +78,16 @@ export type QuoteComparison = {
 export const RATE_CARD = {
   // Monthly base by transaction volume (includes recording, categorization,
   // reconciliation of ONE bank account, and a monthly close).
+  // Core transaction-processing base only ($150 floor → $250 max). Add-ons
+  // (HST, payroll, year-end, etc.) stack on top as separate line items.
   transactionTiers: [
-    { max: 50, base: 350, label: "Micro (≤50 txns/mo)" },
-    { max: 100, base: 500, label: "Starter (51–100 txns/mo)" },
-    { max: 200, base: 700, label: "Small (101–200 txns/mo)" },
-    { max: 300, base: 950, label: "Standard (201–300 txns/mo)" },
-    { max: 500, base: 1300, label: "Growth (301–500 txns/mo)" },
-    { max: 750, base: 1750, label: "Mid (501–750 txns/mo)" },
+    { max: 50, base: 150, label: "Up to 50 txns/mo" },
+    { max: 100, base: 175, label: "51–100 txns/mo" },
+    { max: 150, base: 200, label: "101–150 txns/mo" },
+    { max: 200, base: 225, label: "151–200 txns/mo" },
+    { max: 250, base: 250, label: "201–250 txns/mo" },
   ] as Array<{ max: number; base: number; label: string }>,
-  highVolume: { floor: 2200, perTxnOver750: 2, label: "High-volume (751+ txns/mo)" },
+  highVolume: { floor: 250, perTxnOver750: 0, label: "250+ txns/mo (base capped)" },
 
   // How often we actually do the books changes the recurring labour.
   bookkeepingFrequencyMultiplier: { monthly: 1.0, quarterly: 0.7, annual: 0.45, none: 0.4 },
