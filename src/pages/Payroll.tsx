@@ -90,6 +90,7 @@ export default function Payroll() {
         </div>
         {/* Company picker (dropdown, not a whole column) */}
         <div className="flex items-center gap-2">
+          <Link to="/payroll-calculator"><Button size="sm" variant="outline"><Calculator className="h-3.5 w-3.5 mr-1" /> Paycheck calculator</Button></Link>
           <Label className="text-sm text-slate-500">Company</Label>
           <Select value={clientId ? String(clientId) : ""} onValueChange={(v) => { setClientId(Number(v)); setOpenRunId(null); }}>
             <SelectTrigger className="w-64"><SelectValue placeholder="Select a payroll client…" /></SelectTrigger>
