@@ -46364,8 +46364,9 @@ function wrap(inner) {
 }
 function renderQuoteHtml(opts) {
   const { firm, quote } = opts;
+  const clean = (label) => label.replace(/\s*—.*$/, "").replace(/\s*\(wholesale[^)]*\)/i, "").replace(/,?\s*amortized/i, "").replace(/\s*\$\d[\d,.]*/g, "").replace(/\s*\(\s*\)/g, "").trim();
   const included = quote.monthlyLineItems.map((li) => `
-    <li style="margin:5px 0;">${esc2(li.label)}</li>`).join("");
+    <li style="margin:5px 0;">${esc2(clean(li.label))}</li>`).join("");
   return wrap(`
     ${header(firm, opts.quoteNumber ? `Quote ${opts.quoteNumber}` : "Quote")}
     <p style="margin:0 0 4px;">Prepared for</p>
