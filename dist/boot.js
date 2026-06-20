@@ -46291,7 +46291,7 @@ async function createAndSendDoc(opts) {
     sentBy: opts.userId,
     expiresAt: new Date(Date.now() + 30 * 864e5)
   }).returning();
-  return { documentId: doc.id, portalUrl: `/portal/${token}?tab=documents` };
+  return { documentId: doc.id, portalUrl: `/portal/${token}?tab=signatures` };
 }
 function servicesFromClient(client) {
   const s = ["Bookkeeping & accounting", "Monthly reconciliation"];
@@ -46392,7 +46392,7 @@ var init_quote_router = __esm({
           title: d.title,
           documentType: d.documentType,
           status: d.status,
-          portalUrl: d.portalToken ? `/portal/${d.portalToken}?tab=documents` : null,
+          portalUrl: d.portalToken ? `/portal/${d.portalToken}?tab=signatures` : null,
           sentAt: d.sentAt,
           signedAt: d.signedAt,
           signedBy: d.signedBy
