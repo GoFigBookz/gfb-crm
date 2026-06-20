@@ -2465,7 +2465,7 @@ function handleCatchall(proms, input, payload, ctx, def, inst) {
     }
     const r = _catchall.run({ value: input[key], issues: [] }, ctx);
     if (r instanceof Promise) {
-      proms.push(r.then((r2) => handlePropertyResult(r2, payload, key, input, isOptionalOut)));
+      proms.push(r.then((r3) => handlePropertyResult(r3, payload, key, input, isOptionalOut)));
     } else {
       handlePropertyResult(r, payload, key, input, isOptionalOut);
     }
@@ -3390,7 +3390,7 @@ var init_schemas = __esm({
           const isOptionalOut = el._zod.optout === "optional";
           const r = el._zod.run({ value: input[key], issues: [] }, ctx);
           if (r instanceof Promise) {
-            proms.push(r.then((r2) => handlePropertyResult(r2, payload, key, input, isOptionalOut)));
+            proms.push(r.then((r3) => handlePropertyResult(r3, payload, key, input, isOptionalOut)));
           } else {
             handlePropertyResult(r, payload, key, input, isOptionalOut);
           }
@@ -4348,7 +4348,7 @@ var init_schemas = __esm({
         const input = payload.value;
         const r = def.fn(input);
         if (r instanceof Promise) {
-          return r.then((r2) => handleRefineResult(r2, payload, input, inst));
+          return r.then((r3) => handleRefineResult(r3, payload, input, inst));
         }
         handleRefineResult(r, payload, input, inst);
         return;
@@ -22342,6 +22342,8 @@ __export(schema_exports, {
   engagementLetters: () => engagementLetters,
   files: () => files,
   interactions: () => interactions,
+  intercoEntries: () => intercoEntries,
+  intercoPeriods: () => intercoPeriods,
   invoiceItems: () => invoiceItems,
   invoices: () => invoices,
   makeIntake: () => makeIntake,
@@ -22376,7 +22378,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries;
+var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23753,6 +23755,47 @@ var init_schema = __esm({
       notes: text("notes"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
+    intercoPeriods = sqliteTable("interco_periods", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      period: text("period").notNull(),
+      // "YYYY-MM"
+      payerClientId: integer2("payerClientId").notNull(),
+      // entity that fronts the costs
+      // Readiness gate: confirmed all source txns / Visa statements posted in QBO.
+      sourcePosted: integer2("sourcePosted", { mode: "boolean" }).default(false),
+      sourcePostedBy: integer2("sourcePostedBy"),
+      sourcePostedAt: integer2("sourcePostedAt", { mode: "timestamp" }),
+      intercoAccount: text("intercoAccount"),
+      // due-to/from GL, e.g. "1310 Interco:2303851 Ontario"
+      offsetAccount: text("offsetAccount"),
+      // contra GL (bank/clearing/expense) — locked chart
+      status: text("status", { enum: ["open", "ready", "posted"] }).default("open").notNull(),
+      postedJeRef: text("postedJeRef"),
+      // QBO JE number once posted (recorded by hand)
+      notes: text("notes"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    intercoEntries = sqliteTable("interco_entries", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      period: text("period").notNull(),
+      // "YYYY-MM"
+      payerClientId: integer2("payerClientId").notNull(),
+      // who fronted the cost
+      counterpartyClientId: integer2("counterpartyClientId").notNull(),
+      // who benefited / owes
+      description: text("description"),
+      // memo, e.g. "Paid by 230 — MI payroll"
+      category: text("category"),
+      // payroll / expense reimb / reclass / transfer
+      amount: real("amount").default(0),
+      // positive = counterparty owes payer
+      source: text("source", { enum: ["manual", "qbo"] }).default("manual").notNull(),
+      sourceRef: text("sourceRef"),
+      // QBO txn id when pulled
+      createdBy: integer2("createdBy"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
   }
 });
 
@@ -24350,13 +24393,13 @@ var init_base64 = __esm({
       if (!b64re.test(asc2))
         throw new TypeError("malformed base64.");
       asc2 += "==".slice(2 - (asc2.length & 3));
-      let u24, r1, r2;
+      let u24, r1, r22;
       let binArray = [];
       for (let i = 0; i < asc2.length; ) {
-        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r2 = b64tab[asc2.charAt(i++)]);
+        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r22 = b64tab[asc2.charAt(i++)]);
         if (r1 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255));
-        } else if (r2 === 64) {
+        } else if (r22 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255));
         } else {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255, u24 & 255));
@@ -37223,7 +37266,7 @@ var require_bcrypt = __commonJS({
           } else
             throw err;
         }
-        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r2 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r2, real_salt = salt.substring(offset + 3, offset + 25);
+        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r22 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r22, real_salt = salt.substring(offset + 3, offset + 25);
         s += minor >= "a" ? "\0" : "";
         var passwordb = stringToBytes(s), saltb = base64_decode(real_salt, BCRYPT_SALT_LEN);
         function finish(bytes) {
@@ -43324,10 +43367,10 @@ var init_qbo_router = __esm({
       // --- Sync All ---
       syncAll: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => {
         const r1 = await doSyncCustomers(input.connectionId);
-        const r2 = await doSyncInvoices(input.connectionId);
+        const r22 = await doSyncInvoices(input.connectionId);
         const r3 = await doSyncPayments(input.connectionId);
         const r4 = await doSyncAccounts(input.connectionId);
-        return { success: true, customers: r1, invoices: r2, payments: r3, accounts: r4 };
+        return { success: true, customers: r1, invoices: r22, payments: r3, accounts: r4 };
       }),
       // --- Data Retrieval ---
       getCustomers: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
@@ -50323,6 +50366,167 @@ var init_bulk_import_router = __esm({
   }
 });
 
+// api/interco-router.ts
+function buildIntercoJe(opts) {
+  const interco = opts.intercoAccount?.trim() || "[interco account \u2014 select from chart]";
+  const offset = opts.offsetAccount?.trim() || "[offset account \u2014 select from chart]";
+  const byParty = /* @__PURE__ */ new Map();
+  for (const e of opts.entries) byParty.set(e.counterpartyClientId, r2((byParty.get(e.counterpartyClientId) ?? 0) + (e.amount || 0)));
+  const lines = [];
+  let net = 0;
+  for (const [cp, amtRaw] of byParty) {
+    const amt = r2(amtRaw);
+    if (amt === 0) continue;
+    net = r2(net + amt);
+    const who = opts.nameOf(cp);
+    if (amt > 0) {
+      lines.push({ account: interco, debit: amt, credit: 0, description: `Due from ${who} (interco settlement)` });
+    } else {
+      lines.push({ account: interco, debit: 0, credit: -amt, description: `Due to ${who} (interco settlement)` });
+    }
+  }
+  if (net > 0) lines.push({ account: offset, debit: 0, credit: net, description: "Interco bill-back \u2014 contra" });
+  else if (net < 0) lines.push({ account: offset, debit: -net, credit: 0, description: "Interco bill-back \u2014 contra" });
+  const totalDebit = r2(lines.reduce((s, l) => s + l.debit, 0));
+  const totalCredit = r2(lines.reduce((s, l) => s + l.credit, 0));
+  return { lines, totalDebit, totalCredit, balanced: totalDebit === totalCredit, net };
+}
+async function clientNameMap() {
+  const db = getDb();
+  const cs = await db.select().from(clients);
+  return new Map(cs.map((c) => [c.id, c.name]));
+}
+var r2, intercoRouter;
+var init_interco_router = __esm({
+  "api/interco-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    r2 = (n) => Math.round(n * 100) / 100;
+    intercoRouter = createRouter({
+      // Active clients for the entity dropdowns.
+      clients: staffQuery.query(async () => {
+        const db = getDb();
+        const cs = await db.select().from(clients);
+        return cs.filter((c) => c.status !== "churned").map((c) => ({ id: c.id, name: c.name, clientType: c.clientType })).sort((a, b) => a.name.localeCompare(b.name));
+      }),
+      // All periods (newest first), with payer name + a quick entry total.
+      listPeriods: staffQuery.query(async () => {
+        const db = getDb();
+        const periods = await db.select().from(intercoPeriods).orderBy(desc(intercoPeriods.period));
+        const entries = await db.select().from(intercoEntries);
+        const names = await clientNameMap();
+        return periods.map((p) => {
+          const mine = entries.filter((e) => e.period === p.period && e.payerClientId === p.payerClientId);
+          const total = r2(mine.reduce((s, e) => s + (e.amount || 0), 0));
+          return { ...p, payerName: names.get(p.payerClientId) ?? `#${p.payerClientId}`, entryCount: mine.length, total };
+        });
+      }),
+      // Full detail for one period: record, entries, computed JE + summary.
+      getPeriod: staffQuery.input(external_exports.object({ period: external_exports.string(), payerClientId: external_exports.number() })).query(async ({ input }) => {
+        const db = getDb();
+        const [p] = await db.select().from(intercoPeriods).where(and(eq(intercoPeriods.period, input.period), eq(intercoPeriods.payerClientId, input.payerClientId)));
+        const entries = await db.select().from(intercoEntries).where(and(eq(intercoEntries.period, input.period), eq(intercoEntries.payerClientId, input.payerClientId))).orderBy(intercoEntries.counterpartyClientId);
+        const names = await clientNameMap();
+        const withNames = entries.map((e) => ({ ...e, counterpartyName: names.get(e.counterpartyClientId) ?? `#${e.counterpartyClientId}` }));
+        const je = buildIntercoJe({
+          intercoAccount: p?.intercoAccount,
+          offsetAccount: p?.offsetAccount,
+          entries: withNames,
+          nameOf: (id) => names.get(id) ?? `#${id}`
+        });
+        const byParty = /* @__PURE__ */ new Map();
+        for (const e of withNames) byParty.set(e.counterpartyClientId, r2((byParty.get(e.counterpartyClientId) ?? 0) + (e.amount || 0)));
+        const summary = Array.from(byParty.entries()).map(([id, amt]) => ({ counterpartyClientId: id, name: names.get(id) ?? `#${id}`, net: r2(amt) }));
+        return { period: p ?? null, entries: withNames, je, summary };
+      }),
+      // Create or update a period header (accounts, notes). Idempotent per (period,payer).
+      upsertPeriod: staffQuery.input(external_exports.object({
+        period: external_exports.string().regex(/^\d{4}-\d{2}$/),
+        payerClientId: external_exports.number(),
+        intercoAccount: external_exports.string().optional(),
+        offsetAccount: external_exports.string().optional(),
+        notes: external_exports.string().optional()
+      })).mutation(async ({ input }) => {
+        const db = getDb();
+        const [existing] = await db.select().from(intercoPeriods).where(and(eq(intercoPeriods.period, input.period), eq(intercoPeriods.payerClientId, input.payerClientId)));
+        if (existing) {
+          await db.update(intercoPeriods).set({
+            intercoAccount: input.intercoAccount ?? existing.intercoAccount,
+            offsetAccount: input.offsetAccount ?? existing.offsetAccount,
+            notes: input.notes ?? existing.notes,
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq(intercoPeriods.id, existing.id));
+          return { id: existing.id };
+        }
+        const [row] = await db.insert(intercoPeriods).values({
+          period: input.period,
+          payerClientId: input.payerClientId,
+          intercoAccount: input.intercoAccount,
+          offsetAccount: input.offsetAccount,
+          notes: input.notes
+        }).returning();
+        return { id: row.id };
+      }),
+      // Readiness gate: confirm all source txns/Visa statements posted in QBO.
+      // (Manual confirm now; auto-checked against QBO once the connection is live.)
+      setReadiness: staffQuery.input(external_exports.object({ id: external_exports.number(), sourcePosted: external_exports.boolean() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const [p] = await db.select().from(intercoPeriods).where(eq(intercoPeriods.id, input.id));
+        if (!p) throw new Error("Period not found");
+        await db.update(intercoPeriods).set({
+          sourcePosted: input.sourcePosted,
+          sourcePostedBy: input.sourcePosted ? ctx.user.id : null,
+          sourcePostedAt: input.sourcePosted ? /* @__PURE__ */ new Date() : null,
+          // Flip status, but never downgrade away from 'posted'.
+          status: p.status === "posted" ? "posted" : input.sourcePosted ? "ready" : "open",
+          updatedAt: /* @__PURE__ */ new Date()
+        }).where(eq(intercoPeriods.id, input.id));
+        return { success: true };
+      }),
+      // Record that the draft JE was posted in QBO by hand (gate must be green).
+      markPosted: staffQuery.input(external_exports.object({ id: external_exports.number(), postedJeRef: external_exports.string().optional() })).mutation(async ({ input }) => {
+        const db = getDb();
+        const [p] = await db.select().from(intercoPeriods).where(eq(intercoPeriods.id, input.id));
+        if (!p) throw new Error("Period not found");
+        if (!p.sourcePosted) throw new Error("Readiness gate is not green \u2014 confirm all source txns are posted in QBO first.");
+        await db.update(intercoPeriods).set({ status: "posted", postedJeRef: input.postedJeRef ?? p.postedJeRef, updatedAt: /* @__PURE__ */ new Date() }).where(eq(intercoPeriods.id, input.id));
+        return { success: true };
+      }),
+      addEntry: staffQuery.input(external_exports.object({
+        period: external_exports.string().regex(/^\d{4}-\d{2}$/),
+        payerClientId: external_exports.number(),
+        counterpartyClientId: external_exports.number(),
+        amount: external_exports.number(),
+        description: external_exports.string().optional(),
+        category: external_exports.string().optional()
+      })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const [existing] = await db.select().from(intercoPeriods).where(and(eq(intercoPeriods.period, input.period), eq(intercoPeriods.payerClientId, input.payerClientId)));
+        if (!existing) await db.insert(intercoPeriods).values({ period: input.period, payerClientId: input.payerClientId });
+        const [row] = await db.insert(intercoEntries).values({
+          period: input.period,
+          payerClientId: input.payerClientId,
+          counterpartyClientId: input.counterpartyClientId,
+          amount: input.amount,
+          description: input.description,
+          category: input.category,
+          source: "manual",
+          createdBy: ctx.user.id
+        }).returning();
+        return { id: row.id };
+      }),
+      deleteEntry: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+        const db = getDb();
+        await db.delete(intercoEntries).where(eq(intercoEntries.id, input.id));
+        return { success: true };
+      })
+    });
+  }
+});
+
 // api/public-router.ts
 var publicRouter;
 var init_public_router = __esm({
@@ -50571,6 +50775,7 @@ var init_router = __esm({
     init_connector_router();
     init_restore_router();
     init_bulk_import_router();
+    init_interco_router();
     init_public_router();
     init_middleware();
     appRouter = createRouter({
@@ -50623,7 +50828,8 @@ var init_router = __esm({
       googleSync: googleSyncRouter,
       microsoftSync: microsoftSyncRouter,
       bulkImport: bulkImportRouter,
-      restore: restoreRouter
+      restore: restoreRouter,
+      interco: intercoRouter
     });
   }
 });
@@ -52634,6 +52840,7 @@ var ensure_clients_schema_exports = {};
 __export(ensure_clients_schema_exports, {
   ensureClientRequestTables: () => ensureClientRequestTables,
   ensureClientsColumns: () => ensureClientsColumns,
+  ensureIntercoTables: () => ensureIntercoTables,
   ensureOnboardingColumns: () => ensureOnboardingColumns,
   ensurePayrollTables: () => ensurePayrollTables,
   ensureSmsTable: () => ensureSmsTable,
@@ -52810,6 +53017,42 @@ async function ensurePayrollTables() {
     console.log("[schema] payroll tables ensured");
   } catch (e) {
     console.error("[schema] ensurePayrollTables failed:", e instanceof Error ? e.message : e);
+  }
+}
+async function ensureIntercoTables() {
+  const db = getDb();
+  try {
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS interco_periods (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period TEXT NOT NULL,
+      payerClientId INTEGER NOT NULL,
+      sourcePosted INTEGER DEFAULT 0,
+      sourcePostedBy INTEGER,
+      sourcePostedAt INTEGER,
+      intercoAccount TEXT,
+      offsetAccount TEXT,
+      status TEXT DEFAULT 'open' NOT NULL,
+      postedJeRef TEXT,
+      notes TEXT,
+      createdAt INTEGER,
+      updatedAt INTEGER
+    )`));
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS interco_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period TEXT NOT NULL,
+      payerClientId INTEGER NOT NULL,
+      counterpartyClientId INTEGER NOT NULL,
+      description TEXT,
+      category TEXT,
+      amount REAL DEFAULT 0,
+      source TEXT DEFAULT 'manual' NOT NULL,
+      sourceRef TEXT,
+      createdBy INTEGER,
+      createdAt INTEGER
+    )`));
+    console.log("[schema] interco tables ensured");
+  } catch (e) {
+    console.error("[schema] ensureIntercoTables failed:", e instanceof Error ? e.message : e);
   }
 }
 async function ensureSmsTable() {
@@ -58245,13 +58488,14 @@ async function startServer() {
   const { serveStaticFiles: serveStaticFiles2 } = await Promise.resolve().then(() => (init_vite(), vite_exports));
   serveStaticFiles2(app);
   try {
-    const { ensureClientsColumns: ensureClientsColumns2, ensureOnboardingColumns: ensureOnboardingColumns2, ensureTaskColumns: ensureTaskColumns2, ensurePayrollTables: ensurePayrollTables2, ensureClientRequestTables: ensureClientRequestTables2, ensureSmsTable: ensureSmsTable2 } = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
+    const { ensureClientsColumns: ensureClientsColumns2, ensureOnboardingColumns: ensureOnboardingColumns2, ensureTaskColumns: ensureTaskColumns2, ensurePayrollTables: ensurePayrollTables2, ensureClientRequestTables: ensureClientRequestTables2, ensureSmsTable: ensureSmsTable2, ensureIntercoTables: ensureIntercoTables2 } = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
     await ensureClientsColumns2();
     await ensureOnboardingColumns2();
     await ensureTaskColumns2();
     await ensurePayrollTables2();
     await ensureClientRequestTables2();
     await ensureSmsTable2();
+    await ensureIntercoTables2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));

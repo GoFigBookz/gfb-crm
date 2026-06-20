@@ -45,6 +45,7 @@ import { senderRulesRouter } from "./sender-rules-router";
 import { connectorRouter } from "./connector-router";
 import { restoreRouter } from "./restore-router";
 import { bulkImportRouter } from "./bulk-import-router";
+import { intercoRouter } from "./interco-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
 
@@ -99,6 +100,7 @@ export const appRouter = createRouter({
   microsoftSync: microsoftSyncRouter,
   bulkImport: bulkImportRouter,
   restore: restoreRouter,
+  interco: intercoRouter,
 });
 
 export type AppRouter = typeof appRouter;

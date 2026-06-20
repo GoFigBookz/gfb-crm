@@ -871,13 +871,14 @@ async function startServer() {
   // table is missing columns the app SELECTs, which makes every read throw (empty
   // Clients page). Add any missing columns first.
   try {
-    const { ensureClientsColumns, ensureOnboardingColumns, ensureTaskColumns, ensurePayrollTables, ensureClientRequestTables, ensureSmsTable } = await import("./ensure-clients-schema");
+    const { ensureClientsColumns, ensureOnboardingColumns, ensureTaskColumns, ensurePayrollTables, ensureClientRequestTables, ensureSmsTable, ensureIntercoTables } = await import("./ensure-clients-schema");
     await ensureClientsColumns();
     await ensureOnboardingColumns();
     await ensureTaskColumns();
     await ensurePayrollTables();
     await ensureClientRequestTables();
     await ensureSmsTable();
+    await ensureIntercoTables();
     // Repair legacy date rows stored in MILLISECONDS in a seconds column (they
     // render as year ~58000). Anything above year-2100-in-seconds is really ms → ÷1000.
     try {

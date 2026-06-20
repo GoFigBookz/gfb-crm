@@ -221,6 +221,44 @@ export async function ensurePayrollTables(): Promise<void> {
   }
 }
 
+/** Create the inter-company tracker tables (interco bill-back JEs, staging only). */
+export async function ensureIntercoTables(): Promise<void> {
+  const db = getDb();
+  try {
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS interco_periods (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period TEXT NOT NULL,
+      payerClientId INTEGER NOT NULL,
+      sourcePosted INTEGER DEFAULT 0,
+      sourcePostedBy INTEGER,
+      sourcePostedAt INTEGER,
+      intercoAccount TEXT,
+      offsetAccount TEXT,
+      status TEXT DEFAULT 'open' NOT NULL,
+      postedJeRef TEXT,
+      notes TEXT,
+      createdAt INTEGER,
+      updatedAt INTEGER
+    )`));
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS interco_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period TEXT NOT NULL,
+      payerClientId INTEGER NOT NULL,
+      counterpartyClientId INTEGER NOT NULL,
+      description TEXT,
+      category TEXT,
+      amount REAL DEFAULT 0,
+      source TEXT DEFAULT 'manual' NOT NULL,
+      sourceRef TEXT,
+      createdBy INTEGER,
+      createdAt INTEGER
+    )`));
+    console.log("[schema] interco tables ensured");
+  } catch (e) {
+    console.error("[schema] ensureIntercoTables failed:", e instanceof Error ? e.message : e);
+  }
+}
+
 /** Create the SMS messages table (texting clients via Android gateway). */
 export async function ensureSmsTable(): Promise<void> {
   const db = getDb();

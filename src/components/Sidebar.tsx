@@ -55,6 +55,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const payrollItems = [
     { to: "/payroll", icon: Wallet, label: "Payroll" },
     { to: "/employees", icon: Briefcase, label: "Employees" },
+    { to: "/interco", icon: ArrowRightLeft, label: "Inter-Company" },
   ];
 
   // Comms — inbound/outbound to clients.
