@@ -28,18 +28,18 @@ function baseScope(over: Partial<QuoteScope> = {}): QuoteScope {
   };
 }
 
-describe("transaction tiers (granular core base $150–$250)", () => {
-  it("floor base for the smallest band", () => {
-    expect(computeQuote(baseScope({ avgMonthlyTransactions: 10 })).recurringMonthly).toBe(150);
+describe("per-transaction core pricing ($2.50 → $1.50/txn)", () => {
+  it("$2.50/txn at low volume", () => {
+    expect(computeQuote(baseScope({ avgMonthlyTransactions: 10 })).recurringMonthly).toBe(25); // 10 × 2.50
   });
-  it("$190 base at 100 txns", () => {
-    expect(computeQuote(baseScope({ avgMonthlyTransactions: 100 })).recurringMonthly).toBe(190);
+  it("$2.25/txn at 100 txns", () => {
+    expect(computeQuote(baseScope({ avgMonthlyTransactions: 100 })).recurringMonthly).toBe(225); // 100 × 2.25
   });
-  it("$250 base capped at 250 txns", () => {
-    expect(computeQuote(baseScope({ avgMonthlyTransactions: 250 })).recurringMonthly).toBe(250);
+  it("$1.75/txn at 250 txns", () => {
+    expect(computeQuote(baseScope({ avgMonthlyTransactions: 250 })).recurringMonthly).toBe(440); // round5(250 × 1.75)
   });
-  it("base stays capped at $250 above 250 txns", () => {
-    expect(computeQuote(baseScope({ avgMonthlyTransactions: 1000 })).recurringMonthly).toBe(250);
+  it("$1.50/txn at high volume", () => {
+    expect(computeQuote(baseScope({ avgMonthlyTransactions: 1000 })).recurringMonthly).toBe(1500); // 1000 × 1.50
   });
 });
 
@@ -48,14 +48,14 @@ describe("bookkeeping frequency multiplier", () => {
     const monthly = computeQuote(baseScope({ avgMonthlyTransactions: 100, bookkeepingFrequency: "monthly" })).recurringMonthly;
     const quarterly = computeQuote(baseScope({ avgMonthlyTransactions: 100, bookkeepingFrequency: "quarterly" })).recurringMonthly;
     expect(quarterly).toBeLessThan(monthly);
-    expect(quarterly).toBe(135); // round5(190 * 0.7 ≈ 133)
+    expect(quarterly).toBe(160); // round5(225 × 0.7 = 157.5)
   });
 });
 
 describe("add-ons", () => {
   it("HST filing adds by cadence", () => {
     const q = computeQuote(baseScope({ avgMonthlyTransactions: 50, hasHST: true, hstPeriod: "quarterly" }));
-    expect(q.recurringMonthly).toBe(160 + 50);
+    expect(q.recurringMonthly).toBe(125 + 50);
     expect(q.monthlyLineItems.some((i) => i.label.includes("HST"))).toBe(true);
   });
   it("payroll = base + per employee, with run-frequency multiplier", () => {
@@ -75,11 +75,11 @@ describe("add-ons", () => {
   });
   it("sales platforms billed per platform", () => {
     const q = computeQuote(baseScope({ avgMonthlyTransactions: 50, salesPlatformCount: 2 }));
-    expect(q.recurringMonthly).toBe(160 + 2 * RATE_CARD.salesPlatform);
+    expect(q.recurringMonthly).toBe(125 + 2 * RATE_CARD.salesPlatform);
   });
   it("A/R, A/P, job costing each add their line", () => {
     const q = computeQuote(baseScope({ avgMonthlyTransactions: 50, invoicingByUs: true, billPayByUs: true, hasJobCosting: true }));
-    expect(q.recurringMonthly).toBe(160 + RATE_CARD.invoicingAR + RATE_CARD.billPayAP + RATE_CARD.jobCosting);
+    expect(q.recurringMonthly).toBe(125 + RATE_CARD.invoicingAR + RATE_CARD.billPayAP + RATE_CARD.jobCosting);
   });
   it("T5 line appears for dividends", () => {
     const q = computeQuote(baseScope({ avgMonthlyTransactions: 50, paysDividends: true }));

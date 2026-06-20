@@ -82,21 +82,15 @@ export type QuoteComparison = {
 export const RATE_CARD = {
   // Monthly base by transaction volume (includes recording, categorization,
   // reconciliation of ONE bank account, and a monthly close).
-  // Core transaction-processing base only ($150 floor → $250 max). Add-ons
-  // (HST, payroll, year-end, etc.) stack on top as separate line items.
-  transactionTiers: [
-    { max: 25, base: 150, label: "1–25 txns/mo" },
-    { max: 50, base: 160, label: "26–50 txns/mo" },
-    { max: 75, base: 175, label: "51–75 txns/mo" },
-    { max: 100, base: 190, label: "76–100 txns/mo" },
-    { max: 125, base: 200, label: "101–125 txns/mo" },
-    { max: 150, base: 210, label: "126–150 txns/mo" },
-    { max: 175, base: 220, label: "151–175 txns/mo" },
-    { max: 200, base: 230, label: "176–200 txns/mo" },
-    { max: 225, base: 240, label: "201–225 txns/mo" },
-    { max: 250, base: 250, label: "226–250 txns/mo" },
-  ] as Array<{ max: number; base: number; label: string }>,
-  highVolume: { floor: 250, perTxnOver750: 0, label: "250+ txns/mo (base capped)" },
+  // Core bookkeeping is priced PER TRANSACTION — $2.50/txn at low volume sliding
+  // down to $1.50/txn at high volume. base = transactions × the band's rate.
+  perTransactionRate: [
+    { max: 50, rate: 2.50, label: "$2.50/txn" },
+    { max: 100, rate: 2.25, label: "$2.25/txn" },
+    { max: 200, rate: 2.00, label: "$2.00/txn" },
+    { max: 400, rate: 1.75, label: "$1.75/txn" },
+    { max: Infinity, rate: 1.50, label: "$1.50/txn" },
+  ] as Array<{ max: number; rate: number; label: string }>,
 
   // How often we actually do the books changes the recurring labour.
   bookkeepingFrequencyMultiplier: { monthly: 1.0, quarterly: 0.7, annual: 0.45, none: 0.4 },
@@ -155,13 +149,10 @@ export function nearestPackage(monthly: number): PackageOption {
 
 function round5(n: number): number { return Math.round(n / 5) * 5; }
 
-function transactionBase(txns: number): { base: number; label: string } {
+function transactionBase(txns: number): { base: number; rate: number; label: string } {
   const t = Math.max(0, Math.round(txns || 0));
-  for (const tier of RATE_CARD.transactionTiers) {
-    if (t <= tier.max) return { base: tier.base, label: tier.label };
-  }
-  const hv = RATE_CARD.highVolume;
-  return { base: hv.floor + Math.ceil(t - 750) * hv.perTxnOver750, label: hv.label };
+  const band = RATE_CARD.perTransactionRate.find((b) => t <= b.max) ?? RATE_CARD.perTransactionRate[RATE_CARD.perTransactionRate.length - 1];
+  return { base: round5(t * band.rate), rate: band.rate, label: `${t} txns × ${band.label}` };
 }
 
 /** Build a full scope-based quote from a client's actual service scope. */
@@ -169,16 +160,16 @@ export function computeQuote(scope: QuoteScope): QuoteResult {
   const items: LineItem[] = [];
   const txns = Math.max(0, Math.round(scope.avgMonthlyTransactions || 0));
 
-  // 1) Transaction-volume base × bookkeeping-frequency labour multiplier.
-  const { base, label } = transactionBase(txns);
+  // 1) Per-transaction core bookkeeping × bookkeeping-frequency labour multiplier.
+  const { base, rate, label } = transactionBase(txns);
   const freqMult = RATE_CARD.bookkeepingFrequencyMultiplier[scope.bookkeepingFrequency] ?? 1.0;
   const baseAmount = base * freqMult;
   items.push({
     label: `Core bookkeeping — ${label}`,
     amount: baseAmount,
     rationale: freqMult === 1.0
-      ? `${txns} txns/mo, recorded + reconciled + monthly close (1 bank acct incl.)`
-      : `${txns} txns/mo at ${scope.bookkeepingFrequency} cadence (×${freqMult} labour)`,
+      ? `${txns} txns/mo @ $${rate}/txn, recorded + reconciled + monthly close`
+      : `${txns} txns/mo @ $${rate}/txn at ${scope.bookkeepingFrequency} cadence (×${freqMult} labour)`,
   });
 
   // 2) Extra accounts to reconcile.

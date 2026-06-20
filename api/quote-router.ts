@@ -51,6 +51,17 @@ export async function createAndSendDoc(opts: {
   return { documentId: doc.id, portalUrl: `/portal/${token}?tab=signatures` };
 }
 
+/** Next quote number, Q-1000+. Scans existing quote doc titles for the max. */
+export async function nextQuoteNumber(db: any): Promise<string> {
+  const rows = await db.select().from(signatureDocuments);
+  let max = 999;
+  for (const d of rows as any[]) {
+    const m = /Q-(\d+)/.exec(String(d.title || ""));
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `Q-${max + 1}`;
+}
+
 function servicesFromClient(client: any): string[] {
   const s: string[] = ["Bookkeeping & accounting", "Monthly reconciliation"];
   if (client.hasHST) s.push(`HST/GST filing (${client.hstPeriod || "quarterly"})`);
@@ -216,10 +227,11 @@ export const quoteRouter = createRouter({
       }
       const comparison = compareToFlatFee(quote.recurringMonthly, client.monthlyFee ?? null);
       const firm = getFirmSettings();
-      const content = renderQuoteHtml({ firm, clientName: client.name, clientCompany: client.company, quote, comparison });
+      const qNum = await nextQuoteNumber(db);
+      const content = renderQuoteHtml({ firm, clientName: client.name, clientCompany: client.company, quote, comparison, quoteNumber: qNum });
       const res = await createAndSendDoc({
         db, clientId: client.id, userId: ctx.user.id,
-        title: `Quote — ${client.company || client.name}`,
+        title: `Quote ${qNum} — ${client.company || client.name}`,
         description: `Scope-based quote · ${quote.recurringMonthly}/mo`,
         content, documentType: "custom", clientEmail: client.email || null,
       });

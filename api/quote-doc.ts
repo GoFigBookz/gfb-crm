@@ -18,8 +18,7 @@ function header(firm: FirmSettings, docTitle: string): string {
   return `
   <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid ${firm.accent};padding-bottom:16px;margin-bottom:24px;">
     <div>
-      <img src="${firm.logoDataUri}" alt="${esc(firm.displayName)}" style="height:64px;width:auto;display:block;margin-bottom:6px;" />
-      <div style="font-size:12px;color:#64748b;line-height:1.5;">${esc(firm.email)} · ${esc(firm.phone)}<br/>${esc(firm.website)}</div>
+      <img src="${firm.logoDataUri}" alt="${esc(firm.displayName)}" style="height:64px;width:auto;display:block;" />
     </div>
     <div style="text-align:right;">
       <div style="font-size:18px;font-weight:600;color:${firm.accent};text-transform:uppercase;letter-spacing:1px;">${esc(docTitle)}</div>
@@ -30,8 +29,9 @@ function header(firm: FirmSettings, docTitle: string): string {
 
 function footer(firm: FirmSettings): string {
   return `
-  <div style="border-top:1px solid #e2e8f0;margin-top:28px;padding-top:12px;font-size:11px;color:#94a3b8;text-align:center;">
-    ${esc(firm.legalName)} ${esc(firm.legalSuffix)} · GST/HST# ${esc(firm.hstNumber)} · ${esc(firm.website)}
+  <div style="border-top:1px solid #e2e8f0;margin-top:28px;padding-top:12px;font-size:11px;color:#94a3b8;text-align:center;line-height:1.6;">
+    <div style="color:#64748b;font-weight:600;">${esc(firm.displayName)} · ${esc(firm.email)} · ${esc(firm.phone)} · ${esc(firm.website)}</div>
+    ${esc(firm.legalName)} ${esc(firm.legalSuffix)} · GST/HST# ${esc(firm.hstNumber)}
   </div>`;
 }
 
@@ -42,7 +42,7 @@ function wrap(inner: string): string {
 /** Render the branded, scope-based quote document. */
 export function renderQuoteHtml(opts: {
   firm: FirmSettings; clientName: string; clientCompany?: string | null;
-  quote: QuoteResult; comparison: QuoteComparison;
+  quote: QuoteResult; comparison: QuoteComparison; quoteNumber?: string | null;
 }): string {
   const { firm, quote } = opts;
   // CLIENT-FACING: list what's INCLUDED (no per-line prices) + ONE total. The
@@ -51,7 +51,7 @@ export function renderQuoteHtml(opts: {
     <li style="margin:5px 0;">${esc(li.label)}</li>`).join("");
 
   return wrap(`
-    ${header(firm, "Quote")}
+    ${header(firm, opts.quoteNumber ? `Quote ${opts.quoteNumber}` : "Quote")}
     <p style="margin:0 0 4px;">Prepared for</p>
     <div style="font-size:18px;font-weight:600;margin-bottom:18px;">${esc(opts.clientCompany || opts.clientName)}</div>
 
