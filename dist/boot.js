@@ -22363,6 +22363,7 @@ __export(schema_exports, {
   satisfactionScores: () => satisfactionScores,
   senderRules: () => senderRules,
   signatureDocuments: () => signatureDocuments,
+  smsMessages: () => smsMessages,
   tasks: () => tasks,
   timeEntries: () => timeEntries,
   timesheets: () => timesheets,
@@ -22373,7 +22374,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake;
+var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23317,6 +23318,21 @@ var init_schema = __esm({
       notes: text("notes"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    smsMessages = sqliteTable("sms_messages", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId"),
+      // matched by phone, nullable
+      direction: text("direction", { enum: ["inbound", "outbound"] }).notNull(),
+      counterparty: text("counterparty").notNull(),
+      // the client's phone (normalized digits)
+      body: text("body").notNull(),
+      status: text("status", { enum: ["received", "queued", "sent", "failed"] }).default("received").notNull(),
+      externalId: text("externalId"),
+      // gateway message id
+      read: integer2("read", { mode: "boolean" }).default(false),
+      sentBy: integer2("sentBy"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
     clientRequests = sqliteTable("client_requests", {
       id: integer2("id").primaryKey({ autoIncrement: true }),
@@ -45611,6 +45627,126 @@ var init_client_request_router = __esm({
   }
 });
 
+// api/message-router.ts
+var message_router_exports = {};
+__export(message_router_exports, {
+  ingestInboundSms: () => ingestInboundSms,
+  messageRouter: () => messageRouter,
+  normalizePhone: () => normalizePhone
+});
+function normalizePhone(raw2) {
+  const d = (raw2 || "").replace(/\D/g, "");
+  return d.length > 10 ? d.slice(-10) : d;
+}
+async function matchClientByPhone(phone) {
+  const db = getDb();
+  const norm5 = normalizePhone(phone);
+  if (!norm5) return null;
+  const all = await db.select().from(clients);
+  const hit = all.find((c) => normalizePhone(c.phone || "") === norm5);
+  return hit ? { id: hit.id, name: hit.name } : null;
+}
+async function ingestInboundSms(from, body, externalId) {
+  const db = getDb();
+  const counterparty = normalizePhone(from);
+  const client = await matchClientByPhone(from);
+  const [row] = await db.insert(smsMessages).values({
+    clientId: client?.id ?? null,
+    direction: "inbound",
+    counterparty,
+    body,
+    status: "received",
+    externalId: externalId ? String(externalId) : null,
+    read: false
+  }).returning();
+  return row;
+}
+async function gatewaySend(toDigits, body) {
+  const url2 = process.env.SMS_GATEWAY_URL;
+  const user = process.env.SMS_GATEWAY_USER;
+  const pass = process.env.SMS_GATEWAY_PASS;
+  if (!url2 || !user || !pass) return { ok: false, error: "SMS gateway not configured" };
+  try {
+    const res = await fetch(url2, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Basic " + Buffer.from(`${user}:${pass}`).toString("base64") },
+      body: JSON.stringify({ message: body, phoneNumbers: [toDigits] })
+    });
+    if (!res.ok) return { ok: false, error: `gateway ${res.status}` };
+    const j = await res.json().catch(() => ({}));
+    return { ok: true, id: j?.id ?? j?.messageId ?? void 0 };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "send failed" };
+  }
+}
+var messageRouter;
+var init_message_router = __esm({
+  "api/message-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    messageRouter = createRouter({
+      // Conversation list: one entry per counterparty, latest message + unread count.
+      threads: staffQuery.query(async () => {
+        const db = getDb();
+        const rows = await db.select().from(smsMessages).orderBy(desc(smsMessages.createdAt));
+        const cs = await db.select().from(clients);
+        const nameById = new Map(cs.map((c) => [c.id, c.name]));
+        const byParty = /* @__PURE__ */ new Map();
+        for (const m of rows) {
+          let t2 = byParty.get(m.counterparty);
+          if (!t2) {
+            t2 = { counterparty: m.counterparty, clientId: m.clientId, clientName: m.clientId ? nameById.get(m.clientId) : null, last: m, unread: 0 };
+            byParty.set(m.counterparty, t2);
+          }
+          if (m.direction === "inbound" && !m.read) t2.unread++;
+          if (m.clientId && !t2.clientId) {
+            t2.clientId = m.clientId;
+            t2.clientName = nameById.get(m.clientId);
+          }
+        }
+        return Array.from(byParty.values());
+      }),
+      unreadCount: staffQuery.query(async () => {
+        const db = getDb();
+        const rows = await db.select().from(smsMessages).where(and(eq(smsMessages.direction, "inbound"), eq(smsMessages.read, false)));
+        return rows.length;
+      }),
+      thread: staffQuery.input(external_exports.object({ counterparty: external_exports.string() })).query(async ({ input }) => {
+        const db = getDb();
+        const cp = normalizePhone(input.counterparty);
+        return db.select().from(smsMessages).where(eq(smsMessages.counterparty, cp)).orderBy(smsMessages.createdAt);
+      }),
+      markRead: staffQuery.input(external_exports.object({ counterparty: external_exports.string() })).mutation(async ({ input }) => {
+        const db = getDb();
+        await db.update(smsMessages).set({ read: true }).where(and(eq(smsMessages.counterparty, normalizePhone(input.counterparty)), eq(smsMessages.direction, "inbound")));
+        return { success: true };
+      }),
+      send: staffQuery.input(external_exports.object({ counterparty: external_exports.string().min(7), body: external_exports.string().min(1) })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const cp = normalizePhone(input.counterparty);
+        const client = await matchClientByPhone(input.counterparty);
+        const sent = await gatewaySend(cp, input.body);
+        const [row] = await db.insert(smsMessages).values({
+          clientId: client?.id ?? null,
+          direction: "outbound",
+          counterparty: cp,
+          body: input.body,
+          status: sent.ok ? "sent" : "failed",
+          externalId: sent.id ?? null,
+          read: true,
+          sentBy: ctx.user.id
+        }).returning();
+        return { success: sent.ok, error: sent.error, message: row };
+      }),
+      // Whether outbound sending is wired up yet (UI hint).
+      gatewayStatus: staffQuery.query(() => ({ configured: !!(process.env.SMS_GATEWAY_URL && process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASS) }))
+    });
+  }
+});
+
 // api/engagement-letter-router.ts
 var engagementLetterRouter;
 var init_engagement_letter_router = __esm({
@@ -49672,6 +49808,7 @@ var init_router = __esm({
     init_employee_router();
     init_payroll_router();
     init_client_request_router();
+    init_message_router();
     init_engagement_letter_router();
     init_signature_router();
     init_playbook_router();
@@ -49712,6 +49849,7 @@ var init_router = __esm({
       employee: employeeRouter,
       payroll: payrollRouter,
       clientRequest: clientRequestRouter,
+      message: messageRouter,
       engagementLetter: engagementLetterRouter,
       public: publicRouter,
       clientDashboard: clientDashboardRouter,
@@ -51723,6 +51861,7 @@ __export(ensure_clients_schema_exports, {
   ensureClientsColumns: () => ensureClientsColumns,
   ensureOnboardingColumns: () => ensureOnboardingColumns,
   ensurePayrollTables: () => ensurePayrollTables,
+  ensureSmsTable: () => ensureSmsTable,
   ensureTaskColumns: () => ensureTaskColumns
 });
 async function ensureClientsColumns() {
@@ -51860,6 +51999,26 @@ async function ensurePayrollTables() {
     console.log("[schema] payroll tables ensured");
   } catch (e) {
     console.error("[schema] ensurePayrollTables failed:", e instanceof Error ? e.message : e);
+  }
+}
+async function ensureSmsTable() {
+  const db = getDb();
+  try {
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS sms_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER,
+      direction TEXT NOT NULL,
+      counterparty TEXT NOT NULL,
+      body TEXT NOT NULL,
+      status TEXT DEFAULT 'received' NOT NULL,
+      externalId TEXT,
+      read INTEGER DEFAULT 0,
+      sentBy INTEGER,
+      createdAt INTEGER
+    )`));
+    console.log("[schema] sms_messages table ensured");
+  } catch (e) {
+    console.error("[schema] ensureSmsTable failed:", e instanceof Error ? e.message : e);
   }
 }
 async function ensureClientRequestTables() {
@@ -56829,6 +56988,30 @@ app.post("/api/admin/import-clients", async (c) => {
     return c.json({ success: false, error: message2 }, 500);
   }
 });
+app.post("/api/sms/inbound", async (c) => {
+  const secret = c.req.header("x-sms-secret") || c.req.query("secret") || "";
+  if (secret !== (process.env.SMS_WEBHOOK_SECRET || "figgy-sms-2026")) {
+    return c.json({ success: false, error: "Invalid SMS secret" }, 401);
+  }
+  let body = {};
+  try {
+    body = await c.req.json();
+  } catch {
+  }
+  try {
+    const { ingestInboundSms: ingestInboundSms2 } = await Promise.resolve().then(() => (init_message_router(), message_router_exports));
+    const p = body?.payload ?? body ?? {};
+    const from = String(p.phoneNumber ?? p.from ?? p.address ?? p.sender ?? "");
+    const text2 = String(p.message ?? p.text ?? p.body ?? "");
+    const externalId = p.messageId ?? p.id ?? null;
+    if (!from || !text2) return c.json({ success: false, error: "missing from/message" }, 400);
+    const saved = await ingestInboundSms2(from, text2, externalId);
+    return c.json({ success: true, id: saved?.id ?? null });
+  } catch (e) {
+    console.error("[sms] inbound failed:", e instanceof Error ? e.message : e);
+    return c.json({ success: false, error: "ingest failed" }, 500);
+  }
+});
 app.post("/api/admin/figgy", async (c) => {
   const token = c.req.header("x-agent-token") || "";
   if (token !== (process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026")) {
@@ -57244,12 +57427,13 @@ async function startServer() {
   const { serveStaticFiles: serveStaticFiles2 } = await Promise.resolve().then(() => (init_vite(), vite_exports));
   serveStaticFiles2(app);
   try {
-    const { ensureClientsColumns: ensureClientsColumns2, ensureOnboardingColumns: ensureOnboardingColumns2, ensureTaskColumns: ensureTaskColumns2, ensurePayrollTables: ensurePayrollTables2, ensureClientRequestTables: ensureClientRequestTables2 } = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
+    const { ensureClientsColumns: ensureClientsColumns2, ensureOnboardingColumns: ensureOnboardingColumns2, ensureTaskColumns: ensureTaskColumns2, ensurePayrollTables: ensurePayrollTables2, ensureClientRequestTables: ensureClientRequestTables2, ensureSmsTable: ensureSmsTable2 } = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
     await ensureClientsColumns2();
     await ensureOnboardingColumns2();
     await ensureTaskColumns2();
     await ensurePayrollTables2();
     await ensureClientRequestTables2();
+    await ensureSmsTable2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
