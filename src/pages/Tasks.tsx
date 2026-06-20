@@ -27,6 +27,8 @@ export default function Tasks() {
   const [isRecurringOpen, setIsRecurringOpen] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [openTask, setOpenTask] = useState<any | null>(null);
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<string | null>(null);
 
   // Handle ?tab=overdue|today|upcoming from dashboard drill-down
   const tabParam = searchParams.get("tab");
@@ -458,20 +460,35 @@ export default function Tasks() {
         ];
         const order = ["todo", "in_progress", "review", "done"];
         const stageOf = (t: any) => t.stage || (t.completed ? "done" : "todo");
+        const drop = (stage: string) => {
+          if (draggingId != null) {
+            const t = filteredTasks.find((x) => x.id === draggingId);
+            if (t && stageOf(t) !== stage) setStage.mutate({ id: draggingId, stage: stage as any });
+          }
+          setDraggingId(null);
+          setDragOverStage(null);
+        };
         return (
           <div className="flex gap-3 overflow-x-auto pb-4">
             {STAGES.map(([stage, label, color]) => {
               const col = filteredTasks.filter((t) => stageOf(t) === stage);
               const idx = order.indexOf(stage);
               return (
-                <div key={stage} className="flex flex-col gap-2 min-w-[250px] flex-1">
+                <div key={stage} className="flex flex-col gap-2 min-w-[250px] flex-1"
+                  onDragOver={(e) => { e.preventDefault(); setDragOverStage(stage); }}
+                  onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOverStage(null); }}
+                  onDrop={() => drop(stage)}>
                   <div className={cn("flex items-center justify-between p-2.5 rounded-lg", color)}>
                     <h3 className="font-semibold text-sm">{label}</h3>
                     <Badge variant="outline" className="bg-white/60">{col.length}</Badge>
                   </div>
-                  <div className="flex flex-col gap-2">
+                  <div className={cn("flex flex-col gap-2 min-h-[120px] rounded-lg transition-colors p-1",
+                    dragOverStage === stage && "bg-lime-50 ring-2 ring-lime-300 ring-inset")}>
                     {col.map((task) => (
-                      <Card key={task.id} className="hover:shadow-md transition-shadow">
+                      <Card key={task.id} draggable
+                        onDragStart={(e) => { setDraggingId(task.id); e.dataTransfer.effectAllowed = "move"; }}
+                        onDragEnd={() => { setDraggingId(null); setDragOverStage(null); }}
+                        className={cn("hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing", draggingId === task.id && "opacity-40")}>
                         <CardContent className="p-2.5">
                           <div className="cursor-pointer" onClick={() => setOpenTask(task)}>
                             <p className={cn("text-sm font-medium", task.completed && "line-through text-slate-500")}>{task.title}</p>
@@ -492,7 +509,7 @@ export default function Tasks() {
                         </CardContent>
                       </Card>
                     ))}
-                    {col.length === 0 && <div className="text-center py-6 text-slate-300 text-xs border-2 border-dashed border-slate-200 rounded-lg">—</div>}
+                    {col.length === 0 && <div className="text-center py-6 text-slate-300 text-xs border-2 border-dashed border-slate-200 rounded-lg">Drop here</div>}
                   </div>
                 </div>
               );
