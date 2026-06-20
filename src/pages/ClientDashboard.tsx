@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { computeT5Boxes } from "../../api/dividend-core";
 import { useParams, Link, useNavigate } from "react-router";
 import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1215,7 +1216,33 @@ function ComplianceTab({ clientId, client, closeStatus, tasks }: {
   const { data: dividends } = trpc.dividend.list.useQuery({ clientId }, { enabled: dividendsOn });
   const addDiv = trpc.dividend.add.useMutation({ onSuccess: () => utils.dividend.list.invalidate({ clientId }) });
   const delDiv = trpc.dividend.delete.useMutation({ onSuccess: () => utils.dividend.list.invalidate({ clientId }) });
-  const [d, setD] = useState({ recipient: "", amount: "", dividendType: "non_eligible", paymentDate: "" });
+  const [d, setD] = useState({ recipient: "", recipientSin: "", amount: "", dividendType: "non_eligible", paymentDate: "" });
+  // Live T5 preview for the amount/type being entered (gross-up + DTC).
+  const t5Preview = d.amount ? computeT5Boxes(parseFloat(d.amount) || 0, d.dividendType as any) : null;
+  // T5 slip printing.
+  const [t5Year, setT5Year] = useState(new Date().getFullYear());
+  const [sinCode, setSinCode] = useState("");
+  const { data: t5 } = trpc.dividend.t5Slips.useQuery({ clientId, year: t5Year }, { enabled: dividendsOn });
+  const revealRecipientSin = trpc.dividend.revealRecipientSin.useMutation();
+  const [printing, setPrinting] = useState(false);
+
+  const printT5Slips = async () => {
+    if (!t5 || t5.slips.length === 0) { alert("No dividends logged for " + t5Year + "."); return; }
+    setPrinting(true);
+    try {
+      // Reveal SINs if a code was entered (otherwise slips print masked).
+      const sinByRecipient: Record<string, string> = {};
+      if (sinCode.trim()) {
+        for (const s of t5.slips) {
+          if (!s.hasSin) continue;
+          const r = await revealRecipientSin.mutateAsync({ clientId, recipient: s.recipient, code: sinCode.trim() });
+          if (!r.ok) { alert(r.reason || "Could not reveal SIN."); break; }
+          if (r.sin) sinByRecipient[s.recipient] = r.sin;
+        }
+      }
+      printT5Html(t5, sinByRecipient);
+    } finally { setPrinting(false); }
+  };
 
   // Filing obligations = compliance-category tasks (HST/WSIB/T4/T5), open first.
   const filings = (tasks || [])
@@ -1299,8 +1326,9 @@ function ComplianceTab({ clientId, client, closeStatus, tasks }: {
             <CardDescription>Shareholder dividends for the year — feeds the T5 filing reminder.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
               <div><Label className="text-xs">Recipient</Label><Input value={d.recipient} onChange={(e) => setD({ ...d, recipient: e.target.value })} placeholder="Shareholder" /></div>
+              <div><Label className="text-xs">SIN <span className="text-slate-400">(hidden)</span></Label><Input value={d.recipientSin} onChange={(e) => setD({ ...d, recipientSin: e.target.value })} placeholder="000-000-000" /></div>
               <div><Label className="text-xs">Amount</Label><Input type="number" value={d.amount} onChange={(e) => setD({ ...d, amount: e.target.value })} placeholder="0.00" /></div>
               <div><Label className="text-xs">Type</Label>
                 <Select value={d.dividendType} onValueChange={(v) => setD({ ...d, dividendType: v })}>
@@ -1310,10 +1338,15 @@ function ComplianceTab({ clientId, client, closeStatus, tasks }: {
               </div>
               <div><Label className="text-xs">Date</Label><Input type="date" value={d.paymentDate} onChange={(e) => setD({ ...d, paymentDate: e.target.value })} /></div>
               <Button size="sm" disabled={addDiv.isPending || !d.amount} onClick={() => {
-                addDiv.mutate({ clientId, recipient: d.recipient.trim() || undefined, amount: parseFloat(d.amount) || 0, dividendType: d.dividendType as any, paymentDate: d.paymentDate ? new Date(d.paymentDate) : undefined });
-                setD({ recipient: "", amount: "", dividendType: "non_eligible", paymentDate: "" });
+                addDiv.mutate({ clientId, recipient: d.recipient.trim() || undefined, recipientSin: d.recipientSin.trim() || undefined, amount: parseFloat(d.amount) || 0, dividendType: d.dividendType as any, paymentDate: d.paymentDate ? new Date(d.paymentDate) : undefined });
+                setD({ recipient: "", recipientSin: "", amount: "", dividendType: "non_eligible", paymentDate: "" });
               }}><Plus className="h-3.5 w-3.5 mr-1" /> Add</Button>
             </div>
+            {t5Preview && (
+              <p className="text-xs text-slate-500">
+                T5 calc → taxable (box {t5Preview.taxableBox}) <b>${t5Preview.taxable.toLocaleString()}</b> · dividend tax credit (box {t5Preview.dtcBox}) <b>${t5Preview.dtc.toLocaleString()}</b>
+              </p>
+            )}
             {(dividends && dividends.length > 0) ? (
               <div className="space-y-1">
                 {dividends.map((dv: any) => (
@@ -1333,8 +1366,71 @@ function ComplianceTab({ clientId, client, closeStatus, tasks }: {
           </CardContent>
         </Card>
       )}
+
+      {/* T5 slip printing */}
+      {dividendsOn && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4 text-blue-500" /> Print T5 slips</CardTitle>
+            <CardDescription>Generates a printable T5 per recipient (gross-up + dividend tax credit) for the year. Enter the SIN code to print SINs; leave blank to print masked.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-end gap-2">
+            <div><Label className="text-xs">Tax year</Label><Input type="number" className="w-28" value={t5Year} onChange={(e) => setT5Year(Number(e.target.value) || new Date().getFullYear())} /></div>
+            <div><Label className="text-xs">SIN reveal code</Label><Input type="password" className="w-40" value={sinCode} onChange={(e) => setSinCode(e.target.value)} placeholder="optional" /></div>
+            <Button size="sm" disabled={printing} onClick={printT5Slips}><FileText className="h-3.5 w-3.5 mr-1" /> {printing ? "Preparing…" : `Print T5 slips (${t5?.slips.length ?? 0})`}</Button>
+            <span className="text-xs text-slate-400">{t5?.slips.length ? `${t5.slips.length} recipient(s) for ${t5Year}` : `No dividends for ${t5Year}`}</span>
+          </CardContent>
+        </Card>
+      )}
     </>
   );
+}
+
+/** Open a clean print window with one T5 slip per recipient and trigger print. */
+function printT5Html(t5: any, sinByRecipient: Record<string, string>) {
+  const esc = (s: any) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
+  const money = (n: number) => `$${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const payer = t5.payer || { name: "", address: "", bn: "" };
+  const slips = t5.slips.map((s: any) => {
+    const sin = sinByRecipient[s.recipient];
+    const sinLine = sin ? esc(sin) : "•••-•••-•••";
+    return `
+      <div class="slip">
+        <div class="slip-head"><h2>T5 — Statement of Investment Income</h2><span>${t5.year}</span></div>
+        <div class="row"><div><b>Payer</b><br>${esc(payer.name)}<br>${esc(payer.address)}<br>BN: ${esc(payer.bn)}</div>
+        <div><b>Recipient</b><br>${esc(s.recipient)}<br>SIN: ${sinLine}</div></div>
+        <table>
+          <tr><th>Box</th><th>Description</th><th>Amount</th></tr>
+          <tr><td>24</td><td>Actual amount of eligible dividends</td><td>${money(s.eligible.actual)}</td></tr>
+          <tr><td>25</td><td>Taxable amount of eligible dividends</td><td>${money(s.eligible.taxable)}</td></tr>
+          <tr><td>26</td><td>Dividend tax credit (eligible)</td><td>${money(s.eligible.dtc)}</td></tr>
+          <tr><td>10</td><td>Actual amount of non-eligible dividends</td><td>${money(s.nonEligible.actual)}</td></tr>
+          <tr><td>11</td><td>Taxable amount of non-eligible dividends</td><td>${money(s.nonEligible.taxable)}</td></tr>
+          <tr><td>12</td><td>Dividend tax credit (non-eligible)</td><td>${money(s.nonEligible.dtc)}</td></tr>
+        </table>
+        <p class="note">Total dividends paid: <b>${money(s.totalActual)}</b> · Total taxable: ${money(s.totalTaxable)} · Total DTC: ${money(s.totalDtc)}</p>
+      </div>`;
+  }).join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>T5 slips ${t5.year}</title>
+    <style>
+      body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#0f172a;margin:24px;}
+      .slip{border:1px solid #cbd5e1;border-radius:8px;padding:18px;margin-bottom:18px;page-break-inside:avoid;}
+      .slip-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #0f172a;padding-bottom:6px;margin-bottom:12px;}
+      .slip-head h2{font-size:16px;margin:0;} .slip-head span{font-weight:700;}
+      .row{display:flex;justify-content:space-between;gap:24px;margin-bottom:12px;font-size:13px;line-height:1.5;}
+      table{width:100%;border-collapse:collapse;font-size:13px;} th,td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left;}
+      th:last-child,td:last-child{text-align:right;} th{background:#f1f5f9;}
+      .note{font-size:12px;color:#475569;margin-top:10px;}
+      @media print{button{display:none;}}
+    </style></head><body>
+    <button onclick="window.print()" style="margin-bottom:16px;padding:8px 14px;border:0;background:#65a30d;color:#fff;border-radius:6px;cursor:pointer;">Print</button>
+    ${slips}
+    <script>window.onload=function(){setTimeout(function(){window.print();},300);};</script>
+    </body></html>`;
+  const w = window.open("", "_blank");
+  if (!w) { alert("Allow pop-ups to print T5 slips."); return; }
+  w.document.write(html);
+  w.document.close();
 }
 
 // Edit Intake Dialog — clean up a client's record (client-level + onboarding).

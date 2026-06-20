@@ -986,12 +986,21 @@ async function startServer() {
         }
       }
     } catch (e) { console.error("[normalize] payroll features seed failed (non-fatal):", e instanceof Error ? e.message : e); }
-    // Privacy: we do NOT store SINs in the CRM. Scrub any that exist (idempotent).
+    // SINs are stored ENCRYPTED at rest (revealed only via the FIGGY_SIN_PIN
+    // code gate). Encrypt any legacy plaintext SINs in place. Idempotent.
     try {
       const { getDb } = await import("./queries/connection");
-      const { sql } = await import("drizzle-orm");
-      await getDb().run(sql.raw(`UPDATE employees SET sin = NULL WHERE sin IS NOT NULL`));
-    } catch (e) { console.error("[privacy] SIN scrub failed (non-fatal):", e instanceof Error ? e.message : e); }
+      const { employees } = await import("../db/schema");
+      const { eq } = await import("drizzle-orm");
+      const { encryptSecret, isEncrypted } = await import("./sensitive");
+      const db = getDb();
+      const rows = (await db.select().from(employees)) as any[];
+      for (const e of rows) {
+        if (e.sin && !isEncrypted(e.sin)) {
+          await db.update(employees).set({ sin: encryptSecret(String(e.sin)) }).where(eq(employees.id, e.id));
+        }
+      }
+    } catch (e) { console.error("[privacy] SIN encrypt-at-rest failed (non-fatal):", e instanceof Error ? e.message : e); }
     if (process.env.FIGGY_SKIP_EMPLOYEE_SEED !== "on") {
       try { const { seedPayrollEmployees } = await import("./seed-payroll-employees"); await seedPayrollEmployees(); }
       catch (e) { console.error("[seed] payroll employees failed (non-fatal):", e instanceof Error ? e.message : e); }
