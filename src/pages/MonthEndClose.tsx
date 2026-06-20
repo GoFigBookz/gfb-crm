@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +16,12 @@ const TEXT: Record<string, string> = { red: "text-red-600", yellow: "text-amber-
  */
 export default function MonthEndClose() {
   const { data, isLoading } = trpc.monthEnd.getPortfolio.useQuery({});
+  // Default to the clients that are actually in their close window this month —
+  // monthly/payroll always, quarterly/annual only in their period. Toggle to
+  // see everyone (e.g. to peek at an annual client mid-year). Wholesale
+  // (flow-through) clients are never on this board.
+  const [showAll, setShowAll] = useState(false);
+  const rows = (data?.clients ?? []).filter((c: any) => showAll || c.relevantThisPeriod);
 
   return (
     <div className="space-y-6">
@@ -26,7 +33,7 @@ export default function MonthEndClose() {
       {/* Summary tiles */}
       {data && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <SummaryTile label="Clients" value={data.summary.total} />
+          <SummaryTile label="In close this month" value={data.summary.relevant} />
           <SummaryTile label="Behind" value={data.summary.red} className="text-red-600" />
           <SummaryTile label="Needs attention" value={data.summary.yellow} className="text-amber-600" />
           <SummaryTile label="On track" value={data.summary.green} className="text-emerald-600" />
@@ -35,14 +42,20 @@ export default function MonthEndClose() {
       )}
 
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Clients</CardTitle>
+        <CardHeader className="pb-2 flex-row items-center justify-between gap-2">
+          <CardTitle className="text-base">Clients{!showAll && data ? ` in close (${data.summary.relevant})` : ""}</CardTitle>
+          {data && data.summary.offCadence > 0 && (
+            <button onClick={() => setShowAll((s) => !s)}
+              className="text-xs font-medium text-lime-700 hover:underline">
+              {showAll ? `Show only this month's (${data.summary.relevant})` : `Show all incl. ${data.summary.offCadence} off-cadence`}
+            </button>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
             <p className="text-slate-400 p-6 text-sm">Loading…</p>
-          ) : !data || data.clients.length === 0 ? (
-            <p className="text-slate-400 p-6 text-sm">No active clients.</p>
+          ) : rows.length === 0 ? (
+            <p className="text-slate-400 p-6 text-sm">No clients in their close window this month.</p>
           ) : (
             <div className="divide-y">
               {/* header row */}
@@ -54,14 +67,17 @@ export default function MonthEndClose() {
                 <div className="col-span-2">Checklist</div>
                 <div className="col-span-1" />
               </div>
-              {data.clients.map((c) => (
+              {rows.map((c: any) => (
                 <Link key={c.clientId} to={`/client/${c.clientId}`}
-                  className="grid grid-cols-12 gap-2 px-4 py-3 items-center hover:bg-slate-50 transition-colors">
+                  className={cn("grid grid-cols-12 gap-2 px-4 py-3 items-center hover:bg-slate-50 transition-colors", !c.relevantThisPeriod && "opacity-60")}>
                   <div className="col-span-12 md:col-span-4 flex items-center gap-2">
                     <span className={cn("inline-block w-2.5 h-2.5 rounded-full shrink-0", DOT[c.status])} />
                     <div className="min-w-0">
                       <p className="font-medium text-sm truncate flex items-center gap-1.5">
                         {c.clientName}
+                        {c.clientType && c.clientType !== "monthly" && (
+                          <span className="text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 capitalize whitespace-nowrap">{c.clientType}</span>
+                        )}
                         {c.missing && c.missing.length > 0 && (
                           <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 whitespace-nowrap">
                             ⚠ missing {c.missing.join(", ")}

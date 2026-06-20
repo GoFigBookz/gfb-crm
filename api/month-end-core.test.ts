@@ -2,7 +2,7 @@
  * Tests for the month-end close status core (pure date/status math).
  */
 import { describe, it, expect } from "vitest";
-import { computeHstStatus, computeYearEndStatus, rollUpCloseStatus } from "./month-end-core";
+import { computeHstStatus, computeYearEndStatus, rollUpCloseStatus, isOperationalClient, isRelevantForPeriod } from "./month-end-core";
 
 const D = (s: string) => new Date(s + "T00:00:00Z");
 
@@ -113,5 +113,41 @@ describe("rollUpCloseStatus", () => {
     const r = rollUpCloseStatus({ toReview: 0, checklistPercent: 40, hst: okHst, yearEnd: okYe });
     expect(r.status).toBe("yellow");
     expect(r.reasons.some((x) => /checklist 40%/.test(x))).toBe(true);
+  });
+});
+
+describe("client type — operational + close-board relevance", () => {
+  it("wholesale is not operational; everything else is", () => {
+    expect(isOperationalClient("wholesale")).toBe(false);
+    expect(isOperationalClient("monthly")).toBe(true);
+    expect(isOperationalClient(null)).toBe(true); // default monthly
+  });
+
+  it("wholesale is never relevant to the close board", () => {
+    expect(isRelevantForPeriod({ clientType: "wholesale" }, D("2026-01-15"))).toBe(false);
+  });
+
+  it("monthly and payroll are always relevant", () => {
+    expect(isRelevantForPeriod({ clientType: "monthly" }, D("2026-05-15"))).toBe(true);
+    expect(isRelevantForPeriod({ clientType: "payroll" }, D("2026-05-15"))).toBe(true);
+  });
+
+  it("any payroll client stays relevant regardless of type", () => {
+    expect(isRelevantForPeriod({ clientType: "annual", hasPayroll: true }, D("2026-05-15"))).toBe(true);
+  });
+
+  it("quarterly is relevant only in post-quarter months (Jan/Apr/Jul/Oct)", () => {
+    expect(isRelevantForPeriod({ clientType: "quarterly" }, D("2026-04-10"))).toBe(true);
+    expect(isRelevantForPeriod({ clientType: "quarterly" }, D("2026-07-10"))).toBe(true);
+    expect(isRelevantForPeriod({ clientType: "quarterly" }, D("2026-05-10"))).toBe(false);
+  });
+
+  it("annual is relevant within 3 months after fiscal year-end", () => {
+    // Dec year-end → relevant Dec–Mar.
+    expect(isRelevantForPeriod({ clientType: "annual", yearEndMonth: "Dec" }, D("2026-02-10"))).toBe(true);
+    expect(isRelevantForPeriod({ clientType: "annual", yearEndMonth: "Dec" }, D("2026-07-10"))).toBe(false);
+    // Jun year-end → relevant Jun–Sep.
+    expect(isRelevantForPeriod({ clientType: "annual", yearEndMonth: "Jun" }, D("2026-08-10"))).toBe(true);
+    expect(isRelevantForPeriod({ clientType: "annual", yearEndMonth: "Jun" }, D("2026-02-10"))).toBe(false);
   });
 });

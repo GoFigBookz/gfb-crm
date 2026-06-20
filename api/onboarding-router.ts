@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { createRouter, staffQuery, seniorQuery, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { clientOnboarding, clients } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { clientOnboarding, clients, tasks, clientTaskRules } from "../db/schema";
+import { eq, and, ne } from "drizzle-orm";
+import { isOperationalClient } from "./month-end-core";
 import crypto from "crypto";
 import { createClientTaskRules } from "./task-generator";
 
@@ -410,6 +411,7 @@ export const onboardingRouter = createRouter({
       name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(),
       company: z.string().optional(), address: z.string().optional(), contactName: z.string().optional(),
       taxId: z.string().optional(), hstNumber: z.string().optional(), wsibAccountNumber: z.string().optional(),
+      clientType: z.enum(["monthly", "quarterly", "annual", "payroll", "wholesale"]).optional(),
       payrollRpNumber: z.string().optional(), monthlyFee: z.number().optional(), craRacDone: z.boolean().optional(),
       hasHST: z.boolean().optional(), hstPeriod: z.enum(["monthly", "quarterly", "annual"]).optional(),
       hasWSIB: z.boolean().optional(), hasPayroll: z.boolean().optional(),
@@ -445,11 +447,21 @@ export const onboardingRouter = createRouter({
 
       // client-level keys
       const clientKeys = ["name", "email", "phone", "company", "address", "contactName", "taxId", "hstNumber",
-        "wsibAccountNumber", "payrollRpNumber", "monthlyFee", "craRacDone", "hasHST", "hstPeriod", "hasWSIB", "hasPayroll",
+        "wsibAccountNumber", "clientType", "payrollRpNumber", "monthlyFee", "craRacDone", "hasHST", "hstPeriod", "hasWSIB", "hasPayroll",
         "payrollFrequency", "payrollRemitterFreq", "yearEndMonth"] as const;
+      const prior = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
       const clientPatch: Record<string, any> = { updatedAt: new Date() };
       for (const k of clientKeys) if ((rest as any)[k] !== undefined) clientPatch[k] = (rest as any)[k];
       if (Object.keys(clientPatch).length > 1) await db.update(clients).set(clientPatch).where(eq(clients.id, clientId));
+
+      // Switching a client TO wholesale (flow-through) pauses its open tasks +
+      // recurring rules — no close/quote/compliance work for a QBO-resale client.
+      if ((rest as any).clientType !== undefined &&
+          !isOperationalClient((rest as any).clientType) &&
+          isOperationalClient(prior?.clientType)) {
+        await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, clientId));
+        await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
+      }
 
       // onboarding-level keys
       const onbKeys = ["businessLegalName", "craBusinessNumber", "primaryContactName", "primaryContactEmail",

@@ -21,6 +21,40 @@
 
 export type HstPeriod = "monthly" | "quarterly" | "annual";
 export type Traffic = "green" | "yellow" | "red";
+export type ClientType = "monthly" | "quarterly" | "annual" | "payroll" | "wholesale";
+
+/** Wholesale = flow-through (we just resell QBO). It has no books to close, no
+ *  quote, and no recurring compliance tasks. Everything else is operational. */
+export function isOperationalClient(clientType: string | null | undefined): boolean {
+  return (clientType || "monthly") !== "wholesale";
+}
+
+/** Should this client surface on the close board for the month containing `asOf`?
+ *  - wholesale → never (it's not a bookkeeping engagement)
+ *  - monthly / payroll, or ANY payroll client → always (monthly cadence)
+ *  - quarterly → only in the months right after a calendar quarter ends
+ *    (Jan, Apr, Jul, Oct)
+ *  - annual → only within 3 months after the fiscal year-end month
+ *  This is what lets the board hide the annual/quarterly one-offs you don't
+ *  need to look at every month. */
+export function isRelevantForPeriod(
+  c: { clientType?: string | null; hasPayroll?: boolean | null; yearEndMonth?: string | null },
+  asOf: Date = new Date(),
+): boolean {
+  const type = (c.clientType || "monthly") as ClientType;
+  if (type === "wholesale") return false;
+  if (c.hasPayroll || type === "monthly" || type === "payroll") return true;
+  const m = asOf.getMonth(); // 0-11
+  if (type === "quarterly") return m === 0 || m === 3 || m === 6 || m === 9; // Jan/Apr/Jul/Oct
+  if (type === "annual") {
+    // Year-end month → relevant in fye month + next 3 (the close window).
+    const fyeIdx = c.yearEndMonth ? MONTHS.indexOf(c.yearEndMonth as MonthAbbr) : 11; // default Dec
+    if (fyeIdx < 0) return true;
+    const since = (m - fyeIdx + 12) % 12;
+    return since <= 3;
+  }
+  return true;
+}
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 export type MonthAbbr = (typeof MONTHS)[number];

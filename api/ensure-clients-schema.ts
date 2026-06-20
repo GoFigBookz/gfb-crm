@@ -23,6 +23,7 @@ import { sql } from "drizzle-orm";
 const COLUMNS: Array<[string, string]> = [
   ["phone", "text"], ["company", "text"], ["address", "text"], ["taxId", "text"],
   ["status", "text DEFAULT 'active'"],
+  ["clientType", "text DEFAULT 'monthly'"],
   ["workflowStatus", "text DEFAULT 'new_lead'"],
   ["leadSource", "text"], ["leadSourceDetail", "text"],
   ["discoveryDate", "integer"], ["nextAction", "text"], ["nextActionDate", "integer"],

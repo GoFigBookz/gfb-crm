@@ -146,6 +146,10 @@ export default function ClientDashboard() {
     ? Math.round((completedTasks.length / dashboardData.tasks.length) * 100)
     : 0;
 
+  // Wholesale (flow-through) clients have no close, no quote, no tasks — we just
+  // resell their QBO subscription. Hide the bookkeeping cockpit for them.
+  const isWholesale = (client as any)?.clientType === "wholesale";
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -159,6 +163,9 @@ export default function ClientDashboard() {
             <Badge variant={client.status === "active" ? "default" : "secondary"} className={client.status === "active" ? "bg-lime-500" : ""}>
               {client.status}
             </Badge>
+            {(client as any).clientType && (client as any).clientType !== "monthly" && (
+              <Badge variant="outline" className="capitalize">{(client as any).clientType === "wholesale" ? "Wholesale" : (client as any).clientType}</Badge>
+            )}
           </div>
           <p className="text-slate-500 mt-1">{client.company || client.email}</p>
         </div>
@@ -241,8 +248,17 @@ export default function ClientDashboard() {
         );
       })()}
 
+      {/* Wholesale (flow-through) banner */}
+      {isWholesale && (
+        <Card className="border-l-4 border-l-slate-400 bg-slate-50">
+          <CardContent className="p-4 text-sm text-slate-600">
+            🧾 <span className="font-medium text-slate-700">Wholesale / flow-through client.</span> We resell the QuickBooks subscription only — no month-end close, no quote, and no recurring compliance tasks. Change this under <span className="font-medium">Edit intake → Service type</span>.
+          </CardContent>
+        </Card>
+      )}
+
       {/* Month-End Close cockpit — where this client stands right now */}
-      {closeStatus && (
+      {!isWholesale && closeStatus && (
         <Card className={cn(
           "border-l-4",
           closeStatus.status === "red" ? "border-l-red-500" :
@@ -327,7 +343,7 @@ export default function ClientDashboard() {
       )}
 
       {/* Scope-based quote vs flat fee — am I undercharging? */}
-      {quote && (
+      {!isWholesale && quote && (
         <Card className={cn(
           "border-l-4",
           quote.comparison.verdict === "undercharging" ? "border-l-red-500" :
@@ -1158,6 +1174,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
     taxId: client.taxId || o.craBusinessNumber || "", hstNumber: client.hstNumber || "",
     wsibAccountNumber: client.wsibAccountNumber || o.wsibAccountNumber || "", payrollRpNumber: client.payrollRpNumber || "",
     craRacDone: !!client.craRacDone, monthlyFee: client.monthlyFee ?? 0,
+    clientType: client.clientType || "monthly",
     hasHST: !!client.hasHST, hstPeriod: client.hstPeriod || "quarterly",
     hasWSIB: !!client.hasWSIB, hasPayroll: !!client.hasPayroll,
     payrollFrequency: client.payrollFrequency || "bi-weekly",
@@ -1212,6 +1229,14 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
           {field("name", "Client name")}{field("company", "Company")}{field("contactName", "Contact name")}
           {field("email", "Email")}{field("phone", "Phone")}{field("address", "Address")}
         </div>
+
+        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Service type</p>
+        <div className="grid grid-cols-2 gap-2">
+          {sel("clientType", "Client type", [["monthly","Monthly bookkeeping"],["quarterly","Quarterly"],["annual","Annual / year-end only"],["payroll","Payroll"],["wholesale","Wholesale (flow-through — QBO resale only)"]])}
+        </div>
+        {f.clientType === "wholesale" && (
+          <p className="text-xs text-slate-500 -mt-1">Flow-through client: no month-end close, no quote, and no recurring compliance tasks. Switching to wholesale pauses any existing tasks.</p>
+        )}
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Compliance numbers</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">

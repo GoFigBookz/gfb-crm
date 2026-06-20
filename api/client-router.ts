@@ -5,6 +5,7 @@ import { clients, satisfactionScores, tasks, clientTaskRules } from "../db/schem
 import { eq, and, like, desc, ne } from "drizzle-orm";
 import { syncInsert, syncUpdate } from "./sync-hooks";
 import { createRecurringTasksForClient } from "./client-task-creator";
+import { isOperationalClient } from "./month-end-core";
 
 /** Deactivate a client's recurring rules + their not-yet-completed tasks so an
  *  inactive/archived client stops generating and showing work. Completed tasks
@@ -88,6 +89,7 @@ export const clientRouter = createRouter({
       address: z.string().optional(),
       taxId: z.string().max(50).optional(),
       status: z.enum(["active", "inactive", "prospect", "lead"]).optional().default("active"),
+      clientType: z.enum(["monthly", "quarterly", "annual", "payroll", "wholesale"]).optional(),
       leadSource: z.string().max(100).optional(),
       leadSourceDetail: z.string().max(255).optional(),
       assignedTo: z.enum(["Markie", "Rachelle"]).optional(),
@@ -131,8 +133,9 @@ export const clientRouter = createRouter({
       }).returning();
       if (client) syncInsert("clients", client);
 
-      // Auto-create recurring tasks if flags are set
-      if (client) {
+      // Auto-create recurring tasks if flags are set — but NOT for wholesale
+      // (flow-through) clients: they have no books, no close, no compliance tasks.
+      if (client && isOperationalClient(client.clientType)) {
         await createRecurringTasksForClient(
           client.id,
           ctx.user.id,
@@ -156,6 +159,7 @@ export const clientRouter = createRouter({
       address: z.string().optional(),
       taxId: z.string().max(50).optional(),
       status: z.enum(["active", "inactive", "prospect", "lead"]).optional(),
+      clientType: z.enum(["monthly", "quarterly", "annual", "payroll", "wholesale"]).optional(),
       workflowStatus: z.string().optional(),
       leadSource: z.string().max(100).optional(),
       leadSourceDetail: z.string().max(255).optional(),
@@ -224,12 +228,20 @@ export const clientRouter = createRouter({
         else if (currentClient.status === "inactive") await reactivateClientTasks(db, id);
       }
 
+      // If this client was switched TO wholesale (flow-through), pause all its
+      // recurring compliance tasks — there's no close/quote/tasks for a client
+      // we just resell QBO to. (Reversible: switch back + re-enable a flag.)
+      if (updated && !isOperationalClient(updated.clientType) && isOperationalClient(currentClient?.clientType)) {
+        await deactivateClientTasks(db, id);
+      }
+
       // Auto-create tasks if flags were newly enabled
       const wasHst = currentClient?.hasHST ?? false;
       const wasWsib = currentClient?.hasWSIB ?? false;
       const wasPayroll = currentClient?.hasPayroll ?? false;
 
-      if (updated) {
+      // Wholesale clients never generate compliance tasks.
+      if (updated && isOperationalClient(updated.clientType)) {
         await createRecurringTasksForClient(
           updated.id,
           ctx.user.id,
