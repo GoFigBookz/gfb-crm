@@ -45,10 +45,17 @@ export function renderQuoteHtml(opts: {
   quote: QuoteResult; comparison: QuoteComparison; quoteNumber?: string | null;
 }): string {
   const { firm, quote } = opts;
-  // CLIENT-FACING: list what's INCLUDED (no per-line prices) + ONE total. The
-  // granular per-line amounts stay internal (CRM only).
+  // CLIENT-FACING: clean service names only — strip ALL pricing/rate/qty detail
+  // and internal jargon (× $1.25/txn, amortized, wholesale, etc.).
+  const clean = (label: string) => label
+    .replace(/\s*—.*$/, "")                 // drop "— 750 txns × $1.25/txn"
+    .replace(/\s*\(wholesale[^)]*\)/i, "")  // drop "(wholesale, 17 emp)"
+    .replace(/,?\s*amortized/i, "")         // drop "amortized"
+    .replace(/\s*\$\d[\d,.]*/g, "")          // drop any stray $amounts
+    .replace(/\s*\(\s*\)/g, "")              // tidy empty ()
+    .trim();
   const included = quote.monthlyLineItems.map((li) => `
-    <li style="margin:5px 0;">${esc(li.label)}</li>`).join("");
+    <li style="margin:5px 0;">${esc(clean(li.label))}</li>`).join("");
 
   return wrap(`
     ${header(firm, opts.quoteNumber ? `Quote ${opts.quoteNumber}` : "Quote")}
