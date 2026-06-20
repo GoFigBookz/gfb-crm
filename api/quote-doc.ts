@@ -100,6 +100,31 @@ export function renderQuoteHtml(opts: {
   `);
 }
 
+/** Render a branded CRA Represent-a-Client (RAC) authorization request. */
+export function renderCraAuthRequestHtml(opts: {
+  firm: FirmSettings; clientName: string; clientCompany?: string | null;
+}): string {
+  const { firm } = opts;
+  const repLine = firm.craRepId
+    ? `our RepID <strong>${esc(firm.craRepId)}</strong>`
+    : `our RepID <strong style="color:#dc2626;">[RepID to be provided]</strong>`;
+  return wrap(`
+    ${header(firm, "CRA Authorization Request")}
+    <div style="font-size:16px;font-weight:600;margin-bottom:14px;">${esc(opts.clientCompany || opts.clientName)}</div>
+    <p>To let ${esc(firm.displayName)} manage your CRA accounts (file returns, view balances, handle correspondence), we need <strong>Represent a Client (RAC)</strong> authorization.</p>
+    <h3 style="color:${firm.accent};font-size:14px;text-transform:uppercase;letter-spacing:1px;margin-top:18px;">How to authorize us (2 minutes)</h3>
+    <ol style="margin:6px 0;padding-left:20px;line-height:1.8;">
+      <li>Sign in to <strong>CRA My Business Account</strong> (canada.ca → My Business Account).</li>
+      <li>Go to <strong>Profile → Authorized representatives → Authorize a representative</strong>.</li>
+      <li>Enter ${repLine}.</li>
+      <li>Set access to <strong>Level 2 (update)</strong> for all program accounts, and submit.</li>
+    </ol>
+    <p>Once you approve it, we'll get a confirmation and can take it from there. Reply to this if you'd like us to walk through it together.</p>
+    <p style="margin-top:16px;">By signing below you confirm you've authorized ${esc(firm.displayName)} (${repLine.replace(/<[^>]+>/g, "")}) as your CRA representative.</p>
+    ${footer(firm)}
+  `);
+}
+
 /** Render the branded letter of engagement. */
 export function renderEngagementHtml(opts: {
   firm: FirmSettings; clientName: string; clientCompany?: string | null;

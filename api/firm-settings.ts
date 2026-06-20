@@ -19,6 +19,7 @@ export type FirmSettings = {
   phone: string;
   email: string;
   website: string;
+  craRepId: string;       // our CRA Represent-a-Client RepID (for auth requests)
   logoDataUri: string;
   accent: string;         // brand accent color
 };
@@ -31,6 +32,8 @@ export const FIRM: FirmSettings = {
   phone: "416-456-5760",
   email: "markie@gofig.ca",
   website: "www.gofig.ca",
+  craRepId: "", // TODO: Markie's CRA Represent-a-Client RepID
+
   logoDataUri: GFB_LOGO_DATA_URI,
   accent: "#65a30d", // lime-600, matches the CRM
 };

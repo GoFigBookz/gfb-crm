@@ -22651,6 +22651,8 @@ var init_schema = __esm({
       qboAccountType: text("qboAccountType").default("ca_clients"),
       figgyEmail: text("figgyEmail"),
       contactName: text("contactName"),
+      // CRA Represent a Client (RAC) authorization status
+      craRacDone: integer2("craRacDone", { mode: "boolean" }).default(false),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
@@ -44076,6 +44078,7 @@ var init_onboarding_router = __esm({
         wsibAccountNumber: external_exports.string().optional(),
         payrollRpNumber: external_exports.string().optional(),
         monthlyFee: external_exports.number().optional(),
+        craRacDone: external_exports.boolean().optional(),
         hasHST: external_exports.boolean().optional(),
         hstPeriod: external_exports.enum(["monthly", "quarterly", "annual"]).optional(),
         hasWSIB: external_exports.boolean().optional(),
@@ -44135,6 +44138,7 @@ var init_onboarding_router = __esm({
           "wsibAccountNumber",
           "payrollRpNumber",
           "monthlyFee",
+          "craRacDone",
           "hasHST",
           "hstPeriod",
           "hasWSIB",
@@ -46292,6 +46296,8 @@ var init_firm_settings = __esm({
       phone: "416-456-5760",
       email: "markie@gofig.ca",
       website: "www.gofig.ca",
+      craRepId: "",
+      // TODO: Markie's CRA Represent-a-Client RepID
       logoDataUri: GFB_LOGO_DATA_URI,
       accent: "#65a30d"
       // lime-600, matches the CRM
@@ -46302,6 +46308,7 @@ var init_firm_settings = __esm({
 // api/quote-doc.ts
 var quote_doc_exports = {};
 __export(quote_doc_exports, {
+  renderCraAuthRequestHtml: () => renderCraAuthRequestHtml,
   renderEngagementHtml: () => renderEngagementHtml,
   renderQuoteHtml: () => renderQuoteHtml
 });
@@ -46379,6 +46386,25 @@ function renderQuoteHtml(opts) {
 
     <p style="font-size:12px;color:#64748b;margin-top:16px;">All amounts in CAD and exclusive of GST/HST. Quote valid for 30 days. Recurring fees billed monthly; scope reviewed if transaction volume or services change.</p>
     <p style="margin-top:18px;">By signing below, you accept this quote and authorize ${esc2(firm.displayName)} to proceed to a letter of engagement.</p>
+    ${footer(firm)}
+  `);
+}
+function renderCraAuthRequestHtml(opts) {
+  const { firm } = opts;
+  const repLine = firm.craRepId ? `our RepID <strong>${esc2(firm.craRepId)}</strong>` : `our RepID <strong style="color:#dc2626;">[RepID to be provided]</strong>`;
+  return wrap(`
+    ${header(firm, "CRA Authorization Request")}
+    <div style="font-size:16px;font-weight:600;margin-bottom:14px;">${esc2(opts.clientCompany || opts.clientName)}</div>
+    <p>To let ${esc2(firm.displayName)} manage your CRA accounts (file returns, view balances, handle correspondence), we need <strong>Represent a Client (RAC)</strong> authorization.</p>
+    <h3 style="color:${firm.accent};font-size:14px;text-transform:uppercase;letter-spacing:1px;margin-top:18px;">How to authorize us (2 minutes)</h3>
+    <ol style="margin:6px 0;padding-left:20px;line-height:1.8;">
+      <li>Sign in to <strong>CRA My Business Account</strong> (canada.ca \u2192 My Business Account).</li>
+      <li>Go to <strong>Profile \u2192 Authorized representatives \u2192 Authorize a representative</strong>.</li>
+      <li>Enter ${repLine}.</li>
+      <li>Set access to <strong>Level 2 (update)</strong> for all program accounts, and submit.</li>
+    </ol>
+    <p>Once you approve it, we'll get a confirmation and can take it from there. Reply to this if you'd like us to walk through it together.</p>
+    <p style="margin-top:16px;">By signing below you confirm you've authorized ${esc2(firm.displayName)} (${repLine.replace(/<[^>]+>/g, "")}) as your CRA representative.</p>
     ${footer(firm)}
   `);
 }
@@ -46667,6 +46693,23 @@ var init_quote_router = __esm({
         });
         await db.update(clients).set({ engagementSentAt: /* @__PURE__ */ new Date(), workflowStatus: "engagement_sent" }).where(eq(clients.id, client.id));
         return res;
+      }),
+      // Generate a branded, signable CRA Represent-a-Client authorization request.
+      createCraAuthRequest: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        if (!client) throw new Error("Client not found");
+        const content = renderCraAuthRequestHtml({ firm: getFirmSettings(), clientName: client.name, clientCompany: client.company });
+        return createAndSendDoc({
+          db,
+          clientId: client.id,
+          userId: ctx.user.id,
+          title: `CRA Authorization Request \u2014 ${client.company || client.name}`,
+          description: "Represent a Client (RAC) authorization",
+          content,
+          documentType: "consent",
+          clientEmail: client.email || null
+        });
       }),
       // Final step: make the client active and generate their recurring tasks.
       activateClient: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ ctx, input }) => {
@@ -50540,6 +50583,7 @@ var init_ensure_clients_schema = __esm({
       ["qboAccountType", "text DEFAULT 'ca_clients'"],
       ["figgyEmail", "text"],
       ["contactName", "text"],
+      ["craRacDone", "integer DEFAULT 0"],
       ["createdAt", "integer"],
       ["updatedAt", "integer"]
     ];
