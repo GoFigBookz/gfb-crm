@@ -25,6 +25,7 @@ import { govRepRouter } from "./gov-rep-router";
 import { workflowRouter } from "./workflow-router";
 import { userRouter } from "./user-router";
 import { employeeRouter } from "./employee-router";
+import { payrollRouter } from "./payroll-router";
 import { engagementLetterRouter } from "./engagement-letter-router";
 import { signatureRouter } from "./signature-router";
 import { playbookRouter } from "./playbook-router";
@@ -64,6 +65,7 @@ export const appRouter = createRouter({
   workflow: workflowRouter,
   user: userRouter,
   employee: employeeRouter,
+  payroll: payrollRouter,
   engagementLetter: engagementLetterRouter,
   public: publicRouter,
   clientDashboard: clientDashboardRouter,

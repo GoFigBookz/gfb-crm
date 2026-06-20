@@ -82,6 +82,82 @@ export async function ensureTaskColumns(): Promise<void> {
   }
 }
 
+/** Create the payroll tables (pay_runs, pay_run_lines) if the live DB lacks
+ *  them. New tables aren't covered by the column-only migrations, and there's no
+ *  drizzle push at runtime — so CREATE TABLE IF NOT EXISTS here. Idempotent. */
+export async function ensurePayrollTables(): Promise<void> {
+  const db = getDb();
+  try {
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS pay_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER NOT NULL,
+      payPeriodStart INTEGER NOT NULL,
+      payPeriodEnd INTEGER NOT NULL,
+      payDate INTEGER,
+      frequency TEXT DEFAULT 'monthly',
+      runType TEXT DEFAULT 'regular' NOT NULL,
+      status TEXT DEFAULT 'draft' NOT NULL,
+      hoursSource TEXT DEFAULT 'manual' NOT NULL,
+      totalGross REAL DEFAULT 0,
+      totalNet REAL DEFAULT 0,
+      totalEmployeeDeductions REAL DEFAULT 0,
+      totalEmployerCost REAL DEFAULT 0,
+      notes TEXT,
+      createdAt INTEGER,
+      updatedAt INTEGER
+    )`));
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS pay_run_lines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payRunId INTEGER NOT NULL,
+      employeeId INTEGER NOT NULL,
+      regularHours REAL DEFAULT 0,
+      overtimeHours REAL DEFAULT 0,
+      vacationHours REAL DEFAULT 0,
+      statHolidayHours REAL DEFAULT 0,
+      sickHours REAL DEFAULT 0,
+      grossPay REAL DEFAULT 0,
+      vacationPayAccrued REAL DEFAULT 0,
+      vacationPayPaid REAL DEFAULT 0,
+      cppEmployee REAL DEFAULT 0,
+      cpp2Employee REAL DEFAULT 0,
+      eiEmployee REAL DEFAULT 0,
+      federalTax REAL DEFAULT 0,
+      provincialTax REAL DEFAULT 0,
+      otherDeductions REAL DEFAULT 0,
+      cppEmployer REAL DEFAULT 0,
+      cpp2Employer REAL DEFAULT 0,
+      eiEmployer REAL DEFAULT 0,
+      netPay REAL DEFAULT 0,
+      notes TEXT,
+      createdAt INTEGER,
+      updatedAt INTEGER
+    )`));
+    // employees predates this but may be missing on a fresh volume; create-if-absent.
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS employees (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER NOT NULL,
+      firstName TEXT NOT NULL,
+      lastName TEXT NOT NULL,
+      sin TEXT, dateOfBirth INTEGER, hireDate INTEGER, startDate INTEGER,
+      payType TEXT DEFAULT 'salary', annualSalary REAL, hourlyRate REAL,
+      hoursPerWeek REAL DEFAULT 40, position TEXT, department TEXT,
+      email TEXT, phone TEXT, address TEXT,
+      isContractor INTEGER DEFAULT 0, isActive INTEGER DEFAULT 1,
+      terminationDate INTEGER, terminationReason TEXT,
+      hasHealthBenefits INTEGER DEFAULT 0, hasDentalBenefits INTEGER DEFAULT 0,
+      hasRrsp INTEGER DEFAULT 0, rrspMatchPercent REAL,
+      onGovernmentGrant INTEGER DEFAULT 0, grantType TEXT, grantStartDate INTEGER, grantEndDate INTEGER,
+      federalTaxCredits TEXT, provincialTaxCredits TEXT,
+      t4Box14Wages REAL, t4Box16Cpp REAL, t4Box18Ei REAL, t4Box20Rpp REAL,
+      t4Box44UnionDues REAL, t4Box46Charitable REAL,
+      notes TEXT, createdAt INTEGER, updatedAt INTEGER
+    )`));
+    console.log("[schema] payroll tables ensured");
+  } catch (e) {
+    console.error("[schema] ensurePayrollTables failed:", e instanceof Error ? e.message : e);
+  }
+}
+
 /** Add newer client_onboarding columns the live DB may be missing (e.g.
  *  usesTouchBistro), so intake inserts don't fail. Idempotent. */
 export async function ensureOnboardingColumns(): Promise<void> {
