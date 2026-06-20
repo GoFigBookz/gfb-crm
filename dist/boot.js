@@ -50179,6 +50179,69 @@ var init_dedupe_tasks = __esm({
   }
 });
 
+// api/payroll-employee-seed.ts
+var PAYROLL_EMPLOYEE_SEED;
+var init_payroll_employee_seed = __esm({
+  "api/payroll-employee-seed.ts"() {
+    PAYROLL_EMPLOYEE_SEED = [];
+  }
+});
+
+// api/seed-payroll-employees.ts
+var seed_payroll_employees_exports = {};
+__export(seed_payroll_employees_exports, {
+  seedPayrollEmployees: () => seedPayrollEmployees
+});
+async function seedPayrollEmployees() {
+  const db = getDb();
+  const result = { matched: 0, added: 0, skipped: 0, unmatched: [] };
+  if (!PAYROLL_EMPLOYEE_SEED.length) return result;
+  const allClients = await db.select().from(clients);
+  const allEmps = await db.select().from(employees);
+  for (const roster of PAYROLL_EMPLOYEE_SEED) {
+    const match2 = roster.clientMatch.toLowerCase();
+    const client = allClients.find((c) => (c.name || "").toLowerCase().includes(match2));
+    if (!client) {
+      result.unmatched.push(roster.clientMatch);
+      continue;
+    }
+    result.matched++;
+    const existing = new Set(
+      allEmps.filter((e) => e.clientId === client.id).map((e) => `${(e.firstName || "").toLowerCase()} ${(e.lastName || "").toLowerCase()}`.trim())
+    );
+    for (const emp of roster.employees) {
+      const key = `${(emp.firstName || "").toLowerCase()} ${(emp.lastName || "").toLowerCase()}`.trim();
+      if (existing.has(key)) {
+        result.skipped++;
+        continue;
+      }
+      await db.insert(employees).values({
+        clientId: client.id,
+        firstName: emp.firstName,
+        lastName: emp.lastName || "",
+        payType: emp.payType || "hourly",
+        hourlyRate: emp.hourlyRate,
+        annualSalary: emp.annualSalary,
+        position: emp.position,
+        email: emp.email,
+        notes: emp.notes,
+        isActive: true
+      });
+      existing.add(key);
+      result.added++;
+    }
+  }
+  if (result.added) console.log(`[seed] payroll employees: +${result.added} across ${result.matched} clients`);
+  return result;
+}
+var init_seed_payroll_employees = __esm({
+  "api/seed-payroll-employees.ts"() {
+    init_connection();
+    init_schema();
+    init_payroll_employee_seed();
+  }
+});
+
 // node_modules/@hono/node-server/dist/index.mjs
 var dist_exports = {};
 __export(dist_exports, {
@@ -56221,6 +56284,10 @@ app.post("/api/admin/figgy", async (c) => {
       const { dedupeTasks: dedupeTasks2 } = await Promise.resolve().then(() => (init_dedupe_tasks(), dedupe_tasks_exports));
       return c.json({ success: true, op, ...await dedupeTasks2() });
     }
+    if (op === "seedEmployees") {
+      const { seedPayrollEmployees: seedPayrollEmployees2 } = await Promise.resolve().then(() => (init_seed_payroll_employees(), seed_payroll_employees_exports));
+      return c.json({ success: true, op, ...await seedPayrollEmployees2() });
+    }
     if (op === "tasks") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { tasks: tasks4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
@@ -56562,6 +56629,14 @@ async function startServer() {
     await ensureOnboardingColumns2();
     await ensureTaskColumns2();
     await ensurePayrollTables2();
+    if (process.env.FIGGY_SKIP_EMPLOYEE_SEED !== "on") {
+      try {
+        const { seedPayrollEmployees: seedPayrollEmployees2 } = await Promise.resolve().then(() => (init_seed_payroll_employees(), seed_payroll_employees_exports));
+        await seedPayrollEmployees2();
+      } catch (e) {
+        console.error("[seed] payroll employees failed (non-fatal):", e instanceof Error ? e.message : e);
+      }
+    }
   } catch (e) {
     console.error("[schema] ensureClientsColumns failed (non-fatal):", e instanceof Error ? e.message : e);
   }

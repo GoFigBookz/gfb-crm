@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight } from "lucide-react";
+import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,24 @@ import { nextPayPeriod, normalizeFrequency } from "../../api/payroll-core";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** Download a run's hours as CSV (opens directly in Google Sheets / Excel). */
+function exportRunCsv(run: any, lines: any[]) {
+  const head = ["Employee", "Pay type", "Reg hrs", "OT hrs", "Vac hrs", "Stat hrs", "Gross", "CPP", "EI", "Tax", "Net"];
+  const rows = lines.map((l: any) => [
+    l.employeeName, l.payType || "", l.regularHours ?? 0, l.overtimeHours ?? 0, l.vacationHours ?? 0,
+    l.statHolidayHours ?? 0, l.grossPay ?? 0, l.cppEmployee ?? 0, l.eiEmployee ?? 0, l.federalTax ?? 0, l.netPay ?? 0,
+  ]);
+  const esc = (v: any) => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const csv = [head, ...rows].map((r) => r.map(esc).join(",")).join("\n");
+  const period = `${ymd(new Date(run.payPeriodStart))}_${ymd(new Date(run.payPeriodEnd))}`;
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `payroll_${period}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 const KIND_BADGE: Record<string, { label: string; cls: string }> = {
   qbo_autopay: { label: "QBO autopay", cls: "bg-purple-100 text-purple-700" },
@@ -197,7 +215,10 @@ function RunDetail({ runId, onDelete }: { runId: number; onDelete: () => void })
               </SelectContent>
             </Select>
           </div>
-          <Button size="sm" variant="ghost" className="h-8 text-red-500 hover:text-red-600" onClick={onDelete}><Trash2 className="h-3.5 w-3.5 mr-1" /> Delete run</Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="h-8" onClick={() => exportRunCsv(run, lines)}><Download className="h-3.5 w-3.5 mr-1" /> Export hours (CSV)</Button>
+            <Button size="sm" variant="ghost" className="h-8 text-red-500 hover:text-red-600" onClick={onDelete}><Trash2 className="h-3.5 w-3.5 mr-1" /> Delete run</Button>
+          </div>
         </div>
 
         {lines.length === 0 ? (
