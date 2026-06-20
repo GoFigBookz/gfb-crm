@@ -141,10 +141,12 @@ export const taskRouter = createRouter({
       const db = getDb();
       const now = new Date();
       
+      // Shared practice: any authed staff can complete any task (tasks are
+      // seeded under userId 1; filtering by ctx.user.id would silently no-op).
       await db
         .update(tasks)
         .set({ completed: true, status: "completed", completedAt: now })
-        .where(and(eq(tasks.id, input.id), eq(tasks.userId, ctx.user.id)));
+        .where(eq(tasks.id, input.id));
 
       // Sync updated task
       const taskRows = await db.select().from(tasks).where(eq(tasks.id, input.id)).limit(1);
@@ -181,7 +183,7 @@ export const taskRouter = createRouter({
       await db
         .update(tasks)
         .set(updates)
-        .where(and(eq(tasks.id, id), eq(tasks.userId, ctx.user.id)));
+        .where(eq(tasks.id, id)); // shared practice: any authed staff can edit
 
       // Fetch and sync updated task
       const updated = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
@@ -197,7 +199,7 @@ export const taskRouter = createRouter({
       const db = getDb();
       await db
         .delete(tasks)
-        .where(and(eq(tasks.id, input.id), eq(tasks.userId, ctx.user.id)));
+        .where(eq(tasks.id, input.id)); // shared practice
 
       return { success: true };
     }),

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
-import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3 } from "lucide-react";
+import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -88,6 +88,11 @@ export default function ClientDashboard() {
   const deleteTime = trpc.time.delete.useMutation({
     onSuccess: () => utils.time.getClientMonthlySummary.invalidate({ clientId: id }),
   });
+  const invalidateTasks = () => utils.clientDashboard.getByClient.invalidate({ clientId: id });
+  const completeTask = trpc.task.complete.useMutation({ onSuccess: invalidateTasks });
+  const updateTask = trpc.task.update.useMutation({ onSuccess: invalidateTasks });
+  const deleteTask = trpc.task.delete.useMutation({ onSuccess: invalidateTasks });
+  const [editingTask, setEditingTask] = useState<any | null>(null);
 
   if (!client) {
     return (
@@ -514,36 +519,91 @@ export default function ClientDashboard() {
 
         {/* TASKS TAB */}
         <TabsContent value="tasks" className="space-y-4 mt-4">
+          {/* OPEN tasks — actionable */}
           <Card>
             <CardHeader>
-              <CardTitle>All Tasks</CardTitle>
-              <CardDescription>Open and completed tasks for this client</CardDescription>
+              <CardTitle>Open Tasks ({openTasks.length})</CardTitle>
+              <CardDescription>Click the circle to mark done. Recurring tasks auto-create the next one.</CardDescription>
             </CardHeader>
             <CardContent>
-              {dashboardData?.tasks && dashboardData.tasks.length > 0 ? (
+              {openTasks.length > 0 ? (
                 <div className="space-y-2">
-                  {dashboardData.tasks.map(task => {
-                    const isOverdue = task.dueDate && !task.completed && isPast(new Date(task.dueDate)) && !isToday(new Date(task.dueDate));
+                  {openTasks.map(task => {
+                    const isOverdue = task.dueDate && isPast(new Date(task.dueDate)) && !isToday(new Date(task.dueDate));
                     return (
-                      <div key={task.id} className={`flex items-center gap-3 p-3 rounded-lg ${task.completed ? "bg-slate-50 opacity-60" : isOverdue ? "bg-red-50" : "bg-white border"}`}>
-                        {task.completed ? <CheckCircle className="h-5 w-5 text-lime-500" /> : <Clock className="h-5 w-5 text-amber-500" />}
-                        <div className="flex-1">
-                          <p className={`text-sm font-medium ${task.completed ? "line-through" : ""}`}>{task.title}</p>
-                          <p className="text-xs text-slate-500">{task.category} {task.dueDate ? `• Due ${format(new Date(task.dueDate), "MMM d, yyyy")}` : ""}</p>
+                      <div key={task.id} className={`flex items-center gap-3 p-3 rounded-lg ${isOverdue ? "bg-red-50" : "bg-white border"}`}>
+                        <button
+                          title="Mark done"
+                          onClick={() => completeTask.mutate({ id: task.id })}
+                          className="w-6 h-6 shrink-0 rounded-full border-2 border-slate-300 hover:border-lime-500 hover:bg-lime-50 transition-colors"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{task.title}</p>
+                          <p className="text-xs text-slate-500">
+                            {task.category} {task.dueDate ? `• Due ${format(new Date(task.dueDate), "MMM d, yyyy")}` : ""}
+                            {isOverdue ? " • Overdue" : ""}
+                          </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {task.isRecurring && <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600">Auto</Badge>}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="outline" className={`text-xs ${task.isRecurring ? "bg-blue-50 text-blue-600" : "bg-slate-50 text-slate-500"}`}>
+                            {task.isRecurring ? "Recurring" : "One-off"}
+                          </Badge>
                           <Badge variant={task.priority === "high" ? "destructive" : task.priority === "medium" ? "default" : "outline"} className="text-xs">{task.priority}</Badge>
+                          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingTask(task)}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-600" onClick={() => { if (confirm(`Delete task "${task.title}"?`)) deleteTask.mutate({ id: task.id }); }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <p className="text-center text-slate-400 py-8">No tasks for this client yet.</p>
+                <p className="text-center text-slate-400 py-6">No open tasks 🎉</p>
               )}
             </CardContent>
           </Card>
+
+          {/* COMPLETED history */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Completed History ({completedTasks.length})</CardTitle>
+              <CardDescription>Done tasks for this client. Reopen if needed.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {completedTasks.length > 0 ? (
+                <div className="space-y-1.5">
+                  {completedTasks.map(task => (
+                    <div key={task.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50">
+                      <CheckCircle className="h-5 w-5 text-lime-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium line-through text-slate-500">{task.title}</p>
+                        <p className="text-xs text-slate-400">
+                          {task.category}
+                          {(task as any).completedAt ? ` • Done ${format(new Date((task as any).completedAt), "MMM d, yyyy")}` : ""}
+                        </p>
+                      </div>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs shrink-0" onClick={() => updateTask.mutate({ id: task.id, completed: false, status: "pending" })}>
+                        Reopen
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-slate-400 py-6">No completed tasks yet.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {editingTask && (
+            <EditTaskDialog
+              task={editingTask}
+              onClose={() => setEditingTask(null)}
+              onSave={(data: any) => { updateTask.mutate({ id: editingTask.id, ...data }); setEditingTask(null); }}
+            />
+          )}
         </TabsContent>
 
         {/* FINANCIALS TAB */}
@@ -869,6 +929,71 @@ export default function ClientDashboard() {
       <TimeLogDialog open={showLogTime} onClose={() => setShowLogTime(false)} clientId={id}
         tasks={dashboardData?.tasks || []} onSubmit={(data: any) => createTime.mutate(data)} isPending={createTime.isPending} />
     </div>
+  );
+}
+
+// Edit Task Dialog Component
+function EditTaskDialog({ task, onClose, onSave }: {
+  task: any; onClose: () => void; onSave: (data: any) => void;
+}) {
+  const [title, setTitle] = useState(task.title || "");
+  const [category, setCategory] = useState(task.category || "");
+  const [priority, setPriority] = useState(task.priority || "medium");
+  const [dueDate, setDueDate] = useState(task.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd") : "");
+  const [description, setDescription] = useState(task.description || "");
+
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Edit className="h-4 w-4" /> Edit Task</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Title</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Category</Label>
+              <Input value={category} onChange={(e) => setCategory(e.target.value)} />
+            </div>
+            <div>
+              <Label>Priority</Label>
+              <Select value={priority} onValueChange={setPriority}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label>Due date</Label>
+            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </div>
+          <div>
+            <Label>Description</Label>
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+          </div>
+          {task.isRecurring && (
+            <p className="text-xs text-blue-600">This is a recurring task — editing changes this occurrence; the next one is generated from its rule when you mark it done.</p>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button onClick={() => onSave({
+              title,
+              category,
+              priority,
+              description,
+              ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
+            })}>Save</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
