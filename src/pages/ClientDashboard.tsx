@@ -1073,21 +1073,30 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
     servicesNeeded: o.servicesNeeded || "", painPoints: o.painPoints || "", expectations: o.expectations || "",
   });
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
-  const T = ({ k, label, type = "text" }: { k: string; label: string; type?: string }) => (
-    <div className="space-y-1"><Label className="text-xs">{label}</Label>
-      <Input type={type} value={f[k]} onChange={(e) => set(k, type === "number" ? Number(e.target.value) : e.target.value)} className="h-8" /></div>
+  const truthy = (v: any) => v === true || v === "true";
+  // IMPORTANT: these are called as functions ({field(...)}) — NOT rendered as
+  // <Component/> — so the inputs are NOT remounted on every keystroke (which
+  // would steal focus and make typing impossible).
+  const field = (k: string, label: string, type = "text", req = false) => (
+    <div className="space-y-1" key={k}>
+      <Label className="text-xs">{label}{req ? <span className="text-red-600 font-semibold"> · required</span> : null}</Label>
+      <Input type={type} value={f[k]} onChange={(e) => set(k, type === "number" ? Number(e.target.value) : e.target.value)}
+        className={cn("h-8", req && "border-red-400 bg-red-50")} />
+    </div>
   );
-  const C = ({ k, label }: { k: string; label: string }) => (
-    <label className="flex items-center gap-2 text-sm cursor-pointer py-1">
+  const check = (k: string, label: string) => (
+    <label className="flex items-center gap-2 text-sm cursor-pointer py-1" key={k}>
       <input type="checkbox" checked={!!f[k]} onChange={(e) => set(k, e.target.checked)} className="w-4 h-4 accent-lime-500" />{label}
     </label>
   );
-  const Sel = ({ k, label, opts }: { k: string; label: string; opts: [string, string][] }) => (
-    <div className="space-y-1"><Label className="text-xs">{label}</Label>
+  const sel = (k: string, label: string, opts: [string, string][]) => (
+    <div className="space-y-1" key={k}>
+      <Label className="text-xs">{label}</Label>
       <Select value={String(f[k])} onValueChange={(v) => set(k, v)}>
         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
         <SelectContent>{opts.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
-      </Select></div>
+      </Select>
+    </div>
   );
 
   return (
@@ -1097,53 +1106,58 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
 
         <p className="text-xs uppercase font-semibold text-slate-500">Contact</p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          <T k="name" label="Client name" /><T k="company" label="Company" /><T k="contactName" label="Contact name" />
-          <T k="email" label="Email" /><T k="phone" label="Phone" /><T k="address" label="Address" />
+          {field("name", "Client name")}{field("company", "Company")}{field("contactName", "Contact name")}
+          {field("email", "Email")}{field("phone", "Phone")}{field("address", "Address")}
         </div>
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Compliance numbers</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <T k="taxId" label="CRA BN" /><T k="hstNumber" label="HST #" /><T k="payrollRpNumber" label="Payroll RP #" /><T k="wsibAccountNumber" label="WSIB #" />
+          {field("taxId", "CRA BN", "text", !f.taxId)}
+          {field("hstNumber", "HST #", "text", truthy(f.hasHST) && !f.hstNumber)}
+          {field("payrollRpNumber", "Payroll RP #", "text", truthy(f.hasPayroll) && !f.payrollRpNumber)}
+          {field("wsibAccountNumber", "WSIB #", "text", !!f.hasWSIB && !f.wsibAccountNumber)}
         </div>
-        <C k="craRacDone" label="CRA Represent-a-Client (RAC) access is set up" />
+        {check("craRacDone", "CRA Represent-a-Client (RAC) access is set up")}
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Bookkeeping scope</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <T k="avgMonthlyTransactions" label="Avg monthly txns" type="number" />
-          <Sel k="bookkeepingFrequency" label="Bookkeeping" opts={[["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"],["none","None"]]} />
-          <T k="bankAccountCount" label="# Bank accts" type="number" /><T k="creditCardCount" label="# Credit cards" type="number" />
-          <Sel k="hasHST" label="Charges HST?" opts={[["true","Yes"],["false","No"]]} />
-          <Sel k="hstPeriod" label="HST filing" opts={[["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"]]} />
-          <Sel k="yearEndMonth" label="Year-end" opts={["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map(m=>[m,m] as [string,string])} />
-          <T k="monthsBehind" label="Months behind" type="number" />
+          {field("avgMonthlyTransactions", "Avg monthly txns", "number")}
+          {sel("bookkeepingFrequency", "Bookkeeping", [["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"],["none","None"]])}
+          {field("bankAccountCount", "# Bank accts", "number")}{field("creditCardCount", "# Credit cards", "number")}
+          {sel("hasHST", "Charges HST?", [["true","Yes"],["false","No"]])}
+          {sel("hstPeriod", "HST filing", [["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"]])}
+          {sel("yearEndMonth", "Year-end", ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map(m=>[m,m] as [string,string]))}
+          {field("monthsBehind", "Months behind", "number")}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4">
-          <C k="hasInvestments" label="Investment income (T5)" /><C k="paysDividends" label="Pays dividends (T5)" />
-          <C k="hasSubcontractors" label="Subcontractors (T5018)" /><C k="usesHubdoc" label="Uses Hubdoc" />
-          <C k="hasJobCosting" label="Job costing" /><C k="needsYearEnd" label="We do year-end" />
+          {check("hasInvestments", "Investment income (T5)")}{check("paysDividends", "Pays dividends (T5)")}
+          {check("hasSubcontractors", "Subcontractors (T5018)")}{check("usesHubdoc", "Uses Hubdoc")}
+          {check("hasJobCosting", "Job costing")}{check("needsYearEnd", "We do year-end")}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <Sel k="invoicingResponsibility" label="Invoicing (A/R)" opts={[["none","N/A"],["we_invoice","We invoice"],["client_invoices","Client invoices"]]} />
-          <Sel k="billPayResponsibility" label="Bill pay (A/P)" opts={[["none","N/A"],["we_pay","We pay"],["client_pays","Client pays"]]} />
+          {sel("invoicingResponsibility", "Invoicing (A/R)", [["none","N/A"],["we_invoice","We invoice"],["client_invoices","Client invoices"]])}
+          {sel("billPayResponsibility", "Bill pay (A/P)", [["none","N/A"],["we_pay","We pay"],["client_pays","Client pays"]])}
         </div>
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Payroll</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <Sel k="hasPayroll" label="Runs payroll?" opts={[["true","Yes"],["false","No"]]} />
-          <T k="employeeCount" label="# Employees" type="number" />
-          <Sel k="payrollFrequency" label="Pay frequency" opts={[["weekly","Weekly"],["bi-weekly","Bi-weekly"],["semi-monthly","Semi-monthly"],["monthly","Monthly"],["self","Self"]]} />
-          <Sel k="payrollRemitterFreq" label="CRA remitter" opts={[["regular","Regular"],["quarterly","Quarterly"],["accelerated","Accelerated"]]} />
-          <C k="hasWSIB" label="Has WSIB" /><C k="hasEHT" label="Has EHT (ON)" /><C k="hasEmployees" label="Has employees" />
+          {sel("hasPayroll", "Runs payroll?", [["true","Yes"],["false","No"]])}
+          {field("employeeCount", "# Employees", "number")}
+          {sel("payrollFrequency", "Pay frequency", [["weekly","Weekly"],["bi-weekly","Bi-weekly"],["semi-monthly","Semi-monthly"],["monthly","Monthly"],["self","Self"]])}
+          {sel("payrollRemitterFreq", "CRA remitter", [["regular","Regular"],["quarterly","Quarterly"],["accelerated","Accelerated"]])}
+        </div>
+        <div className="flex flex-wrap gap-x-4">
+          {check("hasWSIB", "Has WSIB")}{check("hasEHT", "Has EHT (ON)")}{check("hasEmployees", "Has employees")}
         </div>
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Sales platforms</p>
         <div className="flex flex-wrap gap-x-4">
-          <C k="usesStripe" label="Stripe" /><C k="usesSquare" label="Square" /><C k="usesJobber" label="Jobber" /><C k="usesTouchBistro" label="TouchBistro" /><C k="usesPayPal" label="PayPal" />
+          {check("usesStripe", "Stripe")}{check("usesSquare", "Square")}{check("usesJobber", "Jobber")}{check("usesTouchBistro", "TouchBistro")}{check("usesPayPal", "PayPal")}
         </div>
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Pricing & notes</p>
         <div className="grid grid-cols-2 gap-2">
-          <T k="monthlyFee" label="Flat monthly fee ($)" type="number" />
+          {field("monthlyFee", "Flat monthly fee ($)", "number")}
         </div>
         <div className="space-y-1"><Label className="text-xs">Services / notes</Label>
           <Textarea value={f.servicesNeeded} onChange={(e) => set("servicesNeeded", e.target.value)} rows={2} /></div>
@@ -1152,8 +1166,8 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button disabled={isPending} onClick={() => onSave({
             ...f,
-            hasHST: f.hasHST === true || f.hasHST === "true",
-            hasWSIB: !!f.hasWSIB, hasPayroll: f.hasPayroll === true || f.hasPayroll === "true",
+            hasHST: truthy(f.hasHST),
+            hasWSIB: !!f.hasWSIB, hasPayroll: truthy(f.hasPayroll),
             monthlyFee: Number(f.monthlyFee) || 0,
             avgMonthlyTransactions: Number(f.avgMonthlyTransactions) || 0,
             employeeCount: Number(f.employeeCount) || 0, monthsBehind: Number(f.monthsBehind) || 0,
@@ -1201,13 +1215,14 @@ function QuoteEditorDialog({ clientId, quote, onClose, onGenerate, isPending }: 
   const monthlyTotal = lines.filter((l) => l.include).reduce((s, l) => s + (Number(l.amount) || 0), 0);
   const oneTimeTotal = oneTime.filter((l) => l.include).reduce((s, l) => s + (Number(l.amount) || 0), 0);
 
-  const Row = ({ li, i, set }: { li: any; i: number; set: (i: number, p: any) => void }) => (
-    <div className={cn("flex items-center gap-2 py-1.5", !li.include && "opacity-40")}>
-      <input type="checkbox" checked={li.include} onChange={(e) => set(i, { include: e.target.checked })} className="w-4 h-4 accent-lime-500 shrink-0" />
-      <Input value={li.label} onChange={(e) => set(i, { label: e.target.value })} className="h-8 text-sm flex-1" />
+  // Called as a function ({row(...)}) so inputs aren't remounted per keystroke.
+  const row = (li: any, i: number, setter: (i: number, p: any) => void) => (
+    <div className={cn("flex items-center gap-2 py-1.5", !li.include && "opacity-40")} key={i}>
+      <input type="checkbox" checked={li.include} onChange={(e) => setter(i, { include: e.target.checked })} className="w-4 h-4 accent-lime-500 shrink-0" />
+      <Input value={li.label} onChange={(e) => setter(i, { label: e.target.value })} className="h-8 text-sm flex-1" />
       <div className="flex items-center gap-1 shrink-0">
         <span className="text-slate-400 text-sm">$</span>
-        <Input type="number" value={li.amount} onChange={(e) => set(i, { amount: Number(e.target.value) })} className="h-8 text-sm w-24 text-right" />
+        <Input type="number" value={li.amount} onChange={(e) => setter(i, { amount: Number(e.target.value) })} className="h-8 text-sm w-24 text-right" />
       </div>
     </div>
   );
@@ -1248,7 +1263,7 @@ function QuoteEditorDialog({ clientId, quote, onClose, onGenerate, isPending }: 
 
         <div className="mt-2">
           <p className="text-xs uppercase font-semibold text-slate-500 mb-1">Monthly services</p>
-          {lines.map((li, i) => <Row key={i} li={li} i={i} set={setLine} />)}
+          {lines.map((li, i) => row(li, i, setLine))}
         </div>
         <div className="flex justify-between font-semibold text-sm border-t pt-2 mt-1">
           <span>Recurring monthly total</span><span className="text-lime-700">${monthlyTotal}/mo</span>
@@ -1257,7 +1272,7 @@ function QuoteEditorDialog({ clientId, quote, onClose, onGenerate, isPending }: 
         {oneTime.length > 0 && (
           <div className="mt-3">
             <p className="text-xs uppercase font-semibold text-slate-500 mb-1">One-time</p>
-            {oneTime.map((li, i) => <Row key={i} li={li} i={i} set={setOne} />)}
+            {oneTime.map((li, i) => row(li, i, setOne))}
             <div className="flex justify-between font-semibold text-sm border-t pt-2 mt-1">
               <span>One-time total</span><span>${oneTimeTotal}</span>
             </div>
