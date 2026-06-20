@@ -17,6 +17,11 @@ export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"list" | "board" | "calendar">("list");
+  const [fClient, setFClient] = useState("all");
+  const [fAssignee, setFAssignee] = useState("all");
+  const [fCategory, setFCategory] = useState("all");
+  const [fStatus, setFStatus] = useState("open");
+  const [groupByClient, setGroupByClient] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isRecurringOpen, setIsRecurringOpen] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -67,8 +72,13 @@ export default function Tasks() {
   });
 
   const filteredTasks = (allTasks || []).filter((task) => {
-    const matchesSearch = task.title.toLowerCase().includes(search.toLowerCase());
-    if (!matchesSearch) return false;
+    if (search && !task.title.toLowerCase().includes(search.toLowerCase())) return false;
+    if (fClient !== "all" && String(task.clientId ?? "none") !== fClient) return false;
+    if (fAssignee !== "all" && (task.assignedTo ?? "unassigned") !== fAssignee) return false;
+    if (fCategory !== "all" && (task.category ?? "") !== fCategory) return false;
+    if (fStatus === "open" && task.completed) return false;
+    if (fStatus === "done" && !task.completed) return false;
+    if (fStatus === "overdue" && !(task.dueDate && !task.completed && isPast(parseISO(task.dueDate.toISOString())) && !isToday(parseISO(task.dueDate.toISOString())))) return false;
     return true;
   });
 
@@ -309,10 +319,40 @@ export default function Tasks() {
         </div>
       </div>
 
-      <Card><CardContent className="p-4">
+      <Card><CardContent className="p-4 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input placeholder="Search tasks..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Select value={fClient} onValueChange={setFClient}>
+            <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Client" /></SelectTrigger>
+            <SelectContent className="max-h-64"><SelectItem value="all">All clients</SelectItem><SelectItem value="none">No client</SelectItem>
+              {(clientList || []).map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={fAssignee} onValueChange={setFAssignee}>
+            <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Assignee" /></SelectTrigger>
+            <SelectContent><SelectItem value="all">Anyone</SelectItem><SelectItem value="unassigned">Unassigned</SelectItem>
+              {ASSIGNEES.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={fCategory} onValueChange={setFCategory}>
+            <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent><SelectItem value="all">All categories</SelectItem>
+              {TASK_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={fStatus} onValueChange={setFStatus}>
+            <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="open">Open</SelectItem><SelectItem value="overdue">Overdue</SelectItem><SelectItem value="done">Done</SelectItem><SelectItem value="all">All</SelectItem></SelectContent>
+          </Select>
+          <Button variant={groupByClient ? "default" : "outline"} size="sm" className="h-8 text-xs" onClick={() => setGroupByClient(v => !v)}>
+            Group by client
+          </Button>
+          {(fClient !== "all" || fAssignee !== "all" || fCategory !== "all" || fStatus !== "open" || search) && (
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setFClient("all"); setFAssignee("all"); setFCategory("all"); setFStatus("open"); setSearch(""); }}>Clear</Button>
+          )}
         </div>
       </CardContent></Card>
 
@@ -334,41 +374,61 @@ export default function Tasks() {
       </div>
 
       {/* LIST VIEW */}
-      {view === "list" && (
-        <div className="space-y-3">
-          {filteredTasks.map((task) => {
-            const urgency = getUrgency(task.dueDate, task.completed);
-            return (
-              <Card key={task.id} className={cn(task.completed && "opacity-60")}>
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-4">
-                    <button onClick={() => completeTask.mutate({ id: task.id })} className={cn("mt-1 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors", task.completed ? "bg-lime-500 border-lime-500 text-white" : "border-slate-300 hover:border-lime-500")}>{task.completed && <Check className="h-4 w-4" />}</button>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className={cn("font-medium", task.completed && "line-through text-slate-500")}>{task.title}</h4>
-                            {task.isRecurring && <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600 border-blue-200"><Sparkles className="h-3 w-3 mr-1" />Auto</Badge>}
-                          </div>
-                          {task.description && <p className="text-sm text-slate-500">{task.description}</p>}
-                        </div>
-                        <Badge variant="outline" className={urgency.color}>{urgency.label}</Badge>
+      {view === "list" && (() => {
+        const listRow = (task: typeof filteredTasks[0], showClient: boolean) => {
+          const urgency = getUrgency(task.dueDate, task.completed);
+          return (
+            <Card key={task.id} className={cn(task.completed && "opacity-60")}>
+              <CardContent className="p-3">
+                <div className="flex items-start gap-3">
+                  <button onClick={() => completeTask.mutate({ id: task.id })} className={cn("mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors shrink-0", task.completed ? "bg-lime-500 border-lime-500 text-white" : "border-slate-300 hover:border-lime-500")}>{task.completed && <Check className="h-4 w-4" />}</button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h4 className={cn("font-medium truncate", task.completed && "line-through text-slate-500")}>{task.title}</h4>
+                        {task.isRecurring && <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600 border-blue-200 shrink-0"><Sparkles className="h-3 w-3 mr-1" />Auto</Badge>}
                       </div>
-                      <div className="flex items-center gap-4 mt-2">
-                        <div className={cn("w-2 h-2 rounded-full", task.priority === "high" ? "bg-red-500" : task.priority === "medium" ? "bg-amber-500" : "bg-lime-500")} />
-                        <span className="text-xs text-slate-500 capitalize">{task.priority}</span>
-                        {task.category && <><span className="text-slate-300">|</span><Badge variant="secondary" className="text-xs">{task.category}</Badge></>}
-                        {task.recurrenceCount && task.recurrenceCount > 1 && <><span className="text-slate-300">|</span><span className="text-xs text-blue-500">#{task.recurrenceCount}</span></>}
-                        {task.assignedTo && <><span className="text-slate-300">|</span><span className="text-xs text-slate-500">@{task.assignedTo}</span></>}
-                      </div>
+                      <Badge variant="outline" className={cn("shrink-0", urgency.color)}>{urgency.label}</Badge>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      <div className={cn("w-2 h-2 rounded-full", task.priority === "high" ? "bg-red-500" : task.priority === "medium" ? "bg-amber-500" : "bg-lime-500")} />
+                      {task.category && <Badge variant="secondary" className="text-xs">{task.category}</Badge>}
+                      {showClient && task.clientId && clientName(task.clientId) && (
+                        <Link to={`/client/${task.clientId}`} className="text-xs text-lime-700 hover:underline inline-flex items-center gap-1"><Building2 className="h-3 w-3" />{clientName(task.clientId)}</Link>
+                      )}
+                      {task.assignedTo && <span className="text-xs text-slate-500">@{task.assignedTo}</span>}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        };
+        if (!groupByClient) return <div className="space-y-2">{filteredTasks.map((t) => listRow(t, true))}</div>;
+        // group by client (clients with overdue float up, then by name)
+        const groups = new Map<string, { id: number | null; name: string; tasks: typeof filteredTasks }>();
+        for (const t of filteredTasks) {
+          const key = String(t.clientId ?? "none");
+          if (!groups.has(key)) groups.set(key, { id: t.clientId ?? null, name: clientName(t.clientId) || "Internal / no client", tasks: [] as any });
+          groups.get(key)!.tasks.push(t);
+        }
+        const ordered = [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
+        if (ordered.length === 0) return <p className="text-center text-slate-400 py-10">No tasks match these filters.</p>;
+        return (
+          <div className="space-y-4">
+            {ordered.map((g) => (
+              <div key={String(g.id)}>
+                <div className="flex items-center gap-2 mb-1.5">
+                  {g.id ? <Link to={`/client/${g.id}`} className="font-semibold text-slate-800 hover:text-lime-700 inline-flex items-center gap-1"><Building2 className="h-4 w-4" />{g.name}</Link>
+                        : <span className="font-semibold text-slate-500 inline-flex items-center gap-1"><Building2 className="h-4 w-4" />{g.name}</span>}
+                  <span className="text-xs text-slate-400">({g.tasks.length})</span>
+                </div>
+                <div className="space-y-2">{g.tasks.map((t) => listRow(t, false))}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* BOARD VIEW */}
       {view === "board" && (
