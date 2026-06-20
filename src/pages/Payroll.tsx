@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download, Pencil, Users } from "lucide-react";
+import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download, Pencil, Users, DollarSign } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -134,6 +134,28 @@ export default function Payroll() {
                 </Card>
               )}
 
+              {/* Revenue-share reference (Originality) — the live P&L the % is
+                  taken from, plus the formula. Kept here so it's one click away
+                  when running the monthly commission. */}
+              {selected.name.toLowerCase().includes("originality") && (
+                <Card className="border-emerald-200 bg-emerald-50/40">
+                  <CardContent className="p-3 text-sm text-slate-700 space-y-1.5">
+                    <div className="flex items-center gap-2 font-medium text-emerald-800">
+                      <DollarSign className="h-4 w-4" /> Revenue share (Motion Invest net profit)
+                    </div>
+                    <p className="text-xs">
+                      Commission = <b>% × Motion Invest Net Profit</b> for the month (accrued monthly; negative months carry forward).
+                      Current shares: <b>Kelley Van Boxmeer 10%</b>, <b>Ryan Gunn 1%</b>. Paid via the 2303851 entity.
+                    </p>
+                    <a href="https://docs.google.com/spreadsheets/d/1nF7xMXWRsF8gXu6fvArYmyi7d5iTph3cKeYOnS8fdmE/edit" target="_blank" rel="noreferrer"
+                      className="text-emerald-700 hover:underline inline-flex items-center gap-1 text-xs font-medium">
+                      Open “Originality.AI Scorecard and PnL” <ExternalLink className="h-3 w-3" />
+                    </a>
+                    <p className="text-[11px] text-slate-400">Note: the “%” column beside salaried staff on the payroll sheet is each person’s effective tax rate — not a revenue share.</p>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Employee roster — fully editable (salaries, rates, etc.) */}
               <Card>
                 <CardHeader className="pb-2 cursor-pointer" onClick={() => setShowRoster((s) => !s)}>
@@ -191,7 +213,13 @@ export default function Payroll() {
                   </div>
                 )}
 
-              <TaxReconPanel clientId={selected.id} highlight={selected.kind === "clockify" || selected.name.toLowerCase().includes("originality")} />
+              {/* CRA withholding reconciliation only applies to Originality's
+                  revenue-share employees (lumpy variable pay risks under-
+                  withholding). Other payrolls are fixed salary/hourly and
+                  don't need it, so we don't clutter their view. */}
+              {selected.name.toLowerCase().includes("originality") && (
+                <TaxReconPanel clientId={selected.id} highlight />
+              )}
             </>
           )}
       </div>
