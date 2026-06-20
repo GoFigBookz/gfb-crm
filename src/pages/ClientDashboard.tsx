@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { trpc } from "@/providers/trpc";
 import { cn } from "@/lib/utils";
 import { format, isPast, isToday } from "date-fns";
+import { TaskDetailDialog } from "@/components/TaskDetailDialog";
 
 export default function ClientDashboard() {
   const { clientId } = useParams<{ clientId: string }>();
@@ -689,10 +690,10 @@ export default function ClientDashboard() {
                               const isOverdue = task.dueDate && isPast(new Date(task.dueDate)) && !isToday(new Date(task.dueDate));
                               const stage = (task as any).stage || "todo";
                               return (
-                                <div key={task.id} className={`flex items-center gap-3 p-3 rounded-lg ${isOverdue ? "bg-red-50" : "bg-white border"}`}>
+                                <div key={task.id} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:shadow-sm ${isOverdue ? "bg-red-50" : "bg-white border"}`} onClick={() => setEditingTask(task)}>
                                   <button
                                     title="Mark done"
-                                    onClick={() => completeTask.mutate({ id: task.id })}
+                                    onClick={(e) => { e.stopPropagation(); completeTask.mutate({ id: task.id }); }}
                                     className="w-6 h-6 shrink-0 rounded-full border-2 border-slate-300 hover:border-lime-500 hover:bg-lime-50 transition-colors"
                                   />
                                   <div className="flex-1 min-w-0">
@@ -709,10 +710,10 @@ export default function ClientDashboard() {
                                       <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600">Recurring</Badge>
                                     )}
                                     <Badge variant={task.priority === "high" ? "destructive" : task.priority === "medium" ? "default" : "outline"} className="text-xs">{task.priority}</Badge>
-                                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingTask(task)}>
+                                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); setEditingTask(task); }}>
                                       <Edit className="h-3.5 w-3.5" />
                                     </Button>
-                                    <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-600" onClick={() => { if (confirm(`Delete task "${task.title}"?`)) deleteTask.mutate({ id: task.id }); }}>
+                                    <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-600" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete task "${task.title}"?`)) deleteTask.mutate({ id: task.id }); }}>
                                       <Trash2 className="h-3.5 w-3.5" />
                                     </Button>
                                   </div>
@@ -741,7 +742,7 @@ export default function ClientDashboard() {
               {completedTasks.length > 0 ? (
                 <div className="space-y-1.5">
                   {completedTasks.map(task => (
-                    <div key={task.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50">
+                    <div key={task.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 cursor-pointer hover:bg-slate-100" onClick={() => setEditingTask(task)}>
                       <CheckCircle className="h-5 w-5 text-lime-500 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium line-through text-slate-500">{task.title}</p>
@@ -750,7 +751,7 @@ export default function ClientDashboard() {
                           {(task as any).completedAt ? ` • Done ${format(new Date((task as any).completedAt), "MMM d, yyyy")}` : ""}
                         </p>
                       </div>
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs shrink-0" onClick={() => updateTask.mutate({ id: task.id, completed: false, status: "pending" })}>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs shrink-0" onClick={(e) => { e.stopPropagation(); updateTask.mutate({ id: task.id, completed: false, status: "pending" }); }}>
                         Reopen
                       </Button>
                     </div>
@@ -763,10 +764,10 @@ export default function ClientDashboard() {
           </Card>
 
           {editingTask && (
-            <EditTaskDialog
+            <TaskDetailDialog
               task={editingTask}
               onClose={() => setEditingTask(null)}
-              onSave={(data: any) => { updateTask.mutate({ id: editingTask.id, ...data }); setEditingTask(null); }}
+              onChanged={invalidateTasks}
             />
           )}
           {creatingTask && (

@@ -41117,11 +41117,13 @@ var init_task_router = __esm({
         id: external_exports.number(),
         title: external_exports.string().min(1).max(255).optional(),
         description: external_exports.string().optional(),
-        dueDate: external_exports.date().optional(),
+        dueDate: external_exports.date().nullable().optional(),
         priority: external_exports.enum(["low", "medium", "high"]).optional(),
         status: external_exports.enum(["pending", "in_progress", "completed", "overdue"]).optional(),
+        stage: external_exports.enum(["todo", "in_progress", "review", "done"]).optional(),
         category: external_exports.string().max(100).optional(),
         assignedTo: external_exports.string().max(255).optional(),
+        clientId: external_exports.number().nullable().optional(),
         completed: external_exports.boolean().optional()
       })).mutation(async ({ ctx, input }) => {
         const db = getDb();

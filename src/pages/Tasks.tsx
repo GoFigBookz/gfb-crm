@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { trpc } from "@/providers/trpc";
 import { format, isToday, isTomorrow, parseISO, isPast, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from "date-fns";
 import { cn } from "@/lib/utils";
+import { TaskDetailDialog } from "@/components/TaskDetailDialog";
 
 export default function Tasks() {
   const utils = trpc.useUtils();
@@ -25,6 +26,7 @@ export default function Tasks() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isRecurringOpen, setIsRecurringOpen] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
+  const [openTask, setOpenTask] = useState<any | null>(null);
 
   // Handle ?tab=overdue|today|upcoming from dashboard drill-down
   const tabParam = searchParams.get("tab");
@@ -103,11 +105,11 @@ export default function Tasks() {
   const TaskCard = ({ task }: { task: typeof filteredTasks[0] }) => {
     const urgency = getUrgency(task.dueDate, task.completed);
     return (
-      <Card className={cn("hover:shadow-md transition-shadow cursor-pointer", task.completed && "opacity-60")}>
+      <Card className={cn("hover:shadow-md transition-shadow cursor-pointer", task.completed && "opacity-60")} onClick={() => setOpenTask(task)}>
         <CardContent className="p-3">
           <div className="flex items-start gap-3">
             <button
-              onClick={() => completeTask.mutate({ id: task.id })}
+              onClick={(e) => { e.stopPropagation(); completeTask.mutate({ id: task.id }); }}
               className={cn(
                 "mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
                 task.completed ? "bg-lime-500 border-lime-500 text-white" : "border-slate-300 hover:border-lime-500"
@@ -384,10 +386,10 @@ export default function Tasks() {
         const listRow = (task: typeof filteredTasks[0], showClient: boolean) => {
           const urgency = getUrgency(task.dueDate, task.completed);
           return (
-            <Card key={task.id} className={cn(task.completed && "opacity-60")}>
+            <Card key={task.id} className={cn("cursor-pointer hover:shadow-md transition-shadow", task.completed && "opacity-60")} onClick={() => setOpenTask(task)}>
               <CardContent className="p-3">
                 <div className="flex items-start gap-3">
-                  <button onClick={() => completeTask.mutate({ id: task.id })} className={cn("mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors shrink-0", task.completed ? "bg-lime-500 border-lime-500 text-white" : "border-slate-300 hover:border-lime-500")}>{task.completed && <Check className="h-4 w-4" />}</button>
+                  <button onClick={(e) => { e.stopPropagation(); completeTask.mutate({ id: task.id }); }} className={cn("mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors shrink-0", task.completed ? "bg-lime-500 border-lime-500 text-white" : "border-slate-300 hover:border-lime-500")}>{task.completed && <Check className="h-4 w-4" />}</button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 min-w-0">
@@ -400,7 +402,7 @@ export default function Tasks() {
                       <div className={cn("w-2 h-2 rounded-full", task.priority === "high" ? "bg-red-500" : task.priority === "medium" ? "bg-amber-500" : "bg-lime-500")} />
                       {task.category && <Badge variant="secondary" className="text-xs">{task.category}</Badge>}
                       {showClient && task.clientId && clientName(task.clientId) && (
-                        <Link to={`/client/${task.clientId}`} className="text-xs text-lime-700 hover:underline inline-flex items-center gap-1"><Building2 className="h-3 w-3" />{clientName(task.clientId)}</Link>
+                        <Link to={`/client/${task.clientId}`} onClick={(e) => e.stopPropagation()} className="text-xs text-lime-700 hover:underline inline-flex items-center gap-1"><Building2 className="h-3 w-3" />{clientName(task.clientId)}</Link>
                       )}
                       {task.assignedTo && <span className="text-xs text-slate-500">@{task.assignedTo}</span>}
                     </div>
@@ -471,13 +473,15 @@ export default function Tasks() {
                     {col.map((task) => (
                       <Card key={task.id} className="hover:shadow-md transition-shadow">
                         <CardContent className="p-2.5">
-                          <p className={cn("text-sm font-medium", task.completed && "line-through text-slate-500")}>{task.title}</p>
-                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                            {task.category && <Badge variant="secondary" className="text-[10px]">{task.category}</Badge>}
-                            {task.clientId && clientName(task.clientId) && (
-                              <Link to={`/client/${task.clientId}`} className="text-[11px] text-lime-700 hover:underline inline-flex items-center gap-0.5"><Building2 className="h-3 w-3" />{clientName(task.clientId)}</Link>
-                            )}
-                            {task.assignedTo && <span className="text-[11px] text-slate-500">@{task.assignedTo}</span>}
+                          <div className="cursor-pointer" onClick={() => setOpenTask(task)}>
+                            <p className={cn("text-sm font-medium", task.completed && "line-through text-slate-500")}>{task.title}</p>
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              {task.category && <Badge variant="secondary" className="text-[10px]">{task.category}</Badge>}
+                              {task.clientId && clientName(task.clientId) && (
+                                <Link to={`/client/${task.clientId}`} onClick={(e) => e.stopPropagation()} className="text-[11px] text-lime-700 hover:underline inline-flex items-center gap-0.5"><Building2 className="h-3 w-3" />{clientName(task.clientId)}</Link>
+                              )}
+                              {task.assignedTo && <span className="text-[11px] text-slate-500">@{task.assignedTo}</span>}
+                            </div>
                           </div>
                           <div className="flex items-center justify-between mt-2">
                             <button disabled={idx === 0} onClick={() => setStage.mutate({ id: task.id, stage: order[idx - 1] as any })}
@@ -522,8 +526,8 @@ export default function Tasks() {
                   </div>
                   <div className="flex flex-col gap-1">
                     {dayTasks.slice(0, 3).map(t => (
-                      <div key={t.id} className={cn(
-                        "text-xs px-1.5 py-0.5 rounded truncate",
+                      <div key={t.id} onClick={() => setOpenTask(t)} className={cn(
+                        "text-xs px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-80",
                         t.completed ? "bg-slate-100 text-slate-500 line-through" :
                         t.priority === "high" ? "bg-red-100 text-red-700" :
                         t.priority === "medium" ? "bg-amber-100 text-amber-700" :
@@ -558,6 +562,8 @@ export default function Tasks() {
           </CardContent>
         </Card>
       )}
+
+      {openTask && <TaskDetailDialog task={openTask} onClose={() => setOpenTask(null)} />}
     </div>
   );
 }
