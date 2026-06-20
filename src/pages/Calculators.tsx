@@ -30,6 +30,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { computePaycheck } from "../../api/payroll-paycheck-core";
+import { periodsPerYear } from "../../api/payroll-core";
 
 /* =================================================================
    DATA CONSTANTS
@@ -237,28 +239,23 @@ function PayrollTaxCalculator() {
   const ei = parseFloat(eiRate) || 0;
 
   const caResult = useMemo(() => {
-    const gross = sal / periods;
-    // Simplified federal tax estimation (progressive approximation)
-    let federalTax = 0;
-    const taxable = sal;
-    if (taxable <= 55867) federalTax = taxable * 0.15;
-    else if (taxable <= 111733) federalTax = 55867 * 0.15 + (taxable - 55867) * 0.205;
-    else if (taxable <= 173205) federalTax = 55867 * 0.15 + 55866 * 0.205 + (taxable - 111733) * 0.26;
-    else if (taxable <= 246752) federalTax = 55867 * 0.15 + 55866 * 0.205 + 61472 * 0.26 + (taxable - 173205) * 0.29;
-    else federalTax = 55867 * 0.15 + 55866 * 0.205 + 61472 * 0.26 + 73547 * 0.29 + (taxable - 246752) * 0.33;
-
-    const cppAnnual = Math.min(sal * cpp, 4035); // ~2024 max
-    const eiAnnual = Math.min(sal * ei, 1077); // ~2024 max
-
-    // Provincial approximation (simplified flat-ish for demo)
-    const provRates: Record<string, number> = { ON: 0.0505, AB: 0.10, NS: 0.0879, NB: 0.094, NL: 0.087, PE: 0.0965, NT: 0.059, NU: 0.04, YT: 0.064 };
-    const provTax = taxable * (provRates[province] || 0.05);
-
-    const totalDeductions = federalTax + provTax + cppAnnual + eiAnnual;
-    const net = sal - totalDeductions;
-
-    return { gross, federalTax, provTax, cppAnnual, eiAnnual, totalDeductions, net };
-  }, [sal, periods, cpp, ei, province]);
+    // Accurate 2026 Ontario CPP/CPP2/EI + federal/Ontario income tax via the
+    // shared, tested PDOC engine (annual method ÷ periods). Province selector is
+    // Ontario-accurate; other provinces use the same federal + ON estimate.
+    const freq = periods >= 52 ? "weekly" : periods >= 26 ? "biweekly" : periods >= 24 ? "semi_monthly" : "monthly";
+    const ppy = periodsPerYear(freq);
+    const perPeriod = sal > 0 ? sal / ppy : 0;
+    const pc = computePaycheck(perPeriod, freq);
+    return {
+      gross: perPeriod,
+      federalTax: pc.federalTax * ppy,
+      provTax: pc.provincialTax * ppy,
+      cppAnnual: (pc.cpp + pc.cpp2) * ppy,
+      eiAnnual: pc.ei * ppy,
+      totalDeductions: pc.totalDeductions * ppy,
+      net: pc.netPay * ppy,
+    };
+  }, [sal, periods]);
 
   const usResult = useMemo(() => {
     const gross = sal / periods;
@@ -330,16 +327,7 @@ function PayrollTaxCalculator() {
         </div>
 
         {country === "CA" && (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>CPP Rate (employee)</Label>
-              <Input type="number" step="0.0001" value={cppRate} onChange={(e) => setCppRate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>EI Rate (employee)</Label>
-              <Input type="number" step="0.0001" value={eiRate} onChange={(e) => setEiRate(e.target.value)} />
-            </div>
-          </div>
+          <p className="text-[11px] text-slate-400">Uses 2026 CRA rates — CPP 5.95% (+CPP2), EI 1.63%, federal + Ontario income tax (brackets, BPA, surtax, health premium). Estimate; verify on CRA PDOC before remitting.</p>
         )}
 
         {sal > 0 && (
