@@ -50481,7 +50481,13 @@ var init_payroll_employee_seed = __esm({
 var PAYROLL_CONTRACT_LINKS;
 var init_payroll_contract_links = __esm({
   "api/payroll-contract-links.ts"() {
-    PAYROLL_CONTRACT_LINKS = [];
+    PAYROLL_CONTRACT_LINKS = [
+      // Fractal's Andrew = Andrew Rains; his only agreement on Drive is the
+      // 2303851/Realiant one (confirmed via Fractal's RBC payroll reconciliation).
+      { clientMatch: "fractal", firstName: "Andrew", contractUrl: "https://drive.google.com/file/d/19AJTqyMX2hCGq409Oj7yPTKTUFW8cj3G/view" },
+      // Narcis Bejtic (now Originality) — his 2020 employment agreement on file.
+      { clientMatch: "originality", firstName: "Narcis", lastName: "Bejtic", contractUrl: "https://drive.google.com/file/d/1e14Dl23CbCT0VhDVdS1tFCBm2-3ggEoK/view" }
+    ];
   }
 });
 
