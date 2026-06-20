@@ -3,13 +3,21 @@ import { createRouter, staffQuery, seniorQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { employees } from "../db/schema";
 import { eq } from "drizzle-orm";
+import { encryptSecret, decryptSecret, checkRevealCode } from "./sensitive";
+
+/** Never leak the stored (encrypted) SIN. Return a hasSin flag instead. */
+function stripSin<T extends { sin?: string | null }>(row: T): T & { hasSin: boolean } {
+  const { sin, ...rest } = row as any;
+  return { ...rest, hasSin: !!sin };
+}
 
 export const employeeRouter = createRouter({
   list: staffQuery
     .input(z.object({ clientId: z.number() }))
     .query(async ({ input }) => {
       const db = getDb();
-      return db.select().from(employees).where(eq(employees.clientId, input.clientId)).orderBy(employees.lastName);
+      const rows = await db.select().from(employees).where(eq(employees.clientId, input.clientId)).orderBy(employees.lastName);
+      return (rows as any[]).map(stripSin);
     }),
 
   get: staffQuery
@@ -17,7 +25,18 @@ export const employeeRouter = createRouter({
     .query(async ({ input }) => {
       const db = getDb();
       const row = await db.select().from(employees).where(eq(employees.id, input.id)).limit(1);
-      return row[0] || null;
+      return row[0] ? stripSin(row[0] as any) : null;
+    }),
+
+  // Code-gated SIN reveal (for printing T4/T4A). Requires FIGGY_SIN_PIN.
+  revealSin: staffQuery
+    .input(z.object({ id: z.number(), code: z.string() }))
+    .mutation(async ({ input }) => {
+      const gate = checkRevealCode(input.code);
+      if (!gate.ok) return { ok: false as const, reason: gate.reason };
+      const db = getDb();
+      const row = (await db.select().from(employees).where(eq(employees.id, input.id)).limit(1))[0] as any;
+      return { ok: true as const, sin: row?.sin ? decryptSecret(row.sin) : null };
     }),
 
   create: seniorQuery
@@ -49,11 +68,15 @@ export const employeeRouter = createRouter({
       getsPhoneAllowance: z.boolean().optional(),
       getsReimbursement: z.boolean().optional(),
       ytdGrossOpening: z.number().nullable().optional(),
+      sin: z.string().optional(),
       notes: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = getDb();
-      const result = await db.insert(employees).values({ ...input, createdAt: new Date(), updatedAt: new Date() });
+      const { sin, ...rest } = input;
+      const values: any = { ...rest, createdAt: new Date(), updatedAt: new Date() };
+      if (sin !== undefined) values.sin = sin ? encryptSecret(sin) : null; // encrypted at rest
+      const result = await db.insert(employees).values(values);
       return { success: true, id: Number(result.lastInsertRowid) };
     }),
 
@@ -97,12 +120,15 @@ export const employeeRouter = createRouter({
       getsPhoneAllowance: z.boolean().optional(),
       getsReimbursement: z.boolean().optional(),
       ytdGrossOpening: z.number().nullable().optional(),
+      sin: z.string().optional(),
       notes: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
-      const { id, ...data } = input;
+      const { id, sin, ...data } = input;
       const db = getDb();
-      await db.update(employees).set({ ...data, updatedAt: new Date() }).where(eq(employees.id, id));
+      const patch: any = { ...data, updatedAt: new Date() };
+      if (sin !== undefined) patch.sin = sin ? encryptSecret(sin) : null; // encrypted at rest
+      await db.update(employees).set(patch).where(eq(employees.id, id));
       return { success: true };
     }),
 

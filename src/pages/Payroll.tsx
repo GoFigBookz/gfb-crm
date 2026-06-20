@@ -13,7 +13,7 @@ import { trpc } from "@/providers/trpc";
 import { format } from "date-fns";
 import { TAX_2026 } from "../../api/payroll-tax-core";
 import { nextPayPeriod, normalizeFrequency } from "../../api/payroll-core";
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Lock } from "lucide-react";
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -649,6 +649,11 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
   onSave: (data: any) => void; pending: boolean;
 }) {
   const isNew = !employee.id;
+  // SIN is hidden by default (stored encrypted). Reveal/set is gated by a code.
+  const [sin, setSin] = useState("");
+  const [sinTouched, setSinTouched] = useState(false);
+  const [sinCode, setSinCode] = useState("");
+  const revealSin = trpc.employee.revealSin.useMutation();
   const [f, setF] = useState({
     firstName: employee.firstName || "", lastName: employee.lastName || "",
     payType: employee.payType || "hourly",
@@ -716,6 +721,23 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
             </Label>
             <Input value={f.contractUrl} onChange={(e) => set("contractUrl", e.target.value)} placeholder="Google Drive link to the signed contract…" />
           </div>
+          {/* SIN — hidden by default, stored encrypted. Reveal/set needs the code. */}
+          <div className="rounded-lg border p-2.5 space-y-2">
+            <Label className="text-xs uppercase font-semibold text-slate-500 flex items-center gap-1"><Lock className="h-3 w-3" /> SIN {employee.hasSin && !sinTouched && !sin ? <span className="text-slate-400 normal-case">· on file (hidden)</span> : null}</Label>
+            <div className="flex gap-2">
+              <Input value={sin} onChange={(e) => { setSin(e.target.value); setSinTouched(true); }} placeholder={employee.hasSin ? "•••-•••-••• (enter to replace)" : "000-000-000"} />
+              {!isNew && employee.hasSin && (
+                <>
+                  <Input type="password" value={sinCode} onChange={(e) => setSinCode(e.target.value)} placeholder="code" className="w-24" />
+                  <Button type="button" size="sm" variant="outline" disabled={revealSin.isPending || !sinCode} onClick={async () => {
+                    const r = await revealSin.mutateAsync({ id: employee.id, code: sinCode });
+                    if (!r.ok) { alert(r.reason || "Could not reveal."); return; }
+                    setSin(r.sin || ""); setSinTouched(false);
+                  }}>Reveal</Button>
+                </>
+              )}
+            </div>
+          </div>
           {/* Per-employee payroll features — tick which apply to this person. */}
           <div className="rounded-lg border p-2.5 space-y-2">
             <Label className="text-xs uppercase font-semibold text-slate-500">Payroll features for this employee</Label>
@@ -777,6 +799,7 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
               getsBonus: !!f.getsBonus, getsDividends: !!f.getsDividends,
               getsPhoneAllowance: !!f.getsPhoneAllowance, getsReimbursement: !!f.getsReimbursement,
               ytdGrossOpening: f.ytdGrossOpening.trim() === "" ? null : num(f.ytdGrossOpening),
+              ...(sinTouched ? { sin: sin.trim() } : {}),
               isActive: f.isActive, notes: f.notes.trim() || undefined,
             })}>{pending ? "Saving…" : isNew ? "Create" : "Save"}</Button>
           </div>

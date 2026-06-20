@@ -196,12 +196,14 @@ export async function ensurePayrollTables(): Promise<void> {
       clientId INTEGER NOT NULL,
       paymentDate INTEGER,
       recipient TEXT,
+      recipientSin TEXT,
       amount REAL DEFAULT 0,
       dividendType TEXT DEFAULT 'non_eligible',
       taxYear INTEGER,
       notes TEXT,
       createdAt INTEGER
     )`));
+    await addCol("dividend_payments", "recipientSin", "TEXT");
     console.log("[schema] payroll tables ensured");
   } catch (e) {
     console.error("[schema] ensurePayrollTables failed:", e instanceof Error ? e.message : e);

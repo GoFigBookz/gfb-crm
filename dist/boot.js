@@ -23732,6 +23732,8 @@ var init_schema = __esm({
       paymentDate: integer2("paymentDate", { mode: "timestamp" }),
       recipient: text("recipient"),
       // shareholder receiving the dividend
+      recipientSin: text("recipientSin"),
+      // ENCRYPTED at rest (for the T5 slip)
       amount: real("amount").default(0),
       dividendType: text("dividendType", { enum: ["eligible", "non_eligible"] }).default("non_eligible"),
       taxYear: integer2("taxYear"),
@@ -45283,7 +45285,41 @@ var init_user_router = __esm({
   }
 });
 
+// api/sensitive.ts
+var sensitive_exports = {};
+__export(sensitive_exports, {
+  checkRevealCode: () => checkRevealCode,
+  decryptSecret: () => decryptSecret,
+  encryptSecret: () => encryptSecret,
+  isEncrypted: () => isEncrypted,
+  maskSin: () => maskSin
+});
+function isEncrypted(v) {
+  return typeof v === "string" && v.startsWith("enc:v1:");
+}
+function checkRevealCode(code) {
+  const pin = process.env.FIGGY_SIN_PIN;
+  if (!pin) return { ok: false, reason: "SIN reveal is not configured (set FIGGY_SIN_PIN)." };
+  if (!code || code !== pin) return { ok: false, reason: "Incorrect code." };
+  return { ok: true };
+}
+function maskSin(decrypted) {
+  if (!decrypted) return null;
+  const digits = decrypted.replace(/\D/g, "");
+  if (digits.length < 3) return "\u2022\u2022\u2022";
+  return `\u2022\u2022\u2022-\u2022\u2022\u2022-${digits.slice(-3)}`;
+}
+var init_sensitive = __esm({
+  "api/sensitive.ts"() {
+    init_qbo_oauth();
+  }
+});
+
 // api/employee-router.ts
+function stripSin(row) {
+  const { sin, ...rest } = row;
+  return { ...rest, hasSin: !!sin };
+}
 var employeeRouter;
 var init_employee_router = __esm({
   "api/employee-router.ts"() {
@@ -45292,15 +45328,25 @@ var init_employee_router = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+    init_sensitive();
     employeeRouter = createRouter({
       list: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
-        return db.select().from(employees).where(eq(employees.clientId, input.clientId)).orderBy(employees.lastName);
+        const rows = await db.select().from(employees).where(eq(employees.clientId, input.clientId)).orderBy(employees.lastName);
+        return rows.map(stripSin);
       }),
       get: staffQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
         const row = await db.select().from(employees).where(eq(employees.id, input.id)).limit(1);
-        return row[0] || null;
+        return row[0] ? stripSin(row[0]) : null;
+      }),
+      // Code-gated SIN reveal (for printing T4/T4A). Requires FIGGY_SIN_PIN.
+      revealSin: staffQuery.input(external_exports.object({ id: external_exports.number(), code: external_exports.string() })).mutation(async ({ input }) => {
+        const gate = checkRevealCode(input.code);
+        if (!gate.ok) return { ok: false, reason: gate.reason };
+        const db = getDb();
+        const row = (await db.select().from(employees).where(eq(employees.id, input.id)).limit(1))[0];
+        return { ok: true, sin: row?.sin ? decryptSecret(row.sin) : null };
       }),
       create: seniorQuery.input(external_exports.object({
         clientId: external_exports.number(),
@@ -45330,10 +45376,14 @@ var init_employee_router = __esm({
         getsPhoneAllowance: external_exports.boolean().optional(),
         getsReimbursement: external_exports.boolean().optional(),
         ytdGrossOpening: external_exports.number().nullable().optional(),
+        sin: external_exports.string().optional(),
         notes: external_exports.string().optional()
       })).mutation(async ({ input }) => {
         const db = getDb();
-        const result = await db.insert(employees).values({ ...input, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() });
+        const { sin, ...rest } = input;
+        const values = { ...rest, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() };
+        if (sin !== void 0) values.sin = sin ? encryptSecret(sin) : null;
+        const result = await db.insert(employees).values(values);
         return { success: true, id: Number(result.lastInsertRowid) };
       }),
       update: seniorQuery.input(external_exports.object({
@@ -45375,11 +45425,14 @@ var init_employee_router = __esm({
         getsPhoneAllowance: external_exports.boolean().optional(),
         getsReimbursement: external_exports.boolean().optional(),
         ytdGrossOpening: external_exports.number().nullable().optional(),
+        sin: external_exports.string().optional(),
         notes: external_exports.string().optional()
       })).mutation(async ({ input }) => {
-        const { id, ...data } = input;
+        const { id, sin, ...data } = input;
         const db = getDb();
-        await db.update(employees).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, id));
+        const patch = { ...data, updatedAt: /* @__PURE__ */ new Date() };
+        if (sin !== void 0) patch.sin = sin ? encryptSecret(sin) : null;
+        await db.update(employees).set(patch).where(eq(employees.id, id));
         return { success: true };
       }),
       delete: seniorQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
@@ -46010,7 +46063,41 @@ var init_payroll_router = __esm({
   }
 });
 
+// api/dividend-core.ts
+function computeT5Boxes(actual, type) {
+  const r = DIVIDEND_RATES[type];
+  const a = round24(Math.max(0, actual));
+  const taxable = round24(a * (1 + r.grossUp));
+  const dtc = round24((taxable - a) * r.dtcOfGrossUp);
+  return type === "eligible" ? { type, actual: a, taxable, dtc, actualBox: "24", taxableBox: "25", dtcBox: "26" } : { type, actual: a, taxable, dtc, actualBox: "10", taxableBox: "11", dtcBox: "12" };
+}
+function buildT5Slip(eligibleActual, nonEligibleActual) {
+  const eligible = computeT5Boxes(eligibleActual, "eligible");
+  const nonEligible = computeT5Boxes(nonEligibleActual, "non_eligible");
+  return {
+    eligible,
+    nonEligible,
+    totalActual: round24(eligible.actual + nonEligible.actual),
+    totalTaxable: round24(eligible.taxable + nonEligible.taxable),
+    totalDtc: round24(eligible.dtc + nonEligible.dtc)
+  };
+}
+var DIVIDEND_RATES, round24;
+var init_dividend_core = __esm({
+  "api/dividend-core.ts"() {
+    DIVIDEND_RATES = {
+      eligible: { grossUp: 0.38, dtcOfGrossUp: 6 / 11 },
+      non_eligible: { grossUp: 0.15, dtcOfGrossUp: 9 / 13 }
+    };
+    round24 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+  }
+});
+
 // api/dividend-router.ts
+function stripSin2(row) {
+  const { recipientSin, ...rest } = row;
+  return { ...rest, hasSin: !!recipientSin };
+}
 var dividendRouter;
 var init_dividend_router = __esm({
   "api/dividend-router.ts"() {
@@ -46019,33 +46106,79 @@ var init_dividend_router = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+    init_sensitive();
+    init_dividend_core();
     dividendRouter = createRouter({
       list: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
-        return db.select().from(dividendPayments).where(eq(dividendPayments.clientId, input.clientId)).orderBy(desc(dividendPayments.paymentDate));
+        const rows = await db.select().from(dividendPayments).where(eq(dividendPayments.clientId, input.clientId)).orderBy(desc(dividendPayments.paymentDate));
+        return rows.map(stripSin2);
       }),
       add: staffQuery.input(external_exports.object({
         clientId: external_exports.number(),
         paymentDate: external_exports.date().optional(),
         recipient: external_exports.string().optional(),
+        recipientSin: external_exports.string().optional(),
         amount: external_exports.number().default(0),
         dividendType: external_exports.enum(["eligible", "non_eligible"]).default("non_eligible"),
         taxYear: external_exports.number().optional(),
         notes: external_exports.string().optional()
       })).mutation(async ({ input }) => {
         const db = getDb();
+        const { recipientSin, ...rest } = input;
         const [row] = await db.insert(dividendPayments).values({
-          ...input,
+          ...rest,
+          recipientSin: recipientSin ? encryptSecret(recipientSin) : null,
+          // encrypted at rest
           paymentDate: input.paymentDate ?? /* @__PURE__ */ new Date(),
           taxYear: input.taxYear ?? (input.paymentDate ?? /* @__PURE__ */ new Date()).getFullYear(),
           createdAt: /* @__PURE__ */ new Date()
         }).returning();
-        return row;
+        return stripSin2(row);
       }),
       delete: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
         const db = getDb();
         await db.delete(dividendPayments).where(eq(dividendPayments.id, input.id));
         return { success: true };
+      }),
+      // Per-recipient T5 slips for a tax year: aggregate eligible + non-eligible
+      // dividends and compute the gross-up + DTC boxes. SIN is NOT included (use
+      // revealRecipientSin to fill it on the printed slip).
+      t5Slips: staffQuery.input(external_exports.object({ clientId: external_exports.number(), year: external_exports.number().optional() })).query(async ({ input }) => {
+        const db = getDb();
+        const year2 = input.year ?? (/* @__PURE__ */ new Date()).getFullYear();
+        const rows = await db.select().from(dividendPayments).where(eq(dividendPayments.clientId, input.clientId));
+        const inYear = rows.filter((r) => (r.taxYear ?? new Date(r.paymentDate).getFullYear()) === year2);
+        const byRecipient = /* @__PURE__ */ new Map();
+        for (const r of inYear) {
+          const key = (r.recipient || "(unnamed)").trim();
+          const agg = byRecipient.get(key) || { eligible: 0, nonEligible: 0, hasSin: false };
+          if (r.dividendType === "eligible") agg.eligible += r.amount || 0;
+          else agg.nonEligible += r.amount || 0;
+          if (r.recipientSin) agg.hasSin = true;
+          byRecipient.set(key, agg);
+        }
+        const payer = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        const slips = Array.from(byRecipient.entries()).map(([recipient, a]) => ({
+          recipient,
+          hasSin: a.hasSin,
+          ...buildT5Slip(a.eligible, a.nonEligible)
+        })).sort((x, y) => x.recipient.localeCompare(y.recipient));
+        return {
+          year: year2,
+          payer: payer ? { name: payer.company || payer.name, address: payer.address || "", bn: payer.taxId || "" } : null,
+          slips
+        };
+      }),
+      // Code-gated reveal of a recipient's SIN for the T5 slip (latest entry with a
+      // SIN for that recipient in the year). Requires FIGGY_SIN_PIN.
+      revealRecipientSin: staffQuery.input(external_exports.object({ clientId: external_exports.number(), recipient: external_exports.string(), code: external_exports.string() })).mutation(async ({ input }) => {
+        const gate = checkRevealCode(input.code);
+        if (!gate.ok) return { ok: false, reason: gate.reason };
+        const db = getDb();
+        const rows = await db.select().from(dividendPayments).where(and(eq(dividendPayments.clientId, input.clientId), eq(dividendPayments.recipient, input.recipient)));
+        const withSin = rows.find((r) => r.recipientSin);
+        return { ok: true, sin: withSin?.recipientSin ? decryptSecret(withSin.recipientSin) : null };
       })
     });
   }
@@ -52416,12 +52549,14 @@ async function ensurePayrollTables() {
       clientId INTEGER NOT NULL,
       paymentDate INTEGER,
       recipient TEXT,
+      recipientSin TEXT,
       amount REAL DEFAULT 0,
       dividendType TEXT DEFAULT 'non_eligible',
       taxYear INTEGER,
       notes TEXT,
       createdAt INTEGER
     )`));
+    await addCol("dividend_payments", "recipientSin", "TEXT");
     console.log("[schema] payroll tables ensured");
   } catch (e) {
     console.error("[schema] ensurePayrollTables failed:", e instanceof Error ? e.message : e);
@@ -57979,10 +58114,18 @@ async function startServer() {
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
-      await getDb2().run(sql4.raw(`UPDATE employees SET sin = NULL WHERE sin IS NOT NULL`));
+      const { employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { encryptSecret: encryptSecret2, isEncrypted: isEncrypted2 } = await Promise.resolve().then(() => (init_sensitive(), sensitive_exports));
+      const db = getDb2();
+      const rows = await db.select().from(employees2);
+      for (const e of rows) {
+        if (e.sin && !isEncrypted2(e.sin)) {
+          await db.update(employees2).set({ sin: encryptSecret2(String(e.sin)) }).where(eq3(employees2.id, e.id));
+        }
+      }
     } catch (e) {
-      console.error("[privacy] SIN scrub failed (non-fatal):", e instanceof Error ? e.message : e);
+      console.error("[privacy] SIN encrypt-at-rest failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     if (process.env.FIGGY_SKIP_EMPLOYEE_SEED !== "on") {
       try {

@@ -1478,6 +1478,7 @@ export const dividendPayments = sqliteTable("dividend_payments", {
   clientId: integer("clientId").notNull(),
   paymentDate: integer("paymentDate", { mode: "timestamp" }),
   recipient: text("recipient"),                 // shareholder receiving the dividend
+  recipientSin: text("recipientSin"),           // ENCRYPTED at rest (for the T5 slip)
   amount: real("amount").default(0),
   dividendType: text("dividendType", { enum: ["eligible", "non_eligible"] }).default("non_eligible"),
   taxYear: integer("taxYear"),
