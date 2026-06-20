@@ -49136,6 +49136,11 @@ async function importClientMaster() {
       // fix ALL-CAPS -> clean display casing
       company: prettyCompany(r.name),
       assignedTo: "Markie",
+      // The master list = current, ACTIVE clients — so mark them active (they're
+      // not leads in the sales pipeline). Existing matched clients get flipped
+      // out of "new_lead" here too.
+      status: "active",
+      workflowStatus: "active",
       driveFolderUrl: r.folder || null,
       clientInfoDocUrl: r.doc || null,
       updatedAt: /* @__PURE__ */ new Date()
