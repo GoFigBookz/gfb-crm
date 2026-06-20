@@ -620,7 +620,7 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
     hourlyRate: employee.hourlyRate != null ? String(employee.hourlyRate) : "",
     hoursPerWeek: employee.hoursPerWeek != null ? String(employee.hoursPerWeek) : "",
     position: employee.position || "", email: employee.email || "", phone: employee.phone || "",
-    sin: employee.sin || "", isActive: employee.isActive !== false,
+    isActive: employee.isActive !== false,
     contractUrl: employee.contractUrl || "",
     notes: employee.notes || "",
   });
@@ -655,9 +655,8 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
             )}
             <div><Label>Hrs / week</Label><Input type="number" value={f.hoursPerWeek} onChange={(e) => set("hoursPerWeek", e.target.value)} /></div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label>Position</Label><Input value={f.position} onChange={(e) => set("position", e.target.value)} /></div>
-            <div><Label>SIN</Label><Input value={f.sin} onChange={(e) => set("sin", e.target.value)} /></div>
+          <div>
+            <Label>Position</Label><Input value={f.position} onChange={(e) => set("position", e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Email</Label><Input value={f.email} onChange={(e) => set("email", e.target.value)} /></div>
@@ -686,7 +685,7 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
               annualSalary: f.payType === "salary" ? num(f.annualSalary) : undefined,
               hourlyRate: f.payType !== "salary" ? num(f.hourlyRate) : undefined,
               hoursPerWeek: num(f.hoursPerWeek),
-              position: f.position.trim() || undefined, sin: f.sin.trim() || undefined,
+              position: f.position.trim() || undefined,
               email: f.email.trim() || undefined, phone: f.phone.trim() || undefined,
               contractUrl: f.contractUrl.trim() || undefined,
               isActive: f.isActive, notes: f.notes.trim() || undefined,

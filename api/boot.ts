@@ -853,6 +853,12 @@ async function startServer() {
     await ensureTaskColumns();
     await ensurePayrollTables();
     await ensureClientRequestTables();
+    // Privacy: we do NOT store SINs in the CRM. Scrub any that exist (idempotent).
+    try {
+      const { getDb } = await import("./queries/connection");
+      const { sql } = await import("drizzle-orm");
+      await getDb().run(sql.raw(`UPDATE employees SET sin = NULL WHERE sin IS NOT NULL`));
+    } catch (e) { console.error("[privacy] SIN scrub failed (non-fatal):", e instanceof Error ? e.message : e); }
     if (process.env.FIGGY_SKIP_EMPLOYEE_SEED !== "on") {
       try { const { seedPayrollEmployees } = await import("./seed-payroll-employees"); await seedPayrollEmployees(); }
       catch (e) { console.error("[seed] payroll employees failed (non-fatal):", e instanceof Error ? e.message : e); }

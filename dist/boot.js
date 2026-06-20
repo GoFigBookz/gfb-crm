@@ -45005,7 +45005,6 @@ var init_employee_router = __esm({
         clientId: external_exports.number(),
         firstName: external_exports.string().min(1),
         lastName: external_exports.string().min(1),
-        sin: external_exports.string().optional(),
         dateOfBirth: external_exports.date().optional(),
         hireDate: external_exports.date().optional(),
         startDate: external_exports.date().optional(),
@@ -45030,7 +45029,6 @@ var init_employee_router = __esm({
         id: external_exports.number(),
         firstName: external_exports.string().optional(),
         lastName: external_exports.string().optional(),
-        sin: external_exports.string().optional(),
         dateOfBirth: external_exports.date().optional(),
         hireDate: external_exports.date().optional(),
         startDate: external_exports.date().optional(),
@@ -57252,6 +57250,13 @@ async function startServer() {
     await ensureTaskColumns2();
     await ensurePayrollTables2();
     await ensureClientRequestTables2();
+    try {
+      const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+      const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      await getDb2().run(sql4.raw(`UPDATE employees SET sin = NULL WHERE sin IS NOT NULL`));
+    } catch (e) {
+      console.error("[privacy] SIN scrub failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
     if (process.env.FIGGY_SKIP_EMPLOYEE_SEED !== "on") {
       try {
         const { seedPayrollEmployees: seedPayrollEmployees2 } = await Promise.resolve().then(() => (init_seed_payroll_employees(), seed_payroll_employees_exports));
