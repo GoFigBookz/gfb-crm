@@ -40,7 +40,7 @@ const COLUMNS: Array<[string, string]> = [
   ["payrollRpNumber", "text"], ["driveFolderUrl", "text"], ["clientInfoDocUrl", "text"], ["nextPayday", "text"],
   ["qboCustomerId", "text"], ["qboConnectionId", "integer"],
   ["industry", "text DEFAULT 'other'"], ["province", "text DEFAULT 'ON'"], ["qboAccountType", "text DEFAULT 'ca_clients'"],
-  ["figgyEmail", "text"], ["contactName", "text"],
+  ["figgyEmail", "text"], ["contactName", "text"], ["craRacDone", "integer DEFAULT 0"],
   ["createdAt", "integer"], ["updatedAt", "integer"],
 ];
 

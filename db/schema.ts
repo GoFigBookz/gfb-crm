@@ -305,6 +305,8 @@ export const clients = sqliteTable("clients", {
   qboAccountType: text("qboAccountType").default("ca_clients"),
   figgyEmail: text("figgyEmail"),
   contactName: text("contactName"),
+  // CRA Represent a Client (RAC) authorization status
+  craRacDone: integer("craRacDone", { mode: "boolean" }).default(false),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });

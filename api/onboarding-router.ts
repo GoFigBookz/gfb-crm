@@ -410,7 +410,7 @@ export const onboardingRouter = createRouter({
       name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(),
       company: z.string().optional(), address: z.string().optional(), contactName: z.string().optional(),
       taxId: z.string().optional(), hstNumber: z.string().optional(), wsibAccountNumber: z.string().optional(),
-      payrollRpNumber: z.string().optional(), monthlyFee: z.number().optional(),
+      payrollRpNumber: z.string().optional(), monthlyFee: z.number().optional(), craRacDone: z.boolean().optional(),
       hasHST: z.boolean().optional(), hstPeriod: z.enum(["monthly", "quarterly", "annual"]).optional(),
       hasWSIB: z.boolean().optional(), hasPayroll: z.boolean().optional(),
       payrollFrequency: z.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
@@ -443,7 +443,7 @@ export const onboardingRouter = createRouter({
 
       // client-level keys
       const clientKeys = ["name", "email", "phone", "company", "address", "contactName", "taxId", "hstNumber",
-        "wsibAccountNumber", "payrollRpNumber", "monthlyFee", "hasHST", "hstPeriod", "hasWSIB", "hasPayroll",
+        "wsibAccountNumber", "payrollRpNumber", "monthlyFee", "craRacDone", "hasHST", "hstPeriod", "hasWSIB", "hasPayroll",
         "payrollFrequency", "payrollRemitterFreq", "yearEndMonth"] as const;
       const clientPatch: Record<string, any> = { updatedAt: new Date() };
       for (const k of clientKeys) if ((rest as any)[k] !== undefined) clientPatch[k] = (rest as any)[k];

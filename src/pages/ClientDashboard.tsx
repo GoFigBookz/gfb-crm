@@ -95,6 +95,7 @@ export default function ClientDashboard() {
   const invalidateDocs = () => { utils.quote.documents.invalidate({ clientId: id }); utils.crmClient.get.invalidate({ id }); };
   const genQuote = trpc.quote.createSignableQuote.useMutation({ onSuccess: invalidateDocs });
   const genEngagement = trpc.quote.createEngagementLetter.useMutation({ onSuccess: invalidateDocs });
+  const genCra = trpc.quote.createCraAuthRequest.useMutation({ onSuccess: invalidateDocs });
   const activateClient = trpc.quote.activateClient.useMutation({
     onSuccess: () => { invalidateDocs(); utils.clientDashboard.getByClient.invalidate({ clientId: id }); },
   });
@@ -393,6 +394,11 @@ export default function ClientDashboard() {
               <Button size="sm" variant="outline" onClick={() => genEngagement.mutate({ clientId: id })} disabled={genEngagement.isPending}>
                 <FileText className="h-3.5 w-3.5 mr-1" />{genEngagement.isPending ? "Generating…" : "Generate engagement letter"}
               </Button>
+              {!client.craRacDone && (
+                <Button size="sm" variant="outline" onClick={() => genCra.mutate({ clientId: id })} disabled={genCra.isPending}>
+                  <FileText className="h-3.5 w-3.5 mr-1" />{genCra.isPending ? "Generating…" : "CRA authorization request"}
+                </Button>
+              )}
               {client.status !== "active" && (
                 <Button size="sm" variant="outline" className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
                   onClick={() => { if (confirm(`Make ${client.name} an ACTIVE client and generate their recurring tasks?`)) activateClient.mutate({ clientId: id }); }}
@@ -1049,7 +1055,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
     address: client.address || "", contactName: client.contactName || o.primaryContactName || "",
     taxId: client.taxId || o.craBusinessNumber || "", hstNumber: client.hstNumber || "",
     wsibAccountNumber: client.wsibAccountNumber || o.wsibAccountNumber || "", payrollRpNumber: client.payrollRpNumber || "",
-    monthlyFee: client.monthlyFee ?? 0,
+    craRacDone: !!client.craRacDone, monthlyFee: client.monthlyFee ?? 0,
     hasHST: !!client.hasHST, hstPeriod: client.hstPeriod || "quarterly",
     hasWSIB: !!client.hasWSIB, hasPayroll: !!client.hasPayroll,
     payrollFrequency: client.payrollFrequency || "bi-weekly",
@@ -1099,6 +1105,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <T k="taxId" label="CRA BN" /><T k="hstNumber" label="HST #" /><T k="payrollRpNumber" label="Payroll RP #" /><T k="wsibAccountNumber" label="WSIB #" />
         </div>
+        <C k="craRacDone" label="CRA Represent-a-Client (RAC) access is set up" />
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Bookkeeping scope</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">

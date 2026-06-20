@@ -17,7 +17,7 @@ import {
   type QuoteScope, type BookkeepingFrequency, type HstFilingPeriod, type PayrollRunFrequency, type PayrollRemitter,
 } from "./quote-core";
 import { getFirmSettings } from "./firm-settings";
-import { renderQuoteHtml, renderEngagementHtml } from "./quote-doc";
+import { renderQuoteHtml, renderEngagementHtml, renderCraAuthRequestHtml } from "./quote-doc";
 
 /** Create a signable document on the e-sign rail and send it: enables the
  *  client portal, mints/reuses a token, inserts the signatureDocument as "sent",
@@ -250,6 +250,22 @@ export const quoteRouter = createRouter({
       });
       await db.update(clients).set({ engagementSentAt: new Date(), workflowStatus: "engagement_sent" }).where(eq(clients.id, client.id));
       return res;
+    }),
+
+  // Generate a branded, signable CRA Represent-a-Client authorization request.
+  createCraAuthRequest: authedQuery
+    .input(z.object({ clientId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0] as any;
+      if (!client) throw new Error("Client not found");
+      const content = renderCraAuthRequestHtml({ firm: getFirmSettings(), clientName: client.name, clientCompany: client.company });
+      return createAndSendDoc({
+        db, clientId: client.id, userId: ctx.user.id,
+        title: `CRA Authorization Request — ${client.company || client.name}`,
+        description: "Represent a Client (RAC) authorization",
+        content, documentType: "consent", clientEmail: client.email || null,
+      });
     }),
 
   // Final step: make the client active and generate their recurring tasks.
