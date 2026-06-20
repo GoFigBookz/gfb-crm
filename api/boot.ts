@@ -589,6 +589,10 @@ app.post("/api/admin/figgy", async (c) => {
       const { dedupeTasks } = await import("./dedupe-tasks");
       return c.json({ success: true, op, ...(await dedupeTasks()) });
     }
+    if (op === "seedEmployees") {
+      const { seedPayrollEmployees } = await import("./seed-payroll-employees");
+      return c.json({ success: true, op, ...(await seedPayrollEmployees()) });
+    }
     if (op === "tasks") {
       // Read-only: diagnose why the calendar may look empty — how many tasks
       // exist, how many have due dates, completion split, and a small sample.
@@ -848,6 +852,10 @@ async function startServer() {
     await ensureOnboardingColumns();
     await ensureTaskColumns();
     await ensurePayrollTables();
+    if (process.env.FIGGY_SKIP_EMPLOYEE_SEED !== "on") {
+      try { const { seedPayrollEmployees } = await import("./seed-payroll-employees"); await seedPayrollEmployees(); }
+      catch (e) { console.error("[seed] payroll employees failed (non-fatal):", e instanceof Error ? e.message : e); }
+    }
   } catch (e) {
     console.error("[schema] ensureClientsColumns failed (non-fatal):", e instanceof Error ? e.message : e);
   }
