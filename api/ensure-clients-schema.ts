@@ -182,6 +182,28 @@ export async function ensurePayrollTables(): Promise<void> {
   }
 }
 
+/** Create the SMS messages table (texting clients via Android gateway). */
+export async function ensureSmsTable(): Promise<void> {
+  const db = getDb();
+  try {
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS sms_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER,
+      direction TEXT NOT NULL,
+      counterparty TEXT NOT NULL,
+      body TEXT NOT NULL,
+      status TEXT DEFAULT 'received' NOT NULL,
+      externalId TEXT,
+      read INTEGER DEFAULT 0,
+      sentBy INTEGER,
+      createdAt INTEGER
+    )`));
+    console.log("[schema] sms_messages table ensured");
+  } catch (e) {
+    console.error("[schema] ensureSmsTable failed:", e instanceof Error ? e.message : e);
+  }
+}
+
 /** Create the client-requests tables (Karbon-style document checklists). */
 export async function ensureClientRequestTables(): Promise<void> {
   const db = getDb();

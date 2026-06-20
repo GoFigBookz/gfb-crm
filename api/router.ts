@@ -27,6 +27,7 @@ import { userRouter } from "./user-router";
 import { employeeRouter } from "./employee-router";
 import { payrollRouter } from "./payroll-router";
 import { clientRequestRouter } from "./client-request-router";
+import { messageRouter } from "./message-router";
 import { engagementLetterRouter } from "./engagement-letter-router";
 import { signatureRouter } from "./signature-router";
 import { playbookRouter } from "./playbook-router";
@@ -68,6 +69,7 @@ export const appRouter = createRouter({
   employee: employeeRouter,
   payroll: payrollRouter,
   clientRequest: clientRequestRouter,
+  message: messageRouter,
   engagementLetter: engagementLetterRouter,
   public: publicRouter,
   clientDashboard: clientDashboardRouter,

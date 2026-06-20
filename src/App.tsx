@@ -26,6 +26,7 @@ import Employees from "./pages/Employees";
 import Payroll from "./pages/Payroll";
 import PayrollApproval from "./pages/PayrollApproval";
 import ClientRequest from "./pages/ClientRequest";
+import Messages from "./pages/Messages";
 import EngagementLetters from "./pages/EngagementLetters";
 import BankConverter from "./pages/BankConverter";
 import TaxDeadlines from "./pages/TaxDeadlines";
@@ -76,6 +77,7 @@ function AppRoutes() {
         <Route path="/clients" element={<Clients />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/emails" element={<Emails />} />
+        <Route path="/messages" element={<Messages />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/files" element={<Files />} />
         <Route path="/invoices" element={<Invoices />} />

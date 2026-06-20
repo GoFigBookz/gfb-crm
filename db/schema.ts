@@ -1044,6 +1044,23 @@ export const payRunLines = sqliteTable("pay_run_lines", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// ========== SMS MESSAGES (texting clients via an Android SMS gateway) ==========
+// Inbound texts are POSTed to /api/sms/inbound by the gateway app on Markie's
+// phone; outbound texts are sent back through the gateway's API. Threads are
+// grouped by counterparty phone; auto-linked to a client by matching phone.
+export const smsMessages = sqliteTable("sms_messages", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId"),                // matched by phone, nullable
+  direction: text("direction", { enum: ["inbound", "outbound"] }).notNull(),
+  counterparty: text("counterparty").notNull(), // the client's phone (normalized digits)
+  body: text("body").notNull(),
+  status: text("status", { enum: ["received", "queued", "sent", "failed"] }).default("received").notNull(),
+  externalId: text("externalId"),               // gateway message id
+  read: integer("read", { mode: "boolean" }).default(false),
+  sentBy: integer("sentBy"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // ========== CLIENT REQUESTS (Karbon-style document/info request checklists) ==========
 // A named, magic-link checklist of things you need FROM a client (documents,
 // answers). The client opens the token URL, ticks items off / leaves notes, and

@@ -6,7 +6,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, Import, ShieldCheck, Gauge, UserPlus, Inbox, Wallet,
+  Plus, TrendingUp, Lock, Import, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,6 +38,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     { to: "/calendar", icon: CalendarDays, label: "Calendar" },
     { to: "/quick-add", icon: Plus, label: "Quick Add" },
     { to: "/emails", icon: Mail, label: "Emails" },
+    { to: "/messages", icon: MessageSquare, label: "Messages" },
   ];
 
   const clientItems = [

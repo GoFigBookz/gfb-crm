@@ -517,6 +517,30 @@ app.post("/api/admin/import-clients", async (c) => {
 // FIGGY ADMIN (token-gated, read-only-ish) — lets the build self-test the
 // coding pipeline remotely via Make without browser/login access.
 // ================================================================
+// Inbound SMS from the Android gateway app (capcom6/android-sms-gateway-style).
+// Accepts the common shapes: {payload:{message,phoneNumber}} or {message,from}.
+app.post("/api/sms/inbound", async (c) => {
+  const secret = c.req.header("x-sms-secret") || c.req.query("secret") || "";
+  if (secret !== (process.env.SMS_WEBHOOK_SECRET || "figgy-sms-2026")) {
+    return c.json({ success: false, error: "Invalid SMS secret" }, 401);
+  }
+  let body: any = {};
+  try { body = await c.req.json(); } catch {}
+  try {
+    const { ingestInboundSms } = await import("./message-router");
+    const p = body?.payload ?? body ?? {};
+    const from = String(p.phoneNumber ?? p.from ?? p.address ?? p.sender ?? "");
+    const text = String(p.message ?? p.text ?? p.body ?? "");
+    const externalId = p.messageId ?? p.id ?? null;
+    if (!from || !text) return c.json({ success: false, error: "missing from/message" }, 400);
+    const saved = await ingestInboundSms(from, text, externalId);
+    return c.json({ success: true, id: saved?.id ?? null });
+  } catch (e) {
+    console.error("[sms] inbound failed:", e instanceof Error ? e.message : e);
+    return c.json({ success: false, error: "ingest failed" }, 500);
+  }
+});
+
 app.post("/api/admin/figgy", async (c) => {
   const token = c.req.header("x-agent-token") || "";
   if (token !== (process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026")) {
@@ -847,12 +871,13 @@ async function startServer() {
   // table is missing columns the app SELECTs, which makes every read throw (empty
   // Clients page). Add any missing columns first.
   try {
-    const { ensureClientsColumns, ensureOnboardingColumns, ensureTaskColumns, ensurePayrollTables, ensureClientRequestTables } = await import("./ensure-clients-schema");
+    const { ensureClientsColumns, ensureOnboardingColumns, ensureTaskColumns, ensurePayrollTables, ensureClientRequestTables, ensureSmsTable } = await import("./ensure-clients-schema");
     await ensureClientsColumns();
     await ensureOnboardingColumns();
     await ensureTaskColumns();
     await ensurePayrollTables();
     await ensureClientRequestTables();
+    await ensureSmsTable();
     // Privacy: we do NOT store SINs in the CRM. Scrub any that exist (idempotent).
     try {
       const { getDb } = await import("./queries/connection");
