@@ -59,6 +59,7 @@ export async function createRecurringTasksForClient(
     wsibQuarter?: string;
     hasPayroll?: boolean;
     payrollFrequency?: string;
+    paysDividends?: boolean;
   },
   clientName: string,
   assignedTo?: string | null
@@ -259,6 +260,53 @@ export async function createRecurringTasksForClient(
           nextDueDate: t4Due,
           priority: "high",
           category: "Payroll",
+          assignedTo: assignedTo || undefined,
+          active: true,
+        });
+      }
+    }
+  }
+
+  // --- Dividend / T5 Task (triggered by the client's "Dividends" payroll feature) ---
+  if (flags.paysDividends) {
+    const t5Due = new Date(now.getFullYear() + 1, 1, 28); // Feb 28 next year
+    const t5Title = `T5 Filing — ${clientName}`;
+    const t5Existing = await db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(
+        sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${t5Title} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1000)}`
+      )
+      .limit(1);
+
+    if (t5Existing.length === 0) {
+      const [t5Task] = await db.insert(tasks).values({
+        userId,
+        clientId,
+        title: t5Title,
+        description: `Prepare and file T5 slips and summary (dividends/interest) for ${clientName}.`,
+        dueDate: t5Due,
+        priority: "high",
+        status: "pending",
+        category: "Tax Filing",
+        assignedTo: assignedTo || undefined,
+        isRecurring: true,
+        recurrenceCount: 0,
+      }).returning();
+      if (t5Task) {
+        syncInsert("tasks", t5Task);
+        created.push(t5Task.id);
+
+        await db.insert(recurringTasks).values({
+          clientId,
+          userId,
+          title: t5Title,
+          description: `Prepare and file annual T5 slips and summary (dividends) for ${clientName}.`,
+          frequency: "yearly",
+          startDate: now,
+          nextDueDate: t5Due,
+          priority: "high",
+          category: "Tax Filing",
           assignedTo: assignedTo || undefined,
           active: true,
         });
