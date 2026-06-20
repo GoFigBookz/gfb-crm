@@ -1435,7 +1435,7 @@ function ComplianceTab({ clientId, client, closeStatus, tasks }: {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4 text-blue-500" /> Print T4 slips</CardTitle>
-            <CardDescription>Auto-computed from this client's pay runs (Box 14/16/16A/18/22/24/26). Uses the SIN code above to print SINs.</CardDescription>
+            <CardDescription>{t4?.source === "qbo" ? "Pulled from QuickBooks." : "From CRM pay runs for now — will pull from QuickBooks once connected."} Boxes 14/16/16A/18/22/24/26. Uses the SIN code above to print SINs.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap items-end gap-2">
             <div><Label className="text-xs">Tax year</Label><Input type="number" className="w-28" value={t4Year} onChange={(e) => setT4Year(Number(e.target.value) || new Date().getFullYear())} /></div>
