@@ -653,6 +653,94 @@ app.post("/api/admin/figgy", async (c) => {
       await db.update(clients).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: new Date(), workflowStatus: "quote_sent" }).where(eq(clients.id, cl.id));
       return c.json({ success: true, op, clientName: cl.name, recurringMonthly: quote.recurringMonthly, nearestPackage: quote.nearestPackage, ...res });
     }
+    if (op === "e2e") {
+      // Full intake → quote → engagement → sign → activate, server-side, to
+      // prove the whole chain works. Creates/replaces a throwaway test client.
+      const { getDb } = await import("./queries/connection");
+      const { clients, clientOnboarding, signatureDocuments, tasks, clientTaskRules } = await import("../db/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const { computeQuote, compareToFlatFee } = await import("./quote-core");
+      const { buildScopeForClient, createAndSendDoc, nextQuoteNumber, servicesForEngagement, clientAppsForEngagement } = await import("./quote-router");
+      const { getFirmSettings } = await import("./firm-settings");
+      const { renderQuoteHtml, renderEngagementHtml } = await import("./quote-doc");
+      const { createClientTaskRules } = await import("./task-generator");
+      const db = getDb();
+      const steps: string[] = [];
+      const TESTNAME = "E2E Test Co Inc.";
+      try {
+        // fresh start: remove any prior test client + its data
+        const prev = await db.select().from(clients).where(eq(clients.name, TESTNAME));
+        for (const p of prev as any[]) {
+          await db.delete(tasks).where(eq(tasks.clientId, p.id));
+          await db.delete(clientTaskRules).where(eq(clientTaskRules.clientId, p.id));
+          await db.delete(signatureDocuments).where(eq(signatureDocuments.clientId, p.id));
+          await db.delete(clientOnboarding).where(eq(clientOnboarding.clientId, p.id));
+          await db.delete(clients).where(eq(clients.id, p.id));
+        }
+        // 1) create client (intake basics)
+        const [cl] = await db.insert(clients).values({
+          userId: 1, name: TESTNAME, company: TESTNAME, email: "markie@gofig.ca", contactName: "Markie Antle",
+          status: "lead", workflowStatus: "new_lead", assignedTo: "Markie",
+          taxId: "111222333", hasHST: true, hstNumber: "111222333RT0001", hstPeriod: "quarterly",
+          hasPayroll: true, payrollFrequency: "bi-weekly", payrollRemitterFreq: "regular",
+          hasWSIB: true, wsibAccountNumber: "WSIB-555", yearEndMonth: "Dec", qboAccountType: "ca_clients",
+        }).returning();
+        steps.push(`client created #${cl.id}`);
+        // 2) intake/onboarding scope
+        await db.insert(clientOnboarding).values({
+          clientId: cl.id, token: "e2e-" + Date.now(), status: "approved",
+          avgMonthlyTransactions: 120, bookkeepingFrequency: "monthly", employeeCount: 3,
+          bankAccountCount: 2, creditCardCount: 1, hasEmployees: true, hasInvestments: true, paysDividends: true,
+          needsYearEnd: true, usesStripe: true, usesHubdoc: true, hstGstFrequency: "quarterly",
+          payrollFrequency: "biweekly", invoicingResponsibility: "we_invoice",
+          qboSoftwareTier: "essentials", qboSoftwareWholesale: true, qboPayrollWholesale: true,
+        });
+        steps.push("intake saved (120 txns, HST q, 3 emp, WSIB, dividends, Stripe, QBO essentials wholesale)");
+        const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, cl.id)))[0];
+        // 3) quote
+        const quote = computeQuote(buildScopeForClient(cl, onb));
+        const cmp = compareToFlatFee(quote.recurringMonthly, cl.monthlyFee ?? null);
+        const qNum = await nextQuoteNumber(db);
+        const qDoc = await createAndSendDoc({ db, clientId: cl.id, userId: 1,
+          title: `Quote ${qNum} — ${TESTNAME}`, description: `Scope-based quote · ${quote.recurringMonthly}/mo`,
+          content: renderQuoteHtml({ firm: getFirmSettings(), clientName: cl.name, clientCompany: cl.company, quote, comparison: cmp, quoteNumber: qNum }),
+          documentType: "custom", clientEmail: cl.email });
+        steps.push(`quote ${qNum} generated → $${quote.recurringMonthly}/mo (doc #${qDoc.documentId})`);
+        // 4) engagement
+        const eDoc = await createAndSendDoc({ db, clientId: cl.id, userId: 1,
+          title: `Letter of Engagement — ${TESTNAME}`, description: "Engagement terms for signature",
+          content: renderEngagementHtml({ firm: getFirmSettings(), clientName: cl.name, clientCompany: cl.company,
+            monthlyFee: cl.monthlyFee ?? null, quote, services: servicesForEngagement(cl, onb), yearEnd: cl.yearEndMonth,
+            contactName: cl.contactName, contactEmail: cl.email, address: cl.address,
+            closeSchedule: "monthly", clientApps: clientAppsForEngagement(onb), isCanadian: true }),
+          documentType: "engagement_letter", clientEmail: cl.email });
+        steps.push(`engagement generated (doc #${eDoc.documentId}, ${servicesForEngagement(cl, onb).length} services)`);
+        // 5) sign both
+        for (const docId of [qDoc.documentId, eDoc.documentId]) {
+          await db.update(signatureDocuments).set({
+            status: "signed", signedBy: "Markie Antle (E2E)", signatureType: "type_name",
+            signatureData: JSON.stringify({ name: "Markie Antle", date: new Date().toISOString() }),
+            signedAt: new Date(), updatedAt: new Date(),
+          }).where(eq(signatureDocuments.id, docId));
+        }
+        const signedCount = (await db.select().from(signatureDocuments).where(and(eq(signatureDocuments.clientId, cl.id), eq(signatureDocuments.status, "signed")))).length;
+        steps.push(`signed ${signedCount}/2 documents`);
+        // 6) activate + generate tasks
+        await db.update(clients).set({ status: "active", workflowStatus: "active", engagementSignedAt: new Date() }).where(eq(clients.id, cl.id));
+        const res = await createClientTaskRules({
+          clientId: cl.id, userId: 1, assignedTo: "Markie", hasHST: true, hstPeriod: "quarterly",
+          hasWSIB: true, hasPayroll: true, payrollFrequency: "bi-weekly", payrollRemitterFreq: "regular",
+          yearEnd: "Dec", bookkeepingFrequency: "monthly", paysDividends: true, hasInvestments: true, needsYearEnd: true,
+        } as any);
+        const taskCount = (await db.select().from(tasks).where(eq(tasks.clientId, cl.id))).length;
+        steps.push(`activated → ${res.rules.length} rules, ${res.tasks.length} recurring tasks, ${taskCount} tasks total`);
+        return c.json({ success: true, op, clientId: cl.id, quoteTotal: quote.recurringMonthly,
+          quoteLines: quote.monthlyLineItems.map((l: any) => l.label), signedCount, steps,
+          portalUrl: qDoc.portalUrl });
+      } catch (e: any) {
+        return c.json({ success: false, op, steps, error: e?.message || String(e), stack: e?.stack?.split("\n").slice(0,4) }, 500);
+      }
+    }
     if (op === "genengage") {
       // Generate + send a branded signable engagement letter for a client.
       const clientId = Number(c.req.query("clientId") || body?.clientId);

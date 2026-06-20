@@ -55653,6 +55653,157 @@ app.post("/api/admin/figgy", async (c) => {
       await db.update(clients2).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: /* @__PURE__ */ new Date(), workflowStatus: "quote_sent" }).where(eq3(clients2.id, cl.id));
       return c.json({ success: true, op, clientName: cl.name, recurringMonthly: quote.recurringMonthly, nearestPackage: quote.nearestPackage, ...res });
     }
+    if (op === "e2e") {
+      const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+      const { clients: clients2, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks4, clientTaskRules: clientTaskRules2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq3, and: and2 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
+      const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
+      const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
+      const { renderQuoteHtml: renderQuoteHtml2, renderEngagementHtml: renderEngagementHtml2 } = await Promise.resolve().then(() => (init_quote_doc(), quote_doc_exports));
+      const { createClientTaskRules: createClientTaskRules2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
+      const db = getDb2();
+      const steps = [];
+      const TESTNAME = "E2E Test Co Inc.";
+      try {
+        const prev = await db.select().from(clients2).where(eq3(clients2.name, TESTNAME));
+        for (const p of prev) {
+          await db.delete(tasks4).where(eq3(tasks4.clientId, p.id));
+          await db.delete(clientTaskRules2).where(eq3(clientTaskRules2.clientId, p.id));
+          await db.delete(signatureDocuments2).where(eq3(signatureDocuments2.clientId, p.id));
+          await db.delete(clientOnboarding2).where(eq3(clientOnboarding2.clientId, p.id));
+          await db.delete(clients2).where(eq3(clients2.id, p.id));
+        }
+        const [cl] = await db.insert(clients2).values({
+          userId: 1,
+          name: TESTNAME,
+          company: TESTNAME,
+          email: "markie@gofig.ca",
+          contactName: "Markie Antle",
+          status: "lead",
+          workflowStatus: "new_lead",
+          assignedTo: "Markie",
+          taxId: "111222333",
+          hasHST: true,
+          hstNumber: "111222333RT0001",
+          hstPeriod: "quarterly",
+          hasPayroll: true,
+          payrollFrequency: "bi-weekly",
+          payrollRemitterFreq: "regular",
+          hasWSIB: true,
+          wsibAccountNumber: "WSIB-555",
+          yearEndMonth: "Dec",
+          qboAccountType: "ca_clients"
+        }).returning();
+        steps.push(`client created #${cl.id}`);
+        await db.insert(clientOnboarding2).values({
+          clientId: cl.id,
+          token: "e2e-" + Date.now(),
+          status: "approved",
+          avgMonthlyTransactions: 120,
+          bookkeepingFrequency: "monthly",
+          employeeCount: 3,
+          bankAccountCount: 2,
+          creditCardCount: 1,
+          hasEmployees: true,
+          hasInvestments: true,
+          paysDividends: true,
+          needsYearEnd: true,
+          usesStripe: true,
+          usesHubdoc: true,
+          hstGstFrequency: "quarterly",
+          payrollFrequency: "biweekly",
+          invoicingResponsibility: "we_invoice",
+          qboSoftwareTier: "essentials",
+          qboSoftwareWholesale: true,
+          qboPayrollWholesale: true
+        });
+        steps.push("intake saved (120 txns, HST q, 3 emp, WSIB, dividends, Stripe, QBO essentials wholesale)");
+        const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, cl.id)))[0];
+        const quote = computeQuote2(buildScopeForClient2(cl, onb));
+        const cmp = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
+        const qNum = await nextQuoteNumber2(db);
+        const qDoc = await createAndSendDoc2({
+          db,
+          clientId: cl.id,
+          userId: 1,
+          title: `Quote ${qNum} \u2014 ${TESTNAME}`,
+          description: `Scope-based quote \xB7 ${quote.recurringMonthly}/mo`,
+          content: renderQuoteHtml2({ firm: getFirmSettings2(), clientName: cl.name, clientCompany: cl.company, quote, comparison: cmp, quoteNumber: qNum }),
+          documentType: "custom",
+          clientEmail: cl.email
+        });
+        steps.push(`quote ${qNum} generated \u2192 $${quote.recurringMonthly}/mo (doc #${qDoc.documentId})`);
+        const eDoc = await createAndSendDoc2({
+          db,
+          clientId: cl.id,
+          userId: 1,
+          title: `Letter of Engagement \u2014 ${TESTNAME}`,
+          description: "Engagement terms for signature",
+          content: renderEngagementHtml2({
+            firm: getFirmSettings2(),
+            clientName: cl.name,
+            clientCompany: cl.company,
+            monthlyFee: cl.monthlyFee ?? null,
+            quote,
+            services: servicesForEngagement2(cl, onb),
+            yearEnd: cl.yearEndMonth,
+            contactName: cl.contactName,
+            contactEmail: cl.email,
+            address: cl.address,
+            closeSchedule: "monthly",
+            clientApps: clientAppsForEngagement2(onb),
+            isCanadian: true
+          }),
+          documentType: "engagement_letter",
+          clientEmail: cl.email
+        });
+        steps.push(`engagement generated (doc #${eDoc.documentId}, ${servicesForEngagement2(cl, onb).length} services)`);
+        for (const docId of [qDoc.documentId, eDoc.documentId]) {
+          await db.update(signatureDocuments2).set({
+            status: "signed",
+            signedBy: "Markie Antle (E2E)",
+            signatureType: "type_name",
+            signatureData: JSON.stringify({ name: "Markie Antle", date: (/* @__PURE__ */ new Date()).toISOString() }),
+            signedAt: /* @__PURE__ */ new Date(),
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq3(signatureDocuments2.id, docId));
+        }
+        const signedCount = (await db.select().from(signatureDocuments2).where(and2(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
+        steps.push(`signed ${signedCount}/2 documents`);
+        await db.update(clients2).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients2.id, cl.id));
+        const res = await createClientTaskRules2({
+          clientId: cl.id,
+          userId: 1,
+          assignedTo: "Markie",
+          hasHST: true,
+          hstPeriod: "quarterly",
+          hasWSIB: true,
+          hasPayroll: true,
+          payrollFrequency: "bi-weekly",
+          payrollRemitterFreq: "regular",
+          yearEnd: "Dec",
+          bookkeepingFrequency: "monthly",
+          paysDividends: true,
+          hasInvestments: true,
+          needsYearEnd: true
+        });
+        const taskCount = (await db.select().from(tasks4).where(eq3(tasks4.clientId, cl.id))).length;
+        steps.push(`activated \u2192 ${res.rules.length} rules, ${res.tasks.length} recurring tasks, ${taskCount} tasks total`);
+        return c.json({
+          success: true,
+          op,
+          clientId: cl.id,
+          quoteTotal: quote.recurringMonthly,
+          quoteLines: quote.monthlyLineItems.map((l) => l.label),
+          signedCount,
+          steps,
+          portalUrl: qDoc.portalUrl
+        });
+      } catch (e) {
+        return c.json({ success: false, op, steps, error: e?.message || String(e), stack: e?.stack?.split("\n").slice(0, 4) }, 500);
+      }
+    }
     if (op === "genengage") {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
