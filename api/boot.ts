@@ -589,6 +589,25 @@ app.post("/api/admin/figgy", async (c) => {
       const { dedupeTasks } = await import("./dedupe-tasks");
       return c.json({ success: true, op, ...(await dedupeTasks()) });
     }
+    if (op === "onbget") {
+      // Read-only: a client's persisted intake-driving fields (diagnose edits).
+      const clientId = Number(c.req.query("clientId") || body?.clientId);
+      if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
+      const { getDb } = await import("./queries/connection");
+      const { clients, clientOnboarding } = await import("../db/schema");
+      const { eq, desc } = await import("drizzle-orm");
+      const db = getDb();
+      const cl = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
+      if (!cl) return c.json({ success: false, op, error: "not found" }, 404);
+      const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] as any ?? null;
+      return c.json({ success: true, op, client: {
+        name: cl.name, hasWSIB: cl.hasWSIB, wsibAccountNumber: cl.wsibAccountNumber, taxId: cl.taxId,
+        hasHST: cl.hasHST, hstNumber: cl.hstNumber, hasPayroll: cl.hasPayroll, transactionsPerMonth: cl.transactionsPerMonth, monthlyFee: cl.monthlyFee,
+      }, onboarding: onb ? {
+        id: onb.id, avgMonthlyTransactions: onb.avgMonthlyTransactions, employeeCount: onb.employeeCount,
+        wsibAccountNumber: onb.wsibAccountNumber, bookkeepingFrequency: onb.bookkeepingFrequency,
+      } : null });
+    }
     if (op === "quote") {
       // Scope-based quote for one client (verify the quote engine live).
       const clientId = Number(c.req.query("clientId") || body?.clientId);
