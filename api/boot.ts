@@ -634,7 +634,7 @@ app.post("/api/admin/figgy", async (c) => {
       const { clients, clientOnboarding } = await import("../db/schema");
       const { eq, desc } = await import("drizzle-orm");
       const { computeQuote, compareToFlatFee } = await import("./quote-core");
-      const { buildScopeForClient, createAndSendDoc } = await import("./quote-router");
+      const { buildScopeForClient, createAndSendDoc, nextQuoteNumber } = await import("./quote-router");
       const { getFirmSettings } = await import("./firm-settings");
       const { renderQuoteHtml } = await import("./quote-doc");
       const db = getDb();
@@ -643,10 +643,11 @@ app.post("/api/admin/figgy", async (c) => {
       const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
       const quote = computeQuote(buildScopeForClient(cl, onb));
       const comparison = compareToFlatFee(quote.recurringMonthly, cl.monthlyFee ?? null);
-      const content = renderQuoteHtml({ firm: getFirmSettings(), clientName: cl.name, clientCompany: cl.company, quote, comparison });
+      const qNum = await nextQuoteNumber(db);
+      const content = renderQuoteHtml({ firm: getFirmSettings(), clientName: cl.name, clientCompany: cl.company, quote, comparison, quoteNumber: qNum });
       const res = await createAndSendDoc({
         db, clientId: cl.id, userId: cl.userId ?? 1,
-        title: `Quote — ${cl.company || cl.name}`, description: `Scope-based quote · ${quote.recurringMonthly}/mo`,
+        title: `Quote ${qNum} — ${cl.company || cl.name}`, description: `Scope-based quote · ${quote.recurringMonthly}/mo`,
         content, documentType: "custom", clientEmail: cl.email || null,
       });
       await db.update(clients).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: new Date(), workflowStatus: "quote_sent" }).where(eq(clients.id, cl.id));

@@ -46039,22 +46039,19 @@ function round5(n) {
 }
 function transactionBase(txns) {
   const t2 = Math.max(0, Math.round(txns || 0));
-  for (const tier of RATE_CARD.transactionTiers) {
-    if (t2 <= tier.max) return { base: tier.base, label: tier.label };
-  }
-  const hv = RATE_CARD.highVolume;
-  return { base: hv.floor + Math.ceil(t2 - 750) * hv.perTxnOver750, label: hv.label };
+  const band = RATE_CARD.perTransactionRate.find((b) => t2 <= b.max) ?? RATE_CARD.perTransactionRate[RATE_CARD.perTransactionRate.length - 1];
+  return { base: round5(t2 * band.rate), rate: band.rate, label: `${t2} txns \xD7 ${band.label}` };
 }
 function computeQuote(scope) {
   const items = [];
   const txns = Math.max(0, Math.round(scope.avgMonthlyTransactions || 0));
-  const { base, label } = transactionBase(txns);
+  const { base, rate, label } = transactionBase(txns);
   const freqMult = RATE_CARD.bookkeepingFrequencyMultiplier[scope.bookkeepingFrequency] ?? 1;
   const baseAmount = base * freqMult;
   items.push({
     label: `Core bookkeeping \u2014 ${label}`,
     amount: baseAmount,
-    rationale: freqMult === 1 ? `${txns} txns/mo, recorded + reconciled + monthly close (1 bank acct incl.)` : `${txns} txns/mo at ${scope.bookkeepingFrequency} cadence (\xD7${freqMult} labour)`
+    rationale: freqMult === 1 ? `${txns} txns/mo @ $${rate}/txn, recorded + reconciled + monthly close` : `${txns} txns/mo @ $${rate}/txn at ${scope.bookkeepingFrequency} cadence (\xD7${freqMult} labour)`
   });
   const extraBanks = Math.max(0, (scope.bankAccountCount || 0) - 1);
   if (extraBanks > 0) items.push({
@@ -46228,21 +46225,15 @@ var init_quote_core = __esm({
     RATE_CARD = {
       // Monthly base by transaction volume (includes recording, categorization,
       // reconciliation of ONE bank account, and a monthly close).
-      // Core transaction-processing base only ($150 floor → $250 max). Add-ons
-      // (HST, payroll, year-end, etc.) stack on top as separate line items.
-      transactionTiers: [
-        { max: 25, base: 150, label: "1\u201325 txns/mo" },
-        { max: 50, base: 160, label: "26\u201350 txns/mo" },
-        { max: 75, base: 175, label: "51\u201375 txns/mo" },
-        { max: 100, base: 190, label: "76\u2013100 txns/mo" },
-        { max: 125, base: 200, label: "101\u2013125 txns/mo" },
-        { max: 150, base: 210, label: "126\u2013150 txns/mo" },
-        { max: 175, base: 220, label: "151\u2013175 txns/mo" },
-        { max: 200, base: 230, label: "176\u2013200 txns/mo" },
-        { max: 225, base: 240, label: "201\u2013225 txns/mo" },
-        { max: 250, base: 250, label: "226\u2013250 txns/mo" }
+      // Core bookkeeping is priced PER TRANSACTION — $2.50/txn at low volume sliding
+      // down to $1.50/txn at high volume. base = transactions × the band's rate.
+      perTransactionRate: [
+        { max: 50, rate: 2.5, label: "$2.50/txn" },
+        { max: 100, rate: 2.25, label: "$2.25/txn" },
+        { max: 200, rate: 2, label: "$2.00/txn" },
+        { max: 400, rate: 1.75, label: "$1.75/txn" },
+        { max: Infinity, rate: 1.5, label: "$1.50/txn" }
       ],
-      highVolume: { floor: 250, perTxnOver750: 0, label: "250+ txns/mo (base capped)" },
       // How often we actually do the books changes the recurring labour.
       bookkeepingFrequencyMultiplier: { monthly: 1, quarterly: 0.7, annual: 0.45, none: 0.4 },
       additionalBankAccount: 20,
@@ -46353,8 +46344,7 @@ function header(firm, docTitle) {
   return `
   <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid ${firm.accent};padding-bottom:16px;margin-bottom:24px;">
     <div>
-      <img src="${firm.logoDataUri}" alt="${esc2(firm.displayName)}" style="height:64px;width:auto;display:block;margin-bottom:6px;" />
-      <div style="font-size:12px;color:#64748b;line-height:1.5;">${esc2(firm.email)} \xB7 ${esc2(firm.phone)}<br/>${esc2(firm.website)}</div>
+      <img src="${firm.logoDataUri}" alt="${esc2(firm.displayName)}" style="height:64px;width:auto;display:block;" />
     </div>
     <div style="text-align:right;">
       <div style="font-size:18px;font-weight:600;color:${firm.accent};text-transform:uppercase;letter-spacing:1px;">${esc2(docTitle)}</div>
@@ -46364,8 +46354,9 @@ function header(firm, docTitle) {
 }
 function footer(firm) {
   return `
-  <div style="border-top:1px solid #e2e8f0;margin-top:28px;padding-top:12px;font-size:11px;color:#94a3b8;text-align:center;">
-    ${esc2(firm.legalName)} ${esc2(firm.legalSuffix)} \xB7 GST/HST# ${esc2(firm.hstNumber)} \xB7 ${esc2(firm.website)}
+  <div style="border-top:1px solid #e2e8f0;margin-top:28px;padding-top:12px;font-size:11px;color:#94a3b8;text-align:center;line-height:1.6;">
+    <div style="color:#64748b;font-weight:600;">${esc2(firm.displayName)} \xB7 ${esc2(firm.email)} \xB7 ${esc2(firm.phone)} \xB7 ${esc2(firm.website)}</div>
+    ${esc2(firm.legalName)} ${esc2(firm.legalSuffix)} \xB7 GST/HST# ${esc2(firm.hstNumber)}
   </div>`;
 }
 function wrap(inner) {
@@ -46376,7 +46367,7 @@ function renderQuoteHtml(opts) {
   const included = quote.monthlyLineItems.map((li) => `
     <li style="margin:5px 0;">${esc2(li.label)}</li>`).join("");
   return wrap(`
-    ${header(firm, "Quote")}
+    ${header(firm, opts.quoteNumber ? `Quote ${opts.quoteNumber}` : "Quote")}
     <p style="margin:0 0 4px;">Prepared for</p>
     <div style="font-size:18px;font-weight:600;margin-bottom:18px;">${esc2(opts.clientCompany || opts.clientName)}</div>
 
@@ -46462,6 +46453,7 @@ var quote_router_exports = {};
 __export(quote_router_exports, {
   buildScopeForClient: () => buildScopeForClient,
   createAndSendDoc: () => createAndSendDoc,
+  nextQuoteNumber: () => nextQuoteNumber,
   quoteRouter: () => quoteRouter
 });
 import crypto6 from "crypto";
@@ -46494,6 +46486,15 @@ async function createAndSendDoc(opts) {
     expiresAt: new Date(Date.now() + 30 * 864e5)
   }).returning();
   return { documentId: doc.id, portalUrl: `/portal/${token}?tab=signatures` };
+}
+async function nextQuoteNumber(db) {
+  const rows = await db.select().from(signatureDocuments);
+  let max2 = 999;
+  for (const d of rows) {
+    const m = /Q-(\d+)/.exec(String(d.title || ""));
+    if (m) max2 = Math.max(max2, Number(m[1]));
+  }
+  return `Q-${max2 + 1}`;
 }
 function servicesFromClient(client) {
   const s = ["Bookkeeping & accounting", "Monthly reconciliation"];
@@ -46659,12 +46660,13 @@ var init_quote_router = __esm({
         }
         const comparison = compareToFlatFee(quote.recurringMonthly, client.monthlyFee ?? null);
         const firm = getFirmSettings();
-        const content = renderQuoteHtml({ firm, clientName: client.name, clientCompany: client.company, quote, comparison });
+        const qNum = await nextQuoteNumber(db);
+        const content = renderQuoteHtml({ firm, clientName: client.name, clientCompany: client.company, quote, comparison, quoteNumber: qNum });
         const res = await createAndSendDoc({
           db,
           clientId: client.id,
           userId: ctx.user.id,
-          title: `Quote \u2014 ${client.company || client.name}`,
+          title: `Quote ${qNum} \u2014 ${client.company || client.name}`,
           description: `Scope-based quote \xB7 ${quote.recurringMonthly}/mo`,
           content,
           documentType: "custom",
@@ -55568,7 +55570,7 @@ app.post("/api/admin/figgy", async (c) => {
       const { clients: clients2, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
-      const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
+      const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
       const { renderQuoteHtml: renderQuoteHtml2 } = await Promise.resolve().then(() => (init_quote_doc(), quote_doc_exports));
       const db = getDb2();
@@ -55577,12 +55579,13 @@ app.post("/api/admin/figgy", async (c) => {
       const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
       const comparison = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
-      const content = renderQuoteHtml2({ firm: getFirmSettings2(), clientName: cl.name, clientCompany: cl.company, quote, comparison });
+      const qNum = await nextQuoteNumber2(db);
+      const content = renderQuoteHtml2({ firm: getFirmSettings2(), clientName: cl.name, clientCompany: cl.company, quote, comparison, quoteNumber: qNum });
       const res = await createAndSendDoc2({
         db,
         clientId: cl.id,
         userId: cl.userId ?? 1,
-        title: `Quote \u2014 ${cl.company || cl.name}`,
+        title: `Quote ${qNum} \u2014 ${cl.company || cl.name}`,
         description: `Scope-based quote \xB7 ${quote.recurringMonthly}/mo`,
         content,
         documentType: "custom",
