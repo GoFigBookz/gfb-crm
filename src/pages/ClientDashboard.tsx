@@ -778,6 +778,14 @@ export default function ClientDashboard() {
               onSave={(data: any) => { createTask.mutate({ clientId: id, ...data }); }}
             />
           )}
+          {creatingTask && (
+            <EditTaskDialog
+              task={{ title: "", category: "", priority: "medium", description: "", assignedTo: client.assignedTo || "" }}
+              isNew
+              onClose={() => setCreatingTask(false)}
+              onSave={(data: any) => { createTask.mutate({ clientId: id, ...data }); }}
+            />
+          )}
         </TabsContent>
 
         {/* FINANCIALS TAB */}
