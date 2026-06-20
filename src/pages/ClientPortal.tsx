@@ -469,9 +469,14 @@ export default function ClientPortal() {
                         <Badge variant="secondary" className="text-xs">{doc.status === "viewed" ? "Viewed" : "Awaiting Signature"}</Badge>
                       </div>
 
-                      {/* Document Content */}
-                      <div className="bg-slate-50 rounded-lg p-4 mb-4 max-h-64 overflow-auto">
-                        <pre className="text-sm text-slate-700 whitespace-pre-wrap font-sans">{doc.content}</pre>
+                      {/* Document Content — render branded HTML docs, fall back
+                          to plain text for legacy/markdown docs. */}
+                      <div className="bg-white border rounded-lg p-4 mb-4 max-h-[28rem] overflow-auto">
+                        {/^\s*</.test(doc.content || "") ? (
+                          <div className="text-sm text-slate-700" dangerouslySetInnerHTML={{ __html: doc.content }} />
+                        ) : (
+                          <pre className="text-sm text-slate-700 whitespace-pre-wrap font-sans">{doc.content}</pre>
+                        )}
                       </div>
 
                       {/* Signature Area */}
