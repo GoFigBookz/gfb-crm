@@ -124,7 +124,7 @@ export default function Tasks() {
                 {task.category && <Badge variant="secondary" className="text-xs">{task.category}</Badge>}
                 {task.clientId && clientName(task.clientId) && (
                   <Link
-                    to={`/clients/${task.clientId}`}
+                    to={`/client/${task.clientId}`}
                     onClick={(e) => e.stopPropagation()}
                     className="text-xs text-lime-700 hover:underline inline-flex items-center gap-1"
                   >
