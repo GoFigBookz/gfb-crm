@@ -585,6 +585,24 @@ app.post("/api/admin/figgy", async (c) => {
       }));
       return c.json({ success: true, op, count: list.length, clients: list });
     }
+    if (op === "quote") {
+      // Scope-based quote for one client (verify the quote engine live).
+      const clientId = Number(c.req.query("clientId") || body?.clientId);
+      if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
+      const { getDb } = await import("./queries/connection");
+      const { clients, clientOnboarding } = await import("../db/schema");
+      const { eq, desc } = await import("drizzle-orm");
+      const { computeQuote, compareToFlatFee } = await import("./quote-core");
+      const { buildScopeForClient } = await import("./quote-router");
+      const db = getDb();
+      const cl = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
+      if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
+      const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
+      const scope = buildScopeForClient(cl, onb);
+      const quote = computeQuote(scope);
+      const comparison = compareToFlatFee(quote.recurringMonthly, cl.monthlyFee ?? null);
+      return c.json({ success: true, op, clientName: cl.name, flatFee: cl.monthlyFee ?? null, scope, quote, comparison });
+    }
     // default: health
     return c.json({ success: true, op: "health", health: await brain.bridgeHealth() });
   } catch (e: any) {

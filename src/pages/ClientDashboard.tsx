@@ -63,6 +63,11 @@ export default function ClientDashboard() {
     { enabled: !!id }
   );
 
+  const { data: quote } = trpc.quote.forClient.useQuery(
+    { clientId: id },
+    { enabled: !!id }
+  );
+
   const navigate = useNavigate();
   const utils = trpc.useUtils();
   const archiveClient = trpc.crmClient.archive.useMutation({
@@ -259,6 +264,76 @@ export default function ClientDashboard() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Scope-based quote vs flat fee — am I undercharging? */}
+      {quote && (
+        <Card className={cn(
+          "border-l-4",
+          quote.comparison.verdict === "undercharging" ? "border-l-red-500" :
+          quote.comparison.verdict === "above_market" ? "border-l-blue-400" :
+          quote.comparison.verdict === "aligned" ? "border-l-emerald-500" : "border-l-slate-300"
+        )}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Scope-based quote vs flat fee</CardTitle>
+              <span className="text-xs text-slate-500">{quote.hasOnboarding ? "from intake scope" : "from client record (no intake yet)"}</span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-xs uppercase font-semibold text-slate-500">Flat fee</p>
+                <p className="text-2xl font-bold text-slate-700">{quote.flatFee ? `$${quote.flatFee}` : "—"}</p>
+                <p className="text-xs text-slate-400">/mo current</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase font-semibold text-slate-500">Scope quote</p>
+                <p className="text-2xl font-bold text-slate-900">${quote.quote.recurringMonthly}</p>
+                <p className="text-xs text-slate-400">${quote.quote.recurringRange.low}–${quote.quote.recurringRange.high}/mo</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase font-semibold text-slate-500">Gap</p>
+                <p className={cn("text-2xl font-bold",
+                  quote.comparison.verdict === "undercharging" ? "text-red-600" :
+                  quote.comparison.verdict === "above_market" ? "text-blue-600" : "text-emerald-600"
+                )}>
+                  {quote.comparison.deltaMonthly > 0 ? "+" : ""}{quote.comparison.flatFee != null ? `$${quote.comparison.deltaMonthly}` : "—"}
+                </p>
+                <p className="text-xs text-slate-400">{quote.comparison.verdict.replace(/_/g, " ")}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase font-semibold text-slate-500">One-time</p>
+                <p className="text-2xl font-bold text-slate-700">${quote.quote.oneTimeTotal}</p>
+                <p className="text-xs text-slate-400">setup{quote.scope.monthsBehind > 0 ? " + catch-up" : ""}</p>
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-slate-600">{quote.comparison.message}</p>
+            <details className="mt-3">
+              <summary className="text-xs font-semibold text-slate-500 cursor-pointer">Scope breakdown ({quote.quote.monthlyLineItems.length} items · {quote.quote.tier})</summary>
+              <div className="mt-2 space-y-1">
+                {quote.quote.monthlyLineItems.map((li, i) => (
+                  <div key={i} className="flex items-start justify-between gap-3 text-sm">
+                    <div>
+                      <span className="text-slate-700">{li.label}</span>
+                      <span className="block text-xs text-slate-400">{li.rationale}</span>
+                    </div>
+                    <span className="font-medium text-slate-700 whitespace-nowrap">${li.amount.toFixed(2)}/mo</span>
+                  </div>
+                ))}
+                {quote.quote.oneTimeLineItems.map((li, i) => (
+                  <div key={`ot-${i}`} className="flex items-start justify-between gap-3 text-sm border-t pt-1 mt-1">
+                    <div>
+                      <span className="text-slate-700">{li.label}</span>
+                      <span className="block text-xs text-slate-400">{li.rationale}</span>
+                    </div>
+                    <span className="font-medium text-slate-700 whitespace-nowrap">${li.amount} one-time</span>
+                  </div>
+                ))}
+              </div>
+            </details>
           </CardContent>
         </Card>
       )}
