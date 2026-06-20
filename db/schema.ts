@@ -1044,6 +1044,37 @@ export const payRunLines = sqliteTable("pay_run_lines", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// ========== CLIENT REQUESTS (Karbon-style document/info request checklists) ==========
+// A named, magic-link checklist of things you need FROM a client (documents,
+// answers). The client opens the token URL, ticks items off / leaves notes, and
+// you see outstanding vs provided. Reuses the portal token pattern.
+export const clientRequests = sqliteTable("client_requests", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  title: text("title").notNull(),
+  message: text("message"),                 // optional intro shown to the client
+  token: text("token").notNull(),
+  status: text("status", { enum: ["open", "completed", "cancelled"] }).default("open").notNull(),
+  dueDate: integer("dueDate", { mode: "timestamp" }),
+  reminderCount: integer("reminderCount").default(0),
+  lastReminderAt: integer("lastReminderAt", { mode: "timestamp" }),
+  createdBy: integer("createdBy"),
+  completedAt: integer("completedAt", { mode: "timestamp" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+export const clientRequestItems = sqliteTable("client_request_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  requestId: integer("requestId").notNull(),
+  label: text("label").notNull(),
+  status: text("status", { enum: ["pending", "provided"] }).default("pending").notNull(),
+  response: text("response"),               // client's note / link
+  providedAt: integer("providedAt", { mode: "timestamp" }),
+  sortOrder: integer("sortOrder").default(0),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // ========== TRIAGE FINDINGS (AI Agent findings for human review) ==========
 export const triageFindings = sqliteTable("triage_findings", {
   id: integer("id").primaryKey({ autoIncrement: true }),

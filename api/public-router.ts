@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { clients, clientOnboarding, workflowLogs, payRuns, payRunLines, employees } from "../db/schema";
+import { clients, clientOnboarding, workflowLogs, payRuns, payRunLines, employees, clientRequests, clientRequestItems } from "../db/schema";
 import { eq } from "drizzle-orm";
+import { maybeComplete } from "./client-request-router";
 
 export const publicRouter = createRouter({
   // Public: create a lead from the marketing website
@@ -154,6 +155,44 @@ export const publicRouter = createRouter({
         ...(input.decision === "approved" ? { status: "approved" } : {}),
         updatedAt: new Date(),
       }).where(eq(payRuns.id, run.id));
+      return { success: true };
+    }),
+
+  // ===== CLIENT REQUESTS (public, token-gated — the client's to-do list) =====
+  clientRequestGet: publicQuery
+    .input(z.object({ token: z.string().min(6) }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const req = (await db.select().from(clientRequests).where(eq(clientRequests.token, input.token)).limit(1))[0] as any;
+      if (!req) return null;
+      const client = (await db.select().from(clients).where(eq(clients.id, req.clientId)).limit(1))[0] as any;
+      const items = await db.select().from(clientRequestItems).where(eq(clientRequestItems.requestId, req.id)).orderBy(clientRequestItems.sortOrder);
+      return {
+        title: req.title, message: req.message, status: req.status, dueDate: req.dueDate,
+        clientName: client?.name ?? "Your company",
+        items: (items as any[]).map((i) => ({ id: i.id, label: i.label, status: i.status, response: i.response })),
+      };
+    }),
+
+  clientRequestSubmitItem: publicQuery
+    .input(z.object({
+      token: z.string().min(6),
+      itemId: z.number(),
+      status: z.enum(["pending", "provided"]),
+      response: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const req = (await db.select().from(clientRequests).where(eq(clientRequests.token, input.token)).limit(1))[0] as any;
+      if (!req) throw new Error("This request link is not valid.");
+      const item = (await db.select().from(clientRequestItems).where(eq(clientRequestItems.id, input.itemId)).limit(1))[0] as any;
+      if (!item || item.requestId !== req.id) throw new Error("Item not found.");
+      await db.update(clientRequestItems).set({
+        status: input.status,
+        response: input.response ?? item.response,
+        providedAt: input.status === "provided" ? new Date() : null,
+      }).where(eq(clientRequestItems.id, input.itemId));
+      await maybeComplete(req.id);
       return { success: true };
     }),
 });

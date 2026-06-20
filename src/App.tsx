@@ -26,6 +26,7 @@ import Employees from "./pages/Employees";
 import Payroll from "./pages/Payroll";
 import PayrollApproval from "./pages/PayrollApproval";
 import PayrollCalculator from "./pages/PayrollCalculator";
+import ClientRequest from "./pages/ClientRequest";
 import EngagementLetters from "./pages/EngagementLetters";
 import BankConverter from "./pages/BankConverter";
 import TaxDeadlines from "./pages/TaxDeadlines";
@@ -65,6 +66,9 @@ function AppRoutes() {
 
       {/* Payroll hours approval (public, token-based) */}
       <Route path="/approve/:token" element={<PayrollApproval />} />
+
+      {/* Client document/info request checklist (public, token-based) */}
+      <Route path="/request/:token" element={<ClientRequest />} />
       
       {/* Protected routes (work in demo mode too) */}
       <Route element={<AppLayout />}>

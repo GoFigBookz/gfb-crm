@@ -524,6 +524,7 @@ export default function ClientDashboard() {
 
         {/* OVERVIEW TAB */}
         <TabsContent value="overview" className="space-y-4 mt-4">
+          <ClientRequestsCard clientId={id} clientName={client.name} />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Task Progress */}
             <Card className="lg:col-span-2">
@@ -1751,5 +1752,90 @@ function QuickLinksCard({ client, onboarding }: { client: any; onboarding: any }
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/** Karbon-style document/info request checklists for a client (magic-link). */
+function ClientRequestsCard({ clientId, clientName }: { clientId: number; clientName: string }) {
+  const utils = trpc.useUtils();
+  const { data: requests } = trpc.clientRequest.listForClient.useQuery({ clientId });
+  const refresh = () => utils.clientRequest.listForClient.invalidate({ clientId });
+  const createReq = trpc.clientRequest.create.useMutation({ onSuccess: () => { refresh(); setCreating(false); setTitle(""); setItemsText(""); } });
+  const cancelReq = trpc.clientRequest.cancel.useMutation({ onSuccess: refresh });
+  const markReminded = trpc.clientRequest.markReminded.useMutation({ onSuccess: refresh });
+  const setItem = trpc.clientRequest.setItemStatus.useMutation({ onSuccess: refresh });
+  const [creating, setCreating] = useState(false);
+  const [title, setTitle] = useState("");
+  const [itemsText, setItemsText] = useState("");
+  const [copied, setCopied] = useState<number | null>(null);
+
+  const open = (requests || []).filter((r: any) => r.status !== "cancelled");
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2"><FileText className="h-5 w-5 text-lime-500" /> Document requests</CardTitle>
+          <Button size="sm" variant="outline" onClick={() => setCreating((v) => !v)}><Plus className="h-4 w-4 mr-1" /> New request</Button>
+        </div>
+        <CardDescription>Send {clientName} a magic-link checklist of documents/info you need; track what's outstanding.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {creating && (
+          <div className="rounded-lg border p-3 space-y-2 bg-slate-50">
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Request title (e.g. May month-end documents)" />
+            <Textarea value={itemsText} onChange={(e) => setItemsText(e.target.value)} rows={4} placeholder={"One item per line, e.g.\nBank statement — May\nCredit card statement — May\nReceipts for cash expenses"} />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setCreating(false)}>Cancel</Button>
+              <Button size="sm" disabled={!title.trim() || !itemsText.trim() || createReq.isPending}
+                onClick={() => createReq.mutate({ clientId, title: title.trim(), items: itemsText.split("\n").map((s) => s.trim()).filter(Boolean) })}>
+                Create & get link
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {open.length === 0 && !creating ? (
+          <p className="text-sm text-slate-400 py-3 text-center">No requests yet. Click <b>New request</b> to send a document checklist.</p>
+        ) : open.map((r: any) => {
+          const url = `${window.location.origin}/request/${r.token}`;
+          return (
+            <div key={r.id} className="rounded-lg border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{r.title}</p>
+                  <p className="text-xs text-slate-500">
+                    {r.provided}/{r.total} provided
+                    {r.status === "completed" ? " · ✓ complete" : ""}
+                    {r.reminderCount ? ` · ${r.reminderCount} reminder${r.reminderCount > 1 ? "s" : ""} sent` : ""}
+                  </p>
+                </div>
+                <Badge variant="outline" className={`text-xs ${r.status === "completed" ? "bg-lime-100 text-lime-700" : "bg-amber-100 text-amber-700"}`}>{r.status}</Badge>
+              </div>
+              <div className="mt-2 space-y-1">
+                {r.items.map((it: any) => (
+                  <div key={it.id} className="flex items-center gap-2 text-xs">
+                    <button onClick={() => setItem.mutate({ itemId: it.id, status: it.status === "provided" ? "pending" : "provided" })} title="Toggle">
+                      {it.status === "provided" ? <CheckCircle className="h-4 w-4 text-lime-500" /> : <Clock className="h-4 w-4 text-slate-300" />}
+                    </button>
+                    <span className={it.status === "provided" ? "line-through text-slate-400" : ""}>{it.label}</span>
+                    {it.response && <span className="text-slate-400">— {it.response}</span>}
+                  </div>
+                ))}
+              </div>
+              {r.status !== "completed" && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Input readOnly value={url} className="h-7 text-xs" onFocus={(e) => e.target.select()} />
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { navigator.clipboard?.writeText(url); setCopied(r.id); setTimeout(() => setCopied(null), 1500); }}>{copied === r.id ? "Copied!" : "Copy"}</Button>
+                  <a href={`mailto:?subject=${encodeURIComponent(r.title)}&body=${encodeURIComponent(`Hi — please provide the following when you get a chance: ${url}`)}`}
+                    onClick={() => markReminded.mutate({ id: r.id })} className="text-xs text-lime-700 hover:underline whitespace-nowrap">email / remind</a>
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600" onClick={() => { if (confirm("Cancel this request?")) cancelReq.mutate({ id: r.id }); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
