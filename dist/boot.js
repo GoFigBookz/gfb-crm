@@ -22885,6 +22885,8 @@ var init_schema = __esm({
       completedAt: integer2("completedAt", { mode: "timestamp" }),
       priority: text("priority", { enum: ["low", "medium", "high"] }).default("medium").notNull(),
       status: text("status", { enum: ["pending", "in_progress", "completed", "overdue"] }).default("pending").notNull(),
+      // Workflow board stage (Financial Cents-style kanban)
+      stage: text("stage", { enum: ["todo", "in_progress", "review", "done"] }).default("todo"),
       category: text("category"),
       assignedTo: text("assignedTo"),
       // Recurring task tracking
@@ -40989,7 +40991,7 @@ var init_task_router = __esm({
       complete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
         const now = /* @__PURE__ */ new Date();
-        await db.update(tasks).set({ completed: true, status: "completed", completedAt: now }).where(eq(tasks.id, input.id));
+        await db.update(tasks).set({ completed: true, status: "completed", stage: "done", completedAt: now }).where(eq(tasks.id, input.id));
         const taskRows = await db.select().from(tasks).where(eq(tasks.id, input.id)).limit(1);
         const task = taskRows[0];
         if (task) syncUpdate("tasks", task);
@@ -40999,6 +41001,16 @@ var init_task_router = __esm({
           if (nextTask) syncInsert("tasks", nextTask);
         }
         return { success: true, nextTaskId: nextTask?.id ?? null };
+      }),
+      // Move a task across the workflow board (todo/in_progress/review/done).
+      setStage: authedQuery.input(external_exports.object({ id: external_exports.number(), stage: external_exports.enum(["todo", "in_progress", "review", "done"]) })).mutation(async ({ input }) => {
+        const db = getDb();
+        const done = input.stage === "done";
+        await db.update(tasks).set({
+          stage: input.stage,
+          ...done ? { completed: true, status: "completed", completedAt: /* @__PURE__ */ new Date() } : { completed: false, status: input.stage === "in_progress" ? "in_progress" : "pending" }
+        }).where(eq(tasks.id, input.id));
+        return { success: true };
       }),
       // Update task
       update: authedQuery.input(external_exports.object({
@@ -50543,7 +50555,8 @@ var init_vite = __esm({
 var ensure_clients_schema_exports = {};
 __export(ensure_clients_schema_exports, {
   ensureClientsColumns: () => ensureClientsColumns,
-  ensureOnboardingColumns: () => ensureOnboardingColumns
+  ensureOnboardingColumns: () => ensureOnboardingColumns,
+  ensureTaskColumns: () => ensureTaskColumns
 });
 async function ensureClientsColumns() {
   const db = getDb();
@@ -50567,6 +50580,24 @@ async function ensureClientsColumns() {
   }
   if (added.length) console.log("[schema] clients: added missing columns:", added.join(", "));
   return { added };
+}
+async function ensureTaskColumns() {
+  const db = getDb();
+  const have = /* @__PURE__ */ new Set();
+  try {
+    const res = await db.run(sql`PRAGMA table_info(tasks)`);
+    for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
+  } catch {
+    return;
+  }
+  if (!have.has("stage")) {
+    try {
+      await db.run(sql.raw(`ALTER TABLE tasks ADD COLUMN "stage" text DEFAULT 'todo'`));
+      console.log("[schema] tasks: added stage");
+    } catch (e) {
+      console.error("[schema] add tasks.stage failed:", e instanceof Error ? e.message : e);
+    }
+  }
 }
 async function ensureOnboardingColumns() {
   const db = getDb();
@@ -55867,9 +55898,10 @@ async function startServer() {
   const { serveStaticFiles: serveStaticFiles2 } = await Promise.resolve().then(() => (init_vite(), vite_exports));
   serveStaticFiles2(app);
   try {
-    const { ensureClientsColumns: ensureClientsColumns2, ensureOnboardingColumns: ensureOnboardingColumns2 } = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
+    const { ensureClientsColumns: ensureClientsColumns2, ensureOnboardingColumns: ensureOnboardingColumns2, ensureTaskColumns: ensureTaskColumns2 } = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
     await ensureClientsColumns2();
     await ensureOnboardingColumns2();
+    await ensureTaskColumns2();
   } catch (e) {
     console.error("[schema] ensureClientsColumns failed (non-fatal):", e instanceof Error ? e.message : e);
   }

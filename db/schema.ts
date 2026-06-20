@@ -560,6 +560,8 @@ export const tasks = sqliteTable("tasks", {
   completedAt: integer("completedAt", { mode: "timestamp" }),
   priority: text("priority", { enum: ["low", "medium", "high"] }).default("medium").notNull(),
   status: text("status", { enum: ["pending", "in_progress", "completed", "overdue"] }).default("pending").notNull(),
+  // Workflow board stage (Financial Cents-style kanban)
+  stage: text("stage", { enum: ["todo", "in_progress", "review", "done"] }).default("todo"),
   category: text("category"),
   assignedTo: text("assignedTo"),
   

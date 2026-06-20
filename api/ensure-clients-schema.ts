@@ -68,6 +68,20 @@ export async function ensureClientsColumns(): Promise<{ added: string[] }> {
   return { added };
 }
 
+/** Add the tasks.stage column (workflow board) if the live DB lacks it. */
+export async function ensureTaskColumns(): Promise<void> {
+  const db = getDb();
+  const have = new Set<string>();
+  try {
+    const res: any = await db.run(sql`PRAGMA table_info(tasks)`);
+    for (const r of (res?.rows ?? res ?? [])) have.add(String((r as any).name ?? (r as any)[1] ?? ""));
+  } catch { return; }
+  if (!have.has("stage")) {
+    try { await db.run(sql.raw(`ALTER TABLE tasks ADD COLUMN "stage" text DEFAULT 'todo'`)); console.log("[schema] tasks: added stage"); }
+    catch (e) { console.error("[schema] add tasks.stage failed:", e instanceof Error ? e.message : e); }
+  }
+}
+
 /** Add newer client_onboarding columns the live DB may be missing (e.g.
  *  usesTouchBistro), so intake inserts don't fail. Idempotent. */
 export async function ensureOnboardingColumns(): Promise<void> {
