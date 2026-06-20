@@ -22789,6 +22789,10 @@ var init_schema = __esm({
       avgMonthlyTransactions: integer2("avgMonthlyTransactions").default(0),
       invoicingResponsibility: text("invoicingResponsibility", { enum: ["we_invoice", "client_invoices", "none"] }).default("none"),
       billPayResponsibility: text("billPayResponsibility", { enum: ["we_pay", "client_pays", "none"] }).default("none"),
+      // QuickBooks subscription billed wholesale through GFB (pass-through on quote)
+      qboSoftwareTier: text("qboSoftwareTier", { enum: ["none", "easystart", "essentials", "plus"] }).default("none"),
+      qboSoftwareWholesale: integer2("qboSoftwareWholesale", { mode: "boolean" }).default(false),
+      qboPayrollWholesale: integer2("qboPayrollWholesale", { mode: "boolean" }).default(false),
       // Status
       status: text("status", { enum: ["pending", "submitted", "reviewed", "approved"] }).default("pending").notNull(),
       submittedAt: integer2("submittedAt", { mode: "timestamp" }),
@@ -44118,6 +44122,9 @@ var init_onboarding_router = __esm({
         usesTouchBistro: external_exports.boolean().optional(),
         usesPayPal: external_exports.boolean().optional(),
         salesEntryFrequency: external_exports.enum(["daily", "weekly", "monthly", "none"]).optional(),
+        qboSoftwareTier: external_exports.enum(["none", "easystart", "essentials", "plus"]).optional(),
+        qboSoftwareWholesale: external_exports.boolean().optional(),
+        qboPayrollWholesale: external_exports.boolean().optional(),
         servicesNeeded: external_exports.string().optional(),
         painPoints: external_exports.string().optional(),
         expectations: external_exports.string().optional(),
@@ -44181,6 +44188,9 @@ var init_onboarding_router = __esm({
           "usesTouchBistro",
           "usesPayPal",
           "salesEntryFrequency",
+          "qboSoftwareTier",
+          "qboSoftwareWholesale",
+          "qboPayrollWholesale",
           "servicesNeeded",
           "painPoints",
           "expectations",
@@ -46129,6 +46139,21 @@ function computeQuote(scope) {
     amount: RATE_CARD.yearEndPerYear / 12,
     rationale: "Adjusting entries + year-end file to accountant, spread monthly"
   });
+  if (scope.qboSoftwareWholesale && scope.qboSoftwareTier && scope.qboSoftwareTier !== "none") {
+    const price = RATE_CARD.qbo.software[scope.qboSoftwareTier] ?? 0;
+    if (price) items.push({
+      label: `QuickBooks Online ${RATE_CARD.qbo.softwareLabel[scope.qboSoftwareTier]} (wholesale)`,
+      amount: price,
+      rationale: "QBO subscription billed through us at wholesale"
+    });
+  }
+  if (scope.qboPayrollWholesale && scope.hasPayroll && (scope.employeeCount || 0) > 0) {
+    items.push({
+      label: `QuickBooks Payroll (wholesale, ${scope.employeeCount} emp)`,
+      amount: RATE_CARD.qbo.payrollBase + (scope.employeeCount || 0) * RATE_CARD.qbo.payrollPerEmployee,
+      rationale: `QBO Payroll billed through us: $${RATE_CARD.qbo.payrollBase} + $${RATE_CARD.qbo.payrollPerEmployee}/employee`
+    });
+  }
   const recurringRaw = items.reduce((s, i) => s + i.amount, 0);
   const recurringMonthly = round5(recurringRaw);
   const oneTime = [];
@@ -46224,11 +46249,18 @@ var init_quote_core = __esm({
       payroll: {
         base: 40,
         // base if we run payroll at all
-        perEmployee: 20,
-        // per employee / month
+        perEmployee: 8,
+        // our SERVICE fee per employee / month
         runFrequencyMultiplier: { weekly: 1.5, biweekly: 1.2, semi_monthly: 1.2, monthly: 1, none: 1 },
         acceleratedRemitterPremium: 30
         // accelerated = twice-monthly PD7A remittances
+      },
+      // QuickBooks pass-through (only added when billed wholesale THROUGH us).
+      qbo: {
+        software: { easystart: 24, essentials: 54, plus: 60 },
+        softwareLabel: { easystart: "EasyStart", essentials: "Essentials", plus: "Plus" },
+        payrollBase: 40,
+        payrollPerEmployee: 7
       },
       t4PerEmployeePerYear: 50,
       // annual slips, amortized to monthly
@@ -46315,12 +46347,9 @@ __export(quote_doc_exports, {
 function header(firm, docTitle) {
   return `
   <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid ${firm.accent};padding-bottom:16px;margin-bottom:24px;">
-    <div style="display:flex;align-items:center;gap:14px;">
-      <img src="${firm.logoDataUri}" alt="${esc2(firm.displayName)}" style="height:56px;width:auto;border-radius:6px;" />
-      <div>
-        <div style="font-size:22px;font-weight:700;color:#1e293b;">${esc2(firm.displayName)}</div>
-        <div style="font-size:12px;color:#64748b;">${esc2(firm.email)} \xB7 ${esc2(firm.phone)} \xB7 ${esc2(firm.website)}</div>
-      </div>
+    <div>
+      <img src="${firm.logoDataUri}" alt="${esc2(firm.displayName)}" style="height:64px;width:auto;display:block;margin-bottom:6px;" />
+      <div style="font-size:12px;color:#64748b;line-height:1.5;">${esc2(firm.email)} \xB7 ${esc2(firm.phone)}<br/>${esc2(firm.website)}</div>
     </div>
     <div style="text-align:right;">
       <div style="font-size:18px;font-weight:600;color:${firm.accent};text-transform:uppercase;letter-spacing:1px;">${esc2(docTitle)}</div>
@@ -46523,7 +46552,10 @@ function buildScopeForClient(client, onb) {
     invoicingByUs: onb?.invoicingResponsibility === "we_invoice",
     billPayByUs: onb?.billPayResponsibility === "we_pay",
     hasJobCosting: bool(onb?.hasJobCosting),
-    monthsBehind: num2(onb?.monthsBehind)
+    monthsBehind: num2(onb?.monthsBehind),
+    qboSoftwareTier: onb?.qboSoftwareTier ?? "none",
+    qboSoftwareWholesale: bool(onb?.qboSoftwareWholesale),
+    qboPayrollWholesale: bool(onb?.qboPayrollWholesale)
   };
 }
 function normalizeHstPeriod(clientPeriod, onbFreq) {
@@ -50515,7 +50547,10 @@ async function ensureOnboardingColumns() {
     ["hasJobCosting", "integer DEFAULT 0"],
     ["avgMonthlyTransactions", "integer DEFAULT 0"],
     ["invoicingResponsibility", "text DEFAULT 'none'"],
-    ["billPayResponsibility", "text DEFAULT 'none'"]
+    ["billPayResponsibility", "text DEFAULT 'none'"],
+    ["qboSoftwareTier", "text DEFAULT 'none'"],
+    ["qboSoftwareWholesale", "integer DEFAULT 0"],
+    ["qboPayrollWholesale", "integer DEFAULT 0"]
   ];
   for (const [col, type] of adds) {
     if (have.has(col)) continue;

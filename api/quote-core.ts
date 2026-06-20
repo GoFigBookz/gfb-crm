@@ -48,6 +48,10 @@ export type QuoteScope = {
   billPayByUs: boolean;       // we run A/P
   hasJobCosting: boolean;
   monthsBehind: number;       // one-time catch-up driver
+  // QuickBooks billed wholesale through us (pass-through on the quote)
+  qboSoftwareTier?: "none" | "easystart" | "essentials" | "plus";
+  qboSoftwareWholesale?: boolean;
+  qboPayrollWholesale?: boolean;
 };
 
 export type LineItem = { label: string; amount: number; rationale: string };
@@ -99,9 +103,15 @@ export const RATE_CARD = {
 
   payroll: {
     base: 40,                // base if we run payroll at all
-    perEmployee: 20,         // per employee / month
+    perEmployee: 8,          // our SERVICE fee per employee / month
     runFrequencyMultiplier: { weekly: 1.5, biweekly: 1.2, semi_monthly: 1.2, monthly: 1.0, none: 1.0 },
     acceleratedRemitterPremium: 30, // accelerated = twice-monthly PD7A remittances
+  },
+  // QuickBooks pass-through (only added when billed wholesale THROUGH us).
+  qbo: {
+    software: { easystart: 24, essentials: 54, plus: 60 } as Record<string, number>,
+    softwareLabel: { easystart: "EasyStart", essentials: "Essentials", plus: "Plus" } as Record<string, string>,
+    payrollBase: 40, payrollPerEmployee: 7,
   },
   t4PerEmployeePerYear: 50,  // annual slips, amortized to monthly
   t5PerYear: 120,            // T5 prep (dividends / investment income), amortized
@@ -265,6 +275,23 @@ export function computeQuote(scope: QuoteScope): QuoteResult {
     amount: RATE_CARD.yearEndPerYear / 12,
     rationale: "Adjusting entries + year-end file to accountant, spread monthly",
   });
+
+  // 10) QuickBooks pass-through (only when billed wholesale through us).
+  if (scope.qboSoftwareWholesale && scope.qboSoftwareTier && scope.qboSoftwareTier !== "none") {
+    const price = RATE_CARD.qbo.software[scope.qboSoftwareTier] ?? 0;
+    if (price) items.push({
+      label: `QuickBooks Online ${RATE_CARD.qbo.softwareLabel[scope.qboSoftwareTier]} (wholesale)`,
+      amount: price,
+      rationale: "QBO subscription billed through us at wholesale",
+    });
+  }
+  if (scope.qboPayrollWholesale && scope.hasPayroll && (scope.employeeCount || 0) > 0) {
+    items.push({
+      label: `QuickBooks Payroll (wholesale, ${scope.employeeCount} emp)`,
+      amount: RATE_CARD.qbo.payrollBase + (scope.employeeCount || 0) * RATE_CARD.qbo.payrollPerEmployee,
+      rationale: `QBO Payroll billed through us: $${RATE_CARD.qbo.payrollBase} + $${RATE_CARD.qbo.payrollPerEmployee}/employee`,
+    });
+  }
 
   const recurringRaw = items.reduce((s, i) => s + i.amount, 0);
   const recurringMonthly = round5(recurringRaw);

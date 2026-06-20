@@ -1070,6 +1070,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
     usesHubdoc: !!o.usesHubdoc, hasJobCosting: !!o.hasJobCosting,
     invoicingResponsibility: o.invoicingResponsibility || "none", billPayResponsibility: o.billPayResponsibility || "none",
     usesStripe: !!o.usesStripe, usesSquare: !!o.usesSquare, usesJobber: !!o.usesJobber, usesTouchBistro: !!o.usesTouchBistro, usesPayPal: !!o.usesPayPal,
+    qboSoftwareTier: o.qboSoftwareTier || "none", qboSoftwareWholesale: !!o.qboSoftwareWholesale, qboPayrollWholesale: !!o.qboPayrollWholesale,
     servicesNeeded: o.servicesNeeded || "", painPoints: o.painPoints || "", expectations: o.expectations || "",
   });
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
@@ -1153,6 +1154,15 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Sales platforms</p>
         <div className="flex flex-wrap gap-x-4">
           {check("usesStripe", "Stripe")}{check("usesSquare", "Square")}{check("usesJobber", "Jobber")}{check("usesTouchBistro", "TouchBistro")}{check("usesPayPal", "PayPal")}
+        </div>
+
+        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">QuickBooks (wholesale billing through us)</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {sel("qboSoftwareTier", "QBO software", [["none","None / N/A"],["easystart","EasyStart ($24)"],["essentials","Essentials ($54)"],["plus","Plus ($60)"]])}
+        </div>
+        <div className="flex flex-wrap gap-x-4">
+          {check("qboSoftwareWholesale", "Bill QBO software through us (wholesale)")}
+          {check("qboPayrollWholesale", "Bill QBO Payroll through us ($40 + $7/emp)")}
         </div>
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Pricing & notes</p>

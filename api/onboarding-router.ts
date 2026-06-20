@@ -434,6 +434,8 @@ export const onboardingRouter = createRouter({
       usesStripe: z.boolean().optional(), usesSquare: z.boolean().optional(), usesJobber: z.boolean().optional(),
       usesTouchBistro: z.boolean().optional(), usesPayPal: z.boolean().optional(),
       salesEntryFrequency: z.enum(["daily", "weekly", "monthly", "none"]).optional(),
+      qboSoftwareTier: z.enum(["none", "easystart", "essentials", "plus"]).optional(),
+      qboSoftwareWholesale: z.boolean().optional(), qboPayrollWholesale: z.boolean().optional(),
       servicesNeeded: z.string().optional(), painPoints: z.string().optional(), expectations: z.string().optional(),
       currentAccountingSoftware: z.string().optional(), currentPayrollProvider: z.string().optional(),
     }))
@@ -455,7 +457,8 @@ export const onboardingRouter = createRouter({
         "wsibRequired", "paysDividends", "hasEHT", "employeeCount", "monthsBehind", "bankAccountCount", "creditCardCount",
         "needsYearEnd", "usesHubdoc", "hasJobCosting", "avgMonthlyTransactions", "bookkeepingFrequency",
         "invoicingResponsibility", "billPayResponsibility", "usesStripe", "usesSquare", "usesJobber", "usesTouchBistro",
-        "usesPayPal", "salesEntryFrequency", "servicesNeeded", "painPoints", "expectations", "currentAccountingSoftware",
+        "usesPayPal", "salesEntryFrequency", "qboSoftwareTier", "qboSoftwareWholesale", "qboPayrollWholesale",
+        "servicesNeeded", "painPoints", "expectations", "currentAccountingSoftware",
         "currentPayrollProvider"] as const;
       const onbPatch: Record<string, any> = { updatedAt: new Date() };
       for (const k of onbKeys) if ((rest as any)[k] !== undefined) onbPatch[k] = (rest as any)[k];

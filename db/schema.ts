@@ -468,6 +468,10 @@ export const clientOnboarding = sqliteTable("client_onboarding", {
   avgMonthlyTransactions: integer("avgMonthlyTransactions").default(0),
   invoicingResponsibility: text("invoicingResponsibility", { enum: ["we_invoice", "client_invoices", "none"] }).default("none"),
   billPayResponsibility: text("billPayResponsibility", { enum: ["we_pay", "client_pays", "none"] }).default("none"),
+  // QuickBooks subscription billed wholesale through GFB (pass-through on quote)
+  qboSoftwareTier: text("qboSoftwareTier", { enum: ["none", "easystart", "essentials", "plus"] }).default("none"),
+  qboSoftwareWholesale: integer("qboSoftwareWholesale", { mode: "boolean" }).default(false),
+  qboPayrollWholesale: integer("qboPayrollWholesale", { mode: "boolean" }).default(false),
 
   // Status
   status: text("status", { enum: ["pending", "submitted", "reviewed", "approved"] }).default("pending").notNull(),
