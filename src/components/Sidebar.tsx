@@ -13,15 +13,17 @@ import { useAuth } from "@/hooks/useAuth";
 
 interface SidebarProps { collapsed: boolean; onToggle: () => void; }
 
-type SectionKey = "daily" | "clients" | "intelligence" | "tools" | "admin";
+type SectionKey = "work" | "clients" | "payroll" | "comms" | "tools" | "insights" | "admin";
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user, can } = useAuth();
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
-    daily: true,
+    work: true,
     clients: true,
-    intelligence: false,
+    payroll: true,
+    comms: false,
     tools: false,
+    insights: false,
     admin: false,
   });
 
@@ -29,46 +31,58 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const dailyItems = [
+  // Work — the daily close cockpit: where things stand + what to do next.
+  const workItems = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/month-end-close", icon: Gauge, label: "Month-End Close" },
     { to: "/triage", icon: ShieldCheck, label: "Figgy Jr" },
     { to: "/tasks", icon: CheckSquare, label: "Tasks" },
-    { to: "/payroll", icon: Wallet, label: "Payroll" },
     { to: "/calendar", icon: CalendarDays, label: "Calendar" },
-    { to: "/quick-add", icon: Plus, label: "Quick Add" },
-    { to: "/emails", icon: Mail, label: "Emails" },
-    { to: "/messages", icon: MessageSquare, label: "Messages" },
   ];
 
+  // Clients — the books, documents, and engagement lifecycle.
   const clientItems = [
     { to: "/clients", icon: Users, label: "Clients" },
     { to: "/onboarding", icon: UserPlus, label: "New Client Intake" },
     { to: "/intake", icon: Inbox, label: "Document Intake" },
     { to: "/invoices", icon: Receipt, label: "Invoices" },
     { to: "/files", icon: FolderOpen, label: "Files" },
-    { to: "/employees", icon: Briefcase, label: "Employees" },
     { to: "/engagement", icon: FileSpreadsheet, label: "Engagement Letters" },
     { to: "/client-import", icon: Import, label: "Client Import" },
   ];
 
-  const intelItems = [
-    { to: "/ai-agents", icon: Bot, label: "AI Agents" },
-    { to: "/practice-health", icon: TrendingUp, label: "Practice Health" },
-    { to: "/staff-workload", icon: UserCheck, label: "Staff Workload" },
-    { to: "/satisfaction", icon: BarChart3, label: "Satisfaction" },
+  // People & Payroll.
+  const payrollItems = [
+    { to: "/payroll", icon: Wallet, label: "Payroll" },
+    { to: "/employees", icon: Briefcase, label: "Employees" },
   ];
 
+  // Comms — inbound/outbound to clients.
+  const commsItems = [
+    { to: "/emails", icon: Mail, label: "Emails" },
+    { to: "/messages", icon: MessageSquare, label: "Messages" },
+    { to: "/quick-add", icon: Plus, label: "Quick Add" },
+  ];
+
+  // Tools & Compliance.
   const toolItems = [
-    { to: "/calculators", icon: Calculator, label: "Calculators" },
-    { to: "/bank-converter", icon: ArrowRightLeft, label: "Bank → QBO" },
     { to: "/qbo", icon: Receipt, label: "QBO Review" },
+    { to: "/bank-converter", icon: ArrowRightLeft, label: "Bank → QBO" },
     { to: "/tax-deadlines", icon: CalendarClock, label: "Tax Deadlines" },
     { to: "/year-end", icon: ClipboardCheck, label: "Year-End" },
     { to: "/monthly-close", icon: CheckSquare, label: "Monthly Close" },
+    { to: "/calculators", icon: Calculator, label: "Calculators" },
     { to: "/templates", icon: FileSpreadsheet, label: "Templates" },
     { to: "/resources", icon: BookOpen, label: "Resources" },
     { to: "/pricing-calculator", icon: DollarSign, label: "Pricing Calc" },
+  ];
+
+  // Insights — practice analytics + automation.
+  const insightItems = [
+    { to: "/practice-health", icon: TrendingUp, label: "Practice Health" },
+    { to: "/staff-workload", icon: UserCheck, label: "Staff Workload" },
+    { to: "/satisfaction", icon: BarChart3, label: "Satisfaction" },
+    { to: "/ai-agents", icon: Bot, label: "AI Agents" },
   ];
 
   const adminItems = [
@@ -147,10 +161,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 py-3 px-2 overflow-y-auto">
-        <Section label="Daily Ops" icon={LayoutDashboard} sectionKey="daily" items={dailyItems} />
-        <Section label="Clients & Revenue" icon={Users} sectionKey="clients" items={clientItems} />
-        <Section label="Intelligence" icon={Bot} sectionKey="intelligence" items={intelItems} />
-        <Section label="Tools" icon={Wrench} sectionKey="tools" items={toolItems} />
+        <Section label="Work" icon={Gauge} sectionKey="work" items={workItems} />
+        <Section label="Clients" icon={Users} sectionKey="clients" items={clientItems} />
+        <Section label="People & Payroll" icon={Wallet} sectionKey="payroll" items={payrollItems} />
+        <Section label="Comms" icon={Mail} sectionKey="comms" items={commsItems} />
+        <Section label="Tools & Compliance" icon={Wrench} sectionKey="tools" items={toolItems} />
+        <Section label="Insights" icon={TrendingUp} sectionKey="insights" items={insightItems} />
         {can.senior && (
           <Section label="Admin" icon={Lock} sectionKey="admin" items={adminItems} />
         )}
