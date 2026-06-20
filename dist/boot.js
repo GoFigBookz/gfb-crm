@@ -22366,6 +22366,7 @@ __export(schema_exports, {
   signatureDocuments: () => signatureDocuments,
   smsMessages: () => smsMessages,
   tasks: () => tasks,
+  taxSlipEntries: () => taxSlipEntries,
   timeEntries: () => timeEntries,
   timesheets: () => timesheets,
   triageFindings: () => triageFindings,
@@ -22375,7 +22376,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments;
+var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23736,6 +23737,18 @@ var init_schema = __esm({
       // ENCRYPTED at rest (for the T5 slip)
       amount: real("amount").default(0),
       dividendType: text("dividendType", { enum: ["eligible", "non_eligible"] }).default("non_eligible"),
+      taxYear: integer2("taxYear"),
+      notes: text("notes"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    taxSlipEntries = sqliteTable("tax_slip_entries", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      slipType: text("slipType", { enum: ["t4a", "t5018"] }).notNull(),
+      recipient: text("recipient"),
+      recipientId: text("recipientId"),
+      // BN/SIN — ENCRYPTED at rest
+      amount: real("amount").default(0),
       taxYear: integer2("taxYear"),
       notes: text("notes"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
@@ -46058,6 +46071,59 @@ var init_payroll_router = __esm({
       })).query(({ input }) => {
         const frac = input.fractionOfYear ?? (input.periodsElapsed && input.periodsPerYear ? input.periodsElapsed / input.periodsPerYear : 0.5);
         return reconcileWithholding(input.ytdGross, input.ytdTaxDeducted, frac);
+      }),
+      // T4 slips — aggregate each employee's pay-run lines for the calendar year
+      // into the CRA T4 boxes. SIN is NOT included (reveal per employee with the
+      // code gate when printing).
+      t4Slips: staffQuery.input(external_exports.object({ clientId: external_exports.number(), year: external_exports.number().optional() })).query(async ({ input }) => {
+        const db = getDb();
+        const year2 = input.year ?? (/* @__PURE__ */ new Date()).getFullYear();
+        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId));
+        const runIds = new Set(allRuns.filter((r) => new Date(r.payPeriodEnd).getFullYear() === year2).map((r) => r.id));
+        const emps = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
+        const empById = new Map(emps.map((e) => [e.id, e]));
+        const allLines = await db.select().from(payRunLines);
+        const lines = allLines.filter((l) => runIds.has(l.payRunId));
+        const agg = /* @__PURE__ */ new Map();
+        for (const l of lines) {
+          const a = agg.get(l.employeeId) || { gross: 0, cpp: 0, cpp2: 0, ei: 0, tax: 0 };
+          a.gross += l.grossPay || 0;
+          a.cpp += l.cppEmployee || 0;
+          a.cpp2 += l.cpp2Employee || 0;
+          a.ei += l.eiEmployee || 0;
+          a.tax += (l.federalTax || 0) + (l.provincialTax || 0);
+          agg.set(l.employeeId, a);
+        }
+        const slips = Array.from(agg.entries()).map(([empId, a]) => {
+          const e = empById.get(empId);
+          const box14 = round2(a.gross);
+          return {
+            employeeId: empId,
+            name: e ? `${e.firstName} ${e.lastName}` : `Employee #${empId}`,
+            address: e?.address || "",
+            hasSin: !!e?.sin,
+            box14,
+            // employment income
+            box16: round2(a.cpp),
+            // CPP base
+            box16A: round2(a.cpp2),
+            // CPP2
+            box18: round2(a.ei),
+            // EI premiums
+            box22: round2(a.tax),
+            // income tax deducted
+            box24: round2(Math.min(box14, CRA_2026.ei.mie)),
+            // EI insurable earnings
+            box26: round2(Math.min(box14, CRA_2026.cpp.yampe))
+            // CPP pensionable earnings
+          };
+        }).filter((s) => s.box14 > 0).sort((a, b) => a.name.localeCompare(b.name));
+        return {
+          year: year2,
+          payer: client ? { name: client.company || client.name, address: client.address || "", bn: client.taxId || "", rp: client.payrollRpNumber || "" } : null,
+          slips
+        };
       })
     });
   }
@@ -46179,6 +46245,90 @@ var init_dividend_router = __esm({
         const rows = await db.select().from(dividendPayments).where(and(eq(dividendPayments.clientId, input.clientId), eq(dividendPayments.recipient, input.recipient)));
         const withSin = rows.find((r) => r.recipientSin);
         return { ok: true, sin: withSin?.recipientSin ? decryptSecret(withSin.recipientSin) : null };
+      })
+    });
+  }
+});
+
+// api/tax-slip-router.ts
+function strip(row) {
+  const { recipientId, ...rest } = row;
+  return { ...rest, hasRecipientId: !!recipientId };
+}
+var taxSlipRouter;
+var init_tax_slip_router = __esm({
+  "api/tax-slip-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_sensitive();
+    taxSlipRouter = createRouter({
+      list: staffQuery.input(external_exports.object({ clientId: external_exports.number(), slipType: external_exports.enum(["t4a", "t5018"]) })).query(async ({ input }) => {
+        const db = getDb();
+        const rows = await db.select().from(taxSlipEntries).where(and(eq(taxSlipEntries.clientId, input.clientId), eq(taxSlipEntries.slipType, input.slipType))).orderBy(desc(taxSlipEntries.taxYear));
+        return rows.map(strip);
+      }),
+      add: staffQuery.input(external_exports.object({
+        clientId: external_exports.number(),
+        slipType: external_exports.enum(["t4a", "t5018"]),
+        recipient: external_exports.string().optional(),
+        recipientId: external_exports.string().optional(),
+        amount: external_exports.number().default(0),
+        taxYear: external_exports.number().optional(),
+        notes: external_exports.string().optional()
+      })).mutation(async ({ input }) => {
+        const db = getDb();
+        const { recipientId, ...rest } = input;
+        const [row] = await db.insert(taxSlipEntries).values({
+          ...rest,
+          recipientId: recipientId ? encryptSecret(recipientId) : null,
+          taxYear: input.taxYear ?? (/* @__PURE__ */ new Date()).getFullYear(),
+          createdAt: /* @__PURE__ */ new Date()
+        }).returning();
+        return strip(row);
+      }),
+      delete: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+        const db = getDb();
+        await db.delete(taxSlipEntries).where(eq(taxSlipEntries.id, input.id));
+        return { success: true };
+      }),
+      // Per-recipient aggregated slips for a year (no recipient ID).
+      slips: staffQuery.input(external_exports.object({ clientId: external_exports.number(), slipType: external_exports.enum(["t4a", "t5018"]), year: external_exports.number().optional() })).query(async ({ input }) => {
+        const db = getDb();
+        const year2 = input.year ?? (/* @__PURE__ */ new Date()).getFullYear();
+        const rows = await db.select().from(taxSlipEntries).where(and(eq(taxSlipEntries.clientId, input.clientId), eq(taxSlipEntries.slipType, input.slipType)));
+        const inYear = rows.filter((r) => (r.taxYear ?? new Date(r.createdAt).getFullYear()) === year2);
+        const byRecipient = /* @__PURE__ */ new Map();
+        for (const r of inYear) {
+          const key = (r.recipient || "(unnamed)").trim();
+          const agg = byRecipient.get(key) || { amount: 0, hasId: false };
+          agg.amount += r.amount || 0;
+          if (r.recipientId) agg.hasId = true;
+          byRecipient.set(key, agg);
+        }
+        const payer = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        const slips = Array.from(byRecipient.entries()).map(([recipient, a]) => ({ recipient, amount: Math.round((a.amount + Number.EPSILON) * 100) / 100, hasId: a.hasId })).sort((x, y) => x.recipient.localeCompare(y.recipient));
+        return {
+          year: year2,
+          slipType: input.slipType,
+          payer: payer ? { name: payer.company || payer.name, address: payer.address || "", bn: payer.taxId || "" } : null,
+          slips
+        };
+      }),
+      // Code-gated reveal of a recipient's BN/SIN for printing.
+      revealRecipientId: staffQuery.input(external_exports.object({ clientId: external_exports.number(), slipType: external_exports.enum(["t4a", "t5018"]), recipient: external_exports.string(), code: external_exports.string() })).mutation(async ({ input }) => {
+        const gate = checkRevealCode(input.code);
+        if (!gate.ok) return { ok: false, reason: gate.reason };
+        const db = getDb();
+        const rows = await db.select().from(taxSlipEntries).where(and(
+          eq(taxSlipEntries.clientId, input.clientId),
+          eq(taxSlipEntries.slipType, input.slipType),
+          eq(taxSlipEntries.recipient, input.recipient)
+        ));
+        const withId = rows.find((r) => r.recipientId);
+        return { ok: true, recipientId: withId?.recipientId ? decryptSecret(withId.recipientId) : null };
       })
     });
   }
@@ -50316,6 +50466,7 @@ var init_router = __esm({
     init_employee_router();
     init_payroll_router();
     init_dividend_router();
+    init_tax_slip_router();
     init_client_request_router();
     init_message_router();
     init_engagement_letter_router();
@@ -50358,6 +50509,7 @@ var init_router = __esm({
       employee: employeeRouter,
       payroll: payrollRouter,
       dividend: dividendRouter,
+      taxSlip: taxSlipRouter,
       clientRequest: clientRequestRouter,
       message: messageRouter,
       engagementLetter: engagementLetterRouter,
@@ -52557,6 +52709,17 @@ async function ensurePayrollTables() {
       createdAt INTEGER
     )`));
     await addCol("dividend_payments", "recipientSin", "TEXT");
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS tax_slip_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER NOT NULL,
+      slipType TEXT NOT NULL,
+      recipient TEXT,
+      recipientId TEXT,
+      amount REAL DEFAULT 0,
+      taxYear INTEGER,
+      notes TEXT,
+      createdAt INTEGER
+    )`));
     console.log("[schema] payroll tables ensured");
   } catch (e) {
     console.error("[schema] ensurePayrollTables failed:", e instanceof Error ? e.message : e);

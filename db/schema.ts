@@ -1485,3 +1485,18 @@ export const dividendPayments = sqliteTable("dividend_payments", {
   notes: text("notes"),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// T4A / T5018 slip entries — manual log of contractor (T4A box 048) and
+// construction subcontractor (T5018) payments, for printing those slips.
+// recipientId (BN or SIN) is ENCRYPTED at rest. Same print engine as the T5.
+export const taxSlipEntries = sqliteTable("tax_slip_entries", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  slipType: text("slipType", { enum: ["t4a", "t5018"] }).notNull(),
+  recipient: text("recipient"),
+  recipientId: text("recipientId"),            // BN/SIN — ENCRYPTED at rest
+  amount: real("amount").default(0),
+  taxYear: integer("taxYear"),
+  notes: text("notes"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

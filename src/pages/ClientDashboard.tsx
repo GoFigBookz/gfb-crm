@@ -1244,6 +1244,53 @@ function ComplianceTab({ clientId, client, closeStatus, tasks }: {
     } finally { setPrinting(false); }
   };
 
+  // --- T4 slips (auto from payroll) ---
+  const hasPayroll = !!client.hasPayroll;
+  const [t4Year, setT4Year] = useState(new Date().getFullYear());
+  const { data: t4 } = trpc.payroll.t4Slips.useQuery({ clientId, year: t4Year }, { enabled: hasPayroll });
+  const revealEmpSin = trpc.employee.revealSin.useMutation();
+  const printT4 = async () => {
+    if (!t4 || t4.slips.length === 0) { alert("No payroll for " + t4Year + "."); return; }
+    setPrinting(true);
+    try {
+      const sinByEmp: Record<number, string> = {};
+      if (sinCode.trim()) {
+        for (const s of t4.slips) {
+          if (!s.hasSin) continue;
+          const r = await revealEmpSin.mutateAsync({ id: s.employeeId, code: sinCode.trim() });
+          if (!r.ok) { alert(r.reason || "Could not reveal SIN."); break; }
+          if (r.sin) sinByEmp[s.employeeId] = r.sin;
+        }
+      }
+      printT4Html(t4, sinByEmp);
+    } finally { setPrinting(false); }
+  };
+
+  // --- T4A / T5018 slips (manual log) ---
+  const [slipType, setSlipType] = useState<"t4a" | "t5018">("t4a");
+  const { data: otherSlipRows } = trpc.taxSlip.list.useQuery({ clientId, slipType });
+  const { data: otherSlipAgg } = trpc.taxSlip.slips.useQuery({ clientId, slipType, year: t4Year });
+  const addSlip = trpc.taxSlip.add.useMutation({ onSuccess: () => { utils.taxSlip.list.invalidate({ clientId, slipType }); utils.taxSlip.slips.invalidate({ clientId, slipType, year: t4Year }); } });
+  const delSlip = trpc.taxSlip.delete.useMutation({ onSuccess: () => { utils.taxSlip.list.invalidate({ clientId, slipType }); utils.taxSlip.slips.invalidate({ clientId, slipType, year: t4Year }); } });
+  const revealSlipId = trpc.taxSlip.revealRecipientId.useMutation();
+  const [sl, setSl] = useState({ recipient: "", recipientId: "", amount: "" });
+  const printOther = async () => {
+    if (!otherSlipAgg || otherSlipAgg.slips.length === 0) { alert(`No ${slipType.toUpperCase()} entries for ${t4Year}.`); return; }
+    setPrinting(true);
+    try {
+      const idByRecipient: Record<string, string> = {};
+      if (sinCode.trim()) {
+        for (const s of otherSlipAgg.slips) {
+          if (!s.hasId) continue;
+          const r = await revealSlipId.mutateAsync({ clientId, slipType, recipient: s.recipient, code: sinCode.trim() });
+          if (!r.ok) { alert(r.reason || "Could not reveal."); break; }
+          if (r.recipientId) idByRecipient[s.recipient] = r.recipientId;
+        }
+      }
+      printOtherSlipHtml(otherSlipAgg, idByRecipient);
+    } finally { setPrinting(false); }
+  };
+
   // Filing obligations = compliance-category tasks (HST/WSIB/T4/T5), open first.
   const filings = (tasks || [])
     .filter((t) => ["Tax Filing", "Payroll"].includes(t.category) && /Filing|Remittance|T4|T5|HST|WSIB/i.test(t.title))
@@ -1382,8 +1429,132 @@ function ComplianceTab({ clientId, client, closeStatus, tasks }: {
           </CardContent>
         </Card>
       )}
+
+      {/* T4 slips — auto from payroll */}
+      {hasPayroll && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4 text-blue-500" /> Print T4 slips</CardTitle>
+            <CardDescription>Auto-computed from this client's pay runs (Box 14/16/16A/18/22/24/26). Uses the SIN code above to print SINs.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-end gap-2">
+            <div><Label className="text-xs">Tax year</Label><Input type="number" className="w-28" value={t4Year} onChange={(e) => setT4Year(Number(e.target.value) || new Date().getFullYear())} /></div>
+            <Button size="sm" disabled={printing} onClick={printT4}><FileText className="h-3.5 w-3.5 mr-1" /> {printing ? "Preparing…" : `Print T4 slips (${t4?.slips.length ?? 0})`}</Button>
+            <span className="text-xs text-slate-400">{t4?.slips.length ? `${t4.slips.length} employee(s) for ${t4Year}` : `No payroll for ${t4Year}`}</span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* T4A / T5018 slips — manual log */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4 text-purple-500" /> Contractor slips — T4A / T5018</CardTitle>
+          <CardDescription>Log contractor fees (T4A box 048) and construction subcontractor payments (T5018), then print.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2">
+            {(["t4a", "t5018"] as const).map((t) => (
+              <Button key={t} size="sm" variant={slipType === t ? "default" : "outline"} onClick={() => setSlipType(t)}>{t.toUpperCase()}</Button>
+            ))}
+            <span className="text-xs text-slate-400 ml-auto">Year {t4Year}</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
+            <div><Label className="text-xs">Recipient</Label><Input value={sl.recipient} onChange={(e) => setSl({ ...sl, recipient: e.target.value })} placeholder={slipType === "t5018" ? "Subcontractor" : "Contractor"} /></div>
+            <div><Label className="text-xs">BN / SIN <span className="text-slate-400">(hidden)</span></Label><Input value={sl.recipientId} onChange={(e) => setSl({ ...sl, recipientId: e.target.value })} placeholder="BN or SIN" /></div>
+            <div><Label className="text-xs">Amount</Label><Input type="number" value={sl.amount} onChange={(e) => setSl({ ...sl, amount: e.target.value })} placeholder="0.00" /></div>
+            <Button size="sm" disabled={addSlip.isPending || !sl.amount} onClick={() => {
+              addSlip.mutate({ clientId, slipType, recipient: sl.recipient.trim() || undefined, recipientId: sl.recipientId.trim() || undefined, amount: parseFloat(sl.amount) || 0, taxYear: t4Year });
+              setSl({ recipient: "", recipientId: "", amount: "" });
+            }}><Plus className="h-3.5 w-3.5 mr-1" /> Add</Button>
+          </div>
+          {(otherSlipRows && otherSlipRows.length > 0) ? (
+            <div className="space-y-1">
+              {otherSlipRows.map((r: any) => (
+                <div key={r.id} className="flex items-center gap-3 p-2 rounded-lg bg-slate-50 text-sm">
+                  <span className="flex-1 min-w-0 truncate">{r.recipient || "—"}</span>
+                  <span className="text-slate-400 text-xs">{r.taxYear}</span>
+                  <span className="font-medium">${(r.amount || 0).toLocaleString()}</span>
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600" onClick={() => delSlip.mutate({ id: r.id })}><Trash2 className="h-3.5 w-3.5" /></Button>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-sm text-slate-400 py-1 text-center">No {slipType.toUpperCase()} entries yet.</p>}
+          <Button size="sm" variant="outline" disabled={printing} onClick={printOther}><FileText className="h-3.5 w-3.5 mr-1" /> Print {slipType.toUpperCase()} slips ({otherSlipAgg?.slips.length ?? 0})</Button>
+        </CardContent>
+      </Card>
     </>
   );
+}
+
+/** Print T4 slips (one per employee). */
+function printT4Html(t4: any, sinByEmp: Record<number, string>) {
+  const esc = (s: any) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
+  const money = (n: number) => `$${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const payer = t4.payer || { name: "", address: "", bn: "", rp: "" };
+  const slips = t4.slips.map((s: any) => {
+    const sin = sinByEmp[s.employeeId];
+    return `
+      <div class="slip">
+        <div class="slip-head"><h2>T4 — Statement of Remuneration Paid</h2><span>${t4.year}</span></div>
+        <div class="row"><div><b>Employer</b><br>${esc(payer.name)}<br>${esc(payer.address)}<br>BN: ${esc(payer.bn)} · RP: ${esc(payer.rp)}</div>
+        <div><b>Employee</b><br>${esc(s.name)}<br>${esc(s.address)}<br>SIN: ${sin ? esc(sin) : "•••-•••-•••"}</div></div>
+        <table>
+          <tr><th>Box</th><th>Description</th><th>Amount</th></tr>
+          <tr><td>14</td><td>Employment income</td><td>${money(s.box14)}</td></tr>
+          <tr><td>16</td><td>Employee's CPP contributions</td><td>${money(s.box16)}</td></tr>
+          <tr><td>16A</td><td>Employee's second CPP (CPP2)</td><td>${money(s.box16A)}</td></tr>
+          <tr><td>18</td><td>Employee's EI premiums</td><td>${money(s.box18)}</td></tr>
+          <tr><td>22</td><td>Income tax deducted</td><td>${money(s.box22)}</td></tr>
+          <tr><td>24</td><td>EI insurable earnings</td><td>${money(s.box24)}</td></tr>
+          <tr><td>26</td><td>CPP pensionable earnings</td><td>${money(s.box26)}</td></tr>
+        </table>
+      </div>`;
+  }).join("");
+  openPrint(`T4 slips ${t4.year}`, slips);
+}
+
+/** Print T4A (box 048) or T5018 slips (one per recipient). */
+function printOtherSlipHtml(agg: any, idByRecipient: Record<string, string>) {
+  const esc = (s: any) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
+  const money = (n: number) => `$${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const isT4A = agg.slipType === "t4a";
+  const title = isT4A ? "T4A — Statement of Pension, Retirement, Annuity, and Other Income" : "T5018 — Statement of Contract Payments";
+  const boxLabel = isT4A ? "048 — Fees for services" : "Construction subcontractor payments";
+  const payer = agg.payer || { name: "", address: "", bn: "" };
+  const slips = agg.slips.map((s: any) => {
+    const id = idByRecipient[s.recipient];
+    return `
+      <div class="slip">
+        <div class="slip-head"><h2>${esc(title)}</h2><span>${agg.year}</span></div>
+        <div class="row"><div><b>Payer</b><br>${esc(payer.name)}<br>${esc(payer.address)}<br>BN: ${esc(payer.bn)}</div>
+        <div><b>Recipient</b><br>${esc(s.recipient)}<br>BN/SIN: ${id ? esc(id) : "•••••••••"}</div></div>
+        <table><tr><th>Description</th><th>Amount</th></tr>
+          <tr><td>${esc(boxLabel)}</td><td>${money(s.amount)}</td></tr></table>
+      </div>`;
+  }).join("");
+  openPrint(`${agg.slipType.toUpperCase()} slips ${agg.year}`, slips);
+}
+
+/** Shared print-window shell + auto-print. */
+function openPrint(title: string, body: string) {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+    <style>
+      body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#0f172a;margin:24px;}
+      .slip{border:1px solid #cbd5e1;border-radius:8px;padding:18px;margin-bottom:18px;page-break-inside:avoid;}
+      .slip-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #0f172a;padding-bottom:6px;margin-bottom:12px;}
+      .slip-head h2{font-size:15px;margin:0;} .slip-head span{font-weight:700;}
+      .row{display:flex;justify-content:space-between;gap:24px;margin-bottom:12px;font-size:13px;line-height:1.5;}
+      table{width:100%;border-collapse:collapse;font-size:13px;} th,td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left;}
+      th:last-child,td:last-child{text-align:right;} th{background:#f1f5f9;}
+      @media print{button{display:none;}}
+    </style></head><body>
+    <button onclick="window.print()" style="margin-bottom:16px;padding:8px 14px;border:0;background:#65a30d;color:#fff;border-radius:6px;cursor:pointer;">Print</button>
+    ${body}
+    <script>window.onload=function(){setTimeout(function(){window.print();},300);};</script>
+    </body></html>`;
+  const w = window.open("", "_blank");
+  if (!w) { alert("Allow pop-ups to print slips."); return; }
+  w.document.write(html); w.document.close();
 }
 
 /** Open a clean print window with one T5 slip per recipient and trigger print. */

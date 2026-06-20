@@ -204,6 +204,17 @@ export async function ensurePayrollTables(): Promise<void> {
       createdAt INTEGER
     )`));
     await addCol("dividend_payments", "recipientSin", "TEXT");
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS tax_slip_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER NOT NULL,
+      slipType TEXT NOT NULL,
+      recipient TEXT,
+      recipientId TEXT,
+      amount REAL DEFAULT 0,
+      taxYear INTEGER,
+      notes TEXT,
+      createdAt INTEGER
+    )`));
     console.log("[schema] payroll tables ensured");
   } catch (e) {
     console.error("[schema] ensurePayrollTables failed:", e instanceof Error ? e.message : e);
