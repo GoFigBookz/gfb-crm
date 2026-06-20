@@ -144,6 +144,21 @@ export const quoteRouter = createRouter({
       };
     }),
 
+  // Recompute the quote with an overridden monthly transaction count (live
+  // preview in the editor before the real numbers come from QBO).
+  preview: authedQuery
+    .input(z.object({ clientId: z.number(), avgMonthlyTransactions: z.number().min(0) }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0] as any;
+      if (!client) return null;
+      const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
+      const scope = buildScopeForClient(client, onb);
+      scope.avgMonthlyTransactions = input.avgMonthlyTransactions;
+      const quote = computeQuote(scope);
+      return { quote, comparison: compareToFlatFee(quote.recurringMonthly, client.monthlyFee ?? null) };
+    }),
+
   // Documents already generated for a client (quote + engagement), newest first.
   documents: authedQuery
     .input(z.object({ clientId: z.number() }))
@@ -165,6 +180,7 @@ export const quoteRouter = createRouter({
   createSignableQuote: authedQuery
     .input(z.object({
       clientId: z.number(),
+      transactions: z.number().min(0).optional(),
       lines: z.array(z.object({ label: z.string(), amount: z.number(), rationale: z.string().optional() })).optional(),
       oneTime: z.array(z.object({ label: z.string(), amount: z.number(), rationale: z.string().optional() })).optional(),
     }))
@@ -197,6 +213,7 @@ export const quoteRouter = createRouter({
       });
       await db.update(clients).set({
         quoteAmount: quote.recurringMonthly, quoteSentAt: new Date(), workflowStatus: "quote_sent",
+        ...(input.transactions != null ? { transactionsPerMonth: input.transactions } : {}),
       }).where(eq(clients.id, client.id));
       return res;
     }),
