@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download } from "lucide-react";
+import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download, Pencil, Users } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +57,9 @@ export default function Payroll() {
 
   const selected = clients?.find((c) => c.id === clientId) || null;
   const { data: runs } = trpc.payroll.listRuns.useQuery({ clientId: clientId! }, { enabled: !!clientId });
+  const { data: roster } = trpc.employee.list.useQuery({ clientId: clientId! }, { enabled: !!clientId });
+  const [editingEmp, setEditingEmp] = useState<any | null>(null); // null=closed; {clientId} = new; {id,...} = edit
+  const [showRoster, setShowRoster] = useState(false);
 
   const createRun = trpc.payroll.createRun.useMutation({
     onSuccess: (r) => { utils.payroll.listRuns.invalidate({ clientId: clientId! }); setCreating(false); setOpenRunId(r.id); },
@@ -64,6 +68,10 @@ export default function Payroll() {
   const deleteRun = trpc.payroll.deleteRun.useMutation({
     onSuccess: () => { utils.payroll.listRuns.invalidate({ clientId: clientId! }); setOpenRunId(null); },
   });
+  const refreshEmp = () => { if (clientId) { utils.employee.list.invalidate({ clientId }); utils.payroll.listRuns.invalidate({ clientId }); } };
+  const createEmp = trpc.employee.create.useMutation({ onSuccess: () => { refreshEmp(); setEditingEmp(null); }, onError: (e) => alert(e.message) });
+  const updateEmp = trpc.employee.update.useMutation({ onSuccess: () => { refreshEmp(); setEditingEmp(null); }, onError: (e) => alert(e.message) });
+  const deleteEmp = trpc.employee.delete.useMutation({ onSuccess: refreshEmp, onError: (e) => alert(e.message) });
 
   return (
     <div className="space-y-6">
@@ -134,6 +142,37 @@ export default function Payroll() {
                 </Card>
               )}
 
+              {/* Employee roster — fully editable (salaries, rates, etc.) */}
+              <Card>
+                <CardHeader className="pb-2 cursor-pointer" onClick={() => setShowRoster((s) => !s)}>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Users className="h-4 w-4 text-slate-500" /> Employees ({roster?.length ?? 0})
+                    <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform ${showRoster ? "rotate-90" : ""}`} />
+                  </CardTitle>
+                  <CardDescription>Add or edit people, salaries, and hourly rates — saved to each employee's card.</CardDescription>
+                </CardHeader>
+                {showRoster && (
+                  <CardContent className="space-y-1.5">
+                    {(roster || []).map((e: any) => (
+                      <div key={e.id} className="flex items-center gap-3 p-2 rounded-lg border hover:bg-slate-50">
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setEditingEmp(e)}>
+                          <p className="text-sm font-medium">{e.firstName} {e.lastName} {e.isActive === false ? <span className="text-[10px] text-slate-400">(inactive)</span> : null}</p>
+                          <p className="text-xs text-slate-500">
+                            {e.payType || "—"}
+                            {e.payType === "salary" && e.annualSalary ? ` · $${e.annualSalary.toLocaleString()}/yr` : ""}
+                            {e.payType !== "salary" && e.hourlyRate ? ` · $${e.hourlyRate}/hr` : ""}
+                            {e.position ? ` · ${e.position}` : ""}
+                          </p>
+                        </div>
+                        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingEmp(e)}><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600" onClick={() => { if (confirm(`Delete ${e.firstName} ${e.lastName}?`)) deleteEmp.mutate({ id: e.id }); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      </div>
+                    ))}
+                    <Button size="sm" variant="outline" className="mt-1" onClick={() => setEditingEmp({ clientId: selected.id })}><Plus className="h-3.5 w-3.5 mr-1" /> Add employee</Button>
+                  </CardContent>
+                )}
+              </Card>
+
               {/* Runs list */}
               {!runs ? <p className="text-sm text-slate-400">Loading runs…</p>
                 : runs.length === 0 ? (
@@ -154,7 +193,7 @@ export default function Payroll() {
                             </div>
                           </CardContent>
                         </Card>
-                        {openRunId === r.id && <RunDetail runId={r.id} onDelete={() => { if (confirm("Delete this pay run?")) deleteRun.mutate({ runId: r.id }); }} />}
+                        {openRunId === r.id && <RunDetail runId={r.id} onEditEmployee={setEditingEmp} onDelete={() => { if (confirm("Delete this pay run?")) deleteRun.mutate({ runId: r.id }); }} />}
                       </div>
                     ))}
                   </div>
@@ -182,11 +221,23 @@ export default function Payroll() {
           />
         );
       })()}
+
+      {editingEmp && (
+        <EmployeeCardDialog
+          employee={editingEmp}
+          onClose={() => setEditingEmp(null)}
+          onSave={(data) => {
+            if (editingEmp.id) updateEmp.mutate({ id: editingEmp.id, ...data });
+            else createEmp.mutate({ clientId: editingEmp.clientId, firstName: data.firstName || "", lastName: data.lastName || "", ...data });
+          }}
+          pending={createEmp.isPending || updateEmp.isPending}
+        />
+      )}
     </div>
   );
 }
 
-function RunDetail({ runId, onDelete }: { runId: number; onDelete: () => void }) {
+function RunDetail({ runId, onDelete, onEditEmployee }: { runId: number; onDelete: () => void; onEditEmployee: (emp: any) => void }) {
   const utils = trpc.useUtils();
   const { data } = trpc.payroll.getRun.useQuery({ runId });
   const invalidate = () => { utils.payroll.getRun.invalidate({ runId }); if (data?.run.clientId) utils.payroll.listRuns.invalidate({ clientId: data.run.clientId }); };
@@ -244,6 +295,7 @@ function RunDetail({ runId, onDelete }: { runId: number; onDelete: () => void })
                   <LineRow key={l.id} line={l}
                     onSave={(patch) => updateLine.mutate({ id: l.id, ...patch })}
                     onEstimate={() => estimateLine.mutate({ id: l.id })}
+                    onEditEmployee={() => { const emp = (clientEmps || []).find((e: any) => e.id === l.employeeId); if (emp) onEditEmployee(emp); }}
                     onRemove={() => { if (confirm(`Remove ${l.employeeName} from this run?`)) removeLine.mutate({ id: l.id }); }} />
                 ))}
               </tbody>
@@ -277,7 +329,7 @@ function RunDetail({ runId, onDelete }: { runId: number; onDelete: () => void })
   );
 }
 
-function LineRow({ line, onSave, onEstimate, onRemove }: { line: any; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void }) {
+function LineRow({ line, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
   const [v, setV] = useState({
     regularHours: line.regularHours ?? 0, overtimeHours: line.overtimeHours ?? 0,
     grossPay: line.grossPay ?? 0, cppEmployee: line.cppEmployee ?? 0, eiEmployee: line.eiEmployee ?? 0,
@@ -291,7 +343,10 @@ function LineRow({ line, onSave, onEstimate, onRemove }: { line: any; onSave: (p
   );
   return (
     <tr className="border-b last:border-0">
-      <td className="py-1 pr-2 font-medium">{line.employeeName}{line.payType ? <span className="text-[10px] text-slate-400 ml-1">{line.payType}</span> : null}</td>
+      <td className="py-1 pr-2 font-medium">
+        <button className="hover:text-lime-700 hover:underline text-left" title="Edit employee card" onClick={onEditEmployee}>{line.employeeName}</button>
+        {line.payType ? <span className="text-[10px] text-slate-400 ml-1">{line.payType}</span> : null}
+      </td>
       <td className="px-1">{cell("regularHours")}</td>
       <td className="px-1">{cell("overtimeHours")}</td>
       <td className="px-1">{cell("grossPay")}</td>
@@ -530,6 +585,89 @@ function NewRunDialog({ defaultFreq, defaultSource, defaultPeriod, onClose, onCr
               payPeriodStart: new Date(start), payPeriodEnd: new Date(end),
               payDate: payDate ? new Date(payDate) : undefined, frequency, hoursSource,
             })}>{pending ? "Creating…" : "Create run"}</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Editable employee card — add or change a person, their pay type, salary,
+ *  hourly rate, contact, and a free-text notes/history field. */
+function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
+  employee: any; onClose: () => void;
+  onSave: (data: any) => void; pending: boolean;
+}) {
+  const isNew = !employee.id;
+  const [f, setF] = useState({
+    firstName: employee.firstName || "", lastName: employee.lastName || "",
+    payType: employee.payType || "hourly",
+    annualSalary: employee.annualSalary != null ? String(employee.annualSalary) : "",
+    hourlyRate: employee.hourlyRate != null ? String(employee.hourlyRate) : "",
+    hoursPerWeek: employee.hoursPerWeek != null ? String(employee.hoursPerWeek) : "",
+    position: employee.position || "", email: employee.email || "", phone: employee.phone || "",
+    sin: employee.sin || "", isActive: employee.isActive !== false,
+    notes: employee.notes || "",
+  });
+  const set = (k: string, v: any) => setF({ ...f, [k]: v });
+  const num = (s: string) => { const n = parseFloat(s); return isNaN(n) ? undefined : n; };
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle className="flex items-center gap-2">{isNew ? <><Plus className="h-4 w-4" /> New employee</> : <><Pencil className="h-4 w-4" /> {employee.firstName} {employee.lastName}</>}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>First name</Label><Input value={f.firstName} onChange={(e) => set("firstName", e.target.value)} autoFocus /></div>
+            <div><Label>Last name</Label><Input value={f.lastName} onChange={(e) => set("lastName", e.target.value)} /></div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div><Label>Pay type</Label>
+              <Select value={f.payType} onValueChange={(v) => set("payType", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hourly">Hourly</SelectItem>
+                  <SelectItem value="salary">Salary</SelectItem>
+                  <SelectItem value="commission">Commission</SelectItem>
+                  <SelectItem value="contract">Contract</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {f.payType === "salary" ? (
+              <div><Label>Annual salary</Label><Input type="number" value={f.annualSalary} onChange={(e) => set("annualSalary", e.target.value)} /></div>
+            ) : (
+              <div><Label>Hourly rate</Label><Input type="number" value={f.hourlyRate} onChange={(e) => set("hourlyRate", e.target.value)} /></div>
+            )}
+            <div><Label>Hrs / week</Label><Input type="number" value={f.hoursPerWeek} onChange={(e) => set("hoursPerWeek", e.target.value)} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Position</Label><Input value={f.position} onChange={(e) => set("position", e.target.value)} /></div>
+            <div><Label>SIN</Label><Input value={f.sin} onChange={(e) => set("sin", e.target.value)} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Email</Label><Input value={f.email} onChange={(e) => set("email", e.target.value)} /></div>
+            <div><Label>Phone</Label><Input value={f.phone} onChange={(e) => set("phone", e.target.value)} /></div>
+          </div>
+          <div>
+            <Label>Notes / history</Label>
+            <Textarea value={f.notes} onChange={(e) => set("notes", e.target.value)} rows={3} placeholder="Rate changes, start/end dates, anything to track on this employee's card…" />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={f.isActive} onChange={(e) => set("isActive", e.target.checked)} className="w-4 h-4 accent-lime-500" />
+            Active employee
+          </label>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button disabled={!f.firstName.trim() || pending} onClick={() => onSave({
+              firstName: f.firstName.trim(), lastName: f.lastName.trim(),
+              payType: f.payType,
+              annualSalary: f.payType === "salary" ? num(f.annualSalary) : undefined,
+              hourlyRate: f.payType !== "salary" ? num(f.hourlyRate) : undefined,
+              hoursPerWeek: num(f.hoursPerWeek),
+              position: f.position.trim() || undefined, sin: f.sin.trim() || undefined,
+              email: f.email.trim() || undefined, phone: f.phone.trim() || undefined,
+              isActive: f.isActive, notes: f.notes.trim() || undefined,
+            })}>{pending ? "Saving…" : isNew ? "Create" : "Save"}</Button>
           </div>
         </div>
       </DialogContent>
