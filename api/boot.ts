@@ -877,7 +877,10 @@ async function startServer() {
     await ensureTaskColumns();
     await ensurePayrollTables();
     await ensureClientRequestTables();
+<<<<<<< HEAD
     await ensureSmsTable();
+=======
+>>>>>>> origin/main
     // Privacy: we do NOT store SINs in the CRM. Scrub any that exist (idempotent).
     try {
       const { getDb } = await import("./queries/connection");

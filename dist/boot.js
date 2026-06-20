@@ -57433,7 +57433,10 @@ async function startServer() {
     await ensureTaskColumns2();
     await ensurePayrollTables2();
     await ensureClientRequestTables2();
+<<<<<<< HEAD
     await ensureSmsTable2();
+=======
+>>>>>>> origin/main
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
