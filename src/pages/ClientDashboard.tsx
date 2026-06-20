@@ -96,6 +96,7 @@ export default function ClientDashboard() {
   const genQuote = trpc.quote.createSignableQuote.useMutation({ onSuccess: invalidateDocs });
   const genEngagement = trpc.quote.createEngagementLetter.useMutation({ onSuccess: invalidateDocs });
   const genCra = trpc.quote.createCraAuthRequest.useMutation({ onSuccess: invalidateDocs });
+  const deleteDoc = trpc.signature.delete.useMutation({ onSuccess: invalidateDocs });
   const activateClient = trpc.quote.activateClient.useMutation({
     onSuccess: () => { invalidateDocs(); utils.clientDashboard.getByClient.invalidate({ clientId: id }); },
   });
@@ -420,12 +421,19 @@ export default function ClientDashboard() {
                         {d.signedBy ? ` · signed by ${d.signedBy}` : ""}
                       </span>
                     </div>
-                    {d.portalUrl && (
-                      <a href={d.portalUrl} target="_blank" rel="noopener noreferrer"
-                        className="shrink-0 inline-flex items-center gap-1 text-xs text-lime-700 hover:underline">
-                        Open <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
+                    <div className="flex items-center gap-3 shrink-0">
+                      {d.portalUrl && (
+                        <a href={d.portalUrl} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-lime-700 hover:underline">
+                          Open <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                      <button
+                        onClick={() => { if (confirm(`Delete "${d.title}"? This can't be undone.`)) deleteDoc.mutate({ id: d.id }); }}
+                        className="text-red-400 hover:text-red-600" title="Delete document">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
