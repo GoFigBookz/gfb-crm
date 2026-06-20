@@ -73,7 +73,7 @@ export default function Onboarding() {
     payrollFrequency: "none" as "weekly" | "biweekly" | "semi_monthly" | "monthly" | "none",
     hasEmployees: false, hasSubcontractors: false, hasInvestments: false,
     wsibRequired: false, paysDividends: false, bankAccountCount: 1, creditCardCount: 0,
-    needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
+    needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false, usesPayPal: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
     hasEHT: false, employeeCount: 0, monthsBehind: 0,
     payrollRemitterFreq: "regular" as "regular" | "quarterly" | "accelerated",
@@ -98,7 +98,7 @@ export default function Onboarding() {
     hstGstFrequency: "none", payrollFrequency: "none",
     hasEmployees: false, hasSubcontractors: false, hasInvestments: false,
     wsibRequired: false, paysDividends: false, bankAccountCount: 1, creditCardCount: 0,
-    needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false,
+    needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false, usesPayPal: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
     hasEHT: false, employeeCount: 0, monthsBehind: 0,
     payrollRemitterFreq: "regular" as "regular" | "quarterly" | "accelerated",
@@ -294,8 +294,12 @@ export default function Onboarding() {
                     <Checkbox checked={intake.usesTouchBistro} onCheckedChange={v => setIntake({...intake, usesTouchBistro: !!v})} />
                     <span className="text-sm">TouchBistro</span>
                   </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={intake.usesPayPal} onCheckedChange={v => setIntake({...intake, usesPayPal: !!v})} />
+                    <span className="text-sm">PayPal</span>
+                  </label>
                 </div>
-                {((intake.usesStripe || intake.usesSquare || intake.usesJobber || intake.usesTouchBistro)) && (
+                {((intake.usesStripe || intake.usesSquare || intake.usesJobber || intake.usesTouchBistro || intake.usesPayPal)) && (
                   <div className="space-y-2 w-48">
                     <Label>Sales Entry Frequency</Label>
                     <Select value={intake.salesEntryFrequency} onValueChange={(v: any) => setIntake({...intake, salesEntryFrequency: v})}>

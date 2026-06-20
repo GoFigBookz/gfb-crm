@@ -174,6 +174,7 @@ export const onboardingRouter = createRouter({
       usesSquare: z.boolean().default(false),
       usesJobber: z.boolean().default(false),
       usesTouchBistro: z.boolean().default(false),
+      usesPayPal: z.boolean().default(false),
       salesEntryFrequency: z.enum(["daily", "weekly", "monthly", "none"]).default("none"),
       usesHubdoc: z.boolean().default(false),
       hasJobCosting: z.boolean().default(false),
@@ -258,6 +259,7 @@ export const onboardingRouter = createRouter({
         usesSquare: input.usesSquare,
         usesJobber: input.usesJobber,
         usesTouchBistro: input.usesTouchBistro,
+        usesPayPal: input.usesPayPal,
         salesEntryFrequency: input.salesEntryFrequency,
         usesHubdoc: input.usesHubdoc,
         hasJobCosting: input.hasJobCosting,
@@ -303,6 +305,7 @@ export const onboardingRouter = createRouter({
         usesSquare: input.usesSquare,
         usesJobber: input.usesJobber,
         usesTouchBistro: input.usesTouchBistro,
+        usesPayPal: input.usesPayPal,
         salesEntryFrequency: input.salesEntryFrequency,
         usesHubdoc: input.usesHubdoc,
         hasJobCosting: input.hasJobCosting,
@@ -376,6 +379,8 @@ export const onboardingRouter = createRouter({
               usesStripe: row[0].usesStripe || false,
               usesSquare: row[0].usesSquare || false,
               usesJobber: row[0].usesJobber || false,
+              usesTouchBistro: row[0].usesTouchBistro || false,
+              usesPayPal: row[0].usesPayPal || false,
               salesEntryFrequency: row[0].salesEntryFrequency || "monthly",
             });
           }
