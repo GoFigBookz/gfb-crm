@@ -45827,6 +45827,335 @@ var init_month_end_router = __esm({
   }
 });
 
+// api/quote-core.ts
+var quote_core_exports = {};
+__export(quote_core_exports, {
+  RATE_CARD: () => RATE_CARD,
+  compareToFlatFee: () => compareToFlatFee,
+  computeQuote: () => computeQuote
+});
+function round5(n) {
+  return Math.round(n / 5) * 5;
+}
+function transactionBase(txns) {
+  const t2 = Math.max(0, Math.round(txns || 0));
+  for (const tier of RATE_CARD.transactionTiers) {
+    if (t2 <= tier.max) return { base: tier.base, label: tier.label };
+  }
+  const hv = RATE_CARD.highVolume;
+  return { base: hv.floor + Math.ceil(t2 - 750) * hv.perTxnOver750, label: hv.label };
+}
+function computeQuote(scope) {
+  const items = [];
+  const txns = Math.max(0, Math.round(scope.avgMonthlyTransactions || 0));
+  const { base, label } = transactionBase(txns);
+  const freqMult = RATE_CARD.bookkeepingFrequencyMultiplier[scope.bookkeepingFrequency] ?? 1;
+  const baseAmount = base * freqMult;
+  items.push({
+    label: `Core bookkeeping \u2014 ${label}`,
+    amount: baseAmount,
+    rationale: freqMult === 1 ? `${txns} txns/mo, recorded + reconciled + monthly close (1 bank acct incl.)` : `${txns} txns/mo at ${scope.bookkeepingFrequency} cadence (\xD7${freqMult} labour)`
+  });
+  const extraBanks = Math.max(0, (scope.bankAccountCount || 0) - 1);
+  if (extraBanks > 0) items.push({
+    label: `Additional bank accounts (${extraBanks})`,
+    amount: extraBanks * RATE_CARD.additionalBankAccount,
+    rationale: `${extraBanks} bank acct(s) beyond the one included`
+  });
+  if ((scope.creditCardCount || 0) > 0) items.push({
+    label: `Credit card reconciliation (${scope.creditCardCount})`,
+    amount: scope.creditCardCount * RATE_CARD.creditCardAccount,
+    rationale: `${scope.creditCardCount} credit card acct(s) reconciled`
+  });
+  if (scope.hasHST && scope.hstPeriod) {
+    items.push({
+      label: `HST/GST filing (${scope.hstPeriod})`,
+      amount: RATE_CARD.hstFiling[scope.hstPeriod],
+      rationale: `Prepare + file ${scope.hstPeriod} HST return`
+    });
+  }
+  if (scope.hasPayroll) {
+    const emp = Math.max(0, scope.employeeCount || 0);
+    const runMult = RATE_CARD.payroll.runFrequencyMultiplier[scope.payrollFrequency] ?? 1;
+    const payrollAmt = (RATE_CARD.payroll.base + emp * RATE_CARD.payroll.perEmployee) * runMult;
+    items.push({
+      label: `Payroll processing (${emp} employee${emp === 1 ? "" : "s"})`,
+      amount: payrollAmt,
+      rationale: `${scope.payrollFrequency} pay runs + PD7A remittance (\xD7${runMult} cadence)`
+    });
+    if (scope.payrollRemitterFreq === "accelerated") items.push({
+      label: "Accelerated remitter premium",
+      amount: RATE_CARD.payroll.acceleratedRemitterPremium,
+      rationale: "Threshold-1: twice-monthly source-deduction remittances"
+    });
+    if (emp > 0) items.push({
+      label: `T4 slips (${emp}/yr, amortized)`,
+      amount: emp * RATE_CARD.t4PerEmployeePerYear / 12,
+      rationale: `Annual T4s for ${emp} employee(s), spread monthly`
+    });
+  }
+  if (scope.paysDividends || scope.hasInvestments) items.push({
+    label: "T5 slips (amortized)",
+    amount: RATE_CARD.t5PerYear / 12,
+    rationale: "Dividend / investment-income T5 prep, spread monthly"
+  });
+  if (scope.hasSubcontractors) items.push({
+    label: "T5018 contractor slips (amortized)",
+    amount: RATE_CARD.t5018PerYear / 12,
+    rationale: "Annual subcontractor reporting, spread monthly"
+  });
+  if ((scope.salesPlatformCount || 0) > 0) items.push({
+    label: `Sales platform postings (${scope.salesPlatformCount})`,
+    amount: scope.salesPlatformCount * RATE_CARD.salesPlatform,
+    rationale: "Monthly sales report, HST breakout, post sales receipt per platform"
+  });
+  if (scope.invoicingByUs) items.push({
+    label: "Client invoicing / A/R",
+    amount: RATE_CARD.invoicingAR,
+    rationale: "We raise and track customer invoices"
+  });
+  if (scope.billPayByUs) items.push({
+    label: "Bill payments / A/P",
+    amount: RATE_CARD.billPayAP,
+    rationale: "We manage and pay vendor bills"
+  });
+  if (scope.hasJobCosting) items.push({
+    label: "Job / project costing",
+    amount: RATE_CARD.jobCosting,
+    rationale: "Per-job cost tracking and allocation"
+  });
+  if (scope.hasWSIB) items.push({
+    label: "WSIB reporting",
+    amount: RATE_CARD.wsib,
+    rationale: "Premium reconciliation + remittance"
+  });
+  if (scope.hasEHT) items.push({
+    label: "EHT (Ontario)",
+    amount: RATE_CARD.eht,
+    rationale: "Employer Health Tax reconciliation + filing"
+  });
+  if (scope.needsYearEnd) items.push({
+    label: "Year-end prep (amortized)",
+    amount: RATE_CARD.yearEndPerYear / 12,
+    rationale: "Adjusting entries + year-end file to accountant, spread monthly"
+  });
+  const recurringRaw = items.reduce((s, i) => s + i.amount, 0);
+  const recurringMonthly = round5(recurringRaw);
+  const oneTime = [];
+  oneTime.push({
+    label: "Onboarding / setup",
+    amount: RATE_CARD.onboardingSetup,
+    rationale: "COA review, software + bank-feed setup, connections"
+  });
+  if ((scope.monthsBehind || 0) > 0) oneTime.push({
+    label: `Catch-up / cleanup (${scope.monthsBehind} mo behind)`,
+    amount: scope.monthsBehind * RATE_CARD.catchUpPerMonthBehind,
+    rationale: `Bring ${scope.monthsBehind} month(s) of back books current`
+  });
+  const oneTimeTotal = round5(oneTime.reduce((s, i) => s + i.amount, 0));
+  return {
+    tier: label,
+    transactions: txns,
+    monthlyLineItems: items.map((i) => ({ ...i, amount: Math.round(i.amount * 100) / 100 })),
+    recurringMonthly,
+    recurringRange: { low: round5(recurringMonthly * 0.85), high: round5(recurringMonthly * 1.15) },
+    oneTimeLineItems: oneTime,
+    oneTimeTotal
+  };
+}
+function compareToFlatFee(recurringMonthly, flatFee) {
+  const flat = flatFee != null && flatFee > 0 ? flatFee : null;
+  const delta = recurringMonthly - (flat ?? 0);
+  const pctUnder = recurringMonthly > 0 ? delta / recurringMonthly : 0;
+  if (flat == null) {
+    return {
+      flatFee: null,
+      recurringMonthly,
+      deltaMonthly: 0,
+      pctUnder: 0,
+      verdict: "no_flat_fee",
+      message: `No flat fee set. Scope-based quote is $${recurringMonthly}/mo.`
+    };
+  }
+  if (pctUnder > 0.1) {
+    return {
+      flatFee: flat,
+      recurringMonthly,
+      deltaMonthly: Math.round(delta),
+      pctUnder,
+      verdict: "undercharging",
+      message: `Undercharging by ~$${Math.round(delta)}/mo (${Math.round(pctUnder * 100)}%). Flat $${flat} vs scope $${recurringMonthly}.`
+    };
+  }
+  if (pctUnder < -0.1) {
+    return {
+      flatFee: flat,
+      recurringMonthly,
+      deltaMonthly: Math.round(delta),
+      pctUnder,
+      verdict: "above_market",
+      message: `Flat fee $${flat} is ~$${Math.round(-delta)}/mo above the scope-based $${recurringMonthly} \u2014 premium / headroom.`
+    };
+  }
+  return {
+    flatFee: flat,
+    recurringMonthly,
+    deltaMonthly: Math.round(delta),
+    pctUnder,
+    verdict: "aligned",
+    message: `Flat fee $${flat} is in line with the scope-based $${recurringMonthly} (within 10%).`
+  };
+}
+var RATE_CARD;
+var init_quote_core = __esm({
+  "api/quote-core.ts"() {
+    RATE_CARD = {
+      // Monthly base by transaction volume (includes recording, categorization,
+      // reconciliation of ONE bank account, and a monthly close).
+      transactionTiers: [
+        { max: 50, base: 350, label: "Micro (\u226450 txns/mo)" },
+        { max: 100, base: 500, label: "Starter (51\u2013100 txns/mo)" },
+        { max: 200, base: 700, label: "Small (101\u2013200 txns/mo)" },
+        { max: 300, base: 950, label: "Standard (201\u2013300 txns/mo)" },
+        { max: 500, base: 1300, label: "Growth (301\u2013500 txns/mo)" },
+        { max: 750, base: 1750, label: "Mid (501\u2013750 txns/mo)" }
+      ],
+      highVolume: { floor: 2200, perTxnOver750: 2, label: "High-volume (751+ txns/mo)" },
+      // How often we actually do the books changes the recurring labour.
+      bookkeepingFrequencyMultiplier: { monthly: 1, quarterly: 0.7, annual: 0.45, none: 0.4 },
+      additionalBankAccount: 20,
+      // each bank account beyond the first
+      creditCardAccount: 15,
+      // each credit card reconciled
+      hstFiling: { monthly: 75, quarterly: 50, annual: 20 },
+      // per month, by filing cadence
+      payroll: {
+        base: 40,
+        // base if we run payroll at all
+        perEmployee: 20,
+        // per employee / month
+        runFrequencyMultiplier: { weekly: 1.5, biweekly: 1.2, semi_monthly: 1.2, monthly: 1, none: 1 },
+        acceleratedRemitterPremium: 30
+        // accelerated = twice-monthly PD7A remittances
+      },
+      t4PerEmployeePerYear: 50,
+      // annual slips, amortized to monthly
+      t5PerYear: 120,
+      // T5 prep (dividends / investment income), amortized
+      t5018PerYear: 150,
+      // contractor slips, amortized
+      salesPlatform: 45,
+      // per platform / month (pull report, break out HST, post sales receipt)
+      invoicingAR: 75,
+      // we run client invoicing / A/R
+      billPayAP: 75,
+      // we run bill payments / A/P
+      jobCosting: 100,
+      // job/project costing overhead
+      wsib: 15,
+      // WSIB reconciliation + reporting
+      eht: 10,
+      // Ontario EHT reconciliation + filing
+      yearEndPerYear: 900,
+      // year-end file prep + handoff to accountant (T2 is the accountant's), amortized
+      // One-time
+      catchUpPerMonthBehind: 100,
+      onboardingSetup: 250
+      // COA review, software + bank-feed setup, connections
+    };
+  }
+});
+
+// api/quote-router.ts
+var quote_router_exports = {};
+__export(quote_router_exports, {
+  buildScopeForClient: () => buildScopeForClient,
+  quoteRouter: () => quoteRouter
+});
+function buildScopeForClient(client, onb) {
+  const num2 = (...vals) => {
+    for (const v of vals) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return 0;
+  };
+  const bool = (...vals) => vals.some((v) => v === true || v === 1);
+  const salesPlatformCount = onb ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro].filter((v) => v === true || v === 1).length : 0;
+  return {
+    avgMonthlyTransactions: num2(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
+    bookkeepingFrequency: onb?.bookkeepingFrequency ?? "monthly",
+    bankAccountCount: num2(onb?.bankAccountCount) || 1,
+    creditCardCount: num2(onb?.creditCardCount),
+    hasHST: bool(client?.hasHST, onb?.hstGstFrequency && onb.hstGstFrequency !== "none"),
+    hstPeriod: normalizeHstPeriod(client?.hstPeriod, onb?.hstGstFrequency),
+    hasPayroll: bool(client?.hasPayroll, onb?.hasEmployees, onb?.payrollFrequency && onb.payrollFrequency !== "none"),
+    employeeCount: num2(onb?.employeeCount),
+    payrollFrequency: normalizePayrollFreq(onb?.payrollFrequency, client?.payrollFrequency),
+    payrollRemitterFreq: client?.payrollRemitterFreq ?? "regular",
+    hasWSIB: bool(client?.hasWSIB, onb?.wsibRequired),
+    hasEHT: bool(onb?.hasEHT),
+    paysDividends: bool(onb?.paysDividends),
+    hasInvestments: bool(onb?.hasInvestments),
+    hasSubcontractors: bool(onb?.hasSubcontractors),
+    needsYearEnd: onb ? bool(onb?.needsYearEnd) : true,
+    salesPlatformCount,
+    invoicingByUs: onb?.invoicingResponsibility === "we_invoice",
+    billPayByUs: onb?.billPayResponsibility === "we_pay",
+    hasJobCosting: bool(onb?.hasJobCosting),
+    monthsBehind: num2(onb?.monthsBehind)
+  };
+}
+function normalizeHstPeriod(clientPeriod, onbFreq) {
+  const p = String(clientPeriod ?? onbFreq ?? "").toLowerCase();
+  if (p.startsWith("month")) return "monthly";
+  if (p.startsWith("quarter")) return "quarterly";
+  if (p.startsWith("ann")) return "annual";
+  return null;
+}
+function normalizePayrollFreq(onbFreq, clientFreq) {
+  const p = String(onbFreq ?? clientFreq ?? "").toLowerCase().replace(/[-\s]/g, "_");
+  if (p === "weekly") return "weekly";
+  if (p === "biweekly" || p === "bi_weekly") return "biweekly";
+  if (p === "semi_monthly" || p === "semimonthly") return "semi_monthly";
+  if (p === "monthly") return "monthly";
+  return "none";
+}
+var quoteRouter;
+var init_quote_router = __esm({
+  "api/quote-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_quote_core();
+    quoteRouter = createRouter({
+      // Scope-based quote for one client + comparison to its flat fee.
+      forClient: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        const db = getDb();
+        const crows = await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1);
+        const client = crows[0];
+        if (!client) return null;
+        const orows = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1);
+        const onb = orows[0] ?? null;
+        const scope = buildScopeForClient(client, onb);
+        const quote = computeQuote(scope);
+        const comparison = compareToFlatFee(quote.recurringMonthly, client.monthlyFee ?? null);
+        return {
+          clientId: client.id,
+          clientName: client.name,
+          hasOnboarding: !!onb,
+          scope,
+          quote,
+          flatFee: client.monthlyFee ?? null,
+          comparison
+        };
+      })
+    });
+  }
+});
+
 // api/vendor-learning.ts
 var vendor_learning_exports = {};
 __export(vendor_learning_exports, {
@@ -47817,6 +48146,7 @@ var init_router = __esm({
     init_expiration_router();
     init_monthly_close_router();
     init_month_end_router();
+    init_quote_router();
     init_agent_webhook_router();
     init_sheet_export_router();
     init_sender_rules_router();
@@ -47857,6 +48187,7 @@ var init_router = __esm({
       expiration: expirationRouter,
       monthlyClose: monthlyCloseRouter,
       monthEnd: monthEndRouter,
+      quote: quoteRouter,
       agentWebhook: agentWebhookRouter,
       sheetExport: sheetExportRouter,
       localAuth: localAuthRouter,
@@ -54418,6 +54749,23 @@ app.post("/api/admin/figgy", async (c) => {
         connections: byClient.get(c2.id) || []
       }));
       return c.json({ success: true, op, count: list.length, clients: list });
+    }
+    if (op === "quote") {
+      const clientId = Number(c.req.query("clientId") || body?.clientId);
+      if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
+      const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+      const { clients: clients2, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq2, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
+      const { buildScopeForClient: buildScopeForClient2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
+      const db = getDb2();
+      const cl = (await db.select().from(clients2).where(eq2(clients2.id, clientId)).limit(1))[0];
+      if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
+      const onb = (await db.select().from(clientOnboarding2).where(eq2(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const scope = buildScopeForClient2(cl, onb);
+      const quote = computeQuote2(scope);
+      const comparison = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
+      return c.json({ success: true, op, clientName: cl.name, flatFee: cl.monthlyFee ?? null, scope, quote, comparison });
     }
     return c.json({ success: true, op: "health", health: await brain.bridgeHealth() });
   } catch (e) {
