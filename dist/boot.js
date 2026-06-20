@@ -54392,17 +54392,31 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "clients") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients2, qboConnections: qboConnections3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients2, qboConnections: qboConnections3, clientTaskRules: clientTaskRules2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const db = getDb2();
       const cs = await db.select().from(clients2);
       const conns = await db.select().from(qboConnections3);
+      const ruleRows = await db.select().from(clientTaskRules2);
       const byClient = /* @__PURE__ */ new Map();
       for (const cn of conns) {
         if (cn.clientId == null) continue;
         if (!byClient.has(cn.clientId)) byClient.set(cn.clientId, []);
         byClient.get(cn.clientId).push({ realmId: cn.realmId, transport: cn.transport, isActive: cn.isActive });
       }
-      const list = cs.map((c2) => ({ id: c2.id, name: c2.name, company: c2.company, connections: byClient.get(c2.id) || [] }));
+      const remitByClient = /* @__PURE__ */ new Map();
+      for (const r of ruleRows) {
+        if (r.clientId == null || !String(r.ruleType || "").startsWith("payroll_remit")) continue;
+        if (!remitByClient.has(r.clientId)) remitByClient.set(r.clientId, []);
+        remitByClient.get(r.clientId).push(r.title);
+      }
+      const list = cs.map((c2) => ({
+        id: c2.id,
+        name: c2.name,
+        company: c2.company,
+        payrollRemitterFreq: c2.payrollRemitterFreq ?? null,
+        payrollRemitTasks: remitByClient.get(c2.id) || [],
+        connections: byClient.get(c2.id) || []
+      }));
       return c.json({ success: true, op, count: list.length, clients: list });
     }
     return c.json({ success: true, op: "health", health: await brain.bridgeHealth() });
