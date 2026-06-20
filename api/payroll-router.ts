@@ -103,7 +103,13 @@ export const payrollRouter = createRouter({
       const empById = new Map((emps as any[]).map((e) => [e.id, e]));
       const withNames = (lines as any[]).map((l) => {
         const e = empById.get(l.employeeId);
-        return { ...l, employeeName: e ? `${e.firstName} ${e.lastName}` : `Employee #${l.employeeId}`, payType: e?.payType ?? null };
+        return {
+          ...l,
+          employeeName: e ? `${e.firstName} ${e.lastName}` : `Employee #${l.employeeId}`,
+          payType: e?.payType ?? null,
+          hourlyRate: e?.hourlyRate ?? null,
+          annualSalary: e?.annualSalary ?? null,
+        };
       }).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
       return { run, lines: withNames };
     }),
@@ -199,7 +205,7 @@ export const payrollRouter = createRouter({
       id: z.number(),
       regularHours: z.number().optional(), overtimeHours: z.number().optional(),
       vacationHours: z.number().optional(), statHolidayHours: z.number().optional(), sickHours: z.number().optional(),
-      grossPay: z.number().optional(), vacationPayPaid: z.number().optional(),
+      grossPay: z.number().optional(), shareBonus: z.number().optional(), statHolidayPay: z.number().optional(), vacationPayPaid: z.number().optional(),
       cppEmployee: z.number().optional(), cpp2Employee: z.number().optional(), eiEmployee: z.number().optional(),
       federalTax: z.number().optional(), provincialTax: z.number().optional(), otherDeductions: z.number().optional(),
       cppEmployer: z.number().optional(), cpp2Employer: z.number().optional(), eiEmployer: z.number().optional(),
@@ -247,6 +253,22 @@ export const payrollRouter = createRouter({
       await db.delete(payRunLines).where(eq(payRunLines.payRunId, input.runId));
       await db.delete(payRuns).where(eq(payRuns.id, input.runId));
       return { success: true };
+    }),
+
+  // Create (or return) a client hours-approval link for a run, and mark it sent.
+  createApprovalLink: staffQuery
+    .input(z.object({ runId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const run = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0] as any;
+      if (!run) throw new Error("Pay run not found");
+      const token = run.approvalToken || `pa_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+      await db.update(payRuns).set({
+        approvalToken: token,
+        approvalStatus: run.approvalStatus === "approved" ? "approved" : "sent",
+        updatedAt: new Date(),
+      }).where(eq(payRuns.id, input.runId));
+      return { token };
     }),
 
   // Which tax tables the reconciliation is using (for the UI banner).

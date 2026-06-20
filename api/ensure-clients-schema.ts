@@ -102,6 +102,11 @@ export async function ensurePayrollTables(): Promise<void> {
       totalNet REAL DEFAULT 0,
       totalEmployeeDeductions REAL DEFAULT 0,
       totalEmployerCost REAL DEFAULT 0,
+      approvalToken TEXT,
+      approvalStatus TEXT DEFAULT 'none',
+      approvedByName TEXT,
+      approvedAt INTEGER,
+      approvalNote TEXT,
       notes TEXT,
       createdAt INTEGER,
       updatedAt INTEGER
@@ -116,6 +121,8 @@ export async function ensurePayrollTables(): Promise<void> {
       statHolidayHours REAL DEFAULT 0,
       sickHours REAL DEFAULT 0,
       grossPay REAL DEFAULT 0,
+      shareBonus REAL DEFAULT 0,
+      statHolidayPay REAL DEFAULT 0,
       vacationPayAccrued REAL DEFAULT 0,
       vacationPayPaid REAL DEFAULT 0,
       cppEmployee REAL DEFAULT 0,
@@ -152,6 +159,22 @@ export async function ensurePayrollTables(): Promise<void> {
       t4Box44UnionDues REAL, t4Box46Charitable REAL,
       notes TEXT, createdAt INTEGER, updatedAt INTEGER
     )`));
+    // ALTER guards for columns added after the tables first shipped on live.
+    const addCol = async (table: string, col: string, type: string) => {
+      try {
+        const res: any = await db.run(sql.raw(`PRAGMA table_info(${table})`));
+        const have = new Set<string>();
+        for (const r of (res?.rows ?? res ?? [])) have.add(String((r as any).name ?? (r as any)[1] ?? ""));
+        if (!have.has(col)) await db.run(sql.raw(`ALTER TABLE ${table} ADD COLUMN "${col}" ${type}`));
+      } catch (e) { console.error(`[schema] add ${table}.${col} failed:`, e instanceof Error ? e.message : e); }
+    };
+    await addCol("pay_run_lines", "shareBonus", "REAL DEFAULT 0");
+    await addCol("pay_run_lines", "statHolidayPay", "REAL DEFAULT 0");
+    await addCol("pay_runs", "approvalToken", "TEXT");
+    await addCol("pay_runs", "approvalStatus", "TEXT DEFAULT 'none'");
+    await addCol("pay_runs", "approvedByName", "TEXT");
+    await addCol("pay_runs", "approvedAt", "INTEGER");
+    await addCol("pay_runs", "approvalNote", "TEXT");
     console.log("[schema] payroll tables ensured");
   } catch (e) {
     console.error("[schema] ensurePayrollTables failed:", e instanceof Error ? e.message : e);

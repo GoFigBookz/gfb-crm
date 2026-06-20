@@ -23272,6 +23272,12 @@ var init_schema = __esm({
       totalNet: real("totalNet").default(0),
       totalEmployeeDeductions: real("totalEmployeeDeductions").default(0),
       totalEmployerCost: real("totalEmployerCost").default(0),
+      // Client hours-approval flow
+      approvalToken: text("approvalToken"),
+      approvalStatus: text("approvalStatus", { enum: ["none", "sent", "approved", "changes_requested"] }).default("none"),
+      approvedByName: text("approvedByName"),
+      approvedAt: integer2("approvedAt", { mode: "timestamp" }),
+      approvalNote: text("approvalNote"),
       notes: text("notes"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
@@ -23286,8 +23292,10 @@ var init_schema = __esm({
       vacationHours: real("vacationHours").default(0),
       statHolidayHours: real("statHolidayHours").default(0),
       sickHours: real("sickHours").default(0),
-      // Earnings
+      // Earnings (mirrors the client sheet columns)
       grossPay: real("grossPay").default(0),
+      shareBonus: real("shareBonus").default(0),
+      statHolidayPay: real("statHolidayPay").default(0),
       vacationPayAccrued: real("vacationPayAccrued").default(0),
       vacationPayPaid: real("vacationPayPaid").default(0),
       // Employee deductions
@@ -45233,7 +45241,13 @@ var init_payroll_router = __esm({
         const empById = new Map(emps.map((e) => [e.id, e]));
         const withNames = lines.map((l) => {
           const e = empById.get(l.employeeId);
-          return { ...l, employeeName: e ? `${e.firstName} ${e.lastName}` : `Employee #${l.employeeId}`, payType: e?.payType ?? null };
+          return {
+            ...l,
+            employeeName: e ? `${e.firstName} ${e.lastName}` : `Employee #${l.employeeId}`,
+            payType: e?.payType ?? null,
+            hourlyRate: e?.hourlyRate ?? null,
+            annualSalary: e?.annualSalary ?? null
+          };
         }).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
         return { run: run2, lines: withNames };
       }),
@@ -45319,6 +45333,8 @@ var init_payroll_router = __esm({
         statHolidayHours: external_exports.number().optional(),
         sickHours: external_exports.number().optional(),
         grossPay: external_exports.number().optional(),
+        shareBonus: external_exports.number().optional(),
+        statHolidayPay: external_exports.number().optional(),
         vacationPayPaid: external_exports.number().optional(),
         cppEmployee: external_exports.number().optional(),
         cpp2Employee: external_exports.number().optional(),
@@ -45369,6 +45385,19 @@ var init_payroll_router = __esm({
         await db.delete(payRunLines).where(eq(payRunLines.payRunId, input.runId));
         await db.delete(payRuns).where(eq(payRuns.id, input.runId));
         return { success: true };
+      }),
+      // Create (or return) a client hours-approval link for a run, and mark it sent.
+      createApprovalLink: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ input }) => {
+        const db = getDb();
+        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run2) throw new Error("Pay run not found");
+        const token = run2.approvalToken || `pa_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+        await db.update(payRuns).set({
+          approvalToken: token,
+          approvalStatus: run2.approvalStatus === "approved" ? "approved" : "sent",
+          updatedAt: /* @__PURE__ */ new Date()
+        }).where(eq(payRuns.id, input.runId));
+        return { token };
       }),
       // Which tax tables the reconciliation is using (for the UI banner).
       taxTables: staffQuery.query(() => ({
@@ -49234,6 +49263,7 @@ var init_public_router = __esm({
     init_middleware();
     init_connection();
     init_schema();
+    init_drizzle_orm();
     publicRouter = createRouter({
       // Public: create a lead from the marketing website
       createLead: publicQuery.input(external_exports.object({
@@ -49325,6 +49355,58 @@ var init_public_router = __esm({
           createdAt: /* @__PURE__ */ new Date()
         });
         return { success: true, clientId, token };
+      }),
+      // ===== PAYROLL HOURS APPROVAL (public, token-gated — for clients) =====
+      payrollApprovalGet: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
+        const db = getDb();
+        const run2 = (await db.select().from(payRuns).where(eq(payRuns.approvalToken, input.token)).limit(1))[0];
+        if (!run2) return null;
+        const client = (await db.select().from(clients).where(eq(clients.id, run2.clientId)).limit(1))[0];
+        const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run2.id));
+        const emps = await db.select().from(employees).where(eq(employees.clientId, run2.clientId));
+        const byId = new Map(emps.map((e) => [e.id, e]));
+        const rows = lines.map((l) => {
+          const e = byId.get(l.employeeId);
+          return {
+            name: e ? `${e.firstName} ${e.lastName}` : `Employee #${l.employeeId}`,
+            regularHours: l.regularHours ?? 0,
+            overtimeHours: l.overtimeHours ?? 0,
+            statHolidayPay: l.statHolidayPay ?? 0,
+            shareBonus: l.shareBonus ?? 0,
+            grossPay: l.grossPay ?? 0
+          };
+        }).sort((a, b) => a.name.localeCompare(b.name));
+        return {
+          clientName: client?.name ?? "Your company",
+          payPeriodStart: run2.payPeriodStart,
+          payPeriodEnd: run2.payPeriodEnd,
+          payDate: run2.payDate,
+          status: run2.approvalStatus ?? "sent",
+          approvedByName: run2.approvedByName ?? null,
+          approvedAt: run2.approvedAt ?? null,
+          approvalNote: run2.approvalNote ?? null,
+          lines: rows
+        };
+      }),
+      payrollApprovalSubmit: publicQuery.input(external_exports.object({
+        token: external_exports.string().min(6),
+        approverName: external_exports.string().min(1),
+        decision: external_exports.enum(["approved", "changes_requested"]),
+        note: external_exports.string().optional()
+      })).mutation(async ({ input }) => {
+        const db = getDb();
+        const run2 = (await db.select().from(payRuns).where(eq(payRuns.approvalToken, input.token)).limit(1))[0];
+        if (!run2) throw new Error("This approval link is not valid.");
+        await db.update(payRuns).set({
+          approvalStatus: input.decision,
+          approvedByName: input.approverName,
+          approvedAt: /* @__PURE__ */ new Date(),
+          approvalNote: input.note || null,
+          // When the client approves the hours, advance the run to "approved".
+          ...input.decision === "approved" ? { status: "approved" } : {},
+          updatedAt: /* @__PURE__ */ new Date()
+        }).where(eq(payRuns.id, run2.id));
+        return { success: true };
       })
     });
   }
@@ -51389,6 +51471,11 @@ async function ensurePayrollTables() {
       totalNet REAL DEFAULT 0,
       totalEmployeeDeductions REAL DEFAULT 0,
       totalEmployerCost REAL DEFAULT 0,
+      approvalToken TEXT,
+      approvalStatus TEXT DEFAULT 'none',
+      approvedByName TEXT,
+      approvedAt INTEGER,
+      approvalNote TEXT,
       notes TEXT,
       createdAt INTEGER,
       updatedAt INTEGER
@@ -51403,6 +51490,8 @@ async function ensurePayrollTables() {
       statHolidayHours REAL DEFAULT 0,
       sickHours REAL DEFAULT 0,
       grossPay REAL DEFAULT 0,
+      shareBonus REAL DEFAULT 0,
+      statHolidayPay REAL DEFAULT 0,
       vacationPayAccrued REAL DEFAULT 0,
       vacationPayPaid REAL DEFAULT 0,
       cppEmployee REAL DEFAULT 0,
@@ -51438,6 +51527,23 @@ async function ensurePayrollTables() {
       t4Box44UnionDues REAL, t4Box46Charitable REAL,
       notes TEXT, createdAt INTEGER, updatedAt INTEGER
     )`));
+    const addCol = async (table, col, type) => {
+      try {
+        const res = await db.run(sql.raw(`PRAGMA table_info(${table})`));
+        const have = /* @__PURE__ */ new Set();
+        for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
+        if (!have.has(col)) await db.run(sql.raw(`ALTER TABLE ${table} ADD COLUMN "${col}" ${type}`));
+      } catch (e) {
+        console.error(`[schema] add ${table}.${col} failed:`, e instanceof Error ? e.message : e);
+      }
+    };
+    await addCol("pay_run_lines", "shareBonus", "REAL DEFAULT 0");
+    await addCol("pay_run_lines", "statHolidayPay", "REAL DEFAULT 0");
+    await addCol("pay_runs", "approvalToken", "TEXT");
+    await addCol("pay_runs", "approvalStatus", "TEXT DEFAULT 'none'");
+    await addCol("pay_runs", "approvedByName", "TEXT");
+    await addCol("pay_runs", "approvedAt", "INTEGER");
+    await addCol("pay_runs", "approvalNote", "TEXT");
     console.log("[schema] payroll tables ensured");
   } catch (e) {
     console.error("[schema] ensurePayrollTables failed:", e instanceof Error ? e.message : e);

@@ -24,6 +24,7 @@ import OnboardingForm from "./pages/OnboardingForm";
 import UsersManagement from "./pages/UsersManagement";
 import Employees from "./pages/Employees";
 import Payroll from "./pages/Payroll";
+import PayrollApproval from "./pages/PayrollApproval";
 import EngagementLetters from "./pages/EngagementLetters";
 import BankConverter from "./pages/BankConverter";
 import TaxDeadlines from "./pages/TaxDeadlines";
@@ -60,6 +61,9 @@ function AppRoutes() {
       
       {/* Client portal (public, token-based passwordless login) */}
       <Route path="/portal/:token" element={<ClientPortal />} />
+
+      {/* Payroll hours approval (public, token-based) */}
+      <Route path="/approve/:token" element={<PayrollApproval />} />
       
       {/* Protected routes (work in demo mode too) */}
       <Route element={<AppLayout />}>
