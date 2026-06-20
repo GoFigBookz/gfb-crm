@@ -22,6 +22,18 @@ const WEST_YORK_META = {
   driveFolderUrl: "https://drive.google.com/drive/folders/10FgSl5ctYkgxIaAa2-eTir7xOquQ7Xzj",
 };
 
+// The practice's known payroll clients (name substrings). A client is treated
+// as payroll if it matches one of these OR has hasPayroll set — so the payroll
+// page lists ONLY real payroll clients, not anyone who happens to have an
+// employee record.
+const KNOWN_PAYROLL = ["west york", "selective", "originality", "clark", "2303851", "fractal"];
+
+function isPayrollClient(c: any): boolean {
+  if (c.hasPayroll) return true;
+  const n = (c.name || "").toLowerCase();
+  return KNOWN_PAYROLL.some((k) => n.includes(k));
+}
+
 function payrollKind(name: string | null | undefined): { kind: string; note?: string; meta?: any } {
   const n = (name || "").toLowerCase();
   if (n.includes("west york")) return { kind: "qbo_autopay", note: WEST_YORK_META.note, meta: WEST_YORK_META };
@@ -57,7 +69,7 @@ export const payrollRouter = createRouter({
     const empCount = new Map<number, number>();
     for (const e of emps as any[]) empCount.set(e.clientId, (empCount.get(e.clientId) || 0) + (e.isActive === false ? 0 : 1));
     return (cs as any[])
-      .filter((c) => c.hasPayroll || empCount.get(c.id))
+      .filter((c) => isPayrollClient(c) && c.status !== "inactive" && c.status !== "archived")
       .map((c) => ({
         id: c.id, name: c.name,
         payrollFrequency: c.payrollFrequency ?? null,

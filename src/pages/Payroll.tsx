@@ -11,7 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { trpc } from "@/providers/trpc";
 import { format } from "date-fns";
 import { reconcileWithholding, TAX_2026 } from "../../api/payroll-tax-core";
+import { nextPayPeriod, normalizeFrequency } from "../../api/payroll-core";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
+
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 const KIND_BADGE: Record<string, { label: string; cls: string }> = {
   qbo_autopay: { label: "QBO autopay", cls: "bg-purple-100 text-purple-700" },
@@ -145,15 +148,22 @@ export default function Payroll() {
         </div>
       </div>
 
-      {creating && selected && (
-        <NewRunDialog
-          defaultFreq={(selected.payrollFrequency as any) || "monthly"}
-          defaultSource={selected.kind === "qbo_autopay" ? "qbo_autopay" : selected.kind === "clockify" ? "clockify" : selected.kind === "jobber" ? "jobber" : "manual"}
-          onClose={() => setCreating(false)}
-          onCreate={(v) => createRun.mutate({ clientId: selected.id, ...v })}
-          pending={createRun.isPending}
-        />
-      )}
+      {creating && selected && (() => {
+        // Auto-advance from the latest run's period (or the current period).
+        const freq = normalizeFrequency(selected.payrollFrequency);
+        const last = runs && runs[0];
+        const np = nextPayPeriod(freq, last ? new Date(last.payPeriodStart) : null, last ? new Date(last.payPeriodEnd) : null);
+        return (
+          <NewRunDialog
+            defaultFreq={freq}
+            defaultSource={selected.kind === "qbo_autopay" ? "qbo_autopay" : selected.kind === "clockify" ? "clockify" : selected.kind === "jobber" ? "jobber" : "manual"}
+            defaultPeriod={{ start: ymd(np.start), end: ymd(np.end), payDate: ymd(np.payDate) }}
+            onClose={() => setCreating(false)}
+            onCreate={(v) => createRun.mutate({ clientId: selected.id, ...v })}
+            pending={createRun.isPending}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -364,13 +374,15 @@ function TaxReconPanel({ clientId, highlight }: { clientId: number; highlight: b
   );
 }
 
-function NewRunDialog({ defaultFreq, defaultSource, onClose, onCreate, pending }: {
-  defaultFreq: string; defaultSource: string; onClose: () => void;
+function NewRunDialog({ defaultFreq, defaultSource, defaultPeriod, onClose, onCreate, pending }: {
+  defaultFreq: string; defaultSource: string;
+  defaultPeriod?: { start: string; end: string; payDate: string };
+  onClose: () => void;
   onCreate: (v: any) => void; pending: boolean;
 }) {
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [payDate, setPayDate] = useState("");
+  const [start, setStart] = useState(defaultPeriod?.start || "");
+  const [end, setEnd] = useState(defaultPeriod?.end || "");
+  const [payDate, setPayDate] = useState(defaultPeriod?.payDate || "");
   const [frequency, setFrequency] = useState(["weekly", "biweekly", "semi_monthly", "monthly"].includes(defaultFreq) ? defaultFreq : "monthly");
   const [hoursSource, setHoursSource] = useState(defaultSource);
   return (

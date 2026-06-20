@@ -45147,6 +45147,11 @@ var init_payroll_tax_core = __esm({
 });
 
 // api/payroll-router.ts
+function isPayrollClient(c) {
+  if (c.hasPayroll) return true;
+  const n = (c.name || "").toLowerCase();
+  return KNOWN_PAYROLL.some((k) => n.includes(k));
+}
 function payrollKind(name2) {
   const n = (name2 || "").toLowerCase();
   if (n.includes("west york")) return { kind: "qbo_autopay", note: WEST_YORK_META.note, meta: WEST_YORK_META };
@@ -45173,7 +45178,7 @@ async function recomputeRunTotals(runId) {
     updatedAt: /* @__PURE__ */ new Date()
   }).where(eq(payRuns.id, runId));
 }
-var WEST_YORK_META, payrollRouter;
+var WEST_YORK_META, KNOWN_PAYROLL, payrollRouter;
 var init_payroll_router = __esm({
   "api/payroll-router.ts"() {
     init_zod();
@@ -45192,6 +45197,7 @@ var init_payroll_router = __esm({
       archiveFolderId: "10FgSl5ctYkgxIaAa2-eTir7xOquQ7Xzj",
       driveFolderUrl: "https://drive.google.com/drive/folders/10FgSl5ctYkgxIaAa2-eTir7xOquQ7Xzj"
     };
+    KNOWN_PAYROLL = ["west york", "selective", "originality", "clark", "2303851", "fractal"];
     payrollRouter = createRouter({
       // Clients that run payroll: hasPayroll flag OR at least one employee on file.
       clients: staffQuery.query(async () => {
@@ -45200,7 +45206,7 @@ var init_payroll_router = __esm({
         const emps = await db.select().from(employees);
         const empCount = /* @__PURE__ */ new Map();
         for (const e of emps) empCount.set(e.clientId, (empCount.get(e.clientId) || 0) + (e.isActive === false ? 0 : 1));
-        return cs.filter((c) => c.hasPayroll || empCount.get(c.id)).map((c) => ({
+        return cs.filter((c) => isPayrollClient(c) && c.status !== "inactive" && c.status !== "archived").map((c) => ({
           id: c.id,
           name: c.name,
           payrollFrequency: c.payrollFrequency ?? null,
