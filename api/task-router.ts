@@ -145,7 +145,7 @@ export const taskRouter = createRouter({
       // seeded under userId 1; filtering by ctx.user.id would silently no-op).
       await db
         .update(tasks)
-        .set({ completed: true, status: "completed", completedAt: now })
+        .set({ completed: true, status: "completed", stage: "done", completedAt: now })
         .where(eq(tasks.id, input.id));
 
       // Sync updated task
@@ -161,6 +161,20 @@ export const taskRouter = createRouter({
       }
 
       return { success: true, nextTaskId: nextTask?.id ?? null };
+    }),
+
+  // Move a task across the workflow board (todo/in_progress/review/done).
+  setStage: authedQuery
+    .input(z.object({ id: z.number(), stage: z.enum(["todo", "in_progress", "review", "done"]) }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const done = input.stage === "done";
+      await db.update(tasks).set({
+        stage: input.stage,
+        ...(done ? { completed: true, status: "completed", completedAt: new Date() }
+                 : { completed: false, status: input.stage === "in_progress" ? "in_progress" : "pending" }),
+      }).where(eq(tasks.id, input.id));
+      return { success: true };
     }),
 
   // Update task

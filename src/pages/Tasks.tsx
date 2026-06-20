@@ -16,7 +16,7 @@ export default function Tasks() {
   const utils = trpc.useUtils();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"list" | "board" | "calendar">("list");
+  const [view, setView] = useState<"list" | "board" | "workflow" | "calendar">("list");
   const [fClient, setFClient] = useState("all");
   const [fAssignee, setFAssignee] = useState("all");
   const [fCategory, setFCategory] = useState("all");
@@ -37,6 +37,9 @@ export default function Tasks() {
   const { data: allTasks } = trpc.task.list.useQuery();
   const { data: recurringTasks } = trpc.task.listRecurring.useQuery();
   const completeTask = trpc.task.complete.useMutation({
+    onSuccess: () => utils.task.list.invalidate()
+  });
+  const setStage = trpc.task.setStage.useMutation({
     onSuccess: () => utils.task.list.invalidate()
   });
   const createTask = trpc.task.create.useMutation({
@@ -364,6 +367,9 @@ export default function Tasks() {
           <Button variant={view === "board" ? "default" : "outline"} size="sm" onClick={() => setView("board")}>
             <LayoutGrid className="h-4 w-4 mr-1" /> Board
           </Button>
+          <Button variant={view === "workflow" ? "default" : "outline"} size="sm" onClick={() => setView("workflow")}>
+            <LayoutGrid className="h-4 w-4 mr-1" /> Workflow
+          </Button>
           <Button variant={view === "calendar" ? "default" : "outline"} size="sm" onClick={() => setView("calendar")}>
             <CalendarIcon className="h-4 w-4 mr-1" /> Calendar
           </Button>
@@ -439,6 +445,57 @@ export default function Tasks() {
           <BoardColumn title="Done" tasks={completedTasks} color="bg-lime-50" />
         </div>
       )}
+
+      {/* WORKFLOW BOARD (Financial Cents-style stages) */}
+      {view === "workflow" && (() => {
+        const STAGES: [string, string, string][] = [
+          ["todo", "To Do", "bg-slate-100"],
+          ["in_progress", "In Progress", "bg-amber-50"],
+          ["review", "Review", "bg-blue-50"],
+          ["done", "Done", "bg-lime-50"],
+        ];
+        const order = ["todo", "in_progress", "review", "done"];
+        const stageOf = (t: any) => t.stage || (t.completed ? "done" : "todo");
+        return (
+          <div className="flex gap-3 overflow-x-auto pb-4">
+            {STAGES.map(([stage, label, color]) => {
+              const col = filteredTasks.filter((t) => stageOf(t) === stage);
+              const idx = order.indexOf(stage);
+              return (
+                <div key={stage} className="flex flex-col gap-2 min-w-[250px] flex-1">
+                  <div className={cn("flex items-center justify-between p-2.5 rounded-lg", color)}>
+                    <h3 className="font-semibold text-sm">{label}</h3>
+                    <Badge variant="outline" className="bg-white/60">{col.length}</Badge>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {col.map((task) => (
+                      <Card key={task.id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-2.5">
+                          <p className={cn("text-sm font-medium", task.completed && "line-through text-slate-500")}>{task.title}</p>
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                            {task.category && <Badge variant="secondary" className="text-[10px]">{task.category}</Badge>}
+                            {task.clientId && clientName(task.clientId) && (
+                              <Link to={`/client/${task.clientId}`} className="text-[11px] text-lime-700 hover:underline inline-flex items-center gap-0.5"><Building2 className="h-3 w-3" />{clientName(task.clientId)}</Link>
+                            )}
+                            {task.assignedTo && <span className="text-[11px] text-slate-500">@{task.assignedTo}</span>}
+                          </div>
+                          <div className="flex items-center justify-between mt-2">
+                            <button disabled={idx === 0} onClick={() => setStage.mutate({ id: task.id, stage: order[idx - 1] as any })}
+                              className={cn("text-xs px-2 py-0.5 rounded", idx === 0 ? "text-slate-300" : "text-slate-600 hover:bg-slate-100")}>← Back</button>
+                            <button disabled={idx === order.length - 1} onClick={() => setStage.mutate({ id: task.id, stage: order[idx + 1] as any })}
+                              className={cn("text-xs px-2 py-0.5 rounded", idx === order.length - 1 ? "text-slate-300" : "text-lime-700 hover:bg-lime-50")}>Next →</button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {col.length === 0 && <div className="text-center py-6 text-slate-300 text-xs border-2 border-dashed border-slate-200 rounded-lg">—</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* CALENDAR VIEW */}
       {view === "calendar" && (

@@ -805,9 +805,10 @@ async function startServer() {
   // table is missing columns the app SELECTs, which makes every read throw (empty
   // Clients page). Add any missing columns first.
   try {
-    const { ensureClientsColumns, ensureOnboardingColumns } = await import("./ensure-clients-schema");
+    const { ensureClientsColumns, ensureOnboardingColumns, ensureTaskColumns } = await import("./ensure-clients-schema");
     await ensureClientsColumns();
     await ensureOnboardingColumns();
+    await ensureTaskColumns();
   } catch (e) {
     console.error("[schema] ensureClientsColumns failed (non-fatal):", e instanceof Error ? e.message : e);
   }
