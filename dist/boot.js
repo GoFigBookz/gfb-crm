@@ -39851,6 +39851,14 @@ var init_client_task_creator = __esm({
 });
 
 // api/client-router.ts
+async function deactivateClientTasks(db, clientId) {
+  await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, clientId));
+  await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
+}
+async function reactivateClientTasks(db, clientId) {
+  await db.update(clientTaskRules).set({ active: true }).where(eq(clientTaskRules.clientId, clientId));
+  await db.update(tasks).set({ active: true }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
+}
 var clientRouter;
 var init_client_router = __esm({
   "api/client-router.ts"() {
@@ -40014,6 +40022,10 @@ var init_client_router = __esm({
         const updatedRows = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
         const updated = updatedRows[0];
         if (updated) syncUpdate("clients", updated);
+        if (updates.status !== void 0 && currentClient && updates.status !== currentClient.status) {
+          if (updates.status === "inactive") await deactivateClientTasks(db, id);
+          else if (currentClient.status === "inactive") await reactivateClientTasks(db, id);
+        }
         const wasHst = currentClient?.hasHST ?? false;
         const wasWsib = currentClient?.hasWSIB ?? false;
         const wasPayroll = currentClient?.hasPayroll ?? false;
@@ -40046,9 +40058,12 @@ var init_client_router = __esm({
         await db.update(clients).set(updates).where(and(eq(clients.id, id), eq(clients.userId, ctx.user.id)));
         return { success: true };
       }),
-      // Delete client
+      // Delete client — cascades to their tasks + recurring rules so nothing is
+      // left orphaned (and they stop showing in task lists / generating new work).
       delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
+        await db.delete(tasks).where(eq(tasks.clientId, input.id));
+        await db.delete(clientTaskRules).where(eq(clientTaskRules.clientId, input.id));
         await db.delete(clients).where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
         return { success: true };
       }),
@@ -40096,13 +40111,15 @@ var init_client_router = __esm({
         }).where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
         return { success: true, engagementSignedAt: now };
       }),
-      // Archive client (make inactive)
+      // Archive client (make inactive) — also pauses their recurring rules + open
+      // tasks so an archived client stops generating and showing work.
       archive: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
         await db.update(clients).set({
           status: "inactive",
           workflowStatus: "inactive"
         }).where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+        await deactivateClientTasks(db, input.id);
         return { success: true };
       }),
       // Satisfaction scores

@@ -1,10 +1,26 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { clients, satisfactionScores } from "../db/schema";
-import { eq, and, like, desc } from "drizzle-orm";
+import { clients, satisfactionScores, tasks, clientTaskRules } from "../db/schema";
+import { eq, and, like, desc, ne } from "drizzle-orm";
 import { syncInsert, syncUpdate } from "./sync-hooks";
 import { createRecurringTasksForClient } from "./client-task-creator";
+
+/** Deactivate a client's recurring rules + their not-yet-completed tasks so an
+ *  inactive/archived client stops generating and showing work. Completed tasks
+ *  are left as history. Reversible via reactivateClientTasks. */
+async function deactivateClientTasks(db: any, clientId: number) {
+  await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, clientId));
+  await db.update(tasks).set({ active: false })
+    .where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
+}
+
+/** Re-enable a client's rules + their open tasks when they're made active again. */
+async function reactivateClientTasks(db: any, clientId: number) {
+  await db.update(clientTaskRules).set({ active: true }).where(eq(clientTaskRules.clientId, clientId));
+  await db.update(tasks).set({ active: true })
+    .where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
+}
 
 export const clientRouter = createRouter({
   // List clients — SHARED PRACTICE VIEW
@@ -201,6 +217,13 @@ export const clientRouter = createRouter({
       const updated = updatedRows[0];
       if (updated) syncUpdate("clients", updated);
 
+      // Cascade a status flip to the client's tasks/rules: inactive pauses them,
+      // reactivating resumes them — so task state always follows client state.
+      if (updates.status !== undefined && currentClient && updates.status !== currentClient.status) {
+        if (updates.status === "inactive") await deactivateClientTasks(db, id);
+        else if (currentClient.status === "inactive") await reactivateClientTasks(db, id);
+      }
+
       // Auto-create tasks if flags were newly enabled
       const wasHst = currentClient?.hasHST ?? false;
       const wasWsib = currentClient?.hasWSIB ?? false;
@@ -245,11 +268,14 @@ export const clientRouter = createRouter({
       return { success: true };
     }),
 
-  // Delete client
+  // Delete client — cascades to their tasks + recurring rules so nothing is
+  // left orphaned (and they stop showing in task lists / generating new work).
   delete: authedQuery
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
+      await db.delete(tasks).where(eq(tasks.clientId, input.id));
+      await db.delete(clientTaskRules).where(eq(clientTaskRules.clientId, input.id));
       await db
         .delete(clients)
         .where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
@@ -325,7 +351,8 @@ export const clientRouter = createRouter({
       return { success: true, engagementSignedAt: now };
     }),
 
-  // Archive client (make inactive)
+  // Archive client (make inactive) — also pauses their recurring rules + open
+  // tasks so an archived client stops generating and showing work.
   archive: authedQuery
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
@@ -337,6 +364,7 @@ export const clientRouter = createRouter({
           workflowStatus: "inactive",
         })
         .where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+      await deactivateClientTasks(db, input.id);
       return { success: true };
     }),
 
