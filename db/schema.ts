@@ -979,6 +979,62 @@ export const employees = sqliteTable("employees", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// ========== PAYROLL: PAY RUNS (the "one clean sheet" per client per period) ==========
+// A pay run groups one line per employee for a single pay period. Keyed to
+// clients.id (tenant boundary). hoursSource records provenance (manual entry vs
+// Clockify/Jobber/TouchBistro import vs QBO autopay like West York).
+export const payRuns = sqliteTable("pay_runs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  payPeriodStart: integer("payPeriodStart", { mode: "timestamp" }).notNull(),
+  payPeriodEnd: integer("payPeriodEnd", { mode: "timestamp" }).notNull(),
+  payDate: integer("payDate", { mode: "timestamp" }),
+  frequency: text("frequency", { enum: ["weekly", "biweekly", "semi_monthly", "monthly"] }).default("monthly"),
+  runType: text("runType", { enum: ["regular", "off_cycle", "bonus"] }).default("regular").notNull(),
+  status: text("status", { enum: ["draft", "review", "approved", "paid", "posted"] }).default("draft").notNull(),
+  hoursSource: text("hoursSource", { enum: ["manual", "clockify", "jobber", "touchbistro", "qbo_autopay"] }).default("manual").notNull(),
+  totalGross: real("totalGross").default(0),
+  totalNet: real("totalNet").default(0),
+  totalEmployeeDeductions: real("totalEmployeeDeductions").default(0),
+  totalEmployerCost: real("totalEmployerCost").default(0),
+  notes: text("notes"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// One line per employee per pay run (the paystub row in the clean sheet).
+export const payRunLines = sqliteTable("pay_run_lines", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  payRunId: integer("payRunId").notNull(),
+  employeeId: integer("employeeId").notNull(),
+  // Hours (for hourly employees / imported time)
+  regularHours: real("regularHours").default(0),
+  overtimeHours: real("overtimeHours").default(0),
+  vacationHours: real("vacationHours").default(0),
+  statHolidayHours: real("statHolidayHours").default(0),
+  sickHours: real("sickHours").default(0),
+  // Earnings
+  grossPay: real("grossPay").default(0),
+  vacationPayAccrued: real("vacationPayAccrued").default(0),
+  vacationPayPaid: real("vacationPayPaid").default(0),
+  // Employee deductions
+  cppEmployee: real("cppEmployee").default(0),
+  cpp2Employee: real("cpp2Employee").default(0),
+  eiEmployee: real("eiEmployee").default(0),
+  federalTax: real("federalTax").default(0),
+  provincialTax: real("provincialTax").default(0),
+  otherDeductions: real("otherDeductions").default(0),
+  // Employer cost
+  cppEmployer: real("cppEmployer").default(0),
+  cpp2Employer: real("cpp2Employer").default(0),
+  eiEmployer: real("eiEmployer").default(0),
+  // Net
+  netPay: real("netPay").default(0),
+  notes: text("notes"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // ========== TRIAGE FINDINGS (AI Agent findings for human review) ==========
 export const triageFindings = sqliteTable("triage_findings", {
   id: integer("id").primaryKey({ autoIncrement: true }),

@@ -1,0 +1,70 @@
+/**
+ * FIGGY JR — PAYROLL CALC CORE (pure, testable)
+ * =============================================================================
+ * v1 deduction estimator. This is NOT a CRA-grade T4127 engine — it's the simple
+ * flat-rate roll-up the practice already uses on the Selective Painting sheet
+ * (verified live: Gross = Net / 0.7739, CPP 5.95%, EI 1.66%, Tax 15% of gross,
+ * Employer CPP = 1×, Employer EI = 1.4×, CRA remittance = sum of all five).
+ * Rates are parameterized so they can be bumped to official 2026 numbers later.
+ * Every figure stays editable in the UI — this only pre-fills an estimate.
+ * =============================================================================
+ */
+export type DeductionRates = {
+  cpp: number;       // employee CPP rate (Selective sheet: 0.0595)
+  ei: number;        // employee EI rate (Selective sheet: 0.0166)
+  tax: number;       // flat income-tax estimate on gross (Selective sheet: 0.15)
+  eiEmployerMult: number; // employer EI multiplier (CRA: 1.4)
+};
+
+// Defaults mirror the live Selective Painting sheet exactly.
+export const SELECTIVE_RATES: DeductionRates = { cpp: 0.0595, ei: 0.0166, tax: 0.15, eiEmployerMult: 1.4 };
+
+export const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+export type EstimatedLine = {
+  grossPay: number;
+  cppEmployee: number;
+  eiEmployee: number;
+  federalTax: number;   // we store the flat tax estimate here (provincial left 0 in v1)
+  cppEmployer: number;
+  eiEmployer: number;
+  netPay: number;
+  craRemittance: number;
+};
+
+/** Estimate every deduction from a GROSS figure using flat rates. */
+export function estimateFromGross(gross: number, rates: DeductionRates = SELECTIVE_RATES): EstimatedLine {
+  const grossPay = round2(gross);
+  const cppEmployee = round2(grossPay * rates.cpp);
+  const eiEmployee = round2(grossPay * rates.ei);
+  const federalTax = round2(grossPay * rates.tax);
+  const cppEmployer = cppEmployee;                       // employer matches 1×
+  const eiEmployer = round2(eiEmployee * rates.eiEmployerMult);
+  const netPay = round2(grossPay - cppEmployee - eiEmployee - federalTax);
+  const craRemittance = round2(cppEmployee + eiEmployee + federalTax + cppEmployer + eiEmployer);
+  return { grossPay, cppEmployee, eiEmployee, federalTax, cppEmployer, eiEmployer, netPay, craRemittance };
+}
+
+/** Back into gross from a desired NET (the Selective sheet's primary input). */
+export function estimateFromNet(net: number, rates: DeductionRates = SELECTIVE_RATES): EstimatedLine {
+  const factor = 1 - rates.cpp - rates.ei - rates.tax; // 0.7739 with Selective rates
+  const gross = factor > 0 ? net / factor : net;
+  return estimateFromGross(gross, rates);
+}
+
+/** Periods per year for a pay frequency (drives salary-per-period seeding). */
+export function periodsPerYear(freq: string | null | undefined): number {
+  switch (freq) {
+    case "weekly": return 52;
+    case "biweekly": return 26;
+    case "semi_monthly": return 24;
+    case "monthly": return 12;
+    default: return 12;
+  }
+}
+
+/** Gross for a salaried employee for one period of the given frequency. */
+export function salaryPerPeriod(annualSalary: number | null | undefined, freq: string | null | undefined): number {
+  if (!annualSalary) return 0;
+  return round2(annualSalary / periodsPerYear(freq));
+}

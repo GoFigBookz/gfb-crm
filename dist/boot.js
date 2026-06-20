@@ -22346,6 +22346,8 @@ __export(schema_exports, {
   missingItems: () => missingItems,
   monthlyCloseChecklist: () => monthlyCloseChecklist,
   notifications: () => notifications,
+  payRunLines: () => payRunLines,
+  payRuns: () => payRuns,
   portalFiles: () => portalFiles,
   portalSettings: () => portalSettings,
   portalTokens: () => portalTokens,
@@ -22369,7 +22371,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake;
+var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23252,6 +23254,55 @@ var init_schema = __esm({
       t4Box20Rpp: real("t4Box20Rpp"),
       t4Box44UnionDues: real("t4Box44UnionDues"),
       t4Box46Charitable: real("t4Box46Charitable"),
+      notes: text("notes"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    payRuns = sqliteTable("pay_runs", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      payPeriodStart: integer2("payPeriodStart", { mode: "timestamp" }).notNull(),
+      payPeriodEnd: integer2("payPeriodEnd", { mode: "timestamp" }).notNull(),
+      payDate: integer2("payDate", { mode: "timestamp" }),
+      frequency: text("frequency", { enum: ["weekly", "biweekly", "semi_monthly", "monthly"] }).default("monthly"),
+      runType: text("runType", { enum: ["regular", "off_cycle", "bonus"] }).default("regular").notNull(),
+      status: text("status", { enum: ["draft", "review", "approved", "paid", "posted"] }).default("draft").notNull(),
+      hoursSource: text("hoursSource", { enum: ["manual", "clockify", "jobber", "touchbistro", "qbo_autopay"] }).default("manual").notNull(),
+      totalGross: real("totalGross").default(0),
+      totalNet: real("totalNet").default(0),
+      totalEmployeeDeductions: real("totalEmployeeDeductions").default(0),
+      totalEmployerCost: real("totalEmployerCost").default(0),
+      notes: text("notes"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    payRunLines = sqliteTable("pay_run_lines", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      payRunId: integer2("payRunId").notNull(),
+      employeeId: integer2("employeeId").notNull(),
+      // Hours (for hourly employees / imported time)
+      regularHours: real("regularHours").default(0),
+      overtimeHours: real("overtimeHours").default(0),
+      vacationHours: real("vacationHours").default(0),
+      statHolidayHours: real("statHolidayHours").default(0),
+      sickHours: real("sickHours").default(0),
+      // Earnings
+      grossPay: real("grossPay").default(0),
+      vacationPayAccrued: real("vacationPayAccrued").default(0),
+      vacationPayPaid: real("vacationPayPaid").default(0),
+      // Employee deductions
+      cppEmployee: real("cppEmployee").default(0),
+      cpp2Employee: real("cpp2Employee").default(0),
+      eiEmployee: real("eiEmployee").default(0),
+      federalTax: real("federalTax").default(0),
+      provincialTax: real("provincialTax").default(0),
+      otherDeductions: real("otherDeductions").default(0),
+      // Employer cost
+      cppEmployer: real("cppEmployer").default(0),
+      cpp2Employer: real("cpp2Employer").default(0),
+      eiEmployer: real("eiEmployer").default(0),
+      // Net
+      netPay: real("netPay").default(0),
       notes: text("notes"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
@@ -44957,6 +45008,224 @@ var init_employee_router = __esm({
   }
 });
 
+// api/payroll-core.ts
+function estimateFromGross(gross, rates = SELECTIVE_RATES) {
+  const grossPay = round2(gross);
+  const cppEmployee = round2(grossPay * rates.cpp);
+  const eiEmployee = round2(grossPay * rates.ei);
+  const federalTax = round2(grossPay * rates.tax);
+  const cppEmployer = cppEmployee;
+  const eiEmployer = round2(eiEmployee * rates.eiEmployerMult);
+  const netPay = round2(grossPay - cppEmployee - eiEmployee - federalTax);
+  const craRemittance = round2(cppEmployee + eiEmployee + federalTax + cppEmployer + eiEmployer);
+  return { grossPay, cppEmployee, eiEmployee, federalTax, cppEmployer, eiEmployer, netPay, craRemittance };
+}
+function estimateFromNet(net, rates = SELECTIVE_RATES) {
+  const factor = 1 - rates.cpp - rates.ei - rates.tax;
+  const gross = factor > 0 ? net / factor : net;
+  return estimateFromGross(gross, rates);
+}
+function periodsPerYear(freq) {
+  switch (freq) {
+    case "weekly":
+      return 52;
+    case "biweekly":
+      return 26;
+    case "semi_monthly":
+      return 24;
+    case "monthly":
+      return 12;
+    default:
+      return 12;
+  }
+}
+function salaryPerPeriod(annualSalary, freq) {
+  if (!annualSalary) return 0;
+  return round2(annualSalary / periodsPerYear(freq));
+}
+var SELECTIVE_RATES, round2;
+var init_payroll_core = __esm({
+  "api/payroll-core.ts"() {
+    SELECTIVE_RATES = { cpp: 0.0595, ei: 0.0166, tax: 0.15, eiEmployerMult: 1.4 };
+    round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+  }
+});
+
+// api/payroll-router.ts
+function payrollKind(name2) {
+  const n = (name2 || "").toLowerCase();
+  if (n.includes("west york")) return { kind: "qbo_autopay", note: WEST_YORK_META.note, meta: WEST_YORK_META };
+  if (n.includes("selective")) return { kind: "estimator", note: "Monthly flat-rate estimator: enter gross (or net) and Figgy fills CPP/EI/tax + the CRA remittance." };
+  if (n.includes("originality")) return { kind: "clockify", note: "Hourly staff hours come from Clockify; salaried staff are entered manually." };
+  if (n.includes("clark")) return { kind: "jobber", note: "Employee hours come from Jobber timesheets (import coming in Phase 3)." };
+  return { kind: "manual" };
+}
+async function recomputeRunTotals(runId) {
+  const db = getDb();
+  const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
+  let g = 0, n = 0, eded = 0, empc = 0;
+  for (const l of lines) {
+    g += l.grossPay || 0;
+    n += l.netPay || 0;
+    eded += (l.cppEmployee || 0) + (l.cpp2Employee || 0) + (l.eiEmployee || 0) + (l.federalTax || 0) + (l.provincialTax || 0) + (l.otherDeductions || 0);
+    empc += (l.cppEmployer || 0) + (l.cpp2Employer || 0) + (l.eiEmployer || 0);
+  }
+  await db.update(payRuns).set({
+    totalGross: round2(g),
+    totalNet: round2(n),
+    totalEmployeeDeductions: round2(eded),
+    totalEmployerCost: round2(empc),
+    updatedAt: /* @__PURE__ */ new Date()
+  }).where(eq(payRuns.id, runId));
+}
+var WEST_YORK_META, payrollRouter;
+var init_payroll_router = __esm({
+  "api/payroll-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_payroll_core();
+    WEST_YORK_META = {
+      kind: "qbo_autopay",
+      note: "Payroll runs on AUTOPAY inside QuickBooks. Paystubs are auto-emailed weekly by a Google Apps Script (sendWeeklyPaystubs) \u2014 Wednesdays ~1:00 PM.",
+      recipients: ["baronedina16@gmail.com", "joeyorkwest@gmail.com"],
+      cadence: "Weekly \xB7 Wednesday 1:00 PM",
+      sourceFolderId: "12Lh_HwFI2e25Dv8SqjaHAkmqX4czIpwj",
+      archiveFolderId: "10FgSl5ctYkgxIaAa2-eTir7xOquQ7Xzj",
+      driveFolderUrl: "https://drive.google.com/drive/folders/10FgSl5ctYkgxIaAa2-eTir7xOquQ7Xzj"
+    };
+    payrollRouter = createRouter({
+      // Clients that run payroll: hasPayroll flag OR at least one employee on file.
+      clients: staffQuery.query(async () => {
+        const db = getDb();
+        const cs = await db.select().from(clients);
+        const emps = await db.select().from(employees);
+        const empCount = /* @__PURE__ */ new Map();
+        for (const e of emps) empCount.set(e.clientId, (empCount.get(e.clientId) || 0) + (e.isActive === false ? 0 : 1));
+        return cs.filter((c) => c.hasPayroll || empCount.get(c.id)).map((c) => ({
+          id: c.id,
+          name: c.name,
+          payrollFrequency: c.payrollFrequency ?? null,
+          payrollRemitterFreq: c.payrollRemitterFreq ?? null,
+          employeeCount: empCount.get(c.id) || 0,
+          ...payrollKind(c.name)
+        })).sort((a, b) => a.name.localeCompare(b.name));
+      }),
+      // Pay runs for a client, newest period first.
+      listRuns: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        const db = getDb();
+        return db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId)).orderBy(desc(payRuns.payPeriodStart));
+      }),
+      // One run with its lines + employee names (the clean sheet).
+      getRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).query(async ({ input }) => {
+        const db = getDb();
+        const runRows = await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1);
+        const run2 = runRows[0];
+        if (!run2) return null;
+        const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
+        const emps = await db.select().from(employees).where(eq(employees.clientId, run2.clientId));
+        const empById = new Map(emps.map((e) => [e.id, e]));
+        const withNames = lines.map((l) => {
+          const e = empById.get(l.employeeId);
+          return { ...l, employeeName: e ? `${e.firstName} ${e.lastName}` : `Employee #${l.employeeId}`, payType: e?.payType ?? null };
+        }).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+        return { run: run2, lines: withNames };
+      }),
+      // Create a run and seed one line per active employee (salary pre-filled).
+      createRun: staffQuery.input(external_exports.object({
+        clientId: external_exports.number(),
+        payPeriodStart: external_exports.date(),
+        payPeriodEnd: external_exports.date(),
+        payDate: external_exports.date().optional(),
+        frequency: external_exports.enum(["weekly", "biweekly", "semi_monthly", "monthly"]).optional(),
+        hoursSource: external_exports.enum(["manual", "clockify", "jobber", "touchbistro", "qbo_autopay"]).optional(),
+        runType: external_exports.enum(["regular", "off_cycle", "bonus"]).optional()
+      })).mutation(async ({ input }) => {
+        const db = getDb();
+        const [run2] = await db.insert(payRuns).values({
+          clientId: input.clientId,
+          payPeriodStart: input.payPeriodStart,
+          payPeriodEnd: input.payPeriodEnd,
+          payDate: input.payDate ?? input.payPeriodEnd,
+          frequency: input.frequency ?? "monthly",
+          hoursSource: input.hoursSource ?? "manual",
+          runType: input.runType ?? "regular",
+          status: "draft"
+        }).returning();
+        const emps = await db.select().from(employees).where(and(eq(employees.clientId, input.clientId), eq(employees.isActive, true)));
+        for (const e of emps) {
+          const gross = e.payType === "salary" ? salaryPerPeriod(e.annualSalary, input.frequency) : 0;
+          await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: e.id, grossPay: gross });
+        }
+        await recomputeRunTotals(run2.id);
+        return run2;
+      }),
+      // Edit a single pay line. Recomputes the run totals after.
+      updateLine: staffQuery.input(external_exports.object({
+        id: external_exports.number(),
+        regularHours: external_exports.number().optional(),
+        overtimeHours: external_exports.number().optional(),
+        vacationHours: external_exports.number().optional(),
+        statHolidayHours: external_exports.number().optional(),
+        sickHours: external_exports.number().optional(),
+        grossPay: external_exports.number().optional(),
+        vacationPayPaid: external_exports.number().optional(),
+        cppEmployee: external_exports.number().optional(),
+        cpp2Employee: external_exports.number().optional(),
+        eiEmployee: external_exports.number().optional(),
+        federalTax: external_exports.number().optional(),
+        provincialTax: external_exports.number().optional(),
+        otherDeductions: external_exports.number().optional(),
+        cppEmployer: external_exports.number().optional(),
+        cpp2Employer: external_exports.number().optional(),
+        eiEmployer: external_exports.number().optional(),
+        netPay: external_exports.number().optional(),
+        notes: external_exports.string().optional()
+      })).mutation(async ({ input }) => {
+        const db = getDb();
+        const { id, ...updates } = input;
+        await db.update(payRunLines).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRunLines.id, id));
+        const row = (await db.select().from(payRunLines).where(eq(payRunLines.id, id)).limit(1))[0];
+        if (row) await recomputeRunTotals(row.payRunId);
+        return { success: true };
+      }),
+      // Flat-rate estimate for one line from its gross (or a target net). Fills
+      // CPP/EI/tax/employer + net, then recomputes the run.
+      estimateLine: staffQuery.input(external_exports.object({ id: external_exports.number(), fromNet: external_exports.number().optional() })).mutation(async ({ input }) => {
+        const db = getDb();
+        const row = (await db.select().from(payRunLines).where(eq(payRunLines.id, input.id)).limit(1))[0];
+        if (!row) throw new Error("Line not found");
+        const est = input.fromNet != null ? estimateFromNet(input.fromNet) : estimateFromGross(row.grossPay || 0);
+        await db.update(payRunLines).set({
+          grossPay: est.grossPay,
+          cppEmployee: est.cppEmployee,
+          eiEmployee: est.eiEmployee,
+          federalTax: est.federalTax,
+          cppEmployer: est.cppEmployer,
+          eiEmployer: est.eiEmployer,
+          netPay: est.netPay,
+          updatedAt: /* @__PURE__ */ new Date()
+        }).where(eq(payRunLines.id, input.id));
+        await recomputeRunTotals(row.payRunId);
+        return { success: true, estimate: est };
+      }),
+      setRunStatus: staffQuery.input(external_exports.object({ runId: external_exports.number(), status: external_exports.enum(["draft", "review", "approved", "paid", "posted"]) })).mutation(async ({ input }) => {
+        const db = getDb();
+        await db.update(payRuns).set({ status: input.status, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, input.runId));
+        return { success: true };
+      }),
+      deleteRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ input }) => {
+        const db = getDb();
+        await db.delete(payRunLines).where(eq(payRunLines.payRunId, input.runId));
+        await db.delete(payRuns).where(eq(payRuns.id, input.runId));
+        return { success: true };
+      })
+    });
+  }
+});
+
 // api/engagement-letter-router.ts
 var engagementLetterRouter;
 var init_engagement_letter_router = __esm({
@@ -48927,6 +49196,7 @@ var init_router = __esm({
     init_workflow_router();
     init_user_router();
     init_employee_router();
+    init_payroll_router();
     init_engagement_letter_router();
     init_signature_router();
     init_playbook_router();
@@ -48965,6 +49235,7 @@ var init_router = __esm({
       workflow: workflowRouter,
       user: userRouter,
       employee: employeeRouter,
+      payroll: payrollRouter,
       engagementLetter: engagementLetterRouter,
       public: publicRouter,
       clientDashboard: clientDashboardRouter,
@@ -50658,6 +50929,7 @@ var ensure_clients_schema_exports = {};
 __export(ensure_clients_schema_exports, {
   ensureClientsColumns: () => ensureClientsColumns,
   ensureOnboardingColumns: () => ensureOnboardingColumns,
+  ensurePayrollTables: () => ensurePayrollTables,
   ensureTaskColumns: () => ensureTaskColumns
 });
 async function ensureClientsColumns() {
@@ -50699,6 +50971,77 @@ async function ensureTaskColumns() {
     } catch (e) {
       console.error("[schema] add tasks.stage failed:", e instanceof Error ? e.message : e);
     }
+  }
+}
+async function ensurePayrollTables() {
+  const db = getDb();
+  try {
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS pay_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER NOT NULL,
+      payPeriodStart INTEGER NOT NULL,
+      payPeriodEnd INTEGER NOT NULL,
+      payDate INTEGER,
+      frequency TEXT DEFAULT 'monthly',
+      runType TEXT DEFAULT 'regular' NOT NULL,
+      status TEXT DEFAULT 'draft' NOT NULL,
+      hoursSource TEXT DEFAULT 'manual' NOT NULL,
+      totalGross REAL DEFAULT 0,
+      totalNet REAL DEFAULT 0,
+      totalEmployeeDeductions REAL DEFAULT 0,
+      totalEmployerCost REAL DEFAULT 0,
+      notes TEXT,
+      createdAt INTEGER,
+      updatedAt INTEGER
+    )`));
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS pay_run_lines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payRunId INTEGER NOT NULL,
+      employeeId INTEGER NOT NULL,
+      regularHours REAL DEFAULT 0,
+      overtimeHours REAL DEFAULT 0,
+      vacationHours REAL DEFAULT 0,
+      statHolidayHours REAL DEFAULT 0,
+      sickHours REAL DEFAULT 0,
+      grossPay REAL DEFAULT 0,
+      vacationPayAccrued REAL DEFAULT 0,
+      vacationPayPaid REAL DEFAULT 0,
+      cppEmployee REAL DEFAULT 0,
+      cpp2Employee REAL DEFAULT 0,
+      eiEmployee REAL DEFAULT 0,
+      federalTax REAL DEFAULT 0,
+      provincialTax REAL DEFAULT 0,
+      otherDeductions REAL DEFAULT 0,
+      cppEmployer REAL DEFAULT 0,
+      cpp2Employer REAL DEFAULT 0,
+      eiEmployer REAL DEFAULT 0,
+      netPay REAL DEFAULT 0,
+      notes TEXT,
+      createdAt INTEGER,
+      updatedAt INTEGER
+    )`));
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS employees (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER NOT NULL,
+      firstName TEXT NOT NULL,
+      lastName TEXT NOT NULL,
+      sin TEXT, dateOfBirth INTEGER, hireDate INTEGER, startDate INTEGER,
+      payType TEXT DEFAULT 'salary', annualSalary REAL, hourlyRate REAL,
+      hoursPerWeek REAL DEFAULT 40, position TEXT, department TEXT,
+      email TEXT, phone TEXT, address TEXT,
+      isContractor INTEGER DEFAULT 0, isActive INTEGER DEFAULT 1,
+      terminationDate INTEGER, terminationReason TEXT,
+      hasHealthBenefits INTEGER DEFAULT 0, hasDentalBenefits INTEGER DEFAULT 0,
+      hasRrsp INTEGER DEFAULT 0, rrspMatchPercent REAL,
+      onGovernmentGrant INTEGER DEFAULT 0, grantType TEXT, grantStartDate INTEGER, grantEndDate INTEGER,
+      federalTaxCredits TEXT, provincialTaxCredits TEXT,
+      t4Box14Wages REAL, t4Box16Cpp REAL, t4Box18Ei REAL, t4Box20Rpp REAL,
+      t4Box44UnionDues REAL, t4Box46Charitable REAL,
+      notes TEXT, createdAt INTEGER, updatedAt INTEGER
+    )`));
+    console.log("[schema] payroll tables ensured");
+  } catch (e) {
+    console.error("[schema] ensurePayrollTables failed:", e instanceof Error ? e.message : e);
   }
 }
 async function ensureOnboardingColumns() {
@@ -56046,10 +56389,11 @@ async function startServer() {
   const { serveStaticFiles: serveStaticFiles2 } = await Promise.resolve().then(() => (init_vite(), vite_exports));
   serveStaticFiles2(app);
   try {
-    const { ensureClientsColumns: ensureClientsColumns2, ensureOnboardingColumns: ensureOnboardingColumns2, ensureTaskColumns: ensureTaskColumns2 } = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
+    const { ensureClientsColumns: ensureClientsColumns2, ensureOnboardingColumns: ensureOnboardingColumns2, ensureTaskColumns: ensureTaskColumns2, ensurePayrollTables: ensurePayrollTables2 } = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
     await ensureClientsColumns2();
     await ensureOnboardingColumns2();
     await ensureTaskColumns2();
+    await ensurePayrollTables2();
   } catch (e) {
     console.error("[schema] ensureClientsColumns failed (non-fatal):", e instanceof Error ? e.message : e);
   }
