@@ -169,10 +169,18 @@ export default function ClientDashboard() {
           <Button size="sm" variant="outline" className="border-lime-300 text-lime-700" onClick={() => setShowLogTime(true)}>
             <Timer className="h-3.5 w-3.5 mr-1" /> Log Time
           </Button>
-          <Button size="sm" variant="outline" className="border-slate-300 text-slate-600"
-            onClick={() => { if (confirm(`Archive ${client.name}? It will be hidden from the active client list (not deleted).`)) archiveClient.mutate({ id }); }}>
-            Archive
-          </Button>
+          {client.status === "active" ? (
+            <Button size="sm" variant="outline" className="border-slate-300 text-slate-600"
+              onClick={() => { if (confirm(`Archive ${client.name}? It will be hidden from the active client list (not deleted) and its tasks paused.`)) archiveClient.mutate({ id }); }}>
+              Archive
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" className="border-emerald-300 text-emerald-700"
+              onClick={() => { if (confirm(`Reactivate ${client.name}? It returns to the active list and its tasks resume.`)) activateClient.mutate({ clientId: id }); }}
+              disabled={activateClient.isPending}>
+              {activateClient.isPending ? "Reactivating…" : "Reactivate"}
+            </Button>
+          )}
           <Button size="sm" variant="outline" className="border-red-300 text-red-600"
             onClick={() => { if (confirm(`PERMANENTLY DELETE ${client.name} and all its data? This cannot be undone.`)) deleteClient.mutate({ id }); }}>
             Delete
@@ -1017,12 +1025,19 @@ function QuoteEditorDialog({ clientId, quote, onClose, onGenerate, isPending }: 
     (quote.oneTimeLineItems || []).map((li: any) => ({ ...li, include: true }))
   );
   const [txns, setTxns] = useState<string>(String(quote.transactions || ""));
+  const [employees, setEmployees] = useState<string>("");
+  const [creditCards, setCreditCards] = useState<string>("");
   const utils = trpc.useUtils();
   const [recalcing, setRecalcing] = useState(false);
   const recalc = async () => {
     setRecalcing(true);
     try {
-      const res = await utils.quote.preview.fetch({ clientId, avgMonthlyTransactions: Number(txns) || 0 });
+      const res = await utils.quote.preview.fetch({
+        clientId,
+        avgMonthlyTransactions: Number(txns) || 0,
+        ...(employees !== "" ? { employeeCount: Number(employees) || 0 } : {}),
+        ...(creditCards !== "" ? { creditCardCount: Number(creditCards) || 0 } : {}),
+      });
       if (res?.quote) {
         setLines((res.quote.monthlyLineItems || []).map((li: any) => ({ ...li, include: true })));
         setOneTime((res.quote.oneTimeLineItems || []).map((li: any) => ({ ...li, include: true })));
@@ -1053,13 +1068,26 @@ function QuoteEditorDialog({ clientId, quote, onClose, onGenerate, isPending }: 
         </DialogHeader>
         <p className="text-xs text-slate-500 -mt-2">Untick anything that doesn't apply (e.g. payroll/WSIB when there are no employees) and adjust amounts. The client sees only what you keep.</p>
 
-        <div className="flex items-end gap-2 mt-3 p-3 bg-slate-50 rounded-lg">
-          <div className="flex-1">
-            <Label className="text-xs">Avg monthly transactions</Label>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end mt-3 p-3 bg-slate-50 rounded-lg">
+          <div>
+            <Label className="text-xs">Monthly transactions</Label>
             <Input type="number" placeholder="e.g. 120" value={txns} onChange={(e) => setTxns(e.target.value)} className="h-8" />
           </div>
+          <div>
+            <Label className="text-xs"># Employees</Label>
+            <Input type="number" placeholder="0" value={employees} onChange={(e) => setEmployees(e.target.value)} className="h-8" />
+          </div>
+          <div>
+            <Label className="text-xs"># Credit cards</Label>
+            <Select value={creditCards} onValueChange={setCreditCards}>
+              <SelectTrigger className="h-8"><SelectValue placeholder="0" /></SelectTrigger>
+              <SelectContent>
+                {[0,1,2,3,4,5,6].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           <Button size="sm" variant="outline" onClick={recalc} disabled={recalcing}>
-            {recalcing ? "Recalculating…" : "Recalculate base"}
+            {recalcing ? "Recalculating…" : "Recalculate"}
           </Button>
         </div>
         {(!txns || Number(txns) === 0) && (

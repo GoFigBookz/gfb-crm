@@ -28,23 +28,19 @@ function baseScope(over: Partial<QuoteScope> = {}): QuoteScope {
   };
 }
 
-describe("transaction tiers", () => {
-  it("micro tier for ≤50 txns", () => {
-    const q = computeQuote(baseScope({ avgMonthlyTransactions: 30 }));
-    expect(q.tier).toMatch(/Micro/);
-    expect(q.recurringMonthly).toBe(350);
+describe("transaction tiers (core base $150–$250)", () => {
+  it("floor base for ≤50 txns", () => {
+    expect(computeQuote(baseScope({ avgMonthlyTransactions: 30 })).recurringMonthly).toBe(150);
   });
-  it("starter tier at 100 txns", () => {
-    expect(computeQuote(baseScope({ avgMonthlyTransactions: 100 })).recurringMonthly).toBe(500);
+  it("$175 base at 100 txns", () => {
+    expect(computeQuote(baseScope({ avgMonthlyTransactions: 100 })).recurringMonthly).toBe(175);
   });
-  it("standard tier at 250 txns", () => {
-    expect(computeQuote(baseScope({ avgMonthlyTransactions: 250 })).recurringMonthly).toBe(950);
+  it("$250 base capped at 250 txns", () => {
+    expect(computeQuote(baseScope({ avgMonthlyTransactions: 250 })).recurringMonthly).toBe(250);
   });
-  it("high-volume adds per-txn over 750", () => {
+  it("base stays capped at $250 above 250 txns", () => {
     const q = computeQuote(baseScope({ avgMonthlyTransactions: 1000 }));
-    // 2200 + 250*2 = 2700
-    expect(q.tier).toMatch(/High-volume/);
-    expect(q.recurringMonthly).toBe(2700);
+    expect(q.recurringMonthly).toBe(250);
   });
 });
 
@@ -53,22 +49,26 @@ describe("bookkeeping frequency multiplier", () => {
     const monthly = computeQuote(baseScope({ avgMonthlyTransactions: 100, bookkeepingFrequency: "monthly" })).recurringMonthly;
     const quarterly = computeQuote(baseScope({ avgMonthlyTransactions: 100, bookkeepingFrequency: "quarterly" })).recurringMonthly;
     expect(quarterly).toBeLessThan(monthly);
-    expect(quarterly).toBe(350); // 500 * 0.7
+    expect(quarterly).toBe(120); // round5(175 * 0.7 ≈ 122.5)
   });
 });
 
 describe("add-ons", () => {
   it("HST filing adds by cadence", () => {
     const q = computeQuote(baseScope({ avgMonthlyTransactions: 50, hasHST: true, hstPeriod: "quarterly" }));
-    expect(q.recurringMonthly).toBe(350 + 50);
+    expect(q.recurringMonthly).toBe(150 + 50);
     expect(q.monthlyLineItems.some((i) => i.label.includes("HST"))).toBe(true);
   });
   it("payroll = base + per employee, with run-frequency multiplier", () => {
     const q = computeQuote(baseScope({ avgMonthlyTransactions: 50, hasPayroll: true, employeeCount: 3, payrollFrequency: "biweekly" }));
-    // (40 + 3*20) * 1.2 = 120 ; + T4 (3*50/12=12.5) ; + base 350
+    // (40 + 3*20) * 1.2 = 120 ; + T4 (3*50/12=12.5) ; + base 150
     const payrollLine = q.monthlyLineItems.find((i) => i.label.startsWith("Payroll"));
     expect(payrollLine?.amount).toBeCloseTo(120, 5);
     expect(q.monthlyLineItems.some((i) => i.label.includes("T4"))).toBe(true);
+  });
+  it("no payroll line when there are zero employees", () => {
+    const q = computeQuote(baseScope({ avgMonthlyTransactions: 50, hasPayroll: true, employeeCount: 0 }));
+    expect(q.monthlyLineItems.some((i) => i.label.startsWith("Payroll"))).toBe(false);
   });
   it("accelerated remitter adds a premium line", () => {
     const q = computeQuote(baseScope({ avgMonthlyTransactions: 50, hasPayroll: true, employeeCount: 1, payrollFrequency: "monthly", payrollRemitterFreq: "accelerated" }));
@@ -76,11 +76,11 @@ describe("add-ons", () => {
   });
   it("sales platforms billed per platform", () => {
     const q = computeQuote(baseScope({ avgMonthlyTransactions: 50, salesPlatformCount: 2 }));
-    expect(q.recurringMonthly).toBe(350 + 2 * RATE_CARD.salesPlatform);
+    expect(q.recurringMonthly).toBe(150 + 2 * RATE_CARD.salesPlatform);
   });
   it("A/R, A/P, job costing each add their line", () => {
     const q = computeQuote(baseScope({ avgMonthlyTransactions: 50, invoicingByUs: true, billPayByUs: true, hasJobCosting: true }));
-    expect(q.recurringMonthly).toBe(350 + RATE_CARD.invoicingAR + RATE_CARD.billPayAP + RATE_CARD.jobCosting);
+    expect(q.recurringMonthly).toBe(150 + RATE_CARD.invoicingAR + RATE_CARD.billPayAP + RATE_CARD.jobCosting);
   });
   it("T5 line appears for dividends", () => {
     const q = computeQuote(baseScope({ avgMonthlyTransactions: 50, paysDividends: true }));
@@ -108,10 +108,16 @@ describe("recurring range", () => {
 });
 
 describe("nearestPackage", () => {
-  it("snaps the calculated figure to the closest clean package", () => {
-    expect(computeQuote(baseScope({ avgMonthlyTransactions: 30 })).nearestPackage.price).toBe(300); // 350 → Lite 300
-    expect(computeQuote(baseScope({ avgMonthlyTransactions: 100 })).nearestPackage.price).toBe(500); // 500 → Starter
-    expect(computeQuote(baseScope({ avgMonthlyTransactions: 250 })).nearestPackage.price).toBe(1000); // 950 → Growth 1000
+  it("snaps a small base to the lowest package", () => {
+    expect(computeQuote(baseScope({ avgMonthlyTransactions: 30 })).nearestPackage.price).toBe(300);
+  });
+  it("snaps a fully-loaded client to a higher package", () => {
+    const big = computeQuote(baseScope({
+      avgMonthlyTransactions: 250, hasHST: true, hstPeriod: "monthly",
+      hasPayroll: true, employeeCount: 5, payrollFrequency: "biweekly",
+      invoicingByUs: true, billPayByUs: true, hasJobCosting: true,
+    }));
+    expect(big.nearestPackage.price).toBeGreaterThan(300);
   });
 });
 
