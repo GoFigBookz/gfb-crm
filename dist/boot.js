@@ -22336,6 +22336,7 @@ __export(schema_exports, {
   connectedAccounts: () => connectedAccounts,
   connectorStatements: () => connectorStatements,
   connectorSyncLogs: () => connectorSyncLogs,
+  dividendPayments: () => dividendPayments,
   emails: () => emails,
   employees: () => employees,
   engagementLetters: () => engagementLetters,
@@ -22374,7 +22375,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake;
+var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23724,6 +23725,18 @@ var init_schema = __esm({
       assignedClientId: integer2("assigned_client_id"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    dividendPayments = sqliteTable("dividend_payments", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      paymentDate: integer2("paymentDate", { mode: "timestamp" }),
+      recipient: text("recipient"),
+      // shareholder receiving the dividend
+      amount: real("amount").default(0),
+      dividendType: text("dividendType", { enum: ["eligible", "non_eligible"] }).default("non_eligible"),
+      taxYear: integer2("taxYear"),
+      notes: text("notes"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
   }
 });
@@ -39993,6 +40006,45 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
       }
     }
   }
+  if (flags.paysDividends) {
+    const t5Due = new Date(now.getFullYear() + 1, 1, 28);
+    const t5Title = `T5 Filing \u2014 ${clientName}`;
+    const t5Existing = await db.select({ id: tasks.id }).from(tasks).where(
+      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${t5Title} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
+    ).limit(1);
+    if (t5Existing.length === 0) {
+      const [t5Task] = await db.insert(tasks).values({
+        userId,
+        clientId,
+        title: t5Title,
+        description: `Prepare and file T5 slips and summary (dividends/interest) for ${clientName}.`,
+        dueDate: t5Due,
+        priority: "high",
+        status: "pending",
+        category: "Tax Filing",
+        assignedTo: assignedTo || void 0,
+        isRecurring: true,
+        recurrenceCount: 0
+      }).returning();
+      if (t5Task) {
+        syncInsert("tasks", t5Task);
+        created.push(t5Task.id);
+        await db.insert(recurringTasks).values({
+          clientId,
+          userId,
+          title: t5Title,
+          description: `Prepare and file annual T5 slips and summary (dividends) for ${clientName}.`,
+          frequency: "yearly",
+          startDate: now,
+          nextDueDate: t5Due,
+          priority: "high",
+          category: "Tax Filing",
+          assignedTo: assignedTo || void 0,
+          active: true
+        });
+      }
+    }
+  }
   return { created, count: created.length };
 }
 var init_client_task_creator = __esm({
@@ -40366,6 +40418,7 @@ var init_client_router = __esm({
         const wasHst = currentClient?.hasHST ?? false;
         const wasWsib = currentClient?.hasWSIB ?? false;
         const wasPayroll = currentClient?.hasPayroll ?? false;
+        const wasDividends = currentClient?.payrollDividends ?? false;
         if (updated && isOperationalClient(updated.clientType)) {
           await createRecurringTasksForClient(
             updated.id,
@@ -40376,7 +40429,8 @@ var init_client_router = __esm({
               hasWSIB: !wasWsib && updated.hasWSIB ? true : void 0,
               wsibQuarter: updated.wsibQuarter || void 0,
               hasPayroll: !wasPayroll && updated.hasPayroll ? true : void 0,
-              payrollFrequency: updated.payrollFrequency || void 0
+              payrollFrequency: updated.payrollFrequency || void 0,
+              paysDividends: !wasDividends && updated.payrollDividends ? true : void 0
             },
             updated.name,
             updated.assignedTo
@@ -45956,6 +46010,47 @@ var init_payroll_router = __esm({
   }
 });
 
+// api/dividend-router.ts
+var dividendRouter;
+var init_dividend_router = __esm({
+  "api/dividend-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    dividendRouter = createRouter({
+      list: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        const db = getDb();
+        return db.select().from(dividendPayments).where(eq(dividendPayments.clientId, input.clientId)).orderBy(desc(dividendPayments.paymentDate));
+      }),
+      add: staffQuery.input(external_exports.object({
+        clientId: external_exports.number(),
+        paymentDate: external_exports.date().optional(),
+        recipient: external_exports.string().optional(),
+        amount: external_exports.number().default(0),
+        dividendType: external_exports.enum(["eligible", "non_eligible"]).default("non_eligible"),
+        taxYear: external_exports.number().optional(),
+        notes: external_exports.string().optional()
+      })).mutation(async ({ input }) => {
+        const db = getDb();
+        const [row] = await db.insert(dividendPayments).values({
+          ...input,
+          paymentDate: input.paymentDate ?? /* @__PURE__ */ new Date(),
+          taxYear: input.taxYear ?? (input.paymentDate ?? /* @__PURE__ */ new Date()).getFullYear(),
+          createdAt: /* @__PURE__ */ new Date()
+        }).returning();
+        return row;
+      }),
+      delete: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+        const db = getDb();
+        await db.delete(dividendPayments).where(eq(dividendPayments.id, input.id));
+        return { success: true };
+      })
+    });
+  }
+});
+
 // api/client-request-router.ts
 async function maybeComplete(requestId) {
   const db = getDb();
@@ -50087,6 +50182,7 @@ var init_router = __esm({
     init_user_router();
     init_employee_router();
     init_payroll_router();
+    init_dividend_router();
     init_client_request_router();
     init_message_router();
     init_engagement_letter_router();
@@ -50128,6 +50224,7 @@ var init_router = __esm({
       user: userRouter,
       employee: employeeRouter,
       payroll: payrollRouter,
+      dividend: dividendRouter,
       clientRequest: clientRequestRouter,
       message: messageRouter,
       engagementLetter: engagementLetterRouter,
@@ -52314,6 +52411,17 @@ async function ensurePayrollTables() {
     await addCol("pay_runs", "approvedByName", "TEXT");
     await addCol("pay_runs", "approvedAt", "INTEGER");
     await addCol("pay_runs", "approvalNote", "TEXT");
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS dividend_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER NOT NULL,
+      paymentDate INTEGER,
+      recipient TEXT,
+      amount REAL DEFAULT 0,
+      dividendType TEXT DEFAULT 'non_eligible',
+      taxYear INTEGER,
+      notes TEXT,
+      createdAt INTEGER
+    )`));
     console.log("[schema] payroll tables ensured");
   } catch (e) {
     console.error("[schema] ensurePayrollTables failed:", e instanceof Error ? e.message : e);
@@ -57839,6 +57947,10 @@ async function startServer() {
         payrollReimbursements: 1,
         payrollRevenueShare: 1
       });
+      const { createRecurringTasksForClient: ensureTasks } = await Promise.resolve().then(() => (init_client_task_creator(), client_task_creator_exports));
+      for (const cl of cw) {
+        await ensureTasks(cl.id, cl.userId || 1, { paysDividends: true }, cl.name, cl.assignedTo);
+      }
       for (const cl of cw) {
         for (const last of ["Hawton", "Essex"]) {
           await db.update(employees2).set({ getsRevenueShare: true, revenueSharePercent: 10 }).where(and3(eq3(employees2.clientId, cl.id), like2(employees2.lastName, last), isNull3(employees2.revenueSharePercent)));

@@ -1470,3 +1470,17 @@ export const makeIntake = sqliteTable("make_intake", {
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+// Dividend log — records dividend payments to shareholders (drives T5 filing).
+// Surfaced on the client Compliance tab when the client's "Dividends" payroll
+// feature is on.
+export const dividendPayments = sqliteTable("dividend_payments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  paymentDate: integer("paymentDate", { mode: "timestamp" }),
+  recipient: text("recipient"),                 // shareholder receiving the dividend
+  amount: real("amount").default(0),
+  dividendType: text("dividendType", { enum: ["eligible", "non_eligible"] }).default("non_eligible"),
+  taxYear: integer("taxYear"),
+  notes: text("notes"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

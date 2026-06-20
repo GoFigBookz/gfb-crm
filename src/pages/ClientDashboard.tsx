@@ -532,13 +532,14 @@ export default function ClientDashboard() {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tasks">Tasks ({openTasks.length})</TabsTrigger>
-          <TabsTrigger value="financials">P&L / Balance</TabsTrigger>
-          <TabsTrigger value="billing">QBO Billing</TabsTrigger>
+          <TabsTrigger value="financials">Financials</TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="payroll">Payroll</TabsTrigger>
-          <TabsTrigger value="time">Time & Hours</TabsTrigger>
+          <TabsTrigger value="compliance">Compliance</TabsTrigger>
+          <TabsTrigger value="time">Time</TabsTrigger>
         </TabsList>
 
         {/* OVERVIEW TAB */}
@@ -1055,6 +1056,11 @@ export default function ClientDashboard() {
           </Card>
         </TabsContent>
 
+        {/* COMPLIANCE TAB */}
+        <TabsContent value="compliance" className="space-y-4 mt-4">
+          <ComplianceTab clientId={id} client={client} closeStatus={closeStatus} tasks={dashboardData?.tasks || []} />
+        </TabsContent>
+
         {/* TIME & HOURS TAB */}
         <TabsContent value="time" className="space-y-4 mt-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1196,6 +1202,138 @@ export default function ClientDashboard() {
         />
       )}
     </div>
+  );
+}
+
+// Compliance tab — filing status + obligations, all driven by the client's
+// flags/features (HST, payroll→T4, dividends→T5, WSIB), plus the dividend log.
+function ComplianceTab({ clientId, client, closeStatus, tasks }: {
+  clientId: number; client: any; closeStatus: any; tasks: any[];
+}) {
+  const utils = trpc.useUtils();
+  const dividendsOn = !!client.payrollDividends;
+  const { data: dividends } = trpc.dividend.list.useQuery({ clientId }, { enabled: dividendsOn });
+  const addDiv = trpc.dividend.add.useMutation({ onSuccess: () => utils.dividend.list.invalidate({ clientId }) });
+  const delDiv = trpc.dividend.delete.useMutation({ onSuccess: () => utils.dividend.list.invalidate({ clientId }) });
+  const [d, setD] = useState({ recipient: "", amount: "", dividendType: "non_eligible", paymentDate: "" });
+
+  // Filing obligations = compliance-category tasks (HST/WSIB/T4/T5), open first.
+  const filings = (tasks || [])
+    .filter((t) => ["Tax Filing", "Payroll"].includes(t.category) && /Filing|Remittance|T4|T5|HST|WSIB/i.test(t.title))
+    .sort((a, b) => Number(!!a.completed) - Number(!!b.completed) || (new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime()));
+
+  const Pill = ({ s }: { s: string }) => {
+    const cls = s === "red" ? "bg-red-100 text-red-700" : s === "yellow" ? "bg-amber-100 text-amber-700" : "bg-lime-100 text-lime-700";
+    return <span className={`inline-block w-2.5 h-2.5 rounded-full ${cls.split(" ")[0]}`} />;
+  };
+
+  return (
+    <>
+      {/* Filing status from the live close engine */}
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4 text-lime-500" /> Filing status</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+            <span className="text-sm text-slate-600">HST / GST</span>
+            <span className="text-sm font-medium flex items-center gap-2">
+              {closeStatus?.hst?.applicable ? <><Pill s={closeStatus.hst.status} /> {closeStatus.hst.filed ? "Filed" : closeStatus.hst.overdue ? "Overdue" : "Due"} · {closeStatus.hst.periodLabel}</> : <span className="text-slate-400">N/A</span>}
+            </span>
+          </div>
+          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+            <span className="text-sm text-slate-600">Year-end</span>
+            <span className="text-sm font-medium flex items-center gap-2">
+              {closeStatus?.yearEnd?.applicable ? <><Pill s={closeStatus.yearEnd.status} /> {closeStatus.yearEnd.lastFyeDate}</> : <span className="text-slate-400">Not set</span>}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Filing obligations (driven by the client's flags) */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Filing obligations</CardTitle>
+          <CardDescription>Auto-created from this client's features — HST, payroll → T4, dividends → T5, WSIB.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {filings.length === 0 ? (
+            <p className="text-sm text-slate-400 py-3 text-center">No filing tasks yet — enable HST / Payroll / Dividends / WSIB on the client to generate them.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {filings.map((t) => (
+                <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50">
+                  {t.completed ? <CheckCircle className="h-4 w-4 text-lime-500 shrink-0" /> : <Clock className="h-4 w-4 text-amber-500 shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${t.completed ? "line-through text-slate-400" : ""}`}>{t.title}</p>
+                    <p className="text-xs text-slate-500">{t.category}{t.dueDate ? ` · due ${format(new Date(t.dueDate), "MMM d, yyyy")}` : ""}</p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">{t.completed ? "done" : (t as any).stage || "open"}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Compliance numbers */}
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-base">Registration numbers</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          {[["CRA BN", client.taxId], ["HST #", client.hstNumber], ["Payroll RP #", (client as any).payrollRpNumber], ["WSIB #", client.wsibAccountNumber]].map(([k, v]) => (
+            <div key={k as string} className="p-3 bg-slate-50 rounded-lg">
+              <p className="text-xs text-slate-500">{k}</p>
+              <p className={`font-medium ${v ? "" : "text-amber-600"}`}>{v || "⚠ missing"}</p>
+            </div>
+          ))}
+          <div className="p-3 bg-slate-50 rounded-lg">
+            <p className="text-xs text-slate-500">CRA RAC access</p>
+            <p className={`font-medium ${client.craRacDone ? "text-lime-700" : "text-amber-600"}`}>{client.craRacDone ? "Set up" : "Not set up"}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Dividend log — only when the client pays dividends */}
+      {dividendsOn && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2"><DollarSign className="h-4 w-4 text-emerald-500" /> Dividend log</CardTitle>
+            <CardDescription>Shareholder dividends for the year — feeds the T5 filing reminder.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
+              <div><Label className="text-xs">Recipient</Label><Input value={d.recipient} onChange={(e) => setD({ ...d, recipient: e.target.value })} placeholder="Shareholder" /></div>
+              <div><Label className="text-xs">Amount</Label><Input type="number" value={d.amount} onChange={(e) => setD({ ...d, amount: e.target.value })} placeholder="0.00" /></div>
+              <div><Label className="text-xs">Type</Label>
+                <Select value={d.dividendType} onValueChange={(v) => setD({ ...d, dividendType: v })}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="non_eligible">Non-eligible</SelectItem><SelectItem value="eligible">Eligible</SelectItem></SelectContent>
+                </Select>
+              </div>
+              <div><Label className="text-xs">Date</Label><Input type="date" value={d.paymentDate} onChange={(e) => setD({ ...d, paymentDate: e.target.value })} /></div>
+              <Button size="sm" disabled={addDiv.isPending || !d.amount} onClick={() => {
+                addDiv.mutate({ clientId, recipient: d.recipient.trim() || undefined, amount: parseFloat(d.amount) || 0, dividendType: d.dividendType as any, paymentDate: d.paymentDate ? new Date(d.paymentDate) : undefined });
+                setD({ recipient: "", amount: "", dividendType: "non_eligible", paymentDate: "" });
+              }}><Plus className="h-3.5 w-3.5 mr-1" /> Add</Button>
+            </div>
+            {(dividends && dividends.length > 0) ? (
+              <div className="space-y-1">
+                {dividends.map((dv: any) => (
+                  <div key={dv.id} className="flex items-center gap-3 p-2 rounded-lg bg-slate-50 text-sm">
+                    <span className="flex-1 min-w-0 truncate">{dv.recipient || "—"}</span>
+                    <span className="text-slate-500 text-xs">{dv.dividendType === "eligible" ? "Eligible" : "Non-elig."}</span>
+                    <span className="text-slate-400 text-xs">{dv.paymentDate ? format(new Date(dv.paymentDate), "MMM d, yyyy") : ""}</span>
+                    <span className="font-medium">${(dv.amount || 0).toLocaleString()}</span>
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600" onClick={() => delDiv.mutate({ id: dv.id })}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  </div>
+                ))}
+                <div className="flex justify-end pt-1 text-sm font-semibold">
+                  Total: ${dividends.reduce((s: number, x: any) => s + (x.amount || 0), 0).toLocaleString()}
+                </div>
+              </div>
+            ) : <p className="text-sm text-slate-400 py-2 text-center">No dividends logged yet.</p>}
+          </CardContent>
+        </Card>
+      )}
+    </>
   );
 }
 

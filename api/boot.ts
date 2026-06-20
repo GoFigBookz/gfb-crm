@@ -955,6 +955,12 @@ async function startServer() {
         payrollBonuses: 1, payrollDividends: 1, payrollPhoneAllowance: 1,
         payrollReimbursements: 1, payrollRevenueShare: 1,
       });
+      // Dividends feature on → ensure the T5 filing task exists (idempotent;
+      // the creator dedups by title + future due date).
+      const { createRecurringTasksForClient: ensureTasks } = await import("./client-task-creator");
+      for (const cl of cw) {
+        await ensureTasks(cl.id, (cl as any).userId || 1, { paysDividends: true }, cl.name, (cl as any).assignedTo);
+      }
       // The two Collingwood profit-share owners get 10% revenue share each.
       for (const cl of cw) {
         for (const last of ["Hawton", "Essex"]) {

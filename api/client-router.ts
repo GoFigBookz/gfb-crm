@@ -245,6 +245,7 @@ export const clientRouter = createRouter({
       const wasHst = currentClient?.hasHST ?? false;
       const wasWsib = currentClient?.hasWSIB ?? false;
       const wasPayroll = currentClient?.hasPayroll ?? false;
+      const wasDividends = currentClient?.payrollDividends ?? false;
 
       // Wholesale clients never generate compliance tasks.
       if (updated && isOperationalClient(updated.clientType)) {
@@ -258,6 +259,7 @@ export const clientRouter = createRouter({
             wsibQuarter: updated.wsibQuarter || undefined,
             hasPayroll: !wasPayroll && updated.hasPayroll ? true : undefined,
             payrollFrequency: updated.payrollFrequency || undefined,
+            paysDividends: !wasDividends && (updated as any).payrollDividends ? true : undefined,
           },
           updated.name,
           updated.assignedTo
