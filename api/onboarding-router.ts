@@ -389,4 +389,89 @@ export const onboardingRouter = createRouter({
 
       return { success: true };
     }),
+
+  // Get the latest onboarding record for a client (for the editable intake).
+  getRecord: staffQuery
+    .input(z.object({ clientId: z.number() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const rows = await db.select().from(clientOnboarding)
+        .where(eq(clientOnboarding.clientId, input.clientId))
+        .orderBy(clientOnboarding.id);
+      return rows[rows.length - 1] ?? null;
+    }),
+
+  // Edit/clean up a client's intake — upserts client_onboarding AND syncs the
+  // client-level flags that drive tasks + quotes. All fields optional.
+  updateRecord: staffQuery
+    .input(z.object({
+      clientId: z.number(),
+      // client-level
+      name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(),
+      company: z.string().optional(), address: z.string().optional(), contactName: z.string().optional(),
+      taxId: z.string().optional(), hstNumber: z.string().optional(), wsibAccountNumber: z.string().optional(),
+      payrollRpNumber: z.string().optional(), monthlyFee: z.number().optional(),
+      hasHST: z.boolean().optional(), hstPeriod: z.enum(["monthly", "quarterly", "annual"]).optional(),
+      hasWSIB: z.boolean().optional(), hasPayroll: z.boolean().optional(),
+      payrollFrequency: z.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
+      payrollRemitterFreq: z.enum(["regular", "quarterly", "accelerated"]).optional(),
+      yearEndMonth: z.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
+      // onboarding-level
+      businessLegalName: z.string().optional(), craBusinessNumber: z.string().optional(),
+      primaryContactName: z.string().optional(), primaryContactEmail: z.string().optional(), primaryContactPhone: z.string().optional(),
+      fiscalYearEnd: z.string().optional(),
+      hstGstFrequency: z.enum(["monthly", "quarterly", "annually", "none"]).optional(),
+      onbPayrollFrequency: z.enum(["weekly", "biweekly", "semi_monthly", "monthly", "none"]).optional(),
+      hasEmployees: z.boolean().optional(), hasSubcontractors: z.boolean().optional(), hasInvestments: z.boolean().optional(),
+      wsibRequired: z.boolean().optional(), paysDividends: z.boolean().optional(), hasEHT: z.boolean().optional(),
+      employeeCount: z.number().optional(), monthsBehind: z.number().optional(),
+      bankAccountCount: z.number().optional(), creditCardCount: z.number().optional(),
+      needsYearEnd: z.boolean().optional(), usesHubdoc: z.boolean().optional(), hasJobCosting: z.boolean().optional(),
+      avgMonthlyTransactions: z.number().optional(),
+      bookkeepingFrequency: z.enum(["monthly", "quarterly", "annual", "none"]).optional(),
+      invoicingResponsibility: z.enum(["we_invoice", "client_invoices", "none"]).optional(),
+      billPayResponsibility: z.enum(["we_pay", "client_pays", "none"]).optional(),
+      usesStripe: z.boolean().optional(), usesSquare: z.boolean().optional(), usesJobber: z.boolean().optional(),
+      usesTouchBistro: z.boolean().optional(), usesPayPal: z.boolean().optional(),
+      salesEntryFrequency: z.enum(["daily", "weekly", "monthly", "none"]).optional(),
+      servicesNeeded: z.string().optional(), painPoints: z.string().optional(), expectations: z.string().optional(),
+      currentAccountingSoftware: z.string().optional(), currentPayrollProvider: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const { clientId, onbPayrollFrequency, ...rest } = input;
+
+      // client-level keys
+      const clientKeys = ["name", "email", "phone", "company", "address", "contactName", "taxId", "hstNumber",
+        "wsibAccountNumber", "payrollRpNumber", "monthlyFee", "hasHST", "hstPeriod", "hasWSIB", "hasPayroll",
+        "payrollFrequency", "payrollRemitterFreq", "yearEndMonth"] as const;
+      const clientPatch: Record<string, any> = { updatedAt: new Date() };
+      for (const k of clientKeys) if ((rest as any)[k] !== undefined) clientPatch[k] = (rest as any)[k];
+      if (Object.keys(clientPatch).length > 1) await db.update(clients).set(clientPatch).where(eq(clients.id, clientId));
+
+      // onboarding-level keys
+      const onbKeys = ["businessLegalName", "craBusinessNumber", "primaryContactName", "primaryContactEmail",
+        "primaryContactPhone", "fiscalYearEnd", "hstGstFrequency", "hasEmployees", "hasSubcontractors", "hasInvestments",
+        "wsibRequired", "paysDividends", "hasEHT", "employeeCount", "monthsBehind", "bankAccountCount", "creditCardCount",
+        "needsYearEnd", "usesHubdoc", "hasJobCosting", "avgMonthlyTransactions", "bookkeepingFrequency",
+        "invoicingResponsibility", "billPayResponsibility", "usesStripe", "usesSquare", "usesJobber", "usesTouchBistro",
+        "usesPayPal", "salesEntryFrequency", "servicesNeeded", "painPoints", "expectations", "currentAccountingSoftware",
+        "currentPayrollProvider"] as const;
+      const onbPatch: Record<string, any> = { updatedAt: new Date() };
+      for (const k of onbKeys) if ((rest as any)[k] !== undefined) onbPatch[k] = (rest as any)[k];
+      if (onbPayrollFrequency !== undefined) onbPatch.payrollFrequency = onbPayrollFrequency;
+      // also mirror wsib number into onboarding for completeness
+      if (rest.wsibAccountNumber !== undefined) onbPatch.wsibAccountNumber = rest.wsibAccountNumber;
+
+      const existing = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(clientOnboarding.id));
+      const latest = existing[existing.length - 1];
+      if (latest) {
+        await db.update(clientOnboarding).set(onbPatch).where(eq(clientOnboarding.id, latest.id));
+      } else {
+        await db.insert(clientOnboarding).values({
+          clientId, token: crypto.randomBytes(24).toString("hex"), status: "approved", ...onbPatch,
+        });
+      }
+      return { success: true };
+    }),
 });

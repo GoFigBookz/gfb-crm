@@ -98,6 +98,15 @@ export default function ClientDashboard() {
   const activateClient = trpc.quote.activateClient.useMutation({
     onSuccess: () => { invalidateDocs(); utils.clientDashboard.getByClient.invalidate({ clientId: id }); },
   });
+  const [editingIntake, setEditingIntake] = useState(false);
+  const updateIntake = trpc.onboarding.updateRecord.useMutation({
+    onSuccess: () => {
+      utils.clientDashboard.getByClient.invalidate({ clientId: id });
+      utils.crmClient.get.invalidate({ id });
+      utils.quote.forClient.invalidate({ clientId: id });
+      setEditingIntake(false);
+    },
+  });
   const invalidateTasks = () => utils.clientDashboard.getByClient.invalidate({ clientId: id });
   const completeTask = trpc.task.complete.useMutation({ onSuccess: invalidateTasks });
   const updateTask = trpc.task.update.useMutation({ onSuccess: invalidateTasks });
@@ -168,6 +177,9 @@ export default function ClientDashboard() {
           )}
           <Button size="sm" variant="outline" className="border-lime-300 text-lime-700" onClick={() => setShowLogTime(true)}>
             <Timer className="h-3.5 w-3.5 mr-1" /> Log Time
+          </Button>
+          <Button size="sm" variant="outline" className="border-blue-300 text-blue-700" onClick={() => setEditingIntake(true)}>
+            <Edit className="h-3.5 w-3.5 mr-1" /> Edit Intake
           </Button>
           {client.status === "active" ? (
             <Button size="sm" variant="outline" className="border-slate-300 text-slate-600"
@@ -998,6 +1010,16 @@ export default function ClientDashboard() {
       <TimeLogDialog open={showLogTime} onClose={() => setShowLogTime(false)} clientId={id}
         tasks={dashboardData?.tasks || []} onSubmit={(data: any) => createTime.mutate(data)} isPending={createTime.isPending} />
 
+      {editingIntake && (
+        <EditIntakeDialog
+          client={client}
+          onboarding={onboarding}
+          isPending={updateIntake.isPending}
+          onClose={() => setEditingIntake(false)}
+          onSave={(data: any) => updateIntake.mutate({ clientId: id, ...data })}
+        />
+      )}
+
       {editingQuote && quote && (
         <QuoteEditorDialog
           clientId={id}
@@ -1010,6 +1032,125 @@ export default function ClientDashboard() {
         />
       )}
     </div>
+  );
+}
+
+// Edit Intake Dialog — clean up a client's record (client-level + onboarding).
+function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
+  client: any; onboarding: any; onClose: () => void; onSave: (data: any) => void; isPending: boolean;
+}) {
+  const o = onboarding || {};
+  const [f, setF] = useState<any>({
+    name: client.name || "", email: client.email || "", phone: client.phone || "", company: client.company || "",
+    address: client.address || "", contactName: client.contactName || o.primaryContactName || "",
+    taxId: client.taxId || o.craBusinessNumber || "", hstNumber: client.hstNumber || "",
+    wsibAccountNumber: client.wsibAccountNumber || o.wsibAccountNumber || "", payrollRpNumber: client.payrollRpNumber || "",
+    monthlyFee: client.monthlyFee ?? 0,
+    hasHST: !!client.hasHST, hstPeriod: client.hstPeriod || "quarterly",
+    hasWSIB: !!client.hasWSIB, hasPayroll: !!client.hasPayroll,
+    payrollFrequency: client.payrollFrequency || "bi-weekly",
+    payrollRemitterFreq: client.payrollRemitterFreq || "regular",
+    yearEndMonth: client.yearEndMonth || "Dec",
+    avgMonthlyTransactions: o.avgMonthlyTransactions ?? client.transactionsPerMonth ?? 0,
+    bookkeepingFrequency: o.bookkeepingFrequency || "monthly",
+    employeeCount: o.employeeCount ?? 0, monthsBehind: o.monthsBehind ?? 0,
+    bankAccountCount: o.bankAccountCount ?? 1, creditCardCount: o.creditCardCount ?? 0,
+    hasEmployees: !!o.hasEmployees, hasSubcontractors: !!o.hasSubcontractors, hasInvestments: !!o.hasInvestments,
+    paysDividends: !!o.paysDividends, hasEHT: !!o.hasEHT, needsYearEnd: o.needsYearEnd !== false,
+    usesHubdoc: !!o.usesHubdoc, hasJobCosting: !!o.hasJobCosting,
+    invoicingResponsibility: o.invoicingResponsibility || "none", billPayResponsibility: o.billPayResponsibility || "none",
+    usesStripe: !!o.usesStripe, usesSquare: !!o.usesSquare, usesJobber: !!o.usesJobber, usesTouchBistro: !!o.usesTouchBistro, usesPayPal: !!o.usesPayPal,
+    servicesNeeded: o.servicesNeeded || "", painPoints: o.painPoints || "", expectations: o.expectations || "",
+  });
+  const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
+  const T = ({ k, label, type = "text" }: { k: string; label: string; type?: string }) => (
+    <div className="space-y-1"><Label className="text-xs">{label}</Label>
+      <Input type={type} value={f[k]} onChange={(e) => set(k, type === "number" ? Number(e.target.value) : e.target.value)} className="h-8" /></div>
+  );
+  const C = ({ k, label }: { k: string; label: string }) => (
+    <label className="flex items-center gap-2 text-sm cursor-pointer py-1">
+      <input type="checkbox" checked={!!f[k]} onChange={(e) => set(k, e.target.checked)} className="w-4 h-4 accent-lime-500" />{label}
+    </label>
+  );
+  const Sel = ({ k, label, opts }: { k: string; label: string; opts: [string, string][] }) => (
+    <div className="space-y-1"><Label className="text-xs">{label}</Label>
+      <Select value={String(f[k])} onValueChange={(v) => set(k, v)}>
+        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+        <SelectContent>{opts.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+      </Select></div>
+  );
+
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-3xl max-h-[88vh] overflow-auto">
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><Edit className="h-4 w-4" /> Edit intake — {client.name}</DialogTitle></DialogHeader>
+
+        <p className="text-xs uppercase font-semibold text-slate-500">Contact</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          <T k="name" label="Client name" /><T k="company" label="Company" /><T k="contactName" label="Contact name" />
+          <T k="email" label="Email" /><T k="phone" label="Phone" /><T k="address" label="Address" />
+        </div>
+
+        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Compliance numbers</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <T k="taxId" label="CRA BN" /><T k="hstNumber" label="HST #" /><T k="payrollRpNumber" label="Payroll RP #" /><T k="wsibAccountNumber" label="WSIB #" />
+        </div>
+
+        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Bookkeeping scope</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <T k="avgMonthlyTransactions" label="Avg monthly txns" type="number" />
+          <Sel k="bookkeepingFrequency" label="Bookkeeping" opts={[["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"],["none","None"]]} />
+          <T k="bankAccountCount" label="# Bank accts" type="number" /><T k="creditCardCount" label="# Credit cards" type="number" />
+          <Sel k="hasHST" label="Charges HST?" opts={[["true","Yes"],["false","No"]]} />
+          <Sel k="hstPeriod" label="HST filing" opts={[["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"]]} />
+          <Sel k="yearEndMonth" label="Year-end" opts={["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map(m=>[m,m] as [string,string])} />
+          <T k="monthsBehind" label="Months behind" type="number" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4">
+          <C k="hasInvestments" label="Investment income (T5)" /><C k="paysDividends" label="Pays dividends (T5)" />
+          <C k="hasSubcontractors" label="Subcontractors (T5018)" /><C k="usesHubdoc" label="Uses Hubdoc" />
+          <C k="hasJobCosting" label="Job costing" /><C k="needsYearEnd" label="We do year-end" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Sel k="invoicingResponsibility" label="Invoicing (A/R)" opts={[["none","N/A"],["we_invoice","We invoice"],["client_invoices","Client invoices"]]} />
+          <Sel k="billPayResponsibility" label="Bill pay (A/P)" opts={[["none","N/A"],["we_pay","We pay"],["client_pays","Client pays"]]} />
+        </div>
+
+        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Payroll</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <Sel k="hasPayroll" label="Runs payroll?" opts={[["true","Yes"],["false","No"]]} />
+          <T k="employeeCount" label="# Employees" type="number" />
+          <Sel k="payrollFrequency" label="Pay frequency" opts={[["weekly","Weekly"],["bi-weekly","Bi-weekly"],["semi-monthly","Semi-monthly"],["monthly","Monthly"],["self","Self"]]} />
+          <Sel k="payrollRemitterFreq" label="CRA remitter" opts={[["regular","Regular"],["quarterly","Quarterly"],["accelerated","Accelerated"]]} />
+          <C k="hasWSIB" label="Has WSIB" /><C k="hasEHT" label="Has EHT (ON)" /><C k="hasEmployees" label="Has employees" />
+        </div>
+
+        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Sales platforms</p>
+        <div className="flex flex-wrap gap-x-4">
+          <C k="usesStripe" label="Stripe" /><C k="usesSquare" label="Square" /><C k="usesJobber" label="Jobber" /><C k="usesTouchBistro" label="TouchBistro" /><C k="usesPayPal" label="PayPal" />
+        </div>
+
+        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Pricing & notes</p>
+        <div className="grid grid-cols-2 gap-2">
+          <T k="monthlyFee" label="Flat monthly fee ($)" type="number" />
+        </div>
+        <div className="space-y-1"><Label className="text-xs">Services / notes</Label>
+          <Textarea value={f.servicesNeeded} onChange={(e) => set("servicesNeeded", e.target.value)} rows={2} /></div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button disabled={isPending} onClick={() => onSave({
+            ...f,
+            hasHST: f.hasHST === true || f.hasHST === "true",
+            hasWSIB: !!f.hasWSIB, hasPayroll: f.hasPayroll === true || f.hasPayroll === "true",
+            monthlyFee: Number(f.monthlyFee) || 0,
+            avgMonthlyTransactions: Number(f.avgMonthlyTransactions) || 0,
+            employeeCount: Number(f.employeeCount) || 0, monthsBehind: Number(f.monthsBehind) || 0,
+            bankAccountCount: Number(f.bankAccountCount) || 0, creditCardCount: Number(f.creditCardCount) || 0,
+          })}>{isPending ? "Saving…" : "Save intake"}</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

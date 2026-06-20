@@ -44043,6 +44043,153 @@ var init_onboarding_router = __esm({
           }
         }
         return { success: true };
+      }),
+      // Get the latest onboarding record for a client (for the editable intake).
+      getRecord: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        const db = getDb();
+        const rows = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(clientOnboarding.id);
+        return rows[rows.length - 1] ?? null;
+      }),
+      // Edit/clean up a client's intake — upserts client_onboarding AND syncs the
+      // client-level flags that drive tasks + quotes. All fields optional.
+      updateRecord: staffQuery.input(external_exports.object({
+        clientId: external_exports.number(),
+        // client-level
+        name: external_exports.string().optional(),
+        email: external_exports.string().optional(),
+        phone: external_exports.string().optional(),
+        company: external_exports.string().optional(),
+        address: external_exports.string().optional(),
+        contactName: external_exports.string().optional(),
+        taxId: external_exports.string().optional(),
+        hstNumber: external_exports.string().optional(),
+        wsibAccountNumber: external_exports.string().optional(),
+        payrollRpNumber: external_exports.string().optional(),
+        monthlyFee: external_exports.number().optional(),
+        hasHST: external_exports.boolean().optional(),
+        hstPeriod: external_exports.enum(["monthly", "quarterly", "annual"]).optional(),
+        hasWSIB: external_exports.boolean().optional(),
+        hasPayroll: external_exports.boolean().optional(),
+        payrollFrequency: external_exports.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
+        payrollRemitterFreq: external_exports.enum(["regular", "quarterly", "accelerated"]).optional(),
+        yearEndMonth: external_exports.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
+        // onboarding-level
+        businessLegalName: external_exports.string().optional(),
+        craBusinessNumber: external_exports.string().optional(),
+        primaryContactName: external_exports.string().optional(),
+        primaryContactEmail: external_exports.string().optional(),
+        primaryContactPhone: external_exports.string().optional(),
+        fiscalYearEnd: external_exports.string().optional(),
+        hstGstFrequency: external_exports.enum(["monthly", "quarterly", "annually", "none"]).optional(),
+        onbPayrollFrequency: external_exports.enum(["weekly", "biweekly", "semi_monthly", "monthly", "none"]).optional(),
+        hasEmployees: external_exports.boolean().optional(),
+        hasSubcontractors: external_exports.boolean().optional(),
+        hasInvestments: external_exports.boolean().optional(),
+        wsibRequired: external_exports.boolean().optional(),
+        paysDividends: external_exports.boolean().optional(),
+        hasEHT: external_exports.boolean().optional(),
+        employeeCount: external_exports.number().optional(),
+        monthsBehind: external_exports.number().optional(),
+        bankAccountCount: external_exports.number().optional(),
+        creditCardCount: external_exports.number().optional(),
+        needsYearEnd: external_exports.boolean().optional(),
+        usesHubdoc: external_exports.boolean().optional(),
+        hasJobCosting: external_exports.boolean().optional(),
+        avgMonthlyTransactions: external_exports.number().optional(),
+        bookkeepingFrequency: external_exports.enum(["monthly", "quarterly", "annual", "none"]).optional(),
+        invoicingResponsibility: external_exports.enum(["we_invoice", "client_invoices", "none"]).optional(),
+        billPayResponsibility: external_exports.enum(["we_pay", "client_pays", "none"]).optional(),
+        usesStripe: external_exports.boolean().optional(),
+        usesSquare: external_exports.boolean().optional(),
+        usesJobber: external_exports.boolean().optional(),
+        usesTouchBistro: external_exports.boolean().optional(),
+        usesPayPal: external_exports.boolean().optional(),
+        salesEntryFrequency: external_exports.enum(["daily", "weekly", "monthly", "none"]).optional(),
+        servicesNeeded: external_exports.string().optional(),
+        painPoints: external_exports.string().optional(),
+        expectations: external_exports.string().optional(),
+        currentAccountingSoftware: external_exports.string().optional(),
+        currentPayrollProvider: external_exports.string().optional()
+      })).mutation(async ({ input }) => {
+        const db = getDb();
+        const { clientId, onbPayrollFrequency, ...rest } = input;
+        const clientKeys = [
+          "name",
+          "email",
+          "phone",
+          "company",
+          "address",
+          "contactName",
+          "taxId",
+          "hstNumber",
+          "wsibAccountNumber",
+          "payrollRpNumber",
+          "monthlyFee",
+          "hasHST",
+          "hstPeriod",
+          "hasWSIB",
+          "hasPayroll",
+          "payrollFrequency",
+          "payrollRemitterFreq",
+          "yearEndMonth"
+        ];
+        const clientPatch = { updatedAt: /* @__PURE__ */ new Date() };
+        for (const k of clientKeys) if (rest[k] !== void 0) clientPatch[k] = rest[k];
+        if (Object.keys(clientPatch).length > 1) await db.update(clients).set(clientPatch).where(eq(clients.id, clientId));
+        const onbKeys = [
+          "businessLegalName",
+          "craBusinessNumber",
+          "primaryContactName",
+          "primaryContactEmail",
+          "primaryContactPhone",
+          "fiscalYearEnd",
+          "hstGstFrequency",
+          "hasEmployees",
+          "hasSubcontractors",
+          "hasInvestments",
+          "wsibRequired",
+          "paysDividends",
+          "hasEHT",
+          "employeeCount",
+          "monthsBehind",
+          "bankAccountCount",
+          "creditCardCount",
+          "needsYearEnd",
+          "usesHubdoc",
+          "hasJobCosting",
+          "avgMonthlyTransactions",
+          "bookkeepingFrequency",
+          "invoicingResponsibility",
+          "billPayResponsibility",
+          "usesStripe",
+          "usesSquare",
+          "usesJobber",
+          "usesTouchBistro",
+          "usesPayPal",
+          "salesEntryFrequency",
+          "servicesNeeded",
+          "painPoints",
+          "expectations",
+          "currentAccountingSoftware",
+          "currentPayrollProvider"
+        ];
+        const onbPatch = { updatedAt: /* @__PURE__ */ new Date() };
+        for (const k of onbKeys) if (rest[k] !== void 0) onbPatch[k] = rest[k];
+        if (onbPayrollFrequency !== void 0) onbPatch.payrollFrequency = onbPayrollFrequency;
+        if (rest.wsibAccountNumber !== void 0) onbPatch.wsibAccountNumber = rest.wsibAccountNumber;
+        const existing = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(clientOnboarding.id);
+        const latest = existing[existing.length - 1];
+        if (latest) {
+          await db.update(clientOnboarding).set(onbPatch).where(eq(clientOnboarding.id, latest.id));
+        } else {
+          await db.insert(clientOnboarding).values({
+            clientId,
+            token: crypto3.randomBytes(24).toString("hex"),
+            status: "approved",
+            ...onbPatch
+          });
+        }
+        return { success: true };
       })
     });
   }
