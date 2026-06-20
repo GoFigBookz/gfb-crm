@@ -915,6 +915,24 @@ async function startServer() {
         }
       }
     } catch (e) { console.error("[repair] client name reorder failed (non-fatal):", e instanceof Error ? e.message : e); }
+    // Doc Kings is a flow-through / wholesale-billing client (we just resell the
+    // QBO subscription) — mark it wholesale and pause any compliance tasks that
+    // were generated before the clientType existed. Idempotent.
+    try {
+      const { getDb } = await import("./queries/connection");
+      const { clients, tasks, clientTaskRules } = await import("../db/schema");
+      const { eq, and, ne, like } = await import("drizzle-orm");
+      const db = getDb();
+      const matches = (await db.select().from(clients).where(like(clients.name, "%Doc King%"))) as any[];
+      for (const cl of matches) {
+        if (cl.clientType !== "wholesale") {
+          await db.update(clients).set({ clientType: "wholesale" }).where(eq(clients.id, cl.id));
+        }
+        // Pause its open tasks + recurring rules (reversible).
+        await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, cl.id));
+        await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, cl.id), ne(tasks.status, "completed")));
+      }
+    } catch (e) { console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e); }
     // Privacy: we do NOT store SINs in the CRM. Scrub any that exist (idempotent).
     try {
       const { getDb } = await import("./queries/connection");

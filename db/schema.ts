@@ -243,7 +243,14 @@ export const clients = sqliteTable("clients", {
   address: text("address"),
   taxId: text("taxId"),
   status: text("status", { enum: ["active", "inactive", "prospect", "lead"] }).default("active").notNull(),
-  
+  // Service type — drives task generation AND month-end-board relevance.
+  //  monthly  = full-service bookkeeping (default; on the board every month)
+  //  quarterly= surfaces in post-quarter months (Jan/Apr/Jul/Oct)
+  //  annual   = surfaces within ~3 months after fiscal year-end
+  //  payroll  = payroll-focused (always on the board)
+  //  wholesale= flow-through (we just resell QBO): NO tasks/close/quote, off the board
+  clientType: text("clientType", { enum: ["monthly", "quarterly", "annual", "payroll", "wholesale"] }).default("monthly"),
+
   // Workflow & Lead Tracking
   workflowStatus: text("workflowStatus", { enum: ["new_lead", "discovery_call", "quote_sent", "quote_approved", "engagement_sent", "onboarding_sent", "onboarding_complete", "active", "inactive", "churned"] }).default("new_lead").notNull(),
   leadSource: text("leadSource"),

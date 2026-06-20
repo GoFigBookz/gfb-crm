@@ -22601,6 +22601,13 @@ var init_schema = __esm({
       address: text("address"),
       taxId: text("taxId"),
       status: text("status", { enum: ["active", "inactive", "prospect", "lead"] }).default("active").notNull(),
+      // Service type — drives task generation AND month-end-board relevance.
+      //  monthly  = full-service bookkeeping (default; on the board every month)
+      //  quarterly= surfaces in post-quarter months (Jan/Apr/Jul/Oct)
+      //  annual   = surfaces within ~3 months after fiscal year-end
+      //  payroll  = payroll-focused (always on the board)
+      //  wholesale= flow-through (we just resell QBO): NO tasks/close/quote, off the board
+      clientType: text("clientType", { enum: ["monthly", "quarterly", "annual", "payroll", "wholesale"] }).default("monthly"),
       // Workflow & Lead Tracking
       workflowStatus: text("workflowStatus", { enum: ["new_lead", "discovery_call", "quote_sent", "quote_approved", "engagement_sent", "onboarding_sent", "onboarding_complete", "active", "inactive", "churned"] }).default("new_lead").notNull(),
       leadSource: text("leadSource"),
@@ -39971,6 +39978,176 @@ var init_client_task_creator = __esm({
   }
 });
 
+// api/month-end-core.ts
+function isOperationalClient(clientType) {
+  return (clientType || "monthly") !== "wholesale";
+}
+function isRelevantForPeriod(c, asOf = /* @__PURE__ */ new Date()) {
+  const type = c.clientType || "monthly";
+  if (type === "wholesale") return false;
+  if (c.hasPayroll || type === "monthly" || type === "payroll") return true;
+  const m = asOf.getMonth();
+  if (type === "quarterly") return m === 0 || m === 3 || m === 6 || m === 9;
+  if (type === "annual") {
+    const fyeIdx = c.yearEndMonth ? MONTHS.indexOf(c.yearEndMonth) : 11;
+    if (fyeIdx < 0) return true;
+    const since = (m - fyeIdx + 12) % 12;
+    return since <= 3;
+  }
+  return true;
+}
+function daysBetween(a, b) {
+  return Math.round((a.getTime() - b.getTime()) / DAY);
+}
+function addMonths(d, n) {
+  const r = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1));
+  const lastDay = new Date(Date.UTC(r.getUTCFullYear(), r.getUTCMonth() + 1, 0)).getUTCDate();
+  r.setUTCDate(Math.min(d.getUTCDate(), lastDay));
+  return r;
+}
+function endOfMonth(year2, monthIdx0) {
+  return new Date(Date.UTC(year2, monthIdx0 + 1, 0));
+}
+function ymd(d) {
+  return d.toISOString().slice(0, 10);
+}
+function computeHstStatus(opts) {
+  const { hasHST, asOf } = opts;
+  if (!hasHST || !opts.period) {
+    return {
+      applicable: false,
+      period: opts.period ?? null,
+      periodLabel: null,
+      periodEnd: null,
+      dueDate: null,
+      filed: null,
+      overdue: false,
+      daysToDue: null,
+      status: "green",
+      reason: hasHST ? "HST registered but no filing period set" : "Not HST registered"
+    };
+  }
+  const period = opts.period;
+  const y = asOf.getUTCFullYear();
+  const m = asOf.getUTCMonth();
+  let periodEnd;
+  let periodLabel;
+  let dueMonthsAfter = 1;
+  if (period === "monthly") {
+    periodEnd = endOfMonth(y, m - 1);
+    periodLabel = `${MONTHS[periodEnd.getUTCMonth()]} ${periodEnd.getUTCFullYear()}`;
+  } else if (period === "quarterly") {
+    const qIdx = Math.floor(m / 3);
+    const endIdx0 = qIdx * 3 - 1;
+    periodEnd = endOfMonth(y, endIdx0);
+    const q = Math.floor(periodEnd.getUTCMonth() / 3) + 1;
+    periodLabel = `Q${q} ${periodEnd.getUTCFullYear()}`;
+  } else {
+    dueMonthsAfter = 3;
+    const fyeMonth0 = (opts.fiscalYearEndMonth ?? 12) - 1;
+    let end = endOfMonth(y, fyeMonth0);
+    if (end.getTime() > asOf.getTime()) end = endOfMonth(y - 1, fyeMonth0);
+    periodEnd = end;
+    periodLabel = `FY ${periodEnd.getUTCFullYear()}`;
+  }
+  const dueDate = addMonths(periodEnd, dueMonthsAfter);
+  const filed = opts.lastFiled != null ? opts.lastFiled.getTime() >= periodEnd.getTime() : null;
+  const daysToDue = daysBetween(dueDate, asOf);
+  const overdue = filed === false ? asOf.getTime() > dueDate.getTime() : filed == null ? asOf.getTime() > dueDate.getTime() : false;
+  let status;
+  let reason;
+  if (filed === true) {
+    status = "green";
+    reason = `${periodLabel} filed`;
+  } else if (overdue) {
+    status = "red";
+    reason = `${periodLabel} OVERDUE (was due ${ymd(dueDate)})`;
+  } else if (daysToDue <= 14) {
+    status = "yellow";
+    reason = `${periodLabel} due ${ymd(dueDate)} (${daysToDue}d)`;
+  } else {
+    status = filed == null ? "yellow" : "green";
+    reason = filed == null ? `${periodLabel} \u2014 filing status unknown` : `${periodLabel} due ${ymd(dueDate)}`;
+  }
+  return {
+    applicable: true,
+    period,
+    periodLabel,
+    periodEnd: ymd(periodEnd),
+    dueDate: ymd(dueDate),
+    filed,
+    overdue,
+    daysToDue,
+    status,
+    reason
+  };
+}
+function computeYearEndStatus(opts) {
+  const { yearEndMonth, asOf } = opts;
+  if (!yearEndMonth) {
+    return { applicable: false, fyeMonth: null, lastFyeDate: null, daysSinceFye: null, status: "green", reason: "No fiscal year-end set" };
+  }
+  const mIdx = MONTHS.indexOf(yearEndMonth);
+  if (mIdx < 0) {
+    return { applicable: false, fyeMonth: null, lastFyeDate: null, daysSinceFye: null, status: "green", reason: "Unrecognized year-end month" };
+  }
+  let fye = endOfMonth(asOf.getUTCFullYear(), mIdx);
+  if (fye.getTime() > asOf.getTime()) fye = endOfMonth(asOf.getUTCFullYear() - 1, mIdx);
+  const days = daysBetween(asOf, fye);
+  let status;
+  let reason;
+  if (days <= 90) {
+    status = "green";
+    reason = `Year-end ${ymd(fye)} (${days}d ago)`;
+  } else if (days <= 180) {
+    status = "yellow";
+    reason = `Year-end ${ymd(fye)} \u2014 ${days}d ago, wrap up`;
+  } else {
+    status = "red";
+    reason = `Year-end ${ymd(fye)} \u2014 ${days}d ago, overdue`;
+  }
+  return { applicable: true, fyeMonth: yearEndMonth, lastFyeDate: ymd(fye), daysSinceFye: days, status, reason };
+}
+function rollUpCloseStatus(opts) {
+  const { toReview, hst, yearEnd } = opts;
+  const checklistPercent = opts.checklistPercent ?? null;
+  const reasons = [];
+  let status = "green";
+  if (toReview > 20) {
+    status = worse(status, "red");
+    reasons.push(`${toReview} transactions awaiting review`);
+  } else if (toReview > 0) {
+    status = worse(status, "yellow");
+    reasons.push(`${toReview} transactions awaiting review`);
+  }
+  if (hst.applicable) {
+    status = worse(status, hst.status);
+    if (hst.status !== "green") reasons.push(hst.reason);
+  }
+  if (yearEnd.applicable) {
+    status = worse(status, yearEnd.status);
+    if (yearEnd.status !== "green") reasons.push(yearEnd.reason);
+  }
+  if (checklistPercent != null && checklistPercent < 100) {
+    const sev = checklistPercent < 50 ? "yellow" : "yellow";
+    status = worse(status, sev);
+    reasons.push(`Close checklist ${checklistPercent}%`);
+  }
+  if (reasons.length === 0) reasons.push("Up to date");
+  return { status, reasons, toReview, checklistPercent, hst, yearEnd };
+}
+var MONTHS, DAY, worse;
+var init_month_end_core = __esm({
+  "api/month-end-core.ts"() {
+    MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    DAY = 864e5;
+    worse = (a, b) => {
+      const rank = { green: 0, yellow: 1, red: 2 };
+      return rank[a] >= rank[b] ? a : b;
+    };
+  }
+});
+
 // api/client-router.ts
 async function deactivateClientTasks(db, clientId) {
   await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, clientId));
@@ -39990,6 +40167,7 @@ var init_client_router = __esm({
     init_drizzle_orm();
     init_sync_hooks();
     init_client_task_creator();
+    init_month_end_core();
     clientRouter = createRouter({
       // List clients — SHARED PRACTICE VIEW
       // All staff (junior_bookkeeper+) can see all clients
@@ -40030,6 +40208,7 @@ var init_client_router = __esm({
         address: external_exports.string().optional(),
         taxId: external_exports.string().max(50).optional(),
         status: external_exports.enum(["active", "inactive", "prospect", "lead"]).optional().default("active"),
+        clientType: external_exports.enum(["monthly", "quarterly", "annual", "payroll", "wholesale"]).optional(),
         leadSource: external_exports.string().max(100).optional(),
         leadSourceDetail: external_exports.string().max(255).optional(),
         assignedTo: external_exports.enum(["Markie", "Rachelle"]).optional(),
@@ -40071,7 +40250,7 @@ var init_client_router = __esm({
           quoteApprovedAt
         }).returning();
         if (client) syncInsert("clients", client);
-        if (client) {
+        if (client && isOperationalClient(client.clientType)) {
           await createRecurringTasksForClient(
             client.id,
             ctx.user.id,
@@ -40092,6 +40271,7 @@ var init_client_router = __esm({
         address: external_exports.string().optional(),
         taxId: external_exports.string().max(50).optional(),
         status: external_exports.enum(["active", "inactive", "prospect", "lead"]).optional(),
+        clientType: external_exports.enum(["monthly", "quarterly", "annual", "payroll", "wholesale"]).optional(),
         workflowStatus: external_exports.string().optional(),
         leadSource: external_exports.string().max(100).optional(),
         leadSourceDetail: external_exports.string().max(255).optional(),
@@ -40147,10 +40327,13 @@ var init_client_router = __esm({
           if (updates.status === "inactive") await deactivateClientTasks(db, id);
           else if (currentClient.status === "inactive") await reactivateClientTasks(db, id);
         }
+        if (updated && !isOperationalClient(updated.clientType) && isOperationalClient(currentClient?.clientType)) {
+          await deactivateClientTasks(db, id);
+        }
         const wasHst = currentClient?.hasHST ?? false;
         const wasWsib = currentClient?.hasWSIB ?? false;
         const wasPayroll = currentClient?.hasPayroll ?? false;
-        if (updated) {
+        if (updated && isOperationalClient(updated.clientType)) {
           await createRecurringTasksForClient(
             updated.id,
             ctx.user.id,
@@ -43983,6 +44166,7 @@ var init_onboarding_router = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+    init_month_end_core();
     init_task_generator();
     onboardingRouter = createRouter({
       // Staff creates an onboarding link for a client
@@ -44330,6 +44514,7 @@ var init_onboarding_router = __esm({
         taxId: external_exports.string().optional(),
         hstNumber: external_exports.string().optional(),
         wsibAccountNumber: external_exports.string().optional(),
+        clientType: external_exports.enum(["monthly", "quarterly", "annual", "payroll", "wholesale"]).optional(),
         payrollRpNumber: external_exports.string().optional(),
         monthlyFee: external_exports.number().optional(),
         craRacDone: external_exports.boolean().optional(),
@@ -44393,6 +44578,7 @@ var init_onboarding_router = __esm({
           "taxId",
           "hstNumber",
           "wsibAccountNumber",
+          "clientType",
           "payrollRpNumber",
           "monthlyFee",
           "craRacDone",
@@ -44404,9 +44590,14 @@ var init_onboarding_router = __esm({
           "payrollRemitterFreq",
           "yearEndMonth"
         ];
+        const prior = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
         const clientPatch = { updatedAt: /* @__PURE__ */ new Date() };
         for (const k of clientKeys) if (rest[k] !== void 0) clientPatch[k] = rest[k];
         if (Object.keys(clientPatch).length > 1) await db.update(clients).set(clientPatch).where(eq(clients.id, clientId));
+        if (rest.clientType !== void 0 && !isOperationalClient(rest.clientType) && isOperationalClient(prior?.clientType)) {
+          await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, clientId));
+          await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
+        }
         const onbKeys = [
           "businessLegalName",
           "craBusinessNumber",
@@ -46689,159 +46880,6 @@ var init_monthly_close_router = __esm({
   }
 });
 
-// api/month-end-core.ts
-function daysBetween(a, b) {
-  return Math.round((a.getTime() - b.getTime()) / DAY);
-}
-function addMonths(d, n) {
-  const r = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1));
-  const lastDay = new Date(Date.UTC(r.getUTCFullYear(), r.getUTCMonth() + 1, 0)).getUTCDate();
-  r.setUTCDate(Math.min(d.getUTCDate(), lastDay));
-  return r;
-}
-function endOfMonth(year2, monthIdx0) {
-  return new Date(Date.UTC(year2, monthIdx0 + 1, 0));
-}
-function ymd(d) {
-  return d.toISOString().slice(0, 10);
-}
-function computeHstStatus(opts) {
-  const { hasHST, asOf } = opts;
-  if (!hasHST || !opts.period) {
-    return {
-      applicable: false,
-      period: opts.period ?? null,
-      periodLabel: null,
-      periodEnd: null,
-      dueDate: null,
-      filed: null,
-      overdue: false,
-      daysToDue: null,
-      status: "green",
-      reason: hasHST ? "HST registered but no filing period set" : "Not HST registered"
-    };
-  }
-  const period = opts.period;
-  const y = asOf.getUTCFullYear();
-  const m = asOf.getUTCMonth();
-  let periodEnd;
-  let periodLabel;
-  let dueMonthsAfter = 1;
-  if (period === "monthly") {
-    periodEnd = endOfMonth(y, m - 1);
-    periodLabel = `${MONTHS[periodEnd.getUTCMonth()]} ${periodEnd.getUTCFullYear()}`;
-  } else if (period === "quarterly") {
-    const qIdx = Math.floor(m / 3);
-    const endIdx0 = qIdx * 3 - 1;
-    periodEnd = endOfMonth(y, endIdx0);
-    const q = Math.floor(periodEnd.getUTCMonth() / 3) + 1;
-    periodLabel = `Q${q} ${periodEnd.getUTCFullYear()}`;
-  } else {
-    dueMonthsAfter = 3;
-    const fyeMonth0 = (opts.fiscalYearEndMonth ?? 12) - 1;
-    let end = endOfMonth(y, fyeMonth0);
-    if (end.getTime() > asOf.getTime()) end = endOfMonth(y - 1, fyeMonth0);
-    periodEnd = end;
-    periodLabel = `FY ${periodEnd.getUTCFullYear()}`;
-  }
-  const dueDate = addMonths(periodEnd, dueMonthsAfter);
-  const filed = opts.lastFiled != null ? opts.lastFiled.getTime() >= periodEnd.getTime() : null;
-  const daysToDue = daysBetween(dueDate, asOf);
-  const overdue = filed === false ? asOf.getTime() > dueDate.getTime() : filed == null ? asOf.getTime() > dueDate.getTime() : false;
-  let status;
-  let reason;
-  if (filed === true) {
-    status = "green";
-    reason = `${periodLabel} filed`;
-  } else if (overdue) {
-    status = "red";
-    reason = `${periodLabel} OVERDUE (was due ${ymd(dueDate)})`;
-  } else if (daysToDue <= 14) {
-    status = "yellow";
-    reason = `${periodLabel} due ${ymd(dueDate)} (${daysToDue}d)`;
-  } else {
-    status = filed == null ? "yellow" : "green";
-    reason = filed == null ? `${periodLabel} \u2014 filing status unknown` : `${periodLabel} due ${ymd(dueDate)}`;
-  }
-  return {
-    applicable: true,
-    period,
-    periodLabel,
-    periodEnd: ymd(periodEnd),
-    dueDate: ymd(dueDate),
-    filed,
-    overdue,
-    daysToDue,
-    status,
-    reason
-  };
-}
-function computeYearEndStatus(opts) {
-  const { yearEndMonth, asOf } = opts;
-  if (!yearEndMonth) {
-    return { applicable: false, fyeMonth: null, lastFyeDate: null, daysSinceFye: null, status: "green", reason: "No fiscal year-end set" };
-  }
-  const mIdx = MONTHS.indexOf(yearEndMonth);
-  if (mIdx < 0) {
-    return { applicable: false, fyeMonth: null, lastFyeDate: null, daysSinceFye: null, status: "green", reason: "Unrecognized year-end month" };
-  }
-  let fye = endOfMonth(asOf.getUTCFullYear(), mIdx);
-  if (fye.getTime() > asOf.getTime()) fye = endOfMonth(asOf.getUTCFullYear() - 1, mIdx);
-  const days = daysBetween(asOf, fye);
-  let status;
-  let reason;
-  if (days <= 90) {
-    status = "green";
-    reason = `Year-end ${ymd(fye)} (${days}d ago)`;
-  } else if (days <= 180) {
-    status = "yellow";
-    reason = `Year-end ${ymd(fye)} \u2014 ${days}d ago, wrap up`;
-  } else {
-    status = "red";
-    reason = `Year-end ${ymd(fye)} \u2014 ${days}d ago, overdue`;
-  }
-  return { applicable: true, fyeMonth: yearEndMonth, lastFyeDate: ymd(fye), daysSinceFye: days, status, reason };
-}
-function rollUpCloseStatus(opts) {
-  const { toReview, hst, yearEnd } = opts;
-  const checklistPercent = opts.checklistPercent ?? null;
-  const reasons = [];
-  let status = "green";
-  if (toReview > 20) {
-    status = worse(status, "red");
-    reasons.push(`${toReview} transactions awaiting review`);
-  } else if (toReview > 0) {
-    status = worse(status, "yellow");
-    reasons.push(`${toReview} transactions awaiting review`);
-  }
-  if (hst.applicable) {
-    status = worse(status, hst.status);
-    if (hst.status !== "green") reasons.push(hst.reason);
-  }
-  if (yearEnd.applicable) {
-    status = worse(status, yearEnd.status);
-    if (yearEnd.status !== "green") reasons.push(yearEnd.reason);
-  }
-  if (checklistPercent != null && checklistPercent < 100) {
-    const sev = checklistPercent < 50 ? "yellow" : "yellow";
-    status = worse(status, sev);
-    reasons.push(`Close checklist ${checklistPercent}%`);
-  }
-  if (reasons.length === 0) reasons.push("Up to date");
-  return { status, reasons, toReview, checklistPercent, hst, yearEnd };
-}
-var MONTHS, DAY, worse;
-var init_month_end_core = __esm({
-  "api/month-end-core.ts"() {
-    MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    DAY = 864e5;
-    worse = (a, b) => {
-      const rank = { green: 0, yellow: 1, red: 2 };
-      return rank[a] >= rank[b] ? a : b;
-    };
-  }
-});
-
 // api/month-end-router.ts
 async function countToReview(db, clientId) {
   const rows = await db.select({ n: count() }).from(triageFindings).where(and(eq(triageFindings.clientId, clientId), eq(triageFindings.status, "new")));
@@ -46923,16 +46961,27 @@ var init_month_end_router = __esm({
         const db = getDb();
         const asOf = input?.asOf ? new Date(input.asOf) : /* @__PURE__ */ new Date();
         const active = await db.select().from(clients).where(eq(clients.status, "active"));
+        const operational = active.filter((c) => isOperationalClient(c.clientType));
         const out = [];
-        for (const c of active) out.push(await statusForClient(db, c, asOf));
+        for (const c of operational) {
+          const row = await statusForClient(db, c, asOf);
+          out.push({
+            ...row,
+            clientType: c.clientType || "monthly",
+            relevantThisPeriod: isRelevantForPeriod(c, asOf)
+          });
+        }
         const rank = { red: 0, yellow: 1, green: 2 };
         out.sort((a, b) => rank[a.status] - rank[b.status] || b.toReview - a.toReview);
+        const relevant = out.filter((o) => o.relevantThisPeriod);
         const summary = {
           total: out.length,
-          red: out.filter((o) => o.status === "red").length,
-          yellow: out.filter((o) => o.status === "yellow").length,
-          green: out.filter((o) => o.status === "green").length,
-          toReviewTotal: out.reduce((s, o) => s + o.toReview, 0)
+          relevant: relevant.length,
+          offCadence: out.length - relevant.length,
+          red: relevant.filter((o) => o.status === "red").length,
+          yellow: relevant.filter((o) => o.status === "yellow").length,
+          green: relevant.filter((o) => o.status === "green").length,
+          toReviewTotal: relevant.reduce((s, o) => s + o.toReview, 0)
         };
         return { clients: out, summary };
       })
@@ -52144,6 +52193,7 @@ var init_ensure_clients_schema = __esm({
       ["address", "text"],
       ["taxId", "text"],
       ["status", "text DEFAULT 'active'"],
+      ["clientType", "text DEFAULT 'monthly'"],
       ["workflowStatus", "text DEFAULT 'new_lead'"],
       ["leadSource", "text"],
       ["leadSourceDetail", "text"],
@@ -57518,6 +57568,22 @@ async function startServer() {
       }
     } catch (e) {
       console.error("[repair] client name reorder failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+      const { clients: clients3, tasks: tasks4, clientTaskRules: clientTaskRules2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq3, and: and3, ne: ne3, like: like2 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const db = getDb2();
+      const matches = await db.select().from(clients3).where(like2(clients3.name, "%Doc King%"));
+      for (const cl of matches) {
+        if (cl.clientType !== "wholesale") {
+          await db.update(clients3).set({ clientType: "wholesale" }).where(eq3(clients3.id, cl.id));
+        }
+        await db.update(clientTaskRules2).set({ active: false }).where(eq3(clientTaskRules2.clientId, cl.id));
+        await db.update(tasks4).set({ active: false }).where(and3(eq3(tasks4.clientId, cl.id), ne3(tasks4.status, "completed")));
+      }
+    } catch (e) {
+      console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));

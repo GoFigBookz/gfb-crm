@@ -24,6 +24,14 @@ const FIRM_INFO: Record<string, { flag: string; label: string; color: string }> 
   us_clients: { flag: "🇺🇸", label: "Go Fig Bookz US", color: "bg-blue-50 text-blue-700 border-blue-200" },
 };
 
+const CLIENT_TYPE_BADGE: Record<string, { label: string; color: string }> = {
+  monthly: { label: "🗓️ Monthly", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  quarterly: { label: "📅 Quarterly", color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  annual: { label: "📆 Annual", color: "bg-purple-50 text-purple-700 border-purple-200" },
+  payroll: { label: "💵 Payroll", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  wholesale: { label: "🧾 Wholesale", color: "bg-slate-100 text-slate-600 border-slate-200" },
+};
+
 const TABS = ["all", "active", "lead", "prospect", "inactive"] as const;
 
 type TabType = typeof TABS[number];
@@ -36,6 +44,7 @@ export default function Clients() {
   const [tab, setTab] = useState<TabType>(urlStatus && TABS.includes(urlStatus) ? urlStatus : "active");
   const [search, setSearch] = useState("");
   const [firmFilter, setFirmFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newClient, setNewClient] = useState({
     name: "", email: "", phone: "", company: "",
@@ -62,8 +71,9 @@ export default function Clients() {
   });
 
   const filtered = clients?.filter((c) => {
-    if (firmFilter === "all") return true;
-    return (c as any).qboAccountType === firmFilter;
+    if (firmFilter !== "all" && (c as any).qboAccountType !== firmFilter) return false;
+    if (typeFilter !== "all" && ((c as any).clientType || "monthly") !== typeFilter) return false;
+    return true;
   });
 
   const createClient = trpc.crmClient.create.useMutation({
@@ -128,6 +138,19 @@ export default function Clients() {
             <SelectItem value="us_clients">🇺🇸 Go Fig Bookz US</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-[190px]">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            <SelectItem value="monthly">🗓️ Monthly</SelectItem>
+            <SelectItem value="quarterly">📅 Quarterly</SelectItem>
+            <SelectItem value="annual">📆 Annual</SelectItem>
+            <SelectItem value="payroll">💵 Payroll</SelectItem>
+            <SelectItem value="wholesale">🧾 Wholesale (flow-through)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Client Grid */}
@@ -188,13 +211,20 @@ export default function Clients() {
                   })()}
 
                   <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                    <Badge variant="outline" className={cn(
-                      "text-xs capitalize",
-                      client.status === "active" ? "bg-lime-50 text-lime-700 border-lime-200" :
-                      "bg-slate-50 text-slate-700 border-slate-200"
-                    )}>
-                      {client.status}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="outline" className={cn(
+                        "text-xs capitalize",
+                        client.status === "active" ? "bg-lime-50 text-lime-700 border-lime-200" :
+                        "bg-slate-50 text-slate-700 border-slate-200"
+                      )}>
+                        {client.status}
+                      </Badge>
+                      {(() => {
+                        const t = ((client as any).clientType || "monthly") as keyof typeof CLIENT_TYPE_BADGE;
+                        const b = CLIENT_TYPE_BADGE[t] ?? CLIENT_TYPE_BADGE.monthly;
+                        return <Badge variant="outline" className={cn("text-xs", b.color)}>{b.label}</Badge>;
+                      })()}
+                    </div>
                     <Link to={`/client/${client.id}`}>
                       <Button variant="ghost" size="sm" className="text-lime-600 hover:text-lime-700 hover:bg-lime-50">
                         <ArrowRight className="h-3 w-3 ml-1" />

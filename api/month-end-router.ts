@@ -16,6 +16,7 @@ import { clients, triageFindings, monthlyCloseChecklist, qboCustomers } from "..
 import { eq, and, count } from "drizzle-orm";
 import {
   computeHstStatus, computeYearEndStatus, rollUpCloseStatus,
+  isOperationalClient, isRelevantForPeriod,
   type HstPeriod, type MonthAbbr,
 } from "./month-end-core";
 
@@ -109,16 +110,29 @@ export const monthEndRouter = createRouter({
       const db = getDb();
       const asOf = input?.asOf ? new Date(input.asOf) : new Date();
       const active = await db.select().from(clients).where(eq(clients.status, "active"));
+      // Wholesale (flow-through) clients aren't bookkeeping engagements — keep
+      // them off the close board entirely.
+      const operational = active.filter((c) => isOperationalClient((c as any).clientType));
       const out = [];
-      for (const c of active) out.push(await statusForClient(db, c, asOf));
+      for (const c of operational) {
+        const row = await statusForClient(db, c, asOf);
+        out.push({
+          ...row,
+          clientType: ((c as any).clientType || "monthly") as string,
+          relevantThisPeriod: isRelevantForPeriod(c as any, asOf),
+        });
+      }
       const rank = { red: 0, yellow: 1, green: 2 } as const;
       out.sort((a, b) => (rank[a.status] - rank[b.status]) || (b.toReview - a.toReview));
+      const relevant = out.filter((o) => o.relevantThisPeriod);
       const summary = {
         total: out.length,
-        red: out.filter((o) => o.status === "red").length,
-        yellow: out.filter((o) => o.status === "yellow").length,
-        green: out.filter((o) => o.status === "green").length,
-        toReviewTotal: out.reduce((s, o) => s + o.toReview, 0),
+        relevant: relevant.length,
+        offCadence: out.length - relevant.length,
+        red: relevant.filter((o) => o.status === "red").length,
+        yellow: relevant.filter((o) => o.status === "yellow").length,
+        green: relevant.filter((o) => o.status === "green").length,
+        toReviewTotal: relevant.reduce((s, o) => s + o.toReview, 0),
       };
       return { clients: out, summary };
     }),
