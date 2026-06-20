@@ -10,9 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/providers/trpc";
 import { format } from "date-fns";
+import { TASK_CATEGORIES, ASSIGNEES, STANDARD_TASK_TITLES } from "@/lib/task-options";
 
-const TASK_CATEGORIES = ["Bookkeeping", "HST", "Payroll", "Year-End", "Reconciliation", "Sales", "Setup", "Client", "Admin", "Other"];
-const ASSIGNEES = ["Markie", "Rachelle"];
 const STAGES: [string, string][] = [["todo", "To Do"], ["in_progress", "In Progress"], ["review", "Review"], ["done", "Done"]];
 
 /**
@@ -78,53 +77,64 @@ export function TaskDetailDialog({ task, onClose, onChanged }: {
 
   return (
     <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Edit className="h-4 w-4" /> Edit Task</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
             <Label>Title</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              list="task-title-suggestions"
+              placeholder="Pick a standard task or type your own…"
+              autoFocus
+            />
+            <datalist id="task-title-suggestions">
+              {STANDARD_TASK_TITLES.map((t) => <option key={t} value={t} />)}
+            </datalist>
+            <p className="text-[11px] text-slate-400 mt-1">Choose from the list or type anything.</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Client</Label>
-              <Select value={clientId} onValueChange={setClientId}>
-                <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                <SelectContent className="max-h-64">
-                  <SelectItem value="none">No client (internal)</SelectItem>
-                  {(clientList || []).map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label>Client</Label>
+            <Select value={clientId} onValueChange={setClientId}>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Select client" /></SelectTrigger>
+              <SelectContent className="max-h-64">
+                <SelectItem value="none">No client (internal)</SelectItem>
+                {(clientList || []).map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Assignee</Label>
               <Select value={assignedTo} onValueChange={setAssignedTo}>
-                <SelectTrigger><SelectValue placeholder="Assign to" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Assign to" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
                   {ASSIGNEES.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Category</Label>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>
                   {TASK_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <Label>Priority</Label>
               <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="low">Low</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
@@ -132,13 +142,10 @@ export function TaskDetailDialog({ task, onClose, onChanged }: {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Stage</Label>
               <Select value={stage} onValueChange={setStage}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {STAGES.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
                 </SelectContent>

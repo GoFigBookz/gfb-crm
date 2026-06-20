@@ -12,6 +12,7 @@ import { trpc } from "@/providers/trpc";
 import { format, isToday, isTomorrow, parseISO, isPast, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 import { TaskDetailDialog } from "@/components/TaskDetailDialog";
+import { STANDARD_TASK_TITLES } from "@/lib/task-options";
 
 export default function Tasks() {
   const utils = trpc.useUtils();
@@ -216,7 +217,10 @@ export default function Tasks() {
             <DialogContent>
               <DialogHeader><DialogTitle>New Task</DialogTitle></DialogHeader>
               <div className="space-y-4 py-4">
-                <div className="space-y-2"><Label>Title *</Label><Input placeholder="What needs doing?" value={newTask.title} onChange={(e) => setNewTask({...newTask, title: e.target.value})} /></div>
+                <div className="space-y-2"><Label>Title *</Label>
+                  <Input placeholder="Pick a standard task or type your own…" list="new-task-titles" value={newTask.title} onChange={(e) => setNewTask({...newTask, title: e.target.value})} />
+                  <datalist id="new-task-titles">{STANDARD_TASK_TITLES.map((t) => <option key={t} value={t} />)}</datalist>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>Client</Label>
                     <Select value={newTask.clientId} onValueChange={(v) => setNewTask({...newTask, clientId: v})}>

@@ -16,6 +16,7 @@ import { trpc } from "@/providers/trpc";
 import { cn } from "@/lib/utils";
 import { format, isPast, isToday } from "date-fns";
 import { TaskDetailDialog } from "@/components/TaskDetailDialog";
+import { STANDARD_TASK_TITLES } from "@/lib/task-options";
 
 export default function ClientDashboard() {
   const { clientId } = useParams<{ clientId: string }>();
@@ -1415,7 +1416,8 @@ function EditTaskDialog({ task, onClose, onSave, isNew }: {
         <div className="space-y-3">
           <div>
             <Label>Title</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} list="client-task-titles" placeholder="Pick a standard task or type your own…" />
+            <datalist id="client-task-titles">{STANDARD_TASK_TITLES.map((t) => <option key={t} value={t} />)}</datalist>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
