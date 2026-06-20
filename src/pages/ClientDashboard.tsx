@@ -659,38 +659,71 @@ export default function ClientDashboard() {
             </CardHeader>
             <CardContent>
               {openTasks.length > 0 ? (
-                <div className="space-y-2">
-                  {openTasks.map(task => {
-                    const isOverdue = task.dueDate && isPast(new Date(task.dueDate)) && !isToday(new Date(task.dueDate));
-                    return (
-                      <div key={task.id} className={`flex items-center gap-3 p-3 rounded-lg ${isOverdue ? "bg-red-50" : "bg-white border"}`}>
-                        <button
-                          title="Mark done"
-                          onClick={() => completeTask.mutate({ id: task.id })}
-                          className="w-6 h-6 shrink-0 rounded-full border-2 border-slate-300 hover:border-lime-500 hover:bg-lime-50 transition-colors"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{task.title}</p>
-                          <p className="text-xs text-slate-500">
-                            {task.category} {task.dueDate ? `• Due ${format(new Date(task.dueDate), "MMM d, yyyy")}` : ""}
-                            {isOverdue ? " • Overdue" : ""}
-                          </p>
+                <div className="space-y-4">
+                  {(() => {
+                    const STAGE_LABEL: Record<string, string> = { todo: "To Do", in_progress: "In Progress", review: "Review", done: "Done" };
+                    const STAGE_CLASS: Record<string, string> = {
+                      todo: "bg-slate-100 text-slate-600",
+                      in_progress: "bg-amber-100 text-amber-700",
+                      review: "bg-purple-100 text-purple-700",
+                      done: "bg-lime-100 text-lime-700",
+                    };
+                    // Group open tasks by category so the card reads like a workflow checklist.
+                    const groups = new Map<string, typeof openTasks>();
+                    for (const t of openTasks) {
+                      const key = t.category || "General";
+                      if (!groups.has(key)) groups.set(key, []);
+                      groups.get(key)!.push(t);
+                    }
+                    return Array.from(groups.entries()).map(([cat, items]) => {
+                      const overdueCount = items.filter(t => t.dueDate && isPast(new Date(t.dueDate)) && !isToday(new Date(t.dueDate))).length;
+                      return (
+                        <div key={cat}>
+                          <div className="flex items-center gap-2 mb-1.5 px-0.5">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{cat}</span>
+                            <span className="text-xs text-slate-400">{items.length}</span>
+                            {overdueCount > 0 && <Badge variant="destructive" className="text-[10px] h-4 px-1.5">{overdueCount} overdue</Badge>}
+                          </div>
+                          <div className="space-y-2">
+                            {items.map(task => {
+                              const isOverdue = task.dueDate && isPast(new Date(task.dueDate)) && !isToday(new Date(task.dueDate));
+                              const stage = (task as any).stage || "todo";
+                              return (
+                                <div key={task.id} className={`flex items-center gap-3 p-3 rounded-lg ${isOverdue ? "bg-red-50" : "bg-white border"}`}>
+                                  <button
+                                    title="Mark done"
+                                    onClick={() => completeTask.mutate({ id: task.id })}
+                                    className="w-6 h-6 shrink-0 rounded-full border-2 border-slate-300 hover:border-lime-500 hover:bg-lime-50 transition-colors"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium">{task.title}</p>
+                                    <p className="text-xs text-slate-500">
+                                      {task.dueDate ? `Due ${format(new Date(task.dueDate), "MMM d, yyyy")}` : "No due date"}
+                                      {isOverdue ? " • Overdue" : ""}
+                                      {task.assignedTo ? ` • ${task.assignedTo}` : ""}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <Badge variant="outline" className={`text-xs ${STAGE_CLASS[stage] || STAGE_CLASS.todo}`}>{STAGE_LABEL[stage] || "To Do"}</Badge>
+                                    {task.isRecurring && (
+                                      <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600">Recurring</Badge>
+                                    )}
+                                    <Badge variant={task.priority === "high" ? "destructive" : task.priority === "medium" ? "default" : "outline"} className="text-xs">{task.priority}</Badge>
+                                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingTask(task)}>
+                                      <Edit className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-600" onClick={() => { if (confirm(`Delete task "${task.title}"?`)) deleteTask.mutate({ id: task.id }); }}>
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge variant="outline" className={`text-xs ${task.isRecurring ? "bg-blue-50 text-blue-600" : "bg-slate-50 text-slate-500"}`}>
-                            {task.isRecurring ? "Recurring" : "One-off"}
-                          </Badge>
-                          <Badge variant={task.priority === "high" ? "destructive" : task.priority === "medium" ? "default" : "outline"} className="text-xs">{task.priority}</Badge>
-                          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingTask(task)}>
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-600" onClick={() => { if (confirm(`Delete task "${task.title}"?`)) deleteTask.mutate({ id: task.id }); }}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               ) : (
                 <p className="text-center text-slate-400 py-6">No open tasks 🎉</p>
