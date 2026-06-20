@@ -231,6 +231,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1.5 mb-1">
                     {grp.clientId ? (
                       <Link to={`/client/${grp.clientId}`} className="text-sm font-semibold text-slate-800 hover:text-lime-700 inline-flex items-center gap-1">
+
                         <Building2 className="h-3.5 w-3.5" />{grp.name}
                       </Link>
                     ) : (
