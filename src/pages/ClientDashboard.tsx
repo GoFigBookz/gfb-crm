@@ -545,13 +545,13 @@ export default function ClientDashboard() {
                 {openTasks.length > 0 ? (
                   <div className="space-y-2">
                     {openTasks.slice(0, 5).map(task => (
-                      <div key={task.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg">
-                        <AlertCircle className="h-4 w-4 text-amber-500" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{task.title}</p>
+                      <div key={task.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => setEditingTask(task)}>
+                        <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{task.title}</p>
                           <p className="text-xs text-slate-500">{task.category} • {task.dueDate ? format(new Date(task.dueDate), "MMM d") : "No due date"}</p>
                         </div>
-                        <Badge variant={task.priority === "high" ? "destructive" : "outline"} className="text-xs">{task.priority}</Badge>
+                        <Badge variant={task.priority === "high" ? "destructive" : "outline"} className="text-xs shrink-0">{task.priority}</Badge>
                       </div>
                     ))}
                     {openTasks.length > 5 && (
@@ -772,21 +772,6 @@ export default function ClientDashboard() {
             </CardContent>
           </Card>
 
-          {editingTask && (
-            <TaskDetailDialog
-              task={editingTask}
-              onClose={() => setEditingTask(null)}
-              onChanged={invalidateTasks}
-            />
-          )}
-          {creatingTask && (
-            <EditTaskDialog
-              task={{ title: "", category: "", priority: "medium", description: "", assignedTo: client.assignedTo || "" }}
-              isNew
-              onClose={() => setCreatingTask(false)}
-              onSave={(data: any) => { createTask.mutate({ clientId: id, ...data }); }}
-            />
-          )}
           {creatingTask && (
             <EditTaskDialog
               task={{ title: "", category: "", priority: "medium", description: "", assignedTo: client.assignedTo || "" }}
@@ -1116,6 +1101,16 @@ export default function ClientDashboard() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Task drill-down — rendered at root so it opens from ANY tab (Overview,
+          Tasks, etc.), not just the tab whose TabsContent is mounted. */}
+      {editingTask && (
+        <TaskDetailDialog
+          task={editingTask}
+          onClose={() => setEditingTask(null)}
+          onChanged={invalidateTasks}
+        />
+      )}
 
       <TimeLogDialog open={showLogTime} onClose={() => setShowLogTime(false)} clientId={id}
         tasks={dashboardData?.tasks || []} onSubmit={(data: any) => createTime.mutate(data)} isPending={createTime.isPending} />
