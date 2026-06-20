@@ -39801,7 +39801,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
     const dueDate = nextHSTDueDate(flags.hstPeriod, now);
     const title = `HST Filing \u2014 ${clientName}`;
     const existing = await db.select({ id: tasks.id }).from(tasks).where(
-      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`HST Filing%`} AND ${tasks.dueDate} > ${now.getTime()}`
+      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`HST Filing%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
     ).limit(1);
     if (existing.length === 0) {
       const [task] = await db.insert(tasks).values({
@@ -39841,7 +39841,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
     const dueDate = nextWSIBDueDate(flags.wsibQuarter || "all", now);
     const title = `WSIB Filing \u2014 ${clientName}`;
     const existing = await db.select({ id: tasks.id }).from(tasks).where(
-      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`WSIB Filing%`} AND ${tasks.dueDate} > ${now.getTime()}`
+      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`WSIB Filing%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
     ).limit(1);
     if (existing.length === 0) {
       const [task] = await db.insert(tasks).values({
@@ -39880,7 +39880,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
     const dueDate = nextPayrollDueDate(flags.payrollFrequency, now);
     const title = `Payroll Remittance \u2014 ${clientName}`;
     const existing = await db.select({ id: tasks.id }).from(tasks).where(
-      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`Payroll Remittance%`} AND ${tasks.dueDate} > ${now.getTime()}`
+      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`Payroll Remittance%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
     ).limit(1);
     if (existing.length === 0) {
       const [task] = await db.insert(tasks).values({
@@ -39918,7 +39918,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
     const t4Due = new Date(now.getFullYear() + 1, 1, 28);
     const t4Title = `T4 Filing \u2014 ${clientName}`;
     const t4Existing = await db.select({ id: tasks.id }).from(tasks).where(
-      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${t4Title} AND ${tasks.dueDate} > ${now.getTime()}`
+      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${t4Title} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
     ).limit(1);
     if (t4Existing.length === 0) {
       const [t4Task] = await db.insert(tasks).values({
@@ -49001,7 +49001,7 @@ var init_restore_router = __esm({
           results.onboardingCreated++;
           await rawClient.execute({
             sql: `UPDATE clients SET workflowStatus = ?, onboardingCompletedAt = ? WHERE id = ?`,
-            args: ["active", Date.now(), clientId]
+            args: ["active", Math.floor(Date.now() / 1e3), clientId]
           });
           try {
             const rules = buildTaskRules({ clientId, userId, assignedTo: null, fiscalYearEnd: "December 31", ...attrs });
@@ -49025,10 +49025,10 @@ var init_restore_router = __esm({
                   rule.daysBeforeDue,
                   rule.fiscalYearEndMonth || null,
                   rule.fiscalYearEndDay || null,
-                  nextDue.getTime(),
+                  Math.floor(nextDue.getTime() / 1e3),
                   1,
-                  Date.now(),
-                  Date.now()
+                  Math.floor(Date.now() / 1e3),
+                  Math.floor(Date.now() / 1e3)
                 ]
               });
               const ruleId = Number(ruleResult.lastInsertRowid);
@@ -49042,7 +49042,7 @@ var init_restore_router = __esm({
                     clientId,
                     rule.title,
                     rule.description || null,
-                    nextDue.getTime(),
+                    Math.floor(nextDue.getTime() / 1e3),
                     0,
                     rule.priority,
                     "pending",
@@ -49051,8 +49051,8 @@ var init_restore_router = __esm({
                     ruleId,
                     1,
                     1,
-                    Date.now(),
-                    Date.now()
+                    Math.floor(Date.now() / 1e3),
+                    Math.floor(Date.now() / 1e3)
                   ]
                 });
               }

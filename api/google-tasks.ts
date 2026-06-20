@@ -36,7 +36,7 @@ async function getGoogleToken(userId: number): Promise<string | null> {
           .update(connectedAccounts)
           .set({
             accessToken: newToken.access_token,
-            expiresAt: Date.now() + (newToken.expires_in || 3600) * 1000,
+            expiresAt: new Date(Date.now() + (newToken.expires_in || 3600) * 1000),
           })
           .where(eq(connectedAccounts.id, account.id));
         return newToken.access_token;
