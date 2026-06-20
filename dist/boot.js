@@ -40148,9 +40148,41 @@ var init_client_router = __esm({
   }
 });
 
+// api/client-match.ts
+async function matchClientIdByName(raw2) {
+  const t2 = norm(raw2);
+  if (!t2) return null;
+  const all = await getDb().select().from(clients);
+  let hit = all.find((c) => norm(c.name) === t2 || norm(c.company) === t2);
+  if (hit) return hit.id;
+  if (t2.length >= 6) {
+    hit = all.find((c) => {
+      const n = norm(c.name), co = norm(c.company);
+      return n.length >= 6 && (t2.includes(n) || n.includes(t2)) || co.length >= 6 && (t2.includes(co) || co.includes(t2));
+    });
+    if (hit) return hit.id;
+  }
+  for (const kw of ["owen sound", "collingwood"]) {
+    if (t2.includes(kw)) {
+      const c = all.find((x) => `${norm(x.name)} ${norm(x.company)}`.includes(kw));
+      if (c) return c.id;
+    }
+  }
+  return null;
+}
+var norm;
+var init_client_match = __esm({
+  "api/client-match.ts"() {
+    init_connection();
+    init_schema();
+    norm = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+});
+
 // api/task-generator.ts
 var task_generator_exports = {};
 __export(task_generator_exports, {
+  applyPayrollRemitterOverrides: () => applyPayrollRemitterOverrides,
   backfillSetupTasks: () => backfillSetupTasks,
   buildTaskRules: () => buildTaskRules,
   calculateNextDueDate: () => calculateNextDueDate,
@@ -40421,12 +40453,12 @@ function buildTaskRules(data) {
     } else if (remitter === "accelerated") {
       rules.push({
         ruleType: "payroll_remit_accelerated",
-        title: "Payroll Remittance (PD7A) \u2014 ACCELERATED",
-        description: "ACCELERATED remitter \u2014 remit source deductions much sooner than regular: Threshold 1 = twice a month (by the 25th for the 1st\u201315th pay period, by the 10th of next month for the 16th\u2013end); Threshold 2 = within 3 business days of each payday. Confirm the client's threshold.",
+        title: "Payroll Remittance (PD7A) - ACCELERATED (due 25th)",
+        description: "ACCELERATED remitter (Threshold 1): remit by the 25th for the 1st-15th pay period (and by the 10th of next month for the 16th-end period). Pay ~2 business days early so CRA receives it on time - penalties are based on receipt date.",
         category: "Payroll",
         priority: "high",
-        frequency: "biweekly",
-        dueDayOfMonth: 10,
+        frequency: "monthly",
+        dueDayOfMonth: 25,
         daysBeforeDue: 2,
         fiscalYearEndMonth: fy?.month,
         fiscalYearEndDay: fy?.day
@@ -40637,6 +40669,90 @@ async function backfillSetupTasks() {
   }
   return { clients: all.length, created };
 }
+function payrollRemitConfig(remitter) {
+  if (remitter === "quarterly") return {
+    ruleType: "payroll_remit_quarterly",
+    title: "Payroll Remittance (PD7A) - Quarterly",
+    description: "QUARTERLY remitter: remit source deductions (CPP, EI, income tax) via PD7A by the 15th of the month following each quarter.",
+    category: "Payroll",
+    priority: "high",
+    frequency: "quarterly",
+    dueDayOfMonth: 15,
+    daysBeforeDue: 5
+  };
+  if (remitter === "accelerated") return {
+    ruleType: "payroll_remit_accelerated",
+    title: "Payroll Remittance (PD7A) - ACCELERATED (due 25th)",
+    description: "ACCELERATED remitter (Threshold 1): remit by the 25th for the 1st-15th pay period (and by the 10th of next month for the 16th-end period). Pay ~2 business days early so CRA receives it on time.",
+    category: "Payroll",
+    priority: "high",
+    frequency: "monthly",
+    dueDayOfMonth: 25,
+    daysBeforeDue: 2
+  };
+  return {
+    ruleType: "payroll_remit_regular",
+    title: "Payroll Remittance (PD7A)",
+    description: "Regular remitter: remit source deductions (CPP, EI, income tax) via PD7A by the 15th of the following month.",
+    category: "Payroll",
+    priority: "high",
+    frequency: "monthly",
+    dueDayOfMonth: 15,
+    daysBeforeDue: 3
+  };
+}
+async function applyPayrollRemitterOverrides() {
+  const db = getDb();
+  const OVERRIDES = [
+    { match: "originality", freq: "accelerated" },
+    { match: "2303851", freq: "accelerated" },
+    { match: "align by design", freq: "quarterly" },
+    { match: "fractal", freq: "quarterly" }
+  ];
+  let fixed = 0;
+  for (const o of OVERRIDES) {
+    try {
+      const id = await matchClientIdByName(o.match);
+      if (!id) continue;
+      const c = (await db.select().from(clients).where(eq(clients.id, id)).limit(1))[0];
+      if (!c) continue;
+      if (c.payrollRemitterFreq === o.freq) continue;
+      await db.update(clients).set({ payrollRemitterFreq: o.freq }).where(eq(clients.id, id));
+      const oldRules = await db.select().from(clientTaskRules).where(and(eq(clientTaskRules.clientId, id), inArray(clientTaskRules.ruleType, PAYROLL_REMIT_RULE_TYPES)));
+      for (const r of oldRules) await db.delete(tasks).where(eq(tasks.ruleId, r.id));
+      await db.delete(clientTaskRules).where(and(eq(clientTaskRules.clientId, id), inArray(clientTaskRules.ruleType, PAYROLL_REMIT_RULE_TYPES)));
+      const cfg = payrollRemitConfig(o.freq);
+      const nextDueDate = calculateNextDueDate(cfg);
+      const [rule] = await db.insert(clientTaskRules).values({
+        clientId: id,
+        userId: c.userId ?? 1,
+        title: cfg.title,
+        description: cfg.description,
+        category: cfg.category,
+        priority: cfg.priority,
+        assignedTo: c.assignedTo ?? null,
+        ruleType: cfg.ruleType,
+        frequency: cfg.frequency,
+        dueDayOfMonth: cfg.dueDayOfMonth,
+        dueMonth: cfg.dueMonth ?? null,
+        daysBeforeDue: cfg.daysBeforeDue,
+        fiscalYearEndMonth: null,
+        fiscalYearEndDay: null,
+        nextDueDate,
+        active: true
+      }).returning();
+      if (rule) {
+        const t2 = generateTaskFromRule(rule, 1);
+        await db.insert(tasks).values(t2);
+      }
+      fixed++;
+    } catch (e) {
+      console.error("[remitter] override failed for", o.match, ":", e instanceof Error ? e.message : e);
+    }
+  }
+  if (fixed) console.log(`[remitter] corrected ${fixed} clients' PD7A cadence`);
+  return { fixed };
+}
 async function createClientTaskRules(data) {
   const db = getDb();
   const rules = buildTaskRules(data);
@@ -40719,11 +40835,20 @@ async function setRuleActive(ruleId, active) {
   const db = getDb();
   await db.update(clientTaskRules).set({ active }).where(eq(clientTaskRules.id, ruleId));
 }
+var PAYROLL_REMIT_RULE_TYPES;
 var init_task_generator = __esm({
   "api/task-generator.ts"() {
     init_drizzle_orm();
     init_connection();
     init_schema();
+    init_client_match();
+    PAYROLL_REMIT_RULE_TYPES = [
+      "payroll_weekly",
+      "payroll_monthly",
+      "payroll_remit_regular",
+      "payroll_remit_quarterly",
+      "payroll_remit_accelerated"
+    ];
   }
 });
 
@@ -43152,37 +43277,6 @@ var init_qbo_vendor_web_classify = __esm({
       office: "office / hardware / supplies",
       utilities: "utility (power / water / gas)"
     };
-  }
-});
-
-// api/client-match.ts
-async function matchClientIdByName(raw2) {
-  const t2 = norm(raw2);
-  if (!t2) return null;
-  const all = await getDb().select().from(clients);
-  let hit = all.find((c) => norm(c.name) === t2 || norm(c.company) === t2);
-  if (hit) return hit.id;
-  if (t2.length >= 6) {
-    hit = all.find((c) => {
-      const n = norm(c.name), co = norm(c.company);
-      return n.length >= 6 && (t2.includes(n) || n.includes(t2)) || co.length >= 6 && (t2.includes(co) || co.includes(t2));
-    });
-    if (hit) return hit.id;
-  }
-  for (const kw of ["owen sound", "collingwood"]) {
-    if (t2.includes(kw)) {
-      const c = all.find((x) => `${norm(x.name)} ${norm(x.company)}`.includes(kw));
-      if (c) return c.id;
-    }
-  }
-  return null;
-}
-var norm;
-var init_client_match = __esm({
-  "api/client-match.ts"() {
-    init_connection();
-    init_schema();
-    norm = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
   }
 });
 
@@ -54359,6 +54453,13 @@ async function startServer() {
       console.log(`[setup-tasks] ensured for ${s.clients} clients, +${s.created} created`);
     } catch (e) {
       console.error("[setup-tasks] backfill failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { applyPayrollRemitterOverrides: applyPayrollRemitterOverrides2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
+      const r = await applyPayrollRemitterOverrides2();
+      if (r.fixed) console.log(`[remitter] corrected ${r.fixed} clients`);
+    } catch (e) {
+      console.error("[remitter] overrides failed (non-fatal):", e instanceof Error ? e.message : e);
     }
   }
   const { ensureBridgeReady: ensureBridgeReady2 } = await Promise.resolve().then(() => (init_bridge_bootstrap(), bridge_bootstrap_exports));
