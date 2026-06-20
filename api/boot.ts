@@ -560,17 +560,29 @@ app.post("/api/admin/figgy", async (c) => {
       // Read-only: list CRM clients + which have an active QBO connection, so
       // new client→realm bridge links can be verified by name.
       const { getDb } = await import("./queries/connection");
-      const { clients, qboConnections } = await import("../db/schema");
+      const { clients, qboConnections, clientTaskRules } = await import("../db/schema");
       const db = getDb();
       const cs = await db.select().from(clients);
       const conns = await db.select().from(qboConnections);
+      const ruleRows = await db.select().from(clientTaskRules);
       const byClient = new Map<number, any[]>();
       for (const cn of conns as any[]) {
         if (cn.clientId == null) continue;
         if (!byClient.has(cn.clientId)) byClient.set(cn.clientId, []);
         byClient.get(cn.clientId)!.push({ realmId: cn.realmId, transport: cn.transport, isActive: cn.isActive });
       }
-      const list = (cs as any[]).map((c2) => ({ id: c2.id, name: c2.name, company: c2.company, connections: byClient.get(c2.id) || [] }));
+      const remitByClient = new Map<number, string[]>();
+      for (const r of ruleRows as any[]) {
+        if (r.clientId == null || !String(r.ruleType || "").startsWith("payroll_remit")) continue;
+        if (!remitByClient.has(r.clientId)) remitByClient.set(r.clientId, []);
+        remitByClient.get(r.clientId)!.push(r.title);
+      }
+      const list = (cs as any[]).map((c2) => ({
+        id: c2.id, name: c2.name, company: c2.company,
+        payrollRemitterFreq: c2.payrollRemitterFreq ?? null,
+        payrollRemitTasks: remitByClient.get(c2.id) || [],
+        connections: byClient.get(c2.id) || [],
+      }));
       return c.json({ success: true, op, count: list.length, clients: list });
     }
     // default: health
