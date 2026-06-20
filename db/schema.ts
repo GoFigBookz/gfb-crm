@@ -1500,3 +1500,43 @@ export const taxSlipEntries = sqliteTable("tax_slip_entries", {
   notes: text("notes"),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// ---------------------------------------------------------------------------
+// INTER-COMPANY (interco) JOURNAL TRACKER
+// One entity fronts costs for related entities (e.g. 2303851 Ontario pays for
+// Motion Invest / Seahorse payroll), then a monthly "Due to #co" JE trues it up
+// between the books. This tracks those bill-backs per month, gates on "all
+// source txns posted in QBO", and generates a DRAFT settlement JE for review.
+// STAGING + REVIEW ONLY — never posts to QBO (posters stay OFF, golden rule).
+// Numbers pull from QBO once the connection is live; manual entry until then.
+// GL accounts are user-picked from the LOCKED chart — Figgy never invents one.
+export const intercoPeriods = sqliteTable("interco_periods", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  period: text("period").notNull(),                 // "YYYY-MM"
+  payerClientId: integer("payerClientId").notNull(),// entity that fronts the costs
+  // Readiness gate: confirmed all source txns / Visa statements posted in QBO.
+  sourcePosted: integer("sourcePosted", { mode: "boolean" }).default(false),
+  sourcePostedBy: integer("sourcePostedBy"),
+  sourcePostedAt: integer("sourcePostedAt", { mode: "timestamp" }),
+  intercoAccount: text("intercoAccount"),           // due-to/from GL, e.g. "1310 Interco:2303851 Ontario"
+  offsetAccount: text("offsetAccount"),             // contra GL (bank/clearing/expense) — locked chart
+  status: text("status", { enum: ["open", "ready", "posted"] }).default("open").notNull(),
+  postedJeRef: text("postedJeRef"),                 // QBO JE number once posted (recorded by hand)
+  notes: text("notes"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+export const intercoEntries = sqliteTable("interco_entries", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  period: text("period").notNull(),                 // "YYYY-MM"
+  payerClientId: integer("payerClientId").notNull(),       // who fronted the cost
+  counterpartyClientId: integer("counterpartyClientId").notNull(), // who benefited / owes
+  description: text("description"),                  // memo, e.g. "Paid by 230 — MI payroll"
+  category: text("category"),                        // payroll / expense reimb / reclass / transfer
+  amount: real("amount").default(0),                 // positive = counterparty owes payer
+  source: text("source", { enum: ["manual", "qbo"] }).default("manual").notNull(),
+  sourceRef: text("sourceRef"),                      // QBO txn id when pulled
+  createdBy: integer("createdBy"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

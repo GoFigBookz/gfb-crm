@@ -24,14 +24,21 @@ Scope when unblocked:
 - Optional: a browser/computer-use *fetch* agent ONLY for no-API sources
   (e.g. pulling Visa statement PDFs from a bank portal with no feed).
 
-## 2. Interco journal tracker — 2303851 / Motion Invest / Fractal (MED)
+## 2. Interco journal tracker — ✅ STAGING BUILT (2026-06-20)
 230 ("numbered co") pays expenses for the other entities on its credit card and
-bills them back via inter-company JEs each month. Want to pull a report from QBO
-(230) and push the bill-back JE to the interco accounts, as seamless as possible.
-- **Hard prerequisite/gate:** Visa statements + ALL transactions must be POSTED
-  in QBO first → a monthly readiness gate that blocks generation.
-- All numbers come from QBO (source of truth). Manual/staging version buildable
-  now; QBO pull + push slot in once the connection is live.
+bills them back via inter-company JEs each month.
+- **BUILT (staging/review):** `/interco` page + `interco` tRPC router +
+  `interco_periods`/`interco_entries` tables. Pick paying entity + month → log
+  bill-back entries → **readiness gate** ("all source txns + Visa posted in QBO",
+  manual confirm for now) → nets per counterparty → generates a **balanced draft
+  settlement JE** (copy-to-clipboard) → "Mark posted" (gated on readiness, records
+  JE#). Accounts are user-picked from the locked chart — never invented. Posters
+  stay OFF (review-only). JE builder unit-tested (`api/interco-router.test.ts`).
+- **REMAINING (needs live QBO connection):** auto-PULL the bill-back amounts from
+  230's QBO (TransactionList/Purchase report) instead of manual entry, and
+  auto-CHECK the readiness gate against QBO (are all txns posted?). Push of the JE
+  stays manual by golden rule (review gate). Slots into the same router once the
+  connection is live.
 
 ## 3. 2303851 / Fractal / Motion Invest roster import (LOW)
 Old combined sheet located + parsed (see FIGGY_JR_ORIGINALITY_GROUP_PAYROLL.md).
