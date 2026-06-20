@@ -52,12 +52,15 @@ export type QuoteScope = {
 
 export type LineItem = { label: string; amount: number; rationale: string };
 
+export type PackageOption = { name: string; price: number };
+
 export type QuoteResult = {
   tier: string;
   transactions: number;
   monthlyLineItems: LineItem[];
   recurringMonthly: number;       // rounded, the headline scope-based monthly price
   recurringRange: { low: number; high: number }; // ±15% band
+  nearestPackage: PackageOption;  // closest clean marketable package to the calc
   oneTimeLineItems: LineItem[];
   oneTimeTotal: number;
 };
@@ -115,6 +118,24 @@ export const RATE_CARD = {
   catchUpPerMonthBehind: 100,
   onboardingSetup: 250,      // COA review, software + bank-feed setup, connections
 } as const;
+
+/** Clean, marketable monthly packages. The quote shows the precise calculated
+ *  number AND the closest of these so Markie can pick a tidy price point. */
+export const PACKAGES: PackageOption[] = [
+  { name: "Lite", price: 300 },
+  { name: "Starter", price: 500 },
+  { name: "Standard", price: 750 },
+  { name: "Growth", price: 1000 },
+  { name: "Pro", price: 1500 },
+  { name: "Premium", price: 2000 },
+  { name: "Enterprise", price: 3000 },
+];
+
+/** The package whose price is closest to the calculated monthly figure. */
+export function nearestPackage(monthly: number): PackageOption {
+  return PACKAGES.reduce((best, p) =>
+    Math.abs(p.price - monthly) < Math.abs(best.price - monthly) ? p : best, PACKAGES[0]);
+}
 
 function round5(n: number): number { return Math.round(n / 5) * 5; }
 
@@ -266,6 +287,7 @@ export function computeQuote(scope: QuoteScope): QuoteResult {
     monthlyLineItems: items.map((i) => ({ ...i, amount: Math.round(i.amount * 100) / 100 })),
     recurringMonthly,
     recurringRange: { low: round5(recurringMonthly * 0.85), high: round5(recurringMonthly * 1.15) },
+    nearestPackage: nearestPackage(recurringMonthly),
     oneTimeLineItems: oneTime,
     oneTimeTotal,
   };

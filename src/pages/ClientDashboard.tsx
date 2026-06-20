@@ -310,6 +310,11 @@ export default function ClientDashboard() {
                 <p className="text-xs text-slate-400">${quote.quote.recurringRange.low}–${quote.quote.recurringRange.high}/mo</p>
               </div>
               <div>
+                <p className="text-xs uppercase font-semibold text-slate-500">Closest package</p>
+                <p className="text-2xl font-bold text-slate-900">${quote.quote.nearestPackage.price}</p>
+                <p className="text-xs text-slate-400">{quote.quote.nearestPackage.name} package</p>
+              </div>
+              <div>
                 <p className="text-xs uppercase font-semibold text-slate-500">Gap</p>
                 <p className={cn("text-2xl font-bold",
                   quote.comparison.verdict === "undercharging" ? "text-red-600" :

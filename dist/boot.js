@@ -45847,10 +45847,15 @@ var init_month_end_router = __esm({
 // api/quote-core.ts
 var quote_core_exports = {};
 __export(quote_core_exports, {
+  PACKAGES: () => PACKAGES,
   RATE_CARD: () => RATE_CARD,
   compareToFlatFee: () => compareToFlatFee,
-  computeQuote: () => computeQuote
+  computeQuote: () => computeQuote,
+  nearestPackage: () => nearestPackage
 });
+function nearestPackage(monthly) {
+  return PACKAGES.reduce((best, p) => Math.abs(p.price - monthly) < Math.abs(best.price - monthly) ? p : best, PACKAGES[0]);
+}
 function round5(n) {
   return Math.round(n / 5) * 5;
 }
@@ -45976,6 +45981,7 @@ function computeQuote(scope) {
     monthlyLineItems: items.map((i) => ({ ...i, amount: Math.round(i.amount * 100) / 100 })),
     recurringMonthly,
     recurringRange: { low: round5(recurringMonthly * 0.85), high: round5(recurringMonthly * 1.15) },
+    nearestPackage: nearestPackage(recurringMonthly),
     oneTimeLineItems: oneTime,
     oneTimeTotal
   };
@@ -46023,7 +46029,7 @@ function compareToFlatFee(recurringMonthly, flatFee) {
     message: `Flat fee $${flat} is in line with the scope-based $${recurringMonthly} (within 10%).`
   };
 }
-var RATE_CARD;
+var RATE_CARD, PACKAGES;
 var init_quote_core = __esm({
   "api/quote-core.ts"() {
     RATE_CARD = {
@@ -46080,6 +46086,15 @@ var init_quote_core = __esm({
       onboardingSetup: 250
       // COA review, software + bank-feed setup, connections
     };
+    PACKAGES = [
+      { name: "Lite", price: 300 },
+      { name: "Starter", price: 500 },
+      { name: "Standard", price: 750 },
+      { name: "Growth", price: 1e3 },
+      { name: "Pro", price: 1500 },
+      { name: "Premium", price: 2e3 },
+      { name: "Enterprise", price: 3e3 }
+    ];
   }
 });
 
