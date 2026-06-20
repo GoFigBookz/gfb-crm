@@ -46426,6 +46426,46 @@ var init_client_request_router = __esm({
   }
 });
 
+// api/sms-ai.ts
+async function draftSmsReply(opts) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey || process.env.FIGGY_SMS_AI === "off") return null;
+  const model = process.env.FIGGY_SMS_MODEL || "claude-haiku-4-5";
+  const recent = opts.thread.slice(-10);
+  if (!recent.some((t2) => t2.direction === "inbound")) return null;
+  const transcript = recent.map((t2) => `${t2.direction === "inbound" ? "Client" : "Us"}: ${t2.body}`).join("\n");
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 15e3);
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({
+        model,
+        max_tokens: 300,
+        system: `You are the assistant for Go Fig Bookz, a Canadian bookkeeping firm${opts.clientName ? `, replying to the client "${opts.clientName}"` : ""}. Draft a SHORT, warm, professional SMS reply to the client's latest message. Rules: one or two sentences, plain text (no markdown), no emojis unless the client used them. NEVER invent financial figures, dates, balances, or filing statuses \u2014 if specifics are needed, say you'll check and follow up. If the message clearly needs the bookkeeper/owner, acknowledge it and say someone will follow up. Reply with ONLY the message text, nothing else.`,
+        messages: [{ role: "user", content: `Conversation so far:
+${transcript}
+
+Draft our reply:` }]
+      })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const text2 = (data?.content ?? []).filter((b) => b?.type === "text").map((b) => String(b.text ?? "")).join(" ").trim();
+    return text2 || null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+var init_sms_ai = __esm({
+  "api/sms-ai.ts"() {
+  }
+});
+
 // api/message-router.ts
 var message_router_exports = {};
 __export(message_router_exports, {
@@ -46458,7 +46498,30 @@ async function ingestInboundSms(from, body, externalId) {
     externalId: externalId ? String(externalId) : null,
     read: false
   }).returning();
+  if (process.env.FIGGY_SMS_AUTORESPOND === "on" && client) {
+    maybeAutoRespond(counterparty, client).catch(() => {
+    });
+  }
   return row;
+}
+async function maybeAutoRespond(counterparty, client) {
+  const db = getDb();
+  const rows = await db.select().from(smsMessages).where(eq(smsMessages.counterparty, counterparty)).orderBy(smsMessages.createdAt);
+  const thread = rows.map((m) => ({ direction: m.direction, body: m.body }));
+  const reply = await draftSmsReply({ clientName: client.name, thread });
+  if (!reply) return;
+  const sent = await gatewaySend(counterparty, reply);
+  await db.insert(smsMessages).values({
+    clientId: client.id,
+    direction: "outbound",
+    counterparty,
+    body: reply,
+    status: sent.ok ? "sent" : "failed",
+    externalId: sent.id ?? null,
+    read: true,
+    sentBy: null
+    // null = sent by the AI auto-responder
+  });
 }
 async function gatewaySend(toDigits, body) {
   const url2 = process.env.SMS_GATEWAY_URL;
@@ -46486,6 +46549,7 @@ var init_message_router = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+    init_sms_ai();
     messageRouter = createRouter({
       // Conversation list: one entry per counterparty, latest message + unread count.
       threads: staffQuery.query(async () => {
@@ -46540,8 +46604,23 @@ var init_message_router = __esm({
         }).returning();
         return { success: sent.ok, error: sent.error, message: row };
       }),
+      // AI-drafted reply suggestion for a thread (read-only — does NOT send).
+      suggestReply: staffQuery.input(external_exports.object({ counterparty: external_exports.string() })).mutation(async ({ input }) => {
+        const db = getDb();
+        const cp = normalizePhone(input.counterparty);
+        const rows = await db.select().from(smsMessages).where(eq(smsMessages.counterparty, cp)).orderBy(smsMessages.createdAt);
+        const client = await matchClientByPhone(cp);
+        const thread = rows.map((m) => ({ direction: m.direction, body: m.body }));
+        const reply = await draftSmsReply({ clientName: client?.name, thread });
+        if (!reply) return { ok: false, reason: "AI reply unavailable (set ANTHROPIC_API_KEY, or no inbound message to reply to)." };
+        return { ok: true, reply };
+      }),
       // Whether outbound sending is wired up yet (UI hint).
-      gatewayStatus: staffQuery.query(() => ({ configured: !!(process.env.SMS_GATEWAY_URL && process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASS) }))
+      gatewayStatus: staffQuery.query(() => ({
+        configured: !!(process.env.SMS_GATEWAY_URL && process.env.SMS_GATEWAY_USER && process.env.SMS_GATEWAY_PASS),
+        aiConfigured: !!process.env.ANTHROPIC_API_KEY && process.env.FIGGY_SMS_AI !== "off",
+        autoRespond: process.env.FIGGY_SMS_AUTORESPOND === "on"
+      }))
     });
   }
 });
