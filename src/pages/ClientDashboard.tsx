@@ -119,6 +119,13 @@ export default function ClientDashboard() {
   const deleteTask = trpc.task.delete.useMutation({ onSuccess: invalidateTasks });
   const [editingTask, setEditingTask] = useState<any | null>(null);
   const [editingQuote, setEditingQuote] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
+  const { data: workflows } = trpc.task.listWorkflows.useQuery();
+  const createTask = trpc.task.create.useMutation({ onSuccess: () => { invalidateTasks(); setCreatingTask(false); } });
+  const applyWorkflow = trpc.task.applyWorkflow.useMutation({
+    onSuccess: (r) => { invalidateTasks(); alert(`Added ${r.created} tasks from "${r.templateName}".`); },
+    onError: (e) => alert(`Could not apply workflow: ${e.message}`),
+  });
 
   if (!client) {
     return (
@@ -621,8 +628,34 @@ export default function ClientDashboard() {
           {/* OPEN tasks — actionable */}
           <Card>
             <CardHeader>
-              <CardTitle>Open Tasks ({openTasks.length})</CardTitle>
-              <CardDescription>Click the circle to mark done. Recurring tasks auto-create the next one.</CardDescription>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle>Open Tasks ({openTasks.length})</CardTitle>
+                  <CardDescription>Click the circle to mark done. Recurring tasks auto-create the next one.</CardDescription>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button size="sm" variant="outline" className="h-8" onClick={() => setCreatingTask(true)}>
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Add task
+                  </Button>
+                  <Select
+                    onValueChange={(key) => {
+                      const wf = workflows?.find(w => w.key === key);
+                      if (wf && confirm(`Apply the "${wf.name}" workflow? This adds ${wf.stepCount} tasks to ${client.name}.`)) {
+                        applyWorkflow.mutate({ clientId: id, templateKey: key });
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-[160px] text-sm">
+                      <SelectValue placeholder="＋ Apply workflow" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {workflows?.map(w => (
+                        <SelectItem key={w.key} value={w.key}>{w.name} ({w.stepCount})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {openTasks.length > 0 ? (
@@ -701,6 +734,14 @@ export default function ClientDashboard() {
               task={editingTask}
               onClose={() => setEditingTask(null)}
               onSave={(data: any) => { updateTask.mutate({ id: editingTask.id, ...data }); setEditingTask(null); }}
+            />
+          )}
+          {creatingTask && (
+            <EditTaskDialog
+              task={{ title: "", category: "", priority: "medium", description: "", assignedTo: client.assignedTo || "" }}
+              isNew
+              onClose={() => setCreatingTask(false)}
+              onSave={(data: any) => { createTask.mutate({ clientId: id, ...data }); }}
             />
           )}
         </TabsContent>
@@ -1314,8 +1355,8 @@ function QuoteEditorDialog({ clientId, quote, onClose, onGenerate, isPending }: 
 }
 
 // Edit Task Dialog Component
-function EditTaskDialog({ task, onClose, onSave }: {
-  task: any; onClose: () => void; onSave: (data: any) => void;
+function EditTaskDialog({ task, onClose, onSave, isNew }: {
+  task: any; onClose: () => void; onSave: (data: any) => void; isNew?: boolean;
 }) {
   const [title, setTitle] = useState(task.title || "");
   const [category, setCategory] = useState(task.category || "");
@@ -1327,7 +1368,7 @@ function EditTaskDialog({ task, onClose, onSave }: {
     <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Edit className="h-4 w-4" /> Edit Task</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">{isNew ? <><Plus className="h-4 w-4" /> New Task</> : <><Edit className="h-4 w-4" /> Edit Task</>}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div>
@@ -1370,7 +1411,7 @@ function EditTaskDialog({ task, onClose, onSave }: {
               priority,
               description,
               ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
-            })}>Save</Button>
+            })} disabled={!title.trim()}>{isNew ? "Create" : "Save"}</Button>
           </div>
         </div>
       </DialogContent>
