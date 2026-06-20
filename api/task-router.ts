@@ -16,7 +16,7 @@ export const taskRouter = createRouter({
       status: z.enum(["pending", "in_progress", "completed", "overdue", "all"]).optional().default("all"),
       priority: z.enum(["low", "medium", "high", "all"]).optional().default("all"),
       completed: z.boolean().optional(),
-      limit: z.number().min(1).max(100).optional().default(50),
+      limit: z.number().min(1).max(2000).optional().default(500),
       offset: z.number().min(0).optional().default(0),
     }).optional())
     .query(async ({ ctx, input }) => {

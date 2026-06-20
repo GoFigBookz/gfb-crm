@@ -589,6 +589,44 @@ app.post("/api/admin/figgy", async (c) => {
       const { dedupeTasks } = await import("./dedupe-tasks");
       return c.json({ success: true, op, ...(await dedupeTasks()) });
     }
+    if (op === "tasks") {
+      // Read-only: diagnose why the calendar may look empty — how many tasks
+      // exist, how many have due dates, completion split, and a small sample.
+      const { getDb } = await import("./queries/connection");
+      const { tasks } = await import("../db/schema");
+      const db = getDb();
+      const all = await db.select().from(tasks);
+      const withDue = (all as any[]).filter((t) => t.dueDate != null);
+      const openWithDue = withDue.filter((t) => !t.completed);
+      const sample = (all as any[]).slice(0, 15).map((t) => ({
+        id: t.id, title: t.title, clientId: t.clientId, dueDate: t.dueDate,
+        completed: t.completed, status: t.status, stage: t.stage, userId: t.userId,
+      }));
+      return c.json({
+        success: true, op, total: all.length,
+        withDueDate: withDue.length, openWithDueDate: openWithDue.length,
+        completed: (all as any[]).filter((t) => t.completed).length,
+        sample,
+      });
+    }
+    if (op === "backfillDueDates") {
+      // One-shot: give every open task that has NO due date a sensible date so
+      // it shows on the calendar. Spreads them across the next 10 business-ish
+      // days by client so they don't all stack on today.
+      const { getDb } = await import("./queries/connection");
+      const { tasks } = await import("../db/schema");
+      const { eq } = await import("drizzle-orm");
+      const db = getDb();
+      const all = await db.select().from(tasks);
+      const open = (all as any[]).filter((t) => !t.completed && t.dueDate == null);
+      let i = 0; const updated: number[] = [];
+      for (const t of open) {
+        const d = new Date(); d.setHours(9, 0, 0, 0); d.setDate(d.getDate() + (i % 10) + 1);
+        await db.update(tasks).set({ dueDate: d }).where(eq(tasks.id, t.id));
+        updated.push(t.id); i++;
+      }
+      return c.json({ success: true, op, updated: updated.length });
+    }
     if (op === "onbget") {
       // Read-only: a client's persisted intake-driving fields (diagnose edits).
       const clientId = Number(c.req.query("clientId") || body?.clientId);

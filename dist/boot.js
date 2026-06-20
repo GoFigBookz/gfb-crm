@@ -40964,7 +40964,7 @@ var init_task_router = __esm({
         status: external_exports.enum(["pending", "in_progress", "completed", "overdue", "all"]).optional().default("all"),
         priority: external_exports.enum(["low", "medium", "high", "all"]).optional().default("all"),
         completed: external_exports.boolean().optional(),
-        limit: external_exports.number().min(1).max(100).optional().default(50),
+        limit: external_exports.number().min(1).max(2e3).optional().default(500),
         offset: external_exports.number().min(0).optional().default(0)
       }).optional()).query(async ({ ctx, input }) => {
         const db = getDb();
@@ -55709,6 +55709,52 @@ app.post("/api/admin/figgy", async (c) => {
     if (op === "dedupeTasks") {
       const { dedupeTasks: dedupeTasks2 } = await Promise.resolve().then(() => (init_dedupe_tasks(), dedupe_tasks_exports));
       return c.json({ success: true, op, ...await dedupeTasks2() });
+    }
+    if (op === "tasks") {
+      const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+      const { tasks: tasks4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const db = getDb2();
+      const all = await db.select().from(tasks4);
+      const withDue = all.filter((t2) => t2.dueDate != null);
+      const openWithDue = withDue.filter((t2) => !t2.completed);
+      const sample = all.slice(0, 15).map((t2) => ({
+        id: t2.id,
+        title: t2.title,
+        clientId: t2.clientId,
+        dueDate: t2.dueDate,
+        completed: t2.completed,
+        status: t2.status,
+        stage: t2.stage,
+        userId: t2.userId
+      }));
+      return c.json({
+        success: true,
+        op,
+        total: all.length,
+        withDueDate: withDue.length,
+        openWithDueDate: openWithDue.length,
+        completed: all.filter((t2) => t2.completed).length,
+        sample
+      });
+    }
+    if (op === "backfillDueDates") {
+      const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+      const { tasks: tasks4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const db = getDb2();
+      const all = await db.select().from(tasks4);
+      const open = all.filter((t2) => !t2.completed && t2.dueDate == null);
+      let i = 0;
+      const updated = [];
+      for (const t2 of open) {
+        const d = /* @__PURE__ */ new Date();
+        d.setHours(9, 0, 0, 0);
+        d.setDate(d.getDate() + i % 10 + 1);
+        await db.update(tasks4).set({ dueDate: d }).where(eq3(tasks4.id, t2.id));
+        updated.push(t2.id);
+        i++;
+      }
+      return c.json({ success: true, op, updated: updated.length });
     }
     if (op === "onbget") {
       const clientId = Number(c.req.query("clientId") || body?.clientId);

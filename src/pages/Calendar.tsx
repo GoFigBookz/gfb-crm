@@ -78,6 +78,10 @@ export default function CalendarPage() {
   ];
   const itemsForDay = (date: Date) => items.filter((it) => isSameDay(it.date, date)).sort((a, b) => a.date.getTime() - b.date.getTime());
 
+  // Open tasks with NO due date — they can't sit on a calendar grid, so show
+  // them in a tray you can drag onto any day to schedule.
+  const unscheduled = (allTasks || []).filter((t: any) => !t.dueDate && !t.completed);
+
   const title = view === "year" ? format(currentDate, "yyyy")
     : view === "day" ? format(currentDate, "EEEE, MMMM d, yyyy")
     : view === "week" ? `${format(startOfWeek(currentDate), "MMM d")} – ${format(endOfWeek(currentDate), "MMM d, yyyy")}`
@@ -155,6 +159,34 @@ export default function CalendarPage() {
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-200 inline-block" /> Task due</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-200 inline-block" /> Overdue</span>
       </div>
+
+      {/* Unscheduled tasks tray — drag any of these onto a day to schedule it */}
+      {unscheduled.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/40">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckSquare className="h-4 w-4 text-amber-600" />
+              <span className="text-sm font-semibold text-slate-700">Unscheduled tasks ({unscheduled.length})</span>
+              <span className="text-xs text-slate-500">— drag onto a day to schedule, or click to edit</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {unscheduled.map((t: any) => (
+                <div key={t.id} draggable
+                  onDragStart={(e) => { setDraggingTaskId(t.id); e.dataTransfer.effectAllowed = "move"; }}
+                  onDragEnd={() => { setDraggingTaskId(null); setDragOverKey(null); }}
+                  onClick={() => setOpenTask(t)}
+                  className={cn("text-xs px-2 py-1 rounded border bg-white cursor-grab active:cursor-grabbing hover:shadow-sm flex items-center gap-1 max-w-[240px]",
+                    draggingTaskId === t.id && "opacity-40")}
+                  title={t.title}>
+                  <CheckSquare className="h-3 w-3 shrink-0 text-amber-500" />
+                  <span className="truncate">{t.title}</span>
+                  {t.clientId && clientName(t.clientId) && <span className="text-[10px] text-slate-400 shrink-0">· {clientName(t.clientId)}</span>}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card><CardContent className="p-4 md:p-6">
         {/* ── MONTH ── */}
