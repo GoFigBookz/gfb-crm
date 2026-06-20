@@ -11220,13 +11220,13 @@ function _promise(Class2, innerType) {
 }
 // @__NO_SIDE_EFFECTS__
 function _custom(Class2, fn, _params) {
-  const norm3 = normalizeParams(_params);
-  norm3.abort ?? (norm3.abort = true);
+  const norm4 = normalizeParams(_params);
+  norm4.abort ?? (norm4.abort = true);
   const schema = new Class2({
     type: "custom",
     check: "custom",
     fn,
-    ...norm3
+    ...norm4
   });
   return schema;
 }
@@ -49942,6 +49942,86 @@ var init_ensure_clients_schema = __esm({
   }
 });
 
+// api/link-drive-folders.ts
+var link_drive_folders_exports = {};
+__export(link_drive_folders_exports, {
+  GFB_CLIENTS_PARENT_FOLDER_ID: () => GFB_CLIENTS_PARENT_FOLDER_ID,
+  GFB_INACTIVE_FOLDER_ID: () => GFB_INACTIVE_FOLDER_ID,
+  linkDriveFolders: () => linkDriveFolders
+});
+async function linkDriveFolders() {
+  const db = getDb();
+  const all = await db.select().from(clients);
+  let linked = 0, alreadySet = 0;
+  const unmatched = [];
+  for (const c of all) {
+    const folderId = NAME_TO_FOLDER[norm3(c.name)] ?? NAME_TO_FOLDER[norm3(c.company)];
+    if (!folderId) {
+      unmatched.push(c.name);
+      continue;
+    }
+    if (c.driveFolderUrl) {
+      alreadySet++;
+      continue;
+    }
+    try {
+      await db.update(clients).set({ driveFolderUrl: folderUrl(folderId) }).where(eq(clients.id, c.id));
+      linked++;
+    } catch (e) {
+      console.error("[drive-link] failed for", c.name, ":", e instanceof Error ? e.message : e);
+    }
+  }
+  if (linked) console.log(`[drive-link] linked ${linked} clients to Drive folders (${alreadySet} already set)`);
+  if (unmatched.length) console.log(`[drive-link] no folder mapping for: ${unmatched.join(", ")}`);
+  return { linked, alreadySet, unmatched };
+}
+var GFB_CLIENTS_PARENT_FOLDER_ID, GFB_INACTIVE_FOLDER_ID, folderUrl, norm3, NAME_TO_FOLDER;
+var init_link_drive_folders = __esm({
+  "api/link-drive-folders.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    GFB_CLIENTS_PARENT_FOLDER_ID = "1OdxTvo0DiWnDL0e9g2ii6eG5ysBke_0G";
+    GFB_INACTIVE_FOLDER_ID = "1GW6V_LAwGiqpM6KRtelZOS5k5jTJmvdg";
+    folderUrl = (id) => `https://drive.google.com/drive/folders/${id}`;
+    norm3 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    NAME_TO_FOLDER = {
+      "originality ai inc": "1aaqB12rJ5Ou4kX_tWF24JFq7OjEXHL2o",
+      "clark pools and spas collingwood inc": "10qXdEt4KVgW2w3s5VOIph1chSFPUErtH",
+      "clark pools and spas owen sound inc": "1eYu1sXe3jRIR4z-WzSzTGNXWS_12UbDt",
+      "west york paving ltd": "1LlGVkPyMnZ46IPs9UPY66ws3IR_2bAxo",
+      "1000235299 ontario ltd the auld spot pub": "1RYy_SiBp-Qlkl8AxurIWXnbHDHtx8J1F",
+      "1001196626 ontario ltd sher e punjab": "1pbNsufSywSXkETjYRTg8zFeqBxBpnuWy",
+      "king industries inc": "18LARx2KKXk2WIedta-6EBgAztgF5PAKj",
+      "ovita construction ltd": "1AqBz0TK1QcDtDVi1vrXhc4vc2v7Pumru",
+      "ovita holdings inc": "1ZLkgFq68jqkXQNZYWNulW_YMLNzb_9hT",
+      "universal construction group inc": "1vINZgScLvvQtvFAc6xJK-IJXcDCmrM2h",
+      "align by design hd inc": "1RDYytzByINcfnPMkLXnek9Hv6mcLssfM",
+      "gotomarket agility inc": "1-jLpF0TIZ4AUzxETxovgILnvUSzZZRxZ",
+      "adbank inc": "17hK0koClzPBJ5uyWDUEDMm9RR9xRalJI",
+      "motion invest inc": "126E4nVOp9xpyJeFvftMfjWdUAVQb_3xn",
+      "fractal saas inc": "1XiwLjwuQjAC23w3Tci-MHBEd_SRG6L2d",
+      "listingeagle com inc": "14yjTLms7pqbdzIZdyOfPs8orC1juRjiT",
+      "marketing strategy ventures inc": "1tI9o-OSThIskTvG0SqQnIXbJu-rWgBCm",
+      "seahorse health inc": "15GWhR8EchsoQlW_POfZyJJLrk5hLhTZv",
+      "m m kapala medicine professional corporation": "1d8kUnetOrHb2h1b7weOTFD3yJYMyRAbX",
+      "alderson developments ltd": "1-bxKE4CGXC_RDU10XdFAS8FpWmBEklOU",
+      "2303851 ontario inc": "1FQw4yxOHXU9yDilc9Jy5yP1cKbBQaNCQ",
+      "studio lella inc": "1TK6OzAZ4pD4Gms-5rhNL3YDShIbd10VD",
+      "dark horse intelligence inc": "12_ebmsvtGlQYbGmU9mE7Bwva0LNdc4mv",
+      "12738988 canada inc": "1XqpieuAB3eKiPpVYqgKgepkMblDl7L7B",
+      "1001411380 ontario inc columbus cafe": "1bxUtm6PF18DLKwarERlDDKvoEsi6Aoni",
+      "align plumbing inc": "1FwrtszqS4vqFgXXjPYg62QzxSUVJL0Lc",
+      "aim construction inc": "1VOnQyqFHB5o4TAcErQYCgOWIXrF_j5Ef",
+      "selective painting": "1F9C8GeZHWhT__YMaiWChiyvqV8XD9ft8",
+      "laing scientific": "1dGeUTCbltTi0G0mEm9fH6VEuT1DE0Iwc",
+      "fleming advisory inc fka kaavio": "1ynQJzY3sffTICdqU8cWoenW5ZhRxz_o3",
+      "unimax usa": "1-iKPbFSUZ5YJSijbiCwFzpvbH4UCHaim",
+      "dock kings inc": "1kntRZ07OMtnAj1LH_wELZwevW43sexj4"
+    };
+  }
+});
+
 // api/sync-scheduler.ts
 var sync_scheduler_exports = {};
 __export(sync_scheduler_exports, {
@@ -54839,6 +54919,13 @@ async function startServer() {
       if (r.fixed) console.log(`[remitter] corrected ${r.fixed} clients`);
     } catch (e) {
       console.error("[remitter] overrides failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { linkDriveFolders: linkDriveFolders2 } = await Promise.resolve().then(() => (init_link_drive_folders(), link_drive_folders_exports));
+      const r = await linkDriveFolders2();
+      console.log(`[drive-link] linked ${r.linked}, already ${r.alreadySet}, unmatched ${r.unmatched.length}`);
+    } catch (e) {
+      console.error("[drive-link] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
   }
   const { ensureBridgeReady: ensureBridgeReady2 } = await Promise.resolve().then(() => (init_bridge_bootstrap(), bridge_bootstrap_exports));
