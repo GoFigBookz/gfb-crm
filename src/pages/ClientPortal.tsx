@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useSearchParams } from "react-router";
 import { Upload, CheckCircle, Clock, AlertTriangle, FileText, DollarSign, Calendar, ChevronRight, CheckSquare, Send, ArrowLeft, LogOut, FolderOpen, ExternalLink, FileSignature, PenLine, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,8 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 
 export default function ClientPortal() {
   const { token } = useParams<{ token: string }>();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
   const [submittingId, setSubmittingId] = useState<number | null>(null);
   const [signingDoc, setSigningDoc] = useState<number | null>(null);
   const [signatureName, setSignatureName] = useState("");
@@ -51,6 +52,7 @@ export default function ClientPortal() {
 
   const signDocument = trpc.signature.sign.useMutation({
     onSuccess: () => { setSigningDoc(null); setSignatureName(""); window.location.reload(); },
+    onError: (e) => alert(`Could not sign: ${e.message}`),
   });
 
   if (isLoading) {
@@ -148,8 +150,11 @@ export default function ClientPortal() {
                     {pendingSigs.length} document{pendingSigs.length > 1 ? "s" : ""} awaiting your signature
                   </p>
                   <p className="text-sm text-blue-700">
-                    Please review and sign the documents in the Documents tab.
+                    Please review and sign in the Signatures tab.
                   </p>
+                  <Button size="sm" className="mt-2 bg-blue-600 hover:bg-blue-700" onClick={() => setActiveTab("signatures")}>
+                    Review &amp; sign now
+                  </Button>
                 </div>
               </div>
             </CardContent>

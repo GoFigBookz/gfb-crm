@@ -48,7 +48,7 @@ export async function createAndSendDoc(opts: {
     portalToken: token, sentAt: new Date(), sentBy: opts.userId,
     expiresAt: new Date(Date.now() + 30 * 86400000),
   }).returning();
-  return { documentId: doc.id, portalUrl: `/portal/${token}?tab=documents` };
+  return { documentId: doc.id, portalUrl: `/portal/${token}?tab=signatures` };
 }
 
 function servicesFromClient(client: any): string[] {
@@ -154,7 +154,7 @@ export const quoteRouter = createRouter({
         .orderBy(desc(signatureDocuments.id));
       return rows.map((d: any) => ({
         id: d.id, title: d.title, documentType: d.documentType, status: d.status,
-        portalUrl: d.portalToken ? `/portal/${d.portalToken}?tab=documents` : null,
+        portalUrl: d.portalToken ? `/portal/${d.portalToken}?tab=signatures` : null,
         sentAt: d.sentAt, signedAt: d.signedAt, signedBy: d.signedBy,
       }));
     }),
