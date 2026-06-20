@@ -46228,11 +46228,11 @@ var init_quote_core = __esm({
       // Core bookkeeping is priced PER TRANSACTION — $2.50/txn at low volume sliding
       // down to $1.50/txn at high volume. base = transactions × the band's rate.
       perTransactionRate: [
-        { max: 50, rate: 2.5, label: "$2.50/txn" },
-        { max: 100, rate: 2.25, label: "$2.25/txn" },
-        { max: 200, rate: 2, label: "$2.00/txn" },
-        { max: 400, rate: 1.75, label: "$1.75/txn" },
-        { max: Infinity, rate: 1.5, label: "$1.50/txn" }
+        { max: 50, rate: 1.75, label: "$1.75/txn" },
+        { max: 100, rate: 1.6, label: "$1.60/txn" },
+        { max: 200, rate: 1.5, label: "$1.50/txn" },
+        { max: 400, rate: 1.4, label: "$1.40/txn" },
+        { max: Infinity, rate: 1.25, label: "$1.25/txn" }
       ],
       // How often we actually do the books changes the recurring labour.
       bookkeepingFrequencyMultiplier: { monthly: 1, quarterly: 0.7, annual: 0.45, none: 0.4 },
