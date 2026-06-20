@@ -137,7 +137,7 @@ export default function Payroll() {
               {/* Revenue-share reference (Originality) — the live P&L the % is
                   taken from, plus the formula. Kept here so it's one click away
                   when running the monthly commission. */}
-              {selected.name.toLowerCase().includes("originality") && (
+              {(selected as any).payrollRevenueShare && selected.name.toLowerCase().includes("originality") && (
                 <Card className="border-emerald-200 bg-emerald-50/40">
                   <CardContent className="p-3 text-sm text-slate-700 space-y-1.5">
                     <div className="flex items-center gap-2 font-medium text-emerald-800">
@@ -207,17 +207,16 @@ export default function Payroll() {
                             </div>
                           </CardContent>
                         </Card>
-                        {openRunId === r.id && <RunDetail runId={r.id} onEditEmployee={setEditingEmp} onDelete={() => { if (confirm("Delete this pay run?")) deleteRun.mutate({ runId: r.id }); }} />}
+                        {openRunId === r.id && <RunDetail runId={r.id} features={selected} onEditEmployee={setEditingEmp} onDelete={() => { if (confirm("Delete this pay run?")) deleteRun.mutate({ runId: r.id }); }} />}
                       </div>
                     ))}
                   </div>
                 )}
 
-              {/* CRA withholding reconciliation only applies to Originality's
-                  revenue-share employees (lumpy variable pay risks under-
-                  withholding). Other payrolls are fixed salary/hourly and
-                  don't need it, so we don't clutter their view. */}
-              {selected.name.toLowerCase().includes("originality") && (
+              {/* CRA withholding reconciliation — shown for clients that have the
+                  "CRA comparison" feature enabled on their card (lumpy variable
+                  pay risks under-withholding). Other payrolls don't need it. */}
+              {(selected as any).payrollCraComparison && (
                 <TaxReconPanel clientId={selected.id} highlight />
               )}
             </>
@@ -256,7 +255,11 @@ export default function Payroll() {
   );
 }
 
-function RunDetail({ runId, onDelete, onEditEmployee }: { runId: number; onDelete: () => void; onEditEmployee: (emp: any) => void }) {
+function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: number; features?: any; onDelete: () => void; onEditEmployee: (emp: any) => void }) {
+  // Which optional columns to show, from the client's payroll feature flags.
+  const showBonus = !!(features?.payrollBonuses || features?.payrollRevenueShare);
+  const showPhone = !!features?.payrollPhoneAllowance;
+  const showReimb = !!features?.payrollReimbursements;
   const utils = trpc.useUtils();
   const { data } = trpc.payroll.getRun.useQuery({ runId });
   const invalidate = () => { utils.payroll.getRun.invalidate({ runId }); if (data?.run.clientId) utils.payroll.listRuns.invalidate({ clientId: data.run.clientId }); };
@@ -306,18 +309,20 @@ function RunDetail({ runId, onDelete, onEditEmployee }: { runId: number; onDelet
                   <th className="text-right px-1">Reg hrs</th>
                   <th className="text-right px-1">OT</th>
                   <th className="text-right px-1">Stat $</th>
-                  <th className="text-right px-1">Share bonus</th>
+                  {showBonus && <th className="text-right px-1">Share bonus</th>}
                   <th className="text-right px-1">Gross</th>
                   <th className="text-right px-1">CPP</th>
                   <th className="text-right px-1">EI</th>
                   <th className="text-right px-1">Tax</th>
                   <th className="text-right px-1">Net</th>
+                  {showPhone && <th className="text-right px-1">Phone</th>}
+                  {showReimb && <th className="text-right px-1">Reimb</th>}
                   <th className="px-1"></th>
                 </tr>
               </thead>
               <tbody>
                 {lines.map((l: any) => (
-                  <LineRow key={l.id} line={l}
+                  <LineRow key={l.id} line={l} showBonus={showBonus} showPhone={showPhone} showReimb={showReimb}
                     onSave={(patch) => updateLine.mutate({ id: l.id, ...patch })}
                     onEstimate={() => estimateLine.mutate({ id: l.id })}
                     onEditEmployee={() => { const emp = (clientEmps || []).find((e: any) => e.id === l.employeeId); if (emp) onEditEmployee(emp); }}
@@ -327,14 +332,14 @@ function RunDetail({ runId, onDelete, onEditEmployee }: { runId: number; onDelet
               <tfoot>
                 <tr className="border-t font-semibold">
                   <td className="py-1.5 pr-2">Totals</td>
-                  <td colSpan={5}></td>
+                  <td colSpan={4 + (showBonus ? 1 : 0)}></td>
                   <td className="text-right px-1 text-lime-700">{money(run.totalGross)}</td>
                   <td colSpan={3} className="text-right px-1 text-slate-500">deduct {money(run.totalEmployeeDeductions)}</td>
                   <td className="text-right px-1">{money(run.totalNet)}</td>
-                  <td></td>
+                  <td colSpan={1 + (showPhone ? 1 : 0) + (showReimb ? 1 : 0)}></td>
                 </tr>
                 <tr className="text-xs text-slate-500">
-                  <td className="pt-1" colSpan={12}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))}</td>
+                  <td className="pt-1" colSpan={12 + (showBonus ? 1 : 0) + (showPhone ? 1 : 0) + (showReimb ? 1 : 0)}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))} · Net total includes phone/reimbursement add-ons.</td>
                 </tr>
               </tfoot>
             </table>
@@ -354,12 +359,13 @@ function RunDetail({ runId, onDelete, onEditEmployee }: { runId: number; onDelet
   );
 }
 
-function LineRow({ line, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
+function LineRow({ line, showBonus, showPhone, showReimb, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; showBonus?: boolean; showPhone?: boolean; showReimb?: boolean; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
   const [v, setV] = useState({
     regularHours: line.regularHours ?? 0, overtimeHours: line.overtimeHours ?? 0,
     statHolidayPay: line.statHolidayPay ?? 0, shareBonus: line.shareBonus ?? 0,
     grossPay: line.grossPay ?? 0, cppEmployee: line.cppEmployee ?? 0, eiEmployee: line.eiEmployee ?? 0,
     federalTax: line.federalTax ?? 0, netPay: line.netPay ?? 0,
+    phoneAllowance: line.phoneAllowance ?? 0, reimbursement: line.reimbursement ?? 0,
   });
   const num = (s: string) => { const n = parseFloat(s); return isNaN(n) ? 0 : n; };
   const rate = line.hourlyRate ?? null;
@@ -384,12 +390,14 @@ function LineRow({ line, onSave, onEstimate, onRemove, onEditEmployee }: { line:
       <td className="px-1">{cell("regularHours")}</td>
       <td className="px-1">{cell("overtimeHours")}</td>
       <td className="px-1">{cell("statHolidayPay")}</td>
-      <td className="px-1">{cell("shareBonus")}</td>
+      {showBonus && <td className="px-1">{cell("shareBonus")}</td>}
       <td className="px-1">{cell("grossPay")}</td>
       <td className="px-1">{cell("cppEmployee")}</td>
       <td className="px-1">{cell("eiEmployee")}</td>
       <td className="px-1">{cell("federalTax")}</td>
       <td className="px-1">{cell("netPay")}</td>
+      {showPhone && <td className="px-1">{cell("phoneAllowance")}</td>}
+      {showReimb && <td className="px-1">{cell("reimbursement")}</td>}
       <td className="px-1 whitespace-nowrap">
         <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" title="Sum hours×rate + OT + stat + bonus into gross" onClick={sumGross}>∑</Button>
         <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" title="Estimate deductions from gross" onClick={onEstimate}><Calculator className="h-3.5 w-3.5" /></Button>
@@ -653,6 +661,13 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
     phoneAllowance: employee.phoneAllowance != null ? String(employee.phoneAllowance) : "",
     reimbursementAmount: employee.reimbursementAmount != null ? String(employee.reimbursementAmount) : "",
     reimbursementNote: employee.reimbursementNote || "",
+    // Per-employee payroll features (default phone/reimbursement on if an amount exists).
+    getsRevenueShare: employee.getsRevenueShare ?? false,
+    revenueSharePercent: employee.revenueSharePercent != null ? String(employee.revenueSharePercent) : "",
+    getsBonus: employee.getsBonus ?? false,
+    getsDividends: employee.getsDividends ?? false,
+    getsPhoneAllowance: employee.getsPhoneAllowance ?? ((employee.phoneAllowance ?? 0) > 0),
+    getsReimbursement: employee.getsReimbursement ?? ((employee.reimbursementAmount ?? 0) > 0),
     notes: employee.notes || "",
   });
   const set = (k: string, v: any) => setF({ ...f, [k]: v });
@@ -700,13 +715,35 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
             </Label>
             <Input value={f.contractUrl} onChange={(e) => set("contractUrl", e.target.value)} placeholder="Google Drive link to the signed contract…" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label>Phone allowance ($/pay)</Label><Input type="number" value={f.phoneAllowance} onChange={(e) => set("phoneAllowance", e.target.value)} placeholder="0.00" /></div>
-            <div><Label>Reimbursement ($/pay)</Label><Input type="number" value={f.reimbursementAmount} onChange={(e) => set("reimbursementAmount", e.target.value)} placeholder="0.00" /></div>
-          </div>
-          <div>
-            <Label>Reimbursement note</Label>
-            <Input value={f.reimbursementNote} onChange={(e) => set("reimbursementNote", e.target.value)} placeholder="What the reimbursement / allowance is for…" />
+          {/* Per-employee payroll features — tick which apply to this person. */}
+          <div className="rounded-lg border p-2.5 space-y-2">
+            <Label className="text-xs uppercase font-semibold text-slate-500">Payroll features for this employee</Label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {([
+                ["getsRevenueShare", "Revenue share"],
+                ["getsBonus", "Bonus"],
+                ["getsDividends", "Dividends"],
+                ["getsPhoneAllowance", "Phone allowance"],
+                ["getsReimbursement", "Reimbursement"],
+              ] as [string, string][]).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 accent-lime-500" checked={!!(f as any)[key]} onChange={(e) => set(key, e.target.checked)} />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {f.getsRevenueShare && (
+              <div><Label className="text-xs">Revenue share %</Label><Input type="number" value={f.revenueSharePercent} onChange={(e) => set("revenueSharePercent", e.target.value)} placeholder="e.g. 10" /></div>
+            )}
+            {f.getsPhoneAllowance && (
+              <div><Label className="text-xs">Phone allowance ($/pay)</Label><Input type="number" value={f.phoneAllowance} onChange={(e) => set("phoneAllowance", e.target.value)} placeholder="0.00" /></div>
+            )}
+            {f.getsReimbursement && (
+              <div className="grid grid-cols-2 gap-2">
+                <div><Label className="text-xs">Reimbursement ($/pay)</Label><Input type="number" value={f.reimbursementAmount} onChange={(e) => set("reimbursementAmount", e.target.value)} placeholder="0.00" /></div>
+                <div><Label className="text-xs">For</Label><Input value={f.reimbursementNote} onChange={(e) => set("reimbursementNote", e.target.value)} placeholder="What it's for…" /></div>
+              </div>
+            )}
           </div>
           <div>
             <Label>Notes / history</Label>
@@ -730,6 +767,10 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
               phoneAllowance: f.phoneAllowance.trim() === "" ? null : num(f.phoneAllowance),
               reimbursementAmount: f.reimbursementAmount.trim() === "" ? null : num(f.reimbursementAmount),
               reimbursementNote: f.reimbursementNote.trim() || undefined,
+              getsRevenueShare: !!f.getsRevenueShare,
+              revenueSharePercent: f.revenueSharePercent.trim() === "" ? null : num(f.revenueSharePercent),
+              getsBonus: !!f.getsBonus, getsDividends: !!f.getsDividends,
+              getsPhoneAllowance: !!f.getsPhoneAllowance, getsReimbursement: !!f.getsReimbursement,
               isActive: f.isActive, notes: f.notes.trim() || undefined,
             })}>{pending ? "Saving…" : isNew ? "Create" : "Save"}</Button>
           </div>

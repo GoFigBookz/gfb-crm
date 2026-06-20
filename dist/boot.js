@@ -22635,6 +22635,15 @@ var init_schema = __esm({
       wsibAccountNumber: text("wsibAccountNumber"),
       wsibQuarter: text("wsibQuarter", { enum: ["Q1", "Q2", "Q3", "Q4", "all"] }),
       hasPayroll: integer2("hasPayroll", { mode: "boolean" }).default(false),
+      // Client-level PAYROLL FEATURES — which pay components this client's payroll
+      // actually has. Drives what the pay run shows/creates (client-specific) so we
+      // never surface bonuses/dividends/etc. for a client that doesn't use them.
+      payrollBonuses: integer2("payrollBonuses", { mode: "boolean" }).default(false),
+      payrollDividends: integer2("payrollDividends", { mode: "boolean" }).default(false),
+      payrollPhoneAllowance: integer2("payrollPhoneAllowance", { mode: "boolean" }).default(false),
+      payrollReimbursements: integer2("payrollReimbursements", { mode: "boolean" }).default(false),
+      payrollRevenueShare: integer2("payrollRevenueShare", { mode: "boolean" }).default(false),
+      payrollCraComparison: integer2("payrollCraComparison", { mode: "boolean" }).default(false),
       payrollFrequency: text("payrollFrequency", { enum: ["weekly", "bi-weekly", "semi-monthly", "monthly", "self"] }),
       // CRA source-deduction remitter type — drives the PD7A remittance due date.
       payrollRemitterFreq: text("payrollRemitterFreq", { enum: ["regular", "quarterly", "accelerated"] }).default("regular"),
@@ -23272,6 +23281,15 @@ var init_schema = __esm({
       // $ per pay period, if any
       reimbursementNote: text("reimbursementNote"),
       // what the reimbursement is for
+      // Per-employee PAYROLL FEATURE applicability — which of the client's enabled
+      // features actually apply to THIS person (e.g. only 2 staff get revenue share).
+      getsRevenueShare: integer2("getsRevenueShare", { mode: "boolean" }).default(false),
+      revenueSharePercent: real("revenueSharePercent"),
+      // % of the revenue-share base
+      getsBonus: integer2("getsBonus", { mode: "boolean" }).default(false),
+      getsDividends: integer2("getsDividends", { mode: "boolean" }).default(false),
+      getsPhoneAllowance: integer2("getsPhoneAllowance", { mode: "boolean" }).default(false),
+      getsReimbursement: integer2("getsReimbursement", { mode: "boolean" }).default(false),
       notes: text("notes"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
@@ -23314,6 +23332,10 @@ var init_schema = __esm({
       grossPay: real("grossPay").default(0),
       shareBonus: real("shareBonus").default(0),
       statHolidayPay: real("statHolidayPay").default(0),
+      // Non-taxable take-home add-ons (paid on top of net), shown only when the
+      // client has the feature enabled.
+      phoneAllowance: real("phoneAllowance").default(0),
+      reimbursement: real("reimbursement").default(0),
       vacationPayAccrued: real("vacationPayAccrued").default(0),
       vacationPayPaid: real("vacationPayPaid").default(0),
       // Employee deductions
@@ -40292,6 +40314,12 @@ var init_client_router = __esm({
         wsibQuarter: external_exports.enum(["Q1", "Q2", "Q3", "Q4", "all"]).optional(),
         hasPayroll: external_exports.boolean().optional(),
         payrollFrequency: external_exports.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
+        payrollBonuses: external_exports.boolean().optional(),
+        payrollDividends: external_exports.boolean().optional(),
+        payrollPhoneAllowance: external_exports.boolean().optional(),
+        payrollReimbursements: external_exports.boolean().optional(),
+        payrollRevenueShare: external_exports.boolean().optional(),
+        payrollCraComparison: external_exports.boolean().optional(),
         yearEndMonth: external_exports.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
         quoteAmount: external_exports.number().optional(),
         quoteSentAt: external_exports.string().optional(),
@@ -45237,6 +45265,12 @@ var init_employee_router = __esm({
         phoneAllowance: external_exports.number().nullable().optional(),
         reimbursementAmount: external_exports.number().nullable().optional(),
         reimbursementNote: external_exports.string().optional(),
+        getsRevenueShare: external_exports.boolean().optional(),
+        revenueSharePercent: external_exports.number().nullable().optional(),
+        getsBonus: external_exports.boolean().optional(),
+        getsDividends: external_exports.boolean().optional(),
+        getsPhoneAllowance: external_exports.boolean().optional(),
+        getsReimbursement: external_exports.boolean().optional(),
         notes: external_exports.string().optional()
       })).mutation(async ({ input }) => {
         const db = getDb();
@@ -45275,6 +45309,12 @@ var init_employee_router = __esm({
         phoneAllowance: external_exports.number().nullable().optional(),
         reimbursementAmount: external_exports.number().nullable().optional(),
         reimbursementNote: external_exports.string().optional(),
+        getsRevenueShare: external_exports.boolean().optional(),
+        revenueSharePercent: external_exports.number().nullable().optional(),
+        getsBonus: external_exports.boolean().optional(),
+        getsDividends: external_exports.boolean().optional(),
+        getsPhoneAllowance: external_exports.boolean().optional(),
+        getsReimbursement: external_exports.boolean().optional(),
         notes: external_exports.string().optional()
       })).mutation(async ({ input }) => {
         const { id, ...data } = input;
@@ -45458,7 +45498,7 @@ async function recomputeRunTotals(runId) {
   let g = 0, n = 0, eded = 0, empc = 0;
   for (const l of lines) {
     g += l.grossPay || 0;
-    n += l.netPay || 0;
+    n += (l.netPay || 0) + (l.phoneAllowance || 0) + (l.reimbursement || 0);
     eded += (l.cppEmployee || 0) + (l.cpp2Employee || 0) + (l.eiEmployee || 0) + (l.federalTax || 0) + (l.provincialTax || 0) + (l.otherDeductions || 0);
     empc += (l.cppEmployer || 0) + (l.cpp2Employer || 0) + (l.eiEmployer || 0);
   }
@@ -45504,6 +45544,13 @@ var init_payroll_router = __esm({
           payrollFrequency: c.payrollFrequency ?? null,
           payrollRemitterFreq: c.payrollRemitterFreq ?? null,
           employeeCount: empCount.get(c.id) || 0,
+          // Client-level payroll features (drive what the pay run shows).
+          payrollBonuses: !!c.payrollBonuses,
+          payrollDividends: !!c.payrollDividends,
+          payrollPhoneAllowance: !!c.payrollPhoneAllowance,
+          payrollReimbursements: !!c.payrollReimbursements,
+          payrollRevenueShare: !!c.payrollRevenueShare,
+          payrollCraComparison: !!c.payrollCraComparison,
           ...payrollKind(c.name)
         })).sort((a, b) => a.name.localeCompare(b.name));
       }),
@@ -45594,7 +45641,13 @@ var init_payroll_router = __esm({
         if (!employeeId) throw new Error("Provide an employee or new employee details");
         const emp = (await db.select().from(employees).where(eq(employees.id, employeeId)).limit(1))[0];
         const gross = emp?.payType === "salary" ? salaryPerPeriod(emp.annualSalary, run2.frequency) : 0;
-        const [line] = await db.insert(payRunLines).values({ payRunId: input.payRunId, employeeId, grossPay: gross }).returning();
+        const [line] = await db.insert(payRunLines).values({
+          payRunId: input.payRunId,
+          employeeId,
+          grossPay: gross,
+          phoneAllowance: emp?.phoneAllowance ?? 0,
+          reimbursement: emp?.reimbursementAmount ?? 0
+        }).returning();
         await recomputeRunTotals(input.payRunId);
         return line;
       }),
@@ -45618,6 +45671,8 @@ var init_payroll_router = __esm({
         shareBonus: external_exports.number().optional(),
         statHolidayPay: external_exports.number().optional(),
         vacationPayPaid: external_exports.number().optional(),
+        phoneAllowance: external_exports.number().optional(),
+        reimbursement: external_exports.number().optional(),
         cppEmployee: external_exports.number().optional(),
         cpp2Employee: external_exports.number().optional(),
         eiEmployee: external_exports.number().optional(),
@@ -52090,7 +52145,15 @@ async function ensurePayrollTables() {
     await addCol("employees", "phoneAllowance", "REAL");
     await addCol("employees", "reimbursementAmount", "REAL");
     await addCol("employees", "reimbursementNote", "TEXT");
+    await addCol("employees", "getsRevenueShare", "INTEGER DEFAULT 0");
+    await addCol("employees", "revenueSharePercent", "REAL");
+    await addCol("employees", "getsBonus", "INTEGER DEFAULT 0");
+    await addCol("employees", "getsDividends", "INTEGER DEFAULT 0");
+    await addCol("employees", "getsPhoneAllowance", "INTEGER DEFAULT 0");
+    await addCol("employees", "getsReimbursement", "INTEGER DEFAULT 0");
     await addCol("pay_run_lines", "shareBonus", "REAL DEFAULT 0");
+    await addCol("pay_run_lines", "phoneAllowance", "REAL DEFAULT 0");
+    await addCol("pay_run_lines", "reimbursement", "REAL DEFAULT 0");
     await addCol("pay_run_lines", "statHolidayPay", "REAL DEFAULT 0");
     await addCol("pay_runs", "approvalToken", "TEXT");
     await addCol("pay_runs", "approvalStatus", "TEXT DEFAULT 'none'");
@@ -52229,6 +52292,12 @@ var init_ensure_clients_schema = __esm({
       ["payrollFrequency", "text"],
       ["payrollRemitterFreq", "text DEFAULT 'regular'"],
       ["yearEndMonth", "text"],
+      ["payrollBonuses", "integer DEFAULT 0"],
+      ["payrollDividends", "integer DEFAULT 0"],
+      ["payrollPhoneAllowance", "integer DEFAULT 0"],
+      ["payrollReimbursements", "integer DEFAULT 0"],
+      ["payrollRevenueShare", "integer DEFAULT 0"],
+      ["payrollCraComparison", "integer DEFAULT 0"],
       ["quoteAmount", "real"],
       ["quoteSentAt", "integer"],
       ["quoteApprovedAt", "integer"],
@@ -57594,6 +57663,36 @@ async function startServer() {
       }
     } catch (e) {
       console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+      const { clients: clients3, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq3, and: and3, like: like2, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const db = getDb2();
+      const setFlags = async (nameLike, flags) => {
+        const matches = await db.select().from(clients3).where(like2(clients3.name, nameLike));
+        for (const cl of matches) {
+          const patch = {};
+          for (const [k, v] of Object.entries(flags)) if (!cl[k]) patch[k] = v;
+          if (Object.keys(patch).length) await db.update(clients3).set(patch).where(eq3(clients3.id, cl.id));
+        }
+        return matches;
+      };
+      const cw = await setFlags("%Collingwood%", {
+        payrollBonuses: 1,
+        payrollDividends: 1,
+        payrollPhoneAllowance: 1,
+        payrollReimbursements: 1,
+        payrollRevenueShare: 1
+      });
+      for (const cl of cw) {
+        for (const last of ["Hawton", "Essex"]) {
+          await db.update(employees2).set({ getsRevenueShare: true, revenueSharePercent: 10 }).where(and3(eq3(employees2.clientId, cl.id), like2(employees2.lastName, last), isNull3(employees2.revenueSharePercent)));
+        }
+      }
+      await setFlags("%Originality%", { payrollRevenueShare: 1, payrollCraComparison: 1 });
+    } catch (e) {
+      console.error("[normalize] payroll features seed failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));

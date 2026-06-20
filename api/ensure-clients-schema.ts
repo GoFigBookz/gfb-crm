@@ -34,6 +34,8 @@ const COLUMNS: Array<[string, string]> = [
   ["hasHST", "integer DEFAULT 0"], ["hstNumber", "text"], ["hstPeriod", "text"],
   ["hasWSIB", "integer DEFAULT 0"], ["wsibAccountNumber", "text"], ["wsibQuarter", "text"],
   ["hasPayroll", "integer DEFAULT 0"], ["payrollFrequency", "text"], ["payrollRemitterFreq", "text DEFAULT 'regular'"], ["yearEndMonth", "text"],
+  ["payrollBonuses", "integer DEFAULT 0"], ["payrollDividends", "integer DEFAULT 0"], ["payrollPhoneAllowance", "integer DEFAULT 0"],
+  ["payrollReimbursements", "integer DEFAULT 0"], ["payrollRevenueShare", "integer DEFAULT 0"], ["payrollCraComparison", "integer DEFAULT 0"],
   ["quoteAmount", "real"], ["quoteSentAt", "integer"], ["quoteApprovedAt", "integer"],
   ["transactionsPerMonth", "integer DEFAULT 0"],
   ["engagementSentAt", "integer"], ["engagementSignedAt", "integer"], ["engagementLetterUrl", "text"],
@@ -173,7 +175,15 @@ export async function ensurePayrollTables(): Promise<void> {
     await addCol("employees", "phoneAllowance", "REAL");
     await addCol("employees", "reimbursementAmount", "REAL");
     await addCol("employees", "reimbursementNote", "TEXT");
+    await addCol("employees", "getsRevenueShare", "INTEGER DEFAULT 0");
+    await addCol("employees", "revenueSharePercent", "REAL");
+    await addCol("employees", "getsBonus", "INTEGER DEFAULT 0");
+    await addCol("employees", "getsDividends", "INTEGER DEFAULT 0");
+    await addCol("employees", "getsPhoneAllowance", "INTEGER DEFAULT 0");
+    await addCol("employees", "getsReimbursement", "INTEGER DEFAULT 0");
     await addCol("pay_run_lines", "shareBonus", "REAL DEFAULT 0");
+    await addCol("pay_run_lines", "phoneAllowance", "REAL DEFAULT 0");
+    await addCol("pay_run_lines", "reimbursement", "REAL DEFAULT 0");
     await addCol("pay_run_lines", "statHolidayPay", "REAL DEFAULT 0");
     await addCol("pay_runs", "approvalToken", "TEXT");
     await addCol("pay_runs", "approvalStatus", "TEXT DEFAULT 'none'");

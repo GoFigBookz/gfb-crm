@@ -79,6 +79,9 @@ export default function ClientDashboard() {
   const archiveClient = trpc.crmClient.archive.useMutation({
     onSuccess: () => { utils.crmClient.list.invalidate(); navigate("/clients"); },
   });
+  const updateClient = trpc.crmClient.update.useMutation({
+    onSuccess: () => utils.crmClient.get.invalidate({ id }),
+  });
   const deleteClient = trpc.crmClient.delete.useMutation({
     onSuccess: () => { utils.crmClient.list.invalidate(); navigate("/clients"); },
   });
@@ -946,6 +949,39 @@ export default function ClientDashboard() {
 
         {/* PAYROLL TAB */}
         <TabsContent value="payroll" className="space-y-4 mt-4">
+          {/* Client-level payroll features — tick what THIS client's payroll has.
+              The pay run only shows/creates the features enabled here. */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Wallet className="h-5 w-5 text-lime-500" />
+                Payroll features
+              </CardTitle>
+              <CardDescription>Tick the pay components this client uses — the pay run only includes these.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {([
+                  ["payrollBonuses", "Bonuses"],
+                  ["payrollDividends", "Dividend payments"],
+                  ["payrollPhoneAllowance", "Cell phone allowance"],
+                  ["payrollReimbursements", "Reimbursements"],
+                  ["payrollRevenueShare", "Revenue share"],
+                  ["payrollCraComparison", "CRA comparison"],
+                ] as [string, string][]).map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 text-sm cursor-pointer rounded-lg border p-2 hover:bg-slate-50">
+                    <input type="checkbox" className="w-4 h-4 accent-lime-500"
+                      checked={!!(client as any)[key]}
+                      disabled={updateClient.isPending}
+                      onChange={(e) => updateClient.mutate({ id, [key]: e.target.checked } as any)} />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-slate-400 mt-2">Then set who gets each on their employee card, and run payroll from <Link to={`/payroll?clientId=${id}`} className="text-lime-700 hover:underline">Payroll</Link>.</p>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
