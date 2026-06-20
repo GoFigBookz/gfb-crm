@@ -45045,7 +45045,8 @@ var init_signature_router = __esm({
       sign: publicQuery.input(external_exports.object({
         id: external_exports.number(),
         signedBy: external_exports.string().min(1),
-        signedByEmail: external_exports.string().email().optional(),
+        signedByEmail: external_exports.string().optional(),
+        // not strictly validated — optional record only
         signatureType: external_exports.enum(["type_name", "draw", "click"]).default("type_name"),
         signatureData: external_exports.string(),
         // JSON string with signature details
