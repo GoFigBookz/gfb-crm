@@ -1,0 +1,189 @@
+import { useState } from "react";
+import { Link } from "react-router";
+import { Edit, Trash2, Check, Repeat, Building2, ExternalLink } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { trpc } from "@/providers/trpc";
+import { format } from "date-fns";
+
+const TASK_CATEGORIES = ["Bookkeeping", "HST", "Payroll", "Year-End", "Reconciliation", "Sales", "Setup", "Client", "Admin", "Other"];
+const ASSIGNEES = ["Markie", "Rachelle"];
+const STAGES: [string, string][] = [["todo", "To Do"], ["in_progress", "In Progress"], ["review", "Review"], ["done", "Done"]];
+
+/**
+ * One reusable, fully-editable task drill-down. Click any task anywhere
+ * (Tasks page list/board/workflow, client card) → this opens with every
+ * field editable, plus complete / delete. Self-contained: runs its own
+ * tRPC mutations and invalidates the relevant caches on save.
+ */
+export function TaskDetailDialog({ task, onClose, onChanged }: {
+  task: any;
+  onClose: () => void;
+  onChanged?: () => void;
+}) {
+  const utils = trpc.useUtils();
+  const { data: clientList } = trpc.crmClient.list.useQuery({ status: "active" });
+
+  const [title, setTitle] = useState(task.title || "");
+  const [description, setDescription] = useState(task.description || "");
+  const [category, setCategory] = useState(task.category || "");
+  const [priority, setPriority] = useState(task.priority || "medium");
+  const [stage, setStage] = useState(task.stage || (task.completed ? "done" : "todo"));
+  const [assignedTo, setAssignedTo] = useState(task.assignedTo || "unassigned");
+  const [clientId, setClientId] = useState(task.clientId ? String(task.clientId) : "none");
+  const [dueDate, setDueDate] = useState(task.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd") : "");
+
+  const invalidate = () => {
+    utils.task.list.invalidate();
+    utils.task.upcoming.invalidate();
+    utils.task.overdue.invalidate();
+    if (task.clientId) utils.clientDashboard.getByClient.invalidate({ clientId: task.clientId });
+    if (clientId !== "none") utils.clientDashboard.getByClient.invalidate({ clientId: Number(clientId) });
+    onChanged?.();
+  };
+
+  const update = trpc.task.update.useMutation({
+    onSuccess: () => { invalidate(); onClose(); },
+    onError: (e) => alert(`Could not save: ${e.message}`),
+  });
+  const del = trpc.task.delete.useMutation({
+    onSuccess: () => { invalidate(); onClose(); },
+    onError: (e) => alert(`Could not delete: ${e.message}`),
+  });
+  const complete = trpc.task.complete.useMutation({
+    onSuccess: () => { invalidate(); onClose(); },
+  });
+
+  const clientName = clientList?.find((c: any) => String(c.id) === clientId)?.name;
+
+  const save = () => {
+    if (!title.trim()) return;
+    update.mutate({
+      id: task.id,
+      title: title.trim(),
+      description,
+      category: category || undefined,
+      priority,
+      stage: stage as any,
+      assignedTo: assignedTo === "unassigned" ? "" : assignedTo,
+      clientId: clientId === "none" ? null : Number(clientId),
+      dueDate: dueDate ? new Date(dueDate) : null,
+    });
+  };
+
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Edit className="h-4 w-4" /> Edit Task</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Title</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Client</Label>
+              <Select value={clientId} onValueChange={setClientId}>
+                <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                <SelectContent className="max-h-64">
+                  <SelectItem value="none">No client (internal)</SelectItem>
+                  {(clientList || []).map((c: any) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Assignee</Label>
+              <Select value={assignedTo} onValueChange={setAssignedTo}>
+                <SelectTrigger><SelectValue placeholder="Assign to" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {ASSIGNEES.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  {TASK_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Priority</Label>
+              <Select value={priority} onValueChange={setPriority}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Stage</Label>
+              <Select value={stage} onValueChange={setStage}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STAGES.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Due date</Label>
+              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <Label>Description</Label>
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+          </div>
+
+          {task.isRecurring && (
+            <p className="text-xs text-blue-600 flex items-center gap-1">
+              <Repeat className="h-3.5 w-3.5" /> Recurring task — editing changes this occurrence; the next one is generated when you mark it done.
+            </p>
+          )}
+
+          {clientId !== "none" && clientName && (
+            <Link to={`/client/${clientId}`} onClick={onClose} className="text-xs text-lime-700 hover:underline inline-flex items-center gap-1">
+              <Building2 className="h-3.5 w-3.5" /> Open {clientName} <ExternalLink className="h-3 w-3" />
+            </Link>
+          )}
+
+          <div className="flex items-center justify-between pt-2">
+            <Button variant="ghost" className="text-red-500 hover:text-red-600" onClick={() => { if (confirm(`Delete task "${task.title}"?`)) del.mutate({ id: task.id }); }}>
+              <Trash2 className="h-4 w-4 mr-1" /> Delete
+            </Button>
+            <div className="flex gap-2">
+              {!task.completed && (
+                <Button variant="outline" onClick={() => complete.mutate({ id: task.id })}>
+                  <Check className="h-4 w-4 mr-1" /> Mark done
+                </Button>
+              )}
+              <Button onClick={save} disabled={!title.trim() || update.isPending}>
+                {update.isPending ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -231,11 +231,13 @@ export const taskRouter = createRouter({
       id: z.number(),
       title: z.string().min(1).max(255).optional(),
       description: z.string().optional(),
-      dueDate: z.date().optional(),
+      dueDate: z.date().nullable().optional(),
       priority: z.enum(["low", "medium", "high"]).optional(),
       status: z.enum(["pending", "in_progress", "completed", "overdue"]).optional(),
+      stage: z.enum(["todo", "in_progress", "review", "done"]).optional(),
       category: z.string().max(100).optional(),
       assignedTo: z.string().max(255).optional(),
+      clientId: z.number().nullable().optional(),
       completed: z.boolean().optional(),
     }))
     .mutation(async ({ ctx, input }) => {

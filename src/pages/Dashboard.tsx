@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import {
   Users,
@@ -28,6 +29,7 @@ import { Progress } from "@/components/ui/progress";
 import { trpc } from "@/providers/trpc";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { TaskDetailDialog } from "@/components/TaskDetailDialog";
 
 /* ─── Demo triage data (mirrors TriageDashboard) ─── */
 interface TriageItem {
@@ -80,6 +82,7 @@ const severityConfig = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [openTask, setOpenTask] = useState<any | null>(null);
 
   const { data: clientStats } = trpc.crmClient.stats.useQuery();
   const { data: pipelineStats } = trpc.crmClient.pipelineStats.useQuery();
@@ -241,8 +244,8 @@ export default function Dashboard() {
                   </div>
                   <div className="space-y-1 pl-1">
                     {grp.tasks.map((t: any) => (
-                      <div key={t.id} className={cn("flex items-center gap-2 rounded-md px-2 py-1.5", t._bucket === "overdue" ? "bg-red-50" : "bg-amber-50/60")}>
-                        <button title="Mark done" onClick={() => completeUrgent.mutate({ id: t.id })}
+                      <div key={t.id} onClick={() => setOpenTask(t)} className={cn("flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer hover:shadow-sm", t._bucket === "overdue" ? "bg-red-50" : "bg-amber-50/60")}>
+                        <button title="Mark done" onClick={(e) => { e.stopPropagation(); completeUrgent.mutate({ id: t.id }); }}
                           className="w-4 h-4 shrink-0 rounded-full border-2 border-slate-300 hover:border-lime-500 hover:bg-lime-100 transition-colors" />
                         <span className="flex-1 text-sm text-slate-700 truncate">{t.title}</span>
                         {t.category && <Badge variant="secondary" className="text-[10px] hidden sm:inline-flex">{t.category}</Badge>}
@@ -599,6 +602,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {openTask && <TaskDetailDialog task={openTask} onClose={() => setOpenTask(null)} />}
     </div>
   );
 }
