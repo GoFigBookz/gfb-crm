@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { FileText, Send, CheckCircle, Clock, Link2, UserCheck, Building2, Receipt, Users, Plus, Save, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,8 @@ export default function Onboarding() {
   const [selectedClient, setSelectedClient] = useState<number | null>(null);
   const [reviewingId, setReviewingId] = useState<number | null>(null);
   const [assignTo, setAssignTo] = useState<string>("");
-  const [showIntake, setShowIntake] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [showIntake, setShowIntake] = useState(searchParams.get("intake") === "1");
 
   const { data: clients, refetch: refetchClients } = trpc.crmClient.list.useQuery();
   const { data: submissions } = trpc.onboarding.list.useQuery();

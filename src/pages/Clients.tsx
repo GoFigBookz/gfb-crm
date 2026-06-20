@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/providers/trpc";
 import { cn } from "@/lib/utils";
-import { Link, useSearchParams } from "react-router";
+import { Link, useSearchParams, useNavigate } from "react-router";
 
 const INDUSTRIES: Record<string, string> = {
   technology: "💻 Technology", construction: "🏗️ Construction",
@@ -30,6 +30,7 @@ type TabType = typeof TABS[number];
 
 export default function Clients() {
   const utils = trpc.useUtils();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlStatus = searchParams.get("status") as TabType | null;
   const [tab, setTab] = useState<TabType>(urlStatus && TABS.includes(urlStatus) ? urlStatus : "active");
@@ -84,42 +85,8 @@ export default function Clients() {
           <h1 className="text-2xl font-bold text-slate-900">Clients</h1>
           <p className="text-slate-500 text-sm">Go Fig Bookz — {filtered?.length ?? 0} clients</p>
         </div>
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" />Add Client</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Add New Client</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-4">
-              {[
-                { label: "Company Name *", key: "name", type: "text" },
-                { label: "Email", key: "email", type: "email" },
-                { label: "Phone", key: "phone", type: "text" },
-              ].map(({ label, key, type }) => (
-                <div key={key} className="space-y-1.5">
-                  <Label>{label}</Label>
-                  <Input type={type} value={(newClient as any)[key]}
-                    onChange={(e) => setNewClient({ ...newClient, [key]: e.target.value })} />
-                </div>
-              ))}
-              <div className="space-y-1.5">
-                <Label>Firm</Label>
-                <Select value={newClient.qboAccountType}
-                  onValueChange={(v) => setNewClient({ ...newClient, qboAccountType: v as any })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ca_clients">🇨🇦 Go Fig Bookz CA</SelectItem>
-                    <SelectItem value="us_clients">🇺🇸 Go Fig Bookz US</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={() => createClient.mutate(newClient)}
-                disabled={!newClient.name || createClient.isPending} className="w-full">
-                {createClient.isPending ? "Creating..." : "Create Client"}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Add Client goes straight to the full intake form */}
+        <Button onClick={() => navigate("/onboarding?intake=1")}><Plus className="h-4 w-4 mr-2" />Add Client</Button>
       </div>
 
       {/* Tabs */}

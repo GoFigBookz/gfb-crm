@@ -505,7 +505,7 @@ export function generateTaskFromRule(
 export async function ensureSetupTasks(opts: {
   clientId: number; userId: number; assignedTo?: string | null;
   hasPayroll?: boolean | null; hasWsib?: boolean | null; usesHubdoc?: boolean | null;
-  monthsBehind?: number | null;
+  monthsBehind?: number | null; wsibNumberMissing?: boolean | null; craNumberMissing?: boolean | null;
 }): Promise<number> {
   const db = getDb();
   const dueDate = new Date(Date.now() + 14 * 86_400_000); // ~2 weeks to get access set up
@@ -515,6 +515,10 @@ export async function ensureSetupTasks(opts: {
       description: "Request and confirm Represent a Client authorization with CRA so we can manage this client's CRA accounts (RC59 / online authorization request). Required before we can file or view CRA data.",
     },
   ];
+  if (opts.craNumberMissing) items.push({
+    title: "Request CRA Business Number from client",
+    description: "We don't have this client's CRA Business Number (BN) on file. Request it from the client and add it to the client card.",
+  });
   if (opts.hasPayroll) items.push({
     title: "Set up Service Canada (ROE Web) access",
     description: "Register / obtain Service Canada ROE Web access for this client's payroll so Records of Employment can be issued and filed.",
@@ -522,6 +526,10 @@ export async function ensureSetupTasks(opts: {
   if (opts.hasWsib) items.push({
     title: "Set up WSIB account & access",
     description: "Set up or confirm the client's WSIB account and online access (registration, clearance certificate, premium reporting).",
+  });
+  if (opts.wsibNumberMissing) items.push({
+    title: "Request WSIB account number from client",
+    description: "This client has WSIB but we don't have the account number on file. Request the WSIB account number from the client and add it to the client card.",
   });
   if (opts.usesHubdoc) items.push({
     title: "Connect Hubdoc",
@@ -559,6 +567,8 @@ export async function backfillSetupTasks(): Promise<{ clients: number; created: 
       created += await ensureSetupTasks({
         clientId: c.id, userId: c.userId ?? 1, assignedTo: c.assignedTo ?? null,
         hasPayroll: Boolean(c.hasPayroll), hasWsib: Boolean(c.hasWSIB),
+        wsibNumberMissing: Boolean(c.hasWSIB) && !c.wsibAccountNumber,
+        craNumberMissing: !c.taxId,
       });
     } catch { /* best effort per client */ }
   }
