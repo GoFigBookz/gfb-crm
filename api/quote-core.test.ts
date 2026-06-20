@@ -107,6 +107,14 @@ describe("recurring range", () => {
   });
 });
 
+describe("nearestPackage", () => {
+  it("snaps the calculated figure to the closest clean package", () => {
+    expect(computeQuote(baseScope({ avgMonthlyTransactions: 30 })).nearestPackage.price).toBe(300); // 350 → Lite 300
+    expect(computeQuote(baseScope({ avgMonthlyTransactions: 100 })).nearestPackage.price).toBe(500); // 500 → Starter
+    expect(computeQuote(baseScope({ avgMonthlyTransactions: 250 })).nearestPackage.price).toBe(1000); // 950 → Growth 1000
+  });
+});
+
 describe("compareToFlatFee", () => {
   it("flags undercharging when flat is well below scope", () => {
     const c = compareToFlatFee(800, 500);
