@@ -61,9 +61,32 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-const BUILD_TAG = "2026-06-21.7";  // bump each deploy so prod vs source is unambiguous
-app.get("/api/version", (c) =>
-  c.json({ build: BUILD_TAG, startedAt: BOOT_TIME, now: new Date().toISOString(), uptimeSec: Math.round(process.uptime()) }));
+const BUILD_TAG = "2026-06-21.8";  // bump each deploy so prod vs source is unambiguous
+app.get("/api/version", (c) => {
+  // Report what the RUNNING server actually has on disk so we can tell a
+  // deploy-content mismatch apart from an edge/browser cache problem.
+  let indexAsset: string | null = null;
+  let assetExists = false;
+  let assetFiles: string[] = [];
+  let indexHead = "";
+  try {
+    const fs = require("fs") as typeof import("fs");
+    const path = require("path") as typeof import("path");
+    const base = process.cwd().endsWith("/dist") ? path.resolve(process.cwd(), "..") : process.cwd();
+    const pub = path.join(base, "dist", "public");
+    const html = fs.readFileSync(path.join(pub, "index.html"), "utf8");
+    indexHead = html.slice(0, 400);
+    indexAsset = (html.match(/assets\/index-[^"']+\.js/) || [null])[0];
+    try { assetFiles = fs.readdirSync(path.join(pub, "assets")).filter((f) => /\.js$/.test(f)); } catch {}
+    assetExists = !!indexAsset && assetFiles.includes(indexAsset.replace("assets/", ""));
+  } catch (e) {
+    indexHead = "read error: " + (e instanceof Error ? e.message : String(e));
+  }
+  return c.json({
+    build: BUILD_TAG, startedAt: BOOT_TIME, now: new Date().toISOString(), uptimeSec: Math.round(process.uptime()),
+    cwd: process.cwd(), indexAsset, assetExists, assetFiles, indexHead,
+  });
+});
 
 // ================================================================
 // QBO OAUTH CALLBACK — Inline handler (no tRPC caller needed)
