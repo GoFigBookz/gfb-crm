@@ -922,7 +922,7 @@ export default function ClientDashboard() {
 
         {/* COMPLIANCE TAB */}
         <TabsContent value="compliance" className="space-y-4 mt-4">
-          <ComplianceTab clientId={id} client={client} closeStatus={closeStatus} tasks={dashboardData?.tasks || []} />
+          <ComplianceTab clientId={id} client={client} closeStatus={closeStatus} tasks={dashboardData?.tasks || []} onOpenTask={setEditingTask} />
         </TabsContent>
 
         {/* TIME & HOURS TAB */}
@@ -1071,8 +1071,8 @@ export default function ClientDashboard() {
 
 // Compliance tab — filing status + obligations, all driven by the client's
 // flags/features (HST, payroll→T4, dividends→T5, WSIB), plus the dividend log.
-function ComplianceTab({ clientId, client, closeStatus, tasks }: {
-  clientId: number; client: any; closeStatus: any; tasks: any[];
+function ComplianceTab({ clientId, client, closeStatus, tasks, onOpenTask }: {
+  clientId: number; client: any; closeStatus: any; tasks: any[]; onOpenTask?: (t: any) => void;
 }) {
   const utils = trpc.useUtils();
   const dividendsOn = !!client.payrollDividends;
@@ -1197,7 +1197,10 @@ function ComplianceTab({ clientId, client, closeStatus, tasks }: {
           ) : (
             <div className="space-y-1.5">
               {filings.map((t) => (
-                <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50">
+                <div key={t.id} role="button" tabIndex={0}
+                  onClick={() => onOpenTask?.(t)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onOpenTask?.(t); }}
+                  className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 cursor-pointer hover:bg-slate-100">
                   {t.completed ? <CheckCircle className="h-4 w-4 text-lime-500 shrink-0" /> : <Clock className="h-4 w-4 text-amber-500 shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-medium ${t.completed ? "line-through text-slate-400" : ""}`}>{t.title}</p>
