@@ -22,93 +22,49 @@
 import { getDb } from "./queries/connection";
 import { clients, clientOnboarding, workflowLogs } from "../db/schema";
 import { eq } from "drizzle-orm";
-import { readMasterRange, syncLeadToMaster } from "./master-sheet-sync";
+import { readMasterRange, syncLeadToMaster, resolveColumns, MASTER_FIELDS } from "./master-sheet-sync";
 
 const norm = (s: any) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const clean = (v: any): string => { const s = String(v ?? "").trim(); return /^(n\/?a|none|null)$/i.test(s) ? "" : s; };
 
-function cadenceIn(v: string): string | null {
-  const s = v.toLowerCase();
-  if (!s) return null;
-  if (s.includes("month")) return "monthly";
-  if (s.includes("quart") || s.includes("qrtly")) return "quarterly";
-  if (s.includes("annual") || s.includes("year")) return "annual";
-  return null;
-}
-function payIn(v: string): string | null {
-  const s = v.toLowerCase().replace(/\s+/g, "-");
-  if (!s) return null;
-  if (s.includes("bi-week")) return "bi-weekly";
-  if (s.includes("week")) return "weekly";
-  if (s.includes("semi")) return "semi-monthly";
-  if (s.includes("month")) return "monthly";
-  if (s.includes("self")) return "self";
-  return null;
-}
-function remitIn(v: string): string | null {
-  const s = v.toLowerCase();
-  if (!s) return null;
-  if (s.includes("threshold") || s.includes("acceler")) return "accelerated";
-  if (s.includes("quart")) return "quarterly";
-  if (s.includes("regular")) return "regular";
-  return null;
-}
-function statusIn(v: string): string | null {
-  const s = v.toLowerCase().trim();
-  return ["active", "inactive", "prospect", "lead"].includes(s) ? s : null;
-}
-
-/** Pull the Client Master tab into the CRM. Updates matched clients (by BN, else
- *  name) with non-empty differing sheet values; creates a client for new rows. */
+/** Pull the Client Master tab into the CRM — HEADER-DRIVEN (columns resolved by
+ *  header, same as outbound). Updates matched clients (by BN, else name) with
+ *  non-empty differing sheet values; creates a client for a brand-new row. */
 export async function pullClientMasterIntoCrm(): Promise<{ scanned: number; updated: number; created: number }> {
   const db = getDb();
   const report = { scanned: 0, updated: 0, created: 0 };
-  const rows = await readMasterRange("'Client Master'!A2:Z200");
-  if (!rows.length) return report;
+  const rows = await readMasterRange("'Client Master'!A1:AZ200");
+  if (rows.length < 2) return report;
+  const header = rows[0] || [];
+  const cols = resolveColumns(header);
+  const nameCol = cols.get("name") ?? 0;
+  const bnCol = cols.get("craBn");
 
   const all = (await db.select().from(clients)).map((c: any) => ({ ...c }));
   const byBn = new Map<string, any>();
   const byName = new Map<string, any>();
   for (const c of all) { if (c.taxId) byBn.set(norm(c.taxId), c); byName.set(norm(c.name), c); if (c.company) byName.set(norm(c.company), c); }
 
-  for (const r of rows) {
-    const name = clean(r[0]);
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i] || [];
+    const name = clean(r[nameCol]);
     if (!name) continue;
     report.scanned++;
-    const bn = clean(r[3]);
+    const bn = bnCol != null ? clean(r[bnCol]) : "";
+
+    // Build the sheet's view of editable fields (only non-empty cells), via the
+    // shared field model's fromSheet parsers.
+    const sv: Record<string, any> = { name };
+    for (const f of MASTER_FIELDS) {
+      const ci = cols.get(f.key); if (ci == null) continue;
+      const raw = clean(r[ci]); if (!raw) continue;
+      const patch = f.fromSheet(raw); if (patch) Object.assign(sv, patch);
+    }
+
     const match = (bn && byBn.get(norm(bn))) || byName.get(norm(name));
-
-    // Build the sheet's view of the editable fields (only non-empty cells).
-    const sv: Record<string, any> = {};
-    const set = (k: string, v: any) => { if (v !== null && v !== undefined && v !== "") sv[k] = v; };
-    set("name", name);
-    set("status", statusIn(clean(r[1])));
-    set("industry", clean(r[2]));
-    set("taxId", bn);
-    set("registryNumber", clean(r[4]));
-    set("incorporationDate", clean(r[5]));
-    set("corpType", clean(r[6]));
-    set("governmentStatus", clean(r[7]));
-    set("yearEndMonth", clean(r[9]) || null);
-    const hstP = cadenceIn(clean(r[10])); if (hstP) { sv.hstPeriod = hstP; sv.hasHST = true; }
-    set("hstNextDue", clean(r[11]));
-    set("hstNumber", clean(r[12]));
-    const payF = payIn(clean(r[13])); if (payF) { sv.payrollFrequency = payF; sv.hasPayroll = true; }
-    const remit = remitIn(clean(r[14])); if (remit) sv.payrollRemitterFreq = remit;
-    set("payrollRpNumber", clean(r[15]));
-    const wsib = clean(r[16]); if (wsib) { sv.wsibAccountNumber = wsib; sv.hasWSIB = true; }
-    set("address", clean(r[19]));
-    set("phone", clean(r[20]));
-    set("email", clean(r[21]));
-    set("website", clean(r[22]));
-    set("contactName", clean(r[23]));
-    set("figgyEmail", clean(r[24]));
-    set("bio", clean(r[25]));
-
     if (match) {
       const patch: Record<string, any> = {};
       for (const [k, v] of Object.entries(sv)) {
-        if (k === "yearEndMonth" && !v) continue;
         if (String(match[k] ?? "") !== String(v ?? "")) patch[k] = v;
       }
       if (Object.keys(patch).length) {
@@ -119,7 +75,7 @@ export async function pullClientMasterIntoCrm(): Promise<{ scanned: number; upda
     } else {
       // A client added straight into the sheet → create it in the CRM.
       const ins = await db.insert(clients).values({
-        userId: 1, name, email: sv.email || "", company: sv.name || name,
+        userId: 1, name, email: sv.email || "", company: sv.company || name,
         status: (sv.status as any) || "active", workflowStatus: "active", assignedTo: "Markie",
         ...sv, createdAt: new Date(), updatedAt: new Date(),
       } as any).returning({ id: clients.id });
