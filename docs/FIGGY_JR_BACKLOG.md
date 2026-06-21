@@ -51,6 +51,42 @@ CRA T4127 PDF (canada.ca blocked the auto-fetch; values cross-checked instead).
 
 ## 6. Set `FIGGY_SIN_PIN` in Railway to enable SIN reveal/printing (Markie, env)
 
+## 7. FULL INTAKE → END-TO-END FLOW AUDIT (HIGH — Markie ask 2026-06-21)
+Every field captured about a client must flow through the whole app and DO its
+thing automatically, for EVERY client (not just the test ones). Systematically
+verify + fix the chain for each intake field:
+- HST (has/period/year-end) → HST filing tasks generated + correct due dates +
+  shows on month-end board/calendar. (Backfill bug fixed 2026-06-21; re-verify
+  across all clients after deploy.)
+- Payroll (has/frequency/remitter Regular/Threshold1/Quarterly) → payroll run
+  setup + PD7A remittance tasks at the right cadence + T4 task. **Pull remitter
+  type from the master "Reporting Period" so PD7A timing is exact** (Threshold 1
+  = accelerated; currently defaults to Regular).
+- WSIB (has/account/quarter) → WSIB reconciliation/filing tasks.
+- Year-end month → year-end close tasks + month-end board relevance.
+- clientType (monthly/quarterly/annual/payroll/wholesale) → task cadence +
+  board inclusion + quote.
+- Quote/pricing fields → quote actually generated/clickable.
+- Workflow status, dividends (T5), non-resident, ecommerce/POS, Hubdoc, etc.
+Deliverable: every intake field has a verified, clickable, working downstream
+effect; a checklist of field → effect with pass/fail; fix the gaps. Two task
+systems exist (client-task-creator vs task-generator) — unify onto one to remove
+the dual-write/duplicate-title risk.
+
+## 8. CALCULATOR ACCURACY PROGRAM (MED — Markie ask 2026-06-21)
+Make every calculator real, not "estimate," pulling from authoritative sources.
+- ✅ DONE 2026-06-21: **CPP/EI** now exact 2026 CRA maximums (YMPE/exemption/
+  CPP2/MIE, proper formula) from the single `CPP_EI_2026` source — no more stale
+  editable 2024 defaults. **FX/Currency** now pulls LIVE **Bank of Canada** daily
+  rates (Valet `FX_RATES_DAILY`), static fallback only if offline. **Depreciation**
+  de-duplicated → lives in the **Business** tab only.
+- TODO: **Payroll tax calculator (Canada)** is federal + Ontario-accurate but
+  ESTIMATES other provinces — add the remaining provincial brackets/credits so
+  it's actual nationwide (or wire CRA PDOC). **US payroll tax** is an estimate —
+  build real federal + state withholding (or integrate a payroll-tax source).
+- Cross-check all 2026 constants against the CRA T4127 (see #4) before any are
+  used to remit real money.
+
 ## Reminder
 QuickBooks is the **source of truth for all numbers** — every figure should pull
 from QBO; CRM computations are fallbacks/cross-checks until the connection is live.

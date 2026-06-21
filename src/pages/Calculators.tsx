@@ -30,7 +30,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { computePaycheck } from "../../api/payroll-paycheck-core";
+import { computePaycheck, CPP_EI_2026 } from "../../api/payroll-paycheck-core";
+import { trpc } from "@/providers/trpc";
 import { periodsPerYear } from "../../api/payroll-core";
 
 /* =================================================================
@@ -676,10 +677,21 @@ function FXCalculator() {
   const [toCurrency, setToCurrency] = useState("CAD");
   const [customRate, setCustomRate] = useState("");
 
+  // Live Bank of Canada daily rates (CAD per 1 unit of each currency).
+  const { data: fx } = trpc.calculator.fxRates.useQuery(undefined, { staleTime: 6 * 60 * 60 * 1000, refetchOnWindowFocus: false });
+  const live = fx?.rates;
+  // CAD-per-unit for a currency: live if available, else the static fallback
+  // (static table is USD-based, so convert it to CAD-per-unit via its CAD entry).
+  const staticCadPerUnit = (code: string) => {
+    const usdPer = CURRENCIES.find((c) => c.code === code)?.rate ?? 1; // units per USD
+    const cadPerUsd = CURRENCIES.find((c) => c.code === "CAD")?.rate ?? 1.35;
+    return code === "CAD" ? 1 : cadPerUsd / usdPer;
+  };
+  const cadPerUnit = (code: string) => (live && live[code] ? live[code] : staticCadPerUnit(code));
+
   const amt = parseFloat(amount) || 0;
-  const fromRate = CURRENCIES.find((c) => c.code === fromCurrency)?.rate || 1;
-  const toRate = CURRENCIES.find((c) => c.code === toCurrency)?.rate || 1;
-  const rate = customRate ? parseFloat(customRate) : toRate / fromRate;
+  const marketRate = cadPerUnit(fromCurrency) / cadPerUnit(toCurrency); // toCurrency per 1 fromCurrency
+  const rate = customRate ? parseFloat(customRate) : marketRate;
   const converted = amt * rate;
 
   return (
@@ -689,7 +701,7 @@ function FXCalculator() {
           <ArrowRightLeft className="h-5 w-5 text-lime-500" />
           Currency Converter
         </CardTitle>
-        <CardDescription>Convert between major currencies with live or custom rates</CardDescription>
+        <CardDescription>{live ? `Live rates — ${fx?.source}, ${fx?.date}` : "Live rates unavailable — using fallback. Enter a custom rate for precision."}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -1115,21 +1127,19 @@ function LoanCalculator() {
    ================================================================= */
 function CPPEICalculator() {
   const [salary, setSalary] = useState("");
-  const [cppRate, setCppRate] = useState("0.0595");
-  const [eiRate, setEiRate] = useState("0.0164");
-  const [cppMax, setCppMax] = useState("4035");
-  const [eiMax, setEiMax] = useState("1077");
-
   const sal = parseFloat(salary) || 0;
-  const cppR = parseFloat(cppRate) || 0;
-  const eiR = parseFloat(eiRate) || 0;
-  const cppM = parseFloat(cppMax) || 0;
-  const eiM = parseFloat(eiMax) || 0;
+  const K = CPP_EI_2026;
 
-  const cppPayable = Math.min(sal * cppR, cppM);
-  const eiPayable = Math.min(sal * eiR, eiM);
-  const employerCpp = cppPayable; // Employer matches CPP
-  const employerEI = eiPayable * 1.4; // Employer pays 1.4x EI
+  // Exact 2026 CRA maximum-deduction math from the canonical constants:
+  //   CPP   = (min(salary, YMPE) − $3,500 exemption) × 5.95%, capped at the annual max
+  //   CPP2  = (min(salary, YAMPE) − YMPE) × 4%, capped at the CPP2 annual max
+  //   EI    = min(salary, MIE) × 1.63%, capped at the annual max
+  const cppBase = Math.min(Math.max(0, Math.min(sal, K.ympe) - K.cppExemption) * K.cppRate, K.cppMaxAnnual);
+  const cpp2 = Math.min(Math.max(0, Math.min(sal, K.yampe) - K.ympe) * K.cpp2Rate, K.cpp2MaxAnnual);
+  const ei = Math.min(Math.min(sal, K.mie) * K.eiRate, K.eiMaxAnnual);
+  const cppPayable = cppBase + cpp2;
+  const employerCpp = cppPayable;             // employer matches CPP + CPP2
+  const employerEI = ei * K.eiEmployerMult;   // employer pays 1.4× EI
 
   return (
     <Card>
@@ -1138,27 +1148,33 @@ function CPPEICalculator() {
           <Percent className="h-5 w-5 text-lime-500" />
           CPP / EI Premium Calculator
         </CardTitle>
-        <CardDescription>Calculate Canada Pension Plan and Employment Insurance premiums</CardDescription>
+        <CardDescription>
+          Exact 2026 CRA maximums — CPP {(K.cppRate * 100).toFixed(2)}% (YMPE ${fmt(K.ympe, 0)}, ${fmt(K.cppExemption, 0)} exemption, max ${fmt(K.cppMaxAnnual)}),
+          CPP2 {(K.cpp2Rate * 100).toFixed(0)}% to ${fmt(K.yampe, 0)} (max ${fmt(K.cpp2MaxAnnual)}), EI {(K.eiRate * 100).toFixed(2)}% (MIE ${fmt(K.mie, 0)}, max ${fmt(K.eiMaxAnnual)}).
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2"><Label>Annual Salary ($)</Label><Input type="number" value={salary} onChange={(e) => setSalary(e.target.value)} placeholder="75000" /></div>
-          <div className="space-y-2"><Label>CPP Rate</Label><Input type="number" step="0.0001" value={cppRate} onChange={(e) => setCppRate(e.target.value)} placeholder="0.0595" /></div>
-          <div className="space-y-2"><Label>EI Rate</Label><Input type="number" step="0.0001" value={eiRate} onChange={(e) => setEiRate(e.target.value)} placeholder="0.0164" /></div>
-          <div className="space-y-2"><Label>CPP Max ($)</Label><Input type="number" value={cppMax} onChange={(e) => setCppMax(e.target.value)} placeholder="4035" /></div>
-          <div className="space-y-2"><Label>EI Max ($)</Label><Input type="number" value={eiMax} onChange={(e) => setEiMax(e.target.value)} placeholder="1077" /></div>
         </div>
         {sal > 0 && (
           <div className="space-y-3 mt-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Employee CPP</p><p className="text-lg font-bold">${fmt(cppPayable)}</p></div>
-              <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Employee EI</p><p className="text-lg font-bold">${fmt(eiPayable)}</p></div>
-              <div className="bg-amber-50 rounded-lg p-3 text-center"><p className="text-xs text-amber-600">Employer CPP</p><p className="text-lg font-bold text-amber-700">${fmt(employerCpp)}</p></div>
-              <div className="bg-amber-50 rounded-lg p-3 text-center"><p className="text-xs text-amber-600">Employer EI (1.4x)</p><p className="text-lg font-bold text-amber-700">${fmt(employerEI)}</p></div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Employee CPP</p><p className="text-lg font-bold">${fmt(cppBase)}</p></div>
+              <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Employee CPP2</p><p className="text-lg font-bold">${fmt(cpp2)}</p></div>
+              <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Employee EI</p><p className="text-lg font-bold">${fmt(ei)}</p></div>
+              <div className="bg-amber-50 rounded-lg p-3 text-center"><p className="text-xs text-amber-600">Employer CPP+CPP2</p><p className="text-lg font-bold text-amber-700">${fmt(employerCpp)}</p></div>
+              <div className="bg-amber-50 rounded-lg p-3 text-center"><p className="text-xs text-amber-600">Employer EI (1.4×)</p><p className="text-lg font-bold text-amber-700">${fmt(employerEI)}</p></div>
             </div>
-            <div className="bg-lime-50 rounded-lg p-4 text-center">
-              <p className="text-xs text-lime-600">Total Employee Deductions</p>
-              <p className="text-2xl font-bold text-lime-700">${fmt(cppPayable + eiPayable)}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-lime-50 rounded-lg p-4 text-center">
+                <p className="text-xs text-lime-600">Total Employee Deductions</p>
+                <p className="text-2xl font-bold text-lime-700">${fmt(cppPayable + ei)}</p>
+              </div>
+              <div className="bg-lime-50 rounded-lg p-4 text-center">
+                <p className="text-xs text-lime-600">Total Employer Cost</p>
+                <p className="text-2xl font-bold text-lime-700">${fmt(employerCpp + employerEI)}</p>
+              </div>
             </div>
           </div>
         )}
@@ -1187,12 +1203,11 @@ export default function Calculators() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6 h-auto flex-wrap gap-1">
+        <TabsList className="grid w-full grid-cols-5 h-auto flex-wrap gap-1">
           <TabsTrigger value="tax" className="text-xs md:text-sm">Tax & HST</TabsTrigger>
           <TabsTrigger value="payroll" className="text-xs md:text-sm">Payroll</TabsTrigger>
           <TabsTrigger value="dividends" className="text-xs md:text-sm">Dividends</TabsTrigger>
           <TabsTrigger value="fx" className="text-xs md:text-sm">FX & Currency</TabsTrigger>
-          <TabsTrigger value="depreciation" className="text-xs md:text-sm">Depreciation</TabsTrigger>
           <TabsTrigger value="business" className="text-xs md:text-sm">Business</TabsTrigger>
         </TabsList>
 
@@ -1226,19 +1241,14 @@ export default function Calculators() {
           <FXCalculator />
         </TabsContent>
 
-        {/* DEPRECIATION TAB */}
-        <TabsContent value="depreciation" className="space-y-4 mt-6">
+        {/* BUSINESS TAB (depreciation consolidated here) */}
+        <TabsContent value="business" className="space-y-4 mt-6">
           <DepreciationCalculator />
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="p-4 text-sm text-blue-700">
               <strong>CCA Note:</strong> The half-year rule applies to most asset classes in the year of acquisition — only 50% of the CCA can be claimed. Some classes (like Class 14) have different rules. Always verify the current CRA CCA rates for the specific asset class.
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* BUSINESS TAB */}
-        <TabsContent value="business" className="space-y-4 mt-6">
-          <DepreciationCalculator />
           <MileageCalculator />
           <HomeOfficeCalculator />
           <LoanCalculator />
