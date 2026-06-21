@@ -825,6 +825,19 @@ export default function ClientDashboard() {
               <CardDescription>Tick the pay components this client uses — the pay run only includes these.</CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="mb-3 max-w-xs">
+                <label className="text-xs text-slate-500 block mb-1">Hours source (drives the integration button)</label>
+                <select className="w-full border rounded-lg px-2 py-1.5 text-sm bg-white"
+                  value={(client as any).payrollHoursSource || "manual"}
+                  disabled={updateClient.isPending}
+                  onChange={(e) => updateClient.mutate({ id, payrollHoursSource: e.target.value } as any)}>
+                  <option value="manual">Manual entry</option>
+                  <option value="jobber">Jobber</option>
+                  <option value="touchbistro">TouchBistro</option>
+                  <option value="clockify">Clockify</option>
+                  <option value="qbo_autopay">QuickBooks autopay</option>
+                </select>
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {([
                   ["payrollBonuses", "Bonuses"],

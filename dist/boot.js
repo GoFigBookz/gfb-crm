@@ -22322,6 +22322,7 @@ var schema_exports = {};
 __export(schema_exports, {
   aiAgentConfigs: () => aiAgentConfigs,
   aiAgentRuns: () => aiAgentRuns,
+  appSettings: () => appSettings,
   calendarEvents: () => calendarEvents,
   clientDashboardSnapshots: () => clientDashboardSnapshots,
   clientEmails: () => clientEmails,
@@ -22382,7 +22383,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections;
+var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -22666,6 +22667,9 @@ var init_schema = __esm({
       // days from period END to the pay date (e.g. Clark = Tue end + 3 → Fri pay).
       payrollAnchorStart: integer2("payrollAnchorStart", { mode: "timestamp" }),
       payrollPayDayOffset: integer2("payrollPayDayOffset").default(0),
+      // Where this client's hours come from — drives the per-client integration button
+      // (Jobber/TouchBistro/Clockify). Set on intake/the card; NOT guessed from the name.
+      payrollHoursSource: text("payrollHoursSource", { enum: ["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"] }),
       yearEndMonth: text("yearEndMonth", { enum: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] }),
       // Quote & Engagement Letter
       quoteAmount: real("quoteAmount"),
@@ -23882,6 +23886,11 @@ var init_schema = __esm({
       active: integer2("active", { mode: "boolean" }).default(true),
       reconnectReason: text("reconnectReason"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    appSettings = sqliteTable("app_settings", {
+      key: text("key").primaryKey(),
+      value: text("value"),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
   }
@@ -40529,6 +40538,7 @@ var init_client_router = __esm({
         payrollReimbursements: external_exports.boolean().optional(),
         payrollRevenueShare: external_exports.boolean().optional(),
         payrollCraComparison: external_exports.boolean().optional(),
+        payrollHoursSource: external_exports.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
         yearEndMonth: external_exports.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
         quoteAmount: external_exports.number().optional(),
         quoteSentAt: external_exports.string().optional(),
@@ -46800,16 +46810,46 @@ __export(jobber_oauth_exports, {
   JOBBER_GRAPHQL_URL: () => JOBBER_GRAPHQL_URL,
   bearerFor: () => bearerFor,
   buildAuthorizeUrl: () => buildAuthorizeUrl2,
+  ensureAppSettings: () => ensureAppSettings,
   ensureJobberTable: () => ensureJobberTable,
   exchangeAndPersist: () => exchangeAndPersist2,
+  getJobberClientId: () => getJobberClientId,
+  getJobberClientSecret: () => getJobberClientSecret,
   getValidConnection: () => getValidConnection,
   jobberConfigured: () => jobberConfigured,
+  setJobberCreds: () => setJobberCreds,
   signState: () => signState2,
   verifyState: () => verifyState2
 });
 import crypto5 from "crypto";
-function jobberConfigured() {
-  return !!(process.env.JOBBER_CLIENT_ID && process.env.JOBBER_CLIENT_SECRET);
+async function ensureAppSettings() {
+  try {
+    await getDb().run(sql`CREATE TABLE IF NOT EXISTS app_settings (key text PRIMARY KEY, value text, updatedAt integer)`);
+  } catch (e) {
+    console.error("[jobber] ensure app_settings failed:", e instanceof Error ? e.message : e);
+  }
+}
+async function getCred(key, envVal) {
+  try {
+    const rows = await getDb().select().from(appSettings).where(eq(appSettings.key, key)).limit(1);
+    const stored = rows[0]?.value;
+    if (stored) return decryptSecret(stored) || null;
+  } catch {
+  }
+  return envVal || null;
+}
+async function setJobberCreds(clientId, secret) {
+  await ensureAppSettings();
+  const db = getDb();
+  for (const [k, v] of [["jobber_client_id", clientId], ["jobber_client_secret", secret]]) {
+    const enc = encryptSecret(v.trim());
+    const existing = await db.select().from(appSettings).where(eq(appSettings.key, k)).limit(1);
+    if (existing[0]) await db.update(appSettings).set({ value: enc, updatedAt: /* @__PURE__ */ new Date() }).where(eq(appSettings.key, k));
+    else await db.insert(appSettings).values({ key: k, value: enc });
+  }
+}
+async function jobberConfigured() {
+  return !!await getJobberClientId() && !!await getJobberClientSecret();
 }
 function redirectUri() {
   return process.env.JOBBER_REDIRECT_URI || "https://figgy.gofig.ca/api/jobber/callback";
@@ -46838,9 +46878,9 @@ function verifyState2(raw2) {
     return null;
   }
 }
-function buildAuthorizeUrl2(clientId) {
+async function buildAuthorizeUrl2(clientId) {
   const u = new URL(AUTH_URL);
-  u.searchParams.set("client_id", process.env.JOBBER_CLIENT_ID || "");
+  u.searchParams.set("client_id", await getJobberClientId() || "");
   u.searchParams.set("redirect_uri", redirectUri());
   u.searchParams.set("response_type", "code");
   u.searchParams.set("state", signState2(clientId));
@@ -46860,10 +46900,11 @@ async function exchangeAndPersist2(input) {
   const state = verifyState2(input.stateRaw);
   if (!state) throw new Error("invalid_or_expired_state");
   if (!state.clientId) throw new Error("missing_client_in_state");
-  if (!jobberConfigured()) throw new Error("jobber_not_configured");
+  const cid = await getJobberClientId(), csec = await getJobberClientSecret();
+  if (!cid || !csec) throw new Error("jobber_not_configured");
   const data = await postToken({
-    client_id: process.env.JOBBER_CLIENT_ID,
-    client_secret: process.env.JOBBER_CLIENT_SECRET,
+    client_id: cid,
+    client_secret: csec,
     grant_type: "authorization_code",
     code: input.code,
     redirect_uri: redirectUri()
@@ -46890,8 +46931,8 @@ async function refreshToken(conn) {
   let data;
   try {
     data = await postToken({
-      client_id: process.env.JOBBER_CLIENT_ID,
-      client_secret: process.env.JOBBER_CLIENT_SECRET,
+      client_id: await getJobberClientId(),
+      client_secret: await getJobberClientSecret(),
       grant_type: "refresh_token",
       refresh_token: rt
     });
@@ -46946,7 +46987,7 @@ async function ensureJobberTable() {
     console.error("[jobber] ensure table failed:", e instanceof Error ? e.message : e);
   }
 }
-var AUTH_URL, TOKEN_URL2, JOBBER_GRAPHQL_URL, JOBBER_API_VERSION;
+var AUTH_URL, TOKEN_URL2, JOBBER_GRAPHQL_URL, JOBBER_API_VERSION, getJobberClientId, getJobberClientSecret;
 var init_jobber_oauth = __esm({
   "api/jobber-oauth.ts"() {
     init_connection();
@@ -46957,6 +46998,8 @@ var init_jobber_oauth = __esm({
     TOKEN_URL2 = "https://api.getjobber.com/api/oauth/token";
     JOBBER_GRAPHQL_URL = "https://api.getjobber.com/api/graphql";
     JOBBER_API_VERSION = process.env.JOBBER_API_VERSION || "2025-01-20";
+    getJobberClientId = () => getCred("jobber_client_id", process.env.JOBBER_CLIENT_ID);
+    getJobberClientSecret = () => getCred("jobber_client_secret", process.env.JOBBER_CLIENT_SECRET);
   }
 });
 
@@ -47096,19 +47139,30 @@ async function seedPayrollSchedules() {
     const biweeklyAnchor = /* @__PURE__ */ new Date("2026-06-10T00:00:00Z");
     for (const c of cs) {
       const n = (c.name || "").toLowerCase();
+      const src = n.includes("clark") ? "jobber" : n.includes("spot") || n.includes("sher") || n.includes("punjab") ? "touchbistro" : n.includes("originality") ? "clockify" : null;
       if (["clark", "spot", "sher", "punjab"].some((k) => n.includes(k))) {
-        await db.update(clients).set({ payrollFrequency: "bi-weekly", payrollAnchorStart: biweeklyAnchor, payrollPayDayOffset: 3 }).where(eq(clients.id, c.id));
+        await db.update(clients).set({ payrollFrequency: "bi-weekly", payrollAnchorStart: biweeklyAnchor, payrollPayDayOffset: 3, ...src && !c.payrollHoursSource ? { payrollHoursSource: src } : {} }).where(eq(clients.id, c.id));
       } else if (n.includes("originality")) {
-        if (!c.payrollFrequency) await db.update(clients).set({ payrollFrequency: "semi-monthly" }).where(eq(clients.id, c.id));
+        await db.update(clients).set({ ...c.payrollFrequency ? {} : { payrollFrequency: "semi-monthly" }, ...src && !c.payrollHoursSource ? { payrollHoursSource: src } : {} }).where(eq(clients.id, c.id));
       }
     }
   } catch (e) {
     console.error("[payroll] seedPayrollSchedules failed:", e instanceof Error ? e.message : e);
   }
 }
-function payrollKind(name2) {
+function payrollKind(name2, source) {
   const n = (name2 || "").toLowerCase();
   if (n.includes("west york")) return { kind: "qbo_autopay", note: WEST_YORK_META.note, meta: WEST_YORK_META };
+  if (source) {
+    const m = {
+      jobber: { kind: "jobber", note: "Hours come from Jobber timesheets \u2014 use Connect Jobber to import." },
+      touchbistro: { kind: "touchbistro", note: "Hours come from TouchBistro \u2014 enter or import them here." },
+      clockify: { kind: "clockify", note: "Hours come from Clockify." },
+      qbo_autopay: { kind: "qbo_autopay", note: "Auto-paid in QuickBooks." },
+      manual: { kind: "manual" }
+    };
+    if (m[source]) return m[source];
+  }
   if (n.includes("selective")) return { kind: "estimator", note: "Monthly flat-rate estimator: enter gross (or net) and Figgy fills CPP/EI/tax + the CRA remittance." };
   if (n.includes("originality")) return { kind: "clockify", note: "Hourly staff hours come from Clockify; salaried staff are entered manually." };
   if (n.includes("clark")) return { kind: "jobber", note: "Employee hours come from Jobber timesheets (import coming in Phase 3). Enter or adjust manually here." };
@@ -47170,6 +47224,7 @@ var init_payroll_router = __esm({
           payrollRemitterFreq: c.payrollRemitterFreq ?? null,
           payrollAnchorStart: c.payrollAnchorStart ?? null,
           payrollPayDayOffset: c.payrollPayDayOffset ?? 0,
+          payrollHoursSource: c.payrollHoursSource ?? null,
           employeeCount: empCount.get(c.id) || 0,
           // Client-level payroll features (drive what the pay run shows).
           payrollBonuses: !!c.payrollBonuses,
@@ -47178,7 +47233,7 @@ var init_payroll_router = __esm({
           payrollReimbursements: !!c.payrollReimbursements,
           payrollRevenueShare: !!c.payrollRevenueShare,
           payrollCraComparison: !!c.payrollCraComparison,
-          ...payrollKind(c.name)
+          ...payrollKind(c.name, c.payrollHoursSource)
         })).sort((a, b) => a.name.localeCompare(b.name));
       }),
       // Pay runs for a client, newest period first.
@@ -47203,10 +47258,17 @@ var init_payroll_router = __esm({
         if (!start || !end) return [];
         return statHolidaysInRange2(start, end);
       }),
+      // Store the Jobber OAuth app credentials in-app (encrypted), so connecting works
+      // without a server env var / redeploy. (Set once from the Connect Jobber dialog.)
+      setJobberCredentials: staffQuery.input(external_exports.object({ clientId: external_exports.string().min(10), clientSecret: external_exports.string().min(10) })).mutation(async ({ input }) => {
+        const { setJobberCreds: setJobberCreds2 } = await Promise.resolve().then(() => (init_jobber_oauth(), jobber_oauth_exports));
+        await setJobberCreds2(input.clientId, input.clientSecret);
+        return { success: true };
+      }),
       // Jobber connection status for a client (for the Connect button / badge).
       jobberStatus: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const { jobberConfigured: jobberConfigured2, getValidConnection: getValidConnection2 } = await Promise.resolve().then(() => (init_jobber_oauth(), jobber_oauth_exports));
-        if (!jobberConfigured2()) return { configured: false, connected: false };
+        if (!await jobberConfigured2()) return { configured: false, connected: false };
         try {
           const conn = await getValidConnection2(input.clientId);
           return { configured: true, connected: !!conn, accountName: conn?.accountName ?? null };
@@ -55057,6 +55119,7 @@ var init_ensure_clients_schema = __esm({
       ["payrollCraComparison", "integer DEFAULT 0"],
       ["payrollAnchorStart", "integer"],
       ["payrollPayDayOffset", "integer DEFAULT 0"],
+      ["payrollHoursSource", "text"],
       ["quoteAmount", "real"],
       ["quoteSentAt", "integer"],
       ["quoteApprovedAt", "integer"],
@@ -59955,7 +60018,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.47";
+var BUILD_TAG = "2026-06-21.50";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -60020,11 +60083,11 @@ app.get("/api/qbo/callback", async (c) => {
 });
 app.get("/api/jobber/connect", async (c) => {
   const { buildAuthorizeUrl: buildAuthorizeUrl3, jobberConfigured: jobberConfigured2 } = await Promise.resolve().then(() => (init_jobber_oauth(), jobber_oauth_exports));
-  if (!jobberConfigured2()) return c.redirect("/payroll?error=jobber_not_configured", 302);
+  if (!await jobberConfigured2()) return c.redirect("/payroll?error=jobber_not_configured", 302);
   const cid = c.req.query("clientId");
   const clientId = cid && /^\d+$/.test(cid) ? Number(cid) : null;
   if (!clientId) return c.redirect("/payroll?error=missing_client", 302);
-  return c.redirect(buildAuthorizeUrl3(clientId), 302);
+  return c.redirect(await buildAuthorizeUrl3(clientId), 302);
 });
 app.get("/api/jobber/callback", async (c) => {
   const code = c.req.query("code");

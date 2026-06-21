@@ -303,6 +303,9 @@ export const clients = sqliteTable("clients", {
   // days from period END to the pay date (e.g. Clark = Tue end + 3 → Fri pay).
   payrollAnchorStart: integer("payrollAnchorStart", { mode: "timestamp" }),
   payrollPayDayOffset: integer("payrollPayDayOffset").default(0),
+  // Where this client's hours come from — drives the per-client integration button
+  // (Jobber/TouchBistro/Clockify). Set on intake/the card; NOT guessed from the name.
+  payrollHoursSource: text("payrollHoursSource", { enum: ["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"] }),
   yearEndMonth: text("yearEndMonth", { enum: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] }),
 
   // Quote & Engagement Letter
@@ -1624,5 +1627,14 @@ export const jobberConnections = sqliteTable("jobber_connections", {
   active: integer("active", { mode: "boolean" }).default(true),
   reconnectReason: text("reconnectReason"),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Generic encrypted app settings (key/value) — e.g. Jobber OAuth app credentials
+// entered in-app so they don't require a server env var / redeploy. Values that are
+// secrets are stored via the AES envelope (enc:v1:) like the OAuth tokens.
+export const appSettings = sqliteTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value"),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });

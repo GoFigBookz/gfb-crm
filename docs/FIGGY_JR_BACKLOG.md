@@ -4,6 +4,29 @@ _Living list of agreed-but-not-yet-built work, with the decisions made so we
 don't re-derive them._
 
 ## BACKLOGGED THIS SESSION (Markie: finish client cards first, then these)
+- **Auto-pull hours 9 AM Wednesday each pay period (2026-06-21).** For the 4 timesheet
+  companies only (Clark OS, Clark CW via Jobber; the two restaurants via TouchBistro):
+  period ends Tuesday, Markie processes Wednesday — so auto-import that period's hours at
+  ~9:00 AM Wednesday into the pay run, ready for him. Scheduled job once the connectors are live.
+- **Onboarding form 'Send' should generate a link (2026-06-21).** The send-client-onboarding-
+  form action doesn't produce a shareable link yet — wire it to generate + send one.
+- **Sales + payment platforms on intake drive connect buttons (2026-06-21).** Like hours-source
+  drives the Jobber button: the client's sales platform (Square/Jobber/Stripe/etc.) and payment
+  platform fields on intake should drive which connect buttons + integrations appear per client.
+- **EVERYTHING per-client runs from the intake form (2026-06-21, Markie's directive).**
+  The intake form is the single source that provisions a client's surfaces: has payroll →
+  payroll surface; hours source = Jobber → Jobber button; TouchBistro → TouchBistro; has
+  WSIB → WSIB link, else NO WSIB link; no payroll → no payroll calculator link; etc. Quick
+  links + feature buttons must be CONDITIONAL on the client's actual features. Also: REMOVE
+  the payroll calculator from the client quick links entirely. (Started: hours-source field
+  drives the Jobber button; extend this pattern to all features + wire the intake form.)
+- **Client card sub-cards: employees, vendors, customers (2026-06-21).** Build add/edit of
+  employees, vendors, and customers INSIDE the client card (per-client), pulling vendor/
+  customer data from QBO where possible. (Ties to the contacts card + vendors backlog items.)
+- **Hours source belongs on the client intake (2026-06-21).** Which integration a payroll
+  client uses (Jobber / TouchBistro / Clockify / QBO autopay / manual) is currently inferred
+  from the client NAME. Make it an explicit intake/client-card field, and drive the
+  per-client integration buttons (e.g. Connect Jobber only for Jobber clients) off that field.
 - **Dock King = flow-through client only (2026-06-21).** NOT an active client — no monthly
   bookkeeping, no services. We only invoice him for the QuickBooks wholesale software. Just
   pull his data from QBO. Future: put him on Stripe autopay. Also fix the error hit when

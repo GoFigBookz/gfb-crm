@@ -60,17 +60,42 @@ const money = (n: number | null | undefined) => `$${(n ?? 0).toLocaleString(unde
  *  visible; reflects connection status. If the server creds aren't set yet, the
  *  connect route redirects back with a note. */
 function JobberConnect({ clientId }: { clientId: number }) {
+  const utils = trpc.useUtils();
   const { data: jobber } = trpc.payroll.jobberStatus.useQuery({ clientId });
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [cid, setCid] = useState("");
+  const [csec, setCsec] = useState("");
+  const saveCreds = trpc.payroll.setJobberCredentials.useMutation({
+    onSuccess: () => { setSetupOpen(false); utils.payroll.jobberStatus.invalidate(); window.location.href = `/api/jobber/connect?clientId=${clientId}`; },
+    onError: (e) => alert(e.message),
+  });
   if (jobber?.connected) {
     return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">Jobber connected ✓</Badge>;
   }
+  const onConnect = () => {
+    if (jobber && !jobber.configured) { setSetupOpen(true); return; } // need creds first
+    window.location.href = `/api/jobber/connect?clientId=${clientId}`; // hard nav → server route
+  };
   return (
-    <a href={`/api/jobber/connect?clientId=${clientId}`}
-       title={jobber && !jobber.configured ? "Set JOBBER_CLIENT_ID/SECRET on the server, then click to authorize" : "Connect this client's Jobber account"}>
-      <Button size="sm" variant="outline" className="border-amber-300 text-amber-700">
+    <>
+      <Button size="sm" variant="outline" className="border-amber-300 text-amber-700" onClick={onConnect}>
         <ExternalLink className="h-3.5 w-3.5 mr-1" /> Connect Jobber
       </Button>
-    </a>
+      <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Set up Jobber (one-time)</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-2">
+            <p className="text-sm text-slate-500">Paste your Jobber app's <strong>Client ID</strong> and <strong>Client Secret</strong> (developer.getjobber.com → Manage Apps). Stored encrypted — you won't need to do this again.</p>
+            <div><Label>Client ID</Label><Input value={cid} onChange={(e) => setCid(e.target.value)} placeholder="xxxxxxxx-xxxx-…" /></div>
+            <div><Label>Client Secret</Label><Input value={csec} onChange={(e) => setCsec(e.target.value)} placeholder="(secret)" /></div>
+            <Button className="w-full bg-lime-500" disabled={saveCreds.isPending || cid.trim().length < 10 || csec.trim().length < 10}
+              onClick={() => saveCreds.mutate({ clientId: cid.trim(), clientSecret: csec.trim() })}>
+              {saveCreds.isPending ? "Saving…" : "Save & connect"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -142,7 +167,7 @@ export default function Payroll() {
                   <Link to={`/client/${selected.id}`} className="text-xs text-lime-700 hover:underline inline-flex items-center gap-1"><Building2 className="h-3.5 w-3.5" /> client card</Link>
                 </div>
                 <div className="flex items-center gap-2">
-                  <JobberConnect clientId={selected.id} />
+                  {selected.kind === "jobber" && <JobberConnect clientId={selected.id} />}
                   <Button size="sm" onClick={() => setCreating(true)}><Plus className="h-4 w-4 mr-1" /> New pay run</Button>
                 </div>
               </div>
@@ -334,12 +359,12 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
             </Select>
           </div>
           <div className="flex items-center gap-2">
-            {jobber?.connected && (
+            {features?.kind === "jobber" && jobber?.connected && (
               <Button size="sm" variant="outline" className="h-8 border-amber-300 text-amber-700" onClick={() => importJobber.mutate({ runId })} disabled={importJobber.isPending}>
                 <Download className="h-3.5 w-3.5 mr-1" /> {importJobber.isPending ? "Importing…" : "Import Jobber hours"}
               </Button>
             )}
-            {jobber?.configured && !jobber.connected && (
+            {features?.kind === "jobber" && jobber?.configured && !jobber.connected && (
               <a href={`/api/jobber/connect?clientId=${run.clientId}`}>
                 <Button size="sm" variant="outline" className="h-8 border-amber-300 text-amber-700"><ExternalLink className="h-3.5 w-3.5 mr-1" /> Connect Jobber</Button>
               </a>

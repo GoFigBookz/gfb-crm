@@ -61,7 +61,7 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-const BUILD_TAG = "2026-06-21.47";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-21.50";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -136,11 +136,11 @@ app.get("/api/qbo/callback", async (c) => {
 // ================================================================
 app.get("/api/jobber/connect", async (c) => {
   const { buildAuthorizeUrl, jobberConfigured } = await import("./jobber-oauth");
-  if (!jobberConfigured()) return c.redirect("/payroll?error=jobber_not_configured", 302);
+  if (!(await jobberConfigured())) return c.redirect("/payroll?error=jobber_not_configured", 302);
   const cid = c.req.query("clientId");
   const clientId = cid && /^\d+$/.test(cid) ? Number(cid) : null;
   if (!clientId) return c.redirect("/payroll?error=missing_client", 302);
-  return c.redirect(buildAuthorizeUrl(clientId), 302);
+  return c.redirect(await buildAuthorizeUrl(clientId), 302);
 });
 app.get("/api/jobber/callback", async (c) => {
   const code = c.req.query("code");

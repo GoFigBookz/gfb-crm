@@ -116,18 +116,33 @@ export async function seedPayrollSchedules(): Promise<void> {
     const biweeklyAnchor = new Date("2026-06-10T00:00:00Z"); // UTC midnight, June 10 (a real period start)
     for (const c of cs as any[]) {
       const n = (c.name || "").toLowerCase();
+      // Hours source per client (only set if not already chosen on the card).
+      const src = n.includes("clark") ? "jobber"
+        : (n.includes("spot") || n.includes("sher") || n.includes("punjab")) ? "touchbistro"
+        : n.includes("originality") ? "clockify" : null;
       if (["clark", "spot", "sher", "punjab"].some((k) => n.includes(k))) {
-        await db.update(clients).set({ payrollFrequency: "bi-weekly", payrollAnchorStart: biweeklyAnchor, payrollPayDayOffset: 3 }).where(eq(clients.id, c.id));
+        await db.update(clients).set({ payrollFrequency: "bi-weekly", payrollAnchorStart: biweeklyAnchor, payrollPayDayOffset: 3, ...(src && !c.payrollHoursSource ? { payrollHoursSource: src } : {}) }).where(eq(clients.id, c.id));
       } else if (n.includes("originality")) {
-        if (!c.payrollFrequency) await db.update(clients).set({ payrollFrequency: "semi-monthly" }).where(eq(clients.id, c.id));
+        await db.update(clients).set({ ...(c.payrollFrequency ? {} : { payrollFrequency: "semi-monthly" }), ...(src && !c.payrollHoursSource ? { payrollHoursSource: src } : {}) }).where(eq(clients.id, c.id));
       }
     }
   } catch (e) { console.error("[payroll] seedPayrollSchedules failed:", e instanceof Error ? e.message : e); }
 }
 
-function payrollKind(name: string | null | undefined): { kind: string; note?: string; meta?: any } {
+function payrollKind(name: string | null | undefined, source?: string | null): { kind: string; note?: string; meta?: any } {
   const n = (name || "").toLowerCase();
   if (n.includes("west york")) return { kind: "qbo_autopay", note: WEST_YORK_META.note, meta: WEST_YORK_META };
+  // EXPLICIT hours source set on the client wins (set at intake / on the card).
+  if (source) {
+    const m: Record<string, { kind: string; note?: string }> = {
+      jobber: { kind: "jobber", note: "Hours come from Jobber timesheets — use Connect Jobber to import." },
+      touchbistro: { kind: "touchbistro", note: "Hours come from TouchBistro — enter or import them here." },
+      clockify: { kind: "clockify", note: "Hours come from Clockify." },
+      qbo_autopay: { kind: "qbo_autopay", note: "Auto-paid in QuickBooks." },
+      manual: { kind: "manual" },
+    };
+    if (m[source]) return m[source];
+  }
   if (n.includes("selective")) return { kind: "estimator", note: "Monthly flat-rate estimator: enter gross (or net) and Figgy fills CPP/EI/tax + the CRA remittance." };
   if (n.includes("originality")) return { kind: "clockify", note: "Hourly staff hours come from Clockify; salaried staff are entered manually." };
   if (n.includes("clark")) return { kind: "jobber", note: "Employee hours come from Jobber timesheets (import coming in Phase 3). Enter or adjust manually here." };
@@ -170,6 +185,7 @@ export const payrollRouter = createRouter({
         payrollRemitterFreq: c.payrollRemitterFreq ?? null,
         payrollAnchorStart: c.payrollAnchorStart ?? null,
         payrollPayDayOffset: c.payrollPayDayOffset ?? 0,
+        payrollHoursSource: c.payrollHoursSource ?? null,
         employeeCount: empCount.get(c.id) || 0,
         // Client-level payroll features (drive what the pay run shows).
         payrollBonuses: !!c.payrollBonuses,
@@ -178,7 +194,7 @@ export const payrollRouter = createRouter({
         payrollReimbursements: !!c.payrollReimbursements,
         payrollRevenueShare: !!c.payrollRevenueShare,
         payrollCraComparison: !!c.payrollCraComparison,
-        ...payrollKind(c.name),
+        ...payrollKind(c.name, c.payrollHoursSource),
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }),
@@ -211,12 +227,22 @@ export const payrollRouter = createRouter({
       return statHolidaysInRange(start, end);
     }),
 
+  // Store the Jobber OAuth app credentials in-app (encrypted), so connecting works
+  // without a server env var / redeploy. (Set once from the Connect Jobber dialog.)
+  setJobberCredentials: staffQuery
+    .input(z.object({ clientId: z.string().min(10), clientSecret: z.string().min(10) }))
+    .mutation(async ({ input }) => {
+      const { setJobberCreds } = await import("./jobber-oauth");
+      await setJobberCreds(input.clientId, input.clientSecret);
+      return { success: true };
+    }),
+
   // Jobber connection status for a client (for the Connect button / badge).
   jobberStatus: staffQuery
     .input(z.object({ clientId: z.number() }))
     .query(async ({ input }) => {
       const { jobberConfigured, getValidConnection } = await import("./jobber-oauth");
-      if (!jobberConfigured()) return { configured: false, connected: false };
+      if (!(await jobberConfigured())) return { configured: false, connected: false };
       try {
         const conn = await getValidConnection(input.clientId);
         return { configured: true, connected: !!conn, accountName: conn?.accountName ?? null };
