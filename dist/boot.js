@@ -58059,6 +58059,9 @@ app.post("/api/client-error", async (c) => {
 function getRecentClientErrors() {
   return recentClientErrors;
 }
+var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
+var BUILD_TAG = "2026-06-21.7";
+app.get("/api/version", (c) => c.json({ build: BUILD_TAG, startedAt: BOOT_TIME, now: (/* @__PURE__ */ new Date()).toISOString(), uptimeSec: Math.round(process.uptime()) }));
 app.get("/api/qbo/connect", async (c) => {
   const { buildAuthorizeUrl: buildAuthorizeUrl2 } = await Promise.resolve().then(() => (init_qbo_oauth(), qbo_oauth_exports));
   const clientIdRaw = c.req.query("clientId");
