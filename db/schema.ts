@@ -299,6 +299,10 @@ export const clients = sqliteTable("clients", {
   payrollFrequency: text("payrollFrequency", { enum: ["weekly", "bi-weekly", "semi-monthly", "monthly", "self"] }),
   // CRA source-deduction remitter type — drives the PD7A remittance due date.
   payrollRemitterFreq: text("payrollRemitterFreq", { enum: ["regular", "quarterly", "accelerated"] }).default("regular"),
+  // Pay-cycle anchor: a known period START date (aligns weekly/biweekly periods) +
+  // days from period END to the pay date (e.g. Clark = Tue end + 3 → Fri pay).
+  payrollAnchorStart: integer("payrollAnchorStart", { mode: "timestamp" }),
+  payrollPayDayOffset: integer("payrollPayDayOffset").default(0),
   yearEndMonth: text("yearEndMonth", { enum: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] }),
 
   // Quote & Engagement Letter

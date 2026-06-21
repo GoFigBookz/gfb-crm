@@ -106,6 +106,25 @@ export async function backfillHasPayroll(): Promise<void> {
   } catch (e) { console.error("[payroll] backfillHasPayroll failed:", e instanceof Error ? e.message : e); }
 }
 
+/** Seed the known pay cycles (Markie 2026-06-21, from the payroll sheets):
+ *  Clark OS/CW, Old Spot, Sher-E-Punjab = biweekly, Wed→Tue, pay = end + 3 days
+ *  (anchor 2026-06-10 = a real period start). Originality = semi-monthly. */
+export async function seedPayrollSchedules(): Promise<void> {
+  try {
+    const db = getDb();
+    const cs = await db.select().from(clients);
+    const biweeklyAnchor = new Date("2026-06-10T00:00:00");
+    for (const c of cs as any[]) {
+      const n = (c.name || "").toLowerCase();
+      if (["clark", "old spot", "sher", "punjab"].some((k) => n.includes(k))) {
+        await db.update(clients).set({ payrollFrequency: "bi-weekly", payrollAnchorStart: biweeklyAnchor, payrollPayDayOffset: 3 }).where(eq(clients.id, c.id));
+      } else if (n.includes("originality")) {
+        if (!c.payrollFrequency) await db.update(clients).set({ payrollFrequency: "semi-monthly" }).where(eq(clients.id, c.id));
+      }
+    }
+  } catch (e) { console.error("[payroll] seedPayrollSchedules failed:", e instanceof Error ? e.message : e); }
+}
+
 function payrollKind(name: string | null | undefined): { kind: string; note?: string; meta?: any } {
   const n = (name || "").toLowerCase();
   if (n.includes("west york")) return { kind: "qbo_autopay", note: WEST_YORK_META.note, meta: WEST_YORK_META };
@@ -149,6 +168,8 @@ export const payrollRouter = createRouter({
         id: c.id, name: c.name,
         payrollFrequency: c.payrollFrequency ?? null,
         payrollRemitterFreq: c.payrollRemitterFreq ?? null,
+        payrollAnchorStart: c.payrollAnchorStart ?? null,
+        payrollPayDayOffset: c.payrollPayDayOffset ?? 0,
         employeeCount: empCount.get(c.id) || 0,
         // Client-level payroll features (drive what the pay run shows).
         payrollBonuses: !!c.payrollBonuses,
