@@ -112,6 +112,9 @@ export function computeHstStatus(opts: {
   lastFiled?: Date | null;
   /** fiscal year-end month (1-12) — needed only for annual filers */
   fiscalYearEndMonth?: number | null;
+  /** explicit "next return due by" date (YYYY-MM-DD) from Markie's HST sheet —
+   *  authoritative; overrides the cadence-computed due date when present. */
+  explicitDueDate?: string | null;
 }): HstStatus {
   const { hasHST, asOf } = opts;
   if (!hasHST || !opts.period) {
@@ -150,7 +153,9 @@ export function computeHstStatus(opts: {
     periodLabel = `FY ${periodEnd.getUTCFullYear()}`;
   }
 
-  const dueDate = addMonths(periodEnd, dueMonthsAfter);
+  const dueDate = opts.explicitDueDate
+    ? new Date(`${opts.explicitDueDate}T00:00:00Z`)
+    : addMonths(periodEnd, dueMonthsAfter);
   const filed = opts.lastFiled != null ? opts.lastFiled.getTime() >= periodEnd.getTime() : null;
   const daysToDue = daysBetween(dueDate, asOf);
   const overdue = filed === false ? asOf.getTime() > dueDate.getTime() : (filed == null ? asOf.getTime() > dueDate.getTime() : false);

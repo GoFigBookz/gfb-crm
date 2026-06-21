@@ -277,6 +277,7 @@ export const clients = sqliteTable("clients", {
   
   // Bookkeeping service flags
   hasHST: integer("hasHST", { mode: "boolean" }).default(false),
+  hstNextDue: text("hstNextDue"),   // explicit "next HST return due by" date (YYYY-MM-DD) from Markie's HST sheet
   hstNumber: text("hstNumber"),
   hstPeriod: text("hstPeriod", { enum: ["monthly", "quarterly", "annual"] }),
   hasWSIB: integer("hasWSIB", { mode: "boolean" }).default(false),
