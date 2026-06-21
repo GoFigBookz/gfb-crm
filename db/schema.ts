@@ -1591,3 +1591,18 @@ export const clientSnapshots = sqliteTable("client_snapshots", {
   openTasks: integer("openTasks").default(0),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// Auto-refreshed tax rates (Markie 2026-06-21): no live API for legislated rates,
+// so a scheduled AI web-fetch keeps this table current and the calculators read
+// from it (fallback = baked-in defaults). NOTE: the CRM does NOT run payroll — QBO
+// Payroll does — so these rates feed the reference calculators + the Originality
+// revenue-share tax-adequacy check only, never real remittances.
+export const taxRates = sqliteTable("tax_rates", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  key: text("key").notNull(),              // e.g. "ca.hst.ON", "ca.cpp.rate", "us.ss.wageBase"
+  value: real("value").notNull(),
+  label: text("label"),
+  effectiveYear: integer("effectiveYear"),
+  source: text("source"),                  // where the fetch got it
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

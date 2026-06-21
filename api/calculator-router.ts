@@ -48,4 +48,11 @@ export const calculatorRouter = createRouter({
     if (data) { fxCache = { at: Date.now(), data }; return data; }
     return fxCache?.data ?? null; // serve a stale cache if the fetch failed
   }),
+
+  // Auto-fetched legislated tax rates (HST/GST per province, CPP/EI constants, US
+  // SS wage base) → {key: value}. The calculators overlay these on baked-in defaults.
+  taxRates: authedQuery.query(async () => {
+    const { getTaxRateMap } = await import("./tax-rate-autofetch");
+    return getTaxRateMap();
+  }),
 });

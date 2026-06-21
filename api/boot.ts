@@ -61,7 +61,7 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-const BUILD_TAG = "2026-06-21.26";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-21.27";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -1199,6 +1199,12 @@ async function startServer() {
   const { capturePracticeSnapshot } = await import("./dashboard-router");
   setTimeout(() => { capturePracticeSnapshot().catch(() => {}); }, 90_000);
   setInterval(() => { capturePracticeSnapshot().catch(() => {}); }, 24 * 60 * 60 * 1000);
+
+  // Tax-rate auto-refresh (no live API → AI web-fetch). Checks shortly after boot,
+  // then daily; only actually refetches when stale or in a Jun/Dec refresh window.
+  const { maybeRefreshTaxRates } = await import("./tax-rate-autofetch");
+  setTimeout(() => { maybeRefreshTaxRates().catch(() => {}); }, 150_000);
+  setInterval(() => { maybeRefreshTaxRates().catch(() => {}); }, 24 * 60 * 60 * 1000);
 
   // INBOUND sheet → CRM sync (bidirectional): apply edits made in the Google
   // master sheet back into the CRM. Shortly after boot, then every 20 min.

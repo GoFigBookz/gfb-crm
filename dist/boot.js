@@ -22370,6 +22370,7 @@ __export(schema_exports, {
   signatureDocuments: () => signatureDocuments,
   smsMessages: () => smsMessages,
   tasks: () => tasks,
+  taxRates: () => taxRates,
   taxSlipEntries: () => taxSlipEntries,
   timeEntries: () => timeEntries,
   timesheets: () => timesheets,
@@ -22380,7 +22381,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots;
+var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23852,6 +23853,17 @@ var init_schema = __esm({
       // red | yellow | green
       openTasks: integer2("openTasks").default(0),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    taxRates = sqliteTable("tax_rates", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      key: text("key").notNull(),
+      // e.g. "ca.hst.ON", "ca.cpp.rate", "us.ss.wageBase"
+      value: real("value").notNull(),
+      label: text("label"),
+      effectiveYear: integer2("effectiveYear"),
+      source: text("source"),
+      // where the fetch got it
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
   }
 });
@@ -51559,6 +51571,173 @@ var init_dashboard_router = __esm({
   }
 });
 
+// api/tax-rate-autofetch.ts
+var tax_rate_autofetch_exports = {};
+__export(tax_rate_autofetch_exports, {
+  ensureTaxRatesTable: () => ensureTaxRatesTable,
+  fetchAndApplyTaxRates: () => fetchAndApplyTaxRates,
+  getTaxRateMap: () => getTaxRateMap,
+  maybeRefreshTaxRates: () => maybeRefreshTaxRates
+});
+async function ensureTaxRatesTable() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS tax_rates (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      key text NOT NULL,
+      value real NOT NULL,
+      label text,
+      effectiveYear integer,
+      source text,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[tax-fetch] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+}
+async function put(key, value, label, year2, source) {
+  const db = getDb();
+  const existing = await db.select().from(taxRates).where(eq(taxRates.key, key)).limit(1);
+  const row = { key, value, label, effectiveYear: year2, source, updatedAt: /* @__PURE__ */ new Date() };
+  if (existing[0]) await db.update(taxRates).set(row).where(eq(taxRates.key, key));
+  else await db.insert(taxRates).values(row);
+}
+async function getTaxRateMap() {
+  const db = getDb();
+  try {
+    await ensureTaxRatesTable();
+    const rows = await db.select().from(taxRates);
+    const m = {};
+    for (const r of rows) m[r.key] = r.value;
+    return m;
+  } catch {
+    return {};
+  }
+}
+async function fetchAndApplyTaxRates(opts) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey || process.env.FIGGY_TAXRATE_FETCH === "off") return { ok: false, changed: [] };
+  await ensureTaxRatesTable();
+  const before = await getTaxRateMap();
+  const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
+  const year2 = (/* @__PURE__ */ new Date()).getFullYear() + ((/* @__PURE__ */ new Date()).getMonth() >= 10 ? 1 : 0);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 45e3);
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1200,
+        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 5 }],
+        system: `You are a Canadian/US tax-rate researcher. Look up the CURRENT (for tax year ${year2}) combined GST/HST rates and CRA payroll constants and return ONLY one JSON object, no prose:
+{"year":${year2},"ca_hst":{"AB":0.05,"NB":0.15,"NL":0.15,"NS":0.14,"ON":0.13,"PE":0.15,"NT":0.05,"NU":0.05,"YT":0.05},"ca_cpp_rate":0.0595,"ca_cpp_ympe":0,"ca_cpp_exemption":3500,"ca_cpp_max":0,"ca_cpp2_rate":0.04,"ca_cpp2_yampe":0,"ca_cpp2_max":0,"ca_ei_rate":0.0163,"ca_ei_mie":0,"ca_ei_max":0,"us_ss_wage_base":0}
+Use decimals for rates (13% = 0.13). Use 0 only if you genuinely cannot verify a value. HST keys must be the combined rate (e.g. Nova Scotia is 0.14 since 2025-04-01).`,
+        messages: [{ role: "user", content: `Current ${year2} GST/HST + CPP/EI constants, as the JSON object.` }]
+      })
+    });
+    if (!res.ok) return { ok: false, changed: [] };
+    const data = await res.json();
+    const text2 = (data?.content ?? []).filter((b) => b?.type === "text").map((b) => String(b.text ?? "")).join("\n");
+    const m = text2.match(/\{[\s\S]*\}/);
+    if (!m) return { ok: false, changed: [] };
+    let p;
+    try {
+      p = JSON.parse(m[0]);
+    } catch {
+      return { ok: false, changed: [] };
+    }
+    const yr = Number(p.year) || year2;
+    const src = `web_search ${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}`;
+    const changed = [];
+    const apply = async (key, val, label) => {
+      const n = Number(val);
+      if (!isFinite(n) || n <= 0) return;
+      if (before[key] == null || Math.abs(before[key] - n) > 1e-9) changed.push(`${label}: ${before[key] ?? "\u2014"} \u2192 ${n}`);
+      await put(key, n, label, yr, src);
+    };
+    if (p.ca_hst && typeof p.ca_hst === "object") {
+      for (const prov of PROVINCES) await apply(`ca.hst.${prov}`, p.ca_hst[prov], `${prov} GST/HST`);
+    }
+    await apply("ca.cpp.rate", p.ca_cpp_rate, "CPP rate");
+    await apply("ca.cpp.ympe", p.ca_cpp_ympe, "CPP YMPE");
+    await apply("ca.cpp.exemption", p.ca_cpp_exemption, "CPP exemption");
+    await apply("ca.cpp.max", p.ca_cpp_max, "CPP max");
+    await apply("ca.cpp2.rate", p.ca_cpp2_rate, "CPP2 rate");
+    await apply("ca.cpp2.yampe", p.ca_cpp2_yampe, "CPP2 YAMPE");
+    await apply("ca.cpp2.max", p.ca_cpp2_max, "CPP2 max");
+    await apply("ca.ei.rate", p.ca_ei_rate, "EI rate");
+    await apply("ca.ei.mie", p.ca_ei_mie, "EI MIE");
+    await apply("ca.ei.max", p.ca_ei_max, "EI max");
+    await apply("us.ss.wageBase", p.us_ss_wage_base, "US Social Security wage base");
+    if (changed.length) {
+      try {
+        const db = getDb();
+        const rowId = `taxrates-${yr}-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}`;
+        const dup = await db.select().from(triageFindings).where(eq(triageFindings.sourceData, rowId)).limit(1);
+        if (!dup[0]) {
+          await db.insert(triageFindings).values({
+            agentName: "Figgy Jr",
+            findingType: "review",
+            severity: "info",
+            title: `Tax rates auto-updated for ${yr} (${changed.length} change${changed.length > 1 ? "s" : ""})`,
+            description: `Auto-fetched current rates and applied them to the calculators:
+` + changed.join("\n") + `
+
+Source: ${src}. Glance to confirm; edit /calculators or the tax_rates table if any look wrong.`,
+            suggestedAction: "Review the updated tax rates",
+            sourceData: rowId,
+            status: "new"
+          });
+        }
+      } catch (e) {
+        console.error("[tax-fetch] triage note failed:", e instanceof Error ? e.message : e);
+      }
+    }
+    return { ok: true, changed, year: yr };
+  } catch (e) {
+    console.error("[tax-fetch] fetch failed:", e instanceof Error ? e.message : e);
+    return { ok: false, changed: [] };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function maybeRefreshTaxRates() {
+  if (process.env.FIGGY_TAXRATE_FETCH === "off") return;
+  try {
+    await ensureTaxRatesTable();
+    const db = getDb();
+    const rows = await db.select().from(taxRates);
+    const month = (/* @__PURE__ */ new Date()).getMonth();
+    const inWindow = month === 5 || month === 11;
+    let stale = rows.length === 0;
+    if (!stale) {
+      const newest = Math.max(...rows.map((r3) => +new Date(r3.updatedAt || 0)));
+      stale = Date.now() - newest > 150 * 24 * 60 * 60 * 1e3;
+    }
+    if (!stale && !inWindow) return;
+    if (inWindow && !stale) {
+      const newest = Math.max(...rows.map((r3) => +new Date(r3.updatedAt || 0)));
+      if (Date.now() - newest < 25 * 24 * 60 * 60 * 1e3) return;
+    }
+    const r = await fetchAndApplyTaxRates();
+    if (r.ok) console.log(`[tax-fetch] applied ${r.changed.length} rate change(s) for ${r.year}`);
+  } catch (e) {
+    console.error("[tax-fetch] maybeRefresh failed:", e instanceof Error ? e.message : e);
+  }
+}
+var PROVINCES;
+var init_tax_rate_autofetch = __esm({
+  "api/tax-rate-autofetch.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    PROVINCES = ["AB", "NB", "NL", "NS", "ON", "PE", "NT", "NU", "YT"];
+  }
+});
+
 // api/calculator-router.ts
 async function fetchBocFxRates() {
   const ctrl = new AbortController();
@@ -51603,6 +51782,12 @@ var init_calculator_router = __esm({
           return data;
         }
         return fxCache?.data ?? null;
+      }),
+      // Auto-fetched legislated tax rates (HST/GST per province, CPP/EI constants, US
+      // SS wage base) → {key: value}. The calculators overlay these on baked-in defaults.
+      taxRates: authedQuery.query(async () => {
+        const { getTaxRateMap: getTaxRateMap2 } = await Promise.resolve().then(() => (init_tax_rate_autofetch(), tax_rate_autofetch_exports));
+        return getTaxRateMap2();
       })
     });
   }
@@ -59238,7 +59423,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.26";
+var BUILD_TAG = "2026-06-21.27";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -60386,6 +60571,15 @@ async function startServer() {
   }, 9e4);
   setInterval(() => {
     capturePracticeSnapshot2().catch(() => {
+    });
+  }, 24 * 60 * 60 * 1e3);
+  const { maybeRefreshTaxRates: maybeRefreshTaxRates2 } = await Promise.resolve().then(() => (init_tax_rate_autofetch(), tax_rate_autofetch_exports));
+  setTimeout(() => {
+    maybeRefreshTaxRates2().catch(() => {
+    });
+  }, 15e4);
+  setInterval(() => {
+    maybeRefreshTaxRates2().catch(() => {
     });
   }, 24 * 60 * 60 * 1e3);
   if (process.env.FIGGY_SHEET_SYNC_DISABLE !== "on") {
