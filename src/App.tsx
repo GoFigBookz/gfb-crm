@@ -47,7 +47,6 @@ import MonthlyCloseChecklist from "./pages/MonthlyCloseChecklist";
 import MonthEndClose from "./pages/MonthEndClose";
 import PricingCalculator from "./pages/PricingCalculator";
 import SatisfactionScores from "./pages/SatisfactionScores";
-import ClientImport from "./pages/ClientImport";
 import EmergencySOP from "./pages/EmergencySOP";
 import DiscoveryCall from "./pages/DiscoveryCall";
 import OnboardingChecklist from "./pages/OnboardingChecklist";
@@ -111,7 +110,6 @@ function AppRoutes() {
         <Route path="/month-end-close" element={<MonthEndClose />} />
         <Route path="/pricing-calculator" element={<PricingCalculator />} />
         <Route path="/satisfaction" element={<SatisfactionScores />} />
-        <Route path="/client-import" element={<ClientImport />} />
         <Route path="/emergency-sop" element={<EmergencySOP />} />
         <Route path="/discovery" element={<DiscoveryCall />} />
         <Route path="/onboarding-checklist" element={<OnboardingChecklist />} />
