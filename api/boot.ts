@@ -61,7 +61,6 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-<<<<<<< HEAD
 const BUILD_TAG = "2026-06-21.8";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
@@ -88,11 +87,6 @@ app.get("/api/version", (c) => {
     cwd: process.cwd(), indexAsset, assetExists, assetFiles, indexHead,
   });
 });
-=======
-const BUILD_TAG = "2026-06-21.7";  // bump each deploy so prod vs source is unambiguous
-app.get("/api/version", (c) =>
-  c.json({ build: BUILD_TAG, startedAt: BOOT_TIME, now: new Date().toISOString(), uptimeSec: Math.round(process.uptime()) }));
->>>>>>> origin/main
 
 // ================================================================
 // QBO OAUTH CALLBACK — Inline handler (no tRPC caller needed)
