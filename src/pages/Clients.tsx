@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, Users, ArrowRight, Globe, Building2 } from "lucide-react";
+import { Plus, Search, Users, Globe, LayoutGrid, List, AlertTriangle, ArrowUpDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,16 +26,38 @@ const FIRM_INFO: Record<string, { flag: string; label: string; color: string }> 
 };
 
 const CLIENT_TYPE_BADGE: Record<string, { label: string; color: string }> = {
-  monthly: { label: "🗓️ Monthly", color: "bg-blue-50 text-blue-700 border-blue-200" },
-  quarterly: { label: "📅 Quarterly", color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
-  annual: { label: "📆 Annual", color: "bg-purple-50 text-purple-700 border-purple-200" },
-  payroll: { label: "💵 Payroll", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  wholesale: { label: "🧾 Wholesale", color: "bg-slate-100 text-slate-600 border-slate-200" },
+  monthly: { label: "Monthly", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  quarterly: { label: "Quarterly", color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  annual: { label: "Annual", color: "bg-purple-50 text-purple-700 border-purple-200" },
+  payroll: { label: "Payroll", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  wholesale: { label: "Wholesale", color: "bg-slate-100 text-slate-600 border-slate-200" },
 };
+
+const TRAFFIC: Record<string, string> = { red: "bg-red-500", yellow: "bg-amber-400", green: "bg-lime-500" };
+
+// Deterministic monogram colour from the client id — stable, calm palette.
+const AVATAR_COLORS = [
+  "bg-blue-100 text-blue-700", "bg-emerald-100 text-emerald-700", "bg-violet-100 text-violet-700",
+  "bg-amber-100 text-amber-700", "bg-rose-100 text-rose-700", "bg-cyan-100 text-cyan-700",
+  "bg-indigo-100 text-indigo-700", "bg-teal-100 text-teal-700",
+];
+const avatarColor = (id: number) => AVATAR_COLORS[id % AVATAR_COLORS.length];
+const monogram = (name: string) => name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
+
+function missingInfo(c: any): string[] {
+  const m: string[] = [];
+  if (!c.taxId) m.push("CRA#");
+  if (c.hasHST && !c.hstNumber) m.push("HST#");
+  if (c.hasPayroll && !c.payrollRpNumber) m.push("Payroll#");
+  if (c.hasWSIB && !c.wsibAccountNumber) m.push("WSIB#");
+  return m;
+}
 
 const TABS = ["all", "active", "lead", "prospect", "inactive"] as const;
 
 type TabType = typeof TABS[number];
+type SortType = "name" | "health";
+type ViewType = "grid" | "list";
 
 export default function Clients() {
   const utils = trpc.useUtils();
@@ -46,6 +68,8 @@ export default function Clients() {
   const [search, setSearch] = useState("");
   const [firmFilter, setFirmFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [sort, setSort] = useState<SortType>("name");
+  const [viewMode, setViewMode] = useState<ViewType>("grid");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newClient, setNewClient] = useState({
     name: "", email: "", phone: "", company: "",
@@ -71,10 +95,25 @@ export default function Clients() {
     status: tab,
   });
 
+  // Month-end close health per client → traffic light + "to post" on each card.
+  const { data: portfolio } = trpc.monthEnd.getPortfolio.useQuery({});
+  const healthById = new Map<number, { status: string; toReview: number }>();
+  for (const c of (portfolio?.clients ?? []) as any[]) healthById.set(c.clientId, { status: c.status, toReview: c.toReview });
+
+  const healthRank: Record<string, number> = { red: 0, yellow: 1, green: 2 };
   const filtered = clients?.filter((c) => {
     if (firmFilter !== "all" && (c as any).qboAccountType !== firmFilter) return false;
     if (typeFilter !== "all" && ((c as any).clientType || "monthly") !== typeFilter) return false;
     return true;
+  }).slice().sort((a, b) => {
+    if (sort === "health") {
+      const ha = healthById.get(a.id), hb = healthById.get(b.id);
+      const ra = ha ? healthRank[ha.status] ?? 3 : 4;
+      const rb = hb ? healthRank[hb.status] ?? 3 : 4;
+      if (ra !== rb) return ra - rb;
+      if ((hb?.toReview ?? 0) !== (ha?.toReview ?? 0)) return (hb?.toReview ?? 0) - (ha?.toReview ?? 0);
+    }
+    return splitClientName(a.name, (a as any).company).primary.localeCompare(splitClientName(b.name, (b as any).company).primary);
   });
 
   const createClient = trpc.crmClient.create.useMutation({
@@ -152,6 +191,26 @@ export default function Clients() {
             <SelectItem value="wholesale">🧾 Wholesale (flow-through)</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={sort} onValueChange={(v) => setSort(v as SortType)}>
+          <SelectTrigger className="w-[180px]">
+            <ArrowUpDown className="h-4 w-4 mr-2 text-slate-400" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">Sort: Name (A–Z)</SelectItem>
+            <SelectItem value="health">Sort: Needs attention</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex rounded-lg border bg-white p-0.5">
+          <button onClick={() => setViewMode("grid")} title="Grid view"
+            className={cn("px-2 py-1.5 rounded-md transition-colors", viewMode === "grid" ? "bg-lime-500 text-white" : "text-slate-500 hover:bg-slate-100")}>
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+          <button onClick={() => setViewMode("list")} title="List view"
+            className={cn("px-2 py-1.5 rounded-md transition-colors", viewMode === "list" ? "bg-lime-500 text-white" : "text-slate-500 hover:bg-slate-100")}>
+            <List className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Client Grid */}
@@ -162,86 +221,85 @@ export default function Clients() {
           <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">No {tab === "all" ? "" : tab + " "}clients found</p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      ) : viewMode === "grid" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map((client) => {
-            const firm = FIRM_INFO[(client as any).qboAccountType] ?? FIRM_INFO.ca_clients;
-            const industry = INDUSTRIES[(client as any).industry] ?? "📁 Other";
+            const c: any = client;
+            const firm = FIRM_INFO[c.qboAccountType] ?? FIRM_INFO.ca_clients;
+            const { primary, secondary } = splitClientName(client.name, c.company);
+            const type = (c.clientType || "monthly") as keyof typeof CLIENT_TYPE_BADGE;
+            const typeBadge = CLIENT_TYPE_BADGE[type] ?? CLIENT_TYPE_BADGE.monthly;
+            const health = healthById.get(client.id);
+            const missing = missingInfo(c);
             return (
-              <Card key={client.id} className="hover:shadow-md transition-shadow border border-slate-200">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1 min-w-0">
-                      {(() => {
-                        const { primary, secondary } = splitClientName(client.name, (client as any).company);
-                        return (
-                          <>
-                            <h3 className="font-semibold text-slate-900 truncate text-sm leading-tight">{primary}</h3>
-                            {secondary && <p className="text-xs text-slate-500 truncate mt-0.5">{secondary}</p>}
-                          </>
-                        );
-                      })()}
+              <Link key={client.id} to={`/client/${client.id}`}
+                className="group block rounded-xl border border-slate-200 bg-white p-4 hover:shadow-md hover:border-slate-300 transition-all">
+                <div className="flex items-start gap-3">
+                  {/* Monogram avatar with a close-health dot */}
+                  <div className="relative shrink-0">
+                    <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center font-semibold text-sm", avatarColor(client.id))}>
+                      {monogram(primary)}
                     </div>
-                    <span className={cn("text-xs px-2 py-0.5 rounded-full border ml-2 flex-shrink-0", firm.color)}>
-                      {firm.flag}
-                    </span>
+                    {health && <span className={cn("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white", TRAFFIC[health.status] ?? "bg-slate-300")} title={`Close status: ${health.status}`} />}
                   </div>
-
-                  <div className="space-y-1.5 mb-3">
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
-                      <span className="truncate">{industry}</span>
-                    </div>
-                    {client.email && (
-                      <div className="text-xs text-slate-500 truncate pl-5">{client.email}</div>
-                    )}
-                    {(client as any).province && (
-                      <div className="text-xs text-slate-400 truncate pl-5">{(client as any).province}</div>
-                    )}
-                  </div>
-
-                  {(() => {
-                    const c: any = client;
-                    const missing: string[] = [];
-                    if (!c.taxId) missing.push("CRA#");
-                    if (c.hasHST && !c.hstNumber) missing.push("HST#");
-                    if (c.hasPayroll && !c.payrollRpNumber) missing.push("Payroll#");
-                    if (c.hasWSIB && !c.wsibAccountNumber) missing.push("WSIB#");
-                    return missing.length > 0 ? (
-                      <div className="mb-2 flex flex-wrap gap-1">
-                        {missing.map((m) => (
-                          <span key={m} className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">⚠ {m}</span>
-                        ))}
-                      </div>
-                    ) : null;
-                  })()}
-
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <Badge variant="outline" className={cn(
-                        "text-xs capitalize",
-                        client.status === "active" ? "bg-lime-50 text-lime-700 border-lime-200" :
-                        "bg-slate-50 text-slate-700 border-slate-200"
-                      )}>
-                        {client.status}
-                      </Badge>
-                      {(() => {
-                        const t = ((client as any).clientType || "monthly") as keyof typeof CLIENT_TYPE_BADGE;
-                        const b = CLIENT_TYPE_BADGE[t] ?? CLIENT_TYPE_BADGE.monthly;
-                        return <Badge variant="outline" className={cn("text-xs", b.color)}>{b.label}</Badge>;
-                      })()}
+                      <h3 className="font-semibold text-slate-900 truncate leading-tight group-hover:text-lime-700">{primary}</h3>
+                      <span className="shrink-0 text-sm" title={firm.label}>{firm.flag}</span>
                     </div>
-                    <Link to={`/client/${client.id}`}>
-                      <Button variant="ghost" size="sm" className="text-lime-600 hover:text-lime-700 hover:bg-lime-50">
-                        <ArrowRight className="h-3 w-3 ml-1" />
-                      </Button>
-                    </Link>
+                    {secondary && <p className="text-xs text-slate-400 truncate">{secondary}</p>}
+                    <p className="text-xs text-slate-500 truncate mt-0.5">{INDUSTRIES[c.industry] ?? "📁 Other"}{c.province ? ` · ${c.province}` : ""}</p>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+
+                <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-slate-100 flex-wrap">
+                  <Badge variant="outline" className={cn("text-[11px]", typeBadge.color)}>{typeBadge.label}</Badge>
+                  {client.status !== "active" && <Badge variant="outline" className="text-[11px] capitalize bg-slate-50 text-slate-600 border-slate-200">{client.status}</Badge>}
+                  {health && health.toReview > 0 && (
+                    <Badge variant="outline" className="text-[11px] bg-purple-50 text-purple-700 border-purple-200">{health.toReview} to post</Badge>
+                  )}
+                  {missing.length > 0 && (
+                    <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-amber-600" title={`Missing: ${missing.join(", ")}`}>
+                      <AlertTriangle className="h-3.5 w-3.5" />{missing.length}
+                    </span>
+                  )}
+                </div>
+              </Link>
             );
           })}
         </div>
+      ) : (
+        /* List / compact view */
+        <Card>
+          <CardContent className="p-0 divide-y divide-slate-100">
+            {filtered.map((client) => {
+              const c: any = client;
+              const firm = FIRM_INFO[c.qboAccountType] ?? FIRM_INFO.ca_clients;
+              const { primary, secondary } = splitClientName(client.name, c.company);
+              const type = (c.clientType || "monthly") as keyof typeof CLIENT_TYPE_BADGE;
+              const typeBadge = CLIENT_TYPE_BADGE[type] ?? CLIENT_TYPE_BADGE.monthly;
+              const health = healthById.get(client.id);
+              const missing = missingInfo(c);
+              return (
+                <Link key={client.id} to={`/client/${client.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                  <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", health ? TRAFFIC[health.status] ?? "bg-slate-300" : "bg-slate-200")} title={health ? `Close status: ${health.status}` : ""} />
+                  <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center font-semibold text-xs shrink-0", avatarColor(client.id))}>{monogram(primary)}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium text-slate-800 truncate">{primary}</span>
+                      <span className="text-xs shrink-0">{firm.flag}</span>
+                    </div>
+                    {secondary && <span className="text-xs text-slate-400 truncate block">{secondary}</span>}
+                  </div>
+                  <span className="hidden md:block text-xs text-slate-500 truncate w-40 shrink-0">{INDUSTRIES[c.industry] ?? "📁 Other"}</span>
+                  <Badge variant="outline" className={cn("text-[11px] hidden sm:inline-flex", typeBadge.color)}>{typeBadge.label}</Badge>
+                  {health && health.toReview > 0 && <Badge variant="outline" className="text-[11px] bg-purple-50 text-purple-700 border-purple-200 shrink-0">{health.toReview}</Badge>}
+                  {missing.length > 0 && <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 shrink-0" title={`Missing: ${missing.join(", ")}`}><AlertTriangle className="h-3.5 w-3.5" />{missing.length}</span>}
+                </Link>
+              );
+            })}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
