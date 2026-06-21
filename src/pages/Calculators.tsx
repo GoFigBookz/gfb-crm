@@ -711,7 +711,12 @@ function FXCalculator() {
   const NAMES: Record<string, string> = Object.fromEntries(CURRENCIES.map((c) => [c.code, c.name]));
   const codes = Array.from(new Set([...(live ? Object.keys(live) : []), ...CURRENCIES.map((c) => c.code), "CAD"])).sort();
   const cName = (c: string) => NAMES[c] || c;
-  const swap = () => { setFromCurrency(toCurrency); setToCurrency(fromCurrency); };
+  const swap = () => {
+    setFromCurrency(toCurrency);
+    setToCurrency(fromCurrency);
+    // If a custom rate was entered, invert it so the conversion stays consistent.
+    if (usingCustom) { const v = parseFloat(customRate); if (v) setCustomRate(String(Math.round((1 / v) * 1e6) / 1e6)); }
+  };
 
   return (
     <Card>
@@ -731,8 +736,10 @@ function FXCalculator() {
               <SelectContent className="max-h-72">{codes.map((c) => <SelectItem key={c} value={c}>{c} — {cName(c)}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="flex justify-center pb-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={swap} title="Swap currencies"><ArrowRightLeft className="h-4 w-4 text-slate-500" /></Button>
+          <div className="flex justify-center pb-0.5">
+            <Button variant="outline" size="sm" className="border-lime-300 text-lime-700 gap-1 w-full md:w-auto" onClick={swap} title="Swap From and To">
+              <ArrowRightLeft className="h-4 w-4" /> Swap
+            </Button>
           </div>
           <div className="space-y-2"><Label>To</Label>
             <Select value={toCurrency} onValueChange={setToCurrency}>
@@ -1420,8 +1427,47 @@ export default function Calculators() {
         <TabsContent value="dividends" className="space-y-4 mt-6">
           <DividendsCalculator />
           <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="p-4 text-sm text-blue-700">
-              <strong>Tax Tip:</strong> Eligible dividends receive a higher gross-up (38%) but a larger federal dividend tax credit (15.0198% of grossed-up amount), making them more tax-efficient. Non-eligible dividends have a 15% gross-up and a 9.0301% credit. Provincial credits vary — always verify with the current CRA and provincial schedules.
+            <CardContent className="p-4 text-sm text-blue-700 space-y-3">
+              <div>
+                <p className="font-semibold text-blue-800">Eligible vs non-eligible — what's the difference?</p>
+                <p className="mt-1">
+                  It comes down to <strong>which pool of corporate income the dividend is paid from</strong>, because that income
+                  was already taxed at a different corporate rate. The gross-up + dividend tax credit (DTC) exist to roughly
+                  "undo" the corporate tax so the same dollar isn't taxed twice (integration).
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="bg-white/60 rounded-lg p-3">
+                  <p className="font-semibold text-blue-800">Eligible dividends</p>
+                  <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                    <li>Paid from income taxed at the <strong>general corporate rate</strong> (~26.5% in ON) — e.g. active income over the $500k small-business limit, or from a public company.</li>
+                    <li>Gross-up <strong>38%</strong>, larger federal DTC (15.0198% of the grossed-up amount).</li>
+                    <li><strong>Lower personal tax</strong> per dollar — the corp already paid more.</li>
+                  </ul>
+                </div>
+                <div className="bg-white/60 rounded-lg p-3">
+                  <p className="font-semibold text-blue-800">Non-eligible dividends</p>
+                  <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                    <li>Paid from income taxed at the <strong>small-business rate</strong> (~12.2% in ON) — the first $500k of active income in a CCPC.</li>
+                    <li>Gross-up <strong>15%</strong>, smaller federal DTC (9.0301%).</li>
+                    <li><strong>Higher personal tax</strong> per dollar — the corp paid less, so you top it up.</li>
+                  </ul>
+                </div>
+              </div>
+              <div>
+                <p className="font-semibold text-blue-800">Which would you pick / why?</p>
+                <p className="mt-1">
+                  You don't pick freely — it's driven by the company's tax pools (its <em>GRIP</em> for eligible / <em>LRIP</em>).
+                  A small CCPC living on the small-business rate pays <strong>non-eligible</strong>; a company with general-rate
+                  income (or public co.) can pay <strong>eligible</strong>. Overall the system is roughly neutral (integration):
+                  eligible looks better personally only because more tax was already paid at the corporate level. Owner-managers
+                  also weigh <strong>salary vs dividends</strong> (RRSP room, CPP, payroll tax) — that's the real lever.
+                </p>
+              </div>
+              <p className="text-xs text-blue-600">
+                Estimate uses federal rates only — provincial dividend tax credits vary by province and change the final tax.
+                Verify against current CRA + provincial schedules before relying on it.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
