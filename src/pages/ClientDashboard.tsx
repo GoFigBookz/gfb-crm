@@ -267,8 +267,14 @@ export default function ClientDashboard() {
         </Card>
       )}
 
-      {/* Quick Links — at the top, right under the header actions. */}
-      <QuickLinksCard client={client} onboarding={onboarding} />
+      {/* Header extras — firm CRA RepID (same for every client) + quick links,
+          out of the card body and sitting right under the header actions. */}
+      <div className="flex flex-wrap items-center gap-2 -mt-1">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-sm">
+          CRA RepID:&nbsp;<span className="font-semibold text-slate-800">{client.craRepId || "YY7F3GN"}</span>
+        </span>
+        <QuickLinksCard client={client} onboarding={onboarding} variant="header" />
+      </div>
 
       {/* CLIENT DETAILS — real client data, dense, on top. */}
       {(() => {
@@ -279,7 +285,6 @@ export default function ClientDashboard() {
         // Only show fields that apply to THIS client (no "No payroll" clutter).
         const items: Array<[string, any]> = [
           ["CRA BN", dash(o.craBusinessNumber || c.taxId)],
-          ["CRA RepID", dash(c.craRepId)],
           ["Company Key", dash(c.companyKey)],
           ["Registry #", dash(c.registryNumber)],
           ["Incorporated", dash(c.incorporationDate)],
@@ -1913,8 +1918,8 @@ function TimeLogDialog({ open, onClose, clientId, tasks, onSubmit, isPending }: 
   );
 }
 
-// Quick Links Card Component
-function QuickLinksCard({ client, onboarding }: { client: any; onboarding: any }) {
+// Quick Links Card Component (variant "card" = full card; "header" = compact row)
+function QuickLinksCard({ client, onboarding, variant = "card" }: { client: any; onboarding: any; variant?: "card" | "header" }) {
   const [editOpen, setEditOpen] = useState(false);
   const [driveUrl, setDriveUrl] = useState(client.driveFolderUrl || "");
   const [linksJson, setLinksJson] = useState(() => {
@@ -1962,81 +1967,59 @@ function QuickLinksCard({ client, onboarding }: { client: any; onboarding: any }
 
   const displayLinks = quickLinks.length > 0 ? quickLinks : defaultLinks;
 
+  const chips = (
+    <>
+      {/* Google Drive */}
+      {client.driveFolderUrl ? (
+        <a href={client.driveFolderUrl} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100 transition-colors">
+          <FolderOpen className="h-3.5 w-3.5" /> Google Drive <ExternalLink className="h-3 w-3 opacity-50" />
+        </a>
+      ) : (
+        <Badge variant="outline" className="text-slate-400 bg-slate-50">
+          <FolderOpen className="h-3.5 w-3.5 mr-1" /> No Drive folder set
+        </Badge>
+      )}
+      {displayLinks.map((link: any, idx: number) => {
+        const internal = link.url?.startsWith("/");
+        const cls = "inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 rounded-lg text-sm hover:bg-lime-50 hover:text-lime-700 transition-colors";
+        return internal ? (
+          <Link key={idx} to={link.url} className={cls}>{link.label}</Link>
+        ) : (
+          <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className={cls}>
+            {link.label} <ExternalLink className="h-3 w-3 opacity-50" />
+          </a>
+        );
+      })}
+      {onboarding?.craBusinessNumber && (
+        <a href="https://www.canada.ca/en/revenue-agency/services/e-services/e-services-businesses/business-account.html" target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 rounded-lg text-sm hover:bg-lime-50 hover:text-lime-700 transition-colors">
+          <Receipt className="h-3.5 w-3.5" /> CRA Portal <ExternalLink className="h-3 w-3 opacity-50" />
+        </a>
+      )}
+      {onboarding?.wsibAccountNumber && (
+        <a href="https://www.wsib.ca/en/online-services" target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 rounded-lg text-sm hover:bg-lime-50 hover:text-lime-700 transition-colors">
+          <Shield className="h-3.5 w-3.5" /> WSIB Portal <ExternalLink className="h-3 w-3 opacity-50" />
+        </a>
+      )}
+      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-slate-500" onClick={() => setEditOpen(true)}>
+        <Edit className="h-3.5 w-3.5 mr-1" /> Edit links
+      </Button>
+    </>
+  );
+
   return (
     <>
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
-              <Link2 className="h-4 w-4 text-lime-500" />
-              Quick Links
-            </h3>
-            <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>
-              <Edit className="h-3.5 w-3.5 mr-1" /> Edit
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {/* Google Drive */}
-            {client.driveFolderUrl ? (
-              <a
-                href={client.driveFolderUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100 transition-colors"
-              >
-                <FolderOpen className="h-3.5 w-3.5" />
-                Google Drive
-                <ExternalLink className="h-3 w-3 opacity-50" />
-              </a>
-            ) : (
-              <Badge variant="outline" className="text-slate-400 bg-slate-50">
-                <FolderOpen className="h-3.5 w-3.5 mr-1" />
-                No Drive folder set
-              </Badge>
-            )}
-
-            {/* Quick Links */}
-            {displayLinks.map((link: any, idx: number) => (
-              <a
-                key={idx}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 rounded-lg text-sm hover:bg-lime-50 hover:text-lime-700 transition-colors"
-              >
-                {link.label}
-                <ExternalLink className="h-3 w-3 opacity-50" />
-              </a>
-            ))}
-
-            {/* Portal links from onboarding */}
-            {onboarding?.craBusinessNumber && (
-              <a
-                href="https://www.canada.ca/en/revenue-agency/services/e-services/e-services-businesses/business-account.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 rounded-lg text-sm hover:bg-lime-50 hover:text-lime-700 transition-colors"
-              >
-                <Receipt className="h-3.5 w-3.5" />
-                CRA Portal
-                <ExternalLink className="h-3 w-3 opacity-50" />
-              </a>
-            )}
-            {onboarding?.wsibAccountNumber && (
-              <a
-                href="https://www.wsib.ca/en/online-services"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 rounded-lg text-sm hover:bg-lime-50 hover:text-lime-700 transition-colors"
-              >
-                <Shield className="h-3.5 w-3.5" />
-                WSIB Portal
-                <ExternalLink className="h-3 w-3 opacity-50" />
-              </a>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {variant === "header" ? (
+        <div className="flex flex-wrap items-center gap-2">{chips}</div>
+      ) : (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap gap-2 items-center">{chips}</div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
