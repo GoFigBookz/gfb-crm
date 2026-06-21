@@ -110,17 +110,28 @@ export const PAYROLL_EMPLOYEE_SEED: SeedClientRoster[] = [
   // Jamie Moseley, Alexis Montgomery, Neil Korchak, Ethan/Isabella Holt, and drops
   // some Summary names. Re-baseline this roster to the live run when OS is in scope.
   // ---------------------------------------------------------------------------
-  { clientMatch: "owen sound", replace: true, sourceFileId: "1BbnBDFhBFRA8CKs__jV-YNKIpKyfavkQ", employees: [
-    { firstName: "Cathy", lastName: "Bartley", payType: "hourly", hourlyRate: 19.00, position: "Store Clerk", notes: "Part time; start April 2025; vac 4%" },
-    { firstName: "Dustin", lastName: "Bowlby", payType: "hourly", hourlyRate: 22.00, position: "Labourer", notes: "Full time seasonal; start Sept 2024; vac 4%" },
-    { firstName: "Jammie", lastName: "Cook", payType: "hourly", hourlyRate: 31.00, position: "Technician", notes: "Full time/seasonal; start April 2024; vac 6%; winter hot-tub work as needed" },
-    { firstName: "Dean", lastName: "Dickinson", payType: "hourly", hourlyRate: 31.00, position: "Labourer", notes: "Full time seasonal; start April 2010; vac 6%" },
-    { firstName: "Michael", lastName: "Kennedy", payType: "hourly", hourlyRate: 24.00, position: "Labourer", notes: "Full time seasonal; start April 2022; vac 4%" },
-    { firstName: "Debbie", lastName: "Martin", payType: "hourly", hourlyRate: 23.00, position: "Store Clerk/AR", notes: "Full time; start April 2008; vac 6%; plus commission on hot tubs ($500-1000/tub) and above-ground pools ($200-300)" },
-    { firstName: "Brad", lastName: "Nickle", payType: "hourly", hourlyRate: 30.00, position: "Labourer", notes: "Full time seasonal; start April 2000; vac 6%" },
-    { firstName: "Bradly", lastName: "Shaw", payType: "hourly", hourlyRate: 26.00, position: "Labourer", notes: "Full time seasonal; start April 2021; vac 4%" },
-    { firstName: "Chris", lastName: "Prentice", payType: "salary", position: "Estimator/Project Manager", notes: "Biweekly salary $6,120.00; vac 8%" },
-    { firstName: "Jennifer", lastName: "Prentice", payType: "salary", position: "AP/Bank Rec, Govt Remit/Acct", notes: "Biweekly salary $3,766.14; vac 8%" },
+  // CORRECTED 2026-06-21 (Markie): the prior roster came from the WRONG sheet
+  // (1BbnBDFhBFRA8...) and listed people who are NOT on payroll (Cathy Bartley,
+  // Dustin Bowlby, Chris & Jennifer Prentice). Rebuilt from Markie's actual Owen
+  // Sound payroll sheet 1EB-oYiSSXHFXv2XaT7QzCWXTtqgaegDxToqv626LU1o (the only
+  // real employees). replace:true purges the bogus ones on next boot.
+  // EXACT roster confirmed by Markie 2026-06-21 (14 employees). Adam Holt + Debbie
+  // Maritin are salaried; the rest hourly at the rates below.
+  { clientMatch: "owen sound", replace: true, sourceFileId: "1EB-oYiSSXHFXv2XaT7QzCWXTtqgaegDxToqv626LU1o", employees: [
+    { firstName: "Adam", lastName: "Holt", payType: "salary", annualSalary: 60000, position: "Owner/Salaried" },
+    { firstName: "Debbie", lastName: "Maritin", payType: "salary", annualSalary: 49920, position: "Store Clerk/AR" },
+    { firstName: "Jammie", lastName: "Cook", payType: "hourly", hourlyRate: 31.00 },
+    { firstName: "Grace", lastName: "Dickerson", payType: "hourly", hourlyRate: 18.00 },
+    { firstName: "Dean", lastName: "Dickerson", payType: "hourly", hourlyRate: 31.00 },
+    { firstName: "Bruce", lastName: "Funston", payType: "hourly", hourlyRate: 20.00 },
+    { firstName: "Ethan", lastName: "Holt", payType: "hourly", hourlyRate: 18.00 },
+    { firstName: "Isabella", lastName: "Holt", payType: "hourly", hourlyRate: 16.60 },
+    { firstName: "Chris", lastName: "Kennedy", payType: "hourly", hourlyRate: 20.00 },
+    { firstName: "Michael", lastName: "Kennedy", payType: "hourly", hourlyRate: 24.00 },
+    { firstName: "Alexis", lastName: "Montgomery", payType: "hourly", hourlyRate: 20.00 },
+    { firstName: "Jamie", lastName: "Moseley", payType: "hourly", hourlyRate: 28.00 },
+    { firstName: "Brad", lastName: "Nickle", payType: "hourly", hourlyRate: 30.00 },
+    { firstName: "Brad", lastName: "Shaw", payType: "hourly", hourlyRate: 25.00 },
   ] },
 
   // ---------------------------------------------------------------------------
@@ -169,14 +180,42 @@ export const PAYROLL_EMPLOYEE_SEED: SeedClientRoster[] = [
   // captured in notes rather than hard-assigned (never guessed). The Chef row
   // carries a $70,000 annual salary line on the sheet.
   // ---------------------------------------------------------------------------
-  { clientMatch: "sher", sourceFileId: "1BsiHTPaSnFhXZPwI_5YnLK32rdJhFOi6EWdCeujnPIo", employees: [
-    { firstName: "Surya", lastName: "Bhattrai", position: "Chef", payType: "salary", notes: "Sheet shows $70,000 annual salary line for the Chef row" },
-    { firstName: "Upendra", lastName: "Bahadur Poudel", position: "BOH", payType: "hourly", notes: "Hourly; rate per sheet rate column (approx $17.60-$21 range, exact alignment unconfirmed)" },
-    { firstName: "Akash", lastName: "Dahal", position: "FOH", payType: "hourly", notes: "Hourly; sheet rate ~$19.00 (alignment unconfirmed)" },
-    { firstName: "Rohit", lastName: "Dhimal", position: "BOH / Kitchen Manager", payType: "hourly", notes: "2024 paystub shows Kitchen Manager $25.00/hr; current sheet rate lower (~$18) — verify" },
-    { firstName: "Dhiren", lastName: "Gurung", position: "BOH", payType: "hourly", notes: "Hourly; sheet rate ~$18.00 (alignment unconfirmed); recent periods 0 hrs" },
-    { firstName: "Suraj", lastName: "Limbu", position: "BOH", payType: "hourly", notes: "Hourly; sheet rate ~$18.00 (alignment unconfirmed)" },
-    { firstName: "Deepak", lastName: "Vasisth", position: "FOH", payType: "hourly", notes: "Hourly; sheet rate ~$17.60 (alignment unconfirmed); 'ROE?' note on sheet" },
+  // Rates CONFIRMED 2026-06-21 from Markie's Sher-E payroll sheet (rate column
+  // aligned to the roster order; 6/12/2026 run). replace:true cleans prior seed.
+  { clientMatch: "sher", replace: true, sourceFileId: "1BsiHTPaSnFhXZPwI_5YnLK32rdJhFOi6EWdCeujnPIo", employees: [
+    { firstName: "Surya", lastName: "Bhattrai", position: "Chef", payType: "salary", annualSalary: 70000, notes: "$70,000 salary per sheet" },
+    { firstName: "Upendra", lastName: "Bahadur Poudel", position: "BOH", payType: "hourly", hourlyRate: 21.00 },
+    { firstName: "Akash", lastName: "Dahal", position: "FOH", payType: "hourly", hourlyRate: 17.60 },
+    { firstName: "Rohit", lastName: "Dhimal", position: "BOH", payType: "hourly", hourlyRate: 19.00 },
+    { firstName: "Dhiren", lastName: "Gurung", position: "BOH", payType: "hourly", hourlyRate: 18.00 },
+    { firstName: "Suraj", lastName: "Limbu", position: "BOH", payType: "hourly", hourlyRate: 18.00 },
+    { firstName: "Deepak", lastName: "Vasisth", position: "FOH", payType: "hourly", hourlyRate: 17.60, notes: "'ROE?' note on sheet" },
+  ] },
+
+  // ---------------------------------------------------------------------------
+  // THE AULD SPOT — TouchBistro restaurant payroll. Roster from Markie's sheet
+  // 1BXK_SxiogGbFSfz1jX1uekyUG9n02huEDXmbmNCX51I (6/12/2026 run, period May 27–Jun 9).
+  // Excludes Jaspal Singh ("Not in Payroll") and Kimberly Daly (terminated May 8).
+  // clientMatch "spot" matches "Auld Spot"/"Old Spot". replace:true.
+  // ---------------------------------------------------------------------------
+  { clientMatch: "spot", replace: true, sourceFileId: "1BXK_SxiogGbFSfz1jX1uekyUG9n02huEDXmbmNCX51I", employees: [
+    { firstName: "James", lastName: "Allard", position: "BOH", payType: "hourly", hourlyRate: 20.00 },
+    { firstName: "Bhima", lastName: "Bhattarai", position: "FOH", payType: "hourly", hourlyRate: 17.60 },
+    { firstName: "Heather", lastName: "Capstick", position: "FOH", payType: "hourly", hourlyRate: 18.00 },
+    { firstName: "Maddy", lastName: "Cooper", position: "FOH", payType: "hourly", hourlyRate: 17.60 },
+    { firstName: "Eric", lastName: "Cressos", position: "FOH", payType: "hourly", hourlyRate: 18.00 },
+    { firstName: "Karma", lastName: "Dozang", position: "BOH", payType: "hourly", hourlyRate: 20.00 },
+    { firstName: "Paige", lastName: "Ferlatte", position: "FOH", payType: "hourly", hourlyRate: 17.60 },
+    { firstName: "Charlotte", lastName: "Fowler", position: "FOH", payType: "hourly", hourlyRate: 17.60 },
+    { firstName: "Breanna", lastName: "Fox", position: "FOH", payType: "hourly", hourlyRate: 18.00 },
+    { firstName: "Lee Anne", lastName: "Hrabi", position: "FOH", payType: "hourly", hourlyRate: 17.60 },
+    { firstName: "Robert", lastName: "Jacobson", position: "Chef (Temp)", payType: "hourly", hourlyRate: 30.00 },
+    { firstName: "Bonnie", lastName: "Malone", position: "FOH", payType: "hourly", hourlyRate: 17.60 },
+    { firstName: "Amal", lastName: "Ragh", position: "BOH", payType: "hourly", hourlyRate: 21.00 },
+    { firstName: "Bryah", lastName: "Risdon", position: "FOH", payType: "hourly", hourlyRate: 17.60 },
+    { firstName: "Lauren", lastName: "Temple", position: "FOH", payType: "hourly", hourlyRate: 17.60, notes: "New starter" },
+    { firstName: "Jayvi Tri", lastName: "Tsan", position: "BOH", payType: "hourly", hourlyRate: 20.00 },
+    { firstName: "Leah", lastName: "Young", position: "FOH", payType: "hourly", hourlyRate: 17.60 },
   ] },
 
   // ---------------------------------------------------------------------------
