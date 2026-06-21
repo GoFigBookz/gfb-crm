@@ -22699,6 +22699,10 @@ var init_schema = __esm({
       // e.g. "Ontario Business Corp"
       governmentStatus: text("governmentStatus"),
       // registry status, e.g. "Active"
+      companyKey: text("companyKey"),
+      // Service Canada company key (ROE Web / company lookup)
+      craRepId: text("craRepId"),
+      // CRA Represent-a-Client RepID (firm-level: YY7F3GN)
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
@@ -44662,7 +44666,7 @@ var init_master_sheet_sync = __esm({
       { key: "phone", match: (h) => h.includes("phone"), toSheet: (c) => c.phone || null, soft: true, fromSheet: (r) => ({ phone: r }) },
       { key: "triageEmail", match: (h) => h.includes("triage"), toSheet: (c) => c.figgyEmail || null, soft: false, fromSheet: (r) => ({ figgyEmail: r }) },
       { key: "email", match: (h) => h === "email" || h.includes("email") && !h.includes("triage"), toSheet: (c) => c.email || null, soft: true, fromSheet: (r) => ({ email: r }) },
-      { key: "website", match: (h) => h.includes("website") || h.includes("web site"), toSheet: (c) => c.website || null, soft: true, fromSheet: (r) => ({ website: r }) },
+      { key: "website", match: (h) => h.includes("website") || h.includes("web site"), toSheet: (c) => c.website ? c.website.toLowerCase() : null, soft: true, fromSheet: (r) => ({ website: r.toLowerCase() }) },
       { key: "owner", match: (h) => h.includes("owner") || h === "contact", toSheet: (c) => c.contactName || null, soft: true, fromSheet: (r) => ({ contactName: r }) },
       { key: "yeMonth", match: (h) => h.includes("year end") || h.includes("ye month") || h.includes("fiscal"), toSheet: (c) => c.yearEndMonth || null, soft: false, fromSheet: (r) => ({ yearEndMonth: r }) },
       { key: "hstCadence", match: (h) => h.includes("hst cadence") || h.includes("hst") && h.includes("cadence"), toSheet: (c) => c.hstPeriod ? titleCadence[c.hstPeriod] ?? cap(c.hstPeriod) : null, soft: false, fromSheet: (r) => {
@@ -44680,7 +44684,9 @@ var init_master_sheet_sync = __esm({
         return p ? { payrollRemitterFreq: p } : null;
       } },
       { key: "payrollRp", match: (h) => h.includes("payroll rp") || h.includes("payroll") && h.includes("rp"), toSheet: (c) => c.payrollRpNumber || null, soft: true, fromSheet: (r) => ({ payrollRpNumber: r }) },
-      { key: "wsibNo", match: (h) => h.includes("wsib"), toSheet: (c) => c.wsibAccountNumber || null, soft: true, fromSheet: (r) => ({ wsibAccountNumber: r, hasWSIB: true }) }
+      { key: "wsibNo", match: (h) => h.includes("wsib"), toSheet: (c) => c.wsibAccountNumber || null, soft: true, fromSheet: (r) => ({ wsibAccountNumber: r, hasWSIB: true }) },
+      { key: "companyKey", match: (h) => h.includes("company key") || h.includes("service canada"), toSheet: (c) => c.companyKey || null, soft: true, fromSheet: (r) => ({ companyKey: r }) },
+      { key: "craRepId", match: (h) => h.includes("repid") || h.includes("rep id") || h.includes("cra") && h.includes("rep"), toSheet: (c) => c.craRepId || "YY7F3GN", soft: false, fromSheet: (r) => ({ craRepId: r }) }
     ];
     DEFAULT_MASTER_HEADER = [
       "Client / Legal Name",
@@ -44708,7 +44714,9 @@ var init_master_sheet_sync = __esm({
       "Payroll RP #",
       "WSIB #",
       "# Employees",
-      "POS / Apps"
+      "POS / Apps",
+      "Company Key",
+      "CRA RepID"
     ];
     LEAD_COLS = [
       "dateReceived",
@@ -44813,7 +44821,7 @@ async function enrichClientFromRegistry(clientId) {
     take("incorporationDate", hit.incorporationDate);
     take("corpType", hit.corpType);
     take("governmentStatus", hit.governmentStatus);
-    take("website", hit.website);
+    take("website", hit.website?.toLowerCase());
     take("address", hit.address);
     take("phone", hit.phone);
     if (hit.industry && (blank(c.industry) || c.industry === "other")) patch.industry = hit.industry;
@@ -45243,6 +45251,8 @@ var init_onboarding_router = __esm({
           wsibAccountNumber: input.wsibAccountNumber || null,
           payrollDividends: input.paysDividends,
           yearEndMonth,
+          craRepId: "YY7F3GN",
+          // firm CRA Represent-a-Client RepID (same for all clients)
           createdAt: /* @__PURE__ */ new Date(),
           updatedAt: /* @__PURE__ */ new Date()
         }).returning();
@@ -45439,6 +45449,15 @@ var init_onboarding_router = __esm({
         payrollFrequency: external_exports.string().optional(),
         payrollRemitterFreq: external_exports.string().optional(),
         yearEndMonth: external_exports.string().optional(),
+        // government-registry / lookup fields (full Client Master parity)
+        bio: external_exports.string().optional(),
+        registryNumber: external_exports.string().optional(),
+        incorporationDate: external_exports.string().optional(),
+        corpType: external_exports.string().optional(),
+        governmentStatus: external_exports.string().optional(),
+        industry: external_exports.string().optional(),
+        companyKey: external_exports.string().optional(),
+        craRepId: external_exports.string().optional(),
         // onboarding-level
         businessLegalName: external_exports.string().optional(),
         craBusinessNumber: external_exports.string().optional(),
@@ -45505,11 +45524,20 @@ var init_onboarding_router = __esm({
           "payrollExternal",
           "payrollFrequency",
           "payrollRemitterFreq",
-          "yearEndMonth"
+          "yearEndMonth",
+          "bio",
+          "registryNumber",
+          "incorporationDate",
+          "corpType",
+          "governmentStatus",
+          "industry",
+          "companyKey",
+          "craRepId"
         ];
         const prior = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
         const clientPatch = { updatedAt: /* @__PURE__ */ new Date() };
         for (const k of clientKeys) if (rest[k] !== void 0) clientPatch[k] = rest[k];
+        if (typeof clientPatch.website === "string") clientPatch.website = clientPatch.website.toLowerCase();
         if (Object.keys(clientPatch).length > 1) await db.update(clients).set(clientPatch).where(eq(clients.id, clientId));
         if (rest.clientType !== void 0 && !isOperationalClient(rest.clientType) && isOperationalClient(prior?.clientType)) {
           await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, clientId));
@@ -45624,7 +45652,7 @@ var init_onboarding_router = __esm({
         take("incorporationDate", hit.incorporationDate);
         take("corpType", hit.corpType);
         take("governmentStatus", hit.governmentStatus);
-        take("website", hit.website);
+        take("website", hit.website?.toLowerCase());
         take("address", hit.address);
         take("phone", hit.phone);
         if (hit.industry && (input.force || blank2(c.industry) || c.industry === "other")) patch.industry = hit.industry;
@@ -52384,7 +52412,9 @@ async function ensureClientMasterColumns() {
     ["registryNumber", sql`ALTER TABLE clients ADD COLUMN "registryNumber" text`],
     ["incorporationDate", sql`ALTER TABLE clients ADD COLUMN "incorporationDate" text`],
     ["corpType", sql`ALTER TABLE clients ADD COLUMN "corpType" text`],
-    ["governmentStatus", sql`ALTER TABLE clients ADD COLUMN "governmentStatus" text`]
+    ["governmentStatus", sql`ALTER TABLE clients ADD COLUMN "governmentStatus" text`],
+    ["companyKey", sql`ALTER TABLE clients ADD COLUMN "companyKey" text`],
+    ["craRepId", sql`ALTER TABLE clients ADD COLUMN "craRepId" text`]
   ];
   for (const [col, stmt] of adds) {
     if (have.has(col)) continue;
@@ -52394,6 +52424,16 @@ async function ensureClientMasterColumns() {
     } catch (e) {
       console.error("[import] add column", col, "failed:", e instanceof Error ? e.message : e);
     }
+  }
+  try {
+    await db.run(sql`UPDATE clients SET "craRepId" = 'YY7F3GN' WHERE "craRepId" IS NULL OR "craRepId" = ''`);
+  } catch (e) {
+    console.error("[import] backfill craRepId failed:", e instanceof Error ? e.message : e);
+  }
+  try {
+    await db.run(sql`UPDATE clients SET "website" = lower("website") WHERE "website" IS NOT NULL AND "website" <> lower("website")`);
+  } catch (e) {
+    console.error("[import] lowercase website failed:", e instanceof Error ? e.message : e);
   }
 }
 async function refTablesWithClientId(db) {
@@ -59122,7 +59162,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.18";
+var BUILD_TAG = "2026-06-21.19";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

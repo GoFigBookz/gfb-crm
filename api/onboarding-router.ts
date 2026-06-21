@@ -246,6 +246,7 @@ export const onboardingRouter = createRouter({
         wsibAccountNumber: input.wsibAccountNumber || null,
         payrollDividends: input.paysDividends,
         yearEndMonth: yearEndMonth as any,
+        craRepId: "YY7F3GN",  // firm CRA Represent-a-Client RepID (same for all clients)
         createdAt: new Date(),
         updatedAt: new Date(),
       }).returning();
@@ -464,6 +465,10 @@ export const onboardingRouter = createRouter({
       payrollFrequency: z.string().optional(),
       payrollRemitterFreq: z.string().optional(),
       yearEndMonth: z.string().optional(),
+      // government-registry / lookup fields (full Client Master parity)
+      bio: z.string().optional(), registryNumber: z.string().optional(), incorporationDate: z.string().optional(),
+      corpType: z.string().optional(), governmentStatus: z.string().optional(), industry: z.string().optional(),
+      companyKey: z.string().optional(), craRepId: z.string().optional(),
       // onboarding-level
       businessLegalName: z.string().optional(), craBusinessNumber: z.string().optional(),
       primaryContactName: z.string().optional(), primaryContactEmail: z.string().optional(), primaryContactPhone: z.string().optional(),
@@ -494,10 +499,12 @@ export const onboardingRouter = createRouter({
       // client-level keys
       const clientKeys = ["name", "email", "phone", "company", "website", "address", "contactName", "taxId", "hstNumber",
         "wsibAccountNumber", "clientType", "payrollRpNumber", "monthlyFee", "craRacDone", "hasHST", "hstPeriod", "hasWSIB", "hasPayroll", "payrollExternal",
-        "payrollFrequency", "payrollRemitterFreq", "yearEndMonth"] as const;
+        "payrollFrequency", "payrollRemitterFreq", "yearEndMonth",
+        "bio", "registryNumber", "incorporationDate", "corpType", "governmentStatus", "industry", "companyKey", "craRepId"] as const;
       const prior = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
       const clientPatch: Record<string, any> = { updatedAt: new Date() };
       for (const k of clientKeys) if ((rest as any)[k] !== undefined) clientPatch[k] = (rest as any)[k];
+      if (typeof clientPatch.website === "string") clientPatch.website = clientPatch.website.toLowerCase();  // websites always lowercase
       if (Object.keys(clientPatch).length > 1) await db.update(clients).set(clientPatch).where(eq(clients.id, clientId));
 
       // Switching a client TO wholesale (flow-through) pauses its open tasks +
@@ -590,7 +597,7 @@ export const onboardingRouter = createRouter({
       const take = (k: string, v?: string) => { if (v && (input.force || blank(c[k]))) patch[k] = v; };
       take("bio", hit.bio); take("registryNumber", hit.registryNumber);
       take("incorporationDate", hit.incorporationDate); take("corpType", hit.corpType);
-      take("governmentStatus", hit.governmentStatus); take("website", hit.website);
+      take("governmentStatus", hit.governmentStatus); take("website", hit.website?.toLowerCase());
       take("address", hit.address); take("phone", hit.phone);
       if (hit.industry && (input.force || blank(c.industry) || c.industry === "other")) patch.industry = hit.industry;
       if (hit.craBusinessNumber && (input.force || blank(c.taxId))) patch.taxId = hit.craBusinessNumber;

@@ -34,7 +34,7 @@ export async function enrichClientFromRegistry(clientId: number): Promise<string
     const take = (k: string, v?: string) => { if (v && blank(c[k])) patch[k] = v; };
     take("bio", hit.bio); take("registryNumber", hit.registryNumber);
     take("incorporationDate", hit.incorporationDate); take("corpType", hit.corpType);
-    take("governmentStatus", hit.governmentStatus); take("website", hit.website);
+    take("governmentStatus", hit.governmentStatus); take("website", hit.website?.toLowerCase());
     take("address", hit.address); take("phone", hit.phone);
     if (hit.industry && (blank(c.industry) || c.industry === "other")) patch.industry = hit.industry;
     if (hit.craBusinessNumber && blank(c.taxId)) {

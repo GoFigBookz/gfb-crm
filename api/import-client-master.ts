@@ -181,12 +181,20 @@ export async function ensureClientMasterColumns(): Promise<void> {
     ["incorporationDate", sql`ALTER TABLE clients ADD COLUMN "incorporationDate" text`],
     ["corpType", sql`ALTER TABLE clients ADD COLUMN "corpType" text`],
     ["governmentStatus", sql`ALTER TABLE clients ADD COLUMN "governmentStatus" text`],
+    ["companyKey", sql`ALTER TABLE clients ADD COLUMN "companyKey" text`],
+    ["craRepId", sql`ALTER TABLE clients ADD COLUMN "craRepId" text`],
   ];
   for (const [col, stmt] of adds) {
     if (have.has(col)) continue;
     try { await db.run(stmt); console.log("[import] added clients column:", col); }
     catch (e) { console.error("[import] add column", col, "failed:", e instanceof Error ? e.message : e); }
   }
+  // Firm CRA Represent-a-Client RepID is the same for every client (Markie: YY7F3GN).
+  try { await db.run(sql`UPDATE clients SET "craRepId" = 'YY7F3GN' WHERE "craRepId" IS NULL OR "craRepId" = ''`); }
+  catch (e) { console.error("[import] backfill craRepId failed:", e instanceof Error ? e.message : e); }
+  // Websites are always stored lowercase.
+  try { await db.run(sql`UPDATE clients SET "website" = lower("website") WHERE "website" IS NOT NULL AND "website" <> lower("website")`); }
+  catch (e) { console.error("[import] lowercase website failed:", e instanceof Error ? e.message : e); }
 }
 
 const norm2 = (s: any): string => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
