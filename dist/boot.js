@@ -44764,18 +44764,22 @@ var init_onboarding_router = __esm({
         taxId: external_exports.string().optional(),
         hstNumber: external_exports.string().optional(),
         wsibAccountNumber: external_exports.string().optional(),
-        clientType: external_exports.enum(["monthly", "quarterly", "annual", "payroll", "wholesale"]).optional(),
+        // NOTE: cadence/category fields are accepted as loose strings (DB columns
+        // are TEXT). Strict enums here rejected legitimate saves when a stored
+        // value used a different spelling (e.g. "biweekly" vs "bi-weekly") — which
+        // is exactly the "can't save intake" error. Coerce/normalize, don't reject.
+        clientType: external_exports.string().optional(),
         payrollRpNumber: external_exports.string().optional(),
         monthlyFee: external_exports.number().optional(),
         craRacDone: external_exports.boolean().optional(),
         hasHST: external_exports.boolean().optional(),
-        hstPeriod: external_exports.enum(["monthly", "quarterly", "annual"]).optional(),
+        hstPeriod: external_exports.string().optional(),
         hasWSIB: external_exports.boolean().optional(),
         hasPayroll: external_exports.boolean().optional(),
         payrollExternal: external_exports.boolean().optional(),
-        payrollFrequency: external_exports.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
-        payrollRemitterFreq: external_exports.enum(["regular", "quarterly", "accelerated"]).optional(),
-        yearEndMonth: external_exports.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
+        payrollFrequency: external_exports.string().optional(),
+        payrollRemitterFreq: external_exports.string().optional(),
+        yearEndMonth: external_exports.string().optional(),
         // onboarding-level
         businessLegalName: external_exports.string().optional(),
         craBusinessNumber: external_exports.string().optional(),
@@ -44783,8 +44787,8 @@ var init_onboarding_router = __esm({
         primaryContactEmail: external_exports.string().optional(),
         primaryContactPhone: external_exports.string().optional(),
         fiscalYearEnd: external_exports.string().optional(),
-        hstGstFrequency: external_exports.enum(["monthly", "quarterly", "annually", "none"]).optional(),
-        onbPayrollFrequency: external_exports.enum(["weekly", "biweekly", "semi_monthly", "monthly", "none"]).optional(),
+        hstGstFrequency: external_exports.string().optional(),
+        onbPayrollFrequency: external_exports.string().optional(),
         hasEmployees: external_exports.boolean().optional(),
         hasSubcontractors: external_exports.boolean().optional(),
         hasInvestments: external_exports.boolean().optional(),
@@ -44799,17 +44803,17 @@ var init_onboarding_router = __esm({
         usesHubdoc: external_exports.boolean().optional(),
         hasJobCosting: external_exports.boolean().optional(),
         avgMonthlyTransactions: external_exports.number().optional(),
-        bookkeepingFrequency: external_exports.enum(["monthly", "quarterly", "annual", "none"]).optional(),
-        invoicingResponsibility: external_exports.enum(["we_invoice", "client_invoices", "none"]).optional(),
-        billPayResponsibility: external_exports.enum(["we_pay", "client_pays", "none"]).optional(),
+        bookkeepingFrequency: external_exports.string().optional(),
+        invoicingResponsibility: external_exports.string().optional(),
+        billPayResponsibility: external_exports.string().optional(),
         usesStripe: external_exports.boolean().optional(),
         usesSquare: external_exports.boolean().optional(),
         usesJobber: external_exports.boolean().optional(),
         usesTouchBistro: external_exports.boolean().optional(),
         usesPayPal: external_exports.boolean().optional(),
         usesWise: external_exports.boolean().optional(),
-        salesEntryFrequency: external_exports.enum(["daily", "weekly", "monthly", "none"]).optional(),
-        qboSoftwareTier: external_exports.enum(["none", "easystart", "essentials", "plus"]).optional(),
+        salesEntryFrequency: external_exports.string().optional(),
+        qboSoftwareTier: external_exports.string().optional(),
         qboSoftwareWholesale: external_exports.boolean().optional(),
         qboPayrollWholesale: external_exports.boolean().optional(),
         servicesNeeded: external_exports.string().optional(),
@@ -53655,6 +53659,7 @@ async function seedHstDates() {
       if (period) {
         patch.hasHST = true;
         patch.hstPeriod = period;
+        patch.hstNumber = `${r.cra}RT0001`;
       }
       if (due) patch.hstNextDue = due;
       if (Object.keys(patch).length <= 1) continue;
@@ -58176,7 +58181,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.9";
+var BUILD_TAG = "2026-06-21.10";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
