@@ -52942,16 +52942,19 @@ __export(vite_exports, {
 import path2 from "path";
 function serveStaticFiles(app2) {
   const distPath = path2.resolve(process.cwd(), "dist/public");
-  app2.use("/assets/*", serveStatic({ root: distPath }));
+  app2.use("/assets/*", serveStatic({
+    root: distPath,
+    onFound: (_p, c) => c.header("Cache-Control", "public, max-age=31536000, immutable")
+  }));
+  app2.get("/assets/*", (c) => c.text("Asset not found", 404));
   app2.use("/*.jpg", serveStatic({ root: distPath }));
   app2.use("/*.png", serveStatic({ root: distPath }));
   app2.use("/*.svg", serveStatic({ root: distPath }));
   app2.use("/*.ico", serveStatic({ root: distPath }));
   app2.get("/*", async (c, next) => {
     const pathname = c.req.path;
-    if (pathname.startsWith("/api/")) {
-      return next();
-    }
+    if (pathname.startsWith("/api/")) return next();
+    c.header("Cache-Control", "no-cache, no-store, must-revalidate");
     return serveStatic({ root: distPath, path: "/index.html" })(c, next);
   });
 }
