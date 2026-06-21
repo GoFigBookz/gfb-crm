@@ -240,6 +240,7 @@ export const clients = sqliteTable("clients", {
   email: text("email").notNull(),
   phone: text("phone"),
   company: text("company"),
+  website: text("website"),          // used to auto-fetch the client's logo on cards
   address: text("address"),
   taxId: text("taxId"),
   status: text("status", { enum: ["active", "inactive", "prospect", "lead"] }).default("active").notNull(),
