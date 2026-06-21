@@ -4,6 +4,11 @@ _Living list of agreed-but-not-yet-built work, with the decisions made so we
 don't re-derive them._
 
 ## BACKLOGGED THIS SESSION (Markie: finish client cards first, then these)
+- **Onboarding form 'Send' should generate a link (2026-06-21).** The send-client-onboarding-
+  form action doesn't produce a shareable link yet — wire it to generate + send one.
+- **Sales + payment platforms on intake drive connect buttons (2026-06-21).** Like hours-source
+  drives the Jobber button: the client's sales platform (Square/Jobber/Stripe/etc.) and payment
+  platform fields on intake should drive which connect buttons + integrations appear per client.
 - **EVERYTHING per-client runs from the intake form (2026-06-21, Markie's directive).**
   The intake form is the single source that provisions a client's surfaces: has payroll →
   payroll surface; hours source = Jobber → Jobber button; TouchBistro → TouchBistro; has
