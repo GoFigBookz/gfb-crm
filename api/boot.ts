@@ -61,7 +61,7 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-const BUILD_TAG = "2026-06-21.13";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-21.15";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -1079,6 +1079,13 @@ async function startServer() {
       console.log(`[seed] client websites: ${w.filled} filled from email domains`);
     } catch (e) {
       console.error("[seed] seedClientWebsites failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { seedGovRegistry } = await import("./seed-gov-registry");
+      const g = await seedGovRegistry();
+      console.log(`[seed] gov registry: ${g.patched}/${g.matched} client cards populated (bio/registry#/incorp/corp type/status)`);
+    } catch (e) {
+      console.error("[seed] seedGovRegistry failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Backfill the one-time setup tasks (CRA Represent-a-Client, Service Canada,
     // WSIB) for every active client — incl. the already-seeded ones.

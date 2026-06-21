@@ -3,6 +3,45 @@
 _Living list of agreed-but-not-yet-built work, with the decisions made so we
 don't re-derive them._
 
+## 0. TWO-WAY CRM ⇄ GOOGLE SHEETS MASTER SYNC (HIGH — Markie 2026-06-21)
+Markie's requirement: the Google Sheet is the **crash-safe mirror / fallback** —
+"the back end of the Google Sheets must always match what we're building here.
+If the CRM crashes we can still work in the Sheets." Sync **both ways** for
+**clients, payroll, employees, tasks**.
+
+TARGET SHEET DESIGN (Markie 2026-06-21):
+- **ONE consolidated "Client Master" tab** holding ALL info per active client:
+  client fields + HST (cadence/#/next-due) + payroll + government-registry data —
+  NOT multiple tabs. Pull the HST sheet + government-data sheet content INTO this
+  one tab.
+- **"Inactive Clients"** on a separate tab.
+- Keep the government-registry notes.
+- RECONCILE the sheets first — there are several "master"-ish sheets today:
+  - MASTER_INTAKE_DATABASE `1_PCg6gNlx5yHg1McBQTFiwyuLIWB6xnKCY74QTfqDRE` (what
+    import-client-master reads, embedded snapshot).
+  - "GFB — Master Client Directory" `1DbGC1383G-WakjK2eC_ylp5_74HAXa4NSWw_c6kXxCA`
+    (what Make scenario 5318047 "Add Client to Master" APPENDS to).
+  - GFB_Client_Master_Government_Data `1SkaMTVIKiweb7yFFgqc29-8n8mYVgCWH`.
+  - HST sheet `12rGz-CYGDsF1Zu1LhjELECU3Ioibsf-NpJwm9sqW4z0`.
+  - Task Summary / Client Summary `1dYQKO3L4miCZtGMU0K7HOkay1229l8zz` (legacy ref).
+  → DECISION NEEDED: pick ONE to become the canonical single-tab master (or build
+    fresh), then point everything at it.
+
+ARCHITECTURE (server can't touch Google directly — no runtime creds; use Make,
+same pattern as the QBO bridge):
+- OUTBOUND (CRM → Sheet): on client/payroll/employee/task create+update, call a
+  Make "upsert row" scenario (keyed by CRA# / id) via Make's run API. Scenario
+  5318047 exists but is APPEND-ONLY → needs an UPSERT (match-or-add) version.
+  Requires `FIGGY_MAKE_API_TOKEN` set on the CRM (still pending — known wiring).
+- INBOUND (Sheet → CRM): a Make scenario on a schedule/edit reads the master tab
+  and POSTs rows to a CRM webhook (like agent-webhook); CRM upserts by key.
+- CONFLICT RULE: define which side wins (proposal: last-writer-wins per row with
+  an `updatedAt`; CRM authoritative for new records). Must be explicit.
+PHASES: (1) consolidate the sheet to single tab + reconcile IDs; (2) outbound
+client upsert on onboard/edit; (3) inbound client read-back; (4) extend to
+payroll/employees/tasks; (5) conflict handling + nightly full reconcile.
+BLOCKERS: canonical-sheet decision + `FIGGY_MAKE_API_TOKEN` on the server.
+
 ## 1. Transaction posting into QuickBooks — THE core workload (HIGH)
 Decision (Markie): build the **QBO API poster** (not a Chrome/browser bot — QBO
 has a full write API; browser automation is brittle and unnecessary). Posting

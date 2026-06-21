@@ -511,6 +511,10 @@ export default function ClientDashboard() {
         const items: Array<[string, any]> = [
           ["Website", dash(c.website)],
           ["CRA BN", dash(o.craBusinessNumber || c.taxId)],
+          ["Registry #", dash(c.registryNumber)],
+          ["Incorporated", dash(c.incorporationDate)],
+          ["Corp type", dash(c.corpType)],
+          ["Registry status", dash(c.governmentStatus)],
           ["Client type", dash(c.clientType)],
           ["Industry", dash(c.industry)],
           ["Province", dash(c.province)],
@@ -528,6 +532,9 @@ export default function ClientDashboard() {
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Building2 className="h-4 w-4 text-lime-600" /> Client snapshot</CardTitle></CardHeader>
             <CardContent>
+              {c.bio && (
+                <p className="text-sm text-slate-600 mb-4 leading-relaxed">{String(c.bio)}</p>
+              )}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
                 {items.map(([k, v]) => (
                   <div key={k} className="min-w-0">

@@ -175,6 +175,12 @@ export async function ensureClientMasterColumns(): Promise<void> {
     ["driveFolderUrl", sql`ALTER TABLE clients ADD COLUMN "driveFolderUrl" text`],
     ["clientInfoDocUrl", sql`ALTER TABLE clients ADD COLUMN "clientInfoDocUrl" text`],
     ["nextPayday", sql`ALTER TABLE clients ADD COLUMN "nextPayday" text`],
+    // Government-registry / bio columns (mirror the Client Master sheet onto the card).
+    ["bio", sql`ALTER TABLE clients ADD COLUMN "bio" text`],
+    ["registryNumber", sql`ALTER TABLE clients ADD COLUMN "registryNumber" text`],
+    ["incorporationDate", sql`ALTER TABLE clients ADD COLUMN "incorporationDate" text`],
+    ["corpType", sql`ALTER TABLE clients ADD COLUMN "corpType" text`],
+    ["governmentStatus", sql`ALTER TABLE clients ADD COLUMN "governmentStatus" text`],
   ];
   for (const [col, stmt] of adds) {
     if (have.has(col)) continue;
