@@ -267,183 +267,87 @@ export default function ClientDashboard() {
         </Card>
       )}
 
-      {/* Month-End Close cockpit — where this client stands right now */}
-      {!isWholesale && closeStatus && (
-        <Card className={cn(
-          "border-l-4",
-          closeStatus.status === "red" ? "border-l-red-500" :
-          closeStatus.status === "yellow" ? "border-l-amber-400" : "border-l-emerald-500"
-        )}>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <span className={cn("inline-block w-2.5 h-2.5 rounded-full",
-                  closeStatus.status === "red" ? "bg-red-500" :
-                  closeStatus.status === "yellow" ? "bg-amber-400" : "bg-emerald-500"
-                )} />
-                Month-End Close
-              </CardTitle>
-              <span className="text-xs text-slate-500">
-                {closeStatus.status === "green" ? "On track" : closeStatus.status === "yellow" ? "Needs attention" : "Behind"}
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {/* Transactions to review */}
-              <div>
-                <p className="text-xs uppercase font-semibold text-slate-500">To review</p>
-                <p className={cn("text-2xl font-bold", closeStatus.toReview > 0 ? "text-amber-600" : "text-emerald-600")}>
-                  {closeStatus.toReview}
-                </p>
-                <p className="text-xs text-slate-400">transactions</p>
-              </div>
-              {/* HST */}
-              <div>
-                <p className="text-xs uppercase font-semibold text-slate-500">HST</p>
-                {closeStatus.hst.applicable ? (
-                  <>
-                    <p className={cn("text-sm font-semibold",
-                      closeStatus.hst.status === "red" ? "text-red-600" :
-                      closeStatus.hst.status === "yellow" ? "text-amber-600" : "text-emerald-600"
-                    )}>
-                      {closeStatus.hst.filed ? "Filed" : closeStatus.hst.overdue ? "Overdue" : "Due"}
-                    </p>
-                    <p className="text-xs text-slate-400">{closeStatus.hst.periodLabel}{closeStatus.hst.dueDate ? ` · due ${closeStatus.hst.dueDate}` : ""}</p>
-                  </>
-                ) : (
-                  <p className="text-sm text-slate-400">n/a</p>
-                )}
-              </div>
-              {/* Year-end */}
-              <div>
-                <p className="text-xs uppercase font-semibold text-slate-500">Year-end</p>
-                {closeStatus.yearEnd.applicable ? (
-                  <>
-                    <p className={cn("text-sm font-semibold",
-                      closeStatus.yearEnd.status === "red" ? "text-red-600" :
-                      closeStatus.yearEnd.status === "yellow" ? "text-amber-600" : "text-emerald-600"
-                    )}>
-                      {closeStatus.yearEnd.lastFyeDate}
-                    </p>
-                    <p className="text-xs text-slate-400">{closeStatus.yearEnd.daysSinceFye}d ago</p>
-                  </>
-                ) : (
-                  <p className="text-sm text-slate-400">n/a</p>
-                )}
-              </div>
-              {/* Checklist / reconciled */}
-              <div>
-                <p className="text-xs uppercase font-semibold text-slate-500">Close checklist</p>
-                <p className="text-2xl font-bold text-slate-700">
-                  {closeStatus.checklistPercent == null ? "—" : `${closeStatus.checklistPercent}%`}
-                </p>
-                <p className="text-xs text-slate-400">{closeStatus.lastReconciled ? `rec'd ${closeStatus.lastReconciled}` : "not reconciled"}</p>
-              </div>
-            </div>
-            {closeStatus.reasons.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {closeStatus.reasons.map((r, i) => (
-                  <Badge key={i} variant="outline" className="text-xs font-normal text-slate-600">{r}</Badge>
+      {/* CLIENT DETAILS — real client data, dense, on top. */}
+      {(() => {
+        const c: any = client;
+        const o: any = onboarding || {};
+        const dash = (v: any) => (v === null || v === undefined || v === "" ? "—" : v);
+        const hstFreq = c.hasHST ? (c.hstPeriod ? String(c.hstPeriod) : "registered") : "Not registered";
+        // Only show fields that apply to THIS client (no "No payroll" clutter).
+        const items: Array<[string, any]> = [
+          ["CRA BN", dash(o.craBusinessNumber || c.taxId)],
+          ["CRA RepID", dash(c.craRepId)],
+          ["Company Key", dash(c.companyKey)],
+          ["Registry #", dash(c.registryNumber)],
+          ["Incorporated", dash(c.incorporationDate)],
+          ["Corp type", dash(c.corpType)],
+          ["Registry status", dash(c.governmentStatus)],
+          ["Industry", dash(c.industry)],
+          ["Province", dash(c.province)],
+          ["Year-end", dash(c.yearEndMonth || o.fiscalYearEnd)],
+          ["Website", dash(c.website)],
+          ["Triage email", dash(c.figgyEmail)],
+        ];
+        if (c.hasHST) items.push(
+          ["HST / GST", hstFreq], ["HST #", dash(c.hstNumber || o.hstGstNumber)], ["Next HST due", dash(c.hstNextDue)],
+        );
+        if (c.hasPayroll) {
+          items.push(["Payroll", c.payrollExternal ? "Client-run / autopay" : dash(c.payrollFrequency)]);
+          if (!c.payrollExternal) items.push(["CRA remitter", dash(c.payrollRemitterFreq)], ["Payroll RP #", dash(c.payrollRpNumber)]);
+        }
+        if (c.hasWSIB) items.push(["WSIB #", dash(c.wsibAccountNumber || o.wsibAccountNumber)]);
+        return (
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Building2 className="h-4 w-4 text-lime-600" /> Client Details</CardTitle></CardHeader>
+            <CardContent className="pt-0">
+              {c.bio && <p className="text-xs text-slate-500 mb-3 leading-relaxed">{String(c.bio)}</p>}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-2">
+                {items.map(([k, v]) => (
+                  <div key={k} className="min-w-0">
+                    <p className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide truncate">{k}</p>
+                    <p className="text-[13px] font-medium text-slate-800 truncate" title={String(v)}>{String(v)}</p>
+                  </div>
                 ))}
               </div>
-            )}
-            {/* To-post backlog trend (fills in as daily snapshots accumulate) */}
-            {(() => {
-              const pts = (clientTrend ?? []).map((s: any) => s.toReview ?? 0);
-              if (pts.length < 2) return null;
-              const w = 120, h = 28, max = Math.max(...pts), min = Math.min(...pts), rng = (max - min) || 1;
-              const d = pts.map((p, i) => `${(i / (pts.length - 1)) * w},${h - ((p - min) / rng) * h}`).join(" ");
-              return (
-                <div className="mt-3 flex items-center gap-2">
-                  <span className="text-xs text-slate-500">To-post trend ({pts.length}d):</span>
-                  <svg viewBox={`0 0 ${w} ${h}`} className="h-7 w-32" preserveAspectRatio="none">
-                    <polyline points={d} fill="none" stroke="#7c3aed" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* OVERDUE — what needs attention now, compact + clickable. */}
+      {(() => {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const overdue = openTasks
+          .filter((t: any) => t.dueDate && new Date(t.dueDate) < today)
+          .sort((a: any, b: any) => +new Date(a.dueDate) - +new Date(b.dueDate));
+        if (overdue.length === 0) return null;
+        return (
+          <Card className="border-l-4 border-l-red-500">
+            <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2 text-red-700"><AlertCircle className="h-4 w-4" /> Overdue ({overdue.length})</CardTitle></CardHeader>
+            <CardContent className="pt-0 space-y-0.5">
+              {overdue.slice(0, 8).map((t: any) => (
+                <div key={t.id} className="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-red-50 cursor-pointer" onClick={() => setEditingTask(t)}>
+                  <span className="text-xs text-red-600 font-semibold whitespace-nowrap w-14">{format(new Date(t.dueDate), "MMM d")}</span>
+                  <span className="text-sm text-slate-700 truncate flex-1">{t.title}</span>
+                  <span className="text-xs text-slate-400 whitespace-nowrap">{t.category}</span>
                 </div>
-              );
-            })()}
-          </CardContent>
-        </Card>
-      )}
+              ))}
+              {overdue.length > 8 && <Button variant="ghost" size="sm" className="w-full h-7 text-xs" onClick={() => setActiveTab("tasks")}>View all {overdue.length} overdue</Button>}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
-      {/* Scope-based quote vs flat fee — am I undercharging? */}
-      {!isWholesale && quote && (
-        <Card className={cn(
-          "border-l-4",
-          quote.comparison.verdict === "undercharging" ? "border-l-red-500" :
-          quote.comparison.verdict === "above_market" ? "border-l-blue-400" :
-          quote.comparison.verdict === "aligned" ? "border-l-emerald-500" : "border-l-slate-300"
-        )}>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Scope-based quote vs flat fee</CardTitle>
-              <span className="text-xs text-slate-500">{quote.hasOnboarding ? "from intake scope" : "from client record (no intake yet)"}</span>
-            </div>
+      {/* Onboarding & documents — quote → engagement → activate. Hidden once the
+          client is active with no pending documents, to keep the card clean.
+          (Pricing intelligence — scope quote vs flat fee — moved off the client
+          card into the owner-only Insights area.) */}
+      {!isWholesale && (client.status !== "active" || (clientDocs && clientDocs.length > 0)) && (
+        <Card className="border-l-4 border-l-slate-300">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Onboarding &amp; documents</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-xs uppercase font-semibold text-slate-500">Flat fee</p>
-                <p className="text-2xl font-bold text-slate-700">{quote.flatFee ? `$${quote.flatFee}` : "—"}</p>
-                <p className="text-xs text-slate-400">/mo current</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase font-semibold text-slate-500">Scope quote</p>
-                <p className="text-2xl font-bold text-slate-900">${quote.quote.recurringMonthly}</p>
-                <p className="text-xs text-slate-400">${quote.quote.recurringRange.low}–${quote.quote.recurringRange.high}/mo</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase font-semibold text-slate-500">Closest package</p>
-                <p className="text-2xl font-bold text-slate-900">${quote.quote.nearestPackage.price}</p>
-                <p className="text-xs text-slate-400">{quote.quote.nearestPackage.name} package</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase font-semibold text-slate-500">Gap</p>
-                <p className={cn("text-2xl font-bold",
-                  quote.comparison.verdict === "undercharging" ? "text-red-600" :
-                  quote.comparison.verdict === "above_market" ? "text-blue-600" : "text-emerald-600"
-                )}>
-                  {quote.comparison.deltaMonthly > 0 ? "+" : ""}{quote.comparison.flatFee != null ? `$${quote.comparison.deltaMonthly}` : "—"}
-                </p>
-                <p className="text-xs text-slate-400">{quote.comparison.verdict.replace(/_/g, " ")}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase font-semibold text-slate-500">One-time</p>
-                <p className="text-2xl font-bold text-slate-700">${quote.quote.oneTimeTotal}</p>
-                <p className="text-xs text-slate-400">setup{quote.scope.monthsBehind > 0 ? " + catch-up" : ""}</p>
-              </div>
-            </div>
-            {quote.quote.transactions === 0 && (
-              <p className="mt-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                ⚠ Transaction volume not set — this is only a floor estimate. Enter the monthly transaction count in "Edit &amp; send quote" (or pull it from QBO once connected) for an accurate quote.
-              </p>
-            )}
-            <p className="mt-3 text-sm text-slate-600">{quote.comparison.message}</p>
-            <details className="mt-3">
-              <summary className="text-xs font-semibold text-slate-500 cursor-pointer">Scope breakdown ({quote.quote.monthlyLineItems.length} items · {quote.quote.tier})</summary>
-              <div className="mt-2 space-y-1">
-                {quote.quote.monthlyLineItems.map((li, i) => (
-                  <div key={i} className="flex items-start justify-between gap-3 text-sm">
-                    <div>
-                      <span className="text-slate-700">{li.label}</span>
-                      <span className="block text-xs text-slate-400">{li.rationale}</span>
-                    </div>
-                    <span className="font-medium text-slate-700 whitespace-nowrap">${li.amount.toFixed(2)}/mo</span>
-                  </div>
-                ))}
-                {quote.quote.oneTimeLineItems.map((li, i) => (
-                  <div key={`ot-${i}`} className="flex items-start justify-between gap-3 text-sm border-t pt-1 mt-1">
-                    <div>
-                      <span className="text-slate-700">{li.label}</span>
-                      <span className="block text-xs text-slate-400">{li.rationale}</span>
-                    </div>
-                    <span className="font-medium text-slate-700 whitespace-nowrap">${li.amount} one-time</span>
-                  </div>
-                ))}
-              </div>
-            </details>
-
             {/* Document lifecycle: quote → engagement → active */}
             <div className="mt-4 pt-3 border-t flex flex-wrap gap-2">
               <Button size="sm" onClick={() => setEditingQuote(true)} disabled={genQuote.isPending}>
@@ -499,57 +403,6 @@ export default function ClientDashboard() {
         </Card>
       )}
 
-      {/* Client snapshot — everything about this client in one panel. Reads the
-          CLIENT record first (populated by intake + seeds), falling back to the
-          onboarding record, so it's never blank when data exists. */}
-      {(() => {
-        const c: any = client;
-        const o: any = onboarding || {};
-        const dash = (v: any) => (v === null || v === undefined || v === "" ? "—" : v);
-        const yn = (v: any) => (v ? "Yes" : "No");
-        const hstFreq = c.hasHST ? (c.hstPeriod ? String(c.hstPeriod) : "registered") : "Not registered";
-        const items: Array<[string, any]> = [
-          ["Website", dash(c.website)],
-          ["CRA BN", dash(o.craBusinessNumber || c.taxId)],
-          ["Registry #", dash(c.registryNumber)],
-          ["Incorporated", dash(c.incorporationDate)],
-          ["Corp type", dash(c.corpType)],
-          ["Registry status", dash(c.governmentStatus)],
-          ["Client type", dash(c.clientType)],
-          ["Industry", dash(c.industry)],
-          ["Province", dash(c.province)],
-          ["Fiscal year-end", dash(c.yearEndMonth || o.fiscalYearEnd)],
-          ["HST / GST", c.hasHST ? `${hstFreq}` : "Not registered"],
-          ["HST #", dash(c.hstNumber || o.hstGstNumber)],
-          ["Next HST due", dash(c.hstNextDue)],
-          ["Payroll", c.hasPayroll ? (c.payrollExternal ? "Client-run / autopay" : dash(c.payrollFrequency)) : "No payroll"],
-          ["CRA remitter", c.hasPayroll && !c.payrollExternal ? dash(c.payrollRemitterFreq) : "—"],
-          ["Payroll RP #", dash(c.payrollRpNumber)],
-          ["WSIB #", dash(c.wsibAccountNumber || o.wsibAccountNumber)],
-          ["Company Key", dash(c.companyKey)],
-          ["CRA RepID", dash(c.craRepId)],
-          ["Pays dividends", yn(c.payrollDividends)],
-        ];
-        return (
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Building2 className="h-4 w-4 text-lime-600" /> Client snapshot</CardTitle></CardHeader>
-            <CardContent>
-              {c.bio && (
-                <p className="text-sm text-slate-600 mb-4 leading-relaxed">{String(c.bio)}</p>
-              )}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
-                {items.map(([k, v]) => (
-                  <div key={k} className="min-w-0">
-                    <p className="text-[11px] uppercase font-semibold text-slate-400 tracking-wide truncate">{k}</p>
-                    <p className="text-sm font-medium text-slate-800 truncate capitalize" title={String(v)}>{String(v)}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
-
       {/* Quick Links Card */}
       <QuickLinksCard
         client={client}
@@ -558,12 +411,12 @@ export default function ClientDashboard() {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className={cn("grid w-full", client.hasPayroll ? "grid-cols-7" : "grid-cols-6")}>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tasks">Tasks ({openTasks.length})</TabsTrigger>
           <TabsTrigger value="financials">Financials</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
-          <TabsTrigger value="payroll">Payroll</TabsTrigger>
+          {client.hasPayroll && <TabsTrigger value="payroll">Payroll</TabsTrigger>}
           <TabsTrigger value="compliance">Compliance</TabsTrigger>
           <TabsTrigger value="time">Time</TabsTrigger>
         </TabsList>
@@ -2122,7 +1975,7 @@ function QuickLinksCard({ client, onboarding }: { client: any; onboarding: any }
     { label: "CRA My Business", url: "https://www.canada.ca/en/revenue-agency/services/e-services/e-services-businesses/business-account.html" },
     { label: "WSIB Online", url: "https://www.wsib.ca/en/online-services" },
     { label: "HST Netfile", url: "https://www.canada.ca/en/revenue-agency/services/e-services/e-services-businesses/gst-hst-netfile.html" },
-    { label: "Payroll Calculator", url: "https://www.canada.ca/en/revenue-agency/services/e-services/e-services-businesses/payroll-deductions-online-calculator.html" },
+    { label: "Payroll Calculator", url: "/calculators?tab=payroll" },
   ];
 
   const displayLinks = quickLinks.length > 0 ? quickLinks : defaultLinks;
