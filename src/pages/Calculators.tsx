@@ -136,21 +136,24 @@ function HSTCalculator() {
   const [amount, setAmount] = useState("");
   const [mode, setMode] = useState<"add" | "backout">("add");
 
+  const { data: liveRates } = trpc.calculator.taxRates.useQuery(undefined, { staleTime: 60 * 60 * 1000 });
   const prov = CA_PROVINCES.find((p) => p.value === province)!;
+  // Auto-fetched rate wins; baked-in is the fallback.
+  const provRate = liveRates?.[`ca.hst.${province}`] ?? prov.rate;
   const amt = parseFloat(amount) || 0;
 
   const result = useMemo(() => {
     if (mode === "add") {
       // Input = net (before tax), output = tax + gross
-      const tax = amt * prov.rate;
+      const tax = amt * provRate;
       return { inputLabel: "Net Amount", tax, outputLabel: "Gross Amount", output: amt + tax };
     } else {
       // Input = gross (total with tax), output = backed-out tax + net
-      const net = amt / (1 + prov.rate);
+      const net = amt / (1 + provRate);
       const tax = amt - net;
       return { inputLabel: "Gross Amount", tax, outputLabel: "Net Amount", output: net };
     }
-  }, [amt, mode, prov.rate]);
+  }, [amt, mode, provRate]);
 
   return (
     <Card>
@@ -208,7 +211,7 @@ function HSTCalculator() {
               <p className="text-xl font-bold">${fmt(amt)}</p>
             </div>
             <div className="bg-lime-50 rounded-lg p-4 text-center">
-              <p className="text-xs text-lime-600">HST Amount ({(prov.rate * 100).toFixed(0)}% {prov.type})</p>
+              <p className="text-xs text-lime-600">HST Amount ({(provRate * 100).toFixed(0)}% {prov.type})</p>
               <p className="text-xl font-bold text-lime-700">${fmt(result.tax)}</p>
             </div>
             <div className="bg-slate-900 rounded-lg p-4 text-center">
@@ -1124,7 +1127,22 @@ function LoanCalculator() {
 function CPPEICalculator() {
   const [salary, setSalary] = useState("");
   const sal = parseFloat(salary) || 0;
-  const K = CPP_EI_2026;
+  // Baked-in 2026 constants, overlaid with any auto-fetched live values.
+  const { data: liveRates } = trpc.calculator.taxRates.useQuery(undefined, { staleTime: 60 * 60 * 1000 });
+  const lv = (k: string, fb: number) => (typeof liveRates?.[k] === "number" && liveRates[k] > 0 ? liveRates[k] : fb);
+  const K = {
+    ...CPP_EI_2026,
+    cppRate: lv("ca.cpp.rate", CPP_EI_2026.cppRate),
+    ympe: lv("ca.cpp.ympe", CPP_EI_2026.ympe),
+    cppExemption: lv("ca.cpp.exemption", CPP_EI_2026.cppExemption),
+    cppMaxAnnual: lv("ca.cpp.max", CPP_EI_2026.cppMaxAnnual),
+    cpp2Rate: lv("ca.cpp2.rate", CPP_EI_2026.cpp2Rate),
+    yampe: lv("ca.cpp2.yampe", CPP_EI_2026.yampe),
+    cpp2MaxAnnual: lv("ca.cpp2.max", CPP_EI_2026.cpp2MaxAnnual),
+    eiRate: lv("ca.ei.rate", CPP_EI_2026.eiRate),
+    mie: lv("ca.ei.mie", CPP_EI_2026.mie),
+    eiMaxAnnual: lv("ca.ei.max", CPP_EI_2026.eiMaxAnnual),
+  };
 
   // Exact 2026 CRA maximum-deduction math from the canonical constants:
   //   CPP   = (min(salary, YMPE) − $3,500 exemption) × 5.95%, capped at the annual max
@@ -1145,7 +1163,7 @@ function CPPEICalculator() {
           CPP / EI Premium Calculator
         </CardTitle>
         <CardDescription>
-          Exact 2026 CRA maximums — CPP {(K.cppRate * 100).toFixed(2)}% (YMPE ${fmt(K.ympe, 0)}, ${fmt(K.cppExemption, 0)} exemption, max ${fmt(K.cppMaxAnnual)}),
+          Current CRA maximums (auto-updated) — CPP {(K.cppRate * 100).toFixed(2)}% (YMPE ${fmt(K.ympe, 0)}, ${fmt(K.cppExemption, 0)} exemption, max ${fmt(K.cppMaxAnnual)}),
           CPP2 {(K.cpp2Rate * 100).toFixed(0)}% to ${fmt(K.yampe, 0)} (max ${fmt(K.cpp2MaxAnnual)}), EI {(K.eiRate * 100).toFixed(2)}% (MIE ${fmt(K.mie, 0)}, max ${fmt(K.eiMaxAnnual)}).
         </CardDescription>
       </CardHeader>
