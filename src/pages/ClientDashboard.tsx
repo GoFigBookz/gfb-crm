@@ -267,6 +267,9 @@ export default function ClientDashboard() {
         </Card>
       )}
 
+      {/* Quick Links — at the top, right under the header actions. */}
+      <QuickLinksCard client={client} onboarding={onboarding} />
+
       {/* CLIENT DETAILS — real client data, dense, on top. */}
       {(() => {
         const c: any = client;
@@ -314,25 +317,43 @@ export default function ClientDashboard() {
         );
       })()}
 
-      {/* OVERDUE — what needs attention now, compact + clickable. */}
+      {/* TASKS — progress + overdue + open, one combined card near the top. */}
       {(() => {
         const today = new Date(); today.setHours(0, 0, 0, 0);
-        const overdue = openTasks
-          .filter((t: any) => t.dueDate && new Date(t.dueDate) < today)
-          .sort((a: any, b: any) => +new Date(a.dueDate) - +new Date(b.dueDate));
-        if (overdue.length === 0) return null;
+        const byDue = (a: any, b: any) => (+new Date(a.dueDate || "2999-01-01")) - (+new Date(b.dueDate || "2999-01-01"));
+        const overdue = openTasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < today).sort(byDue);
+        const upcoming = openTasks.filter((t: any) => !(t.dueDate && new Date(t.dueDate) < today)).sort(byDue);
+        const ordered = [...overdue, ...upcoming];
+        const total = dashboardData?.tasks?.length || 0;
         return (
-          <Card className="border-l-4 border-l-red-500">
-            <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2 text-red-700"><AlertCircle className="h-4 w-4" /> Overdue ({overdue.length})</CardTitle></CardHeader>
-            <CardContent className="pt-0 space-y-0.5">
-              {overdue.slice(0, 8).map((t: any) => (
-                <div key={t.id} className="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-red-50 cursor-pointer" onClick={() => setEditingTask(t)}>
-                  <span className="text-xs text-red-600 font-semibold whitespace-nowrap w-14">{format(new Date(t.dueDate), "MMM d")}</span>
-                  <span className="text-sm text-slate-700 truncate flex-1">{t.title}</span>
-                  <span className="text-xs text-slate-400 whitespace-nowrap">{t.category}</span>
+          <Card className={cn("border-l-4", overdue.length > 0 ? "border-l-red-500" : "border-l-lime-500")}>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2"><Briefcase className="h-4 w-4 text-lime-600" /> Tasks</CardTitle>
+                <span className="text-xs text-slate-500">
+                  {completedTasks.length}/{total} done{overdue.length > 0 ? <span className="text-red-600 font-semibold"> · {overdue.length} overdue</span> : null}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Progress value={taskProgress} className="h-1.5 mb-3" />
+              {ordered.length === 0 ? (
+                <p className="text-sm text-slate-400 py-1.5 flex items-center gap-2"><CheckCircle className="h-4 w-4 text-lime-500" /> All caught up</p>
+              ) : (
+                <div className="space-y-0.5">
+                  {ordered.slice(0, 8).map((t: any) => {
+                    const od = t.dueDate && new Date(t.dueDate) < today;
+                    return (
+                      <div key={t.id} className="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-slate-50 cursor-pointer" onClick={() => setEditingTask(t)}>
+                        <span className={cn("text-xs font-semibold w-[74px] whitespace-nowrap", od ? "text-red-600" : "text-slate-400")}>{t.dueDate ? format(new Date(t.dueDate), "MMM d, yyyy") : "—"}</span>
+                        <span className="text-sm text-slate-700 truncate flex-1">{t.title}</span>
+                        <span className="text-xs text-slate-400 whitespace-nowrap">{t.category}</span>
+                      </div>
+                    );
+                  })}
+                  {ordered.length > 8 && <Button variant="ghost" size="sm" className="w-full h-7 text-xs" onClick={() => setActiveTab("tasks")}>View all {openTasks.length} tasks</Button>}
                 </div>
-              ))}
-              {overdue.length > 8 && <Button variant="ghost" size="sm" className="w-full h-7 text-xs" onClick={() => setActiveTab("tasks")}>View all {overdue.length} overdue</Button>}
+              )}
             </CardContent>
           </Card>
         );
@@ -403,12 +424,6 @@ export default function ClientDashboard() {
         </Card>
       )}
 
-      {/* Quick Links Card */}
-      <QuickLinksCard
-        client={client}
-        onboarding={onboarding}
-      />
-
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className={cn("grid w-full", client.hasPayroll ? "grid-cols-7" : "grid-cols-6")}>
@@ -423,79 +438,46 @@ export default function ClientDashboard() {
 
         {/* OVERVIEW TAB */}
         <TabsContent value="overview" className="space-y-4 mt-4">
-          <ClientRequestsCard clientId={id} clientName={client.name} />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Task Progress */}
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-lime-500" />
-                  Task Progress
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>{completedTasks.length} of {dashboardData?.tasks?.length || 0} completed</span>
-                    <span className="font-medium">{taskProgress}%</span>
-                  </div>
-                  <Progress value={taskProgress} className="h-2" />
-                </div>
-                {openTasks.length > 0 ? (
-                  <div className="space-y-2">
-                    {openTasks.slice(0, 5).map(task => (
-                      <div key={task.id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => setEditingTask(task)}>
-                        <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{task.title}</p>
-                          <p className="text-xs text-slate-500">{task.category} • {task.dueDate ? format(new Date(task.dueDate), "MMM d") : "No due date"}</p>
-                        </div>
-                        <Badge variant={task.priority === "high" ? "destructive" : "outline"} className="text-xs shrink-0">{task.priority}</Badge>
-                      </div>
-                    ))}
-                    {openTasks.length > 5 && (
-                      <Button variant="ghost" size="sm" className="w-full" onClick={() => setActiveTab("tasks")}>
-                        View all {openTasks.length} tasks
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-slate-400">
-                    <CheckCircle className="h-8 w-8 mx-auto mb-2 text-lime-500" />
-                    <p>All tasks completed!</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          {/* Document requests + at-a-glance, side by side. (Task progress lives in
+              the combined Tasks card up top.) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ClientRequestsCard clientId={id} clientName={client.name} />
 
-            {/* Quick Stats */}
+            {/* Quick Stats — status at a glance, relevant rows only. */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Quick Stats</CardTitle>
+                <CardTitle className="text-lg">At a glance</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {client.hasPayroll ? (
+                <button onClick={() => setActiveTab("tasks")} className="w-full flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+                  <span className="text-sm text-slate-600">Open tasks</span>
+                  <span className="font-medium inline-flex items-center gap-1">{openTasks.length} <ChevronRight className="h-3.5 w-3.5 text-slate-400" /></span>
+                </button>
+                {(() => {
+                  const today = new Date(); today.setHours(0, 0, 0, 0);
+                  const overdueCount = openTasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < today).length;
+                  return (
+                    <div className={cn("flex items-center justify-between p-3 rounded-lg", overdueCount > 0 ? "bg-red-50" : "bg-slate-50")}>
+                      <span className="text-sm text-slate-600">Overdue</span>
+                      <span className={cn("font-medium", overdueCount > 0 ? "text-red-600" : "")}>{overdueCount}</span>
+                    </div>
+                  );
+                })()}
+                {client.hasPayroll && (
                   <Link to={`/payroll?clientId=${id}`} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
                     <span className="text-sm text-slate-600">Employees</span>
                     <span className="font-medium inline-flex items-center gap-1">{employees?.length || 0} <ChevronRight className="h-3.5 w-3.5 text-slate-400" /></span>
                   </Link>
-                ) : (
+                )}
+                {client.hasHST && (
                   <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <span className="text-sm text-slate-600">Employees</span>
-                    <span className="font-medium">{employees?.length || 0}</span>
+                    <span className="text-sm text-slate-600">Next HST due</span>
+                    <span className="font-medium">{client.hstNextDue || "—"}</span>
                   </div>
                 )}
-                <button onClick={() => setActiveTab("tasks")} className="w-full flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                  <span className="text-sm text-slate-600">Open Tasks</span>
-                  <span className="font-medium inline-flex items-center gap-1">{openTasks.length} <ChevronRight className="h-3.5 w-3.5 text-slate-400" /></span>
-                </button>
                 <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <span className="text-sm text-slate-600">HST Frequency</span>
-                  <span className="font-medium capitalize">{onboarding?.hstGstFrequency || "N/A"}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <span className="text-sm text-slate-600">Payroll</span>
-                  <span className="font-medium capitalize">{onboarding?.payrollFrequency || "N/A"}</span>
+                  <span className="text-sm text-slate-600">Year-end</span>
+                  <span className="font-medium">{client.yearEndMonth || onboarding?.fiscalYearEnd || "—"}</span>
                 </div>
               </CardContent>
             </Card>
