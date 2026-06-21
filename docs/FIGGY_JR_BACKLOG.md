@@ -3,7 +3,40 @@
 _Living list of agreed-but-not-yet-built work, with the decisions made so we
 don't re-derive them._
 
-## 0. TWO-WAY CRM ⇄ GOOGLE SHEETS MASTER SYNC (HIGH — Markie 2026-06-21)
+## 0. SMART CLIENT SYNC + LOOKUP SYSTEM (Markie 2026-06-21: "syncs everything, looks up everything, extremely smart")
+
+### ✅ DONE this session (live on main, build 2026-06-21.15)
+- **Canonical master = sheet `1pcAw-WSQXXnVn-0L-TQ2FIExkHQ0Olf4dzz47t0gTUk`** (Markie
+  chose it). ONE `Client Master` tab (33 active, 26 cols incl. Bio at Z + gov
+  registry E–H) + `Inactive Clients` tab (13 dissolved). Header frozen/coloured.
+- **OUTBOUND CRM→sheet** (`api/master-sheet-sync.ts`): onboard + intake edit upsert
+  the client's row (key = CRA BN, else name), PRESERVING gov-only cols
+  (closePeriod/#employees/POS). `onboarding.syncAllToMaster` = full reconcile.
+  Transport = committed Make webhook proxy **scenario 5453235 / hook 2483768**
+  (`hook.us2.make.com/d4h33m0na6ulrlm9nkv9dyyfa8hv1bcs`, Google conn 9040573) —
+  zero-touch like the QBO bridge, no token. Off via `FIGGY_SHEET_SYNC_DISABLE=on`.
+- **GOV-REGISTRY LOOKUP on add** (`api/gov-registry-lookup.ts`): Anthropic
+  web_search → bio/CRA#/registry#/incorp/corp type/status/industry/website/addr/
+  phone. New clients auto-enrich (blank fields only) then sync. Card button →
+  `onboarding.lookupGovRegistry`. ON with `ANTHROPIC_API_KEY`; off `FIGGY_GOV_LOOKUP=off`.
+- **CARD HOLDS EVERYTHING**: clients gained bio/registryNumber/incorporationDate/
+  corpType/governmentStatus; `api/seed-gov-registry.ts` (boot) backfills curated
+  research onto every existing card by BN; ClientDashboard snapshot shows it all.
+
+### TODO (next phases of the smart system)
+1. **INBOUND sheet→CRM** read-back: scheduled Make scenario reads the master tab,
+   POSTs changed rows to a CRM webhook (like agent-webhook); CRM upserts by BN.
+   → makes it truly bidirectional / crash-safe both ways.
+2. **Conflict rule**: last-writer-wins per row via `updatedAt`; CRM authoritative
+   for new records. Nightly full reconcile job.
+3. **Extend sync to payroll / employees / tasks** (not just clients): one tab each
+   or a workbook, same upsert pattern.
+4. **Inactive flow**: when a client goes inactive in the CRM, MOVE its row from
+   `Client Master` → `Inactive Clients` automatically.
+5. **Smarter lookup**: cache/verify CRA# against an authoritative source; flag
+   low-confidence registry hits for review (never auto-trust a guessed BN/date).
+
+### Original two-way design notes (kept for reference)
 Markie's requirement: the Google Sheet is the **crash-safe mirror / fallback** —
 "the back end of the Google Sheets must always match what we're building here.
 If the CRM crashes we can still work in the Sheets." Sync **both ways** for
