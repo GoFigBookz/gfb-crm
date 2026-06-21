@@ -61,7 +61,7 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-const BUILD_TAG = "2026-06-21.16";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-21.17";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -397,6 +397,49 @@ app.post("/api/figgy-jr-finding", async (c) => {
       status: "new",
     }).returning();
     return c.json({ success: true, findingId: finding.id });
+  } catch (e: any) {
+    return c.json({ success: false, error: e.message }, 500);
+  }
+});
+
+// PUBLIC website lead capture — the gofig.ca inquiry form (or a Make webhook)
+// POSTs simple JSON here. Creates a lead (new_lead) + mirrors it to the Leads tab.
+// CORS already allows gofig.ca; no auth (public form). Honeypot field "_hp" drops bots.
+app.post("/api/lead", async (c) => {
+  try {
+    const b = await c.req.json().catch(() => ({}));
+    if (b._hp) return c.json({ success: true }); // bot honeypot → silently accept
+    const name = String(b.name || b.fullName || "").trim();
+    const email = String(b.email || "").trim();
+    if (!name && !email) return c.json({ success: false, error: "name or email required" }, 400);
+    const db = getDb();
+    const { workflowLogs } = await import("../db/schema");
+    const { syncLeadToMaster } = await import("./master-sheet-sync");
+    const res = await db.insert(clients).values({
+      userId: 1,
+      name: name || email,
+      email,
+      phone: String(b.phone || "").trim() || null,
+      company: String(b.company || b.business || "").trim() || null,
+      website: String(b.website || "").trim() || null,
+      status: "lead",
+      workflowStatus: "new_lead",
+      leadSource: String(b.source || "website").trim() || "website",
+      painPoints: String(b.message || b.inquiry || b.notes || "").trim() || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning({ id: clients.id });
+    const clientId = res[0]?.id;
+    if (clientId) {
+      await db.insert(workflowLogs).values({
+        clientId, fromStatus: null, toStatus: "new_lead",
+        action: "website_lead_created", notes: `Source: ${String(b.source || "website")}`,
+        createdAt: new Date(),
+      });
+      const lead = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+      if (lead) syncLeadToMaster(lead as any);
+    }
+    return c.json({ success: true, clientId });
   } catch (e: any) {
     return c.json({ success: false, error: e.message }, 500);
   }
@@ -1149,6 +1192,21 @@ async function startServer() {
   const { capturePracticeSnapshot } = await import("./dashboard-router");
   setTimeout(() => { capturePracticeSnapshot().catch(() => {}); }, 90_000);
   setInterval(() => { capturePracticeSnapshot().catch(() => {}); }, 24 * 60 * 60 * 1000);
+
+  // INBOUND sheet → CRM sync (bidirectional): apply edits made in the Google
+  // master sheet back into the CRM. Shortly after boot, then every 20 min.
+  // Best-effort; opt out with FIGGY_SHEET_SYNC_DISABLE=on.
+  if (process.env.FIGGY_SHEET_SYNC_DISABLE !== "on") {
+    const runInbound = async () => {
+      try {
+        const { pullMasterIntoCrm } = await import("./sheet-inbound-sync");
+        const r = await pullMasterIntoCrm();
+        console.log(`[inbound] clients ${r.clients.updated}u/${r.clients.created}c, leads ${r.leads.updated}u/${r.leads.created}c`);
+      } catch (e) { console.error("[inbound] sync failed (non-fatal):", e instanceof Error ? e.message : e); }
+    };
+    setTimeout(runInbound, 120_000);
+    setInterval(runInbound, 20 * 60 * 1000);
+  }
 
   const port = parseInt(process.env.PORT || "3000");
   serve({ fetch: app.fetch, port }, () => {

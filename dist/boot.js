@@ -11220,13 +11220,13 @@ function _promise(Class2, innerType) {
 }
 // @__NO_SIDE_EFFECTS__
 function _custom(Class2, fn, _params) {
-  const norm7 = normalizeParams(_params);
-  norm7.abort ?? (norm7.abort = true);
+  const norm8 = normalizeParams(_params);
+  norm8.abort ?? (norm8.abort = true);
   const schema = new Class2({
     type: "custom",
     check: "custom",
     fn,
-    ...norm7
+    ...norm8
   });
   return schema;
 }
@@ -44412,6 +44412,15 @@ var init_vault_router = __esm({
 });
 
 // api/master-sheet-sync.ts
+var master_sheet_sync_exports = {};
+__export(master_sheet_sync_exports, {
+  CANONICAL_MASTER_SHEET_ID: () => CANONICAL_MASTER_SHEET_ID,
+  readMasterRange: () => readMasterRange,
+  syncClientToMaster: () => syncClientToMaster,
+  syncLeadToMaster: () => syncLeadToMaster,
+  upsertClientToMaster: () => upsertClientToMaster,
+  upsertLeadToMaster: () => upsertLeadToMaster
+});
 function crmValue(c, key) {
   switch (key) {
     case "name":
@@ -44462,6 +44471,17 @@ function crmValue(c, key) {
       return c.figgyEmail || null;
     default:
       return null;
+  }
+}
+async function readMasterRange(rangeA1) {
+  try {
+    const read = await sheetsApi2(
+      `spreadsheets/${CANONICAL_MASTER_SHEET_ID}/values/${encodeURIComponent(rangeA1)}`,
+      "GET"
+    );
+    return Array.isArray(read?.values) ? read.values : [];
+  } catch {
+    return [];
   }
 }
 async function sheetsApi2(url2, method, body) {
@@ -44812,6 +44832,239 @@ var init_client_activation = __esm({
     init_gov_registry_lookup();
     init_master_sheet_sync();
     blank = (v) => v === null || v === void 0 || v === "";
+  }
+});
+
+// api/sheet-inbound-sync.ts
+var sheet_inbound_sync_exports = {};
+__export(sheet_inbound_sync_exports, {
+  pullClientMasterIntoCrm: () => pullClientMasterIntoCrm,
+  pullLeadsIntoCrm: () => pullLeadsIntoCrm,
+  pullMasterIntoCrm: () => pullMasterIntoCrm
+});
+function cadenceIn(v) {
+  const s = v.toLowerCase();
+  if (!s) return null;
+  if (s.includes("month")) return "monthly";
+  if (s.includes("quart") || s.includes("qrtly")) return "quarterly";
+  if (s.includes("annual") || s.includes("year")) return "annual";
+  return null;
+}
+function payIn(v) {
+  const s = v.toLowerCase().replace(/\s+/g, "-");
+  if (!s) return null;
+  if (s.includes("bi-week")) return "bi-weekly";
+  if (s.includes("week")) return "weekly";
+  if (s.includes("semi")) return "semi-monthly";
+  if (s.includes("month")) return "monthly";
+  if (s.includes("self")) return "self";
+  return null;
+}
+function remitIn(v) {
+  const s = v.toLowerCase();
+  if (!s) return null;
+  if (s.includes("threshold") || s.includes("acceler")) return "accelerated";
+  if (s.includes("quart")) return "quarterly";
+  if (s.includes("regular")) return "regular";
+  return null;
+}
+function statusIn(v) {
+  const s = v.toLowerCase().trim();
+  return ["active", "inactive", "prospect", "lead"].includes(s) ? s : null;
+}
+async function pullClientMasterIntoCrm() {
+  const db = getDb();
+  const report = { scanned: 0, updated: 0, created: 0 };
+  const rows = await readMasterRange("'Client Master'!A2:Z200");
+  if (!rows.length) return report;
+  const all = (await db.select().from(clients)).map((c) => ({ ...c }));
+  const byBn = /* @__PURE__ */ new Map();
+  const byName = /* @__PURE__ */ new Map();
+  for (const c of all) {
+    if (c.taxId) byBn.set(norm3(c.taxId), c);
+    byName.set(norm3(c.name), c);
+    if (c.company) byName.set(norm3(c.company), c);
+  }
+  for (const r of rows) {
+    const name2 = clean2(r[0]);
+    if (!name2) continue;
+    report.scanned++;
+    const bn = clean2(r[3]);
+    const match2 = bn && byBn.get(norm3(bn)) || byName.get(norm3(name2));
+    const sv = {};
+    const set2 = (k, v) => {
+      if (v !== null && v !== void 0 && v !== "") sv[k] = v;
+    };
+    set2("name", name2);
+    set2("status", statusIn(clean2(r[1])));
+    set2("industry", clean2(r[2]));
+    set2("taxId", bn);
+    set2("registryNumber", clean2(r[4]));
+    set2("incorporationDate", clean2(r[5]));
+    set2("corpType", clean2(r[6]));
+    set2("governmentStatus", clean2(r[7]));
+    set2("yearEndMonth", clean2(r[9]) || null);
+    const hstP = cadenceIn(clean2(r[10]));
+    if (hstP) {
+      sv.hstPeriod = hstP;
+      sv.hasHST = true;
+    }
+    set2("hstNextDue", clean2(r[11]));
+    set2("hstNumber", clean2(r[12]));
+    const payF = payIn(clean2(r[13]));
+    if (payF) {
+      sv.payrollFrequency = payF;
+      sv.hasPayroll = true;
+    }
+    const remit = remitIn(clean2(r[14]));
+    if (remit) sv.payrollRemitterFreq = remit;
+    set2("payrollRpNumber", clean2(r[15]));
+    const wsib = clean2(r[16]);
+    if (wsib) {
+      sv.wsibAccountNumber = wsib;
+      sv.hasWSIB = true;
+    }
+    set2("address", clean2(r[19]));
+    set2("phone", clean2(r[20]));
+    set2("email", clean2(r[21]));
+    set2("website", clean2(r[22]));
+    set2("contactName", clean2(r[23]));
+    set2("figgyEmail", clean2(r[24]));
+    set2("bio", clean2(r[25]));
+    if (match2) {
+      const patch = {};
+      for (const [k, v] of Object.entries(sv)) {
+        if (k === "yearEndMonth" && !v) continue;
+        if (String(match2[k] ?? "") !== String(v ?? "")) patch[k] = v;
+      }
+      if (Object.keys(patch).length) {
+        patch.updatedAt = /* @__PURE__ */ new Date();
+        await db.update(clients).set(patch).where(eq(clients.id, match2.id));
+        report.updated++;
+      }
+    } else {
+      const ins = await db.insert(clients).values({
+        userId: 1,
+        name: name2,
+        email: sv.email || "",
+        company: sv.name || name2,
+        status: sv.status || "active",
+        workflowStatus: "active",
+        assignedTo: "Markie",
+        ...sv,
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).returning({ id: clients.id });
+      if (ins[0]?.id) report.created++;
+    }
+  }
+  return report;
+}
+async function pullLeadsIntoCrm() {
+  const db = getDb();
+  const report = { scanned: 0, updated: 0, created: 0 };
+  const rows = await readMasterRange("'Leads'!A2:N500");
+  if (!rows.length) return report;
+  const all = (await db.select().from(clients)).map((c) => ({ ...c }));
+  const byId = new Map(all.map((c) => [c.id, c]));
+  const byEmail = /* @__PURE__ */ new Map();
+  for (const c of all) if (c.email) byEmail.set(norm3(c.email), c);
+  for (const r of rows) {
+    const leadName = clean2(r[1]);
+    const business = clean2(r[2]);
+    if (!leadName && !business) continue;
+    report.scanned++;
+    const email3 = clean2(r[3]);
+    const crmId = Number(clean2(r[13])) || 0;
+    const match2 = crmId && byId.get(crmId) || email3 && byEmail.get(norm3(email3));
+    const sv = {};
+    const set2 = (k, v) => {
+      if (v !== null && v !== void 0 && v !== "") sv[k] = v;
+    };
+    set2("name", leadName || business);
+    set2("company", business);
+    set2("email", email3);
+    set2("phone", clean2(r[4]));
+    set2("website", clean2(r[5]));
+    set2("painPoints", clean2(r[6]));
+    set2("leadSource", clean2(r[7]));
+    const ws = clean2(r[8]);
+    if (ws && ws !== "won") sv.workflowStatus = ws;
+    const ev = Number(clean2(r[9]));
+    if (!isNaN(ev) && clean2(r[9])) sv.estimatedMonthlyValue = ev;
+    set2("assignedTo", clean2(r[10]));
+    set2("nextAction", clean2(r[11]));
+    set2("notes", clean2(r[12]));
+    if (match2) {
+      const patch = {};
+      for (const [k, v] of Object.entries(sv)) if (String(match2[k] ?? "") !== String(v ?? "")) patch[k] = v;
+      if (Object.keys(patch).length) {
+        patch.updatedAt = /* @__PURE__ */ new Date();
+        await db.update(clients).set(patch).where(eq(clients.id, match2.id));
+        report.updated++;
+      }
+    } else {
+      const ins = await db.insert(clients).values({
+        userId: 1,
+        name: leadName || business,
+        email: email3 || "",
+        company: business || null,
+        phone: sv.phone || null,
+        website: sv.website || null,
+        status: "lead",
+        workflowStatus: sv.workflowStatus || "new_lead",
+        leadSource: sv.leadSource || "sheet",
+        painPoints: sv.painPoints || null,
+        estimatedMonthlyValue: sv.estimatedMonthlyValue ?? null,
+        assignedTo: sv.assignedTo || null,
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).returning({ id: clients.id });
+      const id = ins[0]?.id;
+      if (id) {
+        report.created++;
+        await db.insert(workflowLogs).values({
+          clientId: id,
+          fromStatus: null,
+          toStatus: "new_lead",
+          action: "lead_imported_from_sheet",
+          notes: "Inbound sheet sync",
+          createdAt: /* @__PURE__ */ new Date()
+        });
+        const lead = (await db.select().from(clients).where(eq(clients.id, id)).limit(1))[0];
+        if (lead) syncLeadToMaster(lead);
+      }
+    }
+  }
+  return report;
+}
+async function pullMasterIntoCrm() {
+  let clientsRes = { scanned: 0, updated: 0, created: 0 };
+  let leadsRes = { scanned: 0, updated: 0, created: 0 };
+  try {
+    clientsRes = await pullClientMasterIntoCrm();
+  } catch (e) {
+    console.error("[inbound] client master pull failed:", e instanceof Error ? e.message : e);
+  }
+  try {
+    leadsRes = await pullLeadsIntoCrm();
+  } catch (e) {
+    console.error("[inbound] leads pull failed:", e instanceof Error ? e.message : e);
+  }
+  return { clients: clientsRes, leads: leadsRes };
+}
+var norm3, clean2;
+var init_sheet_inbound_sync = __esm({
+  "api/sheet-inbound-sync.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_master_sheet_sync();
+    norm3 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    clean2 = (v) => {
+      const s = String(v ?? "").trim();
+      return /^(n\/?a|none|null)$/i.test(s) ? "" : s;
+    };
   }
 });
 
@@ -45415,6 +45668,13 @@ var init_onboarding_router = __esm({
         const fresh = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
         if (fresh) syncClientToMaster(fresh);
         return { success: true, fields: Object.keys(patch).filter((k) => k !== "updatedAt") };
+      }),
+      // Pull the Google master sheet back INTO the CRM (inbound / bidirectional).
+      // Applies edits made in the sheet to matching clients + leads; returns counts.
+      pullFromMaster: staffQuery.mutation(async () => {
+        const { pullMasterIntoCrm: pullMasterIntoCrm2 } = await Promise.resolve().then(() => (init_sheet_inbound_sync(), sheet_inbound_sync_exports));
+        const r = await pullMasterIntoCrm2();
+        return { success: true, ...r };
       }),
       // Push EVERY active client into the canonical Google master sheet (one-time
       // reconcile / drift fix). Upsert preserves the gov-registry columns. Awaited
@@ -47203,10 +47463,10 @@ function normalizePhone(raw2) {
 }
 async function matchClientByPhone(phone) {
   const db = getDb();
-  const norm7 = normalizePhone(phone);
-  if (!norm7) return null;
+  const norm8 = normalizePhone(phone);
+  if (!norm8) return null;
   const all = await db.select().from(clients);
-  const hit = all.find((c) => normalizePhone(c.phone || "") === norm7);
+  const hit = all.find((c) => normalizePhone(c.phone || "") === norm8);
   return hit ? { id: hit.id, name: hit.name } : null;
 }
 async function ingestInboundSms(from, body, externalId) {
@@ -48739,9 +48999,9 @@ function wrap(inner) {
 }
 function renderQuoteHtml(opts) {
   const { firm, quote } = opts;
-  const clean2 = (label) => label.replace(/\s*—.*$/, "").replace(/\s*\(wholesale[^)]*\)/i, "").replace(/,?\s*amortized/i, "").replace(/\s*\$\d[\d,.]*/g, "").replace(/\s*\(\s*\)/g, "").trim();
+  const clean3 = (label) => label.replace(/\s*—.*$/, "").replace(/\s*\(wholesale[^)]*\)/i, "").replace(/,?\s*amortized/i, "").replace(/\s*\$\d[\d,.]*/g, "").replace(/\s*\(\s*\)/g, "").trim();
   const included = quote.monthlyLineItems.map((li) => `
-    <li style="margin:5px 0;">${esc2(clean2(li.label))}</li>`).join("");
+    <li style="margin:5px 0;">${esc2(clean3(li.label))}</li>`).join("");
   return wrap(`
     ${header(firm, opts.quoteNumber ? `Quote ${opts.quoteNumber}` : "Quote")}
     <p style="margin:0 0 4px;">Prepared for</p>
@@ -51969,7 +52229,7 @@ async function dedupeClients(confirm) {
   const groups = /* @__PURE__ */ new Map();
   for (const r of clientRows) {
     const id = Number(r.id ?? r[0]);
-    const key = `${norm3(r.name ?? r[1])}|${norm3(r.company ?? r[2])}`;
+    const key = `${norm4(r.name ?? r[1])}|${norm4(r.company ?? r[2])}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(id);
   }
@@ -52049,12 +52309,12 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm3, asRows, num;
+var norm4, asRows, num;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
-    norm3 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    norm4 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
     num = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
@@ -52705,7 +52965,7 @@ async function seedPayrollEmployees() {
   for (const mv of PAYROLL_EMPLOYEE_MOVES) {
     const to = findClient(clientsNow, mv.toMatch);
     if (!to) continue;
-    const matches = (await db.select().from(employees)).filter((e) => norm4(e.firstName) === norm4(mv.firstName) && norm4(e.lastName) === norm4(mv.lastName));
+    const matches = (await db.select().from(employees)).filter((e) => norm5(e.firstName) === norm5(mv.firstName) && norm5(e.lastName) === norm5(mv.lastName));
     for (const e of matches) {
       if (e.clientId === to.id) continue;
       const from = findClient(clientsNow, mv.fromMatch);
@@ -52730,7 +52990,7 @@ async function seedPayrollEmployees() {
     for (const link of PAYROLL_CONTRACT_LINKS) {
       const client = findClient(clientsNow, link.clientMatch);
       if (!client) continue;
-      const emp = all.find((e) => e.clientId === client.id && norm4(e.firstName) === norm4(link.firstName) && (!link.lastName || norm4(e.lastName) === norm4(link.lastName)));
+      const emp = all.find((e) => e.clientId === client.id && norm5(e.firstName) === norm5(link.firstName) && (!link.lastName || norm5(e.lastName) === norm5(link.lastName)));
       if (emp && !emp.contractUrl) {
         await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
         contracts++;
@@ -52741,7 +53001,7 @@ async function seedPayrollEmployees() {
     console.log(`[seed] payroll employees: +${result.added} -${result.removed} moved ${moved} salary-filled ${filled} contracts ${contracts}`);
   return { ...result, moved, filled, contracts };
 }
-var PAYROLL_EMPLOYEE_MOVES, norm4, findClient;
+var PAYROLL_EMPLOYEE_MOVES, norm5, findClient;
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
@@ -52752,8 +53012,8 @@ var init_seed_payroll_employees = __esm({
     PAYROLL_EMPLOYEE_MOVES = [
       { firstName: "Stacey", lastName: "Gillham", fromMatch: "2303851", toMatch: "originality", note: "Moved to Originality as of the 15th" }
     ];
-    norm4 = (s) => (s || "").toLowerCase().trim();
-    findClient = (all, match2) => all.find((c) => norm4(c.name).includes(norm4(match2)));
+    norm5 = (s) => (s || "").toLowerCase().trim();
+    findClient = (all, match2) => all.find((c) => norm5(c.name).includes(norm5(match2)));
   }
 });
 
@@ -54381,8 +54641,8 @@ async function seedGovRegistry() {
     return report;
   }
   for (const g of GOV) {
-    let c = g.bn ? all.find((x) => norm5(x.taxId) === norm5(g.bn)) : void 0;
-    if (!c && g.nameKey) c = all.find((x) => norm5(x.name).includes(norm5(g.nameKey)) || norm5(x.company).includes(norm5(g.nameKey)));
+    let c = g.bn ? all.find((x) => norm6(x.taxId) === norm6(g.bn)) : void 0;
+    if (!c && g.nameKey) c = all.find((x) => norm6(x.name).includes(norm6(g.nameKey)) || norm6(x.company).includes(norm6(g.nameKey)));
     if (!c) continue;
     report.matched++;
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
@@ -54401,7 +54661,7 @@ async function seedGovRegistry() {
   }
   return report;
 }
-var GOV, norm5;
+var GOV, norm6;
 var init_seed_gov_registry = __esm({
   "api/seed-gov-registry.ts"() {
     init_connection();
@@ -54443,7 +54703,7 @@ var init_seed_gov_registry = __esm({
       { bn: "809545346", industry: "Healthcare/Wellness", bio: "Healthcare business in the osteopathic / wellness field, providing therapeutic services and alternative health treatments." },
       { nameKey: "universal drywall", industry: "Construction/Drywall", bio: "Drywall and construction services company providing interior framing, drywall installation and exterior finishes. USA (Florida) entity." }
     ];
-    norm5 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm6 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   }
 });
 
@@ -54460,7 +54720,7 @@ async function linkDriveFolders() {
   let linked = 0, alreadySet = 0;
   const unmatched = [];
   for (const c of all) {
-    const folderId = NAME_TO_FOLDER[norm6(c.name)] ?? NAME_TO_FOLDER[norm6(c.company)];
+    const folderId = NAME_TO_FOLDER[norm7(c.name)] ?? NAME_TO_FOLDER[norm7(c.company)];
     if (!folderId) {
       unmatched.push(c.name);
       continue;
@@ -54480,7 +54740,7 @@ async function linkDriveFolders() {
   if (unmatched.length) console.log(`[drive-link] no folder mapping for: ${unmatched.join(", ")}`);
   return { linked, alreadySet, unmatched };
 }
-var GFB_CLIENTS_PARENT_FOLDER_ID, GFB_INACTIVE_FOLDER_ID, folderUrl, norm6, NAME_TO_FOLDER;
+var GFB_CLIENTS_PARENT_FOLDER_ID, GFB_INACTIVE_FOLDER_ID, folderUrl, norm7, NAME_TO_FOLDER;
 var init_link_drive_folders = __esm({
   "api/link-drive-folders.ts"() {
     init_connection();
@@ -54489,7 +54749,7 @@ var init_link_drive_folders = __esm({
     GFB_CLIENTS_PARENT_FOLDER_ID = "1OdxTvo0DiWnDL0e9g2ii6eG5ysBke_0G";
     GFB_INACTIVE_FOLDER_ID = "1GW6V_LAwGiqpM6KRtelZOS5k5jTJmvdg";
     folderUrl = (id) => `https://drive.google.com/drive/folders/${id}`;
-    norm6 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    norm7 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
     NAME_TO_FOLDER = {
       "originality ai inc": "1aaqB12rJ5Ou4kX_tWF24JFq7OjEXHL2o",
       "clark pools and spas collingwood inc": "10qXdEt4KVgW2w3s5VOIph1chSFPUErtH",
@@ -58897,7 +59157,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.16";
+var BUILD_TAG = "2026-06-21.17";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -59192,6 +59452,48 @@ app.post("/api/figgy-jr-finding", async (c) => {
     return c.json({ success: false, error: e.message }, 500);
   }
 });
+app.post("/api/lead", async (c) => {
+  try {
+    const b = await c.req.json().catch(() => ({}));
+    if (b._hp) return c.json({ success: true });
+    const name2 = String(b.name || b.fullName || "").trim();
+    const email3 = String(b.email || "").trim();
+    if (!name2 && !email3) return c.json({ success: false, error: "name or email required" }, 400);
+    const db = getDb();
+    const { workflowLogs: workflowLogs2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { syncLeadToMaster: syncLeadToMaster2 } = await Promise.resolve().then(() => (init_master_sheet_sync(), master_sheet_sync_exports));
+    const res = await db.insert(clients).values({
+      userId: 1,
+      name: name2 || email3,
+      email: email3,
+      phone: String(b.phone || "").trim() || null,
+      company: String(b.company || b.business || "").trim() || null,
+      website: String(b.website || "").trim() || null,
+      status: "lead",
+      workflowStatus: "new_lead",
+      leadSource: String(b.source || "website").trim() || "website",
+      painPoints: String(b.message || b.inquiry || b.notes || "").trim() || null,
+      createdAt: /* @__PURE__ */ new Date(),
+      updatedAt: /* @__PURE__ */ new Date()
+    }).returning({ id: clients.id });
+    const clientId = res[0]?.id;
+    if (clientId) {
+      await db.insert(workflowLogs2).values({
+        clientId,
+        fromStatus: null,
+        toStatus: "new_lead",
+        action: "website_lead_created",
+        notes: `Source: ${String(b.source || "website")}`,
+        createdAt: /* @__PURE__ */ new Date()
+      });
+      const lead = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+      if (lead) syncLeadToMaster2(lead);
+    }
+    return c.json({ success: true, clientId });
+  } catch (e) {
+    return c.json({ success: false, error: e.message }, 500);
+  }
+});
 app.post("/api/intake/webhook", async (c) => {
   try {
     const body = await c.req.json();
@@ -59469,12 +59771,12 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding3).where(eq3(clientOnboarding3.clientId, clientId)).orderBy(desc7(clientOnboarding3.id)).limit(1))[0] ?? null;
       return c.json({ success: true, op, client: {
         name: cl.name,
         hasWSIB: cl.hasWSIB,
@@ -59497,14 +59799,14 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const db = getDb2();
       const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding3).where(eq3(clientOnboarding3.clientId, clientId)).orderBy(desc7(clientOnboarding3.id)).limit(1))[0] ?? null;
       const scope = buildScopeForClient2(cl, onb);
       const quote = computeQuote2(scope);
       const comparison = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
@@ -59514,7 +59816,7 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
@@ -59523,7 +59825,7 @@ app.post("/api/admin/figgy", async (c) => {
       const db = getDb2();
       const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding3).where(eq3(clientOnboarding3.clientId, clientId)).orderBy(desc7(clientOnboarding3.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
       const comparison = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
       const qNum = await nextQuoteNumber2(db);
@@ -59543,7 +59845,7 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks4, clientTaskRules: clientTaskRules3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding3, signatureDocuments: signatureDocuments2, tasks: tasks4, clientTaskRules: clientTaskRules3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, and: and3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
@@ -59559,7 +59861,7 @@ app.post("/api/admin/figgy", async (c) => {
           await db.delete(tasks4).where(eq3(tasks4.clientId, p.id));
           await db.delete(clientTaskRules3).where(eq3(clientTaskRules3.clientId, p.id));
           await db.delete(signatureDocuments2).where(eq3(signatureDocuments2.clientId, p.id));
-          await db.delete(clientOnboarding2).where(eq3(clientOnboarding2.clientId, p.id));
+          await db.delete(clientOnboarding3).where(eq3(clientOnboarding3.clientId, p.id));
           await db.delete(clients3).where(eq3(clients3.id, p.id));
         }
         const [cl] = await db.insert(clients3).values({
@@ -59584,7 +59886,7 @@ app.post("/api/admin/figgy", async (c) => {
           qboAccountType: "ca_clients"
         }).returning();
         steps.push(`client created #${cl.id}`);
-        await db.insert(clientOnboarding2).values({
+        await db.insert(clientOnboarding3).values({
           clientId: cl.id,
           token: "e2e-" + Date.now(),
           status: "approved",
@@ -59607,7 +59909,7 @@ app.post("/api/admin/figgy", async (c) => {
           qboPayrollWholesale: true
         });
         steps.push("intake saved (120 txns, HST q, 3 emp, WSIB, dividends, Stripe, QBO essentials wholesale)");
-        const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, cl.id)))[0];
+        const onb = (await db.select().from(clientOnboarding3).where(eq3(clientOnboarding3.clientId, cl.id)))[0];
         const quote = computeQuote2(buildScopeForClient2(cl, onb));
         const cmp = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
         const qNum = await nextQuoteNumber2(db);
@@ -59696,7 +59998,7 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
@@ -59705,7 +60007,7 @@ app.post("/api/admin/figgy", async (c) => {
       const db = getDb2();
       const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding3).where(eq3(clientOnboarding3.clientId, clientId)).orderBy(desc7(clientOnboarding3.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
       const content = renderEngagementHtml2({
         firm: getFirmSettings2(),
@@ -59998,6 +60300,19 @@ async function startServer() {
     capturePracticeSnapshot2().catch(() => {
     });
   }, 24 * 60 * 60 * 1e3);
+  if (process.env.FIGGY_SHEET_SYNC_DISABLE !== "on") {
+    const runInbound = async () => {
+      try {
+        const { pullMasterIntoCrm: pullMasterIntoCrm2 } = await Promise.resolve().then(() => (init_sheet_inbound_sync(), sheet_inbound_sync_exports));
+        const r = await pullMasterIntoCrm2();
+        console.log(`[inbound] clients ${r.clients.updated}u/${r.clients.created}c, leads ${r.leads.updated}u/${r.leads.created}c`);
+      } catch (e) {
+        console.error("[inbound] sync failed (non-fatal):", e instanceof Error ? e.message : e);
+      }
+    };
+    setTimeout(runInbound, 12e4);
+    setInterval(runInbound, 20 * 60 * 1e3);
+  }
   const port = parseInt(process.env.PORT || "3000");
   serve2({ fetch: app.fetch, port }, () => {
     console.log(`Server running on http://localhost:${port}/`);
