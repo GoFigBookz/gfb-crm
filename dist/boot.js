@@ -44756,6 +44756,7 @@ var init_onboarding_router = __esm({
         email: external_exports.string().optional(),
         phone: external_exports.string().optional(),
         company: external_exports.string().optional(),
+        website: external_exports.string().optional(),
         address: external_exports.string().optional(),
         contactName: external_exports.string().optional(),
         taxId: external_exports.string().optional(),
@@ -44769,6 +44770,7 @@ var init_onboarding_router = __esm({
         hstPeriod: external_exports.enum(["monthly", "quarterly", "annual"]).optional(),
         hasWSIB: external_exports.boolean().optional(),
         hasPayroll: external_exports.boolean().optional(),
+        payrollExternal: external_exports.boolean().optional(),
         payrollFrequency: external_exports.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
         payrollRemitterFreq: external_exports.enum(["regular", "quarterly", "accelerated"]).optional(),
         yearEndMonth: external_exports.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
@@ -44803,6 +44805,7 @@ var init_onboarding_router = __esm({
         usesJobber: external_exports.boolean().optional(),
         usesTouchBistro: external_exports.boolean().optional(),
         usesPayPal: external_exports.boolean().optional(),
+        usesWise: external_exports.boolean().optional(),
         salesEntryFrequency: external_exports.enum(["daily", "weekly", "monthly", "none"]).optional(),
         qboSoftwareTier: external_exports.enum(["none", "easystart", "essentials", "plus"]).optional(),
         qboSoftwareWholesale: external_exports.boolean().optional(),
@@ -44820,6 +44823,7 @@ var init_onboarding_router = __esm({
           "email",
           "phone",
           "company",
+          "website",
           "address",
           "contactName",
           "taxId",
@@ -44833,6 +44837,7 @@ var init_onboarding_router = __esm({
           "hstPeriod",
           "hasWSIB",
           "hasPayroll",
+          "payrollExternal",
           "payrollFrequency",
           "payrollRemitterFreq",
           "yearEndMonth"
@@ -44875,6 +44880,7 @@ var init_onboarding_router = __esm({
           "usesJobber",
           "usesTouchBistro",
           "usesPayPal",
+          "usesWise",
           "salesEntryFrequency",
           "qboSoftwareTier",
           "qboSoftwareWholesale",
@@ -44900,6 +44906,33 @@ var init_onboarding_router = __esm({
             status: "approved",
             ...onbPatch
           });
+        }
+        try {
+          const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+          if (c && isOperationalClient(c.clientType)) {
+            const hstFreq = c.hasHST ? c.hstPeriod === "monthly" ? "monthly" : c.hstPeriod === "quarterly" ? "quarterly" : "annually" : null;
+            const ye = c.yearEndMonth ? `${c.yearEndMonth} 30` : onbPatch.fiscalYearEnd ?? null;
+            if (c.payrollExternal) {
+              const payTypes = ["payroll_remit_regular", "payroll_remit_quarterly", "payroll_remit_accelerated", "payroll_tax_prep", "t4_annual"];
+              await db.update(clientTaskRules).set({ active: false }).where(and(eq(clientTaskRules.clientId, clientId), inArray(clientTaskRules.ruleType, payTypes)));
+              await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed"), inArray(tasks.category, ["Payroll"])));
+            }
+            await ensureComplianceRulesAndTasks({
+              clientId,
+              userId: 1,
+              assignedTo: c.assignedTo ?? null,
+              fiscalYearEnd: ye,
+              hstGstFrequency: hstFreq,
+              payrollFrequency: c.hasPayroll ? c.payrollFrequency || "monthly" : null,
+              payrollRemitterFreq: c.payrollRemitterFreq || "regular",
+              payrollExternal: !!c.payrollExternal,
+              hasEmployees: !!c.hasPayroll,
+              wsibRequired: !!c.hasWSIB,
+              needsYearEnd: true
+            });
+          }
+        } catch (e) {
+          console.error("[onboarding] task regen on intake save failed (non-fatal):", e instanceof Error ? e.message : e);
         }
         return { success: true };
       })
