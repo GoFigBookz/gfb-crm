@@ -22330,6 +22330,7 @@ __export(schema_exports, {
   clientPlaybooks: () => clientPlaybooks,
   clientRequestItems: () => clientRequestItems,
   clientRequests: () => clientRequests,
+  clientSnapshots: () => clientSnapshots,
   clientTaskRules: () => clientTaskRules,
   clientVault: () => clientVault,
   clients: () => clients,
@@ -22379,7 +22380,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots;
+var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23814,6 +23815,18 @@ var init_schema = __esm({
       invoiceRevenue: real("invoiceRevenue").default(0),
       pipelineValue: real("pipelineValue").default(0),
       pipelineLeads: integer2("pipelineLeads").default(0),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    clientSnapshots = sqliteTable("client_snapshots", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      date: text("date").notNull(),
+      // "YYYY-MM-DD"
+      toReview: integer2("toReview").default(0),
+      // open Triage findings (to-post queue)
+      closeStatus: text("closeStatus"),
+      // red | yellow | green
+      openTasks: integer2("openTasks").default(0),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
   }
@@ -50597,7 +50610,15 @@ async function capturePracticeSnapshot() {
     const existing = await db.select().from(practiceSnapshots).where(eq(practiceSnapshots.date, today2)).limit(1);
     if (existing[0]) await db.update(practiceSnapshots).set(row).where(eq(practiceSnapshots.date, today2));
     else await db.insert(practiceSnapshots).values(row);
-    console.log(`[snapshot] practice snapshot captured for ${today2}`);
+    const openByClient = /* @__PURE__ */ new Map();
+    for (const t2 of openTasks) if (t2.clientId != null) openByClient.set(t2.clientId, (openByClient.get(t2.clientId) ?? 0) + 1);
+    for (const c of port.clients) {
+      const crow = { clientId: c.clientId, date: today2, toReview: c.toReview ?? 0, closeStatus: c.status, openTasks: openByClient.get(c.clientId) ?? 0 };
+      const ex = await db.select().from(clientSnapshots).where(and(eq(clientSnapshots.clientId, c.clientId), eq(clientSnapshots.date, today2))).limit(1);
+      if (ex[0]) await db.update(clientSnapshots).set(crow).where(eq(clientSnapshots.id, ex[0].id));
+      else await db.insert(clientSnapshots).values(crow);
+    }
+    console.log(`[snapshot] practice + ${port.clients.length} client snapshots captured for ${today2}`);
   } catch (e) {
     console.error("[snapshot] capture failed:", e instanceof Error ? e.message : e);
   }
@@ -50619,6 +50640,12 @@ var init_dashboard_router = __esm({
         const rows = await db.select().from(practiceSnapshots).orderBy(sql`date asc`);
         const days = input?.days ?? 30;
         return rows.slice(-days);
+      }),
+      // Per-client trend (to-post backlog + close health over time) for the cockpit.
+      clientTrend: authedQuery.input(external_exports.object({ clientId: external_exports.number(), days: external_exports.number().min(2).max(365).default(30) })).query(async ({ input }) => {
+        const db = getDb();
+        const rows = await db.select().from(clientSnapshots).where(eq(clientSnapshots.clientId, input.clientId)).orderBy(sql`date asc`);
+        return rows.slice(-input.days);
       })
     });
   }
@@ -53177,7 +53204,17 @@ async function ensurePracticeSnapshotsTable() {
       createdAt INTEGER
     )`));
     await db.run(sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS idx_practice_snapshots_date ON practice_snapshots (date)`));
-    console.log("[schema] practice_snapshots table ensured");
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS client_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      toReview INTEGER DEFAULT 0,
+      closeStatus TEXT,
+      openTasks INTEGER DEFAULT 0,
+      createdAt INTEGER
+    )`));
+    await db.run(sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS idx_client_snapshots_client_date ON client_snapshots (clientId, date)`));
+    console.log("[schema] practice_snapshots + client_snapshots tables ensured");
   } catch (e) {
     console.error("[schema] ensurePracticeSnapshotsTable failed:", e instanceof Error ? e.message : e);
   }
