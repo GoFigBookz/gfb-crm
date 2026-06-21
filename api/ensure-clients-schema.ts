@@ -282,7 +282,17 @@ export async function ensurePracticeSnapshotsTable(): Promise<void> {
       createdAt INTEGER
     )`));
     await db.run(sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS idx_practice_snapshots_date ON practice_snapshots (date)`));
-    console.log("[schema] practice_snapshots table ensured");
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS client_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      clientId INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      toReview INTEGER DEFAULT 0,
+      closeStatus TEXT,
+      openTasks INTEGER DEFAULT 0,
+      createdAt INTEGER
+    )`));
+    await db.run(sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS idx_client_snapshots_client_date ON client_snapshots (clientId, date)`));
+    console.log("[schema] practice_snapshots + client_snapshots tables ensured");
   } catch (e) {
     console.error("[schema] ensurePracticeSnapshotsTable failed:", e instanceof Error ? e.message : e);
   }

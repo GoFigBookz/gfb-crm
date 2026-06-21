@@ -1564,3 +1564,15 @@ export const practiceSnapshots = sqliteTable("practice_snapshots", {
   pipelineLeads: integer("pipelineLeads").default(0),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// Per-client daily snapshot — powers the trend sparkline on the client cockpit
+// (to-post backlog + close health over time). One row per client per day.
+export const clientSnapshots = sqliteTable("client_snapshots", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  date: text("date").notNull(),                  // "YYYY-MM-DD"
+  toReview: integer("toReview").default(0),       // open Triage findings (to-post queue)
+  closeStatus: text("closeStatus"),               // red | yellow | green
+  openTasks: integer("openTasks").default(0),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

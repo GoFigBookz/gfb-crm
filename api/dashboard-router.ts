@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { clients, tasks, invoices, triageFindings, practiceSnapshots } from "../db/schema";
-import { eq, ne, count, sql } from "drizzle-orm";
+import { clients, tasks, invoices, triageFindings, practiceSnapshots, clientSnapshots } from "../db/schema";
+import { eq, and, ne, count, sql } from "drizzle-orm";
 import { computePortfolio } from "./month-end-router";
 
 /**
@@ -59,7 +59,17 @@ export async function capturePracticeSnapshot(): Promise<void> {
     const existing = await db.select().from(practiceSnapshots).where(eq(practiceSnapshots.date, today)).limit(1);
     if (existing[0]) await db.update(practiceSnapshots).set(row).where(eq(practiceSnapshots.date, today));
     else await db.insert(practiceSnapshots).values(row);
-    console.log(`[snapshot] practice snapshot captured for ${today}`);
+
+    // Per-client rows (to-post backlog + close health over time) for the cockpit sparkline.
+    const openByClient = new Map<number, number>();
+    for (const t of openTasks as any[]) if (t.clientId != null) openByClient.set(t.clientId, (openByClient.get(t.clientId) ?? 0) + 1);
+    for (const c of port.clients as any[]) {
+      const crow = { clientId: c.clientId, date: today, toReview: c.toReview ?? 0, closeStatus: c.status as string, openTasks: openByClient.get(c.clientId) ?? 0 };
+      const ex = await db.select().from(clientSnapshots).where(and(eq(clientSnapshots.clientId, c.clientId), eq(clientSnapshots.date, today))).limit(1);
+      if (ex[0]) await db.update(clientSnapshots).set(crow).where(eq(clientSnapshots.id, ex[0].id));
+      else await db.insert(clientSnapshots).values(crow);
+    }
+    console.log(`[snapshot] practice + ${port.clients.length} client snapshots captured for ${today}`);
   } catch (e) {
     console.error("[snapshot] capture failed:", e instanceof Error ? e.message : e);
   }
@@ -74,5 +84,14 @@ export const dashboardRouter = createRouter({
       const rows = await db.select().from(practiceSnapshots).orderBy(sql`date asc`);
       const days = input?.days ?? 30;
       return (rows as any[]).slice(-days);
+    }),
+
+  // Per-client trend (to-post backlog + close health over time) for the cockpit.
+  clientTrend: authedQuery
+    .input(z.object({ clientId: z.number(), days: z.number().min(2).max(365).default(30) }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const rows = await db.select().from(clientSnapshots).where(eq(clientSnapshots.clientId, input.clientId)).orderBy(sql`date asc`);
+      return (rows as any[]).slice(-input.days);
     }),
 });

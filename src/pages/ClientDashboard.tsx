@@ -67,6 +67,11 @@ export default function ClientDashboard() {
     { enabled: !!id }
   );
 
+  const { data: clientTrend } = trpc.dashboard.clientTrend.useQuery(
+    { clientId: id, days: 30 },
+    { enabled: !!id }
+  );
+
   const { data: quote } = trpc.quote.forClient.useQuery(
     { clientId: id },
     { enabled: !!id }
@@ -343,6 +348,21 @@ export default function ClientDashboard() {
                 ))}
               </div>
             )}
+            {/* To-post backlog trend (fills in as daily snapshots accumulate) */}
+            {(() => {
+              const pts = (clientTrend ?? []).map((s: any) => s.toReview ?? 0);
+              if (pts.length < 2) return null;
+              const w = 120, h = 28, max = Math.max(...pts), min = Math.min(...pts), rng = (max - min) || 1;
+              const d = pts.map((p, i) => `${(i / (pts.length - 1)) * w},${h - ((p - min) / rng) * h}`).join(" ");
+              return (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-xs text-slate-500">To-post trend ({pts.length}d):</span>
+                  <svg viewBox={`0 0 ${w} ${h}`} className="h-7 w-32" preserveAspectRatio="none">
+                    <polyline points={d} fill="none" stroke="#7c3aed" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       )}
