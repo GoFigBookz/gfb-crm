@@ -499,52 +499,47 @@ export default function ClientDashboard() {
         </Card>
       )}
 
-      {/* Key Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* CRA Number */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-slate-500 mb-1">
-              <Receipt className="h-4 w-4" />
-              <span className="text-xs uppercase font-semibold">CRA BN</span>
-            </div>
-            <p className="font-medium">{onboarding?.craBusinessNumber || client.taxId || "—"}</p>
-          </CardContent>
-        </Card>
-
-        {/* HST Number */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-slate-500 mb-1">
-              <CreditCard className="h-4 w-4" />
-              <span className="text-xs uppercase font-semibold">HST/GST #</span>
-            </div>
-            <p className="font-medium">{onboarding?.hstGstNumber || "—"}</p>
-          </CardContent>
-        </Card>
-
-        {/* WSIB */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-slate-500 mb-1">
-              <Shield className="h-4 w-4" />
-              <span className="text-xs uppercase font-semibold">WSIB #</span>
-            </div>
-            <p className="font-medium">{onboarding?.wsibAccountNumber || "—"}</p>
-          </CardContent>
-        </Card>
-
-        {/* Fiscal Year End */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-slate-500 mb-1">
-              <Calendar className="h-4 w-4" />
-              <span className="text-xs uppercase font-semibold">Fiscal Year End</span>
-            </div>
-            <p className="font-medium">{onboarding?.fiscalYearEnd || "—"}</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Client snapshot — everything about this client in one panel. Reads the
+          CLIENT record first (populated by intake + seeds), falling back to the
+          onboarding record, so it's never blank when data exists. */}
+      {(() => {
+        const c: any = client;
+        const o: any = onboarding || {};
+        const dash = (v: any) => (v === null || v === undefined || v === "" ? "—" : v);
+        const yn = (v: any) => (v ? "Yes" : "No");
+        const hstFreq = c.hasHST ? (c.hstPeriod ? String(c.hstPeriod) : "registered") : "Not registered";
+        const items: Array<[string, any]> = [
+          ["Website", dash(c.website)],
+          ["CRA BN", dash(o.craBusinessNumber || c.taxId)],
+          ["Client type", dash(c.clientType)],
+          ["Industry", dash(c.industry)],
+          ["Province", dash(c.province)],
+          ["Fiscal year-end", dash(c.yearEndMonth || o.fiscalYearEnd)],
+          ["HST / GST", c.hasHST ? `${hstFreq}` : "Not registered"],
+          ["HST #", dash(c.hstNumber || o.hstGstNumber)],
+          ["Next HST due", dash(c.hstNextDue)],
+          ["Payroll", c.hasPayroll ? (c.payrollExternal ? "Client-run / autopay" : dash(c.payrollFrequency)) : "No payroll"],
+          ["CRA remitter", c.hasPayroll && !c.payrollExternal ? dash(c.payrollRemitterFreq) : "—"],
+          ["Payroll RP #", dash(c.payrollRpNumber)],
+          ["WSIB #", dash(c.wsibAccountNumber || o.wsibAccountNumber)],
+          ["Pays dividends", yn(c.payrollDividends)],
+        ];
+        return (
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Building2 className="h-4 w-4 text-lime-600" /> Client snapshot</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
+                {items.map(([k, v]) => (
+                  <div key={k} className="min-w-0">
+                    <p className="text-[11px] uppercase font-semibold text-slate-400 tracking-wide truncate">{k}</p>
+                    <p className="text-sm font-medium text-slate-800 truncate capitalize" title={String(v)}>{String(v)}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Quick Links Card */}
       <QuickLinksCard
