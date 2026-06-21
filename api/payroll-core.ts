@@ -86,6 +86,12 @@ const addDays = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.get
  * The NEXT pay period for a frequency, following the previous run's period (so
  * "New pay run" auto-advances). If no previous run, returns the current period.
  */
+// All pay-period math is UTC date-only — dates are stored at UTC midnight, so using
+// UTC getters/Date.UTC everywhere keeps the calendar day from drifting a day in
+// negative-offset timezones (e.g. Ontario), which was making June 10 show as June 9.
+const utcAddDays = (d: Date, n: number) => { const r = new Date(d); r.setUTCDate(r.getUTCDate() + n); return r; };
+const utcDay = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+
 export function nextPayPeriod(
   frequency: string | null | undefined,
   lastStart?: Date | null,
@@ -93,44 +99,45 @@ export function nextPayPeriod(
   opts?: { anchorStart?: Date | null; payOffset?: number },
 ): { start: Date; end: Date; payDate: Date } {
   const f = normalizeFrequency(frequency);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const payOffset = opts?.payOffset ?? 0;
-  const withPay = (start: Date, end: Date) => ({ start, end, payDate: addDays(end, payOffset) });
+  const withPay = (start: Date, end: Date) => ({ start, end, payDate: utcAddDays(end, payOffset) });
 
   if (f === "weekly" || f === "biweekly") {
     const span = f === "weekly" ? 7 : 14;
     let start: Date;
     if (lastEnd) {
-      start = addDays(new Date(lastEnd), 1);                 // advance from the last run
+      start = utcAddDays(utcDay(lastEnd), 1);               // advance: day AFTER the last period end
     } else if (opts?.anchorStart) {
       // Align to the client's real cycle: the period (anchor + k·span) containing today.
-      const a = new Date(opts.anchorStart); a.setHours(0, 0, 0, 0);
+      const a = utcDay(opts.anchorStart);
       const k = Math.floor((today.getTime() - a.getTime()) / (span * 86400000));
-      start = addDays(a, k * span);
+      start = utcAddDays(a, k * span);
     } else {
       start = today;
     }
-    return withPay(start, addDays(start, span - 1));
+    return withPay(start, utcAddDays(start, span - 1));
   }
 
   if (f === "semi_monthly") {
     let start: Date, end: Date;
     if (lastStart) {
-      const y = lastStart.getFullYear(), m = lastStart.getMonth();
-      if (lastStart.getDate() <= 15) { start = new Date(y, m, 16); end = new Date(y, m + 1, 0); }
-      else { start = new Date(y, m + 1, 1); end = new Date(y, m + 1, 15); }
+      const y = lastStart.getUTCFullYear(), m = lastStart.getUTCMonth();
+      if (lastStart.getUTCDate() <= 15) { start = new Date(Date.UTC(y, m, 16)); end = new Date(Date.UTC(y, m + 1, 0)); }
+      else { start = new Date(Date.UTC(y, m + 1, 1)); end = new Date(Date.UTC(y, m + 1, 15)); }
     } else {
-      const y = today.getFullYear(), m = today.getMonth();
-      if (today.getDate() <= 15) { start = new Date(y, m, 1); end = new Date(y, m, 15); }
-      else { start = new Date(y, m, 16); end = new Date(y, m + 1, 0); }
+      const y = today.getUTCFullYear(), m = today.getUTCMonth();
+      if (today.getUTCDate() <= 15) { start = new Date(Date.UTC(y, m, 1)); end = new Date(Date.UTC(y, m, 15)); }
+      else { start = new Date(Date.UTC(y, m, 16)); end = new Date(Date.UTC(y, m + 1, 0)); }
     }
     return withPay(start, end);
   }
 
   // monthly
-  const base = lastEnd ? new Date(lastEnd.getFullYear(), lastEnd.getMonth() + 1, 1)
-                       : new Date(today.getFullYear(), today.getMonth(), 1);
-  const start = new Date(base.getFullYear(), base.getMonth(), 1);
-  const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+  const baseY = lastEnd ? lastEnd.getUTCFullYear() : today.getUTCFullYear();
+  const baseM = (lastEnd ? lastEnd.getUTCMonth() + 1 : today.getUTCMonth());
+  const start = new Date(Date.UTC(baseY, baseM, 1));
+  const end = new Date(Date.UTC(baseY, baseM + 1, 0));
   return withPay(start, end);
 }

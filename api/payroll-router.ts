@@ -113,7 +113,7 @@ export async function seedPayrollSchedules(): Promise<void> {
   try {
     const db = getDb();
     const cs = await db.select().from(clients);
-    const biweeklyAnchor = new Date("2026-06-10T00:00:00");
+    const biweeklyAnchor = new Date("2026-06-10T00:00:00Z"); // UTC midnight, June 10 (a real period start)
     for (const c of cs as any[]) {
       const n = (c.name || "").toLowerCase();
       if (["clark", "old spot", "sher", "punjab"].some((k) => n.includes(k))) {

@@ -47090,7 +47090,7 @@ async function seedPayrollSchedules() {
   try {
     const db = getDb();
     const cs = await db.select().from(clients);
-    const biweeklyAnchor = /* @__PURE__ */ new Date("2026-06-10T00:00:00");
+    const biweeklyAnchor = /* @__PURE__ */ new Date("2026-06-10T00:00:00Z");
     for (const c of cs) {
       const n = (c.name || "").toLowerCase();
       if (["clark", "old spot", "sher", "punjab"].some((k) => n.includes(k))) {
@@ -59914,7 +59914,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.43";
+var BUILD_TAG = "2026-06-21.44";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
