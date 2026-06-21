@@ -44841,8 +44841,14 @@ async function activateAndSyncClient(clientId) {
   const db = getDb();
   await enrichClientFromRegistry(clientId);
   try {
-    const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+    let c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
     if (!c) return;
+    const slug = String(c.name || c.company || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (blank(c.figgyEmail) && slug) {
+      const figgyEmail = `markie+${slug}@gofig.ca`;
+      await db.update(clients).set({ figgyEmail, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, clientId));
+      c = { ...c, figgyEmail };
+    }
     syncClientToMaster(c);
     syncLeadToMaster({ ...c, workflowStatus: "won" });
   } catch (e) {
@@ -59162,7 +59168,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.19";
+var BUILD_TAG = "2026-06-21.20";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
