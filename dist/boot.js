@@ -58060,8 +58060,40 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.7";
-app.get("/api/version", (c) => c.json({ build: BUILD_TAG, startedAt: BOOT_TIME, now: (/* @__PURE__ */ new Date()).toISOString(), uptimeSec: Math.round(process.uptime()) }));
+var BUILD_TAG = "2026-06-21.8";
+app.get("/api/version", (c) => {
+  let indexAsset = null;
+  let assetExists = false;
+  let assetFiles = [];
+  let indexHead = "";
+  try {
+    const fs = __require("fs");
+    const path3 = __require("path");
+    const base = process.cwd().endsWith("/dist") ? path3.resolve(process.cwd(), "..") : process.cwd();
+    const pub = path3.join(base, "dist", "public");
+    const html = fs.readFileSync(path3.join(pub, "index.html"), "utf8");
+    indexHead = html.slice(0, 400);
+    indexAsset = (html.match(/assets\/index-[^"']+\.js/) || [null])[0];
+    try {
+      assetFiles = fs.readdirSync(path3.join(pub, "assets")).filter((f) => /\.js$/.test(f));
+    } catch {
+    }
+    assetExists = !!indexAsset && assetFiles.includes(indexAsset.replace("assets/", ""));
+  } catch (e) {
+    indexHead = "read error: " + (e instanceof Error ? e.message : String(e));
+  }
+  return c.json({
+    build: BUILD_TAG,
+    startedAt: BOOT_TIME,
+    now: (/* @__PURE__ */ new Date()).toISOString(),
+    uptimeSec: Math.round(process.uptime()),
+    cwd: process.cwd(),
+    indexAsset,
+    assetExists,
+    assetFiles,
+    indexHead
+  });
+});
 app.get("/api/qbo/connect", async (c) => {
   const { buildAuthorizeUrl: buildAuthorizeUrl2 } = await Promise.resolve().then(() => (init_qbo_oauth(), qbo_oauth_exports));
   const clientIdRaw = c.req.query("clientId");
