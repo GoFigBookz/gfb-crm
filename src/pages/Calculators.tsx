@@ -711,7 +711,12 @@ function FXCalculator() {
   const NAMES: Record<string, string> = Object.fromEntries(CURRENCIES.map((c) => [c.code, c.name]));
   const codes = Array.from(new Set([...(live ? Object.keys(live) : []), ...CURRENCIES.map((c) => c.code), "CAD"])).sort();
   const cName = (c: string) => NAMES[c] || c;
-  const swap = () => { setFromCurrency(toCurrency); setToCurrency(fromCurrency); };
+  const swap = () => {
+    setFromCurrency(toCurrency);
+    setToCurrency(fromCurrency);
+    // If a custom rate was entered, invert it so the conversion stays consistent.
+    if (usingCustom) { const v = parseFloat(customRate); if (v) setCustomRate(String(Math.round((1 / v) * 1e6) / 1e6)); }
+  };
 
   return (
     <Card>
@@ -731,8 +736,10 @@ function FXCalculator() {
               <SelectContent className="max-h-72">{codes.map((c) => <SelectItem key={c} value={c}>{c} — {cName(c)}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="flex justify-center pb-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={swap} title="Swap currencies"><ArrowRightLeft className="h-4 w-4 text-slate-500" /></Button>
+          <div className="flex justify-center pb-0.5">
+            <Button variant="outline" size="sm" className="border-lime-300 text-lime-700 gap-1 w-full md:w-auto" onClick={swap} title="Swap From and To">
+              <ArrowRightLeft className="h-4 w-4" /> Swap
+            </Button>
           </div>
           <div className="space-y-2"><Label>To</Label>
             <Select value={toCurrency} onValueChange={setToCurrency}>
