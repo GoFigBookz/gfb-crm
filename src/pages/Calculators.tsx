@@ -704,6 +704,14 @@ function FXCalculator() {
   const marketRate = cadPerUnit(fromCurrency) / cadPerUnit(toCurrency); // toCurrency per 1 fromCurrency
   const rate = customRate ? parseFloat(customRate) : marketRate;
   const converted = amt * rate;
+  const usingCustom = !!customRate && isFinite(parseFloat(customRate));
+
+  // Every currency the Bank of Canada publishes today + our known names (so the
+  // dropdowns aren't limited to a static 15).
+  const NAMES: Record<string, string> = Object.fromEntries(CURRENCIES.map((c) => [c.code, c.name]));
+  const codes = Array.from(new Set([...(live ? Object.keys(live) : []), ...CURRENCIES.map((c) => c.code), "CAD"])).sort();
+  const cName = (c: string) => NAMES[c] || c;
+  const swap = () => { setFromCurrency(toCurrency); setToCurrency(fromCurrency); };
 
   return (
     <Card>
@@ -715,18 +723,21 @@ function FXCalculator() {
         <CardDescription>{live ? `Live rates — ${fx?.source}, ${fx?.date}` : "Live rates unavailable — using fallback. Enter a custom rate for precision."}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
           <div className="space-y-2"><Label>Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="1000" /></div>
           <div className="space-y-2"><Label>From</Label>
             <Select value={fromCurrency} onValueChange={setFromCurrency}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{CURRENCIES.map((c) => <SelectItem key={c.code} value={c.code}>{c.code} — {c.name}</SelectItem>)}</SelectContent>
+              <SelectContent className="max-h-72">{codes.map((c) => <SelectItem key={c} value={c}>{c} — {cName(c)}</SelectItem>)}</SelectContent>
             </Select>
+          </div>
+          <div className="flex justify-center pb-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={swap} title="Swap currencies"><ArrowRightLeft className="h-4 w-4 text-slate-500" /></Button>
           </div>
           <div className="space-y-2"><Label>To</Label>
             <Select value={toCurrency} onValueChange={setToCurrency}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{CURRENCIES.map((c) => <SelectItem key={c.code} value={c.code}>{c.code} — {c.name}</SelectItem>)}</SelectContent>
+              <SelectContent className="max-h-72">{codes.map((c) => <SelectItem key={c} value={c}>{c} — {cName(c)}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-2"><Label>Custom Rate (optional)</Label><Input type="number" step="0.0001" value={customRate} onChange={(e) => setCustomRate(e.target.value)} placeholder={`${fmt(rate, 4)}`} /></div>
@@ -735,7 +746,13 @@ function FXCalculator() {
           <div className="bg-lime-50 rounded-lg p-6 text-center mt-4">
             <p className="text-sm text-lime-600 mb-1">{fmt(amt)} {fromCurrency} =</p>
             <p className="text-3xl font-bold text-lime-700">{fmt(converted)} {toCurrency}</p>
-            <p className="text-xs text-lime-500 mt-2">Rate: 1 {fromCurrency} = {fmt(rate, 4)} {toCurrency}</p>
+            <p className="text-xs text-lime-500 mt-2">
+              1 {fromCurrency} = {fmt(rate, 4)} {toCurrency} &nbsp;·&nbsp; 1 {toCurrency} = {fmt(rate ? 1 / rate : 0, 4)} {fromCurrency}
+              {usingCustom ? " · custom rate" : live ? " · live" : " · fallback"}
+            </p>
+            {fromCurrency !== "CAD" && toCurrency !== "CAD" && (
+              <p className="text-[11px] text-lime-500 mt-1">≈ ${fmt(amt * cadPerUnit(fromCurrency))} CAD value</p>
+            )}
           </div>
         )}
       </CardContent>
