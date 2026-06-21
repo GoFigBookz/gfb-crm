@@ -107,6 +107,7 @@ export const clientRouter = createRouter({
       wsibQuarter: z.enum(["Q1", "Q2", "Q3", "Q4", "all"]).optional(),
       hasPayroll: z.boolean().optional().default(false),
       payrollFrequency: z.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
+      payrollExternal: z.boolean().optional(),
       yearEndMonth: z.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
       // Quote fields
       quoteAmount: z.number().optional(),
@@ -140,7 +141,7 @@ export const clientRouter = createRouter({
         await createRecurringTasksForClient(
           client.id,
           ctx.user.id,
-          { hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency },
+          { hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency, payrollExternal: input.payrollExternal },
           client.name,
           client.assignedTo
         );
@@ -181,6 +182,7 @@ export const clientRouter = createRouter({
       wsibQuarter: z.enum(["Q1", "Q2", "Q3", "Q4", "all"]).optional(),
       hasPayroll: z.boolean().optional(),
       payrollFrequency: z.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
+      payrollExternal: z.boolean().optional(),
       payrollBonuses: z.boolean().optional(),
       payrollDividends: z.boolean().optional(),
       payrollPhoneAllowance: z.boolean().optional(),
@@ -261,6 +263,7 @@ export const clientRouter = createRouter({
             wsibQuarter: updated.wsibQuarter || undefined,
             hasPayroll: !wasPayroll && updated.hasPayroll ? true : undefined,
             payrollFrequency: updated.payrollFrequency || undefined,
+            payrollExternal: (updated as any).payrollExternal ?? undefined,
             paysDividends: !wasDividends && (updated as any).payrollDividends ? true : undefined,
           },
           updated.name,

@@ -283,6 +283,9 @@ export const clients = sqliteTable("clients", {
   wsibAccountNumber: text("wsibAccountNumber"),
   wsibQuarter: text("wsibQuarter", { enum: ["Q1", "Q2", "Q3", "Q4", "all"] }),
   hasPayroll: integer("hasPayroll", { mode: "boolean" }).default(false),
+  // True = client self-manages payroll OR it's on full autopay → we do NOT run
+  // their payroll, so no payroll/remittance/T4 tasks are generated.
+  payrollExternal: integer("payrollExternal", { mode: "boolean" }).default(false),
   // Client-level PAYROLL FEATURES — which pay components this client's payroll
   // actually has. Drives what the pay run shows/creates (client-specific) so we
   // never surface bonuses/dividends/etc. for a client that doesn't use them.
@@ -472,6 +475,7 @@ export const clientOnboarding = sqliteTable("client_onboarding", {
   usesJobber: integer("usesJobber", { mode: "boolean" }).default(false),
   usesTouchBistro: integer("usesTouchBistro", { mode: "boolean" }).default(false),
   usesPayPal: integer("usesPayPal", { mode: "boolean" }).default(false),
+  usesWise: integer("usesWise", { mode: "boolean" }).default(false),
   salesEntryFrequency: text("salesEntryFrequency", { enum: ["daily", "weekly", "monthly", "none"] }).default("monthly"),
 
   // NEW: scope / responsibilities (factor into pricing)

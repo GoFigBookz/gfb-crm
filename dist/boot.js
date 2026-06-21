@@ -22643,6 +22643,9 @@ var init_schema = __esm({
       wsibAccountNumber: text("wsibAccountNumber"),
       wsibQuarter: text("wsibQuarter", { enum: ["Q1", "Q2", "Q3", "Q4", "all"] }),
       hasPayroll: integer2("hasPayroll", { mode: "boolean" }).default(false),
+      // True = client self-manages payroll OR it's on full autopay → we do NOT run
+      // their payroll, so no payroll/remittance/T4 tasks are generated.
+      payrollExternal: integer2("payrollExternal", { mode: "boolean" }).default(false),
       // Client-level PAYROLL FEATURES — which pay components this client's payroll
       // actually has. Drives what the pay run shows/creates (client-specific) so we
       // never surface bonuses/dividends/etc. for a client that doesn't use them.
@@ -22806,6 +22809,7 @@ var init_schema = __esm({
       usesJobber: integer2("usesJobber", { mode: "boolean" }).default(false),
       usesTouchBistro: integer2("usesTouchBistro", { mode: "boolean" }).default(false),
       usesPayPal: integer2("usesPayPal", { mode: "boolean" }).default(false),
+      usesWise: integer2("usesWise", { mode: "boolean" }).default(false),
       salesEntryFrequency: text("salesEntryFrequency", { enum: ["daily", "weekly", "monthly", "none"] }).default("monthly"),
       // NEW: scope / responsibilities (factor into pricing)
       paysDividends: integer2("paysDividends", { mode: "boolean" }).default(false),
@@ -40022,7 +40026,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
       }
     }
   }
-  if (flags.hasPayroll && flags.payrollFrequency) {
+  if (flags.hasPayroll && flags.payrollFrequency && !flags.payrollExternal) {
     const dueDate = nextPayrollDueDate(flags.payrollFrequency, now);
     const title = `Payroll Remittance \u2014 ${clientName}`;
     const existing = await db.select({ id: tasks.id }).from(tasks).where(
@@ -40398,6 +40402,7 @@ var init_client_router = __esm({
         wsibQuarter: external_exports.enum(["Q1", "Q2", "Q3", "Q4", "all"]).optional(),
         hasPayroll: external_exports.boolean().optional().default(false),
         payrollFrequency: external_exports.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
+        payrollExternal: external_exports.boolean().optional(),
         yearEndMonth: external_exports.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
         // Quote fields
         quoteAmount: external_exports.number().optional(),
@@ -40427,7 +40432,7 @@ var init_client_router = __esm({
           await createRecurringTasksForClient(
             client.id,
             ctx.user.id,
-            { hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency },
+            { hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency, payrollExternal: input.payrollExternal },
             client.name,
             client.assignedTo
           );
@@ -40465,6 +40470,7 @@ var init_client_router = __esm({
         wsibQuarter: external_exports.enum(["Q1", "Q2", "Q3", "Q4", "all"]).optional(),
         hasPayroll: external_exports.boolean().optional(),
         payrollFrequency: external_exports.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
+        payrollExternal: external_exports.boolean().optional(),
         payrollBonuses: external_exports.boolean().optional(),
         payrollDividends: external_exports.boolean().optional(),
         payrollPhoneAllowance: external_exports.boolean().optional(),
@@ -40525,6 +40531,7 @@ var init_client_router = __esm({
               wsibQuarter: updated.wsibQuarter || void 0,
               hasPayroll: !wasPayroll && updated.hasPayroll ? true : void 0,
               payrollFrequency: updated.payrollFrequency || void 0,
+              payrollExternal: updated.payrollExternal ?? void 0,
               paysDividends: !wasDividends && updated.payrollDividends ? true : void 0
             },
             updated.name,
@@ -40812,7 +40819,7 @@ function buildTaskRules(data) {
       fiscalYearEndMonth: fy.month,
       fiscalYearEndDay: fy.day
     });
-    if (data.hasEmployees) {
+    if (data.hasEmployees && !data.payrollExternal) {
       rules.push({
         ruleType: "t4_annual",
         title: "Prepare & File T4 / T4A Slips",
@@ -40940,7 +40947,7 @@ function buildTaskRules(data) {
       });
     }
   }
-  if (data.payrollFrequency && data.payrollFrequency !== "none") {
+  if (!data.payrollExternal && data.payrollFrequency && data.payrollFrequency !== "none") {
     const remitter = data.payrollRemitterFreq || "regular";
     if (remitter === "quarterly") {
       rules.push({
@@ -44525,6 +44532,7 @@ var init_onboarding_router = __esm({
         hstGstFrequency: external_exports.enum(["monthly", "quarterly", "annually", "none"]).default("none"),
         payrollFrequency: external_exports.enum(["weekly", "biweekly", "semi_monthly", "monthly", "none"]).default("none"),
         payrollRemitterFreq: external_exports.enum(["regular", "quarterly", "accelerated"]).default("regular"),
+        payrollExternal: external_exports.boolean().default(false),
         hasEmployees: external_exports.boolean().default(false),
         hasSubcontractors: external_exports.boolean().default(false),
         hasInvestments: external_exports.boolean().default(false),
@@ -44541,6 +44549,7 @@ var init_onboarding_router = __esm({
         usesJobber: external_exports.boolean().default(false),
         usesTouchBistro: external_exports.boolean().default(false),
         usesPayPal: external_exports.boolean().default(false),
+        usesWise: external_exports.boolean().default(false),
         salesEntryFrequency: external_exports.enum(["daily", "weekly", "monthly", "none"]).default("none"),
         usesHubdoc: external_exports.boolean().default(false),
         hasJobCosting: external_exports.boolean().default(false),
@@ -44573,6 +44582,7 @@ var init_onboarding_router = __esm({
           notes: input.notes || null,
           transactionsPerMonth: input.avgMonthlyTransactions || 0,
           payrollRemitterFreq: input.payrollRemitterFreq,
+          payrollExternal: input.payrollExternal,
           createdAt: /* @__PURE__ */ new Date(),
           updatedAt: /* @__PURE__ */ new Date()
         }).returning();
@@ -44620,6 +44630,7 @@ var init_onboarding_router = __esm({
           usesJobber: input.usesJobber,
           usesTouchBistro: input.usesTouchBistro,
           usesPayPal: input.usesPayPal,
+          usesWise: input.usesWise,
           salesEntryFrequency: input.salesEntryFrequency,
           usesHubdoc: input.usesHubdoc,
           hasJobCosting: input.hasJobCosting,
@@ -44644,6 +44655,7 @@ var init_onboarding_router = __esm({
           hstGstFrequency: input.hstGstFrequency,
           payrollFrequency: input.payrollFrequency,
           payrollRemitterFreq: input.payrollRemitterFreq,
+          payrollExternal: input.payrollExternal,
           hasEmployees: input.hasEmployees,
           hasSubcontractors: input.hasSubcontractors,
           hasInvestments: input.hasInvestments,
@@ -44660,6 +44672,7 @@ var init_onboarding_router = __esm({
           usesJobber: input.usesJobber,
           usesTouchBistro: input.usesTouchBistro,
           usesPayPal: input.usesPayPal,
+          usesWise: input.usesWise,
           salesEntryFrequency: input.salesEntryFrequency,
           usesHubdoc: input.usesHubdoc,
           hasJobCosting: input.hasJobCosting,
@@ -53392,6 +53405,8 @@ async function ensureOnboardingColumns() {
   const adds = [
     ["usesTouchBistro", "integer DEFAULT 0"],
     ["usesPayPal", "integer DEFAULT 0"],
+    ["usesWise", "integer DEFAULT 0"],
+    ["payrollExternal", "integer DEFAULT 0"],
     ["paysDividends", "integer DEFAULT 0"],
     ["hasEHT", "integer DEFAULT 0"],
     ["employeeCount", "integer DEFAULT 0"],
@@ -53451,6 +53466,7 @@ var init_ensure_clients_schema = __esm({
       ["wsibAccountNumber", "text"],
       ["wsibQuarter", "text"],
       ["hasPayroll", "integer DEFAULT 0"],
+      ["payrollExternal", "integer DEFAULT 0"],
       ["payrollFrequency", "text"],
       ["payrollRemitterFreq", "text DEFAULT 'regular'"],
       ["yearEndMonth", "text"],

@@ -13,6 +13,9 @@ export type OnboardingData = {
   hstGstFrequency?: string | null;
   payrollFrequency?: string | null;
   hasEmployees?: boolean | null;
+  // When true, the client runs their own payroll OR it's on full autopay — we do
+  // NOT run payroll for them, so skip payroll-run/remittance/T4 task generation.
+  payrollExternal?: boolean | null;
   payrollRemitterFreq?: string | null;  // "regular" | "quarterly" | "accelerated"
   hasSubcontractors?: boolean | null;
   hasInvestments?: boolean | null;
@@ -30,6 +33,7 @@ export type OnboardingData = {
   usesJobber?: boolean | null;
   usesTouchBistro?: boolean | null;
   usesPayPal?: boolean | null;
+  usesWise?: boolean | null;
   salesEntryFrequency?: string | null;
   // Scope / responsibilities (drive recurring work + cost)
   bookkeepingFrequency?: string | null;  // "monthly" | "quarterly" | "annual" | "none"
@@ -179,8 +183,8 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
       fiscalYearEndDay: fy.day,
     });
 
-    // T4 / T4A filing - Due end of February
-    if (data.hasEmployees) {
+    // T4 / T4A filing - Due end of February (skip if we don't run their payroll)
+    if (data.hasEmployees && !data.payrollExternal) {
       rules.push({
         ruleType: "t4_annual",
         title: "Prepare & File T4 / T4A Slips",
@@ -322,7 +326,8 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
   }
 
   // === PAYROLL REMITTANCES (PD7A) — cadence driven by CRA remitter type ===
-  if (data.payrollFrequency && data.payrollFrequency !== "none") {
+  // Skipped entirely when the client self-manages payroll or it's on autopay.
+  if (!data.payrollExternal && data.payrollFrequency && data.payrollFrequency !== "none") {
     const remitter = data.payrollRemitterFreq || "regular";
     if (remitter === "quarterly") {
       rules.push({

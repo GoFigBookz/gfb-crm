@@ -59,6 +59,7 @@ export async function createRecurringTasksForClient(
     wsibQuarter?: string;
     hasPayroll?: boolean;
     payrollFrequency?: string;
+    payrollExternal?: boolean;   // client self-manages / autopay → don't create payroll tasks
     paysDividends?: boolean;
   },
   clientName: string,
@@ -168,8 +169,8 @@ export async function createRecurringTasksForClient(
     }
   }
 
-  // --- Payroll Tasks ---
-  if (flags.hasPayroll && flags.payrollFrequency) {
+  // --- Payroll Tasks --- (skipped when client self-manages payroll / autopay)
+  if (flags.hasPayroll && flags.payrollFrequency && !flags.payrollExternal) {
     const dueDate = nextPayrollDueDate(flags.payrollFrequency, now);
     const title = `Payroll Remittance — ${clientName}`;
     const existing = await db
