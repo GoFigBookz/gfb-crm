@@ -650,6 +650,11 @@ function TerminationPayCalculator() {
             <div className="bg-lime-50 rounded-lg p-4 text-center"><p className="text-xs text-lime-600">Total Owed</p><p className="text-xl font-bold text-lime-700">${fmt(noticePay + severancePay)}</p></div>
           </div>
         )}
+        <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          ESA <strong>statutory minimum</strong> estimate only — not legal advice. Ontario severance also requires the
+          employer to have a $2.5M+ payroll (or a mass termination); common-law reasonable notice can be much higher.
+          Confirm with an employment-law source before paying out.
+        </p>
       </CardContent>
     </Card>
   );
@@ -1155,11 +1160,14 @@ function MileageCalculator() {
   const kilometers = parseFloat(km) || 0;
   const r = parseFloat(rate) || 0.72;
 
-  // CRA 2024 rates: $0.72 first 5,000km, $0.66 after for business
+  // CRA per-km allowance: the rate after the first 5,000 km is always 6¢ lower than
+  // the first-5,000 rate (2025: $0.72 then $0.66). Tie it to the editable first rate
+  // so changing one stays consistent. Review the rate in the twice-yearly tax update.
   const result = useMemo(() => {
+    const afterRate = Math.max(0, r - 0.06);
     const first = Math.min(kilometers, 5000) * r;
-    const after = Math.max(0, kilometers - 5000) * 0.66;
-    return { first, after, total: first + after };
+    const after = Math.max(0, kilometers - 5000) * afterRate;
+    return { first, after, afterRate, total: first + after };
   }, [kilometers, r]);
 
   return (
