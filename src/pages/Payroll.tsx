@@ -260,6 +260,9 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   const showBonus = !!(features?.payrollBonuses || features?.payrollRevenueShare);
   const showPhone = !!features?.payrollPhoneAllowance;
   const showReimb = !!features?.payrollReimbursements;
+  // CRM payroll is a TIMESHEET feeding QBO Payroll — so CPP/EI/tax/net columns only
+  // appear for the Originality revenue-share tax-comparison (payrollCraComparison).
+  const showTax = !!features?.payrollCraComparison;
   const utils = trpc.useUtils();
   const { data } = trpc.payroll.getRun.useQuery({ runId });
   const invalidate = () => { utils.payroll.getRun.invalidate({ runId }); if (data?.run.clientId) utils.payroll.listRuns.invalidate({ clientId: data.run.clientId }); };
@@ -320,10 +323,10 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
                   <th className="text-right px-1">Stat $</th>
                   {showBonus && <th className="text-right px-1">Share bonus</th>}
                   <th className="text-right px-1">Gross</th>
-                  <th className="text-right px-1">CPP</th>
-                  <th className="text-right px-1">EI</th>
-                  <th className="text-right px-1">Tax</th>
-                  <th className="text-right px-1">Net</th>
+                  {showTax && <th className="text-right px-1">CPP</th>}
+                  {showTax && <th className="text-right px-1">EI</th>}
+                  {showTax && <th className="text-right px-1">Tax</th>}
+                  {showTax && <th className="text-right px-1">Net</th>}
                   {showPhone && <th className="text-right px-1">Phone</th>}
                   {showReimb && <th className="text-right px-1">Reimb</th>}
                   <th className="px-1"></th>
@@ -331,7 +334,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
               </thead>
               <tbody>
                 {lines.map((l: any) => (
-                  <LineRow key={l.id} line={l} showBonus={showBonus} showPhone={showPhone} showReimb={showReimb}
+                  <LineRow key={l.id} line={l} showBonus={showBonus} showPhone={showPhone} showReimb={showReimb} showTax={showTax}
                     onSave={(patch) => updateLine.mutate({ id: l.id, ...patch })}
                     onEstimate={() => estimateLine.mutate({ id: l.id })}
                     onEditEmployee={() => { const emp = (clientEmps || []).find((e: any) => e.id === l.employeeId); if (emp) onEditEmployee(emp); }}
@@ -343,13 +346,15 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
                   <td className="py-1.5 pr-2">Totals</td>
                   <td colSpan={4 + (showBonus ? 1 : 0)}></td>
                   <td className="text-right px-1 text-lime-700">{money(run.totalGross)}</td>
-                  <td colSpan={3} className="text-right px-1 text-slate-500">deduct {money(run.totalEmployeeDeductions)}</td>
-                  <td className="text-right px-1">{money(run.totalNet)}</td>
+                  {showTax && <td colSpan={3} className="text-right px-1 text-slate-500">deduct {money(run.totalEmployeeDeductions)}</td>}
+                  {showTax && <td className="text-right px-1">{money(run.totalNet)}</td>}
                   <td colSpan={1 + (showPhone ? 1 : 0) + (showReimb ? 1 : 0)}></td>
                 </tr>
-                <tr className="text-xs text-slate-500">
-                  <td className="pt-1" colSpan={12 + (showBonus ? 1 : 0) + (showPhone ? 1 : 0) + (showReimb ? 1 : 0)}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))} · Net total includes phone/reimbursement add-ons.</td>
-                </tr>
+                {showTax && (
+                  <tr className="text-xs text-slate-500">
+                    <td className="pt-1" colSpan={11 + (showBonus ? 1 : 0) + (showPhone ? 1 : 0) + (showReimb ? 1 : 0)}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))} · Net total includes phone/reimbursement add-ons.</td>
+                  </tr>
+                )}
               </tfoot>
             </table>
           </div>
@@ -362,13 +367,17 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
           pending={addLine.isPending}
         />
 
-        <p className="text-[11px] text-slate-400">Deductions use the CRA T4127 method (real CPP/CPP2 · EI · federal + Ontario tax, 2026 tables), YTD-aware via each employee's opening carryforward. Click the <Calculator className="h-3 w-3 inline" /> to calculate a line. Every cell stays editable — review before remitting.</p>
+        {showTax ? (
+          <p className="text-[11px] text-slate-400">Tax-comparison view (revenue-share). Deductions use the CRA T4127 method (real CPP/CPP2 · EI · federal + Ontario tax, 2026 tables), YTD-aware via each employee's opening carryforward, to check QuickBooks is withholding enough. Click the <Calculator className="h-3 w-3 inline" /> to calculate a line. Every cell stays editable — this is a check, not the payroll run.</p>
+        ) : (
+          <p className="text-[11px] text-slate-400">Timesheet only — enter hours (regular · OT · stat). These feed <strong>QuickBooks Payroll</strong>, which calculates CPP/EI/tax and pays the employees. Use ∑ to total gross from hours. Review &amp; get client approval before sending to QBO.</p>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function LineRow({ line, showBonus, showPhone, showReimb, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; showBonus?: boolean; showPhone?: boolean; showReimb?: boolean; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
+function LineRow({ line, showBonus, showPhone, showReimb, showTax, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; showBonus?: boolean; showPhone?: boolean; showReimb?: boolean; showTax?: boolean; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
   const [v, setV] = useState({
     regularHours: line.regularHours ?? 0, overtimeHours: line.overtimeHours ?? 0,
     statHolidayPay: line.statHolidayPay ?? 0, shareBonus: line.shareBonus ?? 0,
@@ -401,15 +410,15 @@ function LineRow({ line, showBonus, showPhone, showReimb, onSave, onEstimate, on
       <td className="px-1">{cell("statHolidayPay")}</td>
       {showBonus && <td className="px-1">{cell("shareBonus")}</td>}
       <td className="px-1">{cell("grossPay")}</td>
-      <td className="px-1">{cell("cppEmployee")}</td>
-      <td className="px-1">{cell("eiEmployee")}</td>
-      <td className="px-1">{cell("federalTax")}</td>
-      <td className="px-1">{cell("netPay")}</td>
+      {showTax && <td className="px-1">{cell("cppEmployee")}</td>}
+      {showTax && <td className="px-1">{cell("eiEmployee")}</td>}
+      {showTax && <td className="px-1">{cell("federalTax")}</td>}
+      {showTax && <td className="px-1">{cell("netPay")}</td>}
       {showPhone && <td className="px-1">{cell("phoneAllowance")}</td>}
       {showReimb && <td className="px-1">{cell("reimbursement")}</td>}
       <td className="px-1 whitespace-nowrap">
         <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" title="Sum hours×rate + OT + stat + bonus into gross" onClick={sumGross}>∑</Button>
-        <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" title="Estimate deductions from gross" onClick={onEstimate}><Calculator className="h-3.5 w-3.5" /></Button>
+        {showTax && <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" title="Estimate deductions from gross (comparison check)" onClick={onEstimate}><Calculator className="h-3.5 w-3.5" /></Button>}
         <Button size="sm" variant="ghost" className="h-7 px-1.5 text-red-400 hover:text-red-600" title="Remove from run" onClick={onRemove}><Trash2 className="h-3.5 w-3.5" /></Button>
       </td>
     </tr>
