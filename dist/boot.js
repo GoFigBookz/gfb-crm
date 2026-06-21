@@ -11220,13 +11220,13 @@ function _promise(Class2, innerType) {
 }
 // @__NO_SIDE_EFFECTS__
 function _custom(Class2, fn, _params) {
-  const norm5 = normalizeParams(_params);
-  norm5.abort ?? (norm5.abort = true);
+  const norm6 = normalizeParams(_params);
+  norm6.abort ?? (norm6.abort = true);
   const schema = new Class2({
     type: "custom",
     check: "custom",
     fn,
-    ...norm5
+    ...norm6
   });
   return schema;
 }
@@ -44399,6 +44399,168 @@ var init_vault_router = __esm({
   }
 });
 
+// api/master-sheet-sync.ts
+function crmValue(c, key) {
+  switch (key) {
+    case "name":
+      return c.name || c.company || null;
+    case "status":
+      return cap(c.status) || null;
+    case "industry":
+      return c.industry && c.industry !== "other" ? c.industry : null;
+    case "craBn":
+      return c.taxId || null;
+    case "yeMonth":
+      return c.yearEndMonth || null;
+    case "hstCadence":
+      return c.hstPeriod ? titleCadence[c.hstPeriod] ?? cap(c.hstPeriod) : null;
+    case "nextHstDue":
+      return c.hstNextDue || null;
+    case "hstNumber":
+      return c.hstNumber || null;
+    case "payrollPeriod":
+      return c.payrollFrequency ? titlePay[c.payrollFrequency] ?? cap(c.payrollFrequency) : null;
+    case "craRemitter":
+      return c.payrollRemitterFreq ? titleRemit[c.payrollRemitterFreq] ?? cap(c.payrollRemitterFreq) : null;
+    case "payrollRp":
+      return c.payrollRpNumber || null;
+    case "wsibNo":
+      return c.wsibAccountNumber || null;
+    case "address":
+      return c.address || null;
+    case "phone":
+      return c.phone || null;
+    case "email":
+      return c.email || null;
+    case "website":
+      return c.website || null;
+    case "owner":
+      return c.contactName || null;
+    case "triageEmail":
+      return c.figgyEmail || null;
+    default:
+      return null;
+  }
+}
+async function sheetsApi2(url2, method, body) {
+  const res = await fetch(SYNC_WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: url2, method, body: body == null ? "" : typeof body === "string" ? body : JSON.stringify(body) })
+  });
+  if (!res.ok) throw new Error(`sheets proxy ${method} ${url2} \u2192 ${res.status} ${await res.text()}`);
+  const data = await res.json().catch(() => ({}));
+  return data?.outputs?.tool_output?.body ?? data?.tool_output?.body ?? data?.body ?? data;
+}
+async function upsertClientToMaster(c) {
+  if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return false;
+  if (!c.name && !c.company && !c.taxId) return false;
+  const sid = CANONICAL_MASTER_SHEET_ID;
+  const range = `'${MASTER_TAB}'!A:${lastColLetter}`;
+  try {
+    const read = await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(range)}`, "GET");
+    const rows = Array.isArray(read?.values) ? read.values : [];
+    const bn = (c.taxId || "").trim();
+    const nameKey = norm2(c.name || c.company);
+    let matchIdx = -1;
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i] || [];
+      if (bn && norm2(r[3]) === norm2(bn)) {
+        matchIdx = i;
+        break;
+      }
+    }
+    if (matchIdx < 0 && nameKey) {
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i] || [];
+        if (norm2(r[0]) === nameKey) {
+          matchIdx = i;
+          break;
+        }
+      }
+    }
+    const existing = matchIdx >= 0 ? rows[matchIdx] || [] : [];
+    const out = [];
+    for (let k = 0; k < N; k++) {
+      const key = COLS[k];
+      const cur = existing[k] ?? "";
+      if (GOV_ONLY.has(key)) {
+        out[k] = cur;
+        continue;
+      }
+      const v = crmValue(c, key);
+      if (SOFT.has(key)) {
+        out[k] = v ?? cur;
+        continue;
+      }
+      out[k] = v ?? (matchIdx >= 0 ? cur : "");
+    }
+    if (matchIdx >= 0) {
+      const sheetRow = matchIdx + 1;
+      const wr = `'${MASTER_TAB}'!A${sheetRow}:${lastColLetter}${sheetRow}`;
+      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(wr)}?valueInputOption=RAW`, "PUT", { values: [out] });
+    } else {
+      await sheetsApi2(
+        `spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+        "POST",
+        { values: [out] }
+      );
+    }
+    return true;
+  } catch (e) {
+    console.error("[master-sync] upsert failed for", c.name || c.company || c.taxId, ":", e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+function syncClientToMaster(c) {
+  upsertClientToMaster(c).catch(() => {
+  });
+}
+var CANONICAL_MASTER_SHEET_ID, MASTER_TAB, SYNC_WEBHOOK, COLS, N, GOV_ONLY, SOFT, lastColLetter, cap, titleCadence, titlePay, titleRemit, norm2;
+var init_master_sheet_sync = __esm({
+  "api/master-sheet-sync.ts"() {
+    CANONICAL_MASTER_SHEET_ID = process.env.FIGGY_MASTER_SHEET_ID || "1pcAw-WSQXXnVn-0L-TQ2FIExkHQ0Olf4dzz47t0gTUk";
+    MASTER_TAB = "Client Master";
+    SYNC_WEBHOOK = process.env.FIGGY_SHEET_SYNC_WEBHOOK || "https://hook.us2.make.com/d4h33m0na6ulrlm9nkv9dyyfa8hv1bcs";
+    COLS = [
+      "name",
+      "status",
+      "industry",
+      "craBn",
+      "registryNo",
+      "incorpDate",
+      "corpType",
+      "govtStatus",
+      "closePeriod",
+      "yeMonth",
+      "hstCadence",
+      "nextHstDue",
+      "hstNumber",
+      "payrollPeriod",
+      "craRemitter",
+      "payrollRp",
+      "wsibNo",
+      "numEmployees",
+      "posApps",
+      "address",
+      "phone",
+      "email",
+      "website",
+      "owner",
+      "triageEmail"
+    ];
+    N = COLS.length;
+    GOV_ONLY = /* @__PURE__ */ new Set(["registryNo", "incorpDate", "corpType", "govtStatus", "closePeriod", "numEmployees", "posApps"]);
+    SOFT = /* @__PURE__ */ new Set(["industry", "address", "phone", "email", "owner"]);
+    lastColLetter = "Y";
+    cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+    titleCadence = { annual: "Annual", quarterly: "Quarterly", monthly: "Monthly" };
+    titlePay = { weekly: "Weekly", "bi-weekly": "Bi-Weekly", "semi-monthly": "Semi-Monthly", monthly: "Monthly", self: "Self" };
+    titleRemit = { regular: "Regular", quarterly: "Quarterly", accelerated: "Threshold 1" };
+    norm2 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  }
+});
+
 // api/onboarding-router.ts
 import crypto3 from "crypto";
 var onboardingRouter;
@@ -44411,6 +44573,7 @@ var init_onboarding_router = __esm({
     init_drizzle_orm();
     init_month_end_core();
     init_task_generator();
+    init_master_sheet_sync();
     onboardingRouter = createRouter({
       // Staff creates an onboarding link for a client
       create: seniorQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ input }) => {
@@ -44704,6 +44867,8 @@ var init_onboarding_router = __esm({
           invoicingResponsibility: input.invoicingResponsibility,
           billPayResponsibility: input.billPayResponsibility
         });
+        const fresh = (await db.select().from(clients).where(eq(clients.id, client.id)).limit(1))[0];
+        if (fresh) syncClientToMaster(fresh);
         return {
           success: true,
           message: `Created client "${client.name}" with ${taskResult.tasks.length} auto-generated tasks.`,
@@ -44961,7 +45126,26 @@ var init_onboarding_router = __esm({
         } catch (e) {
           console.error("[onboarding] task regen on intake save failed (non-fatal):", e instanceof Error ? e.message : e);
         }
+        try {
+          const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+          if (c) syncClientToMaster(c);
+        } catch {
+        }
         return { success: true };
+      }),
+      // Push EVERY active client into the canonical Google master sheet (one-time
+      // reconcile / drift fix). Upsert preserves the gov-registry columns. Awaited
+      // so the caller gets a real count back. Cheap (~2 Sheets calls/client).
+      syncAllToMaster: staffQuery.mutation(async () => {
+        const db = getDb();
+        const rows = await db.select().from(clients).where(eq(clients.status, "active"));
+        let synced = 0, failed = 0;
+        for (const c of rows) {
+          const ok = await upsertClientToMaster(c);
+          if (ok) synced++;
+          else failed++;
+        }
+        return { success: true, total: rows.length, synced, failed };
       })
     });
   }
@@ -46684,10 +46868,10 @@ function normalizePhone(raw2) {
 }
 async function matchClientByPhone(phone) {
   const db = getDb();
-  const norm5 = normalizePhone(phone);
-  if (!norm5) return null;
+  const norm6 = normalizePhone(phone);
+  if (!norm6) return null;
   const all = await db.select().from(clients);
-  const hit = all.find((c) => normalizePhone(c.phone || "") === norm5);
+  const hit = all.find((c) => normalizePhone(c.phone || "") === norm6);
   return hit ? { id: hit.id, name: hit.name } : null;
 }
 async function ingestInboundSms(from, body, externalId) {
@@ -51444,7 +51628,7 @@ async function dedupeClients(confirm) {
   const groups = /* @__PURE__ */ new Map();
   for (const r of clientRows) {
     const id = Number(r.id ?? r[0]);
-    const key = `${norm2(r.name ?? r[1])}|${norm2(r.company ?? r[2])}`;
+    const key = `${norm3(r.name ?? r[1])}|${norm3(r.company ?? r[2])}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(id);
   }
@@ -51524,12 +51708,12 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm2, asRows, num;
+var norm3, asRows, num;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
-    norm2 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    norm3 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
     num = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
@@ -52174,7 +52358,7 @@ async function seedPayrollEmployees() {
   for (const mv of PAYROLL_EMPLOYEE_MOVES) {
     const to = findClient(clientsNow, mv.toMatch);
     if (!to) continue;
-    const matches = (await db.select().from(employees)).filter((e) => norm3(e.firstName) === norm3(mv.firstName) && norm3(e.lastName) === norm3(mv.lastName));
+    const matches = (await db.select().from(employees)).filter((e) => norm4(e.firstName) === norm4(mv.firstName) && norm4(e.lastName) === norm4(mv.lastName));
     for (const e of matches) {
       if (e.clientId === to.id) continue;
       const from = findClient(clientsNow, mv.fromMatch);
@@ -52199,7 +52383,7 @@ async function seedPayrollEmployees() {
     for (const link of PAYROLL_CONTRACT_LINKS) {
       const client = findClient(clientsNow, link.clientMatch);
       if (!client) continue;
-      const emp = all.find((e) => e.clientId === client.id && norm3(e.firstName) === norm3(link.firstName) && (!link.lastName || norm3(e.lastName) === norm3(link.lastName)));
+      const emp = all.find((e) => e.clientId === client.id && norm4(e.firstName) === norm4(link.firstName) && (!link.lastName || norm4(e.lastName) === norm4(link.lastName)));
       if (emp && !emp.contractUrl) {
         await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
         contracts++;
@@ -52210,7 +52394,7 @@ async function seedPayrollEmployees() {
     console.log(`[seed] payroll employees: +${result.added} -${result.removed} moved ${moved} salary-filled ${filled} contracts ${contracts}`);
   return { ...result, moved, filled, contracts };
 }
-var PAYROLL_EMPLOYEE_MOVES, norm3, findClient;
+var PAYROLL_EMPLOYEE_MOVES, norm4, findClient;
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
@@ -52221,8 +52405,8 @@ var init_seed_payroll_employees = __esm({
     PAYROLL_EMPLOYEE_MOVES = [
       { firstName: "Stacey", lastName: "Gillham", fromMatch: "2303851", toMatch: "originality", note: "Moved to Originality as of the 15th" }
     ];
-    norm3 = (s) => (s || "").toLowerCase().trim();
-    findClient = (all, match2) => all.find((c) => norm3(c.name).includes(norm3(match2)));
+    norm4 = (s) => (s || "").toLowerCase().trim();
+    findClient = (all, match2) => all.find((c) => norm4(c.name).includes(norm4(match2)));
   }
 });
 
@@ -53847,7 +54031,7 @@ async function linkDriveFolders() {
   let linked = 0, alreadySet = 0;
   const unmatched = [];
   for (const c of all) {
-    const folderId = NAME_TO_FOLDER[norm4(c.name)] ?? NAME_TO_FOLDER[norm4(c.company)];
+    const folderId = NAME_TO_FOLDER[norm5(c.name)] ?? NAME_TO_FOLDER[norm5(c.company)];
     if (!folderId) {
       unmatched.push(c.name);
       continue;
@@ -53867,7 +54051,7 @@ async function linkDriveFolders() {
   if (unmatched.length) console.log(`[drive-link] no folder mapping for: ${unmatched.join(", ")}`);
   return { linked, alreadySet, unmatched };
 }
-var GFB_CLIENTS_PARENT_FOLDER_ID, GFB_INACTIVE_FOLDER_ID, folderUrl, norm4, NAME_TO_FOLDER;
+var GFB_CLIENTS_PARENT_FOLDER_ID, GFB_INACTIVE_FOLDER_ID, folderUrl, norm5, NAME_TO_FOLDER;
 var init_link_drive_folders = __esm({
   "api/link-drive-folders.ts"() {
     init_connection();
@@ -53876,7 +54060,7 @@ var init_link_drive_folders = __esm({
     GFB_CLIENTS_PARENT_FOLDER_ID = "1OdxTvo0DiWnDL0e9g2ii6eG5ysBke_0G";
     GFB_INACTIVE_FOLDER_ID = "1GW6V_LAwGiqpM6KRtelZOS5k5jTJmvdg";
     folderUrl = (id) => `https://drive.google.com/drive/folders/${id}`;
-    norm4 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    norm5 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
     NAME_TO_FOLDER = {
       "originality ai inc": "1aaqB12rJ5Ou4kX_tWF24JFq7OjEXHL2o",
       "clark pools and spas collingwood inc": "10qXdEt4KVgW2w3s5VOIph1chSFPUErtH",

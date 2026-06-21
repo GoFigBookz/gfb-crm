@@ -6,6 +6,7 @@ import { eq, and, ne, inArray } from "drizzle-orm";
 import { isOperationalClient } from "./month-end-core";
 import crypto from "crypto";
 import { createClientTaskRules, ensureComplianceRulesAndTasks } from "./task-generator";
+import { syncClientToMaster, upsertClientToMaster } from "./master-sheet-sync";
 
 export const onboardingRouter = createRouter({
   // Staff creates an onboarding link for a client
@@ -351,6 +352,11 @@ export const onboardingRouter = createRouter({
         billPayResponsibility: input.billPayResponsibility,
       });
 
+      // Mirror the new client into the canonical Google master sheet (best-effort,
+      // never blocks onboarding). Re-read so we sync the persisted record.
+      const fresh = (await db.select().from(clients).where(eq(clients.id, client.id)).limit(1))[0];
+      if (fresh) syncClientToMaster(fresh as any);
+
       return {
         success: true,
         message: `Created client "${client.name}" with ${taskResult.tasks.length} auto-generated tasks.`,
@@ -557,6 +563,28 @@ export const onboardingRouter = createRouter({
       } catch (e) {
         console.error("[onboarding] task regen on intake save failed (non-fatal):", e instanceof Error ? e.message : e);
       }
+
+      // Mirror the edited client into the canonical Google master sheet so the
+      // sheet always matches the CRM (best-effort, never blocks the save).
+      try {
+        const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+        if (c) syncClientToMaster(c as any);
+      } catch { /* non-fatal */ }
+
       return { success: true };
     }),
+
+  // Push EVERY active client into the canonical Google master sheet (one-time
+  // reconcile / drift fix). Upsert preserves the gov-registry columns. Awaited
+  // so the caller gets a real count back. Cheap (~2 Sheets calls/client).
+  syncAllToMaster: staffQuery.mutation(async () => {
+    const db = getDb();
+    const rows = await db.select().from(clients).where(eq(clients.status, "active"));
+    let synced = 0, failed = 0;
+    for (const c of rows) {
+      const ok = await upsertClientToMaster(c as any);
+      if (ok) synced++; else failed++;
+    }
+    return { success: true, total: rows.length, synced, failed };
+  }),
 });
