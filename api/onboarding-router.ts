@@ -2,10 +2,10 @@ import { z } from "zod";
 import { createRouter, staffQuery, seniorQuery, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { clientOnboarding, clients, tasks, clientTaskRules } from "../db/schema";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, inArray } from "drizzle-orm";
 import { isOperationalClient } from "./month-end-core";
 import crypto from "crypto";
-import { createClientTaskRules } from "./task-generator";
+import { createClientTaskRules, ensureComplianceRulesAndTasks } from "./task-generator";
 
 export const onboardingRouter = createRouter({
   // Staff creates an onboarding link for a client
@@ -415,12 +415,12 @@ export const onboardingRouter = createRouter({
       clientId: z.number(),
       // client-level
       name: z.string().optional(), email: z.string().optional(), phone: z.string().optional(),
-      company: z.string().optional(), address: z.string().optional(), contactName: z.string().optional(),
+      company: z.string().optional(), website: z.string().optional(), address: z.string().optional(), contactName: z.string().optional(),
       taxId: z.string().optional(), hstNumber: z.string().optional(), wsibAccountNumber: z.string().optional(),
       clientType: z.enum(["monthly", "quarterly", "annual", "payroll", "wholesale"]).optional(),
       payrollRpNumber: z.string().optional(), monthlyFee: z.number().optional(), craRacDone: z.boolean().optional(),
       hasHST: z.boolean().optional(), hstPeriod: z.enum(["monthly", "quarterly", "annual"]).optional(),
-      hasWSIB: z.boolean().optional(), hasPayroll: z.boolean().optional(),
+      hasWSIB: z.boolean().optional(), hasPayroll: z.boolean().optional(), payrollExternal: z.boolean().optional(),
       payrollFrequency: z.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
       payrollRemitterFreq: z.enum(["regular", "quarterly", "accelerated"]).optional(),
       yearEndMonth: z.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
@@ -440,7 +440,7 @@ export const onboardingRouter = createRouter({
       invoicingResponsibility: z.enum(["we_invoice", "client_invoices", "none"]).optional(),
       billPayResponsibility: z.enum(["we_pay", "client_pays", "none"]).optional(),
       usesStripe: z.boolean().optional(), usesSquare: z.boolean().optional(), usesJobber: z.boolean().optional(),
-      usesTouchBistro: z.boolean().optional(), usesPayPal: z.boolean().optional(),
+      usesTouchBistro: z.boolean().optional(), usesPayPal: z.boolean().optional(), usesWise: z.boolean().optional(),
       salesEntryFrequency: z.enum(["daily", "weekly", "monthly", "none"]).optional(),
       qboSoftwareTier: z.enum(["none", "easystart", "essentials", "plus"]).optional(),
       qboSoftwareWholesale: z.boolean().optional(), qboPayrollWholesale: z.boolean().optional(),
@@ -452,8 +452,8 @@ export const onboardingRouter = createRouter({
       const { clientId, onbPayrollFrequency, ...rest } = input;
 
       // client-level keys
-      const clientKeys = ["name", "email", "phone", "company", "address", "contactName", "taxId", "hstNumber",
-        "wsibAccountNumber", "clientType", "payrollRpNumber", "monthlyFee", "craRacDone", "hasHST", "hstPeriod", "hasWSIB", "hasPayroll",
+      const clientKeys = ["name", "email", "phone", "company", "website", "address", "contactName", "taxId", "hstNumber",
+        "wsibAccountNumber", "clientType", "payrollRpNumber", "monthlyFee", "craRacDone", "hasHST", "hstPeriod", "hasWSIB", "hasPayroll", "payrollExternal",
         "payrollFrequency", "payrollRemitterFreq", "yearEndMonth"] as const;
       const prior = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
       const clientPatch: Record<string, any> = { updatedAt: new Date() };
@@ -475,7 +475,7 @@ export const onboardingRouter = createRouter({
         "wsibRequired", "paysDividends", "hasEHT", "employeeCount", "monthsBehind", "bankAccountCount", "creditCardCount",
         "needsYearEnd", "usesHubdoc", "hasJobCosting", "avgMonthlyTransactions", "bookkeepingFrequency",
         "invoicingResponsibility", "billPayResponsibility", "usesStripe", "usesSquare", "usesJobber", "usesTouchBistro",
-        "usesPayPal", "salesEntryFrequency", "qboSoftwareTier", "qboSoftwareWholesale", "qboPayrollWholesale",
+        "usesPayPal", "usesWise", "salesEntryFrequency", "qboSoftwareTier", "qboSoftwareWholesale", "qboPayrollWholesale",
         "servicesNeeded", "painPoints", "expectations", "currentAccountingSoftware",
         "currentPayrollProvider"] as const;
       const onbPatch: Record<string, any> = { updatedAt: new Date() };
@@ -492,6 +492,37 @@ export const onboardingRouter = createRouter({
         await db.insert(clientOnboarding).values({
           clientId, token: crypto.randomBytes(24).toString("hex"), status: "approved", ...onbPatch,
         });
+      }
+
+      // Saving intake should DO something: regenerate the client's compliance
+      // tasks from the merged current flags so editing actually backfills missing
+      // HST/payroll/etc tasks — and respects "we don't run payroll".
+      try {
+        const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
+        if (c && isOperationalClient(c.clientType)) {
+          // hstPeriod ("annual") → buildTaskRules expects "annually"
+          const hstFreq = c.hasHST ? (c.hstPeriod === "monthly" ? "monthly" : c.hstPeriod === "quarterly" ? "quarterly" : "annually") : null;
+          const ye = c.yearEndMonth ? `${c.yearEndMonth} 30` : (onbPatch.fiscalYearEnd ?? null);
+          // If we don't run their payroll, retire any payroll rules/tasks so they
+          // leave the board.
+          if (c.payrollExternal) {
+            const payTypes = ["payroll_remit_regular", "payroll_remit_quarterly", "payroll_remit_accelerated", "payroll_tax_prep", "t4_annual"];
+            await db.update(clientTaskRules).set({ active: false }).where(and(eq(clientTaskRules.clientId, clientId), inArray(clientTaskRules.ruleType, payTypes)));
+            await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed"), inArray(tasks.category, ["Payroll"])));
+          }
+          await ensureComplianceRulesAndTasks({
+            clientId, userId: 1, assignedTo: c.assignedTo ?? null, fiscalYearEnd: ye,
+            hstGstFrequency: hstFreq,
+            payrollFrequency: c.hasPayroll ? (c.payrollFrequency || "monthly") : null,
+            payrollRemitterFreq: c.payrollRemitterFreq || "regular",
+            payrollExternal: !!c.payrollExternal,
+            hasEmployees: !!c.hasPayroll,
+            wsibRequired: !!c.hasWSIB,
+            needsYearEnd: true,
+          });
+        }
+      } catch (e) {
+        console.error("[onboarding] task regen on intake save failed (non-fatal):", e instanceof Error ? e.message : e);
       }
       return { success: true };
     }),
