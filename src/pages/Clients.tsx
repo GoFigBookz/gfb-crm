@@ -149,7 +149,7 @@ export default function Clients() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Clients</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Clients <span className="ml-2 align-middle text-[10px] font-medium px-1.5 py-0.5 rounded bg-lime-100 text-lime-700">NEW BUILD ✓ Jun 21</span></h1>
           <p className="text-slate-500 text-sm">Go Fig Bookz — {filtered?.length ?? 0} clients</p>
         </div>
         {/* Add Client goes straight to the full intake form */}
