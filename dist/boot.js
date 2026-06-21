@@ -50707,6 +50707,55 @@ var init_dashboard_router = __esm({
   }
 });
 
+// api/calculator-router.ts
+async function fetchBocFxRates() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8e3);
+  try {
+    const res = await fetch("https://www.bankofcanada.ca/valet/observations/group/FX_RATES_DAILY/json?recent=1", {
+      signal: ctrl.signal,
+      headers: { accept: "application/json" }
+    });
+    if (!res.ok) return null;
+    const json2 = await res.json();
+    const obs = json2?.observations?.[0];
+    if (!obs) return null;
+    const date5 = String(obs.d ?? "");
+    const rates = { CAD: 1 };
+    for (const [key, val] of Object.entries(obs)) {
+      const m = /^FX([A-Z]{3})CAD$/.exec(key);
+      const v = Number(val?.v);
+      if (m && Number.isFinite(v) && v > 0) rates[m[1]] = v;
+    }
+    if (Object.keys(rates).length < 2) return null;
+    return { date: date5, rates, source: "Bank of Canada" };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+var fxCache, FX_TTL_MS, calculatorRouter;
+var init_calculator_router = __esm({
+  "api/calculator-router.ts"() {
+    init_middleware();
+    fxCache = null;
+    FX_TTL_MS = 6 * 60 * 60 * 1e3;
+    calculatorRouter = createRouter({
+      // Live FX rates (CAD per 1 unit of each currency) from the Bank of Canada.
+      fxRates: authedQuery.query(async () => {
+        if (fxCache && Date.now() - fxCache.at < FX_TTL_MS) return fxCache.data;
+        const data = await fetchBocFxRates();
+        if (data) {
+          fxCache = { at: Date.now(), data };
+          return data;
+        }
+        return fxCache?.data ?? null;
+      })
+    });
+  }
+});
+
 // api/public-router.ts
 var publicRouter;
 var init_public_router = __esm({
@@ -50957,6 +51006,7 @@ var init_router = __esm({
     init_bulk_import_router();
     init_interco_router();
     init_dashboard_router();
+    init_calculator_router();
     init_public_router();
     init_middleware();
     appRouter = createRouter({
@@ -51011,7 +51061,8 @@ var init_router = __esm({
       bulkImport: bulkImportRouter,
       restore: restoreRouter,
       interco: intercoRouter,
-      dashboard: dashboardRouter
+      dashboard: dashboardRouter,
+      calculator: calculatorRouter
     });
   }
 });

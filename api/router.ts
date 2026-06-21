@@ -47,6 +47,7 @@ import { restoreRouter } from "./restore-router";
 import { bulkImportRouter } from "./bulk-import-router";
 import { intercoRouter } from "./interco-router";
 import { dashboardRouter } from "./dashboard-router";
+import { calculatorRouter } from "./calculator-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
 
@@ -103,6 +104,7 @@ export const appRouter = createRouter({
   restore: restoreRouter,
   interco: intercoRouter,
   dashboard: dashboardRouter,
+  calculator: calculatorRouter,
 });
 
 export type AppRouter = typeof appRouter;
