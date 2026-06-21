@@ -1029,6 +1029,12 @@ async function startServer() {
     } catch (e) {
       console.error("[seed] importClientMaster failed (non-fatal):", e instanceof Error ? e.message : e);
     }
+    try {
+      const { seedAiAgents } = await import("./seed-ai-agents");
+      await seedAiAgents();
+    } catch (e) {
+      console.error("[seed] seedAiAgents failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
     // Backfill the one-time setup tasks (CRA Represent-a-Client, Service Canada,
     // WSIB) for every active client — incl. the already-seeded ones.
     try {
