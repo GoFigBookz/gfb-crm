@@ -77,6 +77,7 @@ async function statusForClient(db: any, client: typeof clients.$inferSelect, asO
     asOf,
     lastFiled: sc.lastHstFiled,
     fiscalYearEndMonth: fiscalYearEndMonthNum(client.yearEndMonth),
+    explicitDueDate: (client as any).hstNextDue ?? null,
   });
   const yearEnd = computeYearEndStatus({ yearEndMonth: (client.yearEndMonth as MonthAbbr | null) ?? null, asOf });
   const roll = rollUpCloseStatus({ toReview, checklistPercent, hst, yearEnd });

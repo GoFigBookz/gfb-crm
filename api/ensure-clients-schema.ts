@@ -31,7 +31,7 @@ const COLUMNS: Array<[string, string]> = [
   ["painPoints", "text"], ["expectations", "text"],
   ["serviceTier", "text DEFAULT 'standard'"], ["monthlyFee", "real DEFAULT 0"],
   ["onboardingSentAt", "integer"], ["onboardingCompletedAt", "integer"], ["onboardingToken", "text"],
-  ["hasHST", "integer DEFAULT 0"], ["hstNumber", "text"], ["hstPeriod", "text"],
+  ["hasHST", "integer DEFAULT 0"], ["hstNumber", "text"], ["hstPeriod", "text"], ["hstNextDue", "text"],
   ["hasWSIB", "integer DEFAULT 0"], ["wsibAccountNumber", "text"], ["wsibQuarter", "text"],
   ["hasPayroll", "integer DEFAULT 0"], ["payrollExternal", "integer DEFAULT 0"], ["payrollFrequency", "text"], ["payrollRemitterFreq", "text DEFAULT 'regular'"], ["yearEndMonth", "text"],
   ["payrollBonuses", "integer DEFAULT 0"], ["payrollDividends", "integer DEFAULT 0"], ["payrollPhoneAllowance", "integer DEFAULT 0"],
