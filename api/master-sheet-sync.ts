@@ -35,20 +35,21 @@ const MASTER_TAB = "Client Master";
 const SYNC_WEBHOOK =
   process.env.FIGGY_SHEET_SYNC_WEBHOOK || "https://hook.us2.make.com/d4h33m0na6ulrlm9nkv9dyyfa8hv1bcs";
 
-/** Client Master column order (A..Y). Indexes are 0-based. */
+/** Client Master column order (A..Z). Indexes are 0-based. Bio is appended at Z
+ *  so the existing 25-col layout (A..Y) is never reshuffled. */
 const COLS = [
   "name", "status", "industry", "craBn", "registryNo", "incorpDate", "corpType",
   "govtStatus", "closePeriod", "yeMonth", "hstCadence", "nextHstDue", "hstNumber",
   "payrollPeriod", "craRemitter", "payrollRp", "wsibNo", "numEmployees", "posApps",
-  "address", "phone", "email", "website", "owner", "triageEmail",
+  "address", "phone", "email", "website", "owner", "triageEmail", "bio",
 ] as const;
-const N = COLS.length; // 25 → A..Y
+const N = COLS.length; // 26 → A..Z
 // Columns the CRM does NOT own — always preserved from the existing sheet row.
-const GOV_ONLY = new Set(["registryNo", "incorpDate", "corpType", "govtStatus", "closePeriod", "numEmployees", "posApps"]);
+const GOV_ONLY = new Set(["closePeriod", "numEmployees", "posApps"]);
 // Columns the CRM fills only if it has a value, else preserve the sheet's.
-const SOFT = new Set(["industry", "address", "phone", "email", "owner"]);
+const SOFT = new Set(["industry", "registryNo", "incorpDate", "corpType", "govtStatus", "address", "phone", "email", "owner", "bio"]);
 
-const lastColLetter = "Y"; // 25th column
+const lastColLetter = "Z"; // 26th column
 
 export type MasterClient = {
   name?: string | null; company?: string | null; status?: string | null;
@@ -58,6 +59,8 @@ export type MasterClient = {
   payrollRpNumber?: string | null; wsibAccountNumber?: string | null;
   address?: string | null; phone?: string | null; email?: string | null;
   website?: string | null; contactName?: string | null; figgyEmail?: string | null;
+  registryNumber?: string | null; incorporationDate?: string | null;
+  corpType?: string | null; governmentStatus?: string | null; bio?: string | null;
 };
 
 const cap = (s?: string | null) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
@@ -72,6 +75,11 @@ function crmValue(c: MasterClient, key: string): string | null {
     case "status": return cap(c.status) || null;
     case "industry": return c.industry && c.industry !== "other" ? c.industry : null;
     case "craBn": return c.taxId || null;
+    case "registryNo": return c.registryNumber || null;
+    case "incorpDate": return c.incorporationDate || null;
+    case "corpType": return c.corpType || null;
+    case "govtStatus": return c.governmentStatus || null;
+    case "bio": return c.bio || null;
     case "yeMonth": return c.yearEndMonth || null;
     case "hstCadence": return c.hstPeriod ? (titleCadence[c.hstPeriod] ?? cap(c.hstPeriod)) : null;
     case "nextHstDue": return c.hstNextDue || null;

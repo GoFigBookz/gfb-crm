@@ -328,6 +328,13 @@ export const clients = sqliteTable("clients", {
   contactName: text("contactName"),
   // CRA Represent a Client (RAC) authorization status
   craRacDone: integer("craRacDone", { mode: "boolean" }).default(false),
+  // Government-registry data (from Canada's Business Registries / auto-lookup on add).
+  // Mirrors the Client Master sheet so the card holds EVERYTHING about the client.
+  bio: text("bio"),                                  // business bio / description
+  registryNumber: text("registryNumber"),            // Ontario/federal corporation number
+  incorporationDate: text("incorporationDate"),       // YYYY-MM-DD
+  corpType: text("corpType"),                         // e.g. "Ontario Business Corp"
+  governmentStatus: text("governmentStatus"),         // registry status, e.g. "Active"
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
