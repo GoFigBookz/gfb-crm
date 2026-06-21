@@ -526,6 +526,8 @@ export default function ClientDashboard() {
           ["CRA remitter", c.hasPayroll && !c.payrollExternal ? dash(c.payrollRemitterFreq) : "—"],
           ["Payroll RP #", dash(c.payrollRpNumber)],
           ["WSIB #", dash(c.wsibAccountNumber || o.wsibAccountNumber)],
+          ["Company Key", dash(c.companyKey)],
+          ["CRA RepID", dash(c.craRepId)],
           ["Pays dividends", yn(c.payrollDividends)],
         ];
         return (
@@ -1646,6 +1648,10 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
     payrollFrequency: client.payrollFrequency || "bi-weekly",
     payrollRemitterFreq: client.payrollRemitterFreq || "regular",
     yearEndMonth: client.yearEndMonth || "Dec",
+    companyKey: client.companyKey || "", craRepId: client.craRepId || "YY7F3GN",
+    industry: client.industry || "", bio: client.bio || "",
+    registryNumber: client.registryNumber || "", incorporationDate: client.incorporationDate || "",
+    corpType: client.corpType || "", governmentStatus: client.governmentStatus || "",
     avgMonthlyTransactions: o.avgMonthlyTransactions ?? client.transactionsPerMonth ?? 0,
     bookkeepingFrequency: o.bookkeepingFrequency || "monthly",
     employeeCount: o.employeeCount ?? 0, monthsBehind: o.monthsBehind ?? 0,
@@ -1711,8 +1717,20 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
           {field("hstNumber", "HST #", "text", truthy(f.hasHST) && !f.hstNumber)}
           {field("payrollRpNumber", "Payroll RP #", "text", truthy(f.hasPayroll) && !f.payrollRpNumber)}
           {field("wsibAccountNumber", "WSIB #", "text", !!f.hasWSIB && !f.wsibAccountNumber)}
+          {field("companyKey", "Company Key (Service Canada)")}
+          {field("craRepId", "CRA RepID")}
         </div>
         {check("craRacDone", "CRA Represent-a-Client (RAC) access is set up")}
+
+        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Government registry</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {field("industry", "Industry")}
+          {field("registryNumber", "Registry #")}
+          {field("incorporationDate", "Incorporation date")}
+          {field("corpType", "Corp type")}
+          {field("governmentStatus", "Govt status")}
+        </div>
+        {field("bio", "Bio / description")}
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Bookkeeping scope</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">

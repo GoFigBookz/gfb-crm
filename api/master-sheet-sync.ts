@@ -54,7 +54,7 @@ export type FieldKey =
   | "name" | "status" | "industry" | "bio" | "craBn" | "registryNo" | "incorpDate"
   | "corpType" | "govtStatus" | "address" | "phone" | "email" | "website" | "owner"
   | "triageEmail" | "yeMonth" | "hstCadence" | "nextHstDue" | "hstNumber"
-  | "payrollPeriod" | "craRemitter" | "payrollRp" | "wsibNo";
+  | "payrollPeriod" | "craRemitter" | "payrollRp" | "wsibNo" | "companyKey" | "craRepId";
 
 type FieldDef = {
   key: FieldKey;
@@ -79,7 +79,7 @@ export const MASTER_FIELDS: FieldDef[] = [
   { key: "phone", match: h => h.includes("phone"), toSheet: c => c.phone || null, soft: true, fromSheet: r => ({ phone: r }) },
   { key: "triageEmail", match: h => h.includes("triage"), toSheet: c => c.figgyEmail || null, soft: false, fromSheet: r => ({ figgyEmail: r }) },
   { key: "email", match: h => h === "email" || (h.includes("email") && !h.includes("triage")), toSheet: c => c.email || null, soft: true, fromSheet: r => ({ email: r }) },
-  { key: "website", match: h => h.includes("website") || h.includes("web site"), toSheet: c => c.website || null, soft: true, fromSheet: r => ({ website: r }) },
+  { key: "website", match: h => h.includes("website") || h.includes("web site"), toSheet: c => (c.website ? c.website.toLowerCase() : null), soft: true, fromSheet: r => ({ website: r.toLowerCase() }) },
   { key: "owner", match: h => h.includes("owner") || h === "contact", toSheet: c => c.contactName || null, soft: true, fromSheet: r => ({ contactName: r }) },
   { key: "yeMonth", match: h => h.includes("year end") || h.includes("ye month") || h.includes("fiscal"), toSheet: c => c.yearEndMonth || null, soft: false, fromSheet: r => ({ yearEndMonth: r }) },
   { key: "hstCadence", match: h => h.includes("hst cadence") || (h.includes("hst") && h.includes("cadence")), toSheet: c => (c.hstPeriod ? (titleCadence[c.hstPeriod] ?? cap(c.hstPeriod)) : null), soft: false, fromSheet: r => { const p = cadenceIn(r); return p ? { hstPeriod: p, hasHST: true } : null; } },
@@ -89,6 +89,8 @@ export const MASTER_FIELDS: FieldDef[] = [
   { key: "craRemitter", match: h => h.includes("remitter"), toSheet: c => (c.payrollRemitterFreq ? (titleRemit[c.payrollRemitterFreq] ?? cap(c.payrollRemitterFreq)) : null), soft: false, fromSheet: r => { const p = remitIn(r); return p ? { payrollRemitterFreq: p } : null; } },
   { key: "payrollRp", match: h => h.includes("payroll rp") || (h.includes("payroll") && h.includes("rp")), toSheet: c => c.payrollRpNumber || null, soft: true, fromSheet: r => ({ payrollRpNumber: r }) },
   { key: "wsibNo", match: h => h.includes("wsib"), toSheet: c => c.wsibAccountNumber || null, soft: true, fromSheet: r => ({ wsibAccountNumber: r, hasWSIB: true }) },
+  { key: "companyKey", match: h => h.includes("company key") || h.includes("service canada"), toSheet: c => c.companyKey || null, soft: true, fromSheet: r => ({ companyKey: r }) },
+  { key: "craRepId", match: h => h.includes("repid") || h.includes("rep id") || (h.includes("cra") && h.includes("rep")), toSheet: c => c.craRepId || "YY7F3GN", soft: false, fromSheet: r => ({ craRepId: r }) },
 ];
 
 /** The default header row written if the Client Master tab is ever empty. */
@@ -97,7 +99,7 @@ export const DEFAULT_MASTER_HEADER = [
   "Registry #", "Incorporation Date", "Corp Type", "Govt Status", "Address", "Phone",
   "Email", "Website", "Owner / Contact", "Figgy Triage Email", "Year-End Month",
   "Close Period", "HST Cadence", "Next HST Due", "HST #", "Payroll", "CRA Remitter",
-  "Payroll RP #", "WSIB #", "# Employees", "POS / Apps",
+  "Payroll RP #", "WSIB #", "# Employees", "POS / Apps", "Company Key", "CRA RepID",
 ];
 
 /** Map each known field → its column index in this header row (first match wins). */

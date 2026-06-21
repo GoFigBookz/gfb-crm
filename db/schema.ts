@@ -335,6 +335,8 @@ export const clients = sqliteTable("clients", {
   incorporationDate: text("incorporationDate"),       // YYYY-MM-DD
   corpType: text("corpType"),                         // e.g. "Ontario Business Corp"
   governmentStatus: text("governmentStatus"),         // registry status, e.g. "Active"
+  companyKey: text("companyKey"),                      // Service Canada company key (ROE Web / company lookup)
+  craRepId: text("craRepId"),                          // CRA Represent-a-Client RepID (firm-level: YY7F3GN)
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
