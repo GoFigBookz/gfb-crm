@@ -1,609 +1,279 @@
-import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import {
-  Users,
-  CheckSquare,
-  AlertCircle,
-  DollarSign,
-  CalendarDays,
-  TrendingUp,
-  ArrowUpRight,
-  ArrowDownRight,
-  FileText,
-  Clock,
-  Target,
-  Flame,
-  Sun,
-  Plus,
-  Shield,
-  AlertTriangle,
-  XCircle,
-  UserCheck,
-  ChevronRight,
-  Building2,
+  Users, CheckSquare, AlertCircle, CalendarDays, FileText, Clock, Flame, Plus,
+  Shield, ChevronRight, Building2, DollarSign, Target, ListChecks, Receipt,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { trpc } from "@/providers/trpc";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { TaskDetailDialog } from "@/components/TaskDetailDialog";
+import { splitClientName } from "@/lib/clientName";
 
-/* ─── Demo triage data (mirrors TriageDashboard) ─── */
-interface TriageItem {
-  id: number;
-  clientName: string;
-  severity: "critical" | "warning" | "info";
-  title: string;
-  description: string;
-  suggestedAction: string;
+const TRAFFIC = { red: "bg-red-500", yellow: "bg-amber-400", green: "bg-lime-500" } as const;
+
+/** A proportional segmented bar (honest distribution — no faked time-series). */
+function SegBar({ segments }: { segments: { value: number; color: string; label: string }[] }) {
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  return (
+    <div className="flex h-2.5 rounded-full overflow-hidden bg-slate-100">
+      {segments.map((s, i) => s.value > 0 ? (
+        <div key={i} className={s.color} style={{ width: `${(s.value / total) * 100}%` }} title={`${s.label}: ${s.value}`} />
+      ) : null)}
+    </div>
+  );
 }
-
-const demoTriageItems: TriageItem[] = [
-  {
-    id: 1, clientName: "Acme Construction", severity: "critical",
-    title: "$2,400 reconciliation difference",
-    description: "Bank statement ending balance does not match QBO. 3 uncleared transactions.",
-    suggestedAction: "Review uncleared items in QBO",
-  },
-  {
-    id: 2, clientName: "Acme Construction", severity: "warning",
-    title: "12 receipts missing for March",
-    description: "Expense transactions total $3,450 with no attached receipts. GST ITCs may be lost.",
-    suggestedAction: "Request receipts from client",
-  },
-  {
-    id: 3, clientName: "Smith Plumbing", severity: "critical",
-    title: "Q1 HST due in 3 days",
-    description: "HST return for Jan-Mar period due April 30. Return not yet prepared.",
-    suggestedAction: "Prepare and file immediately",
-  },
-  {
-    id: 4, clientName: "TechStart Inc", severity: "warning",
-    title: "Unusual payroll spike: +$8,500",
-    description: "March payroll is 35% higher than average. Possible bonus or error.",
-    suggestedAction: "Verify with client before remitting",
-  },
-  {
-    id: 5, clientName: "Acme Construction", severity: "info",
-    title: "Sales entry from Stripe: $12,400",
-    description: "47 Stripe transactions matched to deposits. Ready for review.",
-    suggestedAction: "Review and approve categorization",
-  },
-];
-
-const severityConfig = {
-  critical: { icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50", border: "border-red-200", badge: "destructive" as const },
-  warning: { icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200", badge: "default" as const },
-  info: { icon: FileText, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200", badge: "secondary" as const },
-};
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [openTask, setOpenTask] = useState<any | null>(null);
 
   const { data: clientStats } = trpc.crmClient.stats.useQuery();
-  const { data: pipelineStats } = trpc.crmClient.pipelineStats.useQuery();
+  const { data: pipeline } = trpc.crmClient.pipelineStats.useQuery();
   const { data: upcomingTasks } = trpc.task.upcoming.useQuery({ days: 7 });
   const { data: overdueTasks } = trpc.task.overdue.useQuery();
-  const { data: dashClients } = trpc.crmClient.list.useQuery();
-  const dashUtils = trpc.useUtils();
-  const completeUrgent = trpc.task.complete.useMutation({
-    onSuccess: () => { dashUtils.task.overdue.invalidate(); dashUtils.task.upcoming.invalidate(); },
-  });
-  const clientNameFor = (cid: number | null | undefined) =>
-    (dashClients || []).find((c: any) => c.id === cid)?.name ?? null;
-  // Urgent queue: overdue first (oldest first), then next-7-day upcoming, grouped
-  // by client so Markie sees who's behind at a glance.
-  const urgentTasks = [
-    ...((overdueTasks || []).map((t: any) => ({ ...t, _bucket: "overdue" as const }))),
-    ...((upcomingTasks || []).map((t: any) => ({ ...t, _bucket: "upcoming" as const }))),
-  ].sort((a, b) => {
-    if (a._bucket !== b._bucket) return a._bucket === "overdue" ? -1 : 1;
-    return new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime();
-  });
-  const urgentByClient = (() => {
-    const m = new Map<string, { clientId: number | null; name: string; tasks: any[] }>();
-    for (const t of urgentTasks) {
-      const key = String(t.clientId ?? "none");
-      if (!m.has(key)) m.set(key, { clientId: t.clientId ?? null, name: clientNameFor(t.clientId) || "Internal / no client", tasks: [] });
-      m.get(key)!.tasks.push(t);
-    }
-    // groups with an overdue task float up; otherwise by earliest due date
-    return [...m.values()].sort((a, b) => {
-      const ao = a.tasks.some((t) => t._bucket === "overdue") ? 0 : 1;
-      const bo = b.tasks.some((t) => t._bucket === "overdue") ? 0 : 1;
-      if (ao !== bo) return ao - bo;
-      return new Date(a.tasks[0]?.dueDate || 0).getTime() - new Date(b.tasks[0]?.dueDate || 0).getTime();
-    });
-  })();
   const { data: invoiceStats } = trpc.invoice.stats.useQuery();
   const { data: expiringDocs } = trpc.expiration.getExpiringSoon.useQuery({ days: 30 });
-
   const { data: dailyBrief } = trpc.dailyBrief.get.useQuery();
-  // Live triage findings (Figgy Jr / agents) — falls back to demo data when empty
+  const { data: portfolio } = trpc.monthEnd.getPortfolio.useQuery({});
   const { data: rawFindings } = trpc.agentWebhook.listFindings.useQuery({ status: "new" });
-  const liveTriage: TriageItem[] = (rawFindings || []).map((f: any) => ({
-    id: f.id,
-    clientName: f.agentName || "Figgy Jr",
-    severity: f.severity,
-    title: f.title,
-    description: f.description || "",
-    suggestedAction: f.suggestedAction || "",
-  }));
-  const triageItems: TriageItem[] = liveTriage.length ? liveTriage : demoTriageItems;
-  const utils = trpc.useUtils();
-  const setPriorities = trpc.dailyBrief.setPriorities.useMutation({
-    onSuccess: () => utils.dailyBrief.get.invalidate()
-  });
 
-  const statCards = [
-    {
-      title: "Total Clients",
-      value: clientStats?.total ?? 0,
-      subtitle: `${clientStats?.active ?? 0} active · ${clientStats?.total ? clientStats.total - (clientStats.active ?? 0) : 0} other`,
-      icon: Users,
-      trend: "up" as const,
-      color: "bg-blue-500",
-      onClick: () => navigate("/clients?status=all"),
-    },
-    {
-      title: "Active Clients",
-      value: clientStats?.active ?? 0,
-      subtitle: "Currently active",
-      icon: Users,
-      trend: "up" as const,
-      color: "bg-lime-600",
-      onClick: () => navigate("/clients?status=active"),
-    },
-    {
-      title: "Pipeline Value",
-      value: `$${(pipelineStats?.totalPipelineValue ?? 0).toLocaleString()}`,
-      subtitle: `${pipelineStats?.totalLeads ?? 0} leads · ${pipelineStats?.engagementsSent ?? 0} waiting`,
-      icon: Target,
-      trend: "up" as const,
-      color: "bg-violet-500",
-      onClick: () => navigate("/clients?status=lead"),
-    },
-    {
-      title: "Pending Tasks",
-      value: upcomingTasks?.length ?? 0,
-      subtitle: `${overdueTasks?.length ?? 0} overdue`,
-      icon: CheckSquare,
-      trend: overdueTasks && overdueTasks.length > 0 ? "down" : "up",
-      color: "bg-amber-500",
-      onClick: () => navigate("/tasks?tab=upcoming"),
-    },
-    {
-      title: "Overdue Tasks",
-      value: overdueTasks?.length ?? 0,
-      subtitle: "Need attention",
-      icon: AlertCircle,
-      trend: "down" as const,
-      color: "bg-red-500",
-      onClick: () => navigate("/tasks?tab=overdue"),
-    },
-    {
-      title: "Total Revenue",
-      value: `$${(invoiceStats?.totalRevenue ?? 0).toLocaleString()}`,
-      subtitle: `$${(invoiceStats?.outstanding ?? 0).toLocaleString()} outstanding`,
-      icon: DollarSign,
-      trend: "up" as const,
-      color: "bg-lime-500",
-      onClick: () => navigate("/invoices"),
-    },
+  const sum = portfolio?.summary;
+  const behind = (sum?.red ?? 0) + (sum?.yellow ?? 0);
+  const findings = rawFindings ?? [];
+
+  // "Who's behind" — relevant-this-period clients, worst-first (already sorted by the API).
+  const board = (portfolio?.clients ?? []).filter((c: any) => c.relevantThisPeriod);
+
+  // Today agenda — overdue first, then due-today, then calendar (from the daily brief).
+  const agenda: { id: string; tone: string; icon: any; text: string; right?: string; go: () => void }[] = [];
+  for (const t of (dailyBrief?.overdue ?? []).slice(0, 4)) agenda.push({ id: `o${t.id}`, tone: "text-red-600", icon: Flame, text: t.title, right: "overdue", go: () => navigate("/tasks?tab=overdue") });
+  for (const t of (dailyBrief?.today ?? []).slice(0, 4)) agenda.push({ id: `t${t.id}`, tone: "text-amber-600", icon: Clock, text: t.title, right: "today", go: () => navigate("/tasks?tab=today") });
+  for (const e of (dailyBrief?.calendar ?? []).slice(0, 3)) agenda.push({ id: `c${e.id}`, tone: "text-blue-600", icon: CalendarDays, text: e.title, right: e.startDate ? format(new Date(e.startDate), "h:mm a") : "", go: () => navigate("/calendar") });
+
+  // Deadlines — unfiled HST due soon (from the close board) + expiring documents.
+  const hstDue = board
+    .filter((c: any) => c.hst?.applicable && c.hst?.daysToDue != null && !c.hst?.filed && c.hst.daysToDue <= 45)
+    .map((c: any) => ({ key: `hst${c.clientId}`, name: splitClientName(c.clientName, c.company).primary, label: c.hst.periodLabel ? `HST ${c.hst.periodLabel}` : "HST", days: c.hst.daysToDue, go: () => navigate(`/client/${c.clientId}`) }))
+    .sort((a: any, b: any) => a.days - b.days);
+  const docDue = (expiringDocs?.items ?? []).map((d: any) => ({ key: `doc${d.type}${d.id}`, name: d.clientName, label: d.title, days: d.daysRemaining, go: () => navigate("/signatures") }));
+  const deadlines = [...hstDue, ...docDue].sort((a, b) => a.days - b.days).slice(0, 6);
+
+  const money = (n: number) => `$${(n ?? 0).toLocaleString()}`;
+  const kpis = [
+    { label: "Clients", value: clientStats?.active ?? 0, sub: `${clientStats?.total ?? 0} total`, icon: Users, tone: "text-slate-900", go: () => navigate("/clients?status=active") },
+    { label: "Behind", value: behind, sub: `${sum?.red ?? 0} red · ${sum?.yellow ?? 0} yellow`, icon: AlertCircle, tone: behind > 0 ? "text-red-600" : "text-slate-900", go: () => navigate("/month-end-close") },
+    { label: "To post", value: sum?.toReviewTotal ?? 0, sub: "needs review", icon: Shield, tone: (sum?.toReviewTotal ?? 0) > 0 ? "text-purple-600" : "text-slate-900", go: () => navigate("/triage") },
+    { label: "Overdue", value: overdueTasks?.length ?? 0, sub: "tasks", icon: Flame, tone: (overdueTasks?.length ?? 0) > 0 ? "text-red-600" : "text-slate-900", go: () => navigate("/tasks?tab=overdue") },
+    { label: "This week", value: upcomingTasks?.length ?? 0, sub: "due ≤7d", icon: CheckSquare, tone: "text-slate-900", go: () => navigate("/tasks?tab=upcoming") },
+    { label: "Outstanding", value: money(invoiceStats?.outstanding ?? 0), sub: `${invoiceStats?.overdue ?? 0} overdue inv`, icon: Receipt, tone: "text-slate-900", go: () => navigate("/invoices") },
+    { label: "Pipeline", value: money(pipeline?.totalPipelineValue ?? 0), sub: `${pipeline?.totalLeads ?? 0} leads`, icon: Target, tone: "text-slate-900", go: () => navigate("/clients?status=lead") },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500">Your business at a glance</p>
+          <h1 className="text-2xl font-bold text-slate-900">{dailyBrief?.greeting ? `${dailyBrief.greeting}, Markie` : "Dashboard"}</h1>
+          <p className="text-slate-500 text-sm">{format(new Date(), "EEEE, MMMM d")} · your practice at a glance</p>
         </div>
-        <Button onClick={() => navigate("/calendar")} variant="outline">
-          <CalendarDays className="h-4 w-4 mr-2" />
-          View Calendar
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => navigate("/calendar")}><CalendarDays className="h-4 w-4 mr-1.5" /> Calendar</Button>
+          <Button size="sm" onClick={() => navigate("/quick-add")}><Plus className="h-4 w-4 mr-1.5" /> Quick Add</Button>
+        </div>
       </div>
 
-      {/* URGENT TASKS — overdue + next 7 days, grouped by client, top of page */}
-      <Card className="border-l-4 border-l-red-500">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Flame className="h-5 w-5 text-red-500" /> Urgent — overdue &amp; this week
-            </CardTitle>
-            <div className="flex items-center gap-2 text-xs">
-              <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">{overdueTasks?.length ?? 0} overdue</Badge>
-              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">{upcomingTasks?.length ?? 0} this week</Badge>
-              <Button size="sm" variant="ghost" className="h-7" onClick={() => navigate("/tasks?tab=overdue")}>All tasks <ChevronRight className="h-4 w-4" /></Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {urgentByClient.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4 text-center">Nothing overdue or due this week 🎉</p>
-          ) : (
-            <div className="space-y-4 max-h-[26rem] overflow-auto">
-              {urgentByClient.slice(0, 12).map((grp) => (
-                <div key={String(grp.clientId)}>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    {grp.clientId ? (
-                      <Link to={`/client/${grp.clientId}`} className="text-sm font-semibold text-slate-800 hover:text-lime-700 inline-flex items-center gap-1">
-
-                        <Building2 className="h-3.5 w-3.5" />{grp.name}
-                      </Link>
-                    ) : (
-                      <span className="text-sm font-semibold text-slate-500 inline-flex items-center gap-1"><Building2 className="h-3.5 w-3.5" />{grp.name}</span>
-                    )}
-                    <span className="text-xs text-slate-400">({grp.tasks.length})</span>
-                  </div>
-                  <div className="space-y-1 pl-1">
-                    {grp.tasks.map((t: any) => (
-                      <div key={t.id} onClick={() => setOpenTask(t)} className={cn("flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer hover:shadow-sm", t._bucket === "overdue" ? "bg-red-50" : "bg-amber-50/60")}>
-                        <button title="Mark done" onClick={(e) => { e.stopPropagation(); completeUrgent.mutate({ id: t.id }); }}
-                          className="w-4 h-4 shrink-0 rounded-full border-2 border-slate-300 hover:border-lime-500 hover:bg-lime-100 transition-colors" />
-                        <span className="flex-1 text-sm text-slate-700 truncate">{t.title}</span>
-                        {t.category && <Badge variant="secondary" className="text-[10px] hidden sm:inline-flex">{t.category}</Badge>}
-                        <span className={cn("text-xs whitespace-nowrap", t._bucket === "overdue" ? "text-red-600 font-medium" : "text-amber-600")}>
-                          {t.dueDate ? format(new Date(t.dueDate), "MMM d") : "—"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Morning Brief */}
-      {dailyBrief && (
-        <Card className={cn(
-          "border-l-4",
-          dailyBrief.stats.overdueCount > 0 ? "border-l-red-500 bg-red-50/30" : "border-l-lime-500 bg-lime-50/30"
-        )}>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Sun className="h-5 w-5 text-amber-500" />
-                <h2 className="text-lg font-bold text-slate-800">
-                  {dailyBrief.greeting}, Markie! ☀️
-                </h2>
-              </div>
-              <Button size="sm" variant="outline" onClick={() => navigate("/quick-add")}>
-                <Plus className="h-4 w-4 mr-1" />
-                Quick Add
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <div className="bg-white rounded-lg p-3 border border-slate-200">
-                <div className="flex items-center gap-1.5 text-red-600">
-                  <Flame className="h-4 w-4" />
-                  <span className="text-xs font-semibold">Overdue</span>
-                </div>
-                <p className="text-2xl font-bold text-slate-900">{dailyBrief.stats.overdueCount}</p>
-              </div>
-              <div className="bg-white rounded-lg p-3 border border-slate-200">
-                <div className="flex items-center gap-1.5 text-amber-600">
-                  <Clock className="h-4 w-4" />
-                  <span className="text-xs font-semibold">Today</span>
-                </div>
-                <p className="text-2xl font-bold text-slate-900">{dailyBrief.stats.todayCount}</p>
-              </div>
-              <div className="bg-white rounded-lg p-3 border border-slate-200">
-                <div className="flex items-center gap-1.5 text-blue-600">
-                  <CalendarDays className="h-4 w-4" />
-                  <span className="text-xs font-semibold">Calendar</span>
-                </div>
-                <p className="text-2xl font-bold text-slate-900">{dailyBrief.stats.calendarCount}</p>
-              </div>
-              <div className="bg-white rounded-lg p-3 border border-slate-200">
-                <div className="flex items-center gap-1.5 text-slate-600">
-                  <CheckSquare className="h-4 w-4" />
-                  <span className="text-xs font-semibold">Pending</span>
-                </div>
-                <p className="text-2xl font-bold text-slate-900">{dailyBrief.stats.totalPending}</p>
-              </div>
-            </div>
-
-            {/* Overdue tasks preview */}
-            {dailyBrief.overdue.length > 0 && (
-              <div className="mb-3">
-                <p className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-1">
-                  <Flame className="h-4 w-4" />
-                  Overdue — handle these first!
-                </p>
-                <div className="space-y-1.5">
-                  {dailyBrief.overdue.slice(0, 3).map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2"
-                      onClick={() => navigate(`/tasks?tab=overdue`)}
-                    >
-                      <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-                      <span className="text-sm text-red-800 truncate">{task.title}</span>
-                    </div>
-                  ))}
-                  {dailyBrief.overdue.length > 3 && (
-                    <p className="text-xs text-red-600 pl-1">
-                      +{dailyBrief.overdue.length - 3} more overdue
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Today's tasks preview */}
-            {dailyBrief.today.length > 0 && (
-              <div className="mb-3">
-                <p className="text-sm font-semibold text-amber-700 mb-2">
-                  Due Today
-                </p>
-                <div className="space-y-1.5">
-                  {dailyBrief.today.slice(0, 3).map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
-                      onClick={() => navigate(`/tasks?tab=today`)}
-                    >
-                      <Clock className="h-4 w-4 text-amber-500 shrink-0" />
-                      <span className="text-sm text-amber-800 truncate">{task.title}</span>
-                    </div>
-                  ))}
-                  {dailyBrief.today.length > 3 && (
-                    <p className="text-xs text-amber-600 pl-1">
-                      +{dailyBrief.today.length - 3} more due today
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Calendar preview */}
-            {dailyBrief.calendar.length > 0 && (
-              <div>
-                <p className="text-sm font-semibold text-blue-700 mb-2">
-                  Calendar Today
-                </p>
-                <div className="space-y-1.5">
-                  {dailyBrief.calendar.slice(0, 3).map((evt) => (
-                    <div
-                      key={evt.id}
-                      className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2"
-                      onClick={() => navigate("/calendar")}
-                    >
-                      <CalendarDays className="h-4 w-4 text-blue-500 shrink-0" />
-                      <span className="text-sm text-blue-800 truncate">{evt.title}</span>
-                      <span className="text-xs text-blue-600 ml-auto">
-                        {evt.startDate ? format(new Date(evt.startDate), "h:mm a") : ""}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {dailyBrief.overdue.length === 0 && dailyBrief.today.length === 0 && dailyBrief.calendar.length === 0 && (
-              <div className="text-center py-4">
-                <p className="text-slate-500">Nothing urgent today! 🎉</p>
-                <Button variant="outline" className="mt-2" onClick={() => navigate("/quick-add")}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add a task
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Figgy Junior — compact summary (full view lives on the Triage page) */}
-      <button
-        onClick={() => navigate("/triage")}
-        className="w-full flex items-center justify-between gap-3 rounded-lg border border-l-4 border-l-purple-500 bg-purple-50/30 px-4 py-2.5 text-left hover:bg-purple-50 transition-colors"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <Shield className="h-4 w-4 text-purple-500 shrink-0" />
-          <span className="font-semibold text-sm text-slate-800">Figgy Junior</span>
-          <span className="text-sm text-slate-500 truncate">
-            {triageItems.length} need{triageItems.length === 1 ? "s" : ""} review
-            {triageItems.filter(i => i.severity === "critical").length > 0
-              ? ` · ${triageItems.filter(i => i.severity === "critical").length} critical`
-              : ""}
-          </span>
-        </div>
-        <span className="flex items-center gap-1 text-sm text-purple-600 shrink-0">
-          Review <ChevronRight className="h-4 w-4" />
-        </span>
-      </button>
-
-      {/* Stats Grid — 6 cards: 3x2 on desktop, 2x3 on tablet, 1x6 on mobile */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {statCards.map((stat) => {
-          const Icon = stat.icon;
-          const TrendIcon = stat.trend === "up" ? ArrowUpRight : ArrowDownRight;
-          return (
-            <Card
-              key={stat.title}
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={stat.onClick}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className={cn("p-3 rounded-lg", stat.color)}>
-                    <Icon className="h-5 w-5 text-white" />
-                  </div>
-                  <TrendIcon
-                    className={cn(
-                      "h-5 w-5",
-                      stat.trend === "up" ? "text-lime-500" : "text-red-500"
-                    )}
-                  />
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm text-slate-500">{stat.title}</p>
-                  <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                  <p className="text-xs text-slate-400 mt-1">{stat.subtitle}</p>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* KPI strip — dense, one row */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-2">
+        {kpis.map((k) => (
+          <button key={k.label} onClick={k.go} className="text-left rounded-xl border border-slate-200 bg-white px-3 py-2.5 hover:shadow-sm hover:border-slate-300 transition">
+            <div className="flex items-center gap-1.5 text-slate-500"><k.icon className="h-3.5 w-3.5" /><span className="text-[11px] font-medium uppercase tracking-wide truncate">{k.label}</span></div>
+            <div className={cn("text-xl font-bold mt-0.5 leading-tight truncate", k.tone)}>{k.value}</div>
+            <div className="text-[11px] text-slate-400 truncate">{k.sub}</div>
+          </button>
+        ))}
       </div>
 
-      {/* Expiring Documents Alert */}
-      {expiringDocs && expiringDocs.total > 0 && (
-        <Card className="border-amber-300 bg-amber-50/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2 text-amber-800">
-              <Clock className="h-5 w-5 text-amber-600" />
-              Documents Expiring Soon ({expiringDocs.total})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {expiringDocs.items.slice(0, 3).map((doc) => (
-                <div key={`${doc.type}-${doc.id}`} className="flex items-center justify-between p-2 bg-white rounded-lg border border-amber-200">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-amber-500" />
-                    <div>
-                      <p className="text-sm font-medium">{doc.title}</p>
-                      <p className="text-xs text-slate-500">{doc.clientName}</p>
-                    </div>
-                  </div>
-                  <Badge
-                    variant={doc.daysRemaining <= 7 ? "destructive" : "outline"}
-                    className={cn(
-                      "text-xs",
-                      doc.daysRemaining <= 7 && "bg-red-100 text-red-700 border-red-300",
-                      doc.daysRemaining > 7 && doc.daysRemaining <= 14 && "bg-amber-100 text-amber-700 border-amber-300",
-                    )}
-                  >
-                    {doc.daysRemaining}d
-                  </Badge>
-                </div>
-              ))}
-              {expiringDocs.total > 3 && (
-                <Button variant="link" className="p-0 h-auto text-sm text-amber-700" onClick={() => navigate("/signatures")}>
-                  View all {expiringDocs.total} expiring documents →
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Upcoming Tasks */}
+      {/* Main grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Who's behind — month-end close board */}
         <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <CheckSquare className="h-5 w-5 text-amber-500" />
-              Upcoming Tasks
-            </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => navigate("/tasks?tab=upcoming")}>
-              View All
-            </Button>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2"><ListChecks className="h-5 w-5 text-lime-600" /> Month-end — who's behind</CardTitle>
+              <div className="flex items-center gap-2">
+                <span className="hidden sm:flex items-center gap-2 text-xs text-slate-500">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" />{sum?.red ?? 0}</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />{sum?.yellow ?? 0}</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-lime-500" />{sum?.green ?? 0}</span>
+                </span>
+                <Button size="sm" variant="ghost" className="h-7" onClick={() => navigate("/month-end-close")}>Full board <ChevronRight className="h-4 w-4" /></Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            {!upcomingTasks || upcomingTasks.length === 0 ? (
-              <div className="text-center py-8 text-slate-400">
-                <CheckSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No upcoming tasks for the next 7 days</p>
-              </div>
+            {board.length === 0 ? (
+              <p className="text-sm text-slate-400 py-8 text-center">No clients on the board this period 🎉</p>
             ) : (
-              <div className="space-y-3">
-                {upcomingTasks.slice(0, 5).map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-                    onClick={() => navigate("/tasks?tab=upcoming")}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          "w-2 h-2 rounded-full",
-                          task.priority === "high"
-                            ? "bg-red-500"
-                            : task.priority === "medium"
-                            ? "bg-amber-500"
-                            : "bg-lime-500"
-                        )}
-                      />
-                      <div>
-                        <p className="font-medium text-slate-900">{task.title}</p>
-                        <p className="text-sm text-slate-500">
-                          Due: {task.dueDate ? format(new Date(task.dueDate), "MMM d, yyyy") : "No date"}
-                        </p>
+              <div className="divide-y divide-slate-100 max-h-[28rem] overflow-auto -mx-2">
+                {board.slice(0, 12).map((c: any) => {
+                  const nm = splitClientName(c.clientName, c.company);
+                  const hst = c.hst;
+                  return (
+                    <Link key={c.clientId} to={`/client/${c.clientId}`} className="flex items-center gap-2.5 px-2 py-2 hover:bg-slate-50 rounded-md">
+                      <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", TRAFFIC[c.status as keyof typeof TRAFFIC])} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-medium text-slate-800 truncate">{nm.primary}</span>
+                          {c.clientType && c.clientType !== "monthly" && <span className="text-[10px] text-slate-400 capitalize hidden sm:inline">{c.clientType}</span>}
+                        </div>
+                        {c.reasons?.[0] && <p className="text-xs text-slate-400 truncate">{c.reasons[0]}</p>}
                       </div>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className={
-                        task.priority === "high"
-                          ? "bg-red-50 text-red-700 border-red-200"
-                          : task.priority === "medium"
-                          ? "bg-amber-50 text-amber-700 border-amber-200"
-                          : "bg-lime-50 text-lime-700 border-lime-200"
-                      }
-                    >
-                      {task.priority}
-                    </Badge>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {c.toReview > 0 && <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px]">{c.toReview} to post</Badge>}
+                        {hst?.applicable && hst?.daysToDue != null && !hst?.filed && (
+                          <Badge variant="outline" className={cn("text-[10px]", hst.daysToDue <= 7 ? "bg-red-50 text-red-700 border-red-200" : "bg-amber-50 text-amber-700 border-amber-200")}>
+                            HST {hst.daysToDue < 0 ? `${-hst.daysToDue}d late` : `${hst.daysToDue}d`}
+                          </Badge>
+                        )}
+                        {(c.missing ?? []).slice(0, 1).map((m: string) => <Badge key={m} variant="outline" className="bg-red-50 text-red-600 border-red-200 text-[10px]">{m}</Badge>)}
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Overdue Tasks */}
+        {/* Right column — Figgy review + Today + Deadlines */}
+        <div className="space-y-4">
+          {/* Figgy review queue */}
+          <Card className="border-l-4 border-l-purple-500">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2"><Shield className="h-5 w-5 text-purple-500" /> Figgy — needs review</CardTitle>
+                <Button size="sm" variant="ghost" className="h-7" onClick={() => navigate("/triage")}>{findings.length} <ChevronRight className="h-4 w-4" /></Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {findings.length === 0 ? (
+                <p className="text-sm text-slate-400 py-3 text-center">Nothing needs review 🎉</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {findings.slice(0, 4).map((f: any) => (
+                    <button key={f.id} onClick={() => navigate("/triage")} className="w-full flex items-start gap-2 text-left rounded-md px-2 py-1.5 hover:bg-slate-50">
+                      <span className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", f.severity === "critical" ? "bg-red-500" : f.severity === "warning" ? "bg-amber-400" : "bg-blue-400")} />
+                      <div className="min-w-0">
+                        <p className="text-sm text-slate-700 truncate">{f.title}</p>
+                        <p className="text-xs text-slate-400 truncate">{f.agentName || "Figgy Jr"}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Today agenda */}
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Clock className="h-5 w-5 text-amber-500" /> Today</CardTitle></CardHeader>
+            <CardContent>
+              {agenda.length === 0 ? (
+                <p className="text-sm text-slate-400 py-3 text-center">Nothing urgent today 🎉</p>
+              ) : (
+                <div className="space-y-1">
+                  {agenda.slice(0, 7).map((a) => (
+                    <button key={a.id} onClick={a.go} className="w-full flex items-center gap-2 text-left rounded-md px-2 py-1.5 hover:bg-slate-50">
+                      <a.icon className={cn("h-3.5 w-3.5 shrink-0", a.tone)} />
+                      <span className="flex-1 text-sm text-slate-700 truncate">{a.text}</span>
+                      {a.right && <span className={cn("text-[11px] whitespace-nowrap", a.tone)}>{a.right}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Deadlines */}
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><CalendarDays className="h-5 w-5 text-blue-500" /> Deadlines</CardTitle></CardHeader>
+            <CardContent>
+              {deadlines.length === 0 ? (
+                <p className="text-sm text-slate-400 py-3 text-center">No deadlines in the next 45 days</p>
+              ) : (
+                <div className="space-y-1">
+                  {deadlines.map((d) => (
+                    <button key={d.key} onClick={d.go} className="w-full flex items-center gap-2 text-left rounded-md px-2 py-1.5 hover:bg-slate-50">
+                      <FileText className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-slate-700 truncate">{d.label}</p>
+                        <p className="text-xs text-slate-400 truncate">{d.name}</p>
+                      </div>
+                      <Badge variant="outline" className={cn("text-[10px]", d.days <= 7 ? "bg-red-50 text-red-700 border-red-200" : "bg-slate-50 text-slate-600")}>{d.days < 0 ? `${-d.days}d late` : `${d.days}d`}</Badge>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Trends — honest distributions (no faked time-series) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-red-500" />
-              Overdue
-            </CardTitle>
-            <Badge 
-              variant="destructive" 
-              className="bg-red-500 cursor-pointer hover:bg-red-600 transition-colors"
-              onClick={() => navigate("/tasks?tab=overdue")}
-            >
-              {overdueTasks?.length ?? 0}
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            {!overdueTasks || overdueTasks.length === 0 ? (
-              <div className="text-center py-8 text-slate-400">
-                <TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>Great! No overdue tasks</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {overdueTasks.slice(0, 5).map((task) => (
-                  <div 
-                    key={task.id} 
-                    className="p-3 bg-red-50 rounded-lg border border-red-100 cursor-pointer hover:bg-red-100 transition-colors"
-                    onClick={() => navigate(`/tasks?tab=overdue`)}
-                  >
-                    <p className="font-medium text-slate-900">{task.title}</p>
-                    <p className="text-sm text-slate-500">{task.category || "General"}</p>
-                    <p className="text-xs text-red-600 mt-1">
-                      {task.dueDate ? format(new Date(task.dueDate), "MMM d") : "No date"} - overdue
-                    </p>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2"><span className="text-sm font-medium text-slate-700">Close status</span><span className="text-xs text-slate-400">{sum?.relevant ?? 0} this period</span></div>
+            <SegBar segments={[
+              { value: sum?.red ?? 0, color: "bg-red-500", label: "Behind" },
+              { value: sum?.yellow ?? 0, color: "bg-amber-400", label: "At risk" },
+              { value: sum?.green ?? 0, color: "bg-lime-500", label: "On track" },
+            ]} />
+            <div className="flex justify-between mt-2 text-xs text-slate-500">
+              <span>{sum?.red ?? 0} behind</span><span>{sum?.yellow ?? 0} at risk</span><span>{sum?.green ?? 0} on track</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2"><span className="text-sm font-medium text-slate-700">Task load</span><span className="text-xs text-slate-400">{dailyBrief?.stats.totalPending ?? 0} pending</span></div>
+            <SegBar segments={[
+              { value: overdueTasks?.length ?? 0, color: "bg-red-500", label: "Overdue" },
+              { value: upcomingTasks?.length ?? 0, color: "bg-amber-400", label: "This week" },
+              { value: Math.max(0, (dailyBrief?.stats.totalPending ?? 0) - (overdueTasks?.length ?? 0) - (upcomingTasks?.length ?? 0)), color: "bg-slate-300", label: "Later" },
+            ]} />
+            <div className="flex justify-between mt-2 text-xs text-slate-500">
+              <span>{overdueTasks?.length ?? 0} overdue</span><span>{upcomingTasks?.length ?? 0} this week</span><span>later</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2"><span className="text-sm font-medium text-slate-700">Pipeline</span><span className="text-xs text-slate-400">{money(pipeline?.totalPipelineValue ?? 0)}/mo</span></div>
+            <div className="space-y-1.5">
+              {[
+                { label: "New leads", v: pipeline?.newLeads ?? 0 },
+                { label: "Discovery", v: pipeline?.discoveryCalls ?? 0 },
+                { label: "Quote sent", v: pipeline?.quotesSent ?? 0 },
+                { label: "Engagement", v: pipeline?.engagementsSent ?? 0 },
+              ].map((s) => {
+                const max = Math.max(1, pipeline?.totalLeads ?? 1);
+                return (
+                  <div key={s.label} className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500 w-20 shrink-0">{s.label}</span>
+                    <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden"><div className="bg-violet-400 h-2" style={{ width: `${(s.v / max) * 100}%` }} /></div>
+                    <span className="text-xs text-slate-600 w-5 text-right">{s.v}</span>
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      {openTask && <TaskDetailDialog task={openTask} onClose={() => setOpenTask(null)} />}
     </div>
   );
 }
