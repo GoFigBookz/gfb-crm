@@ -270,6 +270,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   const removeLine = trpc.payroll.removeLine.useMutation({ onSuccess: invalidate });
   const createApprovalLink = trpc.payroll.createApprovalLink.useMutation({ onSuccess: invalidate, onError: (e) => alert(e.message) });
   const { data: clientEmps } = trpc.employee.list.useQuery({ clientId: data?.run.clientId ?? 0 }, { enabled: !!data?.run.clientId });
+  const { data: statHols } = trpc.payroll.statHolidays.useQuery({ runId });
 
   if (!data) return <div className="text-sm text-slate-400 p-3">Loading…</div>;
   const { run, lines } = data;
@@ -296,6 +297,14 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
         </div>
 
         <ApprovalBar run={run} onCreateLink={() => createApprovalLink.mutate({ runId })} creating={createApprovalLink.isPending} />
+
+        {statHols && statHols.length > 0 && (
+          <div className="text-sm bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800">
+            <strong>Stat holiday{statHols.length > 1 ? "s" : ""} in this period —</strong>{" "}
+            {statHols.map((h: any) => `${h.name} (${h.date})`).join(", ")}. Make sure stat holiday pay is captured for
+            eligible employees before this goes to QuickBooks. <span className="text-amber-600">(Ontario ESA dates.)</span>
+          </div>
+        )}
 
         {lines.length === 0 ? (
           <p className="text-sm text-slate-400 py-3 text-center">No employees on this run yet — add one below to start the timesheet.</p>

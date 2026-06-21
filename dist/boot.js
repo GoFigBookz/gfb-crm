@@ -46698,7 +46698,85 @@ var init_payroll_cra_core = __esm({
   }
 });
 
+// api/stat-holidays.ts
+var stat_holidays_exports = {};
+__export(stat_holidays_exports, {
+  easterSunday: () => easterSunday,
+  ontarioStatHolidays: () => ontarioStatHolidays,
+  statHolidaysInRange: () => statHolidaysInRange,
+  statHolidaysObservedInRange: () => statHolidaysObservedInRange
+});
+function easterSunday(year2) {
+  const a = year2 % 19, b = Math.floor(year2 / 100), c = year2 % 100;
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day2 = (h + l - 7 * m + 114) % 31 + 1;
+  return new Date(year2, month - 1, day2);
+}
+function nthWeekday(year2, month, weekday, n) {
+  const first = new Date(year2, month, 1);
+  const offset = (weekday - first.getDay() + 7) % 7;
+  return new Date(year2, month, 1 + offset + (n - 1) * 7);
+}
+function victoriaDay(year2) {
+  const d = new Date(year2, 4, 25);
+  while (d.getDay() !== 1) d.setDate(d.getDate() - 1);
+  return d;
+}
+function observed(d) {
+  const wd = d.getDay();
+  if (wd === 6) return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 2);
+  if (wd === 0) return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+  return d;
+}
+function ontarioStatHolidays(year2) {
+  const easter = easterSunday(year2);
+  const goodFriday = new Date(easter.getFullYear(), easter.getMonth(), easter.getDate() - 2);
+  const list = [
+    { date: iso(new Date(year2, 0, 1)), name: "New Year's Day" },
+    { date: iso(nthWeekday(year2, 1, 1, 3)), name: "Family Day" },
+    // 3rd Mon Feb
+    { date: iso(goodFriday), name: "Good Friday" },
+    { date: iso(victoriaDay(year2)), name: "Victoria Day" },
+    { date: iso(new Date(year2, 6, 1)), name: "Canada Day" },
+    { date: iso(nthWeekday(year2, 8, 1, 1)), name: "Labour Day" },
+    // 1st Mon Sep
+    { date: iso(nthWeekday(year2, 9, 1, 2)), name: "Thanksgiving" },
+    // 2nd Mon Oct
+    { date: iso(new Date(year2, 11, 25)), name: "Christmas Day" },
+    { date: iso(new Date(year2, 11, 26)), name: "Boxing Day" }
+  ];
+  return list.sort((a, b) => a.date.localeCompare(b.date));
+}
+function statHolidaysInRange(startISO, endISO) {
+  if (!startISO || !endISO || endISO < startISO) return [];
+  const years = /* @__PURE__ */ new Set([Number(startISO.slice(0, 4)), Number(endISO.slice(0, 4))]);
+  const all = [];
+  for (const y of years) if (Number.isFinite(y)) all.push(...ontarioStatHolidays(y));
+  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr) => idx === 0 || h.date !== arr[idx - 1].date);
+}
+function statHolidaysObservedInRange(startISO, endISO) {
+  return statHolidaysInRange(startISO, endISO).map((h) => {
+    const [y, m, d] = h.date.split("-").map(Number);
+    return { date: iso(observed(new Date(y, m - 1, d))), name: h.name };
+  });
+}
+var iso;
+var init_stat_holidays = __esm({
+  "api/stat-holidays.ts"() {
+    iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+});
+
 // api/payroll-router.ts
+var payroll_router_exports = {};
+__export(payroll_router_exports, {
+  backfillHasPayroll: () => backfillHasPayroll,
+  payrollRouter: () => payrollRouter
+});
 async function ytdGrossBeforeRun(db, employeeId, run2) {
   const emp = (await db.select().from(employees).where(eq(employees.id, employeeId)).limit(1))[0];
   const opening = emp?.ytdGrossOpening || 0;
@@ -46739,9 +46817,23 @@ function craGrossForNet(targetNet, P, ytd, periodsElapsed) {
   return round2((lo + hi) / 2);
 }
 function isPayrollClient(c) {
-  if (c.hasPayroll) return true;
-  const n = (c.name || "").toLowerCase();
-  return KNOWN_PAYROLL.some((k) => n.includes(k));
+  return !!c.hasPayroll;
+}
+async function backfillHasPayroll() {
+  try {
+    const db = getDb();
+    const cs = await db.select().from(clients);
+    for (const c of cs) {
+      if (c.hasPayroll) continue;
+      const n = (c.name || "").toLowerCase();
+      if (KNOWN_PAYROLL.some((k) => n.includes(k))) {
+        await db.update(clients).set({ hasPayroll: true }).where(eq(clients.id, c.id));
+        console.log(`[payroll] backfilled hasPayroll for client ${c.id} (${c.name})`);
+      }
+    }
+  } catch (e) {
+    console.error("[payroll] backfillHasPayroll failed:", e instanceof Error ? e.message : e);
+  }
 }
 function payrollKind(name2) {
   const n = (name2 || "").toLowerCase();
@@ -46820,6 +46912,23 @@ var init_payroll_router = __esm({
       listRuns: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
         return db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId)).orderBy(desc(payRuns.payPeriodStart));
+      }),
+      // Stat holidays (Ontario ESA) that fall inside a pay run's period — so the
+      // timesheet knows a stat day needs to be paid out (feeds QBO Payroll; we don't
+      // compute net here). Takes a runId or an explicit start/end range.
+      statHolidays: staffQuery.input(external_exports.object({ runId: external_exports.number().optional(), start: external_exports.string().optional(), end: external_exports.string().optional() })).query(async ({ input }) => {
+        const { statHolidaysInRange: statHolidaysInRange2 } = await Promise.resolve().then(() => (init_stat_holidays(), stat_holidays_exports));
+        let { start, end } = input;
+        if (input.runId && (!start || !end)) {
+          const db = getDb();
+          const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+          if (run2) {
+            start = new Date(run2.payPeriodStart).toISOString().slice(0, 10);
+            end = new Date(run2.payPeriodEnd).toISOString().slice(0, 10);
+          }
+        }
+        if (!start || !end) return [];
+        return statHolidaysInRange2(start, end);
       }),
       // One run with its lines + employee names (the clean sheet).
       getRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).query(async ({ input }) => {
@@ -59482,7 +59591,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.37";
+var BUILD_TAG = "2026-06-21.38";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -60641,6 +60750,9 @@ async function startServer() {
     maybeRefreshTaxRates2().catch(() => {
     });
   }, 24 * 60 * 60 * 1e3);
+  const { backfillHasPayroll: backfillHasPayroll2 } = await Promise.resolve().then(() => (init_payroll_router(), payroll_router_exports));
+  backfillHasPayroll2().catch(() => {
+  });
   if (process.env.FIGGY_SHEET_SYNC_DISABLE !== "on") {
     const runInbound = async () => {
       try {

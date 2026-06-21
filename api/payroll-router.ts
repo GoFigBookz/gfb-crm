@@ -76,16 +76,31 @@ const WEST_YORK_META = {
   driveFolderUrl: "https://drive.google.com/drive/folders/10FgSl5ctYkgxIaAa2-eTir7xOquQ7Xzj",
 };
 
-// The practice's known payroll clients (name substrings). A client is treated
-// as payroll if it matches one of these OR has hasPayroll set — so the payroll
-// page lists ONLY real payroll clients, not anyone who happens to have an
-// employee record.
+// Who's a payroll client = the hasPayroll flag, full stop (single source of truth,
+// set on the client's intake card). The old fuzzy name-matching is gone — it made
+// "clark" match BOTH Clark entities and overrode the flag. backfillHasPayroll()
+// (run once on boot) seeds the flag for the practice's existing payroll clients.
 const KNOWN_PAYROLL = ["west york", "selective", "originality", "clark", "2303851", "fractal", "old spot", "sher", "punjab"];
 
 function isPayrollClient(c: any): boolean {
-  if (c.hasPayroll) return true;
-  const n = (c.name || "").toLowerCase();
-  return KNOWN_PAYROLL.some((k) => n.includes(k));
+  return !!c.hasPayroll;
+}
+
+/** One-time, idempotent: turn ON hasPayroll for the known payroll clients so the
+ *  flag becomes the source of truth without anyone losing their payroll surface. */
+export async function backfillHasPayroll(): Promise<void> {
+  try {
+    const db = getDb();
+    const cs = await db.select().from(clients);
+    for (const c of cs as any[]) {
+      if (c.hasPayroll) continue;
+      const n = (c.name || "").toLowerCase();
+      if (KNOWN_PAYROLL.some((k) => n.includes(k))) {
+        await db.update(clients).set({ hasPayroll: true }).where(eq(clients.id, c.id));
+        console.log(`[payroll] backfilled hasPayroll for client ${c.id} (${c.name})`);
+      }
+    }
+  } catch (e) { console.error("[payroll] backfillHasPayroll failed:", e instanceof Error ? e.message : e); }
 }
 
 function payrollKind(name: string | null | undefined): { kind: string; note?: string; meta?: any } {
@@ -150,6 +165,26 @@ export const payrollRouter = createRouter({
     .query(async ({ input }) => {
       const db = getDb();
       return db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId)).orderBy(desc(payRuns.payPeriodStart));
+    }),
+
+  // Stat holidays (Ontario ESA) that fall inside a pay run's period — so the
+  // timesheet knows a stat day needs to be paid out (feeds QBO Payroll; we don't
+  // compute net here). Takes a runId or an explicit start/end range.
+  statHolidays: staffQuery
+    .input(z.object({ runId: z.number().optional(), start: z.string().optional(), end: z.string().optional() }))
+    .query(async ({ input }) => {
+      const { statHolidaysInRange } = await import("./stat-holidays");
+      let { start, end } = input;
+      if (input.runId && (!start || !end)) {
+        const db = getDb();
+        const run = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0] as any;
+        if (run) {
+          start = new Date(run.payPeriodStart).toISOString().slice(0, 10);
+          end = new Date(run.payPeriodEnd).toISOString().slice(0, 10);
+        }
+      }
+      if (!start || !end) return [];
+      return statHolidaysInRange(start, end);
     }),
 
   // One run with its lines + employee names (the clean sheet).
