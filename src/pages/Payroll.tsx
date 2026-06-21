@@ -275,6 +275,16 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   const createApprovalLink = trpc.payroll.createApprovalLink.useMutation({ onSuccess: invalidate, onError: (e) => alert(e.message) });
   const { data: clientEmps } = trpc.employee.list.useQuery({ clientId: data?.run.clientId ?? 0 }, { enabled: !!data?.run.clientId });
   const { data: statHols } = trpc.payroll.statHolidays.useQuery({ runId });
+  const { data: jobber } = trpc.payroll.jobberStatus.useQuery({ clientId: data?.run.clientId ?? 0 }, { enabled: !!data?.run.clientId });
+  const importJobber = trpc.payroll.importJobberHours.useMutation({
+    onSuccess: (r: any) => {
+      invalidate();
+      if (!r.ok) { alert("Jobber import failed:\n" + r.error); return; }
+      const extra = r.unmatched?.length ? `\n\nNot matched to an employee (check names):\n${r.unmatched.map((u: any) => `• ${u.name} — ${u.hours}h`).join("\n")}` : "";
+      alert(`Imported hours for ${r.matched} of ${r.totalUsers} Jobber worker(s).${extra}`);
+    },
+    onError: (e) => alert(e.message),
+  });
 
   if (!data) return <div className="text-sm text-slate-400 p-3">Loading…</div>;
   const { run, lines } = data;
@@ -295,6 +305,16 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
             </Select>
           </div>
           <div className="flex items-center gap-2">
+            {jobber?.connected && (
+              <Button size="sm" variant="outline" className="h-8 border-amber-300 text-amber-700" onClick={() => importJobber.mutate({ runId })} disabled={importJobber.isPending}>
+                <Download className="h-3.5 w-3.5 mr-1" /> {importJobber.isPending ? "Importing…" : "Import Jobber hours"}
+              </Button>
+            )}
+            {jobber?.configured && !jobber.connected && (
+              <a href={`/api/jobber/connect?clientId=${run.clientId}`}>
+                <Button size="sm" variant="outline" className="h-8 border-amber-300 text-amber-700"><ExternalLink className="h-3.5 w-3.5 mr-1" /> Connect Jobber</Button>
+              </a>
+            )}
             <Button size="sm" variant="outline" className="h-8" onClick={() => exportRunCsv(run, lines)}><Download className="h-3.5 w-3.5 mr-1" /> Export hours (CSV)</Button>
             <Button size="sm" variant="ghost" className="h-8 text-red-500 hover:text-red-600" onClick={onDelete}><Trash2 className="h-3.5 w-3.5 mr-1" /> Delete run</Button>
           </div>

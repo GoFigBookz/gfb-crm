@@ -190,6 +190,60 @@ export const payrollRouter = createRouter({
       return statHolidaysInRange(start, end);
     }),
 
+  // Jobber connection status for a client (for the Connect button / badge).
+  jobberStatus: staffQuery
+    .input(z.object({ clientId: z.number() }))
+    .query(async ({ input }) => {
+      const { jobberConfigured, getValidConnection } = await import("./jobber-oauth");
+      if (!jobberConfigured()) return { configured: false, connected: false };
+      try {
+        const conn = await getValidConnection(input.clientId);
+        return { configured: true, connected: !!conn, accountName: conn?.accountName ?? null };
+      } catch {
+        return { configured: true, connected: false };
+      }
+    }),
+
+  // Import Jobber timesheet hours for a run's pay period → fills regular hours per
+  // matched employee (by name). Read-only against Jobber; you review before sending
+  // to QBO. Returns matched/unmatched + any error verbatim for diagnosis.
+  importJobberHours: staffQuery
+    .input(z.object({ runId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const run = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0] as any;
+      if (!run) throw new Error("Pay run not found");
+      const start = new Date(run.payPeriodStart).toISOString().slice(0, 10);
+      const end = new Date(run.payPeriodEnd).toISOString().slice(0, 10);
+      const { importTimesheetHours } = await import("./jobber-client");
+      let hours: any[];
+      try {
+        hours = await importTimesheetHours(run.clientId, start, end);
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : String(e), matched: 0, unmatched: [] as any[], totalUsers: 0 };
+      }
+      const emps = await db.select().from(employees).where(eq(employees.clientId, run.clientId));
+      const norm = (s: string) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+      const byName = new Map((emps as any[]).map((e) => [norm(`${e.firstName} ${e.lastName}`), e]));
+      const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
+      const lineByEmp = new Map((lines as any[]).map((l) => [l.employeeId, l]));
+      let matched = 0;
+      const unmatched: { name: string; hours: number }[] = [];
+      for (const h of hours) {
+        const emp = byName.get(norm(h.userName));
+        if (!emp) { unmatched.push({ name: h.userName, hours: h.hours }); continue; }
+        const line = lineByEmp.get(emp.id);
+        if (line) {
+          await db.update(payRunLines).set({ regularHours: h.hours, updatedAt: new Date() }).where(eq(payRunLines.id, line.id));
+        } else {
+          await db.insert(payRunLines).values({ payRunId: input.runId, employeeId: emp.id, regularHours: h.hours } as any);
+        }
+        matched++;
+      }
+      await recomputeRunTotals(input.runId);
+      return { ok: true, matched, unmatched, totalUsers: hours.length };
+    }),
+
   // One run with its lines + employee names (the clean sheet).
   getRun: staffQuery
     .input(z.object({ runId: z.number() }))

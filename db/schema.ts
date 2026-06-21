@@ -1606,3 +1606,19 @@ export const taxRates = sqliteTable("tax_rates", {
   source: text("source"),                  // where the fetch got it
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// Jobber OAuth connection per client (timesheet hours import → payroll timesheets).
+// Tokens encrypted at rest (reuses qbo-oauth encryptSecret/decryptSecret). Jobber
+// access tokens last ~60 min; refresh tokens rotate (rotation persisted every refresh).
+export const jobberConnections = sqliteTable("jobber_connections", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  accountName: text("accountName"),
+  accessToken: text("accessToken"),       // enc:v1: envelope
+  refreshToken: text("refreshToken"),     // enc:v1: envelope
+  expiresAt: integer("expiresAt", { mode: "timestamp" }),
+  active: integer("active", { mode: "boolean" }).default(true),
+  reconnectReason: text("reconnectReason"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
