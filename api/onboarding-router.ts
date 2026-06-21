@@ -600,6 +600,14 @@ export const onboardingRouter = createRouter({
       return { success: true, fields: Object.keys(patch).filter((k) => k !== "updatedAt") };
     }),
 
+  // Pull the Google master sheet back INTO the CRM (inbound / bidirectional).
+  // Applies edits made in the sheet to matching clients + leads; returns counts.
+  pullFromMaster: staffQuery.mutation(async () => {
+    const { pullMasterIntoCrm } = await import("./sheet-inbound-sync");
+    const r = await pullMasterIntoCrm();
+    return { success: true, ...r };
+  }),
+
   // Push EVERY active client into the canonical Google master sheet (one-time
   // reconcile / drift fix). Upsert preserves the gov-registry columns. Awaited
   // so the caller gets a real count back. Cheap (~2 Sheets calls/client).

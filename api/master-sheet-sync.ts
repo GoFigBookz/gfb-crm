@@ -101,6 +101,16 @@ function crmValue(c: MasterClient, key: string): string | null {
 
 const norm = (s: any) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
+/** Read an A1 range from the canonical master sheet (inbound sync). Returns the
+ *  raw `values` 2-D array (empty on any failure). */
+export async function readMasterRange(rangeA1: string): Promise<string[][]> {
+  try {
+    const read = await sheetsApi(
+      `spreadsheets/${CANONICAL_MASTER_SHEET_ID}/values/${encodeURIComponent(rangeA1)}`, "GET");
+    return Array.isArray(read?.values) ? read.values : [];
+  } catch { return []; }
+}
+
 /** POST {url, method, body} to the committed Sheets webhook proxy. */
 async function sheetsApi(url: string, method: "GET" | "POST" | "PUT", body?: unknown): Promise<any> {
   const res = await fetch(SYNC_WEBHOOK, {
