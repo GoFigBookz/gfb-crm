@@ -40374,6 +40374,9 @@ var init_month_end_core = __esm({
 });
 
 // api/client-router.ts
+function clientScope(ctx, idVal) {
+  return ctx.user?.role === "client" ? and(eq(clients.id, idVal), eq(clients.userId, ctx.user.id)) : eq(clients.id, idVal);
+}
 async function deactivateClientTasks(db, clientId) {
   await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, clientId));
   await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
@@ -40421,7 +40424,7 @@ var init_client_router = __esm({
       // Get single client
       get: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {
         const db = getDb();
-        const result = await db.select().from(clients).where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id))).limit(1);
+        const result = await db.select().from(clients).where(clientScope(ctx, input.id)).limit(1);
         return result[0] ?? null;
       }),
       // Create client
@@ -40554,7 +40557,7 @@ var init_client_router = __esm({
           ...quoteApprovedAt !== void 0 && { quoteApprovedAt },
           ...engagementSentAt !== void 0 && { engagementSentAt },
           ...engagementSignedAt !== void 0 && { engagementSignedAt }
-        }).where(and(eq(clients.id, id), eq(clients.userId, ctx.user.id)));
+        }).where(clientScope(ctx, id));
         const updatedRows = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
         const updated = updatedRows[0];
         if (updated) syncUpdate("clients", updated);
@@ -40597,7 +40600,7 @@ var init_client_router = __esm({
       })).mutation(async ({ ctx, input }) => {
         const db = getDb();
         const { id, ...updates } = input;
-        await db.update(clients).set(updates).where(and(eq(clients.id, id), eq(clients.userId, ctx.user.id)));
+        await db.update(clients).set(updates).where(clientScope(ctx, id));
         return { success: true };
       }),
       // Delete client — cascades to their tasks + recurring rules so nothing is
@@ -40606,7 +40609,7 @@ var init_client_router = __esm({
         const db = getDb();
         await db.delete(tasks).where(eq(tasks.clientId, input.id));
         await db.delete(clientTaskRules).where(eq(clientTaskRules.clientId, input.id));
-        await db.delete(clients).where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+        await db.delete(clients).where(clientScope(ctx, input.id));
         return { success: true };
       }),
       // Send Quote
@@ -40620,7 +40623,7 @@ var init_client_router = __esm({
           quoteAmount: input.amount,
           quoteSentAt: now,
           workflowStatus: "quote_sent"
-        }).where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+        }).where(clientScope(ctx, input.id));
         return { success: true, quoteSentAt: now };
       }),
       // Approve Quote
@@ -40630,7 +40633,7 @@ var init_client_router = __esm({
         await db.update(clients).set({
           quoteApprovedAt: now,
           workflowStatus: "quote_approved"
-        }).where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+        }).where(clientScope(ctx, input.id));
         return { success: true, quoteApprovedAt: now };
       }),
       // Send Engagement Letter
@@ -40640,7 +40643,7 @@ var init_client_router = __esm({
         await db.update(clients).set({
           engagementSentAt: now,
           workflowStatus: "engagement_sent"
-        }).where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+        }).where(clientScope(ctx, input.id));
         return { success: true, engagementSentAt: now };
       }),
       // Sign Engagement Letter
@@ -40650,7 +40653,7 @@ var init_client_router = __esm({
         await db.update(clients).set({
           engagementSignedAt: now,
           workflowStatus: "onboarding_sent"
-        }).where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+        }).where(clientScope(ctx, input.id));
         return { success: true, engagementSignedAt: now };
       }),
       // Archive client (make inactive) — also pauses their recurring rules + open
@@ -40660,7 +40663,7 @@ var init_client_router = __esm({
         await db.update(clients).set({
           status: "inactive",
           workflowStatus: "inactive"
-        }).where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+        }).where(clientScope(ctx, input.id));
         await deactivateClientTasks(db, input.id);
         return { success: true };
       }),
@@ -59914,7 +59917,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.44";
+var BUILD_TAG = "2026-06-21.45";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

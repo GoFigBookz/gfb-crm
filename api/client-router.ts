@@ -7,6 +7,16 @@ import { syncInsert, syncUpdate } from "./sync-hooks";
 import { createRecurringTasksForClient } from "./client-task-creator";
 import { isOperationalClient } from "./month-end-core";
 
+/** Row scope for client mutations: a "client"-role user may only touch their own
+ *  client; staff (Markie/Rachelle/admin) edit ANY client — matching the list view,
+ *  which shows staff all clients. Without this, edits to seeded/imported clients
+ *  (owned by another/system user) silently matched 0 rows and saved nothing. */
+function clientScope(ctx: any, idVal: number) {
+  return ctx.user?.role === "client"
+    ? and(eq(clients.id, idVal), eq(clients.userId, ctx.user.id))
+    : eq(clients.id, idVal);
+}
+
 /** Deactivate a client's recurring rules + their not-yet-completed tasks so an
  *  inactive/archived client stops generating and showing work. Completed tasks
  *  are left as history. Reversible via reactivateClientTasks. */
@@ -73,7 +83,7 @@ export const clientRouter = createRouter({
       const result = await db
         .select()
         .from(clients)
-        .where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)))
+        .where(clientScope(ctx, input.id))
         .limit(1);
 
       return result[0] ?? null;
@@ -224,7 +234,7 @@ export const clientRouter = createRouter({
           ...(engagementSentAt !== undefined && { engagementSentAt }),
           ...(engagementSignedAt !== undefined && { engagementSignedAt }),
         })
-        .where(and(eq(clients.id, id), eq(clients.userId, ctx.user.id)));
+        .where(clientScope(ctx, id));
 
       // Fetch updated record
       const updatedRows = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
@@ -288,7 +298,7 @@ export const clientRouter = createRouter({
       await db
         .update(clients)
         .set(updates)
-        .where(and(eq(clients.id, id), eq(clients.userId, ctx.user.id)));
+        .where(clientScope(ctx, id));
 
       return { success: true };
     }),
@@ -303,7 +313,7 @@ export const clientRouter = createRouter({
       await db.delete(clientTaskRules).where(eq(clientTaskRules.clientId, input.id));
       await db
         .delete(clients)
-        .where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+        .where(clientScope(ctx, input.id));
 
       return { success: true };
     }),
@@ -324,7 +334,7 @@ export const clientRouter = createRouter({
           quoteSentAt: now,
           workflowStatus: "quote_sent",
         })
-        .where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+        .where(clientScope(ctx, input.id));
       return { success: true, quoteSentAt: now };
     }),
 
@@ -340,7 +350,7 @@ export const clientRouter = createRouter({
           quoteApprovedAt: now,
           workflowStatus: "quote_approved",
         })
-        .where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+        .where(clientScope(ctx, input.id));
       return { success: true, quoteApprovedAt: now };
     }),
 
@@ -356,7 +366,7 @@ export const clientRouter = createRouter({
           engagementSentAt: now,
           workflowStatus: "engagement_sent",
         })
-        .where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+        .where(clientScope(ctx, input.id));
       return { success: true, engagementSentAt: now };
     }),
 
@@ -372,7 +382,7 @@ export const clientRouter = createRouter({
           engagementSignedAt: now,
           workflowStatus: "onboarding_sent",
         })
-        .where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+        .where(clientScope(ctx, input.id));
       return { success: true, engagementSignedAt: now };
     }),
 
@@ -388,7 +398,7 @@ export const clientRouter = createRouter({
           status: "inactive",
           workflowStatus: "inactive",
         })
-        .where(and(eq(clients.id, input.id), eq(clients.userId, ctx.user.id)));
+        .where(clientScope(ctx, input.id));
       await deactivateClientTasks(db, input.id);
       return { success: true };
     }),
