@@ -24,7 +24,7 @@ import { getDb } from "./queries/connection";
 import { clients, clientVault, clientTaskRules } from "../db/schema";
 import { eq, sql } from "drizzle-orm";
 import { matchClientIdByName } from "./client-match";
-import { createClientTaskRules, type OnboardingData } from "./task-generator";
+import { ensureComplianceRulesAndTasks, type OnboardingData } from "./task-generator";
 import { reorderNumberedName } from "./client-name";
 
 type Row = {
@@ -319,14 +319,12 @@ export async function importClientMaster() {
 
     // Generate the client's recurring deadline tasks (HST, payroll, year-end,
     // T4/T5, WSIB) from the master cadence — so "what's due" actually shows up.
-    // Idempotent: skip if this client already has rules.
+    // ADDITIVE + idempotent: backfills any MISSING cadence rule (e.g. HST) even
+    // for clients that already had other rules — so HST tasks stop going missing.
     try {
-      const hasRules = (await db.select().from(clientTaskRules).where(eq(clientTaskRules.clientId, clientId)).limit(1)).length > 0;
-      if (!hasRules) {
-        const res = await createClientTaskRules(onboardingFromRow(clientId, r));
-        report.rulesCreated += res.rules.length;
-        report.tasksCreated += res.tasks.length;
-      }
+      const res = await ensureComplianceRulesAndTasks(onboardingFromRow(clientId, r));
+      report.rulesCreated += res.rules;
+      report.tasksCreated += res.tasks;
     } catch (e) {
       console.error("[import] task-rule generation failed for", r.name, ":", e instanceof Error ? e.message : e);
     }

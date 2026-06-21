@@ -40690,6 +40690,7 @@ __export(task_generator_exports, {
   buildTaskRules: () => buildTaskRules,
   calculateNextDueDate: () => calculateNextDueDate,
   createClientTaskRules: () => createClientTaskRules,
+  ensureComplianceRulesAndTasks: () => ensureComplianceRulesAndTasks,
   ensureSetupTasks: () => ensureSetupTasks,
   generateNextTaskInstance: () => generateNextTaskInstance,
   generateTaskFromRule: () => generateTaskFromRule,
@@ -41312,6 +41313,57 @@ async function createClientTaskRules(data) {
     monthsBehind: data.monthsBehind ?? 0
   });
   return { rules: createdRules, tasks: createdTasks, setupTasks: setupCreated };
+}
+async function ensureComplianceRulesAndTasks(data) {
+  const db = getDb();
+  const rules = buildTaskRules(data);
+  const created = { rules: 0, tasks: 0 };
+  const existing = await db.select().from(clientTaskRules).where(eq(clientTaskRules.clientId, data.clientId));
+  const haveTypes = new Set(existing.map((r) => r.ruleType).filter(Boolean));
+  const openTasks = await db.select({ title: tasks.title }).from(tasks).where(and(eq(tasks.clientId, data.clientId), ne(tasks.status, "completed")));
+  const openTitles = openTasks.map((t2) => String(t2.title ?? "").toLowerCase());
+  const DOMAIN_KEYWORD = {
+    hst_monthly: "hst",
+    hst_quarterly: "hst",
+    hst_annual: "hst"
+  };
+  const coveredByOtherSystem = (ruleType) => {
+    const kw = DOMAIN_KEYWORD[ruleType];
+    return kw ? openTitles.some((t2) => t2.includes(kw)) : false;
+  };
+  for (const config2 of rules) {
+    if (haveTypes.has(config2.ruleType)) continue;
+    if (coveredByOtherSystem(config2.ruleType)) continue;
+    const nextDueDate = calculateNextDueDate(config2);
+    const [rule] = await db.insert(clientTaskRules).values({
+      clientId: data.clientId,
+      userId: data.userId,
+      title: config2.title,
+      description: config2.description,
+      category: config2.category,
+      priority: config2.priority,
+      assignedTo: data.assignedTo || null,
+      ruleType: config2.ruleType,
+      frequency: config2.frequency,
+      dueDayOfMonth: config2.dueDayOfMonth,
+      dueMonth: config2.dueMonth || null,
+      daysBeforeDue: config2.daysBeforeDue,
+      fiscalYearEndMonth: config2.fiscalYearEndMonth || null,
+      fiscalYearEndDay: config2.fiscalYearEndDay || null,
+      nextDueDate,
+      active: true
+    }).returning();
+    if (!rule) continue;
+    created.rules++;
+    haveTypes.add(config2.ruleType);
+    const openOfType = await db.select().from(tasks).where(and(eq(tasks.clientId, data.clientId), eq(tasks.ruleId, rule.id))).limit(1);
+    if (openOfType.length === 0) {
+      const [task] = await db.insert(tasks).values(generateTaskFromRule(rule, 1)).returning();
+      if (task) created.tasks++;
+    }
+    await db.update(clientTaskRules).set({ lastGeneratedDate: /* @__PURE__ */ new Date() }).where(eq(clientTaskRules.id, rule.id));
+  }
+  return created;
 }
 async function generateNextTaskInstance(completedTaskId) {
   const db = getDb();
@@ -48525,8 +48577,8 @@ var init_quote_router = __esm({
           workflowStatus: "active",
           engagementSignedAt: client.engagementSignedAt ?? /* @__PURE__ */ new Date()
         }).where(eq(clients.id, client.id));
-        const { clientTaskRules: clientTaskRules2, tasks: tasks4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-        const hasRules = (await db.select().from(clientTaskRules2).where(eq(clientTaskRules2.clientId, client.id)).limit(1)).length > 0;
+        const { clientTaskRules: clientTaskRules3, tasks: tasks4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+        const hasRules = (await db.select().from(clientTaskRules3).where(eq(clientTaskRules3.clientId, client.id)).limit(1)).length > 0;
         let tasksCreated = 0;
         if (!hasRules) {
           const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, client.id)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
@@ -48552,7 +48604,7 @@ var init_quote_router = __esm({
           });
           tasksCreated = res.tasks.length;
         } else {
-          await db.update(clientTaskRules2).set({ active: true }).where(eq(clientTaskRules2.clientId, client.id));
+          await db.update(clientTaskRules3).set({ active: true }).where(eq(clientTaskRules3.clientId, client.id));
         }
         return { success: true, tasksCreated };
       })
@@ -51596,12 +51648,9 @@ async function importClientMaster() {
       report.vaults++;
     }
     try {
-      const hasRules = (await db.select().from(clientTaskRules).where(eq(clientTaskRules.clientId, clientId)).limit(1)).length > 0;
-      if (!hasRules) {
-        const res = await createClientTaskRules(onboardingFromRow(clientId, r));
-        report.rulesCreated += res.rules.length;
-        report.tasksCreated += res.tasks.length;
-      }
+      const res = await ensureComplianceRulesAndTasks(onboardingFromRow(clientId, r));
+      report.rulesCreated += res.rules;
+      report.tasksCreated += res.tasks;
     } catch (e) {
       console.error("[import] task-rule generation failed for", r.name, ":", e instanceof Error ? e.message : e);
     }
@@ -58289,11 +58338,11 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "clients") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, qboConnections: qboConnections3, clientTaskRules: clientTaskRules2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, qboConnections: qboConnections3, clientTaskRules: clientTaskRules3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const db = getDb2();
       const cs = await db.select().from(clients3);
       const conns = await db.select().from(qboConnections3);
-      const ruleRows = await db.select().from(clientTaskRules2);
+      const ruleRows = await db.select().from(clientTaskRules3);
       const byClient = /* @__PURE__ */ new Map();
       for (const cn of conns) {
         if (cn.clientId == null) continue;
@@ -58448,7 +58497,7 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks4, clientTaskRules: clientTaskRules2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks4, clientTaskRules: clientTaskRules3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, and: and3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
@@ -58462,7 +58511,7 @@ app.post("/api/admin/figgy", async (c) => {
         const prev = await db.select().from(clients3).where(eq3(clients3.name, TESTNAME));
         for (const p of prev) {
           await db.delete(tasks4).where(eq3(tasks4.clientId, p.id));
-          await db.delete(clientTaskRules2).where(eq3(clientTaskRules2.clientId, p.id));
+          await db.delete(clientTaskRules3).where(eq3(clientTaskRules3.clientId, p.id));
           await db.delete(signatureDocuments2).where(eq3(signatureDocuments2.clientId, p.id));
           await db.delete(clientOnboarding2).where(eq3(clientOnboarding2.clientId, p.id));
           await db.delete(clients3).where(eq3(clients3.id, p.id));
@@ -58714,7 +58763,7 @@ async function startServer() {
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, tasks: tasks4, clientTaskRules: clientTaskRules2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, tasks: tasks4, clientTaskRules: clientTaskRules3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, and: and3, ne: ne3, like: like2 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const matches = await db.select().from(clients3).where(like2(clients3.name, "%Doc King%"));
@@ -58722,7 +58771,7 @@ async function startServer() {
         if (cl.clientType !== "wholesale") {
           await db.update(clients3).set({ clientType: "wholesale" }).where(eq3(clients3.id, cl.id));
         }
-        await db.update(clientTaskRules2).set({ active: false }).where(eq3(clientTaskRules2.clientId, cl.id));
+        await db.update(clientTaskRules3).set({ active: false }).where(eq3(clientTaskRules3.clientId, cl.id));
         await db.update(tasks4).set({ active: false }).where(and3(eq3(tasks4.clientId, cl.id), ne3(tasks4.status, "completed")));
       }
     } catch (e) {
