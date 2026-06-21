@@ -44567,6 +44567,15 @@ var init_onboarding_router = __esm({
       })).mutation(async ({ ctx, input }) => {
         const db = getDb();
         const userId = ctx.user.id;
+        const MONTHS32 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const yearEndMonth = (() => {
+          const w = (input.fiscalYearEnd || "").trim().slice(0, 3).toLowerCase();
+          const i = MONTHS32.findIndex((m) => m.toLowerCase() === w);
+          return i >= 0 ? MONTHS32[i] : null;
+        })();
+        const hstPeriod = input.hstGstFrequency === "annually" ? "annual" : input.hstGstFrequency === "quarterly" ? "quarterly" : input.hstGstFrequency === "monthly" ? "monthly" : null;
+        const payFreq = input.payrollFrequency === "biweekly" ? "bi-weekly" : input.payrollFrequency === "semi_monthly" ? "semi-monthly" : input.payrollFrequency && input.payrollFrequency !== "none" ? input.payrollFrequency : null;
+        const hasPayroll = !!payFreq || input.hasEmployees;
         const [client] = await db.insert(clients).values({
           userId,
           name: input.name,
@@ -44585,6 +44594,18 @@ var init_onboarding_router = __esm({
           transactionsPerMonth: input.avgMonthlyTransactions || 0,
           payrollRemitterFreq: input.payrollRemitterFreq,
           payrollExternal: input.payrollExternal,
+          // compliance flags that drive the board + tasks
+          taxId: input.businessNumber || null,
+          hasHST: input.hstGstFrequency !== "none",
+          hstPeriod,
+          hstNumber: input.hstGstNumber || (input.businessNumber ? `${input.businessNumber}RT0001` : null),
+          hasPayroll,
+          payrollFrequency: payFreq,
+          payrollRpNumber: input.payrollAccountNumber || (input.businessNumber ? `${input.businessNumber}RP0001` : null),
+          hasWSIB: input.wsibRequired,
+          wsibAccountNumber: input.wsibAccountNumber || null,
+          payrollDividends: input.paysDividends,
+          yearEndMonth,
           createdAt: /* @__PURE__ */ new Date(),
           updatedAt: /* @__PURE__ */ new Date()
         }).returning();
@@ -58263,7 +58284,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.11";
+var BUILD_TAG = "2026-06-21.12";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

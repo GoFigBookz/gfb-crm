@@ -195,6 +195,23 @@ export const onboardingRouter = createRouter({
       const db = getDb();
       const userId = ctx.user.id;
 
+      // Map intake enums → client-record fields so the intake flows through to
+      // the month-end board, client card, and the additive task backfill — not
+      // just the onboarding record.
+      const MONTHS3 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const yearEndMonth = (() => {
+        const w = (input.fiscalYearEnd || "").trim().slice(0, 3).toLowerCase();
+        const i = MONTHS3.findIndex((m) => m.toLowerCase() === w);
+        return i >= 0 ? MONTHS3[i] : null;
+      })();
+      const hstPeriod = input.hstGstFrequency === "annually" ? "annual"
+        : input.hstGstFrequency === "quarterly" ? "quarterly"
+        : input.hstGstFrequency === "monthly" ? "monthly" : null;
+      const payFreq = input.payrollFrequency === "biweekly" ? "bi-weekly"
+        : input.payrollFrequency === "semi_monthly" ? "semi-monthly"
+        : (input.payrollFrequency && input.payrollFrequency !== "none") ? input.payrollFrequency : null;
+      const hasPayroll = !!payFreq || input.hasEmployees;
+
       // 1. Create client
       const [client] = await db.insert(clients).values({
         userId,
@@ -214,6 +231,18 @@ export const onboardingRouter = createRouter({
         transactionsPerMonth: input.avgMonthlyTransactions || 0,
         payrollRemitterFreq: input.payrollRemitterFreq,
         payrollExternal: input.payrollExternal,
+        // compliance flags that drive the board + tasks
+        taxId: input.businessNumber || null,
+        hasHST: input.hstGstFrequency !== "none",
+        hstPeriod: hstPeriod as any,
+        hstNumber: input.hstGstNumber || (input.businessNumber ? `${input.businessNumber}RT0001` : null),
+        hasPayroll,
+        payrollFrequency: payFreq as any,
+        payrollRpNumber: input.payrollAccountNumber || (input.businessNumber ? `${input.businessNumber}RP0001` : null),
+        hasWSIB: input.wsibRequired,
+        wsibAccountNumber: input.wsibAccountNumber || null,
+        payrollDividends: input.paysDividends,
+        yearEndMonth: yearEndMonth as any,
         createdAt: new Date(),
         updatedAt: new Date(),
       }).returning();
