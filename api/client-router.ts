@@ -199,6 +199,7 @@ export const clientRouter = createRouter({
       payrollReimbursements: z.boolean().optional(),
       payrollRevenueShare: z.boolean().optional(),
       payrollCraComparison: z.boolean().optional(),
+      payrollHoursSource: z.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
       yearEndMonth: z.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
       quoteAmount: z.number().optional(),
       quoteSentAt: z.string().optional(),

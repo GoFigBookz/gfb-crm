@@ -64,13 +64,19 @@ function JobberConnect({ clientId }: { clientId: number }) {
   if (jobber?.connected) {
     return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">Jobber connected ✓</Badge>;
   }
+  const onClick = (e: React.MouseEvent) => {
+    if (jobber && !jobber.configured) {
+      e.preventDefault();
+      alert("Jobber isn't set up on the server yet.\n\nAdd JOBBER_CLIENT_ID and JOBBER_CLIENT_SECRET in Railway → figgy → Variables, let it redeploy, then click Connect Jobber again.");
+      return;
+    }
+    e.preventDefault();
+    window.location.href = `/api/jobber/connect?clientId=${clientId}`; // hard nav so the server route runs
+  };
   return (
-    <a href={`/api/jobber/connect?clientId=${clientId}`}
-       title={jobber && !jobber.configured ? "Set JOBBER_CLIENT_ID/SECRET on the server, then click to authorize" : "Connect this client's Jobber account"}>
-      <Button size="sm" variant="outline" className="border-amber-300 text-amber-700">
-        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Connect Jobber
-      </Button>
-    </a>
+    <Button size="sm" variant="outline" className="border-amber-300 text-amber-700" onClick={onClick}>
+      <ExternalLink className="h-3.5 w-3.5 mr-1" /> Connect Jobber
+    </Button>
   );
 }
 
@@ -142,7 +148,7 @@ export default function Payroll() {
                   <Link to={`/client/${selected.id}`} className="text-xs text-lime-700 hover:underline inline-flex items-center gap-1"><Building2 className="h-3.5 w-3.5" /> client card</Link>
                 </div>
                 <div className="flex items-center gap-2">
-                  <JobberConnect clientId={selected.id} />
+                  {selected.kind === "jobber" && <JobberConnect clientId={selected.id} />}
                   <Button size="sm" onClick={() => setCreating(true)}><Plus className="h-4 w-4 mr-1" /> New pay run</Button>
                 </div>
               </div>
@@ -334,12 +340,12 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
             </Select>
           </div>
           <div className="flex items-center gap-2">
-            {jobber?.connected && (
+            {features?.kind === "jobber" && jobber?.connected && (
               <Button size="sm" variant="outline" className="h-8 border-amber-300 text-amber-700" onClick={() => importJobber.mutate({ runId })} disabled={importJobber.isPending}>
                 <Download className="h-3.5 w-3.5 mr-1" /> {importJobber.isPending ? "Importing…" : "Import Jobber hours"}
               </Button>
             )}
-            {jobber?.configured && !jobber.connected && (
+            {features?.kind === "jobber" && jobber?.configured && !jobber.connected && (
               <a href={`/api/jobber/connect?clientId=${run.clientId}`}>
                 <Button size="sm" variant="outline" className="h-8 border-amber-300 text-amber-700"><ExternalLink className="h-3.5 w-3.5 mr-1" /> Connect Jobber</Button>
               </a>

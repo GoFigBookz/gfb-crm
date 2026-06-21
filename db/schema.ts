@@ -303,6 +303,9 @@ export const clients = sqliteTable("clients", {
   // days from period END to the pay date (e.g. Clark = Tue end + 3 → Fri pay).
   payrollAnchorStart: integer("payrollAnchorStart", { mode: "timestamp" }),
   payrollPayDayOffset: integer("payrollPayDayOffset").default(0),
+  // Where this client's hours come from — drives the per-client integration button
+  // (Jobber/TouchBistro/Clockify). Set on intake/the card; NOT guessed from the name.
+  payrollHoursSource: text("payrollHoursSource", { enum: ["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"] }),
   yearEndMonth: text("yearEndMonth", { enum: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] }),
 
   // Quote & Engagement Letter

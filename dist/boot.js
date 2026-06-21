@@ -22666,6 +22666,9 @@ var init_schema = __esm({
       // days from period END to the pay date (e.g. Clark = Tue end + 3 → Fri pay).
       payrollAnchorStart: integer2("payrollAnchorStart", { mode: "timestamp" }),
       payrollPayDayOffset: integer2("payrollPayDayOffset").default(0),
+      // Where this client's hours come from — drives the per-client integration button
+      // (Jobber/TouchBistro/Clockify). Set on intake/the card; NOT guessed from the name.
+      payrollHoursSource: text("payrollHoursSource", { enum: ["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"] }),
       yearEndMonth: text("yearEndMonth", { enum: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] }),
       // Quote & Engagement Letter
       quoteAmount: real("quoteAmount"),
@@ -40529,6 +40532,7 @@ var init_client_router = __esm({
         payrollReimbursements: external_exports.boolean().optional(),
         payrollRevenueShare: external_exports.boolean().optional(),
         payrollCraComparison: external_exports.boolean().optional(),
+        payrollHoursSource: external_exports.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
         yearEndMonth: external_exports.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
         quoteAmount: external_exports.number().optional(),
         quoteSentAt: external_exports.string().optional(),
@@ -47096,19 +47100,30 @@ async function seedPayrollSchedules() {
     const biweeklyAnchor = /* @__PURE__ */ new Date("2026-06-10T00:00:00Z");
     for (const c of cs) {
       const n = (c.name || "").toLowerCase();
+      const src = n.includes("clark") ? "jobber" : n.includes("spot") || n.includes("sher") || n.includes("punjab") ? "touchbistro" : n.includes("originality") ? "clockify" : null;
       if (["clark", "spot", "sher", "punjab"].some((k) => n.includes(k))) {
-        await db.update(clients).set({ payrollFrequency: "bi-weekly", payrollAnchorStart: biweeklyAnchor, payrollPayDayOffset: 3 }).where(eq(clients.id, c.id));
+        await db.update(clients).set({ payrollFrequency: "bi-weekly", payrollAnchorStart: biweeklyAnchor, payrollPayDayOffset: 3, ...src && !c.payrollHoursSource ? { payrollHoursSource: src } : {} }).where(eq(clients.id, c.id));
       } else if (n.includes("originality")) {
-        if (!c.payrollFrequency) await db.update(clients).set({ payrollFrequency: "semi-monthly" }).where(eq(clients.id, c.id));
+        await db.update(clients).set({ ...c.payrollFrequency ? {} : { payrollFrequency: "semi-monthly" }, ...src && !c.payrollHoursSource ? { payrollHoursSource: src } : {} }).where(eq(clients.id, c.id));
       }
     }
   } catch (e) {
     console.error("[payroll] seedPayrollSchedules failed:", e instanceof Error ? e.message : e);
   }
 }
-function payrollKind(name2) {
+function payrollKind(name2, source) {
   const n = (name2 || "").toLowerCase();
   if (n.includes("west york")) return { kind: "qbo_autopay", note: WEST_YORK_META.note, meta: WEST_YORK_META };
+  if (source) {
+    const m = {
+      jobber: { kind: "jobber", note: "Hours come from Jobber timesheets \u2014 use Connect Jobber to import." },
+      touchbistro: { kind: "touchbistro", note: "Hours come from TouchBistro \u2014 enter or import them here." },
+      clockify: { kind: "clockify", note: "Hours come from Clockify." },
+      qbo_autopay: { kind: "qbo_autopay", note: "Auto-paid in QuickBooks." },
+      manual: { kind: "manual" }
+    };
+    if (m[source]) return m[source];
+  }
   if (n.includes("selective")) return { kind: "estimator", note: "Monthly flat-rate estimator: enter gross (or net) and Figgy fills CPP/EI/tax + the CRA remittance." };
   if (n.includes("originality")) return { kind: "clockify", note: "Hourly staff hours come from Clockify; salaried staff are entered manually." };
   if (n.includes("clark")) return { kind: "jobber", note: "Employee hours come from Jobber timesheets (import coming in Phase 3). Enter or adjust manually here." };
@@ -47170,6 +47185,7 @@ var init_payroll_router = __esm({
           payrollRemitterFreq: c.payrollRemitterFreq ?? null,
           payrollAnchorStart: c.payrollAnchorStart ?? null,
           payrollPayDayOffset: c.payrollPayDayOffset ?? 0,
+          payrollHoursSource: c.payrollHoursSource ?? null,
           employeeCount: empCount.get(c.id) || 0,
           // Client-level payroll features (drive what the pay run shows).
           payrollBonuses: !!c.payrollBonuses,
@@ -47178,7 +47194,7 @@ var init_payroll_router = __esm({
           payrollReimbursements: !!c.payrollReimbursements,
           payrollRevenueShare: !!c.payrollRevenueShare,
           payrollCraComparison: !!c.payrollCraComparison,
-          ...payrollKind(c.name)
+          ...payrollKind(c.name, c.payrollHoursSource)
         })).sort((a, b) => a.name.localeCompare(b.name));
       }),
       // Pay runs for a client, newest period first.
@@ -55057,6 +55073,7 @@ var init_ensure_clients_schema = __esm({
       ["payrollCraComparison", "integer DEFAULT 0"],
       ["payrollAnchorStart", "integer"],
       ["payrollPayDayOffset", "integer DEFAULT 0"],
+      ["payrollHoursSource", "text"],
       ["quoteAmount", "real"],
       ["quoteSentAt", "integer"],
       ["quoteApprovedAt", "integer"],
@@ -59955,7 +59972,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.47";
+var BUILD_TAG = "2026-06-21.49";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
