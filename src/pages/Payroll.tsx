@@ -19,10 +19,11 @@ const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 
 /** Download a run's hours as CSV (opens directly in Google Sheets / Excel). */
 function exportRunCsv(run: any, lines: any[]) {
-  const head = ["Employee", "Pay type", "Rate", "Reg hrs", "OT hrs", "Stat $", "Share bonus", "Gross", "CPP", "EI", "Tax", "Net"];
+  const head = ["Employee", "Pay type", "Rate", "Reg hrs", "OT hrs", "Stat hrs", "Vac hrs", "Sick hrs", "Share bonus", "Gross", "CPP", "EI", "Tax", "Net"];
   const rows = lines.map((l: any) => [
     l.employeeName, l.payType || "", l.hourlyRate ?? "", l.regularHours ?? 0, l.overtimeHours ?? 0,
-    l.statHolidayPay ?? 0, l.shareBonus ?? 0, l.grossPay ?? 0, l.cppEmployee ?? 0, l.eiEmployee ?? 0, l.federalTax ?? 0, l.netPay ?? 0,
+    l.statHolidayHours ?? 0, l.vacationHours ?? 0, l.sickHours ?? 0,
+    l.shareBonus ?? 0, l.grossPay ?? 0, l.cppEmployee ?? 0, l.eiEmployee ?? 0, l.federalTax ?? 0, l.netPay ?? 0,
   ]);
   const esc = (v: any) => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   const csv = [head, ...rows].map((r) => r.map(esc).join(",")).join("\n");
@@ -320,7 +321,9 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
                   <th className="text-right px-1">Rate</th>
                   <th className="text-right px-1">Reg hrs</th>
                   <th className="text-right px-1">OT</th>
-                  <th className="text-right px-1">Stat $</th>
+                  <th className="text-right px-1">Stat hrs</th>
+                  <th className="text-right px-1">Vac hrs</th>
+                  <th className="text-right px-1">Sick hrs</th>
                   {showBonus && <th className="text-right px-1">Share bonus</th>}
                   <th className="text-right px-1">Gross</th>
                   {showTax && <th className="text-right px-1">CPP</th>}
@@ -344,7 +347,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
               <tfoot>
                 <tr className="border-t font-semibold">
                   <td className="py-1.5 pr-2">Totals</td>
-                  <td colSpan={4 + (showBonus ? 1 : 0)}></td>
+                  <td colSpan={6 + (showBonus ? 1 : 0)}></td>
                   <td className="text-right px-1 text-lime-700">{money(run.totalGross)}</td>
                   {showTax && <td colSpan={3} className="text-right px-1 text-slate-500">deduct {money(run.totalEmployeeDeductions)}</td>}
                   {showTax && <td className="text-right px-1">{money(run.totalNet)}</td>}
@@ -352,7 +355,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
                 </tr>
                 {showTax && (
                   <tr className="text-xs text-slate-500">
-                    <td className="pt-1" colSpan={11 + (showBonus ? 1 : 0) + (showPhone ? 1 : 0) + (showReimb ? 1 : 0)}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))} · Net total includes phone/reimbursement add-ons.</td>
+                    <td className="pt-1" colSpan={9 + (showBonus ? 1 : 0) + 4 + (showPhone ? 1 : 0) + (showReimb ? 1 : 0)}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))} · Net total includes phone/reimbursement add-ons.</td>
                   </tr>
                 )}
               </tfoot>
@@ -380,17 +383,19 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
 function LineRow({ line, showBonus, showPhone, showReimb, showTax, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; showBonus?: boolean; showPhone?: boolean; showReimb?: boolean; showTax?: boolean; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
   const [v, setV] = useState({
     regularHours: line.regularHours ?? 0, overtimeHours: line.overtimeHours ?? 0,
-    statHolidayPay: line.statHolidayPay ?? 0, shareBonus: line.shareBonus ?? 0,
+    statHolidayHours: line.statHolidayHours ?? 0, vacationHours: line.vacationHours ?? 0, sickHours: line.sickHours ?? 0,
+    shareBonus: line.shareBonus ?? 0,
     grossPay: line.grossPay ?? 0, cppEmployee: line.cppEmployee ?? 0, eiEmployee: line.eiEmployee ?? 0,
     federalTax: line.federalTax ?? 0, netPay: line.netPay ?? 0,
     phoneAllowance: line.phoneAllowance ?? 0, reimbursement: line.reimbursement ?? 0,
   });
   const num = (s: string) => { const n = parseFloat(s); return isNaN(n) ? 0 : n; };
   const rate = line.hourlyRate ?? null;
-  // Sum the components into gross (hrs×rate + OT×1.5 + stat$ + share bonus).
+  // Sum hour types into gross: (reg + stat + vac + sick)×rate + OT×1.5×rate + share bonus.
+  // (Rough total for the timesheet — QBO Payroll does the authoritative pay calc.)
   const sumGross = () => {
     const r = rate || 0;
-    const g = Math.round(((v.regularHours * r) + (v.overtimeHours * r * 1.5) + v.statHolidayPay + v.shareBonus) * 100) / 100;
+    const g = Math.round((((v.regularHours + v.statHolidayHours + v.vacationHours + v.sickHours) * r) + (v.overtimeHours * r * 1.5) + v.shareBonus) * 100) / 100;
     setV({ ...v, grossPay: g }); onSave({ grossPay: g });
   };
   const cell = (key: keyof typeof v) => (
@@ -407,7 +412,9 @@ function LineRow({ line, showBonus, showPhone, showReimb, showTax, onSave, onEst
       <td className="px-1 text-right text-xs text-slate-500">{rate != null ? `$${rate}` : "—"}</td>
       <td className="px-1">{cell("regularHours")}</td>
       <td className="px-1">{cell("overtimeHours")}</td>
-      <td className="px-1">{cell("statHolidayPay")}</td>
+      <td className="px-1">{cell("statHolidayHours")}</td>
+      <td className="px-1">{cell("vacationHours")}</td>
+      <td className="px-1">{cell("sickHours")}</td>
       {showBonus && <td className="px-1">{cell("shareBonus")}</td>}
       <td className="px-1">{cell("grossPay")}</td>
       {showTax && <td className="px-1">{cell("cppEmployee")}</td>}
