@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/providers/trpc";
 import { cn } from "@/lib/utils";
-import { splitClientName } from "@/lib/clientName";
+import { splitClientName, logoFromWebsite } from "@/lib/clientName";
 import { Link, useSearchParams, useNavigate } from "react-router";
 
 const INDUSTRIES: Record<string, string> = {
@@ -43,6 +43,23 @@ const AVATAR_COLORS = [
 ];
 const avatarColor = (id: number) => AVATAR_COLORS[id % AVATAR_COLORS.length];
 const monogram = (name: string) => name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
+
+// Client avatar: the website logo when we can derive one, else a monogram.
+// Falls back to the monogram if the logo image fails to load.
+function ClientAvatar({ id, name, website, size = "md" }: { id: number; name: string; website?: string | null; size?: "md" | "sm" }) {
+  const [failed, setFailed] = useState(false);
+  const logo = failed ? null : logoFromWebsite(website);
+  const dim = size === "md" ? "h-10 w-10" : "h-8 w-8";
+  if (logo) {
+    return <img src={logo} alt="" loading="lazy" onError={() => setFailed(true)}
+      className={cn(dim, "rounded-lg object-contain bg-white border border-slate-200 p-0.5")} />;
+  }
+  return (
+    <div className={cn(dim, "rounded-lg flex items-center justify-center font-semibold", size === "md" ? "text-sm" : "text-xs", avatarColor(id))}>
+      {monogram(name)}
+    </div>
+  );
+}
 
 function missingInfo(c: any): string[] {
   const m: string[] = [];
@@ -235,11 +252,9 @@ export default function Clients() {
               <Link key={client.id} to={`/client/${client.id}`}
                 className="group block rounded-xl border border-slate-200 bg-white p-4 hover:shadow-md hover:border-slate-300 transition-all">
                 <div className="flex items-start gap-3">
-                  {/* Monogram avatar with a close-health dot */}
+                  {/* Logo (or monogram) avatar with a close-health dot */}
                   <div className="relative shrink-0">
-                    <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center font-semibold text-sm", avatarColor(client.id))}>
-                      {monogram(primary)}
-                    </div>
+                    <ClientAvatar id={client.id} name={primary} website={c.website} size="md" />
                     {health && <span className={cn("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white", TRAFFIC[health.status] ?? "bg-slate-300")} title={`Close status: ${health.status}`} />}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -283,7 +298,7 @@ export default function Clients() {
               return (
                 <Link key={client.id} to={`/client/${client.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
                   <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", health ? TRAFFIC[health.status] ?? "bg-slate-300" : "bg-slate-200")} title={health ? `Close status: ${health.status}` : ""} />
-                  <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center font-semibold text-xs shrink-0", avatarColor(client.id))}>{monogram(primary)}</div>
+                  <div className="shrink-0"><ClientAvatar id={client.id} name={primary} website={c.website} size="sm" /></div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="font-medium text-slate-800 truncate">{primary}</span>

@@ -1632,6 +1632,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
   const o = onboarding || {};
   const [f, setF] = useState<any>({
     name: client.name || "", email: client.email || "", phone: client.phone || "", company: client.company || "",
+    website: client.website || "",
     address: client.address || "", contactName: client.contactName || o.primaryContactName || "",
     taxId: client.taxId || o.craBusinessNumber || "", hstNumber: client.hstNumber || "",
     wsibAccountNumber: client.wsibAccountNumber || o.wsibAccountNumber || "", payrollRpNumber: client.payrollRpNumber || "",
@@ -1689,7 +1690,8 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
         <p className="text-xs uppercase font-semibold text-slate-500">Contact</p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           {field("name", "Client name")}{field("company", "Company")}{field("contactName", "Contact name")}
-          {field("email", "Email")}{field("phone", "Phone")}{field("address", "Address")}
+          {field("email", "Email")}{field("phone", "Phone")}{field("website", "Website (for logo)")}
+          {field("address", "Address")}
         </div>
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Service type</p>

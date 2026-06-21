@@ -21,7 +21,7 @@ import { sql } from "drizzle-orm";
 // (+ default where the schema has one). Core cols (id/userId/name/email) always
 // exist, so they're omitted.
 const COLUMNS: Array<[string, string]> = [
-  ["phone", "text"], ["company", "text"], ["address", "text"], ["taxId", "text"],
+  ["phone", "text"], ["company", "text"], ["website", "text"], ["address", "text"], ["taxId", "text"],
   ["status", "text DEFAULT 'active'"],
   ["clientType", "text DEFAULT 'monthly'"],
   ["workflowStatus", "text DEFAULT 'new_lead'"],

@@ -22604,6 +22604,8 @@ var init_schema = __esm({
       email: text("email").notNull(),
       phone: text("phone"),
       company: text("company"),
+      website: text("website"),
+      // used to auto-fetch the client's logo on cards
       address: text("address"),
       taxId: text("taxId"),
       status: text("status", { enum: ["active", "inactive", "prospect", "lead"] }).default("active").notNull(),
@@ -40375,6 +40377,7 @@ var init_client_router = __esm({
         email: external_exports.string().email(),
         phone: external_exports.string().max(50).optional(),
         company: external_exports.string().max(255).optional(),
+        website: external_exports.string().max(255).optional(),
         address: external_exports.string().optional(),
         taxId: external_exports.string().max(50).optional(),
         status: external_exports.enum(["active", "inactive", "prospect", "lead"]).optional().default("active"),
@@ -40438,6 +40441,7 @@ var init_client_router = __esm({
         email: external_exports.string().email().optional(),
         phone: external_exports.string().max(50).optional(),
         company: external_exports.string().max(255).optional(),
+        website: external_exports.string().max(255).optional(),
         address: external_exports.string().optional(),
         taxId: external_exports.string().max(50).optional(),
         status: external_exports.enum(["active", "inactive", "prospect", "lead"]).optional(),
@@ -53320,6 +53324,7 @@ var init_ensure_clients_schema = __esm({
     COLUMNS = [
       ["phone", "text"],
       ["company", "text"],
+      ["website", "text"],
       ["address", "text"],
       ["taxId", "text"],
       ["status", "text DEFAULT 'active'"],

@@ -26,6 +26,24 @@ export interface ClientNameParts {
   secondary: string | null;   // the numbered legal entity, shown underneath
 }
 
+/** Normalize a website value to a bare domain (drops scheme/path/www). */
+export function domainFromWebsite(website?: string | null): string | null {
+  const raw = (website ?? "").trim();
+  if (!raw) return null;
+  let host = raw.replace(/^[a-z]+:\/\//i, "").replace(/^www\./i, "");
+  host = host.split(/[/?#]/)[0].trim();
+  // Must look like a domain (has a dot, no spaces).
+  if (!host || /\s/.test(host) || !host.includes(".")) return null;
+  return host.toLowerCase();
+}
+
+/** Auto-logo URL for a client from their website domain (favicon service).
+ *  Returns null when there's no usable domain → caller falls back to a monogram. */
+export function logoFromWebsite(website?: string | null): string | null {
+  const domain = domainFromWebsite(website);
+  return domain ? `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(domain)}` : null;
+}
+
 export function splitClientName(name?: string | null, company?: string | null): ClientNameParts {
   const n = (name ?? "").trim();
   const c = (company ?? "").trim();

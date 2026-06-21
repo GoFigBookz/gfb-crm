@@ -1,5 +1,22 @@
 import { describe, it, expect } from "vitest";
-import { splitClientName } from "../src/lib/clientName";
+import { splitClientName, domainFromWebsite, logoFromWebsite } from "../src/lib/clientName";
+
+describe("domainFromWebsite / logoFromWebsite", () => {
+  it("normalizes assorted website inputs to a bare domain", () => {
+    expect(domainFromWebsite("https://www.clarkpools.ca")).toBe("clarkpools.ca");
+    expect(domainFromWebsite("clarkpools.ca/about")).toBe("clarkpools.ca");
+    expect(domainFromWebsite("HTTP://Foo.COM")).toBe("foo.com");
+  });
+  it("rejects non-domains (no logo to derive)", () => {
+    expect(domainFromWebsite("")).toBeNull();
+    expect(domainFromWebsite("not a url")).toBeNull();
+    expect(domainFromWebsite("localhost")).toBeNull();
+    expect(logoFromWebsite("")).toBeNull();
+  });
+  it("builds a favicon URL from a valid website", () => {
+    expect(logoFromWebsite("clarkpools.ca")).toContain("domain=clarkpools.ca");
+  });
+});
 
 describe("splitClientName (UI two-line client name)", () => {
   it("puts the trade name on top and the numbered entity underneath (stored 'Trade (Numbered)')", () => {
