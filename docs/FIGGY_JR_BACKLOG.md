@@ -3,6 +3,16 @@
 _Living list of agreed-but-not-yet-built work, with the decisions made so we
 don't re-derive them._
 
+## BACKLOGGED THIS SESSION (Markie: finish client cards first, then these)
+- **Owner-only Insights — per-client pricing intelligence.** The "scope quote vs
+  flat fee / what we should bill vs what we bill" build was REMOVED from the client
+  card (Markie's call). Rebuild it as an Insights area visible only to the owner,
+  filterable by client. (Engine already exists: `quote.forClient`.)
+- **Website lead webhook / form hookup.** `POST /api/lead` is live + the Leads tab/
+  board exist; the gofig.ca inquiry form just needs to point at it. BLOCKED: the
+  website repo `GoFigBookz/app` isn't in this session's scope (no add_repo tool here)
+  — add it, then wire the form + test end-to-end.
+
 ## 0. SMART CLIENT SYNC + LOOKUP SYSTEM (Markie 2026-06-21: "syncs everything, looks up everything, extremely smart")
 
 ### ✅ DONE this session (live on main, build 2026-06-21.15)
