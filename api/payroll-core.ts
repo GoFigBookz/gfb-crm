@@ -90,15 +90,27 @@ export function nextPayPeriod(
   frequency: string | null | undefined,
   lastStart?: Date | null,
   lastEnd?: Date | null,
+  opts?: { anchorStart?: Date | null; payOffset?: number },
 ): { start: Date; end: Date; payDate: Date } {
   const f = normalizeFrequency(frequency);
   const today = new Date(); today.setHours(0, 0, 0, 0);
+  const payOffset = opts?.payOffset ?? 0;
+  const withPay = (start: Date, end: Date) => ({ start, end, payDate: addDays(end, payOffset) });
 
   if (f === "weekly" || f === "biweekly") {
     const span = f === "weekly" ? 7 : 14;
-    const start = lastEnd ? addDays(new Date(lastEnd), 1) : today;
-    const end = addDays(start, span - 1);
-    return { start, end, payDate: end };
+    let start: Date;
+    if (lastEnd) {
+      start = addDays(new Date(lastEnd), 1);                 // advance from the last run
+    } else if (opts?.anchorStart) {
+      // Align to the client's real cycle: the period (anchor + k·span) containing today.
+      const a = new Date(opts.anchorStart); a.setHours(0, 0, 0, 0);
+      const k = Math.floor((today.getTime() - a.getTime()) / (span * 86400000));
+      start = addDays(a, k * span);
+    } else {
+      start = today;
+    }
+    return withPay(start, addDays(start, span - 1));
   }
 
   if (f === "semi_monthly") {
@@ -112,7 +124,7 @@ export function nextPayPeriod(
       if (today.getDate() <= 15) { start = new Date(y, m, 1); end = new Date(y, m, 15); }
       else { start = new Date(y, m, 16); end = new Date(y, m + 1, 0); }
     }
-    return { start, end, payDate: end };
+    return withPay(start, end);
   }
 
   // monthly
@@ -120,5 +132,5 @@ export function nextPayPeriod(
                        : new Date(today.getFullYear(), today.getMonth(), 1);
   const start = new Date(base.getFullYear(), base.getMonth(), 1);
   const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
-  return { start, end, payDate: end };
+  return withPay(start, end);
 }

@@ -4,6 +4,12 @@ _Living list of agreed-but-not-yet-built work, with the decisions made so we
 don't re-derive them._
 
 ## BACKLOGGED THIS SESSION (Markie: finish client cards first, then these)
+- **Move Payroll higher in the nav (2026-06-21).** Markie runs payroll EVERY WEEK — it's
+  core weekly work, so Payroll should sit near the top of the sidebar, not buried.
+- **Employee expense → bill-to-pay → QuickBooks (2026-06-21).** Let an employee email
+  an expense to the CRM; Figgy creates it as an expense/bill record, routes it for review,
+  then pushes it to QBO as a Bill to be paid (vendor = employee, reimbursement). End-to-end:
+  email intake → CRM expense → review → QBO Bill. (Ties into the existing intake + poster.)
 - **Payroll calcs pull live data from QBO Payroll, per client + pay run.** Stat-pay,
   vacation-pay, and prorated payroll should auto-fill the earnings/period inputs from
   QBO Payroll (the CRM doesn't run payroll — QBO does). Stat = 4-work-week earnings ÷ 20

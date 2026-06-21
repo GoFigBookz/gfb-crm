@@ -22662,6 +22662,10 @@ var init_schema = __esm({
       payrollFrequency: text("payrollFrequency", { enum: ["weekly", "bi-weekly", "semi-monthly", "monthly", "self"] }),
       // CRA source-deduction remitter type — drives the PD7A remittance due date.
       payrollRemitterFreq: text("payrollRemitterFreq", { enum: ["regular", "quarterly", "accelerated"] }).default("regular"),
+      // Pay-cycle anchor: a known period START date (aligns weekly/biweekly periods) +
+      // days from period END to the pay date (e.g. Clark = Tue end + 3 → Fri pay).
+      payrollAnchorStart: integer2("payrollAnchorStart", { mode: "timestamp" }),
+      payrollPayDayOffset: integer2("payrollPayDayOffset").default(0),
       yearEndMonth: text("yearEndMonth", { enum: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] }),
       // Quote & Engagement Letter
       quoteAmount: real("quoteAmount"),
@@ -47021,7 +47025,8 @@ var init_jobber_client = __esm({
 var payroll_router_exports = {};
 __export(payroll_router_exports, {
   backfillHasPayroll: () => backfillHasPayroll,
-  payrollRouter: () => payrollRouter
+  payrollRouter: () => payrollRouter,
+  seedPayrollSchedules: () => seedPayrollSchedules
 });
 async function ytdGrossBeforeRun(db, employeeId, run2) {
   const emp = (await db.select().from(employees).where(eq(employees.id, employeeId)).limit(1))[0];
@@ -47079,6 +47084,23 @@ async function backfillHasPayroll() {
     }
   } catch (e) {
     console.error("[payroll] backfillHasPayroll failed:", e instanceof Error ? e.message : e);
+  }
+}
+async function seedPayrollSchedules() {
+  try {
+    const db = getDb();
+    const cs = await db.select().from(clients);
+    const biweeklyAnchor = /* @__PURE__ */ new Date("2026-06-10T00:00:00");
+    for (const c of cs) {
+      const n = (c.name || "").toLowerCase();
+      if (["clark", "old spot", "sher", "punjab"].some((k) => n.includes(k))) {
+        await db.update(clients).set({ payrollFrequency: "bi-weekly", payrollAnchorStart: biweeklyAnchor, payrollPayDayOffset: 3 }).where(eq(clients.id, c.id));
+      } else if (n.includes("originality")) {
+        if (!c.payrollFrequency) await db.update(clients).set({ payrollFrequency: "semi-monthly" }).where(eq(clients.id, c.id));
+      }
+    }
+  } catch (e) {
+    console.error("[payroll] seedPayrollSchedules failed:", e instanceof Error ? e.message : e);
   }
 }
 function payrollKind(name2) {
@@ -47143,6 +47165,8 @@ var init_payroll_router = __esm({
           name: c.name,
           payrollFrequency: c.payrollFrequency ?? null,
           payrollRemitterFreq: c.payrollRemitterFreq ?? null,
+          payrollAnchorStart: c.payrollAnchorStart ?? null,
+          payrollPayDayOffset: c.payrollPayDayOffset ?? 0,
           employeeCount: empCount.get(c.id) || 0,
           // Client-level payroll features (drive what the pay run shows).
           payrollBonuses: !!c.payrollBonuses,
@@ -54990,6 +55014,8 @@ var init_ensure_clients_schema = __esm({
       ["payrollReimbursements", "integer DEFAULT 0"],
       ["payrollRevenueShare", "integer DEFAULT 0"],
       ["payrollCraComparison", "integer DEFAULT 0"],
+      ["payrollAnchorStart", "integer"],
+      ["payrollPayDayOffset", "integer DEFAULT 0"],
       ["quoteAmount", "real"],
       ["quoteSentAt", "integer"],
       ["quoteApprovedAt", "integer"],
@@ -59888,7 +59914,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.42";
+var BUILD_TAG = "2026-06-21.43";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -61071,8 +61097,10 @@ async function startServer() {
     maybeRefreshTaxRates2().catch(() => {
     });
   }, 24 * 60 * 60 * 1e3);
-  const { backfillHasPayroll: backfillHasPayroll2 } = await Promise.resolve().then(() => (init_payroll_router(), payroll_router_exports));
+  const { backfillHasPayroll: backfillHasPayroll2, seedPayrollSchedules: seedPayrollSchedules2 } = await Promise.resolve().then(() => (init_payroll_router(), payroll_router_exports));
   backfillHasPayroll2().catch(() => {
+  });
+  seedPayrollSchedules2().catch(() => {
   });
   if (process.env.FIGGY_SHEET_SYNC_DISABLE !== "on") {
     const runInbound = async () => {

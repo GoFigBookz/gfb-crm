@@ -228,7 +228,8 @@ export default function Payroll() {
         // Auto-advance from the latest run's period (or the current period).
         const freq = normalizeFrequency(selected.payrollFrequency);
         const last = runs && runs[0];
-        const np = nextPayPeriod(freq, last ? new Date(last.payPeriodStart) : null, last ? new Date(last.payPeriodEnd) : null);
+        const np = nextPayPeriod(freq, last ? new Date(last.payPeriodStart) : null, last ? new Date(last.payPeriodEnd) : null,
+          { anchorStart: (selected as any).payrollAnchorStart ? new Date((selected as any).payrollAnchorStart) : null, payOffset: (selected as any).payrollPayDayOffset ?? 0 });
         return (
           <NewRunDialog
             defaultFreq={freq}
