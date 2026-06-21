@@ -1,4 +1,4 @@
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, ne, inArray } from "drizzle-orm";
 import { getDb } from "./queries/connection";
 import { clientTaskRules, tasks, clients } from "../db/schema";
 import { matchClientIdByName } from "./client-match";
@@ -698,6 +698,75 @@ export async function createClientTaskRules(data: OnboardingData) {
   });
 
   return { rules: createdRules, tasks: createdTasks, setupTasks: setupCreated };
+}
+
+/**
+ * Idempotent, ADDITIVE compliance backfill. Unlike createClientTaskRules (which
+ * is all-or-nothing and meant for brand-new clients), this ensures each cadence
+ * rule the client SHOULD have (HST, payroll remittance, year-end, T4/T5, WSIB…)
+ * exists — adding only the MISSING ones, never duplicating. This is what fixes
+ * "client already had some rules but no HST task, so it was skipped forever".
+ * One active rule per (clientId, ruleType) is the uniqueness key.
+ */
+export async function ensureComplianceRulesAndTasks(data: OnboardingData) {
+  const db = getDb();
+  const rules = buildTaskRules(data);
+  const created = { rules: 0, tasks: 0 };
+
+  const existing = await db.select().from(clientTaskRules).where(eq(clientTaskRules.clientId, data.clientId));
+  const haveTypes = new Set((existing as any[]).map((r) => r.ruleType).filter(Boolean));
+
+  // Cross-system de-dup: the older client-task-creator path makes differently-
+  // titled compliance tasks (e.g. "HST Filing — X"). Don't add a second one if an
+  // open task of the same domain already exists. Keyword-guarded per rule type.
+  const openTasks = await db.select({ title: tasks.title }).from(tasks)
+    .where(and(eq(tasks.clientId, data.clientId), ne(tasks.status, "completed")));
+  const openTitles = (openTasks as any[]).map((t) => String(t.title ?? "").toLowerCase());
+  const DOMAIN_KEYWORD: Record<string, string> = {
+    hst_monthly: "hst", hst_quarterly: "hst", hst_annual: "hst",
+  };
+  const coveredByOtherSystem = (ruleType: string) => {
+    const kw = DOMAIN_KEYWORD[ruleType];
+    return kw ? openTitles.some((t) => t.includes(kw)) : false;
+  };
+
+  for (const config of rules) {
+    if (haveTypes.has(config.ruleType)) continue; // already covered — don't duplicate
+    if (coveredByOtherSystem(config.ruleType)) continue; // covered by the other task system
+    const nextDueDate = calculateNextDueDate(config);
+    const [rule] = await db.insert(clientTaskRules).values({
+      clientId: data.clientId,
+      userId: data.userId,
+      title: config.title,
+      description: config.description,
+      category: config.category,
+      priority: config.priority,
+      assignedTo: data.assignedTo || null,
+      ruleType: config.ruleType,
+      frequency: config.frequency,
+      dueDayOfMonth: config.dueDayOfMonth,
+      dueMonth: config.dueMonth || null,
+      daysBeforeDue: config.daysBeforeDue,
+      fiscalYearEndMonth: config.fiscalYearEndMonth || null,
+      fiscalYearEndDay: config.fiscalYearEndDay || null,
+      nextDueDate,
+      active: true,
+    }).returning();
+    if (!rule) continue;
+    created.rules++;
+    haveTypes.add(config.ruleType);
+
+    // Materialize the first task only if the client doesn't already have an open
+    // task of this rule type (defensive against earlier partial generation).
+    const openOfType = await db.select().from(tasks)
+      .where(and(eq(tasks.clientId, data.clientId), eq(tasks.ruleId, rule.id))).limit(1);
+    if (openOfType.length === 0) {
+      const [task] = await db.insert(tasks).values(generateTaskFromRule(rule, 1)).returning();
+      if (task) created.tasks++;
+    }
+    await db.update(clientTaskRules).set({ lastGeneratedDate: new Date() }).where(eq(clientTaskRules.id, rule.id));
+  }
+  return created;
 }
 
 // When a recurring task is completed, generate the next instance
