@@ -1187,7 +1187,11 @@ function CPPEICalculator() {
    MAIN CALCULATORS PAGE
    ================================================================= */
 export default function Calculators() {
-  const [activeTab, setActiveTab] = useState("tax");
+  // Deep-linkable: /calculators?tab=payroll opens the Payroll tab directly.
+  const initialTab = (() => {
+    try { return new URLSearchParams(window.location.search).get("tab") || "tax"; } catch { return "tax"; }
+  })();
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   return (
     <div className="space-y-6">
