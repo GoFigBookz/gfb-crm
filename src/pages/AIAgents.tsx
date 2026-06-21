@@ -12,7 +12,10 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 const agentTypes = [
-  { value: "bookkeeper", label: "Go Fig Bookz", description: "Manages client books, reconciles accounts, tracks expenses" },
+  { value: "bookkeeper", label: "Bookkeeper (Figgy Jr)", description: "Day-to-day books: categorizes & posts transactions, reconciles, captures receipts, preps HST/payroll. Keeps books clean & current." },
+  { value: "controller", label: "Controller", description: "Reviews the books for accuracy — month-end close, reconciliation integrity, variances, catches errors/dupes/miscodes." },
+  { value: "cfo", label: "Fractional CFO", description: "Cash-flow forecasting, profitability & KPI analysis; flags ways to run leaner or grow revenue and surfaces upsell opportunities." },
+  { value: "social_media_manager", label: "Social Media Manager", description: "Content calendar, on-brand post drafts, repurposes wins/tips, schedules & engages to grow the audience." },
   { value: "executive_assistant", label: "Executive Assistant", description: "Manages calendar, drafts emails, schedules meetings" },
   { value: "sales_assistant", label: "Sales Assistant", description: "Follows up on leads, manages pipeline, sends proposals" },
   { value: "customer_support", label: "Customer Support", description: "Responds to client inquiries, resolves issues" },
