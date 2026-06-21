@@ -51,6 +51,7 @@ import EmergencySOP from "./pages/EmergencySOP";
 import DiscoveryCall from "./pages/DiscoveryCall";
 import OnboardingChecklist from "./pages/OnboardingChecklist";
 import SheetsSetup from "./pages/SheetsSetup";
+import Leads from "./pages/Leads";
 
 function AppRoutes() {
   return (
@@ -74,6 +75,7 @@ function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/triage" element={<Triage />} />
+        <Route path="/leads" element={<Leads />} />
         <Route path="/clients" element={<Clients />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/emails" element={<Emails />} />

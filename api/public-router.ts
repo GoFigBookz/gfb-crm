@@ -4,6 +4,7 @@ import { getDb } from "./queries/connection";
 import { clients, clientOnboarding, workflowLogs, payRuns, payRunLines, employees, clientRequests, clientRequestItems } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { maybeComplete } from "./client-request-router";
+import { syncLeadToMaster } from "./master-sheet-sync";
 
 export const publicRouter = createRouter({
   // Public: create a lead from the marketing website
@@ -103,6 +104,14 @@ export const publicRouter = createRouter({
         notes: `Plan selected: ${input.planSelected || "none"}. Source: website form.`,
         createdAt: new Date(),
       });
+
+      // 4. Mirror the lead onto the Leads tab of the master sheet (best-effort).
+      //    NOT the Client Master tab + no gov-registry lookup yet — those happen
+      //    only once the lead is signed + marked active.
+      try {
+        const lead = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+        if (lead) syncLeadToMaster(lead as any);
+      } catch { /* non-fatal */ }
 
       return { success: true, clientId, token };
     }),

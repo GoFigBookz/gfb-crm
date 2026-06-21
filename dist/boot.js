@@ -44538,11 +44538,98 @@ function syncClientToMaster(c) {
   upsertClientToMaster(c).catch(() => {
   });
 }
-var CANONICAL_MASTER_SHEET_ID, MASTER_TAB, SYNC_WEBHOOK, COLS, N, GOV_ONLY, SOFT, lastColLetter, cap, titleCadence, titlePay, titleRemit, norm2;
+function leadValue(c, key) {
+  switch (key) {
+    case "dateReceived": {
+      const d = c.createdAt ? new Date(c.createdAt) : null;
+      return d && !isNaN(+d) ? d.toISOString().slice(0, 10) : "";
+    }
+    case "leadName":
+      return c.contactName || c.name || "";
+    case "businessName":
+      return c.company || c.name || "";
+    case "email":
+      return c.email || "";
+    case "phone":
+      return c.phone || "";
+    case "website":
+      return c.website || "";
+    case "message":
+      return c.painPoints || c.expectations || "";
+    case "source":
+      return c.leadSourceDetail || c.leadSource || "";
+    case "status":
+      return c.workflowStatus || "new_lead";
+    case "estValue":
+      return c.estimatedMonthlyValue != null ? String(c.estimatedMonthlyValue) : "";
+    case "assignedTo":
+      return c.assignedTo || "";
+    case "nextAction":
+      return c.nextAction || "";
+    case "notes":
+      return c.notes || "";
+    case "crmId":
+      return c.id != null ? String(c.id) : "";
+    default:
+      return "";
+  }
+}
+async function upsertLeadToMaster(c) {
+  if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return false;
+  if (!c.id && !c.email && !c.name) return false;
+  const sid = CANONICAL_MASTER_SHEET_ID;
+  const range = `'${LEADS_TAB}'!A:${leadLastCol}`;
+  try {
+    const read = await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(range)}`, "GET");
+    const rows = Array.isArray(read?.values) ? read.values : [];
+    const id = c.id != null ? String(c.id) : "";
+    const email3 = (c.email || "").trim();
+    let matchIdx = -1;
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i] || [];
+      if (id && norm2(r[13]) === norm2(id)) {
+        matchIdx = i;
+        break;
+      }
+    }
+    if (matchIdx < 0 && email3) {
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i] || [];
+        if (norm2(r[3]) === norm2(email3)) {
+          matchIdx = i;
+          break;
+        }
+      }
+    }
+    const out = [];
+    for (let k = 0; k < LEAD_N; k++) out[k] = leadValue(c, LEAD_COLS[k]);
+    if (matchIdx >= 0) {
+      const sheetRow = matchIdx + 1;
+      const wr = `'${LEADS_TAB}'!A${sheetRow}:${leadLastCol}${sheetRow}`;
+      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(wr)}?valueInputOption=RAW`, "PUT", { values: [out] });
+    } else {
+      await sheetsApi2(
+        `spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+        "POST",
+        { values: [out] }
+      );
+    }
+    return true;
+  } catch (e) {
+    console.error("[master-sync] lead upsert failed for", c.name || c.email || c.id, ":", e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+function syncLeadToMaster(c) {
+  upsertLeadToMaster(c).catch(() => {
+  });
+}
+var CANONICAL_MASTER_SHEET_ID, MASTER_TAB, LEADS_TAB, SYNC_WEBHOOK, COLS, N, GOV_ONLY, SOFT, lastColLetter, cap, titleCadence, titlePay, titleRemit, norm2, LEAD_COLS, LEAD_N, leadLastCol;
 var init_master_sheet_sync = __esm({
   "api/master-sheet-sync.ts"() {
     CANONICAL_MASTER_SHEET_ID = process.env.FIGGY_MASTER_SHEET_ID || "1pcAw-WSQXXnVn-0L-TQ2FIExkHQ0Olf4dzz47t0gTUk";
     MASTER_TAB = "Client Master";
+    LEADS_TAB = "Leads";
     SYNC_WEBHOOK = process.env.FIGGY_SHEET_SYNC_WEBHOOK || "https://hook.us2.make.com/d4h33m0na6ulrlm9nkv9dyyfa8hv1bcs";
     COLS = [
       "name",
@@ -44581,6 +44668,24 @@ var init_master_sheet_sync = __esm({
     titlePay = { weekly: "Weekly", "bi-weekly": "Bi-Weekly", "semi-monthly": "Semi-Monthly", monthly: "Monthly", self: "Self" };
     titleRemit = { regular: "Regular", quarterly: "Quarterly", accelerated: "Threshold 1" };
     norm2 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    LEAD_COLS = [
+      "dateReceived",
+      "leadName",
+      "businessName",
+      "email",
+      "phone",
+      "website",
+      "message",
+      "source",
+      "status",
+      "estValue",
+      "assignedTo",
+      "nextAction",
+      "notes",
+      "crmId"
+    ];
+    LEAD_N = LEAD_COLS.length;
+    leadLastCol = "N";
   }
 });
 
@@ -44649,42 +44754,69 @@ var init_gov_registry_lookup = __esm({
   }
 });
 
-// api/onboarding-router.ts
-import crypto3 from "crypto";
-async function enrichAndSyncNewClient(clientId, name2, province, knownBn) {
+// api/client-activation.ts
+async function enrichClientFromRegistry(clientId) {
   const db = getDb();
   try {
-    const hit = await lookupGovRegistry(name2, { province, knownBn });
-    if (hit) {
-      const cur = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
-      if (cur) {
-        const blank = (v) => v === null || v === void 0 || v === "";
-        const patch = { updatedAt: /* @__PURE__ */ new Date() };
-        if (hit.bio && blank(cur.bio)) patch.bio = hit.bio;
-        if (hit.registryNumber && blank(cur.registryNumber)) patch.registryNumber = hit.registryNumber;
-        if (hit.incorporationDate && blank(cur.incorporationDate)) patch.incorporationDate = hit.incorporationDate;
-        if (hit.corpType && blank(cur.corpType)) patch.corpType = hit.corpType;
-        if (hit.governmentStatus && blank(cur.governmentStatus)) patch.governmentStatus = hit.governmentStatus;
-        if (hit.industry && (blank(cur.industry) || cur.industry === "other")) patch.industry = hit.industry;
-        if (hit.website && blank(cur.website)) patch.website = hit.website;
-        if (hit.address && blank(cur.address)) patch.address = hit.address;
-        if (hit.phone && blank(cur.phone)) patch.phone = hit.phone;
-        if (hit.craBusinessNumber && blank(cur.taxId)) {
-          patch.taxId = hit.craBusinessNumber;
-          if (blank(cur.hstNumber) && cur.hasHST) patch.hstNumber = `${hit.craBusinessNumber}RT0001`;
-        }
-        if (Object.keys(patch).length > 1) await db.update(clients).set(patch).where(eq(clients.id, clientId));
-      }
+    const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+    if (!c) return [];
+    const hit = await lookupGovRegistry(c.name, { province: c.province, knownBn: c.taxId });
+    if (!hit) return [];
+    const patch = { updatedAt: /* @__PURE__ */ new Date() };
+    const take = (k, v) => {
+      if (v && blank(c[k])) patch[k] = v;
+    };
+    take("bio", hit.bio);
+    take("registryNumber", hit.registryNumber);
+    take("incorporationDate", hit.incorporationDate);
+    take("corpType", hit.corpType);
+    take("governmentStatus", hit.governmentStatus);
+    take("website", hit.website);
+    take("address", hit.address);
+    take("phone", hit.phone);
+    if (hit.industry && (blank(c.industry) || c.industry === "other")) patch.industry = hit.industry;
+    if (hit.craBusinessNumber && blank(c.taxId)) {
+      patch.taxId = hit.craBusinessNumber;
+      if (c.hasHST && blank(c.hstNumber)) patch.hstNumber = `${hit.craBusinessNumber}RT0001`;
     }
+    const fields = Object.keys(patch).filter((k) => k !== "updatedAt");
+    if (fields.length) await db.update(clients).set(patch).where(eq(clients.id, clientId));
+    return fields;
   } catch (e) {
-    console.error("[gov-lookup] enrich failed for", name2, ":", e instanceof Error ? e.message : e);
-  }
-  try {
-    const fresh = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
-    if (fresh) syncClientToMaster(fresh);
-  } catch {
+    console.error("[activation] enrich failed for client", clientId, ":", e instanceof Error ? e.message : e);
+    return [];
   }
 }
+async function activateAndSyncClient(clientId) {
+  const db = getDb();
+  await enrichClientFromRegistry(clientId);
+  try {
+    const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+    if (!c) return;
+    syncClientToMaster(c);
+    syncLeadToMaster({ ...c, workflowStatus: "won" });
+  } catch (e) {
+    console.error("[activation] sync failed for client", clientId, ":", e instanceof Error ? e.message : e);
+  }
+}
+function activateClientAsync(clientId) {
+  activateAndSyncClient(clientId).catch(() => {
+  });
+}
+var blank;
+var init_client_activation = __esm({
+  "api/client-activation.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_gov_registry_lookup();
+    init_master_sheet_sync();
+    blank = (v) => v === null || v === void 0 || v === "";
+  }
+});
+
+// api/onboarding-router.ts
+import crypto3 from "crypto";
 var onboardingRouter;
 var init_onboarding_router = __esm({
   "api/onboarding-router.ts"() {
@@ -44697,6 +44829,7 @@ var init_onboarding_router = __esm({
     init_task_generator();
     init_master_sheet_sync();
     init_gov_registry_lookup();
+    init_client_activation();
     onboardingRouter = createRouter({
       // Staff creates an onboarding link for a client
       create: seniorQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ input }) => {
@@ -44990,7 +45123,7 @@ var init_onboarding_router = __esm({
           invoicingResponsibility: input.invoicingResponsibility,
           billPayResponsibility: input.billPayResponsibility
         });
-        enrichAndSyncNewClient(client.id, input.name, input.province ?? null, input.businessNumber ?? null);
+        activateClientAsync(client.id);
         return {
           success: true,
           message: `Created client "${client.name}" with ${taskResult.tasks.length} auto-generated tasks.`,
@@ -45263,10 +45396,10 @@ var init_onboarding_router = __esm({
         if (!c) return { success: false, error: "client not found" };
         const hit = await lookupGovRegistry(c.name, { province: c.province, knownBn: c.taxId });
         if (!hit) return { success: false, error: "no registry data found (or lookup disabled)" };
-        const blank = (v) => v === null || v === void 0 || v === "";
+        const blank2 = (v) => v === null || v === void 0 || v === "";
         const patch = { updatedAt: /* @__PURE__ */ new Date() };
         const take = (k, v) => {
-          if (v && (input.force || blank(c[k]))) patch[k] = v;
+          if (v && (input.force || blank2(c[k]))) patch[k] = v;
         };
         take("bio", hit.bio);
         take("registryNumber", hit.registryNumber);
@@ -45276,8 +45409,8 @@ var init_onboarding_router = __esm({
         take("website", hit.website);
         take("address", hit.address);
         take("phone", hit.phone);
-        if (hit.industry && (input.force || blank(c.industry) || c.industry === "other")) patch.industry = hit.industry;
-        if (hit.craBusinessNumber && (input.force || blank(c.taxId))) patch.taxId = hit.craBusinessNumber;
+        if (hit.industry && (input.force || blank2(c.industry) || c.industry === "other")) patch.industry = hit.industry;
+        if (hit.craBusinessNumber && (input.force || blank2(c.taxId))) patch.taxId = hit.craBusinessNumber;
         if (Object.keys(patch).length > 1) await db.update(clients).set(patch).where(eq(clients.id, input.clientId));
         const fresh = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
         if (fresh) syncClientToMaster(fresh);
@@ -45741,6 +45874,8 @@ var init_workflow_router = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+    init_client_activation();
+    init_master_sheet_sync();
     workflowRouter = createRouter({
       getLogs: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
@@ -45769,6 +45904,12 @@ var init_workflow_router = __esm({
           workflowStatus: input.toStatus,
           updatedAt: /* @__PURE__ */ new Date()
         }).where(eq(clients.id, input.clientId));
+        const updated = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        if (input.toStatus === "active") {
+          activateClientAsync(input.clientId);
+        } else if (updated) {
+          syncLeadToMaster(updated);
+        }
         return { success: true };
       }),
       updateNextAction: staffQuery.input(external_exports.object({
@@ -45783,6 +45924,50 @@ var init_workflow_router = __esm({
           updatedAt: /* @__PURE__ */ new Date()
         }).where(eq(clients.id, input.clientId));
         return { success: true };
+      }),
+      // Staff: manually add a lead (e.g. phone/referral inquiry) → Leads tab.
+      createLead: staffQuery.input(external_exports.object({
+        name: external_exports.string().min(1),
+        company: external_exports.string().optional(),
+        email: external_exports.string().optional(),
+        phone: external_exports.string().optional(),
+        website: external_exports.string().optional(),
+        source: external_exports.string().optional(),
+        message: external_exports.string().optional(),
+        estimatedMonthlyValue: external_exports.number().optional()
+      })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const res = await db.insert(clients).values({
+          userId: ctx.user.id,
+          name: input.name,
+          company: input.company || null,
+          email: input.email || "",
+          phone: input.phone || null,
+          website: input.website || null,
+          status: "lead",
+          workflowStatus: "new_lead",
+          leadSource: input.source || "manual",
+          estimatedMonthlyValue: input.estimatedMonthlyValue ?? null,
+          painPoints: input.message || null,
+          assignedTo: ctx.user.name || null,
+          createdAt: /* @__PURE__ */ new Date(),
+          updatedAt: /* @__PURE__ */ new Date()
+        }).returning({ id: clients.id });
+        const clientId = res[0]?.id;
+        if (clientId) {
+          await db.insert(workflowLogs).values({
+            clientId,
+            fromStatus: null,
+            toStatus: "new_lead",
+            action: "lead_created_manual",
+            notes: `Source: ${input.source || "manual"}`,
+            performedBy: ctx.user.id,
+            createdAt: /* @__PURE__ */ new Date()
+          });
+          const lead = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+          if (lead) syncLeadToMaster(lead);
+        }
+        return { success: true, clientId };
       }),
       getPipeline: staffQuery.query(async () => {
         const db = getDb();
@@ -51174,6 +51359,7 @@ var init_public_router = __esm({
     init_schema();
     init_drizzle_orm();
     init_client_request_router();
+    init_master_sheet_sync();
     publicRouter = createRouter({
       // Public: create a lead from the marketing website
       createLead: publicQuery.input(external_exports.object({
@@ -51264,6 +51450,11 @@ var init_public_router = __esm({
           notes: `Plan selected: ${input.planSelected || "none"}. Source: website form.`,
           createdAt: /* @__PURE__ */ new Date()
         });
+        try {
+          const lead = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+          if (lead) syncLeadToMaster(lead);
+        } catch {
+        }
         return { success: true, clientId, token };
       }),
       // ===== PAYROLL HOURS APPROVAL (public, token-gated — for clients) =====
@@ -58706,7 +58897,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.15";
+var BUILD_TAG = "2026-06-21.16";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
