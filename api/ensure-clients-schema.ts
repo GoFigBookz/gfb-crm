@@ -33,7 +33,7 @@ const COLUMNS: Array<[string, string]> = [
   ["onboardingSentAt", "integer"], ["onboardingCompletedAt", "integer"], ["onboardingToken", "text"],
   ["hasHST", "integer DEFAULT 0"], ["hstNumber", "text"], ["hstPeriod", "text"],
   ["hasWSIB", "integer DEFAULT 0"], ["wsibAccountNumber", "text"], ["wsibQuarter", "text"],
-  ["hasPayroll", "integer DEFAULT 0"], ["payrollFrequency", "text"], ["payrollRemitterFreq", "text DEFAULT 'regular'"], ["yearEndMonth", "text"],
+  ["hasPayroll", "integer DEFAULT 0"], ["payrollExternal", "integer DEFAULT 0"], ["payrollFrequency", "text"], ["payrollRemitterFreq", "text DEFAULT 'regular'"], ["yearEndMonth", "text"],
   ["payrollBonuses", "integer DEFAULT 0"], ["payrollDividends", "integer DEFAULT 0"], ["payrollPhoneAllowance", "integer DEFAULT 0"],
   ["payrollReimbursements", "integer DEFAULT 0"], ["payrollRevenueShare", "integer DEFAULT 0"], ["payrollCraComparison", "integer DEFAULT 0"],
   ["quoteAmount", "real"], ["quoteSentAt", "integer"], ["quoteApprovedAt", "integer"],
@@ -370,6 +370,8 @@ export async function ensureOnboardingColumns(): Promise<void> {
   const adds: Array<[string, string]> = [
     ["usesTouchBistro", "integer DEFAULT 0"],
     ["usesPayPal", "integer DEFAULT 0"],
+    ["usesWise", "integer DEFAULT 0"],
+    ["payrollExternal", "integer DEFAULT 0"],
     ["paysDividends", "integer DEFAULT 0"],
     ["hasEHT", "integer DEFAULT 0"],
     ["employeeCount", "integer DEFAULT 0"],

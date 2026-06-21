@@ -1640,6 +1640,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
     clientType: client.clientType || "monthly",
     hasHST: !!client.hasHST, hstPeriod: client.hstPeriod || "quarterly",
     hasWSIB: !!client.hasWSIB, hasPayroll: !!client.hasPayroll,
+    payrollExternal: !!client.payrollExternal,
     payrollFrequency: client.payrollFrequency || "bi-weekly",
     payrollRemitterFreq: client.payrollRemitterFreq || "regular",
     yearEndMonth: client.yearEndMonth || "Dec",
@@ -1740,6 +1741,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
         </div>
         <div className="flex flex-wrap gap-x-4">
           {check("hasWSIB", "Has WSIB")}{check("hasEHT", "Has EHT (ON)")}{check("hasEmployees", "Has employees")}
+          {check("payrollExternal", "We don't run payroll (autopay / client self-manages)")}
         </div>
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Sales platforms</p>

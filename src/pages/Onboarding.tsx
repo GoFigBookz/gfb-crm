@@ -75,7 +75,8 @@ export default function Onboarding() {
     payrollFrequency: "none" as "weekly" | "biweekly" | "semi_monthly" | "monthly" | "none",
     hasEmployees: false, hasSubcontractors: false, hasInvestments: false,
     wsibRequired: false, paysDividends: false, bankAccountCount: 1, creditCardCount: 0,
-    needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false, usesPayPal: false,
+    needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false, usesPayPal: false, usesWise: false,
+    payrollExternal: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
     hasEHT: false, employeeCount: 0, monthsBehind: 0,
     payrollRemitterFreq: "regular" as "regular" | "quarterly" | "accelerated",
@@ -100,7 +101,8 @@ export default function Onboarding() {
     hstGstFrequency: "none", payrollFrequency: "none",
     hasEmployees: false, hasSubcontractors: false, hasInvestments: false,
     wsibRequired: false, paysDividends: false, bankAccountCount: 1, creditCardCount: 0,
-    needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false, usesPayPal: false,
+    needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false, usesPayPal: false, usesWise: false,
+    payrollExternal: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
     hasEHT: false, employeeCount: 0, monthsBehind: 0,
     payrollRemitterFreq: "regular" as "regular" | "quarterly" | "accelerated",
@@ -276,9 +278,9 @@ export default function Onboarding() {
                 </div>
               </div>
 
-              {/* Sales Platforms */}
+              {/* Sales & Payment Platforms */}
               <div className="bg-slate-50 rounded-lg p-4 space-y-4">
-                <h3 className="font-medium text-slate-700">Sales Entry Platforms</h3>
+                <h3 className="font-medium text-slate-700">Sales &amp; Payment Platforms</h3>
                 <div className="flex flex-wrap gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <Checkbox checked={intake.usesStripe} onCheckedChange={v => setIntake({...intake, usesStripe: !!v})} />
@@ -299,6 +301,10 @@ export default function Onboarding() {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <Checkbox checked={intake.usesPayPal} onCheckedChange={v => setIntake({...intake, usesPayPal: !!v})} />
                     <span className="text-sm">PayPal</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={intake.usesWise} onCheckedChange={v => setIntake({...intake, usesWise: !!v})} />
+                    <span className="text-sm">Wise</span>
                   </label>
                 </div>
                 {((intake.usesStripe || intake.usesSquare || intake.usesJobber || intake.usesTouchBistro || intake.usesPayPal)) && (
@@ -368,6 +374,15 @@ export default function Onboarding() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {intake.payrollFrequency !== "none" && (
+                    <label className="flex items-start gap-2 cursor-pointer md:col-span-3 bg-white rounded-lg border p-3">
+                      <Checkbox checked={intake.payrollExternal} onCheckedChange={v => setIntake({...intake, payrollExternal: !!v})} />
+                      <span className="text-sm text-slate-700">
+                        <span className="font-medium">We don't run this client's payroll</span> — it's on autopay or the client runs it themselves.
+                        <span className="block text-xs text-slate-500">Skips payroll, remittance &amp; T4 task generation so it doesn't clog the board.</span>
+                      </span>
+                    </label>
+                  )}
                   <div className="space-y-2">
                     <Label>Avg. monthly transactions</Label>
                     <Input type="number" min="0" value={intake.avgMonthlyTransactions}
