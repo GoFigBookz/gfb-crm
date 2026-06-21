@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/providers/trpc";
 import { cn } from "@/lib/utils";
+import { splitClientName } from "@/lib/clientName";
 import { format, isPast, isToday } from "date-fns";
 import { TaskDetailDialog } from "@/components/TaskDetailDialog";
 import { STANDARD_TASK_TITLES } from "@/lib/task-options";
@@ -163,7 +164,7 @@ export default function ClientDashboard() {
             <ArrowLeft className="h-4 w-4" /> Back to Clients
           </Link>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-slate-900">{client.name}</h1>
+            <h1 className="text-2xl font-bold text-slate-900">{splitClientName(client.name, client.company).primary}</h1>
             <Badge variant={client.status === "active" ? "default" : "secondary"} className={client.status === "active" ? "bg-lime-500" : ""}>
               {client.status}
             </Badge>
