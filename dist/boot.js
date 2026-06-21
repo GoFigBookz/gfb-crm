@@ -22347,6 +22347,7 @@ __export(schema_exports, {
   intercoPeriods: () => intercoPeriods,
   invoiceItems: () => invoiceItems,
   invoices: () => invoices,
+  jobberConnections: () => jobberConnections,
   makeIntake: () => makeIntake,
   makeSubmissions: () => makeSubmissions,
   missingItems: () => missingItems,
@@ -22381,7 +22382,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates;
+var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23863,6 +23864,20 @@ var init_schema = __esm({
       effectiveYear: integer2("effectiveYear"),
       source: text("source"),
       // where the fetch got it
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    jobberConnections = sqliteTable("jobber_connections", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      accountName: text("accountName"),
+      accessToken: text("accessToken"),
+      // enc:v1: envelope
+      refreshToken: text("refreshToken"),
+      // enc:v1: envelope
+      expiresAt: integer2("expiresAt", { mode: "timestamp" }),
+      active: integer2("active", { mode: "boolean" }).default(true),
+      reconnectReason: text("reconnectReason"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
   }
@@ -38903,7 +38918,7 @@ var require_main = __commonJS({
     var fs = __require("fs");
     var path3 = __require("path");
     var os = __require("os");
-    var crypto8 = __require("crypto");
+    var crypto9 = __require("crypto");
     var TIPS = [
       "\u25C8 encrypted .env [www.dotenvx.com]",
       "\u25C8 secrets for agents [www.dotenvx.com]",
@@ -39147,7 +39162,7 @@ var require_main = __commonJS({
       const authTag = ciphertext.subarray(-16);
       ciphertext = ciphertext.subarray(12, -16);
       try {
-        const aesgcm = crypto8.createDecipheriv("aes-256-gcm", key, nonce);
+        const aesgcm = crypto9.createDecipheriv("aes-256-gcm", key, nonce);
         aesgcm.setAuthTag(authTag);
         return `${aesgcm.update(ciphertext)}${aesgcm.final()}`;
       } catch (error48) {
@@ -41934,7 +41949,7 @@ var init_integration_router = __esm({
         scopes: external_exports.array(external_exports.string()).optional()
       })).query(async ({ ctx, input }) => {
         const clientId = process.env.GOOGLE_CLIENT_ID || "";
-        const redirectUri = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/google/callback`;
+        const redirectUri2 = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/google/callback`;
         const scopes = input.scopes || [
           "https://www.googleapis.com/auth/calendar",
           "https://www.googleapis.com/auth/calendar.events",
@@ -41949,7 +41964,7 @@ var init_integration_router = __esm({
           provider: "google",
           userId: ctx.user.id
         })).toString("base64");
-        const url2 = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes.join(" "))}&response_type=code&access_type=offline&prompt=consent&state=${encodeURIComponent(state)}`;
+        const url2 = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri2)}&scope=${encodeURIComponent(scopes.join(" "))}&response_type=code&access_type=offline&prompt=consent&state=${encodeURIComponent(state)}`;
         return { url: url2 };
       }),
       // Get OAuth URL for Microsoft
@@ -41957,7 +41972,7 @@ var init_integration_router = __esm({
         accountLabel: external_exports.string().min(1)
       })).query(async ({ ctx, input }) => {
         const clientId = process.env.MICROSOFT_CLIENT_ID || "";
-        const redirectUri = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/microsoft/callback`;
+        const redirectUri2 = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/microsoft/callback`;
         const scopes = [
           "openid",
           "profile",
@@ -41974,7 +41989,7 @@ var init_integration_router = __esm({
           provider: "microsoft",
           userId: ctx.user.id
         })).toString("base64");
-        const url2 = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes.join(" "))}&response_type=code&response_mode=query&state=${encodeURIComponent(state)}`;
+        const url2 = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri2)}&scope=${encodeURIComponent(scopes.join(" "))}&response_type=code&response_mode=query&state=${encodeURIComponent(state)}`;
         return { url: url2 };
       })
     });
@@ -42994,11 +43009,11 @@ function getOAuthCredentials() {
 }
 function buildAuthorizeUrl(opts) {
   const env2 = opts.env ?? "production";
-  const { clientId: appClientId, redirectUri } = getOAuthCredentials();
+  const { clientId: appClientId, redirectUri: redirectUri2 } = getOAuthCredentials();
   const state = signState({ clientId: opts.clientId ?? null, env: env2 });
   const url2 = `${AUTHORIZE_URL}?${new URLSearchParams({
     client_id: appClientId,
-    redirect_uri: redirectUri,
+    redirect_uri: redirectUri2,
     scope: QBO_SCOPE,
     response_type: "code",
     state
@@ -43025,12 +43040,12 @@ async function exchangeAndPersist(input) {
   const state = verifyState(input.stateRaw);
   if (!state) throw new Error("invalid_or_expired_state");
   const env2 = state.env;
-  const { clientId: appClientId, clientSecret, redirectUri } = getOAuthCredentials();
+  const { clientId: appClientId, clientSecret, redirectUri: redirectUri2 } = getOAuthCredentials();
   if (!appClientId || !clientSecret) throw new Error("qbo_app_credentials_not_configured");
   const params = new URLSearchParams();
   params.append("grant_type", "authorization_code");
   params.append("code", input.code);
-  params.append("redirect_uri", redirectUri);
+  params.append("redirect_uri", redirectUri2);
   params.append("client_id", appClientId);
   params.append("client_secret", clientSecret);
   const res = await fetch(TOKEN_URL, {
@@ -43066,14 +43081,14 @@ async function exchangeAndPersist(input) {
 }
 async function refreshNativeToken(connection) {
   const { clientId: appClientId, clientSecret } = getOAuthCredentials();
-  const refreshToken = decryptSecret(connection.refreshToken);
-  if (!refreshToken) {
+  const refreshToken2 = decryptSecret(connection.refreshToken);
+  if (!refreshToken2) {
     await markReconnect(connection.id, "missing_refresh_token");
     throw new ReconnectRequiredError(connection.id, "missing_refresh_token");
   }
   const params = new URLSearchParams();
   params.append("grant_type", "refresh_token");
-  params.append("refresh_token", refreshToken);
+  params.append("refresh_token", refreshToken2);
   params.append("client_id", appClientId);
   params.append("client_secret", clientSecret);
   const res = await fetch(TOKEN_URL, {
@@ -43091,7 +43106,7 @@ async function refreshNativeToken(connection) {
   }
   const data = await res.json();
   const newAccess = data.access_token;
-  const newRefresh = data.refresh_token || refreshToken;
+  const newRefresh = data.refresh_token || refreshToken2;
   const expiresAt = new Date(Date.now() + (data.expires_in || 3600) * 1e3);
   const encAccess = encryptSecret(newAccess);
   const encRefresh = encryptSecret(newRefresh);
@@ -43194,7 +43209,7 @@ var init_qbo_oauth = __esm({
 
 // api/qbo-router.ts
 function safeConnection(c) {
-  const { accessToken, refreshToken, bridgeSecret, ...safe } = c;
+  const { accessToken, refreshToken: refreshToken2, bridgeSecret, ...safe } = c;
   return { ...safe, connected: Boolean(accessToken) || c.transport === "make_bridge" };
 }
 async function qboRequest(connection, endpoint, method = "GET", body) {
@@ -46771,6 +46786,237 @@ var init_stat_holidays = __esm({
   }
 });
 
+// api/jobber-oauth.ts
+var jobber_oauth_exports = {};
+__export(jobber_oauth_exports, {
+  JOBBER_API_VERSION: () => JOBBER_API_VERSION,
+  JOBBER_GRAPHQL_URL: () => JOBBER_GRAPHQL_URL,
+  bearerFor: () => bearerFor,
+  buildAuthorizeUrl: () => buildAuthorizeUrl2,
+  ensureJobberTable: () => ensureJobberTable,
+  exchangeAndPersist: () => exchangeAndPersist2,
+  getValidConnection: () => getValidConnection,
+  jobberConfigured: () => jobberConfigured,
+  signState: () => signState2,
+  verifyState: () => verifyState2
+});
+import crypto5 from "crypto";
+function jobberConfigured() {
+  return !!(process.env.JOBBER_CLIENT_ID && process.env.JOBBER_CLIENT_SECRET);
+}
+function redirectUri() {
+  return process.env.JOBBER_REDIRECT_URI || "https://figgy.gofig.ca/api/jobber/callback";
+}
+function stateKey() {
+  return process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET || "figgy-jobber-dev";
+}
+function signState2(clientId) {
+  const body = `${clientId ?? ""}.${Date.now()}.${crypto5.randomBytes(8).toString("hex")}`;
+  const sig = crypto5.createHmac("sha256", stateKey()).update(body).digest("hex").slice(0, 32);
+  return Buffer.from(`${body}.${sig}`).toString("base64url");
+}
+function verifyState2(raw2) {
+  if (!raw2) return null;
+  try {
+    const decoded = Buffer.from(raw2, "base64url").toString();
+    const parts = decoded.split(".");
+    if (parts.length !== 4) return null;
+    const [cid, ts, nonce, sig] = parts;
+    const body = `${cid}.${ts}.${nonce}`;
+    const expect = crypto5.createHmac("sha256", stateKey()).update(body).digest("hex").slice(0, 32);
+    if (!crypto5.timingSafeEqual(Buffer.from(sig), Buffer.from(expect))) return null;
+    if (Date.now() - Number(ts) > 15 * 60 * 1e3) return null;
+    return { clientId: cid ? Number(cid) : null };
+  } catch {
+    return null;
+  }
+}
+function buildAuthorizeUrl2(clientId) {
+  const u = new URL(AUTH_URL);
+  u.searchParams.set("client_id", process.env.JOBBER_CLIENT_ID || "");
+  u.searchParams.set("redirect_uri", redirectUri());
+  u.searchParams.set("response_type", "code");
+  u.searchParams.set("state", signState2(clientId));
+  return u.toString();
+}
+async function postToken(params) {
+  const res = await fetch(TOKEN_URL2, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
+    body: new URLSearchParams(params).toString()
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`Jobber token ${res.status}: ${JSON.stringify(data).slice(0, 300)}`);
+  return data;
+}
+async function exchangeAndPersist2(input) {
+  const state = verifyState2(input.stateRaw);
+  if (!state) throw new Error("invalid_or_expired_state");
+  if (!state.clientId) throw new Error("missing_client_in_state");
+  if (!jobberConfigured()) throw new Error("jobber_not_configured");
+  const data = await postToken({
+    client_id: process.env.JOBBER_CLIENT_ID,
+    client_secret: process.env.JOBBER_CLIENT_SECRET,
+    grant_type: "authorization_code",
+    code: input.code,
+    redirect_uri: redirectUri()
+  });
+  const expiresAt = new Date(Date.now() + (Number(data.expires_in) || 3600) * 1e3);
+  const db = getDb();
+  await ensureJobberTable();
+  const existing = await db.select().from(jobberConnections).where(eq(jobberConnections.clientId, state.clientId)).limit(1);
+  const row = {
+    clientId: state.clientId,
+    accessToken: encryptSecret(data.access_token),
+    refreshToken: encryptSecret(data.refresh_token),
+    expiresAt,
+    active: true,
+    reconnectReason: null,
+    updatedAt: /* @__PURE__ */ new Date()
+  };
+  if (existing[0]) await db.update(jobberConnections).set(row).where(eq(jobberConnections.clientId, state.clientId));
+  else await db.insert(jobberConnections).values(row);
+}
+async function refreshToken(conn) {
+  const rt = decryptSecret(conn.refreshToken);
+  if (!rt) throw new Error("no_refresh_token");
+  let data;
+  try {
+    data = await postToken({
+      client_id: process.env.JOBBER_CLIENT_ID,
+      client_secret: process.env.JOBBER_CLIENT_SECRET,
+      grant_type: "refresh_token",
+      refresh_token: rt
+    });
+  } catch (e) {
+    const db2 = getDb();
+    await db2.update(jobberConnections).set({ active: false, reconnectReason: "refresh_failed", updatedAt: /* @__PURE__ */ new Date() }).where(eq(jobberConnections.id, conn.id));
+    throw new Error("Jobber reconnect required \u2014 refresh failed. Click Connect Jobber again.");
+  }
+  const expiresAt = new Date(Date.now() + (Number(data.expires_in) || 3600) * 1e3);
+  const db = getDb();
+  const patch = {
+    accessToken: encryptSecret(data.access_token),
+    refreshToken: encryptSecret(data.refresh_token || rt),
+    // rotate if a new one came back
+    expiresAt,
+    active: true,
+    updatedAt: /* @__PURE__ */ new Date()
+  };
+  await db.update(jobberConnections).set(patch).where(eq(jobberConnections.id, conn.id));
+  return { ...conn, ...patch };
+}
+async function getValidConnection(clientId) {
+  await ensureJobberTable();
+  const db = getDb();
+  const rows = await db.select().from(jobberConnections).where(eq(jobberConnections.clientId, clientId)).limit(1);
+  let conn = rows[0];
+  if (!conn || !conn.active) return null;
+  if (!conn.expiresAt || conn.expiresAt.getTime() - Date.now() < 12e4) {
+    conn = await refreshToken(conn);
+  }
+  return conn;
+}
+function bearerFor(conn) {
+  return decryptSecret(conn.accessToken) || "";
+}
+async function ensureJobberTable() {
+  try {
+    const db = getDb();
+    await db.run(sql`CREATE TABLE IF NOT EXISTS jobber_connections (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      clientId integer NOT NULL,
+      accountName text,
+      accessToken text,
+      refreshToken text,
+      expiresAt integer,
+      active integer DEFAULT 1,
+      reconnectReason text,
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[jobber] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+}
+var AUTH_URL, TOKEN_URL2, JOBBER_GRAPHQL_URL, JOBBER_API_VERSION;
+var init_jobber_oauth = __esm({
+  "api/jobber-oauth.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_qbo_oauth();
+    AUTH_URL = "https://api.getjobber.com/api/oauth/authorize";
+    TOKEN_URL2 = "https://api.getjobber.com/api/oauth/token";
+    JOBBER_GRAPHQL_URL = "https://api.getjobber.com/api/graphql";
+    JOBBER_API_VERSION = process.env.JOBBER_API_VERSION || "2025-01-20";
+  }
+});
+
+// api/jobber-client.ts
+var jobber_client_exports = {};
+__export(jobber_client_exports, {
+  importTimesheetHours: () => importTimesheetHours,
+  jobberGraphql: () => jobberGraphql,
+  jobberTestUsers: () => jobberTestUsers
+});
+async function jobberGraphql(clientId, query, variables = {}) {
+  const conn = await getValidConnection(clientId);
+  if (!conn) throw new Error("not_connected");
+  const res = await fetch(JOBBER_GRAPHQL_URL, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${bearerFor(conn)}`,
+      "content-type": "application/json",
+      "X-JOBBER-GRAPHQL-VERSION": JOBBER_API_VERSION
+    },
+    body: JSON.stringify({ query, variables })
+  });
+  const json2 = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`Jobber GraphQL ${res.status}: ${JSON.stringify(json2).slice(0, 400)}`);
+  if (json2.errors) throw new Error(`Jobber GraphQL error: ${JSON.stringify(json2.errors).slice(0, 400)}`);
+  return json2.data;
+}
+async function jobberTestUsers(clientId) {
+  const data = await jobberGraphql(clientId, `query { users(first: 5) { nodes { id name { full } } } }`);
+  return (data?.users?.nodes ?? []).map((u) => ({ id: u.id, name: u?.name?.full ?? "" }));
+}
+async function importTimesheetHours(clientId, startISO, endISO) {
+  const start = `${startISO}T00:00:00Z`;
+  const end = `${endISO}T23:59:59Z`;
+  const totals = /* @__PURE__ */ new Map();
+  let after = null;
+  let guard = 0;
+  do {
+    const data = await jobberGraphql(clientId, TIMESHEET_QUERY, { after, start, end });
+    const conn = data?.timeSheetEntries;
+    for (const n of conn?.nodes ?? []) {
+      if (n.startAt && (n.startAt < start || n.startAt > end)) continue;
+      const uid = n?.user?.id;
+      if (!uid) continue;
+      const secs2 = Number(n.finalDuration) || 0;
+      const cur = totals.get(uid) || { userId: uid, userName: n?.user?.name?.full ?? "", seconds: 0, hours: 0 };
+      cur.seconds += secs2;
+      totals.set(uid, cur);
+    }
+    after = conn?.pageInfo?.hasNextPage ? conn.pageInfo.endCursor : null;
+  } while (after && ++guard < 25);
+  return Array.from(totals.values()).map((t2) => ({ ...t2, hours: Math.round(t2.seconds / 3600 * 100) / 100 }));
+}
+var TIMESHEET_QUERY;
+var init_jobber_client = __esm({
+  "api/jobber-client.ts"() {
+    init_jobber_oauth();
+    TIMESHEET_QUERY = `
+  query($after: String, $start: ISO8601DateTime, $end: ISO8601DateTime) {
+    timeSheetEntries(first: 100, after: $after, filter: { startAt: { after: $start, before: $end } }) {
+      nodes { id finalDuration startAt user { id name { full } } }
+      pageInfo { hasNextPage endCursor }
+    }
+  }`;
+  }
+});
+
 // api/payroll-router.ts
 var payroll_router_exports = {};
 __export(payroll_router_exports, {
@@ -46929,6 +47175,57 @@ var init_payroll_router = __esm({
         }
         if (!start || !end) return [];
         return statHolidaysInRange2(start, end);
+      }),
+      // Jobber connection status for a client (for the Connect button / badge).
+      jobberStatus: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        const { jobberConfigured: jobberConfigured2, getValidConnection: getValidConnection2 } = await Promise.resolve().then(() => (init_jobber_oauth(), jobber_oauth_exports));
+        if (!jobberConfigured2()) return { configured: false, connected: false };
+        try {
+          const conn = await getValidConnection2(input.clientId);
+          return { configured: true, connected: !!conn, accountName: conn?.accountName ?? null };
+        } catch {
+          return { configured: true, connected: false };
+        }
+      }),
+      // Import Jobber timesheet hours for a run's pay period → fills regular hours per
+      // matched employee (by name). Read-only against Jobber; you review before sending
+      // to QBO. Returns matched/unmatched + any error verbatim for diagnosis.
+      importJobberHours: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ input }) => {
+        const db = getDb();
+        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run2) throw new Error("Pay run not found");
+        const start = new Date(run2.payPeriodStart).toISOString().slice(0, 10);
+        const end = new Date(run2.payPeriodEnd).toISOString().slice(0, 10);
+        const { importTimesheetHours: importTimesheetHours2 } = await Promise.resolve().then(() => (init_jobber_client(), jobber_client_exports));
+        let hours;
+        try {
+          hours = await importTimesheetHours2(run2.clientId, start, end);
+        } catch (e) {
+          return { ok: false, error: e instanceof Error ? e.message : String(e), matched: 0, unmatched: [], totalUsers: 0 };
+        }
+        const emps = await db.select().from(employees).where(eq(employees.clientId, run2.clientId));
+        const norm8 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+        const byName = new Map(emps.map((e) => [norm8(`${e.firstName} ${e.lastName}`), e]));
+        const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
+        const lineByEmp = new Map(lines.map((l) => [l.employeeId, l]));
+        let matched = 0;
+        const unmatched = [];
+        for (const h of hours) {
+          const emp = byName.get(norm8(h.userName));
+          if (!emp) {
+            unmatched.push({ name: h.userName, hours: h.hours });
+            continue;
+          }
+          const line = lineByEmp.get(emp.id);
+          if (line) {
+            await db.update(payRunLines).set({ regularHours: h.hours, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRunLines.id, line.id));
+          } else {
+            await db.insert(payRunLines).values({ payRunId: input.runId, employeeId: emp.id, regularHours: h.hours });
+          }
+          matched++;
+        }
+        await recomputeRunTotals(input.runId);
+        return { ok: true, matched, unmatched, totalUsers: hours.length };
       }),
       // One run with its lines + employee names (the clean sheet).
       getRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).query(async ({ input }) => {
@@ -47813,7 +48110,7 @@ var init_engagement_letter_router = __esm({
 });
 
 // api/signature-router.ts
-import crypto5 from "crypto";
+import crypto6 from "crypto";
 var signatureRouter;
 var init_signature_router = __esm({
   "api/signature-router.ts"() {
@@ -47896,7 +48193,7 @@ var init_signature_router = __esm({
         if (existingTokens[0]) {
           portalToken = existingTokens[0].token;
         } else {
-          portalToken = crypto5.randomBytes(32).toString("hex");
+          portalToken = crypto6.randomBytes(32).toString("hex");
           await db.insert(portalTokens).values({
             clientId: doc.clientId,
             token: portalToken,
@@ -49239,7 +49536,7 @@ __export(quote_router_exports, {
   quoteRouter: () => quoteRouter,
   servicesForEngagement: () => servicesForEngagement
 });
-import crypto6 from "crypto";
+import crypto7 from "crypto";
 async function createAndSendDoc(opts) {
   const { db, clientId } = opts;
   const ps = await db.select().from(portalSettings).where(eq(portalSettings.clientId, clientId)).limit(1);
@@ -49252,7 +49549,7 @@ async function createAndSendDoc(opts) {
   let token;
   if (existing[0]) token = existing[0].token;
   else {
-    token = crypto6.randomBytes(32).toString("hex");
+    token = crypto7.randomBytes(32).toString("hex");
     await db.insert(portalTokens).values({ clientId, token, email: opts.clientEmail, isActive: true, expiresAt: new Date(Date.now() + 90 * 864e5) });
   }
   const [doc] = await db.insert(signatureDocuments).values({
@@ -53393,7 +53690,7 @@ import { createServer as createServerHTTP } from "http";
 import { Http2ServerRequest as Http2ServerRequest2, constants as h2constants } from "http2";
 import { Http2ServerRequest } from "http2";
 import { Readable } from "stream";
-import crypto7 from "crypto";
+import crypto8 from "crypto";
 async function readWithoutBlocking(readPromise) {
   return Promise.race([readPromise, Promise.resolve().then(() => Promise.resolve(void 0))]);
 }
@@ -53735,7 +54032,7 @@ var init_dist5 = __esm({
     };
     X_ALREADY_SENT = "x-hono-already-sent";
     if (typeof global.crypto === "undefined") {
-      global.crypto = crypto7;
+      global.crypto = crypto8;
     }
     outgoingEnded = /* @__PURE__ */ Symbol("outgoingEnded");
     incomingDraining = /* @__PURE__ */ Symbol("incomingDraining");
@@ -59591,7 +59888,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.41";
+var BUILD_TAG = "2026-06-21.42";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -59626,11 +59923,11 @@ app.get("/api/version", (c) => {
   });
 });
 app.get("/api/qbo/connect", async (c) => {
-  const { buildAuthorizeUrl: buildAuthorizeUrl2 } = await Promise.resolve().then(() => (init_qbo_oauth(), qbo_oauth_exports));
+  const { buildAuthorizeUrl: buildAuthorizeUrl3 } = await Promise.resolve().then(() => (init_qbo_oauth(), qbo_oauth_exports));
   const clientIdRaw = c.req.query("clientId");
   const env2 = c.req.query("env") === "sandbox" ? "sandbox" : "production";
   const clientId = clientIdRaw && /^\d+$/.test(clientIdRaw) ? Number(clientIdRaw) : null;
-  const { url: url2 } = buildAuthorizeUrl2({ clientId, env: env2 });
+  const { url: url2 } = buildAuthorizeUrl3({ clientId, env: env2 });
   return c.redirect(url2, 302);
 });
 app.get("/api/qbo/callback", async (c) => {
@@ -59645,13 +59942,37 @@ app.get("/api/qbo/callback", async (c) => {
     return c.redirect("/integrations?error=missing_params", 302);
   }
   try {
-    const { exchangeAndPersist: exchangeAndPersist2 } = await Promise.resolve().then(() => (init_qbo_oauth(), qbo_oauth_exports));
-    await exchangeAndPersist2({ code, realmId, stateRaw: state });
+    const { exchangeAndPersist: exchangeAndPersist3 } = await Promise.resolve().then(() => (init_qbo_oauth(), qbo_oauth_exports));
+    await exchangeAndPersist3({ code, realmId, stateRaw: state });
     return c.redirect("/integrations?success=qbo_connected", 302);
   } catch (err) {
     const message2 = err instanceof Error ? err.message : String(err);
     console.error("[QBO OAuth] callback failed:", message2);
     return c.redirect("/integrations?error=" + encodeURIComponent(message2), 302);
+  }
+});
+app.get("/api/jobber/connect", async (c) => {
+  const { buildAuthorizeUrl: buildAuthorizeUrl3, jobberConfigured: jobberConfigured2 } = await Promise.resolve().then(() => (init_jobber_oauth(), jobber_oauth_exports));
+  if (!jobberConfigured2()) return c.redirect("/payroll?error=jobber_not_configured", 302);
+  const cid = c.req.query("clientId");
+  const clientId = cid && /^\d+$/.test(cid) ? Number(cid) : null;
+  if (!clientId) return c.redirect("/payroll?error=missing_client", 302);
+  return c.redirect(buildAuthorizeUrl3(clientId), 302);
+});
+app.get("/api/jobber/callback", async (c) => {
+  const code = c.req.query("code");
+  const state = c.req.query("state");
+  const error48 = c.req.query("error");
+  if (error48) return c.redirect("/payroll?error=" + encodeURIComponent(error48), 302);
+  if (!code || !state) return c.redirect("/payroll?error=missing_params", 302);
+  try {
+    const { exchangeAndPersist: exchangeAndPersist3 } = await Promise.resolve().then(() => (init_jobber_oauth(), jobber_oauth_exports));
+    await exchangeAndPersist3({ code, stateRaw: state });
+    return c.redirect("/payroll?success=jobber_connected", 302);
+  } catch (err) {
+    const m = err instanceof Error ? err.message : String(err);
+    console.error("[Jobber OAuth] callback failed:", m);
+    return c.redirect("/payroll?error=" + encodeURIComponent(m), 302);
   }
 });
 app.get("/api/oauth/google/callback", async (c) => {
@@ -59673,7 +59994,7 @@ app.get("/api/oauth/google/callback", async (c) => {
     }
     const clientId = process.env.GOOGLE_CLIENT_ID || "";
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
-    const redirectUri = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/google/callback`;
+    const redirectUri2 = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/google/callback`;
     if (!clientId || !clientSecret) {
       throw new Error("Google OAuth credentials not configured");
     }
@@ -59684,7 +60005,7 @@ app.get("/api/oauth/google/callback", async (c) => {
         code,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: redirectUri,
+        redirect_uri: redirectUri2,
         grant_type: "authorization_code"
       })
     });
@@ -59736,7 +60057,7 @@ app.get("/api/oauth/microsoft/callback", async (c) => {
     }
     const clientId = process.env.MICROSOFT_CLIENT_ID || "";
     const clientSecret = process.env.MICROSOFT_CLIENT_SECRET || "";
-    const redirectUri = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/microsoft/callback`;
+    const redirectUri2 = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/microsoft/callback`;
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft OAuth credentials not configured");
     }
@@ -59747,7 +60068,7 @@ app.get("/api/oauth/microsoft/callback", async (c) => {
         code,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: redirectUri,
+        redirect_uri: redirectUri2,
         grant_type: "authorization_code"
       })
     });
