@@ -2051,11 +2051,12 @@ function QuickLinksCard({ client, onboarding, variant = "card" }: { client: any;
   };
 
   // Default useful links if none set
+  // Default links are CONDITIONAL on the client's features — no WSIB link if they
+  // don't have WSIB, no HST link if no HST. (Payroll calculator removed per Markie.)
   const defaultLinks = [
     { label: "CRA My Business", url: "https://www.canada.ca/en/revenue-agency/services/e-services/e-services-businesses/business-account.html" },
-    { label: "WSIB Online", url: "https://www.wsib.ca/en/online-services" },
-    { label: "HST Netfile", url: "https://www.canada.ca/en/revenue-agency/services/e-services/e-services-businesses/gst-hst-netfile.html" },
-    { label: "Payroll Calculator", url: "/calculators?tab=payroll" },
+    ...(client.hasHST ? [{ label: "HST Netfile", url: "https://www.canada.ca/en/revenue-agency/services/e-services/e-services-businesses/gst-hst-netfile.html" }] : []),
+    ...(client.hasWSIB ? [{ label: "WSIB Online", url: "https://www.wsib.ca/en/online-services" }] : []),
   ];
 
   const displayLinks = quickLinks.length > 0 ? quickLinks : defaultLinks;

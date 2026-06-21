@@ -163,8 +163,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Nav */}
       <nav className="flex-1 py-3 px-2 overflow-y-auto">
         <Section label="Work" icon={Gauge} sectionKey="work" items={workItems} />
-        <Section label="Clients" icon={Users} sectionKey="clients" items={clientItems} />
         <Section label="People & Payroll" icon={Wallet} sectionKey="payroll" items={payrollItems} />
+        <Section label="Clients" icon={Users} sectionKey="clients" items={clientItems} />
         <Section label="Comms" icon={Mail} sectionKey="comms" items={commsItems} />
         <Section label="Tools & Compliance" icon={Wrench} sectionKey="tools" items={toolItems} />
         <Section label="Insights" icon={TrendingUp} sectionKey="insights" items={insightItems} />
