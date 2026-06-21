@@ -1540,3 +1540,27 @@ export const intercoEntries = sqliteTable("interco_entries", {
   createdBy: integer("createdBy"),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// ---------------------------------------------------------------------------
+// PRACTICE SNAPSHOTS — one row per day, captured by a nightly job, so the
+// dashboard can draw REAL over-time trend lines (close health, task load,
+// outstanding $, review queue) instead of point-in-time bars. Cheap DB-only
+// aggregates; idempotent per date (re-running a day overwrites it).
+export const practiceSnapshots = sqliteTable("practice_snapshots", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  date: text("date").notNull(),            // "YYYY-MM-DD" — one row per day
+  clientsActive: integer("clientsActive").default(0),
+  clientsTotal: integer("clientsTotal").default(0),
+  closeRed: integer("closeRed").default(0),
+  closeYellow: integer("closeYellow").default(0),
+  closeGreen: integer("closeGreen").default(0),
+  toReviewTotal: integer("toReviewTotal").default(0),
+  tasksOverdue: integer("tasksOverdue").default(0),
+  tasksUpcoming: integer("tasksUpcoming").default(0),
+  tasksPending: integer("tasksPending").default(0),
+  invoiceOutstanding: real("invoiceOutstanding").default(0),
+  invoiceRevenue: real("invoiceRevenue").default(0),
+  pipelineValue: real("pipelineValue").default(0),
+  pipelineLeads: integer("pipelineLeads").default(0),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

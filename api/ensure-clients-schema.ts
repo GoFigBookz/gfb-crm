@@ -259,6 +259,35 @@ export async function ensureIntercoTables(): Promise<void> {
   }
 }
 
+/** Create the practice-snapshots table (daily metrics for dashboard trends). */
+export async function ensurePracticeSnapshotsTable(): Promise<void> {
+  const db = getDb();
+  try {
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS practice_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      clientsActive INTEGER DEFAULT 0,
+      clientsTotal INTEGER DEFAULT 0,
+      closeRed INTEGER DEFAULT 0,
+      closeYellow INTEGER DEFAULT 0,
+      closeGreen INTEGER DEFAULT 0,
+      toReviewTotal INTEGER DEFAULT 0,
+      tasksOverdue INTEGER DEFAULT 0,
+      tasksUpcoming INTEGER DEFAULT 0,
+      tasksPending INTEGER DEFAULT 0,
+      invoiceOutstanding REAL DEFAULT 0,
+      invoiceRevenue REAL DEFAULT 0,
+      pipelineValue REAL DEFAULT 0,
+      pipelineLeads INTEGER DEFAULT 0,
+      createdAt INTEGER
+    )`));
+    await db.run(sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS idx_practice_snapshots_date ON practice_snapshots (date)`));
+    console.log("[schema] practice_snapshots table ensured");
+  } catch (e) {
+    console.error("[schema] ensurePracticeSnapshotsTable failed:", e instanceof Error ? e.message : e);
+  }
+}
+
 /** Create the SMS messages table (texting clients via Android gateway). */
 export async function ensureSmsTable(): Promise<void> {
   const db = getDb();
