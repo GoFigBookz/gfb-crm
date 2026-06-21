@@ -24,6 +24,23 @@ don't re-derive them._
   Add a client/pay-run selector that loads the numbers instead of manual entry.
 - **Mem-time-style automatic activity tracking** (knows what client/work is active) —
   beyond the current start/stop timer.
+- **Client grouping (2026-06-21).** One owner (e.g. John) can have multiple companies/
+  accounts — group those client records under a parent/owner so they're seen together.
+- **Contacts card per client (2026-06-21).** Additional contacts inside a client company
+  (e.g. the receptionist we deal with) — a contacts card that SAVES + EDITS, scoped per client.
+- **Vendors section + mass email (2026-06-21).** Create a vendors area, pull vendor data
+  (from QBO), and mass-email vendors for statements / new processes / missing statements /
+  missing invoices / etc. (segment + template + send).
+- **TouchBistro + Clockify hours imports (2026-06-21).** Same pattern as the Jobber connector
+  just built — pull employee hours into the timesheet for the restaurants (TouchBistro) and
+  Originality/Clockify.
+- **Import 2026 payroll history from the sheets (IN PROGRESS 2026-06-21).** Periods + pay
+  dates + per-employee hours for the roster, 2026 only (Markie chose periods+hours). Source:
+  the per-client payroll Google Sheets.
+- **Client-card UI fixes (2026-06-21):** (a) Filing obligations must be CLICKABLE (link to
+  the filing/detail) — currently useless. (b) Add PAST HST FILINGS with a link to them in the
+  client's file folder. (c) Payment "who pays" option needs a **Both** choice (we pay / client
+  pays / both) — and the same Both option for SALES.
 - **Owner-only Insights — per-client pricing intelligence.** The "scope quote vs
   flat fee / what we should bill vs what we bill" build was REMOVED from the client
   card (Markie's call). Rebuild it as an Insights area visible only to the owner,
