@@ -1511,7 +1511,7 @@ export default function Calculators() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-5 h-auto flex-wrap gap-1">
-          <TabsTrigger value="tax" className="text-xs md:text-sm">Tax & HST</TabsTrigger>
+          <TabsTrigger value="tax" className="text-xs md:text-sm">Corp Tax & HST</TabsTrigger>
           <TabsTrigger value="payroll" className="text-xs md:text-sm">Payroll</TabsTrigger>
           <TabsTrigger value="dividends" className="text-xs md:text-sm">Dividends</TabsTrigger>
           <TabsTrigger value="fx" className="text-xs md:text-sm">FX & Currency</TabsTrigger>
@@ -1522,12 +1522,12 @@ export default function Calculators() {
         <TabsContent value="tax" className="space-y-4 mt-6">
           <HSTCalculator />
           <CorporateTaxCalculator />
-          <PayrollTaxCalculator />
-          <CPPEICalculator />
         </TabsContent>
 
         {/* PAYROLL TAB */}
         <TabsContent value="payroll" className="space-y-4 mt-6">
+          <PayrollTaxCalculator />
+          <CPPEICalculator />
           <ProratedPayrollCalculator />
           <VacationPayCalculator />
           <StatPayCalculator />
