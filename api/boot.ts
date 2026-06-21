@@ -57,6 +57,14 @@ app.post("/api/client-error", async (c) => {
 });
 export function getRecentClientErrors() { return recentClientErrors; }
 
+// Live deploy diagnostic — hit /api/version to see WHEN the running server last
+// booted and which build it is. If `startedAt` is stale after a merge to main,
+// the Railway deploy isn't picking up new code (not a code/cache problem).
+const BOOT_TIME = new Date().toISOString();
+const BUILD_TAG = "2026-06-21.7";  // bump each deploy so prod vs source is unambiguous
+app.get("/api/version", (c) =>
+  c.json({ build: BUILD_TAG, startedAt: BOOT_TIME, now: new Date().toISOString(), uptimeSec: Math.round(process.uptime()) }));
+
 // ================================================================
 // QBO OAUTH CALLBACK — Inline handler (no tRPC caller needed)
 // ================================================================
