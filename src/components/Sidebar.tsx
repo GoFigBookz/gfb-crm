@@ -6,7 +6,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare,
+  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -42,6 +42,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   // Clients — the books, documents, and engagement lifecycle.
   const clientItems = [
+    { to: "/leads", icon: Target, label: "Leads" },
     { to: "/clients", icon: Users, label: "Clients" },
     { to: "/onboarding", icon: UserPlus, label: "New Client Intake" },
     { to: "/intake", icon: Inbox, label: "Document Intake" },

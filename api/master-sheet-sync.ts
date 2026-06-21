@@ -31,6 +31,7 @@
 export const CANONICAL_MASTER_SHEET_ID =
   process.env.FIGGY_MASTER_SHEET_ID || "1pcAw-WSQXXnVn-0L-TQ2FIExkHQ0Olf4dzz47t0gTUk";
 const MASTER_TAB = "Client Master";
+const LEADS_TAB = "Leads";
 // Committed capability URL (private repo) — same trade-off as the QBO webhook bridge.
 const SYNC_WEBHOOK =
   process.env.FIGGY_SHEET_SYNC_WEBHOOK || "https://hook.us2.make.com/d4h33m0na6ulrlm9nkv9dyyfa8hv1bcs";
@@ -174,4 +175,89 @@ export async function upsertClientToMaster(c: MasterClient): Promise<boolean> {
 /** Fire-and-forget wrapper for hot paths (onboarding/edit) — never throws/blocks. */
 export function syncClientToMaster(c: MasterClient): void {
   upsertClientToMaster(c).catch(() => {});
+}
+
+// ── LEADS TAB ────────────────────────────────────────────────────────────────
+// Leads (workflowStatus new_lead/discovery_call/…) live on a SEPARATE "Leads" tab
+// until they're signed + activated, at which point they graduate to Client Master.
+const LEAD_COLS = [
+  "dateReceived", "leadName", "businessName", "email", "phone", "website",
+  "message", "source", "status", "estValue", "assignedTo", "nextAction", "notes", "crmId",
+] as const;
+const LEAD_N = LEAD_COLS.length; // 14 → A..N
+const leadLastCol = "N";
+
+export type MasterLead = {
+  id?: number | null; createdAt?: any; name?: string | null; contactName?: string | null;
+  company?: string | null; email?: string | null; phone?: string | null; website?: string | null;
+  painPoints?: string | null; expectations?: string | null; leadSource?: string | null;
+  leadSourceDetail?: string | null; workflowStatus?: string | null;
+  estimatedMonthlyValue?: number | null; assignedTo?: string | null; nextAction?: string | null;
+  notes?: string | null;
+};
+
+function leadValue(c: MasterLead, key: string): string {
+  switch (key) {
+    case "dateReceived": { const d = c.createdAt ? new Date(c.createdAt) : null; return d && !isNaN(+d) ? d.toISOString().slice(0, 10) : ""; }
+    case "leadName": return c.contactName || c.name || "";
+    case "businessName": return c.company || c.name || "";
+    case "email": return c.email || "";
+    case "phone": return c.phone || "";
+    case "website": return c.website || "";
+    case "message": return c.painPoints || c.expectations || "";
+    case "source": return c.leadSourceDetail || c.leadSource || "";
+    case "status": return c.workflowStatus || "new_lead";
+    case "estValue": return c.estimatedMonthlyValue != null ? String(c.estimatedMonthlyValue) : "";
+    case "assignedTo": return c.assignedTo || "";
+    case "nextAction": return c.nextAction || "";
+    case "notes": return c.notes || "";
+    case "crmId": return c.id != null ? String(c.id) : "";
+    default: return "";
+  }
+}
+
+/** Upsert a lead's row into the Leads tab. Key = CRM Lead ID (col N), else email
+ *  (col D). Best-effort: returns true/false, never throws. */
+export async function upsertLeadToMaster(c: MasterLead): Promise<boolean> {
+  if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return false;
+  if (!c.id && !c.email && !c.name) return false;
+  const sid = CANONICAL_MASTER_SHEET_ID;
+  const range = `'${LEADS_TAB}'!A:${leadLastCol}`;
+  try {
+    const read = await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(range)}`, "GET");
+    const rows: string[][] = Array.isArray(read?.values) ? read.values : [];
+    const id = c.id != null ? String(c.id) : "";
+    const email = (c.email || "").trim();
+    let matchIdx = -1;
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i] || [];
+      if (id && norm(r[13]) === norm(id)) { matchIdx = i; break; }
+    }
+    if (matchIdx < 0 && email) {
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i] || [];
+        if (norm(r[3]) === norm(email)) { matchIdx = i; break; }
+      }
+    }
+    const out: string[] = [];
+    for (let k = 0; k < LEAD_N; k++) out[k] = leadValue(c, LEAD_COLS[k]);
+    if (matchIdx >= 0) {
+      const sheetRow = matchIdx + 1;
+      const wr = `'${LEADS_TAB}'!A${sheetRow}:${leadLastCol}${sheetRow}`;
+      await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(wr)}?valueInputOption=RAW`, "PUT", { values: [out] });
+    } else {
+      await sheetsApi(
+        `spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+        "POST", { values: [out] });
+    }
+    return true;
+  } catch (e) {
+    console.error("[master-sync] lead upsert failed for", c.name || c.email || c.id, ":", e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+
+/** Fire-and-forget lead sync for hot paths. */
+export function syncLeadToMaster(c: MasterLead): void {
+  upsertLeadToMaster(c).catch(() => {});
 }

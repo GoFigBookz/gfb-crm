@@ -8,44 +8,7 @@ import crypto from "crypto";
 import { createClientTaskRules, ensureComplianceRulesAndTasks } from "./task-generator";
 import { syncClientToMaster, upsertClientToMaster } from "./master-sheet-sync";
 import { lookupGovRegistry } from "./gov-registry-lookup";
-
-/** Async (fire-and-forget): run the live gov-registry lookup for a newly-added
- *  client, fill ONLY blank registry/bio fields (never clobber what staff typed),
- *  then mirror the finished record into the canonical master sheet. Any failure
- *  still syncs whatever we have. Never throws into the request path. */
-async function enrichAndSyncNewClient(clientId: number, name: string, province: string | null, knownBn: string | null): Promise<void> {
-  const db = getDb();
-  try {
-    const hit = await lookupGovRegistry(name, { province, knownBn });
-    if (hit) {
-      const cur = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
-      if (cur) {
-        const blank = (v: any) => v === null || v === undefined || v === "";
-        const patch: Record<string, any> = { updatedAt: new Date() };
-        if (hit.bio && blank(cur.bio)) patch.bio = hit.bio;
-        if (hit.registryNumber && blank(cur.registryNumber)) patch.registryNumber = hit.registryNumber;
-        if (hit.incorporationDate && blank(cur.incorporationDate)) patch.incorporationDate = hit.incorporationDate;
-        if (hit.corpType && blank(cur.corpType)) patch.corpType = hit.corpType;
-        if (hit.governmentStatus && blank(cur.governmentStatus)) patch.governmentStatus = hit.governmentStatus;
-        if (hit.industry && (blank(cur.industry) || cur.industry === "other")) patch.industry = hit.industry;
-        if (hit.website && blank(cur.website)) patch.website = hit.website;
-        if (hit.address && blank(cur.address)) patch.address = hit.address;
-        if (hit.phone && blank(cur.phone)) patch.phone = hit.phone;
-        if (hit.craBusinessNumber && blank(cur.taxId)) {
-          patch.taxId = hit.craBusinessNumber;
-          if (blank(cur.hstNumber) && cur.hasHST) patch.hstNumber = `${hit.craBusinessNumber}RT0001`;
-        }
-        if (Object.keys(patch).length > 1) await db.update(clients).set(patch).where(eq(clients.id, clientId));
-      }
-    }
-  } catch (e) {
-    console.error("[gov-lookup] enrich failed for", name, ":", e instanceof Error ? e.message : e);
-  }
-  try {
-    const fresh = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
-    if (fresh) syncClientToMaster(fresh as any);
-  } catch { /* non-fatal */ }
-}
+import { activateClientAsync } from "./client-activation";
 
 export const onboardingRouter = createRouter({
   // Staff creates an onboarding link for a client
@@ -391,11 +354,9 @@ export const onboardingRouter = createRouter({
         billPayResponsibility: input.billPayResponsibility,
       });
 
-      // Auto government-registry lookup + sheet sync (best-effort, async — never
-      // blocks onboarding). Looks the company up in Canada's Business Registries,
-      // fills any BLANK registry/bio fields on the new card, then mirrors the
-      // finished record into the canonical Google master sheet.
-      enrichAndSyncNewClient(client.id, input.name, input.province ?? null, input.businessNumber ?? null);
+      // Staff-added clients are active immediately → enrich from the government
+      // registry + promote into the Client Master sheet (best-effort, async).
+      activateClientAsync(client.id);
 
       return {
         success: true,

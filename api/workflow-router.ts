@@ -3,6 +3,8 @@ import { createRouter, staffQuery, seniorQuery, adminQuery } from "./middleware"
 import { getDb } from "./queries/connection";
 import { workflowLogs, clients } from "../db/schema";
 import { eq, desc } from "drizzle-orm";
+import { activateClientAsync } from "./client-activation";
+import { syncLeadToMaster } from "./master-sheet-sync";
 
 export const workflowRouter = createRouter({
   getLogs: staffQuery
@@ -47,6 +49,17 @@ export const workflowRouter = createRouter({
         })
         .where(eq(clients.id, input.clientId));
 
+      // Sheet sync follows the lead's lifecycle:
+      //  - reaching "active" = signed/onboarded → enrich from the government
+      //    registry + promote into the Client Master tab (Markie's trigger).
+      //  - any earlier stage → keep the Leads tab row current.
+      const updated = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+      if (input.toStatus === "active") {
+        activateClientAsync(input.clientId);
+      } else if (updated) {
+        syncLeadToMaster(updated as any);
+      }
+
       return { success: true };
     }),
 
@@ -66,6 +79,49 @@ export const workflowRouter = createRouter({
         })
         .where(eq(clients.id, input.clientId));
       return { success: true };
+    }),
+
+  // Staff: manually add a lead (e.g. phone/referral inquiry) → Leads tab.
+  createLead: staffQuery
+    .input(z.object({
+      name: z.string().min(1),
+      company: z.string().optional(),
+      email: z.string().optional(),
+      phone: z.string().optional(),
+      website: z.string().optional(),
+      source: z.string().optional(),
+      message: z.string().optional(),
+      estimatedMonthlyValue: z.number().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const res = await db.insert(clients).values({
+        userId: ctx.user.id,
+        name: input.name,
+        company: input.company || null,
+        email: input.email || "",
+        phone: input.phone || null,
+        website: input.website || null,
+        status: "lead",
+        workflowStatus: "new_lead",
+        leadSource: input.source || "manual",
+        estimatedMonthlyValue: input.estimatedMonthlyValue ?? null,
+        painPoints: input.message || null,
+        assignedTo: ctx.user.name || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }).returning({ id: clients.id });
+      const clientId = res[0]?.id;
+      if (clientId) {
+        await db.insert(workflowLogs).values({
+          clientId, fromStatus: null, toStatus: "new_lead",
+          action: "lead_created_manual", notes: `Source: ${input.source || "manual"}`,
+          performedBy: ctx.user.id, createdAt: new Date(),
+        });
+        const lead = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+        if (lead) syncLeadToMaster(lead as any);
+      }
+      return { success: true, clientId };
     }),
 
   getPipeline: staffQuery.query(async () => {
