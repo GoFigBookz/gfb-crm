@@ -8,6 +8,7 @@
 import { getDb } from "./queries/connection";
 import { clients, tasks, clientTaskRules } from "../db/schema";
 import { eq, and, ne, like, inArray } from "drizzle-orm";
+import { ensureComplianceRulesAndTasks } from "./task-generator";
 
 const MONTHS: Record<string, number> = {
   jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
@@ -89,6 +90,20 @@ export async function seedHstDates(): Promise<{ updated: number; tasks: number }
       if (Object.keys(patch).length <= 1) continue;
       await db.update(clients).set(patch).where(eq(clients.id, clientId));
       report.updated++;
+
+      // CREATE the HST rule + task if the client doesn't have one yet (idempotent;
+      // skips when an open HST task already exists). This is what was missing —
+      // setting hasHST alone never produced a task.
+      if (period) {
+        try {
+          await ensureComplianceRulesAndTasks({
+            clientId, userId: 1, needsYearEnd: false,
+            hstGstFrequency: period === "annual" ? "annually" : period === "quarterly" ? "quarterly" : "monthly",
+          });
+        } catch (e) {
+          console.error("[seed] HST task create failed for client", clientId, e instanceof Error ? e.message : e);
+        }
+      }
 
       // Stamp the sheet date onto the client's open HST task + HST rule.
       if (due) {
