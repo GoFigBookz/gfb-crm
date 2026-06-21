@@ -330,43 +330,55 @@ function PayrollTaxCalculator() {
           <p className="text-[11px] text-slate-400">Uses 2026 CRA rates — CPP 5.95% (+CPP2), EI 1.63%, federal + Ontario income tax (brackets, BPA, surtax, health premium). Estimate; verify on CRA PDOC before remitting.</p>
         )}
 
-        {sal > 0 && (
+        {sal > 0 && (() => {
+          const R: any = country === "CA" ? caResult : usResult;
+          const pct = (n: number) => (sal > 0 ? `${(n / sal * 100).toFixed(1)}%` : "—");
+          const fedTax = country === "CA" ? caResult.federalTax : usResult.federalTax;
+          const provTax = country === "CA" ? caResult.provTax : usResult.stateTax;
+          const net = R.net;
+          const totalDed = country === "CA" ? caResult.totalDeductions : usResult.totalDeductions;
+          return (
           <div className="space-y-3 mt-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-slate-50 rounded-lg p-3 text-center">
                 <p className="text-xs text-slate-500">Gross / Pay</p>
-                <p className="text-lg font-bold">${fmt(country === "CA" ? caResult.gross : usResult.gross)}</p>
+                <p className="text-lg font-bold">${fmt(R.gross)}</p>
+                <p className="text-[11px] text-slate-400">total tax {pct(totalDed)}</p>
               </div>
               <div className="bg-red-50 rounded-lg p-3 text-center">
                 <p className="text-xs text-red-500">Federal Tax</p>
-                <p className="text-lg font-bold text-red-700">${fmt(country === "CA" ? caResult.federalTax : usResult.federalTax)}</p>
+                <p className="text-lg font-bold text-red-700">${fmt(fedTax)}</p>
+                <p className="text-[11px] text-red-400">{pct(fedTax)} of salary</p>
               </div>
               <div className="bg-amber-50 rounded-lg p-3 text-center">
                 <p className="text-xs text-amber-600">{country === "CA" ? "Provincial Tax" : "State Tax"}</p>
-                <p className="text-lg font-bold text-amber-700">${fmt(country === "CA" ? caResult.provTax : usResult.stateTax)}</p>
+                <p className="text-lg font-bold text-amber-700">${fmt(provTax)}</p>
+                <p className="text-[11px] text-amber-500">{pct(provTax)} of salary</p>
               </div>
               <div className="bg-lime-50 rounded-lg p-3 text-center">
                 <p className="text-xs text-lime-600">Net Annual</p>
-                <p className="text-lg font-bold text-lime-700">${fmt(country === "CA" ? caResult.net : usResult.net)}</p>
+                <p className="text-lg font-bold text-lime-700">${fmt(net)}</p>
+                <p className="text-[11px] text-lime-500">{pct(net)} take-home</p>
               </div>
             </div>
 
             {country === "CA" ? (
               <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm">
-                <div className="flex justify-between"><span>CPP Contributions</span><span className="font-medium">${fmt(caResult.cppAnnual)}</span></div>
-                <div className="flex justify-between"><span>EI Premiums</span><span className="font-medium">${fmt(caResult.eiAnnual)}</span></div>
-                <div className="flex justify-between border-t pt-2"><span>Total Deductions</span><span className="font-bold">${fmt(caResult.totalDeductions)}</span></div>
+                <div className="flex justify-between"><span>CPP Contributions</span><span className="font-medium">${fmt(caResult.cppAnnual)} <span className="text-slate-400 text-xs">({pct(caResult.cppAnnual)})</span></span></div>
+                <div className="flex justify-between"><span>EI Premiums</span><span className="font-medium">${fmt(caResult.eiAnnual)} <span className="text-slate-400 text-xs">({pct(caResult.eiAnnual)})</span></span></div>
+                <div className="flex justify-between border-t pt-2"><span>Total Deductions</span><span className="font-bold">${fmt(caResult.totalDeductions)} <span className="text-slate-400 text-xs">({pct(caResult.totalDeductions)})</span></span></div>
                 <div className="flex justify-between"><span>Net per Pay</span><span className="font-bold text-lime-600">${fmt(caResult.net / periods)}</span></div>
               </div>
             ) : (
               <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm">
-                <div className="flex justify-between"><span>FICA (SS + Medicare)</span><span className="font-medium">${fmt(usResult.fica)}</span></div>
-                <div className="flex justify-between border-t pt-2"><span>Total Deductions</span><span className="font-bold">${fmt(usResult.totalDeductions)}</span></div>
+                <div className="flex justify-between"><span>FICA (SS + Medicare)</span><span className="font-medium">${fmt(usResult.fica)} <span className="text-slate-400 text-xs">({pct(usResult.fica)})</span></span></div>
+                <div className="flex justify-between border-t pt-2"><span>Total Deductions</span><span className="font-bold">${fmt(usResult.totalDeductions)} <span className="text-slate-400 text-xs">({pct(usResult.totalDeductions)})</span></span></div>
                 <div className="flex justify-between"><span>Net per Pay</span><span className="font-bold text-lime-600">${fmt(usResult.net / periods)}</span></div>
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
       </CardContent>
     </Card>
   );
@@ -653,9 +665,9 @@ function DividendsCalculator() {
           <div className="space-y-3 mt-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Actual Dividend</p><p className="text-lg font-bold">${fmt(amt)}</p></div>
-              <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Grossed-Up</p><p className="text-lg font-bold">${fmt(result.grossUp)}</p></div>
-              <div className="bg-red-50 rounded-lg p-3 text-center"><p className="text-xs text-red-500">Est. Tax Payable</p><p className="text-lg font-bold text-red-700">${fmt(result.netTax)}</p></div>
-              <div className="bg-lime-50 rounded-lg p-3 text-center"><p className="text-xs text-lime-600">After-Tax</p><p className="text-lg font-bold text-lime-700">${fmt(result.afterTax)}</p></div>
+              <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Grossed-Up</p><p className="text-lg font-bold">${fmt(result.grossUp)}</p><p className="text-[11px] text-slate-400">{type === "eligible" ? "+38%" : "+15%"}</p></div>
+              <div className="bg-red-50 rounded-lg p-3 text-center"><p className="text-xs text-red-500">Est. Tax Payable</p><p className="text-lg font-bold text-red-700">${fmt(result.netTax)}</p><p className="text-[11px] text-red-400">{amt > 0 ? `${(result.netTax / amt * 100).toFixed(1)}% eff.` : ""}</p></div>
+              <div className="bg-lime-50 rounded-lg p-3 text-center"><p className="text-xs text-lime-600">After-Tax</p><p className="text-lg font-bold text-lime-700">${fmt(result.afterTax)}</p><p className="text-[11px] text-lime-500">{amt > 0 ? `${(result.afterTax / amt * 100).toFixed(1)}% kept` : ""}</p></div>
             </div>
             <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
               <strong>Note:</strong> This is an estimate using federal rates only. Provincial dividend tax credits vary and will affect the final tax payable. Consult provincial schedules for precise calculations.
@@ -1154,6 +1166,7 @@ function CPPEICalculator() {
   const cppPayable = cppBase + cpp2;
   const employerCpp = cppPayable;             // employer matches CPP + CPP2
   const employerEI = ei * K.eiEmployerMult;   // employer pays 1.4× EI
+  const pctSal = (n: number) => (sal > 0 ? `${(n / sal * 100).toFixed(2)}%` : "—");
 
   return (
     <Card>
@@ -1174,9 +1187,9 @@ function CPPEICalculator() {
         {sal > 0 && (
           <div className="space-y-3 mt-4">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Employee CPP</p><p className="text-lg font-bold">${fmt(cppBase)}</p></div>
-              <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Employee CPP2</p><p className="text-lg font-bold">${fmt(cpp2)}</p></div>
-              <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Employee EI</p><p className="text-lg font-bold">${fmt(ei)}</p></div>
+              <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Employee CPP</p><p className="text-lg font-bold">${fmt(cppBase)}</p><p className="text-[11px] text-slate-400">{pctSal(cppBase)}</p></div>
+              <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Employee CPP2</p><p className="text-lg font-bold">${fmt(cpp2)}</p><p className="text-[11px] text-slate-400">{pctSal(cpp2)}</p></div>
+              <div className="bg-slate-50 rounded-lg p-3 text-center"><p className="text-xs text-slate-500">Employee EI</p><p className="text-lg font-bold">${fmt(ei)}</p><p className="text-[11px] text-slate-400">{pctSal(ei)}</p></div>
               <div className="bg-amber-50 rounded-lg p-3 text-center"><p className="text-xs text-amber-600">Employer CPP+CPP2</p><p className="text-lg font-bold text-amber-700">${fmt(employerCpp)}</p></div>
               <div className="bg-amber-50 rounded-lg p-3 text-center"><p className="text-xs text-amber-600">Employer EI (1.4×)</p><p className="text-lg font-bold text-amber-700">${fmt(employerEI)}</p></div>
             </div>
@@ -1184,12 +1197,143 @@ function CPPEICalculator() {
               <div className="bg-lime-50 rounded-lg p-4 text-center">
                 <p className="text-xs text-lime-600">Total Employee Deductions</p>
                 <p className="text-2xl font-bold text-lime-700">${fmt(cppPayable + ei)}</p>
+                <p className="text-[11px] text-lime-500">{pctSal(cppPayable + ei)} of salary</p>
               </div>
               <div className="bg-lime-50 rounded-lg p-4 text-center">
                 <p className="text-xs text-lime-600">Total Employer Cost</p>
                 <p className="text-2xl font-bold text-lime-700">${fmt(employerCpp + employerEI)}</p>
+                <p className="text-[11px] text-lime-500">{pctSal(employerCpp + employerEI)} of salary</p>
               </div>
             </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* =================================================================
+   CORPORATE TAX CALCULATOR (CCPC small-business + general, fed + prov)
+   ================================================================= */
+// Provincial corporate income-tax rates (provincial portion). Federal = 9% on
+// active business income within the $500k SBD limit (CCPC), 15% general above.
+// Estimates — verify against current CRA/provincial schedules (auto-review reminder
+// covers this). Provincial portion only; combined rates are computed below.
+const CORP_PROV: Record<string, { label: string; sbd: number; gen: number }> = {
+  AB: { label: "Alberta", sbd: 0.02, gen: 0.08 },
+  BC: { label: "British Columbia", sbd: 0.02, gen: 0.12 },
+  MB: { label: "Manitoba", sbd: 0.00, gen: 0.12 },
+  NB: { label: "New Brunswick", sbd: 0.025, gen: 0.14 },
+  NL: { label: "Newfoundland & Labrador", sbd: 0.025, gen: 0.15 },
+  NS: { label: "Nova Scotia", sbd: 0.025, gen: 0.14 },
+  NT: { label: "Northwest Territories", sbd: 0.02, gen: 0.115 },
+  NU: { label: "Nunavut", sbd: 0.03, gen: 0.12 },
+  ON: { label: "Ontario", sbd: 0.032, gen: 0.115 },
+  PE: { label: "Prince Edward Island", sbd: 0.01, gen: 0.16 },
+  QC: { label: "Quebec", sbd: 0.032, gen: 0.115 },
+  SK: { label: "Saskatchewan", sbd: 0.01, gen: 0.12 },
+  YT: { label: "Yukon", sbd: 0.00, gen: 0.12 },
+};
+const FED_SBD = 0.09, FED_GEN = 0.15, SBD_LIMIT = 500000;
+
+function CorporateTaxCalculator() {
+  const [province, setProvince] = useState("ON");
+  const [income, setIncome] = useState("");
+  const [isCCPC, setIsCCPC] = useState(true);
+
+  const inc = parseFloat(income) || 0;
+  const p = CORP_PROV[province] || CORP_PROV.ON;
+  const r = useMemo(() => {
+    const sbdIncome = isCCPC ? Math.min(inc, SBD_LIMIT) : 0;
+    const genIncome = inc - sbdIncome;
+    const fed = sbdIncome * FED_SBD + genIncome * FED_GEN;
+    const prov = sbdIncome * p.sbd + genIncome * p.gen;
+    const total = fed + prov;
+    return {
+      sbdIncome, genIncome, fed, prov, total,
+      effective: inc > 0 ? total / inc : 0,
+      sbdCombined: FED_SBD + p.sbd,
+      genCombined: FED_GEN + p.gen,
+      afterTax: inc - total,
+    };
+  }, [inc, isCCPC, p.sbd, p.gen]);
+
+  const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Briefcase className="h-5 w-5 text-lime-500" />
+          Corporate Tax Estimator
+        </CardTitle>
+        <CardDescription>
+          Estimate a corporation's income tax for the year — CCPC small-business rate on the first
+          ${fmt(SBD_LIMIT, 0)} of active business income, general rate above. Estimate; verify final numbers in QBO / on the T2.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Taxable Income ($)</Label>
+            <Input type="number" value={income} onChange={(e) => setIncome(e.target.value)} placeholder="250000" />
+          </div>
+          <div className="space-y-2">
+            <Label>Province</Label>
+            <Select value={province} onValueChange={setProvince}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent className="max-h-72">
+                {Object.entries(CORP_PROV).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Corporation type</Label>
+            <Select value={isCCPC ? "ccpc" : "other"} onValueChange={(v) => setIsCCPC(v === "ccpc")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ccpc">CCPC (small-business rate)</SelectItem>
+                <SelectItem value="other">Non-CCPC / general rate only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-slate-400">
+          {p.label}: small-business {pct(r.sbdCombined)} combined ({pct(FED_SBD)} fed + {pct(p.sbd)} prov) ·
+          general {pct(r.genCombined)} combined ({pct(FED_GEN)} fed + {pct(p.gen)} prov).
+        </p>
+
+        {inc > 0 && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-red-50 rounded-lg p-3 text-center">
+                <p className="text-xs text-red-500">Federal tax</p>
+                <p className="text-lg font-bold text-red-700">${fmt(r.fed)}</p>
+                <p className="text-[11px] text-red-400">{pct(inc > 0 ? r.fed / inc : 0)} of income</p>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-3 text-center">
+                <p className="text-xs text-amber-600">Provincial tax</p>
+                <p className="text-lg font-bold text-amber-700">${fmt(r.prov)}</p>
+                <p className="text-[11px] text-amber-500">{pct(inc > 0 ? r.prov / inc : 0)} of income</p>
+              </div>
+              <div className="bg-slate-100 rounded-lg p-3 text-center">
+                <p className="text-xs text-slate-500">Total tax</p>
+                <p className="text-lg font-bold text-slate-800">${fmt(r.total)}</p>
+                <p className="text-[11px] text-slate-500">{pct(r.effective)} effective</p>
+              </div>
+              <div className="bg-lime-50 rounded-lg p-3 text-center">
+                <p className="text-xs text-lime-600">After-tax</p>
+                <p className="text-lg font-bold text-lime-700">${fmt(r.afterTax)}</p>
+                <p className="text-[11px] text-lime-500">{pct(inc > 0 ? r.afterTax / inc : 0)} kept</p>
+              </div>
+            </div>
+            {r.genIncome > 0 && isCCPC && (
+              <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+                First ${fmt(r.sbdIncome, 0)} taxed at the small-business rate ({pct(r.sbdCombined)}); the remaining
+                ${fmt(r.genIncome, 0)} at the general rate ({pct(r.genCombined)}).
+              </p>
+            )}
           </div>
         )}
       </CardContent>
@@ -1232,6 +1376,7 @@ export default function Calculators() {
         {/* TAX TAB */}
         <TabsContent value="tax" className="space-y-4 mt-6">
           <HSTCalculator />
+          <CorporateTaxCalculator />
           <PayrollTaxCalculator />
           <CPPEICalculator />
         </TabsContent>
