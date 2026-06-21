@@ -46883,7 +46883,7 @@ var init_payroll_router = __esm({
       archiveFolderId: "10FgSl5ctYkgxIaAa2-eTir7xOquQ7Xzj",
       driveFolderUrl: "https://drive.google.com/drive/folders/10FgSl5ctYkgxIaAa2-eTir7xOquQ7Xzj"
     };
-    KNOWN_PAYROLL = ["west york", "selective", "originality", "clark", "2303851", "fractal", "old spot", "sher", "punjab"];
+    KNOWN_PAYROLL = ["west york", "originality", "clark", "old spot", "sher", "punjab"];
     payrollRouter = createRouter({
       // Clients that run payroll: hasPayroll flag OR at least one employee on file.
       clients: staffQuery.query(async () => {
@@ -59591,7 +59591,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.40";
+var BUILD_TAG = "2026-06-21.41";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
