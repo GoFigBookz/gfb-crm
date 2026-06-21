@@ -388,26 +388,37 @@ function PayrollTaxCalculator() {
 /* =================================================================
    PRORATED PAYROLL CALCULATOR
    ================================================================= */
+// Business days (Mon–Fri) inclusive between two dates.
+function businessDays(a: Date, b: Date): number {
+  if (isNaN(+a) || isNaN(+b) || b < a) return 0;
+  let n = 0; const d = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+  const end = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+  while (d <= end) { const wd = d.getDay(); if (wd !== 0 && wd !== 6) n++; d.setDate(d.getDate() + 1); }
+  return n;
+}
+
 function ProratedPayrollCalculator() {
   const [annualSalary, setAnnualSalary] = useState("");
-  const [daysWorked, setDaysWorked] = useState("");
-  const [totalDays, setTotalDays] = useState("260");
-  const [hoursPerDay, setHoursPerDay] = useState("8");
+  const [freq, setFreq] = useState("biweekly");
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
+  const [firstDay, setFirstDay] = useState("");
 
   const sal = parseFloat(annualSalary) || 0;
-  const worked = parseFloat(daysWorked) || 0;
-  const total = parseFloat(totalDays) || 260;
-  const hrs = parseFloat(hoursPerDay) || 8;
+  const ppy = periodsPerYear(freq);
+  const periodPay = sal > 0 ? sal / ppy : 0;
 
   const result = useMemo(() => {
-    const daily = sal / total;
-    const hourly = daily / hrs;
-    return {
-      prorated: daily * worked,
-      daily,
-      hourly,
-    };
-  }, [sal, worked, total, hrs]);
+    const ps = periodStart ? new Date(periodStart + "T00:00:00") : null;
+    const pe = periodEnd ? new Date(periodEnd + "T00:00:00") : null;
+    if (!ps || !pe || isNaN(+ps) || isNaN(+pe) || pe < ps) return null;
+    const periodBiz = businessDays(ps, pe);
+    const fd = firstDay ? new Date(firstDay + "T00:00:00") : ps;
+    const workStart = fd > ps ? fd : ps;
+    const workedBiz = businessDays(workStart, pe);
+    const fraction = periodBiz > 0 ? Math.min(1, workedBiz / periodBiz) : 0;
+    return { periodBiz, workedBiz, fraction, prorated: periodPay * fraction };
+  }, [periodPay, periodStart, periodEnd, firstDay]);
 
   return (
     <Card>
@@ -416,21 +427,40 @@ function ProratedPayrollCalculator() {
           <Calendar className="h-5 w-5 text-lime-500" />
           Prorated Payroll Calculator
         </CardTitle>
-        <CardDescription>Calculate partial pay for employees starting mid-period or working partial days</CardDescription>
+        <CardDescription>
+          Partial pay for an employee starting (or leaving) mid pay-period. Based on the real pay-period dates and the
+          employee's first working day — counts business days (Mon–Fri), so it's exact, not a rough estimate.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2"><Label>Annual Salary ($)</Label><Input type="number" value={annualSalary} onChange={(e) => setAnnualSalary(e.target.value)} placeholder="75000" /></div>
-          <div className="space-y-2"><Label>Days Worked</Label><Input type="number" value={daysWorked} onChange={(e) => setDaysWorked(e.target.value)} placeholder="10" /></div>
-          <div className="space-y-2"><Label>Work Days / Year</Label><Input type="number" value={totalDays} onChange={(e) => setTotalDays(e.target.value)} placeholder="260" /></div>
-          <div className="space-y-2"><Label>Hours / Day</Label><Input type="number" value={hoursPerDay} onChange={(e) => setHoursPerDay(e.target.value)} placeholder="8" /></div>
-        </div>
-        {sal > 0 && worked > 0 && (
-          <div className="grid grid-cols-3 gap-4 mt-4">
-            <div className="bg-slate-50 rounded-lg p-4 text-center"><p className="text-xs text-slate-500">Daily Rate</p><p className="text-xl font-bold">${fmt(result.daily)}</p></div>
-            <div className="bg-slate-50 rounded-lg p-4 text-center"><p className="text-xs text-slate-500">Hourly Rate</p><p className="text-xl font-bold">${fmt(result.hourly)}</p></div>
-            <div className="bg-lime-50 rounded-lg p-4 text-center"><p className="text-xs text-lime-600">Prorated Pay</p><p className="text-xl font-bold text-lime-700">${fmt(result.prorated)}</p></div>
+          <div className="space-y-2"><Label>Pay Frequency</Label>
+            <Select value={freq} onValueChange={setFreq}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly (52)</SelectItem>
+                <SelectItem value="biweekly">Bi-weekly (26)</SelectItem>
+                <SelectItem value="semi_monthly">Semi-monthly (24)</SelectItem>
+                <SelectItem value="monthly">Monthly (12)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+          <div className="space-y-2"><Label>Pay period start</Label><Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} /></div>
+          <div className="space-y-2"><Label>Pay period end</Label><Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} /></div>
+          <div className="space-y-2"><Label>Employee's first day worked</Label><Input type="date" value={firstDay} onChange={(e) => setFirstDay(e.target.value)} />
+            <p className="text-[11px] text-slate-400">Leave blank if they worked the whole period.</p></div>
+        </div>
+        {sal > 0 && result && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+            <div className="bg-slate-50 rounded-lg p-4 text-center"><p className="text-xs text-slate-500">Full period pay</p><p className="text-xl font-bold">${fmt(periodPay)}</p></div>
+            <div className="bg-slate-50 rounded-lg p-4 text-center"><p className="text-xs text-slate-500">Business days</p><p className="text-xl font-bold">{result.workedBiz}/{result.periodBiz}</p></div>
+            <div className="bg-slate-50 rounded-lg p-4 text-center"><p className="text-xs text-slate-500">Proration</p><p className="text-xl font-bold">{(result.fraction * 100).toFixed(1)}%</p></div>
+            <div className="bg-lime-50 rounded-lg p-4 text-center"><p className="text-xs text-lime-600">Prorated pay</p><p className="text-xl font-bold text-lime-700">${fmt(result.prorated)}</p></div>
+          </div>
+        )}
+        {sal > 0 && !result && (periodStart || periodEnd) && (
+          <p className="text-[11px] text-amber-600">Enter a valid pay-period start and end (end on/after start).</p>
         )}
       </CardContent>
     </Card>
@@ -498,10 +528,14 @@ function VacationPayCalculator() {
         <Badge variant="outline" className="bg-blue-50 text-blue-700">{p.note}</Badge>
         {earn > 0 && (
           <div className="grid grid-cols-2 gap-4 mt-4">
-            <div className="bg-slate-50 rounded-lg p-4 text-center"><p className="text-xs text-slate-500">Earnings</p><p className="text-xl font-bold">${fmt(earn)}</p></div>
+            <div className="bg-slate-50 rounded-lg p-4 text-center"><p className="text-xs text-slate-500">Vacationable earnings</p><p className="text-xl font-bold">${fmt(earn)}</p></div>
             <div className="bg-lime-50 rounded-lg p-4 text-center"><p className="text-xs text-lime-600">Vacation Pay ({(rate * 100).toFixed(0)}%)</p><p className="text-xl font-bold text-lime-700">${fmt(vacationPay)}</p></div>
           </div>
         )}
+        <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Vacation pay = % of vacationable earnings (correct ESA method). The earnings figure will auto-pull from
+          QBO Payroll per employee / pay run once the payroll connection is live.
+        </p>
       </CardContent>
     </Card>
   );
@@ -511,19 +545,16 @@ function VacationPayCalculator() {
    STAT PAY CALCULATOR
    ================================================================= */
 function StatPayCalculator() {
-  const [regularPay, setRegularPay] = useState("");
-  const [daysWorked, setDaysWorked] = useState("20");
+  const [fourWeekEarnings, setFourWeekEarnings] = useState("");
   const [statDays, setStatDays] = useState("1");
-  const [province, setProvince] = useState("ON");
 
-  const pay = parseFloat(regularPay) || 0;
-  const days = parseFloat(daysWorked) || 20;
+  const earn = parseFloat(fourWeekEarnings) || 0;
   const stats = parseFloat(statDays) || 1;
 
-  const result = useMemo(() => {
-    const daily = pay / days;
-    return { daily, total: daily * stats };
-  }, [pay, days, stats]);
+  // Ontario ESA: stat holiday pay = (regular wages + vacation pay payable) earned in
+  // the 4 work weeks BEFORE the work week with the holiday, ÷ 20.
+  const perDay = earn / 20;
+  const total = perDay * stats;
 
   return (
     <Card>
@@ -532,26 +563,30 @@ function StatPayCalculator() {
           <Percent className="h-5 w-5 text-lime-500" />
           Statutory Holiday Pay Calculator
         </CardTitle>
-        <CardDescription>Calculate stat pay for Canadian employees</CardDescription>
+        <CardDescription>
+          Ontario ESA method: (regular wages + vacation pay payable) in the <strong>4 work weeks before</strong> the
+          holiday, divided by 20. Enter the 4-week earnings, or it'll pull them per employee from QBO Payroll once connected.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="space-y-2"><Label>Total Regular Pay ($)</Label><Input type="number" value={regularPay} onChange={(e) => setRegularPay(e.target.value)} placeholder="4000" /></div>
-          <div className="space-y-2"><Label>Days Worked</Label><Input type="number" value={daysWorked} onChange={(e) => setDaysWorked(e.target.value)} placeholder="20" /></div>
-          <div className="space-y-2"><Label>Stat Days</Label><Input type="number" value={statDays} onChange={(e) => setStatDays(e.target.value)} placeholder="1" /></div>
-          <div className="space-y-2"><Label>Province</Label>
-            <Select value={province} onValueChange={setProvince}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{CA_PROVINCES.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
-            </Select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Earnings in the 4 work weeks before the holiday ($)</Label>
+            <Input type="number" value={fourWeekEarnings} onChange={(e) => setFourWeekEarnings(e.target.value)} placeholder="4000" />
+            <p className="text-[11px] text-slate-400">Regular wages + vacation pay payable in that 4-week window.</p>
           </div>
+          <div className="space-y-2"><Label>Number of stat days</Label><Input type="number" value={statDays} onChange={(e) => setStatDays(e.target.value)} placeholder="1" /></div>
         </div>
-        {pay > 0 && (
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <div className="bg-slate-50 rounded-lg p-4 text-center"><p className="text-xs text-slate-500">Daily Rate</p><p className="text-xl font-bold">${fmt(result.daily)}</p></div>
-            <div className="bg-lime-50 rounded-lg p-4 text-center"><p className="text-xs text-lime-600">Stat Pay Total</p><p className="text-xl font-bold text-lime-700">${fmt(result.total)}</p></div>
+        {earn > 0 && (
+          <div className="grid grid-cols-2 gap-4 mt-2">
+            <div className="bg-slate-50 rounded-lg p-4 text-center"><p className="text-xs text-slate-500">Stat pay per day (÷20)</p><p className="text-xl font-bold">${fmt(perDay)}</p></div>
+            <div className="bg-lime-50 rounded-lg p-4 text-center"><p className="text-xs text-lime-600">Stat pay total</p><p className="text-xl font-bold text-lime-700">${fmt(total)}</p></div>
           </div>
         )}
+        <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Ontario formula. Other provinces differ (e.g. BC = average day's pay over 30 calendar days). Per-employee
+          amounts will auto-pull from QBO Payroll per client + pay run when the payroll connection is live.
+        </p>
       </CardContent>
     </Card>
   );
