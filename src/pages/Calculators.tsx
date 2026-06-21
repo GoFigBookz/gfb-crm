@@ -31,6 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { computePaycheck, CPP_EI_2026 } from "../../api/payroll-paycheck-core";
+import { annualIncomeTax } from "../../api/payroll-tax-core";
 import { trpc } from "@/providers/trpc";
 import { periodsPerYear } from "../../api/payroll-core";
 
@@ -671,6 +672,116 @@ function DividendsCalculator() {
             </div>
             <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
               <strong>Note:</strong> This is an estimate using federal rates only. Provincial dividend tax credits vary and will affect the final tax payable. Consult provincial schedules for precise calculations.
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* =================================================================
+   SALARY vs DIVIDEND (owner-manager, Ontario)
+   ================================================================= */
+function SalaryVsDividendCalculator() {
+  const [profit, setProfit] = useState("");
+  const [divType, setDivType] = useState<"noneligible" | "eligible">("noneligible");
+
+  const P = parseFloat(profit) || 0;
+  const r = useMemo(() => {
+    // SALARY: fully deductible to the corp (corp tax $0); owner taxed as employment
+    // income (federal + Ontario + CPP/EI) via the same 2026 engine as the payroll calc.
+    const pc = computePaycheck(P, "annual");
+    const salaryPersonalTax = pc.federalTax + pc.provincialTax;
+    const salaryCppEi = pc.cpp + pc.cpp2 + pc.ei;
+    const salaryNet = pc.netPay;                       // P − tax − CPP/EI
+    const salaryTotalTax = salaryPersonalTax + salaryCppEi;
+
+    // DIVIDEND: corp pays tax first, balance paid out + taxed personally (gross-up/DTC).
+    const elig = divType === "eligible";
+    const corpRate = elig ? 0.265 : 0.122;             // ON combined: general vs small-business
+    const grossUp = elig ? 1.38 : 1.15;
+    const fedDtc = elig ? 0.150198 : 0.090301;         // of grossed-up amount
+    const onDtc = elig ? 0.10 : 0.029863;              // Ontario DTC of grossed-up amount
+    const corpTax = P * corpRate;
+    const dividend = P - corpTax;
+    const grossed = dividend * grossUp;
+    const taxOnGrossed = annualIncomeTax(grossed);     // federal + Ontario (BPA, surtax, OHP)
+    const dtc = grossed * (fedDtc + onDtc);
+    const dividendPersonalTax = Math.max(0, taxOnGrossed - dtc);
+    const dividendNet = dividend - dividendPersonalTax;
+    const dividendTotalTax = corpTax + dividendPersonalTax;
+
+    const better = salaryNet >= dividendNet ? "salary" : "dividend";
+    return {
+      salaryNet, salaryTotalTax, salaryPersonalTax, salaryCppEi,
+      corpTax, dividend, dividendNet, dividendTotalTax, dividendPersonalTax,
+      better, delta: Math.abs(salaryNet - dividendNet),
+    };
+  }, [P, divType]);
+
+  const pc = (n: number) => (P > 0 ? `${(n / P * 100).toFixed(1)}%` : "—");
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <DollarSign className="h-5 w-5 text-lime-500" />
+          Salary vs Dividend (owner-manager)
+        </CardTitle>
+        <CardDescription>
+          Compare extracting the same pre-tax corporate profit as salary vs dividends — after-tax cash in your pocket
+          and total tax (corporate + personal). Ontario rates; estimate — confirm with a full T1/T2 projection.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2"><Label>Pre-tax corporate profit to extract ($)</Label>
+            <Input type="number" value={profit} onChange={(e) => setProfit(e.target.value)} placeholder="150000" /></div>
+          <div className="space-y-2"><Label>Dividend type</Label>
+            <Select value={divType} onValueChange={(v: any) => setDivType(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="noneligible">Non-eligible (small-business income)</SelectItem>
+                <SelectItem value="eligible">Eligible (general-rate income)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {P > 0 && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="bg-white border rounded-lg p-4">
+                <p className="font-semibold text-slate-800 mb-2">All salary</p>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between"><span>Corporate tax</span><span>$0 <span className="text-slate-400 text-xs">(deductible)</span></span></div>
+                  <div className="flex justify-between"><span>Personal income tax</span><span>${fmt(r.salaryPersonalTax)} <span className="text-slate-400 text-xs">({pc(r.salaryPersonalTax)})</span></span></div>
+                  <div className="flex justify-between"><span>CPP + EI</span><span>${fmt(r.salaryCppEi)} <span className="text-slate-400 text-xs">({pc(r.salaryCppEi)})</span></span></div>
+                  <div className="flex justify-between border-t pt-1 font-semibold"><span>Take-home</span><span className="text-lime-700">${fmt(r.salaryNet)}</span></div>
+                  <div className="flex justify-between text-xs text-slate-400"><span>Total tax + deductions</span><span>${fmt(r.salaryTotalTax)} ({pc(r.salaryTotalTax)})</span></div>
+                </div>
+              </div>
+              <div className="bg-white border rounded-lg p-4">
+                <p className="font-semibold text-slate-800 mb-2">All dividend</p>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between"><span>Corporate tax</span><span>${fmt(r.corpTax)} <span className="text-slate-400 text-xs">({pc(r.corpTax)})</span></span></div>
+                  <div className="flex justify-between"><span>Dividend paid out</span><span>${fmt(r.dividend)}</span></div>
+                  <div className="flex justify-between"><span>Personal dividend tax</span><span>${fmt(r.dividendPersonalTax)} <span className="text-slate-400 text-xs">({pc(r.dividendPersonalTax)})</span></span></div>
+                  <div className="flex justify-between border-t pt-1 font-semibold"><span>Take-home</span><span className="text-lime-700">${fmt(r.dividendNet)}</span></div>
+                  <div className="flex justify-between text-xs text-slate-400"><span>Total tax (corp + personal)</span><span>${fmt(r.dividendTotalTax)} ({pc(r.dividendTotalTax)})</span></div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-lime-50 rounded-lg p-4 text-center">
+              <p className="text-sm text-lime-700">
+                <strong className="capitalize">{r.better}</strong> nets you about <strong>${fmt(r.delta)}</strong> more
+                take-home on ${fmt(P, 0)} of profit ({pc(r.delta)}).
+              </p>
+              <p className="text-xs text-lime-600 mt-1">
+                Salary also creates RRSP room + CPP (a future benefit) and is a corporate deduction; dividends skip CPP and
+                payroll admin. The gap is usually small (integration) — the non-tax factors often decide it.
+              </p>
             </div>
           </div>
         )}
@@ -1400,7 +1511,7 @@ export default function Calculators() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-5 h-auto flex-wrap gap-1">
-          <TabsTrigger value="tax" className="text-xs md:text-sm">Tax & HST</TabsTrigger>
+          <TabsTrigger value="tax" className="text-xs md:text-sm">Corp Tax & HST</TabsTrigger>
           <TabsTrigger value="payroll" className="text-xs md:text-sm">Payroll</TabsTrigger>
           <TabsTrigger value="dividends" className="text-xs md:text-sm">Dividends</TabsTrigger>
           <TabsTrigger value="fx" className="text-xs md:text-sm">FX & Currency</TabsTrigger>
@@ -1411,12 +1522,12 @@ export default function Calculators() {
         <TabsContent value="tax" className="space-y-4 mt-6">
           <HSTCalculator />
           <CorporateTaxCalculator />
-          <PayrollTaxCalculator />
-          <CPPEICalculator />
         </TabsContent>
 
         {/* PAYROLL TAB */}
         <TabsContent value="payroll" className="space-y-4 mt-6">
+          <PayrollTaxCalculator />
+          <CPPEICalculator />
           <ProratedPayrollCalculator />
           <VacationPayCalculator />
           <StatPayCalculator />
@@ -1426,6 +1537,7 @@ export default function Calculators() {
         {/* DIVIDENDS TAB */}
         <TabsContent value="dividends" className="space-y-4 mt-6">
           <DividendsCalculator />
+          <SalaryVsDividendCalculator />
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="p-4 text-sm text-blue-700 space-y-3">
               <div>
