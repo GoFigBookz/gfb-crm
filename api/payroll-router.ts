@@ -80,7 +80,10 @@ const WEST_YORK_META = {
 // set on the client's intake card). The old fuzzy name-matching is gone — it made
 // "clark" match BOTH Clark entities and overrode the flag. backfillHasPayroll()
 // (run once on boot) seeds the flag for the practice's existing payroll clients.
-const KNOWN_PAYROLL = ["west york", "selective", "originality", "clark", "2303851", "fractal", "old spot", "sher", "punjab"];
+// Markie's payroll roster (2026-06-21): both Clarks, Old Spot, Sher-E-Punjab,
+// Originality, West York. (Selective/Fractal/2303851 are NOT payroll clients —
+// toggle hasPayroll off on their card if any were previously flagged.)
+const KNOWN_PAYROLL = ["west york", "originality", "clark", "old spot", "sher", "punjab"];
 
 function isPayrollClient(c: any): boolean {
   return !!c.hasPayroll;
