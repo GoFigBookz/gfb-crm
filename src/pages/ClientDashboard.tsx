@@ -345,7 +345,7 @@ export default function ClientDashboard() {
                     const od = t.dueDate && new Date(t.dueDate) < today;
                     return (
                       <div key={t.id} className="flex items-center gap-3 py-1.5 px-2 rounded hover:bg-slate-50 cursor-pointer" onClick={() => setEditingTask(t)}>
-                        <span className={cn("text-xs font-semibold w-14 whitespace-nowrap", od ? "text-red-600" : "text-slate-400")}>{t.dueDate ? format(new Date(t.dueDate), "MMM d") : "—"}</span>
+                        <span className={cn("text-xs font-semibold w-[74px] whitespace-nowrap", od ? "text-red-600" : "text-slate-400")}>{t.dueDate ? format(new Date(t.dueDate), "MMM d, yyyy") : "—"}</span>
                         <span className="text-sm text-slate-700 truncate flex-1">{t.title}</span>
                         <span className="text-xs text-slate-400 whitespace-nowrap">{t.category}</span>
                       </div>
