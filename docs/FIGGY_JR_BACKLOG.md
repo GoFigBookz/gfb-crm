@@ -4,6 +4,14 @@ _Living list of agreed-but-not-yet-built work, with the decisions made so we
 don't re-derive them._
 
 ## BACKLOGGED THIS SESSION (Markie: finish client cards first, then these)
+- **Payroll calcs pull live data from QBO Payroll, per client + pay run.** Stat-pay,
+  vacation-pay, and prorated payroll should auto-fill the earnings/period inputs from
+  QBO Payroll (the CRM doesn't run payroll — QBO does). Stat = 4-work-week earnings ÷ 20
+  (ON); vacation = % of vacationable earnings; prorated = business-day fraction of period.
+  Formulas are now correct + clearly labeled; wiring waits on the QBO payroll connection.
+  Add a client/pay-run selector that loads the numbers instead of manual entry.
+- **Mem-time-style automatic activity tracking** (knows what client/work is active) —
+  beyond the current start/stop timer.
 - **Owner-only Insights — per-client pricing intelligence.** The "scope quote vs
   flat fee / what we should bill vs what we bill" build was REMOVED from the client
   card (Markie's call). Rebuild it as an Insights area visible only to the owner,
