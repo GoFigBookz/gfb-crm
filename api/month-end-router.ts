@@ -114,9 +114,13 @@ export const monthEndRouter = createRouter({
   // Sorted worst-first so the clients needing attention float to the top.
   getPortfolio: authedQuery
     .input(z.object({ asOf: z.string().optional() }).optional())
-    .query(async ({ input }) => {
+    .query(async ({ input }) => computePortfolio(input?.asOf ? new Date(input.asOf) : new Date())),
+});
+
+/** The "who's behind" portfolio rollup as a plain function so the dashboard
+ *  trends-snapshot job can reuse the exact same close-status logic (DRY). */
+export async function computePortfolio(asOf: Date) {
       const db = getDb();
-      const asOf = input?.asOf ? new Date(input.asOf) : new Date();
       const active = await db.select().from(clients).where(eq(clients.status, "active"));
       // Wholesale (flow-through) clients aren't bookkeeping engagements — keep
       // them off the close board entirely.
@@ -150,5 +154,4 @@ export const monthEndRouter = createRouter({
         toReviewTotal: relevant.reduce((s, o) => s + o.toReview, 0),
       };
       return { clients: out, summary };
-    }),
-});
+}

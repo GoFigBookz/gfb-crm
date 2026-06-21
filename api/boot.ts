@@ -871,7 +871,7 @@ async function startServer() {
   // table is missing columns the app SELECTs, which makes every read throw (empty
   // Clients page). Add any missing columns first.
   try {
-    const { ensureClientsColumns, ensureOnboardingColumns, ensureTaskColumns, ensurePayrollTables, ensureClientRequestTables, ensureSmsTable, ensureIntercoTables } = await import("./ensure-clients-schema");
+    const { ensureClientsColumns, ensureOnboardingColumns, ensureTaskColumns, ensurePayrollTables, ensureClientRequestTables, ensureSmsTable, ensureIntercoTables, ensurePracticeSnapshotsTable } = await import("./ensure-clients-schema");
     await ensureClientsColumns();
     await ensureOnboardingColumns();
     await ensureTaskColumns();
@@ -879,6 +879,7 @@ async function startServer() {
     await ensureClientRequestTables();
     await ensureSmsTable();
     await ensureIntercoTables();
+    await ensurePracticeSnapshotsTable();
     // Repair legacy date rows stored in MILLISECONDS in a seconds column (they
     // render as year ~58000). Anything above year-2100-in-seconds is really ms → ÷1000.
     try {
@@ -1085,6 +1086,11 @@ async function startServer() {
   // and isolated — a refresh failure only flags that one connection for reconnect.
   setTimeout(() => { keepAliveNativeConnections().catch(() => {}); }, 60_000);
   setInterval(() => { keepAliveNativeConnections().catch(() => {}); }, 24 * 60 * 60 * 1000);
+
+  // Dashboard trend snapshots: capture shortly after boot, then daily.
+  const { capturePracticeSnapshot } = await import("./dashboard-router");
+  setTimeout(() => { capturePracticeSnapshot().catch(() => {}); }, 90_000);
+  setInterval(() => { capturePracticeSnapshot().catch(() => {}); }, 24 * 60 * 60 * 1000);
 
   const port = parseInt(process.env.PORT || "3000");
   serve({ fetch: app.fetch, port }, () => {

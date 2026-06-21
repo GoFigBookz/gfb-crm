@@ -13,15 +13,37 @@ import { splitClientName } from "@/lib/clientName";
 
 const TRAFFIC = { red: "bg-red-500", yellow: "bg-amber-400", green: "bg-lime-500" } as const;
 
-/** A proportional segmented bar (honest distribution — no faked time-series). */
-function SegBar({ segments }: { segments: { value: number; color: string; label: string }[] }) {
-  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+/** Tiny inline SVG sparkline (no chart dep). */
+function Spark({ points, stroke }: { points: number[]; stroke: string }) {
+  if (points.length < 2) return null;
+  const w = 100, h = 30, max = Math.max(...points), min = Math.min(...points), rng = (max - min) || 1;
+  const d = points.map((p, i) => `${(i / (points.length - 1)) * w},${h - ((p - min) / rng) * h}`).join(" ");
   return (
-    <div className="flex h-2.5 rounded-full overflow-hidden bg-slate-100">
-      {segments.map((s, i) => s.value > 0 ? (
-        <div key={i} className={s.color} style={{ width: `${(s.value / total) * 100}%` }} title={`${s.label}: ${s.value}`} />
-      ) : null)}
-    </div>
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-8" preserveAspectRatio="none">
+      <polyline points={d} fill="none" stroke={stroke} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** One trend tile: current value + sparkline, with a graceful pre-data state. */
+function TrendCard({ label, value, points, stroke, delta }: { label: string; value: string; points: number[]; stroke: string; delta?: string }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-sm font-medium text-slate-700">{label}</span>
+          <span className="text-lg font-bold text-slate-900">{value}</span>
+        </div>
+        {points.length >= 2 ? (
+          <>
+            <Spark points={points} stroke={stroke} />
+            {delta && <p className="text-[11px] text-slate-400 mt-1">{delta}</p>}
+          </>
+        ) : (
+          <p className="text-[11px] text-slate-400 mt-3">📈 Trend builds over the next few days</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -37,6 +59,7 @@ export default function Dashboard() {
   const { data: dailyBrief } = trpc.dailyBrief.get.useQuery();
   const { data: portfolio } = trpc.monthEnd.getPortfolio.useQuery({});
   const { data: rawFindings } = trpc.agentWebhook.listFindings.useQuery({ status: "new" });
+  const { data: trends } = trpc.dashboard.trends.useQuery({ days: 30 });
 
   const sum = portfolio?.summary;
   const behind = (sum?.red ?? 0) + (sum?.yellow ?? 0);
@@ -221,59 +244,24 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Trends — honest distributions (no faked time-series) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2"><span className="text-sm font-medium text-slate-700">Close status</span><span className="text-xs text-slate-400">{sum?.relevant ?? 0} this period</span></div>
-            <SegBar segments={[
-              { value: sum?.red ?? 0, color: "bg-red-500", label: "Behind" },
-              { value: sum?.yellow ?? 0, color: "bg-amber-400", label: "At risk" },
-              { value: sum?.green ?? 0, color: "bg-lime-500", label: "On track" },
-            ]} />
-            <div className="flex justify-between mt-2 text-xs text-slate-500">
-              <span>{sum?.red ?? 0} behind</span><span>{sum?.yellow ?? 0} at risk</span><span>{sum?.green ?? 0} on track</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2"><span className="text-sm font-medium text-slate-700">Task load</span><span className="text-xs text-slate-400">{dailyBrief?.stats.totalPending ?? 0} pending</span></div>
-            <SegBar segments={[
-              { value: overdueTasks?.length ?? 0, color: "bg-red-500", label: "Overdue" },
-              { value: upcomingTasks?.length ?? 0, color: "bg-amber-400", label: "This week" },
-              { value: Math.max(0, (dailyBrief?.stats.totalPending ?? 0) - (overdueTasks?.length ?? 0) - (upcomingTasks?.length ?? 0)), color: "bg-slate-300", label: "Later" },
-            ]} />
-            <div className="flex justify-between mt-2 text-xs text-slate-500">
-              <span>{overdueTasks?.length ?? 0} overdue</span><span>{upcomingTasks?.length ?? 0} this week</span><span>later</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2"><span className="text-sm font-medium text-slate-700">Pipeline</span><span className="text-xs text-slate-400">{money(pipeline?.totalPipelineValue ?? 0)}/mo</span></div>
-            <div className="space-y-1.5">
-              {[
-                { label: "New leads", v: pipeline?.newLeads ?? 0 },
-                { label: "Discovery", v: pipeline?.discoveryCalls ?? 0 },
-                { label: "Quote sent", v: pipeline?.quotesSent ?? 0 },
-                { label: "Engagement", v: pipeline?.engagementsSent ?? 0 },
-              ].map((s) => {
-                const max = Math.max(1, pipeline?.totalLeads ?? 1);
-                return (
-                  <div key={s.label} className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 w-20 shrink-0">{s.label}</span>
-                    <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden"><div className="bg-violet-400 h-2" style={{ width: `${(s.v / max) * 100}%` }} /></div>
-                    <span className="text-xs text-slate-600 w-5 text-right">{s.v}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Trends — real over-time lines from the nightly snapshot */}
+      {(() => {
+        const t = trends ?? [];
+        const onTrackPct = t.map((s: any) => { const tot = (s.closeRed + s.closeYellow + s.closeGreen) || 0; return tot ? Math.round((s.closeGreen / tot) * 100) : 0; });
+        const overdueSeries = t.map((s: any) => s.tasksOverdue ?? 0);
+        const outstandingSeries = t.map((s: any) => s.invoiceOutstanding ?? 0);
+        const reviewSeries = t.map((s: any) => s.toReviewTotal ?? 0);
+        const days = t.length;
+        const span = days >= 2 ? `last ${days} days` : undefined;
+        return (
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            <TrendCard label="On-track %" value={`${onTrackPct[onTrackPct.length - 1] ?? (sum && sum.relevant ? Math.round(((sum.green) / sum.relevant) * 100) : 0)}%`} points={onTrackPct} stroke="#65a30d" delta={span} />
+            <TrendCard label="Overdue tasks" value={String(overdueSeries[overdueSeries.length - 1] ?? overdueTasks?.length ?? 0)} points={overdueSeries} stroke="#dc2626" delta={span} />
+            <TrendCard label="Outstanding $" value={money(outstandingSeries[outstandingSeries.length - 1] ?? invoiceStats?.outstanding ?? 0)} points={outstandingSeries} stroke="#0891b2" delta={span} />
+            <TrendCard label="To-post queue" value={String(reviewSeries[reviewSeries.length - 1] ?? sum?.toReviewTotal ?? 0)} points={reviewSeries} stroke="#7c3aed" delta={span} />
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -64,18 +64,27 @@ export default function CalendarPage() {
   };
 
   // Unified items: calendar events + tasks-with-due-dates.
-  type Item = { id: string; title: string; date: Date; end: Date; kind: "event" | "task"; clientId: any; color: string; overdue: boolean; raw: any };
+  // OVERDUE behaviour (matches Todoist/Things/Google Tasks): an incomplete task
+  // whose due date is in the past is SURFACED on today (so today reflects the
+  // real workload and the calendar isn't blank) — but its stored due date is
+  // left untouched, so we still know how late it is. Reschedule = drag it.
+  type Item = { id: string; title: string; date: Date; end: Date; kind: "event" | "task"; clientId: any; color: string; overdue: boolean; daysLate: number; dueDate?: Date; raw: any };
+  const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
   const items: Item[] = [
     ...((events || []).map((e: any) => ({
       id: `e${e.id}`, title: e.title, date: new Date(e.startDate), end: e.endDate ? new Date(e.endDate) : new Date(e.startDate),
-      kind: "event" as const, clientId: e.clientId, color: e.color === "purple" ? "purple" : "lime", overdue: false, raw: e,
+      kind: "event" as const, clientId: e.clientId, color: e.color === "purple" ? "purple" : "lime", overdue: false, daysLate: 0, raw: e,
     }))),
     ...((allTasks || []).filter((t: any) => t.dueDate && !t.completed).map((t: any) => {
       const d = new Date(t.dueDate);
-      return { id: `t${t.id}`, title: t.title, date: d, end: d, kind: "task" as const, clientId: t.clientId,
-        color: "amber", overdue: d < new Date() && !isSameDay(d, new Date()), raw: t };
+      const isOverdue = d < startToday;
+      const placement = isOverdue ? new Date() : d;   // overdue rolls onto today (display only)
+      const daysLate = isOverdue ? differenceInCalendarDays(startToday, d) : 0;
+      return { id: `t${t.id}`, title: t.title, date: placement, end: placement, kind: "task" as const, clientId: t.clientId,
+        color: "amber", overdue: isOverdue, daysLate, dueDate: d, raw: t };
     })),
   ];
+  const overdueCount = items.filter((it) => it.kind === "task" && it.overdue).length;
   const itemsForDay = (date: Date) => items.filter((it) => isSameDay(it.date, date)).sort((a, b) => a.date.getTime() - b.date.getTime());
 
   // Open tasks with NO due date — they can't sit on a calendar grid, so show
@@ -111,6 +120,7 @@ export default function CalendarPage() {
     >
       {it.kind === "task" ? <CheckSquare className="h-3 w-3 shrink-0" /> : <CalIcon className="h-3 w-3 shrink-0" />}
       <span className="truncate">{it.title}</span>
+      {it.overdue && <span className="ml-auto shrink-0 text-[10px] font-semibold">{it.daysLate}d late</span>}
     </div>
   );
 
@@ -154,10 +164,13 @@ export default function CalendarPage() {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-xs text-slate-500">
+      <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-lime-200 inline-block" /> Event</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-200 inline-block" /> Task due</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-200 inline-block" /> Overdue</span>
+        {overdueCount > 0 && (
+          <span className="text-red-600">· {overdueCount} overdue task{overdueCount === 1 ? "" : "s"} shown on today — drag onto a day to reschedule</span>
+        )}
       </div>
 
       {/* Unscheduled tasks tray — drag any of these onto a day to schedule it */}
@@ -260,7 +273,7 @@ export default function CalendarPage() {
                   <span className={cn("w-2 h-2 rounded-full shrink-0", it.kind === "task" ? (it.overdue ? "bg-red-500" : "bg-amber-500") : "bg-lime-500")} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{it.title}</p>
-                    <p className="text-xs text-slate-500">{it.kind === "event" ? format(it.date, "h:mm a") : "Task due"}{it.clientId && clientName(it.clientId) ? ` · ${clientName(it.clientId)}` : ""}</p>
+                    <p className="text-xs text-slate-500">{it.kind === "event" ? format(it.date, "h:mm a") : it.overdue ? `Due ${format(it.dueDate!, "MMM d")} · ${it.daysLate}d late` : "Task due"}{it.clientId && clientName(it.clientId) ? ` · ${clientName(it.clientId)}` : ""}</p>
                   </div>
                   {it.clientId && <Link to={`/client/${it.clientId}`} onClick={(e) => e.stopPropagation()} className="text-xs text-lime-700 hover:underline shrink-0"><Building2 className="h-3.5 w-3.5" /></Link>}
                 </div>
@@ -308,7 +321,7 @@ export default function CalendarPage() {
                         <span className={cn("w-2 h-2 rounded-full shrink-0", it.kind === "task" ? (it.overdue ? "bg-red-500" : "bg-amber-500") : "bg-lime-500")} />
                         <span className="flex-1 text-sm truncate">{it.title}</span>
                         {it.clientId && clientName(it.clientId) && <Link to={`/client/${it.clientId}`} onClick={(e) => e.stopPropagation()} className="text-xs text-lime-700 hover:underline shrink-0">{clientName(it.clientId)}</Link>}
-                        <span className="text-xs text-slate-400 shrink-0">{it.kind === "task" ? "due" : format(it.date, "h:mm a")}</span>
+                        <span className={cn("text-xs shrink-0", it.overdue ? "text-red-600 font-medium" : "text-slate-400")}>{it.kind === "task" ? (it.overdue ? `${it.daysLate}d late` : "due") : format(it.date, "h:mm a")}</span>
                       </div>
                     ))}
                   </div>

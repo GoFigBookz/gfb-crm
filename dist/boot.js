@@ -22356,6 +22356,7 @@ __export(schema_exports, {
   portalFiles: () => portalFiles,
   portalSettings: () => portalSettings,
   portalTokens: () => portalTokens,
+  practiceSnapshots: () => practiceSnapshots,
   qboAccounts: () => qboAccounts,
   qboConnections: () => qboConnections,
   qboCustomers: () => qboCustomers,
@@ -22378,7 +22379,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries;
+var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23794,6 +23795,25 @@ var init_schema = __esm({
       sourceRef: text("sourceRef"),
       // QBO txn id when pulled
       createdBy: integer2("createdBy"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    practiceSnapshots = sqliteTable("practice_snapshots", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      date: text("date").notNull(),
+      // "YYYY-MM-DD" — one row per day
+      clientsActive: integer2("clientsActive").default(0),
+      clientsTotal: integer2("clientsTotal").default(0),
+      closeRed: integer2("closeRed").default(0),
+      closeYellow: integer2("closeYellow").default(0),
+      closeGreen: integer2("closeGreen").default(0),
+      toReviewTotal: integer2("toReviewTotal").default(0),
+      tasksOverdue: integer2("tasksOverdue").default(0),
+      tasksUpcoming: integer2("tasksUpcoming").default(0),
+      tasksPending: integer2("tasksPending").default(0),
+      invoiceOutstanding: real("invoiceOutstanding").default(0),
+      invoiceRevenue: real("invoiceRevenue").default(0),
+      pipelineValue: real("pipelineValue").default(0),
+      pipelineLeads: integer2("pipelineLeads").default(0),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
   }
@@ -47657,6 +47677,38 @@ async function statusForClient(db, client, asOf) {
     ...roll
   };
 }
+async function computePortfolio(asOf) {
+  const db = getDb();
+  const active = await db.select().from(clients).where(eq(clients.status, "active"));
+  const operational = active.filter((c) => isOperationalClient(c.clientType));
+  const out = [];
+  for (const c of operational) {
+    const row = await statusForClient(db, c, asOf);
+    let openWork;
+    if (c.clientType === "annual") {
+      const openTasks = await countOpenTasks(db, c.id);
+      openWork = openTasks > 0 || row.toReview > 0 || row.status !== "green";
+    }
+    out.push({
+      ...row,
+      clientType: c.clientType || "monthly",
+      relevantThisPeriod: isRelevantForPeriod({ ...c, openWork }, asOf)
+    });
+  }
+  const rank = { red: 0, yellow: 1, green: 2 };
+  out.sort((a, b) => rank[a.status] - rank[b.status] || b.toReview - a.toReview);
+  const relevant = out.filter((o) => o.relevantThisPeriod);
+  const summary = {
+    total: out.length,
+    relevant: relevant.length,
+    offCadence: out.length - relevant.length,
+    red: relevant.filter((o) => o.status === "red").length,
+    yellow: relevant.filter((o) => o.status === "yellow").length,
+    green: relevant.filter((o) => o.status === "green").length,
+    toReviewTotal: relevant.reduce((s, o) => s + o.toReview, 0)
+  };
+  return { clients: out, summary };
+}
 var MONTHS2, monthEndRouter;
 var init_month_end_router = __esm({
   "api/month-end-router.ts"() {
@@ -47678,39 +47730,7 @@ var init_month_end_router = __esm({
       }),
       // Portfolio "who's behind" board — every active client, cheap (DB only).
       // Sorted worst-first so the clients needing attention float to the top.
-      getPortfolio: authedQuery.input(external_exports.object({ asOf: external_exports.string().optional() }).optional()).query(async ({ input }) => {
-        const db = getDb();
-        const asOf = input?.asOf ? new Date(input.asOf) : /* @__PURE__ */ new Date();
-        const active = await db.select().from(clients).where(eq(clients.status, "active"));
-        const operational = active.filter((c) => isOperationalClient(c.clientType));
-        const out = [];
-        for (const c of operational) {
-          const row = await statusForClient(db, c, asOf);
-          let openWork;
-          if (c.clientType === "annual") {
-            const openTasks = await countOpenTasks(db, c.id);
-            openWork = openTasks > 0 || row.toReview > 0 || row.status !== "green";
-          }
-          out.push({
-            ...row,
-            clientType: c.clientType || "monthly",
-            relevantThisPeriod: isRelevantForPeriod({ ...c, openWork }, asOf)
-          });
-        }
-        const rank = { red: 0, yellow: 1, green: 2 };
-        out.sort((a, b) => rank[a.status] - rank[b.status] || b.toReview - a.toReview);
-        const relevant = out.filter((o) => o.relevantThisPeriod);
-        const summary = {
-          total: out.length,
-          relevant: relevant.length,
-          offCadence: out.length - relevant.length,
-          red: relevant.filter((o) => o.status === "red").length,
-          yellow: relevant.filter((o) => o.status === "yellow").length,
-          green: relevant.filter((o) => o.status === "green").length,
-          toReviewTotal: relevant.reduce((s, o) => s + o.toReview, 0)
-        };
-        return { clients: out, summary };
-      })
+      getPortfolio: authedQuery.input(external_exports.object({ asOf: external_exports.string().optional() }).optional()).query(async ({ input }) => computePortfolio(input?.asOf ? new Date(input.asOf) : /* @__PURE__ */ new Date()))
     });
   }
 });
@@ -50527,6 +50547,83 @@ var init_interco_router = __esm({
   }
 });
 
+// api/dashboard-router.ts
+var dashboard_router_exports = {};
+__export(dashboard_router_exports, {
+  capturePracticeSnapshot: () => capturePracticeSnapshot,
+  dashboardRouter: () => dashboardRouter
+});
+async function capturePracticeSnapshot() {
+  try {
+    const db = getDb();
+    const today2 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const startToday = /* @__PURE__ */ new Date();
+    startToday.setHours(0, 0, 0, 0);
+    const weekAhead = new Date(startToday.getTime() + 7 * DAY_MS);
+    const allClients = await db.select().from(clients);
+    const clientsActive = allClients.filter((c) => c.status === "active").length;
+    const leads = allClients.filter((c) => ["new_lead", "discovery_call", "quote_sent", "quote_approved", "engagement_sent"].includes(c.workflowStatus));
+    const pipelineValue = leads.reduce((s, c) => s + (c.estimatedMonthlyValue || 0), 0);
+    const openTasks = await db.select().from(tasks).where(ne(tasks.status, "completed"));
+    let tasksOverdue = 0, tasksUpcoming = 0;
+    for (const t2 of openTasks) {
+      if (!t2.dueDate) continue;
+      const d = new Date(t2.dueDate);
+      if (d < startToday) tasksOverdue++;
+      else if (d < weekAhead) tasksUpcoming++;
+    }
+    const allInvoices = await db.select().from(invoices);
+    const invoiceOutstanding = allInvoices.filter((i) => i.status === "sent" || i.status === "overdue").reduce((s, i) => s + (i.amount || 0), 0);
+    const invoiceRevenue = allInvoices.filter((i) => i.status === "paid").reduce((s, i) => s + (i.amount || 0), 0);
+    const reviewRows = await db.select({ n: count() }).from(triageFindings).where(eq(triageFindings.status, "new"));
+    const toReviewTotal = Number(reviewRows[0]?.n ?? 0);
+    const port = await computePortfolio(/* @__PURE__ */ new Date());
+    const row = {
+      date: today2,
+      clientsActive,
+      clientsTotal: allClients.length,
+      closeRed: port.summary.red,
+      closeYellow: port.summary.yellow,
+      closeGreen: port.summary.green,
+      toReviewTotal,
+      tasksOverdue,
+      tasksUpcoming,
+      tasksPending: openTasks.length,
+      invoiceOutstanding,
+      invoiceRevenue,
+      pipelineValue,
+      pipelineLeads: leads.length
+    };
+    const existing = await db.select().from(practiceSnapshots).where(eq(practiceSnapshots.date, today2)).limit(1);
+    if (existing[0]) await db.update(practiceSnapshots).set(row).where(eq(practiceSnapshots.date, today2));
+    else await db.insert(practiceSnapshots).values(row);
+    console.log(`[snapshot] practice snapshot captured for ${today2}`);
+  } catch (e) {
+    console.error("[snapshot] capture failed:", e instanceof Error ? e.message : e);
+  }
+}
+var DAY_MS, dashboardRouter;
+var init_dashboard_router = __esm({
+  "api/dashboard-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_month_end_router();
+    DAY_MS = 24 * 60 * 60 * 1e3;
+    dashboardRouter = createRouter({
+      // Daily snapshots for the trend lines (oldest → newest), last N days.
+      trends: authedQuery.input(external_exports.object({ days: external_exports.number().min(2).max(365).default(30) }).optional()).query(async ({ input }) => {
+        const db = getDb();
+        const rows = await db.select().from(practiceSnapshots).orderBy(sql`date asc`);
+        const days = input?.days ?? 30;
+        return rows.slice(-days);
+      })
+    });
+  }
+});
+
 // api/public-router.ts
 var publicRouter;
 var init_public_router = __esm({
@@ -50776,6 +50873,7 @@ var init_router = __esm({
     init_restore_router();
     init_bulk_import_router();
     init_interco_router();
+    init_dashboard_router();
     init_public_router();
     init_middleware();
     appRouter = createRouter({
@@ -50829,7 +50927,8 @@ var init_router = __esm({
       microsoftSync: microsoftSyncRouter,
       bulkImport: bulkImportRouter,
       restore: restoreRouter,
-      interco: intercoRouter
+      interco: intercoRouter,
+      dashboard: dashboardRouter
     });
   }
 });
@@ -52843,6 +52942,7 @@ __export(ensure_clients_schema_exports, {
   ensureIntercoTables: () => ensureIntercoTables,
   ensureOnboardingColumns: () => ensureOnboardingColumns,
   ensurePayrollTables: () => ensurePayrollTables,
+  ensurePracticeSnapshotsTable: () => ensurePracticeSnapshotsTable,
   ensureSmsTable: () => ensureSmsTable,
   ensureTaskColumns: () => ensureTaskColumns
 });
@@ -53053,6 +53153,33 @@ async function ensureIntercoTables() {
     console.log("[schema] interco tables ensured");
   } catch (e) {
     console.error("[schema] ensureIntercoTables failed:", e instanceof Error ? e.message : e);
+  }
+}
+async function ensurePracticeSnapshotsTable() {
+  const db = getDb();
+  try {
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS practice_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      clientsActive INTEGER DEFAULT 0,
+      clientsTotal INTEGER DEFAULT 0,
+      closeRed INTEGER DEFAULT 0,
+      closeYellow INTEGER DEFAULT 0,
+      closeGreen INTEGER DEFAULT 0,
+      toReviewTotal INTEGER DEFAULT 0,
+      tasksOverdue INTEGER DEFAULT 0,
+      tasksUpcoming INTEGER DEFAULT 0,
+      tasksPending INTEGER DEFAULT 0,
+      invoiceOutstanding REAL DEFAULT 0,
+      invoiceRevenue REAL DEFAULT 0,
+      pipelineValue REAL DEFAULT 0,
+      pipelineLeads INTEGER DEFAULT 0,
+      createdAt INTEGER
+    )`));
+    await db.run(sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS idx_practice_snapshots_date ON practice_snapshots (date)`));
+    console.log("[schema] practice_snapshots table ensured");
+  } catch (e) {
+    console.error("[schema] ensurePracticeSnapshotsTable failed:", e instanceof Error ? e.message : e);
   }
 }
 async function ensureSmsTable() {
@@ -58488,7 +58615,7 @@ async function startServer() {
   const { serveStaticFiles: serveStaticFiles2 } = await Promise.resolve().then(() => (init_vite(), vite_exports));
   serveStaticFiles2(app);
   try {
-    const { ensureClientsColumns: ensureClientsColumns2, ensureOnboardingColumns: ensureOnboardingColumns2, ensureTaskColumns: ensureTaskColumns2, ensurePayrollTables: ensurePayrollTables2, ensureClientRequestTables: ensureClientRequestTables2, ensureSmsTable: ensureSmsTable2, ensureIntercoTables: ensureIntercoTables2 } = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
+    const { ensureClientsColumns: ensureClientsColumns2, ensureOnboardingColumns: ensureOnboardingColumns2, ensureTaskColumns: ensureTaskColumns2, ensurePayrollTables: ensurePayrollTables2, ensureClientRequestTables: ensureClientRequestTables2, ensureSmsTable: ensureSmsTable2, ensureIntercoTables: ensureIntercoTables2, ensurePracticeSnapshotsTable: ensurePracticeSnapshotsTable2 } = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
     await ensureClientsColumns2();
     await ensureOnboardingColumns2();
     await ensureTaskColumns2();
@@ -58496,6 +58623,7 @@ async function startServer() {
     await ensureClientRequestTables2();
     await ensureSmsTable2();
     await ensureIntercoTables2();
+    await ensurePracticeSnapshotsTable2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
@@ -58692,6 +58820,15 @@ async function startServer() {
   }, 6e4);
   setInterval(() => {
     keepAliveNativeConnections2().catch(() => {
+    });
+  }, 24 * 60 * 60 * 1e3);
+  const { capturePracticeSnapshot: capturePracticeSnapshot2 } = await Promise.resolve().then(() => (init_dashboard_router(), dashboard_router_exports));
+  setTimeout(() => {
+    capturePracticeSnapshot2().catch(() => {
+    });
+  }, 9e4);
+  setInterval(() => {
+    capturePracticeSnapshot2().catch(() => {
     });
   }, 24 * 60 * 60 * 1e3);
   const port = parseInt(process.env.PORT || "3000");
