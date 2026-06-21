@@ -1,30 +1,20 @@
 /**
- * FIGGY JR — MASTER SHEET SYNC (CRM → canonical Google master, outbound)
+ * FIGGY JR — MASTER SHEET SYNC (CRM ⇄ canonical Google master)
  * =============================================================================
- * Markie's requirement (2026-06-21): the Google Sheet is the crash-safe mirror —
- * "the back end of the Google Sheets must always match what we're building here."
- * On every client onboard/edit the CRM UPSERTS that client's row into the ONE
- * canonical "Client Master" tab so the sheet always reflects the CRM.
+ * Markie's requirement: the Google Sheet is the crash-safe mirror — "the back end
+ * of the Google Sheets must always match what we're building here." Outbound
+ * (CRM→sheet) upserts a client's row on every onboard/edit; inbound (sheet→CRM,
+ * see sheet-inbound-sync.ts) applies sheet edits back on a schedule.
  *
- * CANONICAL MASTER (Markie chose this, 2026-06-21):
- *   sheet 1pcAw-WSQXXnVn-0L-TQ2FIExkHQ0Olf4dzz47t0gTUk
- *   tab "Client Master" (active) + tab "Inactive Clients".
- *   25 columns A..Y — see COLS below.
+ * HEADER-DRIVEN (so layout & code never fight): we resolve every column by MATCHING
+ * THE HEADER ROW, not by a fixed position. Reorder columns in the sheet freely —
+ * sync still finds them. Columns we don't own (close period, # employees, POS,
+ * notes, …) are never touched, so a sync never wipes hand-curated data.
  *
- * TRANSPORT (same zero-touch pattern as the QBO bridge): a committed Make WEBHOOK
- * capability URL proxies a flat {url, method, body} to the Google Sheets v4 API
- * (scenario 5453235 "FIGGY Master Sheet Sync (webhook)", Google conn 9040573).
- * No token / env var needed → go-live is automatic on deploy. The server can't
- * reach Google directly (egress allowlist); Make holds the authorized connection.
- * Opt out with FIGGY_SHEET_SYNC_DISABLE=on.
- *
- * UPSERT, NOT OVERWRITE: we READ the existing row first and only overwrite the
- * columns the CRM is authoritative for (name/status/HST/payroll/WSIB/website/…),
- * PRESERVING the government-registry columns the CRM doesn't track
- * (registry #, incorp date, corp type, govt status, # employees, POS/apps). So a
- * sync never wipes the gov-registry data Markie curated by hand.
- *
- * Fully best-effort: any failure logs + returns false; it NEVER blocks the save.
+ * TRANSPORT (zero-touch, same as the QBO bridge): a committed Make WEBHOOK proxies
+ * a flat {url, method, body} to the Google Sheets v4 API (scenario 5453235, Google
+ * conn 9040573). No token/env var needed. Opt out with FIGGY_SHEET_SYNC_DISABLE=on.
+ * Best-effort: any failure logs + returns false; never blocks the save.
  * =============================================================================
  */
 
@@ -32,25 +22,8 @@ export const CANONICAL_MASTER_SHEET_ID =
   process.env.FIGGY_MASTER_SHEET_ID || "1pcAw-WSQXXnVn-0L-TQ2FIExkHQ0Olf4dzz47t0gTUk";
 const MASTER_TAB = "Client Master";
 const LEADS_TAB = "Leads";
-// Committed capability URL (private repo) — same trade-off as the QBO webhook bridge.
 const SYNC_WEBHOOK =
   process.env.FIGGY_SHEET_SYNC_WEBHOOK || "https://hook.us2.make.com/d4h33m0na6ulrlm9nkv9dyyfa8hv1bcs";
-
-/** Client Master column order (A..Z). Indexes are 0-based. Bio is appended at Z
- *  so the existing 25-col layout (A..Y) is never reshuffled. */
-const COLS = [
-  "name", "status", "industry", "craBn", "registryNo", "incorpDate", "corpType",
-  "govtStatus", "closePeriod", "yeMonth", "hstCadence", "nextHstDue", "hstNumber",
-  "payrollPeriod", "craRemitter", "payrollRp", "wsibNo", "numEmployees", "posApps",
-  "address", "phone", "email", "website", "owner", "triageEmail", "bio",
-] as const;
-const N = COLS.length; // 26 → A..Z
-// Columns the CRM does NOT own — always preserved from the existing sheet row.
-const GOV_ONLY = new Set(["closePeriod", "numEmployees", "posApps"]);
-// Columns the CRM fills only if it has a value, else preserve the sheet's.
-const SOFT = new Set(["industry", "registryNo", "incorpDate", "corpType", "govtStatus", "address", "phone", "email", "owner", "bio"]);
-
-const lastColLetter = "Z"; // 26th column
 
 export type MasterClient = {
   name?: string | null; company?: string | null; status?: string | null;
@@ -64,49 +37,94 @@ export type MasterClient = {
   corpType?: string | null; governmentStatus?: string | null; bio?: string | null;
 };
 
+const norm = (s: any) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const cap = (s?: string | null) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
 const titleCadence: Record<string, string> = { annual: "Annual", quarterly: "Quarterly", monthly: "Monthly" };
 const titlePay: Record<string, string> = { weekly: "Weekly", "bi-weekly": "Bi-Weekly", "semi-monthly": "Semi-Monthly", monthly: "Monthly", self: "Self" };
 const titleRemit: Record<string, string> = { regular: "Regular", quarterly: "Quarterly", accelerated: "Threshold 1" };
 
-/** Map a CRM client → the value the CRM would put in each Client-Master column. */
-function crmValue(c: MasterClient, key: string): string | null {
-  switch (key) {
-    case "name": return c.name || c.company || null;
-    case "status": return cap(c.status) || null;
-    case "industry": return c.industry && c.industry !== "other" ? c.industry : null;
-    case "craBn": return c.taxId || null;
-    case "registryNo": return c.registryNumber || null;
-    case "incorpDate": return c.incorporationDate || null;
-    case "corpType": return c.corpType || null;
-    case "govtStatus": return c.governmentStatus || null;
-    case "bio": return c.bio || null;
-    case "yeMonth": return c.yearEndMonth || null;
-    case "hstCadence": return c.hstPeriod ? (titleCadence[c.hstPeriod] ?? cap(c.hstPeriod)) : null;
-    case "nextHstDue": return c.hstNextDue || null;
-    case "hstNumber": return c.hstNumber || null;
-    case "payrollPeriod": return c.payrollFrequency ? (titlePay[c.payrollFrequency] ?? cap(c.payrollFrequency)) : null;
-    case "craRemitter": return c.payrollRemitterFreq ? (titleRemit[c.payrollRemitterFreq] ?? cap(c.payrollRemitterFreq)) : null;
-    case "payrollRp": return c.payrollRpNumber || null;
-    case "wsibNo": return c.wsibAccountNumber || null;
-    case "address": return c.address || null;
-    case "phone": return c.phone || null;
-    case "email": return c.email || null;
-    case "website": return c.website || null;
-    case "owner": return c.contactName || null;
-    case "triageEmail": return c.figgyEmail || null;
-    default: return null; // gov-only columns
+// Inbound parsers (sheet display → CRM canonical value).
+function cadenceIn(v: string): string | null { const s = v.toLowerCase(); if (!s) return null; if (s.includes("month")) return "monthly"; if (s.includes("quart") || s.includes("qrtly")) return "quarterly"; if (s.includes("annual") || s.includes("year")) return "annual"; return null; }
+function payInF(v: string): string | null { const s = v.toLowerCase().replace(/\s+/g, "-"); if (!s) return null; if (s.includes("bi-week")) return "bi-weekly"; if (s.includes("week")) return "weekly"; if (s.includes("semi")) return "semi-monthly"; if (s.includes("month")) return "monthly"; if (s.includes("self")) return "self"; return null; }
+function remitIn(v: string): string | null { const s = v.toLowerCase(); if (!s) return null; if (s.includes("threshold") || s.includes("acceler")) return "accelerated"; if (s.includes("quart")) return "quarterly"; if (s.includes("regular")) return "regular"; return null; }
+function statusInF(v: string): string | null { const s = v.toLowerCase().trim(); return ["active", "inactive", "prospect", "lead"].includes(s) ? s : null; }
+const cleanIn = (v: any): string => { const s = String(v ?? "").trim(); return /^(n\/?a|none|null)$/i.test(s) ? "" : s; };
+
+export type FieldKey =
+  | "name" | "status" | "industry" | "bio" | "craBn" | "registryNo" | "incorpDate"
+  | "corpType" | "govtStatus" | "address" | "phone" | "email" | "website" | "owner"
+  | "triageEmail" | "yeMonth" | "hstCadence" | "nextHstDue" | "hstNumber"
+  | "payrollPeriod" | "craRemitter" | "payrollRp" | "wsibNo";
+
+type FieldDef = {
+  key: FieldKey;
+  match: (h: string) => boolean;          // h = normalized header
+  toSheet: (c: MasterClient) => string | null;
+  soft: boolean;                          // soft = write only when CRM has a value (else preserve)
+  fromSheet: (raw: string) => Record<string, any> | null; // sheet → CRM patch (null = skip)
+};
+
+// Order matters: first matching field wins per column.
+export const MASTER_FIELDS: FieldDef[] = [
+  { key: "name", match: h => h.includes("legal name") || (h.includes("client") && h.includes("name")), toSheet: c => c.name || c.company || null, soft: false, fromSheet: r => ({ name: r }) },
+  { key: "status", match: h => h === "status", toSheet: c => cap(c.status) || null, soft: false, fromSheet: r => { const s = statusInF(r); return s ? { status: s } : null; } },
+  { key: "industry", match: h => h.includes("industry"), toSheet: c => (c.industry && c.industry !== "other" ? c.industry : null), soft: true, fromSheet: r => ({ industry: r }) },
+  { key: "bio", match: h => h.includes("bio") || h.includes("description"), toSheet: c => c.bio || null, soft: true, fromSheet: r => ({ bio: r }) },
+  { key: "craBn", match: h => h.includes("business") || h === "cra bn" || (h.includes("cra") && h.includes("bn")), toSheet: c => c.taxId || null, soft: true, fromSheet: r => ({ taxId: r }) },
+  { key: "registryNo", match: h => h.includes("registry"), toSheet: c => c.registryNumber || null, soft: true, fromSheet: r => ({ registryNumber: r }) },
+  { key: "incorpDate", match: h => h.includes("incorpor"), toSheet: c => c.incorporationDate || null, soft: true, fromSheet: r => ({ incorporationDate: r }) },
+  { key: "corpType", match: h => h.includes("corp type") || (h.includes("corp") && h.includes("type")), toSheet: c => c.corpType || null, soft: true, fromSheet: r => ({ corpType: r }) },
+  { key: "govtStatus", match: h => h.includes("govt") || h.includes("government"), toSheet: c => c.governmentStatus || null, soft: true, fromSheet: r => ({ governmentStatus: r }) },
+  { key: "address", match: h => h.includes("address") || h.includes("registered office"), toSheet: c => c.address || null, soft: true, fromSheet: r => ({ address: r }) },
+  { key: "phone", match: h => h.includes("phone"), toSheet: c => c.phone || null, soft: true, fromSheet: r => ({ phone: r }) },
+  { key: "triageEmail", match: h => h.includes("triage"), toSheet: c => c.figgyEmail || null, soft: false, fromSheet: r => ({ figgyEmail: r }) },
+  { key: "email", match: h => h === "email" || (h.includes("email") && !h.includes("triage")), toSheet: c => c.email || null, soft: true, fromSheet: r => ({ email: r }) },
+  { key: "website", match: h => h.includes("website") || h.includes("web site"), toSheet: c => c.website || null, soft: true, fromSheet: r => ({ website: r }) },
+  { key: "owner", match: h => h.includes("owner") || h === "contact", toSheet: c => c.contactName || null, soft: true, fromSheet: r => ({ contactName: r }) },
+  { key: "yeMonth", match: h => h.includes("year end") || h.includes("ye month") || h.includes("fiscal"), toSheet: c => c.yearEndMonth || null, soft: false, fromSheet: r => ({ yearEndMonth: r }) },
+  { key: "hstCadence", match: h => h.includes("hst cadence") || (h.includes("hst") && h.includes("cadence")), toSheet: c => (c.hstPeriod ? (titleCadence[c.hstPeriod] ?? cap(c.hstPeriod)) : null), soft: false, fromSheet: r => { const p = cadenceIn(r); return p ? { hstPeriod: p, hasHST: true } : null; } },
+  { key: "nextHstDue", match: h => h.includes("next hst") || (h.includes("hst") && h.includes("due")), toSheet: c => c.hstNextDue || null, soft: false, fromSheet: r => ({ hstNextDue: r }) },
+  { key: "hstNumber", match: h => h === "hst" || (h.includes("hst") && (h.includes("number") || h === "hst")), toSheet: c => c.hstNumber || null, soft: true, fromSheet: r => ({ hstNumber: r }) },
+  { key: "payrollPeriod", match: h => h === "payroll" || h.includes("payroll period") || h.includes("payroll freq"), toSheet: c => (c.payrollFrequency ? (titlePay[c.payrollFrequency] ?? cap(c.payrollFrequency)) : null), soft: false, fromSheet: r => { const p = payInF(r); return p ? { payrollFrequency: p, hasPayroll: true } : null; } },
+  { key: "craRemitter", match: h => h.includes("remitter"), toSheet: c => (c.payrollRemitterFreq ? (titleRemit[c.payrollRemitterFreq] ?? cap(c.payrollRemitterFreq)) : null), soft: false, fromSheet: r => { const p = remitIn(r); return p ? { payrollRemitterFreq: p } : null; } },
+  { key: "payrollRp", match: h => h.includes("payroll rp") || (h.includes("payroll") && h.includes("rp")), toSheet: c => c.payrollRpNumber || null, soft: true, fromSheet: r => ({ payrollRpNumber: r }) },
+  { key: "wsibNo", match: h => h.includes("wsib"), toSheet: c => c.wsibAccountNumber || null, soft: true, fromSheet: r => ({ wsibAccountNumber: r, hasWSIB: true }) },
+];
+
+/** The default header row written if the Client Master tab is ever empty. */
+export const DEFAULT_MASTER_HEADER = [
+  "Client / Legal Name", "Status", "Industry", "Bio / Description", "CRA Business #",
+  "Registry #", "Incorporation Date", "Corp Type", "Govt Status", "Address", "Phone",
+  "Email", "Website", "Owner / Contact", "Figgy Triage Email", "Year-End Month",
+  "Close Period", "HST Cadence", "Next HST Due", "HST #", "Payroll", "CRA Remitter",
+  "Payroll RP #", "WSIB #", "# Employees", "POS / Apps",
+];
+
+/** Map each known field → its column index in this header row (first match wins). */
+export function resolveColumns(header: string[]): Map<FieldKey, number> {
+  const map = new Map<FieldKey, number>();
+  for (let i = 0; i < header.length; i++) {
+    const h = norm(header[i]);
+    if (!h) continue;
+    for (const f of MASTER_FIELDS) {
+      if (map.has(f.key)) continue;
+      if (f.match(h)) { map.set(f.key, i); break; }
+    }
   }
+  return map;
 }
 
-const norm = (s: any) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+/** 1-based column number → A1 letter (handles >26 → AA, AB…). */
+export function colLetter(n: number): string {
+  let s = ""; let x = n;
+  while (x > 0) { const m = (x - 1) % 26; s = String.fromCharCode(65 + m) + s; x = Math.floor((x - 1) / 26); }
+  return s || "A";
+}
 
-/** Read an A1 range from the canonical master sheet (inbound sync). Returns the
- *  raw `values` 2-D array (empty on any failure). */
+/** Read an A1 range from the canonical master sheet. Returns `values` (empty on fail). */
 export async function readMasterRange(rangeA1: string): Promise<string[][]> {
   try {
-    const read = await sheetsApi(
-      `spreadsheets/${CANONICAL_MASTER_SHEET_ID}/values/${encodeURIComponent(rangeA1)}`, "GET");
+    const read = await sheetsApi(`spreadsheets/${CANONICAL_MASTER_SHEET_ID}/values/${encodeURIComponent(rangeA1)}`, "GET");
     return Array.isArray(read?.values) ? read.values : [];
   } catch { return []; }
 }
@@ -120,60 +138,52 @@ async function sheetsApi(url: string, method: "GET" | "POST" | "PUT", body?: unk
   });
   if (!res.ok) throw new Error(`sheets proxy ${method} ${url} → ${res.status} ${await res.text()}`);
   const data = await res.json().catch(() => ({}));
-  // proxy returns the bare Sheets API body
   return data?.outputs?.tool_output?.body ?? data?.tool_output?.body ?? data?.body ?? data;
 }
 
 /**
- * Upsert one client's row into the canonical Client Master tab.
- * Matches by CRA BN (col D) when present, else by normalized name (col A).
- * Preserves government-registry columns. Best-effort: returns true/false.
+ * Upsert one client's row into the Client Master tab — HEADER-DRIVEN. Matches the
+ * row by CRA BN (else name), writes only the CRM-owned columns (by header), and
+ * preserves every other column. Best-effort: returns true/false.
  */
 export async function upsertClientToMaster(c: MasterClient): Promise<boolean> {
   if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return false;
   if (!c.name && !c.company && !c.taxId) return false;
   const sid = CANONICAL_MASTER_SHEET_ID;
-  const range = `'${MASTER_TAB}'!A:${lastColLetter}`;
+  const range = `'${MASTER_TAB}'!A:AZ`;
   try {
-    const read = await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(range)}`, "GET");
-    const rows: string[][] = Array.isArray(read?.values) ? read.values : [];
+    let rows = await readMasterRange(`${MASTER_TAB}!A:AZ`);
+    // Empty tab → lay down the default header first.
+    if (!rows.length || !(rows[0] || []).some((x) => String(x ?? "").trim())) {
+      await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!A1`)}?valueInputOption=RAW`, "PUT", { values: [DEFAULT_MASTER_HEADER] });
+      rows = [DEFAULT_MASTER_HEADER.slice()];
+    }
+    const header = rows[0] || [];
+    const width = Math.max(header.length, DEFAULT_MASTER_HEADER.length);
+    const cols = resolveColumns(header);
+    const bnCol = cols.get("craBn"); const nameCol = cols.get("name") ?? 0;
+
     const bn = (c.taxId || "").trim();
     const nameKey = norm(c.name || c.company);
+    let matchIdx = -1;
+    if (bn && bnCol != null) for (let i = 1; i < rows.length; i++) { if (norm((rows[i] || [])[bnCol]) === norm(bn)) { matchIdx = i; break; } }
+    if (matchIdx < 0 && nameKey) for (let i = 1; i < rows.length; i++) { if (norm((rows[i] || [])[nameCol]) === nameKey) { matchIdx = i; break; } }
 
-    // row 0 is the header; find the matching data row (1-based sheet row = i+1).
-    let matchIdx = -1; // index into rows[] (incl. header), so sheet row = matchIdx+1
-    for (let i = 1; i < rows.length; i++) {
-      const r = rows[i] || [];
-      if (bn && norm(r[3]) === norm(bn)) { matchIdx = i; break; }
-    }
-    if (matchIdx < 0 && nameKey) {
-      for (let i = 1; i < rows.length; i++) {
-        const r = rows[i] || [];
-        if (norm(r[0]) === nameKey) { matchIdx = i; break; }
-      }
-    }
-
-    const existing = matchIdx >= 0 ? rows[matchIdx] || [] : [];
+    const existing = matchIdx >= 0 ? (rows[matchIdx] || []) : [];
     const out: string[] = [];
-    for (let k = 0; k < N; k++) {
-      const key = COLS[k];
-      const cur = existing[k] ?? "";
-      if (GOV_ONLY.has(key)) { out[k] = cur; continue; }       // never touch gov columns
-      const v = crmValue(c, key);
-      if (SOFT.has(key)) { out[k] = v ?? cur; continue; }      // CRM value if present, else keep
-      out[k] = v ?? (matchIdx >= 0 ? cur : "");                // authoritative; keep on update if CRM blank
+    for (let k = 0; k < width; k++) out[k] = existing[k] ?? "";           // keep untouched columns
+    for (const f of MASTER_FIELDS) {
+      const ci = cols.get(f.key); if (ci == null) continue;
+      const v = f.toSheet(c);
+      if (f.soft) out[ci] = v ?? (existing[ci] ?? "");
+      else out[ci] = v ?? (matchIdx >= 0 ? (existing[ci] ?? "") : "");
     }
-
+    const last = colLetter(width);
     if (matchIdx >= 0) {
-      const sheetRow = matchIdx + 1; // rows[] is 1:1 with sheet rows (rows[0]=row1)
-      const wr = `'${MASTER_TAB}'!A${sheetRow}:${lastColLetter}${sheetRow}`;
-      await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(wr)}?valueInputOption=RAW`, "PUT", { values: [out] });
+      const sheetRow = matchIdx + 1;
+      await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!A${sheetRow}:${last}${sheetRow}`)}?valueInputOption=RAW`, "PUT", { values: [out] });
     } else {
-      await sheetsApi(
-        `spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
-        "POST",
-        { values: [out] },
-      );
+      await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, "POST", { values: [out] });
     }
     return true;
   } catch (e) {
@@ -239,26 +249,15 @@ export async function upsertLeadToMaster(c: MasterLead): Promise<boolean> {
     const id = c.id != null ? String(c.id) : "";
     const email = (c.email || "").trim();
     let matchIdx = -1;
-    for (let i = 1; i < rows.length; i++) {
-      const r = rows[i] || [];
-      if (id && norm(r[13]) === norm(id)) { matchIdx = i; break; }
-    }
-    if (matchIdx < 0 && email) {
-      for (let i = 1; i < rows.length; i++) {
-        const r = rows[i] || [];
-        if (norm(r[3]) === norm(email)) { matchIdx = i; break; }
-      }
-    }
+    for (let i = 1; i < rows.length; i++) { if (id && norm((rows[i] || [])[13]) === norm(id)) { matchIdx = i; break; } }
+    if (matchIdx < 0 && email) for (let i = 1; i < rows.length; i++) { if (norm((rows[i] || [])[3]) === norm(email)) { matchIdx = i; break; } }
     const out: string[] = [];
     for (let k = 0; k < LEAD_N; k++) out[k] = leadValue(c, LEAD_COLS[k]);
     if (matchIdx >= 0) {
       const sheetRow = matchIdx + 1;
-      const wr = `'${LEADS_TAB}'!A${sheetRow}:${leadLastCol}${sheetRow}`;
-      await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(wr)}?valueInputOption=RAW`, "PUT", { values: [out] });
+      await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(`'${LEADS_TAB}'!A${sheetRow}:${leadLastCol}${sheetRow}`)}?valueInputOption=RAW`, "PUT", { values: [out] });
     } else {
-      await sheetsApi(
-        `spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
-        "POST", { values: [out] });
+      await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, "POST", { values: [out] });
     }
     return true;
   } catch (e) {

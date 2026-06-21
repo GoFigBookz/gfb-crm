@@ -44415,70 +44415,74 @@ var init_vault_router = __esm({
 var master_sheet_sync_exports = {};
 __export(master_sheet_sync_exports, {
   CANONICAL_MASTER_SHEET_ID: () => CANONICAL_MASTER_SHEET_ID,
+  DEFAULT_MASTER_HEADER: () => DEFAULT_MASTER_HEADER,
+  MASTER_FIELDS: () => MASTER_FIELDS,
+  colLetter: () => colLetter,
   readMasterRange: () => readMasterRange,
+  resolveColumns: () => resolveColumns,
   syncClientToMaster: () => syncClientToMaster,
   syncLeadToMaster: () => syncLeadToMaster,
   upsertClientToMaster: () => upsertClientToMaster,
   upsertLeadToMaster: () => upsertLeadToMaster
 });
-function crmValue(c, key) {
-  switch (key) {
-    case "name":
-      return c.name || c.company || null;
-    case "status":
-      return cap(c.status) || null;
-    case "industry":
-      return c.industry && c.industry !== "other" ? c.industry : null;
-    case "craBn":
-      return c.taxId || null;
-    case "registryNo":
-      return c.registryNumber || null;
-    case "incorpDate":
-      return c.incorporationDate || null;
-    case "corpType":
-      return c.corpType || null;
-    case "govtStatus":
-      return c.governmentStatus || null;
-    case "bio":
-      return c.bio || null;
-    case "yeMonth":
-      return c.yearEndMonth || null;
-    case "hstCadence":
-      return c.hstPeriod ? titleCadence[c.hstPeriod] ?? cap(c.hstPeriod) : null;
-    case "nextHstDue":
-      return c.hstNextDue || null;
-    case "hstNumber":
-      return c.hstNumber || null;
-    case "payrollPeriod":
-      return c.payrollFrequency ? titlePay[c.payrollFrequency] ?? cap(c.payrollFrequency) : null;
-    case "craRemitter":
-      return c.payrollRemitterFreq ? titleRemit[c.payrollRemitterFreq] ?? cap(c.payrollRemitterFreq) : null;
-    case "payrollRp":
-      return c.payrollRpNumber || null;
-    case "wsibNo":
-      return c.wsibAccountNumber || null;
-    case "address":
-      return c.address || null;
-    case "phone":
-      return c.phone || null;
-    case "email":
-      return c.email || null;
-    case "website":
-      return c.website || null;
-    case "owner":
-      return c.contactName || null;
-    case "triageEmail":
-      return c.figgyEmail || null;
-    default:
-      return null;
+function cadenceIn(v) {
+  const s = v.toLowerCase();
+  if (!s) return null;
+  if (s.includes("month")) return "monthly";
+  if (s.includes("quart") || s.includes("qrtly")) return "quarterly";
+  if (s.includes("annual") || s.includes("year")) return "annual";
+  return null;
+}
+function payInF(v) {
+  const s = v.toLowerCase().replace(/\s+/g, "-");
+  if (!s) return null;
+  if (s.includes("bi-week")) return "bi-weekly";
+  if (s.includes("week")) return "weekly";
+  if (s.includes("semi")) return "semi-monthly";
+  if (s.includes("month")) return "monthly";
+  if (s.includes("self")) return "self";
+  return null;
+}
+function remitIn(v) {
+  const s = v.toLowerCase();
+  if (!s) return null;
+  if (s.includes("threshold") || s.includes("acceler")) return "accelerated";
+  if (s.includes("quart")) return "quarterly";
+  if (s.includes("regular")) return "regular";
+  return null;
+}
+function statusInF(v) {
+  const s = v.toLowerCase().trim();
+  return ["active", "inactive", "prospect", "lead"].includes(s) ? s : null;
+}
+function resolveColumns(header2) {
+  const map2 = /* @__PURE__ */ new Map();
+  for (let i = 0; i < header2.length; i++) {
+    const h = norm2(header2[i]);
+    if (!h) continue;
+    for (const f of MASTER_FIELDS) {
+      if (map2.has(f.key)) continue;
+      if (f.match(h)) {
+        map2.set(f.key, i);
+        break;
+      }
+    }
   }
+  return map2;
+}
+function colLetter(n) {
+  let s = "";
+  let x = n;
+  while (x > 0) {
+    const m = (x - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    x = Math.floor((x - 1) / 26);
+  }
+  return s || "A";
 }
 async function readMasterRange(rangeA1) {
   try {
-    const read = await sheetsApi2(
-      `spreadsheets/${CANONICAL_MASTER_SHEET_ID}/values/${encodeURIComponent(rangeA1)}`,
-      "GET"
-    );
+    const read = await sheetsApi2(`spreadsheets/${CANONICAL_MASTER_SHEET_ID}/values/${encodeURIComponent(rangeA1)}`, "GET");
     return Array.isArray(read?.values) ? read.values : [];
   } catch {
     return [];
@@ -44498,55 +44502,49 @@ async function upsertClientToMaster(c) {
   if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return false;
   if (!c.name && !c.company && !c.taxId) return false;
   const sid = CANONICAL_MASTER_SHEET_ID;
-  const range = `'${MASTER_TAB}'!A:${lastColLetter}`;
+  const range = `'${MASTER_TAB}'!A:AZ`;
   try {
-    const read = await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(range)}`, "GET");
-    const rows = Array.isArray(read?.values) ? read.values : [];
+    let rows = await readMasterRange(`${MASTER_TAB}!A:AZ`);
+    if (!rows.length || !(rows[0] || []).some((x) => String(x ?? "").trim())) {
+      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!A1`)}?valueInputOption=RAW`, "PUT", { values: [DEFAULT_MASTER_HEADER] });
+      rows = [DEFAULT_MASTER_HEADER.slice()];
+    }
+    const header2 = rows[0] || [];
+    const width = Math.max(header2.length, DEFAULT_MASTER_HEADER.length);
+    const cols = resolveColumns(header2);
+    const bnCol = cols.get("craBn");
+    const nameCol = cols.get("name") ?? 0;
     const bn = (c.taxId || "").trim();
     const nameKey = norm2(c.name || c.company);
     let matchIdx = -1;
-    for (let i = 1; i < rows.length; i++) {
-      const r = rows[i] || [];
-      if (bn && norm2(r[3]) === norm2(bn)) {
+    if (bn && bnCol != null) for (let i = 1; i < rows.length; i++) {
+      if (norm2((rows[i] || [])[bnCol]) === norm2(bn)) {
         matchIdx = i;
         break;
       }
     }
-    if (matchIdx < 0 && nameKey) {
-      for (let i = 1; i < rows.length; i++) {
-        const r = rows[i] || [];
-        if (norm2(r[0]) === nameKey) {
-          matchIdx = i;
-          break;
-        }
+    if (matchIdx < 0 && nameKey) for (let i = 1; i < rows.length; i++) {
+      if (norm2((rows[i] || [])[nameCol]) === nameKey) {
+        matchIdx = i;
+        break;
       }
     }
     const existing = matchIdx >= 0 ? rows[matchIdx] || [] : [];
     const out = [];
-    for (let k = 0; k < N; k++) {
-      const key = COLS[k];
-      const cur = existing[k] ?? "";
-      if (GOV_ONLY.has(key)) {
-        out[k] = cur;
-        continue;
-      }
-      const v = crmValue(c, key);
-      if (SOFT.has(key)) {
-        out[k] = v ?? cur;
-        continue;
-      }
-      out[k] = v ?? (matchIdx >= 0 ? cur : "");
+    for (let k = 0; k < width; k++) out[k] = existing[k] ?? "";
+    for (const f of MASTER_FIELDS) {
+      const ci = cols.get(f.key);
+      if (ci == null) continue;
+      const v = f.toSheet(c);
+      if (f.soft) out[ci] = v ?? (existing[ci] ?? "");
+      else out[ci] = v ?? (matchIdx >= 0 ? existing[ci] ?? "" : "");
     }
+    const last = colLetter(width);
     if (matchIdx >= 0) {
       const sheetRow = matchIdx + 1;
-      const wr = `'${MASTER_TAB}'!A${sheetRow}:${lastColLetter}${sheetRow}`;
-      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(wr)}?valueInputOption=RAW`, "PUT", { values: [out] });
+      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!A${sheetRow}:${last}${sheetRow}`)}?valueInputOption=RAW`, "PUT", { values: [out] });
     } else {
-      await sheetsApi2(
-        `spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
-        "POST",
-        { values: [out] }
-      );
+      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, "POST", { values: [out] });
     }
     return true;
   } catch (e) {
@@ -44606,33 +44604,24 @@ async function upsertLeadToMaster(c) {
     const email3 = (c.email || "").trim();
     let matchIdx = -1;
     for (let i = 1; i < rows.length; i++) {
-      const r = rows[i] || [];
-      if (id && norm2(r[13]) === norm2(id)) {
+      if (id && norm2((rows[i] || [])[13]) === norm2(id)) {
         matchIdx = i;
         break;
       }
     }
-    if (matchIdx < 0 && email3) {
-      for (let i = 1; i < rows.length; i++) {
-        const r = rows[i] || [];
-        if (norm2(r[3]) === norm2(email3)) {
-          matchIdx = i;
-          break;
-        }
+    if (matchIdx < 0 && email3) for (let i = 1; i < rows.length; i++) {
+      if (norm2((rows[i] || [])[3]) === norm2(email3)) {
+        matchIdx = i;
+        break;
       }
     }
     const out = [];
     for (let k = 0; k < LEAD_N; k++) out[k] = leadValue(c, LEAD_COLS[k]);
     if (matchIdx >= 0) {
       const sheetRow = matchIdx + 1;
-      const wr = `'${LEADS_TAB}'!A${sheetRow}:${leadLastCol}${sheetRow}`;
-      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(wr)}?valueInputOption=RAW`, "PUT", { values: [out] });
+      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${LEADS_TAB}'!A${sheetRow}:${leadLastCol}${sheetRow}`)}?valueInputOption=RAW`, "PUT", { values: [out] });
     } else {
-      await sheetsApi2(
-        `spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
-        "POST",
-        { values: [out] }
-      );
+      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, "POST", { values: [out] });
     }
     return true;
   } catch (e) {
@@ -44644,50 +44633,83 @@ function syncLeadToMaster(c) {
   upsertLeadToMaster(c).catch(() => {
   });
 }
-var CANONICAL_MASTER_SHEET_ID, MASTER_TAB, LEADS_TAB, SYNC_WEBHOOK, COLS, N, GOV_ONLY, SOFT, lastColLetter, cap, titleCadence, titlePay, titleRemit, norm2, LEAD_COLS, LEAD_N, leadLastCol;
+var CANONICAL_MASTER_SHEET_ID, MASTER_TAB, LEADS_TAB, SYNC_WEBHOOK, norm2, cap, titleCadence, titlePay, titleRemit, MASTER_FIELDS, DEFAULT_MASTER_HEADER, LEAD_COLS, LEAD_N, leadLastCol;
 var init_master_sheet_sync = __esm({
   "api/master-sheet-sync.ts"() {
     CANONICAL_MASTER_SHEET_ID = process.env.FIGGY_MASTER_SHEET_ID || "1pcAw-WSQXXnVn-0L-TQ2FIExkHQ0Olf4dzz47t0gTUk";
     MASTER_TAB = "Client Master";
     LEADS_TAB = "Leads";
     SYNC_WEBHOOK = process.env.FIGGY_SHEET_SYNC_WEBHOOK || "https://hook.us2.make.com/d4h33m0na6ulrlm9nkv9dyyfa8hv1bcs";
-    COLS = [
-      "name",
-      "status",
-      "industry",
-      "craBn",
-      "registryNo",
-      "incorpDate",
-      "corpType",
-      "govtStatus",
-      "closePeriod",
-      "yeMonth",
-      "hstCadence",
-      "nextHstDue",
-      "hstNumber",
-      "payrollPeriod",
-      "craRemitter",
-      "payrollRp",
-      "wsibNo",
-      "numEmployees",
-      "posApps",
-      "address",
-      "phone",
-      "email",
-      "website",
-      "owner",
-      "triageEmail",
-      "bio"
-    ];
-    N = COLS.length;
-    GOV_ONLY = /* @__PURE__ */ new Set(["closePeriod", "numEmployees", "posApps"]);
-    SOFT = /* @__PURE__ */ new Set(["industry", "registryNo", "incorpDate", "corpType", "govtStatus", "address", "phone", "email", "owner", "bio"]);
-    lastColLetter = "Z";
+    norm2 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
     titleCadence = { annual: "Annual", quarterly: "Quarterly", monthly: "Monthly" };
     titlePay = { weekly: "Weekly", "bi-weekly": "Bi-Weekly", "semi-monthly": "Semi-Monthly", monthly: "Monthly", self: "Self" };
     titleRemit = { regular: "Regular", quarterly: "Quarterly", accelerated: "Threshold 1" };
-    norm2 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    MASTER_FIELDS = [
+      { key: "name", match: (h) => h.includes("legal name") || h.includes("client") && h.includes("name"), toSheet: (c) => c.name || c.company || null, soft: false, fromSheet: (r) => ({ name: r }) },
+      { key: "status", match: (h) => h === "status", toSheet: (c) => cap(c.status) || null, soft: false, fromSheet: (r) => {
+        const s = statusInF(r);
+        return s ? { status: s } : null;
+      } },
+      { key: "industry", match: (h) => h.includes("industry"), toSheet: (c) => c.industry && c.industry !== "other" ? c.industry : null, soft: true, fromSheet: (r) => ({ industry: r }) },
+      { key: "bio", match: (h) => h.includes("bio") || h.includes("description"), toSheet: (c) => c.bio || null, soft: true, fromSheet: (r) => ({ bio: r }) },
+      { key: "craBn", match: (h) => h.includes("business") || h === "cra bn" || h.includes("cra") && h.includes("bn"), toSheet: (c) => c.taxId || null, soft: true, fromSheet: (r) => ({ taxId: r }) },
+      { key: "registryNo", match: (h) => h.includes("registry"), toSheet: (c) => c.registryNumber || null, soft: true, fromSheet: (r) => ({ registryNumber: r }) },
+      { key: "incorpDate", match: (h) => h.includes("incorpor"), toSheet: (c) => c.incorporationDate || null, soft: true, fromSheet: (r) => ({ incorporationDate: r }) },
+      { key: "corpType", match: (h) => h.includes("corp type") || h.includes("corp") && h.includes("type"), toSheet: (c) => c.corpType || null, soft: true, fromSheet: (r) => ({ corpType: r }) },
+      { key: "govtStatus", match: (h) => h.includes("govt") || h.includes("government"), toSheet: (c) => c.governmentStatus || null, soft: true, fromSheet: (r) => ({ governmentStatus: r }) },
+      { key: "address", match: (h) => h.includes("address") || h.includes("registered office"), toSheet: (c) => c.address || null, soft: true, fromSheet: (r) => ({ address: r }) },
+      { key: "phone", match: (h) => h.includes("phone"), toSheet: (c) => c.phone || null, soft: true, fromSheet: (r) => ({ phone: r }) },
+      { key: "triageEmail", match: (h) => h.includes("triage"), toSheet: (c) => c.figgyEmail || null, soft: false, fromSheet: (r) => ({ figgyEmail: r }) },
+      { key: "email", match: (h) => h === "email" || h.includes("email") && !h.includes("triage"), toSheet: (c) => c.email || null, soft: true, fromSheet: (r) => ({ email: r }) },
+      { key: "website", match: (h) => h.includes("website") || h.includes("web site"), toSheet: (c) => c.website || null, soft: true, fromSheet: (r) => ({ website: r }) },
+      { key: "owner", match: (h) => h.includes("owner") || h === "contact", toSheet: (c) => c.contactName || null, soft: true, fromSheet: (r) => ({ contactName: r }) },
+      { key: "yeMonth", match: (h) => h.includes("year end") || h.includes("ye month") || h.includes("fiscal"), toSheet: (c) => c.yearEndMonth || null, soft: false, fromSheet: (r) => ({ yearEndMonth: r }) },
+      { key: "hstCadence", match: (h) => h.includes("hst cadence") || h.includes("hst") && h.includes("cadence"), toSheet: (c) => c.hstPeriod ? titleCadence[c.hstPeriod] ?? cap(c.hstPeriod) : null, soft: false, fromSheet: (r) => {
+        const p = cadenceIn(r);
+        return p ? { hstPeriod: p, hasHST: true } : null;
+      } },
+      { key: "nextHstDue", match: (h) => h.includes("next hst") || h.includes("hst") && h.includes("due"), toSheet: (c) => c.hstNextDue || null, soft: false, fromSheet: (r) => ({ hstNextDue: r }) },
+      { key: "hstNumber", match: (h) => h === "hst" || h.includes("hst") && (h.includes("number") || h === "hst"), toSheet: (c) => c.hstNumber || null, soft: true, fromSheet: (r) => ({ hstNumber: r }) },
+      { key: "payrollPeriod", match: (h) => h === "payroll" || h.includes("payroll period") || h.includes("payroll freq"), toSheet: (c) => c.payrollFrequency ? titlePay[c.payrollFrequency] ?? cap(c.payrollFrequency) : null, soft: false, fromSheet: (r) => {
+        const p = payInF(r);
+        return p ? { payrollFrequency: p, hasPayroll: true } : null;
+      } },
+      { key: "craRemitter", match: (h) => h.includes("remitter"), toSheet: (c) => c.payrollRemitterFreq ? titleRemit[c.payrollRemitterFreq] ?? cap(c.payrollRemitterFreq) : null, soft: false, fromSheet: (r) => {
+        const p = remitIn(r);
+        return p ? { payrollRemitterFreq: p } : null;
+      } },
+      { key: "payrollRp", match: (h) => h.includes("payroll rp") || h.includes("payroll") && h.includes("rp"), toSheet: (c) => c.payrollRpNumber || null, soft: true, fromSheet: (r) => ({ payrollRpNumber: r }) },
+      { key: "wsibNo", match: (h) => h.includes("wsib"), toSheet: (c) => c.wsibAccountNumber || null, soft: true, fromSheet: (r) => ({ wsibAccountNumber: r, hasWSIB: true }) }
+    ];
+    DEFAULT_MASTER_HEADER = [
+      "Client / Legal Name",
+      "Status",
+      "Industry",
+      "Bio / Description",
+      "CRA Business #",
+      "Registry #",
+      "Incorporation Date",
+      "Corp Type",
+      "Govt Status",
+      "Address",
+      "Phone",
+      "Email",
+      "Website",
+      "Owner / Contact",
+      "Figgy Triage Email",
+      "Year-End Month",
+      "Close Period",
+      "HST Cadence",
+      "Next HST Due",
+      "HST #",
+      "Payroll",
+      "CRA Remitter",
+      "Payroll RP #",
+      "WSIB #",
+      "# Employees",
+      "POS / Apps"
+    ];
     LEAD_COLS = [
       "dateReceived",
       "leadName",
@@ -44842,41 +44864,15 @@ __export(sheet_inbound_sync_exports, {
   pullLeadsIntoCrm: () => pullLeadsIntoCrm,
   pullMasterIntoCrm: () => pullMasterIntoCrm
 });
-function cadenceIn(v) {
-  const s = v.toLowerCase();
-  if (!s) return null;
-  if (s.includes("month")) return "monthly";
-  if (s.includes("quart") || s.includes("qrtly")) return "quarterly";
-  if (s.includes("annual") || s.includes("year")) return "annual";
-  return null;
-}
-function payIn(v) {
-  const s = v.toLowerCase().replace(/\s+/g, "-");
-  if (!s) return null;
-  if (s.includes("bi-week")) return "bi-weekly";
-  if (s.includes("week")) return "weekly";
-  if (s.includes("semi")) return "semi-monthly";
-  if (s.includes("month")) return "monthly";
-  if (s.includes("self")) return "self";
-  return null;
-}
-function remitIn(v) {
-  const s = v.toLowerCase();
-  if (!s) return null;
-  if (s.includes("threshold") || s.includes("acceler")) return "accelerated";
-  if (s.includes("quart")) return "quarterly";
-  if (s.includes("regular")) return "regular";
-  return null;
-}
-function statusIn(v) {
-  const s = v.toLowerCase().trim();
-  return ["active", "inactive", "prospect", "lead"].includes(s) ? s : null;
-}
 async function pullClientMasterIntoCrm() {
   const db = getDb();
   const report = { scanned: 0, updated: 0, created: 0 };
-  const rows = await readMasterRange("'Client Master'!A2:Z200");
-  if (!rows.length) return report;
+  const rows = await readMasterRange("'Client Master'!A1:AZ200");
+  if (rows.length < 2) return report;
+  const header2 = rows[0] || [];
+  const cols = resolveColumns(header2);
+  const nameCol = cols.get("name") ?? 0;
+  const bnCol = cols.get("craBn");
   const all = (await db.select().from(clients)).map((c) => ({ ...c }));
   const byBn = /* @__PURE__ */ new Map();
   const byName = /* @__PURE__ */ new Map();
@@ -44885,56 +44881,25 @@ async function pullClientMasterIntoCrm() {
     byName.set(norm3(c.name), c);
     if (c.company) byName.set(norm3(c.company), c);
   }
-  for (const r of rows) {
-    const name2 = clean2(r[0]);
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i] || [];
+    const name2 = clean2(r[nameCol]);
     if (!name2) continue;
     report.scanned++;
-    const bn = clean2(r[3]);
+    const bn = bnCol != null ? clean2(r[bnCol]) : "";
+    const sv = { name: name2 };
+    for (const f of MASTER_FIELDS) {
+      const ci = cols.get(f.key);
+      if (ci == null) continue;
+      const raw2 = clean2(r[ci]);
+      if (!raw2) continue;
+      const patch = f.fromSheet(raw2);
+      if (patch) Object.assign(sv, patch);
+    }
     const match2 = bn && byBn.get(norm3(bn)) || byName.get(norm3(name2));
-    const sv = {};
-    const set2 = (k, v) => {
-      if (v !== null && v !== void 0 && v !== "") sv[k] = v;
-    };
-    set2("name", name2);
-    set2("status", statusIn(clean2(r[1])));
-    set2("industry", clean2(r[2]));
-    set2("taxId", bn);
-    set2("registryNumber", clean2(r[4]));
-    set2("incorporationDate", clean2(r[5]));
-    set2("corpType", clean2(r[6]));
-    set2("governmentStatus", clean2(r[7]));
-    set2("yearEndMonth", clean2(r[9]) || null);
-    const hstP = cadenceIn(clean2(r[10]));
-    if (hstP) {
-      sv.hstPeriod = hstP;
-      sv.hasHST = true;
-    }
-    set2("hstNextDue", clean2(r[11]));
-    set2("hstNumber", clean2(r[12]));
-    const payF = payIn(clean2(r[13]));
-    if (payF) {
-      sv.payrollFrequency = payF;
-      sv.hasPayroll = true;
-    }
-    const remit = remitIn(clean2(r[14]));
-    if (remit) sv.payrollRemitterFreq = remit;
-    set2("payrollRpNumber", clean2(r[15]));
-    const wsib = clean2(r[16]);
-    if (wsib) {
-      sv.wsibAccountNumber = wsib;
-      sv.hasWSIB = true;
-    }
-    set2("address", clean2(r[19]));
-    set2("phone", clean2(r[20]));
-    set2("email", clean2(r[21]));
-    set2("website", clean2(r[22]));
-    set2("contactName", clean2(r[23]));
-    set2("figgyEmail", clean2(r[24]));
-    set2("bio", clean2(r[25]));
     if (match2) {
       const patch = {};
       for (const [k, v] of Object.entries(sv)) {
-        if (k === "yearEndMonth" && !v) continue;
         if (String(match2[k] ?? "") !== String(v ?? "")) patch[k] = v;
       }
       if (Object.keys(patch).length) {
@@ -44947,7 +44912,7 @@ async function pullClientMasterIntoCrm() {
         userId: 1,
         name: name2,
         email: sv.email || "",
-        company: sv.name || name2,
+        company: sv.company || name2,
         status: sv.status || "active",
         workflowStatus: "active",
         assignedTo: "Markie",
@@ -59157,7 +59122,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.17";
+var BUILD_TAG = "2026-06-21.18";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
