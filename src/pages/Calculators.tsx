@@ -1249,11 +1249,14 @@ function CorporateTaxCalculator() {
     const fed = sbdIncome * FED_SBD + genIncome * FED_GEN;
     const prov = sbdIncome * p.sbd + genIncome * p.gen;
     const total = fed + prov;
+    const sbdCombined = FED_SBD + p.sbd;
+    const genCombined = FED_GEN + p.gen;
     return {
       sbdIncome, genIncome, fed, prov, total,
+      sbdTax: sbdIncome * sbdCombined,      // tier 1: first $500k @ small-business
+      genTax: genIncome * genCombined,      // tier 2: balance @ general
       effective: inc > 0 ? total / inc : 0,
-      sbdCombined: FED_SBD + p.sbd,
-      genCombined: FED_GEN + p.gen,
+      sbdCombined, genCombined,
       afterTax: inc - total,
     };
   }, [inc, isCCPC, p.sbd, p.gen]);
@@ -1306,21 +1309,34 @@ function CorporateTaxCalculator() {
 
         {inc > 0 && (
           <div className="space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* The two tiers, summed to a total — one combined calculation. */}
+            <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm">
+              {isCCPC && (
+                <div className="flex justify-between">
+                  <span>Small-business rate &mdash; first ${fmt(r.sbdIncome, 0)} @ {pct(r.sbdCombined)}</span>
+                  <span className="font-medium">${fmt(r.sbdTax)}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>General rate &mdash; {isCCPC ? "balance" : "all income"} ${fmt(r.genIncome, 0)} @ {pct(r.genCombined)}</span>
+                <span className="font-medium">${fmt(r.genTax)}</span>
+              </div>
+              <div className="flex justify-between border-t pt-2 text-base">
+                <span className="font-semibold">Total corporate tax</span>
+                <span className="font-bold text-slate-900">${fmt(r.total)} <span className="text-xs font-normal text-slate-400">({pct(r.effective)} effective)</span></span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
               <div className="bg-red-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-red-500">Federal tax</p>
+                <p className="text-xs text-red-500">Federal portion</p>
                 <p className="text-lg font-bold text-red-700">${fmt(r.fed)}</p>
                 <p className="text-[11px] text-red-400">{pct(inc > 0 ? r.fed / inc : 0)} of income</p>
               </div>
               <div className="bg-amber-50 rounded-lg p-3 text-center">
-                <p className="text-xs text-amber-600">Provincial tax</p>
+                <p className="text-xs text-amber-600">Provincial portion</p>
                 <p className="text-lg font-bold text-amber-700">${fmt(r.prov)}</p>
                 <p className="text-[11px] text-amber-500">{pct(inc > 0 ? r.prov / inc : 0)} of income</p>
-              </div>
-              <div className="bg-slate-100 rounded-lg p-3 text-center">
-                <p className="text-xs text-slate-500">Total tax</p>
-                <p className="text-lg font-bold text-slate-800">${fmt(r.total)}</p>
-                <p className="text-[11px] text-slate-500">{pct(r.effective)} effective</p>
               </div>
               <div className="bg-lime-50 rounded-lg p-3 text-center">
                 <p className="text-xs text-lime-600">After-tax</p>
@@ -1328,12 +1344,6 @@ function CorporateTaxCalculator() {
                 <p className="text-[11px] text-lime-500">{pct(inc > 0 ? r.afterTax / inc : 0)} kept</p>
               </div>
             </div>
-            {r.genIncome > 0 && isCCPC && (
-              <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
-                First ${fmt(r.sbdIncome, 0)} taxed at the small-business rate ({pct(r.sbdCombined)}); the remaining
-                ${fmt(r.genIncome, 0)} at the general rate ({pct(r.genCombined)}).
-              </p>
-            )}
           </div>
         )}
       </CardContent>
