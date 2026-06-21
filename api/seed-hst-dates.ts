@@ -80,15 +80,11 @@ export async function seedHstDates(): Promise<{ updated: number; tasks: number }
       const period = periodFromHst(r.hst);
       const due = dueDateFromMonthYear(r.next);
       const patch: Record<string, any> = { updatedAt: new Date() };
-<<<<<<< HEAD
       if (period) {
         patch.hasHST = true;
         patch.hstPeriod = period;
         patch.hstNumber = `${r.cra}RT0001`;   // CRA HST account = BN + RT0001
       }
-=======
-      if (period) { patch.hasHST = true; patch.hstPeriod = period; }
->>>>>>> origin/main
       if (due) patch.hstNextDue = due;
       if (Object.keys(patch).length <= 1) continue;
       await db.update(clients).set(patch).where(eq(clients.id, clientId));
