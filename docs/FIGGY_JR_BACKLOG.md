@@ -4,6 +4,12 @@ _Living list of agreed-but-not-yet-built work, with the decisions made so we
 don't re-derive them._
 
 ## BACKLOGGED THIS SESSION (Markie: finish client cards first, then these)
+- **Dock King = flow-through client only (2026-06-21).** NOT an active client — no monthly
+  bookkeeping, no services. We only invoice him for the QuickBooks wholesale software. Just
+  pull his data from QBO. Future: put him on Stripe autopay. Also fix the error hit when
+  changing his intake/billing status (couldn't reproduce without the error text).
+- **Add Wise to our monthly payment-solution providers + sales (2026-06-21).** Offer/track
+  Wise alongside the other payment options for clients (payments + sales).
 - **Move Payroll higher in the nav (2026-06-21).** Markie runs payroll EVERY WEEK — it's
   core weekly work, so Payroll should sit near the top of the sidebar, not buried.
 - **Employee expense → bill-to-pay → QuickBooks (2026-06-21).** Let an employee email

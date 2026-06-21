@@ -15,7 +15,14 @@ import { TAX_2026 } from "../../api/payroll-tax-core";
 import { nextPayPeriod, normalizeFrequency } from "../../api/payroll-core";
 import { AlertTriangle, CheckCircle2, Lock } from "lucide-react";
 
-const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// Pay-period dates are UTC date-only (stored at UTC midnight) — format/serialize with
+// UTC getters so the calendar day doesn't shift back a day in Ontario's timezone.
+const ymd = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const fmtUTC = (d: Date | string | number, withYear = false) => {
+  const x = new Date(d);
+  return `${MON[x.getUTCMonth()]} ${x.getUTCDate()}${withYear ? `, ${x.getUTCFullYear()}` : ""}`;
+};
 
 /** Download a run's hours as CSV (opens directly in Google Sheets / Excel). */
 function exportRunCsv(run: any, lines: any[]) {
@@ -199,8 +206,8 @@ export default function Payroll() {
                         <Card className={`cursor-pointer hover:shadow-sm ${openRunId === r.id ? "ring-1 ring-lime-300" : ""}`} onClick={() => setOpenRunId(openRunId === r.id ? null : r.id)}>
                           <CardContent className="p-3 flex items-center justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="text-sm font-medium">{format(new Date(r.payPeriodStart), "MMM d")} – {format(new Date(r.payPeriodEnd), "MMM d, yyyy")}</p>
-                              <p className="text-xs text-slate-500">Pay date {r.payDate ? format(new Date(r.payDate), "MMM d, yyyy") : "—"} · {r.frequency}</p>
+                              <p className="text-sm font-medium">{fmtUTC(r.payPeriodStart)} – {fmtUTC(r.payPeriodEnd, true)}</p>
+                              <p className="text-xs text-slate-500">Pay date {r.payDate ? fmtUTC(r.payDate, true) : "—"} · {r.frequency}</p>
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
                               <span className="text-sm font-semibold text-lime-700">{money(r.totalGross)}</span>
