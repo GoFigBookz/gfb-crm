@@ -83,7 +83,7 @@ const WEST_YORK_META = {
 // Markie's payroll roster (2026-06-21): both Clarks, Old Spot, Sher-E-Punjab,
 // Originality, West York. (Selective/Fractal/2303851 are NOT payroll clients —
 // toggle hasPayroll off on their card if any were previously flagged.)
-const KNOWN_PAYROLL = ["west york", "originality", "clark", "old spot", "sher", "punjab"];
+const KNOWN_PAYROLL = ["west york", "originality", "clark", "spot", "sher", "punjab"];
 
 function isPayrollClient(c: any): boolean {
   return !!c.hasPayroll;
@@ -116,7 +116,7 @@ export async function seedPayrollSchedules(): Promise<void> {
     const biweeklyAnchor = new Date("2026-06-10T00:00:00Z"); // UTC midnight, June 10 (a real period start)
     for (const c of cs as any[]) {
       const n = (c.name || "").toLowerCase();
-      if (["clark", "old spot", "sher", "punjab"].some((k) => n.includes(k))) {
+      if (["clark", "spot", "sher", "punjab"].some((k) => n.includes(k))) {
         await db.update(clients).set({ payrollFrequency: "bi-weekly", payrollAnchorStart: biweeklyAnchor, payrollPayDayOffset: 3 }).where(eq(clients.id, c.id));
       } else if (n.includes("originality")) {
         if (!c.payrollFrequency) await db.update(clients).set({ payrollFrequency: "semi-monthly" }).where(eq(clients.id, c.id));
