@@ -53665,6 +53665,18 @@ async function seedHstDates() {
       if (Object.keys(patch).length <= 1) continue;
       await db.update(clients).set(patch).where(eq(clients.id, clientId));
       report.updated++;
+      if (period) {
+        try {
+          await ensureComplianceRulesAndTasks({
+            clientId,
+            userId: 1,
+            needsYearEnd: false,
+            hstGstFrequency: period === "annual" ? "annually" : period === "quarterly" ? "quarterly" : "monthly"
+          });
+        } catch (e) {
+          console.error("[seed] HST task create failed for client", clientId, e instanceof Error ? e.message : e);
+        }
+      }
       if (due) {
         const dueTs = /* @__PURE__ */ new Date(`${due}T09:00:00Z`);
         const r1 = await db.update(tasks).set({ dueDate: dueTs }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed"), like(tasks.title, "%HST%")));
@@ -53684,6 +53696,7 @@ var init_seed_hst_dates = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+    init_task_generator();
     MONTHS4 = {
       jan: 1,
       feb: 2,
@@ -53728,6 +53741,75 @@ var init_seed_hst_dates = __esm({
       { cra: "741962930", hst: "Qrtly", next: "Mar 2025" },
       { cra: "877933515", hst: "Qrtly", next: "Apr 2026" }
     ];
+  }
+});
+
+// api/seed-client-websites.ts
+var seed_client_websites_exports = {};
+__export(seed_client_websites_exports, {
+  seedClientWebsites: () => seedClientWebsites
+});
+function domainFromEmail(email3) {
+  const m = /@([^@\s>]+)$/.exec((email3 || "").trim().toLowerCase());
+  if (!m) return null;
+  const d = m[1].replace(/[.,;]+$/, "");
+  if (!d.includes(".") || /\s/.test(d)) return null;
+  if (SKIP_DOMAINS.has(d)) return null;
+  return d;
+}
+async function seedClientWebsites() {
+  const db = getDb();
+  let filled = 0;
+  try {
+    const all = await db.select({ id: clients.id, email: clients.email, website: clients.website }).from(clients);
+    for (const c of all) {
+      if (c.website && String(c.website).trim()) continue;
+      const d = domainFromEmail(c.email || "");
+      if (!d) continue;
+      await db.update(clients).set({ website: d, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+      filled++;
+    }
+    if (filled) console.log(`[seed] client websites: ${filled} filled from email domains`);
+  } catch (e) {
+    console.error("[seed] seedClientWebsites failed (non-fatal):", e instanceof Error ? e.message : e);
+  }
+  return { filled };
+}
+var SKIP_DOMAINS;
+var init_seed_client_websites = __esm({
+  "api/seed-client-websites.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    SKIP_DOMAINS = /* @__PURE__ */ new Set([
+      "gmail.com",
+      "googlemail.com",
+      "outlook.com",
+      "hotmail.com",
+      "live.com",
+      "live.ca",
+      "yahoo.com",
+      "yahoo.ca",
+      "icloud.com",
+      "me.com",
+      "mac.com",
+      "aol.com",
+      "msn.com",
+      "protonmail.com",
+      "proton.me",
+      "gmx.com",
+      "ymail.com",
+      "rogers.com",
+      "bell.net",
+      "sympatico.ca",
+      "shaw.ca",
+      "telus.net",
+      "hotmail.ca",
+      "outlook.ca",
+      "gofig.ca",
+      "gofigbookz.com",
+      "gofigbookz.ca"
+    ]);
   }
 });
 
@@ -58181,7 +58263,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.10";
+var BUILD_TAG = "2026-06-21.11";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -59211,6 +59293,13 @@ async function startServer() {
       console.log(`[seed] HST sheet dates: ${h.updated} clients, ${h.tasks} tasks dated`);
     } catch (e) {
       console.error("[seed] seedHstDates failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { seedClientWebsites: seedClientWebsites2 } = await Promise.resolve().then(() => (init_seed_client_websites(), seed_client_websites_exports));
+      const w = await seedClientWebsites2();
+      console.log(`[seed] client websites: ${w.filled} filled from email domains`);
+    } catch (e) {
+      console.error("[seed] seedClientWebsites failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { backfillSetupTasks: backfillSetupTasks2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
