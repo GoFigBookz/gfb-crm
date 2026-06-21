@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/providers/trpc";
 import { cn } from "@/lib/utils";
+import { splitClientName } from "@/lib/clientName";
 import { Link, useSearchParams, useNavigate } from "react-router";
 
 const INDUSTRIES: Record<string, string> = {
@@ -171,10 +172,15 @@ export default function Clients() {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-slate-900 truncate text-sm leading-tight">
-                        {(client as any).company || client.name}
-                      </h3>
-                      <p className="text-xs text-slate-500 truncate mt-0.5">{client.name}</p>
+                      {(() => {
+                        const { primary, secondary } = splitClientName(client.name, (client as any).company);
+                        return (
+                          <>
+                            <h3 className="font-semibold text-slate-900 truncate text-sm leading-tight">{primary}</h3>
+                            {secondary && <p className="text-xs text-slate-500 truncate mt-0.5">{secondary}</p>}
+                          </>
+                        );
+                      })()}
                     </div>
                     <span className={cn("text-xs px-2 py-0.5 rounded-full border ml-2 flex-shrink-0", firm.color)}>
                       {firm.flag}
