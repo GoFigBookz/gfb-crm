@@ -60,23 +60,42 @@ const money = (n: number | null | undefined) => `$${(n ?? 0).toLocaleString(unde
  *  visible; reflects connection status. If the server creds aren't set yet, the
  *  connect route redirects back with a note. */
 function JobberConnect({ clientId }: { clientId: number }) {
+  const utils = trpc.useUtils();
   const { data: jobber } = trpc.payroll.jobberStatus.useQuery({ clientId });
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [cid, setCid] = useState("");
+  const [csec, setCsec] = useState("");
+  const saveCreds = trpc.payroll.setJobberCredentials.useMutation({
+    onSuccess: () => { setSetupOpen(false); utils.payroll.jobberStatus.invalidate(); window.location.href = `/api/jobber/connect?clientId=${clientId}`; },
+    onError: (e) => alert(e.message),
+  });
   if (jobber?.connected) {
     return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">Jobber connected ✓</Badge>;
   }
-  const onClick = (e: React.MouseEvent) => {
-    if (jobber && !jobber.configured) {
-      e.preventDefault();
-      alert("Jobber isn't set up on the server yet.\n\nAdd JOBBER_CLIENT_ID and JOBBER_CLIENT_SECRET in Railway → figgy → Variables, let it redeploy, then click Connect Jobber again.");
-      return;
-    }
-    e.preventDefault();
-    window.location.href = `/api/jobber/connect?clientId=${clientId}`; // hard nav so the server route runs
+  const onConnect = () => {
+    if (jobber && !jobber.configured) { setSetupOpen(true); return; } // need creds first
+    window.location.href = `/api/jobber/connect?clientId=${clientId}`; // hard nav → server route
   };
   return (
-    <Button size="sm" variant="outline" className="border-amber-300 text-amber-700" onClick={onClick}>
-      <ExternalLink className="h-3.5 w-3.5 mr-1" /> Connect Jobber
-    </Button>
+    <>
+      <Button size="sm" variant="outline" className="border-amber-300 text-amber-700" onClick={onConnect}>
+        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Connect Jobber
+      </Button>
+      <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Set up Jobber (one-time)</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-2">
+            <p className="text-sm text-slate-500">Paste your Jobber app's <strong>Client ID</strong> and <strong>Client Secret</strong> (developer.getjobber.com → Manage Apps). Stored encrypted — you won't need to do this again.</p>
+            <div><Label>Client ID</Label><Input value={cid} onChange={(e) => setCid(e.target.value)} placeholder="xxxxxxxx-xxxx-…" /></div>
+            <div><Label>Client Secret</Label><Input value={csec} onChange={(e) => setCsec(e.target.value)} placeholder="(secret)" /></div>
+            <Button className="w-full bg-lime-500" disabled={saveCreds.isPending || cid.trim().length < 10 || csec.trim().length < 10}
+              onClick={() => saveCreds.mutate({ clientId: cid.trim(), clientSecret: csec.trim() })}>
+              {saveCreds.isPending ? "Saving…" : "Save & connect"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

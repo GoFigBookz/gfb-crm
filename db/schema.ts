@@ -1629,3 +1629,12 @@ export const jobberConnections = sqliteTable("jobber_connections", {
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// Generic encrypted app settings (key/value) — e.g. Jobber OAuth app credentials
+// entered in-app so they don't require a server env var / redeploy. Values that are
+// secrets are stored via the AES envelope (enc:v1:) like the OAuth tokens.
+export const appSettings = sqliteTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value"),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

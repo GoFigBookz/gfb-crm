@@ -4,6 +4,10 @@ _Living list of agreed-but-not-yet-built work, with the decisions made so we
 don't re-derive them._
 
 ## BACKLOGGED THIS SESSION (Markie: finish client cards first, then these)
+- **Auto-pull hours 9 AM Wednesday each pay period (2026-06-21).** For the 4 timesheet
+  companies only (Clark OS, Clark CW via Jobber; the two restaurants via TouchBistro):
+  period ends Tuesday, Markie processes Wednesday — so auto-import that period's hours at
+  ~9:00 AM Wednesday into the pay run, ready for him. Scheduled job once the connectors are live.
 - **Onboarding form 'Send' should generate a link (2026-06-21).** The send-client-onboarding-
   form action doesn't produce a shareable link yet — wire it to generate + send one.
 - **Sales + payment platforms on intake drive connect buttons (2026-06-21).** Like hours-source

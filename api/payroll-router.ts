@@ -227,12 +227,22 @@ export const payrollRouter = createRouter({
       return statHolidaysInRange(start, end);
     }),
 
+  // Store the Jobber OAuth app credentials in-app (encrypted), so connecting works
+  // without a server env var / redeploy. (Set once from the Connect Jobber dialog.)
+  setJobberCredentials: staffQuery
+    .input(z.object({ clientId: z.string().min(10), clientSecret: z.string().min(10) }))
+    .mutation(async ({ input }) => {
+      const { setJobberCreds } = await import("./jobber-oauth");
+      await setJobberCreds(input.clientId, input.clientSecret);
+      return { success: true };
+    }),
+
   // Jobber connection status for a client (for the Connect button / badge).
   jobberStatus: staffQuery
     .input(z.object({ clientId: z.number() }))
     .query(async ({ input }) => {
       const { jobberConfigured, getValidConnection } = await import("./jobber-oauth");
-      if (!jobberConfigured()) return { configured: false, connected: false };
+      if (!(await jobberConfigured())) return { configured: false, connected: false };
       try {
         const conn = await getValidConnection(input.clientId);
         return { configured: true, connected: !!conn, accountName: conn?.accountName ?? null };

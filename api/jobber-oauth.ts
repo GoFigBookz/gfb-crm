@@ -12,7 +12,7 @@
  */
 import crypto from "crypto";
 import { getDb } from "./queries/connection";
-import { jobberConnections } from "../db/schema";
+import { jobberConnections, appSettings } from "../db/schema";
 import { eq, sql } from "drizzle-orm";
 import { encryptSecret, decryptSecret } from "./qbo-oauth";
 
@@ -24,8 +24,34 @@ export const JOBBER_API_VERSION = process.env.JOBBER_API_VERSION || "2025-01-20"
 
 type Conn = typeof jobberConnections.$inferSelect;
 
-export function jobberConfigured(): boolean {
-  return !!(process.env.JOBBER_CLIENT_ID && process.env.JOBBER_CLIENT_SECRET);
+export async function ensureAppSettings(): Promise<void> {
+  try { await getDb().run(sql`CREATE TABLE IF NOT EXISTS app_settings (key text PRIMARY KEY, value text, updatedAt integer)`); }
+  catch (e) { console.error("[jobber] ensure app_settings failed:", e instanceof Error ? e.message : e); }
+}
+// Credentials: in-app encrypted store (set via the UI) takes precedence, then env.
+async function getCred(key: string, envVal: string | undefined): Promise<string | null> {
+  try {
+    const rows = await getDb().select().from(appSettings).where(eq(appSettings.key, key)).limit(1);
+    const stored = (rows[0] as any)?.value;
+    if (stored) return decryptSecret(stored) || null;
+  } catch { /* table may not exist yet → fall through to env */ }
+  return envVal || null;
+}
+export const getJobberClientId = () => getCred("jobber_client_id", process.env.JOBBER_CLIENT_ID);
+export const getJobberClientSecret = () => getCred("jobber_client_secret", process.env.JOBBER_CLIENT_SECRET);
+
+export async function setJobberCreds(clientId: string, secret: string): Promise<void> {
+  await ensureAppSettings();
+  const db = getDb();
+  for (const [k, v] of [["jobber_client_id", clientId], ["jobber_client_secret", secret]] as [string, string][]) {
+    const enc = encryptSecret(v.trim())!;
+    const existing = await db.select().from(appSettings).where(eq(appSettings.key, k)).limit(1);
+    if (existing[0]) await db.update(appSettings).set({ value: enc, updatedAt: new Date() }).where(eq(appSettings.key, k));
+    else await db.insert(appSettings).values({ key: k, value: enc });
+  }
+}
+export async function jobberConfigured(): Promise<boolean> {
+  return !!(await getJobberClientId()) && !!(await getJobberClientSecret());
 }
 function redirectUri(): string {
   return process.env.JOBBER_REDIRECT_URI || "https://figgy.gofig.ca/api/jobber/callback";
@@ -55,9 +81,9 @@ export function verifyState(raw: string | null | undefined): { clientId: number 
   } catch { return null; }
 }
 
-export function buildAuthorizeUrl(clientId: number | null): string {
+export async function buildAuthorizeUrl(clientId: number | null): Promise<string> {
   const u = new URL(AUTH_URL);
-  u.searchParams.set("client_id", process.env.JOBBER_CLIENT_ID || "");
+  u.searchParams.set("client_id", (await getJobberClientId()) || "");
   u.searchParams.set("redirect_uri", redirectUri());
   u.searchParams.set("response_type", "code");
   u.searchParams.set("state", signState(clientId));
@@ -80,11 +106,12 @@ export async function exchangeAndPersist(input: { code: string; stateRaw: string
   const state = verifyState(input.stateRaw);
   if (!state) throw new Error("invalid_or_expired_state");
   if (!state.clientId) throw new Error("missing_client_in_state");
-  if (!jobberConfigured()) throw new Error("jobber_not_configured");
+  const cid = await getJobberClientId(), csec = await getJobberClientSecret();
+  if (!cid || !csec) throw new Error("jobber_not_configured");
 
   const data = await postToken({
-    client_id: process.env.JOBBER_CLIENT_ID!,
-    client_secret: process.env.JOBBER_CLIENT_SECRET!,
+    client_id: cid,
+    client_secret: csec,
     grant_type: "authorization_code",
     code: input.code,
     redirect_uri: redirectUri(),
@@ -110,8 +137,8 @@ async function refreshToken(conn: Conn): Promise<Conn> {
   let data: any;
   try {
     data = await postToken({
-      client_id: process.env.JOBBER_CLIENT_ID!,
-      client_secret: process.env.JOBBER_CLIENT_SECRET!,
+      client_id: (await getJobberClientId())!,
+      client_secret: (await getJobberClientSecret())!,
       grant_type: "refresh_token",
       refresh_token: rt,
     });
