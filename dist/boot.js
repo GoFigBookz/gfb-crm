@@ -54718,6 +54718,76 @@ var init_seed_gov_registry = __esm({
   }
 });
 
+// api/seed-tax-rate-reviews.ts
+var seed_tax_rate_reviews_exports = {};
+__export(seed_tax_rate_reviews_exports, {
+  seedTaxRateReviewTasks: () => seedTaxRateReviewTasks
+});
+function nextOccurrence(month, day2, now = /* @__PURE__ */ new Date()) {
+  const y = now.getFullYear();
+  const thisYear = new Date(y, month - 1, day2);
+  const today2 = new Date(y, now.getMonth(), now.getDate());
+  return thisYear >= today2 ? thisYear : new Date(y + 1, month - 1, day2);
+}
+async function seedTaxRateReviewTasks() {
+  const db = getDb();
+  const report = { ensured: 0, created: 0 };
+  for (const r of REMINDERS) {
+    report.ensured++;
+    try {
+      const open = await db.select().from(tasks).where(and(isNull2(tasks.clientId), eq(tasks.title, r.title), ne(tasks.status, "completed"))).limit(1);
+      if (open[0]) continue;
+      await db.insert(tasks).values({
+        userId: 1,
+        clientId: null,
+        title: r.title,
+        description: r.description,
+        dueDate: nextOccurrence(r.month, r.day),
+        category: "Firm \u2014 Tax rates",
+        assignedTo: "Markie",
+        priority: "high",
+        status: "pending",
+        stage: "todo",
+        isRecurring: true,
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      });
+      report.created++;
+    } catch (e) {
+      console.error("[tax-review] ensure failed for", r.title, ":", e instanceof Error ? e.message : e);
+    }
+  }
+  return report;
+}
+var REMINDERS;
+var init_seed_tax_rate_reviews = __esm({
+  "api/seed-tax-rate-reviews.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    REMINDERS = [
+      {
+        title: "Update tax rates \u2014 Canada: new tax year",
+        month: 12,
+        day: 15,
+        description: "New-year CRA constants take effect Jan 1. Update: CPP/CPP2 rates + YMPE/YAMPE + exemption, EI rate + MIE, federal & provincial income-tax brackets + BPA + surtax/health premium, RRSP/TFSA limits, prescribed rate. Edit api/payroll-paycheck-core.ts (CPP_EI_2026) and the Calculators.tsx brackets. Verify against the CRA T4127 + PDOC."
+      },
+      {
+        title: "Update tax rates \u2014 Canada: mid-year (budgets / HST)",
+        month: 6,
+        day: 15,
+        description: "Spring provincial budgets + sales-tax changes often take effect Jul 1 (e.g. NS HST 15%\u219214% took effect Apr 1 2025). Review provincial income-tax + HST/PST/GST rates and update CA_PROVINCES in Calculators.tsx where changed."
+      },
+      {
+        title: "Update tax rates \u2014 US: federal + state",
+        month: 12,
+        day: 15,
+        description: "IRS inflation-adjusted federal brackets + Social Security wage base change Jan 1, and many state income-tax rates change Jan 1 too. Update the US federal brackets + US_STATES rates in Calculators.tsx. (No single live API \u2014 review IRS + state DOR.)"
+      }
+    ];
+  }
+});
+
 // api/link-drive-folders.ts
 var link_drive_folders_exports = {};
 __export(link_drive_folders_exports, {
@@ -59168,7 +59238,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.25";
+var BUILD_TAG = "2026-06-21.26";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -60254,6 +60324,13 @@ async function startServer() {
       console.log(`[seed] gov registry: ${g.patched}/${g.matched} client cards populated (bio/registry#/incorp/corp type/status)`);
     } catch (e) {
       console.error("[seed] seedGovRegistry failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { seedTaxRateReviewTasks: seedTaxRateReviewTasks2 } = await Promise.resolve().then(() => (init_seed_tax_rate_reviews(), seed_tax_rate_reviews_exports));
+      const t2 = await seedTaxRateReviewTasks2();
+      console.log(`[seed] tax-rate review reminders: ${t2.created} created (${t2.ensured} ensured)`);
+    } catch (e) {
+      console.error("[seed] seedTaxRateReviewTasks failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { backfillSetupTasks: backfillSetupTasks2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
