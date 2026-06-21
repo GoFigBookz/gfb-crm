@@ -42,7 +42,7 @@ const CA_PROVINCES = [
   { value: "AB", label: "Alberta", rate: 0.05, type: "GST" },
   { value: "NB", label: "New Brunswick", rate: 0.15, type: "HST" },
   { value: "NL", label: "Newfoundland & Labrador", rate: 0.15, type: "HST" },
-  { value: "NS", label: "Nova Scotia", rate: 0.15, type: "HST" },
+  { value: "NS", label: "Nova Scotia", rate: 0.14, type: "HST" },
   { value: "ON", label: "Ontario", rate: 0.13, type: "HST" },
   { value: "PE", label: "Prince Edward Island", rate: 0.15, type: "HST" },
   { value: "NT", label: "Northwest Territories", rate: 0.05, type: "GST" },
@@ -160,7 +160,7 @@ function HSTCalculator() {
           GST / HST Calculator — {prov.label}
         </CardTitle>
         <CardDescription>
-          Calculate GST or HST for all Canadian provinces and territories. Rates: GST 5% (AB, NT, NU, YT) and HST 13% (ON) / 15% (NB, NL, NS, PE).
+          Calculate GST or HST for all Canadian provinces and territories. Rates: GST 5% (AB, NT, NU, YT), HST 13% (ON), 14% (NS, eff. Apr 1 2025), 15% (NB, NL, PE).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -231,13 +231,9 @@ function PayrollTaxCalculator() {
   const [state, setState] = useState("FL");
   const [salary, setSalary] = useState("");
   const [payPeriods, setPayPeriods] = useState("26");
-  const [cppRate, setCppRate] = useState("0.0595");
-  const [eiRate, setEiRate] = useState("0.0164");
 
   const sal = parseFloat(salary) || 0;
   const periods = parseFloat(payPeriods) || 26;
-  const cpp = parseFloat(cppRate) || 0;
-  const ei = parseFloat(eiRate) || 0;
 
   const caResult = useMemo(() => {
     // Accurate 2026 Ontario CPP/CPP2/EI + federal/Ontario income tax via the
