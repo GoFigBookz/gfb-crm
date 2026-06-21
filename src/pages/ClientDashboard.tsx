@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { computeT5Boxes } from "../../api/dividend-core";
 import { useParams, Link, useNavigate } from "react-router";
 import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet } from "lucide-react";
@@ -214,9 +214,7 @@ export default function ClientDashboard() {
               <Link2 className="h-3.5 w-3.5 mr-1" /> Connect QuickBooks
             </Button>
           )}
-          <Button size="sm" variant="outline" className="border-lime-300 text-lime-700" onClick={() => setShowLogTime(true)}>
-            <Timer className="h-3.5 w-3.5 mr-1" /> Log Time
-          </Button>
+          <ClientWorkTimer clientId={id} clientName={client.name} onManual={() => setShowLogTime(true)} />
           <Button size="sm" variant="outline" className="border-blue-300 text-blue-700" onClick={() => setEditingIntake(true)}>
             <Edit className="h-3.5 w-3.5 mr-1" /> Edit Intake
           </Button>
@@ -1825,6 +1823,85 @@ function EditTaskDialog({ task, onClose, onSave, isNew }: {
 }
 
 // Time Log Dialog Component
+/**
+ * Live work timer for a client. Start/stop; auto-saves a time entry when:
+ *  - you hit Stop,
+ *  - you go idle (no mouse/keyboard for 5 min) — credits up to last activity,
+ *  - you leave the client (component unmounts on client switch / navigation).
+ * Short sessions (< 6 min) are dropped (below the 0.1h minimum).
+ */
+function ClientWorkTimer({ clientId, clientName, onManual }: { clientId: number; clientName: string; onManual: () => void }) {
+  const utils = trpc.useUtils();
+  const createTime = trpc.time.create.useMutation({ onSuccess: () => utils.time.getClientMonthlySummary.invalidate({ clientId }) });
+  const [running, setRunning] = useState(false);
+  const [display, setDisplay] = useState(0); // seconds, for the readout
+  const startRef = useRef(0);
+  const lastActivityRef = useRef(Date.now());
+  const runningRef = useRef(false);
+  const IDLE_MS = 5 * 60 * 1000;
+
+  const persist = (secs: number) => {
+    const hours = Math.round((secs / 3600) * 100) / 100;
+    if (hours >= 0.1) {
+      createTime.mutate({ clientId, date: format(new Date(), "yyyy-MM-dd"), description: `Tracked work — ${clientName}`, hours, category: "bookkeeping" as any, isBillable: true });
+    }
+  };
+  const start = () => { startRef.current = Date.now(); lastActivityRef.current = Date.now(); runningRef.current = true; setRunning(true); setDisplay(0); };
+  const stopAndSave = () => {
+    if (!runningRef.current) return;
+    const secs = (Date.now() - startRef.current) / 1000;
+    runningRef.current = false; setRunning(false); setDisplay(0);
+    persist(secs);
+  };
+
+  // tick + idle auto-stop
+  useEffect(() => {
+    if (!running) return;
+    const iv = setInterval(() => {
+      setDisplay(Math.floor((Date.now() - startRef.current) / 1000));
+      if (Date.now() - lastActivityRef.current > IDLE_MS) {
+        const secs = (lastActivityRef.current - startRef.current) / 1000;
+        runningRef.current = false; setRunning(false); setDisplay(0);
+        persist(Math.max(0, secs));
+      }
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [running]);
+
+  // track activity
+  useEffect(() => {
+    const onAct = () => { lastActivityRef.current = Date.now(); };
+    for (const e of ["mousemove", "keydown", "click", "scroll"]) window.addEventListener(e, onAct, { passive: true });
+    return () => { for (const e of ["mousemove", "keydown", "click", "scroll"]) window.removeEventListener(e, onAct); };
+  }, []);
+
+  // save on unmount (client switch / leaving the page)
+  useEffect(() => () => {
+    if (runningRef.current) persist((Date.now() - startRef.current) / 1000);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hh = String(Math.floor(display / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((display % 3600) / 60)).padStart(2, "0");
+  const ss = String(display % 60).padStart(2, "0");
+
+  return (
+    <div className="inline-flex items-center gap-1.5">
+      {running ? (
+        <Button size="sm" variant="outline" className="border-red-300 text-red-700 tabular-nums"
+          onClick={stopAndSave} title="Stop & save. Auto-saves if you go idle (5 min) or switch clients.">
+          <Timer className="h-3.5 w-3.5 mr-1" /> {hh}:{mm}:{ss} · Stop
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" className="border-lime-300 text-lime-700"
+          onClick={start} title="Start a work timer for this client">
+          <Timer className="h-3.5 w-3.5 mr-1" /> Start timer
+        </Button>
+      )}
+      <button onClick={onManual} className="text-xs text-slate-400 hover:text-slate-600" title="Log time manually">+ manual</button>
+    </div>
+  );
+}
+
 function TimeLogDialog({ open, onClose, clientId, tasks, onSubmit, isPending }: {
   open: boolean; onClose: () => void; clientId: number; tasks: any[];
   onSubmit: (data: any) => void; isPending: boolean;
@@ -1833,7 +1910,7 @@ function TimeLogDialog({ open, onClose, clientId, tasks, onSubmit, isPending }: 
   const [description, setDescription] = useState("");
   const [hours, setHours] = useState("");
   const [category, setCategory] = useState("bookkeeping");
-  const [taskId, setTaskId] = useState<string>("");
+  const [taskId, setTaskId] = useState<string>("none");
   const [isBillable, setIsBillable] = useState(true);
 
   const handleSubmit = () => {
@@ -1844,10 +1921,10 @@ function TimeLogDialog({ open, onClose, clientId, tasks, onSubmit, isPending }: 
       description,
       hours: parseFloat(hours),
       category,
-      taskId: taskId ? parseInt(taskId) : undefined,
+      taskId: taskId && taskId !== "none" ? parseInt(taskId) : undefined,
       isBillable,
     });
-    setDescription(""); setHours(""); setTaskId(""); setCategory("bookkeeping"); setIsBillable(true);
+    setDescription(""); setHours(""); setTaskId("none"); setCategory("bookkeeping"); setIsBillable(true);
   };
 
   return (
@@ -1894,7 +1971,7 @@ function TimeLogDialog({ open, onClose, clientId, tasks, onSubmit, isPending }: 
               <Select value={taskId} onValueChange={setTaskId}>
                 <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {tasks.filter((t) => !t.completed).map((t) => (
                     <SelectItem key={t.id} value={t.id.toString()}>{t.title}</SelectItem>
                   ))}
