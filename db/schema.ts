@@ -281,6 +281,9 @@ export const clients = sqliteTable("clients", {
   hstNumber: text("hstNumber"),
   hstPeriod: text("hstPeriod", { enum: ["monthly", "quarterly", "annual"] }),
   hasWSIB: integer("hasWSIB", { mode: "boolean" }).default(false),
+  // WSIB premium rate, $ per $100 of insurable earnings (e.g. 2.50). Drives the
+  // WSIB remittance calc (insurable earnings × rate ÷ 100).
+  wsibRate: real("wsibRate"),
   wsibAccountNumber: text("wsibAccountNumber"),
   wsibQuarter: text("wsibQuarter", { enum: ["Q1", "Q2", "Q3", "Q4", "all"] }),
   hasPayroll: integer("hasPayroll", { mode: "boolean" }).default(false),
@@ -301,6 +304,9 @@ export const clients = sqliteTable("clients", {
   payrollRemitterFreq: text("payrollRemitterFreq", { enum: ["regular", "quarterly", "accelerated"] }).default("regular"),
   // Pay-cycle anchor: a known period START date (aligns weekly/biweekly periods) +
   // days from period END to the pay date (e.g. Clark = Tue end + 3 → Fri pay).
+  // Link to the client's OLD payroll history Google Sheet (so it's never lost +
+  // one-click openable from the Payroll tab).
+  payrollHistoryUrl: text("payrollHistoryUrl"),
   payrollAnchorStart: integer("payrollAnchorStart", { mode: "timestamp" }),
   payrollPayDayOffset: integer("payrollPayDayOffset").default(0),
   // Where this client's hours come from — drives the per-client integration button

@@ -533,7 +533,7 @@ export const onboardingRouter = createRouter({
       payrollRpNumber: z.string().optional(), monthlyFee: z.number().optional(), craRacDone: z.boolean().optional(),
       hasHST: z.boolean().optional(), hstPeriod: z.string().optional(),
       hasWSIB: z.boolean().optional(), hasPayroll: z.boolean().optional(), payrollExternal: z.boolean().optional(),
-      hasIntercoJournals: z.boolean().optional(),
+      hasIntercoJournals: z.boolean().optional(), payrollHistoryUrl: z.string().optional(),
       payrollFrequency: z.string().optional(),
       payrollRemitterFreq: z.string().optional(),
       yearEndMonth: z.string().optional(),
@@ -571,7 +571,7 @@ export const onboardingRouter = createRouter({
       // client-level keys
       const clientKeys = ["name", "email", "phone", "company", "website", "address", "contactName", "taxId", "hstNumber",
         "wsibAccountNumber", "clientType", "payrollRpNumber", "monthlyFee", "craRacDone", "hasHST", "hstPeriod", "hasWSIB", "hasPayroll", "payrollExternal",
-        "payrollFrequency", "payrollRemitterFreq", "yearEndMonth", "hasIntercoJournals",
+        "payrollFrequency", "payrollRemitterFreq", "yearEndMonth", "hasIntercoJournals", "payrollHistoryUrl",
         "bio", "registryNumber", "incorporationDate", "corpType", "governmentStatus", "industry", "companyKey", "craRepId"] as const;
       const prior = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
       const clientPatch: Record<string, any> = { updatedAt: new Date() };

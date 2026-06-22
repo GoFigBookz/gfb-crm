@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { computeT5Boxes } from "../../api/dividend-core";
 import { useParams, Link, useNavigate } from "react-router";
-import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet, Globe, Mail } from "lucide-react";
+import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet, Globe, Mail, FileSpreadsheet } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -873,6 +873,22 @@ export default function ClientDashboard() {
             </CardContent>
           </Card>
 
+          {/* Past payroll history — the old payroll Google Sheet, one click away. */}
+          {(client as any).payrollHistoryUrl && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base"><FileSpreadsheet className="h-5 w-5 text-emerald-600" /> Past payroll history</CardTitle>
+                <CardDescription>The client's prior payroll records (Google Sheet) — kept for reference.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <a href={(client as any).payrollHistoryUrl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm hover:bg-emerald-100">
+                  <ExternalLink className="h-4 w-4" /> Open payroll history sheet
+                </a>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1098,6 +1114,52 @@ export default function ClientDashboard() {
 
 // Compliance tab — filing status + obligations, all driven by the client's
 // flags/features (HST, payroll→T4, dividends→T5, WSIB), plus the dividend log.
+/** WSIB remittance: insurable earnings (summed from the client's payroll runs)
+ *  × the WSIB premium rate ($ per $100). Rate is editable + saved on the client. */
+function WsibRemittanceCard({ clientId }: { clientId: number }) {
+  const utils = trpc.useUtils();
+  const thisYear = new Date().getFullYear();
+  const [year, setYear] = useState(thisYear);
+  const { data } = trpc.payroll.wsibRemittance.useQuery({ clientId, year });
+  const [rate, setRate] = useState<string>("");
+  const saveRate = trpc.payroll.setWsibRate.useMutation({
+    onSuccess: () => utils.payroll.wsibRemittance.invalidate({ clientId, year }),
+  });
+  // seed the rate input from the loaded value once
+  const loadedRate = data?.rate;
+  const money = (n: number | null | undefined) => n == null ? "—" : `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4 text-orange-500" /> WSIB remittance</CardTitle>
+        <CardDescription>Insurable earnings (from payroll runs) × premium rate. {data?.accountNumber ? `Account ${data.accountNumber}.` : ""} Estimate — verify before remitting.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+          <div>
+            <Label className="text-xs">Year</Label>
+            <Input type="number" className="h-9" value={year} onChange={(e) => setYear(Number(e.target.value) || thisYear)} />
+          </div>
+          <div>
+            <Label className="text-xs">Premium rate ($/$100)</Label>
+            <Input type="number" step="0.01" className="h-9" placeholder={loadedRate != null ? String(loadedRate) : "e.g. 2.50"}
+              value={rate} onChange={(e) => setRate(e.target.value)} />
+          </div>
+          <Button size="sm" disabled={saveRate.isPending || rate === ""} onClick={() => saveRate.mutate({ clientId, rate: parseFloat(rate) || 0 })}>
+            {saveRate.isPending ? "Saving…" : "Save rate"}
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="p-3 bg-slate-50 rounded-lg"><p className="text-xs text-slate-500">Insurable earnings ({data?.payRunCount ?? 0} runs)</p><p className="font-semibold">{money(data?.insurableEarnings)}</p></div>
+          <div className="p-3 bg-slate-50 rounded-lg"><p className="text-xs text-slate-500">Rate</p><p className="font-semibold">{data?.rate != null ? `$${data.rate}/$100` : <span className="text-amber-600">set a rate</span>}</p></div>
+          <div className="p-3 bg-orange-50 rounded-lg"><p className="text-xs text-orange-600">WSIB remittance</p><p className="font-bold text-orange-700">{money(data?.remittance)}</p></div>
+        </div>
+        <p className="text-[11px] text-slate-400">Earnings pulled from CRM pay runs (will pull from QuickBooks Payroll once connected). Executive/exempt-employee exclusions can be added later.</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ComplianceTab({ clientId, client, onboarding, closeStatus, tasks, onOpenTask }: {
   clientId: number; client: any; onboarding?: any; closeStatus: any; tasks: any[]; onOpenTask?: (t: any) => void;
 }) {
@@ -1301,6 +1363,9 @@ function ComplianceTab({ clientId, client, onboarding, closeStatus, tasks, onOpe
           </CardContent>
         </Card>
       )}
+
+      {/* WSIB remittance — pulls insurable earnings from payroll × the premium rate */}
+      {client.hasWSIB && <WsibRemittanceCard clientId={clientId} />}
 
       {/* Compliance numbers */}
       <Card>
@@ -1581,6 +1646,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
     hasHST: !!client.hasHST, hstPeriod: client.hstPeriod || "quarterly",
     hasWSIB: !!client.hasWSIB, hasPayroll: !!client.hasPayroll,
     hasIntercoJournals: !!client.hasIntercoJournals,
+    payrollHistoryUrl: client.payrollHistoryUrl || "",
     payrollExternal: !!client.payrollExternal,
     payrollFrequency: client.payrollFrequency || "bi-weekly",
     payrollRemitterFreq: client.payrollRemitterFreq || "regular",
@@ -1708,6 +1774,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
                   {check("hasEHT", "Has EHT (Ontario)")}
                   {check("payrollExternal", "We don't run it (autopay / client self-manages)")}
                 </div>
+                {field("payrollHistoryUrl", "Past payroll history sheet (URL)")}
               </div>
             )}
 
