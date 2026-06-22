@@ -1603,8 +1603,8 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
           {check("hasJobCosting", "Job costing")}{check("needsYearEnd", "We do year-end")}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          {sel("invoicingResponsibility", "Invoicing (A/R)", [["none","N/A"],["we_invoice","We invoice"],["client_invoices","Client invoices"]])}
-          {sel("billPayResponsibility", "Bill pay (A/P)", [["none","N/A"],["we_pay","We pay"],["client_pays","Client pays"]])}
+          {sel("invoicingResponsibility", "Invoicing (A/R)", [["none","N/A"],["we_invoice","We invoice"],["client_invoices","Client invoices"],["both","Both"]])}
+          {sel("billPayResponsibility", "Bill pay (A/P)", [["none","N/A"],["we_pay","We pay"],["client_pays","Client pays"],["both","Both"]])}
         </div>
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Payroll</p>

@@ -22849,8 +22849,8 @@ var init_schema = __esm({
       usesHubdoc: integer2("usesHubdoc", { mode: "boolean" }).default(false),
       hasJobCosting: integer2("hasJobCosting", { mode: "boolean" }).default(false),
       avgMonthlyTransactions: integer2("avgMonthlyTransactions").default(0),
-      invoicingResponsibility: text("invoicingResponsibility", { enum: ["we_invoice", "client_invoices", "none"] }).default("none"),
-      billPayResponsibility: text("billPayResponsibility", { enum: ["we_pay", "client_pays", "none"] }).default("none"),
+      invoicingResponsibility: text("invoicingResponsibility", { enum: ["we_invoice", "client_invoices", "both", "none"] }).default("none"),
+      billPayResponsibility: text("billPayResponsibility", { enum: ["we_pay", "client_pays", "both", "none"] }).default("none"),
       // QuickBooks subscription billed wholesale through GFB (pass-through on quote)
       qboSoftwareTier: text("qboSoftwareTier", { enum: ["none", "easystart", "essentials", "plus"] }).default("none"),
       qboSoftwareWholesale: integer2("qboSoftwareWholesale", { mode: "boolean" }).default(false),
@@ -45266,8 +45266,8 @@ var init_onboarding_router = __esm({
         hasJobCosting: external_exports.boolean().default(false),
         avgMonthlyTransactions: external_exports.number().min(0).default(0),
         bookkeepingFrequency: external_exports.enum(["monthly", "quarterly", "annual", "none"]).default("monthly"),
-        invoicingResponsibility: external_exports.enum(["we_invoice", "client_invoices", "none"]).default("none"),
-        billPayResponsibility: external_exports.enum(["we_pay", "client_pays", "none"]).default("none"),
+        invoicingResponsibility: external_exports.enum(["we_invoice", "client_invoices", "both", "none"]).default("none"),
+        billPayResponsibility: external_exports.enum(["we_pay", "client_pays", "both", "none"]).default("none"),
         currentAccountingSoftware: external_exports.string().optional(),
         currentPayrollProvider: external_exports.string().optional(),
         servicesNeeded: external_exports.string().optional(),
@@ -60091,7 +60091,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.01";
+var BUILD_TAG = "2026-06-22.02";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
