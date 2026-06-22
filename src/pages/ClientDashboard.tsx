@@ -1252,7 +1252,12 @@ function ComplianceTab({ clientId, client, closeStatus, tasks, onOpenTask }: {
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base">Registration numbers</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-          {[["CRA BN", client.taxId], ["HST #", client.hstNumber], ["Payroll RP #", (client as any).payrollRpNumber], ["WSIB #", client.wsibAccountNumber]].map(([k, v]) => (
+          {([
+            ["CRA BN", client.taxId],
+            ...(client.hasHST ? [["HST #", client.hstNumber]] : []),
+            ...(client.hasPayroll ? [["Payroll RP #", (client as any).payrollRpNumber]] : []),
+            ...(client.hasWSIB ? [["WSIB #", client.wsibAccountNumber]] : []),
+          ] as [string, any][]).map(([k, v]) => (
             <div key={k as string} className="p-3 bg-slate-50 rounded-lg">
               <p className="text-xs text-slate-500">{k}</p>
               <p className={`font-medium ${v ? "" : "text-amber-600"}`}>{v || "⚠ missing"}</p>
