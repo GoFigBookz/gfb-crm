@@ -195,6 +195,8 @@ export const onboardingRouter = createRouter({
       bookkeepingFrequency: z.enum(["monthly", "quarterly", "annual", "none"]).default("monthly"),
       invoicingResponsibility: z.enum(["we_invoice", "client_invoices", "both", "none"]).default("none"),
       billPayResponsibility: z.enum(["we_pay", "client_pays", "both", "none"]).default("none"),
+      monthlySalesReceipt: z.boolean().default(false),
+      salesReceiptSource: z.string().optional(),
       currentAccountingSoftware: z.string().optional(),
       currentPayrollProvider: z.string().optional(),
       servicesNeeded: z.string().optional(),
@@ -258,6 +260,8 @@ export const onboardingRouter = createRouter({
         payrollRevenueShare: input.payrollRevenueShare,
         payrollCraComparison: input.payrollCraComparison,
         payrollHoursSource: (input.payrollHoursSource as any) ?? null,
+        monthlySalesReceipt: input.monthlySalesReceipt,
+        salesReceiptSource: input.salesReceiptSource || null,
         yearEndMonth: yearEndMonth as any,
         craRepId: "YY7F3GN",  // firm CRA Represent-a-Client RepID (same for all clients)
         createdAt: new Date(),

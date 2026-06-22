@@ -37,6 +37,7 @@ const COLUMNS: Array<[string, string]> = [
   ["payrollBonuses", "integer DEFAULT 0"], ["payrollDividends", "integer DEFAULT 0"], ["payrollPhoneAllowance", "integer DEFAULT 0"],
   ["payrollReimbursements", "integer DEFAULT 0"], ["payrollRevenueShare", "integer DEFAULT 0"], ["payrollCraComparison", "integer DEFAULT 0"],
   ["payrollAnchorStart", "integer"], ["payrollPayDayOffset", "integer DEFAULT 0"], ["payrollHoursSource", "text"],
+  ["monthlySalesReceipt", "integer DEFAULT 0"], ["salesReceiptSource", "text"],
   ["quoteAmount", "real"], ["quoteSentAt", "integer"], ["quoteApprovedAt", "integer"],
   ["transactionsPerMonth", "integer DEFAULT 0"],
   ["engagementSentAt", "integer"], ["engagementSignedAt", "integer"], ["engagementLetterUrl", "text"],
