@@ -187,7 +187,28 @@ export const clientRouter = createRouter({
         await ensureComplianceForClient(client.id, { userId: ctx.user.id, assignedTo: client.assignedTo });
       }
 
+      // Best-effort: provision the standard Drive folder tree under the hardcoded
+      // "GFB Clients" parent (no-ops if the Make Drive token isn't set; never blocks
+      // creation). Wholesale flow-through clients don't need a working folder set.
+      if (client && isOperationalClient(client.clientType)) {
+        try {
+          const { ensureClientDriveFolder } = await import("./client-drive-folders");
+          const { driveConfigured } = await import("./drive-make-bridge");
+          if (driveConfigured()) await ensureClientDriveFolder(client.id);
+        } catch (e) { console.error("[drive] auto-create on client create failed (non-fatal):", e instanceof Error ? e.message : e); }
+      }
+
       return client;
+    }),
+
+  // Manually provision (or repair) a client's Google Drive folder tree under the
+  // hardcoded "GFB Clients" parent. Surfaced as the card's "Create Drive folder"
+  // button when the link is missing.
+  createDriveFolder: authedQuery
+    .input(z.object({ clientId: z.number(), force: z.boolean().optional() }))
+    .mutation(async ({ input }) => {
+      const { ensureClientDriveFolder } = await import("./client-drive-folders");
+      return ensureClientDriveFolder(input.clientId, { force: input.force });
     }),
 
   // Update client

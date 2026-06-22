@@ -196,6 +196,27 @@ client upsert on onboard/edit; (3) inbound client read-back; (4) extend to
 payroll/employees/tasks; (5) conflict handling + nightly full reconcile.
 BLOCKERS: canonical-sheet decision + `FIGGY_MAKE_API_TOKEN` on the server.
 
+## DRIVE FOLDER AUTO-CREATE — BUILT (2026-06-22), needs token + live test
+"Auto-create folders under the hardcoded GFB Clients parent; never save to root."
+- `api/client-drive-folders.ts` builds the standard tree (`Finance - <Client>` →
+  1 Company Documentation/Engagement Letters, 2 Tax Filings/[HST·Payroll·WSIB·
+  Dividends·Corp Tax | US: Sales Tax·Payroll·Dividends·Corp Tax], 3 Year-End
+  Financials/[01 Financials·02 Accountant], 4 Statements, 5 Triage, 6 Vendors,
+  7 Customers, ARCHIVE) under `GFB_CLIENTS_PARENT_FOLDER_ID`
+  (1OdxTvo0DiWnDL0e9g2ii6eG5ysBke_0G). Idempotent (reuses existing folders).
+- Transport `api/drive-make-bridge.ts` → Make Drive proxy scenario 5342854
+  (interface {url,method,body,qs_fields,qs_q}) via the scenario-RUN API. WRITE op,
+  so it uses the authenticated run API → needs **FIGGY_MAKE_API_TOKEN**.
+- Wired: auto-attempt on `crmClient.create` (non-blocking, only if token set) +
+  manual `crmClient.createDriveFolder` mutation + a "Create Drive folder" button
+  on the client card when the link is missing.
+- **TO GO LIVE (Markie):** set FIGGY_MAKE_API_TOKEN on the deployed CRM, click
+  "Create Drive folder" on a test client, confirm the tree appears under GFB
+  Clients. CAVEAT: if "GFB Clients" lives on a SHARED DRIVE, scenario 5342854 may
+  need `supportsAllDrives=true` added to its Drive module (its interface doesn't
+  expose that param) — verify on the first live run; if creates 404/403, that's it.
+  Can't be verified from the dev env (no Google access).
+
 ## CRA AUDIT SUPPORT SECTION (Markie 2026-06-22 — "think about workflow for future")
 CRA keeps auditing clients' **HST** (common, painful). Markie wants a section that
 pulls all the data and helps him *defend* an audit. Scoping notes for the future build:

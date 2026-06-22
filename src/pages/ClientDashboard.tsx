@@ -2620,6 +2620,14 @@ function QuickLinksCard({ client, onboarding, variant = "card" }: { client: any;
       setEditOpen(false);
     },
   });
+  const createDrive = trpc.crmClient.createDriveFolder.useMutation({
+    onSuccess: (r: any) => {
+      if (r?.ok) { utils.crmClient.get.invalidate(); }
+      else if (r?.skipped === "not_configured") alert("Drive auto-create isn't switched on yet — set FIGGY_MAKE_API_TOKEN on the server, then try again. (Or paste the folder URL via Edit.)");
+      else if (r?.error) alert(`Couldn't create the Drive folder: ${r.error}`);
+    },
+    onError: (e) => alert(e.message),
+  });
 
   const quickLinks: { label: string; url: string }[] = linksJson;
 
@@ -2665,9 +2673,11 @@ function QuickLinksCard({ client, onboarding, variant = "card" }: { client: any;
           <FolderOpen className="h-3.5 w-3.5" /> Google Drive <ExternalLink className="h-3 w-3 opacity-50" />
         </a>
       ) : (
-        <Badge variant="outline" className="text-slate-400 bg-slate-50">
-          <FolderOpen className="h-3.5 w-3.5 mr-1" /> No Drive folder set
-        </Badge>
+        <button onClick={() => createDrive.mutate({ clientId: client.id })} disabled={createDrive.isPending}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-sm hover:bg-amber-100 transition-colors disabled:opacity-60"
+          title="Create the standard folder tree under GFB Clients">
+          <FolderOpen className="h-3.5 w-3.5" /> {createDrive.isPending ? "Creating…" : "Create Drive folder"}
+        </button>
       )}
       {displayLinks.map((link: any, idx: number) => {
         const internal = link.url?.startsWith("/");

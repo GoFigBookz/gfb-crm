@@ -41204,6 +41204,217 @@ var init_month_end_core = __esm({
   }
 });
 
+// api/link-drive-folders.ts
+var link_drive_folders_exports = {};
+__export(link_drive_folders_exports, {
+  GFB_CLIENTS_PARENT_FOLDER_ID: () => GFB_CLIENTS_PARENT_FOLDER_ID,
+  GFB_INACTIVE_FOLDER_ID: () => GFB_INACTIVE_FOLDER_ID,
+  linkDriveFolders: () => linkDriveFolders
+});
+async function linkDriveFolders() {
+  const db = getDb();
+  const all = await db.select().from(clients);
+  let linked = 0, alreadySet = 0;
+  const unmatched = [];
+  for (const c of all) {
+    const folderId = NAME_TO_FOLDER[norm2(c.name)] ?? NAME_TO_FOLDER[norm2(c.company)];
+    if (!folderId) {
+      unmatched.push(c.name);
+      continue;
+    }
+    if (c.driveFolderUrl) {
+      alreadySet++;
+      continue;
+    }
+    try {
+      await db.update(clients).set({ driveFolderUrl: folderUrl(folderId) }).where(eq(clients.id, c.id));
+      linked++;
+    } catch (e) {
+      console.error("[drive-link] failed for", c.name, ":", e instanceof Error ? e.message : e);
+    }
+  }
+  if (linked) console.log(`[drive-link] linked ${linked} clients to Drive folders (${alreadySet} already set)`);
+  if (unmatched.length) console.log(`[drive-link] no folder mapping for: ${unmatched.join(", ")}`);
+  return { linked, alreadySet, unmatched };
+}
+var GFB_CLIENTS_PARENT_FOLDER_ID, GFB_INACTIVE_FOLDER_ID, folderUrl, norm2, NAME_TO_FOLDER;
+var init_link_drive_folders = __esm({
+  "api/link-drive-folders.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    GFB_CLIENTS_PARENT_FOLDER_ID = "1OdxTvo0DiWnDL0e9g2ii6eG5ysBke_0G";
+    GFB_INACTIVE_FOLDER_ID = "1GW6V_LAwGiqpM6KRtelZOS5k5jTJmvdg";
+    folderUrl = (id) => `https://drive.google.com/drive/folders/${id}`;
+    norm2 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    NAME_TO_FOLDER = {
+      "originality ai inc": "1aaqB12rJ5Ou4kX_tWF24JFq7OjEXHL2o",
+      "clark pools and spas collingwood inc": "10qXdEt4KVgW2w3s5VOIph1chSFPUErtH",
+      "clark pools and spas owen sound inc": "1eYu1sXe3jRIR4z-WzSzTGNXWS_12UbDt",
+      "west york paving ltd": "1LlGVkPyMnZ46IPs9UPY66ws3IR_2bAxo",
+      "1000235299 ontario ltd the auld spot pub": "1RYy_SiBp-Qlkl8AxurIWXnbHDHtx8J1F",
+      "1001196626 ontario ltd sher e punjab": "1pbNsufSywSXkETjYRTg8zFeqBxBpnuWy",
+      "king industries inc": "18LARx2KKXk2WIedta-6EBgAztgF5PAKj",
+      "ovita construction ltd": "1AqBz0TK1QcDtDVi1vrXhc4vc2v7Pumru",
+      "ovita holdings inc": "1ZLkgFq68jqkXQNZYWNulW_YMLNzb_9hT",
+      "universal construction group inc": "1vINZgScLvvQtvFAc6xJK-IJXcDCmrM2h",
+      "align by design hd inc": "1RDYytzByINcfnPMkLXnek9Hv6mcLssfM",
+      "gotomarket agility inc": "1-jLpF0TIZ4AUzxETxovgILnvUSzZZRxZ",
+      "adbank inc": "17hK0koClzPBJ5uyWDUEDMm9RR9xRalJI",
+      "motion invest inc": "126E4nVOp9xpyJeFvftMfjWdUAVQb_3xn",
+      "fractal saas inc": "1XiwLjwuQjAC23w3Tci-MHBEd_SRG6L2d",
+      "listingeagle com inc": "14yjTLms7pqbdzIZdyOfPs8orC1juRjiT",
+      "marketing strategy ventures inc": "1tI9o-OSThIskTvG0SqQnIXbJu-rWgBCm",
+      "seahorse health inc": "15GWhR8EchsoQlW_POfZyJJLrk5hLhTZv",
+      "m m kapala medicine professional corporation": "1d8kUnetOrHb2h1b7weOTFD3yJYMyRAbX",
+      "alderson developments ltd": "1-bxKE4CGXC_RDU10XdFAS8FpWmBEklOU",
+      "2303851 ontario inc": "1FQw4yxOHXU9yDilc9Jy5yP1cKbBQaNCQ",
+      "studio lella inc": "1TK6OzAZ4pD4Gms-5rhNL3YDShIbd10VD",
+      "dark horse intelligence inc": "12_ebmsvtGlQYbGmU9mE7Bwva0LNdc4mv",
+      "12738988 canada inc": "1XqpieuAB3eKiPpVYqgKgepkMblDl7L7B",
+      "1001411380 ontario inc columbus cafe": "1bxUtm6PF18DLKwarERlDDKvoEsi6Aoni",
+      "align plumbing inc": "1FwrtszqS4vqFgXXjPYg62QzxSUVJL0Lc",
+      "aim construction inc": "1VOnQyqFHB5o4TAcErQYCgOWIXrF_j5Ef",
+      "selective painting": "1F9C8GeZHWhT__YMaiWChiyvqV8XD9ft8",
+      "laing scientific": "1dGeUTCbltTi0G0mEm9fH6VEuT1DE0Iwc",
+      "fleming advisory inc fka kaavio": "1ynQJzY3sffTICdqU8cWoenW5ZhRxz_o3",
+      "unimax usa": "1-iKPbFSUZ5YJSijbiCwFzpvbH4UCHaim",
+      "dock kings inc": "1kntRZ07OMtnAj1LH_wELZwevW43sexj4"
+    };
+  }
+});
+
+// api/drive-make-bridge.ts
+var drive_make_bridge_exports = {};
+__export(drive_make_bridge_exports, {
+  createDriveFolder: () => createDriveFolder,
+  driveApi: () => driveApi,
+  driveApiToken: () => driveApiToken,
+  driveConfigured: () => driveConfigured,
+  driveRunUrl: () => driveRunUrl,
+  findDriveFolder: () => findDriveFolder
+});
+function driveRunUrl() {
+  return process.env.FIGGY_DRIVE_SCENARIO_RUN_URL || DEFAULT_RUN_URL;
+}
+function driveApiToken() {
+  return process.env.FIGGY_MAKE_API_TOKEN || "";
+}
+function driveConfigured() {
+  return !!driveApiToken();
+}
+function unwrap(data) {
+  return data?.outputs?.tool_output?.body ?? data?.tool_output?.body ?? data?.body ?? data;
+}
+async function driveApi(path3, method, opts = {}) {
+  if (!driveConfigured()) throw new Error("Drive bridge not configured: set FIGGY_MAKE_API_TOKEN");
+  const bodyStr = opts.body == null ? "" : typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body);
+  const res = await fetch(driveRunUrl(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Token ${driveApiToken()}` },
+    body: JSON.stringify({
+      responsive: true,
+      data: { url: path3, method, body: bodyStr, qs_fields: opts.fields || "", qs_q: opts.q || "" }
+    })
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Drive bridge ${method} ${path3} failed: ${res.status} ${errText}`);
+  }
+  const out = unwrap(await res.json());
+  if (typeof out === "string") {
+    try {
+      return JSON.parse(out);
+    } catch {
+      return out;
+    }
+  }
+  return out;
+}
+async function createDriveFolder(name2, parentId) {
+  const r = await driveApi("files", "POST", {
+    body: { name: name2, mimeType: "application/vnd.google-apps.folder", parents: [parentId] },
+    fields: "id,webViewLink"
+  });
+  if (!r?.id) throw new Error(`Drive folder create returned no id: ${JSON.stringify(r).slice(0, 200)}`);
+  return { id: String(r.id), webViewLink: String(r.webViewLink || `https://drive.google.com/drive/folders/${r.id}`) };
+}
+async function findDriveFolder(name2, parentId) {
+  const safe = name2.replace(/'/g, "\\'");
+  const q = `name = '${safe}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  const r = await driveApi("files", "GET", { q, fields: "files(id,webViewLink)" });
+  const f = r?.files?.[0];
+  return f?.id ? { id: String(f.id), webViewLink: String(f.webViewLink || `https://drive.google.com/drive/folders/${f.id}`) } : null;
+}
+var DEFAULT_RUN_URL;
+var init_drive_make_bridge = __esm({
+  "api/drive-make-bridge.ts"() {
+    DEFAULT_RUN_URL = "https://us2.make.com/api/v2/scenarios/5342854/run";
+  }
+});
+
+// api/client-drive-folders.ts
+var client_drive_folders_exports = {};
+__export(client_drive_folders_exports, {
+  ensureClientDriveFolder: () => ensureClientDriveFolder
+});
+function subfolderTree(isUS) {
+  const taxChildren = isUS ? ["Sales Tax", "Payroll", "Dividends", "Corp Tax"] : ["HST", "Payroll", "WSIB", "Dividends", "Corp Tax"];
+  return [
+    { name: "1 - Company Documentation", children: ["Engagement Letters & Legal"] },
+    { name: "2 - Tax Filings", children: taxChildren },
+    { name: "3 - Year-End Financials", children: ["01 - Financials (our work)", "02 - Accountant (adjusting entries)"] },
+    { name: "4 - Statements" },
+    { name: "5 - Triage" },
+    { name: "6 - Vendors" },
+    { name: "7 - Customers" },
+    { name: "ARCHIVE (pre-2020)" }
+  ];
+}
+async function ensureClientDriveFolder(clientId, opts = {}) {
+  const db = getDb();
+  const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+  if (!c) return { ok: false, error: "client_not_found" };
+  if (c.driveFolderUrl && !opts.force) return { ok: false, skipped: "already_has_folder", url: c.driveFolderUrl };
+  if (!driveConfigured()) return { ok: false, skipped: "not_configured" };
+  const isUS = (c.country || (c.qboAccountType === "us_clients" ? "US" : "CA")) === "US";
+  const topName = `Finance - ${c.name}`;
+  try {
+    let top = await findDriveFolder(topName, GFB_CLIENTS_PARENT_FOLDER_ID).catch(() => null);
+    const created = !top;
+    if (!top) top = await createDriveFolder(topName, GFB_CLIENTS_PARENT_FOLDER_ID);
+    for (const sub of subfolderTree(isUS)) {
+      try {
+        const existing = await findDriveFolder(sub.name, top.id).catch(() => null);
+        const node = existing || await createDriveFolder(sub.name, top.id);
+        for (const child of sub.children || []) {
+          try {
+            const ce = await findDriveFolder(child, node.id).catch(() => null);
+            if (!ce) await createDriveFolder(child, node.id);
+          } catch (e) {
+            console.error(`[drive] child folder "${child}" failed:`, e instanceof Error ? e.message : e);
+          }
+        }
+      } catch (e) {
+        console.error(`[drive] subfolder "${sub.name}" failed:`, e instanceof Error ? e.message : e);
+      }
+    }
+    await db.update(clients).set({ driveFolderUrl: top.webViewLink, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, clientId));
+    return { ok: true, created, url: top.webViewLink, folderId: top.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+var init_client_drive_folders = __esm({
+  "api/client-drive-folders.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_link_drive_folders();
+    init_drive_make_bridge();
+  }
+});
+
 // api/client-router.ts
 function clientScope(ctx, idVal) {
   return ctx.user?.role === "client" ? and(eq(clients.id, idVal), eq(clients.userId, ctx.user.id)) : eq(clients.id, idVal);
@@ -41337,7 +41548,23 @@ var init_client_router = __esm({
         if (client && isOperationalClient(client.clientType)) {
           await ensureComplianceForClient(client.id, { userId: ctx.user.id, assignedTo: client.assignedTo });
         }
+        if (client && isOperationalClient(client.clientType)) {
+          try {
+            const { ensureClientDriveFolder: ensureClientDriveFolder2 } = await Promise.resolve().then(() => (init_client_drive_folders(), client_drive_folders_exports));
+            const { driveConfigured: driveConfigured2 } = await Promise.resolve().then(() => (init_drive_make_bridge(), drive_make_bridge_exports));
+            if (driveConfigured2()) await ensureClientDriveFolder2(client.id);
+          } catch (e) {
+            console.error("[drive] auto-create on client create failed (non-fatal):", e instanceof Error ? e.message : e);
+          }
+        }
         return client;
+      }),
+      // Manually provision (or repair) a client's Google Drive folder tree under the
+      // hardcoded "GFB Clients" parent. Surfaced as the card's "Create Drive folder"
+      // button when the link is missing.
+      createDriveFolder: authedQuery.input(external_exports.object({ clientId: external_exports.number(), force: external_exports.boolean().optional() })).mutation(async ({ input }) => {
+        const { ensureClientDriveFolder: ensureClientDriveFolder2 } = await Promise.resolve().then(() => (init_client_drive_folders(), client_drive_folders_exports));
+        return ensureClientDriveFolder2(input.clientId, { force: input.force });
       }),
       // Update client
       update: authedQuery.input(external_exports.object({
@@ -44577,7 +44804,7 @@ function statusInF(v) {
 function resolveColumns(header2) {
   const map2 = /* @__PURE__ */ new Map();
   for (let i = 0; i < header2.length; i++) {
-    const h = norm2(header2[i]);
+    const h = norm3(header2[i]);
     if (!h) continue;
     for (const f of MASTER_FIELDS) {
       if (map2.has(f.key)) continue;
@@ -44650,8 +44877,8 @@ async function upsertClientToMaster(c) {
       rows = [DEFAULT_MASTER_HEADER.slice()];
     }
     let header2 = rows[0] || [];
-    const haveHeaders = new Set(header2.map((h) => norm2(h)));
-    const missing = PLATFORM_HEADERS.filter((h) => !haveHeaders.has(norm2(h)));
+    const haveHeaders = new Set(header2.map((h) => norm3(h)));
+    const missing = PLATFORM_HEADERS.filter((h) => !haveHeaders.has(norm3(h)));
     if (missing.length) {
       try {
         const targetWidth = header2.length + missing.length;
@@ -44696,16 +44923,16 @@ async function upsertClientToMaster(c) {
     const bnCol = cols.get("craBn");
     const nameCol = cols.get("name") ?? 0;
     const bn = (c.taxId || "").trim();
-    const nameKey = norm2(c.name || c.company);
+    const nameKey = norm3(c.name || c.company);
     let matchIdx = -1;
     if (bn && bnCol != null) for (let i = 1; i < rows.length; i++) {
-      if (norm2((rows[i] || [])[bnCol]) === norm2(bn)) {
+      if (norm3((rows[i] || [])[bnCol]) === norm3(bn)) {
         matchIdx = i;
         break;
       }
     }
     if (matchIdx < 0 && nameKey) for (let i = 1; i < rows.length; i++) {
-      if (norm2((rows[i] || [])[nameCol]) === nameKey) {
+      if (norm3((rows[i] || [])[nameCol]) === nameKey) {
         matchIdx = i;
         break;
       }
@@ -44785,13 +45012,13 @@ async function upsertLeadToMaster(c) {
     const email3 = (c.email || "").trim();
     let matchIdx = -1;
     for (let i = 1; i < rows.length; i++) {
-      if (id && norm2((rows[i] || [])[13]) === norm2(id)) {
+      if (id && norm3((rows[i] || [])[13]) === norm3(id)) {
         matchIdx = i;
         break;
       }
     }
     if (matchIdx < 0 && email3) for (let i = 1; i < rows.length; i++) {
-      if (norm2((rows[i] || [])[3]) === norm2(email3)) {
+      if (norm3((rows[i] || [])[3]) === norm3(email3)) {
         matchIdx = i;
         break;
       }
@@ -44814,7 +45041,7 @@ function syncLeadToMaster(c) {
   upsertLeadToMaster(c).catch(() => {
   });
 }
-var CANONICAL_MASTER_SHEET_ID, MASTER_TAB, LEADS_TAB, SYNC_WEBHOOK, norm2, cap, titleCadence, titlePay, titleRemit, boolToSheet, boolFromSheet, MASTER_FIELDS, PLATFORM_HEADERS, DEFAULT_MASTER_HEADER, LEAD_COLS, LEAD_N, leadLastCol;
+var CANONICAL_MASTER_SHEET_ID, MASTER_TAB, LEADS_TAB, SYNC_WEBHOOK, norm3, cap, titleCadence, titlePay, titleRemit, boolToSheet, boolFromSheet, MASTER_FIELDS, PLATFORM_HEADERS, DEFAULT_MASTER_HEADER, LEAD_COLS, LEAD_N, leadLastCol;
 var init_master_sheet_sync = __esm({
   "api/master-sheet-sync.ts"() {
     init_connection();
@@ -44824,7 +45051,7 @@ var init_master_sheet_sync = __esm({
     MASTER_TAB = "Client Master";
     LEADS_TAB = "Leads";
     SYNC_WEBHOOK = process.env.FIGGY_SHEET_SYNC_WEBHOOK || "https://hook.us2.make.com/d4h33m0na6ulrlm9nkv9dyyfa8hv1bcs";
-    norm2 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm3 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
     titleCadence = { annual: "Annual", quarterly: "Quarterly", monthly: "Monthly" };
     titlePay = { weekly: "Weekly", "bi-weekly": "Bi-Weekly", "semi-monthly": "Semi-Monthly", monthly: "Monthly", self: "Self" };
@@ -45114,9 +45341,9 @@ async function pullClientMasterIntoCrm() {
   const byBn = /* @__PURE__ */ new Map();
   const byName = /* @__PURE__ */ new Map();
   for (const c of all) {
-    if (c.taxId) byBn.set(norm3(c.taxId), c);
-    byName.set(norm3(c.name), c);
-    if (c.company) byName.set(norm3(c.company), c);
+    if (c.taxId) byBn.set(norm4(c.taxId), c);
+    byName.set(norm4(c.name), c);
+    if (c.company) byName.set(norm4(c.company), c);
   }
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i] || [];
@@ -45135,7 +45362,7 @@ async function pullClientMasterIntoCrm() {
       if (!patch) continue;
       Object.assign(f.onb ? onb : sv, patch);
     }
-    const match2 = bn && byBn.get(norm3(bn)) || byName.get(norm3(name2));
+    const match2 = bn && byBn.get(norm4(bn)) || byName.get(norm4(name2));
     if (match2) {
       const patch = {};
       for (const [k, v] of Object.entries(sv)) {
@@ -45176,7 +45403,7 @@ async function pullLeadsIntoCrm() {
   const all = (await db.select().from(clients)).map((c) => ({ ...c }));
   const byId = new Map(all.map((c) => [c.id, c]));
   const byEmail = /* @__PURE__ */ new Map();
-  for (const c of all) if (c.email) byEmail.set(norm3(c.email), c);
+  for (const c of all) if (c.email) byEmail.set(norm4(c.email), c);
   for (const r of rows) {
     const leadName = clean2(r[1]);
     const business = clean2(r[2]);
@@ -45184,7 +45411,7 @@ async function pullLeadsIntoCrm() {
     report.scanned++;
     const email3 = clean2(r[3]);
     const crmId = Number(clean2(r[13])) || 0;
-    const match2 = crmId && byId.get(crmId) || email3 && byEmail.get(norm3(email3));
+    const match2 = crmId && byId.get(crmId) || email3 && byEmail.get(norm4(email3));
     const sv = {};
     const set2 = (k, v) => {
       if (v !== null && v !== void 0 && v !== "") sv[k] = v;
@@ -45274,7 +45501,7 @@ async function pullInactiveClientsIntoCrm() {
   if (rows.length < 2) return report;
   const header2 = rows[0] || [];
   const find2 = (...kws) => header2.findIndex((h) => {
-    const n = norm3(h);
+    const n = norm4(h);
     return kws.some((k) => n.includes(k));
   });
   const ci = {
@@ -45283,7 +45510,7 @@ async function pullInactiveClientsIntoCrm() {
     industry: find2("industry"),
     address: find2("address"),
     phone: find2("phone"),
-    email: header2.findIndex((h) => norm3(h) === "email"),
+    email: header2.findIndex((h) => norm4(h) === "email"),
     website: find2("website"),
     owner: find2("owner", "contact"),
     notes: find2("notes"),
@@ -45297,9 +45524,9 @@ async function pullInactiveClientsIntoCrm() {
   const byBn = /* @__PURE__ */ new Map();
   const byName = /* @__PURE__ */ new Map();
   for (const c of all) {
-    if (c.taxId) byBn.set(norm3(c.taxId), c);
-    byName.set(norm3(c.name), c);
-    if (c.company) byName.set(norm3(c.company), c);
+    if (c.taxId) byBn.set(norm4(c.taxId), c);
+    byName.set(norm4(c.name), c);
+    if (c.company) byName.set(norm4(c.company), c);
   }
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i] || [];
@@ -45324,7 +45551,7 @@ async function pullInactiveClientsIntoCrm() {
       corpType: pick2(ci.corp) || void 0,
       governmentStatus: pick2(ci.govt) || void 0
     };
-    const match2 = bn && byBn.get(norm3(bn)) || byName.get(norm3(name2));
+    const match2 = bn && byBn.get(norm4(bn)) || byName.get(norm4(name2));
     if (match2) {
       const patch = { status: "inactive", updatedAt: /* @__PURE__ */ new Date() };
       for (const [k, v] of Object.entries(fields)) if (v !== void 0 && String(match2[k] ?? "") !== String(v)) patch[k] = v;
@@ -45348,14 +45575,14 @@ async function pullInactiveClientsIntoCrm() {
   }
   return report;
 }
-var norm3, clean2;
+var norm4, clean2;
 var init_sheet_inbound_sync = __esm({
   "api/sheet-inbound-sync.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     init_master_sheet_sync();
-    norm3 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm4 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     clean2 = (v) => {
       const s = String(v ?? "").trim();
       return /^(n\/?a|none|null)$/i.test(s) ? "" : s;
@@ -53823,7 +54050,7 @@ async function dedupeClients(confirm) {
   const groups = /* @__PURE__ */ new Map();
   for (const r of clientRows) {
     const id = Number(r.id ?? r[0]);
-    const key = `${norm4(r.name ?? r[1])}|${norm4(r.company ?? r[2])}`;
+    const key = `${norm5(r.name ?? r[1])}|${norm5(r.company ?? r[2])}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(id);
   }
@@ -53903,12 +54130,12 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm4, asRows, num;
+var norm5, asRows, num;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
-    norm4 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    norm5 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
     num = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
@@ -54593,7 +54820,7 @@ async function seedPayrollEmployees() {
   for (const mv of PAYROLL_EMPLOYEE_MOVES) {
     const to = findClient(clientsNow, mv.toMatch);
     if (!to) continue;
-    const matches = (await db.select().from(employees)).filter((e) => norm5(e.firstName) === norm5(mv.firstName) && norm5(e.lastName) === norm5(mv.lastName));
+    const matches = (await db.select().from(employees)).filter((e) => norm6(e.firstName) === norm6(mv.firstName) && norm6(e.lastName) === norm6(mv.lastName));
     for (const e of matches) {
       if (e.clientId === to.id) continue;
       const from = findClient(clientsNow, mv.fromMatch);
@@ -54618,7 +54845,7 @@ async function seedPayrollEmployees() {
     for (const link of PAYROLL_CONTRACT_LINKS) {
       const client = findClient(clientsNow, link.clientMatch);
       if (!client) continue;
-      const emp = all.find((e) => e.clientId === client.id && norm5(e.firstName) === norm5(link.firstName) && (!link.lastName || norm5(e.lastName) === norm5(link.lastName)));
+      const emp = all.find((e) => e.clientId === client.id && norm6(e.firstName) === norm6(link.firstName) && (!link.lastName || norm6(e.lastName) === norm6(link.lastName)));
       if (emp && !emp.contractUrl) {
         await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
         contracts++;
@@ -54629,7 +54856,7 @@ async function seedPayrollEmployees() {
     console.log(`[seed] payroll employees: +${result.added} -${result.removed} moved ${moved} salary-filled ${filled} contracts ${contracts}`);
   return { ...result, moved, filled, contracts };
 }
-var PAYROLL_EMPLOYEE_MOVES, norm5, findClient;
+var PAYROLL_EMPLOYEE_MOVES, norm6, findClient;
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
@@ -54640,8 +54867,8 @@ var init_seed_payroll_employees = __esm({
     PAYROLL_EMPLOYEE_MOVES = [
       { firstName: "Stacey", lastName: "Gillham", fromMatch: "2303851", toMatch: "originality", note: "Moved to Originality as of the 15th" }
     ];
-    norm5 = (s) => (s || "").toLowerCase().trim();
-    findClient = (all, match2) => all.find((c) => norm5(c.name).includes(norm5(match2)));
+    norm6 = (s) => (s || "").toLowerCase().trim();
+    findClient = (all, match2) => all.find((c) => norm6(c.name).includes(norm6(match2)));
   }
 });
 
@@ -56331,8 +56558,8 @@ async function seedGovRegistry() {
     return report;
   }
   for (const g of GOV) {
-    let c = g.bn ? all.find((x) => norm6(x.taxId) === norm6(g.bn)) : void 0;
-    if (!c && g.nameKey) c = all.find((x) => norm6(x.name).includes(norm6(g.nameKey)) || norm6(x.company).includes(norm6(g.nameKey)));
+    let c = g.bn ? all.find((x) => norm7(x.taxId) === norm7(g.bn)) : void 0;
+    if (!c && g.nameKey) c = all.find((x) => norm7(x.name).includes(norm7(g.nameKey)) || norm7(x.company).includes(norm7(g.nameKey)));
     if (!c) continue;
     report.matched++;
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
@@ -56351,7 +56578,7 @@ async function seedGovRegistry() {
   }
   return report;
 }
-var GOV, norm6;
+var GOV, norm7;
 var init_seed_gov_registry = __esm({
   "api/seed-gov-registry.ts"() {
     init_connection();
@@ -56393,7 +56620,7 @@ var init_seed_gov_registry = __esm({
       { bn: "809545346", industry: "Healthcare/Wellness", bio: "Healthcare business in the osteopathic / wellness field, providing therapeutic services and alternative health treatments." },
       { nameKey: "universal drywall", industry: "Construction/Drywall", bio: "Drywall and construction services company providing interior framing, drywall installation and exterior finishes. USA (Florida) entity." }
     ];
-    norm6 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm7 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   }
 });
 
@@ -56536,86 +56763,6 @@ var init_seed_tax_rate_reviews = __esm({
         description: "IRS inflation-adjusted federal brackets + Social Security wage base change Jan 1, and many state income-tax rates change Jan 1 too. Update the US federal brackets + US_STATES rates in Calculators.tsx. (No single live API \u2014 review IRS + state DOR.)"
       }
     ];
-  }
-});
-
-// api/link-drive-folders.ts
-var link_drive_folders_exports = {};
-__export(link_drive_folders_exports, {
-  GFB_CLIENTS_PARENT_FOLDER_ID: () => GFB_CLIENTS_PARENT_FOLDER_ID,
-  GFB_INACTIVE_FOLDER_ID: () => GFB_INACTIVE_FOLDER_ID,
-  linkDriveFolders: () => linkDriveFolders
-});
-async function linkDriveFolders() {
-  const db = getDb();
-  const all = await db.select().from(clients);
-  let linked = 0, alreadySet = 0;
-  const unmatched = [];
-  for (const c of all) {
-    const folderId = NAME_TO_FOLDER[norm7(c.name)] ?? NAME_TO_FOLDER[norm7(c.company)];
-    if (!folderId) {
-      unmatched.push(c.name);
-      continue;
-    }
-    if (c.driveFolderUrl) {
-      alreadySet++;
-      continue;
-    }
-    try {
-      await db.update(clients).set({ driveFolderUrl: folderUrl(folderId) }).where(eq(clients.id, c.id));
-      linked++;
-    } catch (e) {
-      console.error("[drive-link] failed for", c.name, ":", e instanceof Error ? e.message : e);
-    }
-  }
-  if (linked) console.log(`[drive-link] linked ${linked} clients to Drive folders (${alreadySet} already set)`);
-  if (unmatched.length) console.log(`[drive-link] no folder mapping for: ${unmatched.join(", ")}`);
-  return { linked, alreadySet, unmatched };
-}
-var GFB_CLIENTS_PARENT_FOLDER_ID, GFB_INACTIVE_FOLDER_ID, folderUrl, norm7, NAME_TO_FOLDER;
-var init_link_drive_folders = __esm({
-  "api/link-drive-folders.ts"() {
-    init_connection();
-    init_schema();
-    init_drizzle_orm();
-    GFB_CLIENTS_PARENT_FOLDER_ID = "1OdxTvo0DiWnDL0e9g2ii6eG5ysBke_0G";
-    GFB_INACTIVE_FOLDER_ID = "1GW6V_LAwGiqpM6KRtelZOS5k5jTJmvdg";
-    folderUrl = (id) => `https://drive.google.com/drive/folders/${id}`;
-    norm7 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
-    NAME_TO_FOLDER = {
-      "originality ai inc": "1aaqB12rJ5Ou4kX_tWF24JFq7OjEXHL2o",
-      "clark pools and spas collingwood inc": "10qXdEt4KVgW2w3s5VOIph1chSFPUErtH",
-      "clark pools and spas owen sound inc": "1eYu1sXe3jRIR4z-WzSzTGNXWS_12UbDt",
-      "west york paving ltd": "1LlGVkPyMnZ46IPs9UPY66ws3IR_2bAxo",
-      "1000235299 ontario ltd the auld spot pub": "1RYy_SiBp-Qlkl8AxurIWXnbHDHtx8J1F",
-      "1001196626 ontario ltd sher e punjab": "1pbNsufSywSXkETjYRTg8zFeqBxBpnuWy",
-      "king industries inc": "18LARx2KKXk2WIedta-6EBgAztgF5PAKj",
-      "ovita construction ltd": "1AqBz0TK1QcDtDVi1vrXhc4vc2v7Pumru",
-      "ovita holdings inc": "1ZLkgFq68jqkXQNZYWNulW_YMLNzb_9hT",
-      "universal construction group inc": "1vINZgScLvvQtvFAc6xJK-IJXcDCmrM2h",
-      "align by design hd inc": "1RDYytzByINcfnPMkLXnek9Hv6mcLssfM",
-      "gotomarket agility inc": "1-jLpF0TIZ4AUzxETxovgILnvUSzZZRxZ",
-      "adbank inc": "17hK0koClzPBJ5uyWDUEDMm9RR9xRalJI",
-      "motion invest inc": "126E4nVOp9xpyJeFvftMfjWdUAVQb_3xn",
-      "fractal saas inc": "1XiwLjwuQjAC23w3Tci-MHBEd_SRG6L2d",
-      "listingeagle com inc": "14yjTLms7pqbdzIZdyOfPs8orC1juRjiT",
-      "marketing strategy ventures inc": "1tI9o-OSThIskTvG0SqQnIXbJu-rWgBCm",
-      "seahorse health inc": "15GWhR8EchsoQlW_POfZyJJLrk5hLhTZv",
-      "m m kapala medicine professional corporation": "1d8kUnetOrHb2h1b7weOTFD3yJYMyRAbX",
-      "alderson developments ltd": "1-bxKE4CGXC_RDU10XdFAS8FpWmBEklOU",
-      "2303851 ontario inc": "1FQw4yxOHXU9yDilc9Jy5yP1cKbBQaNCQ",
-      "studio lella inc": "1TK6OzAZ4pD4Gms-5rhNL3YDShIbd10VD",
-      "dark horse intelligence inc": "12_ebmsvtGlQYbGmU9mE7Bwva0LNdc4mv",
-      "12738988 canada inc": "1XqpieuAB3eKiPpVYqgKgepkMblDl7L7B",
-      "1001411380 ontario inc columbus cafe": "1bxUtm6PF18DLKwarERlDDKvoEsi6Aoni",
-      "align plumbing inc": "1FwrtszqS4vqFgXXjPYg62QzxSUVJL0Lc",
-      "aim construction inc": "1VOnQyqFHB5o4TAcErQYCgOWIXrF_j5Ef",
-      "selective painting": "1F9C8GeZHWhT__YMaiWChiyvqV8XD9ft8",
-      "laing scientific": "1dGeUTCbltTi0G0mEm9fH6VEuT1DE0Iwc",
-      "fleming advisory inc fka kaavio": "1ynQJzY3sffTICdqU8cWoenW5ZhRxz_o3",
-      "unimax usa": "1-iKPbFSUZ5YJSijbiCwFzpvbH4UCHaim",
-      "dock kings inc": "1kntRZ07OMtnAj1LH_wELZwevW43sexj4"
-    };
   }
 });
 
@@ -60989,7 +61136,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.30";
+var BUILD_TAG = "2026-06-22.31";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
