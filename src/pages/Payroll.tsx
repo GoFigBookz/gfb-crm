@@ -329,6 +329,9 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   const createApprovalLink = trpc.payroll.createApprovalLink.useMutation({ onSuccess: invalidate, onError: (e) => alert(e.message) });
   const { data: clientEmps } = trpc.employee.list.useQuery({ clientId: data?.run.clientId ?? 0 }, { enabled: !!data?.run.clientId });
   const { data: statHols } = trpc.payroll.statHolidays.useQuery({ runId });
+  // The Stat-worked column only appears when a stat holiday falls in this pay
+  // period (then it's paid at time-and-a-half).
+  const showStat = (statHols?.length ?? 0) > 0;
   const { data: jobber } = trpc.payroll.jobberStatus.useQuery({ clientId: data?.run.clientId ?? 0 }, { enabled: !!data?.run.clientId });
   const importJobber = trpc.payroll.importJobberHours.useMutation({
     onSuccess: (r: any) => {
@@ -395,7 +398,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
                   <th className="text-right px-1">Rate</th>
                   <th className="text-right px-1">Reg hrs</th>
                   <th className="text-right px-1">OT</th>
-                  <th className="text-right px-1">Stat hrs</th>
+                  {showStat && <th className="text-right px-1" title="Hours worked on a stat holiday — paid at 1.5×">Stat 1.5×</th>}
                   <th className="text-right px-1">Vac hrs</th>
                   <th className="text-right px-1">Sick hrs</th>
                   {showBonus && <th className="text-right px-1">Share bonus</th>}
@@ -411,7 +414,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
               </thead>
               <tbody>
                 {lines.map((l: any) => (
-                  <LineRow key={l.id} line={l} showBonus={showBonus} showPhone={showPhone} showReimb={showReimb} showTax={showTax}
+                  <LineRow key={l.id} line={l} showBonus={showBonus} showPhone={showPhone} showReimb={showReimb} showTax={showTax} showStat={showStat}
                     onSave={(patch) => updateLine.mutate({ id: l.id, ...patch })}
                     onEstimate={() => estimateLine.mutate({ id: l.id })}
                     onEditEmployee={() => { const emp = (clientEmps || []).find((e: any) => e.id === l.employeeId); if (emp) onEditEmployee(emp); }}
@@ -421,7 +424,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
               <tfoot>
                 <tr className="border-t font-semibold">
                   <td className="py-1.5 pr-2">Totals</td>
-                  <td colSpan={6 + (showBonus ? 1 : 0)}></td>
+                  <td colSpan={(showStat ? 6 : 5) + (showBonus ? 1 : 0)}></td>
                   <td className="text-right px-1 text-lime-700">{money(run.totalGross)}</td>
                   {showTax && <td colSpan={3} className="text-right px-1 text-slate-500">deduct {money(run.totalEmployeeDeductions)}</td>}
                   {showTax && <td className="text-right px-1">{money(run.totalNet)}</td>}
@@ -429,7 +432,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
                 </tr>
                 {showTax && (
                   <tr className="text-xs text-slate-500">
-                    <td className="pt-1" colSpan={9 + (showBonus ? 1 : 0) + 4 + (showPhone ? 1 : 0) + (showReimb ? 1 : 0)}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))} · Net total includes phone/reimbursement add-ons.</td>
+                    <td className="pt-1" colSpan={(showStat ? 9 : 8) + (showBonus ? 1 : 0) + 4 + (showPhone ? 1 : 0) + (showReimb ? 1 : 0)}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))} · Net total includes phone/reimbursement add-ons.</td>
                   </tr>
                 )}
               </tfoot>
@@ -454,7 +457,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   );
 }
 
-function LineRow({ line, showBonus, showPhone, showReimb, showTax, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; showBonus?: boolean; showPhone?: boolean; showReimb?: boolean; showTax?: boolean; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
+function LineRow({ line, showBonus, showPhone, showReimb, showTax, showStat, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; showBonus?: boolean; showPhone?: boolean; showReimb?: boolean; showTax?: boolean; showStat?: boolean; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
   const [v, setV] = useState({
     regularHours: line.regularHours ?? 0, overtimeHours: line.overtimeHours ?? 0,
     statHolidayHours: line.statHolidayHours ?? 0, vacationHours: line.vacationHours ?? 0, sickHours: line.sickHours ?? 0,
@@ -465,11 +468,12 @@ function LineRow({ line, showBonus, showPhone, showReimb, showTax, onSave, onEst
   });
   const num = (s: string) => { const n = parseFloat(s); return isNaN(n) ? 0 : n; };
   const rate = line.hourlyRate ?? null;
-  // Sum hour types into gross: (reg + stat + vac + sick)×rate + OT×1.5×rate + share bonus.
+  // Sum hour types into gross: (reg + vac + sick)×rate + (OT + stat-worked)×1.5×rate
+  // + share bonus. Stat-holiday hours WORKED are premium pay (time-and-a-half).
   // (Rough total for the timesheet — QBO Payroll does the authoritative pay calc.)
   const sumGross = () => {
     const r = rate || 0;
-    const g = Math.round((((v.regularHours + v.statHolidayHours + v.vacationHours + v.sickHours) * r) + (v.overtimeHours * r * 1.5) + v.shareBonus) * 100) / 100;
+    const g = Math.round((((v.regularHours + v.vacationHours + v.sickHours) * r) + ((v.overtimeHours + v.statHolidayHours) * r * 1.5) + v.shareBonus) * 100) / 100;
     setV({ ...v, grossPay: g }); onSave({ grossPay: g });
   };
   const cell = (key: keyof typeof v) => (
@@ -486,7 +490,7 @@ function LineRow({ line, showBonus, showPhone, showReimb, showTax, onSave, onEst
       <td className="px-1 text-right text-xs text-slate-500">{rate != null ? `$${rate}` : "—"}</td>
       <td className="px-1">{cell("regularHours")}</td>
       <td className="px-1">{cell("overtimeHours")}</td>
-      <td className="px-1">{cell("statHolidayHours")}</td>
+      {showStat && <td className="px-1">{cell("statHolidayHours")}</td>}
       <td className="px-1">{cell("vacationHours")}</td>
       <td className="px-1">{cell("sickHours")}</td>
       {showBonus && <td className="px-1">{cell("shareBonus")}</td>}
