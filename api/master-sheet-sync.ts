@@ -40,11 +40,13 @@ export type MasterClient = {
   registryNumber?: string | null; incorporationDate?: string | null;
   corpType?: string | null; governmentStatus?: string | null; bio?: string | null;
   hasIntercoJournals?: boolean | null;
+  workflowStatus?: string | null;
   // Sales/payment platforms — discrete checkbox columns (live on client_onboarding,
   // attached here by upsert so each platform is its own TRUE/FALSE column, never a
   // messy comma-list that breaks syncing).
   usesStripe?: boolean | null; usesSquare?: boolean | null; usesJobber?: boolean | null;
   usesTouchBistro?: boolean | null; usesPayPal?: boolean | null; usesWise?: boolean | null;
+  usesShopify?: boolean | null;
 };
 
 const norm = (s: any) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -65,7 +67,7 @@ export type FieldKey =
   | "corpType" | "govtStatus" | "address" | "phone" | "email" | "website" | "owner"
   | "triageEmail" | "yeMonth" | "hstCadence" | "nextHstDue" | "hstNumber"
   | "payrollPeriod" | "craRemitter" | "payrollRp" | "wsibNo" | "companyKey" | "craRepId"
-  | "useStripe" | "useSquare" | "useJobber" | "useTouchBistro" | "usePayPal" | "useWise" | "interco";
+  | "useStripe" | "useSquare" | "useJobber" | "useTouchBistro" | "usePayPal" | "useWise" | "useShopify" | "interco";
 
 type FieldDef = {
   key: FieldKey;
@@ -115,13 +117,14 @@ export const MASTER_FIELDS: FieldDef[] = [
   { key: "useTouchBistro", match: h => h.includes("touchbistro") || h.includes("touch bistro"), toSheet: c => boolToSheet(c.usesTouchBistro), soft: false, onb: true, fromSheet: r => ({ usesTouchBistro: boolFromSheet(r) }) },
   { key: "usePayPal", match: h => h.includes("paypal") || h.includes("pay pal"), toSheet: c => boolToSheet(c.usesPayPal), soft: false, onb: true, fromSheet: r => ({ usesPayPal: boolFromSheet(r) }) },
   { key: "useWise", match: h => h === "wise", toSheet: c => boolToSheet(c.usesWise), soft: false, onb: true, fromSheet: r => ({ usesWise: boolFromSheet(r) }) },
+  { key: "useShopify", match: h => h === "shopify", toSheet: c => boolToSheet(c.usesShopify), soft: false, onb: true, fromSheet: r => ({ usesShopify: boolFromSheet(r) }) },
   // Inter-company journals (client-level checkbox column).
   { key: "interco", match: h => h.includes("inter") && (h.includes("co") || h.includes("journal")), toSheet: c => boolToSheet(c.hasIntercoJournals), soft: false, fromSheet: r => ({ hasIntercoJournals: boolFromSheet(r) }) },
 ];
 
 // Headers for the discrete platform checkbox columns (self-provisioned into the
 // Client Master if missing). Order = how they're appended.
-export const PLATFORM_HEADERS = ["Stripe", "Square", "Jobber", "TouchBistro", "PayPal", "Wise", "Inter-Co Journals"];
+export const PLATFORM_HEADERS = ["Stripe", "Square", "Shopify", "Jobber", "TouchBistro", "PayPal", "Wise", "Inter-Co Journals"];
 
 /** The default header row written if the Client Master tab is ever empty. */
 export const DEFAULT_MASTER_HEADER = [
@@ -130,7 +133,7 @@ export const DEFAULT_MASTER_HEADER = [
   "Email", "Website", "Owner / Contact", "Figgy Triage Email", "Year-End Month",
   "Close Period", "HST Cadence", "Next HST Due", "HST #", "Payroll", "CRA Remitter",
   "Payroll RP #", "WSIB #", "# Employees", "POS / Apps", "Company Key", "CRA RepID",
-  "Stripe", "Square", "Jobber", "TouchBistro", "PayPal", "Wise", "Inter-Co Journals",
+  "Stripe", "Square", "Shopify", "Jobber", "TouchBistro", "PayPal", "Wise", "Inter-Co Journals",
 ];
 
 /** Map each known field → its column index in this header row (first match wins). */
@@ -189,9 +192,21 @@ async function sheetsApi(url: string, method: "GET" | "POST" | "PUT", body?: unk
  * row by CRA BN (else name), writes only the CRM-owned columns (by header), and
  * preserves every other column. Best-effort: returns true/false.
  */
+/** A record still in the lead pipeline belongs on the LEADS tab, never on the
+ *  Client Master (which is signed/active clients only). */
+export function isLeadStage(c: { status?: string | null; workflowStatus?: string | null }): boolean {
+  const s = String(c.status ?? "").toLowerCase();
+  if (s === "lead" || s === "prospect") return true;
+  const w = String(c.workflowStatus ?? "").toLowerCase();
+  const LEAD_STAGES = ["new_lead", "discovery_call", "discovery", "proposal_sent", "proposal", "quote_sent", "quoted", "negotiation", "lead", "onboarding_sent"];
+  return LEAD_STAGES.includes(w);
+}
+
 export async function upsertClientToMaster(c: MasterClient): Promise<boolean> {
   if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return false;
   if (!c.name && !c.company && !c.taxId) return false;
+  // Leads belong on the Leads tab — route them there and keep them OFF Client Master.
+  if (isLeadStage(c)) { try { syncLeadToMaster(c as any); } catch { /* non-fatal */ } return false; }
   const sid = CANONICAL_MASTER_SHEET_ID;
   const range = `'${MASTER_TAB}'!A:AZ`;
   try {
@@ -203,16 +218,32 @@ export async function upsertClientToMaster(c: MasterClient): Promise<boolean> {
     }
     let header = rows[0] || [];
 
-    // Self-provision the discrete platform checkbox columns: if any are missing
-    // from the header, append them (so the sheet gains real per-platform columns
-    // instead of a messy "POS / Apps" name-list). Idempotent.
+    // Self-provision the discrete platform/interco checkbox columns. The sheet's
+    // grid is fixed-width (Google rejects a write past the last column), so we
+    // EXPAND the grid first if needed, then write the new headers. Wrapped so a
+    // failure here NEVER blocks the client's row write below (best-effort).
     const haveHeaders = new Set(header.map((h) => norm(h)));
     const missing = PLATFORM_HEADERS.filter((h) => !haveHeaders.has(norm(h)));
     if (missing.length) {
-      const startCol = colLetter(header.length + 1);
-      header = [...header, ...missing];
-      const endCol = colLetter(header.length);
-      await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!${startCol}1:${endCol}1`)}?valueInputOption=RAW`, "PUT", { values: [missing] });
+      try {
+        const targetWidth = header.length + missing.length;
+        // Read the tab's grid width + sheetId; widen the grid if it's too narrow.
+        const meta = await sheetsApi(`spreadsheets/${sid}?fields=sheets(properties(title,sheetId,gridProperties(columnCount)))`, "GET");
+        const props = (meta?.sheets || []).map((s: any) => s?.properties).find((p: any) => p?.title === MASTER_TAB);
+        const colCount = props?.gridProperties?.columnCount ?? 26;
+        if (props?.sheetId != null && colCount < targetWidth) {
+          await sheetsApi(`spreadsheets/${sid}:batchUpdate`, "POST", {
+            requests: [{ appendDimension: { sheetId: props.sheetId, dimension: "COLUMNS", length: targetWidth - colCount } }],
+          });
+        }
+        const startCol = colLetter(header.length + 1);
+        const newHeader = [...header, ...missing];
+        const endCol = colLetter(newHeader.length);
+        await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!${startCol}1:${endCol}1`)}?valueInputOption=RAW`, "PUT", { values: [missing] });
+        header = newHeader;
+      } catch (e) {
+        console.error("[master-sync] platform-column provision failed (continuing with row write):", e instanceof Error ? e.message : e);
+      }
     }
 
     // Attach this client's platform flags (they live on client_onboarding) so the
@@ -223,7 +254,7 @@ export async function upsertClientToMaster(c: MasterClient): Promise<boolean> {
         const o = onbRows[onbRows.length - 1] as any;
         if (o) {
           c = { ...c, usesStripe: !!o.usesStripe, usesSquare: !!o.usesSquare, usesJobber: !!o.usesJobber,
-            usesTouchBistro: !!o.usesTouchBistro, usesPayPal: !!o.usesPayPal, usesWise: !!o.usesWise };
+            usesTouchBistro: !!o.usesTouchBistro, usesPayPal: !!o.usesPayPal, usesWise: !!o.usesWise, usesShopify: !!o.usesShopify };
         }
       } catch { /* non-fatal — platforms just stay unset */ }
     }

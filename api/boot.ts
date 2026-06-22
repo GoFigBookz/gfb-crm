@@ -61,7 +61,7 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-const BUILD_TAG = "2026-06-22.19";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-22.20";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -1146,6 +1146,13 @@ async function startServer() {
       console.log(`[seed] gov registry: ${g.patched}/${g.matched} client cards populated (bio/registry#/incorp/corp type/status)`);
     } catch (e) {
       console.error("[seed] seedGovRegistry failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { seedTriageEmails } = await import("./seed-triage-emails");
+      const te = await seedTriageEmails();
+      if (te.set) console.log(`[seed] triage emails: ${te.set} backfilled`);
+    } catch (e) {
+      console.error("[seed] seedTriageEmails failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { seedPayrollHistoryLinks } = await import("./seed-payroll-history-links");
