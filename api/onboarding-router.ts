@@ -580,6 +580,15 @@ export const onboardingRouter = createRouter({
       const clientPatch: Record<string, any> = { updatedAt: new Date() };
       for (const k of clientKeys) if ((rest as any)[k] !== undefined) clientPatch[k] = (rest as any)[k];
       if (typeof clientPatch.website === "string") clientPatch.website = clientPatch.website.toLowerCase();  // websites always lowercase
+      // ONE business number drives the program accounts — derive HST (RT) and
+      // payroll (RP) from the BN instead of asking for them separately.
+      const bnNow = (clientPatch.taxId ?? prior?.taxId) as string | undefined;
+      if (bnNow) {
+        const hasHstNow = clientPatch.hasHST ?? prior?.hasHST;
+        const hasPayNow = clientPatch.hasPayroll ?? prior?.hasPayroll;
+        if (hasHstNow && !(clientPatch.hstNumber || prior?.hstNumber)) clientPatch.hstNumber = `${bnNow}RT0001`;
+        if (hasPayNow && !(clientPatch.payrollRpNumber || prior?.payrollRpNumber)) clientPatch.payrollRpNumber = `${bnNow}RP0001`;
+      }
       if (Object.keys(clientPatch).length > 1) await db.update(clients).set(clientPatch).where(eq(clients.id, clientId));
 
       // (Switching TO wholesale / inactive is handled by the reconcile below,
