@@ -240,13 +240,14 @@ function PayrollTaxCalculator() {
   const periods = parseFloat(payPeriods) || 26;
 
   const caResult = useMemo(() => {
-    // Accurate 2026 Ontario CPP/CPP2/EI + federal/Ontario income tax via the
-    // shared, tested PDOC engine (annual method ÷ periods). Province selector is
-    // Ontario-accurate; other provinces use the same federal + ON estimate.
+    // Accurate 2026 CPP/CPP2/EI + federal income tax via the shared, tested PDOC
+    // engine (annual method ÷ periods). Provincial tax is now nationwide: Ontario
+    // uses its dedicated surtax+health-premium path; every other province/territory
+    // uses verified 2026 brackets + BPA. Still an estimate — verify on CRA PDOC.
     const freq = periods >= 52 ? "weekly" : periods >= 26 ? "biweekly" : periods >= 24 ? "semi_monthly" : "monthly";
     const ppy = periodsPerYear(freq);
     const perPeriod = sal > 0 ? sal / ppy : 0;
-    const pc = computePaycheck(perPeriod, freq);
+    const pc = computePaycheck(perPeriod, freq, undefined, undefined, province);
     return {
       gross: perPeriod,
       federalTax: pc.federalTax * ppy,
@@ -256,7 +257,7 @@ function PayrollTaxCalculator() {
       totalDeductions: pc.totalDeductions * ppy,
       net: pc.netPay * ppy,
     };
-  }, [sal, periods]);
+  }, [sal, periods, province]);
 
   const usResult = useMemo(() => {
     const gross = sal / periods;
@@ -328,7 +329,7 @@ function PayrollTaxCalculator() {
         </div>
 
         {country === "CA" && (
-          <p className="text-[11px] text-slate-400">Uses 2026 CRA rates — CPP 5.95% (+CPP2), EI 1.63%, federal + Ontario income tax (brackets, BPA, surtax, health premium). Estimate; verify on CRA PDOC before remitting.</p>
+          <p className="text-[11px] text-slate-400">Uses 2026 CRA rates — CPP 5.95% (+CPP2), EI 1.63%, federal income tax + the selected province/territory's 2026 brackets &amp; BPA (Ontario adds surtax + health premium; Quebec applies the 16.5% federal abatement). Estimate; verify on CRA PDOC before remitting.</p>
         )}
 
         {sal > 0 && (() => {

@@ -22329,6 +22329,7 @@ __export(schema_exports, {
   clientEmails: () => clientEmails,
   clientGovReps: () => clientGovReps,
   clientOnboarding: () => clientOnboarding,
+  clientParties: () => clientParties,
   clientPlaybooks: () => clientPlaybooks,
   clientRequestItems: () => clientRequestItems,
   clientRequests: () => clientRequests,
@@ -22384,7 +22385,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts;
+var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23912,6 +23913,23 @@ var init_schema = __esm({
       phone: text("phone"),
       isPrimary: integer2("isPrimary", { mode: "boolean" }).default(false),
       notes: text("notes"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    clientParties = sqliteTable("client_parties", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      kind: text("kind", { enum: ["vendor", "customer"] }).notNull(),
+      name: text("name").notNull(),
+      contactName: text("contactName"),
+      email: text("email"),
+      phone: text("phone"),
+      accountNumber: text("accountNumber"),
+      // vendor/customer account #
+      notes: text("notes"),
+      qboId: text("qboId"),
+      // QBO Vendor/Customer Id once synced
+      active: integer2("active", { mode: "boolean" }).default(true),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
@@ -39980,782 +39998,6 @@ var init_sync_hooks = __esm({
   }
 });
 
-// api/client-task-creator.ts
-var client_task_creator_exports = {};
-__export(client_task_creator_exports, {
-  createRecurringTasksForClient: () => createRecurringTasksForClient
-});
-function nextHSTDueDate(period, now = /* @__PURE__ */ new Date()) {
-  const year2 = now.getFullYear();
-  const month = now.getMonth();
-  if (period === "monthly") {
-    const due = new Date(year2, month + 1, 1);
-    return due;
-  }
-  if (period === "quarterly") {
-    const q = Math.floor(month / 3);
-    const dueMonths = [3, 6, 9, 0];
-    const dueYear = q === 3 ? year2 + 1 : year2;
-    return new Date(dueYear, dueMonths[q], 1);
-  }
-  if (period === "annual") {
-    return new Date(year2, 0, 1);
-  }
-  return new Date(year2, month + 1, 1);
-}
-function nextPayrollDueDate(frequency, now = /* @__PURE__ */ new Date()) {
-  const year2 = now.getFullYear();
-  const month = now.getMonth();
-  return new Date(year2, month + 1, 15);
-}
-function nextWSIBDueDate(quarter, now = /* @__PURE__ */ new Date()) {
-  const year2 = now.getFullYear();
-  const month = now.getMonth();
-  const q = Math.floor(month / 3);
-  if (quarter === "Q1") return new Date(year2, 3, 1);
-  if (quarter === "Q2") return new Date(year2, 6, 1);
-  if (quarter === "Q3") return new Date(year2, 9, 1);
-  if (quarter === "Q4") return new Date(year2 + 1, 0, 1);
-  if (quarter === "all" || !quarter) {
-    const dueMonths = [3, 6, 9, 0];
-    const dueYear = q === 3 ? year2 + 1 : year2;
-    return new Date(dueYear, dueMonths[q], 1);
-  }
-  return new Date(year2, month + 1, 1);
-}
-async function createRecurringTasksForClient(clientId, userId, flags, clientName, assignedTo) {
-  const db = getDb();
-  const created = [];
-  const now = /* @__PURE__ */ new Date();
-  if (flags.hasHST && flags.hstPeriod) {
-    const dueDate = nextHSTDueDate(flags.hstPeriod, now);
-    const title = `HST Filing \u2014 ${clientName}`;
-    const existing = await db.select({ id: tasks.id }).from(tasks).where(
-      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`HST Filing%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
-    ).limit(1);
-    if (existing.length === 0) {
-      const [task] = await db.insert(tasks).values({
-        userId,
-        clientId,
-        title,
-        description: `Prepare and file ${flags.hstPeriod} HST return.`,
-        dueDate,
-        priority: "high",
-        status: "pending",
-        category: "Tax Filing",
-        assignedTo: assignedTo || void 0,
-        isRecurring: true,
-        recurrenceCount: 0
-      }).returning();
-      if (task) {
-        syncInsert("tasks", task);
-        created.push(task.id);
-        const recurrencePattern = flags.hstPeriod === "monthly" ? "FREQ=MONTHLY;INTERVAL=1" : flags.hstPeriod === "quarterly" ? "FREQ=MONTHLY;INTERVAL=3" : "FREQ=YEARLY;INTERVAL=1";
-        await db.insert(recurringTasks).values({
-          clientId,
-          userId,
-          title,
-          description: `Prepare and file ${flags.hstPeriod} HST return for ${clientName}.`,
-          frequency: flags.hstPeriod === "monthly" ? "monthly" : flags.hstPeriod === "quarterly" ? "quarterly" : "yearly",
-          startDate: now,
-          nextDueDate: dueDate,
-          priority: "high",
-          category: "Tax Filing",
-          assignedTo: assignedTo || void 0,
-          active: true
-        });
-      }
-    }
-  }
-  if (flags.hasWSIB) {
-    const dueDate = nextWSIBDueDate(flags.wsibQuarter || "all", now);
-    const title = `WSIB Filing \u2014 ${clientName}`;
-    const existing = await db.select({ id: tasks.id }).from(tasks).where(
-      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`WSIB Filing%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
-    ).limit(1);
-    if (existing.length === 0) {
-      const [task] = await db.insert(tasks).values({
-        userId,
-        clientId,
-        title,
-        description: `Prepare and file WSIB return${flags.wsibQuarter && flags.wsibQuarter !== "all" ? ` for ${flags.wsibQuarter}` : ""}.`,
-        dueDate,
-        priority: "high",
-        status: "pending",
-        category: "Tax Filing",
-        assignedTo: assignedTo || void 0,
-        isRecurring: true,
-        recurrenceCount: 0
-      }).returning();
-      if (task) {
-        syncInsert("tasks", task);
-        created.push(task.id);
-        await db.insert(recurringTasks).values({
-          clientId,
-          userId,
-          title,
-          description: `Prepare and file WSIB return for ${clientName}.`,
-          frequency: "quarterly",
-          startDate: now,
-          nextDueDate: dueDate,
-          priority: "high",
-          category: "Tax Filing",
-          assignedTo: assignedTo || void 0,
-          active: true
-        });
-      }
-    }
-  }
-  if (flags.hasPayroll && flags.payrollFrequency && !flags.payrollExternal) {
-    const dueDate = nextPayrollDueDate(flags.payrollFrequency, now);
-    const title = `Payroll Remittance \u2014 ${clientName}`;
-    const existing = await db.select({ id: tasks.id }).from(tasks).where(
-      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`Payroll Remittance%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
-    ).limit(1);
-    if (existing.length === 0) {
-      const [task] = await db.insert(tasks).values({
-        userId,
-        clientId,
-        title,
-        description: `Process ${flags.payrollFrequency} payroll and remit source deductions.`,
-        dueDate,
-        priority: "high",
-        status: "pending",
-        category: "Payroll",
-        assignedTo: assignedTo || void 0,
-        isRecurring: true,
-        recurrenceCount: 0
-      }).returning();
-      if (task) {
-        syncInsert("tasks", task);
-        created.push(task.id);
-        const recurrencePattern = flags.payrollFrequency === "weekly" ? "FREQ=WEEKLY;INTERVAL=1" : flags.payrollFrequency === "bi-weekly" ? "FREQ=WEEKLY;INTERVAL=2" : flags.payrollFrequency === "semi-monthly" ? "FREQ=MONTHLY;BYMONTHDAY=15,-1" : flags.payrollFrequency === "monthly" ? "FREQ=MONTHLY;INTERVAL=1" : "FREQ=YEARLY;INTERVAL=1";
-        await db.insert(recurringTasks).values({
-          clientId,
-          userId,
-          title,
-          description: `Process ${flags.payrollFrequency} payroll and remit source deductions for ${clientName}.`,
-          frequency: flags.payrollFrequency === "weekly" ? "weekly" : flags.payrollFrequency === "bi-weekly" ? "biweekly" : flags.payrollFrequency === "semi-monthly" ? "monthly" : flags.payrollFrequency === "monthly" ? "monthly" : "yearly",
-          startDate: now,
-          nextDueDate: dueDate,
-          priority: "high",
-          category: "Payroll",
-          assignedTo: assignedTo || void 0,
-          active: true
-        });
-      }
-    }
-    const t4Due = new Date(now.getFullYear() + 1, 1, 28);
-    const t4Title = `T4 Filing \u2014 ${clientName}`;
-    const t4Existing = await db.select({ id: tasks.id }).from(tasks).where(
-      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${t4Title} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
-    ).limit(1);
-    if (t4Existing.length === 0) {
-      const [t4Task] = await db.insert(tasks).values({
-        userId,
-        clientId,
-        title: t4Title,
-        description: `Prepare and file annual T4/T4A slips and summary for ${clientName}.`,
-        dueDate: t4Due,
-        priority: "high",
-        status: "pending",
-        category: "Payroll",
-        assignedTo: assignedTo || void 0,
-        isRecurring: true,
-        recurrenceCount: 0
-      }).returning();
-      if (t4Task) {
-        syncInsert("tasks", t4Task);
-        created.push(t4Task.id);
-        await db.insert(recurringTasks).values({
-          clientId,
-          userId,
-          title: t4Title,
-          description: `Prepare and file annual T4/T4A slips and summary for ${clientName}.`,
-          frequency: "yearly",
-          startDate: now,
-          nextDueDate: t4Due,
-          priority: "high",
-          category: "Payroll",
-          assignedTo: assignedTo || void 0,
-          active: true
-        });
-      }
-    }
-  }
-  if (flags.paysDividends) {
-    const t5Due = new Date(now.getFullYear() + 1, 1, 28);
-    const t5Title = `T5 Filing \u2014 ${clientName}`;
-    const t5Existing = await db.select({ id: tasks.id }).from(tasks).where(
-      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${t5Title} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
-    ).limit(1);
-    if (t5Existing.length === 0) {
-      const [t5Task] = await db.insert(tasks).values({
-        userId,
-        clientId,
-        title: t5Title,
-        description: `Prepare and file T5 slips and summary (dividends/interest) for ${clientName}.`,
-        dueDate: t5Due,
-        priority: "high",
-        status: "pending",
-        category: "Tax Filing",
-        assignedTo: assignedTo || void 0,
-        isRecurring: true,
-        recurrenceCount: 0
-      }).returning();
-      if (t5Task) {
-        syncInsert("tasks", t5Task);
-        created.push(t5Task.id);
-        await db.insert(recurringTasks).values({
-          clientId,
-          userId,
-          title: t5Title,
-          description: `Prepare and file annual T5 slips and summary (dividends) for ${clientName}.`,
-          frequency: "yearly",
-          startDate: now,
-          nextDueDate: t5Due,
-          priority: "high",
-          category: "Tax Filing",
-          assignedTo: assignedTo || void 0,
-          active: true
-        });
-      }
-    }
-  }
-  return { created, count: created.length };
-}
-var init_client_task_creator = __esm({
-  "api/client-task-creator.ts"() {
-    init_connection();
-    init_schema();
-    init_drizzle_orm();
-    init_sync_hooks();
-  }
-});
-
-// api/month-end-core.ts
-function isOperationalClient(clientType) {
-  return (clientType || "monthly") !== "wholesale";
-}
-function isRelevantForPeriod(c, asOf = /* @__PURE__ */ new Date()) {
-  const type = c.clientType || "monthly";
-  if (type === "wholesale") return false;
-  if (c.hasPayroll || type === "monthly" || type === "payroll") return true;
-  const m = asOf.getMonth();
-  if (type === "quarterly") return m === 0 || m === 3 || m === 6 || m === 9;
-  if (type === "annual") {
-    if (c.openWork) return true;
-    const fyeIdx = c.yearEndMonth ? MONTHS.indexOf(c.yearEndMonth) : 11;
-    if (fyeIdx < 0) return true;
-    const since = (m - fyeIdx + 12) % 12;
-    return since <= 3;
-  }
-  return true;
-}
-function daysBetween(a, b) {
-  return Math.round((a.getTime() - b.getTime()) / DAY);
-}
-function addMonths(d, n) {
-  const r = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1));
-  const lastDay = new Date(Date.UTC(r.getUTCFullYear(), r.getUTCMonth() + 1, 0)).getUTCDate();
-  r.setUTCDate(Math.min(d.getUTCDate(), lastDay));
-  return r;
-}
-function endOfMonth(year2, monthIdx0) {
-  return new Date(Date.UTC(year2, monthIdx0 + 1, 0));
-}
-function ymd(d) {
-  return d.toISOString().slice(0, 10);
-}
-function computeHstStatus(opts) {
-  const { hasHST, asOf } = opts;
-  if (!hasHST || !opts.period) {
-    return {
-      applicable: false,
-      period: opts.period ?? null,
-      periodLabel: null,
-      periodEnd: null,
-      dueDate: null,
-      filed: null,
-      overdue: false,
-      daysToDue: null,
-      status: "green",
-      reason: hasHST ? "HST registered but no filing period set" : "Not HST registered"
-    };
-  }
-  const period = opts.period;
-  const y = asOf.getUTCFullYear();
-  const m = asOf.getUTCMonth();
-  let periodEnd;
-  let periodLabel;
-  let dueMonthsAfter = 1;
-  if (period === "monthly") {
-    periodEnd = endOfMonth(y, m - 1);
-    periodLabel = `${MONTHS[periodEnd.getUTCMonth()]} ${periodEnd.getUTCFullYear()}`;
-  } else if (period === "quarterly") {
-    const qIdx = Math.floor(m / 3);
-    const endIdx0 = qIdx * 3 - 1;
-    periodEnd = endOfMonth(y, endIdx0);
-    const q = Math.floor(periodEnd.getUTCMonth() / 3) + 1;
-    periodLabel = `Q${q} ${periodEnd.getUTCFullYear()}`;
-  } else {
-    dueMonthsAfter = 3;
-    const fyeMonth0 = (opts.fiscalYearEndMonth ?? 12) - 1;
-    let end = endOfMonth(y, fyeMonth0);
-    if (end.getTime() > asOf.getTime()) end = endOfMonth(y - 1, fyeMonth0);
-    periodEnd = end;
-    periodLabel = `FY ${periodEnd.getUTCFullYear()}`;
-  }
-  const dueDate = opts.explicitDueDate ? /* @__PURE__ */ new Date(`${opts.explicitDueDate}T00:00:00Z`) : addMonths(periodEnd, dueMonthsAfter);
-  const filed = opts.lastFiled != null ? opts.lastFiled.getTime() >= periodEnd.getTime() : null;
-  const daysToDue = daysBetween(dueDate, asOf);
-  const overdue = filed === false ? asOf.getTime() > dueDate.getTime() : filed == null ? asOf.getTime() > dueDate.getTime() : false;
-  let status;
-  let reason;
-  if (filed === true) {
-    status = "green";
-    reason = `${periodLabel} filed`;
-  } else if (overdue) {
-    status = "red";
-    reason = `${periodLabel} OVERDUE (was due ${ymd(dueDate)})`;
-  } else if (daysToDue <= 14) {
-    status = "yellow";
-    reason = `${periodLabel} due ${ymd(dueDate)} (${daysToDue}d)`;
-  } else {
-    status = filed == null ? "yellow" : "green";
-    reason = filed == null ? `${periodLabel} \u2014 filing status unknown` : `${periodLabel} due ${ymd(dueDate)}`;
-  }
-  return {
-    applicable: true,
-    period,
-    periodLabel,
-    periodEnd: ymd(periodEnd),
-    dueDate: ymd(dueDate),
-    filed,
-    overdue,
-    daysToDue,
-    status,
-    reason
-  };
-}
-function computeYearEndStatus(opts) {
-  const { yearEndMonth, asOf } = opts;
-  if (!yearEndMonth) {
-    return { applicable: false, fyeMonth: null, lastFyeDate: null, daysSinceFye: null, status: "green", reason: "No fiscal year-end set" };
-  }
-  const mIdx = MONTHS.indexOf(yearEndMonth);
-  if (mIdx < 0) {
-    return { applicable: false, fyeMonth: null, lastFyeDate: null, daysSinceFye: null, status: "green", reason: "Unrecognized year-end month" };
-  }
-  let fye = endOfMonth(asOf.getUTCFullYear(), mIdx);
-  if (fye.getTime() > asOf.getTime()) fye = endOfMonth(asOf.getUTCFullYear() - 1, mIdx);
-  const days = daysBetween(asOf, fye);
-  let status;
-  let reason;
-  if (days <= 90) {
-    status = "green";
-    reason = `Year-end ${ymd(fye)} (${days}d ago)`;
-  } else if (days <= 180) {
-    status = "yellow";
-    reason = `Year-end ${ymd(fye)} \u2014 ${days}d ago, wrap up`;
-  } else {
-    status = "red";
-    reason = `Year-end ${ymd(fye)} \u2014 ${days}d ago, overdue`;
-  }
-  return { applicable: true, fyeMonth: yearEndMonth, lastFyeDate: ymd(fye), daysSinceFye: days, status, reason };
-}
-function rollUpCloseStatus(opts) {
-  const { toReview, hst, yearEnd } = opts;
-  const checklistPercent = opts.checklistPercent ?? null;
-  const reasons = [];
-  let status = "green";
-  if (toReview > 20) {
-    status = worse(status, "red");
-    reasons.push(`${toReview} transactions awaiting review`);
-  } else if (toReview > 0) {
-    status = worse(status, "yellow");
-    reasons.push(`${toReview} transactions awaiting review`);
-  }
-  if (hst.applicable) {
-    status = worse(status, hst.status);
-    if (hst.status !== "green") reasons.push(hst.reason);
-  }
-  if (yearEnd.applicable) {
-    status = worse(status, yearEnd.status);
-    if (yearEnd.status !== "green") reasons.push(yearEnd.reason);
-  }
-  if (checklistPercent != null && checklistPercent < 100) {
-    const sev = checklistPercent < 50 ? "yellow" : "yellow";
-    status = worse(status, sev);
-    reasons.push(`Close checklist ${checklistPercent}%`);
-  }
-  if (reasons.length === 0) reasons.push("Up to date");
-  return { status, reasons, toReview, checklistPercent, hst, yearEnd };
-}
-var MONTHS, DAY, worse;
-var init_month_end_core = __esm({
-  "api/month-end-core.ts"() {
-    MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    DAY = 864e5;
-    worse = (a, b) => {
-      const rank = { green: 0, yellow: 1, red: 2 };
-      return rank[a] >= rank[b] ? a : b;
-    };
-  }
-});
-
-// api/client-router.ts
-function clientScope(ctx, idVal) {
-  return ctx.user?.role === "client" ? and(eq(clients.id, idVal), eq(clients.userId, ctx.user.id)) : eq(clients.id, idVal);
-}
-async function deactivateClientTasks(db, clientId) {
-  await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, clientId));
-  await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
-}
-async function reactivateClientTasks(db, clientId) {
-  await db.update(clientTaskRules).set({ active: true }).where(eq(clientTaskRules.clientId, clientId));
-  await db.update(tasks).set({ active: true }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
-}
-var clientRouter;
-var init_client_router = __esm({
-  "api/client-router.ts"() {
-    init_zod();
-    init_middleware();
-    init_connection();
-    init_schema();
-    init_drizzle_orm();
-    init_sync_hooks();
-    init_client_task_creator();
-    init_month_end_core();
-    clientRouter = createRouter({
-      // List clients — SHARED PRACTICE VIEW
-      // All staff (junior_bookkeeper+) can see all clients
-      // Client role only sees their own
-      list: authedQuery.input(external_exports.object({
-        search: external_exports.string().optional(),
-        status: external_exports.enum(["active", "inactive", "prospect", "lead", "all"]).optional().default("all"),
-        limit: external_exports.number().min(1).max(100).optional().default(50),
-        offset: external_exports.number().min(0).optional().default(0)
-      }).optional()).query(async ({ ctx, input }) => {
-        const db = getDb();
-        const userId = ctx.user.id;
-        const userRole = ctx.user.role;
-        const search = input?.search;
-        const status = input?.status ?? "all";
-        const conditions = [];
-        if (userRole === "client") {
-          conditions.push(eq(clients.userId, userId));
-        }
-        if (status !== "all") conditions.push(eq(clients.status, status));
-        if (search) conditions.push(like(clients.name, `%${search}%`));
-        const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
-        const results = await db.select().from(clients).where(whereClause).orderBy(desc(clients.updatedAt)).limit(input?.limit ?? 50).offset(input?.offset ?? 0);
-        return results;
-      }),
-      // Get single client
-      get: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {
-        const db = getDb();
-        const result = await db.select().from(clients).where(clientScope(ctx, input.id)).limit(1);
-        return result[0] ?? null;
-      }),
-      // Other companies in the same owner/group (client grouping). Staff see all; a
-      // client-role user only ever sees their own, so returns empty for them.
-      related: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
-        if (ctx.user?.role === "client") return [];
-        const db = getDb();
-        const me = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
-        const g = (me?.groupName || "").trim();
-        if (!g) return [];
-        const all = await db.select().from(clients);
-        return all.filter((c) => c.id !== input.clientId && (c.groupName || "").trim().toLowerCase() === g.toLowerCase()).map((c) => ({ id: c.id, name: c.name, status: c.status })).sort((a, b) => a.name.localeCompare(b.name));
-      }),
-      // Create client
-      create: authedQuery.input(external_exports.object({
-        name: external_exports.string().min(1).max(255),
-        email: external_exports.string().email(),
-        phone: external_exports.string().max(50).optional(),
-        company: external_exports.string().max(255).optional(),
-        website: external_exports.string().max(255).optional(),
-        address: external_exports.string().optional(),
-        taxId: external_exports.string().max(50).optional(),
-        status: external_exports.enum(["active", "inactive", "prospect", "lead"]).optional().default("active"),
-        clientType: external_exports.enum(["monthly", "quarterly", "annual", "payroll", "wholesale"]).optional(),
-        leadSource: external_exports.string().max(100).optional(),
-        leadSourceDetail: external_exports.string().max(255).optional(),
-        assignedTo: external_exports.enum(["Markie", "Rachelle"]).optional(),
-        notes: external_exports.string().optional(),
-        qboAccountType: external_exports.enum(["ca_clients", "us_clients", "personal_business"]).optional().default("ca_clients"),
-        billingType: external_exports.enum(["monthly_fixed", "annual_fixed", "one_time_cleanup", "hourly", "project", "hybrid"]).optional().default("monthly_fixed"),
-        monthlyFee: external_exports.number().optional(),
-        // Bookkeeping flags
-        hasHST: external_exports.boolean().optional().default(false),
-        hstNumber: external_exports.string().optional(),
-        hstPeriod: external_exports.enum(["monthly", "quarterly", "annual"]).optional(),
-        hasWSIB: external_exports.boolean().optional().default(false),
-        wsibAccountNumber: external_exports.string().optional(),
-        wsibQuarter: external_exports.enum(["Q1", "Q2", "Q3", "Q4", "all"]).optional(),
-        hasPayroll: external_exports.boolean().optional().default(false),
-        payrollFrequency: external_exports.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
-        payrollExternal: external_exports.boolean().optional(),
-        yearEndMonth: external_exports.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
-        // Quote fields
-        quoteAmount: external_exports.number().optional(),
-        quoteSentAt: external_exports.date().optional(),
-        quoteApprovedAt: external_exports.date().optional(),
-        transactionsPerMonth: external_exports.number().min(0).optional().default(0),
-        estimatedMonthlyValue: external_exports.number().min(0).optional(),
-        leadScore: external_exports.number().min(1).max(10).optional()
-      })).mutation(async ({ ctx, input }) => {
-        const db = getDb();
-        const { hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency, quoteAmount, quoteSentAt, quoteApprovedAt, ...rest } = input;
-        const [client] = await db.insert(clients).values({
-          ...rest,
-          userId: ctx.user.id,
-          hasHST,
-          hstPeriod,
-          hasWSIB,
-          wsibQuarter,
-          hasPayroll,
-          payrollFrequency,
-          quoteAmount,
-          quoteSentAt,
-          quoteApprovedAt
-        }).returning();
-        if (client) syncInsert("clients", client);
-        if (client && isOperationalClient(client.clientType)) {
-          await createRecurringTasksForClient(
-            client.id,
-            ctx.user.id,
-            { hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency, payrollExternal: input.payrollExternal },
-            client.name,
-            client.assignedTo
-          );
-        }
-        return client;
-      }),
-      // Update client
-      update: authedQuery.input(external_exports.object({
-        id: external_exports.number(),
-        name: external_exports.string().min(1).max(255).optional(),
-        email: external_exports.string().email().optional(),
-        phone: external_exports.string().max(50).optional(),
-        company: external_exports.string().max(255).optional(),
-        website: external_exports.string().max(255).optional(),
-        address: external_exports.string().optional(),
-        taxId: external_exports.string().max(50).optional(),
-        status: external_exports.enum(["active", "inactive", "prospect", "lead"]).optional(),
-        clientType: external_exports.enum(["monthly", "quarterly", "annual", "payroll", "wholesale"]).optional(),
-        workflowStatus: external_exports.string().optional(),
-        leadSource: external_exports.string().max(100).optional(),
-        leadSourceDetail: external_exports.string().max(255).optional(),
-        assignedTo: external_exports.enum(["Markie", "Rachelle"]).optional(),
-        notes: external_exports.string().optional(),
-        driveFolderUrl: external_exports.string().optional(),
-        quickLinks: external_exports.string().optional(),
-        qboAccountType: external_exports.enum(["ca_clients", "us_clients", "personal_business"]).optional(),
-        billingType: external_exports.enum(["monthly_fixed", "annual_fixed", "one_time_cleanup", "hourly", "project", "hybrid"]).optional(),
-        monthlyFee: external_exports.number().optional(),
-        // Bookkeeping flags
-        hasHST: external_exports.boolean().optional(),
-        hstNumber: external_exports.string().optional(),
-        hstPeriod: external_exports.enum(["monthly", "quarterly", "annual"]).optional(),
-        hasWSIB: external_exports.boolean().optional(),
-        wsibAccountNumber: external_exports.string().optional(),
-        wsibQuarter: external_exports.enum(["Q1", "Q2", "Q3", "Q4", "all"]).optional(),
-        hasPayroll: external_exports.boolean().optional(),
-        payrollFrequency: external_exports.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
-        payrollExternal: external_exports.boolean().optional(),
-        payrollBonuses: external_exports.boolean().optional(),
-        payrollDividends: external_exports.boolean().optional(),
-        payrollPhoneAllowance: external_exports.boolean().optional(),
-        payrollReimbursements: external_exports.boolean().optional(),
-        payrollRevenueShare: external_exports.boolean().optional(),
-        payrollCraComparison: external_exports.boolean().optional(),
-        payrollHoursSource: external_exports.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
-        monthlySalesReceipt: external_exports.boolean().optional(),
-        salesReceiptSource: external_exports.string().optional(),
-        groupName: external_exports.string().optional(),
-        yearEndMonth: external_exports.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
-        quoteAmount: external_exports.number().optional(),
-        quoteSentAt: external_exports.string().optional(),
-        quoteApprovedAt: external_exports.string().optional(),
-        engagementSentAt: external_exports.string().optional(),
-        engagementSignedAt: external_exports.string().optional()
-      })).mutation(async ({ ctx, input }) => {
-        const db = getDb();
-        const { id, hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency, billingType, monthlyFee, transactionsPerMonth, workflowStatus, quoteAmount, quoteSentAt, quoteApprovedAt, engagementSentAt, engagementSignedAt, ...updates } = input;
-        const current = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
-        const currentClient = current[0];
-        await db.update(clients).set({
-          ...updates,
-          ...hasHST !== void 0 && { hasHST },
-          ...hstPeriod !== void 0 && { hstPeriod },
-          ...hasWSIB !== void 0 && { hasWSIB },
-          ...wsibQuarter !== void 0 && { wsibQuarter },
-          ...hasPayroll !== void 0 && { hasPayroll },
-          ...payrollFrequency !== void 0 && { payrollFrequency },
-          ...billingType !== void 0 && { billingType },
-          ...monthlyFee !== void 0 && { monthlyFee },
-          ...transactionsPerMonth !== void 0 && { transactionsPerMonth },
-          ...workflowStatus !== void 0 && { workflowStatus },
-          ...quoteAmount !== void 0 && { quoteAmount },
-          ...quoteSentAt !== void 0 && { quoteSentAt },
-          ...quoteApprovedAt !== void 0 && { quoteApprovedAt },
-          ...engagementSentAt !== void 0 && { engagementSentAt },
-          ...engagementSignedAt !== void 0 && { engagementSignedAt }
-        }).where(clientScope(ctx, id));
-        const updatedRows = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
-        const updated = updatedRows[0];
-        if (updated) syncUpdate("clients", updated);
-        if (updates.status !== void 0 && currentClient && updates.status !== currentClient.status) {
-          if (updates.status === "inactive") await deactivateClientTasks(db, id);
-          else if (currentClient.status === "inactive") await reactivateClientTasks(db, id);
-        }
-        if (updated && !isOperationalClient(updated.clientType) && isOperationalClient(currentClient?.clientType)) {
-          await deactivateClientTasks(db, id);
-        }
-        const wasHst = currentClient?.hasHST ?? false;
-        const wasWsib = currentClient?.hasWSIB ?? false;
-        const wasPayroll = currentClient?.hasPayroll ?? false;
-        const wasDividends = currentClient?.payrollDividends ?? false;
-        if (updated && isOperationalClient(updated.clientType)) {
-          await createRecurringTasksForClient(
-            updated.id,
-            ctx.user.id,
-            {
-              hasHST: !wasHst && updated.hasHST ? true : void 0,
-              hstPeriod: updated.hstPeriod || void 0,
-              hasWSIB: !wasWsib && updated.hasWSIB ? true : void 0,
-              wsibQuarter: updated.wsibQuarter || void 0,
-              hasPayroll: !wasPayroll && updated.hasPayroll ? true : void 0,
-              payrollFrequency: updated.payrollFrequency || void 0,
-              payrollExternal: updated.payrollExternal ?? void 0,
-              paysDividends: !wasDividends && updated.payrollDividends ? true : void 0
-            },
-            updated.name,
-            updated.assignedTo
-          );
-        }
-        return { success: true };
-      }),
-      // Update client links only
-      updateLinks: authedQuery.input(external_exports.object({
-        id: external_exports.number(),
-        driveFolderUrl: external_exports.string().optional(),
-        quickLinks: external_exports.string().optional()
-      })).mutation(async ({ ctx, input }) => {
-        const db = getDb();
-        const { id, ...updates } = input;
-        await db.update(clients).set(updates).where(clientScope(ctx, id));
-        return { success: true };
-      }),
-      // Delete client — cascades to their tasks + recurring rules so nothing is
-      // left orphaned (and they stop showing in task lists / generating new work).
-      delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
-        const db = getDb();
-        await db.delete(tasks).where(eq(tasks.clientId, input.id));
-        await db.delete(clientTaskRules).where(eq(clientTaskRules.clientId, input.id));
-        await db.delete(clients).where(clientScope(ctx, input.id));
-        return { success: true };
-      }),
-      // Send Quote
-      sendQuote: authedQuery.input(external_exports.object({
-        id: external_exports.number(),
-        amount: external_exports.number().min(0)
-      })).mutation(async ({ ctx, input }) => {
-        const db = getDb();
-        const now = /* @__PURE__ */ new Date();
-        await db.update(clients).set({
-          quoteAmount: input.amount,
-          quoteSentAt: now,
-          workflowStatus: "quote_sent"
-        }).where(clientScope(ctx, input.id));
-        return { success: true, quoteSentAt: now };
-      }),
-      // Approve Quote
-      approveQuote: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
-        const db = getDb();
-        const now = /* @__PURE__ */ new Date();
-        await db.update(clients).set({
-          quoteApprovedAt: now,
-          workflowStatus: "quote_approved"
-        }).where(clientScope(ctx, input.id));
-        return { success: true, quoteApprovedAt: now };
-      }),
-      // Send Engagement Letter
-      sendEngagement: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
-        const db = getDb();
-        const now = /* @__PURE__ */ new Date();
-        await db.update(clients).set({
-          engagementSentAt: now,
-          workflowStatus: "engagement_sent"
-        }).where(clientScope(ctx, input.id));
-        return { success: true, engagementSentAt: now };
-      }),
-      // Sign Engagement Letter
-      signEngagement: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
-        const db = getDb();
-        const now = /* @__PURE__ */ new Date();
-        await db.update(clients).set({
-          engagementSignedAt: now,
-          workflowStatus: "onboarding_sent"
-        }).where(clientScope(ctx, input.id));
-        return { success: true, engagementSignedAt: now };
-      }),
-      // Archive client (make inactive) — also pauses their recurring rules + open
-      // tasks so an archived client stops generating and showing work.
-      archive: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
-        const db = getDb();
-        await db.update(clients).set({
-          status: "inactive",
-          workflowStatus: "inactive"
-        }).where(clientScope(ctx, input.id));
-        await deactivateClientTasks(db, input.id);
-        return { success: true };
-      }),
-      // Satisfaction scores
-      getSatisfactionScores: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
-        const db = getDb();
-        return db.select().from(satisfactionScores).where(eq(satisfactionScores.clientId, input.clientId)).orderBy(desc(satisfactionScores.createdAt));
-      }),
-      addSatisfactionScore: authedQuery.input(external_exports.object({
-        clientId: external_exports.number(),
-        score: external_exports.number().min(1).max(10),
-        notes: external_exports.string().optional()
-      })).mutation(async ({ ctx, input }) => {
-        const db = getDb();
-        const [result] = await db.insert(satisfactionScores).values({
-          clientId: input.clientId,
-          userId: ctx.user.id,
-          score: input.score,
-          notes: input.notes,
-          createdAt: /* @__PURE__ */ new Date()
-        }).returning();
-        return result;
-      }),
-      // Lead Pipeline Stats — SHARED: all staff see firm-wide stats
-      pipelineStats: authedQuery.query(async ({ ctx }) => {
-        const db = getDb();
-        const userRole = ctx.user.role;
-        const allClients = userRole === "client" ? await db.select().from(clients).where(eq(clients.userId, ctx.user.id)) : await db.select().from(clients);
-        const leads = allClients.filter((c) => c.status === "lead" || c.status === "prospect");
-        const active = allClients.filter((c) => c.status === "active");
-        return {
-          totalLeads: leads.length,
-          newLeads: leads.filter((c) => c.workflowStatus === "new_lead").length,
-          discoveryCalls: leads.filter((c) => c.workflowStatus === "discovery_call").length,
-          quotesSent: leads.filter((c) => c.workflowStatus === "quote_sent").length,
-          quotesApproved: leads.filter((c) => c.workflowStatus === "quote_approved").length,
-          engagementsSent: leads.filter((c) => c.workflowStatus === "engagement_sent").length,
-          onboarding: leads.filter((c) => c.workflowStatus === "onboarding_sent" || c.workflowStatus === "onboarding_complete").length,
-          activeClients: active.length,
-          totalPipelineValue: leads.reduce((sum3, c) => sum3 + (c.estimatedMonthlyValue || 0), 0)
-        };
-      })
-    });
-  }
-});
-
 // api/client-match.ts
 async function matchClientIdByName(raw2) {
   const t2 = norm(raw2);
@@ -40795,6 +40037,7 @@ __export(task_generator_exports, {
   buildTaskRules: () => buildTaskRules,
   calculateNextDueDate: () => calculateNextDueDate,
   createClientTaskRules: () => createClientTaskRules,
+  ensureComplianceForClient: () => ensureComplianceForClient,
   ensureComplianceRulesAndTasks: () => ensureComplianceRulesAndTasks,
   ensureSetupTasks: () => ensureSetupTasks,
   generateNextTaskInstance: () => generateNextTaskInstance,
@@ -40870,6 +40113,22 @@ function buildTaskRules(data) {
       category: "Sales",
       priority: "high",
       frequency: "monthly",
+      dueDayOfMonth: 10,
+      daysBeforeDue: 0,
+      fiscalYearEndMonth: fy?.month,
+      fiscalYearEndDay: fy?.day
+    });
+  }
+  if (data.monthlySalesReceipt && receiptPlatforms.length === 0) {
+    const src = data.salesReceiptSource ? ` (${data.salesReceiptSource})` : "";
+    const freq = data.salesEntryFrequency === "daily" || data.salesEntryFrequency === "weekly" ? data.salesEntryFrequency : "monthly";
+    rules.push({
+      ruleType: "monthly_sales_receipt",
+      title: "Monthly Sales Receipt \u2014 total sales",
+      description: `Pull the period's total sales report${src}, break out net sales and HST/GST, then enter ONE total Sales Receipt in QuickBooks and reconcile to the bank deposit.`,
+      category: "Sales",
+      priority: "high",
+      frequency: freq,
       dueDayOfMonth: 10,
       daysBeforeDue: 0,
       fiscalYearEndMonth: fy?.month,
@@ -41419,6 +40678,50 @@ async function createClientTaskRules(data) {
   });
   return { rules: createdRules, tasks: createdTasks, setupTasks: setupCreated };
 }
+async function ensureComplianceForClient(clientId, opts = {}) {
+  const db = getDb();
+  const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+  if (!c) return { rules: 0, tasks: 0 };
+  if (c.clientType && c.clientType === "wholesale") return { rules: 0, tasks: 0 };
+  const onbRows = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(clientOnboarding.id);
+  const onb = onbRows[onbRows.length - 1] || {};
+  const hstFreq = c.hasHST ? c.hstPeriod === "monthly" ? "monthly" : c.hstPeriod === "quarterly" ? "quarterly" : "annually" : null;
+  const fiscalYearEnd = c.yearEndMonth ? `${c.yearEndMonth} 30` : onb.fiscalYearEnd ?? null;
+  return ensureComplianceRulesAndTasks({
+    clientId,
+    userId: opts.userId ?? c.userId ?? 1,
+    assignedTo: opts.assignedTo ?? c.assignedTo ?? null,
+    fiscalYearEnd,
+    hstGstFrequency: hstFreq,
+    payrollFrequency: c.hasPayroll ? c.payrollFrequency || "monthly" : null,
+    payrollRemitterFreq: c.payrollRemitterFreq || "regular",
+    payrollExternal: !!c.payrollExternal,
+    hasEmployees: !!c.hasPayroll,
+    paysDividends: !!c.payrollDividends || !!onb.paysDividends,
+    hasSubcontractors: !!onb.hasSubcontractors,
+    hasInvestments: !!onb.hasInvestments,
+    hasEHT: !!onb.hasEHT,
+    wsibRequired: !!c.hasWSIB,
+    needsYearEnd: onb.needsYearEnd !== false,
+    bankAccountCount: onb.bankAccountCount ?? 1,
+    creditCardCount: onb.creditCardCount ?? 0,
+    bookkeepingFrequency: onb.bookkeepingFrequency ?? null,
+    usesStripe: !!onb.usesStripe,
+    usesSquare: !!onb.usesSquare,
+    usesJobber: !!onb.usesJobber,
+    usesTouchBistro: !!onb.usesTouchBistro,
+    usesPayPal: !!onb.usesPayPal,
+    usesWise: !!onb.usesWise,
+    salesEntryFrequency: onb.salesEntryFrequency ?? null,
+    usesHubdoc: !!onb.usesHubdoc,
+    hasJobCosting: !!onb.hasJobCosting,
+    invoicingResponsibility: onb.invoicingResponsibility ?? null,
+    billPayResponsibility: onb.billPayResponsibility ?? null,
+    // monthlySalesReceipt lives on the client record
+    monthlySalesReceipt: !!c.monthlySalesReceipt,
+    salesReceiptSource: c.salesReceiptSource ?? null
+  });
+}
 async function ensureComplianceRulesAndTasks(data) {
   const db = getDb();
   const rules = buildTaskRules(data);
@@ -41520,6 +40823,508 @@ var init_task_generator = __esm({
       "payroll_remit_quarterly",
       "payroll_remit_accelerated"
     ];
+  }
+});
+
+// api/month-end-core.ts
+function isOperationalClient(clientType) {
+  return (clientType || "monthly") !== "wholesale";
+}
+function isRelevantForPeriod(c, asOf = /* @__PURE__ */ new Date()) {
+  const type = c.clientType || "monthly";
+  if (type === "wholesale") return false;
+  if (c.hasPayroll || type === "monthly" || type === "payroll") return true;
+  const m = asOf.getMonth();
+  if (type === "quarterly") return m === 0 || m === 3 || m === 6 || m === 9;
+  if (type === "annual") {
+    if (c.openWork) return true;
+    const fyeIdx = c.yearEndMonth ? MONTHS.indexOf(c.yearEndMonth) : 11;
+    if (fyeIdx < 0) return true;
+    const since = (m - fyeIdx + 12) % 12;
+    return since <= 3;
+  }
+  return true;
+}
+function daysBetween(a, b) {
+  return Math.round((a.getTime() - b.getTime()) / DAY);
+}
+function addMonths(d, n) {
+  const r = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1));
+  const lastDay = new Date(Date.UTC(r.getUTCFullYear(), r.getUTCMonth() + 1, 0)).getUTCDate();
+  r.setUTCDate(Math.min(d.getUTCDate(), lastDay));
+  return r;
+}
+function endOfMonth(year2, monthIdx0) {
+  return new Date(Date.UTC(year2, monthIdx0 + 1, 0));
+}
+function ymd(d) {
+  return d.toISOString().slice(0, 10);
+}
+function computeHstStatus(opts) {
+  const { hasHST, asOf } = opts;
+  if (!hasHST || !opts.period) {
+    return {
+      applicable: false,
+      period: opts.period ?? null,
+      periodLabel: null,
+      periodEnd: null,
+      dueDate: null,
+      filed: null,
+      overdue: false,
+      daysToDue: null,
+      status: "green",
+      reason: hasHST ? "HST registered but no filing period set" : "Not HST registered"
+    };
+  }
+  const period = opts.period;
+  const y = asOf.getUTCFullYear();
+  const m = asOf.getUTCMonth();
+  let periodEnd;
+  let periodLabel;
+  let dueMonthsAfter = 1;
+  if (period === "monthly") {
+    periodEnd = endOfMonth(y, m - 1);
+    periodLabel = `${MONTHS[periodEnd.getUTCMonth()]} ${periodEnd.getUTCFullYear()}`;
+  } else if (period === "quarterly") {
+    const qIdx = Math.floor(m / 3);
+    const endIdx0 = qIdx * 3 - 1;
+    periodEnd = endOfMonth(y, endIdx0);
+    const q = Math.floor(periodEnd.getUTCMonth() / 3) + 1;
+    periodLabel = `Q${q} ${periodEnd.getUTCFullYear()}`;
+  } else {
+    dueMonthsAfter = 3;
+    const fyeMonth0 = (opts.fiscalYearEndMonth ?? 12) - 1;
+    let end = endOfMonth(y, fyeMonth0);
+    if (end.getTime() > asOf.getTime()) end = endOfMonth(y - 1, fyeMonth0);
+    periodEnd = end;
+    periodLabel = `FY ${periodEnd.getUTCFullYear()}`;
+  }
+  const dueDate = opts.explicitDueDate ? /* @__PURE__ */ new Date(`${opts.explicitDueDate}T00:00:00Z`) : addMonths(periodEnd, dueMonthsAfter);
+  const filed = opts.lastFiled != null ? opts.lastFiled.getTime() >= periodEnd.getTime() : null;
+  const daysToDue = daysBetween(dueDate, asOf);
+  const overdue = filed === false ? asOf.getTime() > dueDate.getTime() : filed == null ? asOf.getTime() > dueDate.getTime() : false;
+  let status;
+  let reason;
+  if (filed === true) {
+    status = "green";
+    reason = `${periodLabel} filed`;
+  } else if (overdue) {
+    status = "red";
+    reason = `${periodLabel} OVERDUE (was due ${ymd(dueDate)})`;
+  } else if (daysToDue <= 14) {
+    status = "yellow";
+    reason = `${periodLabel} due ${ymd(dueDate)} (${daysToDue}d)`;
+  } else {
+    status = filed == null ? "yellow" : "green";
+    reason = filed == null ? `${periodLabel} \u2014 filing status unknown` : `${periodLabel} due ${ymd(dueDate)}`;
+  }
+  return {
+    applicable: true,
+    period,
+    periodLabel,
+    periodEnd: ymd(periodEnd),
+    dueDate: ymd(dueDate),
+    filed,
+    overdue,
+    daysToDue,
+    status,
+    reason
+  };
+}
+function computeYearEndStatus(opts) {
+  const { yearEndMonth, asOf } = opts;
+  if (!yearEndMonth) {
+    return { applicable: false, fyeMonth: null, lastFyeDate: null, daysSinceFye: null, status: "green", reason: "No fiscal year-end set" };
+  }
+  const mIdx = MONTHS.indexOf(yearEndMonth);
+  if (mIdx < 0) {
+    return { applicable: false, fyeMonth: null, lastFyeDate: null, daysSinceFye: null, status: "green", reason: "Unrecognized year-end month" };
+  }
+  let fye = endOfMonth(asOf.getUTCFullYear(), mIdx);
+  if (fye.getTime() > asOf.getTime()) fye = endOfMonth(asOf.getUTCFullYear() - 1, mIdx);
+  const days = daysBetween(asOf, fye);
+  let status;
+  let reason;
+  if (days <= 90) {
+    status = "green";
+    reason = `Year-end ${ymd(fye)} (${days}d ago)`;
+  } else if (days <= 180) {
+    status = "yellow";
+    reason = `Year-end ${ymd(fye)} \u2014 ${days}d ago, wrap up`;
+  } else {
+    status = "red";
+    reason = `Year-end ${ymd(fye)} \u2014 ${days}d ago, overdue`;
+  }
+  return { applicable: true, fyeMonth: yearEndMonth, lastFyeDate: ymd(fye), daysSinceFye: days, status, reason };
+}
+function rollUpCloseStatus(opts) {
+  const { toReview, hst, yearEnd } = opts;
+  const checklistPercent = opts.checklistPercent ?? null;
+  const reasons = [];
+  let status = "green";
+  if (toReview > 20) {
+    status = worse(status, "red");
+    reasons.push(`${toReview} transactions awaiting review`);
+  } else if (toReview > 0) {
+    status = worse(status, "yellow");
+    reasons.push(`${toReview} transactions awaiting review`);
+  }
+  if (hst.applicable) {
+    status = worse(status, hst.status);
+    if (hst.status !== "green") reasons.push(hst.reason);
+  }
+  if (yearEnd.applicable) {
+    status = worse(status, yearEnd.status);
+    if (yearEnd.status !== "green") reasons.push(yearEnd.reason);
+  }
+  if (checklistPercent != null && checklistPercent < 100) {
+    const sev = checklistPercent < 50 ? "yellow" : "yellow";
+    status = worse(status, sev);
+    reasons.push(`Close checklist ${checklistPercent}%`);
+  }
+  if (reasons.length === 0) reasons.push("Up to date");
+  return { status, reasons, toReview, checklistPercent, hst, yearEnd };
+}
+var MONTHS, DAY, worse;
+var init_month_end_core = __esm({
+  "api/month-end-core.ts"() {
+    MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    DAY = 864e5;
+    worse = (a, b) => {
+      const rank = { green: 0, yellow: 1, red: 2 };
+      return rank[a] >= rank[b] ? a : b;
+    };
+  }
+});
+
+// api/client-router.ts
+function clientScope(ctx, idVal) {
+  return ctx.user?.role === "client" ? and(eq(clients.id, idVal), eq(clients.userId, ctx.user.id)) : eq(clients.id, idVal);
+}
+async function deactivateClientTasks(db, clientId) {
+  await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, clientId));
+  await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
+}
+async function reactivateClientTasks(db, clientId) {
+  await db.update(clientTaskRules).set({ active: true }).where(eq(clientTaskRules.clientId, clientId));
+  await db.update(tasks).set({ active: true }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
+}
+var clientRouter;
+var init_client_router = __esm({
+  "api/client-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_sync_hooks();
+    init_task_generator();
+    init_month_end_core();
+    clientRouter = createRouter({
+      // List clients — SHARED PRACTICE VIEW
+      // All staff (junior_bookkeeper+) can see all clients
+      // Client role only sees their own
+      list: authedQuery.input(external_exports.object({
+        search: external_exports.string().optional(),
+        status: external_exports.enum(["active", "inactive", "prospect", "lead", "all"]).optional().default("all"),
+        limit: external_exports.number().min(1).max(100).optional().default(50),
+        offset: external_exports.number().min(0).optional().default(0)
+      }).optional()).query(async ({ ctx, input }) => {
+        const db = getDb();
+        const userId = ctx.user.id;
+        const userRole = ctx.user.role;
+        const search = input?.search;
+        const status = input?.status ?? "all";
+        const conditions = [];
+        if (userRole === "client") {
+          conditions.push(eq(clients.userId, userId));
+        }
+        if (status !== "all") conditions.push(eq(clients.status, status));
+        if (search) conditions.push(like(clients.name, `%${search}%`));
+        const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
+        const results = await db.select().from(clients).where(whereClause).orderBy(desc(clients.updatedAt)).limit(input?.limit ?? 50).offset(input?.offset ?? 0);
+        return results;
+      }),
+      // Get single client
+      get: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {
+        const db = getDb();
+        const result = await db.select().from(clients).where(clientScope(ctx, input.id)).limit(1);
+        return result[0] ?? null;
+      }),
+      // Other companies in the same owner/group (client grouping). Staff see all; a
+      // client-role user only ever sees their own, so returns empty for them.
+      related: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
+        if (ctx.user?.role === "client") return [];
+        const db = getDb();
+        const me = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        const g = (me?.groupName || "").trim();
+        if (!g) return [];
+        const all = await db.select().from(clients);
+        return all.filter((c) => c.id !== input.clientId && (c.groupName || "").trim().toLowerCase() === g.toLowerCase()).map((c) => ({ id: c.id, name: c.name, status: c.status })).sort((a, b) => a.name.localeCompare(b.name));
+      }),
+      // Create client
+      create: authedQuery.input(external_exports.object({
+        name: external_exports.string().min(1).max(255),
+        email: external_exports.string().email(),
+        phone: external_exports.string().max(50).optional(),
+        company: external_exports.string().max(255).optional(),
+        website: external_exports.string().max(255).optional(),
+        address: external_exports.string().optional(),
+        taxId: external_exports.string().max(50).optional(),
+        status: external_exports.enum(["active", "inactive", "prospect", "lead"]).optional().default("active"),
+        clientType: external_exports.enum(["monthly", "quarterly", "annual", "payroll", "wholesale"]).optional(),
+        leadSource: external_exports.string().max(100).optional(),
+        leadSourceDetail: external_exports.string().max(255).optional(),
+        assignedTo: external_exports.enum(["Markie", "Rachelle"]).optional(),
+        notes: external_exports.string().optional(),
+        qboAccountType: external_exports.enum(["ca_clients", "us_clients", "personal_business"]).optional().default("ca_clients"),
+        billingType: external_exports.enum(["monthly_fixed", "annual_fixed", "one_time_cleanup", "hourly", "project", "hybrid"]).optional().default("monthly_fixed"),
+        monthlyFee: external_exports.number().optional(),
+        // Bookkeeping flags
+        hasHST: external_exports.boolean().optional().default(false),
+        hstNumber: external_exports.string().optional(),
+        hstPeriod: external_exports.enum(["monthly", "quarterly", "annual"]).optional(),
+        hasWSIB: external_exports.boolean().optional().default(false),
+        wsibAccountNumber: external_exports.string().optional(),
+        wsibQuarter: external_exports.enum(["Q1", "Q2", "Q3", "Q4", "all"]).optional(),
+        hasPayroll: external_exports.boolean().optional().default(false),
+        payrollFrequency: external_exports.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
+        payrollExternal: external_exports.boolean().optional(),
+        yearEndMonth: external_exports.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
+        // Quote fields
+        quoteAmount: external_exports.number().optional(),
+        quoteSentAt: external_exports.date().optional(),
+        quoteApprovedAt: external_exports.date().optional(),
+        transactionsPerMonth: external_exports.number().min(0).optional().default(0),
+        estimatedMonthlyValue: external_exports.number().min(0).optional(),
+        leadScore: external_exports.number().min(1).max(10).optional()
+      })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const { hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency, quoteAmount, quoteSentAt, quoteApprovedAt, ...rest } = input;
+        const [client] = await db.insert(clients).values({
+          ...rest,
+          userId: ctx.user.id,
+          hasHST,
+          hstPeriod,
+          hasWSIB,
+          wsibQuarter,
+          hasPayroll,
+          payrollFrequency,
+          quoteAmount,
+          quoteSentAt,
+          quoteApprovedAt
+        }).returning();
+        if (client) syncInsert("clients", client);
+        if (client && isOperationalClient(client.clientType)) {
+          await ensureComplianceForClient(client.id, { userId: ctx.user.id, assignedTo: client.assignedTo });
+        }
+        return client;
+      }),
+      // Update client
+      update: authedQuery.input(external_exports.object({
+        id: external_exports.number(),
+        name: external_exports.string().min(1).max(255).optional(),
+        email: external_exports.string().email().optional(),
+        phone: external_exports.string().max(50).optional(),
+        company: external_exports.string().max(255).optional(),
+        website: external_exports.string().max(255).optional(),
+        address: external_exports.string().optional(),
+        taxId: external_exports.string().max(50).optional(),
+        status: external_exports.enum(["active", "inactive", "prospect", "lead"]).optional(),
+        clientType: external_exports.enum(["monthly", "quarterly", "annual", "payroll", "wholesale"]).optional(),
+        workflowStatus: external_exports.string().optional(),
+        leadSource: external_exports.string().max(100).optional(),
+        leadSourceDetail: external_exports.string().max(255).optional(),
+        assignedTo: external_exports.enum(["Markie", "Rachelle"]).optional(),
+        notes: external_exports.string().optional(),
+        driveFolderUrl: external_exports.string().optional(),
+        quickLinks: external_exports.string().optional(),
+        qboAccountType: external_exports.enum(["ca_clients", "us_clients", "personal_business"]).optional(),
+        billingType: external_exports.enum(["monthly_fixed", "annual_fixed", "one_time_cleanup", "hourly", "project", "hybrid"]).optional(),
+        monthlyFee: external_exports.number().optional(),
+        // Bookkeeping flags
+        hasHST: external_exports.boolean().optional(),
+        hstNumber: external_exports.string().optional(),
+        hstPeriod: external_exports.enum(["monthly", "quarterly", "annual"]).optional(),
+        hasWSIB: external_exports.boolean().optional(),
+        wsibAccountNumber: external_exports.string().optional(),
+        wsibQuarter: external_exports.enum(["Q1", "Q2", "Q3", "Q4", "all"]).optional(),
+        hasPayroll: external_exports.boolean().optional(),
+        payrollFrequency: external_exports.enum(["weekly", "bi-weekly", "semi-monthly", "monthly", "self"]).optional(),
+        payrollExternal: external_exports.boolean().optional(),
+        payrollBonuses: external_exports.boolean().optional(),
+        payrollDividends: external_exports.boolean().optional(),
+        payrollPhoneAllowance: external_exports.boolean().optional(),
+        payrollReimbursements: external_exports.boolean().optional(),
+        payrollRevenueShare: external_exports.boolean().optional(),
+        payrollCraComparison: external_exports.boolean().optional(),
+        payrollHoursSource: external_exports.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
+        monthlySalesReceipt: external_exports.boolean().optional(),
+        salesReceiptSource: external_exports.string().optional(),
+        groupName: external_exports.string().optional(),
+        yearEndMonth: external_exports.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
+        quoteAmount: external_exports.number().optional(),
+        quoteSentAt: external_exports.string().optional(),
+        quoteApprovedAt: external_exports.string().optional(),
+        engagementSentAt: external_exports.string().optional(),
+        engagementSignedAt: external_exports.string().optional()
+      })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const { id, hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency, billingType, monthlyFee, transactionsPerMonth, workflowStatus, quoteAmount, quoteSentAt, quoteApprovedAt, engagementSentAt, engagementSignedAt, ...updates } = input;
+        const current = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
+        const currentClient = current[0];
+        await db.update(clients).set({
+          ...updates,
+          ...hasHST !== void 0 && { hasHST },
+          ...hstPeriod !== void 0 && { hstPeriod },
+          ...hasWSIB !== void 0 && { hasWSIB },
+          ...wsibQuarter !== void 0 && { wsibQuarter },
+          ...hasPayroll !== void 0 && { hasPayroll },
+          ...payrollFrequency !== void 0 && { payrollFrequency },
+          ...billingType !== void 0 && { billingType },
+          ...monthlyFee !== void 0 && { monthlyFee },
+          ...transactionsPerMonth !== void 0 && { transactionsPerMonth },
+          ...workflowStatus !== void 0 && { workflowStatus },
+          ...quoteAmount !== void 0 && { quoteAmount },
+          ...quoteSentAt !== void 0 && { quoteSentAt },
+          ...quoteApprovedAt !== void 0 && { quoteApprovedAt },
+          ...engagementSentAt !== void 0 && { engagementSentAt },
+          ...engagementSignedAt !== void 0 && { engagementSignedAt }
+        }).where(clientScope(ctx, id));
+        const updatedRows = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
+        const updated = updatedRows[0];
+        if (updated) syncUpdate("clients", updated);
+        if (updates.status !== void 0 && currentClient && updates.status !== currentClient.status) {
+          if (updates.status === "inactive") await deactivateClientTasks(db, id);
+          else if (currentClient.status === "inactive") await reactivateClientTasks(db, id);
+        }
+        if (updated && !isOperationalClient(updated.clientType) && isOperationalClient(currentClient?.clientType)) {
+          await deactivateClientTasks(db, id);
+        }
+        const wasHst = currentClient?.hasHST ?? false;
+        const wasWsib = currentClient?.hasWSIB ?? false;
+        const wasPayroll = currentClient?.hasPayroll ?? false;
+        const wasDividends = currentClient?.payrollDividends ?? false;
+        if (updated && isOperationalClient(updated.clientType) && (!wasHst && updated.hasHST || !wasWsib && updated.hasWSIB || !wasPayroll && updated.hasPayroll || !wasDividends && updated.payrollDividends || updates.clientType !== void 0)) {
+          await ensureComplianceForClient(updated.id, { userId: ctx.user.id, assignedTo: updated.assignedTo });
+        }
+        return { success: true };
+      }),
+      // Update client links only
+      updateLinks: authedQuery.input(external_exports.object({
+        id: external_exports.number(),
+        driveFolderUrl: external_exports.string().optional(),
+        quickLinks: external_exports.string().optional()
+      })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const { id, ...updates } = input;
+        await db.update(clients).set(updates).where(clientScope(ctx, id));
+        return { success: true };
+      }),
+      // Delete client — cascades to their tasks + recurring rules so nothing is
+      // left orphaned (and they stop showing in task lists / generating new work).
+      delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        await db.delete(tasks).where(eq(tasks.clientId, input.id));
+        await db.delete(clientTaskRules).where(eq(clientTaskRules.clientId, input.id));
+        await db.delete(clients).where(clientScope(ctx, input.id));
+        return { success: true };
+      }),
+      // Send Quote
+      sendQuote: authedQuery.input(external_exports.object({
+        id: external_exports.number(),
+        amount: external_exports.number().min(0)
+      })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const now = /* @__PURE__ */ new Date();
+        await db.update(clients).set({
+          quoteAmount: input.amount,
+          quoteSentAt: now,
+          workflowStatus: "quote_sent"
+        }).where(clientScope(ctx, input.id));
+        return { success: true, quoteSentAt: now };
+      }),
+      // Approve Quote
+      approveQuote: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const now = /* @__PURE__ */ new Date();
+        await db.update(clients).set({
+          quoteApprovedAt: now,
+          workflowStatus: "quote_approved"
+        }).where(clientScope(ctx, input.id));
+        return { success: true, quoteApprovedAt: now };
+      }),
+      // Send Engagement Letter
+      sendEngagement: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const now = /* @__PURE__ */ new Date();
+        await db.update(clients).set({
+          engagementSentAt: now,
+          workflowStatus: "engagement_sent"
+        }).where(clientScope(ctx, input.id));
+        return { success: true, engagementSentAt: now };
+      }),
+      // Sign Engagement Letter
+      signEngagement: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const now = /* @__PURE__ */ new Date();
+        await db.update(clients).set({
+          engagementSignedAt: now,
+          workflowStatus: "onboarding_sent"
+        }).where(clientScope(ctx, input.id));
+        return { success: true, engagementSignedAt: now };
+      }),
+      // Archive client (make inactive) — also pauses their recurring rules + open
+      // tasks so an archived client stops generating and showing work.
+      archive: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        await db.update(clients).set({
+          status: "inactive",
+          workflowStatus: "inactive"
+        }).where(clientScope(ctx, input.id));
+        await deactivateClientTasks(db, input.id);
+        return { success: true };
+      }),
+      // Satisfaction scores
+      getSatisfactionScores: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        const db = getDb();
+        return db.select().from(satisfactionScores).where(eq(satisfactionScores.clientId, input.clientId)).orderBy(desc(satisfactionScores.createdAt));
+      }),
+      addSatisfactionScore: authedQuery.input(external_exports.object({
+        clientId: external_exports.number(),
+        score: external_exports.number().min(1).max(10),
+        notes: external_exports.string().optional()
+      })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const [result] = await db.insert(satisfactionScores).values({
+          clientId: input.clientId,
+          userId: ctx.user.id,
+          score: input.score,
+          notes: input.notes,
+          createdAt: /* @__PURE__ */ new Date()
+        }).returning();
+        return result;
+      }),
+      // Lead Pipeline Stats — SHARED: all staff see firm-wide stats
+      pipelineStats: authedQuery.query(async ({ ctx }) => {
+        const db = getDb();
+        const userRole = ctx.user.role;
+        const allClients = userRole === "client" ? await db.select().from(clients).where(eq(clients.userId, ctx.user.id)) : await db.select().from(clients);
+        const leads = allClients.filter((c) => c.status === "lead" || c.status === "prospect");
+        const active = allClients.filter((c) => c.status === "active");
+        return {
+          totalLeads: leads.length,
+          newLeads: leads.filter((c) => c.workflowStatus === "new_lead").length,
+          discoveryCalls: leads.filter((c) => c.workflowStatus === "discovery_call").length,
+          quotesSent: leads.filter((c) => c.workflowStatus === "quote_sent").length,
+          quotesApproved: leads.filter((c) => c.workflowStatus === "quote_approved").length,
+          engagementsSent: leads.filter((c) => c.workflowStatus === "engagement_sent").length,
+          onboarding: leads.filter((c) => c.workflowStatus === "onboarding_sent" || c.workflowStatus === "onboarding_complete").length,
+          activeClients: active.length,
+          totalPipelineValue: leads.reduce((sum3, c) => sum3 + (c.estimatedMonthlyValue || 0), 0)
+        };
+      })
+    });
   }
 });
 
@@ -46708,6 +46513,215 @@ var init_payroll_tax_core = __esm({
   }
 });
 
+// api/payroll-provincial-2026.ts
+function provincialAnnualTax(A, credits, code) {
+  const t2 = PROVINCIAL_2026[code];
+  if (!t2) return null;
+  const base = bracketTax(A, t2.brackets);
+  const k1 = t2.lowestRate * t2.bpa;
+  const k2 = t2.lowestRate * credits;
+  const basic = Math.max(0, base - k1 - k2);
+  let surtax = 0;
+  for (const s of t2.surtaxes ?? []) surtax += s.rate * Math.max(0, basic - s.threshold);
+  return { tax: basic + surtax, table: t2 };
+}
+var PROVINCIAL_2026, QC_FEDERAL_ABATEMENT;
+var init_payroll_provincial_2026 = __esm({
+  "api/payroll-provincial-2026.ts"() {
+    init_payroll_tax_core();
+    PROVINCIAL_2026 = {
+      BC: {
+        code: "BC",
+        name: "British Columbia",
+        lowestRate: 0.056,
+        bpa: 13217,
+        verified: false,
+        sourceYear: 2026,
+        note: "Brackets confirmed 2026; BPA derived from 2025\xD7indexation \u2014 verify. Low-income reduction not modelled.",
+        brackets: [
+          { upTo: 50363, rate: 0.056 },
+          { upTo: 100728, rate: 0.077 },
+          { upTo: 115648, rate: 0.105 },
+          { upTo: 140430, rate: 0.1229 },
+          { upTo: 190405, rate: 0.147 },
+          { upTo: 265545, rate: 0.168 },
+          { upTo: Infinity, rate: 0.205 }
+        ]
+      },
+      AB: {
+        code: "AB",
+        name: "Alberta",
+        lowestRate: 0.08,
+        bpa: 22769,
+        verified: true,
+        sourceYear: 2026,
+        brackets: [
+          { upTo: 61200, rate: 0.08 },
+          { upTo: 154259, rate: 0.1 },
+          { upTo: 185111, rate: 0.12 },
+          { upTo: 246813, rate: 0.13 },
+          { upTo: 370220, rate: 0.14 },
+          { upTo: Infinity, rate: 0.15 }
+        ]
+      },
+      SK: {
+        code: "SK",
+        name: "Saskatchewan",
+        lowestRate: 0.105,
+        bpa: 20381,
+        verified: true,
+        sourceYear: 2026,
+        brackets: [
+          { upTo: 53462, rate: 0.105 },
+          { upTo: 152902, rate: 0.125 },
+          { upTo: Infinity, rate: 0.145 }
+        ]
+      },
+      MB: {
+        code: "MB",
+        name: "Manitoba",
+        lowestRate: 0.108,
+        bpa: 15780,
+        verified: true,
+        sourceYear: 2026,
+        note: "Brackets + BPA frozen at 2024 levels (no indexation). BPA clawback above $200k net not modelled.",
+        brackets: [
+          { upTo: 47e3, rate: 0.108 },
+          { upTo: 1e5, rate: 0.1275 },
+          { upTo: Infinity, rate: 0.174 }
+        ]
+      },
+      NB: {
+        code: "NB",
+        name: "New Brunswick",
+        lowestRate: 0.094,
+        bpa: 13664,
+        verified: true,
+        sourceYear: 2026,
+        brackets: [
+          { upTo: 49958, rate: 0.094 },
+          { upTo: 99916, rate: 0.14 },
+          { upTo: 185064, rate: 0.16 },
+          { upTo: Infinity, rate: 0.195 }
+        ]
+      },
+      NS: {
+        code: "NS",
+        name: "Nova Scotia",
+        lowestRate: 0.0879,
+        bpa: 11744,
+        verified: false,
+        sourceYear: 2026,
+        note: "Brackets confirmed; 2026 BPA (post income-test reform) to confirm. Supplement not modelled.",
+        brackets: [
+          { upTo: 29590, rate: 0.0879 },
+          { upTo: 59180, rate: 0.1495 },
+          { upTo: 93e3, rate: 0.1667 },
+          { upTo: 15e4, rate: 0.175 },
+          { upTo: Infinity, rate: 0.21 }
+        ]
+      },
+      PE: {
+        code: "PE",
+        name: "Prince Edward Island",
+        lowestRate: 0.095,
+        bpa: 15e3,
+        verified: true,
+        sourceYear: 2026,
+        note: "6-bracket system; 20% over $200k in effect for 2026 (rollback from 2027). Surtax repealed 2024+. Middle thresholds indexation-derived (\xD71.018).",
+        brackets: [
+          { upTo: 33928, rate: 0.095 },
+          { upTo: 65820, rate: 0.1347 },
+          { upTo: 106890, rate: 0.166 },
+          { upTo: 142520, rate: 0.1762 },
+          { upTo: 2e5, rate: 0.19 },
+          { upTo: Infinity, rate: 0.2 }
+        ]
+      },
+      NL: {
+        code: "NL",
+        name: "Newfoundland and Labrador",
+        lowestRate: 0.087,
+        bpa: 11188,
+        verified: false,
+        sourceYear: 2026,
+        note: "Rates + endpoints confirmed; 6 middle thresholds computed (2025\xD71.011). BPA = current law ($15k proposed Budget 2026, enactment unconfirmed).",
+        brackets: [
+          { upTo: 44678, rate: 0.087 },
+          { upTo: 89374, rate: 0.145 },
+          { upTo: 159528, rate: 0.158 },
+          { upTo: 223340, rate: 0.178 },
+          { upTo: 285318, rate: 0.198 },
+          { upTo: 570638, rate: 0.208 },
+          { upTo: 1141275, rate: 0.213 },
+          { upTo: Infinity, rate: 0.218 }
+        ]
+      },
+      YT: {
+        code: "YT",
+        name: "Yukon",
+        lowestRate: 0.064,
+        bpa: 16452,
+        verified: true,
+        sourceYear: 2026,
+        note: "Tracks federal BPA; top-band BPA phase-out not modelled (negligible for typical pay).",
+        brackets: [
+          { upTo: 58523, rate: 0.064 },
+          { upTo: 117045, rate: 0.09 },
+          { upTo: 181440, rate: 0.109 },
+          { upTo: 5e5, rate: 0.128 },
+          { upTo: Infinity, rate: 0.15 }
+        ]
+      },
+      NT: {
+        code: "NT",
+        name: "Northwest Territories",
+        lowestRate: 0.059,
+        bpa: 18198,
+        verified: false,
+        sourceYear: 2026,
+        note: "Rates confirmed; 2026 thresholds derived from 2025\xD72% indexation \u2014 verify on CRA T4032-NT.",
+        brackets: [
+          { upTo: 51964, rate: 0.059 },
+          { upTo: 103930, rate: 0.086 },
+          { upTo: 168967, rate: 0.122 },
+          { upTo: Infinity, rate: 0.1405 }
+        ]
+      },
+      NU: {
+        code: "NU",
+        name: "Nunavut",
+        lowestRate: 0.04,
+        bpa: 19659,
+        verified: true,
+        sourceYear: 2026,
+        brackets: [
+          { upTo: 55801, rate: 0.04 },
+          { upTo: 111602, rate: 0.07 },
+          { upTo: 181439, rate: 0.09 },
+          { upTo: Infinity, rate: 0.115 }
+        ]
+      },
+      QC: {
+        code: "QC",
+        name: "Quebec",
+        lowestRate: 0.14,
+        bpa: 18952,
+        verified: true,
+        sourceYear: 2026,
+        note: "Quebec collects its own tax; a 16.5% federal abatement applies to federal tax (handled in the engine).",
+        brackets: [
+          { upTo: 54345, rate: 0.14 },
+          { upTo: 108680, rate: 0.19 },
+          { upTo: 132245, rate: 0.24 },
+          { upTo: Infinity, rate: 0.2575 }
+        ]
+      }
+    };
+    QC_FEDERAL_ABATEMENT = 0.165;
+  }
+});
+
 // api/payroll-cra-core.ts
 function cppForPeriod(grossPeriod, ytdPensionableBefore, periodsPerYear2 = 12, periodsElapsedBefore = 0, c = CRA_2026) {
   const before = pos(ytdPensionableBefore);
@@ -46736,26 +46750,37 @@ function eiForPeriod(grossPeriod, ytdInsurableBefore, c = CRA_2026) {
 function incomeTaxForPeriod(i) {
   const c = i.c ?? CRA_2026;
   const P = i.periodsPerYear;
+  const province = (i.province || "ON").toUpperCase();
   const A = pos(P * (i.grossPeriod - i.enhancedCppPeriod));
   const annualCppCredit = Math.min(P * i.cppForCreditPeriod, c.cpp.maxBase * (c.cpp.baseRateForCredit / c.cpp.rate));
   const annualEiCredit = Math.min(P * i.eiPeriod, c.ei.maxPremium);
+  const credits = annualCppCredit + annualEiCredit;
   const fedBase = bracketTax(A, c.fed.brackets);
   const k1f = c.fed.lowestRate * federalBpa(A);
-  const k2f = c.fed.lowestRate * (annualCppCredit + annualEiCredit);
+  const k2f = c.fed.lowestRate * credits;
   const k4f = c.fed.lowestRate * Math.min(A, c.fed.cea);
-  const fedAnnual = pos(fedBase - k1f - k2f - k4f);
-  const onBase = bracketTax(A, c.on.brackets);
-  const k1o = c.on.lowestRate * c.on.bpa;
-  const k2o = c.on.lowestRate * (annualCppCredit + annualEiCredit);
-  const onAnnualBasic = pos(onBase - k1o - k2o);
-  const surtax = 0.2 * pos(onAnnualBasic - c.on.surtax1) + 0.36 * pos(onAnnualBasic - c.on.surtax2);
-  const ohp = ontarioHealthPremium(A);
-  const onAnnual = onAnnualBasic + surtax + ohp;
+  let fedAnnual = pos(fedBase - k1f - k2f - k4f);
+  if (province === "QC") fedAnnual = fedAnnual * (1 - QC_FEDERAL_ABATEMENT);
+  let provAnnual;
+  if (province !== "ON") {
+    const r = provincialAnnualTax(A, credits, province);
+    if (r) {
+      provAnnual = r.tax;
+    } else {
+      const onBase = bracketTax(A, c.on.brackets);
+      provAnnual = pos(onBase - c.on.lowestRate * c.on.bpa - c.on.lowestRate * credits);
+    }
+  } else {
+    const onBase = bracketTax(A, c.on.brackets);
+    const onAnnualBasic = pos(onBase - c.on.lowestRate * c.on.bpa - c.on.lowestRate * credits);
+    const surtax = 0.2 * pos(onAnnualBasic - c.on.surtax1) + 0.36 * pos(onAnnualBasic - c.on.surtax2);
+    provAnnual = onAnnualBasic + surtax + ontarioHealthPremium(A);
+  }
   return {
     annualizedIncome: round23(A),
     federalTax: round23(fedAnnual / P),
-    provincialTax: round23(onAnnual / P),
-    totalTax: round23((fedAnnual + onAnnual) / P)
+    provincialTax: round23(provAnnual / P),
+    totalTax: round23((fedAnnual + provAnnual) / P)
   };
 }
 function computeCraLine(input) {
@@ -46769,6 +46794,7 @@ function computeCraLine(input) {
     enhancedCppPeriod: cpp.enhanced,
     cppForCreditPeriod: cpp.forCredit,
     eiPeriod: ei.employee,
+    province: input.province,
     c
   });
   const netPay = round23(gross - cpp.total - ei.employee - tax.federalTax - tax.provincialTax);
@@ -46798,6 +46824,7 @@ var CRA_2026, round23, pos;
 var init_payroll_cra_core = __esm({
   "api/payroll-cra-core.ts"() {
     init_payroll_tax_core();
+    init_payroll_provincial_2026();
     CRA_2026 = {
       year: 2026,
       verified: true,
@@ -47775,6 +47802,72 @@ var init_contacts_router = __esm({
       remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
         await getDb().delete(clientContacts).where(eq(clientContacts.id, input.id));
         return { success: true };
+      })
+    });
+  }
+});
+
+// api/parties-router.ts
+async function ensureTable2() {
+  try {
+    await getDb().run(sql`CREATE TABLE IF NOT EXISTS client_parties (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      clientId integer NOT NULL,
+      kind text NOT NULL,
+      name text NOT NULL,
+      contactName text, email text, phone text,
+      accountNumber text, notes text, qboId text,
+      active integer DEFAULT 1,
+      createdAt integer, updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[parties] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+}
+var partyInput, partiesRouter;
+var init_parties_router = __esm({
+  "api/parties-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    partyInput = {
+      name: external_exports.string().min(1).max(200),
+      contactName: external_exports.string().max(200).optional(),
+      email: external_exports.string().email().optional().or(external_exports.literal("")),
+      phone: external_exports.string().max(60).optional(),
+      accountNumber: external_exports.string().max(120).optional(),
+      notes: external_exports.string().max(2e3).optional()
+    };
+    partiesRouter = createRouter({
+      list: authedQuery.input(external_exports.object({ clientId: external_exports.number(), kind: external_exports.enum(["vendor", "customer"]) })).query(async ({ input }) => {
+        await ensureTable2();
+        return getDb().select().from(clientParties).where(and(eq(clientParties.clientId, input.clientId), eq(clientParties.kind, input.kind))).orderBy(desc(clientParties.active), desc(clientParties.updatedAt));
+      }),
+      create: authedQuery.input(external_exports.object({ clientId: external_exports.number(), kind: external_exports.enum(["vendor", "customer"]), ...partyInput })).mutation(async ({ input }) => {
+        await ensureTable2();
+        const { clientId, kind, ...rest } = input;
+        const [row] = await getDb().insert(clientParties).values({ clientId, kind, ...rest, email: rest.email || null, active: true, updatedAt: /* @__PURE__ */ new Date() }).returning();
+        return row;
+      }),
+      update: authedQuery.input(external_exports.object({ id: external_exports.number(), active: external_exports.boolean().optional(), ...partyInput })).mutation(async ({ input }) => {
+        await ensureTable2();
+        const { id, ...rest } = input;
+        await getDb().update(clientParties).set({ ...rest, email: rest.email || null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clientParties.id, id));
+        return { success: true };
+      }),
+      remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+        await getDb().delete(clientParties).where(eq(clientParties.id, input.id));
+        return { success: true };
+      }),
+      /** Vendor mass-email helper — returns the active vendor emails for a client so
+       *  the UI can compose a statement/missing-invoice request. (Send wiring is a
+       *  later backlog item; this exposes the recipient list driven by intake.) */
+      vendorEmails: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        await ensureTable2();
+        const rows = await getDb().select().from(clientParties).where(and(eq(clientParties.clientId, input.clientId), eq(clientParties.kind, "vendor"), eq(clientParties.active, true)));
+        return rows.map((r) => r.email).filter(Boolean);
       })
     });
   }
@@ -51631,7 +51724,7 @@ var init_bulk_import_router = __esm({
     init_middleware();
     init_connection();
     init_schema();
-    init_client_task_creator();
+    init_task_generator();
     init_drizzle_orm();
     BULK_IMPORT_TOKEN = process.env.BULK_IMPORT_TOKEN || "gfb-import-2026";
     CLIENTS_DATA = [
@@ -51963,21 +52056,8 @@ var init_bulk_import_router = __esm({
             }).returning();
             results.imported++;
             if (client) {
-              const taskResult = await createRecurringTasksForClient(
-                client.id,
-                1,
-                {
-                  hasHST: clientData.hasHST,
-                  hstPeriod: clientData.hstPeriod,
-                  hasWSIB: clientData.hasWSIB,
-                  wsibQuarter: clientData.wsibQuarter,
-                  hasPayroll: clientData.hasPayroll,
-                  payrollFrequency: clientData.payrollFrequency
-                },
-                clientData.name,
-                clientData.assignedTo
-              );
-              results.tasksCreated += taskResult?.count || 0;
+              const taskResult = await ensureComplianceForClient(client.id, { userId: 1, assignedTo: clientData.assignedTo });
+              results.tasksCreated += taskResult?.tasks || 0;
             }
           } catch (e) {
             results.errors.push(`${clientData.name}: ${e.message}`);
@@ -52762,6 +52842,7 @@ var init_router = __esm({
     init_employee_router();
     init_payroll_router();
     init_contacts_router();
+    init_parties_router();
     init_dividend_router();
     init_tax_slip_router();
     init_client_request_router();
@@ -52809,6 +52890,7 @@ var init_router = __esm({
       employee: employeeRouter,
       payroll: payrollRouter,
       contacts: contactsRouter,
+      parties: partiesRouter,
       dividend: dividendRouter,
       taxSlip: taxSlipRouter,
       clientRequest: clientRequestRouter,
@@ -55663,6 +55745,37 @@ var init_seed_gov_registry = __esm({
       { nameKey: "universal drywall", industry: "Construction/Drywall", bio: "Drywall and construction services company providing interior framing, drywall installation and exterior finishes. USA (Florida) entity." }
     ];
     norm6 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  }
+});
+
+// api/seed-dock-king-flowthrough.ts
+var seed_dock_king_flowthrough_exports = {};
+__export(seed_dock_king_flowthrough_exports, {
+  seedDockKingFlowthrough: () => seedDockKingFlowthrough
+});
+async function seedDockKingFlowthrough() {
+  const db = getDb();
+  const report = { matched: 0, updated: 0, tasksPaused: 0 };
+  const rows = await db.select().from(clients).where(
+    or(like(clients.name, "Dock King%"), like(clients.company, "Dock King%"))
+  );
+  for (const c of rows) {
+    report.matched++;
+    if (c.clientType !== "wholesale") {
+      await db.update(clients).set({ clientType: "wholesale", qboSoftwareWholesale: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+      report.updated++;
+    }
+    const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, c.id)).returning();
+    const r22 = await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
+    report.tasksPaused += (r1?.length || 0) + (r22?.length || 0);
+  }
+  return report;
+}
+var init_seed_dock_king_flowthrough = __esm({
+  "api/seed-dock-king-flowthrough.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
   }
 });
 
@@ -60186,7 +60299,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.14";
+var BUILD_TAG = "2026-06-22.15";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -60606,7 +60719,7 @@ app.post("/api/admin/import-clients", async (c) => {
     const db = getDb();
     const { clients: clients3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
-    const { createRecurringTasksForClient: createRecurringTasksForClient2 } = await Promise.resolve().then(() => (init_client_task_creator(), client_task_creator_exports));
+    const { ensureComplianceForClient: ensureComplianceForClient2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
     const CLIENTS_DATA2 = [
       { name: "Aim Construction Inc.", email: "aim@example.com", company: "Aim Construction Inc.", status: "active", assignedTo: "Markie", hasHST: true, hstPeriod: "quarterly", hasWSIB: true, wsibQuarter: "all", hasPayroll: true, payrollFrequency: "bi-weekly", yearEndMonth: "Dec", monthlyFee: 500, billingType: "monthly_fixed" },
       { name: "Align By Design", email: "align@example.com", company: "Align By Design", status: "active", assignedTo: "Markie", hasHST: true, hstPeriod: "quarterly", hasWSIB: false, hasPayroll: false, yearEndMonth: "Dec", monthlyFee: 300, billingType: "monthly_fixed" },
@@ -60645,21 +60758,8 @@ app.post("/api/admin/import-clients", async (c) => {
         }).returning();
         results.imported++;
         if (client) {
-          const taskResult = await createRecurringTasksForClient2(
-            client.id,
-            1,
-            {
-              hasHST: clientData.hasHST,
-              hstPeriod: clientData.hstPeriod,
-              hasWSIB: clientData.hasWSIB,
-              wsibQuarter: clientData.wsibQuarter,
-              hasPayroll: clientData.hasPayroll,
-              payrollFrequency: clientData.payrollFrequency
-            },
-            clientData.name,
-            clientData.assignedTo
-          );
-          results.tasksCreated += taskResult?.count || 0;
+          const taskResult = await ensureComplianceForClient2(client.id, { userId: 1, assignedTo: clientData.assignedTo });
+          results.tasksCreated += taskResult?.tasks || 0;
         }
       } catch (e) {
         results.errors.push(`${clientData.name}: ${e.message}`);
@@ -61199,9 +61299,9 @@ async function startServer() {
         payrollReimbursements: 1,
         payrollRevenueShare: 1
       });
-      const { createRecurringTasksForClient: ensureTasks } = await Promise.resolve().then(() => (init_client_task_creator(), client_task_creator_exports));
+      const { ensureComplianceForClient: ensureComplianceForClient2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
       for (const cl of cw) {
-        await ensureTasks(cl.id, cl.userId || 1, { paysDividends: true }, cl.name, cl.assignedTo);
+        await ensureComplianceForClient2(cl.id, { userId: cl.userId || 1, assignedTo: cl.assignedTo });
       }
       for (const cl of cw) {
         for (const last of ["Hawton", "Essex"]) {
@@ -61296,6 +61396,13 @@ async function startServer() {
       console.log(`[seed] gov registry: ${g.patched}/${g.matched} client cards populated (bio/registry#/incorp/corp type/status)`);
     } catch (e) {
       console.error("[seed] seedGovRegistry failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { seedDockKingFlowthrough: seedDockKingFlowthrough2 } = await Promise.resolve().then(() => (init_seed_dock_king_flowthrough(), seed_dock_king_flowthrough_exports));
+      const d = await seedDockKingFlowthrough2();
+      if (d.matched) console.log(`[seed] Dock King flow-through: ${d.updated} set wholesale, ${d.tasksPaused} tasks/rules paused (${d.matched} matched)`);
+    } catch (e) {
+      console.error("[seed] seedDockKingFlowthrough failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { seedTaxRateReviewTasks: seedTaxRateReviewTasks2 } = await Promise.resolve().then(() => (init_seed_tax_rate_reviews(), seed_tax_rate_reviews_exports));

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { clients, tasks, taskRecurrences } from "../db/schema";
-import { createRecurringTasksForClient } from "./client-task-creator";
+import { ensureComplianceForClient } from "./task-generator";
 import { eq } from "drizzle-orm";
 
 const BULK_IMPORT_TOKEN = process.env.BULK_IMPORT_TOKEN || "gfb-import-2026";
@@ -344,23 +344,10 @@ export const bulkImportRouter = createRouter({
 
           results.imported++;
 
-          // Auto-create recurring tasks
+          // Auto-create recurring tasks (unified rule engine — one task system).
           if (client) {
-            const taskResult = await createRecurringTasksForClient(
-              client.id,
-              1,
-              {
-                hasHST: clientData.hasHST,
-                hstPeriod: clientData.hstPeriod,
-                hasWSIB: clientData.hasWSIB,
-                wsibQuarter: clientData.wsibQuarter,
-                hasPayroll: clientData.hasPayroll,
-                payrollFrequency: clientData.payrollFrequency,
-              },
-              clientData.name,
-              clientData.assignedTo
-            );
-            results.tasksCreated += taskResult?.count || 0;
+            const taskResult = await ensureComplianceForClient(client.id, { userId: 1, assignedTo: clientData.assignedTo });
+            results.tasksCreated += taskResult?.tasks || 0;
           }
         } catch (e: any) {
           results.errors.push(`${clientData.name}: ${e.message}`);

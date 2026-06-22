@@ -1,3 +1,11 @@
+/**
+ * @deprecated DO NOT USE. Superseded by the unified rule engine in
+ * task-generator.ts (`ensureComplianceForClient` / `ensureComplianceRulesAndTasks`).
+ * This older path inserted differently-titled tasks ("HST Filing — X") directly,
+ * creating duplicate-title risk against the rule engine. All callers have been
+ * migrated. Kept only so historical references resolve; safe to delete once
+ * confirmed no external caller depends on it.
+ */
 import { getDb } from "./queries/connection";
 import { tasks, recurringTasks } from "../db/schema";
 import { sql } from "drizzle-orm";
