@@ -333,6 +333,9 @@ export const clients = sqliteTable("clients", {
   qboAccountType: text("qboAccountType").default("ca_clients"),
   figgyEmail: text("figgyEmail"),
   contactName: text("contactName"),
+  // Client grouping — one owner (e.g. "John Smith") can have multiple companies;
+  // clients sharing a groupName are surfaced together as related companies.
+  groupName: text("groupName"),
   // CRA Represent a Client (RAC) authorization status
   craRacDone: integer("craRacDone", { mode: "boolean" }).default(false),
   // Government-registry data (from Canada's Business Registries / auto-lookup on add).

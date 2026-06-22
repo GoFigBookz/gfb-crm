@@ -441,6 +441,7 @@ export default function ClientDashboard() {
 
         {/* OVERVIEW TAB */}
         <TabsContent value="overview" className="space-y-4 mt-4">
+          <GroupCard clientId={id} groupName={(client as any).groupName} />
           <ContactsCard clientId={id} />
           <PlatformsCard onboarding={onboarding} client={client} />
           {/* Document requests + at-a-glance, side by side. (Task progress lives in
@@ -2110,6 +2111,55 @@ function PlatformsCard({ onboarding, client }: { onboarding: any; client: any })
           <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
             Monthly sales receipt{client?.salesReceiptSource ? ` · from ${client.salesReceiptSource}` : ""}
           </Badge>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Client grouping — one owner with multiple companies. Set a shared group/owner name;
+ *  other clients with the same group show as related companies (links). */
+function GroupCard({ clientId, groupName }: { clientId: number; groupName: string | null }) {
+  const utils = trpc.useUtils();
+  const { data: related } = trpc.crmClient.related.useQuery({ clientId });
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(groupName || "");
+  const save = trpc.crmClient.update.useMutation({
+    onSuccess: () => { utils.crmClient.get.invalidate({ id: clientId }); utils.crmClient.related.invalidate({ clientId }); setEditing(false); },
+    onError: (e) => alert(e.message),
+  });
+  const hasGroup = !!(groupName && groupName.trim());
+  if (!hasGroup && !editing) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-slate-400">
+        <Building2 className="h-3.5 w-3.5" /> Not grouped
+        <button className="text-lime-700 hover:underline" onClick={() => { setVal(""); setEditing(true); }}>group with other companies</button>
+      </div>
+    );
+  }
+  return (
+    <Card>
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="flex items-center gap-2 text-base"><Building2 className="h-5 w-5 text-lime-500" /> Group{groupName ? ` · ${groupName}` : ""}</CardTitle>
+        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setVal(groupName || ""); setEditing(true); }}><Edit className="h-3.5 w-3.5" /></Button>
+      </CardHeader>
+      <CardContent>
+        {editing ? (
+          <div className="flex items-center gap-2">
+            <Input value={val} onChange={(e) => setVal(e.target.value)} placeholder="Owner / group name (e.g. John Smith)" className="h-8" />
+            <Button size="sm" className="bg-lime-500" disabled={save.isPending} onClick={() => save.mutate({ id: clientId, groupName: val.trim() })}>Save</Button>
+            <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
+          </div>
+        ) : (related && related.length > 0) ? (
+          <div className="flex flex-wrap gap-2">
+            {related.map((c: any) => (
+              <Link key={c.id} to={`/client/${c.id}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 rounded-lg text-sm hover:bg-lime-50 hover:text-lime-700">
+                <Building2 className="h-3.5 w-3.5" /> {c.name}{c.status === "inactive" ? " (inactive)" : ""}
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">No other companies in this group yet — set the same group name on another client to link them.</p>
         )}
       </CardContent>
     </Card>

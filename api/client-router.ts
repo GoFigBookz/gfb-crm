@@ -89,6 +89,23 @@ export const clientRouter = createRouter({
       return result[0] ?? null;
     }),
 
+  // Other companies in the same owner/group (client grouping). Staff see all; a
+  // client-role user only ever sees their own, so returns empty for them.
+  related: authedQuery
+    .input(z.object({ clientId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      if (ctx.user?.role === "client") return [];
+      const db = getDb();
+      const me = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0] as any;
+      const g = (me?.groupName || "").trim();
+      if (!g) return [];
+      const all = await db.select().from(clients);
+      return (all as any[])
+        .filter((c) => c.id !== input.clientId && (c.groupName || "").trim().toLowerCase() === g.toLowerCase())
+        .map((c) => ({ id: c.id, name: c.name, status: c.status }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    }),
+
   // Create client
   create: authedQuery
     .input(z.object({
@@ -202,6 +219,7 @@ export const clientRouter = createRouter({
       payrollHoursSource: z.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
       monthlySalesReceipt: z.boolean().optional(),
       salesReceiptSource: z.string().optional(),
+      groupName: z.string().optional(),
       yearEndMonth: z.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
       quoteAmount: z.number().optional(),
       quoteSentAt: z.string().optional(),
