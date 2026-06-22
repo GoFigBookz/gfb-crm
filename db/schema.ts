@@ -1008,6 +1008,12 @@ export const employees = sqliteTable("employees", {
   address: text("address"),
   isContractor: integer("isContractor", { mode: "boolean" }).default(false),
   isActive: integer("isActive", { mode: "boolean" }).default(true),
+  // WSIB: most employees are covered; management/executive may be excluded unless
+  // they opt in. Drives the WSIB remittance (only eligible gross is premium-rated).
+  wsibEligible: integer("wsibEligible", { mode: "boolean" }).default(true),
+  // Jobber timesheet name alias — maps a Jobber label (e.g. "Grace") to this
+  // employee when it doesn't match firstName/lastName, so hours import cleanly.
+  jobberName: text("jobberName"),
   terminationDate: integer("terminationDate", { mode: "timestamp" }),
   terminationReason: text("terminationReason"),
   // Benefits

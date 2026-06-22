@@ -1115,47 +1115,73 @@ export default function ClientDashboard() {
 
 // Compliance tab — filing status + obligations, all driven by the client's
 // flags/features (HST, payroll→T4, dividends→T5, WSIB), plus the dividend log.
-/** WSIB remittance: insurable earnings (summed from the client's payroll runs)
- *  × the WSIB premium rate ($ per $100). Rate is editable + saved on the client. */
-function WsibRemittanceCard({ clientId }: { clientId: number }) {
+/** WSIB remittance (quarterly): insurable earnings of WSIB-ELIGIBLE employees
+ *  for the quarter × the premium rate ($/$100). Management/exec can be excluded.
+ *  You run the number here, then file it on the WSIB portal. */
+function WsibRemittanceCard({ clientId, driveFolderUrl }: { clientId: number; driveFolderUrl?: string | null }) {
   const utils = trpc.useUtils();
-  const thisYear = new Date().getFullYear();
+  const now = new Date();
+  const thisYear = now.getFullYear();
+  const endedQuarter = Math.floor(now.getMonth() / 3) || 4;     // most recently ended
   const [year, setYear] = useState(thisYear);
-  const { data } = trpc.payroll.wsibRemittance.useQuery({ clientId, year });
+  const [quarter, setQuarter] = useState(endedQuarter);
+  const { data } = trpc.payroll.wsibRemittance.useQuery({ clientId, year, quarter });
   const [rate, setRate] = useState<string>("");
-  const saveRate = trpc.payroll.setWsibRate.useMutation({
-    onSuccess: () => utils.payroll.wsibRemittance.invalidate({ clientId, year }),
-  });
-  // seed the rate input from the loaded value once
-  const loadedRate = data?.rate;
+  const inv = () => utils.payroll.wsibRemittance.invalidate({ clientId, year, quarter });
+  const saveRate = trpc.payroll.setWsibRate.useMutation({ onSuccess: inv });
+  const setEligible = trpc.payroll.setEmployeeWsibEligible.useMutation({ onSuccess: inv });
   const money = (n: number | null | undefined) => n == null ? "—" : `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4 text-orange-500" /> WSIB remittance</CardTitle>
-        <CardDescription>Insurable earnings (from payroll runs) × premium rate. {data?.accountNumber ? `Account ${data.accountNumber}.` : ""} Estimate — verify before remitting.</CardDescription>
+        <CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4 text-orange-500" /> WSIB remittance (quarterly)</CardTitle>
+        <CardDescription>Eligible employees' insurable earnings for the quarter × premium rate. {data?.accountNumber ? `Account ${data.accountNumber}. ` : ""}Run it here, then file on the WSIB portal.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
           <div>
-            <Label className="text-xs">Year</Label>
-            <Input type="number" className="h-9" value={year} onChange={(e) => setYear(Number(e.target.value) || thisYear)} />
+            <Label className="text-xs">Quarter</Label>
+            <select className="w-full border rounded-lg px-2 py-2 text-sm bg-white" value={quarter} onChange={(e) => setQuarter(Number(e.target.value))}>
+              <option value={1}>Q1 (Jan–Mar)</option><option value={2}>Q2 (Apr–Jun)</option>
+              <option value={3}>Q3 (Jul–Sep)</option><option value={4}>Q4 (Oct–Dec)</option>
+            </select>
           </div>
-          <div>
-            <Label className="text-xs">Premium rate ($/$100)</Label>
-            <Input type="number" step="0.01" className="h-9" placeholder={loadedRate != null ? String(loadedRate) : "e.g. 2.50"}
-              value={rate} onChange={(e) => setRate(e.target.value)} />
-          </div>
+          <div><Label className="text-xs">Year</Label><Input type="number" className="h-9" value={year} onChange={(e) => setYear(Number(e.target.value) || thisYear)} /></div>
+          <div><Label className="text-xs">Premium rate ($/$100)</Label>
+            <Input type="number" step="0.01" className="h-9" placeholder={data?.rate != null ? String(data.rate) : "e.g. 2.50"} value={rate} onChange={(e) => setRate(e.target.value)} /></div>
           <Button size="sm" disabled={saveRate.isPending || rate === ""} onClick={() => saveRate.mutate({ clientId, rate: parseFloat(rate) || 0 })}>
             {saveRate.isPending ? "Saving…" : "Save rate"}
           </Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="p-3 bg-slate-50 rounded-lg"><p className="text-xs text-slate-500">Insurable earnings ({data?.payRunCount ?? 0} runs)</p><p className="font-semibold">{money(data?.insurableEarnings)}</p></div>
+          <div className="p-3 bg-slate-50 rounded-lg"><p className="text-xs text-slate-500">Eligible insurable earnings · {data?.quarterLabel ?? ""} ({data?.payRunCount ?? 0} runs)</p><p className="font-semibold">{money(data?.insurableEarnings)}</p>{(data?.excludedEarnings ?? 0) > 0 && <p className="text-[11px] text-slate-400">excluded (mgmt): {money(data?.excludedEarnings)}</p>}</div>
           <div className="p-3 bg-slate-50 rounded-lg"><p className="text-xs text-slate-500">Rate</p><p className="font-semibold">{data?.rate != null ? `$${data.rate}/$100` : <span className="text-amber-600">set a rate</span>}</p></div>
           <div className="p-3 bg-orange-50 rounded-lg"><p className="text-xs text-orange-600">WSIB remittance</p><p className="font-bold text-orange-700">{money(data?.remittance)}</p></div>
         </div>
-        <p className="text-[11px] text-slate-400">Earnings pulled from CRM pay runs (will pull from QuickBooks Payroll once connected). Executive/exempt-employee exclusions can be added later.</p>
+
+        {/* Eligible employee selection — uncheck management/exec who are excluded. */}
+        {data?.employees && data.employees.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-slate-600 mb-1">WSIB-eligible employees <span className="text-slate-400 font-normal">— uncheck management/exec who are excluded</span></p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4">
+              {data.employees.map((e: any) => (
+                <label key={e.id} className="flex items-center gap-2 text-sm py-0.5 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 accent-orange-500" checked={e.wsibEligible}
+                    disabled={setEligible.isPending}
+                    onChange={(ev) => setEligible.mutate({ employeeId: e.id, eligible: ev.target.checked })} />
+                  {e.name}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {driveFolderUrl && (
+          <a href={driveFolderUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-blue-700 hover:underline">
+            <FolderOpen className="h-3.5 w-3.5" /> Past WSIB filings (client folder)
+          </a>
+        )}
+        <p className="text-[11px] text-slate-400">Earnings from CRM pay runs (will pull from QuickBooks Payroll once connected). WSIB files quarterly — due by the end of the month after each quarter; aim to file mid-month.</p>
       </CardContent>
     </Card>
   );
@@ -1366,7 +1392,7 @@ function ComplianceTab({ clientId, client, onboarding, closeStatus, tasks, onOpe
       )}
 
       {/* WSIB remittance — pulls insurable earnings from payroll × the premium rate */}
-      {client.hasWSIB && <WsibRemittanceCard clientId={clientId} />}
+      {client.hasWSIB && <WsibRemittanceCard clientId={clientId} driveFolderUrl={client.driveFolderUrl} />}
 
       {/* Compliance numbers */}
       <Card>
