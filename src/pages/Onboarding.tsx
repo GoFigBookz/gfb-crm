@@ -77,6 +77,9 @@ export default function Onboarding() {
     wsibRequired: false, paysDividends: false, bankAccountCount: 1, creditCardCount: 0,
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false, usesPayPal: false, usesWise: false,
     payrollExternal: false,
+    payrollHoursSource: "manual" as "manual" | "jobber" | "touchbistro" | "clockify" | "qbo_autopay",
+    payrollBonuses: false, payrollPhoneAllowance: false, payrollReimbursements: false,
+    payrollRevenueShare: false, payrollCraComparison: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
     hasEHT: false, employeeCount: 0, monthsBehind: 0,
     payrollRemitterFreq: "regular" as "regular" | "quarterly" | "accelerated",
@@ -103,6 +106,9 @@ export default function Onboarding() {
     wsibRequired: false, paysDividends: false, bankAccountCount: 1, creditCardCount: 0,
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false, usesPayPal: false, usesWise: false,
     payrollExternal: false,
+    payrollHoursSource: "manual" as "manual" | "jobber" | "touchbistro" | "clockify" | "qbo_autopay",
+    payrollBonuses: false, payrollPhoneAllowance: false, payrollReimbursements: false,
+    payrollRevenueShare: false, payrollCraComparison: false,
     usesHubdoc: false, hasJobCosting: false, avgMonthlyTransactions: 0,
     hasEHT: false, employeeCount: 0, monthsBehind: 0,
     payrollRemitterFreq: "regular" as "regular" | "quarterly" | "accelerated",
@@ -382,6 +388,35 @@ export default function Onboarding() {
                         <span className="block text-xs text-slate-500">Skips payroll, remittance &amp; T4 task generation so it doesn't clog the board.</span>
                       </span>
                     </label>
+                  )}
+                  {intake.payrollFrequency !== "none" && (
+                    <div className="md:col-span-3 bg-white rounded-lg border p-3 space-y-3">
+                      <p className="text-sm font-medium text-slate-700">Payroll details</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Hours source (drives the timesheet integration button)</Label>
+                          <Select value={intake.payrollHoursSource} onValueChange={(v: any) => setIntake({ ...intake, payrollHoursSource: v })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="manual">Manual entry</SelectItem>
+                              <SelectItem value="jobber">Jobber</SelectItem>
+                              <SelectItem value="touchbistro">TouchBistro</SelectItem>
+                              <SelectItem value="clockify">Clockify</SelectItem>
+                              <SelectItem value="qbo_autopay">QuickBooks autopay</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {([["payrollBonuses", "Bonuses"], ["payrollPhoneAllowance", "Phone allowance"], ["payrollReimbursements", "Reimbursements"], ["payrollRevenueShare", "Revenue share"], ["payrollCraComparison", "CRA tax comparison"]] as [string, string][]).map(([k, label]) => (
+                          <label key={k} className="flex items-center gap-2 text-sm cursor-pointer rounded-lg border p-2 hover:bg-slate-50">
+                            <Checkbox checked={(intake as any)[k]} onCheckedChange={(v) => setIntake({ ...intake, [k]: !!v })} />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                      <p className="text-xs text-slate-400">Dividends (T5) are set by the "Pays Dividends" box above. These choices appear on the client's payroll surface — nothing shows that isn't ticked here.</p>
+                    </div>
                   )}
                   <div className="space-y-2">
                     <Label>Avg. monthly transactions</Label>

@@ -45244,6 +45244,13 @@ var init_onboarding_router = __esm({
         payrollFrequency: external_exports.enum(["weekly", "biweekly", "semi_monthly", "monthly", "none"]).default("none"),
         payrollRemitterFreq: external_exports.enum(["regular", "quarterly", "accelerated"]).default("regular"),
         payrollExternal: external_exports.boolean().default(false),
+        // Payroll sub-options (revealed when payroll is enabled on the intake form)
+        payrollHoursSource: external_exports.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
+        payrollBonuses: external_exports.boolean().default(false),
+        payrollPhoneAllowance: external_exports.boolean().default(false),
+        payrollReimbursements: external_exports.boolean().default(false),
+        payrollRevenueShare: external_exports.boolean().default(false),
+        payrollCraComparison: external_exports.boolean().default(false),
         hasEmployees: external_exports.boolean().default(false),
         hasSubcontractors: external_exports.boolean().default(false),
         hasInvestments: external_exports.boolean().default(false),
@@ -45314,6 +45321,12 @@ var init_onboarding_router = __esm({
           hasWSIB: input.wsibRequired,
           wsibAccountNumber: input.wsibAccountNumber || null,
           payrollDividends: input.paysDividends,
+          payrollBonuses: input.payrollBonuses,
+          payrollPhoneAllowance: input.payrollPhoneAllowance,
+          payrollReimbursements: input.payrollReimbursements,
+          payrollRevenueShare: input.payrollRevenueShare,
+          payrollCraComparison: input.payrollCraComparison,
+          payrollHoursSource: input.payrollHoursSource ?? null,
           yearEndMonth,
           craRepId: "YY7F3GN",
           // firm CRA Represent-a-Client RepID (same for all clients)
@@ -60091,7 +60104,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.04";
+var BUILD_TAG = "2026-06-22.05";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
