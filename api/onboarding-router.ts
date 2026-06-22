@@ -99,7 +99,16 @@ export const onboardingRouter = createRouter({
       usesStripe: z.boolean().optional(),
       usesSquare: z.boolean().optional(),
       usesJobber: z.boolean().optional(),
+      usesTouchBistro: z.boolean().optional(),
+      usesPayPal: z.boolean().optional(),
+      usesWise: z.boolean().optional(),
       salesEntryFrequency: z.enum(["daily", "weekly", "monthly", "none"]).optional(),
+      // NEW: scope / responsibilities (mirror staff intake → drive the card)
+      paysDividends: z.boolean().optional(),
+      invoicingResponsibility: z.enum(["we_invoice", "client_invoices", "both", "none"]).optional(),
+      billPayResponsibility: z.enum(["we_pay", "client_pays", "both", "none"]).optional(),
+      monthlySalesReceipt: z.boolean().optional(),
+      salesReceiptSource: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = getDb();
@@ -413,37 +422,80 @@ export const onboardingRouter = createRouter({
       if (input.status === "approved") {
         const row = await db.select().from(clientOnboarding).where(eq(clientOnboarding.id, input.id)).limit(1);
         if (row[0]) {
+          const onb = row[0];
+
+          // Map the (client-submitted) onboarding record → client-card flags the
+          // SAME way the staff intake does, so a self-submitted form actually
+          // provisions the card (HST/payroll/WSIB/dividends/sales-receipt), not
+          // just generates tasks. This is what makes the client-facing link work
+          // end-to-end: submit → approve → card lights up.
+          const MONTHS3 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+          const yearEndMonth = (() => {
+            const w = (onb.fiscalYearEnd || "").trim().slice(0, 3).toLowerCase();
+            const i = MONTHS3.findIndex((m) => m.toLowerCase() === w);
+            return i >= 0 ? MONTHS3[i] : null;
+          })();
+          const hstPeriod = onb.hstGstFrequency === "annually" ? "annual"
+            : onb.hstGstFrequency === "quarterly" ? "quarterly"
+            : onb.hstGstFrequency === "monthly" ? "monthly" : null;
+          const payFreq = onb.payrollFrequency === "biweekly" ? "bi-weekly"
+            : onb.payrollFrequency === "semi_monthly" ? "semi-monthly"
+            : (onb.payrollFrequency && onb.payrollFrequency !== "none") ? onb.payrollFrequency : null;
+          const hasPayroll = !!payFreq || !!onb.hasEmployees;
+
           await db.update(clients)
-            .set({ workflowStatus: "active" })
-            .where(eq(clients.id, row[0].clientId));
+            .set({
+              workflowStatus: "active",
+              hasHST: onb.hstGstFrequency !== "none" && onb.hstGstFrequency != null,
+              hstPeriod: hstPeriod as any,
+              hstNumber: onb.hstGstNumber || undefined,
+              hasPayroll,
+              payrollFrequency: payFreq as any,
+              payrollRpNumber: onb.payrollAccountNumber || undefined,
+              hasWSIB: onb.wsibRequired ?? false,
+              wsibAccountNumber: onb.wsibAccountNumber || undefined,
+              payrollDividends: onb.paysDividends ?? false,
+              monthlySalesReceipt: onb.monthlySalesReceipt ?? false,
+              salesReceiptSource: onb.salesReceiptSource || undefined,
+              yearEndMonth: yearEndMonth as any,
+              updatedAt: new Date(),
+            })
+            .where(eq(clients.id, onb.clientId));
 
           // Get the client record for userId and assignedTo
-          const clientRows = await db.select().from(clients).where(eq(clients.id, row[0].clientId)).limit(1);
+          const clientRows = await db.select().from(clients).where(eq(clients.id, onb.clientId)).limit(1);
           const client = clientRows[0];
 
           if (client) {
             // Generate recurring task rules based on onboarding data
             await createClientTaskRules({
-              clientId: row[0].clientId,
+              clientId: onb.clientId,
               userId: client.userId,
               assignedTo: input.assignedTo || client.assignedTo,
-              fiscalYearEnd: row[0].fiscalYearEnd,
-              hstGstFrequency: row[0].hstGstFrequency || "none",
-              payrollFrequency: row[0].payrollFrequency || "none",
-              hasEmployees: row[0].hasEmployees || false,
-              hasSubcontractors: row[0].hasSubcontractors || false,
-              hasInvestments: row[0].hasInvestments || false,
-              wsibRequired: row[0].wsibRequired || false,
-              bankAccountCount: row[0].bankAccountCount || 1,
-              creditCardCount: row[0].creditCardCount || 0,
-              needsYearEnd: row[0].needsYearEnd !== false,
-              usesStripe: row[0].usesStripe || false,
-              usesSquare: row[0].usesSquare || false,
-              usesJobber: row[0].usesJobber || false,
-              usesTouchBistro: row[0].usesTouchBistro || false,
-              usesPayPal: row[0].usesPayPal || false,
-              salesEntryFrequency: row[0].salesEntryFrequency || "monthly",
+              fiscalYearEnd: onb.fiscalYearEnd,
+              hstGstFrequency: onb.hstGstFrequency || "none",
+              payrollFrequency: onb.payrollFrequency || "none",
+              hasEmployees: onb.hasEmployees || false,
+              hasSubcontractors: onb.hasSubcontractors || false,
+              hasInvestments: onb.hasInvestments || false,
+              paysDividends: onb.paysDividends || false,
+              wsibRequired: onb.wsibRequired || false,
+              bankAccountCount: onb.bankAccountCount || 1,
+              creditCardCount: onb.creditCardCount || 0,
+              needsYearEnd: onb.needsYearEnd !== false,
+              usesStripe: onb.usesStripe || false,
+              usesSquare: onb.usesSquare || false,
+              usesJobber: onb.usesJobber || false,
+              usesTouchBistro: onb.usesTouchBistro || false,
+              usesPayPal: onb.usesPayPal || false,
+              usesWise: onb.usesWise || false,
+              salesEntryFrequency: onb.salesEntryFrequency || "monthly",
+              invoicingResponsibility: onb.invoicingResponsibility || "none",
+              billPayResponsibility: onb.billPayResponsibility || "none",
             });
+
+            // Keep the canonical master sheet in step with the new active client.
+            try { syncClientToMaster((await db.select().from(clients).where(eq(clients.id, onb.clientId)).limit(1))[0] as any); } catch { /* non-fatal */ }
           }
         }
       }

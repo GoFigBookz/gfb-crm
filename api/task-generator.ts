@@ -146,8 +146,8 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
     });
   }
 
-  // === CLIENT INVOICING (only when WE issue their invoices) ===
-  if (data.invoicingResponsibility === "we_invoice") {
+  // === CLIENT INVOICING (when WE issue their invoices — incl. shared "both") ===
+  if (data.invoicingResponsibility === "we_invoice" || data.invoicingResponsibility === "both") {
     rules.push({
       ruleType: "client_invoicing",
       title: "Client Invoicing",
@@ -157,8 +157,8 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
     });
   }
 
-  // === BILL PAYMENTS / A/P (only when WE pay their bills) ===
-  if (data.billPayResponsibility === "we_pay") {
+  // === BILL PAYMENTS / A/P (when WE pay their bills — incl. shared "both") ===
+  if (data.billPayResponsibility === "we_pay" || data.billPayResponsibility === "both") {
     rules.push({
       ruleType: "bill_payments",
       title: "Bill Payments (A/P run)",

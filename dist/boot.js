@@ -40876,7 +40876,7 @@ function buildTaskRules(data) {
       fiscalYearEndDay: fy?.day
     });
   }
-  if (data.invoicingResponsibility === "we_invoice") {
+  if (data.invoicingResponsibility === "we_invoice" || data.invoicingResponsibility === "both") {
     rules.push({
       ruleType: "client_invoicing",
       title: "Client Invoicing",
@@ -40890,7 +40890,7 @@ function buildTaskRules(data) {
       fiscalYearEndDay: fy?.day
     });
   }
-  if (data.billPayResponsibility === "we_pay") {
+  if (data.billPayResponsibility === "we_pay" || data.billPayResponsibility === "both") {
     rules.push({
       ruleType: "bill_payments",
       title: "Bill Payments (A/P run)",
@@ -45214,7 +45214,16 @@ var init_onboarding_router = __esm({
         usesStripe: external_exports.boolean().optional(),
         usesSquare: external_exports.boolean().optional(),
         usesJobber: external_exports.boolean().optional(),
-        salesEntryFrequency: external_exports.enum(["daily", "weekly", "monthly", "none"]).optional()
+        usesTouchBistro: external_exports.boolean().optional(),
+        usesPayPal: external_exports.boolean().optional(),
+        usesWise: external_exports.boolean().optional(),
+        salesEntryFrequency: external_exports.enum(["daily", "weekly", "monthly", "none"]).optional(),
+        // NEW: scope / responsibilities (mirror staff intake → drive the card)
+        paysDividends: external_exports.boolean().optional(),
+        invoicingResponsibility: external_exports.enum(["we_invoice", "client_invoices", "both", "none"]).optional(),
+        billPayResponsibility: external_exports.enum(["we_pay", "client_pays", "both", "none"]).optional(),
+        monthlySalesReceipt: external_exports.boolean().optional(),
+        salesReceiptSource: external_exports.string().optional()
       })).mutation(async ({ input }) => {
         const db = getDb();
         const existing = await db.select().from(clientOnboarding).where(eq(clientOnboarding.token, input.token)).limit(1);
@@ -45486,31 +45495,64 @@ var init_onboarding_router = __esm({
         if (input.status === "approved") {
           const row = await db.select().from(clientOnboarding).where(eq(clientOnboarding.id, input.id)).limit(1);
           if (row[0]) {
-            await db.update(clients).set({ workflowStatus: "active" }).where(eq(clients.id, row[0].clientId));
-            const clientRows = await db.select().from(clients).where(eq(clients.id, row[0].clientId)).limit(1);
+            const onb = row[0];
+            const MONTHS32 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const yearEndMonth = (() => {
+              const w = (onb.fiscalYearEnd || "").trim().slice(0, 3).toLowerCase();
+              const i = MONTHS32.findIndex((m) => m.toLowerCase() === w);
+              return i >= 0 ? MONTHS32[i] : null;
+            })();
+            const hstPeriod = onb.hstGstFrequency === "annually" ? "annual" : onb.hstGstFrequency === "quarterly" ? "quarterly" : onb.hstGstFrequency === "monthly" ? "monthly" : null;
+            const payFreq = onb.payrollFrequency === "biweekly" ? "bi-weekly" : onb.payrollFrequency === "semi_monthly" ? "semi-monthly" : onb.payrollFrequency && onb.payrollFrequency !== "none" ? onb.payrollFrequency : null;
+            const hasPayroll = !!payFreq || !!onb.hasEmployees;
+            await db.update(clients).set({
+              workflowStatus: "active",
+              hasHST: onb.hstGstFrequency !== "none" && onb.hstGstFrequency != null,
+              hstPeriod,
+              hstNumber: onb.hstGstNumber || void 0,
+              hasPayroll,
+              payrollFrequency: payFreq,
+              payrollRpNumber: onb.payrollAccountNumber || void 0,
+              hasWSIB: onb.wsibRequired ?? false,
+              wsibAccountNumber: onb.wsibAccountNumber || void 0,
+              payrollDividends: onb.paysDividends ?? false,
+              monthlySalesReceipt: onb.monthlySalesReceipt ?? false,
+              salesReceiptSource: onb.salesReceiptSource || void 0,
+              yearEndMonth,
+              updatedAt: /* @__PURE__ */ new Date()
+            }).where(eq(clients.id, onb.clientId));
+            const clientRows = await db.select().from(clients).where(eq(clients.id, onb.clientId)).limit(1);
             const client = clientRows[0];
             if (client) {
               await createClientTaskRules({
-                clientId: row[0].clientId,
+                clientId: onb.clientId,
                 userId: client.userId,
                 assignedTo: input.assignedTo || client.assignedTo,
-                fiscalYearEnd: row[0].fiscalYearEnd,
-                hstGstFrequency: row[0].hstGstFrequency || "none",
-                payrollFrequency: row[0].payrollFrequency || "none",
-                hasEmployees: row[0].hasEmployees || false,
-                hasSubcontractors: row[0].hasSubcontractors || false,
-                hasInvestments: row[0].hasInvestments || false,
-                wsibRequired: row[0].wsibRequired || false,
-                bankAccountCount: row[0].bankAccountCount || 1,
-                creditCardCount: row[0].creditCardCount || 0,
-                needsYearEnd: row[0].needsYearEnd !== false,
-                usesStripe: row[0].usesStripe || false,
-                usesSquare: row[0].usesSquare || false,
-                usesJobber: row[0].usesJobber || false,
-                usesTouchBistro: row[0].usesTouchBistro || false,
-                usesPayPal: row[0].usesPayPal || false,
-                salesEntryFrequency: row[0].salesEntryFrequency || "monthly"
+                fiscalYearEnd: onb.fiscalYearEnd,
+                hstGstFrequency: onb.hstGstFrequency || "none",
+                payrollFrequency: onb.payrollFrequency || "none",
+                hasEmployees: onb.hasEmployees || false,
+                hasSubcontractors: onb.hasSubcontractors || false,
+                hasInvestments: onb.hasInvestments || false,
+                paysDividends: onb.paysDividends || false,
+                wsibRequired: onb.wsibRequired || false,
+                bankAccountCount: onb.bankAccountCount || 1,
+                creditCardCount: onb.creditCardCount || 0,
+                needsYearEnd: onb.needsYearEnd !== false,
+                usesStripe: onb.usesStripe || false,
+                usesSquare: onb.usesSquare || false,
+                usesJobber: onb.usesJobber || false,
+                usesTouchBistro: onb.usesTouchBistro || false,
+                usesPayPal: onb.usesPayPal || false,
+                usesWise: onb.usesWise || false,
+                salesEntryFrequency: onb.salesEntryFrequency || "monthly",
+                invoicingResponsibility: onb.invoicingResponsibility || "none",
+                billPayResponsibility: onb.billPayResponsibility || "none"
               });
+              try {
+                syncClientToMaster((await db.select().from(clients).where(eq(clients.id, onb.clientId)).limit(1))[0]);
+              } catch {
+              }
             }
           }
         }
@@ -60144,7 +60186,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.13";
+var BUILD_TAG = "2026-06-22.14";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

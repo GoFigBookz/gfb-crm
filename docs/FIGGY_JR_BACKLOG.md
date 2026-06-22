@@ -22,8 +22,18 @@ don't re-derive them._
   companies only (Clark OS, Clark CW via Jobber; the two restaurants via TouchBistro):
   period ends Tuesday, Markie processes Wednesday — so auto-import that period's hours at
   ~9:00 AM Wednesday into the pay run, ready for him. Scheduled job once the connectors are live.
-- **Onboarding form 'Send' should generate a link (2026-06-21).** The send-client-onboarding-
-  form action doesn't produce a shareable link yet — wire it to generate + send one.
+- ✅ **Client-facing onboarding link — works end-to-end (2026-06-22).** "Generate Link"
+  (Onboarding page) creates a `/onboarding/{token}` link + copy button for ANY client (was
+  limited to new leads). The public form (`OnboardingForm.tsx`) now mirrors the staff intake's
+  intake-driven fields: dividends (T5), platforms (Stripe/Square/Jobber/TouchBistro/PayPal/Wise),
+  who-invoices / who-pays (incl. "both"), and the monthly total-sales-receipt flag + source.
+  `onboarding.submit` persists them; `onboarding.review` (approve) now MAPS the onboarding
+  record → client-card flags (HST/payroll/WSIB/dividends/sales-receipt/year-end) the same way
+  the staff intake does, so a client self-submission actually provisions the card + correct
+  tasks. "both" invoicing/bill-pay now triggers the invoicing/A-P task rules. NOT rolled out
+  yet (Markie's call) — but functional if turned on. TODO when rolling out: payroll *sub-options*
+  (hours source / revenue share / CRA comparison) stay staff-only (internal process choices),
+  add them to the public form only if a client should self-report them.
 - **Sales + payment platforms on intake drive connect buttons (2026-06-21).** Like hours-source
   drives the Jobber button: the client's sales platform (Square/Jobber/Stripe/etc.) and payment
   platform fields on intake should drive which connect buttons + integrations appear per client.
