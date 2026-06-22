@@ -68,6 +68,8 @@ export const employeeRouter = createRouter({
       getsPhoneAllowance: z.boolean().optional(),
       getsReimbursement: z.boolean().optional(),
       ytdGrossOpening: z.number().nullable().optional(),
+      wsibEligible: z.boolean().optional(),
+      jobberName: z.string().optional(),
       sin: z.string().optional(),
       notes: z.string().optional(),
     }))
@@ -120,6 +122,8 @@ export const employeeRouter = createRouter({
       getsPhoneAllowance: z.boolean().optional(),
       getsReimbursement: z.boolean().optional(),
       ytdGrossOpening: z.number().nullable().optional(),
+      wsibEligible: z.boolean().optional(),
+      jobberName: z.string().optional(),
       sin: z.string().optional(),
       notes: z.string().optional(),
     }))

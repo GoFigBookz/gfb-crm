@@ -171,38 +171,64 @@ async function recomputeRunTotals(runId: number) {
 
 export const payrollRouter = createRouter({
   /**
-   * WSIB remittance for a client + year. Sums the GROSS earnings on the client's
-   * pay runs for the year (insurable earnings) and multiplies by the WSIB premium
-   * rate ($ per $100). Source of truth for earnings = the CRM pay runs (will pull
-   * from QBO Payroll once connected). Exec/exempt-employee exclusions can be added
-   * later via a per-employee WSIB-exempt flag.
+   * WSIB remittance for a client + QUARTER (WSIB files quarterly). Sums the GROSS
+   * insurable earnings on the client's pay runs in the quarter — ONLY for WSIB-
+   * eligible employees (management/exec excluded unless flagged eligible) — and
+   * multiplies by the WSIB premium rate ($ per $100). Earnings come from the CRM
+   * pay runs (will pull from QBO Payroll once connected). Returns the eligible /
+   * excluded employee breakdown so it's auditable before filing.
    */
   wsibRemittance: staffQuery
-    .input(z.object({ clientId: z.number(), year: z.number().optional() }))
+    .input(z.object({ clientId: z.number(), year: z.number().optional(), quarter: z.number().min(1).max(4).optional() }))
     .query(async ({ input }) => {
       const db = getDb();
-      const year = input.year ?? new Date().getUTCFullYear();
+      const now = new Date();
+      const year = input.year ?? now.getUTCFullYear();
+      // Default to the most recently-ENDED quarter (what you'd be filing now).
+      const quarter = input.quarter ?? (Math.floor(now.getUTCMonth() / 3) || 4);
+      const qStartMonth = (quarter - 1) * 3;            // 0,3,6,9
       const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0] as any;
+      const emps = (await db.select().from(employees).where(eq(employees.clientId, input.clientId))) as any[];
+      // Eligible = wsibEligible !== false (default true). Management opted out → false.
+      const eligibleIds = new Set(emps.filter((e) => e.wsibEligible !== false).map((e) => e.id));
+
       const runs = (await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId))) as any[];
-      const inYear = runs.filter((r) => {
+      const inQuarter = runs.filter((r) => {
         const d = r.payDate || r.payPeriodEnd;
-        return d && new Date(d).getUTCFullYear() === year;
+        if (!d) return false;
+        const dt = new Date(d);
+        return dt.getUTCFullYear() === year && dt.getUTCMonth() >= qStartMonth && dt.getUTCMonth() < qStartMonth + 3;
       });
-      const runIds = new Set(inYear.map((r) => r.id));
+      const runIds = new Set(inQuarter.map((r) => r.id));
       const allLines = (await db.select().from(payRunLines)) as any[];
       const lines = allLines.filter((l) => runIds.has(l.payRunId));
-      const insurableEarnings = round2(lines.reduce((s, l) => s + (l.grossPay || 0), 0));
+      const eligibleEarnings = round2(lines.filter((l) => eligibleIds.has(l.employeeId)).reduce((s, l) => s + (l.grossPay || 0), 0));
+      const excludedEarnings = round2(lines.filter((l) => !eligibleIds.has(l.employeeId)).reduce((s, l) => s + (l.grossPay || 0), 0));
       const rate = client?.wsibRate ?? null;            // $ per $100
-      const remittance = rate != null ? round2(insurableEarnings * rate / 100) : null;
+      const remittance = rate != null ? round2(eligibleEarnings * rate / 100) : null;
       return {
-        year,
-        insurableEarnings,
+        year, quarter, quarterLabel: `Q${quarter} ${year}`,
+        insurableEarnings: eligibleEarnings,
+        excludedEarnings,
         rate,
         remittance,
-        payRunCount: inYear.length,
+        payRunCount: inQuarter.length,
+        eligibleCount: eligibleIds.size,
+        excludedCount: emps.length - eligibleIds.size,
         accountNumber: client?.wsibAccountNumber ?? null,
+        driveFolderUrl: client?.driveFolderUrl ?? null,
         hasWSIB: !!client?.hasWSIB,
+        employees: emps.map((e) => ({ id: e.id, name: `${e.firstName} ${e.lastName}`, wsibEligible: e.wsibEligible !== false })),
       };
+    }),
+
+  /** Toggle an employee's WSIB eligibility (management/exec excluded). */
+  setEmployeeWsibEligible: staffQuery
+    .input(z.object({ employeeId: z.number(), eligible: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.update(employees).set({ wsibEligible: input.eligible, updatedAt: new Date() } as any).where(eq(employees.id, input.employeeId));
+      return { success: true };
     }),
 
   /** Set the client's WSIB premium rate ($ per $100). */
@@ -315,13 +341,26 @@ export const payrollRouter = createRouter({
       }
       const emps = await db.select().from(employees).where(eq(employees.clientId, run.clientId));
       const norm = (s: string) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
-      const byName = new Map((emps as any[]).map((e) => [norm(`${e.firstName} ${e.lastName}`), e]));
+      // Match priority: Jobber-name alias (exact) → full name → first name. The
+      // alias handles Jobber labels that don't match the CRM name (e.g. "Grace").
+      const byAlias = new Map<string, any>();
+      const byFull = new Map<string, any>();
+      const byFirst = new Map<string, any>();
+      for (const e of emps as any[]) {
+        if (e.jobberName) byAlias.set(norm(e.jobberName), e);
+        byFull.set(norm(`${e.firstName} ${e.lastName}`), e);
+        if (!byFirst.has(norm(e.firstName))) byFirst.set(norm(e.firstName), e); // first wins (ambiguous first names fall through)
+      }
+      const matchEmp = (jobberLabel: string) => {
+        const n = norm(jobberLabel);
+        return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm(n.split(" ")[0])) || null;
+      };
       const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
       const lineByEmp = new Map((lines as any[]).map((l) => [l.employeeId, l]));
       let matched = 0;
       const unmatched: { name: string; hours: number }[] = [];
       for (const h of hours) {
-        const emp = byName.get(norm(h.userName));
+        const emp = matchEmp(h.userName);
         if (!emp) { unmatched.push({ name: h.userName, hours: h.hours }); continue; }
         const line = lineByEmp.get(emp.id);
         if (line) {

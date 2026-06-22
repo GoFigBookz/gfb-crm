@@ -410,18 +410,20 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
     });
   }
 
-  // === WSIB ANNUAL RECONCILIATION ===
+  // === WSIB QUARTERLY FILING ===
+  // WSIB reports quarterly (Q1–Q4). Each quarter is due by the end of the month
+  // AFTER the quarter ends (Apr/Jul/Oct/Jan); aim to file mid-month → due day 15
+  // with lead time. Run the remittance on the client's WSIB card, then file.
   if (data.wsibRequired) {
     rules.push({
-      ruleType: "wsib_annual",
-      title: "WSIB Annual Reconciliation",
-      description: "Complete WSIB annual reconciliation report. Verify premiums paid vs. actual insurable earnings.",
+      ruleType: "wsib_quarterly",
+      title: "WSIB Quarterly Filing",
+      description: "File the quarterly WSIB premium report. Run the WSIB remittance on the client card (eligible employees' insurable earnings × rate), then file on the WSIB portal.",
       category: "Payroll",
-      priority: "medium",
-      frequency: "yearly",
-      dueDayOfMonth: 28,
-      dueMonth: 2,
-      daysBeforeDue: 30,
+      priority: "high",
+      frequency: "quarterly",
+      dueDayOfMonth: 15,
+      daysBeforeDue: 7,
       fiscalYearEndMonth: fy?.month,
       fiscalYearEndDay: fy?.day,
     });

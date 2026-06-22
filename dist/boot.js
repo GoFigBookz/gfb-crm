@@ -23312,6 +23312,12 @@ var init_schema = __esm({
       address: text("address"),
       isContractor: integer2("isContractor", { mode: "boolean" }).default(false),
       isActive: integer2("isActive", { mode: "boolean" }).default(true),
+      // WSIB: most employees are covered; management/executive may be excluded unless
+      // they opt in. Drives the WSIB remittance (only eligible gross is premium-rated).
+      wsibEligible: integer2("wsibEligible", { mode: "boolean" }).default(true),
+      // Jobber timesheet name alias — maps a Jobber label (e.g. "Grace") to this
+      // employee when it doesn't match firstName/lastName, so hours import cleanly.
+      jobberName: text("jobberName"),
       terminationDate: integer2("terminationDate", { mode: "timestamp" }),
       terminationReason: text("terminationReason"),
       // Benefits
@@ -40388,15 +40394,14 @@ function buildTaskRules(data) {
   }
   if (data.wsibRequired) {
     rules.push({
-      ruleType: "wsib_annual",
-      title: "WSIB Annual Reconciliation",
-      description: "Complete WSIB annual reconciliation report. Verify premiums paid vs. actual insurable earnings.",
+      ruleType: "wsib_quarterly",
+      title: "WSIB Quarterly Filing",
+      description: "File the quarterly WSIB premium report. Run the WSIB remittance on the client card (eligible employees' insurable earnings \xD7 rate), then file on the WSIB portal.",
       category: "Payroll",
-      priority: "medium",
-      frequency: "yearly",
-      dueDayOfMonth: 28,
-      dueMonth: 2,
-      daysBeforeDue: 30,
+      priority: "high",
+      frequency: "quarterly",
+      dueDayOfMonth: 15,
+      daysBeforeDue: 7,
       fiscalYearEndMonth: fy?.month,
       fiscalYearEndDay: fy?.day
     });
@@ -46677,6 +46682,8 @@ var init_employee_router = __esm({
         getsPhoneAllowance: external_exports.boolean().optional(),
         getsReimbursement: external_exports.boolean().optional(),
         ytdGrossOpening: external_exports.number().nullable().optional(),
+        wsibEligible: external_exports.boolean().optional(),
+        jobberName: external_exports.string().optional(),
         sin: external_exports.string().optional(),
         notes: external_exports.string().optional()
       })).mutation(async ({ input }) => {
@@ -46726,6 +46733,8 @@ var init_employee_router = __esm({
         getsPhoneAllowance: external_exports.boolean().optional(),
         getsReimbursement: external_exports.boolean().optional(),
         ytdGrossOpening: external_exports.number().nullable().optional(),
+        wsibEligible: external_exports.boolean().optional(),
+        jobberName: external_exports.string().optional(),
         sin: external_exports.string().optional(),
         notes: external_exports.string().optional()
       })).mutation(async ({ input }) => {
@@ -47694,36 +47703,58 @@ var init_payroll_router = __esm({
     KNOWN_PAYROLL = ["west york", "originality", "clark", "spot", "sher", "punjab"];
     payrollRouter = createRouter({
       /**
-       * WSIB remittance for a client + year. Sums the GROSS earnings on the client's
-       * pay runs for the year (insurable earnings) and multiplies by the WSIB premium
-       * rate ($ per $100). Source of truth for earnings = the CRM pay runs (will pull
-       * from QBO Payroll once connected). Exec/exempt-employee exclusions can be added
-       * later via a per-employee WSIB-exempt flag.
+       * WSIB remittance for a client + QUARTER (WSIB files quarterly). Sums the GROSS
+       * insurable earnings on the client's pay runs in the quarter — ONLY for WSIB-
+       * eligible employees (management/exec excluded unless flagged eligible) — and
+       * multiplies by the WSIB premium rate ($ per $100). Earnings come from the CRM
+       * pay runs (will pull from QBO Payroll once connected). Returns the eligible /
+       * excluded employee breakdown so it's auditable before filing.
        */
-      wsibRemittance: staffQuery.input(external_exports.object({ clientId: external_exports.number(), year: external_exports.number().optional() })).query(async ({ input }) => {
+      wsibRemittance: staffQuery.input(external_exports.object({ clientId: external_exports.number(), year: external_exports.number().optional(), quarter: external_exports.number().min(1).max(4).optional() })).query(async ({ input }) => {
         const db = getDb();
-        const year2 = input.year ?? (/* @__PURE__ */ new Date()).getUTCFullYear();
+        const now = /* @__PURE__ */ new Date();
+        const year2 = input.year ?? now.getUTCFullYear();
+        const quarter = input.quarter ?? (Math.floor(now.getUTCMonth() / 3) || 4);
+        const qStartMonth = (quarter - 1) * 3;
         const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        const emps = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
+        const eligibleIds = new Set(emps.filter((e) => e.wsibEligible !== false).map((e) => e.id));
         const runs = await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId));
-        const inYear = runs.filter((r) => {
+        const inQuarter = runs.filter((r) => {
           const d = r.payDate || r.payPeriodEnd;
-          return d && new Date(d).getUTCFullYear() === year2;
+          if (!d) return false;
+          const dt = new Date(d);
+          return dt.getUTCFullYear() === year2 && dt.getUTCMonth() >= qStartMonth && dt.getUTCMonth() < qStartMonth + 3;
         });
-        const runIds = new Set(inYear.map((r) => r.id));
+        const runIds = new Set(inQuarter.map((r) => r.id));
         const allLines = await db.select().from(payRunLines);
         const lines = allLines.filter((l) => runIds.has(l.payRunId));
-        const insurableEarnings = round2(lines.reduce((s, l) => s + (l.grossPay || 0), 0));
+        const eligibleEarnings = round2(lines.filter((l) => eligibleIds.has(l.employeeId)).reduce((s, l) => s + (l.grossPay || 0), 0));
+        const excludedEarnings = round2(lines.filter((l) => !eligibleIds.has(l.employeeId)).reduce((s, l) => s + (l.grossPay || 0), 0));
         const rate = client?.wsibRate ?? null;
-        const remittance = rate != null ? round2(insurableEarnings * rate / 100) : null;
+        const remittance = rate != null ? round2(eligibleEarnings * rate / 100) : null;
         return {
           year: year2,
-          insurableEarnings,
+          quarter,
+          quarterLabel: `Q${quarter} ${year2}`,
+          insurableEarnings: eligibleEarnings,
+          excludedEarnings,
           rate,
           remittance,
-          payRunCount: inYear.length,
+          payRunCount: inQuarter.length,
+          eligibleCount: eligibleIds.size,
+          excludedCount: emps.length - eligibleIds.size,
           accountNumber: client?.wsibAccountNumber ?? null,
-          hasWSIB: !!client?.hasWSIB
+          driveFolderUrl: client?.driveFolderUrl ?? null,
+          hasWSIB: !!client?.hasWSIB,
+          employees: emps.map((e) => ({ id: e.id, name: `${e.firstName} ${e.lastName}`, wsibEligible: e.wsibEligible !== false }))
         };
+      }),
+      /** Toggle an employee's WSIB eligibility (management/exec excluded). */
+      setEmployeeWsibEligible: staffQuery.input(external_exports.object({ employeeId: external_exports.number(), eligible: external_exports.boolean() })).mutation(async ({ input }) => {
+        const db = getDb();
+        await db.update(employees).set({ wsibEligible: input.eligible, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, input.employeeId));
+        return { success: true };
       }),
       /** Set the client's WSIB premium rate ($ per $100). */
       setWsibRate: staffQuery.input(external_exports.object({ clientId: external_exports.number(), rate: external_exports.number().min(0).max(50) })).mutation(async ({ input }) => {
@@ -47815,13 +47846,24 @@ var init_payroll_router = __esm({
         }
         const emps = await db.select().from(employees).where(eq(employees.clientId, run2.clientId));
         const norm8 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
-        const byName = new Map(emps.map((e) => [norm8(`${e.firstName} ${e.lastName}`), e]));
+        const byAlias = /* @__PURE__ */ new Map();
+        const byFull = /* @__PURE__ */ new Map();
+        const byFirst = /* @__PURE__ */ new Map();
+        for (const e of emps) {
+          if (e.jobberName) byAlias.set(norm8(e.jobberName), e);
+          byFull.set(norm8(`${e.firstName} ${e.lastName}`), e);
+          if (!byFirst.has(norm8(e.firstName))) byFirst.set(norm8(e.firstName), e);
+        }
+        const matchEmp = (jobberLabel) => {
+          const n = norm8(jobberLabel);
+          return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm8(n.split(" ")[0])) || null;
+        };
         const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
         const lineByEmp = new Map(lines.map((l) => [l.employeeId, l]));
         let matched = 0;
         const unmatched = [];
         for (const h of hours) {
-          const emp = byName.get(norm8(h.userName));
+          const emp = matchEmp(h.userName);
           if (!emp) {
             unmatched.push({ name: h.userName, hours: h.hours });
             continue;
@@ -55513,6 +55555,8 @@ async function ensurePayrollTables() {
     await addCol("employees", "getsPhoneAllowance", "INTEGER DEFAULT 0");
     await addCol("employees", "getsReimbursement", "INTEGER DEFAULT 0");
     await addCol("employees", "ytdGrossOpening", "REAL");
+    await addCol("employees", "wsibEligible", "INTEGER DEFAULT 1");
+    await addCol("employees", "jobberName", "TEXT");
     await addCol("pay_run_lines", "shareBonus", "REAL DEFAULT 0");
     await addCol("pay_run_lines", "phoneAllowance", "REAL DEFAULT 0");
     await addCol("pay_run_lines", "reimbursement", "REAL DEFAULT 0");
@@ -60756,7 +60800,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.24";
+var BUILD_TAG = "2026-06-22.25";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
