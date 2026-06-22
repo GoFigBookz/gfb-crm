@@ -1638,3 +1638,18 @@ export const appSettings = sqliteTable("app_settings", {
   value: text("value"),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// Additional contacts inside a client company (e.g. the receptionist we deal with).
+// Per-client; saves + edits independently of the primary client record.
+export const clientContacts = sqliteTable("client_contacts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  name: text("name").notNull(),
+  title: text("title"),            // role, e.g. "Receptionist", "Owner", "AP"
+  email: text("email"),
+  phone: text("phone"),
+  isPrimary: integer("isPrimary", { mode: "boolean" }).default(false),
+  notes: text("notes"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

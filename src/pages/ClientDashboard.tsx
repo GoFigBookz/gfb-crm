@@ -441,6 +441,7 @@ export default function ClientDashboard() {
 
         {/* OVERVIEW TAB */}
         <TabsContent value="overview" className="space-y-4 mt-4">
+          <ContactsCard clientId={id} />
           {/* Document requests + at-a-glance, side by side. (Task progress lives in
               the combined Tasks card up top.) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -2012,6 +2013,76 @@ function TimeLogDialog({ open, onClose, clientId, tasks, onSubmit, isPending }: 
 }
 
 // Quick Links Card Component (variant "card" = full card; "header" = compact row)
+/** Per-client contacts (receptionist, AP, owner, etc.) — add/edit/delete, saved per client. */
+function ContactsCard({ clientId }: { clientId: number }) {
+  const utils = trpc.useUtils();
+  const { data: contacts } = trpc.contacts.list.useQuery({ clientId });
+  const inv = () => utils.contacts.list.invalidate({ clientId });
+  const blank = { name: "", title: "", email: "", phone: "", notes: "", isPrimary: false };
+  const [form, setForm] = useState<any>(blank);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [open, setOpen] = useState(false);
+  const create = trpc.contacts.create.useMutation({ onSuccess: () => { inv(); close(); }, onError: (e) => alert(e.message) });
+  const update = trpc.contacts.update.useMutation({ onSuccess: () => { inv(); close(); }, onError: (e) => alert(e.message) });
+  const remove = trpc.contacts.remove.useMutation({ onSuccess: inv });
+  function close() { setOpen(false); setEditId(null); setForm(blank); }
+  function startAdd() { setEditId(null); setForm(blank); setOpen(true); }
+  function startEdit(c: any) { setEditId(c.id); setForm({ name: c.name || "", title: c.title || "", email: c.email || "", phone: c.phone || "", notes: c.notes || "", isPrimary: !!c.isPrimary }); setOpen(true); }
+  function save() {
+    if (!form.name.trim()) return;
+    if (editId) update.mutate({ id: editId, ...form });
+    else create.mutate({ clientId, ...form });
+  }
+  return (
+    <Card>
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="flex items-center gap-2 text-base"><Users className="h-5 w-5 text-lime-500" /> Contacts</CardTitle>
+        <Button size="sm" variant="outline" onClick={startAdd}><Plus className="h-3.5 w-3.5 mr-1" /> Add contact</Button>
+      </CardHeader>
+      <CardContent>
+        {(!contacts || contacts.length === 0) ? (
+          <p className="text-sm text-slate-400 py-2">No contacts yet — add the people you deal with (receptionist, AP, owner…).</p>
+        ) : (
+          <div className="divide-y">
+            {contacts.map((c: any) => (
+              <div key={c.id} className="flex items-start justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{c.name}{c.isPrimary ? <Badge variant="outline" className="ml-2 text-[10px] bg-lime-50 text-lime-700">primary</Badge> : null}</p>
+                  <p className="text-xs text-slate-500">{[c.title, c.email, c.phone].filter(Boolean).join(" · ") || "—"}</p>
+                  {c.notes ? <p className="text-xs text-slate-400 mt-0.5">{c.notes}</p> : null}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => startEdit(c)}><Edit className="h-3.5 w-3.5" /></Button>
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600" onClick={() => { if (confirm(`Remove ${c.name}?`)) remove.mutate({ id: c.id }); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+      <Dialog open={open} onOpenChange={(v) => { if (!v) close(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{editId ? "Edit contact" : "Add contact"}</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+              <div><Label>Title / role</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Receptionist" /></div>
+              <div><Label>Email</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+              <div><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+            </div>
+            <div><Label>Notes</Label><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isPrimary} onChange={(e) => setForm({ ...form, isPrimary: e.target.checked })} /> Primary contact</label>
+            <div className="flex gap-2 pt-1">
+              <Button className="bg-lime-500 flex-1" disabled={!form.name.trim() || create.isPending || update.isPending} onClick={save}>{create.isPending || update.isPending ? "Saving…" : "Save"}</Button>
+              <Button variant="outline" onClick={close}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
 function QuickLinksCard({ client, onboarding, variant = "card" }: { client: any; onboarding: any; variant?: "card" | "header" }) {
   const [editOpen, setEditOpen] = useState(false);
   const [driveUrl, setDriveUrl] = useState(client.driveFolderUrl || "");
