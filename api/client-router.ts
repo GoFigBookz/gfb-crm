@@ -4,7 +4,7 @@ import { getDb } from "./queries/connection";
 import { clients, satisfactionScores, tasks, clientTaskRules } from "../db/schema";
 import { eq, and, like, desc, ne } from "drizzle-orm";
 import { syncInsert, syncUpdate } from "./sync-hooks";
-import { createRecurringTasksForClient } from "./client-task-creator";
+import { ensureComplianceForClient } from "./task-generator";
 import { isOperationalClient } from "./month-end-core";
 
 /** Row scope for client mutations: a "client"-role user may only touch their own
@@ -164,14 +164,9 @@ export const clientRouter = createRouter({
 
       // Auto-create recurring tasks if flags are set — but NOT for wholesale
       // (flow-through) clients: they have no books, no close, no compliance tasks.
+      // Unified rule engine (one task system; idempotent + full compliance set).
       if (client && isOperationalClient(client.clientType)) {
-        await createRecurringTasksForClient(
-          client.id,
-          ctx.user.id,
-          { hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency, payrollExternal: input.payrollExternal },
-          client.name,
-          client.assignedTo
-        );
+        await ensureComplianceForClient(client.id, { userId: ctx.user.id, assignedTo: client.assignedTo });
       }
 
       return client;
@@ -282,24 +277,16 @@ export const clientRouter = createRouter({
       const wasPayroll = currentClient?.hasPayroll ?? false;
       const wasDividends = currentClient?.payrollDividends ?? false;
 
-      // Wholesale clients never generate compliance tasks.
-      if (updated && isOperationalClient(updated.clientType)) {
-        await createRecurringTasksForClient(
-          updated.id,
-          ctx.user.id,
-          {
-            hasHST: !wasHst && updated.hasHST ? true : undefined,
-            hstPeriod: updated.hstPeriod || undefined,
-            hasWSIB: !wasWsib && updated.hasWSIB ? true : undefined,
-            wsibQuarter: updated.wsibQuarter || undefined,
-            hasPayroll: !wasPayroll && updated.hasPayroll ? true : undefined,
-            payrollFrequency: updated.payrollFrequency || undefined,
-            payrollExternal: (updated as any).payrollExternal ?? undefined,
-            paysDividends: !wasDividends && (updated as any).payrollDividends ? true : undefined,
-          },
-          updated.name,
-          updated.assignedTo
-        );
+      // Wholesale clients never generate compliance tasks. The unified engine is
+      // idempotent + additive, so calling it on any operational update backfills
+      // exactly the rules now implied by the client's flags (no duplicates, no
+      // differently-titled second copies). Removal of newly-disabled work is
+      // handled above (wholesale switch / status flips) + in onboarding edit.
+      if (updated && isOperationalClient(updated.clientType) &&
+          ((!wasHst && updated.hasHST) || (!wasWsib && updated.hasWSIB) ||
+           (!wasPayroll && updated.hasPayroll) || (!wasDividends && (updated as any).payrollDividends) ||
+           updates.clientType !== undefined)) {
+        await ensureComplianceForClient(updated.id, { userId: ctx.user.id, assignedTo: updated.assignedTo });
       }
 
       return { success: true };

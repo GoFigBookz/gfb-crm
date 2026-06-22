@@ -544,7 +544,7 @@ app.post("/api/admin/import-clients", async (c) => {
     const db = getDb();
     const { clients } = await import("../db/schema");
     const { eq } = await import("drizzle-orm");
-    const { createRecurringTasksForClient } = await import("./client-task-creator");
+    const { ensureComplianceForClient } = await import("./task-generator");
 
     const CLIENTS_DATA = [
       { name: "Aim Construction Inc.", email: "aim@example.com", company: "Aim Construction Inc.", status: "active" as const, assignedTo: "Markie" as const, hasHST: true, hstPeriod: "quarterly" as const, hasWSIB: true, wsibQuarter: "all" as const, hasPayroll: true, payrollFrequency: "bi-weekly" as const, yearEndMonth: "Dec" as const, monthlyFee: 500, billingType: "monthly_fixed" as const },
@@ -589,21 +589,8 @@ app.post("/api/admin/import-clients", async (c) => {
         results.imported++;
 
         if (client) {
-          const taskResult = await createRecurringTasksForClient(
-            client.id,
-            1,
-            {
-              hasHST: clientData.hasHST,
-              hstPeriod: clientData.hstPeriod,
-              hasWSIB: clientData.hasWSIB,
-              wsibQuarter: clientData.wsibQuarter,
-              hasPayroll: clientData.hasPayroll,
-              payrollFrequency: clientData.payrollFrequency,
-            },
-            clientData.name,
-            clientData.assignedTo
-          );
-          results.tasksCreated += taskResult?.count || 0;
+          const taskResult = await ensureComplianceForClient(client.id, { userId: 1, assignedTo: clientData.assignedTo });
+          results.tasksCreated += taskResult?.tasks || 0;
         }
       } catch (e: any) {
         results.errors.push(`${clientData.name}: ${e.message}`);
@@ -1062,10 +1049,10 @@ async function startServer() {
         payrollReimbursements: 1, payrollRevenueShare: 1,
       });
       // Dividends feature on → ensure the T5 filing task exists (idempotent;
-      // the creator dedups by title + future due date).
-      const { createRecurringTasksForClient: ensureTasks } = await import("./client-task-creator");
+      // unified rule engine — one task system, dedups by ruleType).
+      const { ensureComplianceForClient } = await import("./task-generator");
       for (const cl of cw) {
-        await ensureTasks(cl.id, (cl as any).userId || 1, { paysDividends: true }, cl.name, (cl as any).assignedTo);
+        await ensureComplianceForClient(cl.id, { userId: (cl as any).userId || 1, assignedTo: (cl as any).assignedTo });
       }
       // The two Collingwood profit-share owners get 10% revenue share each.
       for (const cl of cw) {

@@ -1,6 +1,6 @@
 import { eq, and, ne, inArray } from "drizzle-orm";
 import { getDb } from "./queries/connection";
-import { clientTaskRules, tasks, clients } from "../db/schema";
+import { clientTaskRules, tasks, clients, clientOnboarding } from "../db/schema";
 import { matchClientIdByName } from "./client-match";
 import type { InferSelectModel } from "drizzle-orm";
 
@@ -42,6 +42,10 @@ export type OnboardingData = {
   avgMonthlyTransactions?: number | null;
   invoicingResponsibility?: string | null;  // "we_invoice" | "client_invoices" | "none"
   billPayResponsibility?: string | null;     // "we_pay" | "client_pays" | "none"
+  // Some clients aren't invoiced — we enter ONE monthly total-sales receipt in QBO
+  // pulled from a report (Jobber/Square/etc). Drives a dedicated sales-receipt task.
+  monthlySalesReceipt?: boolean | null;
+  salesReceiptSource?: string | null;
 };
 
 export type TaskRuleConfig = {
@@ -139,6 +143,26 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
       category: "Sales",
       priority: "high",
       frequency: "monthly",
+      dueDayOfMonth: 10,
+      daysBeforeDue: 0,
+      fiscalYearEndMonth: fy?.month,
+      fiscalYearEndDay: fy?.day,
+    });
+  }
+
+  // Explicit "one monthly total-sales receipt from a report" flag (intake-driven).
+  // Only add when no per-platform receipt rule already covers it (avoid double work).
+  if (data.monthlySalesReceipt && receiptPlatforms.length === 0) {
+    const src = data.salesReceiptSource ? ` (${data.salesReceiptSource})` : "";
+    const freq = data.salesEntryFrequency === "daily" || data.salesEntryFrequency === "weekly"
+      ? (data.salesEntryFrequency as "daily" | "weekly") : "monthly";
+    rules.push({
+      ruleType: "monthly_sales_receipt",
+      title: "Monthly Sales Receipt — total sales",
+      description: `Pull the period's total sales report${src}, break out net sales and HST/GST, then enter ONE total Sales Receipt in QuickBooks and reconcile to the bank deposit.`,
+      category: "Sales",
+      priority: "high",
+      frequency: freq,
       dueDayOfMonth: 10,
       daysBeforeDue: 0,
       fiscalYearEndMonth: fy?.month,
@@ -713,6 +737,71 @@ export async function createClientTaskRules(data: OnboardingData) {
  * "client already had some rules but no HST task, so it was skipped forever".
  * One active rule per (clientId, ruleType) is the uniqueness key.
  */
+/**
+ * THE single client-record → tasks entry point. Maps a `clients` row (+ its
+ * latest onboarding record, for the platform/responsibility fields that live
+ * there) onto OnboardingData and runs the idempotent rule engine. This replaces
+ * the old `createRecurringTasksForClient` (client-task-creator.ts) so there is
+ * ONE task system — no dual-write, no differently-titled duplicates. Idempotent
+ * & additive: safe to call on every create/update/seed. Skips flow-through
+ * (wholesale) clients, which have no compliance work.
+ */
+export async function ensureComplianceForClient(
+  clientId: number,
+  opts: { userId?: number; assignedTo?: string | null } = {},
+) {
+  const db = getDb();
+  const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
+  if (!c) return { rules: 0, tasks: 0 };
+  // Flow-through (wholesale) clients: no books, no close, no compliance tasks.
+  if (c.clientType && c.clientType === "wholesale") return { rules: 0, tasks: 0 };
+
+  const onbRows = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(clientOnboarding.id);
+  const onb = (onbRows[onbRows.length - 1] as any) || {};
+
+  // hstPeriod on the client is "monthly" | "quarterly" | "annual" → the rule
+  // engine wants "monthly" | "quarterly" | "annually".
+  const hstFreq = c.hasHST
+    ? (c.hstPeriod === "monthly" ? "monthly" : c.hstPeriod === "quarterly" ? "quarterly" : "annually")
+    : null;
+  const fiscalYearEnd = c.yearEndMonth ? `${c.yearEndMonth} 30` : (onb.fiscalYearEnd ?? null);
+
+  return ensureComplianceRulesAndTasks({
+    clientId,
+    userId: opts.userId ?? c.userId ?? 1,
+    assignedTo: opts.assignedTo ?? c.assignedTo ?? null,
+    fiscalYearEnd,
+    hstGstFrequency: hstFreq,
+    payrollFrequency: c.hasPayroll ? (c.payrollFrequency || "monthly") : null,
+    payrollRemitterFreq: c.payrollRemitterFreq || "regular",
+    payrollExternal: !!c.payrollExternal,
+    hasEmployees: !!c.hasPayroll,
+    paysDividends: !!c.payrollDividends || !!onb.paysDividends,
+    hasSubcontractors: !!onb.hasSubcontractors,
+    hasInvestments: !!onb.hasInvestments,
+    hasEHT: !!onb.hasEHT,
+    wsibRequired: !!c.hasWSIB,
+    needsYearEnd: onb.needsYearEnd !== false,
+    bankAccountCount: onb.bankAccountCount ?? 1,
+    creditCardCount: onb.creditCardCount ?? 0,
+    bookkeepingFrequency: onb.bookkeepingFrequency ?? null,
+    usesStripe: !!onb.usesStripe,
+    usesSquare: !!onb.usesSquare,
+    usesJobber: !!onb.usesJobber,
+    usesTouchBistro: !!onb.usesTouchBistro,
+    usesPayPal: !!onb.usesPayPal,
+    usesWise: !!onb.usesWise,
+    salesEntryFrequency: onb.salesEntryFrequency ?? null,
+    usesHubdoc: !!onb.usesHubdoc,
+    hasJobCosting: !!onb.hasJobCosting,
+    invoicingResponsibility: onb.invoicingResponsibility ?? null,
+    billPayResponsibility: onb.billPayResponsibility ?? null,
+    // monthlySalesReceipt lives on the client record
+    monthlySalesReceipt: !!c.monthlySalesReceipt,
+    salesReceiptSource: c.salesReceiptSource ?? null,
+  } as OnboardingData);
+}
+
 export async function ensureComplianceRulesAndTasks(data: OnboardingData) {
   const db = getDb();
   const rules = buildTaskRules(data);
