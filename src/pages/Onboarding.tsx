@@ -406,6 +406,7 @@ export default function Onboarding() {
                         <SelectItem value="none">N/A</SelectItem>
                         <SelectItem value="we_invoice">We invoice their customers</SelectItem>
                         <SelectItem value="client_invoices">Client invoices themselves</SelectItem>
+                        <SelectItem value="both">Both (shared)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -417,6 +418,7 @@ export default function Onboarding() {
                         <SelectItem value="none">N/A</SelectItem>
                         <SelectItem value="we_pay">We pay their bills</SelectItem>
                         <SelectItem value="client_pays">Client pays their own bills</SelectItem>
+                        <SelectItem value="both">Both (shared)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
