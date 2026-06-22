@@ -133,6 +133,12 @@ export async function readMasterRange(rangeA1: string): Promise<string[][]> {
 
 /** POST {url, method, body} to the committed Sheets webhook proxy. */
 async function sheetsApi(url: string, method: "GET" | "POST" | "PUT", body?: unknown): Promise<any> {
+  // PAUSED 2026-06-22: the Make scenario's google-sheets "Make an API Call" module
+  // re-encodes the URL, so the CRM's already-encoded range double-encodes and Sheets
+  // rejects it ("Unable to parse range 'Client%20Master'"). Outbound sync is OFF until
+  // the scenario is rebuilt with native Sheets modules (no manual URL encoding). Opt
+  // back in with FIGGY_SHEET_SYNC_ENABLE=on once fixed.
+  if (process.env.FIGGY_SHEET_SYNC_ENABLE !== "on") return null;
   const res = await fetch(SYNC_WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

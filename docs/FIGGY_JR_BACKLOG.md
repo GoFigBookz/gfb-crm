@@ -4,6 +4,12 @@ _Living list of agreed-but-not-yet-built work, with the decisions made so we
 don't re-derive them._
 
 ## BACKLOGGED THIS SESSION (Markie: finish client cards first, then these)
+- **Rebuild master-sheet-sync to stop the double-encode (2026-06-22).** PAUSED outbound sync
+  (FIGGY_SHEET_SYNC_ENABLE opt-in) because Make scenario 5453235's google-sheets "Make an API
+  Call" module re-encodes the URL, double-encoding the range ('Client%20Master' reaches Sheets).
+  Fix: rebuild module 2 with NATIVE Google Sheets modules (Update/Add Row by spreadsheet+sheet+
+  range fields, no manual URL) OR have the CRM send a decoded range + range as a separate field.
+  Then re-enable. Also handle the stray empty-url 404 (/v4/).
 - **Monthly sales-receipt automation (2026-06-21, ~6 clients).** Intake flag `monthlySalesReceipt`
   + `salesReceiptSource` now captured. Build the automation: pull the month's TOTAL sales from
   the source (Jobber/Square/etc.) and create ONE sales receipt in the client's QBO file. Driven

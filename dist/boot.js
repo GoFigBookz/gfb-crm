@@ -44573,6 +44573,7 @@ async function readMasterRange(rangeA1) {
   }
 }
 async function sheetsApi2(url2, method, body) {
+  if (process.env.FIGGY_SHEET_SYNC_ENABLE !== "on") return null;
   const res = await fetch(SYNC_WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -60143,7 +60144,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.12";
+var BUILD_TAG = "2026-06-22.13";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
