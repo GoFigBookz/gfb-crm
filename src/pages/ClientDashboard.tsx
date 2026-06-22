@@ -1663,7 +1663,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
     paysDividends: !!o.paysDividends, hasEHT: !!o.hasEHT, needsYearEnd: o.needsYearEnd !== false,
     usesHubdoc: !!o.usesHubdoc, hasJobCosting: !!o.hasJobCosting,
     invoicingResponsibility: o.invoicingResponsibility || "none", billPayResponsibility: o.billPayResponsibility || "none",
-    usesStripe: !!o.usesStripe, usesSquare: !!o.usesSquare, usesJobber: !!o.usesJobber, usesTouchBistro: !!o.usesTouchBistro, usesPayPal: !!o.usesPayPal, usesWise: !!o.usesWise,
+    usesStripe: !!o.usesStripe, usesSquare: !!o.usesSquare, usesShopify: !!o.usesShopify, usesJobber: !!o.usesJobber, usesTouchBistro: !!o.usesTouchBistro, usesPayPal: !!o.usesPayPal, usesWise: !!o.usesWise,
     qboSoftwareTier: o.qboSoftwareTier || "none", qboSoftwareWholesale: !!o.qboSoftwareWholesale, qboPayrollWholesale: !!o.qboPayrollWholesale,
     servicesNeeded: o.servicesNeeded || "", painPoints: o.painPoints || "", expectations: o.expectations || "",
   });
@@ -1803,7 +1803,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
 
             <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Sales platforms</p>
             <div className="flex flex-wrap gap-x-4">
-              {check("usesStripe", "Stripe")}{check("usesSquare", "Square")}{check("usesJobber", "Jobber")}{check("usesTouchBistro", "TouchBistro")}{check("usesPayPal", "PayPal")}{check("usesWise", "Wise")}
+              {check("usesStripe", "Stripe")}{check("usesSquare", "Square")}{check("usesShopify", "Shopify")}{check("usesJobber", "Jobber")}{check("usesTouchBistro", "TouchBistro")}{check("usesPayPal", "PayPal")}{check("usesWise", "Wise")}
             </div>
 
             <p className="text-xs uppercase font-semibold text-slate-500 mt-2">QuickBooks (wholesale billing through us)</p>
@@ -2206,6 +2206,7 @@ function PlatformsCard({ onboarding, client }: { onboarding: any; client: any })
   const PLATFORMS: { key: string; label: string; url: string }[] = [
     { key: "usesStripe", label: "Stripe", url: "https://dashboard.stripe.com" },
     { key: "usesSquare", label: "Square", url: "https://squareup.com/login" },
+    { key: "usesShopify", label: "Shopify", url: "https://www.shopify.com/login" },
     { key: "usesJobber", label: "Jobber", url: "https://secure.getjobber.com/login" },
     { key: "usesTouchBistro", label: "TouchBistro", url: "https://login.touchbistro.com" },
     { key: "usesPayPal", label: "PayPal", url: "https://www.paypal.com/signin" },

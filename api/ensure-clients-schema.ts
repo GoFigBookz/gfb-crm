@@ -380,6 +380,7 @@ export async function ensureOnboardingColumns(): Promise<void> {
     ["usesTouchBistro", "integer DEFAULT 0"],
     ["usesPayPal", "integer DEFAULT 0"],
     ["usesWise", "integer DEFAULT 0"],
+    ["usesShopify", "integer DEFAULT 0"],
     ["payrollExternal", "integer DEFAULT 0"],
     ["paysDividends", "integer DEFAULT 0"],
     ["hasEHT", "integer DEFAULT 0"],

@@ -5,6 +5,7 @@ import { clients, satisfactionScores, tasks, clientTaskRules } from "../db/schem
 import { eq, and, like, desc, ne } from "drizzle-orm";
 import { syncInsert, syncUpdate } from "./sync-hooks";
 import { ensureComplianceForClient, reconcileClientFromIntake } from "./task-generator";
+import { figgyEmailFor } from "./seed-triage-emails";
 import { isOperationalClient } from "./month-end-core";
 
 /** Row scope for client mutations: a "client"-role user may only touch their own
@@ -162,6 +163,12 @@ export const clientRouter = createRouter({
         quoteSentAt,
         quoteApprovedAt,
       }).returning();
+      // Always assign a triage email on creation (so it's never missing).
+      if (client && !client.figgyEmail) {
+        const figgyEmail = figgyEmailFor(client.name || client.company || `client${client.id}`);
+        await db.update(clients).set({ figgyEmail }).where(eq(clients.id, client.id));
+        (client as any).figgyEmail = figgyEmail;
+      }
       if (client) syncInsert("clients", client);
 
       // Auto-create recurring tasks if flags are set — but NOT for wholesale

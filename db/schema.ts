@@ -505,6 +505,7 @@ export const clientOnboarding = sqliteTable("client_onboarding", {
   usesTouchBistro: integer("usesTouchBistro", { mode: "boolean" }).default(false),
   usesPayPal: integer("usesPayPal", { mode: "boolean" }).default(false),
   usesWise: integer("usesWise", { mode: "boolean" }).default(false),
+  usesShopify: integer("usesShopify", { mode: "boolean" }).default(false),
   salesEntryFrequency: text("salesEntryFrequency", { enum: ["daily", "weekly", "monthly", "none"] }).default("monthly"),
 
   // NEW: scope / responsibilities (factor into pricing)

@@ -22852,6 +22852,7 @@ var init_schema = __esm({
       usesTouchBistro: integer2("usesTouchBistro", { mode: "boolean" }).default(false),
       usesPayPal: integer2("usesPayPal", { mode: "boolean" }).default(false),
       usesWise: integer2("usesWise", { mode: "boolean" }).default(false),
+      usesShopify: integer2("usesShopify", { mode: "boolean" }).default(false),
       salesEntryFrequency: text("salesEntryFrequency", { enum: ["daily", "weekly", "monthly", "none"] }).default("monthly"),
       // NEW: scope / responsibilities (factor into pricing)
       paysDividends: integer2("paysDividends", { mode: "boolean" }).default(false),
@@ -40943,6 +40944,40 @@ var init_task_generator = __esm({
   }
 });
 
+// api/seed-triage-emails.ts
+var seed_triage_emails_exports = {};
+__export(seed_triage_emails_exports, {
+  figgyEmailFor: () => figgyEmailFor,
+  seedTriageEmails: () => seedTriageEmails
+});
+function figgyEmailFor(name2) {
+  const slug = String(name2 || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return `markie+${slug || "client"}@gofig.ca`;
+}
+async function seedTriageEmails() {
+  const db = getDb();
+  let set2 = 0;
+  const all = await db.select().from(clients);
+  for (const c of all) {
+    if (c.figgyEmail && String(c.figgyEmail).trim()) continue;
+    const email3 = figgyEmailFor(c.name || c.company || `client${c.id}`);
+    try {
+      await db.update(clients).set({ figgyEmail: email3, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+      set2++;
+    } catch (e) {
+      console.error("[triage-email] set failed for", c.id, ":", e instanceof Error ? e.message : e);
+    }
+  }
+  return { set: set2 };
+}
+var init_seed_triage_emails = __esm({
+  "api/seed-triage-emails.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+  }
+});
+
 // api/month-end-core.ts
 function isOperationalClient(clientType) {
   return (clientType || "monthly") !== "wholesale";
@@ -41135,6 +41170,7 @@ var init_client_router = __esm({
     init_drizzle_orm();
     init_sync_hooks();
     init_task_generator();
+    init_seed_triage_emails();
     init_month_end_core();
     clientRouter = createRouter({
       // List clients — SHARED PRACTICE VIEW
@@ -41230,6 +41266,11 @@ var init_client_router = __esm({
           quoteSentAt,
           quoteApprovedAt
         }).returning();
+        if (client && !client.figgyEmail) {
+          const figgyEmail = figgyEmailFor(client.name || client.company || `client${client.id}`);
+          await db.update(clients).set({ figgyEmail }).where(eq(clients.id, client.id));
+          client.figgyEmail = figgyEmail;
+        }
         if (client) syncInsert("clients", client);
         if (client && isOperationalClient(client.clientType)) {
           await ensureComplianceForClient(client.id, { userId: ctx.user.id, assignedTo: client.assignedTo });
@@ -44433,6 +44474,7 @@ __export(master_sheet_sync_exports, {
   MASTER_FIELDS: () => MASTER_FIELDS,
   PLATFORM_HEADERS: () => PLATFORM_HEADERS,
   colLetter: () => colLetter,
+  isLeadStage: () => isLeadStage,
   readMasterRange: () => readMasterRange,
   resolveColumns: () => resolveColumns,
   syncClientToMaster: () => syncClientToMaster,
@@ -44520,9 +44562,23 @@ async function sheetsApi2(url2, method, body) {
   const data = await res.json().catch(() => ({}));
   return data?.outputs?.tool_output?.body ?? data?.tool_output?.body ?? data?.body ?? data;
 }
+function isLeadStage(c) {
+  const s = String(c.status ?? "").toLowerCase();
+  if (s === "lead" || s === "prospect") return true;
+  const w = String(c.workflowStatus ?? "").toLowerCase();
+  const LEAD_STAGES = ["new_lead", "discovery_call", "discovery", "proposal_sent", "proposal", "quote_sent", "quoted", "negotiation", "lead", "onboarding_sent"];
+  return LEAD_STAGES.includes(w);
+}
 async function upsertClientToMaster(c) {
   if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return false;
   if (!c.name && !c.company && !c.taxId) return false;
+  if (isLeadStage(c)) {
+    try {
+      syncLeadToMaster(c);
+    } catch {
+    }
+    return false;
+  }
   const sid = CANONICAL_MASTER_SHEET_ID;
   const range = `'${MASTER_TAB}'!A:AZ`;
   try {
@@ -44535,10 +44591,24 @@ async function upsertClientToMaster(c) {
     const haveHeaders = new Set(header2.map((h) => norm2(h)));
     const missing = PLATFORM_HEADERS.filter((h) => !haveHeaders.has(norm2(h)));
     if (missing.length) {
-      const startCol = colLetter(header2.length + 1);
-      header2 = [...header2, ...missing];
-      const endCol = colLetter(header2.length);
-      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!${startCol}1:${endCol}1`)}?valueInputOption=RAW`, "PUT", { values: [missing] });
+      try {
+        const targetWidth = header2.length + missing.length;
+        const meta3 = await sheetsApi2(`spreadsheets/${sid}?fields=sheets(properties(title,sheetId,gridProperties(columnCount)))`, "GET");
+        const props = (meta3?.sheets || []).map((s) => s?.properties).find((p) => p?.title === MASTER_TAB);
+        const colCount = props?.gridProperties?.columnCount ?? 26;
+        if (props?.sheetId != null && colCount < targetWidth) {
+          await sheetsApi2(`spreadsheets/${sid}:batchUpdate`, "POST", {
+            requests: [{ appendDimension: { sheetId: props.sheetId, dimension: "COLUMNS", length: targetWidth - colCount } }]
+          });
+        }
+        const startCol = colLetter(header2.length + 1);
+        const newHeader = [...header2, ...missing];
+        const endCol = colLetter(newHeader.length);
+        await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!${startCol}1:${endCol}1`)}?valueInputOption=RAW`, "PUT", { values: [missing] });
+        header2 = newHeader;
+      } catch (e) {
+        console.error("[master-sync] platform-column provision failed (continuing with row write):", e instanceof Error ? e.message : e);
+      }
     }
     if (c.id) {
       try {
@@ -44552,7 +44622,8 @@ async function upsertClientToMaster(c) {
             usesJobber: !!o.usesJobber,
             usesTouchBistro: !!o.usesTouchBistro,
             usesPayPal: !!o.usesPayPal,
-            usesWise: !!o.usesWise
+            usesWise: !!o.usesWise,
+            usesShopify: !!o.usesShopify
           };
         }
       } catch {
@@ -44744,10 +44815,11 @@ var init_master_sheet_sync = __esm({
       { key: "useTouchBistro", match: (h) => h.includes("touchbistro") || h.includes("touch bistro"), toSheet: (c) => boolToSheet(c.usesTouchBistro), soft: false, onb: true, fromSheet: (r) => ({ usesTouchBistro: boolFromSheet(r) }) },
       { key: "usePayPal", match: (h) => h.includes("paypal") || h.includes("pay pal"), toSheet: (c) => boolToSheet(c.usesPayPal), soft: false, onb: true, fromSheet: (r) => ({ usesPayPal: boolFromSheet(r) }) },
       { key: "useWise", match: (h) => h === "wise", toSheet: (c) => boolToSheet(c.usesWise), soft: false, onb: true, fromSheet: (r) => ({ usesWise: boolFromSheet(r) }) },
+      { key: "useShopify", match: (h) => h === "shopify", toSheet: (c) => boolToSheet(c.usesShopify), soft: false, onb: true, fromSheet: (r) => ({ usesShopify: boolFromSheet(r) }) },
       // Inter-company journals (client-level checkbox column).
       { key: "interco", match: (h) => h.includes("inter") && (h.includes("co") || h.includes("journal")), toSheet: (c) => boolToSheet(c.hasIntercoJournals), soft: false, fromSheet: (r) => ({ hasIntercoJournals: boolFromSheet(r) }) }
     ];
-    PLATFORM_HEADERS = ["Stripe", "Square", "Jobber", "TouchBistro", "PayPal", "Wise", "Inter-Co Journals"];
+    PLATFORM_HEADERS = ["Stripe", "Square", "Shopify", "Jobber", "TouchBistro", "PayPal", "Wise", "Inter-Co Journals"];
     DEFAULT_MASTER_HEADER = [
       "Client / Legal Name",
       "Status",
@@ -44779,6 +44851,7 @@ var init_master_sheet_sync = __esm({
       "CRA RepID",
       "Stripe",
       "Square",
+      "Shopify",
       "Jobber",
       "TouchBistro",
       "PayPal",
@@ -45312,6 +45385,7 @@ var init_onboarding_router = __esm({
         usesTouchBistro: external_exports.boolean().default(false),
         usesPayPal: external_exports.boolean().default(false),
         usesWise: external_exports.boolean().default(false),
+        usesShopify: external_exports.boolean().default(false),
         salesEntryFrequency: external_exports.enum(["daily", "weekly", "monthly", "none"]).default("none"),
         usesHubdoc: external_exports.boolean().default(false),
         hasJobCosting: external_exports.boolean().default(false),
@@ -45427,6 +45501,7 @@ var init_onboarding_router = __esm({
           usesTouchBistro: input.usesTouchBistro,
           usesPayPal: input.usesPayPal,
           usesWise: input.usesWise,
+          usesShopify: input.usesShopify,
           salesEntryFrequency: input.salesEntryFrequency,
           usesHubdoc: input.usesHubdoc,
           hasJobCosting: input.hasJobCosting,
@@ -45469,6 +45544,7 @@ var init_onboarding_router = __esm({
           usesTouchBistro: input.usesTouchBistro,
           usesPayPal: input.usesPayPal,
           usesWise: input.usesWise,
+          usesShopify: input.usesShopify,
           salesEntryFrequency: input.salesEntryFrequency,
           usesHubdoc: input.usesHubdoc,
           hasJobCosting: input.hasJobCosting,
@@ -45651,6 +45727,7 @@ var init_onboarding_router = __esm({
         usesTouchBistro: external_exports.boolean().optional(),
         usesPayPal: external_exports.boolean().optional(),
         usesWise: external_exports.boolean().optional(),
+        usesShopify: external_exports.boolean().optional(),
         salesEntryFrequency: external_exports.string().optional(),
         qboSoftwareTier: external_exports.string().optional(),
         qboSoftwareWholesale: external_exports.boolean().optional(),
@@ -45734,6 +45811,7 @@ var init_onboarding_router = __esm({
           "usesTouchBistro",
           "usesPayPal",
           "usesWise",
+          "usesShopify",
           "salesEntryFrequency",
           "qboSoftwareTier",
           "qboSoftwareWholesale",
@@ -55518,6 +55596,7 @@ async function ensureOnboardingColumns() {
     ["usesTouchBistro", "integer DEFAULT 0"],
     ["usesPayPal", "integer DEFAULT 0"],
     ["usesWise", "integer DEFAULT 0"],
+    ["usesShopify", "integer DEFAULT 0"],
     ["payrollExternal", "integer DEFAULT 0"],
     ["paysDividends", "integer DEFAULT 0"],
     ["hasEHT", "integer DEFAULT 0"],
@@ -60582,7 +60661,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.19";
+var BUILD_TAG = "2026-06-22.20";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -61679,6 +61758,13 @@ async function startServer() {
       console.log(`[seed] gov registry: ${g.patched}/${g.matched} client cards populated (bio/registry#/incorp/corp type/status)`);
     } catch (e) {
       console.error("[seed] seedGovRegistry failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { seedTriageEmails: seedTriageEmails2 } = await Promise.resolve().then(() => (init_seed_triage_emails(), seed_triage_emails_exports));
+      const te = await seedTriageEmails2();
+      if (te.set) console.log(`[seed] triage emails: ${te.set} backfilled`);
+    } catch (e) {
+      console.error("[seed] seedTriageEmails failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { seedPayrollHistoryLinks: seedPayrollHistoryLinks2 } = await Promise.resolve().then(() => (init_seed_payroll_history_links(), seed_payroll_history_links_exports));
