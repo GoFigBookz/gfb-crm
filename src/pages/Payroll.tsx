@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download, Pencil, Users, DollarSign } from "lucide-react";
+import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download, Pencil, Users, DollarSign, SlidersHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,8 +70,23 @@ function JobberConnect({ clientId }: { clientId: number }) {
     onSuccess: () => { setSetupOpen(false); utils.payroll.jobberStatus.invalidate(); window.location.href = `/api/jobber/connect?clientId=${clientId}`; },
     onError: (e) => alert(e.message),
   });
+  const disconnect = trpc.payroll.disconnectJobber.useMutation({
+    onSuccess: () => utils.payroll.jobberStatus.invalidate(),
+    onError: (e) => alert(e.message),
+  });
   if (jobber?.connected) {
-    return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">Jobber connected ✓</Badge>;
+    return (
+      <div className="flex items-center gap-1.5">
+        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300" title="Linked Jobber company">
+          Jobber: {jobber.accountName || "connected"} ✓
+        </Badge>
+        <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs text-slate-400 hover:text-red-600"
+          title="Disconnect — use if the wrong Jobber company is linked"
+          onClick={() => { if (confirm(`Disconnect ${jobber.accountName || "Jobber"} from this client?`)) disconnect.mutate({ clientId }); }}>
+          Disconnect
+        </Button>
+      </div>
+    );
   }
   const onConnect = () => {
     if (jobber && !jobber.configured) { setSetupOpen(true); return; } // need creds first
@@ -86,6 +102,7 @@ function JobberConnect({ clientId }: { clientId: number }) {
           <DialogHeader><DialogTitle>Set up Jobber (one-time)</DialogTitle></DialogHeader>
           <div className="space-y-3 pt-2">
             <p className="text-sm text-slate-500">Paste your Jobber app's <strong>Client ID</strong> and <strong>Client Secret</strong> (developer.getjobber.com → Manage Apps). Stored encrypted — you won't need to do this again.</p>
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5"><strong>Two companies = two Jobber accounts.</strong> To connect a second company, first sign out of Jobber (or use a private/incognito window) and sign into that company's Jobber login — otherwise Jobber re-links the account you're already in. Figgy now blocks linking the same account twice.</p>
             <div><Label>Client ID</Label><Input value={cid} onChange={(e) => setCid(e.target.value)} placeholder="xxxxxxxx-xxxx-…" /></div>
             <div><Label>Client Secret</Label><Input value={csec} onChange={(e) => setCsec(e.target.value)} placeholder="(secret)" /></div>
             <Button className="w-full bg-lime-500" disabled={saveCreds.isPending || cid.trim().length < 10 || csec.trim().length < 10}
@@ -113,6 +130,15 @@ export default function Payroll() {
     if (cid && !clientId && clients?.some((c) => c.id === cid)) setClientId(cid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clients]);
+
+  // Surface Jobber (and other) OAuth round-trip results from the URL.
+  const oauthError = searchParams.get("error");
+  const oauthSuccess = searchParams.get("success");
+  const [notice, setNotice] = useState<{ kind: "error" | "ok"; msg: string } | null>(null);
+  useEffect(() => {
+    if (oauthError) setNotice({ kind: "error", msg: decodeURIComponent(oauthError) });
+    else if (oauthSuccess === "jobber_connected") setNotice({ kind: "ok", msg: "Jobber connected." });
+  }, [oauthError, oauthSuccess]);
 
   const selected = clients?.find((c) => c.id === clientId) || null;
   const { data: runs } = trpc.payroll.listRuns.useQuery({ clientId: clientId! }, { enabled: !!clientId });
@@ -155,6 +181,13 @@ export default function Payroll() {
           </Select>
         </div>
       </div>
+
+      {notice && (
+        <div className={`flex items-start justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${notice.kind === "error" ? "bg-red-50 border-red-200 text-red-700" : "bg-lime-50 border-lime-200 text-lime-700"}`}>
+          <span>{notice.msg}</span>
+          <button className="text-xs opacity-60 hover:opacity-100" onClick={() => setNotice(null)}>dismiss</button>
+        </div>
+      )}
 
       <div className="space-y-4">
           {!selected ? (
@@ -311,13 +344,29 @@ export default function Payroll() {
 }
 
 function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: number; features?: any; onDelete: () => void; onEditEmployee: (emp: any) => void }) {
-  // Which optional columns to show, from the client's payroll feature flags.
-  const showBonus = !!(features?.payrollBonuses || features?.payrollRevenueShare);
-  const showPhone = !!features?.payrollPhoneAllowance;
-  const showReimb = !!features?.payrollReimbursements;
+  // Optional timesheet columns. Each has a sensible DEFAULT (off unless the
+  // client's payroll features call for it), but Markie can show/hide any of them
+  // per-client from the "Columns" menu — the choice is remembered (localStorage).
+  // We don't pay sick hours, so Sick is OFF by default; Vacation is ON.
+  const featureDefaults = {
+    vac: true,
+    sick: false,
+    bonus: !!(features?.payrollBonuses || features?.payrollRevenueShare),
+    phone: !!features?.payrollPhoneAllowance,
+    reimb: !!features?.payrollReimbursements,
+  };
   // CRM payroll is a TIMESHEET feeding QBO Payroll — so CPP/EI/tax/net columns only
   // appear for the Originality revenue-share tax-comparison (payrollCraComparison).
   const showTax = !!features?.payrollCraComparison;
+  const prefsKey = `payroll-cols-${features?.id ?? "x"}`;
+  const [colPrefs, setColPrefs] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem(prefsKey) || "{}"); } catch { return {}; }
+  });
+  const setCol = (k: string, v: boolean) => setColPrefs((p) => {
+    const n = { ...p, [k]: v };
+    try { localStorage.setItem(prefsKey, JSON.stringify(n)); } catch { /* ignore */ }
+    return n;
+  });
   const utils = trpc.useUtils();
   const { data } = trpc.payroll.getRun.useQuery({ runId });
   const invalidate = () => { utils.payroll.getRun.invalidate({ runId }); if (data?.run.clientId) utils.payroll.listRuns.invalidate({ clientId: data.run.clientId }); };
@@ -329,9 +378,20 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   const createApprovalLink = trpc.payroll.createApprovalLink.useMutation({ onSuccess: invalidate, onError: (e) => alert(e.message) });
   const { data: clientEmps } = trpc.employee.list.useQuery({ clientId: data?.run.clientId ?? 0 }, { enabled: !!data?.run.clientId });
   const { data: statHols } = trpc.payroll.statHolidays.useQuery({ runId });
-  // The Stat-worked column only appears when a stat holiday falls in this pay
-  // period (then it's paid at time-and-a-half).
-  const showStat = (statHols?.length ?? 0) > 0;
+  // The Stat-worked column appears when a stat holiday falls in this pay period
+  // (paid at time-and-a-half) — or if Markie forces it on via the Columns menu.
+  const showStat = colPrefs.stat ?? ((statHols?.length ?? 0) > 0);
+  const cVac = colPrefs.vac ?? featureDefaults.vac;
+  const cSick = colPrefs.sick ?? featureDefaults.sick;
+  const cBonus = colPrefs.bonus ?? featureDefaults.bonus;
+  const cPhone = colPrefs.phone ?? featureDefaults.phone;
+  const cReimb = colPrefs.reimb ?? featureDefaults.reimb;
+  // Total rendered columns (for the footer spans): Employee, Rate, Reg, OT,
+  // [stat],[vac],[sick],[bonus], Gross, [tax×4], [phone],[reimb], action.
+  const totalCols = 4 + (showStat ? 1 : 0) + (cVac ? 1 : 0) + (cSick ? 1 : 0) + (cBonus ? 1 : 0)
+    + 1 + (showTax ? 4 : 0) + (cPhone ? 1 : 0) + (cReimb ? 1 : 0) + 1;
+  // Spacer between "Totals" and the Gross cell = Rate + Reg + OT + optional hour cols.
+  const spacerBeforeGross = 3 + (showStat ? 1 : 0) + (cVac ? 1 : 0) + (cSick ? 1 : 0) + (cBonus ? 1 : 0);
   const { data: jobber } = trpc.payroll.jobberStatus.useQuery({ clientId: data?.run.clientId ?? 0 }, { enabled: !!data?.run.clientId });
   const importJobber = trpc.payroll.importJobberHours.useMutation({
     onSuccess: (r: any) => {
@@ -345,6 +405,11 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
 
   if (!data) return <div className="text-sm text-slate-400 p-3">Loading…</div>;
   const { run, lines } = data;
+  // Salaried staff on top, then everyone else — each alphabetical by name.
+  const sortedLines = [...lines].sort((a: any, b: any) => {
+    const rank = (l: any) => (l.payType === "salary" ? 0 : 1);
+    return rank(a) - rank(b) || String(a.employeeName || "").localeCompare(String(b.employeeName || ""));
+  });
   const inRun = new Set(lines.map((l: any) => l.employeeId));
   const availableEmps = (clientEmps || []).filter((e: any) => !inRun.has(e.id));
 
@@ -372,6 +437,21 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
                 <Button size="sm" variant="outline" className="h-8 border-amber-300 text-amber-700"><ExternalLink className="h-3.5 w-3.5 mr-1" /> Connect Jobber</Button>
               </a>
             )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="h-8"><SlidersHorizontal className="h-3.5 w-3.5 mr-1" /> Columns</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem checked={showStat} onCheckedChange={(v) => setCol("stat", !!v)}>Stat 1.5×</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={cVac} onCheckedChange={(v) => setCol("vac", !!v)}>Vacation hrs</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={cSick} onCheckedChange={(v) => setCol("sick", !!v)}>Sick hrs</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={cBonus} onCheckedChange={(v) => setCol("bonus", !!v)}>Share bonus</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={cPhone} onCheckedChange={(v) => setCol("phone", !!v)}>Phone allowance</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={cReimb} onCheckedChange={(v) => setCol("reimb", !!v)}>Reimbursement</DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button size="sm" variant="outline" className="h-8" onClick={() => exportRunCsv(run, lines)}><Download className="h-3.5 w-3.5 mr-1" /> Export hours (CSV)</Button>
             <Button size="sm" variant="ghost" className="h-8 text-red-500 hover:text-red-600" onClick={onDelete}><Trash2 className="h-3.5 w-3.5 mr-1" /> Delete run</Button>
           </div>
@@ -399,22 +479,22 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
                   <th className="text-right px-1">Reg hrs</th>
                   <th className="text-right px-1">OT</th>
                   {showStat && <th className="text-right px-1" title="Hours worked on a stat holiday — paid at 1.5×">Stat 1.5×</th>}
-                  <th className="text-right px-1">Vac hrs</th>
-                  <th className="text-right px-1">Sick hrs</th>
-                  {showBonus && <th className="text-right px-1">Share bonus</th>}
+                  {cVac && <th className="text-right px-1">Vac hrs</th>}
+                  {cSick && <th className="text-right px-1">Sick hrs</th>}
+                  {cBonus && <th className="text-right px-1">Share bonus</th>}
                   <th className="text-right px-1">Gross</th>
                   {showTax && <th className="text-right px-1">CPP</th>}
                   {showTax && <th className="text-right px-1">EI</th>}
                   {showTax && <th className="text-right px-1">Tax</th>}
                   {showTax && <th className="text-right px-1">Net</th>}
-                  {showPhone && <th className="text-right px-1">Phone</th>}
-                  {showReimb && <th className="text-right px-1">Reimb</th>}
+                  {cPhone && <th className="text-right px-1">Phone</th>}
+                  {cReimb && <th className="text-right px-1">Reimb</th>}
                   <th className="px-1"></th>
                 </tr>
               </thead>
               <tbody>
-                {lines.map((l: any) => (
-                  <LineRow key={l.id} line={l} showBonus={showBonus} showPhone={showPhone} showReimb={showReimb} showTax={showTax} showStat={showStat}
+                {sortedLines.map((l: any) => (
+                  <LineRow key={l.id} line={l} showBonus={cBonus} showVac={cVac} showSick={cSick} showPhone={cPhone} showReimb={cReimb} showTax={showTax} showStat={showStat}
                     onSave={(patch) => updateLine.mutate({ id: l.id, ...patch })}
                     onEstimate={() => estimateLine.mutate({ id: l.id })}
                     onEditEmployee={() => { const emp = (clientEmps || []).find((e: any) => e.id === l.employeeId); if (emp) onEditEmployee(emp); }}
@@ -424,15 +504,15 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
               <tfoot>
                 <tr className="border-t font-semibold">
                   <td className="py-1.5 pr-2">Totals</td>
-                  <td colSpan={(showStat ? 6 : 5) + (showBonus ? 1 : 0)}></td>
+                  <td colSpan={spacerBeforeGross}></td>
                   <td className="text-right px-1 text-lime-700">{money(run.totalGross)}</td>
                   {showTax && <td colSpan={3} className="text-right px-1 text-slate-500">deduct {money(run.totalEmployeeDeductions)}</td>}
                   {showTax && <td className="text-right px-1">{money(run.totalNet)}</td>}
-                  <td colSpan={1 + (showPhone ? 1 : 0) + (showReimb ? 1 : 0)}></td>
+                  <td colSpan={1 + (cPhone ? 1 : 0) + (cReimb ? 1 : 0)}></td>
                 </tr>
                 {showTax && (
                   <tr className="text-xs text-slate-500">
-                    <td className="pt-1" colSpan={(showStat ? 9 : 8) + (showBonus ? 1 : 0) + 4 + (showPhone ? 1 : 0) + (showReimb ? 1 : 0)}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))} · Net total includes phone/reimbursement add-ons.</td>
+                    <td className="pt-1" colSpan={totalCols}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))} · Net total includes phone/reimbursement add-ons.</td>
                   </tr>
                 )}
               </tfoot>
@@ -457,7 +537,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   );
 }
 
-function LineRow({ line, showBonus, showPhone, showReimb, showTax, showStat, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; showBonus?: boolean; showPhone?: boolean; showReimb?: boolean; showTax?: boolean; showStat?: boolean; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
+function LineRow({ line, showBonus, showVac, showSick, showPhone, showReimb, showTax, showStat, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; showBonus?: boolean; showVac?: boolean; showSick?: boolean; showPhone?: boolean; showReimb?: boolean; showTax?: boolean; showStat?: boolean; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
   const [v, setV] = useState({
     regularHours: line.regularHours ?? 0, overtimeHours: line.overtimeHours ?? 0,
     statHolidayHours: line.statHolidayHours ?? 0, vacationHours: line.vacationHours ?? 0, sickHours: line.sickHours ?? 0,
@@ -473,7 +553,12 @@ function LineRow({ line, showBonus, showPhone, showReimb, showTax, showStat, onS
   // (Rough total for the timesheet — QBO Payroll does the authoritative pay calc.)
   const sumGross = () => {
     const r = rate || 0;
-    const g = Math.round((((v.regularHours + v.vacationHours + v.sickHours) * r) + ((v.overtimeHours + v.statHolidayHours) * r * 1.5) + v.shareBonus) * 100) / 100;
+    // Only count hour types whose column is shown (we don't pay sick by default).
+    const vac = showVac ? v.vacationHours : 0;
+    const sick = showSick ? v.sickHours : 0;
+    const bonus = showBonus ? v.shareBonus : 0;
+    const stat = showStat ? v.statHolidayHours : 0;
+    const g = Math.round((((v.regularHours + vac + sick) * r) + ((v.overtimeHours + stat) * r * 1.5) + bonus) * 100) / 100;
     setV({ ...v, grossPay: g }); onSave({ grossPay: g });
   };
   const cell = (key: keyof typeof v) => (
@@ -491,8 +576,8 @@ function LineRow({ line, showBonus, showPhone, showReimb, showTax, showStat, onS
       <td className="px-1">{cell("regularHours")}</td>
       <td className="px-1">{cell("overtimeHours")}</td>
       {showStat && <td className="px-1">{cell("statHolidayHours")}</td>}
-      <td className="px-1">{cell("vacationHours")}</td>
-      <td className="px-1">{cell("sickHours")}</td>
+      {showVac && <td className="px-1">{cell("vacationHours")}</td>}
+      {showSick && <td className="px-1">{cell("sickHours")}</td>}
       {showBonus && <td className="px-1">{cell("shareBonus")}</td>}
       <td className="px-1">{cell("grossPay")}</td>
       {showTax && <td className="px-1">{cell("cppEmployee")}</td>}

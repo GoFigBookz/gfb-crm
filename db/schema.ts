@@ -1644,6 +1644,7 @@ export const jobberConnections = sqliteTable("jobber_connections", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   clientId: integer("clientId").notNull(),
   accountName: text("accountName"),
+  jobberAccountId: text("jobberAccountId"), // Jobber account identity — guards cross-client isolation
   accessToken: text("accessToken"),       // enc:v1: envelope
   refreshToken: text("refreshToken"),     // enc:v1: envelope
   expiresAt: integer("expiresAt", { mode: "timestamp" }),

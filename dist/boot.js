@@ -23904,6 +23904,8 @@ var init_schema = __esm({
       id: integer2("id").primaryKey({ autoIncrement: true }),
       clientId: integer2("clientId").notNull(),
       accountName: text("accountName"),
+      jobberAccountId: text("jobberAccountId"),
+      // Jobber account identity — guards cross-client isolation
       accessToken: text("accessToken"),
       // enc:v1: envelope
       refreshToken: text("refreshToken"),
@@ -47302,6 +47304,7 @@ __export(jobber_oauth_exports, {
   JOBBER_GRAPHQL_URL: () => JOBBER_GRAPHQL_URL,
   bearerFor: () => bearerFor,
   buildAuthorizeUrl: () => buildAuthorizeUrl2,
+  disconnectJobber: () => disconnectJobber,
   ensureAppSettings: () => ensureAppSettings,
   ensureJobberTable: () => ensureJobberTable,
   exchangeAndPersist: () => exchangeAndPersist2,
@@ -47378,6 +47381,25 @@ async function buildAuthorizeUrl2(clientId) {
   u.searchParams.set("state", signState2(clientId));
   return u.toString();
 }
+async function fetchJobberAccount(accessToken) {
+  try {
+    const res = await fetch(JOBBER_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/json",
+        "X-JOBBER-GRAPHQL-VERSION": JOBBER_API_VERSION
+      },
+      body: JSON.stringify({ query: "query { account { id name } }" })
+    });
+    const json2 = await res.json().catch(() => ({}));
+    const acc = json2?.data?.account;
+    if (!res.ok || json2?.errors || !acc?.id) return null;
+    return { id: String(acc.id), name: String(acc.name ?? "") };
+  } catch {
+    return null;
+  }
+}
 async function postToken(params) {
   const res = await fetch(TOKEN_URL2, {
     method: "POST",
@@ -47404,9 +47426,23 @@ async function exchangeAndPersist2(input) {
   const expiresAt = new Date(Date.now() + (Number(data.expires_in) || 3600) * 1e3);
   const db = getDb();
   await ensureJobberTable();
+  const acc = await fetchJobberAccount(data.access_token);
+  if (acc) {
+    const all = await db.select().from(jobberConnections);
+    const clash = all.find(
+      (c) => c.active && c.jobberAccountId === acc.id && c.clientId !== state.clientId
+    );
+    if (clash) {
+      throw new Error(
+        `This Jobber account "${acc.name || acc.id}" is already connected to another client. Each company needs its OWN Jobber login. Sign out of Jobber (or use a private/incognito window), sign into THIS company's Jobber account, then click Connect again.`
+      );
+    }
+  }
   const existing = await db.select().from(jobberConnections).where(eq(jobberConnections.clientId, state.clientId)).limit(1);
   const row = {
     clientId: state.clientId,
+    accountName: acc?.name ?? null,
+    jobberAccountId: acc?.id ?? null,
     accessToken: encryptSecret(data.access_token),
     refreshToken: encryptSecret(data.refresh_token),
     expiresAt,
@@ -47460,6 +47496,11 @@ async function getValidConnection(clientId) {
 function bearerFor(conn) {
   return decryptSecret(conn.accessToken) || "";
 }
+async function disconnectJobber(clientId) {
+  await ensureJobberTable();
+  const db = getDb();
+  await db.update(jobberConnections).set({ active: false, reconnectReason: "disconnected", updatedAt: /* @__PURE__ */ new Date() }).where(eq(jobberConnections.clientId, clientId));
+}
 async function ensureJobberTable() {
   try {
     const db = getDb();
@@ -47467,6 +47508,7 @@ async function ensureJobberTable() {
       id integer PRIMARY KEY AUTOINCREMENT,
       clientId integer NOT NULL,
       accountName text,
+      jobberAccountId text,
       accessToken text,
       refreshToken text,
       expiresAt integer,
@@ -47475,6 +47517,20 @@ async function ensureJobberTable() {
       createdAt integer,
       updatedAt integer
     )`);
+    const have = /* @__PURE__ */ new Set();
+    try {
+      const res = await db.run(sql`PRAGMA table_info(jobber_connections)`);
+      for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
+    } catch {
+    }
+    for (const [col, type] of [["accountName", "text"], ["jobberAccountId", "text"], ["reconnectReason", "text"]]) {
+      if (!have.has(col)) {
+        try {
+          await db.run(sql.raw(`ALTER TABLE jobber_connections ADD COLUMN ${col} ${type}`));
+        } catch {
+        }
+      }
+    }
   } catch (e) {
     console.error("[jobber] ensure table failed:", e instanceof Error ? e.message : e);
   }
@@ -47817,15 +47873,22 @@ var init_payroll_router = __esm({
         await setJobberCreds2(input.clientId, input.clientSecret);
         return { success: true };
       }),
+      // Disconnect a client's Jobber connection (so it can be re-linked to the
+      // correct account — e.g. if the wrong company's account got linked).
+      disconnectJobber: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ input }) => {
+        const { disconnectJobber: disconnectJobber2 } = await Promise.resolve().then(() => (init_jobber_oauth(), jobber_oauth_exports));
+        await disconnectJobber2(input.clientId);
+        return { success: true };
+      }),
       // Jobber connection status for a client (for the Connect button / badge).
       jobberStatus: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const { jobberConfigured: jobberConfigured2, getValidConnection: getValidConnection2 } = await Promise.resolve().then(() => (init_jobber_oauth(), jobber_oauth_exports));
-        if (!await jobberConfigured2()) return { configured: false, connected: false };
+        if (!await jobberConfigured2()) return { configured: false, connected: false, accountName: null };
         try {
           const conn = await getValidConnection2(input.clientId);
           return { configured: true, connected: !!conn, accountName: conn?.accountName ?? null };
         } catch {
-          return { configured: true, connected: false };
+          return { configured: true, connected: false, accountName: null };
         }
       }),
       // Import Jobber timesheet hours for a run's pay period → fills regular hours per
@@ -61794,20 +61857,25 @@ async function startServer() {
         return matches;
       };
       const cw = await setFlags("%Collingwood%", {
-        payrollBonuses: 1,
         payrollDividends: 1,
         payrollPhoneAllowance: 1,
-        payrollReimbursements: 1,
-        payrollRevenueShare: 1
+        payrollReimbursements: 1
       });
+      try {
+        const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+        const marker = await db.select().from(appSettings2).where(eq3(appSettings2.key, "fix_collingwood_sharebonus_v1")).limit(1);
+        if (!marker[0]) {
+          for (const cl of cw) {
+            await db.update(clients3).set({ payrollBonuses: 0, payrollRevenueShare: 0 }).where(eq3(clients3.id, cl.id));
+          }
+          await db.insert(appSettings2).values({ key: "fix_collingwood_sharebonus_v1", value: (/* @__PURE__ */ new Date()).toISOString() });
+        }
+      } catch (e) {
+        console.error("[normalize] collingwood share-bonus corrective failed (non-fatal):", e instanceof Error ? e.message : e);
+      }
       const { ensureComplianceForClient: ensureComplianceForClient2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
       for (const cl of cw) {
         await ensureComplianceForClient2(cl.id, { userId: cl.userId || 1, assignedTo: cl.assignedTo });
-      }
-      for (const cl of cw) {
-        for (const last of ["Hawton", "Essex"]) {
-          await db.update(employees2).set({ getsRevenueShare: true, revenueSharePercent: 10 }).where(and4(eq3(employees2.clientId, cl.id), like2(employees2.lastName, last), isNull3(employees2.revenueSharePercent)));
-        }
       }
       const orig = await setFlags("%Originality%", { payrollRevenueShare: 1, payrollCraComparison: 1 });
       const origYtd = {

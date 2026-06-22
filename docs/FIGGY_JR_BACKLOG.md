@@ -196,6 +196,30 @@ client upsert on onboard/edit; (3) inbound client read-back; (4) extend to
 payroll/employees/tasks; (5) conflict handling + nightly full reconcile.
 BLOCKERS: canonical-sheet decision + `FIGGY_MAKE_API_TOKEN` on the server.
 
+## CRA AUDIT SUPPORT SECTION (Markie 2026-06-22 — "think about workflow for future")
+CRA keeps auditing clients' **HST** (common, painful). Markie wants a section that
+pulls all the data and helps him *defend* an audit. Scoping notes for the future build:
+- **Owner**: senior bookkeeper / controller (CFO-tier) role — gate behind RBAC
+  `senior_bookkeeper`+ once roles exist (ties to the RBAC backlog item). Not a
+  junior surface.
+- **What an HST audit needs (the data to pull, per client + period under audit):**
+  - HST return(s) as filed (line 101 sales, 105 collected, 108 ITCs, net) — from
+    the HST filing tab/sheet + QBO.
+  - Sales tie-out: QBO total sales for the period → line 101 (catch mismatches).
+  - ITC support: every input-tax-credit-bearing expense with a **source document**
+    (receipt/invoice) link — CRA disallows ITCs without backup. This is where the
+    receipt/Drive intake + vendor brain already help (we have sourceData + Drive).
+  - Exceptions report: ITCs claimed with NO attached document; tax coded to the
+    wrong rate; personal/meals (50%) flags; large/round-number entries.
+  - Bank/HST reconciliation: remittances actually paid vs filed.
+- **Deliverable shape (borrow the MacrosLM "citation-backed workpaper" pattern,
+  already in this backlog):** one audit workpaper per client/period — each line
+  item with its evidence link — exportable to PDF to hand CRA. "Reviewed + signed."
+- **Build dependency:** strongest once the live QBO connection is on (pull GL +
+  documents). Until then, can assemble from the HST sheet + Drive receipts.
+- **Reuse:** the tie-out engine here is the same one the month-end "tie-outs"
+  cockpit item wants — build ONE tie-out core, surface it in both. Don't fork.
+
 ## 1. Transaction posting into QuickBooks — THE core workload (HIGH)
 Decision (Markie): build the **QBO API poster** (not a Chrome/browser bot — QBO
 has a full write API; browser automation is brittle and unnecessary). Posting

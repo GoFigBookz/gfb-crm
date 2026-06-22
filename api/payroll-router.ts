@@ -307,17 +307,27 @@ export const payrollRouter = createRouter({
       return { success: true };
     }),
 
+  // Disconnect a client's Jobber connection (so it can be re-linked to the
+  // correct account — e.g. if the wrong company's account got linked).
+  disconnectJobber: staffQuery
+    .input(z.object({ clientId: z.number() }))
+    .mutation(async ({ input }) => {
+      const { disconnectJobber } = await import("./jobber-oauth");
+      await disconnectJobber(input.clientId);
+      return { success: true };
+    }),
+
   // Jobber connection status for a client (for the Connect button / badge).
   jobberStatus: staffQuery
     .input(z.object({ clientId: z.number() }))
     .query(async ({ input }) => {
       const { jobberConfigured, getValidConnection } = await import("./jobber-oauth");
-      if (!(await jobberConfigured())) return { configured: false, connected: false };
+      if (!(await jobberConfigured())) return { configured: false, connected: false, accountName: null as string | null };
       try {
         const conn = await getValidConnection(input.clientId);
-        return { configured: true, connected: !!conn, accountName: conn?.accountName ?? null };
+        return { configured: true, connected: !!conn, accountName: (conn?.accountName ?? null) as string | null };
       } catch {
-        return { configured: true, connected: false };
+        return { configured: true, connected: false, accountName: null as string | null };
       }
     }),
 

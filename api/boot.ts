@@ -61,7 +61,7 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-const BUILD_TAG = "2026-06-22.27";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-22.28";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -1043,24 +1043,30 @@ async function startServer() {
         }
         return matches;
       };
-      // Clark Collingwood: bonuses, dividends, phone allowance, reimbursements, revenue share.
+      // Clark Collingwood (Clark Pools): dividends, phone allowance, reimbursements.
+      // NOTE: Clark Pools is hourly/Jobber — NO share-bonus / revenue-share column
+      // (Markie 2026-06-22). bonuses + revenue-share intentionally NOT seeded here.
       const cw = await setFlags("%Collingwood%", {
-        payrollBonuses: 1, payrollDividends: 1, payrollPhoneAllowance: 1,
-        payrollReimbursements: 1, payrollRevenueShare: 1,
+        payrollDividends: 1, payrollPhoneAllowance: 1, payrollReimbursements: 1,
       });
+      // One-time corrective: clear any previously-seeded share-bonus/revenue-share
+      // flags on Collingwood (prior boots set them). Guarded by a marker so it
+      // never fights a deliberate re-enable from the UI. Reversible there.
+      try {
+        const { appSettings } = await import("../db/schema");
+        const marker = await db.select().from(appSettings).where(eq(appSettings.key, "fix_collingwood_sharebonus_v1")).limit(1);
+        if (!marker[0]) {
+          for (const cl of cw) {
+            await db.update(clients).set({ payrollBonuses: 0, payrollRevenueShare: 0 } as any).where(eq(clients.id, cl.id));
+          }
+          await db.insert(appSettings).values({ key: "fix_collingwood_sharebonus_v1", value: new Date().toISOString() });
+        }
+      } catch (e) { console.error("[normalize] collingwood share-bonus corrective failed (non-fatal):", e instanceof Error ? e.message : e); }
       // Dividends feature on → ensure the T5 filing task exists (idempotent;
       // unified rule engine — one task system, dedups by ruleType).
       const { ensureComplianceForClient } = await import("./task-generator");
       for (const cl of cw) {
         await ensureComplianceForClient(cl.id, { userId: (cl as any).userId || 1, assignedTo: (cl as any).assignedTo });
-      }
-      // The two Collingwood profit-share owners get 10% revenue share each.
-      for (const cl of cw) {
-        for (const last of ["Hawton", "Essex"]) {
-          await db.update(employees)
-            .set({ getsRevenueShare: true, revenueSharePercent: 10 })
-            .where(and(eq(employees.clientId, cl.id), like(employees.lastName, last), isNull(employees.revenueSharePercent)));
-        }
       }
       // Originality: revenue share + CRA comparison.
       const orig = await setFlags("%Originality%", { payrollRevenueShare: 1, payrollCraComparison: 1 });
