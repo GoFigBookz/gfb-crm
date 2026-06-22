@@ -1148,6 +1148,13 @@ async function startServer() {
       console.error("[seed] seedGovRegistry failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
+      const { seedDockKingFlowthrough } = await import("./seed-dock-king-flowthrough");
+      const d = await seedDockKingFlowthrough();
+      if (d.matched) console.log(`[seed] Dock King flow-through: ${d.updated} set wholesale, ${d.tasksPaused} tasks/rules paused (${d.matched} matched)`);
+    } catch (e) {
+      console.error("[seed] seedDockKingFlowthrough failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
       const { seedTaxRateReviewTasks } = await import("./seed-tax-rate-reviews");
       const t = await seedTaxRateReviewTasks();
       console.log(`[seed] tax-rate review reminders: ${t.created} created (${t.ensured} ensured)`);

@@ -1660,3 +1660,23 @@ export const clientContacts = sqliteTable("client_contacts", {
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// Per-client vendors + customers. CRM-side scaffolding now (manual add/edit),
+// ready to layer QBO sync on later (qboId). Vendors surface only when WE pay
+// the client's bills; customers only when WE invoice — gated on the intake's
+// billPayResponsibility / invoicingResponsibility. `kind` discriminates the two.
+export const clientParties = sqliteTable("client_parties", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  kind: text("kind", { enum: ["vendor", "customer"] }).notNull(),
+  name: text("name").notNull(),
+  contactName: text("contactName"),
+  email: text("email"),
+  phone: text("phone"),
+  accountNumber: text("accountNumber"),   // vendor/customer account #
+  notes: text("notes"),
+  qboId: text("qboId"),                    // QBO Vendor/Customer Id once synced
+  active: integer("active", { mode: "boolean" }).default(true),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

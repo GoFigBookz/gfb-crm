@@ -22329,6 +22329,7 @@ __export(schema_exports, {
   clientEmails: () => clientEmails,
   clientGovReps: () => clientGovReps,
   clientOnboarding: () => clientOnboarding,
+  clientParties: () => clientParties,
   clientPlaybooks: () => clientPlaybooks,
   clientRequestItems: () => clientRequestItems,
   clientRequests: () => clientRequests,
@@ -22384,7 +22385,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts;
+var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23912,6 +23913,23 @@ var init_schema = __esm({
       phone: text("phone"),
       isPrimary: integer2("isPrimary", { mode: "boolean" }).default(false),
       notes: text("notes"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    clientParties = sqliteTable("client_parties", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      kind: text("kind", { enum: ["vendor", "customer"] }).notNull(),
+      name: text("name").notNull(),
+      contactName: text("contactName"),
+      email: text("email"),
+      phone: text("phone"),
+      accountNumber: text("accountNumber"),
+      // vendor/customer account #
+      notes: text("notes"),
+      qboId: text("qboId"),
+      // QBO Vendor/Customer Id once synced
+      active: integer2("active", { mode: "boolean" }).default(true),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
@@ -47567,6 +47585,72 @@ var init_contacts_router = __esm({
   }
 });
 
+// api/parties-router.ts
+async function ensureTable2() {
+  try {
+    await getDb().run(sql`CREATE TABLE IF NOT EXISTS client_parties (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      clientId integer NOT NULL,
+      kind text NOT NULL,
+      name text NOT NULL,
+      contactName text, email text, phone text,
+      accountNumber text, notes text, qboId text,
+      active integer DEFAULT 1,
+      createdAt integer, updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[parties] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+}
+var partyInput, partiesRouter;
+var init_parties_router = __esm({
+  "api/parties-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    partyInput = {
+      name: external_exports.string().min(1).max(200),
+      contactName: external_exports.string().max(200).optional(),
+      email: external_exports.string().email().optional().or(external_exports.literal("")),
+      phone: external_exports.string().max(60).optional(),
+      accountNumber: external_exports.string().max(120).optional(),
+      notes: external_exports.string().max(2e3).optional()
+    };
+    partiesRouter = createRouter({
+      list: authedQuery.input(external_exports.object({ clientId: external_exports.number(), kind: external_exports.enum(["vendor", "customer"]) })).query(async ({ input }) => {
+        await ensureTable2();
+        return getDb().select().from(clientParties).where(and(eq(clientParties.clientId, input.clientId), eq(clientParties.kind, input.kind))).orderBy(desc(clientParties.active), desc(clientParties.updatedAt));
+      }),
+      create: authedQuery.input(external_exports.object({ clientId: external_exports.number(), kind: external_exports.enum(["vendor", "customer"]), ...partyInput })).mutation(async ({ input }) => {
+        await ensureTable2();
+        const { clientId, kind, ...rest } = input;
+        const [row] = await getDb().insert(clientParties).values({ clientId, kind, ...rest, email: rest.email || null, active: true, updatedAt: /* @__PURE__ */ new Date() }).returning();
+        return row;
+      }),
+      update: authedQuery.input(external_exports.object({ id: external_exports.number(), active: external_exports.boolean().optional(), ...partyInput })).mutation(async ({ input }) => {
+        await ensureTable2();
+        const { id, ...rest } = input;
+        await getDb().update(clientParties).set({ ...rest, email: rest.email || null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clientParties.id, id));
+        return { success: true };
+      }),
+      remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+        await getDb().delete(clientParties).where(eq(clientParties.id, input.id));
+        return { success: true };
+      }),
+      /** Vendor mass-email helper — returns the active vendor emails for a client so
+       *  the UI can compose a statement/missing-invoice request. (Send wiring is a
+       *  later backlog item; this exposes the recipient list driven by intake.) */
+      vendorEmails: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        await ensureTable2();
+        const rows = await getDb().select().from(clientParties).where(and(eq(clientParties.clientId, input.clientId), eq(clientParties.kind, "vendor"), eq(clientParties.active, true)));
+        return rows.map((r) => r.email).filter(Boolean);
+      })
+    });
+  }
+});
+
 // api/dividend-core.ts
 function computeT5Boxes(actual, type) {
   const r = DIVIDEND_RATES[type];
@@ -52536,6 +52620,7 @@ var init_router = __esm({
     init_employee_router();
     init_payroll_router();
     init_contacts_router();
+    init_parties_router();
     init_dividend_router();
     init_tax_slip_router();
     init_client_request_router();
@@ -52583,6 +52668,7 @@ var init_router = __esm({
       employee: employeeRouter,
       payroll: payrollRouter,
       contacts: contactsRouter,
+      parties: partiesRouter,
       dividend: dividendRouter,
       taxSlip: taxSlipRouter,
       clientRequest: clientRequestRouter,
@@ -55437,6 +55523,37 @@ var init_seed_gov_registry = __esm({
       { nameKey: "universal drywall", industry: "Construction/Drywall", bio: "Drywall and construction services company providing interior framing, drywall installation and exterior finishes. USA (Florida) entity." }
     ];
     norm6 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  }
+});
+
+// api/seed-dock-king-flowthrough.ts
+var seed_dock_king_flowthrough_exports = {};
+__export(seed_dock_king_flowthrough_exports, {
+  seedDockKingFlowthrough: () => seedDockKingFlowthrough
+});
+async function seedDockKingFlowthrough() {
+  const db = getDb();
+  const report = { matched: 0, updated: 0, tasksPaused: 0 };
+  const rows = await db.select().from(clients).where(
+    or(like(clients.name, "Dock King%"), like(clients.company, "Dock King%"))
+  );
+  for (const c of rows) {
+    report.matched++;
+    if (c.clientType !== "wholesale") {
+      await db.update(clients).set({ clientType: "wholesale", qboSoftwareWholesale: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+      report.updated++;
+    }
+    const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, c.id)).returning();
+    const r22 = await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
+    report.tasksPaused += (r1?.length || 0) + (r22?.length || 0);
+  }
+  return report;
+}
+var init_seed_dock_king_flowthrough = __esm({
+  "api/seed-dock-king-flowthrough.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
   }
 });
 
@@ -61057,6 +61174,13 @@ async function startServer() {
       console.log(`[seed] gov registry: ${g.patched}/${g.matched} client cards populated (bio/registry#/incorp/corp type/status)`);
     } catch (e) {
       console.error("[seed] seedGovRegistry failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { seedDockKingFlowthrough: seedDockKingFlowthrough2 } = await Promise.resolve().then(() => (init_seed_dock_king_flowthrough(), seed_dock_king_flowthrough_exports));
+      const d = await seedDockKingFlowthrough2();
+      if (d.matched) console.log(`[seed] Dock King flow-through: ${d.updated} set wholesale, ${d.tasksPaused} tasks/rules paused (${d.matched} matched)`);
+    } catch (e) {
+      console.error("[seed] seedDockKingFlowthrough failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { seedTaxRateReviewTasks: seedTaxRateReviewTasks2 } = await Promise.resolve().then(() => (init_seed_tax_rate_reviews(), seed_tax_rate_reviews_exports));

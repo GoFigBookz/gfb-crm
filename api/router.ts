@@ -27,6 +27,7 @@ import { userRouter } from "./user-router";
 import { employeeRouter } from "./employee-router";
 import { payrollRouter } from "./payroll-router";
 import { contactsRouter } from "./contacts-router";
+import { partiesRouter } from "./parties-router";
 import { dividendRouter } from "./dividend-router";
 import { taxSlipRouter } from "./tax-slip-router";
 import { clientRequestRouter } from "./client-request-router";
@@ -75,6 +76,7 @@ export const appRouter = createRouter({
   employee: employeeRouter,
   payroll: payrollRouter,
   contacts: contactsRouter,
+  parties: partiesRouter,
   dividend: dividendRouter,
   taxSlip: taxSlipRouter,
   clientRequest: clientRequestRouter,

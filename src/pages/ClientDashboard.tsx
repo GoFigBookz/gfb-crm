@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { computeT5Boxes } from "../../api/dividend-core";
 import { useParams, Link, useNavigate } from "react-router";
-import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet, Globe } from "lucide-react";
+import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet, Globe, Mail } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -444,6 +444,14 @@ export default function ClientDashboard() {
           <GroupCard clientId={id} groupName={(client as any).groupName} />
           <ContactsCard clientId={id} />
           <PlatformsCard onboarding={onboarding} client={client} />
+          {/* Vendors only when WE pay this client's bills; customers only when WE
+              invoice — both gated on the intake's responsibilities. */}
+          {(onboarding?.billPayResponsibility === "we_pay" || onboarding?.billPayResponsibility === "both") && (
+            <PartiesCard clientId={id} kind="vendor" />
+          )}
+          {(onboarding?.invoicingResponsibility === "we_invoice" || onboarding?.invoicingResponsibility === "both") && (
+            <PartiesCard clientId={id} kind="customer" />
+          )}
           {/* Document requests + at-a-glance, side by side. (Task progress lives in
               the combined Tasks card up top.) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -2107,6 +2115,15 @@ function PlatformsCard({ onboarding, client }: { onboarding: any; client: any })
             {p.label} <ExternalLink className="h-3 w-3 opacity-50" />
           </a>
         ))}
+        {/* Jobber is the one platform with a live integration (timesheet-hours
+            import). When the intake set Jobber as the hours source, surface a
+            real Connect action that jumps to where the connector lives. */}
+        {client?.payrollHoursSource === "jobber" && (
+          <Link to="/payroll"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-lime-50 text-lime-700 border border-lime-300 rounded-lg text-sm hover:bg-lime-100">
+            Connect Jobber (hours) <ChevronRight className="h-3 w-3 opacity-60" />
+          </Link>
+        )}
         {monthlyReceipt && (
           <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
             Monthly sales receipt{client?.salesReceiptSource ? ` · from ${client.salesReceiptSource}` : ""}
@@ -2225,6 +2242,92 @@ function ContactsCard({ clientId }: { clientId: number }) {
             </div>
             <div><Label>Notes</Label><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isPrimary} onChange={(e) => setForm({ ...form, isPrimary: e.target.checked })} /> Primary contact</label>
+            <div className="flex gap-2 pt-1">
+              <Button className="bg-lime-500 flex-1" disabled={!form.name.trim() || create.isPending || update.isPending} onClick={save}>{create.isPending || update.isPending ? "Saving…" : "Save"}</Button>
+              <Button variant="outline" onClick={close}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+/** Per-client vendors / customers (CRM-side; QBO sync later). One component,
+ *  reused for both kinds. Vendors add a "Email all" action (mailto bcc) for
+ *  statement / missing-invoice requests. */
+function PartiesCard({ clientId, kind }: { clientId: number; kind: "vendor" | "customer" }) {
+  const utils = trpc.useUtils();
+  const { data: rows } = trpc.parties.list.useQuery({ clientId, kind });
+  const inv = () => utils.parties.list.invalidate({ clientId, kind });
+  const blank = { name: "", contactName: "", email: "", phone: "", accountNumber: "", notes: "" };
+  const [form, setForm] = useState<any>(blank);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [open, setOpen] = useState(false);
+  const create = trpc.parties.create.useMutation({ onSuccess: () => { inv(); close(); }, onError: (e) => alert(e.message) });
+  const update = trpc.parties.update.useMutation({ onSuccess: () => { inv(); close(); }, onError: (e) => alert(e.message) });
+  const remove = trpc.parties.remove.useMutation({ onSuccess: inv });
+  function close() { setOpen(false); setEditId(null); setForm(blank); }
+  function startAdd() { setEditId(null); setForm(blank); setOpen(true); }
+  function startEdit(c: any) { setEditId(c.id); setForm({ name: c.name || "", contactName: c.contactName || "", email: c.email || "", phone: c.phone || "", accountNumber: c.accountNumber || "", notes: c.notes || "" }); setOpen(true); }
+  function save() {
+    if (!form.name.trim()) return;
+    if (editId) update.mutate({ id: editId, ...form });
+    else create.mutate({ clientId, kind, ...form });
+  }
+  const isVendor = kind === "vendor";
+  const label = isVendor ? "Vendors" : "Customers";
+  const Icon = isVendor ? Package : Users;
+  const emails = (rows || []).map((r: any) => r.email).filter(Boolean);
+  return (
+    <Card>
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="flex items-center gap-2 text-base"><Icon className="h-5 w-5 text-lime-500" /> {label}</CardTitle>
+        <div className="flex items-center gap-2">
+          {isVendor && emails.length > 0 && (
+            <a href={`mailto:?bcc=${encodeURIComponent(emails.join(","))}`}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border rounded-lg text-slate-600 hover:bg-slate-50">
+              <Mail className="h-3.5 w-3.5" /> Email all ({emails.length})
+            </a>
+          )}
+          <Button size="sm" variant="outline" onClick={startAdd}><Plus className="h-3.5 w-3.5 mr-1" /> Add {isVendor ? "vendor" : "customer"}</Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {(!rows || rows.length === 0) ? (
+          <p className="text-sm text-slate-400 py-2">
+            No {label.toLowerCase()} yet{isVendor ? " — add the suppliers whose bills we pay." : " — add the customers we invoice."} (QBO sync coming later.)
+          </p>
+        ) : (
+          <div className="divide-y">
+            {rows.map((c: any) => (
+              <div key={c.id} className="flex items-start justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{c.name}{c.qboId ? <Badge variant="outline" className="ml-2 text-[10px] bg-blue-50 text-blue-700">QBO</Badge> : null}</p>
+                  <p className="text-xs text-slate-500">{[c.contactName, c.email, c.phone, c.accountNumber ? `acct ${c.accountNumber}` : null].filter(Boolean).join(" · ") || "—"}</p>
+                  {c.notes ? <p className="text-xs text-slate-400 mt-0.5">{c.notes}</p> : null}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => startEdit(c)}><Edit className="h-3.5 w-3.5" /></Button>
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600" onClick={() => { if (confirm(`Remove ${c.name}?`)) remove.mutate({ id: c.id }); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+      <Dialog open={open} onOpenChange={(v) => { if (!v) close(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{editId ? `Edit ${isVendor ? "vendor" : "customer"}` : `Add ${isVendor ? "vendor" : "customer"}`}</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+              <div><Label>Contact</Label><Input value={form.contactName} onChange={(e) => setForm({ ...form, contactName: e.target.value })} /></div>
+              <div><Label>Email</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+              <div><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+              <div><Label>Account #</Label><Input value={form.accountNumber} onChange={(e) => setForm({ ...form, accountNumber: e.target.value })} /></div>
+            </div>
+            <div><Label>Notes</Label><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
             <div className="flex gap-2 pt-1">
               <Button className="bg-lime-500 flex-1" disabled={!form.name.trim() || create.isPending || update.isPending} onClick={save}>{create.isPending || update.isPending ? "Saving…" : "Save"}</Button>
               <Button variant="outline" onClick={close}>Cancel</Button>
