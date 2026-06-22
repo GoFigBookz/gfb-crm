@@ -49892,6 +49892,32 @@ var init_quote_router = __esm({
           comparison
         };
       }),
+      // OWNER-ONLY pricing intelligence across all active clients: recommended
+      // scope-based fee vs what we currently bill, with the variance (under-billed first).
+      allInsights: seniorQuery.query(async () => {
+        const db = getDb();
+        const cs = await db.select().from(clients);
+        const onbAll = await db.select().from(clientOnboarding);
+        const onbByClient = /* @__PURE__ */ new Map();
+        for (const o of onbAll.sort((a, b) => a.id - b.id)) onbByClient.set(o.clientId, o);
+        const rows = cs.filter((c) => c.status !== "inactive" && c.status !== "archived" && c.status !== "lead" && c.status !== "prospect").map((c) => {
+          const quote = computeQuote(buildScopeForClient(c, onbByClient.get(c.id) ?? null));
+          const flatFee = c.monthlyFee ?? null;
+          const cmp = compareToFlatFee(quote.recurringMonthly, flatFee);
+          const variance = flatFee != null ? Math.round(quote.recurringMonthly - flatFee) : null;
+          return {
+            clientId: c.id,
+            name: c.name,
+            recommended: quote.recurringMonthly,
+            flatFee,
+            variance,
+            status: cmp?.status ?? null
+          };
+        }).sort((a, b) => (b.variance ?? -1e9) - (a.variance ?? -1e9));
+        const totalRecommended = rows.reduce((s, r) => s + (r.recommended || 0), 0);
+        const totalBilled = rows.reduce((s, r) => s + (r.flatFee || 0), 0);
+        return { rows, totalRecommended, totalBilled, gap: Math.round(totalRecommended - totalBilled) };
+      }),
       // Recompute the quote with an overridden monthly transaction count (live
       // preview in the editor before the real numbers come from QBO).
       preview: authedQuery.input(external_exports.object({
@@ -60117,7 +60143,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.10";
+var BUILD_TAG = "2026-06-22.11";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
