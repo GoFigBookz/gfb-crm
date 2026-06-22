@@ -18,9 +18,9 @@ type SectionKey = "work" | "clients" | "payroll" | "comms" | "tools" | "insights
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { user, can } = useAuth();
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
-    work: true,
-    clients: true,
-    payroll: true,
+    work: false,
+    clients: false,
+    payroll: false,
     comms: false,
     tools: false,
     insights: false,
@@ -163,6 +163,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 py-3 px-2 overflow-y-auto">
+        {/* Pinned quick-access — the everyday drivers, always visible so you never
+            hunt for them (Payroll is weekly core work). */}
+        <div className="space-y-0.5 mb-2">
+          <NavItem to="/" icon={LayoutDashboard} label="Dashboard" end />
+          <NavItem to="/payroll" icon={Wallet} label="Payroll" />
+          <NavItem to="/clients" icon={Users} label="Clients" />
+          <NavItem to="/tasks" icon={CheckSquare} label="Tasks" />
+          <NavItem to="/month-end-close" icon={Gauge} label="Month-End Close" />
+        </div>
+        {!collapsed && <div className="border-t border-slate-800 my-2 mx-1" />}
         <Section label="Work" icon={Gauge} sectionKey="work" items={workItems} />
         <Section label="People & Payroll" icon={Wallet} sectionKey="payroll" items={payrollItems} />
         <Section label="Clients" icon={Users} sectionKey="clients" items={clientItems} />
