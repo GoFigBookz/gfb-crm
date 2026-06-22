@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { Bell, Search, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,13 +27,17 @@ export function TopBar({}: TopBarProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5 text-slate-600" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-        </Button>
-        <Button variant="ghost" size="icon" onClick={() => logout()}>
-          <LogOut className="h-5 w-5 text-slate-600" />
+      <div className="flex items-center gap-2">
+        {/* Bell → Tasks & deadlines (the closest thing to alerts today). The
+            old red dot was hardcoded with nothing behind it, so it's removed
+            until a real notifications count exists. */}
+        <Link to="/tasks" title="Tasks & alerts">
+          <Button variant="ghost" size="icon">
+            <Bell className="h-5 w-5 text-slate-600" />
+          </Button>
+        </Link>
+        <Button variant="ghost" size="sm" onClick={() => logout()} className="text-slate-600">
+          <LogOut className="h-4 w-4 mr-1.5" /> Log out
         </Button>
       </div>
     </header>
