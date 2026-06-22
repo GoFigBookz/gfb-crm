@@ -45866,6 +45866,13 @@ var init_onboarding_router = __esm({
         const clientPatch = { updatedAt: /* @__PURE__ */ new Date() };
         for (const k of clientKeys) if (rest[k] !== void 0) clientPatch[k] = rest[k];
         if (typeof clientPatch.website === "string") clientPatch.website = clientPatch.website.toLowerCase();
+        const bnNow = clientPatch.taxId ?? prior?.taxId;
+        if (bnNow) {
+          const hasHstNow = clientPatch.hasHST ?? prior?.hasHST;
+          const hasPayNow = clientPatch.hasPayroll ?? prior?.hasPayroll;
+          if (hasHstNow && !(clientPatch.hstNumber || prior?.hstNumber)) clientPatch.hstNumber = `${bnNow}RT0001`;
+          if (hasPayNow && !(clientPatch.payrollRpNumber || prior?.payrollRpNumber)) clientPatch.payrollRpNumber = `${bnNow}RP0001`;
+        }
         if (Object.keys(clientPatch).length > 1) await db.update(clients).set(clientPatch).where(eq(clients.id, clientId));
         void prior;
         const onbKeys = [
@@ -60749,7 +60756,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.23";
+var BUILD_TAG = "2026-06-22.24";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

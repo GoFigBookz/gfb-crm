@@ -60,11 +60,10 @@ export default function OnboardingForm() {
     // String fields
     const stringFields = [
       "businessLegalName", "businessOperatingName", "businessStructure", "industry",
-      "businessNumber", "ein", "craBusinessNumber", "hstGstNumber",
-      "payrollAccountNumber", "wsibAccountNumber",
+      "businessNumber", "ein", "craBusinessNumber",
+      "wsibAccountNumber",
       "primaryContactName", "primaryContactEmail", "primaryContactPhone",
       "secondaryContactName", "secondaryContactEmail",
-      "bankName", "bankAccountNumber", "bankRoutingNumber",
       "currentAccountingSoftware", "currentPayrollProvider",
       "servicesNeeded", "painPoints", "expectations",
       "fiscalYearEnd", "lastFiledYear", "outstandingFilings",
@@ -148,9 +147,7 @@ export default function OnboardingForm() {
                   </Select>
                 </div>
                 <div className="space-y-2"><Label>Industry</Label><Input onChange={e => update("industry", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Business Number / EIN</Label><Input onChange={e => update("businessNumber", e.target.value)} /></div>
-                <div className="space-y-2"><Label>HST/GST Number</Label><Input onChange={e => update("hstGstNumber", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Payroll Account Number</Label><Input onChange={e => update("payrollAccountNumber", e.target.value)} /></div>
+                <div className="space-y-2"><Label>Business Number (BN) / EIN</Label><Input onChange={e => update("businessNumber", e.target.value)} /><p className="text-xs text-slate-400">We derive your HST (RT) and payroll (RP) accounts from this — no need to enter them separately.</p></div>
                 <div className="space-y-2"><Label>WSIB Account Number</Label><Input onChange={e => update("wsibAccountNumber", e.target.value)} /></div>
               </div>
             </CardContent>
@@ -175,21 +172,28 @@ export default function OnboardingForm() {
             </CardContent>
           </Card>
 
-          {/* Banking */}
+          {/* Bank connection — handled in QuickBooks, not collected here */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5 text-lime-500" />
-                Banking Information
+                Bank &amp; Credit Card Connections
               </CardTitle>
-              <CardDescription>Your bookkeeper needs this to reconcile accounts</CardDescription>
+              <CardDescription>We don't need your account numbers — your transactions flow in securely through QuickBooks.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Bank Name</Label><Input onChange={e => update("bankName", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Account Number</Label><Input onChange={e => update("bankAccountNumber", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Routing / Transit Number</Label><Input onChange={e => update("bankRoutingNumber", e.target.value)} /></div>
-              </div>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-slate-600">
+                Please log in to <span className="font-medium">QuickBooks Online</span> and connect each bank account and
+                credit card under <span className="font-medium">Transactions → Bank transactions → Link account</span>,
+                if they aren't connected already. That's all we need — the feed reconciles automatically.
+              </p>
+              <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
+                <Checkbox checked={!!form.bankAccountsConnected} onCheckedChange={v => update("bankAccountsConnected", v === true)} />
+                <div>
+                  <p className="font-medium text-sm">My bank &amp; credit card accounts are connected in QuickBooks</p>
+                  <p className="text-xs text-slate-500">Tick once they're linked (or let us know if you need help connecting them).</p>
+                </div>
+              </label>
             </CardContent>
           </Card>
 

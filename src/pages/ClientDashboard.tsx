@@ -1758,7 +1758,8 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
             {truthy(f.hasHST) && (
               <div className="ml-6 pl-3 border-l-2 border-lime-200 grid grid-cols-2 gap-2">
                 {sel("hstPeriod", "HST filing frequency", [["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"]])}
-                {field("hstNumber", "HST #", "text", !f.hstNumber)}
+                <div className="space-y-1"><Label className="text-xs">HST # <span className="text-slate-400">(auto from BN)</span></Label>
+                  <Input className="h-8 bg-slate-50" value={f.hstNumber || (f.taxId ? `${f.taxId}RT0001` : "")} readOnly /></div>
               </div>
             )}
 
@@ -1769,7 +1770,8 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
                   {sel("payrollFrequency", "Pay frequency", [["weekly","Weekly"],["bi-weekly","Bi-weekly"],["semi-monthly","Semi-monthly"],["monthly","Monthly"],["self","Self"]])}
                   {sel("payrollRemitterFreq", "CRA remitter", [["regular","Regular"],["quarterly","Quarterly"],["accelerated","Accelerated"]])}
                   {field("employeeCount", "# Employees", "number")}
-                  {field("payrollRpNumber", "Payroll RP #", "text", !f.payrollRpNumber)}
+                  <div className="space-y-1"><Label className="text-xs">Payroll RP # <span className="text-slate-400">(auto from BN)</span></Label>
+                    <Input className="h-8 bg-slate-50" value={f.payrollRpNumber || (f.taxId ? `${f.taxId}RP0001` : "")} readOnly /></div>
                 </div>
                 <div className="flex flex-wrap gap-x-4">
                   {check("hasEHT", "Has EHT (Ontario)")}
