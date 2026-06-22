@@ -1729,7 +1729,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
   return (
     <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-3xl max-h-[88vh] overflow-auto">
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><Edit className="h-4 w-4" /> Edit intake — {client.name}</DialogTitle></DialogHeader>
+        <DialogHeader className="sticky top-0 bg-white z-10 -mx-6 px-6 pb-2 border-b"><DialogTitle className="flex items-center gap-2"><Edit className="h-4 w-4" /> Edit intake — {client.name}</DialogTitle></DialogHeader>
 
         <p className="text-xs uppercase font-semibold text-slate-500">Contact</p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -1875,7 +1875,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
         <div className="space-y-1"><Label className="text-xs">Services / notes</Label>
           <Textarea value={f.servicesNeeded} onChange={(e) => set("servicesNeeded", e.target.value)} rows={2} /></div>
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 pt-3 mt-2 -mx-6 px-6 border-t bg-white sticky bottom-0">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button disabled={isPending} onClick={() => onSave({
             ...f,
