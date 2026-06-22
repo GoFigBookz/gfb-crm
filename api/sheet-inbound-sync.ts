@@ -180,12 +180,88 @@ export async function pullLeadsIntoCrm(): Promise<{ scanned: number; updated: nu
 }
 
 /** Run both inbound pulls. Used on a schedule + manual trigger. */
-export async function pullMasterIntoCrm(): Promise<{ clients: any; leads: any }> {
+export async function pullMasterIntoCrm(): Promise<{ clients: any; leads: any; inactive: any }> {
   let clientsRes: any = { scanned: 0, updated: 0, created: 0 };
   let leadsRes: any = { scanned: 0, updated: 0, created: 0 };
+  let inactiveRes: any = { scanned: 0, updated: 0, created: 0 };
   try { clientsRes = await pullClientMasterIntoCrm(); }
   catch (e) { console.error("[inbound] client master pull failed:", e instanceof Error ? e.message : e); }
   try { leadsRes = await pullLeadsIntoCrm(); }
   catch (e) { console.error("[inbound] leads pull failed:", e instanceof Error ? e.message : e); }
-  return { clients: clientsRes, leads: leadsRes };
+  try { inactiveRes = await pullInactiveClientsIntoCrm(); }
+  catch (e) { console.error("[inbound] inactive pull failed:", e instanceof Error ? e.message : e); }
+  return { clients: clientsRes, leads: leadsRes, inactive: inactiveRes };
+}
+
+/** Pull the "Inactive Clients" tab into the CRM as status=inactive clients, so the
+ *  CRM's Inactive filter mirrors the sheet. Header-driven; matched by BN else name;
+ *  a brand-new row is created (inactive). Inactive clients generate no tasks. */
+export async function pullInactiveClientsIntoCrm(): Promise<{ scanned: number; updated: number; created: number }> {
+  const db = getDb();
+  const report = { scanned: 0, updated: 0, created: 0 };
+  const rows = await readMasterRange("'Inactive Clients'!A1:Z200");
+  if (rows.length < 2) return report;
+  const header = rows[0] || [];
+  const find = (...kws: string[]) => header.findIndex((h) => { const n = norm(h); return kws.some((k) => n.includes(k)); });
+  const ci = {
+    name: 0,
+    bn: find("cra business", "business", "bn", "cra bn"),
+    industry: find("industry"),
+    address: find("address"),
+    phone: find("phone"),
+    email: header.findIndex((h) => norm(h) === "email"),
+    website: find("website"),
+    owner: find("owner", "contact"),
+    notes: find("notes"),
+    triage: find("triage"),
+    registry: find("registry"),
+    incorp: find("incorp"),
+    corp: find("corp type", "corp"),
+    govt: find("govt", "government"),
+  };
+  const all = (await db.select().from(clients)) as any[];
+  const byBn = new Map<string, any>();
+  const byName = new Map<string, any>();
+  for (const c of all) { if (c.taxId) byBn.set(norm(c.taxId), c); byName.set(norm(c.name), c); if (c.company) byName.set(norm(c.company), c); }
+
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i] || [];
+    const name = clean(r[ci.name]);
+    if (!name) continue;
+    report.scanned++;
+    const bn = ci.bn >= 0 ? clean(r[ci.bn]) : "";
+    const pick = (idx: number) => (idx >= 0 ? clean(r[idx]) : "");
+    const fields: Record<string, any> = {
+      status: "inactive",
+      taxId: bn || undefined,
+      industry: pick(ci.industry) || undefined,
+      address: pick(ci.address) || undefined,
+      phone: pick(ci.phone) || undefined,
+      email: pick(ci.email) || undefined,
+      website: pick(ci.website) ? pick(ci.website).toLowerCase() : undefined,
+      contactName: pick(ci.owner) || undefined,
+      notes: pick(ci.notes) || undefined,
+      figgyEmail: pick(ci.triage) || undefined,
+      registryNumber: pick(ci.registry) || undefined,
+      incorporationDate: pick(ci.incorp) || undefined,
+      corpType: pick(ci.corp) || undefined,
+      governmentStatus: pick(ci.govt) || undefined,
+    };
+    const match = (bn && byBn.get(norm(bn))) || byName.get(norm(name));
+    if (match) {
+      const patch: Record<string, any> = { status: "inactive", updatedAt: new Date() };
+      for (const [k, v] of Object.entries(fields)) if (v !== undefined && String(match[k] ?? "") !== String(v)) patch[k] = v;
+      await db.update(clients).set(patch).where(eq(clients.id, match.id));
+      report.updated++;
+    } else {
+      const clean2 = (o: Record<string, any>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
+      await db.insert(clients).values({
+        userId: 1, name, company: name, email: fields.email || "",
+        workflowStatus: "inactive", assignedTo: "Markie",
+        ...clean2(fields), createdAt: new Date(), updatedAt: new Date(),
+      } as any);
+      report.created++;
+    }
+  }
+  return report;
 }
