@@ -46,6 +46,11 @@ const COLUMNS: Array<[string, string]> = [
   ["qboCustomerId", "text"], ["qboConnectionId", "integer"],
   ["industry", "text DEFAULT 'other'"], ["province", "text DEFAULT 'ON'"], ["qboAccountType", "text DEFAULT 'ca_clients'"],
   ["figgyEmail", "text"], ["contactName", "text"], ["craRacDone", "integer DEFAULT 0"], ["groupName", "text"],
+  // Government-registry / lookup fields the card + intake save read AND write.
+  // (Previously only added by import-client-master; include here so the every-boot
+  // guard always covers them and intake saves can't hit a missing column.)
+  ["bio", "text"], ["registryNumber", "text"], ["incorporationDate", "text"],
+  ["corpType", "text"], ["governmentStatus", "text"], ["companyKey", "text"], ["craRepId", "text"],
   ["createdAt", "integer"], ["updatedAt", "integer"],
 ];
 
@@ -387,6 +392,10 @@ export async function ensureOnboardingColumns(): Promise<void> {
     ["qboSoftwareTier", "text DEFAULT 'none'"],
     ["qboSoftwareWholesale", "integer DEFAULT 0"],
     ["qboPayrollWholesale", "integer DEFAULT 0"],
+    // These two are SELECTed by the Drizzle onboarding query — without them every
+    // read of client_onboarding throws, which silently broke saving the intake.
+    ["monthlySalesReceipt", "integer DEFAULT 0"],
+    ["salesReceiptSource", "text"],
   ];
   for (const [col, type] of adds) {
     if (have.has(col)) continue;

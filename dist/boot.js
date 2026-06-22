@@ -55306,7 +55306,11 @@ async function ensureOnboardingColumns() {
     ["billPayResponsibility", "text DEFAULT 'none'"],
     ["qboSoftwareTier", "text DEFAULT 'none'"],
     ["qboSoftwareWholesale", "integer DEFAULT 0"],
-    ["qboPayrollWholesale", "integer DEFAULT 0"]
+    ["qboPayrollWholesale", "integer DEFAULT 0"],
+    // These two are SELECTed by the Drizzle onboarding query — without them every
+    // read of client_onboarding throws, which silently broke saving the intake.
+    ["monthlySalesReceipt", "integer DEFAULT 0"],
+    ["salesReceiptSource", "text"]
   ];
   for (const [col, type] of adds) {
     if (have.has(col)) continue;
@@ -55391,6 +55395,16 @@ var init_ensure_clients_schema = __esm({
       ["contactName", "text"],
       ["craRacDone", "integer DEFAULT 0"],
       ["groupName", "text"],
+      // Government-registry / lookup fields the card + intake save read AND write.
+      // (Previously only added by import-client-master; include here so the every-boot
+      // guard always covers them and intake saves can't hit a missing column.)
+      ["bio", "text"],
+      ["registryNumber", "text"],
+      ["incorporationDate", "text"],
+      ["corpType", "text"],
+      ["governmentStatus", "text"],
+      ["companyKey", "text"],
+      ["craRepId", "text"],
       ["createdAt", "integer"],
       ["updatedAt", "integer"]
     ];
@@ -60299,7 +60313,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.15";
+var BUILD_TAG = "2026-06-22.16";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
