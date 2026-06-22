@@ -19,12 +19,25 @@ export const users = sqliteTable("users", {
   authProvider: text("authProvider", { enum: ["kimi", "google", "microsoft", "local"] }).default("local").notNull(),
   // Active status
   isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(),
+  // RBAC: when true, this user can ONLY see the clients explicitly granted in
+  // client_access (admins/seniors always see all; default false = unchanged/all).
+  restrictedToClients: integer("restrictedToClients", { mode: "boolean" }).default(false).notNull(),
   // For password reset
   resetToken: text("resetToken"),
   resetTokenExpires: integer("resetTokenExpires", { mode: "timestamp" }),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   lastSignInAt: integer("lastSignInAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// ========== CLIENT ACCESS GRANTS (RBAC: per-staff client scoping) ==========
+// Which clients a restricted user may access. Only consulted when the user's
+// restrictedToClients flag is on; admins/seniors bypass it (see api/rbac.ts).
+export const clientAccess = sqliteTable("client_access", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("userId").notNull(),
+  clientId: integer("clientId").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
 // ========== CONNECTED ACCOUNTS (Multi-account OAuth + API Key Connectors) ==========

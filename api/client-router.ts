@@ -2,7 +2,8 @@ import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { clients, satisfactionScores, tasks, clientTaskRules } from "../db/schema";
-import { eq, and, like, desc, ne } from "drizzle-orm";
+import { eq, and, like, desc, ne, inArray } from "drizzle-orm";
+import { restrictedClientIds } from "./rbac";
 import { syncInsert, syncUpdate } from "./sync-hooks";
 import { ensureComplianceForClient, reconcileClientFromIntake } from "./task-generator";
 import { figgyEmailFor } from "./seed-triage-emails";
@@ -55,12 +56,17 @@ export const clientRouter = createRouter({
       const status = input?.status ?? "all";
 
       const conditions = [];
-      
+
       // Client role only sees their own data
       if (userRole === "client") {
         conditions.push(eq(clients.userId, userId));
       }
-      // Staff (junior+) sees ALL clients — shared practice view
+      // Staff (junior+) sees ALL clients — UNLESS restricted to specific clients (RBAC).
+      const allowed = await restrictedClientIds(ctx);
+      if (allowed !== null) {
+        // Empty grant set → see nothing (use -1 so the IN matches no rows).
+        conditions.push(inArray(clients.id, allowed.length ? allowed : [-1]));
+      }
 
       if (status !== "all") conditions.push(eq(clients.status, status));
       if (search) conditions.push(like(clients.name, `%${search}%`));
@@ -82,6 +88,9 @@ export const clientRouter = createRouter({
   get: authedQuery
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
+      // RBAC: a restricted user can't open a client they weren't granted.
+      const allowed = await restrictedClientIds(ctx);
+      if (allowed !== null && !allowed.includes(input.id)) return null;
       const db = getDb();
       const result = await db
         .select()

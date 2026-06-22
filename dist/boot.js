@@ -22324,6 +22324,7 @@ __export(schema_exports, {
   aiAgentRuns: () => aiAgentRuns,
   appSettings: () => appSettings,
   calendarEvents: () => calendarEvents,
+  clientAccess: () => clientAccess,
   clientContacts: () => clientContacts,
   clientDashboardSnapshots: () => clientDashboardSnapshots,
   clientEmails: () => clientEmails,
@@ -22385,7 +22386,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties;
+var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -22401,12 +22402,21 @@ var init_schema = __esm({
       authProvider: text("authProvider", { enum: ["kimi", "google", "microsoft", "local"] }).default("local").notNull(),
       // Active status
       isActive: integer2("isActive", { mode: "boolean" }).default(true).notNull(),
+      // RBAC: when true, this user can ONLY see the clients explicitly granted in
+      // client_access (admins/seniors always see all; default false = unchanged/all).
+      restrictedToClients: integer2("restrictedToClients", { mode: "boolean" }).default(false).notNull(),
       // For password reset
       resetToken: text("resetToken"),
       resetTokenExpires: integer2("resetTokenExpires", { mode: "timestamp" }),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       lastSignInAt: integer2("lastSignInAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    clientAccess = sqliteTable("client_access", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      userId: integer2("userId").notNull(),
+      clientId: integer2("clientId").notNull(),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
     connectedAccounts = sqliteTable("connected_accounts", {
       id: integer2("id").primaryKey({ autoIncrement: true }),
@@ -39913,6 +39923,38 @@ var init_auth_router = __esm({
   }
 });
 
+// api/rbac.ts
+function seesAllClients(role) {
+  return role === "admin" || role === "senior_bookkeeper";
+}
+async function restrictedClientIds(ctx) {
+  const user = ctx?.user;
+  if (!user) return [];
+  if (seesAllClients(user.role)) return null;
+  if (!user.restrictedToClients) return null;
+  const rows = await getDb().select().from(clientAccess).where(eq(clientAccess.userId, user.id));
+  return rows.map((r) => r.clientId);
+}
+async function setClientAccessGrants(userId, clientIds) {
+  const db = getDb();
+  await db.delete(clientAccess).where(eq(clientAccess.userId, userId));
+  const unique = Array.from(new Set(clientIds.filter((n) => Number.isFinite(n))));
+  for (const clientId of unique) {
+    await db.insert(clientAccess).values({ userId, clientId });
+  }
+}
+async function getClientAccessGrants(userId) {
+  const rows = await getDb().select().from(clientAccess).where(eq(clientAccess.userId, userId));
+  return rows.map((r) => r.clientId);
+}
+var init_rbac = __esm({
+  "api/rbac.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+  }
+});
+
 // api/sheets-sync-bridge.ts
 async function sheetsApi(path3, method = "GET", body) {
   const url2 = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}${path3}`;
@@ -41181,6 +41223,7 @@ var init_client_router = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+    init_rbac();
     init_sync_hooks();
     init_task_generator();
     init_seed_triage_emails();
@@ -41204,6 +41247,10 @@ var init_client_router = __esm({
         if (userRole === "client") {
           conditions.push(eq(clients.userId, userId));
         }
+        const allowed = await restrictedClientIds(ctx);
+        if (allowed !== null) {
+          conditions.push(inArray(clients.id, allowed.length ? allowed : [-1]));
+        }
         if (status !== "all") conditions.push(eq(clients.status, status));
         if (search) conditions.push(like(clients.name, `%${search}%`));
         const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
@@ -41212,6 +41259,8 @@ var init_client_router = __esm({
       }),
       // Get single client
       get: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {
+        const allowed = await restrictedClientIds(ctx);
+        if (allowed !== null && !allowed.includes(input.id)) return null;
         const db = getDb();
         const result = await db.select().from(clients).where(clientScope(ctx, input.id)).limit(1);
         return result[0] ?? null;
@@ -46584,10 +46633,34 @@ var init_user_router = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+    init_rbac();
     userRouter = createRouter({
       list: staffQuery.query(async () => {
         const db = getDb();
         return db.select().from(users).where(not(eq(users.role, "client"))).orderBy(users.createdAt);
+      }),
+      // Which clients a (restricted) user is granted access to. Admin-only — this is
+      // access-control config.
+      clientAccess: adminQuery.input(external_exports.object({ userId: external_exports.number() })).query(async ({ input }) => {
+        return { clientIds: await getClientAccessGrants(input.userId) };
+      }),
+      // Replace a user's full client-access grant list.
+      setClientAccess: adminQuery.input(external_exports.object({ userId: external_exports.number(), clientIds: external_exports.array(external_exports.number()) })).mutation(async ({ input }) => {
+        await setClientAccessGrants(input.userId, input.clientIds);
+        return { success: true };
+      }),
+      // Toggle whether a user is restricted to their granted clients (default off =
+      // sees all). Turning it on without grants means they see nothing until granted.
+      setRestricted: adminQuery.input(external_exports.object({ userId: external_exports.number(), restricted: external_exports.boolean() })).mutation(async ({ input }) => {
+        const db = getDb();
+        await db.update(users).set({ restrictedToClients: input.restricted, updatedAt: /* @__PURE__ */ new Date() }).where(eq(users.id, input.userId));
+        return { success: true };
+      }),
+      // Activate / deactivate a user account (deactivated users can't sign in).
+      setActive: adminQuery.input(external_exports.object({ userId: external_exports.number(), isActive: external_exports.boolean() })).mutation(async ({ input }) => {
+        const db = getDb();
+        await db.update(users).set({ isActive: input.isActive, updatedAt: /* @__PURE__ */ new Date() }).where(eq(users.id, input.userId));
+        return { success: true };
       }),
       updateRole: adminQuery.input(external_exports.object({
         id: external_exports.number(),
@@ -55938,6 +56011,41 @@ var init_ensure_clients_schema = __esm({
   }
 });
 
+// api/ensure-rbac-schema.ts
+var ensure_rbac_schema_exports = {};
+__export(ensure_rbac_schema_exports, {
+  ensureRbacSchema: () => ensureRbacSchema
+});
+async function ensureRbacSchema() {
+  const db = getDb();
+  try {
+    const have = /* @__PURE__ */ new Set();
+    const res = await db.run(sql`PRAGMA table_info(users)`);
+    for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
+    if (!have.has("restrictedToClients")) {
+      await db.run(sql.raw(`ALTER TABLE users ADD COLUMN "restrictedToClients" integer DEFAULT 0 NOT NULL`));
+    }
+  } catch (e) {
+    console.error("[rbac] ensure users.restrictedToClients failed:", e instanceof Error ? e.message : e);
+  }
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS client_access (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      clientId integer NOT NULL,
+      createdAt integer
+    )`);
+  } catch (e) {
+    console.error("[rbac] ensure client_access table failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_rbac_schema = __esm({
+  "api/ensure-rbac-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/seed-ai-agents.ts
 var seed_ai_agents_exports = {};
 __export(seed_ai_agents_exports, {
@@ -60881,7 +60989,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.29";
+var BUILD_TAG = "2026-06-22.30";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -61801,6 +61909,8 @@ async function startServer() {
     await ensureSmsTable2();
     await ensureIntercoTables2();
     await ensurePracticeSnapshotsTable2();
+    const { ensureRbacSchema: ensureRbacSchema2 } = await Promise.resolve().then(() => (init_ensure_rbac_schema(), ensure_rbac_schema_exports));
+    await ensureRbacSchema2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));

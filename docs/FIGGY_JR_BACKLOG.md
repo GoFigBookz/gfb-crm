@@ -220,6 +220,29 @@ pulls all the data and helps him *defend* an audit. Scoping notes for the future
 - **Reuse:** the tie-out engine here is the same one the month-end "tie-outs"
   cockpit item wants — build ONE tie-out core, surface it in both. Don't fork.
 
+## RBAC — per-staff client access (CORE BUILT 2026-06-22)
+Access model (Markie ask: "some users won't have access to all clients"):
+- **admin + senior_bookkeeper → ALL clients** (owner/controller view).
+- **junior_bookkeeper → all clients UNLESS `restrictedToClients` is on**, then only
+  the clients granted in `client_access`. Flag defaults OFF (non-disruptive — no one
+  gets locked out on deploy; admin opts a user in + picks clients).
+- client role → unchanged (clients.userId ownership).
+BUILT: `users.restrictedToClients` + `client_access` table (+ boot schema guard
+`ensure-rbac-schema.ts`); `api/rbac.ts` helpers; scoping applied to
+`crmClient.list` + `crmClient.get`; user-router `clientAccess`/`setClientAccess`/
+`setRestricted`/`setActive` (all admin); Users page rebuilt (add user via
+`localAuth.register`, role select, deactivate, per-client access dialog). Admin +
+Insights sidebar sections now both gated to senior+ (juniors don't see them).
+REMAINING (extend the same `restrictedClientIds(ctx)` filter for full enforcement):
+- Other per-client READ surfaces: `payroll.clients`, the tasks board/list, the
+  month-end board, client-dashboard-router — a restricted junior can still reach
+  clients through these until scoped.
+- Route-level guard on `/users` (+ admin pages) — currently sidebar-hidden only;
+  backend mutations are adminQuery-protected, but add a route guard for polish.
+- Task-assignment validation: restrict the assignee picker (and server) to users
+  who can access that client.
+- Client-scoped communications (emails/messages) for restricted users.
+
 ## 1. Transaction posting into QuickBooks — THE core workload (HIGH)
 Decision (Markie): build the **QBO API poster** (not a Chrome/browser bot — QBO
 has a full write API; browser automation is brittle and unnecessary). Posting
