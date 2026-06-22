@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { computeT5Boxes } from "../../api/dividend-core";
 import { useParams, Link, useNavigate } from "react-router";
-import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet } from "lucide-react";
+import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet, Globe } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -442,6 +442,7 @@ export default function ClientDashboard() {
         {/* OVERVIEW TAB */}
         <TabsContent value="overview" className="space-y-4 mt-4">
           <ContactsCard clientId={id} />
+          <PlatformsCard onboarding={onboarding} />
           {/* Document requests + at-a-glance, side by side. (Task progress lives in
               the combined Tasks card up top.) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1240,6 +1241,26 @@ function ComplianceTab({ clientId, client, closeStatus, tasks, onOpenTask }: {
               <a href={client.driveFolderUrl} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100">
                 <FolderOpen className="h-4 w-4" /> Open HST filings folder <ExternalLink className="h-3 w-3 opacity-50" />
+              </a>
+            ) : (
+              <p className="text-sm text-amber-600">No Drive folder set on this client — add one (Quick links → Edit) to link past filings.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Past T5 / dividend filings — link to the filed slips in the client's Drive folder */}
+      {(client as any).payrollDividends && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Past T5 / dividend filings</CardTitle>
+            <CardDescription>Filed T5 slips &amp; summaries live in the client's file folder.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {client.driveFolderUrl ? (
+              <a href={client.driveFolderUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100">
+                <FolderOpen className="h-4 w-4" /> Open T5 filings folder <ExternalLink className="h-3 w-3 opacity-50" />
               </a>
             ) : (
               <p className="text-sm text-amber-600">No Drive folder set on this client — add one (Quick links → Edit) to link past filings.</p>
@@ -2058,6 +2079,37 @@ function TimeLogDialog({ open, onClose, clientId, tasks, onSubmit, isPending }: 
 }
 
 // Quick Links Card Component (variant "card" = full card; "header" = compact row)
+/** Sales & payment platforms the client uses — driven by the intake form, so the card
+ *  only shows platforms that were ticked (nothing irrelevant). Renders nothing if none. */
+function PlatformsCard({ onboarding }: { onboarding: any }) {
+  const PLATFORMS: { key: string; label: string; url: string }[] = [
+    { key: "usesStripe", label: "Stripe", url: "https://dashboard.stripe.com" },
+    { key: "usesSquare", label: "Square", url: "https://squareup.com/login" },
+    { key: "usesJobber", label: "Jobber", url: "https://secure.getjobber.com/login" },
+    { key: "usesTouchBistro", label: "TouchBistro", url: "https://login.touchbistro.com" },
+    { key: "usesPayPal", label: "PayPal", url: "https://www.paypal.com/signin" },
+    { key: "usesWise", label: "Wise", url: "https://wise.com/login" },
+  ];
+  const active = PLATFORMS.filter((p) => onboarding && onboarding[p.key]);
+  if (!onboarding || active.length === 0) return null; // nothing ticked at intake → no card
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base"><Globe className="h-5 w-5 text-lime-500" /> Sales &amp; payment platforms</CardTitle>
+        <CardDescription>From the intake form — only what this client uses.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-2">
+        {active.map((p) => (
+          <a key={p.key} href={p.url} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 rounded-lg text-sm hover:bg-lime-50 hover:text-lime-700">
+            {p.label} <ExternalLink className="h-3 w-3 opacity-50" />
+          </a>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 /** Per-client contacts (receptionist, AP, owner, etc.) — add/edit/delete, saved per client. */
 function ContactsCard({ clientId }: { clientId: number }) {
   const utils = trpc.useUtils();
