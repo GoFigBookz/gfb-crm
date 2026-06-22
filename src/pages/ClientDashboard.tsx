@@ -1590,7 +1590,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
     paysDividends: !!o.paysDividends, hasEHT: !!o.hasEHT, needsYearEnd: o.needsYearEnd !== false,
     usesHubdoc: !!o.usesHubdoc, hasJobCosting: !!o.hasJobCosting,
     invoicingResponsibility: o.invoicingResponsibility || "none", billPayResponsibility: o.billPayResponsibility || "none",
-    usesStripe: !!o.usesStripe, usesSquare: !!o.usesSquare, usesJobber: !!o.usesJobber, usesTouchBistro: !!o.usesTouchBistro, usesPayPal: !!o.usesPayPal,
+    usesStripe: !!o.usesStripe, usesSquare: !!o.usesSquare, usesJobber: !!o.usesJobber, usesTouchBistro: !!o.usesTouchBistro, usesPayPal: !!o.usesPayPal, usesWise: !!o.usesWise,
     qboSoftwareTier: o.qboSoftwareTier || "none", qboSoftwareWholesale: !!o.qboSoftwareWholesale, qboPayrollWholesale: !!o.qboPayrollWholesale,
     servicesNeeded: o.servicesNeeded || "", painPoints: o.painPoints || "", expectations: o.expectations || "",
   });
@@ -1696,7 +1696,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Sales platforms</p>
         <div className="flex flex-wrap gap-x-4">
-          {check("usesStripe", "Stripe")}{check("usesSquare", "Square")}{check("usesJobber", "Jobber")}{check("usesTouchBistro", "TouchBistro")}{check("usesPayPal", "PayPal")}
+          {check("usesStripe", "Stripe")}{check("usesSquare", "Square")}{check("usesJobber", "Jobber")}{check("usesTouchBistro", "TouchBistro")}{check("usesPayPal", "PayPal")}{check("usesWise", "Wise")}
         </div>
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">QuickBooks (wholesale billing through us)</p>

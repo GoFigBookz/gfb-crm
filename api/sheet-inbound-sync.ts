@@ -27,6 +27,25 @@ import { readMasterRange, syncLeadToMaster, resolveColumns, MASTER_FIELDS } from
 const norm = (s: any) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const clean = (v: any): string => { const s = String(v ?? "").trim(); return /^(n\/?a|none|null)$/i.test(s) ? "" : s; };
 
+/** Apply an onboarding-targeted patch (e.g. platform checkboxes) to a client's
+ *  latest client_onboarding row — updating only changed fields; creating a minimal
+ *  onboarding record if none exists. Best-effort; never throws. */
+async function applyOnboardingPatch(db: any, clientId: number, patch: Record<string, any>): Promise<void> {
+  if (!patch || Object.keys(patch).length === 0) return;
+  try {
+    const rows = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(clientOnboarding.id);
+    const latest = rows[rows.length - 1] as any;
+    if (latest) {
+      const diff: Record<string, any> = {};
+      for (const [k, v] of Object.entries(patch)) if (Number(!!latest[k]) !== Number(!!v)) diff[k] = v;
+      if (Object.keys(diff).length) { diff.updatedAt = new Date(); await db.update(clientOnboarding).set(diff).where(eq(clientOnboarding.id, latest.id)); }
+    } else {
+      const { randomBytes } = await import("crypto");
+      await db.insert(clientOnboarding).values({ clientId, token: "sheet-" + randomBytes(16).toString("hex"), status: "approved", ...patch, createdAt: new Date(), updatedAt: new Date() });
+    }
+  } catch (e) { console.error("[inbound] onboarding patch failed for client", clientId, ":", e instanceof Error ? e.message : e); }
+}
+
 /** Pull the Client Master tab into the CRM — HEADER-DRIVEN (columns resolved by
  *  header, same as outbound). Updates matched clients (by BN, else name) with
  *  non-empty differing sheet values; creates a client for a brand-new row. */
@@ -53,12 +72,15 @@ export async function pullClientMasterIntoCrm(): Promise<{ scanned: number; upda
     const bn = bnCol != null ? clean(r[bnCol]) : "";
 
     // Build the sheet's view of editable fields (only non-empty cells), via the
-    // shared field model's fromSheet parsers.
-    const sv: Record<string, any> = { name };
+    // shared field model's fromSheet parsers. Fields flagged `onb` target the
+    // client_onboarding record (the platform checkboxes), not the clients row.
+    const sv: Record<string, any> = { name };          // clients-table fields
+    const onb: Record<string, any> = {};               // client_onboarding fields
     for (const f of MASTER_FIELDS) {
       const ci = cols.get(f.key); if (ci == null) continue;
       const raw = clean(r[ci]); if (!raw) continue;
-      const patch = f.fromSheet(raw); if (patch) Object.assign(sv, patch);
+      const patch = f.fromSheet(raw); if (!patch) continue;
+      Object.assign(f.onb ? onb : sv, patch);
     }
 
     const match = (bn && byBn.get(norm(bn))) || byName.get(norm(name));
@@ -72,6 +94,7 @@ export async function pullClientMasterIntoCrm(): Promise<{ scanned: number; upda
         await db.update(clients).set(patch).where(eq(clients.id, match.id));
         report.updated++;
       }
+      await applyOnboardingPatch(db, match.id, onb);
     } else {
       // A client added straight into the sheet → create it in the CRM.
       const ins = await db.insert(clients).values({
@@ -79,7 +102,7 @@ export async function pullClientMasterIntoCrm(): Promise<{ scanned: number; upda
         status: (sv.status as any) || "active", workflowStatus: "active", assignedTo: "Markie",
         ...sv, createdAt: new Date(), updatedAt: new Date(),
       } as any).returning({ id: clients.id });
-      if (ins[0]?.id) report.created++;
+      if (ins[0]?.id) { report.created++; await applyOnboardingPatch(db, ins[0].id, onb); }
     }
   }
   return report;

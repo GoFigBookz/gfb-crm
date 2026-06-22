@@ -44306,6 +44306,7 @@ __export(master_sheet_sync_exports, {
   CANONICAL_MASTER_SHEET_ID: () => CANONICAL_MASTER_SHEET_ID,
   DEFAULT_MASTER_HEADER: () => DEFAULT_MASTER_HEADER,
   MASTER_FIELDS: () => MASTER_FIELDS,
+  PLATFORM_HEADERS: () => PLATFORM_HEADERS,
   colLetter: () => colLetter,
   readMasterRange: () => readMasterRange,
   resolveColumns: () => resolveColumns,
@@ -44378,11 +44379,17 @@ async function readMasterRange(rangeA1) {
   }
 }
 async function sheetsApi2(url2, method, body) {
-  if (process.env.FIGGY_SHEET_SYNC_ENABLE !== "on") return null;
+  if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return null;
+  let rawUrl = url2;
+  try {
+    const d = decodeURIComponent(url2);
+    if (d) rawUrl = d;
+  } catch {
+  }
   const res = await fetch(SYNC_WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: url2, method, body: body == null ? "" : typeof body === "string" ? body : JSON.stringify(body) })
+    body: JSON.stringify({ url: rawUrl, method, body: body == null ? "" : typeof body === "string" ? body : JSON.stringify(body) })
   });
   if (!res.ok) throw new Error(`sheets proxy ${method} ${url2} \u2192 ${res.status} ${await res.text()}`);
   const data = await res.json().catch(() => ({}));
@@ -44399,7 +44406,33 @@ async function upsertClientToMaster(c) {
       await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!A1`)}?valueInputOption=RAW`, "PUT", { values: [DEFAULT_MASTER_HEADER] });
       rows = [DEFAULT_MASTER_HEADER.slice()];
     }
-    const header2 = rows[0] || [];
+    let header2 = rows[0] || [];
+    const haveHeaders = new Set(header2.map((h) => norm2(h)));
+    const missing = PLATFORM_HEADERS.filter((h) => !haveHeaders.has(norm2(h)));
+    if (missing.length) {
+      const startCol = colLetter(header2.length + 1);
+      header2 = [...header2, ...missing];
+      const endCol = colLetter(header2.length);
+      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!${startCol}1:${endCol}1`)}?valueInputOption=RAW`, "PUT", { values: [missing] });
+    }
+    if (c.id) {
+      try {
+        const onbRows = await getDb().select().from(clientOnboarding).where(eq(clientOnboarding.clientId, c.id)).orderBy(clientOnboarding.id);
+        const o = onbRows[onbRows.length - 1];
+        if (o) {
+          c = {
+            ...c,
+            usesStripe: !!o.usesStripe,
+            usesSquare: !!o.usesSquare,
+            usesJobber: !!o.usesJobber,
+            usesTouchBistro: !!o.usesTouchBistro,
+            usesPayPal: !!o.usesPayPal,
+            usesWise: !!o.usesWise
+          };
+        }
+      } catch {
+      }
+    }
     const width = Math.max(header2.length, DEFAULT_MASTER_HEADER.length);
     const cols = resolveColumns(header2);
     const bnCol = cols.get("craBn");
@@ -44523,9 +44556,12 @@ function syncLeadToMaster(c) {
   upsertLeadToMaster(c).catch(() => {
   });
 }
-var CANONICAL_MASTER_SHEET_ID, MASTER_TAB, LEADS_TAB, SYNC_WEBHOOK, norm2, cap, titleCadence, titlePay, titleRemit, MASTER_FIELDS, DEFAULT_MASTER_HEADER, LEAD_COLS, LEAD_N, leadLastCol;
+var CANONICAL_MASTER_SHEET_ID, MASTER_TAB, LEADS_TAB, SYNC_WEBHOOK, norm2, cap, titleCadence, titlePay, titleRemit, boolToSheet, boolFromSheet, MASTER_FIELDS, PLATFORM_HEADERS, DEFAULT_MASTER_HEADER, LEAD_COLS, LEAD_N, leadLastCol;
 var init_master_sheet_sync = __esm({
   "api/master-sheet-sync.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
     CANONICAL_MASTER_SHEET_ID = process.env.FIGGY_MASTER_SHEET_ID || "1pcAw-WSQXXnVn-0L-TQ2FIExkHQ0Olf4dzz47t0gTUk";
     MASTER_TAB = "Client Master";
     LEADS_TAB = "Leads";
@@ -44535,6 +44571,8 @@ var init_master_sheet_sync = __esm({
     titleCadence = { annual: "Annual", quarterly: "Quarterly", monthly: "Monthly" };
     titlePay = { weekly: "Weekly", "bi-weekly": "Bi-Weekly", "semi-monthly": "Semi-Monthly", monthly: "Monthly", self: "Self" };
     titleRemit = { regular: "Regular", quarterly: "Quarterly", accelerated: "Threshold 1" };
+    boolToSheet = (v) => v ? "TRUE" : "FALSE";
+    boolFromSheet = (raw2) => /^(true|t|yes|y|1|x|✓|checked)$/i.test(String(raw2).trim());
     MASTER_FIELDS = [
       { key: "name", match: (h) => h.includes("legal name") || h.includes("client") && h.includes("name"), toSheet: (c) => c.name || c.company || null, soft: false, fromSheet: (r) => ({ name: r }) },
       { key: "status", match: (h) => h === "status", toSheet: (c) => cap(c.status) || null, soft: false, fromSheet: (r) => {
@@ -44572,8 +44610,17 @@ var init_master_sheet_sync = __esm({
       { key: "payrollRp", match: (h) => h.includes("payroll rp") || h.includes("payroll") && h.includes("rp"), toSheet: (c) => c.payrollRpNumber || null, soft: true, fromSheet: (r) => ({ payrollRpNumber: r }) },
       { key: "wsibNo", match: (h) => h.includes("wsib"), toSheet: (c) => c.wsibAccountNumber || null, soft: true, fromSheet: (r) => ({ wsibAccountNumber: r, hasWSIB: true }) },
       { key: "companyKey", match: (h) => h.includes("company key") || h.includes("service canada"), toSheet: (c) => c.companyKey || null, soft: true, fromSheet: (r) => ({ companyKey: r }) },
-      { key: "craRepId", match: (h) => h.includes("repid") || h.includes("rep id") || h.includes("cra") && h.includes("rep"), toSheet: (c) => c.craRepId || "YY7F3GN", soft: false, fromSheet: (r) => ({ craRepId: r }) }
+      { key: "craRepId", match: (h) => h.includes("repid") || h.includes("rep id") || h.includes("cra") && h.includes("rep"), toSheet: (c) => c.craRepId || "YY7F3GN", soft: false, fromSheet: (r) => ({ craRepId: r }) },
+      // Sales/payment platform checkbox columns (each its own TRUE/FALSE column).
+      // `onb: true` → inbound applies these to client_onboarding, not clients.
+      { key: "useStripe", match: (h) => h === "stripe", toSheet: (c) => boolToSheet(c.usesStripe), soft: false, onb: true, fromSheet: (r) => ({ usesStripe: boolFromSheet(r) }) },
+      { key: "useSquare", match: (h) => h === "square", toSheet: (c) => boolToSheet(c.usesSquare), soft: false, onb: true, fromSheet: (r) => ({ usesSquare: boolFromSheet(r) }) },
+      { key: "useJobber", match: (h) => h === "jobber", toSheet: (c) => boolToSheet(c.usesJobber), soft: false, onb: true, fromSheet: (r) => ({ usesJobber: boolFromSheet(r) }) },
+      { key: "useTouchBistro", match: (h) => h.includes("touchbistro") || h.includes("touch bistro"), toSheet: (c) => boolToSheet(c.usesTouchBistro), soft: false, onb: true, fromSheet: (r) => ({ usesTouchBistro: boolFromSheet(r) }) },
+      { key: "usePayPal", match: (h) => h.includes("paypal") || h.includes("pay pal"), toSheet: (c) => boolToSheet(c.usesPayPal), soft: false, onb: true, fromSheet: (r) => ({ usesPayPal: boolFromSheet(r) }) },
+      { key: "useWise", match: (h) => h === "wise", toSheet: (c) => boolToSheet(c.usesWise), soft: false, onb: true, fromSheet: (r) => ({ usesWise: boolFromSheet(r) }) }
     ];
+    PLATFORM_HEADERS = ["Stripe", "Square", "Jobber", "TouchBistro", "PayPal", "Wise"];
     DEFAULT_MASTER_HEADER = [
       "Client / Legal Name",
       "Status",
@@ -44602,7 +44649,13 @@ var init_master_sheet_sync = __esm({
       "# Employees",
       "POS / Apps",
       "Company Key",
-      "CRA RepID"
+      "CRA RepID",
+      "Stripe",
+      "Square",
+      "Jobber",
+      "TouchBistro",
+      "PayPal",
+      "Wise"
     ];
     LEAD_COLS = [
       "dateReceived",
@@ -44764,6 +44817,26 @@ __export(sheet_inbound_sync_exports, {
   pullLeadsIntoCrm: () => pullLeadsIntoCrm,
   pullMasterIntoCrm: () => pullMasterIntoCrm
 });
+async function applyOnboardingPatch(db, clientId, patch) {
+  if (!patch || Object.keys(patch).length === 0) return;
+  try {
+    const rows = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(clientOnboarding.id);
+    const latest = rows[rows.length - 1];
+    if (latest) {
+      const diff = {};
+      for (const [k, v] of Object.entries(patch)) if (Number(!!latest[k]) !== Number(!!v)) diff[k] = v;
+      if (Object.keys(diff).length) {
+        diff.updatedAt = /* @__PURE__ */ new Date();
+        await db.update(clientOnboarding).set(diff).where(eq(clientOnboarding.id, latest.id));
+      }
+    } else {
+      const { randomBytes } = await import("crypto");
+      await db.insert(clientOnboarding).values({ clientId, token: "sheet-" + randomBytes(16).toString("hex"), status: "approved", ...patch, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() });
+    }
+  } catch (e) {
+    console.error("[inbound] onboarding patch failed for client", clientId, ":", e instanceof Error ? e.message : e);
+  }
+}
 async function pullClientMasterIntoCrm() {
   const db = getDb();
   const report = { scanned: 0, updated: 0, created: 0 };
@@ -44788,13 +44861,15 @@ async function pullClientMasterIntoCrm() {
     report.scanned++;
     const bn = bnCol != null ? clean2(r[bnCol]) : "";
     const sv = { name: name2 };
+    const onb = {};
     for (const f of MASTER_FIELDS) {
       const ci = cols.get(f.key);
       if (ci == null) continue;
       const raw2 = clean2(r[ci]);
       if (!raw2) continue;
       const patch = f.fromSheet(raw2);
-      if (patch) Object.assign(sv, patch);
+      if (!patch) continue;
+      Object.assign(f.onb ? onb : sv, patch);
     }
     const match2 = bn && byBn.get(norm3(bn)) || byName.get(norm3(name2));
     if (match2) {
@@ -44807,6 +44882,7 @@ async function pullClientMasterIntoCrm() {
         await db.update(clients).set(patch).where(eq(clients.id, match2.id));
         report.updated++;
       }
+      await applyOnboardingPatch(db, match2.id, onb);
     } else {
       const ins = await db.insert(clients).values({
         userId: 1,
@@ -44820,7 +44896,10 @@ async function pullClientMasterIntoCrm() {
         createdAt: /* @__PURE__ */ new Date(),
         updatedAt: /* @__PURE__ */ new Date()
       }).returning({ id: clients.id });
-      if (ins[0]?.id) report.created++;
+      if (ins[0]?.id) {
+        report.created++;
+        await applyOnboardingPatch(db, ins[0].id, onb);
+      }
     }
   }
   return report;
@@ -60313,7 +60392,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.16";
+var BUILD_TAG = "2026-06-22.17";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -60938,12 +61017,12 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding3).where(eq3(clientOnboarding3.clientId, clientId)).orderBy(desc7(clientOnboarding3.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       return c.json({ success: true, op, client: {
         name: cl.name,
         hasWSIB: cl.hasWSIB,
@@ -60966,14 +61045,14 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const db = getDb2();
       const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding3).where(eq3(clientOnboarding3.clientId, clientId)).orderBy(desc7(clientOnboarding3.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const scope = buildScopeForClient2(cl, onb);
       const quote = computeQuote2(scope);
       const comparison = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
@@ -60983,7 +61062,7 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
@@ -60992,7 +61071,7 @@ app.post("/api/admin/figgy", async (c) => {
       const db = getDb2();
       const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding3).where(eq3(clientOnboarding3.clientId, clientId)).orderBy(desc7(clientOnboarding3.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
       const comparison = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
       const qNum = await nextQuoteNumber2(db);
@@ -61012,7 +61091,7 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding3, signatureDocuments: signatureDocuments2, tasks: tasks4, clientTaskRules: clientTaskRules3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks4, clientTaskRules: clientTaskRules3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, and: and3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
@@ -61028,7 +61107,7 @@ app.post("/api/admin/figgy", async (c) => {
           await db.delete(tasks4).where(eq3(tasks4.clientId, p.id));
           await db.delete(clientTaskRules3).where(eq3(clientTaskRules3.clientId, p.id));
           await db.delete(signatureDocuments2).where(eq3(signatureDocuments2.clientId, p.id));
-          await db.delete(clientOnboarding3).where(eq3(clientOnboarding3.clientId, p.id));
+          await db.delete(clientOnboarding2).where(eq3(clientOnboarding2.clientId, p.id));
           await db.delete(clients3).where(eq3(clients3.id, p.id));
         }
         const [cl] = await db.insert(clients3).values({
@@ -61053,7 +61132,7 @@ app.post("/api/admin/figgy", async (c) => {
           qboAccountType: "ca_clients"
         }).returning();
         steps.push(`client created #${cl.id}`);
-        await db.insert(clientOnboarding3).values({
+        await db.insert(clientOnboarding2).values({
           clientId: cl.id,
           token: "e2e-" + Date.now(),
           status: "approved",
@@ -61076,7 +61155,7 @@ app.post("/api/admin/figgy", async (c) => {
           qboPayrollWholesale: true
         });
         steps.push("intake saved (120 txns, HST q, 3 emp, WSIB, dividends, Stripe, QBO essentials wholesale)");
-        const onb = (await db.select().from(clientOnboarding3).where(eq3(clientOnboarding3.clientId, cl.id)))[0];
+        const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, cl.id)))[0];
         const quote = computeQuote2(buildScopeForClient2(cl, onb));
         const cmp = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
         const qNum = await nextQuoteNumber2(db);
@@ -61165,7 +61244,7 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
@@ -61174,7 +61253,7 @@ app.post("/api/admin/figgy", async (c) => {
       const db = getDb2();
       const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding3).where(eq3(clientOnboarding3.clientId, clientId)).orderBy(desc7(clientOnboarding3.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
       const content = renderEngagementHtml2({
         firm: getFirmSettings2(),

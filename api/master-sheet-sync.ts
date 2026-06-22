@@ -17,6 +17,9 @@
  * Best-effort: any failure logs + returns false; never blocks the save.
  * =============================================================================
  */
+import { getDb } from "./queries/connection";
+import { clientOnboarding } from "../db/schema";
+import { eq } from "drizzle-orm";
 
 export const CANONICAL_MASTER_SHEET_ID =
   process.env.FIGGY_MASTER_SHEET_ID || "1pcAw-WSQXXnVn-0L-TQ2FIExkHQ0Olf4dzz47t0gTUk";
@@ -26,6 +29,7 @@ const SYNC_WEBHOOK =
   process.env.FIGGY_SHEET_SYNC_WEBHOOK || "https://hook.us2.make.com/d4h33m0na6ulrlm9nkv9dyyfa8hv1bcs";
 
 export type MasterClient = {
+  id?: number | null;
   name?: string | null; company?: string | null; status?: string | null;
   industry?: string | null; taxId?: string | null; yearEndMonth?: string | null;
   hstPeriod?: string | null; hstNextDue?: string | null; hstNumber?: string | null;
@@ -35,6 +39,11 @@ export type MasterClient = {
   website?: string | null; contactName?: string | null; figgyEmail?: string | null;
   registryNumber?: string | null; incorporationDate?: string | null;
   corpType?: string | null; governmentStatus?: string | null; bio?: string | null;
+  // Sales/payment platforms — discrete checkbox columns (live on client_onboarding,
+  // attached here by upsert so each platform is its own TRUE/FALSE column, never a
+  // messy comma-list that breaks syncing).
+  usesStripe?: boolean | null; usesSquare?: boolean | null; usesJobber?: boolean | null;
+  usesTouchBistro?: boolean | null; usesPayPal?: boolean | null; usesWise?: boolean | null;
 };
 
 const norm = (s: any) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -54,7 +63,8 @@ export type FieldKey =
   | "name" | "status" | "industry" | "bio" | "craBn" | "registryNo" | "incorpDate"
   | "corpType" | "govtStatus" | "address" | "phone" | "email" | "website" | "owner"
   | "triageEmail" | "yeMonth" | "hstCadence" | "nextHstDue" | "hstNumber"
-  | "payrollPeriod" | "craRemitter" | "payrollRp" | "wsibNo" | "companyKey" | "craRepId";
+  | "payrollPeriod" | "craRemitter" | "payrollRp" | "wsibNo" | "companyKey" | "craRepId"
+  | "useStripe" | "useSquare" | "useJobber" | "useTouchBistro" | "usePayPal" | "useWise";
 
 type FieldDef = {
   key: FieldKey;
@@ -62,7 +72,12 @@ type FieldDef = {
   toSheet: (c: MasterClient) => string | null;
   soft: boolean;                          // soft = write only when CRM has a value (else preserve)
   fromSheet: (raw: string) => Record<string, any> | null; // sheet → CRM patch (null = skip)
+  onb?: boolean;                          // patch targets client_onboarding (not clients)
 };
+
+// Checkbox helpers: CRM bool → "TRUE"/"FALSE"; sheet cell → bool (TRUE/✓/yes/1/x).
+const boolToSheet = (v: any): string => (v ? "TRUE" : "FALSE");
+const boolFromSheet = (raw: string): boolean => /^(true|t|yes|y|1|x|✓|checked)$/i.test(String(raw).trim());
 
 // Order matters: first matching field wins per column.
 export const MASTER_FIELDS: FieldDef[] = [
@@ -91,7 +106,19 @@ export const MASTER_FIELDS: FieldDef[] = [
   { key: "wsibNo", match: h => h.includes("wsib"), toSheet: c => c.wsibAccountNumber || null, soft: true, fromSheet: r => ({ wsibAccountNumber: r, hasWSIB: true }) },
   { key: "companyKey", match: h => h.includes("company key") || h.includes("service canada"), toSheet: c => c.companyKey || null, soft: true, fromSheet: r => ({ companyKey: r }) },
   { key: "craRepId", match: h => h.includes("repid") || h.includes("rep id") || (h.includes("cra") && h.includes("rep")), toSheet: c => c.craRepId || "YY7F3GN", soft: false, fromSheet: r => ({ craRepId: r }) },
+  // Sales/payment platform checkbox columns (each its own TRUE/FALSE column).
+  // `onb: true` → inbound applies these to client_onboarding, not clients.
+  { key: "useStripe", match: h => h === "stripe", toSheet: c => boolToSheet(c.usesStripe), soft: false, onb: true, fromSheet: r => ({ usesStripe: boolFromSheet(r) }) },
+  { key: "useSquare", match: h => h === "square", toSheet: c => boolToSheet(c.usesSquare), soft: false, onb: true, fromSheet: r => ({ usesSquare: boolFromSheet(r) }) },
+  { key: "useJobber", match: h => h === "jobber", toSheet: c => boolToSheet(c.usesJobber), soft: false, onb: true, fromSheet: r => ({ usesJobber: boolFromSheet(r) }) },
+  { key: "useTouchBistro", match: h => h.includes("touchbistro") || h.includes("touch bistro"), toSheet: c => boolToSheet(c.usesTouchBistro), soft: false, onb: true, fromSheet: r => ({ usesTouchBistro: boolFromSheet(r) }) },
+  { key: "usePayPal", match: h => h.includes("paypal") || h.includes("pay pal"), toSheet: c => boolToSheet(c.usesPayPal), soft: false, onb: true, fromSheet: r => ({ usesPayPal: boolFromSheet(r) }) },
+  { key: "useWise", match: h => h === "wise", toSheet: c => boolToSheet(c.usesWise), soft: false, onb: true, fromSheet: r => ({ usesWise: boolFromSheet(r) }) },
 ];
+
+// Headers for the discrete platform checkbox columns (self-provisioned into the
+// Client Master if missing). Order = how they're appended.
+export const PLATFORM_HEADERS = ["Stripe", "Square", "Jobber", "TouchBistro", "PayPal", "Wise"];
 
 /** The default header row written if the Client Master tab is ever empty. */
 export const DEFAULT_MASTER_HEADER = [
@@ -100,6 +127,7 @@ export const DEFAULT_MASTER_HEADER = [
   "Email", "Website", "Owner / Contact", "Figgy Triage Email", "Year-End Month",
   "Close Period", "HST Cadence", "Next HST Due", "HST #", "Payroll", "CRA Remitter",
   "Payroll RP #", "WSIB #", "# Employees", "POS / Apps", "Company Key", "CRA RepID",
+  "Stripe", "Square", "Jobber", "TouchBistro", "PayPal", "Wise",
 ];
 
 /** Map each known field → its column index in this header row (first match wins). */
@@ -133,16 +161,20 @@ export async function readMasterRange(rangeA1: string): Promise<string[][]> {
 
 /** POST {url, method, body} to the committed Sheets webhook proxy. */
 async function sheetsApi(url: string, method: "GET" | "POST" | "PUT", body?: unknown): Promise<any> {
-  // PAUSED 2026-06-22: the Make scenario's google-sheets "Make an API Call" module
-  // re-encodes the URL, so the CRM's already-encoded range double-encodes and Sheets
-  // rejects it ("Unable to parse range 'Client%20Master'"). Outbound sync is OFF until
-  // the scenario is rebuilt with native Sheets modules (no manual URL encoding). Opt
-  // back in with FIGGY_SHEET_SYNC_ENABLE=on once fixed.
-  if (process.env.FIGGY_SHEET_SYNC_ENABLE !== "on") return null;
+  // Re-enabled 2026-06-22 with the double-encode FIXED. Root cause: callers
+  // pre-encode the range (encodeURIComponent) AND the Make scenario's google-sheets
+  // "Make an API Call" module encodes {{1.url}} again → Sheets received a literal
+  // 'Client%20Master' and rejected it. Fix: send the path RAW so Make does the
+  // single encode. We decode the caller's encoding here (centralized — callers
+  // unchanged); the appended query parts (?valueInputOption=RAW) contain no % so
+  // decoding leaves them intact. Off-switch: FIGGY_SHEET_SYNC_DISABLE=on.
+  if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return null;
+  let rawUrl = url;
+  try { const d = decodeURIComponent(url); if (d) rawUrl = d; } catch { /* keep as-is */ }
   const res = await fetch(SYNC_WEBHOOK, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url, method, body: body == null ? "" : typeof body === "string" ? body : JSON.stringify(body) }),
+    body: JSON.stringify({ url: rawUrl, method, body: body == null ? "" : typeof body === "string" ? body : JSON.stringify(body) }),
   });
   if (!res.ok) throw new Error(`sheets proxy ${method} ${url} → ${res.status} ${await res.text()}`);
   const data = await res.json().catch(() => ({}));
@@ -166,7 +198,33 @@ export async function upsertClientToMaster(c: MasterClient): Promise<boolean> {
       await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!A1`)}?valueInputOption=RAW`, "PUT", { values: [DEFAULT_MASTER_HEADER] });
       rows = [DEFAULT_MASTER_HEADER.slice()];
     }
-    const header = rows[0] || [];
+    let header = rows[0] || [];
+
+    // Self-provision the discrete platform checkbox columns: if any are missing
+    // from the header, append them (so the sheet gains real per-platform columns
+    // instead of a messy "POS / Apps" name-list). Idempotent.
+    const haveHeaders = new Set(header.map((h) => norm(h)));
+    const missing = PLATFORM_HEADERS.filter((h) => !haveHeaders.has(norm(h)));
+    if (missing.length) {
+      const startCol = colLetter(header.length + 1);
+      header = [...header, ...missing];
+      const endCol = colLetter(header.length);
+      await sheetsApi(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!${startCol}1:${endCol}1`)}?valueInputOption=RAW`, "PUT", { values: [missing] });
+    }
+
+    // Attach this client's platform flags (they live on client_onboarding) so the
+    // checkbox columns reflect the intake.
+    if (c.id) {
+      try {
+        const onbRows = await getDb().select().from(clientOnboarding).where(eq(clientOnboarding.clientId, c.id)).orderBy(clientOnboarding.id);
+        const o = onbRows[onbRows.length - 1] as any;
+        if (o) {
+          c = { ...c, usesStripe: !!o.usesStripe, usesSquare: !!o.usesSquare, usesJobber: !!o.usesJobber,
+            usesTouchBistro: !!o.usesTouchBistro, usesPayPal: !!o.usesPayPal, usesWise: !!o.usesWise };
+        }
+      } catch { /* non-fatal — platforms just stay unset */ }
+    }
+
     const width = Math.max(header.length, DEFAULT_MASTER_HEADER.length);
     const cols = resolveColumns(header);
     const bnCol = cols.get("craBn"); const nameCol = cols.get("name") ?? 0;

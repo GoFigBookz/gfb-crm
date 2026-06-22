@@ -4,12 +4,19 @@ _Living list of agreed-but-not-yet-built work, with the decisions made so we
 don't re-derive them._
 
 ## BACKLOGGED THIS SESSION (Markie: finish client cards first, then these)
-- **Rebuild master-sheet-sync to stop the double-encode (2026-06-22).** PAUSED outbound sync
-  (FIGGY_SHEET_SYNC_ENABLE opt-in) because Make scenario 5453235's google-sheets "Make an API
-  Call" module re-encodes the URL, double-encoding the range ('Client%20Master' reaches Sheets).
-  Fix: rebuild module 2 with NATIVE Google Sheets modules (Update/Add Row by spreadsheet+sheet+
-  range fields, no manual URL) OR have the CRM send a decoded range + range as a separate field.
-  Then re-enable. Also handle the stray empty-url 404 (/v4/).
+- ✅ **master-sheet-sync double-encode FIXED + re-enabled (2026-06-22).** Root cause: CRM
+  pre-encoded the range AND Make scenario 5453235 re-encoded {{1.url}} → 'Client%20Master'
+  reached Sheets. Fix (centralized in `sheetsApi`): decode the caller's encoding before POSTing
+  so Make does the single encode. Re-enabled via the opt-out flag (FIGGY_SHEET_SYNC_DISABLE=on
+  to pause). NOT live-verified from here (the Make hook host isn't in the dev network allowlist)
+  — confirm on next deploy: boot inbound-pull + a client save should round-trip cleanly. If Make
+  errors resume, set FIGGY_SHEET_SYNC_DISABLE=on and revisit the append-endpoint encoding.
+- ✅ **Discrete platform checkbox columns in Client Master (2026-06-22, Markie ask).** Replaced
+  the messy "POS / Apps" name-list with per-platform TRUE/FALSE columns (Stripe/Square/Jobber/
+  TouchBistro/PayPal/Wise) — bidirectional + self-provisioning (upsert appends any missing
+  headers). Live on client_onboarding; inbound routes them there via `applyOnboardingPatch`.
+  TODO (cosmetic): format those 6 columns as real checkbox UI (BOOLEAN data-validation) — values
+  are written as TRUE/FALSE so they become checkboxes once the column is checkbox-formatted.
 - **Monthly sales-receipt automation (2026-06-21, ~6 clients).** Intake flag `monthlySalesReceipt`
   + `salesReceiptSource` now captured. Build the automation: pull the month's TOTAL sales from
   the source (Jobber/Square/etc.) and create ONE sales receipt in the client's QBO file. Driven
