@@ -427,16 +427,18 @@ export default function ClientDashboard() {
         </Card>
       )}
 
-      {/* Main Content Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className={cn("grid w-full", client.hasPayroll ? "grid-cols-7" : "grid-cols-6")}>
+      {/* Main Content Tabs. Wholesale (flow-through) clients are billing-only — no
+          compliance/tasks/payroll/etc., matching "we only invoice them." */}
+      {(() => { const wholesale = ((client as any).clientType || "monthly") === "wholesale"; return (
+      <Tabs value={wholesale && !["overview","billing"].includes(activeTab) ? "overview" : activeTab} onValueChange={setActiveTab}>
+        <TabsList className={cn("grid w-full", wholesale ? "grid-cols-2" : client.hasPayroll ? "grid-cols-7" : "grid-cols-6")}>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks ({openTasks.length})</TabsTrigger>
-          <TabsTrigger value="financials">Financials</TabsTrigger>
+          {!wholesale && <TabsTrigger value="tasks">Tasks ({openTasks.length})</TabsTrigger>}
+          {!wholesale && <TabsTrigger value="financials">Financials</TabsTrigger>}
           <TabsTrigger value="billing">Billing</TabsTrigger>
-          {client.hasPayroll && <TabsTrigger value="payroll">Payroll</TabsTrigger>}
-          <TabsTrigger value="compliance">Compliance</TabsTrigger>
-          <TabsTrigger value="time">Time</TabsTrigger>
+          {!wholesale && client.hasPayroll && <TabsTrigger value="payroll">Payroll</TabsTrigger>}
+          {!wholesale && <TabsTrigger value="compliance">Compliance</TabsTrigger>}
+          {!wholesale && <TabsTrigger value="time">Time</TabsTrigger>}
         </TabsList>
 
         {/* OVERVIEW TAB */}
@@ -946,7 +948,7 @@ export default function ClientDashboard() {
 
         {/* COMPLIANCE TAB */}
         <TabsContent value="compliance" className="space-y-4 mt-4">
-          <ComplianceTab clientId={id} client={client} closeStatus={closeStatus} tasks={dashboardData?.tasks || []} onOpenTask={setEditingTask} />
+          <ComplianceTab clientId={id} client={client} onboarding={onboarding} closeStatus={closeStatus} tasks={dashboardData?.tasks || []} onOpenTask={setEditingTask} />
         </TabsContent>
 
         {/* TIME & HOURS TAB */}
@@ -1054,6 +1056,7 @@ export default function ClientDashboard() {
           )}
         </TabsContent>
       </Tabs>
+      ); })()}
 
       {/* Task drill-down — rendered at root so it opens from ANY tab (Overview,
           Tasks, etc.), not just the tab whose TabsContent is mounted. */}
@@ -1095,11 +1098,12 @@ export default function ClientDashboard() {
 
 // Compliance tab — filing status + obligations, all driven by the client's
 // flags/features (HST, payroll→T4, dividends→T5, WSIB), plus the dividend log.
-function ComplianceTab({ clientId, client, closeStatus, tasks, onOpenTask }: {
-  clientId: number; client: any; closeStatus: any; tasks: any[]; onOpenTask?: (t: any) => void;
+function ComplianceTab({ clientId, client, onboarding, closeStatus, tasks, onOpenTask }: {
+  clientId: number; client: any; onboarding?: any; closeStatus: any; tasks: any[]; onOpenTask?: (t: any) => void;
 }) {
   const utils = trpc.useUtils();
   const dividendsOn = !!client.payrollDividends;
+  const hasSubcontractors = !!onboarding?.hasSubcontractors;
   const { data: dividends } = trpc.dividend.list.useQuery({ clientId }, { enabled: dividendsOn });
   const addDiv = trpc.dividend.add.useMutation({ onSuccess: () => utils.dividend.list.invalidate({ clientId }) });
   const delDiv = trpc.dividend.delete.useMutation({ onSuccess: () => utils.dividend.list.invalidate({ clientId }) });
@@ -1400,7 +1404,8 @@ function ComplianceTab({ clientId, client, closeStatus, tasks, onOpenTask }: {
         </Card>
       )}
 
-      {/* T4A / T5018 slips — manual log */}
+      {/* T4A / T5018 slips — only when the client has subcontractors (intake-driven) */}
+      {hasSubcontractors && (
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4 text-purple-500" /> Contractor slips — T4A / T5018</CardTitle>
@@ -1437,6 +1442,7 @@ function ComplianceTab({ clientId, client, closeStatus, tasks, onOpenTask }: {
           <Button size="sm" variant="outline" disabled={printing} onClick={printOther}><FileText className="h-3.5 w-3.5 mr-1" /> Print {slipType.toUpperCase()} slips ({otherSlipAgg?.slips.length ?? 0})</Button>
         </CardContent>
       </Card>
+      )}
     </>
   );
 }
@@ -1574,6 +1580,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
     clientType: client.clientType || "monthly",
     hasHST: !!client.hasHST, hstPeriod: client.hstPeriod || "quarterly",
     hasWSIB: !!client.hasWSIB, hasPayroll: !!client.hasPayroll,
+    hasIntercoJournals: !!client.hasIntercoJournals,
     payrollExternal: !!client.payrollExternal,
     payrollFrequency: client.payrollFrequency || "bi-weekly",
     payrollRemitterFreq: client.payrollRemitterFreq || "regular",
@@ -1641,72 +1648,107 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
           <p className="text-xs text-slate-500 -mt-1">Flow-through client: no month-end close, no quote, and no recurring compliance tasks. Switching to wholesale pauses any existing tasks.</p>
         )}
 
-        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Compliance numbers</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {field("taxId", "CRA BN", "text", !f.taxId)}
-          {field("hstNumber", "HST #", "text", truthy(f.hasHST) && !f.hstNumber)}
-          {field("payrollRpNumber", "Payroll RP #", "text", truthy(f.hasPayroll) && !f.payrollRpNumber)}
-          {field("wsibAccountNumber", "WSIB #", "text", !!f.hasWSIB && !f.wsibAccountNumber)}
-          {field("companyKey", "Company Key (Service Canada)")}
-          {field("craRepId", "CRA RepID")}
-        </div>
-        {check("craRacDone", "CRA Represent-a-Client (RAC) access is set up")}
+        {f.clientType === "wholesale" ? (
+          /* FLOW-THROUGH: only wholesale billing — no compliance, payroll, or tasks. */
+          <>
+            <p className="text-xs uppercase font-semibold text-slate-500 mt-2">QuickBooks wholesale billing</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {field("taxId", "CRA BN")}
+              {sel("qboSoftwareTier", "QBO software", [["none","None / N/A"],["easystart","EasyStart ($24)"],["essentials","Essentials ($54)"],["plus","Plus ($60)"]])}
+            </div>
+            <div className="flex flex-wrap gap-x-4">
+              {check("qboSoftwareWholesale", "Bill QBO software through us (wholesale)")}
+              {check("qboPayrollWholesale", "Bill QBO Payroll through us ($40 + $7/emp)")}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* STANDARD — every operational client */}
+            <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Business details</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {field("taxId", "CRA BN", "text", !f.taxId)}
+              {sel("yearEndMonth", "Year-end", ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map(m=>[m,m] as [string,string]))}
+              {sel("bookkeepingFrequency", "Bookkeeping", [["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"],["none","None"]])}
+              {field("avgMonthlyTransactions", "Avg monthly txns", "number")}
+              {field("bankAccountCount", "# Bank accts", "number")}{field("creditCardCount", "# Credit cards", "number")}
+              {field("monthsBehind", "Months behind", "number")}
+              {field("companyKey", "Company Key (Service Canada)")}{field("craRepId", "CRA RepID")}
+            </div>
+            {check("craRacDone", "CRA Represent-a-Client (RAC) access is set up")}
 
-        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Government registry</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {field("industry", "Industry")}
-          {field("registryNumber", "Registry #")}
-          {field("incorporationDate", "Incorporation date")}
-          {field("corpType", "Corp type")}
-          {field("governmentStatus", "Govt status")}
-        </div>
-        {field("bio", "Bio / description")}
+            <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Government registry</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {field("industry", "Industry")}{field("registryNumber", "Registry #")}
+              {field("incorporationDate", "Incorporation date")}{field("corpType", "Corp type")}
+              {field("governmentStatus", "Govt status")}
+            </div>
+            {field("bio", "Bio / description")}
 
-        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Bookkeeping scope</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {field("avgMonthlyTransactions", "Avg monthly txns", "number")}
-          {sel("bookkeepingFrequency", "Bookkeeping", [["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"],["none","None"]])}
-          {field("bankAccountCount", "# Bank accts", "number")}{field("creditCardCount", "# Credit cards", "number")}
-          {sel("hasHST", "Charges HST?", [["true","Yes"],["false","No"]])}
-          {sel("hstPeriod", "HST filing", [["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"]])}
-          {sel("yearEndMonth", "Year-end", ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map(m=>[m,m] as [string,string]))}
-          {field("monthsBehind", "Months behind", "number")}
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4">
-          {check("hasInvestments", "Investment income (T5)")}{check("paysDividends", "Pays dividends (T5)")}
-          {check("hasSubcontractors", "Subcontractors (T5018)")}{check("usesHubdoc", "Uses Hubdoc")}
-          {check("hasJobCosting", "Job costing")}{check("needsYearEnd", "We do year-end")}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {sel("invoicingResponsibility", "Invoicing (A/R)", [["none","N/A"],["we_invoice","We invoice"],["client_invoices","Client invoices"],["both","Both"]])}
-          {sel("billPayResponsibility", "Bill pay (A/P)", [["none","N/A"],["we_pay","We pay"],["client_pays","Client pays"],["both","Both"]])}
-        </div>
+            {/* Drill-downs: tick what this client has → its fields + tasks appear. */}
+            <p className="text-xs uppercase font-semibold text-slate-500 mt-3">What this client has <span className="font-normal lowercase text-slate-400">— tick to enable; fields &amp; tasks appear</span></p>
 
-        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Payroll</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {sel("hasPayroll", "Runs payroll?", [["true","Yes"],["false","No"]])}
-          {field("employeeCount", "# Employees", "number")}
-          {sel("payrollFrequency", "Pay frequency", [["weekly","Weekly"],["bi-weekly","Bi-weekly"],["semi-monthly","Semi-monthly"],["monthly","Monthly"],["self","Self"]])}
-          {sel("payrollRemitterFreq", "CRA remitter", [["regular","Regular"],["quarterly","Quarterly"],["accelerated","Accelerated"]])}
-        </div>
-        <div className="flex flex-wrap gap-x-4">
-          {check("hasWSIB", "Has WSIB")}{check("hasEHT", "Has EHT (ON)")}{check("hasEmployees", "Has employees")}
-          {check("payrollExternal", "We don't run payroll (autopay / client self-manages)")}
-        </div>
+            {check("hasHST", "Charges / files HST")}
+            {truthy(f.hasHST) && (
+              <div className="ml-6 pl-3 border-l-2 border-lime-200 grid grid-cols-2 gap-2">
+                {sel("hstPeriod", "HST filing frequency", [["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"]])}
+                {field("hstNumber", "HST #", "text", !f.hstNumber)}
+              </div>
+            )}
 
-        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Sales platforms</p>
-        <div className="flex flex-wrap gap-x-4">
-          {check("usesStripe", "Stripe")}{check("usesSquare", "Square")}{check("usesJobber", "Jobber")}{check("usesTouchBistro", "TouchBistro")}{check("usesPayPal", "PayPal")}{check("usesWise", "Wise")}
-        </div>
+            {check("hasPayroll", "Runs payroll")}
+            {truthy(f.hasPayroll) && (
+              <div className="ml-6 pl-3 border-l-2 border-lime-200 space-y-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {sel("payrollFrequency", "Pay frequency", [["weekly","Weekly"],["bi-weekly","Bi-weekly"],["semi-monthly","Semi-monthly"],["monthly","Monthly"],["self","Self"]])}
+                  {sel("payrollRemitterFreq", "CRA remitter", [["regular","Regular"],["quarterly","Quarterly"],["accelerated","Accelerated"]])}
+                  {field("employeeCount", "# Employees", "number")}
+                  {field("payrollRpNumber", "Payroll RP #", "text", !f.payrollRpNumber)}
+                </div>
+                <div className="flex flex-wrap gap-x-4">
+                  {check("hasEHT", "Has EHT (Ontario)")}
+                  {check("payrollExternal", "We don't run it (autopay / client self-manages)")}
+                </div>
+              </div>
+            )}
 
-        <p className="text-xs uppercase font-semibold text-slate-500 mt-2">QuickBooks (wholesale billing through us)</p>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {sel("qboSoftwareTier", "QBO software", [["none","None / N/A"],["easystart","EasyStart ($24)"],["essentials","Essentials ($54)"],["plus","Plus ($60)"]])}
-        </div>
-        <div className="flex flex-wrap gap-x-4">
-          {check("qboSoftwareWholesale", "Bill QBO software through us (wholesale)")}
-          {check("qboPayrollWholesale", "Bill QBO Payroll through us ($40 + $7/emp)")}
-        </div>
+            {check("hasWSIB", "Has WSIB")}
+            {!!f.hasWSIB && (
+              <div className="ml-6 pl-3 border-l-2 border-lime-200 grid grid-cols-2 gap-2">
+                {field("wsibAccountNumber", "WSIB #", "text", !f.wsibAccountNumber)}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 mt-1">
+              {check("paysDividends", "Pays dividends (T5)")}
+              {check("hasInvestments", "Investment income (T5)")}
+              {check("hasSubcontractors", "Subcontractors (T5018)")}
+              {check("hasIntercoJournals", "Inter-company journals (monthly recon)")}
+              {check("hasJobCosting", "Job costing")}
+              {check("usesHubdoc", "Uses Hubdoc")}
+              {check("needsYearEnd", "We do year-end")}
+            </div>
+
+            <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Invoicing &amp; bill pay</p>
+            <div className="grid grid-cols-2 gap-2">
+              {sel("invoicingResponsibility", "Invoicing (A/R)", [["none","N/A"],["we_invoice","We invoice"],["client_invoices","Client invoices"],["both","Both"]])}
+              {sel("billPayResponsibility", "Bill pay (A/P)", [["none","N/A"],["we_pay","We pay"],["client_pays","Client pays"],["both","Both"]])}
+            </div>
+
+            <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Sales platforms</p>
+            <div className="flex flex-wrap gap-x-4">
+              {check("usesStripe", "Stripe")}{check("usesSquare", "Square")}{check("usesJobber", "Jobber")}{check("usesTouchBistro", "TouchBistro")}{check("usesPayPal", "PayPal")}{check("usesWise", "Wise")}
+            </div>
+
+            <p className="text-xs uppercase font-semibold text-slate-500 mt-2">QuickBooks (wholesale billing through us)</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {sel("qboSoftwareTier", "QBO software", [["none","None / N/A"],["easystart","EasyStart ($24)"],["essentials","Essentials ($54)"],["plus","Plus ($60)"]])}
+            </div>
+            <div className="flex flex-wrap gap-x-4">
+              {check("qboSoftwareWholesale", "Bill QBO software through us (wholesale)")}
+              {check("qboPayrollWholesale", "Bill QBO Payroll through us ($40 + $7/emp)")}
+            </div>
+          </>
+        )}
 
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Pricing & notes</p>
         <div className="grid grid-cols-2 gap-2">
@@ -1721,6 +1763,9 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
             ...f,
             hasHST: truthy(f.hasHST),
             hasWSIB: !!f.hasWSIB, hasPayroll: truthy(f.hasPayroll),
+            hasIntercoJournals: !!f.hasIntercoJournals,
+            // "Has employees" is implied by "Runs payroll" — one source of truth.
+            hasEmployees: truthy(f.hasPayroll),
             monthlyFee: Number(f.monthlyFee) || 0,
             avgMonthlyTransactions: Number(f.avgMonthlyTransactions) || 0,
             employeeCount: Number(f.employeeCount) || 0, monthsBehind: Number(f.monthsBehind) || 0,

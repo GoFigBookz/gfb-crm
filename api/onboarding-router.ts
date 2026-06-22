@@ -5,7 +5,7 @@ import { clientOnboarding, clients, tasks, clientTaskRules } from "../db/schema"
 import { eq, and, ne, inArray } from "drizzle-orm";
 import { isOperationalClient } from "./month-end-core";
 import crypto from "crypto";
-import { createClientTaskRules, ensureComplianceRulesAndTasks } from "./task-generator";
+import { createClientTaskRules, ensureComplianceRulesAndTasks, reconcileClientFromIntake } from "./task-generator";
 import { syncClientToMaster, upsertClientToMaster } from "./master-sheet-sync";
 import { lookupGovRegistry } from "./gov-registry-lookup";
 import { activateClientAsync } from "./client-activation";
@@ -185,6 +185,7 @@ export const onboardingRouter = createRouter({
       hasInvestments: z.boolean().default(false),
       paysDividends: z.boolean().default(false),
       hasEHT: z.boolean().default(false),
+      hasIntercoJournals: z.boolean().default(false),
       employeeCount: z.number().min(0).default(0),
       monthsBehind: z.number().min(0).default(0),
       wsibRequired: z.boolean().default(false),
@@ -262,6 +263,7 @@ export const onboardingRouter = createRouter({
         payrollRpNumber: input.payrollAccountNumber || (input.businessNumber ? `${input.businessNumber}RP0001` : null),
         hasWSIB: input.wsibRequired,
         wsibAccountNumber: input.wsibAccountNumber || null,
+        hasIntercoJournals: input.hasIntercoJournals,
         payrollDividends: input.paysDividends,
         payrollBonuses: input.payrollBonuses,
         payrollPhoneAllowance: input.payrollPhoneAllowance,
@@ -531,6 +533,7 @@ export const onboardingRouter = createRouter({
       payrollRpNumber: z.string().optional(), monthlyFee: z.number().optional(), craRacDone: z.boolean().optional(),
       hasHST: z.boolean().optional(), hstPeriod: z.string().optional(),
       hasWSIB: z.boolean().optional(), hasPayroll: z.boolean().optional(), payrollExternal: z.boolean().optional(),
+      hasIntercoJournals: z.boolean().optional(),
       payrollFrequency: z.string().optional(),
       payrollRemitterFreq: z.string().optional(),
       yearEndMonth: z.string().optional(),
@@ -568,7 +571,7 @@ export const onboardingRouter = createRouter({
       // client-level keys
       const clientKeys = ["name", "email", "phone", "company", "website", "address", "contactName", "taxId", "hstNumber",
         "wsibAccountNumber", "clientType", "payrollRpNumber", "monthlyFee", "craRacDone", "hasHST", "hstPeriod", "hasWSIB", "hasPayroll", "payrollExternal",
-        "payrollFrequency", "payrollRemitterFreq", "yearEndMonth",
+        "payrollFrequency", "payrollRemitterFreq", "yearEndMonth", "hasIntercoJournals",
         "bio", "registryNumber", "incorporationDate", "corpType", "governmentStatus", "industry", "companyKey", "craRepId"] as const;
       const prior = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
       const clientPatch: Record<string, any> = { updatedAt: new Date() };
@@ -576,14 +579,9 @@ export const onboardingRouter = createRouter({
       if (typeof clientPatch.website === "string") clientPatch.website = clientPatch.website.toLowerCase();  // websites always lowercase
       if (Object.keys(clientPatch).length > 1) await db.update(clients).set(clientPatch).where(eq(clients.id, clientId));
 
-      // Switching a client TO wholesale (flow-through) pauses its open tasks +
-      // recurring rules — no close/quote/compliance work for a QBO-resale client.
-      if ((rest as any).clientType !== undefined &&
-          !isOperationalClient((rest as any).clientType) &&
-          isOperationalClient(prior?.clientType)) {
-        await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, clientId));
-        await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
-      }
+      // (Switching TO wholesale / inactive is handled by the reconcile below,
+      // which deactivates the rules + deletes the open tasks.)
+      void prior;
 
       // onboarding-level keys
       const onbKeys = ["businessLegalName", "craBusinessNumber", "primaryContactName", "primaryContactEmail",
@@ -610,35 +608,14 @@ export const onboardingRouter = createRouter({
         });
       }
 
-      // Saving intake should DO something: regenerate the client's compliance
-      // tasks from the merged current flags so editing actually backfills missing
-      // HST/payroll/etc tasks — and respects "we don't run payroll".
+      // Saving intake RECONCILES the whole task list to the current flags: it adds
+      // what's now enabled AND deactivates what's no longer ticked (turn off HST →
+      // its tasks leave; switch to wholesale → everything leaves). One engine, so
+      // the card always matches the intake exactly.
       try {
-        const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
-        if (c && isOperationalClient(c.clientType)) {
-          // hstPeriod ("annual") → buildTaskRules expects "annually"
-          const hstFreq = c.hasHST ? (c.hstPeriod === "monthly" ? "monthly" : c.hstPeriod === "quarterly" ? "quarterly" : "annually") : null;
-          const ye = c.yearEndMonth ? `${c.yearEndMonth} 30` : (onbPatch.fiscalYearEnd ?? null);
-          // If we don't run their payroll, retire any payroll rules/tasks so they
-          // leave the board.
-          if (c.payrollExternal) {
-            const payTypes = ["payroll_remit_regular", "payroll_remit_quarterly", "payroll_remit_accelerated", "payroll_tax_prep", "t4_annual"];
-            await db.update(clientTaskRules).set({ active: false }).where(and(eq(clientTaskRules.clientId, clientId), inArray(clientTaskRules.ruleType, payTypes)));
-            await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed"), inArray(tasks.category, ["Payroll"])));
-          }
-          await ensureComplianceRulesAndTasks({
-            clientId, userId: 1, assignedTo: c.assignedTo ?? null, fiscalYearEnd: ye,
-            hstGstFrequency: hstFreq,
-            payrollFrequency: c.hasPayroll ? (c.payrollFrequency || "monthly") : null,
-            payrollRemitterFreq: c.payrollRemitterFreq || "regular",
-            payrollExternal: !!c.payrollExternal,
-            hasEmployees: !!c.hasPayroll,
-            wsibRequired: !!c.hasWSIB,
-            needsYearEnd: true,
-          });
-        }
+        await reconcileClientFromIntake(clientId, { userId: 1 });
       } catch (e) {
-        console.error("[onboarding] task regen on intake save failed (non-fatal):", e instanceof Error ? e.message : e);
+        console.error("[onboarding] intake reconcile failed (non-fatal):", e instanceof Error ? e.message : e);
       }
 
       // Mirror the edited client into the canonical Google master sheet so the

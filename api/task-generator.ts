@@ -46,6 +46,9 @@ export type OnboardingData = {
   // pulled from a report (Jobber/Square/etc). Drives a dedicated sales-receipt task.
   monthlySalesReceipt?: boolean | null;
   salesReceiptSource?: string | null;
+  // Inter-company journals: related entities whose bill-back balances must be
+  // reconciled + settled every month (drives a monthly interco recon task).
+  hasIntercoJournals?: boolean | null;
 };
 
 export type TaskRuleConfig = {
@@ -188,6 +191,17 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
       title: "Bill Payments (A/P run)",
       description: "Review and pay this client's vendor bills for the period (A/P run), then record payments in QuickBooks.",
       category: "Accounts Payable", priority: "high", frequency: "monthly",
+      dueDayOfMonth: 20, daysBeforeDue: 0, fiscalYearEndMonth: fy?.month, fiscalYearEndDay: fy?.day,
+    });
+  }
+
+  // === INTER-COMPANY JOURNALS (related entities billed back monthly) ===
+  if (data.hasIntercoJournals) {
+    rules.push({
+      ruleType: "interco_monthly",
+      title: "Inter-Company Journal Reconciliation",
+      description: "Reconcile the inter-company bill-back balances between the related entities for the month and post the balanced settlement journal entries (after all source transactions are in QuickBooks).",
+      category: "Bookkeeping", priority: "high", frequency: "monthly",
       dueDayOfMonth: 20, daysBeforeDue: 0, fiscalYearEndMonth: fy?.month, fiscalYearEndDay: fy?.day,
     });
   }
@@ -592,6 +606,9 @@ export async function backfillSetupTasks(): Promise<{ clients: number; created: 
   const all = await db.select().from(clients).where(eq(clients.status, "active"));
   let created = 0;
   for (const c of all as any[]) {
+    // Flow-through (wholesale) clients get NO setup tasks — no CRA RAC, no BN
+    // request, no Service Canada/WSIB. We only invoice them for wholesale billing.
+    if ((c.clientType || "monthly") === "wholesale") continue;
     try {
       created += await ensureSetupTasks({
         clientId: c.id, userId: c.userId ?? 1, assignedTo: c.assignedTo ?? null,
@@ -746,27 +763,24 @@ export async function createClientTaskRules(data: OnboardingData) {
  * & additive: safe to call on every create/update/seed. Skips flow-through
  * (wholesale) clients, which have no compliance work.
  */
-export async function ensureComplianceForClient(
+/** Map a client row + its latest onboarding record → OnboardingData (the rule
+ *  engine's input). The SINGLE place this mapping lives. */
+async function clientToOnboardingData(
   clientId: number,
   opts: { userId?: number; assignedTo?: string | null } = {},
-) {
+): Promise<{ c: any; data: OnboardingData } | null> {
   const db = getDb();
   const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
-  if (!c) return { rules: 0, tasks: 0 };
-  // Flow-through (wholesale) clients: no books, no close, no compliance tasks.
-  if (c.clientType && c.clientType === "wholesale") return { rules: 0, tasks: 0 };
-
+  if (!c) return null;
   const onbRows = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(clientOnboarding.id);
   const onb = (onbRows[onbRows.length - 1] as any) || {};
-
   // hstPeriod on the client is "monthly" | "quarterly" | "annual" → the rule
   // engine wants "monthly" | "quarterly" | "annually".
   const hstFreq = c.hasHST
     ? (c.hstPeriod === "monthly" ? "monthly" : c.hstPeriod === "quarterly" ? "quarterly" : "annually")
     : null;
   const fiscalYearEnd = c.yearEndMonth ? `${c.yearEndMonth} 30` : (onb.fiscalYearEnd ?? null);
-
-  return ensureComplianceRulesAndTasks({
+  const data: OnboardingData = {
     clientId,
     userId: opts.userId ?? c.userId ?? 1,
     assignedTo: opts.assignedTo ?? c.assignedTo ?? null,
@@ -796,10 +810,123 @@ export async function ensureComplianceForClient(
     hasJobCosting: !!onb.hasJobCosting,
     invoicingResponsibility: onb.invoicingResponsibility ?? null,
     billPayResponsibility: onb.billPayResponsibility ?? null,
-    // monthlySalesReceipt lives on the client record
     monthlySalesReceipt: !!c.monthlySalesReceipt,
     salesReceiptSource: c.salesReceiptSource ?? null,
-  } as OnboardingData);
+    hasIntercoJournals: !!c.hasIntercoJournals,
+  };
+  return { c, data };
+}
+
+/** The setup-task titles that SHOULD exist for an operational client, given its
+ *  flags (mirrors ensureSetupTasks). Used to deactivate ones no longer applicable. */
+function desiredSetupTitles(c: any, data: OnboardingData): Set<string> {
+  const s = new Set<string>(["Get CRA Represent a Client (RAC) access"]);
+  if (!c.taxId) s.add("Request CRA Business Number from client");
+  if (data.hasEmployees) s.add("Set up Service Canada (ROE Web) access");
+  if (data.wsibRequired) s.add("Set up WSIB account & access");
+  if (data.wsibRequired && !c.wsibAccountNumber) s.add("Request WSIB account number from client");
+  if (data.usesHubdoc) s.add("Connect Hubdoc");
+  return s;
+}
+
+/**
+ * THE intake → tasks reconciler. Makes a client's tasks EXACTLY match its intake:
+ *  - wholesale (flow-through) OR inactive → deactivate ALL rules + open tasks
+ *    (no CRA RAC, no BN request, no year-end, nothing — just billing).
+ *  - operational → ensure every rule the flags imply exists (idempotent add),
+ *    AND deactivate any active rule/task or setup task the flags NO LONGER imply
+ *    (turn off HST on the intake → its rule + open task go inactive).
+ * This is what guarantees "anything not on the intake does not appear." Idempotent;
+ * safe to call on every create/update/seed.
+ */
+export async function reconcileClientFromIntake(
+  clientId: number,
+  opts: { userId?: number; assignedTo?: string | null } = {},
+): Promise<{ rules: number; tasks: number; deactivated: number }> {
+  const db = getDb();
+  const built = await clientToOnboardingData(clientId, opts);
+  if (!built) return { rules: 0, tasks: 0, deactivated: 0 };
+  const { c, data } = built;
+
+  const isOff = (c.clientType || "monthly") === "wholesale" || c.status === "inactive";
+
+  // The desired rule set = exactly what the intake flags imply (empty for
+  // flow-through / inactive). `clientTaskRules.active` is the durable source of
+  // truth; tasks are just materialized instances, so we DELETE open tasks when a
+  // rule is turned off (they regenerate from the rule if it's turned back on).
+  const desired = isOff ? [] : buildTaskRules(data);
+  const desiredByType = new Map(desired.map((r) => [r.ruleType, r]));
+  const existing = await db.select().from(clientTaskRules).where(eq(clientTaskRules.clientId, clientId));
+  const existingByType = new Map((existing as any[]).map((r) => [r.ruleType, r]));
+
+  const created = { rules: 0, tasks: 0 };
+  let deactivated = 0;
+
+  // 1. Rules the intake no longer implies → deactivate + delete their open tasks.
+  for (const r of existing as any[]) {
+    if (!r.ruleType || desiredByType.has(r.ruleType)) continue;
+    if (r.active) { await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.id, r.id)); deactivated++; }
+    await db.delete(tasks).where(and(eq(tasks.ruleId, r.id), ne(tasks.status, "completed")));
+  }
+
+  // 2. Rules the intake implies → ensure they exist, are active, and have an open task.
+  for (const [type, config] of desiredByType) {
+    let rule = existingByType.get(type);
+    if (!rule) {
+      const [ins] = await db.insert(clientTaskRules).values({
+        clientId, userId: data.userId, title: config.title, description: config.description,
+        category: config.category, priority: config.priority, assignedTo: data.assignedTo || null,
+        ruleType: config.ruleType, frequency: config.frequency, dueDayOfMonth: config.dueDayOfMonth,
+        dueMonth: config.dueMonth || null, daysBeforeDue: config.daysBeforeDue,
+        fiscalYearEndMonth: config.fiscalYearEndMonth || null, fiscalYearEndDay: config.fiscalYearEndDay || null,
+        nextDueDate: calculateNextDueDate(config), active: true,
+      }).returning();
+      rule = ins; if (rule) created.rules++;
+    } else if (!rule.active) {
+      await db.update(clientTaskRules).set({ active: true }).where(eq(clientTaskRules.id, rule.id));
+    }
+    if (!rule) continue;
+    const open = await db.select().from(tasks)
+      .where(and(eq(tasks.clientId, clientId), eq(tasks.ruleId, rule.id), ne(tasks.status, "completed"))).limit(1);
+    if (open.length === 0) {
+      const [t] = await db.insert(tasks).values(generateTaskFromRule(rule, 1)).returning();
+      if (t) created.tasks++;
+      await db.update(clientTaskRules).set({ lastGeneratedDate: new Date() }).where(eq(clientTaskRules.id, rule.id));
+    }
+  }
+
+  // 3. Setup tasks.
+  if (isOff) {
+    // Flow-through / inactive → no setup tasks at all; clear any open ones.
+    const del = await db.delete(tasks).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed"))).returning();
+    deactivated += del?.length || 0;
+  } else {
+    await ensureSetupTasks({
+      clientId, userId: data.userId, assignedTo: data.assignedTo,
+      hasPayroll: !!data.hasEmployees, hasWsib: !!data.wsibRequired,
+      wsibNumberMissing: !!data.wsibRequired && !c.wsibAccountNumber,
+      craNumberMissing: !c.taxId, usesHubdoc: !!data.usesHubdoc, monthsBehind: data.monthsBehind,
+    });
+    const desiredSetup = desiredSetupTitles(c, data);
+    const activeSetup = await db.select().from(tasks)
+      .where(and(eq(tasks.clientId, clientId), eq(tasks.category, "Setup"), ne(tasks.status, "completed")));
+    for (const t of activeSetup as any[]) {
+      if (!desiredSetup.has(t.title) && !/Catch-up bookkeeping/.test(t.title)) {
+        await db.delete(tasks).where(eq(tasks.id, t.id));
+        deactivated++;
+      }
+    }
+  }
+  return { ...created, deactivated };
+}
+
+/** Back-compat alias — every caller now goes through the full reconciler so the
+ *  task list always matches the intake (adds AND removes). */
+export async function ensureComplianceForClient(
+  clientId: number,
+  opts: { userId?: number; assignedTo?: string | null } = {},
+) {
+  return reconcileClientFromIntake(clientId, opts);
 }
 
 export async function ensureComplianceRulesAndTasks(data: OnboardingData) {

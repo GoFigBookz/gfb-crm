@@ -61,7 +61,7 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-const BUILD_TAG = "2026-06-22.17";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-22.18";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -1021,9 +1021,9 @@ async function startServer() {
         if (cl.clientType !== "wholesale") {
           await db.update(clients).set({ clientType: "wholesale" }).where(eq(clients.id, cl.id));
         }
-        // Pause its open tasks + recurring rules (reversible).
+        // Pause its rules + delete open tasks (tasks have no active column).
         await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, cl.id));
-        await db.update(tasks).set({ active: false }).where(and(eq(tasks.clientId, cl.id), ne(tasks.status, "completed")));
+        await db.delete(tasks).where(and(eq(tasks.clientId, cl.id), ne(tasks.status, "completed")));
       }
     } catch (e) { console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e); }
     // Seed client-level payroll features for the clients we know use them, so the
