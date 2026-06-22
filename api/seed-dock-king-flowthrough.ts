@@ -31,9 +31,10 @@ export async function seedDockKingFlowthrough(): Promise<{ matched: number; upda
         .where(eq(clients.id, c.id));
       report.updated++;
     }
-    // Pause any compliance work it shouldn't have.
+    // Pause its rules + DELETE open tasks (tasks have no active column) — a
+    // flow-through client must show zero compliance/setup tasks.
     const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, c.id)).returning();
-    const r2 = await db.update(tasks).set({ active: false })
+    const r2 = await db.delete(tasks)
       .where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
     report.tasksPaused += (r1?.length || 0) + (r2?.length || 0);
   }

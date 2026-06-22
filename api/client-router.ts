@@ -4,7 +4,7 @@ import { getDb } from "./queries/connection";
 import { clients, satisfactionScores, tasks, clientTaskRules } from "../db/schema";
 import { eq, and, like, desc, ne } from "drizzle-orm";
 import { syncInsert, syncUpdate } from "./sync-hooks";
-import { ensureComplianceForClient } from "./task-generator";
+import { ensureComplianceForClient, reconcileClientFromIntake } from "./task-generator";
 import { isOperationalClient } from "./month-end-core";
 
 /** Row scope for client mutations: a "client"-role user may only touch their own
@@ -21,16 +21,18 @@ function clientScope(ctx: any, idVal: number) {
  *  inactive/archived client stops generating and showing work. Completed tasks
  *  are left as history. Reversible via reactivateClientTasks. */
 async function deactivateClientTasks(db: any, clientId: number) {
+  // Rules are the durable source; tasks are materialized instances. Pause the
+  // rules and DELETE the open tasks (they regenerate from the rules on reconcile
+  // if the client is reactivated). `tasks` has no `active` column, so a delete is
+  // the correct way to make them stop showing everywhere.
   await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, clientId));
-  await db.update(tasks).set({ active: false })
-    .where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
+  await db.delete(tasks).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
 }
 
-/** Re-enable a client's rules + their open tasks when they're made active again. */
+/** Re-enable a client's rules when made active again; the update mutation's
+ *  reconcile then re-materializes the open tasks the current flags imply. */
 async function reactivateClientTasks(db: any, clientId: number) {
   await db.update(clientTaskRules).set({ active: true }).where(eq(clientTaskRules.clientId, clientId));
-  await db.update(tasks).set({ active: true })
-    .where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
 }
 
 export const clientRouter = createRouter({
@@ -212,6 +214,7 @@ export const clientRouter = createRouter({
       payrollRevenueShare: z.boolean().optional(),
       payrollCraComparison: z.boolean().optional(),
       payrollHoursSource: z.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
+      hasIntercoJournals: z.boolean().optional(),
       monthlySalesReceipt: z.boolean().optional(),
       salesReceiptSource: z.string().optional(),
       groupName: z.string().optional(),
@@ -277,16 +280,15 @@ export const clientRouter = createRouter({
       const wasPayroll = currentClient?.hasPayroll ?? false;
       const wasDividends = currentClient?.payrollDividends ?? false;
 
-      // Wholesale clients never generate compliance tasks. The unified engine is
-      // idempotent + additive, so calling it on any operational update backfills
-      // exactly the rules now implied by the client's flags (no duplicates, no
-      // differently-titled second copies). Removal of newly-disabled work is
-      // handled above (wholesale switch / status flips) + in onboarding edit.
-      if (updated && isOperationalClient(updated.clientType) &&
-          ((!wasHst && updated.hasHST) || (!wasWsib && updated.hasWSIB) ||
-           (!wasPayroll && updated.hasPayroll) || (!wasDividends && (updated as any).payrollDividends) ||
-           updates.clientType !== undefined)) {
-        await ensureComplianceForClient(updated.id, { userId: ctx.user.id, assignedTo: updated.assignedTo });
+      // RECONCILE the task list to the client's current flags on every edit: adds
+      // what's now enabled AND removes what's no longer enabled (turn HST off → its
+      // tasks leave; switch to wholesale/inactive → everything leaves). One engine
+      // → the card always matches the intake. Idempotent + best-effort.
+      if (updated) {
+        try { await reconcileClientFromIntake(updated.id, { userId: ctx.user.id, assignedTo: updated.assignedTo }); }
+        catch (e) { console.error("[client.update] reconcile failed (non-fatal):", e instanceof Error ? e.message : e); }
+        // touch the unused vars so the diff intent stays clear
+        void wasHst; void wasWsib; void wasPayroll; void wasDividends;
       }
 
       return { success: true };

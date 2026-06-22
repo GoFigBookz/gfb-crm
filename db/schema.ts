@@ -307,6 +307,9 @@ export const clients = sqliteTable("clients", {
   // (Jobber/TouchBistro/Clockify). Set on intake/the card; NOT guessed from the name.
   payrollHoursSource: text("payrollHoursSource", { enum: ["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"] }),
   yearEndMonth: text("yearEndMonth", { enum: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] }),
+  // Related entities billed back monthly → needs an inter-company journal
+  // reconciliation every month. Drives the interco_monthly task.
+  hasIntercoJournals: integer("hasIntercoJournals", { mode: "boolean" }).default(false),
 
   // Quote & Engagement Letter
   quoteAmount: real("quoteAmount"),

@@ -39,6 +39,7 @@ export type MasterClient = {
   website?: string | null; contactName?: string | null; figgyEmail?: string | null;
   registryNumber?: string | null; incorporationDate?: string | null;
   corpType?: string | null; governmentStatus?: string | null; bio?: string | null;
+  hasIntercoJournals?: boolean | null;
   // Sales/payment platforms — discrete checkbox columns (live on client_onboarding,
   // attached here by upsert so each platform is its own TRUE/FALSE column, never a
   // messy comma-list that breaks syncing).
@@ -64,7 +65,7 @@ export type FieldKey =
   | "corpType" | "govtStatus" | "address" | "phone" | "email" | "website" | "owner"
   | "triageEmail" | "yeMonth" | "hstCadence" | "nextHstDue" | "hstNumber"
   | "payrollPeriod" | "craRemitter" | "payrollRp" | "wsibNo" | "companyKey" | "craRepId"
-  | "useStripe" | "useSquare" | "useJobber" | "useTouchBistro" | "usePayPal" | "useWise";
+  | "useStripe" | "useSquare" | "useJobber" | "useTouchBistro" | "usePayPal" | "useWise" | "interco";
 
 type FieldDef = {
   key: FieldKey;
@@ -114,11 +115,13 @@ export const MASTER_FIELDS: FieldDef[] = [
   { key: "useTouchBistro", match: h => h.includes("touchbistro") || h.includes("touch bistro"), toSheet: c => boolToSheet(c.usesTouchBistro), soft: false, onb: true, fromSheet: r => ({ usesTouchBistro: boolFromSheet(r) }) },
   { key: "usePayPal", match: h => h.includes("paypal") || h.includes("pay pal"), toSheet: c => boolToSheet(c.usesPayPal), soft: false, onb: true, fromSheet: r => ({ usesPayPal: boolFromSheet(r) }) },
   { key: "useWise", match: h => h === "wise", toSheet: c => boolToSheet(c.usesWise), soft: false, onb: true, fromSheet: r => ({ usesWise: boolFromSheet(r) }) },
+  // Inter-company journals (client-level checkbox column).
+  { key: "interco", match: h => h.includes("inter") && (h.includes("co") || h.includes("journal")), toSheet: c => boolToSheet(c.hasIntercoJournals), soft: false, fromSheet: r => ({ hasIntercoJournals: boolFromSheet(r) }) },
 ];
 
 // Headers for the discrete platform checkbox columns (self-provisioned into the
 // Client Master if missing). Order = how they're appended.
-export const PLATFORM_HEADERS = ["Stripe", "Square", "Jobber", "TouchBistro", "PayPal", "Wise"];
+export const PLATFORM_HEADERS = ["Stripe", "Square", "Jobber", "TouchBistro", "PayPal", "Wise", "Inter-Co Journals"];
 
 /** The default header row written if the Client Master tab is ever empty. */
 export const DEFAULT_MASTER_HEADER = [
@@ -127,7 +130,7 @@ export const DEFAULT_MASTER_HEADER = [
   "Email", "Website", "Owner / Contact", "Figgy Triage Email", "Year-End Month",
   "Close Period", "HST Cadence", "Next HST Due", "HST #", "Payroll", "CRA Remitter",
   "Payroll RP #", "WSIB #", "# Employees", "POS / Apps", "Company Key", "CRA RepID",
-  "Stripe", "Square", "Jobber", "TouchBistro", "PayPal", "Wise",
+  "Stripe", "Square", "Jobber", "TouchBistro", "PayPal", "Wise", "Inter-Co Journals",
 ];
 
 /** Map each known field → its column index in this header row (first match wins). */
