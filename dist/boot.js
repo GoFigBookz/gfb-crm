@@ -61292,7 +61292,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.33";
+var BUILD_TAG = "2026-06-22.34";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -62294,15 +62294,19 @@ async function startServer() {
       });
       try {
         const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-        const marker = await db.select().from(appSettings2).where(eq3(appSettings2.key, "fix_collingwood_sharebonus_v1")).limit(1);
+        const marker = await db.select().from(appSettings2).where(eq3(appSettings2.key, "fix_sharebonus_originality_only_v1")).limit(1);
         if (!marker[0]) {
-          for (const cl of cw) {
-            await db.update(clients3).set({ payrollBonuses: 0, payrollRevenueShare: 0 }).where(eq3(clients3.id, cl.id));
+          const all = await db.select().from(clients3);
+          for (const cl of all) {
+            if (/originality/i.test(cl.name || "")) continue;
+            if (cl.payrollBonuses || cl.payrollRevenueShare) {
+              await db.update(clients3).set({ payrollBonuses: 0, payrollRevenueShare: 0 }).where(eq3(clients3.id, cl.id));
+            }
           }
-          await db.insert(appSettings2).values({ key: "fix_collingwood_sharebonus_v1", value: (/* @__PURE__ */ new Date()).toISOString() });
+          await db.insert(appSettings2).values({ key: "fix_sharebonus_originality_only_v1", value: (/* @__PURE__ */ new Date()).toISOString() });
         }
       } catch (e) {
-        console.error("[normalize] collingwood share-bonus corrective failed (non-fatal):", e instanceof Error ? e.message : e);
+        console.error("[normalize] share-bonus originality-only corrective failed (non-fatal):", e instanceof Error ? e.message : e);
       }
       const { ensureComplianceForClient: ensureComplianceForClient2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
       for (const cl of cw) {

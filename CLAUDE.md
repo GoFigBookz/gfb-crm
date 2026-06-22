@@ -34,6 +34,10 @@ auto-driven close checklist.
   on the document, never sender/folder/alias.
 - Verify every change against live QBO before reporting done. Sanity Guard
   stays on and is never weakened.
+- **SHARE BONUS / REVENUE SHARE = ORIGINALITY ONLY.** Originality.AI is the ONLY
+  client that gets a share bonus (revenue share). NO other client — incl. Clark
+  Pools (Owen Sound + Collingwood) — gets the Share-bonus column. Don't seed
+  `payrollBonuses`/`payrollRevenueShare` on anyone else. (Markie, repeated.)
 
 ## Where we are (2026-06-11)
 - **Phase 1 DONE + live-proven:** richer 34-col capture (invoice#, subtotal,

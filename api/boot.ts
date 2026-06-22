@@ -61,7 +61,7 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-const BUILD_TAG = "2026-06-22.33";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-22.34";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -1051,19 +1051,25 @@ async function startServer() {
       const cw = await setFlags("%Collingwood%", {
         payrollDividends: 1, payrollPhoneAllowance: 1, payrollReimbursements: 1,
       });
-      // One-time corrective: clear any previously-seeded share-bonus/revenue-share
-      // flags on Collingwood (prior boots set them). Guarded by a marker so it
-      // never fights a deliberate re-enable from the UI. Reversible there.
+      // ONE-TIME corrective — SHARE BONUS / REVENUE SHARE IS ORIGINALITY-ONLY.
+      // (Markie, confirmed repeatedly: Originality is the ONLY client with a share
+      // bonus. No other client — incl. Clark Pools — gets the column.) Clears the
+      // flags on every non-Originality client. Guarded by a marker so it runs once
+      // and never fights a deliberate re-enable from the UI.
       try {
         const { appSettings } = await import("../db/schema");
-        const marker = await db.select().from(appSettings).where(eq(appSettings.key, "fix_collingwood_sharebonus_v1")).limit(1);
+        const marker = await db.select().from(appSettings).where(eq(appSettings.key, "fix_sharebonus_originality_only_v1")).limit(1);
         if (!marker[0]) {
-          for (const cl of cw) {
-            await db.update(clients).set({ payrollBonuses: 0, payrollRevenueShare: 0 } as any).where(eq(clients.id, cl.id));
+          const all = (await db.select().from(clients)) as any[];
+          for (const cl of all) {
+            if (/originality/i.test(cl.name || "")) continue; // Originality keeps it
+            if (cl.payrollBonuses || cl.payrollRevenueShare) {
+              await db.update(clients).set({ payrollBonuses: 0, payrollRevenueShare: 0 } as any).where(eq(clients.id, cl.id));
+            }
           }
-          await db.insert(appSettings).values({ key: "fix_collingwood_sharebonus_v1", value: new Date().toISOString() });
+          await db.insert(appSettings).values({ key: "fix_sharebonus_originality_only_v1", value: new Date().toISOString() });
         }
-      } catch (e) { console.error("[normalize] collingwood share-bonus corrective failed (non-fatal):", e instanceof Error ? e.message : e); }
+      } catch (e) { console.error("[normalize] share-bonus originality-only corrective failed (non-fatal):", e instanceof Error ? e.message : e); }
       // Dividends feature on → ensure the T5 filing task exists (idempotent;
       // unified rule engine — one task system, dedups by ruleType).
       const { ensureComplianceForClient } = await import("./task-generator");
