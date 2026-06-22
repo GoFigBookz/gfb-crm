@@ -22324,6 +22324,7 @@ __export(schema_exports, {
   aiAgentRuns: () => aiAgentRuns,
   appSettings: () => appSettings,
   calendarEvents: () => calendarEvents,
+  clientContacts: () => clientContacts,
   clientDashboardSnapshots: () => clientDashboardSnapshots,
   clientEmails: () => clientEmails,
   clientGovReps: () => clientGovReps,
@@ -22383,7 +22384,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings;
+var users, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23891,6 +23892,19 @@ var init_schema = __esm({
     appSettings = sqliteTable("app_settings", {
       key: text("key").primaryKey(),
       value: text("value"),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    clientContacts = sqliteTable("client_contacts", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      name: text("name").notNull(),
+      title: text("title"),
+      // role, e.g. "Receptionist", "Owner", "AP"
+      email: text("email"),
+      phone: text("phone"),
+      isPrimary: integer2("isPrimary", { mode: "boolean" }).default(false),
+      notes: text("notes"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
   }
@@ -47627,6 +47641,63 @@ var init_payroll_router = __esm({
   }
 });
 
+// api/contacts-router.ts
+async function ensureTable() {
+  try {
+    await getDb().run(sql`CREATE TABLE IF NOT EXISTS client_contacts (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      clientId integer NOT NULL,
+      name text NOT NULL,
+      title text, email text, phone text,
+      isPrimary integer DEFAULT 0,
+      notes text,
+      createdAt integer, updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[contacts] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+}
+var contactInput, contactsRouter;
+var init_contacts_router = __esm({
+  "api/contacts-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    contactInput = {
+      name: external_exports.string().min(1).max(200),
+      title: external_exports.string().max(120).optional(),
+      email: external_exports.string().email().optional().or(external_exports.literal("")),
+      phone: external_exports.string().max(60).optional(),
+      isPrimary: external_exports.boolean().optional(),
+      notes: external_exports.string().max(2e3).optional()
+    };
+    contactsRouter = createRouter({
+      list: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        await ensureTable();
+        return getDb().select().from(clientContacts).where(eq(clientContacts.clientId, input.clientId)).orderBy(desc(clientContacts.isPrimary), desc(clientContacts.updatedAt));
+      }),
+      create: authedQuery.input(external_exports.object({ clientId: external_exports.number(), ...contactInput })).mutation(async ({ input }) => {
+        await ensureTable();
+        const { clientId, ...rest } = input;
+        const [row] = await getDb().insert(clientContacts).values({ clientId, ...rest, email: rest.email || null, updatedAt: /* @__PURE__ */ new Date() }).returning();
+        return row;
+      }),
+      update: authedQuery.input(external_exports.object({ id: external_exports.number(), ...contactInput })).mutation(async ({ input }) => {
+        await ensureTable();
+        const { id, ...rest } = input;
+        await getDb().update(clientContacts).set({ ...rest, email: rest.email || null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clientContacts.id, id));
+        return { success: true };
+      }),
+      remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+        await getDb().delete(clientContacts).where(eq(clientContacts.id, input.id));
+        return { success: true };
+      })
+    });
+  }
+});
+
 // api/dividend-core.ts
 function computeT5Boxes(actual, type) {
   const r = DIVIDEND_RATES[type];
@@ -52582,6 +52653,7 @@ var init_router = __esm({
     init_user_router();
     init_employee_router();
     init_payroll_router();
+    init_contacts_router();
     init_dividend_router();
     init_tax_slip_router();
     init_client_request_router();
@@ -52628,6 +52700,7 @@ var init_router = __esm({
       user: userRouter,
       employee: employeeRouter,
       payroll: payrollRouter,
+      contacts: contactsRouter,
       dividend: dividendRouter,
       taxSlip: taxSlipRouter,
       clientRequest: clientRequestRouter,
@@ -60018,7 +60091,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-21.51";
+var BUILD_TAG = "2026-06-22.01";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
