@@ -170,6 +170,50 @@ async function recomputeRunTotals(runId: number) {
 }
 
 export const payrollRouter = createRouter({
+  /**
+   * WSIB remittance for a client + year. Sums the GROSS earnings on the client's
+   * pay runs for the year (insurable earnings) and multiplies by the WSIB premium
+   * rate ($ per $100). Source of truth for earnings = the CRM pay runs (will pull
+   * from QBO Payroll once connected). Exec/exempt-employee exclusions can be added
+   * later via a per-employee WSIB-exempt flag.
+   */
+  wsibRemittance: staffQuery
+    .input(z.object({ clientId: z.number(), year: z.number().optional() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const year = input.year ?? new Date().getUTCFullYear();
+      const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0] as any;
+      const runs = (await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId))) as any[];
+      const inYear = runs.filter((r) => {
+        const d = r.payDate || r.payPeriodEnd;
+        return d && new Date(d).getUTCFullYear() === year;
+      });
+      const runIds = new Set(inYear.map((r) => r.id));
+      const allLines = (await db.select().from(payRunLines)) as any[];
+      const lines = allLines.filter((l) => runIds.has(l.payRunId));
+      const insurableEarnings = round2(lines.reduce((s, l) => s + (l.grossPay || 0), 0));
+      const rate = client?.wsibRate ?? null;            // $ per $100
+      const remittance = rate != null ? round2(insurableEarnings * rate / 100) : null;
+      return {
+        year,
+        insurableEarnings,
+        rate,
+        remittance,
+        payRunCount: inYear.length,
+        accountNumber: client?.wsibAccountNumber ?? null,
+        hasWSIB: !!client?.hasWSIB,
+      };
+    }),
+
+  /** Set the client's WSIB premium rate ($ per $100). */
+  setWsibRate: staffQuery
+    .input(z.object({ clientId: z.number(), rate: z.number().min(0).max(50) }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.update(clients).set({ wsibRate: input.rate, updatedAt: new Date() }).where(eq(clients.id, input.clientId));
+      return { success: true };
+    }),
+
   // Clients that run payroll: hasPayroll flag OR at least one employee on file.
   clients: staffQuery.query(async () => {
     const db = getDb();

@@ -22647,6 +22647,9 @@ var init_schema = __esm({
       hstNumber: text("hstNumber"),
       hstPeriod: text("hstPeriod", { enum: ["monthly", "quarterly", "annual"] }),
       hasWSIB: integer2("hasWSIB", { mode: "boolean" }).default(false),
+      // WSIB premium rate, $ per $100 of insurable earnings (e.g. 2.50). Drives the
+      // WSIB remittance calc (insurable earnings × rate ÷ 100).
+      wsibRate: real("wsibRate"),
       wsibAccountNumber: text("wsibAccountNumber"),
       wsibQuarter: text("wsibQuarter", { enum: ["Q1", "Q2", "Q3", "Q4", "all"] }),
       hasPayroll: integer2("hasPayroll", { mode: "boolean" }).default(false),
@@ -22667,6 +22670,9 @@ var init_schema = __esm({
       payrollRemitterFreq: text("payrollRemitterFreq", { enum: ["regular", "quarterly", "accelerated"] }).default("regular"),
       // Pay-cycle anchor: a known period START date (aligns weekly/biweekly periods) +
       // days from period END to the pay date (e.g. Clark = Tue end + 3 → Fri pay).
+      // Link to the client's OLD payroll history Google Sheet (so it's never lost +
+      // one-click openable from the Payroll tab).
+      payrollHistoryUrl: text("payrollHistoryUrl"),
       payrollAnchorStart: integer2("payrollAnchorStart", { mode: "timestamp" }),
       payrollPayDayOffset: integer2("payrollPayDayOffset").default(0),
       // Where this client's hours come from — drives the per-client integration button
@@ -45600,6 +45606,7 @@ var init_onboarding_router = __esm({
         hasPayroll: external_exports.boolean().optional(),
         payrollExternal: external_exports.boolean().optional(),
         hasIntercoJournals: external_exports.boolean().optional(),
+        payrollHistoryUrl: external_exports.string().optional(),
         payrollFrequency: external_exports.string().optional(),
         payrollRemitterFreq: external_exports.string().optional(),
         yearEndMonth: external_exports.string().optional(),
@@ -45680,6 +45687,7 @@ var init_onboarding_router = __esm({
           "payrollRemitterFreq",
           "yearEndMonth",
           "hasIntercoJournals",
+          "payrollHistoryUrl",
           "bio",
           "registryNumber",
           "incorporationDate",
@@ -47512,6 +47520,44 @@ var init_payroll_router = __esm({
     };
     KNOWN_PAYROLL = ["west york", "originality", "clark", "spot", "sher", "punjab"];
     payrollRouter = createRouter({
+      /**
+       * WSIB remittance for a client + year. Sums the GROSS earnings on the client's
+       * pay runs for the year (insurable earnings) and multiplies by the WSIB premium
+       * rate ($ per $100). Source of truth for earnings = the CRM pay runs (will pull
+       * from QBO Payroll once connected). Exec/exempt-employee exclusions can be added
+       * later via a per-employee WSIB-exempt flag.
+       */
+      wsibRemittance: staffQuery.input(external_exports.object({ clientId: external_exports.number(), year: external_exports.number().optional() })).query(async ({ input }) => {
+        const db = getDb();
+        const year2 = input.year ?? (/* @__PURE__ */ new Date()).getUTCFullYear();
+        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        const runs = await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId));
+        const inYear = runs.filter((r) => {
+          const d = r.payDate || r.payPeriodEnd;
+          return d && new Date(d).getUTCFullYear() === year2;
+        });
+        const runIds = new Set(inYear.map((r) => r.id));
+        const allLines = await db.select().from(payRunLines);
+        const lines = allLines.filter((l) => runIds.has(l.payRunId));
+        const insurableEarnings = round2(lines.reduce((s, l) => s + (l.grossPay || 0), 0));
+        const rate = client?.wsibRate ?? null;
+        const remittance = rate != null ? round2(insurableEarnings * rate / 100) : null;
+        return {
+          year: year2,
+          insurableEarnings,
+          rate,
+          remittance,
+          payRunCount: inYear.length,
+          accountNumber: client?.wsibAccountNumber ?? null,
+          hasWSIB: !!client?.hasWSIB
+        };
+      }),
+      /** Set the client's WSIB premium rate ($ per $100). */
+      setWsibRate: staffQuery.input(external_exports.object({ clientId: external_exports.number(), rate: external_exports.number().min(0).max(50) })).mutation(async ({ input }) => {
+        const db = getDb();
+        await db.update(clients).set({ wsibRate: input.rate, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, input.clientId));
+        return { success: true };
+      }),
       // Clients that run payroll: hasPayroll flag OR at least one employee on file.
       clients: staffQuery.query(async () => {
         const db = getDb();
@@ -55536,6 +55582,7 @@ var init_ensure_clients_schema = __esm({
       ["hasWSIB", "integer DEFAULT 0"],
       ["wsibAccountNumber", "text"],
       ["wsibQuarter", "text"],
+      ["wsibRate", "real"],
       ["hasPayroll", "integer DEFAULT 0"],
       ["payrollExternal", "integer DEFAULT 0"],
       ["payrollFrequency", "text"],
@@ -55551,6 +55598,7 @@ var init_ensure_clients_schema = __esm({
       ["payrollAnchorStart", "integer"],
       ["payrollPayDayOffset", "integer DEFAULT 0"],
       ["payrollHoursSource", "text"],
+      ["payrollHistoryUrl", "text"],
       ["monthlySalesReceipt", "integer DEFAULT 0"],
       ["salesReceiptSource", "text"],
       ["quoteAmount", "real"],
@@ -55939,6 +55987,47 @@ var init_seed_gov_registry = __esm({
       { nameKey: "universal drywall", industry: "Construction/Drywall", bio: "Drywall and construction services company providing interior framing, drywall installation and exterior finishes. USA (Florida) entity." }
     ];
     norm6 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  }
+});
+
+// api/seed-payroll-history-links.ts
+var seed_payroll_history_links_exports = {};
+__export(seed_payroll_history_links_exports, {
+  seedPayrollHistoryLinks: () => seedPayrollHistoryLinks
+});
+async function seedPayrollHistoryLinks() {
+  const db = getDb();
+  let set2 = 0;
+  for (const s of SHEETS) {
+    try {
+      const rows = await db.select().from(clients).where(
+        or(like(clients.name, `%${s.match}%`), like(clients.company, `%${s.match}%`))
+      );
+      for (const c of rows) {
+        if (c.payrollHistoryUrl) continue;
+        await db.update(clients).set({ payrollHistoryUrl: s.url, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+        set2++;
+      }
+    } catch (e) {
+      console.error("[payroll-history] seed failed for", s.match, ":", e instanceof Error ? e.message : e);
+    }
+  }
+  return { set: set2 };
+}
+var SHEETS;
+var init_seed_payroll_history_links = __esm({
+  "api/seed-payroll-history-links.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    SHEETS = [
+      { match: "owen sound", url: "https://docs.google.com/spreadsheets/d/1EB-oYiSSXHFXv2XaT7QzCWXTtqgaegDxToqv626LU1o/edit" },
+      { match: "collingwood", url: "https://docs.google.com/spreadsheets/d/1P-m-fBBbKT-L8VrcYG6Fd73DeskmUfrO6z7HWOlnR7k/edit" },
+      { match: "auld spot", url: "https://docs.google.com/spreadsheets/d/1BXK_SxiogGbFSfz1jX1uekyUG9n02huEDXmbmNCX51I/edit" },
+      { match: "spot pub", url: "https://docs.google.com/spreadsheets/d/1BXK_SxiogGbFSfz1jX1uekyUG9n02huEDXmbmNCX51I/edit" },
+      { match: "sher-e", url: "https://docs.google.com/spreadsheets/d/1BsiHTPaSnFhXZPwI_5YnLK32rdJhFOi6EWdCeujnPIo/edit" },
+      { match: "punjab", url: "https://docs.google.com/spreadsheets/d/1BsiHTPaSnFhXZPwI_5YnLK32rdJhFOi6EWdCeujnPIo/edit" }
+    ];
   }
 });
 
@@ -60493,7 +60582,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.18";
+var BUILD_TAG = "2026-06-22.19";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -61590,6 +61679,13 @@ async function startServer() {
       console.log(`[seed] gov registry: ${g.patched}/${g.matched} client cards populated (bio/registry#/incorp/corp type/status)`);
     } catch (e) {
       console.error("[seed] seedGovRegistry failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { seedPayrollHistoryLinks: seedPayrollHistoryLinks2 } = await Promise.resolve().then(() => (init_seed_payroll_history_links(), seed_payroll_history_links_exports));
+      const ph = await seedPayrollHistoryLinks2();
+      if (ph.set) console.log(`[seed] payroll history links: ${ph.set} set`);
+    } catch (e) {
+      console.error("[seed] seedPayrollHistoryLinks failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { seedDockKingFlowthrough: seedDockKingFlowthrough2 } = await Promise.resolve().then(() => (init_seed_dock_king_flowthrough(), seed_dock_king_flowthrough_exports));
