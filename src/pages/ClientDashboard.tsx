@@ -1228,6 +1228,26 @@ function ComplianceTab({ clientId, client, closeStatus, tasks, onOpenTask }: {
         </CardContent>
       </Card>
 
+      {/* Past HST filings — link straight to the documents in the client's Drive folder */}
+      {client.hasHST && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Past HST filings</CardTitle>
+            <CardDescription>The filed HST/GST returns &amp; working papers live in the client's file folder.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {client.driveFolderUrl ? (
+              <a href={client.driveFolderUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100">
+                <FolderOpen className="h-4 w-4" /> Open HST filings folder <ExternalLink className="h-3 w-3 opacity-50" />
+              </a>
+            ) : (
+              <p className="text-sm text-amber-600">No Drive folder set on this client — add one (Quick links → Edit) to link past filings.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Compliance numbers */}
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base">Registration numbers</CardTitle></CardHeader>
