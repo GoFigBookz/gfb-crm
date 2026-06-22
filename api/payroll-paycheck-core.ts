@@ -62,6 +62,7 @@ export function computePaycheck(
   frequency: string,
   _tax: TaxTables = TAX_2026,
   _cpe: CppEiConstants = CPP_EI_2026,
+  province: string = "ON",
 ): Paycheck {
   const p = periodsPerYear(frequency);
   const g = Math.max(0, gross);
@@ -70,7 +71,7 @@ export function computePaycheck(
   // EI/CPP max-out (averaged), so the "typical cheque" is representative.
   let cum = 0, cpp = 0, cpp2 = 0, ei = 0, fed = 0, prov = 0, eCpp = 0, eCpp2 = 0, eEi = 0;
   for (let i = 0; i < p; i++) {
-    const l = computeCraLine({ grossPeriod: g, periodsPerYear: p, ytdPensionableBefore: cum, periodsElapsedBefore: i });
+    const l = computeCraLine({ grossPeriod: g, periodsPerYear: p, ytdPensionableBefore: cum, periodsElapsedBefore: i, province });
     cpp += l.cppEmployee; cpp2 += l.cpp2Employee; ei += l.eiEmployee;
     fed += l.federalTax; prov += l.provincialTax;
     eCpp += l.cppEmployer; eCpp2 += l.cpp2Employer; eEi += l.eiEmployer;

@@ -3,6 +3,8 @@
  */
 import { describe, it, expect } from "vitest";
 import { cppForPeriod, eiForPeriod, computeCraLine, CRA_2026 } from "./payroll-cra-core";
+import { provincialAnnualTax, PROVINCIAL_2026 } from "./payroll-provincial-2026";
+import { bracketTax } from "./payroll-tax-core";
 
 const near = (a: number, b: number, tol = 0.05) => Math.abs(a - b) <= tol;
 
@@ -82,5 +84,51 @@ describe("full line — $74,600 salary, monthly", () => {
     // ~$12,591 base; the last periods lose the EI credit once EI maxes → ~$12,607.
     expect(tax).toBeGreaterThan(12585);
     expect(tax).toBeLessThan(12650);
+  });
+});
+
+describe("nationwide provincial tax", () => {
+  it("Ontario is unchanged when selected explicitly (default == 'ON')", () => {
+    const monthly = 74600 / 12;
+    const def = computeCraLine({ grossPeriod: monthly, periodsPerYear: 12 });
+    const on = computeCraLine({ grossPeriod: monthly, periodsPerYear: 12, province: "ON" });
+    expect(on.provincialTax).toBe(def.provincialTax);
+    expect(on.federalTax).toBe(def.federalTax);
+  });
+
+  it("each province table is well-formed (ascending bands, Infinity top, sane rates)", () => {
+    for (const t of Object.values(PROVINCIAL_2026)) {
+      expect(t.brackets.length).toBeGreaterThan(0);
+      expect(t.brackets[t.brackets.length - 1].upTo).toBe(Infinity);
+      let prev = 0;
+      for (const b of t.brackets) {
+        expect(b.upTo).toBeGreaterThan(prev); prev = b.upTo;
+        expect(b.rate).toBeGreaterThan(0); expect(b.rate).toBeLessThan(0.4);
+      }
+      expect(t.bpa).toBeGreaterThan(8000); expect(t.bpa).toBeLessThan(25000);
+    }
+  });
+
+  it("Alberta uses its own bracket — 8% on income above BPA, BPA-credited", () => {
+    // $80k taxable, no CPP/EI credits: AB basic = bracketTax(80k) − 8%×BPA.
+    const r = provincialAnnualTax(80000, 0, "AB")!;
+    const expected = bracketTax(80000, PROVINCIAL_2026.AB.brackets) - 0.08 * 22769;
+    expect(Math.abs(r.tax - expected)).toBeLessThan(0.01);
+    expect(r.tax).toBeGreaterThan(0);
+  });
+
+  it("Alberta annual tax differs from Ontario for the same income (proves it's not ON-fallback)", () => {
+    const monthly = 90000 / 12;
+    const on = computeCraLine({ grossPeriod: monthly, periodsPerYear: 12, province: "ON" });
+    const ab = computeCraLine({ grossPeriod: monthly, periodsPerYear: 12, province: "AB" });
+    expect(ab.provincialTax).not.toBe(on.provincialTax);
+  });
+
+  it("Quebec applies the 16.5% federal abatement (lower federal than ON)", () => {
+    const monthly = 90000 / 12;
+    const on = computeCraLine({ grossPeriod: monthly, periodsPerYear: 12, province: "ON" });
+    const qc = computeCraLine({ grossPeriod: monthly, periodsPerYear: 12, province: "QC" });
+    expect(qc.federalTax).toBeLessThan(on.federalTax);
+    expect(Math.abs(qc.federalTax - on.federalTax * (1 - 0.165))).toBeLessThan(0.5);
   });
 });

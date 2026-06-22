@@ -46513,6 +46513,214 @@ var init_payroll_tax_core = __esm({
   }
 });
 
+// api/payroll-provincial-2026.ts
+function provincialAnnualTax(A, credits, code) {
+  const t2 = PROVINCIAL_2026[code];
+  if (!t2) return null;
+  const base = bracketTax(A, t2.brackets);
+  const k1 = t2.lowestRate * t2.bpa;
+  const k2 = t2.lowestRate * credits;
+  const basic = Math.max(0, base - k1 - k2);
+  let surtax = 0;
+  for (const s of t2.surtaxes ?? []) surtax += s.rate * Math.max(0, basic - s.threshold);
+  return { tax: basic + surtax, table: t2 };
+}
+var PROVINCIAL_2026, QC_FEDERAL_ABATEMENT;
+var init_payroll_provincial_2026 = __esm({
+  "api/payroll-provincial-2026.ts"() {
+    init_payroll_tax_core();
+    PROVINCIAL_2026 = {
+      BC: {
+        code: "BC",
+        name: "British Columbia",
+        lowestRate: 0.056,
+        bpa: 13217,
+        verified: false,
+        sourceYear: 2026,
+        note: "Brackets confirmed 2026; BPA derived from 2025\xD7indexation \u2014 verify. Low-income reduction not modelled.",
+        brackets: [
+          { upTo: 50363, rate: 0.056 },
+          { upTo: 100728, rate: 0.077 },
+          { upTo: 115648, rate: 0.105 },
+          { upTo: 140430, rate: 0.1229 },
+          { upTo: 190405, rate: 0.147 },
+          { upTo: 265545, rate: 0.168 },
+          { upTo: Infinity, rate: 0.205 }
+        ]
+      },
+      AB: {
+        code: "AB",
+        name: "Alberta",
+        lowestRate: 0.08,
+        bpa: 22769,
+        verified: true,
+        sourceYear: 2026,
+        brackets: [
+          { upTo: 61200, rate: 0.08 },
+          { upTo: 154259, rate: 0.1 },
+          { upTo: 185111, rate: 0.12 },
+          { upTo: 246813, rate: 0.13 },
+          { upTo: 370220, rate: 0.14 },
+          { upTo: Infinity, rate: 0.15 }
+        ]
+      },
+      SK: {
+        code: "SK",
+        name: "Saskatchewan",
+        lowestRate: 0.105,
+        bpa: 20381,
+        verified: true,
+        sourceYear: 2026,
+        brackets: [
+          { upTo: 53462, rate: 0.105 },
+          { upTo: 152902, rate: 0.125 },
+          { upTo: Infinity, rate: 0.145 }
+        ]
+      },
+      MB: {
+        code: "MB",
+        name: "Manitoba",
+        lowestRate: 0.108,
+        bpa: 15780,
+        verified: true,
+        sourceYear: 2026,
+        note: "Brackets + BPA frozen at 2024 levels (no indexation). BPA clawback above $200k net not modelled.",
+        brackets: [
+          { upTo: 47e3, rate: 0.108 },
+          { upTo: 1e5, rate: 0.1275 },
+          { upTo: Infinity, rate: 0.174 }
+        ]
+      },
+      NB: {
+        code: "NB",
+        name: "New Brunswick",
+        lowestRate: 0.094,
+        bpa: 13664,
+        verified: true,
+        sourceYear: 2026,
+        brackets: [
+          { upTo: 49958, rate: 0.094 },
+          { upTo: 99916, rate: 0.14 },
+          { upTo: 185064, rate: 0.16 },
+          { upTo: Infinity, rate: 0.195 }
+        ]
+      },
+      NS: {
+        code: "NS",
+        name: "Nova Scotia",
+        lowestRate: 0.0879,
+        bpa: 11744,
+        verified: false,
+        sourceYear: 2026,
+        note: "Brackets confirmed; 2026 BPA (post income-test reform) to confirm. Supplement not modelled.",
+        brackets: [
+          { upTo: 29590, rate: 0.0879 },
+          { upTo: 59180, rate: 0.1495 },
+          { upTo: 93e3, rate: 0.1667 },
+          { upTo: 15e4, rate: 0.175 },
+          { upTo: Infinity, rate: 0.21 }
+        ]
+      },
+      PE: {
+        code: "PE",
+        name: "Prince Edward Island",
+        lowestRate: 0.095,
+        bpa: 15e3,
+        verified: true,
+        sourceYear: 2026,
+        note: "Former 10% surtax repealed for 2024+.",
+        brackets: [
+          { upTo: 33328, rate: 0.095 },
+          { upTo: 64656, rate: 0.1347 },
+          { upTo: 105e3, rate: 0.166 },
+          { upTo: 14e4, rate: 0.1762 },
+          { upTo: Infinity, rate: 0.19 }
+        ]
+      },
+      NL: {
+        code: "NL",
+        name: "Newfoundland and Labrador",
+        lowestRate: 0.087,
+        bpa: 11188,
+        verified: false,
+        sourceYear: 2026,
+        note: "Floor + top threshold confirmed; middle thresholds to verify. BPA = current law ($15k proposed, not enacted).",
+        brackets: [
+          { upTo: 44678, rate: 0.087 },
+          { upTo: 89357, rate: 0.145 },
+          { upTo: 159953, rate: 0.158 },
+          { upTo: 223564, rate: 0.178 },
+          { upTo: 285230, rate: 0.198 },
+          { upTo: 570460, rate: 0.208 },
+          { upTo: 1141275, rate: 0.213 },
+          { upTo: Infinity, rate: 0.218 }
+        ]
+      },
+      YT: {
+        code: "YT",
+        name: "Yukon",
+        lowestRate: 0.064,
+        bpa: 16452,
+        verified: true,
+        sourceYear: 2026,
+        note: "Tracks federal BPA; top-band BPA phase-out not modelled (negligible for typical pay).",
+        brackets: [
+          { upTo: 58523, rate: 0.064 },
+          { upTo: 117045, rate: 0.09 },
+          { upTo: 181440, rate: 0.109 },
+          { upTo: 5e5, rate: 0.128 },
+          { upTo: Infinity, rate: 0.15 }
+        ]
+      },
+      NT: {
+        code: "NT",
+        name: "Northwest Territories",
+        lowestRate: 0.059,
+        bpa: 18198,
+        verified: false,
+        sourceYear: 2026,
+        note: "Rates confirmed; 2026 thresholds derived from 2025\xD72% indexation \u2014 verify on CRA T4032-NT.",
+        brackets: [
+          { upTo: 51964, rate: 0.059 },
+          { upTo: 103930, rate: 0.086 },
+          { upTo: 168967, rate: 0.122 },
+          { upTo: Infinity, rate: 0.1405 }
+        ]
+      },
+      NU: {
+        code: "NU",
+        name: "Nunavut",
+        lowestRate: 0.04,
+        bpa: 19659,
+        verified: true,
+        sourceYear: 2026,
+        brackets: [
+          { upTo: 55801, rate: 0.04 },
+          { upTo: 111602, rate: 0.07 },
+          { upTo: 181439, rate: 0.09 },
+          { upTo: Infinity, rate: 0.115 }
+        ]
+      },
+      QC: {
+        code: "QC",
+        name: "Quebec",
+        lowestRate: 0.14,
+        bpa: 18952,
+        verified: true,
+        sourceYear: 2026,
+        note: "Quebec collects its own tax; a 16.5% federal abatement applies to federal tax (handled in the engine).",
+        brackets: [
+          { upTo: 54345, rate: 0.14 },
+          { upTo: 108680, rate: 0.19 },
+          { upTo: 132245, rate: 0.24 },
+          { upTo: Infinity, rate: 0.2575 }
+        ]
+      }
+    };
+    QC_FEDERAL_ABATEMENT = 0.165;
+  }
+});
+
 // api/payroll-cra-core.ts
 function cppForPeriod(grossPeriod, ytdPensionableBefore, periodsPerYear2 = 12, periodsElapsedBefore = 0, c = CRA_2026) {
   const before = pos(ytdPensionableBefore);
@@ -46541,26 +46749,37 @@ function eiForPeriod(grossPeriod, ytdInsurableBefore, c = CRA_2026) {
 function incomeTaxForPeriod(i) {
   const c = i.c ?? CRA_2026;
   const P = i.periodsPerYear;
+  const province = (i.province || "ON").toUpperCase();
   const A = pos(P * (i.grossPeriod - i.enhancedCppPeriod));
   const annualCppCredit = Math.min(P * i.cppForCreditPeriod, c.cpp.maxBase * (c.cpp.baseRateForCredit / c.cpp.rate));
   const annualEiCredit = Math.min(P * i.eiPeriod, c.ei.maxPremium);
+  const credits = annualCppCredit + annualEiCredit;
   const fedBase = bracketTax(A, c.fed.brackets);
   const k1f = c.fed.lowestRate * federalBpa(A);
-  const k2f = c.fed.lowestRate * (annualCppCredit + annualEiCredit);
+  const k2f = c.fed.lowestRate * credits;
   const k4f = c.fed.lowestRate * Math.min(A, c.fed.cea);
-  const fedAnnual = pos(fedBase - k1f - k2f - k4f);
-  const onBase = bracketTax(A, c.on.brackets);
-  const k1o = c.on.lowestRate * c.on.bpa;
-  const k2o = c.on.lowestRate * (annualCppCredit + annualEiCredit);
-  const onAnnualBasic = pos(onBase - k1o - k2o);
-  const surtax = 0.2 * pos(onAnnualBasic - c.on.surtax1) + 0.36 * pos(onAnnualBasic - c.on.surtax2);
-  const ohp = ontarioHealthPremium(A);
-  const onAnnual = onAnnualBasic + surtax + ohp;
+  let fedAnnual = pos(fedBase - k1f - k2f - k4f);
+  if (province === "QC") fedAnnual = fedAnnual * (1 - QC_FEDERAL_ABATEMENT);
+  let provAnnual;
+  if (province !== "ON") {
+    const r = provincialAnnualTax(A, credits, province);
+    if (r) {
+      provAnnual = r.tax;
+    } else {
+      const onBase = bracketTax(A, c.on.brackets);
+      provAnnual = pos(onBase - c.on.lowestRate * c.on.bpa - c.on.lowestRate * credits);
+    }
+  } else {
+    const onBase = bracketTax(A, c.on.brackets);
+    const onAnnualBasic = pos(onBase - c.on.lowestRate * c.on.bpa - c.on.lowestRate * credits);
+    const surtax = 0.2 * pos(onAnnualBasic - c.on.surtax1) + 0.36 * pos(onAnnualBasic - c.on.surtax2);
+    provAnnual = onAnnualBasic + surtax + ontarioHealthPremium(A);
+  }
   return {
     annualizedIncome: round23(A),
     federalTax: round23(fedAnnual / P),
-    provincialTax: round23(onAnnual / P),
-    totalTax: round23((fedAnnual + onAnnual) / P)
+    provincialTax: round23(provAnnual / P),
+    totalTax: round23((fedAnnual + provAnnual) / P)
   };
 }
 function computeCraLine(input) {
@@ -46574,6 +46793,7 @@ function computeCraLine(input) {
     enhancedCppPeriod: cpp.enhanced,
     cppForCreditPeriod: cpp.forCredit,
     eiPeriod: ei.employee,
+    province: input.province,
     c
   });
   const netPay = round23(gross - cpp.total - ei.employee - tax.federalTax - tax.provincialTax);
@@ -46603,6 +46823,7 @@ var CRA_2026, round23, pos;
 var init_payroll_cra_core = __esm({
   "api/payroll-cra-core.ts"() {
     init_payroll_tax_core();
+    init_payroll_provincial_2026();
     CRA_2026 = {
       year: 2026,
       verified: true,
@@ -60077,7 +60298,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.14";
+var BUILD_TAG = "2026-06-22.15";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

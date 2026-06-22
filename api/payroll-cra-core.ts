@@ -19,6 +19,7 @@
 import {
   type Bracket, bracketTax, federalBpa, ontarioHealthPremium, TAX_2026,
 } from "./payroll-tax-core";
+import { provincialAnnualTax, QC_FEDERAL_ABATEMENT } from "./payroll-provincial-2026";
 
 export type CraConstants = {
   year: number;
@@ -140,40 +141,57 @@ export type TaxInputs = {
   cppForCreditPeriod: number;
   /** EI premium for THIS period — earns the tax credit */
   eiPeriod: number;
+  /** Province/territory code (default "ON"). Non-ON uses the generalized table. */
+  province?: string;
   c?: CraConstants;
 };
 
 export function incomeTaxForPeriod(i: TaxInputs) {
   const c = i.c ?? CRA_2026;
   const P = i.periodsPerYear;
+  const province = (i.province || "ON").toUpperCase();
   // Annual taxable income (T4127 "A"): gross less the enhanced-CPP deduction.
   const A = pos(P * (i.grossPeriod - i.enhancedCppPeriod));
 
   // Annual creditable CPP (base) and EI, each capped at the annual max.
   const annualCppCredit = Math.min(P * i.cppForCreditPeriod, c.cpp.maxBase * (c.cpp.baseRateForCredit / c.cpp.rate));
   const annualEiCredit = Math.min(P * i.eiPeriod, c.ei.maxPremium);
+  const credits = annualCppCredit + annualEiCredit;
 
   // Federal
   const fedBase = bracketTax(A, c.fed.brackets);
   const k1f = c.fed.lowestRate * federalBpa(A);
-  const k2f = c.fed.lowestRate * (annualCppCredit + annualEiCredit);
+  const k2f = c.fed.lowestRate * credits;
   const k4f = c.fed.lowestRate * Math.min(A, c.fed.cea);
-  const fedAnnual = pos(fedBase - k1f - k2f - k4f);
+  let fedAnnual = pos(fedBase - k1f - k2f - k4f);
+  // Quebec residents receive a 16.5% abatement of basic federal tax.
+  if (province === "QC") fedAnnual = fedAnnual * (1 - QC_FEDERAL_ABATEMENT);
 
-  // Ontario
-  const onBase = bracketTax(A, c.on.brackets);
-  const k1o = c.on.lowestRate * c.on.bpa;
-  const k2o = c.on.lowestRate * (annualCppCredit + annualEiCredit);
-  const onAnnualBasic = pos(onBase - k1o - k2o);
-  const surtax = 0.20 * pos(onAnnualBasic - c.on.surtax1) + 0.36 * pos(onAnnualBasic - c.on.surtax2);
-  const ohp = ontarioHealthPremium(A);
-  const onAnnual = onAnnualBasic + surtax + ohp;
+  // Provincial. Ontario keeps its dedicated, fully-verified path (dual surtax +
+  // Ontario Health Premium). Every other jurisdiction uses the generalized
+  // table; if we don't have one for the code, fall back to the Ontario math
+  // (same as the prior behaviour) so nothing breaks.
+  let provAnnual: number;
+  if (province !== "ON") {
+    const r = provincialAnnualTax(A, credits, province);
+    if (r) {
+      provAnnual = r.tax;
+    } else {
+      const onBase = bracketTax(A, c.on.brackets);
+      provAnnual = pos(onBase - c.on.lowestRate * c.on.bpa - c.on.lowestRate * credits);
+    }
+  } else {
+    const onBase = bracketTax(A, c.on.brackets);
+    const onAnnualBasic = pos(onBase - c.on.lowestRate * c.on.bpa - c.on.lowestRate * credits);
+    const surtax = 0.20 * pos(onAnnualBasic - c.on.surtax1) + 0.36 * pos(onAnnualBasic - c.on.surtax2);
+    provAnnual = onAnnualBasic + surtax + ontarioHealthPremium(A);
+  }
 
   return {
     annualizedIncome: round2(A),
     federalTax: round2(fedAnnual / P),
-    provincialTax: round2(onAnnual / P),
-    totalTax: round2((fedAnnual + onAnnual) / P),
+    provincialTax: round2(provAnnual / P),
+    totalTax: round2((fedAnnual + provAnnual) / P),
   };
 }
 
@@ -186,6 +204,7 @@ export type CraLineInput = {
   ytdPensionableBefore?: number;  // carryforward gross for CPP
   ytdInsurableBefore?: number;    // carryforward gross for EI (defaults to pensionable)
   periodsElapsedBefore?: number;  // pay periods already paid this year (for the CPP exemption)
+  province?: string;              // province/territory code (default "ON")
   c?: CraConstants;
 };
 
@@ -212,7 +231,8 @@ export function computeCraLine(input: CraLineInput): CraLine {
   const ei = eiForPeriod(gross, input.ytdInsurableBefore ?? input.ytdPensionableBefore ?? 0, c);
   const tax = incomeTaxForPeriod({
     grossPeriod: gross, periodsPerYear: input.periodsPerYear,
-    enhancedCppPeriod: cpp.enhanced, cppForCreditPeriod: cpp.forCredit, eiPeriod: ei.employee, c,
+    enhancedCppPeriod: cpp.enhanced, cppForCreditPeriod: cpp.forCredit, eiPeriod: ei.employee,
+    province: input.province, c,
   });
   // Net from the rounded components so gross − cpp − ei − fed − prov = net exactly.
   const netPay = round2(gross - cpp.total - ei.employee - tax.federalTax - tax.provincialTax);

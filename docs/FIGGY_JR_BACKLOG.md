@@ -235,9 +235,16 @@ verify + fix the chain for each intake field:
 - Quote/pricing fields → quote actually generated/clickable.
 - Workflow status, dividends (T5), non-resident, ecommerce/POS, Hubdoc, etc.
 Deliverable: every intake field has a verified, clickable, working downstream
-effect; a checklist of field → effect with pass/fail; fix the gaps. Two task
-systems exist (client-task-creator vs task-generator) — unify onto one to remove
-the dual-write/duplicate-title risk.
+effect; a checklist of field → effect with pass/fail; fix the gaps.
+- ✅ DONE 2026-06-22: **Task systems UNIFIED.** Retired `client-task-creator`
+  (differently-titled direct inserts → duplicate risk) onto the `task-generator`
+  rule engine via `ensureComplianceForClient(clientId)` (maps client row + its
+  onboarding record → idempotent `ensureComplianceRulesAndTasks`). All callers
+  migrated (client create/update, bulk import, boot seeds). Audit found 24/25
+  intake fields already WIRED; the one GAP (`salesEntryFrequency` /
+  `monthlySalesReceipt`) now drives a dedicated "Monthly Sales Receipt" rule.
+- REMAINING: the field→effect pass/fail checklist across ALL clients (re-verify
+  HST due dates, PD7A cadence from remitter type, WSIB, year-end, T5) after deploy.
 
 ## 8. CALCULATOR ACCURACY PROGRAM (MED — Markie ask 2026-06-21)
 Make every calculator real, not "estimate," pulling from authoritative sources.
@@ -246,10 +253,20 @@ Make every calculator real, not "estimate," pulling from authoritative sources.
   editable 2024 defaults. **FX/Currency** now pulls LIVE **Bank of Canada** daily
   rates (Valet `FX_RATES_DAILY`), static fallback only if offline. **Depreciation**
   de-duplicated → lives in the **Business** tab only.
-- TODO: **Payroll tax calculator (Canada)** is federal + Ontario-accurate but
-  ESTIMATES other provinces — add the remaining provincial brackets/credits so
-  it's actual nationwide (or wire CRA PDOC). **US payroll tax** is an estimate —
-  build real federal + state withholding (or integrate a payroll-tax source).
+- ✅ DONE 2026-06-22: **Payroll tax calculator (Canada) is now NATIONWIDE.** All
+  12 provinces/territories have verified 2026 brackets + BPA (`api/payroll-
+  provincial-2026.ts`); Ontario keeps its dedicated surtax + health-premium path,
+  Quebec applies the 16.5% federal abatement. Threaded `province` through the CRA
+  engine (computeCraLine/computePaycheck) with ON unchanged (regression-tested,
+  14 payroll tests). Tables flagged `verified`: a few (BC/NS BPA, NL mid-thresholds,
+  NT thresholds) are `verified:false` pending a canada.ca byte-check (WebFetch was
+  403-blocked during research) — confirm on the CRA "Income tax rates and income
+  thresholds" payroll page when reachable; everything else is 2026-official.
+- TODO: **US payroll tax** is still an estimate (real 2025 federal brackets + flat
+  per-state rate) — build real 2026 federal + per-state withholding (or integrate a
+  payroll-tax source). Lower priority (Canadian firm); only a few US-paid staff.
+- TODO (verify): byte-check the 4 `verified:false` provincial values above on
+  canada.ca, then flip them to `verified:true`.
 - Cross-check all 2026 constants against the CRA T4127 (see #4) before any are
   used to remit real money.
 
