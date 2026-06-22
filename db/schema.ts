@@ -506,6 +506,10 @@ export const clientOnboarding = sqliteTable("client_onboarding", {
   avgMonthlyTransactions: integer("avgMonthlyTransactions").default(0),
   invoicingResponsibility: text("invoicingResponsibility", { enum: ["we_invoice", "client_invoices", "both", "none"] }).default("none"),
   billPayResponsibility: text("billPayResponsibility", { enum: ["we_pay", "client_pays", "both", "none"] }).default("none"),
+  // Some clients aren't invoiced — instead we enter ONE monthly total-sales receipt in QBO,
+  // pulled from a report (e.g. Jobber/Square). Flagged at intake; drives that future automation.
+  monthlySalesReceipt: integer("monthlySalesReceipt", { mode: "boolean" }).default(false),
+  salesReceiptSource: text("salesReceiptSource"),  // jobber | square | stripe | touchbistro | other
   // QuickBooks subscription billed wholesale through GFB (pass-through on quote)
   qboSoftwareTier: text("qboSoftwareTier", { enum: ["none", "easystart", "essentials", "plus"] }).default("none"),
   qboSoftwareWholesale: integer("qboSoftwareWholesale", { mode: "boolean" }).default(false),

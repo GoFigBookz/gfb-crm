@@ -76,6 +76,7 @@ export default function Onboarding() {
     hasEmployees: false, hasSubcontractors: false, hasInvestments: false,
     wsibRequired: false, paysDividends: false, bankAccountCount: 1, creditCardCount: 0,
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false, usesPayPal: false, usesWise: false,
+    monthlySalesReceipt: false, salesReceiptSource: "",
     payrollExternal: false,
     payrollHoursSource: "manual" as "manual" | "jobber" | "touchbistro" | "clockify" | "qbo_autopay",
     payrollBonuses: false, payrollPhoneAllowance: false, payrollReimbursements: false,
@@ -105,6 +106,7 @@ export default function Onboarding() {
     hasEmployees: false, hasSubcontractors: false, hasInvestments: false,
     wsibRequired: false, paysDividends: false, bankAccountCount: 1, creditCardCount: 0,
     needsYearEnd: true, usesStripe: false, usesSquare: false, usesJobber: false, usesTouchBistro: false, usesPayPal: false, usesWise: false,
+    monthlySalesReceipt: false, salesReceiptSource: "",
     payrollExternal: false,
     payrollHoursSource: "manual" as "manual" | "jobber" | "touchbistro" | "clockify" | "qbo_autopay",
     payrollBonuses: false, payrollPhoneAllowance: false, payrollReimbursements: false,
@@ -313,6 +315,28 @@ export default function Onboarding() {
                     <span className="text-sm">Wise</span>
                   </label>
                 </div>
+                <label className="flex items-start gap-2 cursor-pointer bg-white rounded-lg border p-3">
+                  <Checkbox checked={intake.monthlySalesReceipt} onCheckedChange={v => setIntake({...intake, monthlySalesReceipt: !!v})} />
+                  <span className="text-sm text-slate-700">
+                    <span className="font-medium">Monthly sales receipt (total sales)</span> — we enter ONE monthly sales receipt in QBO for total sales, not per-invoice.
+                    <span className="block text-xs text-slate-500">Figgy will pull the monthly total from the source below and create the QBO sales receipt.</span>
+                  </span>
+                </label>
+                {intake.monthlySalesReceipt && (
+                  <div className="space-y-2 w-56">
+                    <Label>Pull total sales from</Label>
+                    <Select value={intake.salesReceiptSource || "jobber"} onValueChange={(v: any) => setIntake({...intake, salesReceiptSource: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="jobber">Jobber</SelectItem>
+                        <SelectItem value="square">Square</SelectItem>
+                        <SelectItem value="stripe">Stripe</SelectItem>
+                        <SelectItem value="touchbistro">TouchBistro</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 {((intake.usesStripe || intake.usesSquare || intake.usesJobber || intake.usesTouchBistro || intake.usesPayPal)) && (
                   <div className="space-y-2 w-48">
                     <Label>Sales Entry Frequency</Label>

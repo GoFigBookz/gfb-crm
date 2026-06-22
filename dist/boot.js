@@ -22851,6 +22851,11 @@ var init_schema = __esm({
       avgMonthlyTransactions: integer2("avgMonthlyTransactions").default(0),
       invoicingResponsibility: text("invoicingResponsibility", { enum: ["we_invoice", "client_invoices", "both", "none"] }).default("none"),
       billPayResponsibility: text("billPayResponsibility", { enum: ["we_pay", "client_pays", "both", "none"] }).default("none"),
+      // Some clients aren't invoiced — instead we enter ONE monthly total-sales receipt in QBO,
+      // pulled from a report (e.g. Jobber/Square). Flagged at intake; drives that future automation.
+      monthlySalesReceipt: integer2("monthlySalesReceipt", { mode: "boolean" }).default(false),
+      salesReceiptSource: text("salesReceiptSource"),
+      // jobber | square | stripe | touchbistro | other
       // QuickBooks subscription billed wholesale through GFB (pass-through on quote)
       qboSoftwareTier: text("qboSoftwareTier", { enum: ["none", "easystart", "essentials", "plus"] }).default("none"),
       qboSoftwareWholesale: integer2("qboSoftwareWholesale", { mode: "boolean" }).default(false),
@@ -40553,6 +40558,8 @@ var init_client_router = __esm({
         payrollRevenueShare: external_exports.boolean().optional(),
         payrollCraComparison: external_exports.boolean().optional(),
         payrollHoursSource: external_exports.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
+        monthlySalesReceipt: external_exports.boolean().optional(),
+        salesReceiptSource: external_exports.string().optional(),
         yearEndMonth: external_exports.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
         quoteAmount: external_exports.number().optional(),
         quoteSentAt: external_exports.string().optional(),
@@ -45275,6 +45282,8 @@ var init_onboarding_router = __esm({
         bookkeepingFrequency: external_exports.enum(["monthly", "quarterly", "annual", "none"]).default("monthly"),
         invoicingResponsibility: external_exports.enum(["we_invoice", "client_invoices", "both", "none"]).default("none"),
         billPayResponsibility: external_exports.enum(["we_pay", "client_pays", "both", "none"]).default("none"),
+        monthlySalesReceipt: external_exports.boolean().default(false),
+        salesReceiptSource: external_exports.string().optional(),
         currentAccountingSoftware: external_exports.string().optional(),
         currentPayrollProvider: external_exports.string().optional(),
         servicesNeeded: external_exports.string().optional(),
@@ -45327,6 +45336,8 @@ var init_onboarding_router = __esm({
           payrollRevenueShare: input.payrollRevenueShare,
           payrollCraComparison: input.payrollCraComparison,
           payrollHoursSource: input.payrollHoursSource ?? null,
+          monthlySalesReceipt: input.monthlySalesReceipt,
+          salesReceiptSource: input.salesReceiptSource || null,
           yearEndMonth,
           craRepId: "YY7F3GN",
           // firm CRA Represent-a-Client RepID (same for all clients)
@@ -55190,6 +55201,8 @@ var init_ensure_clients_schema = __esm({
       ["payrollAnchorStart", "integer"],
       ["payrollPayDayOffset", "integer DEFAULT 0"],
       ["payrollHoursSource", "text"],
+      ["monthlySalesReceipt", "integer DEFAULT 0"],
+      ["salesReceiptSource", "text"],
       ["quoteAmount", "real"],
       ["quoteSentAt", "integer"],
       ["quoteApprovedAt", "integer"],
@@ -60088,7 +60101,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.08";
+var BUILD_TAG = "2026-06-22.09";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

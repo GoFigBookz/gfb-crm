@@ -4,6 +4,14 @@ _Living list of agreed-but-not-yet-built work, with the decisions made so we
 don't re-derive them._
 
 ## BACKLOGGED THIS SESSION (Markie: finish client cards first, then these)
+- **Monthly sales-receipt automation (2026-06-21, ~6 clients).** Intake flag `monthlySalesReceipt`
+  + `salesReceiptSource` now captured. Build the automation: pull the month's TOTAL sales from
+  the source (Jobber/Square/etc.) and create ONE sales receipt in the client's QBO file. Driven
+  off the intake flag; only runs for flagged clients.
+- **Vendors/Customers gated by intake (2026-06-21).** When we build the vendors/customers
+  sections (pulled from QBO): show VENDORS only if billPayResponsibility is we_pay/both; show
+  CUSTOMERS only if invoicingResponsibility is we_invoice/both. If we don't pay bills / don't
+  invoice, don't surface them.
 - **Auto-pull hours 9 AM Wednesday each pay period (2026-06-21).** For the 4 timesheet
   companies only (Clark OS, Clark CW via Jobber; the two restaurants via TouchBistro):
   period ends Tuesday, Markie processes Wednesday — so auto-import that period's hours at

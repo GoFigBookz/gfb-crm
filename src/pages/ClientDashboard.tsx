@@ -442,7 +442,7 @@ export default function ClientDashboard() {
         {/* OVERVIEW TAB */}
         <TabsContent value="overview" className="space-y-4 mt-4">
           <ContactsCard clientId={id} />
-          <PlatformsCard onboarding={onboarding} />
+          <PlatformsCard onboarding={onboarding} client={client} />
           {/* Document requests + at-a-glance, side by side. (Task progress lives in
               the combined Tasks card up top.) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -2081,7 +2081,7 @@ function TimeLogDialog({ open, onClose, clientId, tasks, onSubmit, isPending }: 
 // Quick Links Card Component (variant "card" = full card; "header" = compact row)
 /** Sales & payment platforms the client uses — driven by the intake form, so the card
  *  only shows platforms that were ticked (nothing irrelevant). Renders nothing if none. */
-function PlatformsCard({ onboarding }: { onboarding: any }) {
+function PlatformsCard({ onboarding, client }: { onboarding: any; client: any }) {
   const PLATFORMS: { key: string; label: string; url: string }[] = [
     { key: "usesStripe", label: "Stripe", url: "https://dashboard.stripe.com" },
     { key: "usesSquare", label: "Square", url: "https://squareup.com/login" },
@@ -2091,20 +2091,26 @@ function PlatformsCard({ onboarding }: { onboarding: any }) {
     { key: "usesWise", label: "Wise", url: "https://wise.com/login" },
   ];
   const active = PLATFORMS.filter((p) => onboarding && onboarding[p.key]);
-  if (!onboarding || active.length === 0) return null; // nothing ticked at intake → no card
+  const monthlyReceipt = !!client?.monthlySalesReceipt;
+  if (active.length === 0 && !monthlyReceipt) return null; // nothing ticked at intake → no card
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base"><Globe className="h-5 w-5 text-lime-500" /> Sales &amp; payment platforms</CardTitle>
         <CardDescription>From the intake form — only what this client uses.</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-2">
+      <CardContent className="flex flex-wrap items-center gap-2">
         {active.map((p) => (
           <a key={p.key} href={p.url} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 rounded-lg text-sm hover:bg-lime-50 hover:text-lime-700">
             {p.label} <ExternalLink className="h-3 w-3 opacity-50" />
           </a>
         ))}
+        {monthlyReceipt && (
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
+            Monthly sales receipt{client?.salesReceiptSource ? ` · from ${client.salesReceiptSource}` : ""}
+          </Badge>
+        )}
       </CardContent>
     </Card>
   );
