@@ -27,6 +27,14 @@ export default function OnboardingForm() {
     usesStripe: false,
     usesSquare: false,
     usesJobber: false,
+    usesTouchBistro: false,
+    usesPayPal: false,
+    usesWise: false,
+    paysDividends: false,
+    invoicingResponsibility: "none",
+    billPayResponsibility: "none",
+    monthlySalesReceipt: false,
+    salesReceiptSource: "",
     salesEntryFrequency: "monthly",
     bankAccountCount: "1",
     creditCardCount: "0",
@@ -61,13 +69,14 @@ export default function OnboardingForm() {
       "servicesNeeded", "painPoints", "expectations",
       "fiscalYearEnd", "lastFiledYear", "outstandingFilings",
       "hstGstFrequency", "payrollFrequency", "salesEntryFrequency",
+      "invoicingResponsibility", "billPayResponsibility", "salesReceiptSource",
     ];
     for (const f of stringFields) {
       if (form[f] !== undefined && form[f] !== "") payload[f] = form[f];
     }
 
     // Boolean fields
-    const boolFields = ["hasEmployees", "hasSubcontractors", "hasInvestments", "wsibRequired", "needsYearEnd", "usesStripe", "usesSquare", "usesJobber"];
+    const boolFields = ["hasEmployees", "hasSubcontractors", "hasInvestments", "wsibRequired", "needsYearEnd", "usesStripe", "usesSquare", "usesJobber", "usesTouchBistro", "usesPayPal", "usesWise", "paysDividends", "monthlySalesReceipt"];
     for (const f of boolFields) {
       payload[f] = form[f] === true || form[f] === "true";
     }
@@ -280,6 +289,13 @@ export default function OnboardingForm() {
                     <p className="text-xs text-slate-500">We'll schedule annual WSIB reconciliation</p>
                   </div>
                 </label>
+                <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
+                  <Checkbox checked={!!form.paysDividends} onCheckedChange={v => update("paysDividends", v === true)} />
+                  <div>
+                    <p className="font-medium text-sm">Pays Dividends</p>
+                    <p className="text-xs text-slate-500">We'll schedule T5 slip preparation</p>
+                  </div>
+                </label>
               </div>
             </CardContent>
           </Card>
@@ -316,19 +332,79 @@ export default function OnboardingForm() {
                     <p className="text-xs text-slate-500">Field service, invoicing</p>
                   </div>
                 </label>
+                <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
+                  <Checkbox checked={!!form.usesTouchBistro} onCheckedChange={v => update("usesTouchBistro", v === true)} />
+                  <div>
+                    <p className="font-medium text-sm">Uses TouchBistro</p>
+                    <p className="text-xs text-slate-500">Restaurant POS</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
+                  <Checkbox checked={!!form.usesPayPal} onCheckedChange={v => update("usesPayPal", v === true)} />
+                  <div>
+                    <p className="font-medium text-sm">Uses PayPal</p>
+                    <p className="text-xs text-slate-500">Online payments</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
+                  <Checkbox checked={!!form.usesWise} onCheckedChange={v => update("usesWise", v === true)} />
+                  <div>
+                    <p className="font-medium text-sm">Uses Wise</p>
+                    <p className="text-xs text-slate-500">International payments / FX</p>
+                  </div>
+                </label>
               </div>
-              <div className="space-y-2">
-                <Label>Sales Entry Frequency</Label>
-                <Select value={String(form.salesEntryFrequency || "none")} onValueChange={v => update("salesEntryFrequency", v)}>
-                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No sales entry needed</SelectItem>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Sales Entry Frequency</Label>
+                  <Select value={String(form.salesEntryFrequency || "none")} onValueChange={v => update("salesEntryFrequency", v)}>
+                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No sales entry needed</SelectItem>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Who handles invoicing?</Label>
+                  <Select value={String(form.invoicingResponsibility || "none")} onValueChange={v => update("invoicingResponsibility", v)}>
+                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Not applicable</SelectItem>
+                      <SelectItem value="we_invoice">Go Fig Bookz invoices for you</SelectItem>
+                      <SelectItem value="client_invoices">You invoice yourself</SelectItem>
+                      <SelectItem value="both">Both</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Who pays the bills?</Label>
+                  <Select value={String(form.billPayResponsibility || "none")} onValueChange={v => update("billPayResponsibility", v)}>
+                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Not applicable</SelectItem>
+                      <SelectItem value="we_pay">Go Fig Bookz pays for you</SelectItem>
+                      <SelectItem value="client_pays">You pay yourself</SelectItem>
+                      <SelectItem value="both">Both</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+              <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
+                <Checkbox checked={!!form.monthlySalesReceipt} onCheckedChange={v => update("monthlySalesReceipt", v === true)} />
+                <div>
+                  <p className="font-medium text-sm">Monthly total-sales receipt</p>
+                  <p className="text-xs text-slate-500">We enter one monthly sales receipt (total sales) instead of individual invoices</p>
+                </div>
+              </label>
+              {form.monthlySalesReceipt && (
+                <div className="space-y-2">
+                  <Label>Where do we pull the monthly total from?</Label>
+                  <Input placeholder="e.g., Jobber, Square, Stripe, TouchBistro" value={String(form.salesReceiptSource || "")} onChange={e => update("salesReceiptSource", e.target.value)} />
+                </div>
+              )}
             </CardContent>
           </Card>
 

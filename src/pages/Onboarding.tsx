@@ -543,7 +543,7 @@ export default function Onboarding() {
                 <SelectValue placeholder="Select client..." />
               </SelectTrigger>
               <SelectContent>
-                {clients?.filter(c => c.workflowStatus === "new_lead" || c.workflowStatus === "discovery_call").map((c) => (
+                {clients?.map((c) => (
                   <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
                 ))}
               </SelectContent>
