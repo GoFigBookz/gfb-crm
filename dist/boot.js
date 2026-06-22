@@ -22702,6 +22702,9 @@ var init_schema = __esm({
       qboConnectionId: integer2("qboConnectionId"),
       // Firm mapping columns
       industry: text("industry").default("other"),
+      // "CA" (default) or "US" — drives US-geared intake (EIN/state/sales tax) and
+      // suppresses Canada-only obligations (HST/WSIB/CRA) for US clients.
+      country: text("country").default("CA"),
       province: text("province").default("ON"),
       qboAccountType: text("qboAccountType").default("ca_clients"),
       figgyEmail: text("figgyEmail"),
@@ -40087,6 +40090,8 @@ function parseFiscalYearEnd(fiscalYearEnd) {
 function buildTaskRules(data) {
   const rules = [];
   const fy = parseFiscalYearEnd(data.fiscalYearEnd);
+  const isUS = (data.country || "CA") === "US";
+  const stLabel = isUS ? "Sales Tax" : "HST/GST";
   const bkFreq = data.bookkeepingFrequency || "monthly";
   if (bkFreq !== "none") {
     const bkLabel = bkFreq === "quarterly" ? "Quarterly" : bkFreq === "annual" ? "Annual" : "Monthly";
@@ -40280,7 +40285,7 @@ function buildTaskRules(data) {
       fiscalYearEndDay: fy.day
     });
   }
-  if (data.hasEHT) {
+  if (data.hasEHT && !isUS) {
     rules.push({
       ruleType: "eht_annual",
       title: "EHT Annual Return (Ontario)",
@@ -40299,8 +40304,8 @@ function buildTaskRules(data) {
     if (data.hstGstFrequency === "monthly") {
       rules.push({
         ruleType: "hst_monthly",
-        title: "Monthly HST/GST Return",
-        description: "Prepare and file monthly HST/GST return. Reconcile ITCs and remit net amount.",
+        title: `Monthly ${stLabel} Return`,
+        description: isUS ? "Prepare and file the monthly state sales-tax return and remit the amount collected." : "Prepare and file monthly HST/GST return. Reconcile ITCs and remit net amount.",
         category: "Tax",
         priority: "high",
         frequency: "monthly",
@@ -40312,8 +40317,8 @@ function buildTaskRules(data) {
     } else if (data.hstGstFrequency === "quarterly") {
       rules.push({
         ruleType: "hst_quarterly",
-        title: "Quarterly HST/GST Return",
-        description: "Prepare and file quarterly HST/GST return. Reconcile ITCs and remit net amount.",
+        title: `Quarterly ${stLabel} Return`,
+        description: isUS ? "Prepare and file the quarterly state sales-tax return and remit the amount collected." : "Prepare and file quarterly HST/GST return. Reconcile ITCs and remit net amount.",
         category: "Tax",
         priority: "high",
         frequency: "quarterly",
@@ -40325,8 +40330,8 @@ function buildTaskRules(data) {
     } else if (data.hstGstFrequency === "annually") {
       rules.push({
         ruleType: "hst_annual",
-        title: "Annual HST/GST Return",
-        description: "Prepare and file annual HST/GST return. Due 3 months after fiscal year end.",
+        title: `Annual ${stLabel} Return`,
+        description: isUS ? "Prepare and file the annual state sales-tax return." : "Prepare and file annual HST/GST return. Due 3 months after fiscal year end.",
         category: "Tax",
         priority: "high",
         frequency: "yearly",
@@ -40394,7 +40399,7 @@ function buildTaskRules(data) {
       fiscalYearEndDay: fy?.day
     });
   }
-  if (data.wsibRequired) {
+  if (data.wsibRequired && !isUS) {
     rules.push({
       ruleType: "wsib_quarterly",
       title: "WSIB Quarterly Filing",
@@ -40723,6 +40728,7 @@ async function clientToOnboardingData(clientId, opts = {}) {
     clientId,
     userId: opts.userId ?? c.userId ?? 1,
     assignedTo: opts.assignedTo ?? c.assignedTo ?? null,
+    country: c.country || (c.qboAccountType === "us_clients" ? "US" : "CA"),
     fiscalYearEnd,
     hstGstFrequency: hstFreq,
     payrollFrequency: c.hasPayroll ? c.payrollFrequency || "monthly" : null,
@@ -45768,6 +45774,11 @@ var init_onboarding_router = __esm({
         // value used a different spelling (e.g. "biweekly" vs "bi-weekly") — which
         // is exactly the "can't save intake" error. Coerce/normalize, don't reject.
         clientType: external_exports.string().optional(),
+        // US-geared intake: country switches the form + tax labels; province doubles
+        // as the US state; qboAccountType keeps the QBO firm mapping in sync.
+        country: external_exports.string().optional(),
+        province: external_exports.string().optional(),
+        qboAccountType: external_exports.string().optional(),
         payrollRpNumber: external_exports.string().optional(),
         monthlyFee: external_exports.number().optional(),
         craRacDone: external_exports.boolean().optional(),
@@ -45845,6 +45856,9 @@ var init_onboarding_router = __esm({
           "contactName",
           "taxId",
           "hstNumber",
+          "country",
+          "province",
+          "qboAccountType",
           "wsibAccountNumber",
           "clientType",
           "payrollRpNumber",
@@ -45874,12 +45888,15 @@ var init_onboarding_router = __esm({
         for (const k of clientKeys) if (rest[k] !== void 0) clientPatch[k] = rest[k];
         if (typeof clientPatch.website === "string") clientPatch.website = clientPatch.website.toLowerCase();
         const bnNow = clientPatch.taxId ?? prior?.taxId;
-        if (bnNow) {
+        const countryNow = clientPatch.country ?? prior?.country ?? "CA";
+        if (bnNow && countryNow !== "US") {
           const hasHstNow = clientPatch.hasHST ?? prior?.hasHST;
           const hasPayNow = clientPatch.hasPayroll ?? prior?.hasPayroll;
           if (hasHstNow && !(clientPatch.hstNumber || prior?.hstNumber)) clientPatch.hstNumber = `${bnNow}RT0001`;
           if (hasPayNow && !(clientPatch.payrollRpNumber || prior?.payrollRpNumber)) clientPatch.payrollRpNumber = `${bnNow}RP0001`;
         }
+        if (clientPatch.country === "US" && clientPatch.qboAccountType === void 0) clientPatch.qboAccountType = "us_clients";
+        if (clientPatch.country === "CA" && clientPatch.qboAccountType === void 0) clientPatch.qboAccountType = "ca_clients";
         if (Object.keys(clientPatch).length > 1) await db.update(clients).set(clientPatch).where(eq(clients.id, clientId));
         void prior;
         const onbKeys = [
@@ -55898,6 +55915,7 @@ var init_ensure_clients_schema = __esm({
       ["qboCustomerId", "text"],
       ["qboConnectionId", "integer"],
       ["industry", "text DEFAULT 'other'"],
+      ["country", "text DEFAULT 'CA'"],
       ["province", "text DEFAULT 'ON'"],
       ["qboAccountType", "text DEFAULT 'ca_clients'"],
       ["figgyEmail", "text"],
@@ -60863,7 +60881,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.27";
+var BUILD_TAG = "2026-06-22.29";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

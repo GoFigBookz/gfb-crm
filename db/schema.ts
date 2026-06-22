@@ -338,6 +338,9 @@ export const clients = sqliteTable("clients", {
   qboConnectionId: integer("qboConnectionId"),
   // Firm mapping columns
   industry: text("industry").default("other"),
+  // "CA" (default) or "US" — drives US-geared intake (EIN/state/sales tax) and
+  // suppresses Canada-only obligations (HST/WSIB/CRA) for US clients.
+  country: text("country").default("CA"),
   province: text("province").default("ON"),
   qboAccountType: text("qboAccountType").default("ca_clients"),
   figgyEmail: text("figgyEmail"),

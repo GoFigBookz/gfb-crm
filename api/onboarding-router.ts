@@ -533,6 +533,9 @@ export const onboardingRouter = createRouter({
       // value used a different spelling (e.g. "biweekly" vs "bi-weekly") — which
       // is exactly the "can't save intake" error. Coerce/normalize, don't reject.
       clientType: z.string().optional(),
+      // US-geared intake: country switches the form + tax labels; province doubles
+      // as the US state; qboAccountType keeps the QBO firm mapping in sync.
+      country: z.string().optional(), province: z.string().optional(), qboAccountType: z.string().optional(),
       payrollRpNumber: z.string().optional(), monthlyFee: z.number().optional(), craRacDone: z.boolean().optional(),
       hasHST: z.boolean().optional(), hstPeriod: z.string().optional(),
       hasWSIB: z.boolean().optional(), hasPayroll: z.boolean().optional(), payrollExternal: z.boolean().optional(),
@@ -573,6 +576,7 @@ export const onboardingRouter = createRouter({
 
       // client-level keys
       const clientKeys = ["name", "email", "phone", "company", "website", "address", "contactName", "taxId", "hstNumber",
+        "country", "province", "qboAccountType",
         "wsibAccountNumber", "clientType", "payrollRpNumber", "monthlyFee", "craRacDone", "hasHST", "hstPeriod", "hasWSIB", "hasPayroll", "payrollExternal",
         "payrollFrequency", "payrollRemitterFreq", "yearEndMonth", "hasIntercoJournals", "payrollHistoryUrl",
         "bio", "registryNumber", "incorporationDate", "corpType", "governmentStatus", "industry", "companyKey", "craRepId"] as const;
@@ -583,12 +587,18 @@ export const onboardingRouter = createRouter({
       // ONE business number drives the program accounts — derive HST (RT) and
       // payroll (RP) from the BN instead of asking for them separately.
       const bnNow = (clientPatch.taxId ?? prior?.taxId) as string | undefined;
-      if (bnNow) {
+      const countryNow = (clientPatch.country ?? prior?.country ?? "CA") as string;
+      // RT/RP program accounts are a CRA (Canada) construct — never derive them for
+      // a US client (their taxId is an EIN, with no RT/RP suffixes).
+      if (bnNow && countryNow !== "US") {
         const hasHstNow = clientPatch.hasHST ?? prior?.hasHST;
         const hasPayNow = clientPatch.hasPayroll ?? prior?.hasPayroll;
         if (hasHstNow && !(clientPatch.hstNumber || prior?.hstNumber)) clientPatch.hstNumber = `${bnNow}RT0001`;
         if (hasPayNow && !(clientPatch.payrollRpNumber || prior?.payrollRpNumber)) clientPatch.payrollRpNumber = `${bnNow}RP0001`;
       }
+      // Keep the QBO firm-mapping flag aligned with the country toggle.
+      if (clientPatch.country === "US" && clientPatch.qboAccountType === undefined) clientPatch.qboAccountType = "us_clients";
+      if (clientPatch.country === "CA" && clientPatch.qboAccountType === undefined) clientPatch.qboAccountType = "ca_clients";
       if (Object.keys(clientPatch).length > 1) await db.update(clients).set(clientPatch).where(eq(clients.id, clientId));
 
       // (Switching TO wholesale / inactive is handled by the reconcile below,
