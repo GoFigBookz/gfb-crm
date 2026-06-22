@@ -80,6 +80,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   // Insights — practice analytics + automation.
   const insightItems = [
+    ...(can.senior ? [{ to: "/insights", icon: DollarSign, label: "Pricing Insights" }] : []),
     { to: "/practice-health", icon: TrendingUp, label: "Practice Health" },
     { to: "/staff-workload", icon: UserCheck, label: "Staff Workload" },
     { to: "/satisfaction", icon: BarChart3, label: "Satisfaction" },

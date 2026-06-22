@@ -37,6 +37,7 @@ import Receipts from "./pages/Receipts";
 import Resources from "./pages/Resources";
 import IntakeDashboard from "./pages/IntakeDashboard";
 import PracticeHealth from "./pages/PracticeHealth";
+import Insights from "./pages/Insights";
 import ClientDashboard from "./pages/ClientDashboard";
 import ClientPortal from "./pages/ClientPortal";
 import PortalSettings from "./pages/PortalSettings";
@@ -102,6 +103,7 @@ function AppRoutes() {
         <Route path="/resources" element={<Resources />} />
         <Route path="/intake" element={<IntakeDashboard />} />
         <Route path="/practice-health" element={<PracticeHealth />} />
+        <Route path="/insights" element={<Insights />} />
         <Route path="/users" element={<UsersManagement />} />
         <Route path="/client/:clientId" element={<ClientDashboard />} />
         <Route path="/portal-settings" element={<PortalSettings />} />
