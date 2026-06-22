@@ -45015,6 +45015,7 @@ var init_client_activation = __esm({
 var sheet_inbound_sync_exports = {};
 __export(sheet_inbound_sync_exports, {
   pullClientMasterIntoCrm: () => pullClientMasterIntoCrm,
+  pullInactiveClientsIntoCrm: () => pullInactiveClientsIntoCrm,
   pullLeadsIntoCrm: () => pullLeadsIntoCrm,
   pullMasterIntoCrm: () => pullMasterIntoCrm
 });
@@ -45186,6 +45187,7 @@ async function pullLeadsIntoCrm() {
 async function pullMasterIntoCrm() {
   let clientsRes = { scanned: 0, updated: 0, created: 0 };
   let leadsRes = { scanned: 0, updated: 0, created: 0 };
+  let inactiveRes = { scanned: 0, updated: 0, created: 0 };
   try {
     clientsRes = await pullClientMasterIntoCrm();
   } catch (e) {
@@ -45196,7 +45198,93 @@ async function pullMasterIntoCrm() {
   } catch (e) {
     console.error("[inbound] leads pull failed:", e instanceof Error ? e.message : e);
   }
-  return { clients: clientsRes, leads: leadsRes };
+  try {
+    inactiveRes = await pullInactiveClientsIntoCrm();
+  } catch (e) {
+    console.error("[inbound] inactive pull failed:", e instanceof Error ? e.message : e);
+  }
+  return { clients: clientsRes, leads: leadsRes, inactive: inactiveRes };
+}
+async function pullInactiveClientsIntoCrm() {
+  const db = getDb();
+  const report = { scanned: 0, updated: 0, created: 0 };
+  const rows = await readMasterRange("'Inactive Clients'!A1:Z200");
+  if (rows.length < 2) return report;
+  const header2 = rows[0] || [];
+  const find2 = (...kws) => header2.findIndex((h) => {
+    const n = norm3(h);
+    return kws.some((k) => n.includes(k));
+  });
+  const ci = {
+    name: 0,
+    bn: find2("cra business", "business", "bn", "cra bn"),
+    industry: find2("industry"),
+    address: find2("address"),
+    phone: find2("phone"),
+    email: header2.findIndex((h) => norm3(h) === "email"),
+    website: find2("website"),
+    owner: find2("owner", "contact"),
+    notes: find2("notes"),
+    triage: find2("triage"),
+    registry: find2("registry"),
+    incorp: find2("incorp"),
+    corp: find2("corp type", "corp"),
+    govt: find2("govt", "government")
+  };
+  const all = await db.select().from(clients);
+  const byBn = /* @__PURE__ */ new Map();
+  const byName = /* @__PURE__ */ new Map();
+  for (const c of all) {
+    if (c.taxId) byBn.set(norm3(c.taxId), c);
+    byName.set(norm3(c.name), c);
+    if (c.company) byName.set(norm3(c.company), c);
+  }
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i] || [];
+    const name2 = clean2(r[ci.name]);
+    if (!name2) continue;
+    report.scanned++;
+    const bn = ci.bn >= 0 ? clean2(r[ci.bn]) : "";
+    const pick2 = (idx) => idx >= 0 ? clean2(r[idx]) : "";
+    const fields = {
+      status: "inactive",
+      taxId: bn || void 0,
+      industry: pick2(ci.industry) || void 0,
+      address: pick2(ci.address) || void 0,
+      phone: pick2(ci.phone) || void 0,
+      email: pick2(ci.email) || void 0,
+      website: pick2(ci.website) ? pick2(ci.website).toLowerCase() : void 0,
+      contactName: pick2(ci.owner) || void 0,
+      notes: pick2(ci.notes) || void 0,
+      figgyEmail: pick2(ci.triage) || void 0,
+      registryNumber: pick2(ci.registry) || void 0,
+      incorporationDate: pick2(ci.incorp) || void 0,
+      corpType: pick2(ci.corp) || void 0,
+      governmentStatus: pick2(ci.govt) || void 0
+    };
+    const match2 = bn && byBn.get(norm3(bn)) || byName.get(norm3(name2));
+    if (match2) {
+      const patch = { status: "inactive", updatedAt: /* @__PURE__ */ new Date() };
+      for (const [k, v] of Object.entries(fields)) if (v !== void 0 && String(match2[k] ?? "") !== String(v)) patch[k] = v;
+      await db.update(clients).set(patch).where(eq(clients.id, match2.id));
+      report.updated++;
+    } else {
+      const clean22 = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== void 0));
+      await db.insert(clients).values({
+        userId: 1,
+        name: name2,
+        company: name2,
+        email: fields.email || "",
+        workflowStatus: "inactive",
+        assignedTo: "Markie",
+        ...clean22(fields),
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      });
+      report.created++;
+    }
+  }
+  return report;
 }
 var norm3, clean2;
 var init_sheet_inbound_sync = __esm({
@@ -60661,7 +60749,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.22";
+var BUILD_TAG = "2026-06-22.23";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
