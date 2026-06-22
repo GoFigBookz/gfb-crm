@@ -22696,6 +22696,9 @@ var init_schema = __esm({
       qboAccountType: text("qboAccountType").default("ca_clients"),
       figgyEmail: text("figgyEmail"),
       contactName: text("contactName"),
+      // Client grouping — one owner (e.g. "John Smith") can have multiple companies;
+      // clients sharing a groupName are surfaced together as related companies.
+      groupName: text("groupName"),
       // CRA Represent a Client (RAC) authorization status
       craRacDone: integer2("craRacDone", { mode: "boolean" }).default(false),
       // Government-registry data (from Canada's Business Registries / auto-lookup on add).
@@ -40455,6 +40458,17 @@ var init_client_router = __esm({
         const result = await db.select().from(clients).where(clientScope(ctx, input.id)).limit(1);
         return result[0] ?? null;
       }),
+      // Other companies in the same owner/group (client grouping). Staff see all; a
+      // client-role user only ever sees their own, so returns empty for them.
+      related: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
+        if (ctx.user?.role === "client") return [];
+        const db = getDb();
+        const me = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        const g = (me?.groupName || "").trim();
+        if (!g) return [];
+        const all = await db.select().from(clients);
+        return all.filter((c) => c.id !== input.clientId && (c.groupName || "").trim().toLowerCase() === g.toLowerCase()).map((c) => ({ id: c.id, name: c.name, status: c.status })).sort((a, b) => a.name.localeCompare(b.name));
+      }),
       // Create client
       create: authedQuery.input(external_exports.object({
         name: external_exports.string().min(1).max(255),
@@ -40560,6 +40574,7 @@ var init_client_router = __esm({
         payrollHoursSource: external_exports.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
         monthlySalesReceipt: external_exports.boolean().optional(),
         salesReceiptSource: external_exports.string().optional(),
+        groupName: external_exports.string().optional(),
         yearEndMonth: external_exports.enum(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]).optional(),
         quoteAmount: external_exports.number().optional(),
         quoteSentAt: external_exports.string().optional(),
@@ -55224,6 +55239,7 @@ var init_ensure_clients_schema = __esm({
       ["figgyEmail", "text"],
       ["contactName", "text"],
       ["craRacDone", "integer DEFAULT 0"],
+      ["groupName", "text"],
       ["createdAt", "integer"],
       ["updatedAt", "integer"]
     ];
@@ -60101,7 +60117,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.09";
+var BUILD_TAG = "2026-06-22.10";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
