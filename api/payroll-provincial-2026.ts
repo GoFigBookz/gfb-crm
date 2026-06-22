@@ -87,18 +87,18 @@ export const PROVINCIAL_2026: Record<string, ProvTable> = {
   },
   PE: {
     code: "PE", name: "Prince Edward Island", lowestRate: 0.095, bpa: 15000, verified: true, sourceYear: 2026,
-    note: "Former 10% surtax repealed for 2024+.",
+    note: "6-bracket system; 20% over $200k in effect for 2026 (rollback from 2027). Surtax repealed 2024+. Middle thresholds indexation-derived (×1.018).",
     brackets: [
-      { upTo: 33328, rate: 0.095 }, { upTo: 64656, rate: 0.1347 }, { upTo: 105000, rate: 0.166 },
-      { upTo: 140000, rate: 0.1762 }, { upTo: Infinity, rate: 0.19 },
+      { upTo: 33928, rate: 0.095 }, { upTo: 65820, rate: 0.1347 }, { upTo: 106890, rate: 0.166 },
+      { upTo: 142520, rate: 0.1762 }, { upTo: 200000, rate: 0.19 }, { upTo: Infinity, rate: 0.20 },
     ],
   },
   NL: {
     code: "NL", name: "Newfoundland and Labrador", lowestRate: 0.087, bpa: 11188, verified: false, sourceYear: 2026,
-    note: "Floor + top threshold confirmed; middle thresholds to verify. BPA = current law ($15k proposed, not enacted).",
+    note: "Rates + endpoints confirmed; 6 middle thresholds computed (2025×1.011). BPA = current law ($15k proposed Budget 2026, enactment unconfirmed).",
     brackets: [
-      { upTo: 44678, rate: 0.087 }, { upTo: 89357, rate: 0.145 }, { upTo: 159953, rate: 0.158 },
-      { upTo: 223564, rate: 0.178 }, { upTo: 285230, rate: 0.198 }, { upTo: 570460, rate: 0.208 },
+      { upTo: 44678, rate: 0.087 }, { upTo: 89374, rate: 0.145 }, { upTo: 159528, rate: 0.158 },
+      { upTo: 223340, rate: 0.178 }, { upTo: 285318, rate: 0.198 }, { upTo: 570638, rate: 0.208 },
       { upTo: 1141275, rate: 0.213 }, { upTo: Infinity, rate: 0.218 },
     ],
   },

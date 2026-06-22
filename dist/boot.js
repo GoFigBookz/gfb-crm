@@ -46628,13 +46628,14 @@ var init_payroll_provincial_2026 = __esm({
         bpa: 15e3,
         verified: true,
         sourceYear: 2026,
-        note: "Former 10% surtax repealed for 2024+.",
+        note: "6-bracket system; 20% over $200k in effect for 2026 (rollback from 2027). Surtax repealed 2024+. Middle thresholds indexation-derived (\xD71.018).",
         brackets: [
-          { upTo: 33328, rate: 0.095 },
-          { upTo: 64656, rate: 0.1347 },
-          { upTo: 105e3, rate: 0.166 },
-          { upTo: 14e4, rate: 0.1762 },
-          { upTo: Infinity, rate: 0.19 }
+          { upTo: 33928, rate: 0.095 },
+          { upTo: 65820, rate: 0.1347 },
+          { upTo: 106890, rate: 0.166 },
+          { upTo: 142520, rate: 0.1762 },
+          { upTo: 2e5, rate: 0.19 },
+          { upTo: Infinity, rate: 0.2 }
         ]
       },
       NL: {
@@ -46644,14 +46645,14 @@ var init_payroll_provincial_2026 = __esm({
         bpa: 11188,
         verified: false,
         sourceYear: 2026,
-        note: "Floor + top threshold confirmed; middle thresholds to verify. BPA = current law ($15k proposed, not enacted).",
+        note: "Rates + endpoints confirmed; 6 middle thresholds computed (2025\xD71.011). BPA = current law ($15k proposed Budget 2026, enactment unconfirmed).",
         brackets: [
           { upTo: 44678, rate: 0.087 },
-          { upTo: 89357, rate: 0.145 },
-          { upTo: 159953, rate: 0.158 },
-          { upTo: 223564, rate: 0.178 },
-          { upTo: 285230, rate: 0.198 },
-          { upTo: 570460, rate: 0.208 },
+          { upTo: 89374, rate: 0.145 },
+          { upTo: 159528, rate: 0.158 },
+          { upTo: 223340, rate: 0.178 },
+          { upTo: 285318, rate: 0.198 },
+          { upTo: 570638, rate: 0.208 },
           { upTo: 1141275, rate: 0.213 },
           { upTo: Infinity, rate: 0.218 }
         ]
