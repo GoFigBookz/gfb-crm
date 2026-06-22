@@ -136,6 +136,33 @@ export const taskRouter = createRouter({
       return task;
     }),
 
+  // Natural-language task add: "add a task for Clark OS: file HST by Friday".
+  // Parses the client, due date, and priority out of the text. Same core a future
+  // SMS bot reuses. Respects RBAC — only clients the user can access are matchable.
+  quickAddFromText: authedQuery
+    .input(z.object({ text: z.string().min(1).max(500), preview: z.boolean().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const { parseTaskCommand } = await import("./task-command-core");
+      const { restrictedClientIds } = await import("./rbac");
+      const db = getDb();
+      const allowed = await restrictedClientIds(ctx);
+      const rows = await db.select({ id: clients.id, name: clients.name }).from(clients);
+      const list = (rows as any[]).filter((c) => allowed === null || allowed.includes(c.id));
+      const parsed = parseTaskCommand(input.text, list);
+      if (input.preview) return { parsed, task: null };
+      const [task] = await db.insert(tasks).values({
+        userId: ctx.user.id,
+        clientId: parsed.clientId,
+        title: parsed.title,
+        dueDate: parsed.dueDate,
+        priority: parsed.priority,
+        status: "pending",
+        completed: false,
+      }).returning();
+      if (task) syncInsert("tasks", task);
+      return { parsed, task };
+    }),
+
   // Complete task (with auto-recurrence for rule-based tasks)
   complete: authedQuery
     .input(z.object({ id: z.number() }))

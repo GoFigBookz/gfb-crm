@@ -11220,13 +11220,13 @@ function _promise(Class2, innerType) {
 }
 // @__NO_SIDE_EFFECTS__
 function _custom(Class2, fn, _params) {
-  const norm8 = normalizeParams(_params);
-  norm8.abort ?? (norm8.abort = true);
+  const norm9 = normalizeParams(_params);
+  norm9.abort ?? (norm9.abort = true);
   const schema = new Class2({
     type: "custom",
     check: "custom",
     fn,
-    ...norm8
+    ...norm9
   });
   return schema;
 }
@@ -39924,6 +39924,13 @@ var init_auth_router = __esm({
 });
 
 // api/rbac.ts
+var rbac_exports = {};
+__export(rbac_exports, {
+  canAccessClient: () => canAccessClient,
+  getClientAccessGrants: () => getClientAccessGrants,
+  restrictedClientIds: () => restrictedClientIds,
+  setClientAccessGrants: () => setClientAccessGrants
+});
 function seesAllClients(role) {
   return role === "admin" || role === "senior_bookkeeper";
 }
@@ -39934,6 +39941,11 @@ async function restrictedClientIds(ctx) {
   if (!user.restrictedToClients) return null;
   const rows = await getDb().select().from(clientAccess).where(eq(clientAccess.userId, user.id));
   return rows.map((r) => r.clientId);
+}
+async function canAccessClient(ctx, clientId) {
+  const ids = await restrictedClientIds(ctx);
+  if (ids === null) return true;
+  return ids.includes(clientId);
 }
 async function setClientAccessGrants(userId, clientIds) {
   const db = getDb();
@@ -41862,6 +41874,126 @@ var init_workflow_templates = __esm({
   }
 });
 
+// api/task-command-core.ts
+var task_command_core_exports = {};
+__export(task_command_core_exports, {
+  extractDueDate: () => extractDueDate,
+  matchClient: () => matchClient,
+  parseTaskCommand: () => parseTaskCommand
+});
+function stripLeadVerb(text2) {
+  return text2.replace(/^\s*(please\s+)?(add|create|make|new|log|set up|setup)\s+(a\s+|an\s+)?task\s*(to|for|:)?\s*/i, "").replace(/^\s*(remind me to|todo|to-do|reminder)\s*:?\s*/i, "").trim();
+}
+function extractPriority(text2) {
+  let priority = "medium";
+  let out = text2;
+  if (/\b(urgent|asap|high priority|important|critical)\b/i.test(out) || /!{2,}/.test(out)) {
+    priority = "high";
+    out = out.replace(/\b(urgent|asap|high priority|important|critical)\b/gi, "").replace(/!{2,}/g, "");
+  } else if (/\b(low priority|whenever|no rush|someday)\b/i.test(out)) {
+    priority = "low";
+    out = out.replace(/\b(low priority|whenever|no rush|someday)\b/gi, "");
+  }
+  return { text: out.replace(/\s+/g, " ").trim(), priority };
+}
+function extractDueDate(text2, now = /* @__PURE__ */ new Date()) {
+  const at = (d) => {
+    d.setHours(17, 0, 0, 0);
+    return d;
+  };
+  const lower = text2.toLowerCase();
+  const rel = [
+    [/\b(today|tonight|eod|end of day)\b/, () => at(new Date(now))],
+    [/\btomorrow\b/, () => at(addDays(now, 1))],
+    [/\b(this week|by end of week|eow)\b/, () => at(endOfWeek(now))],
+    [/\b(next week)\b/, () => at(addDays(now, 7))],
+    [/\b(this month|end of month|eom)\b/, () => at(endOfMonth2(now))],
+    [/\bin (\d+) days?\b/, () => {
+      const m = lower.match(/\bin (\d+) days?\b/);
+      return at(addDays(now, Number(m[1])));
+    }],
+    [/\bin (\d+) weeks?\b/, () => {
+      const m = lower.match(/\bin (\d+) weeks?\b/);
+      return at(addDays(now, Number(m[1]) * 7));
+    }]
+  ];
+  for (const [re, fn] of rel) {
+    if (re.test(lower)) return { text: stripMatch(text2, re), dueDate: fn() };
+  }
+  const wd = lower.match(/\b(?:by |on |next )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+  if (wd) {
+    const target = WEEKDAYS.indexOf(wd[1]);
+    const d = new Date(now);
+    let delta = (target - d.getDay() + 7) % 7;
+    if (delta === 0) delta = 7;
+    return { text: stripMatch(text2, /\b(?:by |on |next )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i), dueDate: at(addDays(now, delta)) };
+  }
+  const md = lower.match(/\b(?:by |on |due )?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b/);
+  if (md) {
+    const month = MONTHS2.indexOf(md[1]);
+    const day2 = Number(md[2]);
+    let year2 = now.getFullYear();
+    const cand = new Date(year2, month, day2);
+    if (cand.getTime() < now.getTime() - 864e5) year2 += 1;
+    return { text: stripMatch(text2, /\b(?:by |on |due )?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}\b/i), dueDate: at(new Date(year2, month, day2)) };
+  }
+  return { text: text2 };
+}
+function stripMatch(text2, re) {
+  return text2.replace(re, "").replace(/\s{2,}/g, " ").replace(/\s+([:,.;])/g, "$1").trim().replace(/^[\s:,-]+|[\s:,-]+$/g, "").trim();
+}
+function addDays(d, n) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+function endOfWeek(d) {
+  return addDays(d, (5 - d.getDay() + 7) % 7 || 0);
+}
+function endOfMonth2(d) {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+}
+function matchClient(text2, clients3) {
+  const n = norm3(text2);
+  let best = null;
+  for (const c of clients3) {
+    const cn = norm3(c.name);
+    if (!cn) continue;
+    const idx = n.indexOf(cn);
+    if (idx >= 0 && (!best || cn.length > best.len)) best = { client: c, idx, len: cn.length };
+  }
+  if (!best) return { text: text2 };
+  const re = new RegExp(`\\b(for|to)?\\s*${best.client.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+  const cleaned = text2.replace(re, "").replace(/\s{2,}/g, " ").replace(/^[\s:,-]+|[\s:,-]+$/g, "").trim();
+  return { text: cleaned, client: best.client };
+}
+function parseTaskCommand(raw2, clients3, now = /* @__PURE__ */ new Date()) {
+  let text2 = stripLeadVerb(raw2);
+  const c = matchClient(text2, clients3);
+  text2 = c.text;
+  const d = extractDueDate(text2, now);
+  text2 = d.text;
+  const p = extractPriority(text2);
+  text2 = p.text;
+  const title = text2.replace(/\s+/g, " ").trim() || raw2.trim();
+  return {
+    title,
+    clientId: c.client?.id,
+    clientName: c.client?.name,
+    dueDate: d.dueDate,
+    priority: p.priority,
+    matchedClient: !!c.client
+  };
+}
+var norm3, WEEKDAYS, MONTHS2;
+var init_task_command_core = __esm({
+  "api/task-command-core.ts"() {
+    norm3 = (s) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    MONTHS2 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  }
+});
+
 // api/task-router.ts
 var taskRouter;
 var init_task_router = __esm({
@@ -41961,6 +42093,30 @@ var init_task_router = __esm({
         }).returning();
         if (task) syncInsert("tasks", task);
         return task;
+      }),
+      // Natural-language task add: "add a task for Clark OS: file HST by Friday".
+      // Parses the client, due date, and priority out of the text. Same core a future
+      // SMS bot reuses. Respects RBAC — only clients the user can access are matchable.
+      quickAddFromText: authedQuery.input(external_exports.object({ text: external_exports.string().min(1).max(500), preview: external_exports.boolean().optional() })).mutation(async ({ ctx, input }) => {
+        const { parseTaskCommand: parseTaskCommand2 } = await Promise.resolve().then(() => (init_task_command_core(), task_command_core_exports));
+        const { restrictedClientIds: restrictedClientIds2 } = await Promise.resolve().then(() => (init_rbac(), rbac_exports));
+        const db = getDb();
+        const allowed = await restrictedClientIds2(ctx);
+        const rows = await db.select({ id: clients.id, name: clients.name }).from(clients);
+        const list = rows.filter((c) => allowed === null || allowed.includes(c.id));
+        const parsed = parseTaskCommand2(input.text, list);
+        if (input.preview) return { parsed, task: null };
+        const [task] = await db.insert(tasks).values({
+          userId: ctx.user.id,
+          clientId: parsed.clientId,
+          title: parsed.title,
+          dueDate: parsed.dueDate,
+          priority: parsed.priority,
+          status: "pending",
+          completed: false
+        }).returning();
+        if (task) syncInsert("tasks", task);
+        return { parsed, task };
       }),
       // Complete task (with auto-recurrence for rule-based tasks)
       complete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
@@ -44804,7 +44960,7 @@ function statusInF(v) {
 function resolveColumns(header2) {
   const map2 = /* @__PURE__ */ new Map();
   for (let i = 0; i < header2.length; i++) {
-    const h = norm3(header2[i]);
+    const h = norm4(header2[i]);
     if (!h) continue;
     for (const f of MASTER_FIELDS) {
       if (map2.has(f.key)) continue;
@@ -44877,8 +45033,8 @@ async function upsertClientToMaster(c) {
       rows = [DEFAULT_MASTER_HEADER.slice()];
     }
     let header2 = rows[0] || [];
-    const haveHeaders = new Set(header2.map((h) => norm3(h)));
-    const missing = PLATFORM_HEADERS.filter((h) => !haveHeaders.has(norm3(h)));
+    const haveHeaders = new Set(header2.map((h) => norm4(h)));
+    const missing = PLATFORM_HEADERS.filter((h) => !haveHeaders.has(norm4(h)));
     if (missing.length) {
       try {
         const targetWidth = header2.length + missing.length;
@@ -44923,16 +45079,16 @@ async function upsertClientToMaster(c) {
     const bnCol = cols.get("craBn");
     const nameCol = cols.get("name") ?? 0;
     const bn = (c.taxId || "").trim();
-    const nameKey = norm3(c.name || c.company);
+    const nameKey = norm4(c.name || c.company);
     let matchIdx = -1;
     if (bn && bnCol != null) for (let i = 1; i < rows.length; i++) {
-      if (norm3((rows[i] || [])[bnCol]) === norm3(bn)) {
+      if (norm4((rows[i] || [])[bnCol]) === norm4(bn)) {
         matchIdx = i;
         break;
       }
     }
     if (matchIdx < 0 && nameKey) for (let i = 1; i < rows.length; i++) {
-      if (norm3((rows[i] || [])[nameCol]) === nameKey) {
+      if (norm4((rows[i] || [])[nameCol]) === nameKey) {
         matchIdx = i;
         break;
       }
@@ -45012,13 +45168,13 @@ async function upsertLeadToMaster(c) {
     const email3 = (c.email || "").trim();
     let matchIdx = -1;
     for (let i = 1; i < rows.length; i++) {
-      if (id && norm3((rows[i] || [])[13]) === norm3(id)) {
+      if (id && norm4((rows[i] || [])[13]) === norm4(id)) {
         matchIdx = i;
         break;
       }
     }
     if (matchIdx < 0 && email3) for (let i = 1; i < rows.length; i++) {
-      if (norm3((rows[i] || [])[3]) === norm3(email3)) {
+      if (norm4((rows[i] || [])[3]) === norm4(email3)) {
         matchIdx = i;
         break;
       }
@@ -45041,7 +45197,7 @@ function syncLeadToMaster(c) {
   upsertLeadToMaster(c).catch(() => {
   });
 }
-var CANONICAL_MASTER_SHEET_ID, MASTER_TAB, LEADS_TAB, SYNC_WEBHOOK, norm3, cap, titleCadence, titlePay, titleRemit, boolToSheet, boolFromSheet, MASTER_FIELDS, PLATFORM_HEADERS, DEFAULT_MASTER_HEADER, LEAD_COLS, LEAD_N, leadLastCol;
+var CANONICAL_MASTER_SHEET_ID, MASTER_TAB, LEADS_TAB, SYNC_WEBHOOK, norm4, cap, titleCadence, titlePay, titleRemit, boolToSheet, boolFromSheet, MASTER_FIELDS, PLATFORM_HEADERS, DEFAULT_MASTER_HEADER, LEAD_COLS, LEAD_N, leadLastCol;
 var init_master_sheet_sync = __esm({
   "api/master-sheet-sync.ts"() {
     init_connection();
@@ -45051,7 +45207,7 @@ var init_master_sheet_sync = __esm({
     MASTER_TAB = "Client Master";
     LEADS_TAB = "Leads";
     SYNC_WEBHOOK = process.env.FIGGY_SHEET_SYNC_WEBHOOK || "https://hook.us2.make.com/d4h33m0na6ulrlm9nkv9dyyfa8hv1bcs";
-    norm3 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm4 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
     titleCadence = { annual: "Annual", quarterly: "Quarterly", monthly: "Monthly" };
     titlePay = { weekly: "Weekly", "bi-weekly": "Bi-Weekly", "semi-monthly": "Semi-Monthly", monthly: "Monthly", self: "Self" };
@@ -45341,9 +45497,9 @@ async function pullClientMasterIntoCrm() {
   const byBn = /* @__PURE__ */ new Map();
   const byName = /* @__PURE__ */ new Map();
   for (const c of all) {
-    if (c.taxId) byBn.set(norm4(c.taxId), c);
-    byName.set(norm4(c.name), c);
-    if (c.company) byName.set(norm4(c.company), c);
+    if (c.taxId) byBn.set(norm5(c.taxId), c);
+    byName.set(norm5(c.name), c);
+    if (c.company) byName.set(norm5(c.company), c);
   }
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i] || [];
@@ -45362,7 +45518,7 @@ async function pullClientMasterIntoCrm() {
       if (!patch) continue;
       Object.assign(f.onb ? onb : sv, patch);
     }
-    const match2 = bn && byBn.get(norm4(bn)) || byName.get(norm4(name2));
+    const match2 = bn && byBn.get(norm5(bn)) || byName.get(norm5(name2));
     if (match2) {
       const patch = {};
       for (const [k, v] of Object.entries(sv)) {
@@ -45403,7 +45559,7 @@ async function pullLeadsIntoCrm() {
   const all = (await db.select().from(clients)).map((c) => ({ ...c }));
   const byId = new Map(all.map((c) => [c.id, c]));
   const byEmail = /* @__PURE__ */ new Map();
-  for (const c of all) if (c.email) byEmail.set(norm4(c.email), c);
+  for (const c of all) if (c.email) byEmail.set(norm5(c.email), c);
   for (const r of rows) {
     const leadName = clean2(r[1]);
     const business = clean2(r[2]);
@@ -45411,7 +45567,7 @@ async function pullLeadsIntoCrm() {
     report.scanned++;
     const email3 = clean2(r[3]);
     const crmId = Number(clean2(r[13])) || 0;
-    const match2 = crmId && byId.get(crmId) || email3 && byEmail.get(norm4(email3));
+    const match2 = crmId && byId.get(crmId) || email3 && byEmail.get(norm5(email3));
     const sv = {};
     const set2 = (k, v) => {
       if (v !== null && v !== void 0 && v !== "") sv[k] = v;
@@ -45501,7 +45657,7 @@ async function pullInactiveClientsIntoCrm() {
   if (rows.length < 2) return report;
   const header2 = rows[0] || [];
   const find2 = (...kws) => header2.findIndex((h) => {
-    const n = norm4(h);
+    const n = norm5(h);
     return kws.some((k) => n.includes(k));
   });
   const ci = {
@@ -45510,7 +45666,7 @@ async function pullInactiveClientsIntoCrm() {
     industry: find2("industry"),
     address: find2("address"),
     phone: find2("phone"),
-    email: header2.findIndex((h) => norm4(h) === "email"),
+    email: header2.findIndex((h) => norm5(h) === "email"),
     website: find2("website"),
     owner: find2("owner", "contact"),
     notes: find2("notes"),
@@ -45524,9 +45680,9 @@ async function pullInactiveClientsIntoCrm() {
   const byBn = /* @__PURE__ */ new Map();
   const byName = /* @__PURE__ */ new Map();
   for (const c of all) {
-    if (c.taxId) byBn.set(norm4(c.taxId), c);
-    byName.set(norm4(c.name), c);
-    if (c.company) byName.set(norm4(c.company), c);
+    if (c.taxId) byBn.set(norm5(c.taxId), c);
+    byName.set(norm5(c.name), c);
+    if (c.company) byName.set(norm5(c.company), c);
   }
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i] || [];
@@ -45551,7 +45707,7 @@ async function pullInactiveClientsIntoCrm() {
       corpType: pick2(ci.corp) || void 0,
       governmentStatus: pick2(ci.govt) || void 0
     };
-    const match2 = bn && byBn.get(norm4(bn)) || byName.get(norm4(name2));
+    const match2 = bn && byBn.get(norm5(bn)) || byName.get(norm5(name2));
     if (match2) {
       const patch = { status: "inactive", updatedAt: /* @__PURE__ */ new Date() };
       for (const [k, v] of Object.entries(fields)) if (v !== void 0 && String(match2[k] ?? "") !== String(v)) patch[k] = v;
@@ -45575,14 +45731,14 @@ async function pullInactiveClientsIntoCrm() {
   }
   return report;
 }
-var norm4, clean2;
+var norm5, clean2;
 var init_sheet_inbound_sync = __esm({
   "api/sheet-inbound-sync.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     init_master_sheet_sync();
-    norm4 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm5 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     clean2 = (v) => {
       const s = String(v ?? "").trim();
       return /^(n\/?a|none|null)$/i.test(s) ? "" : s;
@@ -48225,18 +48381,18 @@ var init_payroll_router = __esm({
           return { ok: false, error: e instanceof Error ? e.message : String(e), matched: 0, unmatched: [], totalUsers: 0 };
         }
         const emps = await db.select().from(employees).where(eq(employees.clientId, run2.clientId));
-        const norm8 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+        const norm9 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
         const byAlias = /* @__PURE__ */ new Map();
         const byFull = /* @__PURE__ */ new Map();
         const byFirst = /* @__PURE__ */ new Map();
         for (const e of emps) {
-          if (e.jobberName) byAlias.set(norm8(e.jobberName), e);
-          byFull.set(norm8(`${e.firstName} ${e.lastName}`), e);
-          if (!byFirst.has(norm8(e.firstName))) byFirst.set(norm8(e.firstName), e);
+          if (e.jobberName) byAlias.set(norm9(e.jobberName), e);
+          byFull.set(norm9(`${e.firstName} ${e.lastName}`), e);
+          if (!byFirst.has(norm9(e.firstName))) byFirst.set(norm9(e.firstName), e);
         }
         const matchEmp = (jobberLabel) => {
-          const n = norm8(jobberLabel);
-          return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm8(n.split(" ")[0])) || null;
+          const n = norm9(jobberLabel);
+          return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm9(n.split(" ")[0])) || null;
         };
         const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
         const lineByEmp = new Map(lines.map((l) => [l.employeeId, l]));
@@ -49035,10 +49191,10 @@ function normalizePhone(raw2) {
 }
 async function matchClientByPhone(phone) {
   const db = getDb();
-  const norm8 = normalizePhone(phone);
-  if (!norm8) return null;
+  const norm9 = normalizePhone(phone);
+  if (!norm9) return null;
   const all = await db.select().from(clients);
-  const hit = all.find((c) => normalizePhone(c.phone || "") === norm8);
+  const hit = all.find((c) => normalizePhone(c.phone || "") === norm9);
   return hit ? { id: hit.id, name: hit.name } : null;
 }
 async function ingestInboundSms(from, body, externalId) {
@@ -49753,12 +49909,12 @@ var init_time_router = __esm({
         const targetYear = input.year ?? now.getFullYear();
         const targetMonth = input.month ?? now.getMonth() + 1;
         const startOfMonth = new Date(targetYear, targetMonth - 1, 1);
-        const endOfMonth2 = new Date(targetYear, targetMonth, 0);
+        const endOfMonth3 = new Date(targetYear, targetMonth, 0);
         const entries = await db.select().from(timeEntries).where(
           and(
             eq(timeEntries.clientId, input.clientId),
             gte(timeEntries.date, startOfMonth),
-            lte(timeEntries.date, endOfMonth2)
+            lte(timeEntries.date, endOfMonth3)
           )
         ).orderBy(desc(timeEntries.date));
         const totalHours = entries.reduce((sum3, e) => sum3 + (e.hours || 0), 0);
@@ -49793,9 +49949,9 @@ var init_time_router = __esm({
         const db = getDb();
         const now = /* @__PURE__ */ new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth2 = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const endOfMonth3 = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         const startDate = input?.startDate ? new Date(input.startDate) : startOfMonth;
-        const endDate = input?.endDate ? new Date(input.endDate) : endOfMonth2;
+        const endDate = input?.endDate ? new Date(input.endDate) : endOfMonth3;
         const entries = await db.select().from(timeEntries).where(and(gte(timeEntries.date, startDate), lte(timeEntries.date, endDate))).orderBy(desc(timeEntries.date));
         const clientHours = {};
         entries.forEach((e) => {
@@ -49869,12 +50025,12 @@ var init_time_router = __esm({
         const userId = input?.userId || ctx.user.id;
         const now = /* @__PURE__ */ new Date();
         const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-        const endOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 6, 23, 59, 59);
+        const endOfWeek2 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 6, 23, 59, 59);
         const entries = await db.select().from(timeEntries).where(
           and(
             eq(timeEntries.userId, userId),
             gte(timeEntries.date, startOfWeek),
-            lte(timeEntries.date, endOfWeek)
+            lte(timeEntries.date, endOfWeek2)
           )
         );
         const totalHours = entries.reduce((sum3, e) => sum3 + (e.hours || 0), 0);
@@ -49882,7 +50038,7 @@ var init_time_router = __esm({
           totalHours,
           entryCount: entries.length,
           startOfWeek: startOfWeek.toISOString(),
-          endOfWeek: endOfWeek.toISOString()
+          endOfWeek: endOfWeek2.toISOString()
         };
       })
     });
@@ -49907,7 +50063,7 @@ var init_workload_router = __esm({
         ).orderBy(desc(users.createdAt));
         const now = /* @__PURE__ */ new Date();
         const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-        const endOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 6, 23, 59, 59);
+        const endOfWeek2 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 6, 23, 59, 59);
         const result = await Promise.all(
           staffUsers.map(async (user) => {
             const openTasks = await db.select().from(tasks).where(and(eq(tasks.assignedTo, user.name || user.email), eq(tasks.completed, false)));
@@ -49918,7 +50074,7 @@ var init_workload_router = __esm({
               and(
                 eq(timeEntries.userId, user.id),
                 gte(timeEntries.date, startOfWeek),
-                lte(timeEntries.date, endOfWeek)
+                lte(timeEntries.date, endOfWeek2)
               )
             );
             const weekHours = weekEntries.reduce((sum3, e) => sum3 + (e.hours || 0), 0);
@@ -50138,7 +50294,7 @@ async function scorecard(db, clientId) {
 }
 function fiscalYearEndMonthNum(yearEndMonth) {
   if (!yearEndMonth) return null;
-  const i = MONTHS2.indexOf(yearEndMonth);
+  const i = MONTHS3.indexOf(yearEndMonth);
   return i < 0 ? null : i + 1;
 }
 async function statusForClient(db, client, asOf) {
@@ -50203,7 +50359,7 @@ async function computePortfolio(asOf) {
   };
   return { clients: out, summary };
 }
-var MONTHS2, monthEndRouter;
+var MONTHS3, monthEndRouter;
 var init_month_end_router = __esm({
   "api/month-end-router.ts"() {
     init_zod();
@@ -50212,7 +50368,7 @@ var init_month_end_router = __esm({
     init_schema();
     init_drizzle_orm();
     init_month_end_core();
-    MONTHS2 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    MONTHS3 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     monthEndRouter = createRouter({
       // Deep per-client status for the client page cockpit.
       getClientStatus: authedQuery.input(external_exports.object({ clientId: external_exports.number(), asOf: external_exports.string().optional() })).query(async ({ input }) => {
@@ -54050,7 +54206,7 @@ async function dedupeClients(confirm) {
   const groups = /* @__PURE__ */ new Map();
   for (const r of clientRows) {
     const id = Number(r.id ?? r[0]);
-    const key = `${norm5(r.name ?? r[1])}|${norm5(r.company ?? r[2])}`;
+    const key = `${norm6(r.name ?? r[1])}|${norm6(r.company ?? r[2])}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(id);
   }
@@ -54130,12 +54286,12 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm5, asRows, num;
+var norm6, asRows, num;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
-    norm5 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    norm6 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
     num = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
@@ -54175,7 +54331,7 @@ __export(import_client_master_exports, {
 });
 function onboardingFromRow(clientId, r) {
   const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(r.ye);
-  const fiscalYearEnd = m ? `${MONTHS3[Number(m[1]) - 1]} ${Number(m[2])}` : null;
+  const fiscalYearEnd = m ? `${MONTHS4[Number(m[1]) - 1]} ${Number(m[2])}` : null;
   return {
     clientId,
     userId: 1,
@@ -54349,7 +54505,7 @@ async function importClientMaster() {
     claimed.add(clientId);
     const payFreq = payMap[r.pay.toLowerCase()] ?? null;
     const hstPeriod = hstMap[r.hst.toLowerCase()] ?? null;
-    const yearEndMonth = /^\d{4}-(\d{2})-\d{2}$/.test(r.ye) ? MONTHS3[Number(r.ye.slice(5, 7)) - 1] : null;
+    const yearEndMonth = /^\d{4}-(\d{2})-\d{2}$/.test(r.ye) ? MONTHS4[Number(r.ye.slice(5, 7)) - 1] : null;
     const patch = {
       name: reorderNumberedName(prettyName(r.name)),
       // clean casing + operating-name-first
@@ -54406,7 +54562,7 @@ async function importClientMaster() {
   }
   return report;
 }
-var F, D, ROWS, MONTHS3, payMap, hstMap, hstFreqForTasks, payFreqForTasks, NAME_OVERRIDES, SMALL_WORDS, norm22, asRows2;
+var F, D, ROWS, MONTHS4, payMap, hstMap, hstFreqForTasks, payFreqForTasks, NAME_OVERRIDES, SMALL_WORDS, norm22, asRows2;
 var init_import_client_master = __esm({
   "api/import-client-master.ts"() {
     init_connection();
@@ -54451,7 +54607,7 @@ var init_import_client_master = __esm({
       { name: "FLEMING ADVISORY INC. (fka Kaavio)", bn: "736845488", pay: "", hst: "Annually", wsib: "", ye: "2025-12-31", folder: F + "1ynQJzY3sffTICdqU8cWoenW5ZhRxz_o3", doc: D + "1jv_rIscsDekjSLqsWHpw-iD4J4A_hed-VTf8QkJ6ktQ" },
       { name: "UNIVERSAL DRYWALL (USA)", bn: "", pay: "", hst: "", wsib: "", ye: "", folder: F + "1y1Tg7_k8u3d3NTJs2C-dYNIjdj83UokB", doc: D + "1wGoGDChnBCusbDYoHC1ZsKfqc42JtHFqPr0N3gJuvYQ" }
     ];
-    MONTHS3 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    MONTHS4 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     payMap = { weekly: "weekly", "bi-weekly": "bi-weekly", "semi-monthly": "semi-monthly", monthly: "monthly" };
     hstMap = { annually: "annual", quarterly: "quarterly", monthly: "monthly" };
     hstFreqForTasks = { annually: "annually", quarterly: "quarterly", monthly: "monthly" };
@@ -54820,7 +54976,7 @@ async function seedPayrollEmployees() {
   for (const mv of PAYROLL_EMPLOYEE_MOVES) {
     const to = findClient(clientsNow, mv.toMatch);
     if (!to) continue;
-    const matches = (await db.select().from(employees)).filter((e) => norm6(e.firstName) === norm6(mv.firstName) && norm6(e.lastName) === norm6(mv.lastName));
+    const matches = (await db.select().from(employees)).filter((e) => norm7(e.firstName) === norm7(mv.firstName) && norm7(e.lastName) === norm7(mv.lastName));
     for (const e of matches) {
       if (e.clientId === to.id) continue;
       const from = findClient(clientsNow, mv.fromMatch);
@@ -54845,7 +55001,7 @@ async function seedPayrollEmployees() {
     for (const link of PAYROLL_CONTRACT_LINKS) {
       const client = findClient(clientsNow, link.clientMatch);
       if (!client) continue;
-      const emp = all.find((e) => e.clientId === client.id && norm6(e.firstName) === norm6(link.firstName) && (!link.lastName || norm6(e.lastName) === norm6(link.lastName)));
+      const emp = all.find((e) => e.clientId === client.id && norm7(e.firstName) === norm7(link.firstName) && (!link.lastName || norm7(e.lastName) === norm7(link.lastName)));
       if (emp && !emp.contractUrl) {
         await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
         contracts++;
@@ -54856,7 +55012,7 @@ async function seedPayrollEmployees() {
     console.log(`[seed] payroll employees: +${result.added} -${result.removed} moved ${moved} salary-filled ${filled} contracts ${contracts}`);
   return { ...result, moved, filled, contracts };
 }
-var PAYROLL_EMPLOYEE_MOVES, norm6, findClient;
+var PAYROLL_EMPLOYEE_MOVES, norm7, findClient;
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
@@ -54867,8 +55023,8 @@ var init_seed_payroll_employees = __esm({
     PAYROLL_EMPLOYEE_MOVES = [
       { firstName: "Stacey", lastName: "Gillham", fromMatch: "2303851", toMatch: "originality", note: "Moved to Originality as of the 15th" }
     ];
-    norm6 = (s) => (s || "").toLowerCase().trim();
-    findClient = (all, match2) => all.find((c) => norm6(c.name).includes(norm6(match2)));
+    norm7 = (s) => (s || "").toLowerCase().trim();
+    findClient = (all, match2) => all.find((c) => norm7(c.name).includes(norm7(match2)));
   }
 });
 
@@ -56355,7 +56511,7 @@ __export(seed_hst_dates_exports, {
 function dueDateFromMonthYear(s) {
   const m = /([A-Za-z]{3})[A-Za-z]*\s+(\d{4})/.exec((s || "").trim());
   if (!m) return null;
-  const mo = MONTHS4[m[1].toLowerCase()];
+  const mo = MONTHS5[m[1].toLowerCase()];
   const yr = Number(m[2]);
   if (!mo || !yr) return null;
   const last = new Date(Date.UTC(yr, mo, 0)).getUTCDate();
@@ -56419,14 +56575,14 @@ async function seedHstDates() {
   }
   return report;
 }
-var MONTHS4, ROWS2;
+var MONTHS5, ROWS2;
 var init_seed_hst_dates = __esm({
   "api/seed-hst-dates.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     init_task_generator();
-    MONTHS4 = {
+    MONTHS5 = {
       jan: 1,
       feb: 2,
       mar: 3,
@@ -56558,8 +56714,8 @@ async function seedGovRegistry() {
     return report;
   }
   for (const g of GOV) {
-    let c = g.bn ? all.find((x) => norm7(x.taxId) === norm7(g.bn)) : void 0;
-    if (!c && g.nameKey) c = all.find((x) => norm7(x.name).includes(norm7(g.nameKey)) || norm7(x.company).includes(norm7(g.nameKey)));
+    let c = g.bn ? all.find((x) => norm8(x.taxId) === norm8(g.bn)) : void 0;
+    if (!c && g.nameKey) c = all.find((x) => norm8(x.name).includes(norm8(g.nameKey)) || norm8(x.company).includes(norm8(g.nameKey)));
     if (!c) continue;
     report.matched++;
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
@@ -56578,7 +56734,7 @@ async function seedGovRegistry() {
   }
   return report;
 }
-var GOV, norm7;
+var GOV, norm8;
 var init_seed_gov_registry = __esm({
   "api/seed-gov-registry.ts"() {
     init_connection();
@@ -56620,7 +56776,7 @@ var init_seed_gov_registry = __esm({
       { bn: "809545346", industry: "Healthcare/Wellness", bio: "Healthcare business in the osteopathic / wellness field, providing therapeutic services and alternative health treatments." },
       { nameKey: "universal drywall", industry: "Construction/Drywall", bio: "Drywall and construction services company providing interior framing, drywall installation and exterior finishes. USA (Florida) entity." }
     ];
-    norm7 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm8 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   }
 });
 
@@ -61136,7 +61292,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.31";
+var BUILD_TAG = "2026-06-22.32";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

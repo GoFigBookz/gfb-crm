@@ -167,6 +167,21 @@ practiceMemory     (id, clientId?, key, value, rationale,
 
 ---
 
+### Built now: natural-language "add a task for client X" (2026-06-22)
+The specific thing Markie asked for ("text the bot: add this task for client X") has
+a **deterministic, dependency-free core shipped**: `api/task-command-core.ts`
+(`parseTaskCommand`) extracts the client (longest name match), title, due date
+("Friday"/"tomorrow"/"in 3 days"/"by Jun 30"), and priority ("urgent") from one
+line of text. Unit-tested (`task-command-core.test.ts`, 10 cases). Exposed as tRPC
+`task.quickAddFromText` (RBAC-scoped — only matchable to clients the user can
+access) and wired into the **Quick Add** page as a "type it like a text" box.
+**To make it literally text-able:** stand up the Twilio `POST /api/sms/inbound`
+route (section 2) and, when a message starts with "add task"/"remind me", call the
+SAME `parseTaskCommand` + create the task, replying with a confirmation. The parser
+is the shared brain; SMS is just another front door. An LLM (Claude) fallback can
+wrap the parser later for fuzzier phrasing — but the cheap path covers the common
+case today.
+
 ## 2. Texting (SMS) clients
 
 ### Recommended approach
