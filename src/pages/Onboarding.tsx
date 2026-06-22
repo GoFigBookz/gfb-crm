@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router";
-import { FileText, Send, CheckCircle, Clock, Link2, UserCheck, Building2, Receipt, Users, Plus, Save, Loader2 } from "lucide-react";
+import { FileText, Send, CheckCircle, Clock, Link2, UserCheck, Building2, Receipt, Users, Plus, Save, Loader2, FileSpreadsheet, ArrowRightLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,8 @@ export default function Onboarding() {
   const { data: staffList } = trpc.user.list.useQuery(undefined, { retry: false });
   const utils = trpc.useUtils();
 
+  const syncAll = trpc.onboarding.syncAllToMaster.useMutation();
+  const pullMaster = trpc.onboarding.pullFromMaster.useMutation();
   const createOnboarding = trpc.onboarding.create.useMutation({
     onSuccess: (data) => {
       setGeneratedLink(data.url);
@@ -527,6 +529,30 @@ export default function Onboarding() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Google Sheet (Client Master) sync — manual push/pull */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Client Master Google Sheet</CardTitle>
+          <CardDescription>Push every client to the master sheet (provisions the per-platform columns + writes all values) or pull sheet edits back into the CRM.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-3">
+          <Button variant="outline" disabled={syncAll.isPending}
+            onClick={() => syncAll.mutate(undefined, {
+              onSuccess: (r: any) => toast.success(`Synced ${r.synced}/${r.total} clients to the master sheet${r.failed ? ` (${r.failed} failed)` : ""}.`),
+              onError: (e: any) => toast.error(e.message),
+            })}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" /> {syncAll.isPending ? "Syncing…" : "Sync all → Master sheet"}
+          </Button>
+          <Button variant="outline" disabled={pullMaster.isPending}
+            onClick={() => pullMaster.mutate(undefined, {
+              onSuccess: (r: any) => toast.success(`Pulled from sheet: ${r.updated ?? 0} updated, ${r.created ?? 0} created.`),
+              onError: (e: any) => toast.error(e.message),
+            })}>
+            <ArrowRightLeft className="h-4 w-4 mr-2" /> {pullMaster.isPending ? "Pulling…" : "Pull ← Master sheet"}
+          </Button>
         </CardContent>
       </Card>
 
