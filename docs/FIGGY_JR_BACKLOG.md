@@ -97,6 +97,26 @@ don't re-derive them._
   website repo `GoFigBookz/app` isn't in this session's scope (no add_repo tool here)
   — add it, then wire the form + test end-to-end.
 
+## MacrosLM teardown (Markie 2026-06-22) — borrow, don't buy
+MacrosLM = a library of pre-built AI agents for AUDITORS/accountants (recs,
+workpapers, SOX testing, tie-outs → citation-backed reports "reviewed, defended,
+signed"). Same philosophy Figgy already runs on (AI busywork + human sign-off).
+Built for audit/assurance + corp-finance/diligence at firms — NOT Canadian
+small-biz QBO bookkeeping. Verdict (matches competitive-research doc): do NOT
+adopt as core infra (US-focused, no HST/CRA/QBO knowledge, per-seat SaaS
+dependency = against the mandate). BORROW the two best patterns into Figgy:
+- **Citation-backed, signable month-end workpaper.** Each close produces a
+  reviewable workpaper: per-procedure result + the evidence/source it's based on
+  (we already carry sourceData/rationale on findings) → one PDF Markie reviews +
+  "signs." Highest-value steal.
+- **Tie-outs in the cockpit.** Auto-tie QBO trial balance to source: bank balance,
+  HST filed/remitted, payroll remitted, AR/AP subledger → GL. Surfaces breaks on
+  the month-end board. Fits the close-cockpit north star exactly.
+- **Procedure library** (their "agents per category"): turn the close checklist
+  into named procedures (reconcile bank, tie HST, verify remittance) each emitting
+  a citation-backed pass/fail. Optional: trial MacrosLM only for any audit/
+  diligence work OUTSIDE bookkeeping — it's strong there.
+
 ## 0. SMART CLIENT SYNC + LOOKUP SYSTEM (Markie 2026-06-21: "syncs everything, looks up everything, extremely smart")
 
 ### ✅ DONE this session (live on main, build 2026-06-21.15)
