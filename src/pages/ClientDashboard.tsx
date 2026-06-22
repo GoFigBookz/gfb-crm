@@ -179,7 +179,8 @@ export default function ClientDashboard() {
           </div>
           <p className="text-slate-500 mt-1">{client.company || client.email}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
           {client.hasPayroll && (
             <Link to={`/payroll?clientId=${id}`}>
               <Button size="sm" variant="outline" className="border-lime-300 text-lime-700">
@@ -234,6 +235,15 @@ export default function ClientDashboard() {
             onClick={() => { if (confirm(`PERMANENTLY DELETE ${client.name} and all its data? This cannot be undone.`)) deleteClient.mutate({ id }); }}>
             Delete
           </Button>
+          </div>
+          {/* Quick links + CRA RepID — directly under the action row, right side
+              (firm tools / portals, not client data). */}
+          <div className="flex flex-wrap items-center gap-2 justify-end">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs">
+              CRA RepID:&nbsp;<span className="font-semibold text-slate-800">{client.craRepId || "YY7F3GN"}</span>
+            </span>
+            <QuickLinksCard client={client} onboarding={onboarding} variant="header" />
+          </div>
         </div>
       </div>
 
@@ -264,15 +274,6 @@ export default function ClientDashboard() {
           </CardContent>
         </Card>
       )}
-
-      {/* Header extras — firm CRA RepID (same for every client) + quick links,
-          out of the card body and sitting right under the header actions. */}
-      <div className="flex flex-wrap items-center gap-2 -mt-1">
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-sm">
-          CRA RepID:&nbsp;<span className="font-semibold text-slate-800">{client.craRepId || "YY7F3GN"}</span>
-        </span>
-        <QuickLinksCard client={client} onboarding={onboarding} variant="header" />
-      </div>
 
       {/* CLIENT DETAILS — real client data, dense, on top. */}
       {(() => {
