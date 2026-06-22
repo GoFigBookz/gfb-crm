@@ -890,6 +890,8 @@ export default function ClientDashboard() {
             </Card>
           )}
 
+          <EmployeesCard clientId={id} />
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -2472,6 +2474,105 @@ function PartiesCard({ clientId, kind }: { clientId: number; kind: "vendor" | "c
             <div><Label>Notes</Label><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
             <div className="flex gap-2 pt-1">
               <Button className="bg-lime-500 flex-1" disabled={!form.name.trim() || create.isPending || update.isPending} onClick={save}>{create.isPending || update.isPending ? "Saving…" : "Save"}</Button>
+              <Button variant="outline" onClick={close}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+/** Employees, tied into the client's Payroll tab — add/edit, WSIB eligibility,
+ *  Jobber name alias, and YTD gross (pulls from QuickBooks once connected; the
+ *  YTD figure also feeds the Originality CRA-comparison check). */
+function EmployeesCard({ clientId }: { clientId: number }) {
+  const utils = trpc.useUtils();
+  const { data: emps } = trpc.employee.list.useQuery({ clientId });
+  const blank = { firstName: "", lastName: "", position: "", payType: "salary", annualSalary: "", hourlyRate: "", wsibEligible: true, jobberName: "", ytdGrossOpening: "" };
+  const [form, setForm] = useState<any>(blank);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [open, setOpen] = useState(false);
+  const inv = () => utils.employee.list.invalidate({ clientId });
+  const create = trpc.employee.create.useMutation({ onSuccess: () => { inv(); close(); }, onError: (e) => alert(e.message) });
+  const update = trpc.employee.update.useMutation({ onSuccess: () => { inv(); close(); }, onError: (e) => alert(e.message) });
+  const del = trpc.employee.delete.useMutation({ onSuccess: inv });
+  function close() { setOpen(false); setEditId(null); setForm(blank); }
+  function startAdd() { setEditId(null); setForm(blank); setOpen(true); }
+  function startEdit(e: any) { setEditId(e.id); setForm({ firstName: e.firstName || "", lastName: e.lastName || "", position: e.position || "", payType: e.payType || "salary", annualSalary: e.annualSalary ?? "", hourlyRate: e.hourlyRate ?? "", wsibEligible: e.wsibEligible !== false, jobberName: e.jobberName || "", ytdGrossOpening: e.ytdGrossOpening ?? "" }); setOpen(true); }
+  function save() {
+    if (!form.firstName.trim() || !form.lastName.trim()) return;
+    const payload: any = {
+      firstName: form.firstName.trim(), lastName: form.lastName.trim(), position: form.position || undefined,
+      payType: form.payType, wsibEligible: !!form.wsibEligible, jobberName: form.jobberName || undefined,
+      annualSalary: form.annualSalary !== "" ? Number(form.annualSalary) : undefined,
+      hourlyRate: form.hourlyRate !== "" ? Number(form.hourlyRate) : undefined,
+      ytdGrossOpening: form.ytdGrossOpening !== "" ? Number(form.ytdGrossOpening) : undefined,
+    };
+    if (editId) update.mutate({ id: editId, ...payload }); else create.mutate({ clientId, ...payload });
+  }
+  const money = (n: any) => n == null || n === "" ? "—" : `$${Number(n).toLocaleString()}`;
+  return (
+    <Card>
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="flex items-center gap-2 text-base"><Briefcase className="h-5 w-5 text-lime-500" /> Employees</CardTitle>
+        <Button size="sm" variant="outline" onClick={startAdd}><Plus className="h-3.5 w-3.5 mr-1" /> Add employee</Button>
+      </CardHeader>
+      <CardContent>
+        {(!emps || emps.length === 0) ? (
+          <p className="text-sm text-slate-400 py-2">No employees yet — add the people on this client's payroll.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="text-xs text-slate-500 border-b">
+                <th className="text-left py-1.5 pr-2">Name</th><th className="text-left px-2">Position</th>
+                <th className="text-right px-2">Pay</th><th className="text-right px-2">YTD gross</th>
+                <th className="text-center px-2">WSIB</th><th className="text-left px-2">Jobber name</th><th></th>
+              </tr></thead>
+              <tbody>
+                {emps.map((e: any) => (
+                  <tr key={e.id} className="border-b last:border-0">
+                    <td className="py-1.5 pr-2 font-medium">{e.firstName} {e.lastName}</td>
+                    <td className="px-2 text-slate-500">{e.position || "—"}</td>
+                    <td className="px-2 text-right">{e.payType === "hourly" ? `${money(e.hourlyRate)}/hr` : money(e.annualSalary)}</td>
+                    <td className="px-2 text-right">{money(e.ytdGrossOpening)}</td>
+                    <td className="px-2 text-center">{e.wsibEligible !== false ? <span className="text-emerald-600">✓</span> : <span className="text-slate-300">—</span>}</td>
+                    <td className="px-2 text-slate-500">{e.jobberName || "—"}</td>
+                    <td className="px-2 text-right whitespace-nowrap">
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => startEdit(e)}><Edit className="h-3.5 w-3.5" /></Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600" onClick={() => { if (confirm(`Remove ${e.firstName} ${e.lastName}?`)) del.mutate({ id: e.id }); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="text-[11px] text-slate-400 mt-2">YTD gross will pull from QuickBooks Payroll once connected (also feeds the Originality CRA-comparison check).</p>
+      </CardContent>
+      <Dialog open={open} onOpenChange={(v) => { if (!v) close(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{editId ? "Edit employee" : "Add employee"}</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>First name *</Label><Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} /></div>
+              <div><Label>Last name *</Label><Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} /></div>
+              <div><Label>Position</Label><Input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} /></div>
+              <div><Label>Pay type</Label>
+                <Select value={form.payType} onValueChange={(v) => setForm({ ...form, payType: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="salary">Salary</SelectItem><SelectItem value="hourly">Hourly</SelectItem><SelectItem value="commission">Commission</SelectItem><SelectItem value="contract">Contract</SelectItem></SelectContent>
+                </Select>
+              </div>
+              {form.payType === "hourly"
+                ? <div><Label>Hourly rate</Label><Input type="number" value={form.hourlyRate} onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })} /></div>
+                : <div><Label>Annual salary</Label><Input type="number" value={form.annualSalary} onChange={(e) => setForm({ ...form, annualSalary: e.target.value })} /></div>}
+              <div><Label>YTD gross (opening)</Label><Input type="number" value={form.ytdGrossOpening} onChange={(e) => setForm({ ...form, ytdGrossOpening: e.target.value })} /></div>
+              <div><Label>Jobber name</Label><Input value={form.jobberName} onChange={(e) => setForm({ ...form, jobberName: e.target.value })} placeholder="if Jobber shows a different name" /></div>
+            </div>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.wsibEligible} onChange={(e) => setForm({ ...form, wsibEligible: e.target.checked })} className="w-4 h-4 accent-lime-500" /> WSIB eligible (uncheck for management/exec)</label>
+            <div className="flex gap-2 pt-1">
+              <Button className="bg-lime-500 flex-1" disabled={!form.firstName.trim() || !form.lastName.trim() || create.isPending || update.isPending} onClick={save}>{create.isPending || update.isPending ? "Saving…" : "Save"}</Button>
               <Button variant="outline" onClick={close}>Cancel</Button>
             </div>
           </div>
