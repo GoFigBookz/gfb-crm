@@ -58,24 +58,32 @@ correction teaches every agent, with per-client isolation always preserved.
    STATUS: building — brain/triage/classifiers live; posting pending QBO write conn.
 2. **Sage** — SENIOR BOOKKEEPER. The checking: reviews Fig's work for errors +
    completeness, then PREPARES the filings — HST, WSIB, payroll — for Markie's
-   approval. Owns compliance prep + the first review gate. STATUS: to build.
+   approval. Owns compliance prep + the first review gate. STATUS: live in chat
+   (reviews open items via `firm_status`, advises); HST/WSIB/payroll prep pending QBO.
 3. **Wren** — CONTROLLER / AUDITOR. The defense + final quality gate: tie-outs
    (bank ↔ HST ↔ payroll ↔ GL), CRA HST-audit support, and the citation-backed
-   month-end workpaper Markie signs. Reviews Sage. STATUS: planned (backlog).
+   month-end workpaper Markie signs. Reviews Sage. STATUS: live in chat (advisory +
+   `firm_status`); tie-outs/workpaper pending QBO.
 4. **Liv** — EXECUTIVE ASSISTANT (Markie's side, not the books). Comms & time: the
-   phone chatbot (/assistant), agenda, email task-flagging + tone-matched DRAFT
-   replies (DRAFT ONLY — never auto-send), scheduling, AND Markie's PERSONAL life.
-   STATUS: chatbot v1 live.
+   phone chatbot (/assistant) FRONT DESK, agenda, email task-flagging + tone-matched
+   DRAFT replies (DRAFT ONLY — never auto-send), scheduling, AND Markie's PERSONAL
+   life (private space). STATUS: live — front-desk routing, agenda, personal, email drafts.
 5. **Jinx** — QA / WATCHDOG. Runs smoke-tests + watches the live app (deploys came
    up, payroll opens, email syncs, key flows work) and FLAGS Markie only when
    something breaks — silent when healthy. So nobody has to babysit. STATUS: health
    check + System Health page live.
 6. **Tess** — TAX SPECIALIST. Corporate (T2) + personal (T1) tax, HST/GST returns,
    year-end tax prep, instalments, CRA correspondence. Prepares for Markie's sign-off
-   — never files. STATUS: to build.
-Support: **Jade** — FRACTIONAL CFO (forward-looking finance); **Skye** — SOCIAL /
-MARKETING. (Renames 2026-06-23: Gage→Jinx, Fractional CFO→Jade, Social Media
-Manager→Skye, + new Tess for tax.)
+   — never files. STATUS: live in chat (tax advisory + web research of CRA rules);
+   return prep pending QBO data.
+Support: **Jade** — FRACTIONAL CFO (forward-looking finance; live as advisor in chat,
+deep analysis pending QBO financials); **Skye** — SOCIAL / MARKETING (live — drafts
+content/posts + calendar in chat now). (Renames 2026-06-23: Gage→Jinx, Fractional
+CFO→Jade, Social Media Manager→Skye, + new Tess for tax.)
+CHATBOT TOOLS (all agents share): add_task, get_agenda, add_personal, firm_status
+(live clients/tasks/triage counts), system_health, web_search; + live clock + device
+location. So every agent can DO real things now; the QBO-dependent "doing" lights up
+when the QBO connection is on.
 
 ALWAYS-LEARNING (all agents): they share ONE growing memory — each client's quirks,
 Markie's coding + email tone + preferences — built from confirmed corrections AND
