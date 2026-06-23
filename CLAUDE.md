@@ -346,4 +346,32 @@ STATUS / deep-dive (2026-06-23):
   (list/add/toggle/update/remove); boot guard `api/ensure-personal-schema.ts`; page
   `src/pages/Personal.tsx` (route `/personal`, sidebar "Personal"). Liv's `add_personal`
   chatbot tool files personal items here.
+- **AGENT BEST-PRACTICE STACK (2026-06-23) — researched vs Anthropic "Building
+  Effective Agents" + 2026 agentic-finance norms; all in place:**
+  - SKILL PACKS (procedural memory): `api/skills/` — ONE FILE PER AGENT (fig/sage/
+    wren/liv/jinx/tess/jade/skye) + `common.ts` (research/double-check discipline) +
+    `quickbooks.ts` (FULL QBO playbook US+CA: structure, post bills/expenses, post
+    sales receipts, pull data/API, GST/HST/ITC vs US sales-tax/nexus, payroll, year-end).
+    `index.ts` assembles; `agent-skills.ts` re-exports. Injected into the active agent's
+    prompt via `frontDeskSystem`. Book agents (fig/sage/wren/tess/jade) get full QBO; others get pointer.
+  - SCORECARD (evaluation): `api/scorecard-core.ts` (`scoreAgents` — acceptance rate,
+    trend, grade) + `jinx.scorecard`; shown on System Health + `agent_scorecard` chatbot tool.
+  - LEARNING LOOP (episodic memory): `agent_learnings` table + `ensure-learning-schema.ts`
+    + `api/learning-core.ts` (`selectRelevant`/`formatLessonsBlock`) + `learning-router.ts`.
+    `remember` chatbot tool saves lessons; remembered lessons injected into every agent's
+    prompt each message. Triage review NOTES (approve/dismiss) auto-capture as lessons
+    (`captureReviewLearning` in agent-webhook-router) → corrections teach the team.
+  - GOVERNED AUTONOMY: `api/governance-core.ts` (`decideAutonomy` + DEFAULT_POLICY —
+    DEFAULT OFF = everything escalates; dollar+confidence thresholds are the knob to
+    raise once an agent's scorecard earns trust) + `agent_audit_log` + `agent-audit.ts`
+    (`recordAudit`/`recentAudit`). Every chatbot ACTION tool is audited; `jinx.activity`
+    + System Health "Recent Agent Activity". Policy engine ready for QBO posting to consult.
+  - VOICE DIGITAL ASSISTANT: TTS + hands-free conversation mode + device location
+    ("near me") + live clock + web_search in `src/pages/Assistant.tsx` / assistant-router.
+  - INSTALLABLE PWA: `public/sw.js` (service worker) + manifest + PNG icons
+    (icon-192/512, apple-touch) → Android "Install"; Install card on Integrations page.
+    Served via `api/lib/vite.ts` (/sw.js, /manifest.webmanifest, /.well-known/*).
+    TWA-ready for Play Store (`docs/ANDROID_APP.md`). NOTE: iOS install = Share→Add to Home (Apple limit).
+  - Roster note: NO personal financial-advisor agent (regulated/licensed); Jade (CFO)
+    covers BUSINESS financial advisory. QBO connect guide: `docs/CONNECT_QUICKBOOKS.md`.
 - Dev branch (continued): `claude/youthful-rubin-q0bl66` → always PR+merge to `main`.

@@ -51612,6 +51612,29 @@ var init_vendor_learning = __esm({
 });
 
 // api/agent-webhook-router.ts
+function scopeFromAgentName(name2) {
+  const n = (name2 ?? "").toLowerCase();
+  for (const k of ["fig", "sage", "wren", "liv", "jinx", "tess", "jade", "skye"]) if (n.includes(k)) return k;
+  if (n.includes("figgy") || n.includes("bookkeep")) return "fig";
+  return "all";
+}
+async function captureReviewLearning(db, ids, action, notes) {
+  const lesson = (notes ?? "").trim();
+  if (!lesson) return;
+  try {
+    const rows = await db.select().from(triageFindings).where(inArray(triageFindings.id, ids));
+    for (const f of rows) {
+      await db.insert(agentLearnings).values({
+        userId: 1,
+        clientId: f.clientId ?? null,
+        scope: scopeFromAgentName(f.agentName),
+        lesson: `${action === "dismiss" ? "When this comes up, " : ""}${lesson}${f.title ? ` (re: ${f.title})` : ""}`,
+        source: "correction"
+      });
+    }
+  } catch {
+  }
+}
 async function applyAccountOverride(db, ids, o) {
   if (!o.confirmedAccountId) return;
   for (const id of ids) {
@@ -51741,6 +51764,7 @@ var init_agent_webhook_router = __esm({
           } catch {
           }
         }
+        await captureReviewLearning(db, [input.id], input.action, input.notes);
         return { success: true };
       }),
       // Staff: Batch review — approve/dismiss many findings in one go
@@ -51762,6 +51786,7 @@ var init_agent_webhook_router = __esm({
           } catch {
           }
         }
+        await captureReviewLearning(db, input.ids, input.action, input.notes);
         return { success: true, updated: input.ids.length, learned };
       }),
       // Staff: Batch delete — permanently remove many findings
@@ -63253,7 +63278,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.38";
+var BUILD_TAG = "2026-06-23.39";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
