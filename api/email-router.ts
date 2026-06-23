@@ -232,7 +232,7 @@ export const emailRouter = createRouter({
       const acctRows = await db
         .select()
         .from(connectedAccounts)
-        .where(and(eq(connectedAccounts.id, input.connectedAccountId), eq(connectedAccounts.userId, ctx.user.id)))
+        .where(eq(connectedAccounts.id, input.connectedAccountId)) // firm-wide Google/MS login
         .limit(1);
 
       if (!acctRows[0]) {
@@ -306,7 +306,7 @@ export const emailRouter = createRouter({
       const acctRows = await db
         .select()
         .from(connectedAccounts)
-        .where(and(eq(connectedAccounts.id, original.connectedAccountId), eq(connectedAccounts.userId, ctx.user.id)))
+        .where(eq(connectedAccounts.id, original.connectedAccountId)) // firm-wide Google/MS login
         .limit(1);
 
       if (!acctRows[0]) {

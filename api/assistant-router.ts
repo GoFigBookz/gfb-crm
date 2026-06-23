@@ -96,10 +96,8 @@ async function execDraftEmail(input: any, userId: number): Promise<string> {
   const body = String(input?.body ?? "").trim();
   if (!body) return "What should the email say?";
   const subject = String(input?.subject ?? "").trim() || "(no subject)";
-  const db = getDb();
-  const accts = (await db.select().from(connectedAccounts)
-    .where(and(eq(connectedAccounts.userId, userId), eq(connectedAccounts.provider, "google")))) as any[];
-  const account = accts.find((a) => a.isActive) || accts[0];
+  const { getFirmGoogleAccount } = await import("./google-token");
+  const account = await getFirmGoogleAccount(userId); // firm-wide Google login
   if (!account) return "I need your Google email connected first (Integrations → Google) before I can draft mail.";
   try {
     const token = await getValidGoogleAccessToken(account);

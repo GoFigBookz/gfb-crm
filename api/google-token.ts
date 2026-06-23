@@ -9,6 +9,31 @@ import { eq } from "drizzle-orm";
 
 type Account = typeof connectedAccounts.$inferSelect;
 
+/**
+ * The firm's Google account — FIRM-WIDE, not per-user. There is one Gmail/Drive
+ * login for the whole practice, so reads must not depend on which staff-user row
+ * the OAuth happened to land on (that mismatch made it show "Not Connected" even
+ * when connected). Prefers a given user's row, else any active Google account
+ * with a refresh token. Selects only core columns to dodge schema drift.
+ */
+export async function getFirmGoogleAccount(preferUserId?: number): Promise<any | null> {
+  const db = getDb();
+  const rows = (await db.select({
+    id: connectedAccounts.id,
+    userId: connectedAccounts.userId,
+    provider: connectedAccounts.provider,
+    accountEmail: connectedAccounts.accountEmail,
+    accessToken: connectedAccounts.accessToken,
+    refreshToken: connectedAccounts.refreshToken,
+    expiresAt: connectedAccounts.expiresAt,
+    isActive: connectedAccounts.isActive,
+  }).from(connectedAccounts)) as any[];
+  const google = rows.filter((a) => a.provider === "google");
+  const score = (a: any) => (a.refreshToken ? 4 : 0) + (a.isActive ? 2 : 0) + (preferUserId && a.userId === preferUserId ? 1 : 0);
+  google.sort((a, b) => score(b) - score(a));
+  return google[0] || null;
+}
+
 export async function getValidGoogleAccessToken(account: Account): Promise<string> {
   const notExpired = account.expiresAt && new Date(account.expiresAt) > new Date(Date.now() + 60_000);
   if (account.accessToken && notExpired) return account.accessToken;

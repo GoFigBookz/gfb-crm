@@ -26466,26 +26466,26 @@ var require_permessage_deflate = __commonJS({
             value = value[0];
             if (key === "client_max_window_bits") {
               if (value !== true) {
-                const num2 = +value;
-                if (!Number.isInteger(num2) || num2 < 8 || num2 > 15) {
+                const num3 = +value;
+                if (!Number.isInteger(num3) || num3 < 8 || num3 > 15) {
                   throw new TypeError(
                     `Invalid value for parameter "${key}": ${value}`
                   );
                 }
-                value = num2;
+                value = num3;
               } else if (!this._isServer) {
                 throw new TypeError(
                   `Invalid value for parameter "${key}": ${value}`
                 );
               }
             } else if (key === "server_max_window_bits") {
-              const num2 = +value;
-              if (!Number.isInteger(num2) || num2 < 8 || num2 > 15) {
+              const num3 = +value;
+              if (!Number.isInteger(num3) || num3 < 8 || num3 > 15) {
                 throw new TypeError(
                   `Invalid value for parameter "${key}": ${value}`
                 );
               }
-              value = num2;
+              value = num3;
             } else if (key === "client_no_context_takeover" || key === "server_no_context_takeover") {
               if (value !== true) {
                 throw new TypeError(
@@ -27180,8 +27180,8 @@ var require_receiver = __commonJS({
           return;
         }
         const buf = this.consume(8);
-        const num2 = buf.readUInt32BE(0);
-        if (num2 > Math.pow(2, 53 - 32) - 1) {
+        const num3 = buf.readUInt32BE(0);
+        if (num3 > Math.pow(2, 53 - 32) - 1) {
           const error48 = this.createError(
             RangeError,
             "Unsupported WebSocket frame: payload length > 2^53 - 1",
@@ -27192,7 +27192,7 @@ var require_receiver = __commonJS({
           cb(error48);
           return;
         }
-        this._payloadLength = num2 * Math.pow(2, 32) + buf.readUInt32BE(4);
+        this._payloadLength = num3 * Math.pow(2, 32) + buf.readUInt32BE(4);
         this.haveLength(cb);
       }
       /**
@@ -30378,11 +30378,11 @@ function valueFromProto(value, intMode) {
     return value;
   } else if (typeof value === "bigint") {
     if (intMode === "number") {
-      const num2 = Number(value);
-      if (!Number.isSafeInteger(num2)) {
+      const num3 = Number(value);
+      if (!Number.isSafeInteger(num3)) {
         throw new RangeError("Received integer which is too large to be safely represented as a JavaScript number");
       }
-      return num2;
+      return num3;
     } else if (intMode === "bigint") {
       return value;
     } else if (intMode === "string") {
@@ -35243,6 +35243,28 @@ var init_email_core = __esm({
 });
 
 // api/google-token.ts
+var google_token_exports = {};
+__export(google_token_exports, {
+  getFirmGoogleAccount: () => getFirmGoogleAccount,
+  getValidGoogleAccessToken: () => getValidGoogleAccessToken
+});
+async function getFirmGoogleAccount(preferUserId) {
+  const db = getDb();
+  const rows = await db.select({
+    id: connectedAccounts.id,
+    userId: connectedAccounts.userId,
+    provider: connectedAccounts.provider,
+    accountEmail: connectedAccounts.accountEmail,
+    accessToken: connectedAccounts.accessToken,
+    refreshToken: connectedAccounts.refreshToken,
+    expiresAt: connectedAccounts.expiresAt,
+    isActive: connectedAccounts.isActive
+  }).from(connectedAccounts);
+  const google = rows.filter((a) => a.provider === "google");
+  const score = (a) => (a.refreshToken ? 4 : 0) + (a.isActive ? 2 : 0) + (preferUserId && a.userId === preferUserId ? 1 : 0);
+  google.sort((a, b) => score(b) - score(a));
+  return google[0] || null;
+}
 async function getValidGoogleAccessToken(account) {
   const notExpired = account.expiresAt && new Date(account.expiresAt) > new Date(Date.now() + 6e4);
   if (account.accessToken && notExpired) return account.accessToken;
@@ -35312,7 +35334,6 @@ var init_google_sync_router = __esm({
         const db = getDb();
         const accounts = await db.select().from(connectedAccounts).where(and(
           eq(connectedAccounts.id, input.accountId),
-          eq(connectedAccounts.userId, ctx.user.id),
           eq(connectedAccounts.provider, "google")
         )).limit(1);
         if (!accounts[0]) throw new Error("Google account not found");
@@ -35404,7 +35425,6 @@ var init_google_sync_router = __esm({
         const db = getDb();
         const accounts = await db.select().from(connectedAccounts).where(and(
           eq(connectedAccounts.id, input.accountId),
-          eq(connectedAccounts.userId, ctx.user.id),
           eq(connectedAccounts.provider, "google")
         )).limit(1);
         if (!accounts[0]) throw new Error("Google account not found");
@@ -35465,7 +35485,6 @@ var init_google_sync_router = __esm({
         const db = getDb();
         const accounts = await db.select().from(connectedAccounts).where(and(
           eq(connectedAccounts.id, input.accountId),
-          eq(connectedAccounts.userId, ctx.user.id),
           eq(connectedAccounts.provider, "google")
         )).limit(1);
         if (!accounts[0]) throw new Error("Google account not found");
@@ -35515,7 +35534,6 @@ var init_google_sync_router = __esm({
         const db = getDb();
         const account = await db.select().from(connectedAccounts).where(and(
           eq(connectedAccounts.id, input.accountId),
-          eq(connectedAccounts.userId, ctx.user.id),
           eq(connectedAccounts.provider, "google")
         )).limit(1);
         if (!account[0]) throw new Error("Google account not found");
@@ -42506,7 +42524,9 @@ var init_integration_router = __esm({
     init_schema();
     init_drizzle_orm();
     integrationRouter = createRouter({
-      // List connected accounts
+      // List connected accounts. Google/Microsoft are FIRM-WIDE (one shared login for
+      // the practice), so they show for any staff user regardless of which user row
+      // the OAuth landed on — otherwise a connected account reads as "Not Connected".
       list: authedQuery.query(async ({ ctx }) => {
         const db = getDb();
         return db.select({
@@ -42521,7 +42541,11 @@ var init_integration_router = __esm({
           lastSyncedAt: connectedAccounts.lastSyncedAt,
           createdAt: connectedAccounts.createdAt,
           updatedAt: connectedAccounts.updatedAt
-        }).from(connectedAccounts).where(eq(connectedAccounts.userId, ctx.user.id)).orderBy(desc(connectedAccounts.createdAt));
+        }).from(connectedAccounts).where(or(
+          eq(connectedAccounts.userId, ctx.user.id),
+          eq(connectedAccounts.provider, "google"),
+          eq(connectedAccounts.provider, "microsoft")
+        )).orderBy(desc(connectedAccounts.createdAt));
       }),
       // Get accounts by provider
       byProvider: authedQuery.input(external_exports.object({ provider: external_exports.string() })).query(async ({ ctx, input }) => {
@@ -42855,7 +42879,7 @@ var init_email_router = __esm({
         inReplyTo: external_exports.number().optional()
       })).mutation(async ({ ctx, input }) => {
         const db = getDb();
-        const acctRows = await db.select().from(connectedAccounts).where(and(eq(connectedAccounts.id, input.connectedAccountId), eq(connectedAccounts.userId, ctx.user.id))).limit(1);
+        const acctRows = await db.select().from(connectedAccounts).where(eq(connectedAccounts.id, input.connectedAccountId)).limit(1);
         if (!acctRows[0]) {
           throw new Error("Connected account not found");
         }
@@ -42905,7 +42929,7 @@ var init_email_router = __esm({
           throw new Error("Original email not found");
         }
         const original = origRows[0];
-        const acctRows = await db.select().from(connectedAccounts).where(and(eq(connectedAccounts.id, original.connectedAccountId), eq(connectedAccounts.userId, ctx.user.id))).limit(1);
+        const acctRows = await db.select().from(connectedAccounts).where(eq(connectedAccounts.id, original.connectedAccountId)).limit(1);
         if (!acctRows[0]) {
           throw new Error("Connected account not found");
         }
@@ -48474,18 +48498,8 @@ function workbookFor(clientName) {
   return TOUCHBISTRO_WORKBOOKS.find((w) => n.includes(w.match))?.sheetId ?? null;
 }
 async function googleAccount(userId) {
-  const db = getDb();
-  const accts = await db.select({
-    id: connectedAccounts.id,
-    provider: connectedAccounts.provider,
-    accessToken: connectedAccounts.accessToken,
-    refreshToken: connectedAccounts.refreshToken,
-    expiresAt: connectedAccounts.expiresAt,
-    accountEmail: connectedAccounts.accountEmail,
-    isActive: connectedAccounts.isActive
-  }).from(connectedAccounts).where(eq(connectedAccounts.userId, userId));
-  const google = accts.filter((a) => a.provider === "google");
-  return google.find((a) => a.isActive && a.refreshToken) || google.find((a) => a.refreshToken) || google.find((a) => a.isActive) || google[0] || null;
+  const { getFirmGoogleAccount: getFirmGoogleAccount2 } = await Promise.resolve().then(() => (init_google_token(), google_token_exports));
+  return getFirmGoogleAccount2(userId);
 }
 async function readWorkbookText(userId, sheetId) {
   const acct = await googleAccount(userId);
@@ -48624,9 +48638,6 @@ ${text2}`;
 var ANTHROPIC_URL, TOUCHBISTRO_WORKBOOKS;
 var init_touchbistro_client = __esm({
   "api/touchbistro-client.ts"() {
-    init_connection();
-    init_schema();
-    init_drizzle_orm();
     init_google_token();
     ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
     TOUCHBISTRO_WORKBOOKS = [
@@ -48642,14 +48653,86 @@ var init_touchbistro_client = __esm({
 // api/timesheet-file-parse.ts
 var timesheet_file_parse_exports = {};
 __export(timesheet_file_parse_exports, {
-  extractTimesheetFromFile: () => extractTimesheetFromFile
+  extractTimesheetFromFile: () => extractTimesheetFromFile,
+  parseTimesheetCsv: () => parseTimesheetCsv
 });
-function fileBlock(data, mediaType) {
-  if (mediaType === "application/pdf") return { type: "document", source: { type: "base64", media_type: mediaType, data } };
-  if (mediaType.startsWith("image/")) return { type: "image", source: { type: "base64", media_type: mediaType, data } };
-  const text2 = Buffer.from(data, "base64").toString("utf8").slice(0, 8e4);
-  return { type: "text", text: `DETAILED TIMESHEET (${mediaType}):
-${text2}` };
+function splitCsvLine(line) {
+  const out = [];
+  let cur = "", inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else inQ = false;
+      } else cur += ch;
+    } else {
+      if (ch === '"') inQ = true;
+      else if (ch === ",") {
+        out.push(cur);
+        cur = "";
+      } else cur += ch;
+    }
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
+}
+function num(s) {
+  const n = parseFloat(String(s ?? "").replace(/[^0-9.\-]/g, ""));
+  return isFinite(n) ? n : 0;
+}
+function colIdx(header2, needles) {
+  const h = header2.map((x) => x.toLowerCase());
+  for (let i = 0; i < h.length; i++) {
+    if (needles.some((n) => h[i].includes(n))) return i;
+  }
+  return -1;
+}
+function parseTimesheetCsv(text2) {
+  const lines = text2.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (!lines.length) return [];
+  let headerIdx = lines.findIndex((l) => /staff\s*name|employee|name/i.test(l) && /shift|hour|hrs|payable|clock/i.test(l));
+  if (headerIdx < 0) headerIdx = 0;
+  const header2 = splitCsvLine(lines[headerIdx]);
+  const iName = colIdx(header2, ["staff name", "employee", "name"]);
+  const iType = colIdx(header2, ["staff type", "role", "type"]);
+  const iShift = colIdx(header2, ["shift length"]);
+  const iRate = colIdx(header2, ["rate of pay", "reg. rate", "rate"]);
+  const iPayables = [];
+  header2.forEach((h, i) => {
+    if (/payable/i.test(h) && /hr|hour/i.test(h)) iPayables.push(i);
+  });
+  const iTotalReg = colIdx(header2, ["total(reg", "total reg", "reg. hrs", "regular hours"]);
+  const agg = /* @__PURE__ */ new Map();
+  for (let r = headerIdx + 1; r < lines.length; r++) {
+    const cells = splitCsvLine(lines[r]);
+    const name2 = (iName >= 0 ? cells[iName] : cells[0] || "").trim();
+    if (!name2) continue;
+    const lname = name2.toLowerCase();
+    if (lname.startsWith("report summary") || lname.startsWith("total") || lname.startsWith("subtotal")) continue;
+    const type = (iType >= 0 ? cells[iType] : "").trim().toLowerCase();
+    if (type === "admin" || lname === "admin, admin" || lname.startsWith("admin,")) continue;
+    const shift = iShift >= 0 ? num(cells[iShift]) : 0;
+    let payable = 0;
+    if (iPayables.length) for (const i of iPayables) payable += num(cells[i]);
+    else if (iTotalReg >= 0) payable = num(cells[iTotalReg]);
+    else payable = shift;
+    const a = agg.get(name2) || { hours: 0, max: 0 };
+    a.hours += payable;
+    a.max = Math.max(a.max, shift || payable);
+    agg.set(name2, a);
+  }
+  return Array.from(agg.entries()).map(([userName, a]) => ({
+    userName,
+    hours: Math.round(a.hours * 100) / 100,
+    maxShiftHours: Math.round(a.max * 100) / 100
+  }));
+}
+function looksLikeCsv(text2) {
+  const head = text2.slice(0, 2e3).toLowerCase();
+  return head.includes(",") && (head.includes("staff") || head.includes("name") || head.includes("shift") || head.includes("hour"));
 }
 function extractJson2(text2) {
   try {
@@ -48665,32 +48748,39 @@ function extractJson2(text2) {
   }
   return null;
 }
-async function extractTimesheetFromFile(data, mediaType, periodStart, periodEnd) {
+async function extractViaAi(data, mediaType, periodStart, periodEnd) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY isn't set \u2014 needed to read the timesheet file.");
+  if (!apiKey) throw new Error("This is a PDF/image timesheet and ANTHROPIC_API_KEY isn't set. Export the DETAILED timesheet as CSV instead \u2014 CSV is read directly with no AI needed.");
   const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
-  const system = "You read a DETAILED restaurant timesheet (one row per shift, e.g. a TouchBistro Timesheet Details export) and total hours per employee. Return ONLY JSON, no prose.";
-  const prompt = `This is a detailed timesheet covering ${periodStart} to ${periodEnd}. Each row is one shift for one staff member. For EACH employee return three things:
-- "hours": their TOTAL PAYABLE worked hours for the whole period = sum of payable regular + payable overtime hours across all their rows (use the "Payable(Reg. Hrs)" + payable OT columns if present; otherwise the paid hours, NOT the raw shift length which includes unpaid breaks).
-- "maxShiftHours": the LARGEST single-shift "Shift Length (hrs)" value (raw clock-in to clock-out) among their rows \u2014 this catches a missed clock-out.
-Return ONLY: {"employees":[{"name":"<Last, First as shown>","hours":<number>,"maxShiftHours":<number>}]}. EXCLUDE owner/admin rows (e.g. Staff Name "Admin, Admin" or Staff Type "Admin", or any row with a 0.00 rate of pay), unpaid-break rows, and any subtotal/total rows. Round hours to 2 decimals.`;
-  const content = [fileBlock(data, mediaType), { type: "text", text: prompt }];
+  const fileBlock = mediaType === "application/pdf" ? { type: "document", source: { type: "base64", media_type: mediaType, data } } : { type: "image", source: { type: "base64", media_type: mediaType, data } };
+  const system = "You read a DETAILED restaurant timesheet (one row per shift) and total hours per employee. Return ONLY JSON, no prose.";
+  const prompt = `Detailed timesheet covering ${periodStart} to ${periodEnd}. For EACH employee return "hours" (total PAYABLE regular + OT hours, not raw shift length) and "maxShiftHours" (largest single Shift Length, to catch a missed clock-out). Return ONLY {"employees":[{"name":"<Last, First>","hours":<n>,"maxShiftHours":<n>}]}. EXCLUDE Admin/owner/0-rate rows and subtotal/total rows.`;
   const res = await fetch(ANTHROPIC_URL2, {
     method: "POST",
     headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model, max_tokens: 1500, system, messages: [{ role: "user", content }] })
+    body: JSON.stringify({ model, max_tokens: 1500, system, messages: [{ role: "user", content: [fileBlock, { type: "text", text: prompt }] }] })
   });
   if (!res.ok) {
     const b = await res.text().catch(() => "");
-    throw new Error(`Couldn't read the timesheet file (${res.status}). ${b.slice(0, 120)}`);
+    throw new Error(`Couldn't read the PDF/image timesheet (${res.status}). ${b.slice(0, 120)}`);
   }
   const json2 = extractJson2(((await res.json()).content || []).filter((b) => b.type === "text").map((b) => b.text).join(""));
-  const emps = json2?.employees || [];
-  return emps.filter((e) => e && e.name).map((e) => ({
+  return (json2?.employees || []).filter((e) => e && e.name).map((e) => ({
     userName: String(e.name),
     hours: Number(e.hours) || 0,
     maxShiftHours: Number(e.maxShiftHours) || 0
   }));
+}
+async function extractTimesheetFromFile(data, mediaType, periodStart, periodEnd) {
+  if (mediaType === "application/pdf" || mediaType.startsWith("image/")) {
+    return extractViaAi(data, mediaType, periodStart, periodEnd);
+  }
+  const text2 = Buffer.from(data, "base64").toString("utf8");
+  if (looksLikeCsv(text2) || mediaType.includes("csv") || mediaType.includes("text")) {
+    const rows = parseTimesheetCsv(text2);
+    if (rows.length) return rows;
+  }
+  return extractViaAi(data, mediaType, periodStart, periodEnd);
 }
 var ANTHROPIC_URL2;
 var init_timesheet_file_parse = __esm({
@@ -51636,7 +51726,7 @@ function clientAppsList(onb) {
   return a;
 }
 function buildScopeForClient(client, onb) {
-  const num2 = (...vals) => {
+  const num3 = (...vals) => {
     for (const v of vals) {
       const n = Number(v);
       if (Number.isFinite(n) && n > 0) return n;
@@ -51646,14 +51736,14 @@ function buildScopeForClient(client, onb) {
   const bool = (...vals) => vals.some((v) => v === true || v === 1);
   const salesPlatformCount = onb ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro, onb.usesPayPal].filter((v) => v === true || v === 1).length : 0;
   return {
-    avgMonthlyTransactions: num2(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
+    avgMonthlyTransactions: num3(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
     bookkeepingFrequency: onb?.bookkeepingFrequency ?? "monthly",
-    bankAccountCount: num2(onb?.bankAccountCount) || 1,
-    creditCardCount: num2(onb?.creditCardCount),
+    bankAccountCount: num3(onb?.bankAccountCount) || 1,
+    creditCardCount: num3(onb?.creditCardCount),
     hasHST: bool(client?.hasHST, onb?.hstGstFrequency && onb.hstGstFrequency !== "none"),
     hstPeriod: normalizeHstPeriod(client?.hstPeriod, onb?.hstGstFrequency),
     hasPayroll: bool(client?.hasPayroll, onb?.hasEmployees, onb?.payrollFrequency && onb.payrollFrequency !== "none"),
-    employeeCount: num2(onb?.employeeCount),
+    employeeCount: num3(onb?.employeeCount),
     payrollFrequency: normalizePayrollFreq(onb?.payrollFrequency, client?.payrollFrequency),
     payrollRemitterFreq: client?.payrollRemitterFreq ?? "regular",
     hasWSIB: bool(client?.hasWSIB, onb?.wsibRequired),
@@ -51666,7 +51756,7 @@ function buildScopeForClient(client, onb) {
     invoicingByUs: onb?.invoicingResponsibility === "we_invoice",
     billPayByUs: onb?.billPayResponsibility === "we_pay",
     hasJobCosting: bool(onb?.hasJobCosting),
-    monthsBehind: num2(onb?.monthsBehind),
+    monthsBehind: num3(onb?.monthsBehind),
     qboSoftwareTier: onb?.qboSoftwareTier ?? "none",
     qboSoftwareWholesale: bool(onb?.qboSoftwareWholesale),
     qboPayrollWholesale: bool(onb?.qboPayrollWholesale)
@@ -55551,9 +55641,8 @@ async function execDraftEmail(input, userId) {
   const body = String(input?.body ?? "").trim();
   if (!body) return "What should the email say?";
   const subject = String(input?.subject ?? "").trim() || "(no subject)";
-  const db = getDb();
-  const accts = await db.select().from(connectedAccounts).where(and(eq(connectedAccounts.userId, userId), eq(connectedAccounts.provider, "google")));
-  const account = accts.find((a) => a.isActive) || accts[0];
+  const { getFirmGoogleAccount: getFirmGoogleAccount2 } = await Promise.resolve().then(() => (init_google_token(), google_token_exports));
+  const account = await getFirmGoogleAccount2(userId);
   if (!account) return "I need your Google email connected first (Integrations \u2192 Google) before I can draft mail.";
   try {
     const token = await getValidGoogleAccessToken(account);
@@ -56702,7 +56791,7 @@ async function dedupeClients(confirm) {
     let cnt = 0;
     for (const m of mapping) {
       try {
-        cnt += num(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
+        cnt += num2(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
       } catch {
         held.add(m.dupe);
       }
@@ -56724,7 +56813,7 @@ async function dedupeClients(confirm) {
         const cols = asRows(await db.run(sql.raw(`PRAGMA table_info("${t2}")`))).map((c) => String(c.name ?? c[1])).filter((name2) => !["id", "createdAt", "updatedAt"].includes(name2));
         if (cols.length === 0) continue;
         const grp = cols.map((c) => `"${c}"`).join(",");
-        const n = num(await db.run(sql.raw(
+        const n = num2(await db.run(sql.raw(
           `DELETE FROM "${t2}" WHERE "clientId" IN (${inList}) AND id NOT IN (SELECT MIN(id) FROM "${t2}" WHERE "clientId" IN (${inList}) GROUP BY ${grp})`
         )));
         if (n) report.dedupedRecords[t2] = n;
@@ -56734,14 +56823,14 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm6, asRows, num;
+var norm6, asRows, num2;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
     norm6 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
-    num = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
+    num2 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
 });
 
@@ -63926,7 +64015,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.63";
+var BUILD_TAG = "2026-06-23.64";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

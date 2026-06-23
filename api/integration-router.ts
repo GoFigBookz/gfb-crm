@@ -2,10 +2,12 @@ import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { connectedAccounts } from "../db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, or, desc } from "drizzle-orm";
 
 export const integrationRouter = createRouter({
-  // List connected accounts
+  // List connected accounts. Google/Microsoft are FIRM-WIDE (one shared login for
+  // the practice), so they show for any staff user regardless of which user row
+  // the OAuth landed on — otherwise a connected account reads as "Not Connected".
   list: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
     return db
@@ -23,7 +25,11 @@ export const integrationRouter = createRouter({
         updatedAt: connectedAccounts.updatedAt,
       })
       .from(connectedAccounts)
-      .where(eq(connectedAccounts.userId, ctx.user.id))
+      .where(or(
+        eq(connectedAccounts.userId, ctx.user.id),
+        eq(connectedAccounts.provider, "google"),
+        eq(connectedAccounts.provider, "microsoft"),
+      ))
       .orderBy(desc(connectedAccounts.createdAt));
   }),
 

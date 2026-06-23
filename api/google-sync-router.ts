@@ -48,7 +48,6 @@ export const googleSyncRouter = createRouter({
         .from(connectedAccounts)
         .where(and(
           eq(connectedAccounts.id, input.accountId),
-          eq(connectedAccounts.userId, ctx.user.id),
           eq(connectedAccounts.provider, "google")
         ))
         .limit(1);
@@ -175,7 +174,6 @@ export const googleSyncRouter = createRouter({
         .from(connectedAccounts)
         .where(and(
           eq(connectedAccounts.id, input.accountId),
-          eq(connectedAccounts.userId, ctx.user.id),
           eq(connectedAccounts.provider, "google")
         ))
         .limit(1);
@@ -261,7 +259,6 @@ export const googleSyncRouter = createRouter({
         .from(connectedAccounts)
         .where(and(
           eq(connectedAccounts.id, input.accountId),
-          eq(connectedAccounts.userId, ctx.user.id),
           eq(connectedAccounts.provider, "google")
         ))
         .limit(1);
@@ -338,7 +335,6 @@ export const googleSyncRouter = createRouter({
         .from(connectedAccounts)
         .where(and(
           eq(connectedAccounts.id, input.accountId),
-          eq(connectedAccounts.userId, ctx.user.id),
           eq(connectedAccounts.provider, "google")
         ))
         .limit(1);

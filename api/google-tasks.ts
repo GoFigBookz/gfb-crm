@@ -12,19 +12,8 @@ import { eq, and } from "drizzle-orm";
  */
 async function getGoogleToken(userId: number): Promise<string | null> {
   const db = getDb();
-  const accounts = await db
-    .select()
-    .from(connectedAccounts)
-    .where(
-      and(
-        eq(connectedAccounts.userId, userId),
-        eq(connectedAccounts.provider, "google"),
-        eq(connectedAccounts.isActive, true)
-      )
-    )
-    .limit(1);
-
-  const account = accounts[0];
+  const { getFirmGoogleAccount } = await import("./google-token");
+  const account = await getFirmGoogleAccount(userId); // firm-wide Google login
   if (!account?.accessToken) return null;
 
   // Check if token is expired and refresh if needed
