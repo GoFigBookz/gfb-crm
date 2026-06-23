@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { Bell, Search, LogOut, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,34 @@ import { useAuth } from "@/hooks/useAuth";
 interface TopBarProps {
   sidebarCollapsed: boolean;
   onMenu?: () => void;
+}
+
+/** Live build badge — shows the deployed build tag from /api/version so it's
+ *  always obvious which version is actually running. Refreshes on mount. */
+function BuildBadge() {
+  const [build, setBuild] = useState<string>("…");
+  const [startedAt, setStartedAt] = useState<string>("");
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/version", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => { if (!alive) return; setBuild(d?.build || "?"); setStartedAt(d?.startedAt || ""); })
+      .catch(() => { if (alive) setBuild("?"); });
+    return () => { alive = false; };
+  }, []);
+  // Live server start time (= when this build deployed), shown in Eastern.
+  const deployed = startedAt
+    ? new Date(startedAt).toLocaleString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+    : "";
+  return (
+    <span
+      title={`Deployed build now running${startedAt ? ` — server started ${deployed} ET` : ""}`}
+      className="hidden sm:inline-flex flex-col items-end leading-tight px-2 py-1 rounded-md bg-slate-100 text-slate-500 text-[10px] font-mono tabular-nums"
+    >
+      <span>build {build}</span>
+      {deployed && <span className="text-slate-400">{deployed}</span>}
+    </span>
+  );
 }
 
 export function TopBar({ onMenu }: TopBarProps) {
@@ -33,6 +61,7 @@ export function TopBar({ onMenu }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-2">
+        <BuildBadge />
         {/* Bell → Tasks & deadlines (the closest thing to alerts today). The
             old red dot was hardcoded with nothing behind it, so it's removed
             until a real notifications count exists. */}
