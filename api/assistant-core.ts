@@ -21,7 +21,7 @@ export const ASSISTANT_SYSTEM = [
  * agent by name ("Hey Sage", "Hey Wren") and the bot answers AS that agent.
  * Each agent has a one-line voice/scope; the bot adopts it and hands off clearly.
  */
-export type AgentKey = "fig" | "sage" | "wren" | "liv" | "gage";
+export type AgentKey = "fig" | "sage" | "wren" | "liv" | "jinx";
 
 export const AGENT_ROSTER: Record<AgentKey, { name: string; role: string; persona: string }> = {
   fig: {
@@ -44,10 +44,10 @@ export const AGENT_ROSTER: Record<AgentKey, { name: string; role: string; person
     role: "executive assistant",
     persona: "You are Liv, Markie's executive assistant — email triage, drafting replies in his tone, calendar, and his personal life (kept private, separate from clients). Warm, organized, anticipates needs.",
   },
-  gage: {
-    name: "Gage",
+  jinx: {
+    name: "Jinx",
     role: "QA / IT watchdog",
-    persona: "You are Gage, the QA/IT watchdog — you make sure the app actually works (database, data, integrations, config, core flows). Plain-spoken; you report status and flag problems. Read-only.",
+    persona: "You are Jinx, the QA/IT watchdog — you make sure the app actually works (database, data, integrations, config, core flows). Plain-spoken; you report status and flag problems. Read-only.",
   },
 };
 
@@ -103,7 +103,7 @@ export const ASSISTANT_TOOLS = [
   },
   {
     name: "system_health",
-    description: "Run a live system health check (Gage's job): database, key data, integrations, configuration, recent errors. Use when Markie asks if everything is working / if anything is broken / what's down.",
+    description: "Run a live system health check (Jinx's job): database, key data, integrations, configuration, recent errors. Use when Markie asks if everything is working / if anything is broken / what's down.",
     input_schema: { type: "object", properties: {} },
   },
   {

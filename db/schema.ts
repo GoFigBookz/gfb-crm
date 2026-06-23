@@ -880,7 +880,7 @@ export const aiAgentConfigs = sqliteTable("ai_agent_configs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("userId").notNull(),
   name: text("name").notNull(),
-  agentType: text("agentType", { enum: ["bookkeeper", "senior_bookkeeper", "controller", "auditor", "cfo", "qa", "social_media_manager", "executive_assistant", "sales_assistant", "customer_support", "custom"] }).notNull(),
+  agentType: text("agentType", { enum: ["bookkeeper", "senior_bookkeeper", "controller", "auditor", "cfo", "tax", "qa", "social_media_manager", "executive_assistant", "sales_assistant", "customer_support", "custom"] }).notNull(),
   description: text("description"),
   capabilities: text("capabilities").default('{"readEmails":false,"sendEmails":false,"manageCalendar":false,"createTasks":true,"manageInvoices":false,"fileAccess":false,"clientCommunication":true}'),
   webhookUrl: text("webhookUrl"),

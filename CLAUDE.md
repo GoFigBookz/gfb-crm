@@ -47,7 +47,7 @@ auto-driven close checklist.
   `payrollBonuses`/`payrollRevenueShare` on anyone else. (Markie, repeated.)
 
 ## AI agent roster & rules (Markie 2026-06-23 — the firm's org chart)
-Four named agents + Markie (Partner, final sign-off). Each tier REVIEWS the one
+Named agents + Markie (Partner, final sign-off). Each tier REVIEWS the one
 below — nothing is final without the next level's check (the golden review gate,
 baked into the org chart). All share ONE learning/memory layer: a human-confirmed
 correction teaches every agent, with per-client isolation always preserved.
@@ -66,9 +66,16 @@ correction teaches every agent, with per-client isolation always preserved.
    phone chatbot (/assistant), agenda, email task-flagging + tone-matched DRAFT
    replies (DRAFT ONLY — never auto-send), scheduling, AND Markie's PERSONAL life.
    STATUS: chatbot v1 live.
-5. **Gage** — QA / WATCHDOG. Runs smoke-tests + watches the live app (deploys came
+5. **Jinx** — QA / WATCHDOG. Runs smoke-tests + watches the live app (deploys came
    up, payroll opens, email syncs, key flows work) and FLAGS Markie only when
-   something breaks — silent when healthy. So nobody has to babysit. STATUS: to build.
+   something breaks — silent when healthy. So nobody has to babysit. STATUS: health
+   check + System Health page live.
+6. **Tess** — TAX SPECIALIST. Corporate (T2) + personal (T1) tax, HST/GST returns,
+   year-end tax prep, instalments, CRA correspondence. Prepares for Markie's sign-off
+   — never files. STATUS: to build.
+Support: **Jade** — FRACTIONAL CFO (forward-looking finance); **Skye** — SOCIAL /
+MARKETING. (Renames 2026-06-23: Gage→Jinx, Fractional CFO→Jade, Social Media
+Manager→Skye, + new Tess for tax.)
 
 ALWAYS-LEARNING (all agents): they share ONE growing memory — each client's quirks,
 Markie's coding + email tone + preferences — built from confirmed corrections AND
@@ -77,7 +84,7 @@ LIV'S PERSONAL SPACE: Liv also manages Markie's personal life in a PRIVATE area 
 Markie sees, fully walled off from client/firm data (personal never mixes with work,
 work never leaks into personal).
 HOW MARKIE TALKS TO THEM: ONE chatbot — Liv is the front desk. Markie says "Hey Sage
-/ Hey Fig / Hey Wren / Hey Gage" and Liv routes to that agent + returns the answer.
+/ Hey Fig / Hey Wren / Hey Jinx" and Liv routes to that agent + returns the answer.
 (Today only Liv's skills are live; others plug into the same chat as built. SMS/text
 access is the next channel so he can use it while driving.)
 RULES (all agents): nothing posts / sends / files without the review chain + Markie's
@@ -306,18 +313,20 @@ STATUS / deep-dive (2026-06-23):
 - **NAMED AGENT ROSTER WIRED (2026-06-23):** the team is seeded + shown by name —
   Fig (junior bookkeeper), Sage (senior bookkeeper: reviews Fig + preps HST/WSIB/
   payroll), Wren (controller/auditor: tie-outs, CRA HST audit, signed workpaper),
-  Liv (EA: email intelligence + personal life), Gage (QA/IT watchdog). Markie =
-  Partner. `api/seed-ai-agents.ts` reconciles old generic rows → named (rename in
-  place, no dupes); agentType enum gained `senior_bookkeeper`/`auditor`/`qa`. Every
-  agent system prompt carries the LEARNING-agent mandate.
-- **GAGE / SYSTEM HEALTH (2026-06-23):** `api/qa-core.ts` (pure `evaluateQa`/`rollup`,
-  7 tests) + `api/qa-router.ts` (`gage.runChecks`/`gage.ping`, read-only) grade the
+  Liv (EA: email intelligence + personal life), Jinx (QA/IT watchdog), Tess (tax),
+  Jade (fractional CFO), Skye (social/marketing). Markie = Partner.
+  `api/seed-ai-agents.ts` reconciles old rows → named (rename-in-place via `aliases`,
+  no dupes: Gage→Jinx, Fractional CFO→Jade, Social Media Manager→Skye); agentType enum
+  gained `senior_bookkeeper`/`auditor`/`cfo`/`tax`/`qa`. Every agent system prompt
+  carries the LEARNING-agent mandate.
+- **JINX / SYSTEM HEALTH (2026-06-23, was "Gage"):** `api/qa-core.ts` (pure `evaluateQa`/`rollup`,
+  7 tests) + `api/qa-router.ts` (`jinx.runChecks`/`jinx.ping`, read-only) grade the
   live system ok/warn/fail — DB reachable, key tables+counts, env presence (required
   fail / optional warn), QBO conn health, connector accounts, recent sync errors.
   UI = `src/pages/SystemHealth.tsx` (route `/system-health`, sidebar "System Health").
 - **FRONT-DESK CHATBOT ROUTING (2026-06-23):** one chatbot, whole team. `detectAgent`/
   `frontDeskSystem`/`AGENT_ROSTER` in `api/assistant-core.ts` (+tests); say "Hey Sage/
-  Wren/Liv/Gage" (or a name at msg start) → that agent answers in its voice, sticky
+  Wren/Liv/Jinx" (or a name at msg start) → that agent answers in its voice, sticky
   across the thread, returned to UI. `src/pages/Assistant.tsx` shows "Talking to <name>"
   + quick-switch chips. Tools: add_task, get_agenda, add_personal.
 - **LIV PERSONAL SPACE (2026-06-23):** private, WALLED OFF from clients. `personal_items`

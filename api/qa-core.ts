@@ -1,7 +1,7 @@
 /**
  * GAGE CORE — the QA/watchdog agent's pure evaluation logic (unit-testable).
  * =============================================================================
- * Gage's job: make sure everything we've built is actually WORKING, so Markie
+ * Jinx's job: make sure everything we've built is actually WORKING, so Markie
  * doesn't have to live in Claude babysitting the app. The router gathers raw
  * facts (DB reachable? key tables present + row counts? which env keys are set?
  * connections live?) and hands them here. This file turns facts → a graded

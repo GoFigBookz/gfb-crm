@@ -23202,7 +23202,7 @@ var init_schema = __esm({
       id: integer2("id").primaryKey({ autoIncrement: true }),
       userId: integer2("userId").notNull(),
       name: text("name").notNull(),
-      agentType: text("agentType", { enum: ["bookkeeper", "senior_bookkeeper", "controller", "auditor", "cfo", "qa", "social_media_manager", "executive_assistant", "sales_assistant", "customer_support", "custom"] }).notNull(),
+      agentType: text("agentType", { enum: ["bookkeeper", "senior_bookkeeper", "controller", "auditor", "cfo", "tax", "qa", "social_media_manager", "executive_assistant", "sales_assistant", "customer_support", "custom"] }).notNull(),
       description: text("description"),
       capabilities: text("capabilities").default('{"readEmails":false,"sendEmails":false,"manageCalendar":false,"createTasks":true,"manageInvoices":false,"fileAccess":false,"clientCommunication":true}'),
       webhookUrl: text("webhookUrl"),
@@ -43310,7 +43310,7 @@ var init_ai_agent_router = __esm({
       // Create agent config
       create: authedQuery.input(external_exports.object({
         name: external_exports.string().min(1).max(255),
-        agentType: external_exports.enum(["bookkeeper", "senior_bookkeeper", "controller", "auditor", "cfo", "qa", "social_media_manager", "executive_assistant", "sales_assistant", "customer_support", "custom"]),
+        agentType: external_exports.enum(["bookkeeper", "senior_bookkeeper", "controller", "auditor", "cfo", "tax", "qa", "social_media_manager", "executive_assistant", "sales_assistant", "customer_support", "custom"]),
         description: external_exports.string().optional(),
         capabilities: external_exports.object({
           readEmails: external_exports.boolean().default(false),
@@ -54088,10 +54088,10 @@ var init_assistant_core = __esm({
         role: "executive assistant",
         persona: "You are Liv, Markie's executive assistant \u2014 email triage, drafting replies in his tone, calendar, and his personal life (kept private, separate from clients). Warm, organized, anticipates needs."
       },
-      gage: {
-        name: "Gage",
+      jinx: {
+        name: "Jinx",
         role: "QA / IT watchdog",
-        persona: "You are Gage, the QA/IT watchdog \u2014 you make sure the app actually works (database, data, integrations, config, core flows). Plain-spoken; you report status and flag problems. Read-only."
+        persona: "You are Jinx, the QA/IT watchdog \u2014 you make sure the app actually works (database, data, integrations, config, core flows). Plain-spoken; you report status and flag problems. Read-only."
       }
     };
     ASSISTANT_TOOLS = [
@@ -54114,7 +54114,7 @@ var init_assistant_core = __esm({
       },
       {
         name: "system_health",
-        description: "Run a live system health check (Gage's job): database, key data, integrations, configuration, recent errors. Use when Markie asks if everything is working / if anything is broken / what's down.",
+        description: "Run a live system health check (Jinx's job): database, key data, integrations, configuration, recent errors. Use when Markie asks if everything is working / if anything is broken / what's down.",
         input_schema: { type: "object", properties: {} }
       },
       {
@@ -54367,7 +54367,7 @@ var init_qa_router = __esm({
       "FIGGY_MAKE_API_TOKEN"
     ];
     qaRouter = createRouter({
-      /** Gage's full health report. Any signed-in staff member can run it. */
+      /** Jinx's full health report. Any signed-in staff member can run it. */
       runChecks: authedQuery.query(async () => {
         return runHealthReport();
       }),
@@ -54483,7 +54483,7 @@ var init_assistant_router = __esm({
       ask: authedQuery.input(external_exports.object({
         message: external_exports.string().min(1).max(2e3),
         history: external_exports.array(external_exports.object({ role: external_exports.enum(["user", "assistant"]), content: external_exports.string() })).max(20).optional(),
-        agent: external_exports.enum(["fig", "sage", "wren", "liv", "gage"]).optional()
+        agent: external_exports.enum(["fig", "sage", "wren", "liv", "jinx"]).optional()
       })).mutation(async ({ ctx, input }) => {
         const apiKey = process.env.ANTHROPIC_API_KEY;
         const agent = detectAgent(input.message, input.agent ?? null);
@@ -54914,7 +54914,7 @@ var init_router = __esm({
       bankConverter: bankConverterRouter,
       pdfSplitter: pdfSplitterRouter,
       assistant: assistantRouter,
-      gage: qaRouter,
+      jinx: qaRouter,
       personal: personalRouter
     });
   }
@@ -57562,28 +57562,39 @@ var init_seed_ai_agents = __esm({
         systemPrompt: "You are Liv, Markie's executive assistant at Go Fig Bookz. Watch incoming client email, surface what needs action as tasks, and draft replies that sound like Markie (match his tone from his own sent emails). You also manage Markie's personal life \u2014 calendar, reminders, errands \u2014 in a SEPARATE, private space that is never mixed with client data. Drafts are always for Markie's review before they send." + LEARNING_NOTE
       },
       {
-        name: "Gage",
+        name: "Jinx",
         agentType: "qa",
         description: "QA / IT watchdog \u2014 continuously checks that everything we've built actually works: database, key data, integrations, env config, and core flows. Surfaces problems on the System Health page so Markie doesn't have to live in Claude.",
         model: "claude-haiku-4-5",
         capabilities: { readEmails: false, sendEmails: false, manageCalendar: false, createTasks: true, manageInvoices: false, fileAccess: false, clientCommunication: false },
-        systemPrompt: "You are Gage, the QA/IT watchdog for Go Fig Bookz. Verify the app is healthy \u2014 database reachable, key tables populated, integrations connected, configuration present, core flows passing \u2014 and report a clear ok/attention/problem status with plain-English detail. You are read-only: you inspect and report, you never change client data." + LEARNING_NOTE
+        aliases: ["Gage"],
+        systemPrompt: "You are Jinx, the QA/IT watchdog for Go Fig Bookz. Verify the app is healthy \u2014 database reachable, key tables populated, integrations connected, configuration present, core flows passing \u2014 and report a clear ok/attention/problem status with plain-English detail. You are read-only: you inspect and report, you never change client data." + LEARNING_NOTE
       },
       {
-        name: "Fractional CFO",
-        agentType: "cfo",
-        description: "Forward-looking finance: cash-flow forecasting, profitability & margin analysis, KPI trends and budget-vs-actual. Flags concrete ways to run leaner or grow revenue, and surfaces advisory/upsell opportunities.",
+        name: "Tess",
+        agentType: "tax",
+        description: "Tax specialist \u2014 corporate (T2) and personal (T1) tax, HST/GST returns, year-end tax prep, instalments, and CRA correspondence. Keeps clients compliant and flags planning opportunities; nothing files without Markie's sign-off.",
         model: "claude-sonnet-4-6",
         capabilities: { readEmails: false, sendEmails: false, manageCalendar: false, createTasks: true, manageInvoices: false, fileAccess: true, clientCommunication: false },
-        systemPrompt: "You are a Fractional CFO. Working from QuickBooks P&L, balance sheet and cash-flow data, deliver strategic insight: forecast cash flow and flag runway risks; analyze margins and profitability by product/service/client; track KPIs and budget-vs-actual. Give a SHORT, prioritized list of concrete recommendations to run leaner or grow revenue, and surface advisory/upsell opportunities. Quantify impact where you can; never fabricate figures \u2014 if data is missing, say what you need." + LEARNING_NOTE
+        systemPrompt: "You are Tess, the tax specialist for Go Fig Bookz, a Canadian firm. Handle corporate (T2) and personal (T1) tax, HST/GST returns, year-end tax prep, instalment planning, and CRA correspondence. Apply current CRA rules and deadlines; be precise and conservative, and surface planning opportunities (deductions, credits, deferrals) you spot. Never file or submit anything \u2014 you prepare for Markie's review and sign-off. If a figure or rule is uncertain, say so and ask." + LEARNING_NOTE
       },
       {
-        name: "Social Media Manager",
+        name: "Jade",
+        agentType: "cfo",
+        description: "Fractional CFO \u2014 forward-looking finance: cash-flow forecasting, profitability & margin analysis, KPI trends and budget-vs-actual. Flags concrete ways to run leaner or grow revenue, and surfaces advisory/upsell opportunities.",
+        model: "claude-sonnet-4-6",
+        capabilities: { readEmails: false, sendEmails: false, manageCalendar: false, createTasks: true, manageInvoices: false, fileAccess: true, clientCommunication: false },
+        aliases: ["Fractional CFO"],
+        systemPrompt: "You are Jade, the fractional CFO for Go Fig Bookz. Working from QuickBooks P&L, balance sheet and cash-flow data, deliver strategic insight: forecast cash flow and flag runway risks; analyze margins and profitability by product/service/client; track KPIs and budget-vs-actual. Give a SHORT, prioritized list of concrete recommendations to run leaner or grow revenue, and surface advisory/upsell opportunities. Quantify impact where you can; never fabricate figures \u2014 if data is missing, say what you need." + LEARNING_NOTE
+      },
+      {
+        name: "Skye",
         agentType: "social_media_manager",
-        description: "The marketing arm: plans the content calendar, drafts on-brand posts for LinkedIn / Facebook / Instagram, repurposes bookkeeping tips and client wins into content, and schedules & engages to grow Go Fig Bookz's audience.",
+        description: "Social media / marketing \u2014 plans the content calendar, drafts on-brand posts for LinkedIn / Facebook / Instagram, repurposes bookkeeping tips and client wins into content, and schedules & engages to grow Go Fig Bookz's audience.",
         model: "claude-haiku-4-5",
         capabilities: { readEmails: false, sendEmails: false, manageCalendar: true, createTasks: true, manageInvoices: false, fileAccess: false, clientCommunication: false },
-        systemPrompt: "You are the Social Media Manager for Go Fig Bookz, a Canadian bookkeeping firm. Voice: professional but warm and approachable, plain-language, helpful \u2014 never spammy. Plan a content calendar and draft platform-ready posts (LinkedIn, Facebook, Instagram) that turn bookkeeping tips, deadlines (HST, payroll, year-end) and client wins into useful content, each with a light call-to-action. Keep posts concise and on-brand; suggest hashtags and the best posting time." + LEARNING_NOTE
+        aliases: ["Social Media Manager"],
+        systemPrompt: "You are Skye, the social media / marketing manager for Go Fig Bookz, a Canadian bookkeeping firm. Voice: professional but warm and approachable, plain-language, helpful \u2014 never spammy. Plan a content calendar and draft platform-ready posts (LinkedIn, Facebook, Instagram) that turn bookkeeping tips, deadlines (HST, payroll, year-end) and client wins into useful content, each with a light call-to-action. Keep posts concise and on-brand; suggest hashtags and the best posting time." + LEARNING_NOTE
       }
     ];
   }
@@ -62378,7 +62389,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.20";
+var BUILD_TAG = "2026-06-23.21";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

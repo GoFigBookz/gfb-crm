@@ -7,7 +7,7 @@ describe("detectAgent", () => {
     expect(detectAgent("Wren — did month-end tie out?")).toBe("wren");
     expect(detectAgent("ask Liv to draft a reply")).toBe("liv");
     expect(detectAgent("Fig, code these receipts")).toBe("fig");
-    expect(detectAgent("hey gage is everything working")).toBe("gage");
+    expect(detectAgent("hey jinx is everything working")).toBe("jinx");
   });
   it("stays with the current agent when none is named", () => {
     expect(detectAgent("what about the payroll?", "sage")).toBe("sage");

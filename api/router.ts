@@ -117,7 +117,7 @@ export const appRouter = createRouter({
   bankConverter: bankConverterRouter,
   pdfSplitter: pdfSplitterRouter,
   assistant: assistantRouter,
-  gage: qaRouter,
+  jinx: qaRouter,
   personal: personalRouter,
 });
 
