@@ -35068,7 +35068,7 @@ var init_google_tasks_router = __esm({
       ).mutation(async ({ ctx, input }) => {
         const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
         const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-        const { eq: eq3, and: and4, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+        const { eq: eq3, and: and5, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
         const db = getDb2();
         const token = await getGoogleToken(ctx.user.id, ctx.db);
         if (!token) {
@@ -35077,7 +35077,7 @@ var init_google_tasks_router = __esm({
             message: "No Google account connected. Connect Google in Integrations."
           });
         }
-        const where = input.clientId ? and4(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and4(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
+        const where = input.clientId ? and5(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and5(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
         const crmTasks = await db.select().from(tasks5).where(where);
         const results = [];
         for (const task of crmTasks.slice(0, 50)) {
@@ -53922,6 +53922,170 @@ var init_pdf_splitter_router = __esm({
   }
 });
 
+// api/assistant-core.ts
+function formatAgenda(a) {
+  const line = (t2) => `\u2022 ${t2.title}${t2.client ? ` (${t2.client})` : ""}${t2.due ? ` \u2014 due ${t2.due}` : ""}`;
+  const parts = [];
+  if (a.events.length) parts.push("\u{1F4C5} Today's calendar:\n" + a.events.map((e) => `\u2022 ${e.when} \u2014 ${e.title}`).join("\n"));
+  if (a.overdue.length) parts.push(`\u{1F534} Overdue (${a.overdue.length}):
+` + a.overdue.slice(0, 10).map(line).join("\n"));
+  if (a.today.length) parts.push(`\u2B50 Due today (${a.today.length}):
+` + a.today.slice(0, 10).map(line).join("\n"));
+  if (a.upcoming.length) parts.push(`\u{1F5D3}\uFE0F Coming up:
+` + a.upcoming.slice(0, 8).map(line).join("\n"));
+  if (!parts.length) return "You're all clear \u2014 nothing overdue, due today, or on the calendar.";
+  return parts.join("\n\n");
+}
+var ASSISTANT_SYSTEM, ASSISTANT_TOOLS;
+var init_assistant_core = __esm({
+  "api/assistant-core.ts"() {
+    ASSISTANT_SYSTEM = [
+      "You are Figgy, the assistant for Markie's bookkeeping practice (Go Fig Bookz).",
+      "Markie is often on his phone or driving \u2014 be BRIEF and direct. Short sentences, no fluff, no preamble.",
+      "You can do two things:",
+      "1) Add a task \u2014 call add_task with the FULL natural-language request (include the client name, the action, and any due date/priority Markie said).",
+      "2) Report his agenda \u2014 call get_agenda when he asks what's on his plate / today / this week / if he's behind.",
+      "After a tool runs, confirm in one short line. If asked something you can't do yet, say so briefly. Never invent client names or data."
+    ].join("\n");
+    ASSISTANT_TOOLS = [
+      {
+        name: "add_task",
+        description: 'Create a task from a natural-language request, e.g. "add a task for Clark Owen Sound to file HST by Friday". Pass the whole request (client + action + any due date/priority) in `text`.',
+        input_schema: {
+          type: "object",
+          properties: { text: { type: "string", description: "The full task request in plain English." } },
+          required: ["text"]
+        }
+      },
+      {
+        name: "get_agenda",
+        description: "Get Markie's current agenda \u2014 overdue, due-today, and upcoming tasks plus calendar events.",
+        input_schema: {
+          type: "object",
+          properties: { range: { type: "string", enum: ["today", "week", "overdue", "all"], description: "Time window; defaults to today + overdue." } }
+        }
+      }
+    ];
+  }
+});
+
+// api/assistant-router.ts
+async function execAddTask(text2, userId) {
+  const db = getDb();
+  const cls = await db.select({ id: clients.id, name: clients.name }).from(clients);
+  const parsed = parseTaskCommand(text2, cls);
+  await db.insert(tasks).values({
+    userId,
+    clientId: parsed.clientId,
+    title: parsed.title,
+    dueDate: parsed.dueDate,
+    priority: parsed.priority,
+    status: "pending",
+    completed: false
+  });
+  const who = parsed.clientName ? ` for ${parsed.clientName}` : "";
+  const when = parsed.dueDate ? ` (due ${parsed.dueDate.toLocaleDateString(void 0, { month: "short", day: "numeric" })})` : "";
+  return `Added task: "${parsed.title}"${who}${when}.`;
+}
+async function execGetAgenda(userId) {
+  const db = getDb();
+  const cls = await db.select({ id: clients.id, name: clients.name }).from(clients);
+  const nameById = new Map(cls.map((c) => [c.id, c.name]));
+  const now = /* @__PURE__ */ new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(todayStart.getTime() + 864e5);
+  const open = await db.select().from(tasks).where(eq(tasks.completed, false));
+  const dstr = (d) => {
+    try {
+      return new Date(d).toLocaleDateString(void 0, { month: "short", day: "numeric" });
+    } catch {
+      return "";
+    }
+  };
+  const overdue = [], today2 = [], upcoming = [];
+  for (const t2 of open) {
+    if (!t2.dueDate) continue;
+    const d = new Date(t2.dueDate);
+    const item = { title: t2.title, client: t2.clientId ? nameById.get(t2.clientId) : null, due: dstr(d) };
+    if (d < todayStart) overdue.push(item);
+    else if (d < todayEnd) today2.push({ ...item, due: null });
+    else upcoming.push(item);
+  }
+  overdue.sort((a, b) => a.due.localeCompare(b.due));
+  upcoming.sort((a, b) => new Date(a.due).getTime() - new Date(b.due).getTime());
+  const evs = await db.select().from(calendarEvents).where(eq(calendarEvents.userId, userId));
+  const events = evs.filter((e) => {
+    const s = new Date(e.startDate);
+    return s >= todayStart && s < todayEnd;
+  }).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()).map((e) => ({ title: e.title, when: e.isAllDay ? "all day" : new Date(e.startDate).toLocaleTimeString(void 0, { hour: "numeric", minute: "2-digit" }) }));
+  return formatAgenda({ overdue, today: today2, upcoming, events });
+}
+async function runTool(name2, input, userId) {
+  try {
+    if (name2 === "add_task") return await execAddTask(String(input?.text ?? ""), userId);
+    if (name2 === "get_agenda") return await execGetAgenda(userId);
+    return `Unknown tool: ${name2}`;
+  } catch (e) {
+    return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
+var ANTHROPIC_URL, assistantRouter;
+var init_assistant_router = __esm({
+  "api/assistant-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_task_command_core();
+    init_assistant_core();
+    ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+    assistantRouter = createRouter({
+      ask: authedQuery.input(external_exports.object({
+        message: external_exports.string().min(1).max(2e3),
+        history: external_exports.array(external_exports.object({ role: external_exports.enum(["user", "assistant"]), content: external_exports.string() })).max(20).optional()
+      })).mutation(async ({ ctx, input }) => {
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [] };
+        const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
+        const messages = [
+          ...(input.history || []).map((h) => ({ role: h.role, content: h.content })),
+          { role: "user", content: input.message }
+        ];
+        const actions = [];
+        for (let i = 0; i < 6; i++) {
+          const res = await fetch(ANTHROPIC_URL, {
+            method: "POST",
+            headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({ model, max_tokens: 1024, system: ASSISTANT_SYSTEM, tools: ASSISTANT_TOOLS, messages })
+          });
+          if (!res.ok) {
+            const b = await res.text().catch(() => "");
+            return { reply: `Assistant error (${res.status}). ${b.slice(0, 160)}`, actions };
+          }
+          const data = await res.json();
+          if (data.stop_reason === "tool_use") {
+            messages.push({ role: "assistant", content: data.content });
+            const results = [];
+            for (const block of data.content || []) {
+              if (block.type === "tool_use") {
+                const out = await runTool(block.name, block.input, ctx.user.id);
+                if (block.name === "add_task") actions.push(out);
+                results.push({ type: "tool_result", tool_use_id: block.id, content: out });
+              }
+            }
+            messages.push({ role: "user", content: results });
+            continue;
+          }
+          const reply = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
+          return { reply: reply || "(no reply)", actions };
+        }
+        return { reply: "Sorry \u2014 I got stuck in a loop. Try rephrasing.", actions };
+      })
+    });
+  }
+});
+
 // api/public-router.ts
 var publicRouter;
 var init_public_router = __esm({
@@ -54183,6 +54347,7 @@ var init_router = __esm({
     init_calculator_router();
     init_bank_converter_router();
     init_pdf_splitter_router();
+    init_assistant_router();
     init_public_router();
     init_middleware();
     appRouter = createRouter({
@@ -54242,7 +54407,8 @@ var init_router = __esm({
       dashboard: dashboardRouter,
       calculator: calculatorRouter,
       bankConverter: bankConverterRouter,
-      pdfSplitter: pdfSplitterRouter
+      pdfSplitter: pdfSplitterRouter,
+      assistant: assistantRouter
     });
   }
 });
@@ -61636,7 +61802,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.13";
+var BUILD_TAG = "2026-06-23.14";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -62336,7 +62502,7 @@ app.post("/api/admin/figgy", async (c) => {
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and5 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -62449,7 +62615,7 @@ app.post("/api/admin/figgy", async (c) => {
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq3(signatureDocuments2.id, docId));
         }
-        const signedCount = (await db.select().from(signatureDocuments2).where(and4(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
+        const signedCount = (await db.select().from(signatureDocuments2).where(and5(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
         steps.push(`signed ${signedCount}/2 documents`);
         await db.update(clients3).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients3.id, cl.id));
         const res = await createClientTaskRules2({
@@ -62604,7 +62770,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and4, ne: ne4, like: like2 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and5, ne: ne4, like: like2 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const matches = await db.select().from(clients3).where(like2(clients3.name, "%Doc King%"));
       for (const cl of matches) {
@@ -62612,7 +62778,7 @@ async function startServer() {
           await db.update(clients3).set({ clientType: "wholesale" }).where(eq3(clients3.id, cl.id));
         }
         await db.update(clientTaskRules4).set({ active: false }).where(eq3(clientTaskRules4.clientId, cl.id));
-        await db.delete(tasks5).where(and4(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
+        await db.delete(tasks5).where(and5(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
       }
     } catch (e) {
       console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e);
@@ -62620,7 +62786,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and4, like: like2, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and5, like: like2, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
         const matches = await db.select().from(clients3).where(like2(clients3.name, nameLike));
@@ -62671,7 +62837,7 @@ async function startServer() {
       };
       for (const cl of orig) {
         for (const [last, ytd] of Object.entries(origYtd)) {
-          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and4(eq3(employees2.clientId, cl.id), like2(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
+          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and5(eq3(employees2.clientId, cl.id), like2(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
         }
       }
     } catch (e) {

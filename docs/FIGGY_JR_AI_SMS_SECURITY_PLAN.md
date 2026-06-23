@@ -167,6 +167,31 @@ practiceMemory     (id, clientId?, key, value, rationale,
 
 ---
 
+### BUILT: Figgy chatbot v1 (2026-06-23)
+Phone-friendly chat at `/assistant` ("Ask Figgy" in the sidebar): Claude tool-loop
+(`assistant-router.ts` + `assistant-core.ts`) with two tools — **add_task** (NL →
+task via `parseTaskCommand`) and **get_agenda** (overdue/today/upcoming tasks +
+today's calendar events). Voice-dictation button for hands-free. Needs
+ANTHROPIC_API_KEY (set). Model `FIGGY_ASSISTANT_MODEL` (default claude-haiku-4-5;
+bump to sonnet/opus for "smarter"). NEXT (to make it the driving copilot Markie
+wants): more read tools (client status, "what's due for HST", month-end board),
+SMS front door (Twilio) so he can TEXT it, and richer agenda (date-range queries).
+
+### TODO: EMAIL INTELLIGENCE + DEFINE ALL AI-AGENT ROLES (Markie 2026-06-23)
+The app must be SMART about incoming client email (now that client-only email +
+real send/reply are built):
+- **Monitor client emails → auto-flag tasks** that need doing (e.g. "send me the
+  May statements" → a task on that client), surfaced in Triage / the client card.
+- **Draft replies in Markie's tone** (LEARNED from his past replies — a tone/style
+  the agent improves over time), shown as a DRAFT for one-click send (never
+  auto-send), reusing the real send path.
+- **DEFINE THE AGENT ROLES CLEARLY (open question):** who does what — Figgy Jr
+  (bookkeeping pipeline) vs an "Executive Assistant" agent (email triage, drafts,
+  agenda, the chatbot)? Markie wants the rules of each AI agent spelled out. Decide:
+  one agent with modes, or distinct agents (Figgy Jr = books/posting; EA = comms/
+  scheduling/chatbot). Decide before building the email-intelligence loop so it
+  slots under the right agent + shares the learning/memory layer.
+
 ### Built now: natural-language "add a task for client X" (2026-06-22)
 The specific thing Markie asked for ("text the bot: add this task for client X") has
 a **deterministic, dependency-free core shipped**: `api/task-command-core.ts`

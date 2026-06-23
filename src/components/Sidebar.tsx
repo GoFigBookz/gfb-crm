@@ -60,6 +60,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   // Comms — inbound/outbound to clients.
   const commsItems = [
+    { to: "/assistant", icon: Bot, label: "Ask Figgy" },
     { to: "/emails", icon: Mail, label: "Emails" },
     { to: "/messages", icon: MessageSquare, label: "Messages" },
     { to: "/quick-add", icon: Plus, label: "Quick Add" },
