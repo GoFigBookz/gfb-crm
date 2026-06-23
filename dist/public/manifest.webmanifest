@@ -1,0 +1,15 @@
+{
+  "name": "Go Fig Bookz",
+  "short_name": "Figgy",
+  "description": "Go Fig Bookz CRM — talk to your AI team (Fig, Sage, Wren, Liv, Tess, Jade, Skye, Jinx).",
+  "start_url": "/assistant",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#65a30d",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
