@@ -132,7 +132,10 @@ export const taskRouter = createRouter({
         status: "pending",
         completed: false,
       }).returning();
-      if (task) syncInsert("tasks", task);
+      if (task) {
+        syncInsert("tasks", task);
+        import("./google-push").then((m) => m.pushTaskToGoogle(task.id)).catch(() => {}); // two-way: mirror to Google Tasks
+      }
       return task;
     }),
 
@@ -278,7 +281,10 @@ export const taskRouter = createRouter({
 
       // Fetch and sync updated task
       const updated = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-      if (updated[0]) syncUpdate("tasks", updated[0]);
+      if (updated[0]) {
+        syncUpdate("tasks", updated[0]);
+        import("./google-push").then((m) => m.pushTaskToGoogle(id)).catch(() => {}); // two-way: mirror edit to Google Tasks
+      }
 
       return { success: true };
     }),

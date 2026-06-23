@@ -2393,9 +2393,9 @@ function isValidBase64URL(data) {
   const padded = base643.padEnd(Math.ceil(base643.length / 4) * 4, "=");
   return isValidBase64(padded);
 }
-function isValidJWT(token, algorithm = null) {
+function isValidJWT(token2, algorithm = null) {
   try {
-    const tokensParts = token.split(".");
+    const tokensParts = token2.split(".");
     if (tokensParts.length !== 3)
       return false;
     const [header2] = tokensParts;
@@ -28285,16 +28285,16 @@ var require_extension = __commonJS({
         throw new SyntaxError("Unexpected end of input");
       }
       if (end === -1) end = i;
-      const token = header2.slice(start, end);
+      const token2 = header2.slice(start, end);
       if (extensionName === void 0) {
-        push(offers, token, params);
+        push(offers, token2, params);
       } else {
         if (paramName === void 0) {
-          push(params, token, true);
+          push(params, token2, true);
         } else if (mustUnescape) {
-          push(params, paramName, token.replace(/\\/g, ""));
+          push(params, paramName, token2.replace(/\\/g, ""));
         } else {
-          push(params, paramName, token);
+          push(params, paramName, token2);
         }
         push(offers, extensionName, params);
       }
@@ -34819,8 +34819,8 @@ var init_migrate_router = __esm({
 });
 
 // api/voice-router.ts
-function validateVoiceToken(token) {
-  return checkSecret(token, "VOICE_WEBHOOK_TOKEN");
+function validateVoiceToken(token2) {
+  return checkSecret(token2, "VOICE_WEBHOOK_TOKEN");
 }
 var voiceRouter;
 var init_voice_router = __esm({
@@ -34840,8 +34840,8 @@ var init_voice_router = __esm({
         text: external_exports.string().min(1).max(500),
         userEmail: external_exports.string().email().optional().default("markie@gofig.ca")
       })).mutation(async ({ ctx, input }) => {
-        const token = ctx.req?.headers?.["x-voice-token"] || "";
-        if (!validateVoiceToken(token)) {
+        const token2 = ctx.req?.headers?.["x-voice-token"] || "";
+        if (!validateVoiceToken(token2)) {
           throw new Error("Invalid voice token");
         }
         const db = getDb();
@@ -34894,8 +34894,8 @@ var init_voice_router = __esm({
       morningBriefing: publicQuery.input(external_exports.object({
         userEmail: external_exports.string().email().optional().default("markie@gofig.ca")
       })).query(async ({ ctx, input }) => {
-        const token = ctx.req?.headers?.["x-voice-token"] || "";
-        if (!validateVoiceToken(token)) {
+        const token2 = ctx.req?.headers?.["x-voice-token"] || "";
+        if (!validateVoiceToken(token2)) {
           throw new Error("Invalid voice token");
         }
         const db = getDb();
@@ -34969,12 +34969,12 @@ async function getGoogleToken(userId, db) {
   });
   return account?.accessToken || null;
 }
-async function googleTasksRequest(token, path3, method = "GET", body) {
+async function googleTasksRequest(token2, path3, method = "GET", body) {
   const url2 = `${GOOGLE_TASKS_API_BASE}${path3}`;
   const res = await fetch(url2, {
     method,
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${token2}`,
       "Content-Type": "application/json"
     },
     body: body ? JSON.stringify(body) : void 0
@@ -34998,20 +34998,20 @@ var init_google_tasks_router = __esm({
     googleTasksRouter = createRouter({
       // List all Google Task lists
       listTaskLists: authedQuery.query(async ({ ctx }) => {
-        const token = await getGoogleToken(ctx.user.id, ctx.db);
-        if (!token) {
+        const token2 = await getGoogleToken(ctx.user.id, ctx.db);
+        if (!token2) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "No Google account connected. Connect Google in Integrations."
           });
         }
-        const data = await googleTasksRequest(token, "/users/@me/lists");
+        const data = await googleTasksRequest(token2, "/users/@me/lists");
         return data.items || [];
       }),
       // List tasks in a specific task list
       listTasks: authedQuery.input(external_exports.object({ taskListId: external_exports.string(), showCompleted: external_exports.boolean().default(false) })).query(async ({ ctx, input }) => {
-        const token = await getGoogleToken(ctx.user.id, ctx.db);
-        if (!token) {
+        const token2 = await getGoogleToken(ctx.user.id, ctx.db);
+        if (!token2) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "No Google account connected. Connect Google in Integrations."
@@ -35022,7 +35022,7 @@ var init_google_tasks_router = __esm({
         queryParams.set("showHidden", "false");
         queryParams.set("maxResults", "100");
         const data = await googleTasksRequest(
-          token,
+          token2,
           `/lists/${encodeURIComponent(input.taskListId)}/tasks?${queryParams.toString()}`
         );
         return data.items || [];
@@ -35038,8 +35038,8 @@ var init_google_tasks_router = __esm({
           parent: external_exports.string().optional()
         })
       ).mutation(async ({ ctx, input }) => {
-        const token = await getGoogleToken(ctx.user.id, ctx.db);
-        if (!token) {
+        const token2 = await getGoogleToken(ctx.user.id, ctx.db);
+        if (!token2) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "No Google account connected. Connect Google in Integrations."
@@ -35053,7 +35053,7 @@ var init_google_tasks_router = __esm({
         if (input.due) body.due = input.due;
         if (input.parent) body.parent = input.parent;
         const data = await googleTasksRequest(
-          token,
+          token2,
           `/lists/${encodeURIComponent(input.taskListId)}/tasks`,
           "POST",
           body
@@ -35071,8 +35071,8 @@ var init_google_tasks_router = __esm({
           status: external_exports.enum(["needsAction", "completed"]).optional()
         })
       ).mutation(async ({ ctx, input }) => {
-        const token = await getGoogleToken(ctx.user.id, ctx.db);
-        if (!token) {
+        const token2 = await getGoogleToken(ctx.user.id, ctx.db);
+        if (!token2) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "No Google account connected. Connect Google in Integrations."
@@ -35085,7 +35085,7 @@ var init_google_tasks_router = __esm({
         if (input.status !== void 0) body.status = input.status;
         if (input.status === "completed") body.completed = (/* @__PURE__ */ new Date()).toISOString();
         const data = await googleTasksRequest(
-          token,
+          token2,
           `/lists/${encodeURIComponent(input.taskListId)}/tasks/${encodeURIComponent(input.taskId)}`,
           "PATCH",
           body
@@ -35094,15 +35094,15 @@ var init_google_tasks_router = __esm({
       }),
       // Delete a Google Task
       deleteTask: authedQuery.input(external_exports.object({ taskListId: external_exports.string(), taskId: external_exports.string() })).mutation(async ({ ctx, input }) => {
-        const token = await getGoogleToken(ctx.user.id, ctx.db);
-        if (!token) {
+        const token2 = await getGoogleToken(ctx.user.id, ctx.db);
+        if (!token2) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "No Google account connected. Connect Google in Integrations."
           });
         }
         await googleTasksRequest(
-          token,
+          token2,
           `/lists/${encodeURIComponent(input.taskListId)}/tasks/${encodeURIComponent(input.taskId)}`,
           "DELETE"
         );
@@ -35117,8 +35117,8 @@ var init_google_tasks_router = __esm({
           previous: external_exports.string().optional()
         })
       ).mutation(async ({ ctx, input }) => {
-        const token = await getGoogleToken(ctx.user.id, ctx.db);
-        if (!token) {
+        const token2 = await getGoogleToken(ctx.user.id, ctx.db);
+        if (!token2) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "No Google account connected. Connect Google in Integrations."
@@ -35128,7 +35128,7 @@ var init_google_tasks_router = __esm({
         if (input.parent) params.set("parent", input.parent);
         if (input.previous) params.set("previous", input.previous);
         const data = await googleTasksRequest(
-          token,
+          token2,
           `/lists/${encodeURIComponent(input.taskListId)}/tasks/${encodeURIComponent(input.taskId)}/move?${params.toString()}`,
           "POST"
         );
@@ -35145,8 +35145,8 @@ var init_google_tasks_router = __esm({
         const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
         const { eq: eq3, and: and4, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
         const db = getDb2();
-        const token = await getGoogleToken(ctx.user.id, ctx.db);
-        if (!token) {
+        const token2 = await getGoogleToken(ctx.user.id, ctx.db);
+        if (!token2) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
             message: "No Google account connected. Connect Google in Integrations."
@@ -35158,7 +35158,7 @@ var init_google_tasks_router = __esm({
         for (const task of crmTasks.slice(0, 50)) {
           try {
             const googleTask = await googleTasksRequest(
-              token,
+              token2,
               `/lists/${encodeURIComponent(input.taskListId)}/tasks`,
               "POST",
               {
@@ -35338,14 +35338,14 @@ var init_google_sync_router = __esm({
         )).limit(1);
         if (!accounts[0]) throw new Error("Google account not found");
         const account = accounts[0];
-        const token = await getValidGoogleAccessToken(account);
+        const token2 = await getValidGoogleAccessToken(account);
         const cls = await db.select({ id: clients.id, email: clients.email }).from(clients);
         const ces = await db.select().from(clientEmails);
         const byAddr = /* @__PURE__ */ new Map();
         for (const c of cls) if (c.email) byAddr.set(String(c.email).toLowerCase(), c.id);
         for (const ce of ces) if (ce.email) byAddr.set(String(ce.email).toLowerCase(), ce.clientId);
         const listData = await googleApiRequest(
-          token,
+          token2,
           "https://gmail.googleapis.com/gmail/v1/users/me/messages",
           {
             maxResults: String(input.maxResults),
@@ -35357,7 +35357,7 @@ var init_google_sync_router = __esm({
         let skippedNonClient = 0;
         for (const msg of messages) {
           const msgData = await googleApiRequest(
-            token,
+            token2,
             `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`
           );
           const headers = msgData.payload?.headers || [];
@@ -35429,12 +35429,12 @@ var init_google_sync_router = __esm({
         )).limit(1);
         if (!accounts[0]) throw new Error("Google account not found");
         const account = accounts[0];
-        const token = await getValidGoogleAccessToken(account);
+        const token2 = await getValidGoogleAccessToken(account);
         const now = /* @__PURE__ */ new Date();
         const timeMin = new Date(now.getTime() - input.daysBack * 864e5).toISOString();
         const timeMax = new Date(now.getTime() + input.daysForward * 864e5).toISOString();
         const data = await googleApiRequest(
-          token,
+          token2,
           "https://www.googleapis.com/calendar/v3/calendars/primary/events",
           {
             timeMin,
@@ -35489,16 +35489,16 @@ var init_google_sync_router = __esm({
         )).limit(1);
         if (!accounts[0]) throw new Error("Google account not found");
         const account = accounts[0];
-        const token = await getValidGoogleAccessToken(account);
+        const token2 = await getValidGoogleAccessToken(account);
         const listsData = await googleApiRequest(
-          token,
+          token2,
           "https://tasks.googleapis.com/tasks/v1/users/@me/lists"
         );
         const lists = listsData.items || [];
         let syncedCount = 0;
         for (const list of lists) {
           const tasksData = await googleApiRequest(
-            token,
+            token2,
             `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks`
           );
           const items = tasksData.items || [];
@@ -39616,14 +39616,14 @@ async function signSessionToken(payload) {
   const secret = new TextEncoder().encode(env.appSecret);
   return new SignJWT(payload).setProtectedHeader({ alg: JWT_ALG }).setIssuedAt().setExpirationTime("1 year").sign(secret);
 }
-async function verifySessionToken(token) {
-  if (!token) {
+async function verifySessionToken(token2) {
+  if (!token2) {
     console.warn("[session] No token provided for verification.");
     return null;
   }
   try {
     const secret = new TextEncoder().encode(env.appSecret);
-    const { payload } = await jwtVerify(token, secret, {
+    const { payload } = await jwtVerify(token2, secret, {
       algorithms: [JWT_ALG]
     });
     const { unionId, clientId } = payload;
@@ -39718,12 +39718,12 @@ var init_local_auth_router = __esm({
           throw new Error("Invalid email or password");
         }
         await db.update(users).set({ lastSignInAt: /* @__PURE__ */ new Date() }).where(eq(users.id, user.id));
-        const token = await signSessionToken({
+        const token2 = await signSessionToken({
           unionId: user.id.toString(),
           // Use id as unionId for local auth
           clientId: process.env.APP_ID || "local"
         });
-        const cookieValue = serializeCookie(Session.cookieName, token, {
+        const cookieValue = serializeCookie(Session.cookieName, token2, {
           maxAge: Session.maxAgeMs / 1e3,
           httpOnly: true,
           secure: true,
@@ -39739,7 +39739,7 @@ var init_local_auth_router = __esm({
             role: user.role,
             avatar: user.avatar
           },
-          token
+          token: token2
         };
       }),
       // Get current user
@@ -42139,6 +42139,100 @@ var init_workflow_templates = __esm({
   }
 });
 
+// api/google-push.ts
+var google_push_exports = {};
+__export(google_push_exports, {
+  deleteGoogleEvent: () => deleteGoogleEvent,
+  pushEventToGoogle: () => pushEventToGoogle,
+  pushTaskToGoogle: () => pushTaskToGoogle
+});
+async function token() {
+  const acct = await getFirmGoogleAccount();
+  if (!acct?.refreshToken && !acct?.accessToken) return null;
+  try {
+    return await getValidGoogleAccessToken(acct);
+  } catch {
+    return null;
+  }
+}
+async function gfetch(url2, method, accessToken, body) {
+  const res = await fetch(url2, {
+    method,
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : void 0
+  });
+  if (!res.ok) throw new Error(`google ${method} ${url2} \u2192 ${res.status} ${(await res.text()).slice(0, 120)}`);
+  return res.json().catch(() => ({}));
+}
+async function pushTaskToGoogle(taskId) {
+  try {
+    const db = getDb();
+    const t2 = (await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1))[0];
+    if (!t2) return;
+    const at = await token();
+    if (!at) return;
+    const payload = {
+      title: t2.title || "(untitled)",
+      notes: t2.description || void 0,
+      status: t2.status === "completed" ? "completed" : "needsAction"
+    };
+    if (t2.dueDate) payload.due = new Date(t2.dueDate).toISOString();
+    if (t2.completedAt) payload.completed = new Date(t2.completedAt).toISOString();
+    if (t2.googleTaskId) {
+      await gfetch(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${t2.googleTaskId}`, "PATCH", at, payload);
+    } else {
+      const created = await gfetch("https://tasks.googleapis.com/tasks/v1/lists/@default/tasks", "POST", at, payload);
+      if (created?.id) await db.update(tasks).set({ googleTaskId: created.id }).where(eq(tasks.id, taskId));
+    }
+  } catch (e) {
+    console.error("[google-push] task failed:", e instanceof Error ? e.message : e);
+  }
+}
+async function pushEventToGoogle(eventId) {
+  try {
+    const db = getDb();
+    const ev = (await db.select().from(calendarEvents).where(eq(calendarEvents.id, eventId)).limit(1))[0];
+    if (!ev) return;
+    const at = await token();
+    if (!at) return;
+    const payload = {
+      summary: ev.title || "(untitled)",
+      description: ev.description || void 0,
+      start: { dateTime: new Date(ev.startDate).toISOString() },
+      end: { dateTime: new Date(ev.endDate || ev.startDate).toISOString() }
+    };
+    if (ev.googleEventId) {
+      await gfetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${ev.googleEventId}`, "PATCH", at, payload);
+    } else {
+      const created = await gfetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", "POST", at, payload);
+      if (created?.id) await db.update(calendarEvents).set({ googleEventId: created.id }).where(eq(calendarEvents.id, eventId));
+    }
+  } catch (e) {
+    console.error("[google-push] event failed:", e instanceof Error ? e.message : e);
+  }
+}
+async function deleteGoogleEvent(googleEventId) {
+  if (!googleEventId) return;
+  try {
+    const at = await token();
+    if (!at) return;
+    await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${at}` }
+    });
+  } catch (e) {
+    console.error("[google-push] delete event failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_google_push = __esm({
+  "api/google-push.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_google_token();
+  }
+});
+
 // api/task-command-core.ts
 var task_command_core_exports = {};
 __export(task_command_core_exports, {
@@ -42356,7 +42450,11 @@ var init_task_router = __esm({
           status: "pending",
           completed: false
         }).returning();
-        if (task) syncInsert("tasks", task);
+        if (task) {
+          syncInsert("tasks", task);
+          Promise.resolve().then(() => (init_google_push(), google_push_exports)).then((m) => m.pushTaskToGoogle(task.id)).catch(() => {
+          });
+        }
         return task;
       }),
       // Natural-language task add: "add a task for Clark OS: file HST by Friday".
@@ -42469,7 +42567,11 @@ var init_task_router = __esm({
         const { id, ...updates } = input;
         await db.update(tasks).set(updates).where(eq(tasks.id, id));
         const updated = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-        if (updated[0]) syncUpdate("tasks", updated[0]);
+        if (updated[0]) {
+          syncUpdate("tasks", updated[0]);
+          Promise.resolve().then(() => (init_google_push(), google_push_exports)).then((m) => m.pushTaskToGoogle(id)).catch(() => {
+          });
+        }
         return { success: true };
       }),
       // Delete task
@@ -42773,7 +42875,7 @@ async function callClaude(system, userText, maxTokens = 700) {
 }
 async function providerSend(account, msg) {
   if (account.provider === "google") {
-    const token = await getValidGoogleAccessToken(account);
+    const token2 = await getValidGoogleAccessToken(account);
     const raw2 = buildRawMessage({
       fromName: msg.fromName,
       fromEmail: account.accountEmail || "",
@@ -42786,7 +42888,7 @@ async function providerSend(account, msg) {
     if (msg.threadId) body.threadId = msg.threadId;
     const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${token2}`, "Content-Type": "application/json" },
       body: JSON.stringify(body)
     });
     const data = await res.json().catch(() => ({}));
@@ -43295,7 +43397,11 @@ var init_calendar_router = __esm({
           ...input,
           userId: ctx.user.id,
           status: "confirmed"
-        });
+        }).returning();
+        if (event && !input.googleEventId) {
+          Promise.resolve().then(() => (init_google_push(), google_push_exports)).then((m) => m.pushEventToGoogle(event.id)).catch(() => {
+          });
+        }
         return event;
       }),
       // Update event
@@ -43318,12 +43424,19 @@ var init_calendar_router = __esm({
         const db = getDb();
         const { id, ...updates } = input;
         await db.update(calendarEvents).set(updates).where(and(eq(calendarEvents.id, id), eq(calendarEvents.userId, ctx.user.id)));
+        Promise.resolve().then(() => (init_google_push(), google_push_exports)).then((m) => m.pushEventToGoogle(id)).catch(() => {
+        });
         return { success: true };
       }),
       // Delete event
       delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
+        const existing = (await db.select().from(calendarEvents).where(eq(calendarEvents.id, input.id)).limit(1))[0];
         await db.delete(calendarEvents).where(and(eq(calendarEvents.id, input.id), eq(calendarEvents.userId, ctx.user.id)));
+        if (existing?.googleEventId) {
+          Promise.resolve().then(() => (init_google_push(), google_push_exports)).then((m) => m.deleteGoogleEvent(existing.googleEventId)).catch(() => {
+          });
+        }
         return { success: true };
       })
     });
@@ -46170,21 +46283,21 @@ var init_onboarding_router = __esm({
       // Staff creates an onboarding link for a client
       create: seniorQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ input }) => {
         const db = getDb();
-        const token = crypto3.randomBytes(32).toString("hex");
+        const token2 = crypto3.randomBytes(32).toString("hex");
         const existing = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).limit(1);
         if (existing[0]) {
-          await db.update(clientOnboarding).set({ token, status: "pending", updatedAt: /* @__PURE__ */ new Date() }).where(eq(clientOnboarding.id, existing[0].id));
-          return { success: true, token, url: `/onboarding/${token}` };
+          await db.update(clientOnboarding).set({ token: token2, status: "pending", updatedAt: /* @__PURE__ */ new Date() }).where(eq(clientOnboarding.id, existing[0].id));
+          return { success: true, token: token2, url: `/onboarding/${token2}` };
         }
         await db.insert(clientOnboarding).values({
           clientId: input.clientId,
-          token,
+          token: token2,
           status: "pending",
           createdAt: /* @__PURE__ */ new Date(),
           updatedAt: /* @__PURE__ */ new Date()
         });
         await db.update(clients).set({ onboardingSentAt: /* @__PURE__ */ new Date(), workflowStatus: "onboarding_sent" }).where(eq(clients.id, input.clientId));
-        return { success: true, token, url: `/onboarding/${token}` };
+        return { success: true, token: token2, url: `/onboarding/${token2}` };
       }),
       // Public: get onboarding form data by token
       getByToken: publicQuery.input(external_exports.object({ token: external_exports.string() })).query(async ({ input }) => {
@@ -46251,7 +46364,7 @@ var init_onboarding_router = __esm({
         const db = getDb();
         const existing = await db.select().from(clientOnboarding).where(eq(clientOnboarding.token, input.token)).limit(1);
         if (!existing[0]) throw new Error("Invalid token");
-        const { token, ...data } = input;
+        const { token: token2, ...data } = input;
         await db.update(clientOnboarding).set({
           ...data,
           status: "submitted",
@@ -47008,11 +47121,11 @@ var init_portal_router = __esm({
         email: external_exports.string().email()
       })).mutation(async ({ ctx, input }) => {
         const db = getDb();
-        const token = crypto4.randomBytes(32).toString("hex");
+        const token2 = crypto4.randomBytes(32).toString("hex");
         await db.update(portalTokens).set({ isActive: false }).where(eq(portalTokens.clientId, input.clientId));
         const [pt] = await db.insert(portalTokens).values({
           clientId: input.clientId,
-          token,
+          token: token2,
           email: input.email,
           isActive: true,
           expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1e3)
@@ -47033,7 +47146,7 @@ var init_portal_router = __esm({
         } else if (!existing[0].isEnabled) {
           await db.update(portalSettings).set({ isEnabled: true }).where(eq(portalSettings.clientId, input.clientId));
         }
-        return { token, url: `/portal/${token}` };
+        return { token: token2, url: `/portal/${token2}` };
       }),
       // Staff: Get or create portal settings for a client
       getSettings: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
@@ -48565,9 +48678,9 @@ async function googleAccount(userId) {
 async function readWorkbookText(userId, sheetId) {
   const acct = await googleAccount(userId);
   if (!acct) throw new Error("Google isn't connected. Connect it in Integrations (with Drive access) so I can read the TouchBistro sheet.");
-  const token = await getValidGoogleAccessToken(acct);
+  const token2 = await getValidGoogleAccessToken(acct);
   const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title`, {
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token2}` }
   });
   if (!metaRes.ok) {
     throw new Error(`Couldn't open the sheet (${metaRes.status}). Reconnect Google in Integrations with Drive access.`);
@@ -48577,7 +48690,7 @@ async function readWorkbookText(userId, sheetId) {
   let out = "";
   for (const t2 of titles) {
     const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(t2)}`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token2}` }
     });
     if (!r.ok) continue;
     const d = await r.json();
@@ -48597,12 +48710,12 @@ function driveFolderId(urlOrId) {
   if (/^[A-Za-z0-9_-]{20,}$/.test(s)) return s;
   return null;
 }
-async function listFolder(token, folderId) {
+async function listFolder(token2, folderId) {
   const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
   const fields = encodeURIComponent("files(id,name,mimeType,modifiedTime)");
   const res = await fetch(
     `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=100&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: { Authorization: `Bearer ${token2}` } }
   );
   if (!res.ok) throw new Error(`Couldn't open the Drive folder (${res.status}). Reconnect Google in Integrations with Drive access.`);
   return (await res.json()).files || [];
@@ -48612,7 +48725,7 @@ async function readNewestTimesheetFromDrive(userId, folderUrlOrId) {
   if (!folderId) throw new Error("That client has no Google Drive folder linked \u2014 add the folder URL on the client card.");
   const acct = await googleAccount(userId);
   if (!acct) throw new Error("Google isn't connected. Connect it in Integrations (with Drive access) so I can read the timesheet from Drive.");
-  const token = await getValidGoogleAccessToken(acct);
+  const token2 = await getValidGoogleAccessToken(acct);
   const isFolder = (f) => f.mimeType === "application/vnd.google-apps.folder";
   let files2 = [];
   let frontier = [folderId];
@@ -48622,7 +48735,7 @@ async function readNewestTimesheetFromDrive(userId, folderUrlOrId) {
     for (const id of frontier.slice(0, 60)) {
       let kids = [];
       try {
-        kids = await listFolder(token, id);
+        kids = await listFolder(token2, id);
       } catch {
         continue;
       }
@@ -48643,12 +48756,12 @@ async function readNewestTimesheetFromDrive(userId, folderUrlOrId) {
   const named = candidates.filter((f) => /time\s*sheet|timesheet|time card|hours/i.test(f.name || ""));
   const pick2 = named[0] || candidates[0];
   if (pick2.mimeType === "application/vnd.google-apps.spreadsheet") {
-    const r3 = await fetch(`https://www.googleapis.com/drive/v3/files/${pick2.id}/export?mimeType=text/csv`, { headers: { Authorization: `Bearer ${token}` } });
+    const r3 = await fetch(`https://www.googleapis.com/drive/v3/files/${pick2.id}/export?mimeType=text/csv`, { headers: { Authorization: `Bearer ${token2}` } });
     if (!r3.ok) throw new Error(`Couldn't read "${pick2.name}" from Drive (${r3.status}).`);
     const buf2 = Buffer.from(await r3.arrayBuffer());
     return { data: buf2.toString("base64"), mediaType: "text/csv", name: pick2.name };
   }
-  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${pick2.id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${pick2.id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token2}` } });
   if (!r.ok) throw new Error(`Couldn't read "${pick2.name}" from Drive (${r.status}).`);
   const buf = Buffer.from(await r.arrayBuffer());
   let mediaType = pick2.mimeType || "application/octet-stream";
@@ -49461,13 +49574,13 @@ var init_payroll_router = __esm({
         const db = getDb();
         const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
         if (!run2) throw new Error("Pay run not found");
-        const token = run2.approvalToken || `pa_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+        const token2 = run2.approvalToken || `pa_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
         await db.update(payRuns).set({
-          approvalToken: token,
+          approvalToken: token2,
           approvalStatus: run2.approvalStatus === "approved" ? "approved" : "sent",
           updatedAt: /* @__PURE__ */ new Date()
         }).where(eq(payRuns.id, input.runId));
-        return { token };
+        return { token: token2 };
       }),
       // AUTOMATIC withholding check (vs CRA), per employee, computed from the
       // client's actual pay runs this calendar year — mirrors the Originality sheet's
@@ -49963,12 +50076,12 @@ var init_client_request_router = __esm({
         items: external_exports.array(external_exports.string().min(1)).min(1)
       })).mutation(async ({ ctx, input }) => {
         const db = getDb();
-        const token = `cr_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+        const token2 = `cr_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
         const [req] = await db.insert(clientRequests).values({
           clientId: input.clientId,
           title: input.title,
           message: input.message,
-          token,
+          token: token2,
           dueDate: input.dueDate,
           status: "open",
           createdBy: ctx.user.id
@@ -51725,11 +51838,11 @@ async function createAndSendDoc(opts) {
     await db.update(portalSettings).set({ isEnabled: true }).where(eq(portalSettings.clientId, clientId));
   }
   const existing = await db.select().from(portalTokens).where(and(eq(portalTokens.clientId, clientId), eq(portalTokens.isActive, true))).limit(1);
-  let token;
-  if (existing[0]) token = existing[0].token;
+  let token2;
+  if (existing[0]) token2 = existing[0].token;
   else {
-    token = crypto7.randomBytes(32).toString("hex");
-    await db.insert(portalTokens).values({ clientId, token, email: opts.clientEmail, isActive: true, expiresAt: new Date(Date.now() + 90 * 864e5) });
+    token2 = crypto7.randomBytes(32).toString("hex");
+    await db.insert(portalTokens).values({ clientId, token: token2, email: opts.clientEmail, isActive: true, expiresAt: new Date(Date.now() + 90 * 864e5) });
   }
   const [doc] = await db.insert(signatureDocuments).values({
     clientId,
@@ -51739,12 +51852,12 @@ async function createAndSendDoc(opts) {
     content: opts.content,
     documentType: opts.documentType,
     status: "sent",
-    portalToken: token,
+    portalToken: token2,
     sentAt: /* @__PURE__ */ new Date(),
     sentBy: opts.userId,
     expiresAt: new Date(Date.now() + 30 * 864e5)
   }).returning();
-  return { documentId: doc.id, portalUrl: `/portal/${token}?tab=signatures` };
+  return { documentId: doc.id, portalUrl: `/portal/${token2}?tab=signatures` };
 }
 async function nextQuoteNumber(db) {
   const rows = await db.select().from(signatureDocuments);
@@ -52230,9 +52343,9 @@ async function applyAccountOverride(db, ids, o) {
     }
   }
 }
-function validateAgentToken(token) {
+function validateAgentToken(token2) {
   const validToken = process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026";
-  return token === validToken;
+  return token2 === validToken;
 }
 var agentWebhookRouter;
 var init_agent_webhook_router = __esm({
@@ -52259,8 +52372,8 @@ var init_agent_webhook_router = __esm({
         confidence: external_exports.number().min(0).max(1).optional()
       })).mutation(async ({ ctx, input }) => {
         const _h = ctx.req?.headers;
-        const token = (_h && typeof _h.get === "function" ? _h.get("x-agent-token") : _h?.["x-agent-token"]) || "";
-        if (!validateAgentToken(token)) {
+        const token2 = (_h && typeof _h.get === "function" ? _h.get("x-agent-token") : _h?.["x-agent-token"]) || "";
+        if (!validateAgentToken(token2)) {
           throw new Error("Invalid agent token");
         }
         const db = getDb();
@@ -52910,12 +53023,12 @@ async function syncPayPal(params) {
   try {
     const startDate = params.periodStart.toISOString();
     const endDate = params.periodEnd.toISOString();
-    const token = await paypalAccessToken(params.apiKey);
+    const token2 = await paypalAccessToken(params.apiKey);
     const res = await fetch(
       `https://api-m.paypal.com/v1/reporting/transactions?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&fields=all&page_size=500`,
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token2}`,
           "Content-Type": "application/json"
         }
       }
@@ -55631,7 +55744,7 @@ async function execAddTask(text2, userId) {
   const db = getDb();
   const cls = await db.select({ id: clients.id, name: clients.name }).from(clients);
   const parsed = parseTaskCommand(text2, cls);
-  await db.insert(tasks).values({
+  const [created] = await db.insert(tasks).values({
     userId,
     clientId: parsed.clientId,
     title: parsed.title,
@@ -55639,6 +55752,8 @@ async function execAddTask(text2, userId) {
     priority: parsed.priority,
     status: "pending",
     completed: false
+  }).returning();
+  if (created) Promise.resolve().then(() => (init_google_push(), google_push_exports)).then((m) => m.pushTaskToGoogle(created.id)).catch(() => {
   });
   const who = parsed.clientName ? ` for ${parsed.clientName}` : "";
   const when = parsed.dueDate ? ` (due ${parsed.dueDate.toLocaleDateString(void 0, { month: "short", day: "numeric" })})` : "";
@@ -55707,12 +55822,12 @@ async function execDraftEmail(input, userId) {
   const account = await getFirmGoogleAccount2(userId);
   if (!account) return "I need your Google email connected first (Integrations \u2192 Google) before I can draft mail.";
   try {
-    const token = await getValidGoogleAccessToken(account);
+    const token2 = await getValidGoogleAccessToken(account);
     const html = body.replace(/\n/g, "<br>");
     const raw2 = buildRawMessage({ fromEmail: account.accountEmail || "", to, subject, html });
     const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${token2}`, "Content-Type": "application/json" },
       body: JSON.stringify({ message: { raw: raw2 } })
     });
     if (!res.ok) {
@@ -56172,10 +56287,10 @@ var init_public_router = __esm({
           updatedAt: /* @__PURE__ */ new Date()
         });
         const clientId = Number(clientResult.lastInsertRowid);
-        const token = crypto.randomUUID();
+        const token2 = crypto.randomUUID();
         await db.insert(clientOnboarding).values({
           clientId,
-          token,
+          token: token2,
           businessLegalName: input.company || null,
           businessOperatingName: input.company || null,
           businessStructure: input.businessStructure || null,
@@ -56218,7 +56333,7 @@ var init_public_router = __esm({
           if (lead) syncLeadToMaster(lead);
         } catch {
         }
-        return { success: true, clientId, token };
+        return { success: true, clientId, token: token2 };
       }),
       // ===== PAYROLL HOURS APPROVAL (public, token-gated — for clients) =====
       payrollApprovalGet: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
@@ -61279,8 +61394,8 @@ var Node = class _Node {
       this.#index = index;
       return;
     }
-    const [token, ...restTokens] = tokens;
-    const pattern = token === "*" ? restTokens.length === 0 ? ["", "", ONLY_WILDCARD_REG_EXP_STR] : ["", "", LABEL_REG_EXP_STR] : token === "/*" ? ["", "", TAIL_WILDCARD_REG_EXP_STR] : token.match(/^\:([^\{\}]+)(?:\{(.+)\})?$/);
+    const [token2, ...restTokens] = tokens;
+    const pattern = token2 === "*" ? restTokens.length === 0 ? ["", "", ONLY_WILDCARD_REG_EXP_STR] : ["", "", LABEL_REG_EXP_STR] : token2 === "/*" ? ["", "", TAIL_WILDCARD_REG_EXP_STR] : token2.match(/^\:([^\{\}]+)(?:\{(.+)\})?$/);
     let node;
     if (pattern) {
       const name2 = pattern[1];
@@ -61313,7 +61428,7 @@ var Node = class _Node {
         paramMap.push([name2, node.#varIndex]);
       }
     } else {
-      node = this.#children[token];
+      node = this.#children[token2];
       if (!node) {
         if (Object.keys(this.#children).some(
           (k) => k.length > 1 && k !== ONLY_WILDCARD_REG_EXP_STR && k !== TAIL_WILDCARD_REG_EXP_STR
@@ -61323,7 +61438,7 @@ var Node = class _Node {
         if (pathErrorCheckOnly) {
           return;
         }
-        node = this.#children[token] = new _Node();
+        node = this.#children[token2] = new _Node();
       }
     }
     node.insert(restTokens, index, paramMap, context, pathErrorCheckOnly);
@@ -63972,9 +64087,9 @@ async function upsertGoogleUser(unionId, name2, email3) {
 }
 async function authenticateRequest(headers) {
   const cookies = cookie2.parse(headers.get("cookie") || "");
-  const token = cookies[Session.cookieName];
-  if (!token) throw Errors.forbidden("Invalid authentication token.");
-  const claim = await verifySessionToken(token);
+  const token2 = cookies[Session.cookieName];
+  if (!token2) throw Errors.forbidden("Invalid authentication token.");
+  const claim = await verifySessionToken(token2);
   if (!claim) throw Errors.forbidden("Invalid authentication token.");
   const user = await findUserByUnionId(claim.unionId);
   if (!user) throw Errors.forbidden("User not found. Please re-login.");
@@ -63994,9 +64109,9 @@ function createOAuthCallbackHandler() {
       const userInfo = await getGoogleUserInfo(tokens.access_token);
       const unionId = `google_${userInfo.sub}`;
       await upsertGoogleUser(unionId, userInfo.name, userInfo.email);
-      const token = await signSessionToken({ unionId, clientId });
+      const token2 = await signSessionToken({ unionId, clientId });
       const cookieOpts = getSessionCookieOptions(c.req.raw.headers);
-      setCookie(c, Session.cookieName, token, {
+      setCookie(c, Session.cookieName, token2, {
         ...cookieOpts,
         maxAge: Session.maxAgeMs / 1e3
       });
@@ -64077,7 +64192,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.70";
+var BUILD_TAG = "2026-06-23.71";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64350,8 +64465,8 @@ app.get("/api/oauth/microsoft/callback", async (c) => {
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
 app.post("/api/figgy-jr-sync", async (c) => {
   try {
-    const token = c.req.header("x-agent-token") || "";
-    if (token !== (process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026")) {
+    const token2 = c.req.header("x-agent-token") || "";
+    if (token2 !== (process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026")) {
       return c.json({ success: false, error: "Invalid agent token" }, 401);
     }
     const body = await c.req.json();
@@ -64419,8 +64534,8 @@ app.post("/api/figgy-jr-sync", async (c) => {
 });
 app.post("/api/figgy-jr-finding", async (c) => {
   try {
-    const token = c.req.header("x-agent-token") || "";
-    if (token !== (process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026")) {
+    const token2 = c.req.header("x-agent-token") || "";
+    if (token2 !== (process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026")) {
       return c.json({ success: false, error: "Invalid agent token" }, 401);
     }
     const b = await c.req.parseBody();
@@ -64632,8 +64747,8 @@ app.post("/api/sms/inbound", async (c) => {
   }
 });
 app.post("/api/admin/figgy", async (c) => {
-  const token = c.req.header("x-agent-token") || "";
-  if (token !== (process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026")) {
+  const token2 = c.req.header("x-agent-token") || "";
+  if (token2 !== (process.env.AGENT_WEBHOOK_TOKEN || "figgy-webhook-2026")) {
     return c.json({ success: false, error: "Invalid agent token" }, 401);
   }
   let body = {};

@@ -26,10 +26,11 @@ async function execAddTask(text: string, userId: number): Promise<string> {
   const db = getDb();
   const cls = await db.select({ id: clients.id, name: clients.name }).from(clients);
   const parsed = parseTaskCommand(text, cls as any);
-  await db.insert(tasks).values({
+  const [created] = await db.insert(tasks).values({
     userId, clientId: parsed.clientId, title: parsed.title,
     dueDate: parsed.dueDate, priority: parsed.priority, status: "pending", completed: false,
-  } as any);
+  } as any).returning();
+  if (created) import("./google-push").then((m) => m.pushTaskToGoogle(created.id)).catch(() => {}); // two-way: mirror to Google Tasks
   const who = parsed.clientName ? ` for ${parsed.clientName}` : "";
   const when = parsed.dueDate ? ` (due ${parsed.dueDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })})` : "";
   return `Added task: "${parsed.title}"${who}${when}.`;

@@ -77,7 +77,11 @@ export const calendarRouter = createRouter({
         ...input,
         userId: ctx.user.id,
         status: "confirmed",
-      });
+      }).returning();
+      // Two-way: mirror a CRM-created event to Google (skip ones pulled FROM Google).
+      if (event && !input.googleEventId) {
+        import("./google-push").then((m) => m.pushEventToGoogle(event.id)).catch(() => {});
+      }
       return event;
     }),
 
@@ -108,6 +112,7 @@ export const calendarRouter = createRouter({
         .set(updates)
         .where(and(eq(calendarEvents.id, id), eq(calendarEvents.userId, ctx.user.id)));
 
+      import("./google-push").then((m) => m.pushEventToGoogle(id)).catch(() => {}); // two-way: mirror edit to Google
       return { success: true };
     }),
 
@@ -116,9 +121,13 @@ export const calendarRouter = createRouter({
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
+      const existing = (await db.select().from(calendarEvents).where(eq(calendarEvents.id, input.id)).limit(1))[0] as any;
       await db
         .delete(calendarEvents)
         .where(and(eq(calendarEvents.id, input.id), eq(calendarEvents.userId, ctx.user.id)));
+      if (existing?.googleEventId) {
+        import("./google-push").then((m) => m.deleteGoogleEvent(existing.googleEventId)).catch(() => {}); // two-way: remove from Google
+      }
 
       return { success: true };
     }),
