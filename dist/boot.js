@@ -35082,7 +35082,7 @@ var init_google_tasks_router = __esm({
       ).mutation(async ({ ctx, input }) => {
         const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
         const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-        const { eq: eq3, and: and5, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+        const { eq: eq3, and: and4, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
         const db = getDb2();
         const token = await getGoogleToken(ctx.user.id, ctx.db);
         if (!token) {
@@ -35091,7 +35091,7 @@ var init_google_tasks_router = __esm({
             message: "No Google account connected. Connect Google in Integrations."
           });
         }
-        const where = input.clientId ? and5(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and5(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
+        const where = input.clientId ? and4(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and4(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
         const crmTasks = await db.select().from(tasks5).where(where);
         const results = [];
         for (const task of crmTasks.slice(0, 50)) {
@@ -54145,6 +54145,11 @@ var init_assistant_core = __esm({
         }
       },
       {
+        name: "firm_status",
+        description: "Get a live snapshot of the practice: # active clients, open/overdue tasks, and Figgy's triage findings waiting for review (by severity). Use when asked what needs review/attention, what's open, or how the firm is doing right now.",
+        input_schema: { type: "object", properties: {} }
+      },
+      {
         name: "system_health",
         description: "Run a live system health check (Jinx's job): database, key data, integrations, configuration, recent errors. Use when Markie asks if everything is working / if anything is broken / what's down.",
         input_schema: { type: "object", properties: {} }
@@ -54479,6 +54484,24 @@ async function execAddPersonal(input, userId) {
   const when = dueDate ? ` (due ${dueDate.toLocaleDateString(void 0, { month: "short", day: "numeric" })})` : "";
   return `Added to your personal space: "${title}"${when}.`;
 }
+async function execFirmStatus(userId) {
+  const db = getDb();
+  const cls = await db.select({ id: clients.id, status: clients.status }).from(clients);
+  const activeClients = cls.filter((c) => (c.status ?? "active") === "active").length;
+  const open = await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.completed, false)));
+  const now = Date.now();
+  const overdue = open.filter((t2) => t2.dueDate && new Date(t2.dueDate).getTime() < now).length;
+  const findings = await db.select({ severity: triageFindings.severity, status: triageFindings.status }).from(triageFindings);
+  const pending = findings.filter((f) => f.status === "new");
+  const crit = pending.filter((f) => f.severity === "critical").length;
+  const warn = pending.filter((f) => f.severity === "warning").length;
+  const parts = [
+    `${activeClients} active client${activeClients === 1 ? "" : "s"}`,
+    `${open.length} open task${open.length === 1 ? "" : "s"}${overdue ? ` (${overdue} overdue)` : ""}`,
+    `${pending.length} item${pending.length === 1 ? "" : "s"} awaiting review${pending.length ? ` \u2014 ${crit} critical, ${warn} warnings` : ""}`
+  ];
+  return `Firm snapshot: ${parts.join("; ")}.`;
+}
 async function execSystemHealth() {
   const { runHealthReport: runHealthReport2 } = await Promise.resolve().then(() => (init_qa_router(), qa_router_exports));
   const r = await runHealthReport2();
@@ -54495,6 +54518,7 @@ async function runTool(name2, input, userId) {
     if (name2 === "get_agenda") return await execGetAgenda(userId);
     if (name2 === "add_personal") return await execAddPersonal(input, userId);
     if (name2 === "system_health") return await execSystemHealth();
+    if (name2 === "firm_status") return await execFirmStatus(userId);
     return `Unknown tool: ${name2}`;
   } catch (e) {
     return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
@@ -62432,7 +62456,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.24";
+var BUILD_TAG = "2026-06-23.25";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -63132,7 +63156,7 @@ app.post("/api/admin/figgy", async (c) => {
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and5 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -63245,7 +63269,7 @@ app.post("/api/admin/figgy", async (c) => {
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq3(signatureDocuments2.id, docId));
         }
-        const signedCount = (await db.select().from(signatureDocuments2).where(and5(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
+        const signedCount = (await db.select().from(signatureDocuments2).where(and4(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
         steps.push(`signed ${signedCount}/2 documents`);
         await db.update(clients3).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients3.id, cl.id));
         const res = await createClientTaskRules2({
@@ -63402,7 +63426,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and5, ne: ne4, like: like2 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and4, ne: ne4, like: like2 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const matches = await db.select().from(clients3).where(like2(clients3.name, "%Doc King%"));
       for (const cl of matches) {
@@ -63410,7 +63434,7 @@ async function startServer() {
           await db.update(clients3).set({ clientType: "wholesale" }).where(eq3(clients3.id, cl.id));
         }
         await db.update(clientTaskRules4).set({ active: false }).where(eq3(clientTaskRules4.clientId, cl.id));
-        await db.delete(tasks5).where(and5(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
+        await db.delete(tasks5).where(and4(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
       }
     } catch (e) {
       console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e);
@@ -63418,7 +63442,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and5, like: like2, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and4, like: like2, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
         const matches = await db.select().from(clients3).where(like2(clients3.name, nameLike));
@@ -63469,7 +63493,7 @@ async function startServer() {
       };
       for (const cl of orig) {
         for (const [last, ytd] of Object.entries(origYtd)) {
-          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and5(eq3(employees2.clientId, cl.id), like2(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
+          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and4(eq3(employees2.clientId, cl.id), like2(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
         }
       }
     } catch (e) {

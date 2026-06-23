@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Bot, Send, Mic, Sparkles } from "lucide-react";
+import { Bot, Send, Mic, Sparkles, MapPin, MapPinOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/providers/trpc";
@@ -30,12 +30,33 @@ export default function Assistant() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [agent, setAgent] = useState<AgentKey>("liv");
+  const [locStatus, setLocStatus] = useState<"unknown" | "on" | "off">("unknown");
   const endRef = useRef<HTMLDivElement>(null);
   const ask = trpc.assistant.ask.useMutation();
   const utils = trpc.useUtils();
   const active = ROSTER.find((r) => r.key === agent)!;
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, ask.isPending]);
+
+  // Reflect the device's location-permission state in a little indicator.
+  useEffect(() => {
+    const perms = (navigator as any).permissions;
+    if (!perms?.query) return;
+    perms.query({ name: "geolocation" as PermissionName }).then((s: any) => {
+      const map = () => setLocStatus(s.state === "granted" ? "on" : s.state === "denied" ? "off" : "unknown");
+      map();
+      s.onchange = map;
+    }).catch(() => {});
+  }, []);
+
+  const enableLocation = () => {
+    if (!("geolocation" in navigator)) { setLocStatus("off"); return; }
+    navigator.geolocation.getCurrentPosition(
+      () => setLocStatus("on"),
+      () => setLocStatus("off"),
+      { enableHighAccuracy: false, timeout: 6000, maximumAge: 600000 },
+    );
+  };
 
   // Markie travels, so use the device's live location for "near me" questions.
   // The browser caches the permission + last fix (maximumAge), so after the first
@@ -58,6 +79,7 @@ export default function Assistant() {
     setInput("");
     try {
       const location = await getLocation();
+      if (location) setLocStatus("on");
       const r = await ask.mutateAsync({ message: msg, history, agent, location });
       if (r.agent) setAgent(r.agent as AgentKey);
       setMessages((m) => [...m, { role: "assistant", content: r.reply }]);
@@ -81,10 +103,23 @@ export default function Assistant() {
       <div className="pb-3 border-b space-y-2">
         <div className="flex items-center gap-2">
           <div className="w-9 h-9 rounded-full bg-lime-500 flex items-center justify-center text-white"><Bot className="h-5 w-5" /></div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-slate-900 leading-tight">Talking to {active.name}</h1>
             <p className="text-xs text-slate-500">{active.role} — just ask; I route to the right teammate. Or say "Hey Tess / Sage / Wren…" to pick one.</p>
           </div>
+          {locStatus === "on" ? (
+            <span className="flex items-center gap-1 text-xs text-emerald-600 shrink-0" title="Using your device location for 'near me' questions">
+              <MapPin className="h-3.5 w-3.5" /> Location on
+            </span>
+          ) : (
+            <button
+              onClick={enableLocation}
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-lime-600 shrink-0"
+              title="Turn on location so 'near me' works while you travel"
+            >
+              <MapPinOff className="h-3.5 w-3.5" /> Enable location
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap gap-1.5">
           {ROSTER.map((r) => (

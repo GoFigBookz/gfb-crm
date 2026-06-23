@@ -146,6 +146,11 @@ export const ASSISTANT_TOOLS = [
     },
   },
   {
+    name: "firm_status",
+    description: "Get a live snapshot of the practice: # active clients, open/overdue tasks, and Figgy's triage findings waiting for review (by severity). Use when asked what needs review/attention, what's open, or how the firm is doing right now.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "system_health",
     description: "Run a live system health check (Jinx's job): database, key data, integrations, configuration, recent errors. Use when Markie asks if everything is working / if anything is broken / what's down.",
     input_schema: { type: "object", properties: {} },
