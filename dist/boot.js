@@ -42384,6 +42384,11 @@ var init_task_command_core = __esm({
 });
 
 // api/task-router.ts
+async function excludeDeadClientTasks(db, rows) {
+  const dead = await db.select({ id: clients.id }).from(clients).where(or(eq(clients.status, "inactive"), eq(clients.status, "archived")));
+  const deadIds = new Set(dead.map((c) => c.id));
+  return rows.filter((t2) => !t2.clientId || !deadIds.has(t2.clientId));
+}
 var taskRouter;
 var init_task_router = __esm({
   "api/task-router.ts"() {
@@ -42425,7 +42430,7 @@ var init_task_router = __esm({
         if (input?.completed !== void 0) conditions.push(eq(tasks.completed, input.completed));
         const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
         const results = await db.select().from(tasks).where(whereClause).orderBy(desc(tasks.dueDate)).limit(input?.limit ?? 500).offset(input?.offset ?? 0);
-        return results;
+        return excludeDeadClientTasks(db, results);
       }),
       // Get upcoming tasks
       upcoming: authedQuery.input(external_exports.object({ days: external_exports.number().min(1).max(365).optional().default(7) })).query(async ({ ctx, input }) => {
@@ -42443,7 +42448,8 @@ var init_task_router = __esm({
           lte(tasks.dueDate, future)
         ];
         if (accessFilter) conditions.push(accessFilter);
-        return db.select().from(tasks).where(and(...conditions)).orderBy(tasks.dueDate);
+        const rows = await db.select().from(tasks).where(and(...conditions)).orderBy(tasks.dueDate);
+        return excludeDeadClientTasks(db, rows);
       }),
       // Get overdue tasks
       overdue: authedQuery.query(async ({ ctx }) => {
@@ -42458,7 +42464,8 @@ var init_task_router = __esm({
           lt(tasks.dueDate, now)
         ];
         if (accessFilter) conditions.push(accessFilter);
-        return db.select().from(tasks).where(and(...conditions)).orderBy(tasks.dueDate);
+        const rows = await db.select().from(tasks).where(and(...conditions)).orderBy(tasks.dueDate);
+        return excludeDeadClientTasks(db, rows);
       }),
       // Create task
       create: authedQuery.input(external_exports.object({
@@ -64560,7 +64567,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.83";
+var BUILD_TAG = "2026-06-23.84";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

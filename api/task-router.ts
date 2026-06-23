@@ -8,6 +8,14 @@ import { syncInsert, syncUpdate } from "./sync-hooks";
 import { getWorkflowTemplate, WORKFLOW_TEMPLATES } from "./workflow-templates";
 import { clients } from "../db/schema";
 
+/** Inactive/archived clients should surface NO tasks anywhere. Drop their tasks. */
+async function excludeDeadClientTasks(db: any, rows: any[]): Promise<any[]> {
+  const dead = await db.select({ id: clients.id }).from(clients)
+    .where(or(eq(clients.status, "inactive"), eq(clients.status, "archived")));
+  const deadIds = new Set((dead as any[]).map((c) => c.id));
+  return (rows as any[]).filter((t) => !t.clientId || !deadIds.has(t.clientId));
+}
+
 export const taskRouter = createRouter({
   // List tasks
   list: authedQuery
@@ -50,7 +58,8 @@ export const taskRouter = createRouter({
         .limit(input?.limit ?? 500)   // was 50 → only returned the 50 farthest-future tasks, hiding current/overdue ones
         .offset(input?.offset ?? 0);
 
-      return results;
+      // Inactive/archived clients should show NO tasks. Drop any task tied to one.
+      return excludeDeadClientTasks(db, results);
     }),
 
   // Get upcoming tasks
@@ -77,11 +86,12 @@ export const taskRouter = createRouter({
       ];
       if (accessFilter) conditions.push(accessFilter);
 
-      return db
+      const rows = await db
         .select()
         .from(tasks)
         .where(and(...conditions))
         .orderBy(tasks.dueDate);
+      return excludeDeadClientTasks(db, rows);
     }),
 
   // Get overdue tasks
@@ -103,11 +113,12 @@ export const taskRouter = createRouter({
     ];
     if (accessFilter) conditions.push(accessFilter);
 
-    return db
+    const rows = await db
       .select()
       .from(tasks)
       .where(and(...conditions))
       .orderBy(tasks.dueDate);
+    return excludeDeadClientTasks(db, rows);
   }),
 
   // Create task
