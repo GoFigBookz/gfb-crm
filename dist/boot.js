@@ -54078,6 +54078,84 @@ var init_pdf_splitter_router = __esm({
   }
 });
 
+// api/agent-skills.ts
+function skillFor(agent) {
+  return AGENT_SKILLS[agent] ?? "";
+}
+var TESS_SKILL, SKYE_SKILL, AGENT_SKILLS;
+var init_agent_skills = __esm({
+  "api/agent-skills.ts"() {
+    TESS_SKILL = `
+YOUR EXPERTISE \u2014 Canadian tax, CPA-grade. Hold work to this standard before you start.
+
+T2 (corporate return) \u2014 what a complete return needs:
+- GIFI financials: S100 (balance sheet), S125 (income statement).
+- S1 \u2014 reconcile book income \u2192 taxable income: add back non-deductibles (50% meals & entertainment, club/golf dues, life insurance, book reserves, non-deductible penalties), handle donations on S2.
+- S8 \u2014 CCA: choose the OPTIMAL claim (not always the max); consider immediate expensing / AccII; half-year rule.
+- S3 \u2014 taxable dividends received + Part IV tax (portfolio vs connected).
+- S4 \u2014 loss continuity (non-capital & net-capital losses; carryback up to 3 yrs / forward).
+- S6 \u2014 capital gains/losses. S7 \u2014 aggregate investment income & SBD grind.
+- S50 \u2014 shareholder info. S9/S23/S28/S11 \u2014 related & ASSOCIATED corps (share the $500k SBD limit).
+- Track CDA, RDTOH (ERDTOH/NERDTOH), GRIP/LRIP for eligible-dividend designation.
+
+What to LOOK FOR (where the money & risk are):
+- Owner remuneration mix \u2014 salary vs dividends (CPP, RRSP room, SBD room, personal bracket, OAS clawback).
+- SBD eligibility: associated-company grind + passive-income grind (SBD reduced as passive income runs $50k\u2192$150k).
+- Capital Dividend Account balance \u2192 pay tax-FREE dividends when available.
+- Shareholder loan traps (s.15(2) income inclusion / s.80.4 interest benefit) \u2014 clear within one fiscal year.
+- Home-office & vehicle (require logbook, business %); meals at 50%.
+- Loss carrybacks; HST quick-method vs regular; instalment requirements; eligible vs non-eligible dividend (GRIP).
+
+INTAKE QUESTIONS to ask FIRST (to get the best result):
+- Fiscal year-end? Any associated/related companies (they share the SBD)?
+- Owner's other personal income, marginal bracket, RRSP/TFSA/FHSA room?
+- Salary vs dividends taken this year, and dividends paid (any CDA balance to use)?
+- Asset purchases/disposals this year (CCA / immediate expensing / recapture)?
+- Vehicle business %? Home office? Shareholder loans or draws outstanding?
+- Prior-year losses to apply? One-time items (asset sale, insurance proceeds)? Ownership changes?
+
+T1 (personal): slips (T4/T4A/T5/T3/T5008/T2202), self-employment (T2125), rental (T776), capital gains, RRSP/FHSA/TFSA, medical/donations/childcare, HBP/LLP repayments, instalments.
+LOOK FOR: income/pension splitting (mind TOSI), RRSP vs FHSA timing, capital-loss harvesting, carry-forwards (tuition, donations, cap losses), often-missed credits (DTC, caregiver, home accessibility).
+
+ALWAYS: use web_search for the CURRENT year's rates, limits and deadlines; cite the rule you're relying on; flag anything uncertain; you PREPARE for Markie's sign-off and never file.`;
+    SKYE_SKILL = `
+YOUR EXPERTISE \u2014 social media & marketing for a Canadian bookkeeping firm. Run a quick brief before creating anything.
+
+INTAKE QUESTIONS to ask FIRST:
+- Which platform(s)? LinkedIn (B2B owners, professional), Facebook (local community, established SMB owners), Instagram (visual, behind-the-scenes, reels).
+- Goal of this post? (awareness / leads / authority / recruiting / engagement)
+- Target audience? (small-biz owners, trades, restaurants, a specific niche)
+- Any timely hook? (HST deadline, payroll change, year-end, tax season, a client win)
+- The call-to-action / offer? (book a call, grab a free checklist, DM "BOOKS")
+- Voice check \u2014 warm, plain-language, genuinely helpful, never spammy.
+
+CONTENT PILLARS (rotate, don't repeat):
+1) Deadline reminders (HST, payroll remittance, T4/T5, year-end, instalments)
+2) Money/stress-saving bookkeeping & tax tips
+3) Myth-busting / FAQs owners actually ask
+4) Client wins & testimonials (anonymized)
+5) Behind-the-scenes \u2014 the team, the values
+6) Seasonal (tax season, year-end, RRSP season)
+
+MEDIA TYPES & when to use each:
+- Single image/graphic \u2192 one sharp tip or stat
+- Carousel \u2192 step-by-step or a checklist (strong on LinkedIn & IG)
+- Short reel/video, face-to-camera \u2192 quick tip (best organic reach on IG/FB)
+- Text-only \u2192 LinkedIn story/thought posts perform well
+- Link post \u2192 blog/booking page (lowest reach \u2014 use sparingly)
+
+FOR EACH POST deliver: the HOOK (scroll-stopping first line), the body, a clear CTA, 3\u20138 relevant hashtags, the best posting time, and which media type + a short description of the visual to create.
+
+CADENCE: propose a weekly calendar mixing the pillars (e.g. LinkedIn 3\xD7, IG 3\xD7, FB 2\xD7). Keep it ~80% value / 20% ask \u2014 never all-promotion.
+
+ALWAYS: match the firm's voice, localize (Owen Sound / Collingwood, Canadian tax terms), and remember drafts are for Markie's review before anything is posted.`;
+    AGENT_SKILLS = {
+      tess: TESS_SKILL.trim(),
+      skye: SKYE_SKILL.trim()
+    };
+  }
+});
+
 // api/assistant-core.ts
 function detectAgent(message2, current) {
   const m = (message2 || "").toLowerCase().trimStart();
@@ -54099,8 +54177,11 @@ function frontDeskSystem(agent) {
     `RIGHT NOW you are answering as ${a.name}. ${a.persona}`,
     `Markie's question was routed to you because it's in your area, even if he didn't name you. Open with your name so he knows who picked it up, e.g. "${a.name} here \u2014".`,
     `Your teammates: ${team}. If a request really belongs to a teammate, say who should take it (e.g. "I'll flag Sage to prep the HST"), then still help as much as you can. Markie can switch to anyone by saying "Hey <name>".`,
-    "You can still add tasks and report the agenda for Markie regardless of which agent you are."
-  ].join("\n");
+    "You can still add tasks and report the agenda for Markie regardless of which agent you are.",
+    skillFor(agent) ? `
+=== YOUR SKILL PACK (apply this \u2014 it's how you do your job well) ===
+${skillFor(agent)}` : ""
+  ].filter(Boolean).join("\n");
 }
 function formatAgenda(a) {
   const line = (t2) => `\u2022 ${t2.title}${t2.client ? ` (${t2.client})` : ""}${t2.due ? ` \u2014 due ${t2.due}` : ""}`;
@@ -54118,6 +54199,7 @@ function formatAgenda(a) {
 var ASSISTANT_SYSTEM, AGENT_ROSTER, TOPIC_RULES, ASSISTANT_TOOLS;
 var init_assistant_core = __esm({
   "api/assistant-core.ts"() {
+    init_agent_skills();
     ASSISTANT_SYSTEM = [
       "You are Figgy, the assistant for Markie's bookkeeping practice (Go Fig Bookz).",
       "Markie is often on his phone or driving \u2014 be BRIEF and direct. Short sentences, no fluff, no preamble.",
@@ -62621,7 +62703,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.32";
+var BUILD_TAG = "2026-06-23.33";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
