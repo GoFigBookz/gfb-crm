@@ -55245,7 +55245,7 @@ var init_assistant_router = __esm({
         const apiKey = process.env.ANTHROPIC_API_KEY;
         const agent = detectAgent(input.message, input.agent ?? null);
         if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [], agent };
-        const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
+        const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-sonnet-4-6";
         const nowLine = `Current date & time: ${(/* @__PURE__ */ new Date()).toLocaleString("en-CA", { timeZone: "America/Toronto", dateStyle: "full", timeStyle: "short" })} (America/Toronto).`;
         const locLine = input.location ? `Markie's CURRENT location (live from his device \u2014 he travels, so this is where he is right now): latitude ${input.location.lat}, longitude ${input.location.lon}${input.location.label ? ` (${input.location.label})` : ""}. Use it for "near me"/local questions (weather, stores, hours) \u2014 search around this spot.` : `Markie travels and his location is UNKNOWN right now. If a question needs where he is ("near me", local weather/stores/hours), briefly ASK what city he's in before answering \u2014 do NOT assume a town.`;
         let lessonsBlock = "";
@@ -55263,14 +55263,21 @@ var init_assistant_router = __esm({
           { role: "user", content: input.message }
         ];
         const actions = [];
+        let useTools = true;
         for (let i = 0; i < 6; i++) {
+          const body = { model, max_tokens: 1024, system, messages };
+          if (useTools) body.tools = tools;
           const res = await fetch(ANTHROPIC_URL, {
             method: "POST",
             headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify({ model, max_tokens: 1024, system, tools, messages })
+            body: JSON.stringify(body)
           });
           if (!res.ok) {
             const b = await res.text().catch(() => "");
+            if (res.status === 400 && useTools && /tool/i.test(b)) {
+              useTools = false;
+              continue;
+            }
             return { reply: `Assistant error (${res.status}). ${b.slice(0, 160)}`, actions, agent };
           }
           const data = await res.json();
@@ -63281,7 +63288,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.42";
+var BUILD_TAG = "2026-06-23.43";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

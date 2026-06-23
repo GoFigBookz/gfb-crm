@@ -226,7 +226,10 @@ export const assistantRouter = createRouter({
       // with the agent the UI last had (sticky); else default to Fig.
       const agent: AgentKey = detectAgent(input.message, input.agent ?? null);
       if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [] as string[], agent };
-      const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
+      // Must be a tool-capable model — Haiku snapshots reject programmatic tool
+      // calling (that 400 broke the whole chatbot). Sonnet handles tools + is the
+      // right balance for an all-day assistant.
+      const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-sonnet-4-6";
       // Tell it "now" so it can answer time/date without searching, in Markie's TZ.
       const nowLine = `Current date & time: ${new Date().toLocaleString("en-CA", { timeZone: "America/Toronto", dateStyle: "full", timeStyle: "short" })} (America/Toronto).`;
       // Location: Markie travels, so use his live device location when the app sent
@@ -256,14 +259,20 @@ export const assistantRouter = createRouter({
       ];
       const actions: string[] = [];
 
+      let useTools = true; // drop to false if the model rejects tool calling
       for (let i = 0; i < 6; i++) {
+        const body: any = { model, max_tokens: 1024, system, messages };
+        if (useTools) body.tools = tools;
         const res = await fetch(ANTHROPIC_URL, {
           method: "POST",
           headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-          body: JSON.stringify({ model, max_tokens: 1024, system, tools, messages }),
+          body: JSON.stringify(body),
         });
         if (!res.ok) {
           const b = await res.text().catch(() => "");
+          // If the model can't do tool calling, retry once as a plain chat so the
+          // assistant still answers instead of hard-erroring.
+          if (res.status === 400 && useTools && /tool/i.test(b)) { useTools = false; continue; }
           return { reply: `Assistant error (${res.status}). ${b.slice(0, 160)}`, actions, agent };
         }
         const data: any = await res.json();
