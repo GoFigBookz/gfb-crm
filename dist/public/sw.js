@@ -8,7 +8,7 @@
  *    Vite content-hashes filenames, so cached files never go stale).
  *  - API / tRPC: never cached (always live).
  */
-const CACHE = "gfb-shell-v1";
+const CACHE = "gfb-shell-v3";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -37,6 +37,17 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api") || url.pathname.startsWith("/trpc")) return;
 
+  // NEVER cache the manifest, the SW, or the icons — Chrome must always see the
+  // freshest manifest+icons or it won't offer "Install" (this was the install bug:
+  // a stale cached manifest with old icons blocked installability).
+  if (
+    url.pathname === "/manifest.webmanifest" ||
+    url.pathname === "/sw.js" ||
+    /^\/icon-\d+\.png$|^\/icon\.svg$|^\/apple-touch-icon\.png$/.test(url.pathname)
+  ) {
+    return; // let the network handle it, uncached
+  }
+
   // Navigations → network-first, cached shell as offline fallback.
   if (req.mode === "navigate") {
     event.respondWith(
@@ -52,8 +63,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Hashed static assets → cache-first.
-  if (url.pathname.startsWith("/assets/") || /\.(?:js|css|woff2?|png|jpe?g|svg|ico|webmanifest)$/.test(url.pathname)) {
+  // Hashed build assets → cache-first (Vite content-hashes names, so safe).
+  if (url.pathname.startsWith("/assets/") || /\.(?:js|css|woff2?)$/.test(url.pathname)) {
     event.respondWith(
       (async () => {
         const cache = await caches.open(CACHE);
