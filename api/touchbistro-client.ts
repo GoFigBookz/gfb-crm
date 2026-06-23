@@ -6,7 +6,7 @@
  */
 import { getDb } from "./queries/connection";
 import { connectedAccounts } from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getValidGoogleAccessToken } from "./google-token";
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
@@ -25,9 +25,20 @@ export function workbookFor(clientName: string): string | null {
 
 async function googleAccount(userId: number): Promise<any> {
   const db = getDb();
-  const accts = (await db.select().from(connectedAccounts)
-    .where(and(eq(connectedAccounts.userId, userId), eq(connectedAccounts.provider, "google")))) as any[];
-  return accts.find((a) => a.isActive) || accts[0] || null;
+  // Select only core columns (avoids any live schema-drift "no such column" error)
+  // and don't filter by provider in SQL — filter in JS — so an enum/value quirk
+  // can't break the query. We just need a Google account with a token.
+  const accts = (await db.select({
+    id: connectedAccounts.id,
+    provider: connectedAccounts.provider,
+    accessToken: connectedAccounts.accessToken,
+    refreshToken: connectedAccounts.refreshToken,
+    expiresAt: connectedAccounts.expiresAt,
+    accountEmail: connectedAccounts.accountEmail,
+    isActive: connectedAccounts.isActive,
+  }).from(connectedAccounts).where(eq(connectedAccounts.userId, userId))) as any[];
+  const google = accts.filter((a) => a.provider === "google");
+  return google.find((a) => a.isActive && a.refreshToken) || google.find((a) => a.refreshToken) || google.find((a) => a.isActive) || google[0] || null;
 }
 
 /** Read the workbook's tabs as tab-separated text (capped) via the Sheets API. */
