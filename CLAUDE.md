@@ -303,3 +303,26 @@ STATUS / deep-dive (2026-06-23):
   `normalizeInvoiceNumber` (strip spaces/dashes/`INV`/`#`). tRPC
   `qboBrain.suggestCoding` takes optional `autoApproveThreshold`.
 - Dev branch this session: `claude/figgy-junior-handoff-yiejeq`.
+- **NAMED AGENT ROSTER WIRED (2026-06-23):** the team is seeded + shown by name —
+  Fig (junior bookkeeper), Sage (senior bookkeeper: reviews Fig + preps HST/WSIB/
+  payroll), Wren (controller/auditor: tie-outs, CRA HST audit, signed workpaper),
+  Liv (EA: email intelligence + personal life), Gage (QA/IT watchdog). Markie =
+  Partner. `api/seed-ai-agents.ts` reconciles old generic rows → named (rename in
+  place, no dupes); agentType enum gained `senior_bookkeeper`/`auditor`/`qa`. Every
+  agent system prompt carries the LEARNING-agent mandate.
+- **GAGE / SYSTEM HEALTH (2026-06-23):** `api/qa-core.ts` (pure `evaluateQa`/`rollup`,
+  7 tests) + `api/qa-router.ts` (`gage.runChecks`/`gage.ping`, read-only) grade the
+  live system ok/warn/fail — DB reachable, key tables+counts, env presence (required
+  fail / optional warn), QBO conn health, connector accounts, recent sync errors.
+  UI = `src/pages/SystemHealth.tsx` (route `/system-health`, sidebar "System Health").
+- **FRONT-DESK CHATBOT ROUTING (2026-06-23):** one chatbot, whole team. `detectAgent`/
+  `frontDeskSystem`/`AGENT_ROSTER` in `api/assistant-core.ts` (+tests); say "Hey Sage/
+  Wren/Liv/Gage" (or a name at msg start) → that agent answers in its voice, sticky
+  across the thread, returned to UI. `src/pages/Assistant.tsx` shows "Talking to <name>"
+  + quick-switch chips. Tools: add_task, get_agenda, add_personal.
+- **LIV PERSONAL SPACE (2026-06-23):** private, WALLED OFF from clients. `personal_items`
+  table (NO clientId by design) scoped strictly to `ctx.user.id`; `api/personal-router.ts`
+  (list/add/toggle/update/remove); boot guard `api/ensure-personal-schema.ts`; page
+  `src/pages/Personal.tsx` (route `/personal`, sidebar "Personal"). Liv's `add_personal`
+  chatbot tool files personal items here.
+- Dev branch (continued): `claude/youthful-rubin-q0bl66` → always PR+merge to `main`.
