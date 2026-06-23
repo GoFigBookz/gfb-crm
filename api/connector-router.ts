@@ -24,6 +24,7 @@ const PER_CLIENT_PROVIDERS = [
   "jobber",
   "touchbistro",
   "paypal",
+  "dropbox",
 ] as const;
 
 type PerClientProvider = (typeof PER_CLIENT_PROVIDERS)[number];
@@ -38,6 +39,7 @@ const PROVIDER_CONFIGS: Record<
   jobber: { name: "Jobber", baseUrl: "https://api.getjobber.com" },
   touchbistro: { name: "TouchBistro", baseUrl: "https://api.touchbistro.com" },
   paypal: { name: "PayPal", baseUrl: "https://api.paypal.com" },
+  dropbox: { name: "Dropbox", baseUrl: "https://api.dropboxapi.com" },
 };
 
 // ======== SYNC ENGINE ========
@@ -72,6 +74,10 @@ async function syncProviderData(params: SyncParams): Promise<SyncResult> {
       return syncTouchBistro(params);
     case "paypal":
       return syncPayPal(params);
+    case "dropbox":
+      // Dropbox is file storage, not a statement source — the connection is stored
+      // per client for document access; there are no monthly statements to pull.
+      return { status: "success", recordsSynced: 0 };
     default:
       return {
         status: "error",

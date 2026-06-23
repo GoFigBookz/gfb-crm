@@ -51753,6 +51753,8 @@ async function syncProviderData(params) {
       return syncTouchBistro(params);
     case "paypal":
       return syncPayPal(params);
+    case "dropbox":
+      return { status: "success", recordsSynced: 0 };
     default:
       return {
         status: "error",
@@ -52052,14 +52054,16 @@ var init_connector_router = __esm({
       "stripe",
       "jobber",
       "touchbistro",
-      "paypal"
+      "paypal",
+      "dropbox"
     ];
     PROVIDER_CONFIGS = {
       wise: { name: "Wise", baseUrl: "https://api.wise.com" },
       stripe: { name: "Stripe", baseUrl: "https://api.stripe.com" },
       jobber: { name: "Jobber", baseUrl: "https://api.getjobber.com" },
       touchbistro: { name: "TouchBistro", baseUrl: "https://api.touchbistro.com" },
-      paypal: { name: "PayPal", baseUrl: "https://api.paypal.com" }
+      paypal: { name: "PayPal", baseUrl: "https://api.paypal.com" },
+      dropbox: { name: "Dropbox", baseUrl: "https://api.dropboxapi.com" }
     };
     connectorRouter = createRouter({
       // List all per-client connections
@@ -61501,7 +61505,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.7";
+var BUILD_TAG = "2026-06-23.8";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

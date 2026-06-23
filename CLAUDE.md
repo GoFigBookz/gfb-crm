@@ -187,21 +187,24 @@ a realm). Vendor Memory cache is keyed by `(connectionId, vendorId)`.
   `19dE9npuJX82K7UOMPvQHSMpQn92Rw6qk`; Figgy Junior folder
   `15QYs3Ujgm9irHn3nXzdxoeuV2VPtmjT_` (companion docs live here).
 
-## Integration logins per provider (Markie 2026-06-23 — how connections map)
-How many real logins exist per provider — the Integrations connection model must
-match this (don't force everything to per-client):
-- **Jobber** → SEPARATE login PER COMPANY (one Jobber account each). Per-client OAuth.
-  Guard already blocks linking the same Jobber account to two clients.
-- **PayPal** → SEPARATE login for EVERY client/company. Per-client.
-- **Stripe** → TWO logins, by OWNER GROUP: one for **John's companies**, one for the
-  **other companies**. Group-scoped (map to `clients.groupName`), not per-client.
-- **Wise** → ONE single login for everything. Firm-wide (one shared connection).
-- **TouchBistro** → ONE shared login (same for all who use it). Firm-wide/shared.
-IMPLICATION: connection scope should be per-provider — per-client (Jobber, PayPal),
-group (Stripe), or firm-wide (Wise, TouchBistro). The current Integrations page
-treats Wise/Stripe/TouchBistro as per-client API-key — that needs to change to
-match the above (firm-wide + group). TODO when wiring: Wise/TouchBistro = one
-connection used by all; Stripe = two connections each covering a client group.
+## Integration logins — ALL PER-CLIENT (Markie 2026-06-23, corrected)
+Every connector is **per-client**: each client has its OWN login for each provider.
+A single shared login today (e.g. one TouchBistro client with two restaurants, or
+one Wise account) is just COINCIDENCE — the next client will have a different login,
+so the model must always allow "add a client connection" for every provider.
+Providers (all per-client): **Jobber** (real OAuth, per company), **PayPal**,
+**Stripe**, **Wise**, **TouchBistro**, **Dropbox**. (Google/Microsoft = Markie's own
+firm email; QuickBooks = per realm already.)
+STATUS / deep-dive (2026-06-23):
+- Jobber = real OAuth + GraphQL hours import; shared-account allowed; hours split by
+  each client's employee roster at import. PRIORITY 1 — get per-client working first.
+- Wise / Stripe / PayPal / TouchBistro = API-key-paste connectors with monthly
+  statement-pull sync funcs (`api/connector-router.ts`). NEED per-provider
+  verification with REAL credentials + a live test — some auth/endpoints are likely
+  placeholder (PayPal uses OAuth client-credentials not a bare key; TouchBistro's
+  public REST API is unconfirmed). Work through them ONE AT A TIME with Markie.
+- Dropbox = file storage; connection stored per client, no statements to pull (no-op
+  sync). For document access, not statements.
 
 ## Open items
 - QBO #970 (Latham freight) + #983 (Walker split): blocked on source invoices.
