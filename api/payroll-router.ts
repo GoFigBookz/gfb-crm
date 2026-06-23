@@ -241,14 +241,16 @@ export const payrollRouter = createRouter({
     }),
 
   // Clients that run payroll: hasPayroll flag OR at least one employee on file.
-  clients: staffQuery.query(async () => {
+  clients: staffQuery.query(async ({ ctx }) => {
     const db = getDb();
+    const { restrictedClientIds } = await import("./rbac");
+    const allowed = await restrictedClientIds(ctx); // RBAC: null = all; else only granted
     const cs = await db.select().from(clients);
     const emps = await db.select().from(employees);
     const empCount = new Map<number, number>();
     for (const e of emps as any[]) empCount.set(e.clientId, (empCount.get(e.clientId) || 0) + (e.isActive === false ? 0 : 1));
     return (cs as any[])
-      .filter((c) => isPayrollClient(c) && c.status !== "inactive" && c.status !== "archived")
+      .filter((c) => isPayrollClient(c) && c.status !== "inactive" && c.status !== "archived" && (allowed === null || allowed.includes(c.id)))
       .map((c) => ({
         id: c.id, name: c.name,
         payrollFrequency: c.payrollFrequency ?? null,

@@ -48293,13 +48293,15 @@ var init_payroll_router = __esm({
         return { success: true };
       }),
       // Clients that run payroll: hasPayroll flag OR at least one employee on file.
-      clients: staffQuery.query(async () => {
+      clients: staffQuery.query(async ({ ctx }) => {
         const db = getDb();
+        const { restrictedClientIds: restrictedClientIds2 } = await Promise.resolve().then(() => (init_rbac(), rbac_exports));
+        const allowed = await restrictedClientIds2(ctx);
         const cs = await db.select().from(clients);
         const emps = await db.select().from(employees);
         const empCount = /* @__PURE__ */ new Map();
         for (const e of emps) empCount.set(e.clientId, (empCount.get(e.clientId) || 0) + (e.isActive === false ? 0 : 1));
-        return cs.filter((c) => isPayrollClient(c) && c.status !== "inactive" && c.status !== "archived").map((c) => ({
+        return cs.filter((c) => isPayrollClient(c) && c.status !== "inactive" && c.status !== "archived" && (allowed === null || allowed.includes(c.id))).map((c) => ({
           id: c.id,
           name: c.name,
           payrollFrequency: c.payrollFrequency ?? null,
@@ -61493,7 +61495,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.11";
+var BUILD_TAG = "2026-06-23.12";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
