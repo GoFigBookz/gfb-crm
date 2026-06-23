@@ -148,25 +148,12 @@ export async function exchangeAndPersist(input: { code: string; stateRaw: string
   const db = getDb();
   await ensureJobberTable();
 
-  // Identify WHICH Jobber account this token belongs to, and refuse to bind the
-  // same account to a different CRM client. Without this, connecting a second
-  // company while still logged into the first Jobber account silently re-auths
-  // and returns the FIRST account's data under the second client (the leak
-  // Markie saw: Collingwood showing Owen Sound's hours).
+  // Identify WHICH Jobber account this token belongs to and store its name so the
+  // UI shows which account each client is linked to. We do NOT block linking the
+  // same account to multiple clients: some firms run several CRM clients out of ONE
+  // Jobber account (e.g. Clark Pools' two locations). Hours stay separated at
+  // import time — each pay run only fills employees on THAT client's roster.
   const acc = await fetchJobberAccount(data.access_token);
-  if (acc) {
-    const all = await db.select().from(jobberConnections);
-    const clash = (all as Conn[]).find(
-      (c) => c.active && c.jobberAccountId === acc.id && c.clientId !== state.clientId,
-    );
-    if (clash) {
-      throw new Error(
-        `This Jobber account "${acc.name || acc.id}" is already connected to another client. ` +
-        `Each company needs its OWN Jobber login. Sign out of Jobber (or use a private/incognito ` +
-        `window), sign into THIS company's Jobber account, then click Connect again.`,
-      );
-    }
-  }
 
   const existing = await db.select().from(jobberConnections).where(eq(jobberConnections.clientId, state.clientId)).limit(1);
   const row = {
