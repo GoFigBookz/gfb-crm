@@ -64200,7 +64200,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.74";
+var BUILD_TAG = "2026-06-23.75";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64286,20 +64286,20 @@ app.get("/api/oauth/google/debug", async (c) => {
   let dbCounts = null;
   try {
     const db = getDb();
-    const one = async (sql4) => {
-      const r = await db.run({ sql: sql4, args: [] });
-      const rows = r?.rows ?? r ?? [];
-      return rows[0] ? rows[0].n ?? Object.values(rows[0])[0] : 0;
-    };
-    const rowsOf = async (sql4) => {
-      const r = await db.run({ sql: sql4, args: [] });
+    const rowsOf = async (q) => {
+      const r = await db.run(sql.raw(q));
       return r?.rows ?? r ?? [];
+    };
+    const one = async (q) => {
+      const r = await rowsOf(q);
+      return r[0] ? r[0].n ?? Object.values(r[0])[0] : 0;
     };
     dbCounts = {
       calendarEvents: await one("SELECT COUNT(*) n FROM calendar_events"),
       tasksTotal: await one("SELECT COUNT(*) n FROM tasks"),
       tasksWithDueIncomplete: await one("SELECT COUNT(*) n FROM tasks WHERE dueDate IS NOT NULL AND (completed IS NULL OR completed=0)"),
       taskUserIds: await rowsOf("SELECT userId, COUNT(*) n FROM tasks GROUP BY userId"),
+      calEventUserIds: await rowsOf("SELECT userId, COUNT(*) n FROM calendar_events GROUP BY userId"),
       users: await rowsOf("SELECT id, email, role FROM users")
     };
   } catch (e) {

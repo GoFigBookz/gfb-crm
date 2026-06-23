@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-23.74";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.75";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -143,13 +143,14 @@ app.get("/api/oauth/google/debug", async (c) => {
   let dbCounts: any = null;
   try {
     const db = getDb();
-    const one = async (sql: string) => { const r: any = await db.run({ sql, args: [] } as any); const rows = r?.rows ?? r ?? []; return rows[0] ? (rows[0].n ?? Object.values(rows[0])[0]) : 0; };
-    const rowsOf = async (sql: string) => { const r: any = await db.run({ sql, args: [] } as any); return r?.rows ?? r ?? []; };
+    const rowsOf = async (q: string) => { const r: any = await db.run(sql.raw(q)); return (r?.rows ?? r ?? []) as any[]; };
+    const one = async (q: string) => { const r = await rowsOf(q); return r[0] ? (r[0].n ?? Object.values(r[0])[0]) : 0; };
     dbCounts = {
       calendarEvents: await one("SELECT COUNT(*) n FROM calendar_events"),
       tasksTotal: await one("SELECT COUNT(*) n FROM tasks"),
       tasksWithDueIncomplete: await one("SELECT COUNT(*) n FROM tasks WHERE dueDate IS NOT NULL AND (completed IS NULL OR completed=0)"),
       taskUserIds: await rowsOf("SELECT userId, COUNT(*) n FROM tasks GROUP BY userId"),
+      calEventUserIds: await rowsOf("SELECT userId, COUNT(*) n FROM calendar_events GROUP BY userId"),
       users: await rowsOf("SELECT id, email, role FROM users"),
     };
   } catch (e) { dbCounts = { error: e instanceof Error ? e.message : String(e) }; }
