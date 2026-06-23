@@ -4,8 +4,24 @@ import { getDb } from "./queries/connection";
 import { emails, connectedAccounts, clientEmails, senderRules, clients } from "../db/schema";
 import { eq, and, desc, inArray, isNull, ne, like } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { buildRawMessage, extractEmail } from "./email-core";
+import { buildRawMessage, extractEmail, replyDraftSystem, taskSuggestSystem } from "./email-core";
 import { getValidGoogleAccessToken } from "./google-token";
+import { tasks as tasksTable } from "../db/schema";
+
+/** One-shot Claude text call (used by Liv's email intelligence). Returns "" on any failure. */
+async function callClaude(system: string, userText: string, maxTokens = 700): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("Email AI needs ANTHROPIC_API_KEY set on the server.");
+  const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: "user", content: userText }] }),
+  });
+  const data: any = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`Claude error ${res.status}: ${JSON.stringify(data).slice(0, 160)}`);
+  return (data?.content ?? []).filter((b: any) => b?.type === "text").map((b: any) => b.text).join("\n").trim();
+}
 
 /** Actually send a message through the connected provider. Returns the provider's
  *  thread/message ids so the stored row threads correctly. Throws on failure so a
@@ -335,6 +351,49 @@ export const emailRouter = createRouter({
       }).returning();
 
       return { success: true, email };
+    }),
+
+  // Liv: draft a reply in Markie's tone (learned from his own recent sent emails).
+  // Returns a DRAFT only — Markie reviews/edits, then sends via `reply`.
+  draftReply: authedQuery
+    .input(z.object({ emailId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const orig = (await db.select().from(emails).where(and(eq(emails.id, input.emailId), eq(emails.userId, ctx.user.id))).limit(1))[0];
+      if (!orig) throw new Error("Email not found");
+      // Style samples = Markie's own recent sent emails.
+      const sent = await db.select().from(emails)
+        .where(and(eq(emails.userId, ctx.user.id), eq(emails.isSent, true)))
+        .orderBy(desc(emails.sentAt)).limit(5);
+      const samples = (sent as any[]).map((e) => e.bodyPlain || (e.body || "").replace(/<[^>]*>/g, " ")).filter(Boolean);
+      const userText = `Client email to reply to:\nFrom: ${orig.fromName || orig.fromAddress}\nSubject: ${orig.subject || ""}\n\n${orig.bodyPlain || (orig.body || "").replace(/<[^>]*>/g, " ")}`;
+      const draft = await callClaude(replyDraftSystem(samples), userText, 800);
+      return { draft };
+    }),
+
+  // Liv: suggest a task from an inbound client email (optionally create it).
+  suggestTask: authedQuery
+    .input(z.object({ emailId: z.number(), create: z.boolean().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const e = (await db.select().from(emails).where(and(eq(emails.id, input.emailId), eq(emails.userId, ctx.user.id))).limit(1))[0];
+      if (!e) throw new Error("Email not found");
+      const userText = `From: ${e.fromName || e.fromAddress}\nSubject: ${e.subject || ""}\n\n${e.bodyPlain || (e.body || "").replace(/<[^>]*>/g, " ")}`;
+      const raw = await callClaude(taskSuggestSystem(), userText, 200);
+      let parsed: any = {};
+      try { const m = raw.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : {}; } catch { parsed = {}; }
+      const title = String(parsed.task || "").trim();
+      const due = String(parsed.due || "").trim();
+      if (!title) return { task: "", created: false };
+      let created = false;
+      if (input.create) {
+        await db.insert(tasksTable).values({
+          userId: ctx.user.id, clientId: e.clientId, title,
+          dueDate: due ? new Date(due) : null, priority: "medium", status: "pending", completed: false,
+        } as any);
+        created = true;
+      }
+      return { task: title, due, created };
     }),
 
   // Get email stats

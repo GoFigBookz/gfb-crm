@@ -64,11 +64,25 @@ correction teaches every agent, with per-client isolation always preserved.
    month-end workpaper Markie signs. Reviews Sage. STATUS: planned (backlog).
 4. **Liv** — EXECUTIVE ASSISTANT (Markie's side, not the books). Comms & time: the
    phone chatbot (/assistant), agenda, email task-flagging + tone-matched DRAFT
-   replies (DRAFT ONLY — never auto-send), scheduling. STATUS: chatbot v1 live.
+   replies (DRAFT ONLY — never auto-send), scheduling, AND Markie's PERSONAL life.
+   STATUS: chatbot v1 live.
+5. **Gage** — QA / WATCHDOG. Runs smoke-tests + watches the live app (deploys came
+   up, payroll opens, email syncs, key flows work) and FLAGS Markie only when
+   something breaks — silent when healthy. So nobody has to babysit. STATUS: to build.
 
+ALWAYS-LEARNING (all agents): they share ONE growing memory — each client's quirks,
+Markie's coding + email tone + preferences — built from confirmed corrections AND
+everyday use, per client, never cross-pollinated.
+LIV'S PERSONAL SPACE: Liv also manages Markie's personal life in a PRIVATE area only
+Markie sees, fully walled off from client/firm data (personal never mixes with work,
+work never leaks into personal).
+HOW MARKIE TALKS TO THEM: ONE chatbot — Liv is the front desk. Markie says "Hey Sage
+/ Hey Fig / Hey Wren / Hey Gage" and Liv routes to that agent + returns the answer.
+(Today only Liv's skills are live; others plug into the same chat as built. SMS/text
+access is the next channel so he can use it while driving.)
 RULES (all agents): nothing posts / sends / files without the review chain + Markie's
-final OK; never invent accounts, clients, or data; per-client isolation always;
-learn only from human-confirmed corrections. Receipt/email INTAKE lives UNDER Fig.
+final OK; never invent accounts, clients, or data; per-client isolation always.
+Receipt/email INTAKE lives UNDER Fig.
 
 ## Where we are (2026-06-11)
 - **Phase 1 DONE + live-proven:** richer 34-col capture (invoice#, subtotal,

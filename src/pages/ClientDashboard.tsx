@@ -1134,6 +1134,14 @@ function ClientEmailsCard({ clientId }: { clientId: number }) {
     onSuccess: () => { setReplyBody(""); setOpenId(null); utils.email.list.invalidate({ clientId }); },
     onError: (e) => alert(e.message),
   });
+  const draft = trpc.email.draftReply.useMutation({
+    onSuccess: (r: any) => setReplyBody(r.draft || ""),
+    onError: (e) => alert(e.message),
+  });
+  const suggestTask = trpc.email.suggestTask.useMutation({
+    onSuccess: (r: any) => { utils.task.list.invalidate(); alert(r.task ? `✓ Task added: ${r.task}${r.due ? ` (due ${r.due})` : ""}` : "Liv: no task needed for this email."); },
+    onError: (e) => alert(e.message),
+  });
   const fmt = (d: any) => { try { return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch { return ""; } };
 
   return (
@@ -1166,7 +1174,15 @@ function ClientEmailsCard({ clientId }: { clientId: number }) {
                     <div className="text-sm whitespace-pre-wrap max-h-60 overflow-auto text-slate-700">{e.bodyPlain || (e.body || "").replace(/<[^>]*>/g, " ") || "(no content)"}</div>
                     {!e.isSent && (
                       <div className="space-y-1.5">
-                        <Textarea value={replyBody} onChange={(ev) => setReplyBody(ev.target.value)} rows={3} placeholder={`Reply to ${e.fromName || e.fromAddress}…`} />
+                        <div className="flex gap-2 flex-wrap">
+                          <Button size="sm" variant="outline" disabled={draft.isPending} onClick={() => draft.mutate({ emailId: e.id })}>
+                            {draft.isPending ? "Drafting…" : "✨ Draft with Liv"}
+                          </Button>
+                          <Button size="sm" variant="outline" disabled={suggestTask.isPending} onClick={() => suggestTask.mutate({ emailId: e.id, create: true })}>
+                            {suggestTask.isPending ? "…" : "Flag task"}
+                          </Button>
+                        </div>
+                        <Textarea value={replyBody} onChange={(ev) => setReplyBody(ev.target.value)} rows={3} placeholder={`Reply to ${e.fromName || e.fromAddress}… (or let Liv draft it)`} />
                         <Button size="sm" disabled={!replyBody.trim() || reply.isPending} onClick={() => reply.mutate({ emailId: e.id, body: replyBody })}>
                           {reply.isPending ? "Sending…" : "Send reply"}
                         </Button>
