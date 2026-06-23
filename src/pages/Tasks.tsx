@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/providers/trpc";
-import { format, isToday, isTomorrow, parseISO, isPast, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from "date-fns";
+import { format, isToday, isTomorrow, parseISO, isPast } from "date-fns";
 import { cn } from "@/lib/utils";
 import { TaskDetailDialog } from "@/components/TaskDetailDialog";
 import { STANDARD_TASK_TITLES } from "@/lib/task-options";
@@ -18,7 +18,7 @@ export default function Tasks() {
   const utils = trpc.useUtils();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"list" | "board" | "workflow" | "calendar">("list");
+  const [view, setView] = useState<"list" | "board" | "workflow">("list");
   const [fClient, setFClient] = useState("all");
   const [fAssignee, setFAssignee] = useState("all");
   const [fCategory, setFCategory] = useState("all");
@@ -26,7 +26,6 @@ export default function Tasks() {
   const [groupByClient, setGroupByClient] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isRecurringOpen, setIsRecurringOpen] = useState(false);
-  const [calendarDate, setCalendarDate] = useState(new Date());
   const [openTask, setOpenTask] = useState<any | null>(null);
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
@@ -174,10 +173,6 @@ export default function Tasks() {
       </div>
     </div>
   );
-
-  const monthStart = startOfMonth(calendarDate);
-  const monthEnd = endOfMonth(calendarDate);
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   return (
     <div className="space-y-6">
@@ -378,9 +373,11 @@ export default function Tasks() {
           <Button variant={view === "workflow" ? "default" : "outline"} size="sm" onClick={() => setView("workflow")}>
             <LayoutGrid className="h-4 w-4 mr-1" /> Workflow
           </Button>
-          <Button variant={view === "calendar" ? "default" : "outline"} size="sm" onClick={() => setView("calendar")}>
-            <CalendarIcon className="h-4 w-4 mr-1" /> Calendar
-          </Button>
+          <Link to="/calendar">
+            <Button variant="outline" size="sm" title="Open the unified calendar (events + tasks)">
+              <CalendarIcon className="h-4 w-4 mr-1" /> Calendar
+            </Button>
+          </Link>
         </div>
         <div className="text-sm text-slate-500">
           {filteredTasks.filter(t => !t.completed).length} open · {completedTasks.length} done
@@ -523,50 +520,6 @@ export default function Tasks() {
       })()}
 
       {/* CALENDAR VIEW */}
-      {view === "calendar" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Button variant="outline" size="sm" onClick={() => setCalendarDate(subMonths(calendarDate, 1))}>← Prev</Button>
-            <h2 className="text-lg font-semibold">{format(calendarDate, "MMMM yyyy")}</h2>
-            <Button variant="outline" size="sm" onClick={() => setCalendarDate(addMonths(calendarDate, 1))}>Next →</Button>
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
-              <div key={d} className="text-center text-xs font-medium text-slate-500 py-2">{d}</div>
-            ))}
-            {days.map(day => {
-              const dayTasks = filteredTasks.filter(t => t.dueDate && isSameDay(parseISO(t.dueDate.toISOString()), day));
-              const isTodayFlag = isToday(day);
-              return (
-                <div key={day.toISOString()} className={cn(
-                  "min-h-[100px] p-2 border rounded-lg",
-                  isTodayFlag ? "border-lime-400 bg-lime-50/30" : "border-slate-200"
-                )}>
-                  <div className={cn("text-sm font-medium mb-1", isTodayFlag ? "text-lime-700" : "text-slate-700")}>
-                    {format(day, "d")}
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    {dayTasks.slice(0, 3).map(t => (
-                      <div key={t.id} onClick={() => setOpenTask(t)} className={cn(
-                        "text-xs px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-80",
-                        t.completed ? "bg-slate-100 text-slate-500 line-through" :
-                        t.priority === "high" ? "bg-red-100 text-red-700" :
-                        t.priority === "medium" ? "bg-amber-100 text-amber-700" :
-                        "bg-lime-100 text-lime-700"
-                      )}>
-                        {t.title}
-                      </div>
-                    ))}
-                    {dayTasks.length > 3 && (
-                      <div className="text-xs text-slate-400">+{dayTasks.length - 3} more</div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {recurringTasks && recurringTasks.length > 0 && (
         <Card className="mt-8">
