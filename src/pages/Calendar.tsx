@@ -58,8 +58,34 @@ export default function CalendarPage() {
   }, [googleAcct, autoSynced]);
   const syncing = syncCal.isPending || syncGTasks.isPending;
 
-  const createEvent = trpc.calendar.create.useMutation({ onSuccess: () => { utils.calendar.list.invalidate(); setIsAddOpen(false); } });
-  const [newEvent, setNewEvent] = useState({ title: "", startDate: "", endDate: "", description: "" });
+  const createEvent = trpc.calendar.create.useMutation({ onSuccess: () => { utils.calendar.list.invalidate(); setIsAddOpen(false); resetNewEvent(); } });
+  const blankEvent = { title: "", allDay: false, startDate: "", endDate: "", location: "", guests: "", clientId: "", color: "lime", meetingLink: "", description: "" };
+  const [newEvent, setNewEvent] = useState({ ...blankEvent });
+  const resetNewEvent = () => setNewEvent({ ...blankEvent });
+  const submitNewEvent = () => {
+    if (!newEvent.title || !newEvent.startDate) return;
+    // All-day → parse the date at LOCAL noon so it never drifts a day.
+    const toDate = (s: string) => {
+      if (newEvent.allDay) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d, 12, 0, 0); }
+      return new Date(s);
+    };
+    const start = toDate(newEvent.startDate);
+    const end = newEvent.endDate ? toDate(newEvent.endDate) : start;
+    createEvent.mutate({
+      title: newEvent.title,
+      description: newEvent.description || undefined,
+      startDate: start,
+      endDate: end < start ? start : end,
+      isAllDay: newEvent.allDay,
+      location: newEvent.location || undefined,
+      clientId: newEvent.clientId ? Number(newEvent.clientId) : undefined,
+      color: newEvent.color || undefined,
+      meetingLink: newEvent.meetingLink || undefined,
+      attendees: newEvent.guests
+        ? newEvent.guests.split(",").map((e) => ({ email: e.trim(), name: "", responseStatus: "needsAction" })).filter((a) => a.email)
+        : undefined,
+    } as any);
+  };
 
   // Task interactions on the calendar: click to edit, drag to reschedule.
   const [openTask, setOpenTask] = useState<any | null>(null);
@@ -167,16 +193,35 @@ export default function CalendarPage() {
           )}
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Add Event</Button></DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[85vh] overflow-y-auto">
               <DialogHeader><DialogTitle>Add Event</DialogTitle></DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2"><Label>Title *</Label><Input value={newEvent.title} onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })} /></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Start</Label><Input type="datetime-local" value={newEvent.startDate} onChange={(e) => setNewEvent({ ...newEvent, startDate: e.target.value })} /></div>
-                  <div className="space-y-2"><Label>End</Label><Input type="datetime-local" value={newEvent.endDate} onChange={(e) => setNewEvent({ ...newEvent, endDate: e.target.value })} /></div>
+              <div className="space-y-3 py-2">
+                <div className="space-y-1"><Label>Title *</Label><Input placeholder="Add title" value={newEvent.title} onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })} /></div>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input type="checkbox" checked={newEvent.allDay} onChange={(e) => setNewEvent({ ...newEvent, allDay: e.target.checked })} /> All day
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1"><Label>Start</Label><Input type={newEvent.allDay ? "date" : "datetime-local"} value={newEvent.startDate} onChange={(e) => setNewEvent({ ...newEvent, startDate: e.target.value })} /></div>
+                  <div className="space-y-1"><Label>End</Label><Input type={newEvent.allDay ? "date" : "datetime-local"} value={newEvent.endDate} onChange={(e) => setNewEvent({ ...newEvent, endDate: e.target.value })} /></div>
                 </div>
-                <div className="space-y-2"><Label>Description</Label><Input value={newEvent.description} onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })} /></div>
-                <Button className="w-full" onClick={() => newEvent.title && newEvent.startDate && newEvent.endDate && createEvent.mutate({ ...newEvent, startDate: new Date(newEvent.startDate), endDate: new Date(newEvent.endDate) })}>Create Event</Button>
+                <div className="space-y-1"><Label>Location</Label><Input placeholder="Address or place" value={newEvent.location} onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })} /></div>
+                <div className="space-y-1"><Label>Video / meeting link</Label><Input placeholder="https://meet.google.com/…" value={newEvent.meetingLink} onChange={(e) => setNewEvent({ ...newEvent, meetingLink: e.target.value })} /></div>
+                <div className="space-y-1"><Label>Guests (emails, comma-separated)</Label><Input placeholder="a@x.com, b@y.com" value={newEvent.guests} onChange={(e) => setNewEvent({ ...newEvent, guests: e.target.value })} /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1"><Label>Client</Label>
+                    <select className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm" value={newEvent.clientId} onChange={(e) => setNewEvent({ ...newEvent, clientId: e.target.value })}>
+                      <option value="">— none —</option>
+                      {(clientList || []).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1"><Label>Color</Label>
+                    <select className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm" value={newEvent.color} onChange={(e) => setNewEvent({ ...newEvent, color: e.target.value })}>
+                      <option value="lime">Green</option><option value="purple">Purple</option><option value="blue">Blue</option><option value="amber">Amber</option><option value="red">Red</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-1"><Label>Description</Label><Input placeholder="Notes" value={newEvent.description} onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })} /></div>
+                <Button className="w-full" disabled={!newEvent.title || !newEvent.startDate || createEvent.isPending} onClick={submitNewEvent}>{createEvent.isPending ? "Saving…" : "Create Event"}</Button>
               </div>
             </DialogContent>
           </Dialog>

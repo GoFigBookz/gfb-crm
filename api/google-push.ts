@@ -64,9 +64,23 @@ export async function pushEventToGoogle(eventId: number): Promise<void> {
     const payload: any = {
       summary: ev.title || "(untitled)",
       description: ev.description || undefined,
-      start: { dateTime: new Date(ev.startDate).toISOString() },
-      end: { dateTime: new Date(ev.endDate || ev.startDate).toISOString() },
+      location: ev.location || undefined,
     };
+    if (ev.isAllDay) {
+      // Google all-day uses date-only; end is EXCLUSIVE (next day).
+      const ymd = (d: any) => new Date(d).toLocaleDateString("en-CA", { timeZone: "America/Toronto" }); // YYYY-MM-DD
+      const startYmd = ymd(ev.startDate);
+      const endD = new Date(new Date(ev.endDate || ev.startDate).getTime() + 86400000);
+      payload.start = { date: startYmd };
+      payload.end = { date: ymd(endD) };
+    } else {
+      payload.start = { dateTime: new Date(ev.startDate).toISOString() };
+      payload.end = { dateTime: new Date(ev.endDate || ev.startDate).toISOString() };
+    }
+    if (ev.attendees) {
+      const emails = String(ev.attendees).match(/[\w.+-]+@[\w.-]+\.\w+/g) || [];
+      if (emails.length) payload.attendees = emails.map((email) => ({ email }));
+    }
     if (ev.googleEventId) {
       await gfetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${ev.googleEventId}`, "PATCH", at, payload);
     } else {

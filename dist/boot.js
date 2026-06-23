@@ -42215,9 +42215,22 @@ async function pushEventToGoogle(eventId) {
     const payload = {
       summary: ev.title || "(untitled)",
       description: ev.description || void 0,
-      start: { dateTime: new Date(ev.startDate).toISOString() },
-      end: { dateTime: new Date(ev.endDate || ev.startDate).toISOString() }
+      location: ev.location || void 0
     };
+    if (ev.isAllDay) {
+      const ymd2 = (d) => new Date(d).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+      const startYmd = ymd2(ev.startDate);
+      const endD = new Date(new Date(ev.endDate || ev.startDate).getTime() + 864e5);
+      payload.start = { date: startYmd };
+      payload.end = { date: ymd2(endD) };
+    } else {
+      payload.start = { dateTime: new Date(ev.startDate).toISOString() };
+      payload.end = { dateTime: new Date(ev.endDate || ev.startDate).toISOString() };
+    }
+    if (ev.attendees) {
+      const emails2 = String(ev.attendees).match(/[\w.+-]+@[\w.-]+\.\w+/g) || [];
+      if (emails2.length) payload.attendees = emails2.map((email3) => ({ email: email3 }));
+    }
     if (ev.googleEventId) {
       await gfetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${ev.googleEventId}`, "PATCH", at, payload);
     } else {
@@ -64547,7 +64560,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.80";
+var BUILD_TAG = "2026-06-23.81";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
