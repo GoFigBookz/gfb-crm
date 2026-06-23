@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
-import { Download, X, Share } from "lucide-react";
+import { Download, Smartphone, Share, Check } from "lucide-react";
 
 /**
- * Floating "Install app" banner. On Android/Chrome it captures the native
- * beforeinstallprompt event and fires the real install dialog on tap. On iOS
- * (no such event) it shows the Share → Add to Home Screen steps. Hides itself
- * once the app is installed (running standalone) or dismissed.
+ * Inline "Install on your phone" card for the Integrations page.
+ * Android/Chrome: captures beforeinstallprompt and fires the real install
+ * dialog on tap. iOS/Safari: shows the Share → Add to Home Screen steps.
+ * Shows an "already installed" state when running standalone.
  */
-export default function InstallPrompt() {
+export default function InstallAppCard() {
   const [deferred, setDeferred] = useState<any>(null);
-  const [show, setShow] = useState(false);
   const [iosHelp, setIosHelp] = useState(false);
 
   const isStandalone =
@@ -18,57 +17,50 @@ export default function InstallPrompt() {
   const isIos = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
 
   useEffect(() => {
-    if (isStandalone) return; // already installed → nothing to do
-    if (sessionStorage.getItem("hideInstall") === "1") return;
-
-    const onBIP = (e: any) => { e.preventDefault(); setDeferred(e); setShow(true); };
+    const onBIP = (e: any) => { e.preventDefault(); setDeferred(e); };
     window.addEventListener("beforeinstallprompt", onBIP);
-    window.addEventListener("appinstalled", () => setShow(false));
-
-    // iOS never fires beforeinstallprompt — show the banner so we can give steps.
-    if (isIos) setShow(true);
-
     return () => window.removeEventListener("beforeinstallprompt", onBIP);
-  }, [isStandalone, isIos]);
-
-  if (!show || isStandalone) return null;
+  }, []);
 
   const install = async () => {
     if (deferred) {
       deferred.prompt();
       try { await deferred.userChoice; } catch { /* ignore */ }
       setDeferred(null);
-      setShow(false);
     } else if (isIos) {
       setIosHelp(true);
+    } else {
+      setIosHelp(true); // fallback: show manual steps
     }
   };
 
-  const dismiss = () => { setShow(false); sessionStorage.setItem("hideInstall", "1"); };
-
   return (
-    <div className="fixed bottom-3 inset-x-3 z-[1000] mx-auto max-w-md">
-      <div className="flex items-center gap-3 rounded-xl border bg-white shadow-lg px-3 py-2.5">
-        <div className="w-9 h-9 rounded-lg bg-lime-600 text-white font-bold flex items-center justify-center shrink-0">Fig</div>
-        {iosHelp ? (
-          <div className="flex-1 text-xs text-slate-700 leading-snug">
-            Tap <Share className="inline h-3.5 w-3.5 -mt-0.5" /> <b>Share</b> below, then <b>Add to Home Screen</b>.
+    <div className="rounded-xl border bg-white p-4 mb-6">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-lime-600 text-white font-bold flex items-center justify-center shrink-0">Fig</div>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+            <Smartphone className="h-4 w-4" /> Install the app on your phone
           </div>
+          <div className="text-sm text-slate-500">Adds a home-screen icon that opens full-screen to your assistant.</div>
+        </div>
+        {isStandalone ? (
+          <span className="flex items-center gap-1.5 text-sm text-emerald-600 font-medium shrink-0">
+            <Check className="h-4 w-4" /> Installed
+          </span>
         ) : (
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-slate-900">Install Figgy on your phone</div>
-            <div className="text-xs text-slate-500">Opens full-screen to your assistant.</div>
-          </div>
-        )}
-        {!iosHelp && (
-          <button onClick={install} className="flex items-center gap-1.5 rounded-lg bg-lime-600 text-white text-sm font-medium px-3 py-2 shrink-0">
+          <button onClick={install} className="flex items-center gap-1.5 rounded-lg bg-lime-600 text-white text-sm font-medium px-4 py-2 shrink-0">
             <Download className="h-4 w-4" /> Install
           </button>
         )}
-        <button onClick={dismiss} className="text-slate-400 hover:text-slate-600 shrink-0" aria-label="Dismiss">
-          <X className="h-4 w-4" />
-        </button>
       </div>
+      {iosHelp && !isStandalone && (
+        <div className="mt-3 text-sm text-slate-700 bg-slate-50 rounded-lg p-3 leading-snug">
+          <b>On iPhone (Safari):</b> tap <Share className="inline h-4 w-4 -mt-0.5" /> <b>Share</b>, then{" "}
+          <b>Add to Home Screen</b>. <br />
+          <b>On Android (Chrome):</b> tap the <b>⋮</b> menu → <b>Install app</b>.
+        </div>
+      )}
     </div>
   );
 }

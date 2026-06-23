@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/providers/trpc";
 import { cn } from "@/lib/utils";
+import InstallAppCard from "@/components/InstallPrompt";
 
 const providers = [
   { id: "google", name: "Google", icon: "G", color: "bg-red-500", scopes: ["Gmail", "Calendar", "Drive", "Tasks"] },
@@ -192,6 +193,8 @@ export default function Integrations() {
           <p className="text-slate-500">Connect your email, calendar, cloud storage, accounting, and payment accounts</p>
         </div>
       </div>
+
+      <InstallAppCard />
 
       {/* Connected Accounts Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
