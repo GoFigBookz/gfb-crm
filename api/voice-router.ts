@@ -3,6 +3,7 @@ import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { tasks, users } from "../db/schema";
 import { eq } from "drizzle-orm";
+import { checkSecret } from "./lib/admin-auth";
 
 /**
  * VOICE WEBHOOK ROUTER
@@ -12,10 +13,8 @@ import { eq } from "drizzle-orm";
  * Auth: X-Voice-Token header (set in .env as VOICE_WEBHOOK_TOKEN)
  */
 
-const VOICE_TOKEN = process.env.VOICE_WEBHOOK_TOKEN || "gfb-voice-2026";
-
 function validateVoiceToken(token: string): boolean {
-  return token === VOICE_TOKEN;
+  return checkSecret(token, "VOICE_WEBHOOK_TOKEN");
 }
 
 export const voiceRouter = createRouter({
