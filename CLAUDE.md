@@ -187,6 +187,22 @@ a realm). Vendor Memory cache is keyed by `(connectionId, vendorId)`.
   `19dE9npuJX82K7UOMPvQHSMpQn92Rw6qk`; Figgy Junior folder
   `15QYs3Ujgm9irHn3nXzdxoeuV2VPtmjT_` (companion docs live here).
 
+## Integration logins per provider (Markie 2026-06-23 — how connections map)
+How many real logins exist per provider — the Integrations connection model must
+match this (don't force everything to per-client):
+- **Jobber** → SEPARATE login PER COMPANY (one Jobber account each). Per-client OAuth.
+  Guard already blocks linking the same Jobber account to two clients.
+- **PayPal** → SEPARATE login for EVERY client/company. Per-client.
+- **Stripe** → TWO logins, by OWNER GROUP: one for **John's companies**, one for the
+  **other companies**. Group-scoped (map to `clients.groupName`), not per-client.
+- **Wise** → ONE single login for everything. Firm-wide (one shared connection).
+- **TouchBistro** → ONE shared login (same for all who use it). Firm-wide/shared.
+IMPLICATION: connection scope should be per-provider — per-client (Jobber, PayPal),
+group (Stripe), or firm-wide (Wise, TouchBistro). The current Integrations page
+treats Wise/Stripe/TouchBistro as per-client API-key — that needs to change to
+match the above (firm-wide + group). TODO when wiring: Wise/TouchBistro = one
+connection used by all; Stripe = two connections each covering a client group.
+
 ## Open items
 - QBO #970 (Latham freight) + #983 (Walker split): blocked on source invoices.
 - 4 TEST pdfs in the Clark OS drop folder — harmless, delete for tidiness.
