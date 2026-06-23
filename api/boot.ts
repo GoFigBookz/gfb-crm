@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-23.64";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.65";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -96,15 +96,25 @@ app.get("/api/version", (c) => {
 // whether the client id/secret are present, and the redirect URI to register).
 app.get("/api/oauth/google/debug", async (c) => {
   const { googleRedirectUri } = await import("./google-redirect");
+  // Run the SAME firm-wide lookup the app uses, so this URL proves connectivity.
+  let firmGoogle: any = null;
+  try {
+    const { getFirmGoogleAccount } = await import("./google-token");
+    const a = await getFirmGoogleAccount();
+    firmGoogle = a ? { found: true, id: a.id, email: a.accountEmail, isActive: !!a.isActive, hasRefreshToken: !!a.refreshToken, userId: a.userId } : { found: false };
+  } catch (e) {
+    firmGoogle = { found: false, error: e instanceof Error ? e.message : String(e) };
+  }
   return c.json({
+    build: BUILD_TAG,
     redirectUri: googleRedirectUri(),
     clientId: process.env.GOOGLE_CLIENT_ID || null,
     viteAppUrl: process.env.VITE_APP_URL || null,
-    googleRedirectUriEnv: process.env.GOOGLE_REDIRECT_URI || null,
     hasClientId: !!process.env.GOOGLE_CLIENT_ID,
     hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+    firmGoogle,
     lastConnectAttempt: lastGoogleOAuth,
-    note: "lastConnectAttempt shows the result of your most recent Connect Google click (ok:true = saved). If ok:false, the error says why.",
+    note: "firmGoogle.found:true means the app sees your Google connection (the Integrations card will show Connected on this same build).",
   });
 });
 

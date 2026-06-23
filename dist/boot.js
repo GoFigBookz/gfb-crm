@@ -64015,7 +64015,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.64";
+var BUILD_TAG = "2026-06-23.65";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64051,15 +64051,24 @@ app.get("/api/version", (c) => {
 });
 app.get("/api/oauth/google/debug", async (c) => {
   const { googleRedirectUri: googleRedirectUri2 } = await Promise.resolve().then(() => (init_google_redirect(), google_redirect_exports));
+  let firmGoogle = null;
+  try {
+    const { getFirmGoogleAccount: getFirmGoogleAccount2 } = await Promise.resolve().then(() => (init_google_token(), google_token_exports));
+    const a = await getFirmGoogleAccount2();
+    firmGoogle = a ? { found: true, id: a.id, email: a.accountEmail, isActive: !!a.isActive, hasRefreshToken: !!a.refreshToken, userId: a.userId } : { found: false };
+  } catch (e) {
+    firmGoogle = { found: false, error: e instanceof Error ? e.message : String(e) };
+  }
   return c.json({
+    build: BUILD_TAG,
     redirectUri: googleRedirectUri2(),
     clientId: process.env.GOOGLE_CLIENT_ID || null,
     viteAppUrl: process.env.VITE_APP_URL || null,
-    googleRedirectUriEnv: process.env.GOOGLE_REDIRECT_URI || null,
     hasClientId: !!process.env.GOOGLE_CLIENT_ID,
     hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+    firmGoogle,
     lastConnectAttempt: lastGoogleOAuth,
-    note: "lastConnectAttempt shows the result of your most recent Connect Google click (ok:true = saved). If ok:false, the error says why."
+    note: "firmGoogle.found:true means the app sees your Google connection (the Integrations card will show Connected on this same build)."
   });
 });
 app.get("/api/qbo/connect", async (c) => {
