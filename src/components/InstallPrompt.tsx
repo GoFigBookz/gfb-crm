@@ -1,27 +1,27 @@
 import { useEffect, useState } from "react";
-import { Download, Smartphone, Share, Check } from "lucide-react";
+import { Download, Smartphone, Share, Check, MoreVertical } from "lucide-react";
 
 /**
  * Inline "Install on your phone" card for the Integrations page.
- * Android/Chrome: captures beforeinstallprompt and fires the real install
- * dialog on tap. iOS/Safari: shows the Share → Add to Home Screen steps.
- * Shows an "already installed" state when running standalone.
+ * Android/Chrome: fires the real install dialog via the captured prompt.
+ * iOS/Safari: shows the Share → Add to Home Screen steps (Apple gives no
+ * programmatic install). Always shows a clear status so it's never a silent
+ * dead button.
  */
 export default function InstallAppCard() {
   const [deferred, setDeferred] = useState<any>(null);
-  const [iosHelp, setIosHelp] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
 
   const isStandalone =
     typeof window !== "undefined" &&
     (window.matchMedia?.("(display-mode: standalone)").matches || (navigator as any).standalone === true);
   const isIos = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isAndroid = typeof navigator !== "undefined" && /android/i.test(navigator.userAgent);
 
   useEffect(() => {
-    // The event may have already fired before this card mounted — main.tsx
-    // stashes it on window. Pick it up, and also listen for later fires.
     if ((window as any).__deferredInstall) setDeferred((window as any).__deferredInstall);
     const onAvail = () => setDeferred((window as any).__deferredInstall);
-    const onInstalled = () => setDeferred(null);
+    const onInstalled = () => { setDeferred(null); setNote("Installed — check your home screen."); };
     window.addEventListener("pwa-install-available", onAvail);
     window.addEventListener("pwa-installed", onInstalled);
     return () => {
@@ -36,12 +36,24 @@ export default function InstallAppCard() {
       try { await deferred.userChoice; } catch { /* ignore */ }
       setDeferred(null);
       (window as any).__deferredInstall = undefined;
-    } else if (isIos) {
-      setIosHelp(true);
+      return;
+    }
+    if (isIos) {
+      setNote("On iPhone: tap the Share button (□↑) at the bottom of Safari, then 'Add to Home Screen'.");
+    } else if (isAndroid) {
+      setNote("If no dialog popped up: open Chrome's ⋮ menu (top-right) → 'Install app' / 'Add to Home screen'. If it's not there, the app may already be installed — check your home screen. Make sure you're in Chrome (not an in-app browser).");
     } else {
-      setIosHelp(true); // fallback: show manual steps
+      setNote("On desktop Chrome/Edge: click the install icon in the address bar (right side). On your phone, open figgy.gofig.ca in Chrome or Safari.");
     }
   };
+
+  const status = isStandalone
+    ? "Installed"
+    : isIos
+      ? "iPhone: Share → Add to Home Screen"
+      : deferred
+        ? "Ready to install"
+        : "Tap Install — or use the browser menu";
 
   return (
     <div className="rounded-xl border bg-white p-4 mb-6">
@@ -51,7 +63,7 @@ export default function InstallAppCard() {
           <div className="font-semibold text-slate-900 flex items-center gap-1.5">
             <Smartphone className="h-4 w-4" /> Install the app on your phone
           </div>
-          <div className="text-sm text-slate-500">Adds a home-screen icon that opens full-screen to your assistant.</div>
+          <div className="text-sm text-muted-foreground">{status}</div>
         </div>
         {isStandalone ? (
           <span className="flex items-center gap-1.5 text-sm text-emerald-600 font-medium shrink-0">
@@ -63,11 +75,16 @@ export default function InstallAppCard() {
           </button>
         )}
       </div>
-      {iosHelp && !isStandalone && (
-        <div className="mt-3 text-sm text-slate-700 bg-slate-50 rounded-lg p-3 leading-snug">
-          <b>On iPhone (Safari):</b> tap <Share className="inline h-4 w-4 -mt-0.5" /> <b>Share</b>, then{" "}
-          <b>Add to Home Screen</b>. <br />
-          <b>On Android (Chrome):</b> tap the <b>⋮</b> menu → <b>Install app</b>.
+
+      {note && !isStandalone && (
+        <div className="mt-3 text-sm text-slate-700 bg-slate-50 rounded-lg p-3 leading-snug">{note}</div>
+      )}
+
+      {!isStandalone && !note && (
+        <div className="mt-3 text-xs text-muted-foreground flex items-start gap-1.5">
+          {isIos
+            ? <><Share className="h-3.5 w-3.5 mt-0.5 shrink-0" /> iPhone has no one-tap install — use Share → Add to Home Screen.</>
+            : <><MoreVertical className="h-3.5 w-3.5 mt-0.5 shrink-0" /> Must be opened in Chrome. If Install does nothing, use Chrome's ⋮ menu → Install app.</>}
         </div>
       )}
     </div>
