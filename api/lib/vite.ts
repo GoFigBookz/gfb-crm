@@ -20,6 +20,20 @@ export function serveStaticFiles(app: any) {
   app.use("/*.svg", serveStatic({ root: distPath }));
   app.use("/*.ico", serveStatic({ root: distPath }));
 
+  // PWA files — must be served as their real content (NOT the SPA index.html),
+  // or the app won't install as a phone app. Service worker stays uncached so
+  // updates propagate; manifest gets the right content-type; TWA asset-links
+  // (Play Store) live under /.well-known.
+  app.use("/sw.js", serveStatic({
+    root: distPath,
+    onFound: (_p: string, c: any) => c.header("Cache-Control", "no-cache, no-store, must-revalidate"),
+  }));
+  app.use("/manifest.webmanifest", serveStatic({
+    root: distPath,
+    onFound: (_p: string, c: any) => c.header("Content-Type", "application/manifest+json"),
+  }));
+  app.use("/.well-known/*", serveStatic({ root: distPath }));
+
   // SPA fallback: serve index.html for all non-API routes. Served with
   // no-cache so every deploy's fresh asset hashes are picked up immediately —
   // this is what prevents the "white screen after deploy" cache trap.

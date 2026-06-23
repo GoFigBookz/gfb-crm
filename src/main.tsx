@@ -17,3 +17,11 @@ createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+// Register the service worker so the app is installable on Android/iOS as a
+// real app (home-screen, full-screen, offline shell). Best-effort.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}

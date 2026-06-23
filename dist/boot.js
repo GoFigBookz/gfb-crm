@@ -57126,6 +57126,15 @@ function serveStaticFiles(app2) {
   app2.use("/*.png", serveStatic({ root: distPath }));
   app2.use("/*.svg", serveStatic({ root: distPath }));
   app2.use("/*.ico", serveStatic({ root: distPath }));
+  app2.use("/sw.js", serveStatic({
+    root: distPath,
+    onFound: (_p, c) => c.header("Cache-Control", "no-cache, no-store, must-revalidate")
+  }));
+  app2.use("/manifest.webmanifest", serveStatic({
+    root: distPath,
+    onFound: (_p, c) => c.header("Content-Type", "application/manifest+json")
+  }));
+  app2.use("/.well-known/*", serveStatic({ root: distPath }));
   app2.get("/*", async (c, next) => {
     const pathname = c.req.path;
     if (pathname.startsWith("/api/")) return next();
@@ -62567,7 +62576,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.28";
+var BUILD_TAG = "2026-06-23.29";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
