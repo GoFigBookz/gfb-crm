@@ -54566,7 +54566,7 @@ var init_assistant_core = __esm({
       "7) Firm status \u2014 call firm_status for what needs review / what's open across clients.",
       "8) Check system health \u2014 call system_health if he asks whether the app is working.",
       "GENERAL QUESTIONS: answer anything else like a helpful AI assistant \u2014 facts, how-tos, drafting, math, advice.",
-      "Use the web_search tool whenever the answer needs CURRENT or LOCAL info: weather, news, prices, store/where-to-buy, hours, sports, or anything that changes over time. Then answer in one or two short lines with the key facts (don't dump links).",
+      "Use web_search whenever the answer needs CURRENT or LOCAL info: weather, news, prices, store/where-to-buy, hours, sports, anything that changes. Use web_fetch to OPEN a specific URL Markie gives you (e.g. 'look at my website figgy.gofig.ca' or a link he shares) and read/critique the actual page. If he attaches an image or PDF, look at it directly. Share relevant links/sources in your answer.",
       "After a tool runs, confirm in one short line. Never invent client names or data; if you're unsure of a fact, search or say so."
     ].join("\n");
     AGENT_ROSTER = {
@@ -55286,7 +55286,13 @@ var init_assistant_router = __esm({
         history: external_exports.array(external_exports.object({ role: external_exports.enum(["user", "assistant"]), content: external_exports.string() })).max(20).optional(),
         agent: external_exports.enum(["fig", "sage", "wren", "liv", "jinx", "tess", "jade", "skye"]).optional(),
         location: external_exports.object({ lat: external_exports.number(), lon: external_exports.number(), label: external_exports.string().max(120).optional() }).optional(),
-        conversationId: external_exports.string().max(64).optional()
+        conversationId: external_exports.string().max(64).optional(),
+        // An attached image or PDF the agent should SEE (base64, ~6MB cap).
+        attachment: external_exports.object({
+          data: external_exports.string().max(9e6),
+          mediaType: external_exports.string().max(60),
+          name: external_exports.string().max(200).optional()
+        }).optional()
       })).mutation(async ({ ctx, input }) => {
         const apiKey = process.env.ANTHROPIC_API_KEY;
         const agent = detectAgent(input.message, input.agent ?? null);
@@ -55302,29 +55308,43 @@ var init_assistant_router = __esm({
         } catch {
         }
         const system = [frontDeskSystem(agent), nowLine, locLine, lessonsBlock].filter(Boolean).join("\n");
-        const webSearch = process.env.FIGGY_WEB_SEARCH === "off" ? [] : [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }];
-        const tools = [...ASSISTANT_TOOLS, ...webSearch];
+        const webOff = process.env.FIGGY_WEB_SEARCH === "off";
+        const webSearch = webOff ? [] : [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }];
+        const webFetch = webOff ? [] : [{ type: "web_fetch_20250910", name: "web_fetch", max_uses: 5 }];
+        const toolTiers = [
+          [...ASSISTANT_TOOLS, ...webSearch, ...webFetch],
+          [...ASSISTANT_TOOLS, ...webSearch],
+          [...ASSISTANT_TOOLS],
+          null
+        ];
+        let userContent = input.message;
+        if (input.attachment?.data && input.attachment?.mediaType) {
+          const mt = input.attachment.mediaType;
+          const block = mt === "application/pdf" ? { type: "document", source: { type: "base64", media_type: mt, data: input.attachment.data } } : { type: "image", source: { type: "base64", media_type: mt, data: input.attachment.data } };
+          userContent = [block, { type: "text", text: input.message }];
+        }
         const messages = [
           ...(input.history || []).map((h) => ({ role: h.role, content: h.content })),
-          { role: "user", content: input.message }
+          { role: "user", content: userContent }
         ];
         const actions = [];
         const convId = input.conversationId;
+        const userText = input.message + (input.attachment ? ` \u{1F4CE} ${input.attachment.name || "attachment"}` : "");
         const saveTurn = async (replyText) => {
           if (!convId || !replyText) return;
           try {
             const db = getDb();
             await db.insert(chatMessages).values([
-              { userId: ctx.user.id, conversationId: convId, agent, role: "user", content: input.message },
+              { userId: ctx.user.id, conversationId: convId, agent, role: "user", content: userText },
               { userId: ctx.user.id, conversationId: convId, agent, role: "assistant", content: replyText }
             ]);
           } catch {
           }
         };
-        let useTools = true;
+        let tier = 0;
         for (let i = 0; i < 6; i++) {
           const body = { model, max_tokens: 1024, system, messages };
-          if (useTools) body.tools = tools;
+          if (toolTiers[tier]) body.tools = toolTiers[tier];
           const res = await fetch(ANTHROPIC_URL, {
             method: "POST",
             headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
@@ -55332,8 +55352,8 @@ var init_assistant_router = __esm({
           });
           if (!res.ok) {
             const b = await res.text().catch(() => "");
-            if (res.status === 400 && useTools && /tool/i.test(b)) {
-              useTools = false;
+            if (res.status === 400 && tier < toolTiers.length - 1 && /tool/i.test(b)) {
+              tier++;
               continue;
             }
             return { reply: `Assistant error (${res.status}). ${b.slice(0, 160)}`, actions, agent };
@@ -63438,7 +63458,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.48";
+var BUILD_TAG = "2026-06-23.49";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

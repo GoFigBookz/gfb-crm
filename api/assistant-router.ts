@@ -223,6 +223,12 @@ export const assistantRouter = createRouter({
       agent: z.enum(["fig", "sage", "wren", "liv", "jinx", "tess", "jade", "skye"]).optional(),
       location: z.object({ lat: z.number(), lon: z.number(), label: z.string().max(120).optional() }).optional(),
       conversationId: z.string().max(64).optional(),
+      // An attached image or PDF the agent should SEE (base64, ~6MB cap).
+      attachment: z.object({
+        data: z.string().max(9_000_000),
+        mediaType: z.string().max(60),
+        name: z.string().max(200).optional(),
+      }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -250,37 +256,56 @@ export const assistantRouter = createRouter({
         lessonsBlock = formatLessonsBlock(selectRelevant(rows, agent));
       } catch { /* table may not exist yet — skip */ }
       const system = [frontDeskSystem(agent), nowLine, locLine, lessonsBlock].filter(Boolean).join("\n");
-      // Server-side web search for general/current/local questions (weather, prices,
-      // where-to-buy, hours, news…). Off only if explicitly disabled.
-      const webSearch = process.env.FIGGY_WEB_SEARCH === "off"
-        ? []
-        : [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }];
-      const tools = [...ASSISTANT_TOOLS, ...webSearch];
+      // Server-side web tools: SEARCH (find things) + FETCH (open a specific URL
+      // the user shares, e.g. "look at my website figgy.gofig.ca"). Off only if
+      // explicitly disabled.
+      const webOff = process.env.FIGGY_WEB_SEARCH === "off";
+      const webSearch = webOff ? [] : [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }];
+      const webFetch = webOff ? [] : [{ type: "web_fetch_20250910", name: "web_fetch", max_uses: 5 }];
+      // Tool tiers, tried in order if a model/tool combo 400s: full → drop fetch
+      // (keep search) → no server tools → no tools at all. Keeps the chat working.
+      const toolTiers = [
+        [...ASSISTANT_TOOLS, ...webSearch, ...webFetch],
+        [...ASSISTANT_TOOLS, ...webSearch],
+        [...ASSISTANT_TOOLS],
+        null,
+      ];
 
+      // Build the user turn — with an image/PDF block when something's attached
+      // so the agent can actually SEE it (Skye reviewing a logo, Fig a receipt…).
+      let userContent: any = input.message;
+      if (input.attachment?.data && input.attachment?.mediaType) {
+        const mt = input.attachment.mediaType;
+        const block = mt === "application/pdf"
+          ? { type: "document", source: { type: "base64", media_type: mt, data: input.attachment.data } }
+          : { type: "image", source: { type: "base64", media_type: mt, data: input.attachment.data } };
+        userContent = [block, { type: "text", text: input.message }];
+      }
       const messages: any[] = [
         ...(input.history || []).map((h) => ({ role: h.role, content: h.content })),
-        { role: "user", content: input.message },
+        { role: "user", content: userContent },
       ];
       const actions: string[] = [];
 
       // Persist the turn (user message + reply) so the conversation survives
       // refresh/close. Only when the UI supplies a conversationId.
       const convId = input.conversationId;
+      const userText = input.message + (input.attachment ? ` 📎 ${input.attachment.name || "attachment"}` : "");
       const saveTurn = async (replyText: string) => {
         if (!convId || !replyText) return;
         try {
           const db = getDb();
           await db.insert(chatMessages).values([
-            { userId: ctx.user.id, conversationId: convId, agent, role: "user", content: input.message },
+            { userId: ctx.user.id, conversationId: convId, agent, role: "user", content: userText },
             { userId: ctx.user.id, conversationId: convId, agent, role: "assistant", content: replyText },
           ] as any);
         } catch { /* history is best-effort — never block the reply */ }
       };
 
-      let useTools = true; // drop to false if the model rejects tool calling
+      let tier = 0; // current tool tier (see toolTiers); steps down on a tool 400
       for (let i = 0; i < 6; i++) {
         const body: any = { model, max_tokens: 1024, system, messages };
-        if (useTools) body.tools = tools;
+        if (toolTiers[tier]) body.tools = toolTiers[tier];
         const res = await fetch(ANTHROPIC_URL, {
           method: "POST",
           headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
@@ -288,9 +313,9 @@ export const assistantRouter = createRouter({
         });
         if (!res.ok) {
           const b = await res.text().catch(() => "");
-          // If the model can't do tool calling, retry once as a plain chat so the
-          // assistant still answers instead of hard-erroring.
-          if (res.status === 400 && useTools && /tool/i.test(b)) { useTools = false; continue; }
+          // A tool/model incompatibility → step down a tool tier and retry, so the
+          // assistant keeps working (drop fetch → drop server tools → plain chat).
+          if (res.status === 400 && tier < toolTiers.length - 1 && /tool/i.test(b)) { tier++; continue; }
           return { reply: `Assistant error (${res.status}). ${b.slice(0, 160)}`, actions, agent };
         }
         const data: any = await res.json();

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Bot, Send, Mic, Sparkles, MapPin, MapPinOff, Volume2, VolumeX, Radio, Plus, FolderInput } from "lucide-react";
+import { Bot, Send, Mic, Sparkles, MapPin, MapPinOff, Volume2, VolumeX, Radio, Plus, FolderInput, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/providers/trpc";
@@ -40,6 +40,8 @@ export default function Assistant() {
   const [speakOn, setSpeakOn] = useState(false);   // read replies aloud
   const [handsFree, setHandsFree] = useState(false); // continuous talk-back-and-forth
   const [listening, setListening] = useState(false);
+  const [attachment, setAttachment] = useState<{ data: string; mediaType: string; name: string; preview: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const handsFreeRef = useRef(false);
@@ -172,16 +174,32 @@ export default function Assistant() {
 
   useEffect(() => () => { stopVoice(); releaseWakeLock(); }, []); // cleanup on unmount
 
+  const pickFile = (f: File | undefined) => {
+    if (!f) return;
+    if (f.size > 6 * 1024 * 1024) { alert("That file is too big — keep it under 6 MB."); return; }
+    const ok = f.type.startsWith("image/") || f.type === "application/pdf";
+    if (!ok) { alert("Attach an image or a PDF."); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = String(reader.result || "");
+      const data = url.split(",")[1] || "";
+      setAttachment({ data, mediaType: f.type, name: f.name, preview: url });
+    };
+    reader.readAsDataURL(f);
+  };
+
   const send = async (text: string) => {
-    const msg = text.trim();
+    const msg = text.trim() || (attachment ? "Here's a file — take a look." : "");
     if (!msg || ask.isPending) return;
+    const att = attachment;
     const history = messages.slice(-12);
-    setMessages((m) => [...m, { role: "user", content: msg }]);
+    setMessages((m) => [...m, { role: "user", content: msg + (att ? ` 📎 ${att.name}` : "") }]);
     setInput("");
+    setAttachment(null);
     try {
       const location = await getLocation();
       if (location) setLocStatus("on");
-      const r = await ask.mutateAsync({ message: msg, history, agent, location, conversationId: convId });
+      const r = await ask.mutateAsync({ message: msg, history, agent, location, conversationId: convId, attachment: att ? { data: att.data, mediaType: att.mediaType, name: att.name } : undefined });
       if (r.agent) setAgent(r.agent as AgentKey);
       setMessages((m) => [...m, { role: "assistant", content: r.reply }]);
       if (r.actions?.length) { utils.task.list.invalidate(); utils.calendar?.list?.invalidate?.(); }
@@ -292,6 +310,18 @@ export default function Assistant() {
           <button onClick={toggleHandsFree} className="underline">stop</button>
         </div>
       )}
+      {attachment && (
+        <div className="flex items-center gap-2 pb-2">
+          {attachment.mediaType.startsWith("image/") ? (
+            <img src={attachment.preview} alt={attachment.name} className="h-12 w-12 object-cover rounded border" />
+          ) : (
+            <div className="h-12 w-12 rounded border bg-slate-100 flex items-center justify-center text-xs text-slate-500">PDF</div>
+          )}
+          <span className="text-xs text-slate-600 truncate flex-1">{attachment.name}</span>
+          <button onClick={() => setAttachment(null)} className="text-slate-400 hover:text-red-500" title="Remove"><X className="h-4 w-4" /></button>
+        </div>
+      )}
+      <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ""; }} />
       <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="flex items-center gap-2 pt-2 border-t">
         <Button type="button" variant={listening ? "default" : "outline"} size="icon" onClick={micDictate} title="Tap to speak" className={listening ? "bg-red-500 hover:bg-red-600" : ""}>
           <Mic className="h-4 w-4" />
@@ -302,8 +332,11 @@ export default function Assistant() {
         <Button type="button" variant={handsFree ? "default" : "outline"} size="icon" onClick={toggleHandsFree} title="Hands-free conversation" className={handsFree ? "bg-lime-600" : ""}>
           <Radio className="h-4 w-4" />
         </Button>
+        <Button type="button" variant="outline" size="icon" onClick={() => fileRef.current?.click()} title="Attach an image or PDF">
+          <Paperclip className="h-4 w-4" />
+        </Button>
         <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder={`Message ${active.name}…`} className="flex-1" autoFocus />
-        <Button type="submit" disabled={!input.trim() || ask.isPending} className="bg-lime-600"><Send className="h-4 w-4" /></Button>
+        <Button type="submit" disabled={(!input.trim() && !attachment) || ask.isPending} className="bg-lime-600"><Send className="h-4 w-4" /></Button>
       </form>
     </div>
   );
