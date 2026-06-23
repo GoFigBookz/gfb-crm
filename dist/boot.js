@@ -53698,6 +53698,95 @@ var init_bank_converter_router = __esm({
   }
 });
 
+// api/pdf-splitter-router.ts
+function extractJson2(text2) {
+  if (!text2) return null;
+  const fenced = text2.replace(/```json\s*|\s*```/gi, "");
+  const start = fenced.indexOf("{");
+  const end = fenced.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    return JSON.parse(fenced.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+var SYSTEM2, pdfSplitterRouter;
+var init_pdf_splitter_router = __esm({
+  "api/pdf-splitter-router.ts"() {
+    init_zod();
+    init_middleware();
+    SYSTEM2 = [
+      "You split a SCANNED BATCH PDF (many separate documents stacked into one file) into its individual documents.",
+      "Return ONLY valid JSON, no prose, no code fences, EXACTLY:",
+      `{"documents":[{"startPage":1,"endPage":2,"type":"<bank statement|invoice|receipt|tax|contract|asset|other>","date":"YYYY-MM-DD or empty","name":"<clean filename, no extension>"}]}`,
+      "Rules:",
+      "- Pages are 1-indexed. Ranges are inclusive and must cover the document fully; a document can be 1 or many pages.",
+      "- Documents must NOT overlap and should be in page order. Together they should cover the whole file (don't drop pages \u2014 if a page is blank/separator, attach it to the document it belongs with or its own 'other').",
+      "- type: best single category from the list.",
+      "- date: the document's own date (statement period end, invoice date, etc.) as YYYY-MM-DD; empty if none.",
+      "- name: a clear, file-safe name like '2026-05-31 RBC Chequing Statement' or '2026-04-12 Invoice Home Depot' or '2026 Vehicle Purchase Agreement'. Put the date first when known. No slashes or special characters."
+    ].join("\n");
+    pdfSplitterRouter = createRouter({
+      plan: staffQuery.input(external_exports.object({
+        base64: external_exports.string().min(1),
+        fileName: external_exports.string().optional(),
+        pageCount: external_exports.number().min(1).max(500).optional()
+      })).mutation(async ({ input }) => {
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) return { ok: false, error: "PDF splitting needs ANTHROPIC_API_KEY set on the server." };
+        if (input.base64.length > 28e6) return { ok: false, error: "PDF too large (over ~20MB). Scan in smaller batches." };
+        if ((input.pageCount ?? 0) > 100) return { ok: false, error: "Over 100 pages \u2014 scan in smaller batches (AI reads up to 100 pages at once)." };
+        const model = process.env.FIGGY_PDF_SPLIT_MODEL || "claude-haiku-4-5";
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 12e4);
+        try {
+          const res = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            signal: ctrl.signal,
+            headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({
+              model,
+              max_tokens: 4096,
+              system: SYSTEM2,
+              messages: [{
+                role: "user",
+                content: [
+                  { type: "document", source: { type: "base64", media_type: "application/pdf", data: input.base64 } },
+                  { type: "text", text: `This file has ${input.pageCount ?? "an unknown number of"} pages. Identify each separate document and return the JSON.` }
+                ]
+              }]
+            })
+          });
+          if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            return { ok: false, error: `Claude PDF read failed (${res.status}). ${body.slice(0, 200)}` };
+          }
+          const data = await res.json();
+          const text2 = (data?.content ?? []).filter((b) => b?.type === "text").map((b) => String(b.text ?? "")).join("\n");
+          const parsed = extractJson2(text2);
+          if (!parsed || !Array.isArray(parsed.documents)) {
+            return { ok: false, error: "Couldn't detect document boundaries. Try a clearer scan." };
+          }
+          const docs = parsed.documents.map((d) => ({
+            startPage: Math.max(1, parseInt(String(d?.startPage)) || 1),
+            endPage: Math.max(1, parseInt(String(d?.endPage)) || 1),
+            type: String(d?.type ?? "other").trim() || "other",
+            date: String(d?.date ?? "").trim(),
+            name: String(d?.name ?? "").trim() || "Document"
+          })).filter((d) => d.endPage >= d.startPage).sort((a, b) => a.startPage - b.startPage);
+          return { ok: true, documents: docs };
+        } catch (e) {
+          const msg = e instanceof Error && e.name === "AbortError" ? "Timed out reading the PDF (120s). Scan a smaller batch." : e instanceof Error ? e.message : String(e);
+          return { ok: false, error: msg };
+        } finally {
+          clearTimeout(timer);
+        }
+      })
+    });
+  }
+});
+
 // api/public-router.ts
 var publicRouter;
 var init_public_router = __esm({
@@ -53958,6 +54047,7 @@ var init_router = __esm({
     init_dashboard_router();
     init_calculator_router();
     init_bank_converter_router();
+    init_pdf_splitter_router();
     init_public_router();
     init_middleware();
     appRouter = createRouter({
@@ -54016,7 +54106,8 @@ var init_router = __esm({
       interco: intercoRouter,
       dashboard: dashboardRouter,
       calculator: calculatorRouter,
-      bankConverter: bankConverterRouter
+      bankConverter: bankConverterRouter,
+      pdfSplitter: pdfSplitterRouter
     });
   }
 });
@@ -61410,7 +61501,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.1";
+var BUILD_TAG = "2026-06-23.2";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

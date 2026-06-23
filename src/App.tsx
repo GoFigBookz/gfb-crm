@@ -30,6 +30,7 @@ import Messages from "./pages/Messages";
 import Interco from "./pages/Interco";
 import EngagementLetters from "./pages/EngagementLetters";
 import BankConverter from "./pages/BankConverter";
+import PdfSplitter from "./pages/PdfSplitter";
 import TaxDeadlines from "./pages/TaxDeadlines";
 import YearEndChecklist from "./pages/YearEndChecklist";
 import Templates from "./pages/Templates";
@@ -96,6 +97,7 @@ function AppRoutes() {
         <Route path="/interco" element={<Interco />} />
         <Route path="/engagement" element={<EngagementLetters />} />
         <Route path="/bank-converter" element={<BankConverter />} />
+        <Route path="/pdf-splitter" element={<PdfSplitter />} />
         <Route path="/tax-deadlines" element={<TaxDeadlines />} />
         <Route path="/year-end" element={<YearEndChecklist />} />
         <Route path="/templates" element={<Templates />} />
