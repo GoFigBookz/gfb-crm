@@ -47998,6 +47998,54 @@ var init_payroll_cra_core = __esm({
   }
 });
 
+// api/timesheet-core.ts
+var timesheet_core_exports = {};
+__export(timesheet_core_exports, {
+  LONG_SHIFT_HOURS: () => LONG_SHIFT_HOURS,
+  easternDayRangeUtc: () => easternDayRangeUtc,
+  longShiftNote: () => longShiftNote
+});
+function tzOffsetMs(date5, timeZone) {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+  const p = {};
+  for (const part of dtf.formatToParts(date5)) p[part.type] = part.value;
+  const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+  return asUTC - date5.getTime();
+}
+function wallToUtcISO(dateStr, timeStr, timeZone) {
+  const guess = /* @__PURE__ */ new Date(`${dateStr}T${timeStr}Z`);
+  const off = tzOffsetMs(guess, timeZone);
+  return new Date(guess.getTime() - off).toISOString();
+}
+function easternDayRangeUtc(startISO, endISO, timeZone = DEFAULT_TZ) {
+  return {
+    start: wallToUtcISO(startISO, "00:00:00", timeZone),
+    end: wallToUtcISO(endISO, "23:59:59", timeZone)
+  };
+}
+function longShiftNote(maxShiftHours, threshold = LONG_SHIFT_HOURS) {
+  if (maxShiftHours > threshold) {
+    return `\u26A0 Possible missed clock-out: ${maxShiftHours.toFixed(1)}h single shift \u2014 verify before running.`;
+  }
+  return null;
+}
+var DEFAULT_TZ, LONG_SHIFT_HOURS;
+var init_timesheet_core = __esm({
+  "api/timesheet-core.ts"() {
+    DEFAULT_TZ = "America/Toronto";
+    LONG_SHIFT_HOURS = Number(process.env.PAYROLL_LONG_SHIFT_HOURS) || 10;
+  }
+});
+
 // api/stat-holidays.ts
 var stat_holidays_exports = {};
 __export(stat_holidays_exports, {
@@ -48326,54 +48374,6 @@ var init_jobber_oauth = __esm({
   }
 });
 
-// api/timesheet-core.ts
-var timesheet_core_exports = {};
-__export(timesheet_core_exports, {
-  LONG_SHIFT_HOURS: () => LONG_SHIFT_HOURS,
-  easternDayRangeUtc: () => easternDayRangeUtc,
-  longShiftNote: () => longShiftNote
-});
-function tzOffsetMs(date5, timeZone) {
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit"
-  });
-  const p = {};
-  for (const part of dtf.formatToParts(date5)) p[part.type] = part.value;
-  const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
-  return asUTC - date5.getTime();
-}
-function wallToUtcISO(dateStr, timeStr, timeZone) {
-  const guess = /* @__PURE__ */ new Date(`${dateStr}T${timeStr}Z`);
-  const off = tzOffsetMs(guess, timeZone);
-  return new Date(guess.getTime() - off).toISOString();
-}
-function easternDayRangeUtc(startISO, endISO, timeZone = DEFAULT_TZ) {
-  return {
-    start: wallToUtcISO(startISO, "00:00:00", timeZone),
-    end: wallToUtcISO(endISO, "23:59:59", timeZone)
-  };
-}
-function longShiftNote(maxShiftHours, threshold = LONG_SHIFT_HOURS) {
-  if (maxShiftHours > threshold) {
-    return `\u26A0 Possible missed clock-out: ${maxShiftHours.toFixed(1)}h single shift \u2014 verify before running.`;
-  }
-  return null;
-}
-var DEFAULT_TZ, LONG_SHIFT_HOURS;
-var init_timesheet_core = __esm({
-  "api/timesheet-core.ts"() {
-    DEFAULT_TZ = "America/Toronto";
-    LONG_SHIFT_HOURS = Number(process.env.PAYROLL_LONG_SHIFT_HOURS) || 10;
-  }
-});
-
 // api/jobber-client.ts
 var jobber_client_exports = {};
 __export(jobber_client_exports, {
@@ -48437,6 +48437,108 @@ var init_jobber_client = __esm({
       pageInfo { hasNextPage endCursor }
     }
   }`;
+  }
+});
+
+// api/touchbistro-client.ts
+var touchbistro_client_exports = {};
+__export(touchbistro_client_exports, {
+  TOUCHBISTRO_WORKBOOKS: () => TOUCHBISTRO_WORKBOOKS,
+  importTouchBistroHoursData: () => importTouchBistroHoursData,
+  workbookFor: () => workbookFor
+});
+function workbookFor(clientName) {
+  const n = (clientName || "").toLowerCase();
+  return TOUCHBISTRO_WORKBOOKS.find((w) => n.includes(w.match))?.sheetId ?? null;
+}
+async function googleAccount(userId) {
+  const db = getDb();
+  const accts = await db.select().from(connectedAccounts).where(and(eq(connectedAccounts.userId, userId), eq(connectedAccounts.provider, "google")));
+  return accts.find((a) => a.isActive) || accts[0] || null;
+}
+async function readWorkbookText(userId, sheetId) {
+  const acct = await googleAccount(userId);
+  if (!acct) throw new Error("Google isn't connected. Connect it in Integrations (with Drive access) so I can read the TouchBistro sheet.");
+  const token = await getValidGoogleAccessToken(acct);
+  const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!metaRes.ok) {
+    throw new Error(`Couldn't open the sheet (${metaRes.status}). Reconnect Google in Integrations with Drive access.`);
+  }
+  const meta3 = await metaRes.json();
+  const titles = (meta3.sheets || []).map((s) => s?.properties?.title).filter(Boolean).slice(0, 8);
+  let out = "";
+  for (const t2 of titles) {
+    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(t2)}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!r.ok) continue;
+    const d = await r.json();
+    const rows = d.values || [];
+    out += `
+### TAB: ${t2}
+` + rows.map((row) => row.join("	")).join("\n");
+    if (out.length > 6e4) break;
+  }
+  return out.slice(0, 6e4);
+}
+function extractJson(text2) {
+  try {
+    return JSON.parse(text2);
+  } catch {
+  }
+  const m = text2.match(/\{[\s\S]*\}/);
+  if (m) {
+    try {
+      return JSON.parse(m[0]);
+    } catch {
+    }
+  }
+  return null;
+}
+async function importTouchBistroHoursData(userId, clientName, periodStart, periodEnd) {
+  const sheetId = workbookFor(clientName);
+  if (!sheetId) throw new Error(`No TouchBistro workbook is linked for "${clientName}".`);
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY isn't set \u2014 needed to read the timesheet.");
+  const text2 = await readWorkbookText(userId, sheetId);
+  const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
+  const system = "You extract payroll hours from a messy restaurant timesheet workbook. Return ONLY JSON, no prose.";
+  const prompt = `Find the pay period covering ${periodStart} to ${periodEnd} (or the closest/most recent period if exact dates aren't present). Return ONLY: {"period":"<label>","employees":[{"name":"<as shown, e.g. Last, First>","hours":<number>}]}. Use each employee's TOTAL worked hours (regular + overtime) for that period. EXCLUDE rows marked "Not in Payroll", subtotal/total rows, and salaried staff. If hours are 0, include them with 0.
+
+WORKBOOK:
+${text2}`;
+  const res = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model, max_tokens: 1500, system, messages: [{ role: "user", content: prompt }] })
+  });
+  if (!res.ok) {
+    const b = await res.text().catch(() => "");
+    throw new Error(`Couldn't read the timesheet (${res.status}). ${b.slice(0, 120)}`);
+  }
+  const data = await res.json();
+  const txt = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+  const json2 = extractJson(txt);
+  const emps = json2?.employees || [];
+  return emps.filter((e) => e && e.name).map((e) => ({ userName: String(e.name), hours: Number(e.hours) || 0 }));
+}
+var ANTHROPIC_URL, TOUCHBISTRO_WORKBOOKS;
+var init_touchbistro_client = __esm({
+  "api/touchbistro-client.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_google_token();
+    ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+    TOUCHBISTRO_WORKBOOKS = [
+      { match: "sher", sheetId: "1BsiHTPaSnFhXZPwI_5YnLK32rdJhFOi6EWdCeujnPIo" },
+      // Sher-E-Punjab
+      { match: "punjab", sheetId: "1BsiHTPaSnFhXZPwI_5YnLK32rdJhFOi6EWdCeujnPIo" },
+      { match: "spot", sheetId: "1BXK_SxiogGbFSfz1jX1uekyUG9n02huEDXmbmNCX51I" }
+      // The Auld Spot / Old Spot
+    ];
   }
 });
 
@@ -48560,6 +48662,45 @@ async function recomputeRunTotals(runId) {
     totalEmployerCost: round2(empc),
     updatedAt: /* @__PURE__ */ new Date()
   }).where(eq(payRuns.id, runId));
+}
+async function applyImportedHours(db, runId, clientId, hours) {
+  const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
+  const norm9 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  const byAlias = /* @__PURE__ */ new Map(), byFull = /* @__PURE__ */ new Map(), byFirst = /* @__PURE__ */ new Map();
+  for (const e of emps) {
+    if (e.jobberName) byAlias.set(norm9(e.jobberName), e);
+    byFull.set(norm9(`${e.firstName} ${e.lastName}`), e);
+    byFull.set(norm9(`${e.lastName}, ${e.firstName}`), e);
+    if (!byFirst.has(norm9(e.firstName))) byFirst.set(norm9(e.firstName), e);
+  }
+  const matchEmp = (label) => {
+    const n = norm9(label);
+    return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm9(n.split(/[ ,]/)[0])) || null;
+  };
+  const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
+  const lineByEmp = new Map(lines.map((l) => [l.employeeId, l]));
+  const { longShiftNote: longShiftNote2 } = await Promise.resolve().then(() => (init_timesheet_core(), timesheet_core_exports));
+  let matched = 0;
+  const unmatched = [];
+  const flagged = [];
+  for (const h of hours) {
+    const emp = matchEmp(h.userName);
+    if (!emp) {
+      unmatched.push({ name: h.userName, hours: h.hours });
+      continue;
+    }
+    const note = longShiftNote2(h.maxShiftHours ?? 0);
+    if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
+    const line = lineByEmp.get(emp.id);
+    if (line) {
+      await db.update(payRunLines).set({ regularHours: h.hours, notes: note ?? line.notes ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRunLines.id, line.id));
+    } else {
+      await db.insert(payRunLines).values({ payRunId: runId, employeeId: emp.id, regularHours: h.hours, notes: note ?? null });
+    }
+    matched++;
+  }
+  await recomputeRunTotals(runId);
+  return { matched, unmatched, flagged, totalUsers: hours.length };
 }
 var WEST_YORK_META, KNOWN_PAYROLL, payrollRouter;
 var init_payroll_router = __esm({
@@ -48753,44 +48894,28 @@ var init_payroll_router = __esm({
         } catch (e) {
           return { ok: false, error: e instanceof Error ? e.message : String(e), matched: 0, unmatched: [], totalUsers: 0 };
         }
-        const emps = await db.select().from(employees).where(eq(employees.clientId, run2.clientId));
-        const norm9 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
-        const byAlias = /* @__PURE__ */ new Map();
-        const byFull = /* @__PURE__ */ new Map();
-        const byFirst = /* @__PURE__ */ new Map();
-        for (const e of emps) {
-          if (e.jobberName) byAlias.set(norm9(e.jobberName), e);
-          byFull.set(norm9(`${e.firstName} ${e.lastName}`), e);
-          if (!byFirst.has(norm9(e.firstName))) byFirst.set(norm9(e.firstName), e);
+        const r = await applyImportedHours(db, input.runId, run2.clientId, hours);
+        return { ok: true, ...r };
+      }),
+      // Import hours from the client's TouchBistro Google Sheets payroll workbook
+      // (restaurants — Sher-E-Punjab, Old Spot). Reads the sheet via the connected
+      // Google account, AI-extracts the period's hours, fills the run.
+      importTouchBistroHours: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run2) throw new Error("Pay run not found");
+        const client = (await db.select().from(clients).where(eq(clients.id, run2.clientId)).limit(1))[0];
+        const start = new Date(run2.payPeriodStart).toISOString().slice(0, 10);
+        const end = new Date(run2.payPeriodEnd).toISOString().slice(0, 10);
+        let hours;
+        try {
+          const { importTouchBistroHoursData: importTouchBistroHoursData2 } = await Promise.resolve().then(() => (init_touchbistro_client(), touchbistro_client_exports));
+          hours = await importTouchBistroHoursData2(ctx.user.id, client?.name || "", start, end);
+        } catch (e) {
+          return { ok: false, error: e instanceof Error ? e.message : String(e), matched: 0, unmatched: [], totalUsers: 0 };
         }
-        const matchEmp = (jobberLabel) => {
-          const n = norm9(jobberLabel);
-          return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm9(n.split(" ")[0])) || null;
-        };
-        const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
-        const lineByEmp = new Map(lines.map((l) => [l.employeeId, l]));
-        const { longShiftNote: longShiftNote2 } = await Promise.resolve().then(() => (init_timesheet_core(), timesheet_core_exports));
-        let matched = 0;
-        const unmatched = [];
-        const flagged = [];
-        for (const h of hours) {
-          const emp = matchEmp(h.userName);
-          if (!emp) {
-            unmatched.push({ name: h.userName, hours: h.hours });
-            continue;
-          }
-          const note = longShiftNote2(h.maxShiftHours ?? 0);
-          if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
-          const line = lineByEmp.get(emp.id);
-          if (line) {
-            await db.update(payRunLines).set({ regularHours: h.hours, notes: note ?? line.notes ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRunLines.id, line.id));
-          } else {
-            await db.insert(payRunLines).values({ payRunId: input.runId, employeeId: emp.id, regularHours: h.hours, notes: note ?? null });
-          }
-          matched++;
-        }
-        await recomputeRunTotals(input.runId);
-        return { ok: true, matched, unmatched, flagged, totalUsers: hours.length };
+        const r = await applyImportedHours(db, input.runId, run2.clientId, hours);
+        return { ok: true, ...r };
       }),
       // One run with its lines + employee names (the clean sheet).
       getRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).query(async ({ input }) => {
@@ -54021,7 +54146,7 @@ var init_calculator_router = __esm({
 });
 
 // api/bank-converter-router.ts
-function extractJson(text2) {
+function extractJson2(text2) {
   if (!text2) return null;
   const fenced = text2.replace(/```json\s*|\s*```/gi, "");
   const start = fenced.indexOf("{");
@@ -54091,7 +54216,7 @@ var init_bank_converter_router = __esm({
           }
           const data = await res.json();
           const text2 = (data?.content ?? []).filter((b) => b?.type === "text").map((b) => String(b.text ?? "")).join("\n");
-          const parsed = extractJson(text2);
+          const parsed = extractJson2(text2);
           if (!parsed || !Array.isArray(parsed.transactions)) {
             return { ok: false, error: "Couldn't read transactions from that PDF. Try a clearer copy, or export CSV from online banking." };
           }
@@ -54118,7 +54243,7 @@ var init_bank_converter_router = __esm({
 });
 
 // api/pdf-splitter-router.ts
-function extractJson2(text2) {
+function extractJson3(text2) {
   if (!text2) return null;
   const fenced = text2.replace(/```json\s*|\s*```/gi, "");
   const start = fenced.indexOf("{");
@@ -54193,7 +54318,7 @@ var init_pdf_splitter_router = __esm({
           }
           const data = await res.json();
           const text2 = (data?.content ?? []).filter((b) => b?.type === "text").map((b) => String(b.text ?? "")).join("\n");
-          const parsed = extractJson2(text2);
+          const parsed = extractJson3(text2);
           if (!parsed || !Array.isArray(parsed.documents)) {
             return { ok: false, error: "Couldn't detect document boundaries. Try a clearer scan." };
           }
@@ -55317,7 +55442,7 @@ async function runTool(name2, input, userId, activeAgent) {
     return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
   }
 }
-var ACTION_TOOLS, TZ, ANTHROPIC_URL, assistantRouter;
+var ACTION_TOOLS, TZ, ANTHROPIC_URL2, assistantRouter;
 var init_assistant_router = __esm({
   "api/assistant-router.ts"() {
     init_zod();
@@ -55333,7 +55458,7 @@ var init_assistant_router = __esm({
     init_assistant_core();
     ACTION_TOOLS = /* @__PURE__ */ new Set(["add_task", "add_personal", "schedule_event", "complete_task", "draft_email", "remember"]);
     TZ = "America/Toronto";
-    ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+    ANTHROPIC_URL2 = "https://api.anthropic.com/v1/messages";
     assistantRouter = createRouter({
       ask: authedQuery.input(external_exports.object({
         message: external_exports.string().min(1).max(2e3),
@@ -55404,7 +55529,7 @@ var init_assistant_router = __esm({
           let res;
           let b = "";
           for (let attempt = 0; attempt < 3; attempt++) {
-            res = await fetch(ANTHROPIC_URL, {
+            res = await fetch(ANTHROPIC_URL2, {
               method: "POST",
               headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
               body: JSON.stringify(body)
@@ -63531,7 +63656,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.53";
+var BUILD_TAG = "2026-06-23.54";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
