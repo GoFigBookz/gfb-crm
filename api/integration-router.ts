@@ -175,7 +175,7 @@ export const integrationRouter = createRouter({
     }))
     .query(async ({ ctx, input }) => {
       const clientId = process.env.GOOGLE_CLIENT_ID || "";
-      const redirectUri = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/google/callback`;
+      const redirectUri = `${process.env.VITE_APP_URL || "https://figgy.gofig.ca"}/api/oauth/google/callback`;
       const scopes = input.scopes || [
         "https://www.googleapis.com/auth/calendar",
         "https://www.googleapis.com/auth/calendar.events",
@@ -211,7 +211,7 @@ export const integrationRouter = createRouter({
     }))
     .query(async ({ ctx, input }) => {
       const clientId = process.env.MICROSOFT_CLIENT_ID || "";
-      const redirectUri = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/microsoft/callback`;
+      const redirectUri = `${process.env.VITE_APP_URL || "https://figgy.gofig.ca"}/api/oauth/microsoft/callback`;
       const scopes = [
         "openid",
         "profile",

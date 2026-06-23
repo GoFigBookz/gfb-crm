@@ -42418,7 +42418,7 @@ var init_integration_router = __esm({
         scopes: external_exports.array(external_exports.string()).optional()
       })).query(async ({ ctx, input }) => {
         const clientId = process.env.GOOGLE_CLIENT_ID || "";
-        const redirectUri2 = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/google/callback`;
+        const redirectUri2 = `${process.env.VITE_APP_URL || "https://figgy.gofig.ca"}/api/oauth/google/callback`;
         const scopes = input.scopes || [
           "https://www.googleapis.com/auth/calendar",
           "https://www.googleapis.com/auth/calendar.events",
@@ -42441,7 +42441,7 @@ var init_integration_router = __esm({
         accountLabel: external_exports.string().min(1)
       })).query(async ({ ctx, input }) => {
         const clientId = process.env.MICROSOFT_CLIENT_ID || "";
-        const redirectUri2 = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/microsoft/callback`;
+        const redirectUri2 = `${process.env.VITE_APP_URL || "https://figgy.gofig.ca"}/api/oauth/microsoft/callback`;
         const scopes = [
           "openid",
           "profile",
@@ -61493,7 +61493,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.10";
+var BUILD_TAG = "2026-06-23.11";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -61599,7 +61599,7 @@ app.get("/api/oauth/google/callback", async (c) => {
     }
     const clientId = process.env.GOOGLE_CLIENT_ID || "";
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
-    const redirectUri2 = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/google/callback`;
+    const redirectUri2 = `${process.env.VITE_APP_URL || "https://figgy.gofig.ca"}/api/oauth/google/callback`;
     if (!clientId || !clientSecret) {
       throw new Error("Google OAuth credentials not configured");
     }
@@ -61662,7 +61662,7 @@ app.get("/api/oauth/microsoft/callback", async (c) => {
     }
     const clientId = process.env.MICROSOFT_CLIENT_ID || "";
     const clientSecret = process.env.MICROSOFT_CLIENT_SECRET || "";
-    const redirectUri2 = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/microsoft/callback`;
+    const redirectUri2 = `${process.env.VITE_APP_URL || "https://figgy.gofig.ca"}/api/oauth/microsoft/callback`;
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft OAuth credentials not configured");
     }

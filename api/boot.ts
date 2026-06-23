@@ -61,7 +61,7 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-const BUILD_TAG = "2026-06-23.10";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.11";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -185,7 +185,7 @@ app.get("/api/oauth/google/callback", async (c) => {
 
     const clientId = process.env.GOOGLE_CLIENT_ID || "";
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
-    const redirectUri = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/google/callback`;
+    const redirectUri = `${process.env.VITE_APP_URL || "https://figgy.gofig.ca"}/api/oauth/google/callback`;
 
     if (!clientId || !clientSecret) {
       throw new Error("Google OAuth credentials not configured");
@@ -264,7 +264,7 @@ app.get("/api/oauth/microsoft/callback", async (c) => {
 
     const clientId = process.env.MICROSOFT_CLIENT_ID || "";
     const clientSecret = process.env.MICROSOFT_CLIENT_SECRET || "";
-    const redirectUri = `${process.env.VITE_APP_URL || "http://localhost:3000"}/api/oauth/microsoft/callback`;
+    const redirectUri = `${process.env.VITE_APP_URL || "https://figgy.gofig.ca"}/api/oauth/microsoft/callback`;
 
     if (!clientId || !clientSecret) {
       throw new Error("Microsoft OAuth credentials not configured");
