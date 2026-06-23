@@ -169,6 +169,50 @@ async function recomputeRunTotals(runId: number) {
   }).where(eq(payRuns.id, runId));
 }
 
+/** Shared: match imported {name, hours} to the client's roster and fill the run's
+ *  timesheet lines. Used by BOTH Jobber and TouchBistro imports. Flags a long
+ *  single shift (missed clock-out). Matches by alias / full name / "Last, First"
+ *  (restaurant sheets) / first name. */
+async function applyImportedHours(
+  db: any, runId: number, clientId: number,
+  hours: { userName: string; hours: number; maxShiftHours?: number }[],
+) {
+  const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
+  const norm = (s: string) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  const byAlias = new Map<string, any>(), byFull = new Map<string, any>(), byFirst = new Map<string, any>();
+  for (const e of emps as any[]) {
+    if (e.jobberName) byAlias.set(norm(e.jobberName), e);
+    byFull.set(norm(`${e.firstName} ${e.lastName}`), e);
+    byFull.set(norm(`${e.lastName}, ${e.firstName}`), e); // restaurant sheets use "Last, First"
+    if (!byFirst.has(norm(e.firstName))) byFirst.set(norm(e.firstName), e);
+  }
+  const matchEmp = (label: string) => {
+    const n = norm(label);
+    return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm(n.split(/[ ,]/)[0])) || null;
+  };
+  const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
+  const lineByEmp = new Map((lines as any[]).map((l) => [l.employeeId, l]));
+  const { longShiftNote } = await import("./timesheet-core");
+  let matched = 0;
+  const unmatched: { name: string; hours: number }[] = [];
+  const flagged: { name: string; hours: number; maxShiftHours: number }[] = [];
+  for (const h of hours) {
+    const emp = matchEmp(h.userName);
+    if (!emp) { unmatched.push({ name: h.userName, hours: h.hours }); continue; }
+    const note = longShiftNote(h.maxShiftHours ?? 0);
+    if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
+    const line = lineByEmp.get(emp.id) as any;
+    if (line) {
+      await db.update(payRunLines).set({ regularHours: h.hours, notes: note ?? line.notes ?? null, updatedAt: new Date() }).where(eq(payRunLines.id, line.id));
+    } else {
+      await db.insert(payRunLines).values({ payRunId: runId, employeeId: emp.id, regularHours: h.hours, notes: note ?? null } as any);
+    }
+    matched++;
+  }
+  await recomputeRunTotals(runId);
+  return { matched, unmatched, flagged, totalUsers: hours.length };
+}
+
 export const payrollRouter = createRouter({
   /**
    * WSIB remittance for a client + QUARTER (WSIB files quarterly). Sums the GROSS
@@ -371,44 +415,31 @@ export const payrollRouter = createRouter({
       } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : String(e), matched: 0, unmatched: [] as any[], totalUsers: 0 };
       }
-      const emps = await db.select().from(employees).where(eq(employees.clientId, run.clientId));
-      const norm = (s: string) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
-      // Match priority: Jobber-name alias (exact) → full name → first name. The
-      // alias handles Jobber labels that don't match the CRM name (e.g. "Grace").
-      const byAlias = new Map<string, any>();
-      const byFull = new Map<string, any>();
-      const byFirst = new Map<string, any>();
-      for (const e of emps as any[]) {
-        if (e.jobberName) byAlias.set(norm(e.jobberName), e);
-        byFull.set(norm(`${e.firstName} ${e.lastName}`), e);
-        if (!byFirst.has(norm(e.firstName))) byFirst.set(norm(e.firstName), e); // first wins (ambiguous first names fall through)
+      const r = await applyImportedHours(db, input.runId, run.clientId, hours);
+      return { ok: true, ...r };
+    }),
+
+  // Import hours from the client's TouchBistro Google Sheets payroll workbook
+  // (restaurants — Sher-E-Punjab, Old Spot). Reads the sheet via the connected
+  // Google account, AI-extracts the period's hours, fills the run.
+  importTouchBistroHours: staffQuery
+    .input(z.object({ runId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const run = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0] as any;
+      if (!run) throw new Error("Pay run not found");
+      const client = (await db.select().from(clients).where(eq(clients.id, run.clientId)).limit(1))[0] as any;
+      const start = new Date(run.payPeriodStart).toISOString().slice(0, 10);
+      const end = new Date(run.payPeriodEnd).toISOString().slice(0, 10);
+      let hours: any[];
+      try {
+        const { importTouchBistroHoursData } = await import("./touchbistro-client");
+        hours = await importTouchBistroHoursData(ctx.user.id, client?.name || "", start, end);
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : String(e), matched: 0, unmatched: [] as any[], totalUsers: 0 };
       }
-      const matchEmp = (jobberLabel: string) => {
-        const n = norm(jobberLabel);
-        return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm(n.split(" ")[0])) || null;
-      };
-      const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
-      const lineByEmp = new Map((lines as any[]).map((l) => [l.employeeId, l]));
-      const { longShiftNote } = await import("./timesheet-core");
-      let matched = 0;
-      const unmatched: { name: string; hours: number }[] = [];
-      const flagged: { name: string; hours: number; maxShiftHours: number }[] = [];
-      for (const h of hours) {
-        const emp = matchEmp(h.userName);
-        if (!emp) { unmatched.push({ name: h.userName, hours: h.hours }); continue; }
-        // Flag a suspiciously long single shift (likely a missed clock-out).
-        const note = longShiftNote(h.maxShiftHours ?? 0);
-        if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
-        const line = lineByEmp.get(emp.id) as any;
-        if (line) {
-          await db.update(payRunLines).set({ regularHours: h.hours, notes: note ?? line.notes ?? null, updatedAt: new Date() }).where(eq(payRunLines.id, line.id));
-        } else {
-          await db.insert(payRunLines).values({ payRunId: input.runId, employeeId: emp.id, regularHours: h.hours, notes: note ?? null } as any);
-        }
-        matched++;
-      }
-      await recomputeRunTotals(input.runId);
-      return { ok: true, matched, unmatched, flagged, totalUsers: hours.length };
+      const r = await applyImportedHours(db, input.runId, run.clientId, hours);
+      return { ok: true, ...r };
     }),
 
   // One run with its lines + employee names (the clean sheet).

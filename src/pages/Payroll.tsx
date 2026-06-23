@@ -403,6 +403,15 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
     },
     onError: (e) => alert(e.message),
   });
+  const importTb = trpc.payroll.importTouchBistroHours.useMutation({
+    onSuccess: (r: any) => {
+      invalidate();
+      if (!r.ok) { alert("TouchBistro import failed:\n" + r.error); return; }
+      const extra = r.unmatched?.length ? `\n\nNot matched to an employee (check names):\n${r.unmatched.map((u: any) => `• ${u.name} — ${u.hours}h`).join("\n")}` : "";
+      alert(`Imported hours for ${r.matched} of ${r.totalUsers} from the TouchBistro sheet.${extra}\n\nReview the timesheet before approving.`);
+    },
+    onError: (e) => alert(e.message),
+  });
 
   if (!data) return <div className="text-sm text-slate-400 p-3">Loading…</div>;
   const { run, lines } = data;
@@ -428,6 +437,11 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
             </Select>
           </div>
           <div className="flex items-center gap-2">
+            {features?.kind === "touchbistro" && (
+              <Button size="sm" variant="outline" className="h-8 border-rose-300 text-rose-700" onClick={() => importTb.mutate({ runId })} disabled={importTb.isPending}>
+                <Download className="h-3.5 w-3.5 mr-1" /> {importTb.isPending ? "Reading sheet…" : "Import TouchBistro hours"}
+              </Button>
+            )}
             {features?.kind === "jobber" && jobber?.connected && (
               <Button size="sm" variant="outline" className="h-8 border-amber-300 text-amber-700" onClick={() => importJobber.mutate({ runId })} disabled={importJobber.isPending}>
                 <Download className="h-3.5 w-3.5 mr-1" /> {importJobber.isPending ? "Importing…" : "Import Jobber hours"}
