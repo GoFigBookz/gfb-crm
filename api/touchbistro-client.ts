@@ -83,8 +83,22 @@ export function driveFolderId(urlOrId: string | null | undefined): string | null
  * return it as base64 + media type (so it runs through the SAME detailed parser
  * as an uploaded file → keeps the >10h missed-clock-out flag). This is the
  * "save the report to the folder, I import it" flow Markie likes. Read-only.
- * Prefers files whose name mentions "time"; falls back to the newest pdf/csv/sheet.
+ *
+ * Looks in the client's main folder AND any "Payroll"/"Timesheets"/"Hours"
+ * subfolder (so saving it in the payroll subfolder just works), and prefers the
+ * newest file whose name mentions a timesheet.
  */
+async function listFolder(token: string, folderId: string): Promise<any[]> {
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+  const fields = encodeURIComponent("files(id,name,mimeType,modifiedTime)");
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=100&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) throw new Error(`Couldn't open the Drive folder (${res.status}). Reconnect Google in Integrations with Drive access.`);
+  return (((await res.json()) as any).files || []) as any[];
+}
+
 export async function readNewestTimesheetFromDrive(
   userId: number, folderUrlOrId: string,
 ): Promise<{ data: string; mediaType: string; name: string }> {
@@ -93,22 +107,25 @@ export async function readNewestTimesheetFromDrive(
   const acct = await googleAccount(userId);
   if (!acct) throw new Error("Google isn't connected. Connect it in Integrations (with Drive access) so I can read the timesheet from Drive.");
   const token = await getValidGoogleAccessToken(acct);
-  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
-  const fields = encodeURIComponent("files(id,name,mimeType,modifiedTime)");
-  const listRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=50&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  if (!listRes.ok) throw new Error(`Couldn't open the Drive folder (${listRes.status}). Reconnect Google in Integrations with Drive access.`);
-  const files = (((await listRes.json()) as any).files || []) as any[];
+
+  const isFolder = (f: any) => f.mimeType === "application/vnd.google-apps.folder";
+  const top = await listFolder(token, folderId);
+  // Also look inside a Payroll / Timesheets / Hours subfolder if there is one.
+  const payrollSubs = top.filter((f) => isFolder(f) && /payroll|time\s*sheet|timesheet|hours|pay run/i.test(f.name || ""));
+  let files = top.filter((f) => !isFolder(f));
+  for (const sub of payrollSubs.slice(0, 4)) {
+    try { files = files.concat((await listFolder(token, sub.id)).filter((f) => !isFolder(f))); } catch { /* skip */ }
+  }
+
   const importable = (f: any) =>
     f.mimeType === "application/pdf" ||
     f.mimeType === "text/csv" || f.mimeType === "text/plain" ||
     (f.mimeType || "").startsWith("image/") ||
     f.mimeType === "application/vnd.google-apps.spreadsheet" ||
     f.mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  const candidates = files.filter(importable);
-  if (!candidates.length) throw new Error("No timesheet files found in that Drive folder. Save the detailed timesheet (PDF or CSV) into the client's folder first.");
+  const candidates = files.filter(importable)
+    .sort((a, b) => String(b.modifiedTime || "").localeCompare(String(a.modifiedTime || "")));
+  if (!candidates.length) throw new Error("No timesheet files found in that Drive folder (or its Payroll subfolder). Save the detailed timesheet (PDF or CSV) there first.");
   // Prefer the newest file whose name mentions a timesheet; else the newest importable file.
   const named = candidates.filter((f) => /time\s*sheet|timesheet|time card|hours/i.test(f.name || ""));
   const pick = (named[0] || candidates[0]);
