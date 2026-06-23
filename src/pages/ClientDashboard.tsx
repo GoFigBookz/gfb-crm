@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { computeT5Boxes } from "../../api/dividend-core";
 import { useParams, Link, useNavigate } from "react-router";
-import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet, Globe, Mail, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet, Globe, Mail, FileSpreadsheet, Bot } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -446,6 +446,7 @@ export default function ClientDashboard() {
         <TabsContent value="overview" className="space-y-4 mt-4">
           <GroupCard clientId={id} groupName={(client as any).groupName} />
           <ContactsCard clientId={id} />
+          <ClientChatsCard clientId={id} />
           <ClientEmailsCard clientId={id} />
           <PlatformsCard onboarding={onboarding} client={client} />
           {/* Vendors only when WE pay this client's bills; customers only when WE
@@ -1123,6 +1124,55 @@ export default function ClientDashboard() {
  *  You run the number here, then file it on the WSIB portal. */
 // Per-client email history (only this client's emails) + inline reply. Reply sends
 // from the account that received it (so John's-company mail replies from the Adbank
+// Agent conversations filed to this client (from the chatbot's "Save to client").
+function ClientChatsCard({ clientId }: { clientId: number }) {
+  const { data: convs, isLoading } = trpc.chat.forClient.useQuery({ clientId });
+  const [collapsed, setCollapsed] = useState(true);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const fmt = (d: any) => { try { return new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch { return ""; } };
+  return (
+    <Card>
+      <CardHeader className="pb-2 cursor-pointer" onClick={() => setCollapsed((c) => !c)}>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Bot className="h-4 w-4 text-slate-500" /> Agent conversations ({convs?.length ?? 0})
+          <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform ${collapsed ? "" : "rotate-90"}`} />
+        </CardTitle>
+        <CardDescription>Chats you filed to this client from Ask Figgy ("Save to client").</CardDescription>
+      </CardHeader>
+      {!collapsed && (
+        <CardContent className="space-y-2">
+          {isLoading ? (
+            <p className="text-sm text-slate-400">Loading…</p>
+          ) : !convs || convs.length === 0 ? (
+            <p className="text-sm text-slate-400">No conversations filed here yet. In <b>Ask Figgy</b>, tap <b>Save to client</b> to keep a chat on this card.</p>
+          ) : (
+            convs.map((c: any) => (
+              <div key={c.conversationId} className="rounded-lg border">
+                <button className="w-full text-left p-2.5 hover:bg-slate-50 flex items-center justify-between gap-2" onClick={() => setOpenId(openId === c.conversationId ? null : c.conversationId)}>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate capitalize">{c.agent || "Figgy"} · {c.messages?.length ?? 0} messages</p>
+                    <p className="text-xs text-slate-500 truncate">{c.messages?.[0]?.content?.slice(0, 70) || ""} · {fmt(c.at)}</p>
+                  </div>
+                  <ChevronRight className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${openId === c.conversationId ? "rotate-90" : ""}`} />
+                </button>
+                {openId === c.conversationId && (
+                  <div className="border-t p-2.5 space-y-1.5 max-h-80 overflow-auto">
+                    {c.messages.map((m: any, i: number) => (
+                      <div key={i} className={`text-sm ${m.role === "user" ? "text-slate-900" : "text-slate-600"}`}>
+                        <span className="font-medium">{m.role === "user" ? "You" : (c.agent || "Figgy")}:</span> <span className="whitespace-pre-wrap">{m.content}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
 // address automatically).
 function ClientEmailsCard({ clientId }: { clientId: number }) {
   const utils = trpc.useUtils();
