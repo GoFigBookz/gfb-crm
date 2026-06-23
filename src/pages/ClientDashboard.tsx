@@ -446,6 +446,7 @@ export default function ClientDashboard() {
         <TabsContent value="overview" className="space-y-4 mt-4">
           <GroupCard clientId={id} groupName={(client as any).groupName} />
           <ContactsCard clientId={id} />
+          <ClientEmailsCard clientId={id} />
           <PlatformsCard onboarding={onboarding} client={client} />
           {/* Vendors only when WE pay this client's bills; customers only when WE
               invoice — both gated on the intake's responsibilities. */}
@@ -1120,6 +1121,68 @@ export default function ClientDashboard() {
 /** WSIB remittance (quarterly): insurable earnings of WSIB-ELIGIBLE employees
  *  for the quarter × the premium rate ($/$100). Management/exec can be excluded.
  *  You run the number here, then file it on the WSIB portal. */
+// Per-client email history (only this client's emails) + inline reply. Reply sends
+// from the account that received it (so John's-company mail replies from the Adbank
+// address automatically).
+function ClientEmailsCard({ clientId }: { clientId: number }) {
+  const utils = trpc.useUtils();
+  const { data: emails, isLoading } = trpc.email.list.useQuery({ clientId, folder: "all", limit: 50 });
+  const [collapsed, setCollapsed] = useState(true);
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [replyBody, setReplyBody] = useState("");
+  const reply = trpc.email.reply.useMutation({
+    onSuccess: () => { setReplyBody(""); setOpenId(null); utils.email.list.invalidate({ clientId }); },
+    onError: (e) => alert(e.message),
+  });
+  const fmt = (d: any) => { try { return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch { return ""; } };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2 cursor-pointer" onClick={() => setCollapsed((c) => !c)}>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Mail className="h-4 w-4 text-slate-500" /> Emails ({emails?.length ?? 0})
+          <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform ${collapsed ? "" : "rotate-90"}`} />
+        </CardTitle>
+        <CardDescription>This client's emails, synced from your inbox. Reply here — it sends from the account that received it.</CardDescription>
+      </CardHeader>
+      {!collapsed && (
+        <CardContent className="space-y-2">
+          {isLoading ? (
+            <p className="text-sm text-slate-400">Loading…</p>
+          ) : !emails || emails.length === 0 ? (
+            <p className="text-sm text-slate-400">No client emails yet. Connect your inbox in <b>Integrations</b> and hit Sync — only this client's emails land here.</p>
+          ) : (
+            emails.map((e: any) => (
+              <div key={e.id} className="rounded-lg border">
+                <button className="w-full text-left p-2.5 hover:bg-slate-50 flex items-center justify-between gap-2" onClick={() => setOpenId(openId === e.id ? null : e.id)}>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{e.isSent ? "↪ " : ""}{e.subject || "(no subject)"}</p>
+                    <p className="text-xs text-slate-500 truncate">{e.isSent ? `To ${e.toAddresses}` : `From ${e.fromName || e.fromAddress}`} · {fmt(e.receivedAt)}</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] shrink-0">{e.isSent ? "sent" : "inbound"}</Badge>
+                </button>
+                {openId === e.id && (
+                  <div className="border-t p-2.5 space-y-2">
+                    <div className="text-sm whitespace-pre-wrap max-h-60 overflow-auto text-slate-700">{e.bodyPlain || (e.body || "").replace(/<[^>]*>/g, " ") || "(no content)"}</div>
+                    {!e.isSent && (
+                      <div className="space-y-1.5">
+                        <Textarea value={replyBody} onChange={(ev) => setReplyBody(ev.target.value)} rows={3} placeholder={`Reply to ${e.fromName || e.fromAddress}…`} />
+                        <Button size="sm" disabled={!replyBody.trim() || reply.isPending} onClick={() => reply.mutate({ emailId: e.id, body: replyBody })}>
+                          {reply.isPending ? "Sending…" : "Send reply"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
 function WsibRemittanceCard({ clientId, driveFolderUrl }: { clientId: number; driveFolderUrl?: string | null }) {
   const utils = trpc.useUtils();
   const now = new Date();
