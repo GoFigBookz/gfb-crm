@@ -47852,6 +47852,7 @@ async function buildAuthorizeUrl2(clientId) {
   u.searchParams.set("redirect_uri", redirectUri());
   u.searchParams.set("response_type", "code");
   u.searchParams.set("state", signState2(clientId));
+  u.searchParams.set("prompt", "login");
   return u.toString();
 }
 async function fetchJobberAccount(accessToken) {
@@ -47900,6 +47901,17 @@ async function exchangeAndPersist2(input) {
   const db = getDb();
   await ensureJobberTable();
   const acc = await fetchJobberAccount(data.access_token);
+  if (acc) {
+    const all = await db.select().from(jobberConnections);
+    const clash = all.find(
+      (c) => c.active && c.jobberAccountId === acc.id && c.clientId !== state.clientId
+    );
+    if (clash) {
+      throw new Error(
+        `This connected the SAME Jobber account again ("${acc.name || acc.id}") \u2014 your browser is still signed into it. To connect the OTHER company: open jobber.com, SIGN OUT (or switch to the other company's login), then click Connect again. Nothing was changed.`
+      );
+    }
+  }
   const existing = await db.select().from(jobberConnections).where(eq(jobberConnections.clientId, state.clientId)).limit(1);
   const row = {
     clientId: state.clientId,
@@ -61505,7 +61517,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.8";
+var BUILD_TAG = "2026-06-23.9";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
