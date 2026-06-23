@@ -54515,15 +54515,18 @@ var init_assistant_router = __esm({
       ask: authedQuery.input(external_exports.object({
         message: external_exports.string().min(1).max(2e3),
         history: external_exports.array(external_exports.object({ role: external_exports.enum(["user", "assistant"]), content: external_exports.string() })).max(20).optional(),
-        agent: external_exports.enum(["fig", "sage", "wren", "liv", "jinx", "tess", "jade", "skye"]).optional()
+        agent: external_exports.enum(["fig", "sage", "wren", "liv", "jinx", "tess", "jade", "skye"]).optional(),
+        location: external_exports.object({ lat: external_exports.number(), lon: external_exports.number(), label: external_exports.string().max(120).optional() }).optional()
       })).mutation(async ({ ctx, input }) => {
         const apiKey = process.env.ANTHROPIC_API_KEY;
         const agent = detectAgent(input.message, input.agent ?? null);
         if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [], agent };
         const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
         const nowLine = `Current date & time: ${(/* @__PURE__ */ new Date()).toLocaleString("en-CA", { timeZone: "America/Toronto", dateStyle: "full", timeStyle: "short" })} (America/Toronto).`;
+        const locLine = input.location ? `Markie's CURRENT location (live from his device \u2014 he travels, so this is where he is right now): latitude ${input.location.lat}, longitude ${input.location.lon}${input.location.label ? ` (${input.location.label})` : ""}. Use it for "near me"/local questions (weather, stores, hours) \u2014 search around this spot.` : `Markie travels and his location is UNKNOWN right now. If a question needs where he is ("near me", local weather/stores/hours), briefly ASK what city he's in before answering \u2014 do NOT assume a town.`;
         const system = `${frontDeskSystem(agent)}
-${nowLine}`;
+${nowLine}
+${locLine}`;
         const webSearch = process.env.FIGGY_WEB_SEARCH === "off" ? [] : [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }];
         const tools = [...ASSISTANT_TOOLS, ...webSearch];
         const messages = [
@@ -62429,7 +62432,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.23";
+var BUILD_TAG = "2026-06-23.24";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

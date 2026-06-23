@@ -37,6 +37,19 @@ export default function Assistant() {
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, ask.isPending]);
 
+  // Markie travels, so use the device's live location for "near me" questions.
+  // The browser caches the permission + last fix (maximumAge), so after the first
+  // grant this returns instantly and stays roughly current as he moves.
+  const getLocation = (): Promise<{ lat: number; lon: number } | undefined> =>
+    new Promise((resolve) => {
+      if (!("geolocation" in navigator)) return resolve(undefined);
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve({ lat: +p.coords.latitude.toFixed(4), lon: +p.coords.longitude.toFixed(4) }),
+        () => resolve(undefined),
+        { enableHighAccuracy: false, timeout: 6000, maximumAge: 600000 },
+      );
+    });
+
   const send = async (text: string) => {
     const msg = text.trim();
     if (!msg || ask.isPending) return;
@@ -44,7 +57,8 @@ export default function Assistant() {
     setMessages((m) => [...m, { role: "user", content: msg }]);
     setInput("");
     try {
-      const r = await ask.mutateAsync({ message: msg, history, agent });
+      const location = await getLocation();
+      const r = await ask.mutateAsync({ message: msg, history, agent, location });
       if (r.agent) setAgent(r.agent as AgentKey);
       setMessages((m) => [...m, { role: "assistant", content: r.reply }]);
       if (r.actions?.length) { utils.task.list.invalidate(); }
