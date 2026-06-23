@@ -12,11 +12,14 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 const agentTypes = [
-  { value: "bookkeeper", label: "Bookkeeper (Figgy Jr)", description: "Day-to-day books: categorizes & posts transactions, reconciles, captures receipts, preps HST/payroll. Keeps books clean & current." },
+  { value: "bookkeeper", label: "Fig — Junior Bookkeeper", description: "Day-to-day books: categorizes & posts transactions, reconciles, captures receipts, preps HST/payroll. Keeps books clean & current." },
+  { value: "senior_bookkeeper", label: "Sage — Senior Bookkeeper", description: "Reviews Fig's work; owns compliance prep — HST returns, WSIB/EHT, and payroll runs to review-ready." },
+  { value: "auditor", label: "Wren — Controller / Auditor", description: "Assurance layer: month-end tie-outs, variance checks, CRA-style HST audit, signed workpaper before financials go out." },
+  { value: "qa", label: "Gage — QA / IT Watchdog", description: "Checks the app actually works — DB, data, integrations, config, core flows — and reports health so you don't live in Claude." },
   { value: "controller", label: "Controller", description: "Reviews the books for accuracy — month-end close, reconciliation integrity, variances, catches errors/dupes/miscodes." },
   { value: "cfo", label: "Fractional CFO", description: "Cash-flow forecasting, profitability & KPI analysis; flags ways to run leaner or grow revenue and surfaces upsell opportunities." },
   { value: "social_media_manager", label: "Social Media Manager", description: "Content calendar, on-brand post drafts, repurposes wins/tips, schedules & engages to grow the audience." },
-  { value: "executive_assistant", label: "Executive Assistant", description: "Manages calendar, drafts emails, schedules meetings" },
+  { value: "executive_assistant", label: "Liv — Executive Assistant", description: "Watches client email, flags tasks, drafts replies in your tone; also runs your personal life in a private space." },
   { value: "sales_assistant", label: "Sales Assistant", description: "Follows up on leads, manages pipeline, sends proposals" },
   { value: "customer_support", label: "Customer Support", description: "Responds to client inquiries, resolves issues" },
   { value: "custom", label: "Custom Agent", description: "Fully customizable agent with your own configuration" },

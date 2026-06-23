@@ -33,7 +33,7 @@ export const aiAgentRouter = createRouter({
   create: authedQuery
     .input(z.object({
       name: z.string().min(1).max(255),
-      agentType: z.enum(["bookkeeper", "controller", "cfo", "social_media_manager", "executive_assistant", "sales_assistant", "customer_support", "custom"]),
+      agentType: z.enum(["bookkeeper", "senior_bookkeeper", "controller", "auditor", "cfo", "qa", "social_media_manager", "executive_assistant", "sales_assistant", "customer_support", "custom"]),
       description: z.string().optional(),
       capabilities: z.object({
         readEmails: z.boolean().default(false),

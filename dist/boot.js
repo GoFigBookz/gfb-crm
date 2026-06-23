@@ -23201,7 +23201,7 @@ var init_schema = __esm({
       id: integer2("id").primaryKey({ autoIncrement: true }),
       userId: integer2("userId").notNull(),
       name: text("name").notNull(),
-      agentType: text("agentType", { enum: ["bookkeeper", "controller", "cfo", "social_media_manager", "executive_assistant", "sales_assistant", "customer_support", "custom"] }).notNull(),
+      agentType: text("agentType", { enum: ["bookkeeper", "senior_bookkeeper", "controller", "auditor", "cfo", "qa", "social_media_manager", "executive_assistant", "sales_assistant", "customer_support", "custom"] }).notNull(),
       description: text("description"),
       capabilities: text("capabilities").default('{"readEmails":false,"sendEmails":false,"manageCalendar":false,"createTasks":true,"manageInvoices":false,"fileAccess":false,"clientCommunication":true}'),
       webhookUrl: text("webhookUrl"),
@@ -43296,7 +43296,7 @@ var init_ai_agent_router = __esm({
       // Create agent config
       create: authedQuery.input(external_exports.object({
         name: external_exports.string().min(1).max(255),
-        agentType: external_exports.enum(["bookkeeper", "controller", "cfo", "social_media_manager", "executive_assistant", "sales_assistant", "customer_support", "custom"]),
+        agentType: external_exports.enum(["bookkeeper", "senior_bookkeeper", "controller", "auditor", "cfo", "qa", "social_media_manager", "executive_assistant", "sales_assistant", "customer_support", "custom"]),
         description: external_exports.string().optional(),
         capabilities: external_exports.object({
           readEmails: external_exports.boolean().default(false),
@@ -57278,10 +57278,18 @@ __export(seed_ai_agents_exports, {
 async function seedAiAgents(userId = 1) {
   const db = getDb();
   let created = 0;
+  let renamed = 0;
   try {
+    const existing = await db.select().from(aiAgentConfigs).where(eq(aiAgentConfigs.userId, userId));
+    const byName = new Map(existing.map((r) => [r.name, r]));
     for (const a of AGENTS) {
-      const existing = await db.select().from(aiAgentConfigs).where(and(eq(aiAgentConfigs.userId, userId), eq(aiAgentConfigs.name, a.name))).limit(1);
-      if (existing.length) continue;
+      if (byName.has(a.name)) continue;
+      const alias = (a.aliases ?? []).map((n) => byName.get(n)).find(Boolean);
+      if (alias) {
+        await db.update(aiAgentConfigs).set({ name: a.name, agentType: a.agentType, description: a.description }).where(and(eq(aiAgentConfigs.id, alias.id), eq(aiAgentConfigs.userId, userId)));
+        renamed++;
+        continue;
+      }
       await db.insert(aiAgentConfigs).values({
         userId,
         name: a.name,
@@ -57295,42 +57303,71 @@ async function seedAiAgents(userId = 1) {
       });
       created++;
     }
-    if (created) console.log(`[seed] ai agents: +${created} created`);
+    if (created || renamed) console.log(`[seed] ai agents: +${created} created, ${renamed} renamed to named roster`);
   } catch (e) {
     console.error("[seed] seedAiAgents failed (non-fatal):", e instanceof Error ? e.message : e);
   }
-  return { created };
+  return { created, renamed };
 }
-var AGENTS;
+var LEARNING_NOTE, AGENTS;
 var init_seed_ai_agents = __esm({
   "api/seed-ai-agents.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
+    LEARNING_NOTE = " You are a LEARNING agent: improve per client from their history and from Markie's corrections \u2014 remember confirmed codings, tone, and decisions; never repeat a mistake you've been corrected on.";
     AGENTS = [
       {
-        name: "Bookkeeper (Figgy Jr)",
+        name: "Fig",
         agentType: "bookkeeper",
-        description: "Day-to-day books: categorizes & posts transactions from vendor history, reconciles accounts, captures receipts, and preps HST/payroll filings. Keeps each client's books clean and current \u2014 nothing posts without review.",
+        description: "Junior bookkeeper \u2014 the day-to-day engine. Categorizes & posts transactions from each client's vendor history, reconciles, captures receipts, and preps the first pass of HST/payroll. Keeps the books clean and current \u2014 nothing posts without review.",
         model: "claude-haiku-4-5",
         capabilities: { readEmails: true, sendEmails: false, manageCalendar: false, createTasks: true, manageInvoices: false, fileAccess: true, clientCommunication: false },
-        systemPrompt: "You are the Bookkeeper for Go Fig Bookz. Record and reconcile each client's transactions accurately. Code from the client's vendor history and the LOCKED chart of accounts \u2014 never invent or guess an account. Flag anything uncertain for human review; nothing posts to QuickBooks without Markie's approval. Be precise, consistent, and conservative."
+        aliases: ["Bookkeeper (Figgy Jr)", "Figgy Jr", "Bookkeeper"],
+        systemPrompt: "You are Fig, the junior bookkeeper for Go Fig Bookz. Record and reconcile each client's transactions accurately. Code from the client's vendor history and the LOCKED chart of accounts \u2014 never invent or guess an account. Flag anything uncertain for review; nothing posts to QuickBooks without approval. Be precise, consistent, and conservative." + LEARNING_NOTE
       },
       {
-        name: "Controller",
-        agentType: "controller",
-        description: "Reviews the books for accuracy and compliance: drives month-end close, checks reconciliation integrity and period-over-period variances, and catches errors, duplicates and miscodings before financials go out.",
+        name: "Sage",
+        agentType: "senior_bookkeeper",
+        description: "Senior bookkeeper \u2014 reviews Fig's work before it goes up the chain, and owns the compliance prep: HST returns, WSIB/EHT, and payroll runs. Catches Fig's slips and gets filings review-ready.",
+        model: "claude-sonnet-4-6",
+        capabilities: { readEmails: true, sendEmails: false, manageCalendar: false, createTasks: true, manageInvoices: false, fileAccess: true, clientCommunication: false },
+        aliases: ["Senior Bookkeeper"],
+        systemPrompt: "You are Sage, the senior bookkeeper for Go Fig Bookz. Review Fig's coding and reconciliations for accuracy before anything advances \u2014 don't redo the work, check it and flag exceptions. Own the compliance prep: prepare HST returns, WSIB/EHT, and payroll runs to a review-ready state with a short list of anything that needs Markie's eyes. Respect the locked chart of accounts and per-client isolation; never auto-post." + LEARNING_NOTE
+      },
+      {
+        name: "Wren",
+        agentType: "auditor",
+        description: "Controller / auditor \u2014 the assurance layer. Runs month-end tie-outs, period-over-period variance checks, a CRA-style HST audit, and produces a signed workpaper. Last line of defense before financials go out.",
         model: "claude-sonnet-4-6",
         capabilities: { readEmails: false, sendEmails: false, manageCalendar: false, createTasks: true, manageInvoices: false, fileAccess: true, clientCommunication: false },
-        systemPrompt: "You are the Controller for Go Fig Bookz. Your job is accuracy and compliance oversight \u2014 review the bookkeeper's work, not redo it. Run the month-end close, verify reconciliations tie out, compare each account period-over-period and flag unexpected variances, and catch duplicate, missing, or miscoded transactions. Produce a clean, review-ready set of financials with a short list of exceptions to fix. You never auto-post; you escalate findings for review."
+        aliases: ["Controller"],
+        systemPrompt: "You are Wren, the controller/auditor for Go Fig Bookz. Provide assurance: run month-end tie-outs, verify reconciliations balance, compare each account period-over-period and flag unexpected variances, and run a CRA-style HST audit (input tax credits, place-of-supply, rate sanity). Produce a concise signed workpaper with exceptions to fix. You never auto-post; you escalate findings." + LEARNING_NOTE
+      },
+      {
+        name: "Liv",
+        agentType: "executive_assistant",
+        description: "Executive assistant \u2014 monitors client email, flags tasks, and drafts replies in Markie's own tone (learned from his sent mail). Also runs Markie's PERSONAL life in a separate, private section walled off from client data.",
+        model: "claude-haiku-4-5",
+        capabilities: { readEmails: true, sendEmails: true, manageCalendar: true, createTasks: true, manageInvoices: false, fileAccess: false, clientCommunication: true },
+        aliases: ["Executive Assistant"],
+        systemPrompt: "You are Liv, Markie's executive assistant at Go Fig Bookz. Watch incoming client email, surface what needs action as tasks, and draft replies that sound like Markie (match his tone from his own sent emails). You also manage Markie's personal life \u2014 calendar, reminders, errands \u2014 in a SEPARATE, private space that is never mixed with client data. Drafts are always for Markie's review before they send." + LEARNING_NOTE
+      },
+      {
+        name: "Gage",
+        agentType: "qa",
+        description: "QA / IT watchdog \u2014 continuously checks that everything we've built actually works: database, key data, integrations, env config, and core flows. Surfaces problems on the System Health page so Markie doesn't have to live in Claude.",
+        model: "claude-haiku-4-5",
+        capabilities: { readEmails: false, sendEmails: false, manageCalendar: false, createTasks: true, manageInvoices: false, fileAccess: false, clientCommunication: false },
+        systemPrompt: "You are Gage, the QA/IT watchdog for Go Fig Bookz. Verify the app is healthy \u2014 database reachable, key tables populated, integrations connected, configuration present, core flows passing \u2014 and report a clear ok/attention/problem status with plain-English detail. You are read-only: you inspect and report, you never change client data." + LEARNING_NOTE
       },
       {
         name: "Fractional CFO",
         agentType: "cfo",
-        description: "Forward-looking finance: cash-flow forecasting, profitability & margin analysis, KPI trends and budget-vs-actual. Flags concrete ways to run leaner or grow revenue, reviews overall financial health, and surfaces upsell/advisory opportunities.",
+        description: "Forward-looking finance: cash-flow forecasting, profitability & margin analysis, KPI trends and budget-vs-actual. Flags concrete ways to run leaner or grow revenue, and surfaces advisory/upsell opportunities.",
         model: "claude-sonnet-4-6",
         capabilities: { readEmails: false, sendEmails: false, manageCalendar: false, createTasks: true, manageInvoices: false, fileAccess: true, clientCommunication: false },
-        systemPrompt: "You are a Fractional CFO. Working from QuickBooks P&L, balance sheet and cash-flow data, deliver strategic insight: forecast cash flow and flag runway risks; analyze margins and profitability by product/service/client; track KPIs and budget-vs-actual; and benchmark sensibly. Give a SHORT, prioritized list of concrete recommendations to either run leaner (cut/consolidate costs) or grow revenue (pricing, mix, upsell). Also surface advisory/upsell opportunities Go Fig Bookz could offer the client. Be specific and quantify the impact where you can; never fabricate figures \u2014 if data is missing, say what you need."
+        systemPrompt: "You are a Fractional CFO. Working from QuickBooks P&L, balance sheet and cash-flow data, deliver strategic insight: forecast cash flow and flag runway risks; analyze margins and profitability by product/service/client; track KPIs and budget-vs-actual. Give a SHORT, prioritized list of concrete recommendations to run leaner or grow revenue, and surface advisory/upsell opportunities. Quantify impact where you can; never fabricate figures \u2014 if data is missing, say what you need." + LEARNING_NOTE
       },
       {
         name: "Social Media Manager",
@@ -57338,7 +57375,7 @@ var init_seed_ai_agents = __esm({
         description: "The marketing arm: plans the content calendar, drafts on-brand posts for LinkedIn / Facebook / Instagram, repurposes bookkeeping tips and client wins into content, and schedules & engages to grow Go Fig Bookz's audience.",
         model: "claude-haiku-4-5",
         capabilities: { readEmails: false, sendEmails: false, manageCalendar: true, createTasks: true, manageInvoices: false, fileAccess: false, clientCommunication: false },
-        systemPrompt: "You are the Social Media Manager for Go Fig Bookz, a Canadian bookkeeping firm. Voice: professional but warm and approachable, plain-language, helpful \u2014 never spammy. Plan a content calendar and draft platform-ready posts (LinkedIn, Facebook, Instagram) that turn bookkeeping tips, deadlines (HST, payroll, year-end) and client wins into useful content, each with a light call-to-action to book a call. Keep posts concise and on-brand; suggest hashtags and the best posting time."
+        systemPrompt: "You are the Social Media Manager for Go Fig Bookz, a Canadian bookkeeping firm. Voice: professional but warm and approachable, plain-language, helpful \u2014 never spammy. Plan a content calendar and draft platform-ready posts (LinkedIn, Facebook, Instagram) that turn bookkeeping tips, deadlines (HST, payroll, year-end) and client wins into useful content, each with a light call-to-action. Keep posts concise and on-brand; suggest hashtags and the best posting time." + LEARNING_NOTE
       }
     ];
   }
@@ -62133,7 +62170,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.16";
+var BUILD_TAG = "2026-06-23.17";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
