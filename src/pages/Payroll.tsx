@@ -398,7 +398,8 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
       invalidate();
       if (!r.ok) { alert("Jobber import failed:\n" + r.error); return; }
       const extra = r.unmatched?.length ? `\n\nNot matched to an employee (check names):\n${r.unmatched.map((u: any) => `• ${u.name} — ${u.hours}h`).join("\n")}` : "";
-      alert(`Imported hours for ${r.matched} of ${r.totalUsers} Jobber worker(s).${extra}`);
+      const flags = r.flagged?.length ? `\n\n⚠ Check these — long single shift (possible missed clock-out):\n${r.flagged.map((f: any) => `• ${f.name} — ${f.maxShiftHours}h shift`).join("\n")}` : "";
+      alert(`Imported hours for ${r.matched} of ${r.totalUsers} Jobber worker(s).${flags}${extra}`);
     },
     onError: (e) => alert(e.message),
   });
@@ -571,6 +572,7 @@ function LineRow({ line, showBonus, showVac, showSick, showPhone, showReimb, sho
       <td className="py-1 pr-2 font-medium">
         <button className="hover:text-lime-700 hover:underline text-left" title="Edit employee card" onClick={onEditEmployee}>{line.employeeName}</button>
         {line.payType ? <span className="text-[10px] text-slate-400 ml-1">{line.payType}</span> : null}
+        {line.notes ? <span className="text-amber-600 ml-1" title={line.notes}>⚠</span> : null}
       </td>
       <td className="px-1 text-right text-xs text-slate-500">{rate != null ? `$${rate}` : "—"}</td>
       <td className="px-1">{cell("regularHours")}</td>

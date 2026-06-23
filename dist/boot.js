@@ -48326,6 +48326,54 @@ var init_jobber_oauth = __esm({
   }
 });
 
+// api/timesheet-core.ts
+var timesheet_core_exports = {};
+__export(timesheet_core_exports, {
+  LONG_SHIFT_HOURS: () => LONG_SHIFT_HOURS,
+  easternDayRangeUtc: () => easternDayRangeUtc,
+  longShiftNote: () => longShiftNote
+});
+function tzOffsetMs(date5, timeZone) {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+  const p = {};
+  for (const part of dtf.formatToParts(date5)) p[part.type] = part.value;
+  const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+  return asUTC - date5.getTime();
+}
+function wallToUtcISO(dateStr, timeStr, timeZone) {
+  const guess = /* @__PURE__ */ new Date(`${dateStr}T${timeStr}Z`);
+  const off = tzOffsetMs(guess, timeZone);
+  return new Date(guess.getTime() - off).toISOString();
+}
+function easternDayRangeUtc(startISO, endISO, timeZone = DEFAULT_TZ) {
+  return {
+    start: wallToUtcISO(startISO, "00:00:00", timeZone),
+    end: wallToUtcISO(endISO, "23:59:59", timeZone)
+  };
+}
+function longShiftNote(maxShiftHours, threshold = LONG_SHIFT_HOURS) {
+  if (maxShiftHours > threshold) {
+    return `\u26A0 Possible missed clock-out: ${maxShiftHours.toFixed(1)}h single shift \u2014 verify before running.`;
+  }
+  return null;
+}
+var DEFAULT_TZ, LONG_SHIFT_HOURS;
+var init_timesheet_core = __esm({
+  "api/timesheet-core.ts"() {
+    DEFAULT_TZ = "America/Toronto";
+    LONG_SHIFT_HOURS = Number(process.env.PAYROLL_LONG_SHIFT_HOURS) || 10;
+  }
+});
+
 // api/jobber-client.ts
 var jobber_client_exports = {};
 __export(jobber_client_exports, {
@@ -48355,8 +48403,7 @@ async function jobberTestUsers(clientId) {
   return (data?.users?.nodes ?? []).map((u) => ({ id: u.id, name: u?.name?.full ?? "" }));
 }
 async function importTimesheetHours(clientId, startISO, endISO) {
-  const start = `${startISO}T00:00:00Z`;
-  const end = `${endISO}T23:59:59Z`;
+  const { start, end } = easternDayRangeUtc(startISO, endISO);
   const totals = /* @__PURE__ */ new Map();
   let after = null;
   let guard = 0;
@@ -48368,8 +48415,10 @@ async function importTimesheetHours(clientId, startISO, endISO) {
       const uid = n?.user?.id;
       if (!uid) continue;
       const secs2 = Number(n.finalDuration) || 0;
-      const cur = totals.get(uid) || { userId: uid, userName: n?.user?.name?.full ?? "", seconds: 0, hours: 0 };
+      const cur = totals.get(uid) || { userId: uid, userName: n?.user?.name?.full ?? "", seconds: 0, hours: 0, maxShiftHours: 0 };
       cur.seconds += secs2;
+      const entryHours = Math.round(secs2 / 3600 * 100) / 100;
+      if (entryHours > cur.maxShiftHours) cur.maxShiftHours = entryHours;
       totals.set(uid, cur);
     }
     after = conn?.pageInfo?.hasNextPage ? conn.pageInfo.endCursor : null;
@@ -48380,6 +48429,7 @@ var TIMESHEET_QUERY;
 var init_jobber_client = __esm({
   "api/jobber-client.ts"() {
     init_jobber_oauth();
+    init_timesheet_core();
     TIMESHEET_QUERY = `
   query($after: String, $start: ISO8601DateTime, $end: ISO8601DateTime) {
     timeSheetEntries(first: 100, after: $after, filter: { startAt: { after: $start, before: $end } }) {
@@ -48719,24 +48769,28 @@ var init_payroll_router = __esm({
         };
         const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
         const lineByEmp = new Map(lines.map((l) => [l.employeeId, l]));
+        const { longShiftNote: longShiftNote2 } = await Promise.resolve().then(() => (init_timesheet_core(), timesheet_core_exports));
         let matched = 0;
         const unmatched = [];
+        const flagged = [];
         for (const h of hours) {
           const emp = matchEmp(h.userName);
           if (!emp) {
             unmatched.push({ name: h.userName, hours: h.hours });
             continue;
           }
+          const note = longShiftNote2(h.maxShiftHours ?? 0);
+          if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
           const line = lineByEmp.get(emp.id);
           if (line) {
-            await db.update(payRunLines).set({ regularHours: h.hours, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRunLines.id, line.id));
+            await db.update(payRunLines).set({ regularHours: h.hours, notes: note ?? line.notes ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRunLines.id, line.id));
           } else {
-            await db.insert(payRunLines).values({ payRunId: input.runId, employeeId: emp.id, regularHours: h.hours });
+            await db.insert(payRunLines).values({ payRunId: input.runId, employeeId: emp.id, regularHours: h.hours, notes: note ?? null });
           }
           matched++;
         }
         await recomputeRunTotals(input.runId);
-        return { ok: true, matched, unmatched, totalUsers: hours.length };
+        return { ok: true, matched, unmatched, flagged, totalUsers: hours.length };
       }),
       // One run with its lines + employee names (the clean sheet).
       getRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).query(async ({ input }) => {
@@ -63472,7 +63526,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.50";
+var BUILD_TAG = "2026-06-23.51";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

@@ -11,8 +11,9 @@
  * =============================================================================
  */
 import { getValidConnection, bearerFor, JOBBER_GRAPHQL_URL, JOBBER_API_VERSION } from "./jobber-oauth";
+import { easternDayRangeUtc } from "./timesheet-core";
 
-export type JobberHours = { userId: string; userName: string; seconds: number; hours: number };
+export type JobberHours = { userId: string; userName: string; seconds: number; hours: number; maxShiftHours: number };
 
 /** Low-level GraphQL POST against a client's Jobber connection. */
 export async function jobberGraphql(clientId: number, query: string, variables: Record<string, any> = {}): Promise<any> {
@@ -49,8 +50,9 @@ const TIMESHEET_QUERY = `
 
 /** Total worked hours per Jobber user across [startISO, endISO] (inclusive day range). */
 export async function importTimesheetHours(clientId: number, startISO: string, endISO: string): Promise<JobberHours[]> {
-  const start = `${startISO}T00:00:00Z`;
-  const end = `${endISO}T23:59:59Z`;
+  // Eastern day boundaries → exact UTC instants (DST-aware) so a late-evening
+  // shift at the edge of the pay period isn't missed or double-counted.
+  const { start, end } = easternDayRangeUtc(startISO, endISO);
   const totals = new Map<string, JobberHours>();
   let after: string | null = null;
   let guard = 0;
@@ -63,8 +65,10 @@ export async function importTimesheetHours(clientId: number, startISO: string, e
       const uid = n?.user?.id;
       if (!uid) continue;
       const secs = Number(n.finalDuration) || 0;
-      const cur = totals.get(uid) || { userId: uid, userName: n?.user?.name?.full ?? "", seconds: 0, hours: 0 };
+      const cur = totals.get(uid) || { userId: uid, userName: n?.user?.name?.full ?? "", seconds: 0, hours: 0, maxShiftHours: 0 };
       cur.seconds += secs;
+      const entryHours = Math.round((secs / 3600) * 100) / 100;
+      if (entryHours > cur.maxShiftHours) cur.maxShiftHours = entryHours; // longest single shift = missed-clock-out signal
       totals.set(uid, cur);
     }
     after = conn?.pageInfo?.hasNextPage ? conn.pageInfo.endCursor : null;
