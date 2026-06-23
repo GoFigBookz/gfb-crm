@@ -1,5 +1,31 @@
 import { describe, it, expect } from "vitest";
-import { formatAgenda } from "./assistant-core";
+import { formatAgenda, detectAgent, frontDeskSystem } from "./assistant-core";
+
+describe("detectAgent", () => {
+  it("routes by name at the start of the message", () => {
+    expect(detectAgent("Hey Sage, can you prep the HST?")).toBe("sage");
+    expect(detectAgent("Wren — did month-end tie out?")).toBe("wren");
+    expect(detectAgent("ask Liv to draft a reply")).toBe("liv");
+    expect(detectAgent("Fig, code these receipts")).toBe("fig");
+    expect(detectAgent("hey gage is everything working")).toBe("gage");
+  });
+  it("stays with the current agent when none is named", () => {
+    expect(detectAgent("what about the payroll?", "sage")).toBe("sage");
+  });
+  it("defaults to Fig with no name and no current", () => {
+    expect(detectAgent("add a task to call John")).toBe("fig");
+  });
+});
+
+describe("frontDeskSystem", () => {
+  it("adopts the addressed agent's persona and lists the team", () => {
+    const sys = frontDeskSystem("wren");
+    expect(sys).toContain("you are answering as Wren");
+    expect(sys).toContain("controller/auditor");
+    expect(sys).toContain("Sage");
+    expect(sys).toContain("Hey <name>");
+  });
+});
 
 describe("formatAgenda", () => {
   it("summarizes overdue/today/upcoming + events concisely", () => {
