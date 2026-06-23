@@ -389,21 +389,26 @@ export const payrollRouter = createRouter({
       };
       const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
       const lineByEmp = new Map((lines as any[]).map((l) => [l.employeeId, l]));
+      const { longShiftNote } = await import("./timesheet-core");
       let matched = 0;
       const unmatched: { name: string; hours: number }[] = [];
+      const flagged: { name: string; hours: number; maxShiftHours: number }[] = [];
       for (const h of hours) {
         const emp = matchEmp(h.userName);
         if (!emp) { unmatched.push({ name: h.userName, hours: h.hours }); continue; }
-        const line = lineByEmp.get(emp.id);
+        // Flag a suspiciously long single shift (likely a missed clock-out).
+        const note = longShiftNote(h.maxShiftHours ?? 0);
+        if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
+        const line = lineByEmp.get(emp.id) as any;
         if (line) {
-          await db.update(payRunLines).set({ regularHours: h.hours, updatedAt: new Date() }).where(eq(payRunLines.id, line.id));
+          await db.update(payRunLines).set({ regularHours: h.hours, notes: note ?? line.notes ?? null, updatedAt: new Date() }).where(eq(payRunLines.id, line.id));
         } else {
-          await db.insert(payRunLines).values({ payRunId: input.runId, employeeId: emp.id, regularHours: h.hours } as any);
+          await db.insert(payRunLines).values({ payRunId: input.runId, employeeId: emp.id, regularHours: h.hours, notes: note ?? null } as any);
         }
         matched++;
       }
       await recomputeRunTotals(input.runId);
-      return { ok: true, matched, unmatched, totalUsers: hours.length };
+      return { ok: true, matched, unmatched, flagged, totalUsers: hours.length };
     }),
 
   // One run with its lines + employee names (the clean sheet).
