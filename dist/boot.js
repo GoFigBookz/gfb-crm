@@ -64200,7 +64200,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.76";
+var BUILD_TAG = "2026-06-23.77";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64305,6 +64305,49 @@ app.get("/api/oauth/google/debug", async (c) => {
   } catch (e) {
     dbCounts = { error: e instanceof Error ? e.message : String(e) };
   }
+  let syncRun = null;
+  if (c.req.query("sync") === "1") {
+    try {
+      const { getFirmGoogleAccount: getFirmGoogleAccount2, getValidGoogleAccessToken: getValidGoogleAccessToken2 } = await Promise.resolve().then(() => (init_google_token(), google_token_exports));
+      const acct = await getFirmGoogleAccount2();
+      const at = await getValidGoogleAccessToken2(acct);
+      const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=250&timeMin=2026-05-01T00:00:00Z&timeMax=2026-12-31T00:00:00Z&singleEvents=true&orderBy=startTime", { headers: { Authorization: `Bearer ${at}` } });
+      const j = await r.json();
+      const items = j.items || [];
+      const db = getDb();
+      let inserted = 0, skipped = 0;
+      const errors = [];
+      for (const e of items) {
+        try {
+          const ex = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.googleEventId, e.id)).limit(1);
+          if (ex[0]) {
+            skipped++;
+            continue;
+          }
+          const start = new Date(e.start?.dateTime || e.start?.date);
+          const end = new Date(e.end?.dateTime || e.end?.date || e.start?.dateTime || e.start?.date);
+          await db.insert(calendarEvents).values({
+            userId: acct.userId || 1,
+            connectedAccountId: acct.id,
+            googleEventId: e.id,
+            title: e.summary || "(No title)",
+            description: e.description || "",
+            startDate: start,
+            endDate: isNaN(end.getTime()) ? start : end,
+            isAllDay: !e.start?.dateTime,
+            location: e.location || "",
+            status: e.status === "cancelled" ? "cancelled" : e.status === "tentative" ? "tentative" : "confirmed"
+          });
+          inserted++;
+        } catch (err) {
+          if (errors.length < 3) errors.push(err instanceof Error ? err.message : String(err));
+        }
+      }
+      syncRun = { fetched: items.length, inserted, skipped, errors };
+    } catch (e) {
+      syncRun = { error: e instanceof Error ? e.message : String(e) };
+    }
+  }
   return c.json({
     build: BUILD_TAG,
     redirectUri: googleRedirectUri2(),
@@ -64315,8 +64358,9 @@ app.get("/api/oauth/google/debug", async (c) => {
     firmGoogle,
     apiProbe,
     dbCounts,
+    syncRun,
     lastConnectAttempt: lastGoogleOAuth,
-    note: "apiProbe shows the CRM calling Google with its own token. 403 = Workspace blocks the app (mark Trusted in Admin). 401/invalid = token. ok = it works."
+    note: "Add ?sync=1 to pull your Google Calendar into the CRM now. syncRun shows inserted/errors."
   });
 });
 app.get("/api/qbo/connect", async (c) => {

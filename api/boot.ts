@@ -13,7 +13,7 @@ import { Paths } from "@contracts/constants";
 
 // DB imports for inline OAuth callbacks
 import { getDb } from "./queries/connection";
-import { connectedAccounts, qboConnections, triageFindings, clients } from "../db/schema";
+import { connectedAccounts, qboConnections, triageFindings, clients, calendarEvents } from "../db/schema";
 import { eq, and, sql, like } from "drizzle-orm";
 import { matchClientIdByName } from "./client-match";
 
@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-23.76";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.77";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -155,6 +155,40 @@ app.get("/api/oauth/google/debug", async (c) => {
     };
   } catch (e) { dbCounts = { error: e instanceof Error ? e.message : String(e) }; }
 
+  // ?sync=1 → actually pull Google Calendar into the DB right now, server-side,
+  // via the proven firm account (no dependency on the page triggering it). Reports
+  // inserted/skipped/errors so we see the insert path work for real.
+  let syncRun: any = null;
+  if (c.req.query("sync") === "1") {
+    try {
+      const { getFirmGoogleAccount, getValidGoogleAccessToken } = await import("./google-token");
+      const acct: any = await getFirmGoogleAccount();
+      const at = await getValidGoogleAccessToken(acct);
+      const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=250&timeMin=2026-05-01T00:00:00Z&timeMax=2026-12-31T00:00:00Z&singleEvents=true&orderBy=startTime", { headers: { Authorization: `Bearer ${at}` } });
+      const j: any = await r.json();
+      const items = j.items || [];
+      const db = getDb();
+      let inserted = 0, skipped = 0; const errors: string[] = [];
+      for (const e of items) {
+        try {
+          const ex = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.googleEventId, e.id)).limit(1);
+          if (ex[0]) { skipped++; continue; }
+          const start = new Date(e.start?.dateTime || e.start?.date);
+          const end = new Date(e.end?.dateTime || e.end?.date || e.start?.dateTime || e.start?.date);
+          await db.insert(calendarEvents).values({
+            userId: acct.userId || 1, connectedAccountId: acct.id, googleEventId: e.id,
+            title: e.summary || "(No title)", description: e.description || "",
+            startDate: start, endDate: isNaN(end.getTime()) ? start : end,
+            isAllDay: !e.start?.dateTime, location: e.location || "",
+            status: e.status === "cancelled" ? "cancelled" : e.status === "tentative" ? "tentative" : "confirmed",
+          });
+          inserted++;
+        } catch (err) { if (errors.length < 3) errors.push(err instanceof Error ? err.message : String(err)); }
+      }
+      syncRun = { fetched: items.length, inserted, skipped, errors };
+    } catch (e) { syncRun = { error: e instanceof Error ? e.message : String(e) }; }
+  }
+
   return c.json({
     build: BUILD_TAG,
     redirectUri: googleRedirectUri(),
@@ -165,8 +199,9 @@ app.get("/api/oauth/google/debug", async (c) => {
     firmGoogle,
     apiProbe,
     dbCounts,
+    syncRun,
     lastConnectAttempt: lastGoogleOAuth,
-    note: "apiProbe shows the CRM calling Google with its own token. 403 = Workspace blocks the app (mark Trusted in Admin). 401/invalid = token. ok = it works.",
+    note: "Add ?sync=1 to pull your Google Calendar into the CRM now. syncRun shows inserted/errors.",
   });
 });
 
