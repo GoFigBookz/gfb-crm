@@ -3,7 +3,7 @@ import { NavLink } from "react-router";
 import {
   LayoutDashboard, Users, CheckSquare, Mail, CalendarDays,
   FolderOpen, Receipt, Settings, ChevronLeft, ChevronRight,
-  ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft,
+  ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft, FileStack,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
   Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target,
@@ -69,6 +69,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const toolItems = [
     { to: "/qbo", icon: Receipt, label: "QBO Review" },
     { to: "/bank-converter", icon: ArrowRightLeft, label: "Bank → QBO" },
+    { to: "/pdf-splitter", icon: FileStack, label: "PDF Splitter" },
     { to: "/tax-deadlines", icon: CalendarClock, label: "Tax Deadlines" },
     { to: "/year-end", icon: ClipboardCheck, label: "Year-End" },
     { to: "/monthly-close", icon: CheckSquare, label: "Monthly Close" },
