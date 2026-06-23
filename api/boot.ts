@@ -61,7 +61,7 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-const BUILD_TAG = "2026-06-23.52";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.53";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -1118,7 +1118,7 @@ async function startServer() {
       }
     } catch (e) { console.error("[privacy] SIN encrypt-at-rest failed (non-fatal):", e instanceof Error ? e.message : e); }
     if (process.env.FIGGY_SKIP_EMPLOYEE_SEED !== "on") {
-      try { const { seedPayrollEmployees } = await import("./seed-payroll-employees"); await seedPayrollEmployees(); }
+      try { const { seedPayrollEmployees } = await import("./seed-payroll-employees"); const r = await seedPayrollEmployees(); console.log("[seed] payroll employees:", JSON.stringify(r)); }
       catch (e) { console.error("[seed] payroll employees failed (non-fatal):", e instanceof Error ? e.message : e); }
     }
   } catch (e) {

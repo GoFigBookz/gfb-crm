@@ -53,9 +53,15 @@ export async function seedPayrollEmployees(): Promise<{ matched: number; added: 
     // `replace:true` wipe ran on a prior deploy to fix the bad rosters; from here the
     // DB is the source of truth and employees are managed in the UI / synced from QBO.)
     const current = await db.select().from(employees).where(eq(employees.clientId, client.id));
-    if (current.length > 0) { result.skipped += roster.employees.length; continue; }
+    if (current.length > 0 && !roster.merge) { result.skipped += roster.employees.length; continue; }
+
+    // MERGE rosters (restaurants from TouchBistro sheets): add any seed employee
+    // not already on the client by name — never delete or overwrite live edits.
+    // This unblocks a roster that a stray/partial record would otherwise skip.
+    const have = new Set((current as any[]).map((e) => `${norm(e.firstName)} ${norm(e.lastName)}`.trim()));
 
     for (const emp of roster.employees) {
+      if (roster.merge && have.has(`${norm(emp.firstName)} ${norm(emp.lastName || "")}`.trim())) { result.skipped++; continue; }
       await db.insert(employees).values({
         clientId: client.id,
         firstName: emp.firstName,
