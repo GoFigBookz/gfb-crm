@@ -11,6 +11,10 @@ import { eq, and, desc } from "drizzle-orm";
 import { getValidGoogleAccessToken } from "./google-token";
 import { buildRawMessage, extractEmail } from "./email-core";
 import { selectRelevant, formatLessonsBlock } from "./learning-core";
+import { recordAudit } from "./agent-audit";
+
+// Tools that DO something (vs read-only) — these get written to the audit trail.
+const ACTION_TOOLS = new Set(["add_task", "add_personal", "schedule_event", "complete_task", "draft_email", "remember"]);
 
 const TZ = "America/Toronto";
 import { parseTaskCommand } from "./task-command-core";
@@ -270,6 +274,9 @@ export const assistantRouter = createRouter({
             if (block.type === "tool_use") {
               const out = await runTool(block.name, block.input, ctx.user.id);
               if (["add_task", "add_personal", "schedule_event", "complete_task"].includes(block.name)) actions.push(out);
+              if (ACTION_TOOLS.has(block.name)) {
+                await recordAudit({ userId: ctx.user.id, agentScope: agent, action: block.name, summary: out, decision: "done" });
+              }
               results.push({ type: "tool_result", tool_use_id: block.id, content: out });
             }
           }

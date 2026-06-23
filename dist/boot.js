@@ -22320,6 +22320,7 @@ var init_sqlite_core = __esm({
 // db/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
+  agentAuditLog: () => agentAuditLog,
   agentLearnings: () => agentLearnings,
   aiAgentConfigs: () => aiAgentConfigs,
   aiAgentRuns: () => aiAgentRuns,
@@ -22388,7 +22389,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings;
+var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings, agentAuditLog;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23991,6 +23992,22 @@ var init_schema = __esm({
       tags: text("tags"),
       source: text("source").default("markie"),
       // markie | correction | confirmed
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    agentAuditLog = sqliteTable("agent_audit_log", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      userId: integer2("userId").notNull(),
+      agentScope: text("agentScope").default("all").notNull(),
+      // which agent acted
+      action: text("action").notNull(),
+      // tool/action name
+      summary: text("summary"),
+      // human-readable result
+      amount: real("amount"),
+      // $ involved, if any
+      decision: text("decision").default("done").notNull(),
+      // done | auto | escalated | blocked
+      clientId: integer2("clientId"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
   }
@@ -54114,6 +54131,43 @@ var init_learning_core = __esm({
   }
 });
 
+// api/agent-audit.ts
+var agent_audit_exports = {};
+__export(agent_audit_exports, {
+  recentAudit: () => recentAudit,
+  recordAudit: () => recordAudit
+});
+async function recordAudit(e) {
+  try {
+    const db = getDb();
+    await db.insert(agentAuditLog).values({
+      userId: e.userId,
+      agentScope: e.agentScope ?? "all",
+      action: e.action,
+      summary: e.summary ?? null,
+      amount: e.amount ?? null,
+      decision: e.decision ?? "done",
+      clientId: e.clientId ?? null
+    });
+  } catch {
+  }
+}
+async function recentAudit(userId, limit = 30) {
+  try {
+    const db = getDb();
+    return await db.select().from(agentAuditLog).where(eq(agentAuditLog.userId, userId)).orderBy(desc(agentAuditLog.createdAt)).limit(limit);
+  } catch {
+    return [];
+  }
+}
+var init_agent_audit = __esm({
+  "api/agent-audit.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+  }
+});
+
 // api/skills/common.ts
 var COMMON_STANDARDS;
 var init_common3 = __esm({
@@ -54939,6 +54993,11 @@ var init_qa_router = __esm({
       scorecard: authedQuery.query(async () => {
         return runAgentScorecard();
       }),
+      /** Recent agent activity (governed-autonomy audit trail). */
+      activity: authedQuery.query(async ({ ctx }) => {
+        const { recentAudit: recentAudit2 } = await Promise.resolve().then(() => (init_agent_audit(), agent_audit_exports));
+        return recentAudit2(ctx.user.id, 30);
+      }),
       /** Lightweight liveness — used by uptime pings / the status dot. */
       ping: authedQuery.input(external_exports.object({}).optional()).query(async () => {
         const db = getDb();
@@ -55134,7 +55193,7 @@ async function runTool(name2, input, userId) {
     return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
   }
 }
-var TZ, ANTHROPIC_URL, assistantRouter;
+var ACTION_TOOLS, TZ, ANTHROPIC_URL, assistantRouter;
 var init_assistant_router = __esm({
   "api/assistant-router.ts"() {
     init_zod();
@@ -55145,8 +55204,10 @@ var init_assistant_router = __esm({
     init_google_token();
     init_email_core();
     init_learning_core();
+    init_agent_audit();
     init_task_command_core();
     init_assistant_core();
+    ACTION_TOOLS = /* @__PURE__ */ new Set(["add_task", "add_personal", "schedule_event", "complete_task", "draft_email", "remember"]);
     TZ = "America/Toronto";
     ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
     assistantRouter = createRouter({
@@ -55195,6 +55256,9 @@ var init_assistant_router = __esm({
               if (block.type === "tool_use") {
                 const out = await runTool(block.name, block.input, ctx.user.id);
                 if (["add_task", "add_personal", "schedule_event", "complete_task"].includes(block.name)) actions.push(out);
+                if (ACTION_TOOLS.has(block.name)) {
+                  await recordAudit({ userId: ctx.user.id, agentScope: agent, action: block.name, summary: out, decision: "done" });
+                }
                 results.push({ type: "tool_result", tool_use_id: block.id, content: out });
               }
             }
@@ -58243,6 +58307,36 @@ async function ensureLearningSchema() {
 }
 var init_ensure_learning_schema = __esm({
   "api/ensure-learning-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/ensure-audit-schema.ts
+var ensure_audit_schema_exports = {};
+__export(ensure_audit_schema_exports, {
+  ensureAuditSchema: () => ensureAuditSchema
+});
+async function ensureAuditSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS agent_audit_log (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      agentScope text DEFAULT 'all' NOT NULL,
+      action text NOT NULL,
+      summary text,
+      amount real,
+      decision text DEFAULT 'done' NOT NULL,
+      clientId integer,
+      createdAt integer
+    )`);
+  } catch (e) {
+    console.error("[audit] ensure agent_audit_log failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_audit_schema = __esm({
+  "api/ensure-audit-schema.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -63159,7 +63253,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.37";
+var BUILD_TAG = "2026-06-23.38";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64085,6 +64179,8 @@ async function startServer() {
     await ensurePersonalSchema2();
     const { ensureLearningSchema: ensureLearningSchema2 } = await Promise.resolve().then(() => (init_ensure_learning_schema(), ensure_learning_schema_exports));
     await ensureLearningSchema2();
+    const { ensureAuditSchema: ensureAuditSchema2 } = await Promise.resolve().then(() => (init_ensure_audit_schema(), ensure_audit_schema_exports));
+    await ensureAuditSchema2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));

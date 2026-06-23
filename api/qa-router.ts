@@ -137,6 +137,12 @@ export const qaRouter = createRouter({
     return runAgentScorecard();
   }),
 
+  /** Recent agent activity (governed-autonomy audit trail). */
+  activity: authedQuery.query(async ({ ctx }) => {
+    const { recentAudit } = await import("./agent-audit");
+    return recentAudit(ctx.user.id, 30);
+  }),
+
   /** Lightweight liveness — used by uptime pings / the status dot. */
   ping: authedQuery
     .input(z.object({}).optional())
