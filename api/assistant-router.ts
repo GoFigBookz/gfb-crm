@@ -303,20 +303,33 @@ export const assistantRouter = createRouter({
       };
 
       let tier = 0; // current tool tier (see toolTiers); steps down on a tool 400
+      const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+      const TRANSIENT = new Set([429, 500, 502, 503, 529]);
       for (let i = 0; i < 6; i++) {
         const body: any = { model, max_tokens: 1024, system, messages };
         if (toolTiers[tier]) body.tools = toolTiers[tier];
-        const res = await fetch(ANTHROPIC_URL, {
-          method: "POST",
-          headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) {
-          const b = await res.text().catch(() => "");
-          // A tool/model incompatibility → step down a tool tier and retry, so the
-          // assistant keeps working (drop fetch → drop server tools → plain chat).
-          if (res.status === 400 && tier < toolTiers.length - 1 && /tool/i.test(b)) { tier++; continue; }
-          return { reply: `Assistant error (${res.status}). ${b.slice(0, 160)}`, actions, agent };
+        // Send, retrying transient overloads (429/5xx/529) with backoff.
+        let res: Response | undefined;
+        let b = "";
+        for (let attempt = 0; attempt < 3; attempt++) {
+          res = await fetch(ANTHROPIC_URL, {
+            method: "POST",
+            headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (res.ok) break;
+          b = await res.text().catch(() => "");
+          if (TRANSIENT.has(res.status) && attempt < 2) { await sleep(600 * (attempt + 1)); continue; }
+          break;
+        }
+        if (!res || !res.ok) {
+          const status = res?.status ?? 0;
+          // A tool/model incompatibility → step down a tool tier and retry.
+          if (status === 400 && tier < toolTiers.length - 1 && /tool/i.test(b)) { tier++; continue; }
+          const friendly = TRANSIENT.has(status)
+            ? "The AI is briefly overloaded right now — give it a moment and try again."
+            : "Sorry, I hit a snag answering that. Try again in a sec.";
+          return { reply: friendly, actions, agent };
         }
         const data: any = await res.json();
         if (data.stop_reason === "tool_use") {
