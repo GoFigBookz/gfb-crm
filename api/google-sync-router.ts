@@ -180,14 +180,14 @@ export const googleSyncRouter = createRouter({
       
       if (!accounts[0]) throw new Error("Google account not found");
       const account = accounts[0];
-      if (!account.accessToken) throw new Error("Account not authenticated");
+      const token = await getValidGoogleAccessToken(account); // refreshes if expired
 
       const now = new Date();
       const timeMin = new Date(now.getTime() - input.daysBack * 86400000).toISOString();
       const timeMax = new Date(now.getTime() + input.daysForward * 86400000).toISOString();
 
       const data = await googleApiRequest(
-        account.accessToken,
+        token,
         "https://www.googleapis.com/calendar/v3/calendars/primary/events",
         {
           timeMin,
@@ -265,11 +265,11 @@ export const googleSyncRouter = createRouter({
       
       if (!accounts[0]) throw new Error("Google account not found");
       const account = accounts[0];
-      if (!account.accessToken) throw new Error("Account not authenticated");
+      const token = await getValidGoogleAccessToken(account); // refreshes if expired
 
       // Get task lists
       const listsData = await googleApiRequest(
-        account.accessToken,
+        token,
         "https://tasks.googleapis.com/tasks/v1/users/@me/lists"
       );
 
@@ -278,7 +278,7 @@ export const googleSyncRouter = createRouter({
 
       for (const list of lists) {
         const tasksData = await googleApiRequest(
-          account.accessToken,
+          token,
           `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks`
         );
 

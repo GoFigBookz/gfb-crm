@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router";
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, Building2, CheckSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, Building2, CheckSquare, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,20 @@ export default function CalendarPage() {
   const { data: allTasks } = trpc.task.list.useQuery();
   const { data: clientList } = trpc.crmClient.list.useQuery();
   const clientName = (cid: any) => (clientList || []).find((c: any) => c.id === cid)?.name ?? null;
+
+  // Pull Google Calendar + Tasks into the CRM so they show here. Auto-runs once
+  // on load when Google is connected, plus a manual "Sync Google" button.
+  const { data: accounts } = trpc.integration.list.useQuery();
+  const googleAcct = (accounts || []).find((a: any) => a.provider === "google" && a.isActive);
+  const syncCal = trpc.googleSync.syncCalendar.useMutation({ onSuccess: () => utils.calendar.list.invalidate() });
+  const syncGTasks = trpc.googleSync.syncTasks.useMutation({ onSuccess: () => { utils.task.list.invalidate(); utils.task.upcoming.invalidate(); } });
+  const syncGoogle = () => { if (googleAcct) { syncCal.mutate({ accountId: googleAcct.id }); syncGTasks.mutate({ accountId: googleAcct.id }); } };
+  const [autoSynced, setAutoSynced] = useState(false);
+  useEffect(() => {
+    if (googleAcct && !autoSynced) { setAutoSynced(true); syncGoogle(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleAcct, autoSynced]);
+  const syncing = syncCal.isPending || syncGTasks.isPending;
 
   const createEvent = trpc.calendar.create.useMutation({ onSuccess: () => { utils.calendar.list.invalidate(); setIsAddOpen(false); } });
   const [newEvent, setNewEvent] = useState({ title: "", startDate: "", endDate: "", description: "" });
@@ -145,6 +159,11 @@ export default function CalendarPage() {
             <Button variant="outline" size="icon" onClick={() => step(1)}><ChevronRight className="h-4 w-4" /></Button>
             <Button variant="ghost" size="sm" onClick={() => setCurrentDate(new Date())}>Today</Button>
           </div>
+          {googleAcct && (
+            <Button variant="outline" onClick={syncGoogle} disabled={syncing} title="Pull your Google Calendar & Tasks into the CRM">
+              <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} /> {syncing ? "Syncing…" : "Sync Google"}
+            </Button>
+          )}
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Add Event</Button></DialogTrigger>
             <DialogContent>

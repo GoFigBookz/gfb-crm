@@ -35429,12 +35429,12 @@ var init_google_sync_router = __esm({
         )).limit(1);
         if (!accounts[0]) throw new Error("Google account not found");
         const account = accounts[0];
-        if (!account.accessToken) throw new Error("Account not authenticated");
+        const token = await getValidGoogleAccessToken(account);
         const now = /* @__PURE__ */ new Date();
         const timeMin = new Date(now.getTime() - input.daysBack * 864e5).toISOString();
         const timeMax = new Date(now.getTime() + input.daysForward * 864e5).toISOString();
         const data = await googleApiRequest(
-          account.accessToken,
+          token,
           "https://www.googleapis.com/calendar/v3/calendars/primary/events",
           {
             timeMin,
@@ -35489,16 +35489,16 @@ var init_google_sync_router = __esm({
         )).limit(1);
         if (!accounts[0]) throw new Error("Google account not found");
         const account = accounts[0];
-        if (!account.accessToken) throw new Error("Account not authenticated");
+        const token = await getValidGoogleAccessToken(account);
         const listsData = await googleApiRequest(
-          account.accessToken,
+          token,
           "https://tasks.googleapis.com/tasks/v1/users/@me/lists"
         );
         const lists = listsData.items || [];
         let syncedCount = 0;
         for (const list of lists) {
           const tasksData = await googleApiRequest(
-            account.accessToken,
+            token,
             `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks`
           );
           const items = tasksData.items || [];
@@ -64026,7 +64026,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.68";
+var BUILD_TAG = "2026-06-23.69";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
