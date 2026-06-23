@@ -99,6 +99,7 @@ export const assistantRouter = createRouter({
       message: z.string().min(1).max(2000),
       history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })).max(20).optional(),
       agent: z.enum(["fig", "sage", "wren", "liv", "jinx", "tess", "jade", "skye"]).optional(),
+      location: z.object({ lat: z.number(), lon: z.number(), label: z.string().max(120).optional() }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -109,7 +110,12 @@ export const assistantRouter = createRouter({
       const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
       // Tell it "now" so it can answer time/date without searching, in Markie's TZ.
       const nowLine = `Current date & time: ${new Date().toLocaleString("en-CA", { timeZone: "America/Toronto", dateStyle: "full", timeStyle: "short" })} (America/Toronto).`;
-      const system = `${frontDeskSystem(agent)}\n${nowLine}`;
+      // Location: Markie travels, so use his live device location when the app sent
+      // it; otherwise tell the agent to ASK rather than assume a town.
+      const locLine = input.location
+        ? `Markie's CURRENT location (live from his device — he travels, so this is where he is right now): latitude ${input.location.lat}, longitude ${input.location.lon}${input.location.label ? ` (${input.location.label})` : ""}. Use it for "near me"/local questions (weather, stores, hours) — search around this spot.`
+        : `Markie travels and his location is UNKNOWN right now. If a question needs where he is ("near me", local weather/stores/hours), briefly ASK what city he's in before answering — do NOT assume a town.`;
+      const system = `${frontDeskSystem(agent)}\n${nowLine}\n${locLine}`;
       // Server-side web search for general/current/local questions (weather, prices,
       // where-to-buy, hours, news…). Off only if explicitly disabled.
       const webSearch = process.env.FIGGY_WEB_SEARCH === "off"
