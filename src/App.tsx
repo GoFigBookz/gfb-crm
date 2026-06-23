@@ -57,9 +57,12 @@ import DiscoveryCall from "./pages/DiscoveryCall";
 import OnboardingChecklist from "./pages/OnboardingChecklist";
 import SheetsSetup from "./pages/SheetsSetup";
 import Leads from "./pages/Leads";
+import InstallPrompt from "./components/InstallPrompt";
 
 function AppRoutes() {
   return (
+    <>
+    <InstallPrompt />
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<Login />} />
@@ -135,6 +138,7 @@ function AppRoutes() {
       
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </>
   );
 }
 
