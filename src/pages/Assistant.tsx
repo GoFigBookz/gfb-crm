@@ -45,6 +45,9 @@ export default function Assistant() {
   const endRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const handsFreeRef = useRef(false);
+  const manualStopRef = useRef(false);   // user intentionally turned the mic off
+  const finalTranscriptRef = useRef("");  // accumulated final speech
+  const silenceRef = useRef<any>(null);   // hands-free auto-send timer
   const wakeLockRef = useRef<any>(null);
   const ask = trpc.assistant.ask.useMutation();
   const utils = trpc.useUtils();
@@ -147,20 +150,45 @@ export default function Assistant() {
     if (recognitionRef.current) return; // already listening
     const rec = new SR();
     rec.lang = "en-US";
-    rec.interimResults = false;
+    rec.continuous = true;        // stay on through pauses — don't quit after one phrase
+    rec.interimResults = true;    // live transcript
+    manualStopRef.current = false;
+    finalTranscriptRef.current = "";
     rec.onresult = (e: any) => {
-      const t = e.results[0][0].transcript;
-      setInput(t);
-      send(t);
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalTranscriptRef.current += r[0].transcript + " ";
+        else interim += r[0].transcript;
+      }
+      setInput((finalTranscriptRef.current + interim).trim());
+      // Hands-free: auto-send after a ~1.8s pause, then the agent replies & re-listens.
+      if (handsFreeRef.current) {
+        clearTimeout(silenceRef.current);
+        silenceRef.current = setTimeout(() => {
+          const text = finalTranscriptRef.current.trim();
+          if (text) { manualStopRef.current = true; try { rec.stop(); } catch { /* noop */ } send(text); }
+        }, 1800);
+      }
     };
-    rec.onend = () => { recognitionRef.current = null; setListening(false); };
-    rec.onerror = () => { recognitionRef.current = null; setListening(false); };
+    rec.onend = () => {
+      // Browsers auto-stop after ~60s or on silence — keep it alive unless the
+      // user turned it off. This is what keeps the mic on for a full conversation.
+      if (!manualStopRef.current) { try { rec.start(); return; } catch { /* fall through */ } }
+      recognitionRef.current = null; setListening(false);
+    };
+    rec.onerror = (ev: any) => {
+      if (ev?.error === "no-speech" || ev?.error === "aborted") return; // ignore, onend will restart
+      recognitionRef.current = null; setListening(false);
+    };
     recognitionRef.current = rec;
     setListening(true);
     rec.start();
   };
 
   const stopVoice = () => {
+    manualStopRef.current = true;
+    clearTimeout(silenceRef.current);
     try { (window as any).speechSynthesis?.cancel(); } catch { /* noop */ }
     try { recognitionRef.current?.stop(); } catch { /* noop */ }
     recognitionRef.current = null;
@@ -210,8 +238,14 @@ export default function Assistant() {
   };
 
   const micDictate = () => {
-    if (listening) { stopVoice(); return; }
-    startListening();
+    if (listening) {
+      // User taps the mic OFF → stop and send whatever was captured.
+      const text = (finalTranscriptRef.current || input).trim();
+      stopVoice();
+      if (text) send(text);
+      return;
+    }
+    startListening(); // tap ON → stays on until tapped off
   };
 
   return (

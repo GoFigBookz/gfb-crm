@@ -90,17 +90,31 @@ export default function CalendarPage() {
   // Task interactions on the calendar: click to edit, drag to reschedule.
   const [openTask, setOpenTask] = useState<any | null>(null);
   const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
+  const [draggingEvent, setDraggingEvent] = useState<any | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const rescheduleTask = trpc.task.update.useMutation({
     onSuccess: () => { utils.task.list.invalidate(); utils.task.upcoming.invalidate(); utils.task.overdue.invalidate(); },
     onError: (e) => alert(`Could not reschedule: ${e.message}`),
   });
+  const moveEvent = trpc.calendar.update.useMutation({
+    onSuccess: () => utils.calendar.list.invalidate(),   // also pushes the new date to Google
+    onError: (e) => alert(`Could not move event: ${e.message}`),
+  });
   const dropOnDay = (date: Date) => {
     if (draggingTaskId != null) {
       const due = new Date(date); due.setHours(9, 0, 0, 0);
       rescheduleTask.mutate({ id: draggingTaskId, dueDate: due });
+    } else if (draggingEvent) {
+      // Move the event to the dropped day, preserving time-of-day and duration.
+      const oldStart = new Date(draggingEvent.date);
+      const oldEnd = new Date(draggingEvent.end || draggingEvent.date);
+      const durationMs = Math.max(0, oldEnd.getTime() - oldStart.getTime());
+      const newStart = new Date(date);
+      newStart.setHours(oldStart.getHours(), oldStart.getMinutes(), 0, 0);
+      moveEvent.mutate({ id: draggingEvent.raw.id, startDate: newStart, endDate: new Date(newStart.getTime() + durationMs) });
     }
     setDraggingTaskId(null);
+    setDraggingEvent(null);
     setDragOverKey(null);
   };
 
@@ -144,12 +158,11 @@ export default function CalendarPage() {
 
   const ItemPill = ({ it }: { it: Item }) => (
     <div
-      draggable={it.kind === "task"}
-      onDragStart={it.kind === "task" ? (e) => { setDraggingTaskId(it.raw.id); e.dataTransfer.effectAllowed = "move"; } : undefined}
-      onDragEnd={it.kind === "task" ? () => { setDraggingTaskId(null); setDragOverKey(null); } : undefined}
-      className={cn("text-xs truncate px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 flex items-center gap-1",
-        it.kind === "task" && "cursor-grab active:cursor-grabbing",
-        draggingTaskId === it.raw.id && "opacity-40",
+      draggable
+      onDragStart={(e) => { if (it.kind === "task") setDraggingTaskId(it.raw.id); else setDraggingEvent(it); e.dataTransfer.effectAllowed = "move"; }}
+      onDragEnd={() => { setDraggingTaskId(null); setDraggingEvent(null); setDragOverKey(null); }}
+      className={cn("text-xs truncate px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 flex items-center gap-1 cursor-grab active:cursor-grabbing",
+        (draggingTaskId === it.raw.id || draggingEvent?.id === it.id) && "opacity-40",
         it.kind === "task" ? (it.overdue ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700")
           : it.color === "purple" ? "bg-purple-100 text-purple-700" : "bg-lime-100 text-lime-700")}
       onClick={(ev) => {
@@ -283,7 +296,7 @@ export default function CalendarPage() {
                   const key = format(date, "yyyy-MM-dd");
                   return (
                     <div key={i} onClick={() => { setCurrentDate(date); setView("day"); }}
-                      onDragOver={(e) => { if (draggingTaskId != null) { e.preventDefault(); setDragOverKey(key); } }}
+                      onDragOver={(e) => { if (draggingTaskId != null || draggingEvent) { e.preventDefault(); setDragOverKey(key); } }}
                       onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOverKey(null); }}
                       onDrop={(e) => { e.stopPropagation(); dropOnDay(date); }}
                       className={cn("min-h-[110px] p-2 border rounded-lg cursor-pointer transition-colors", !isCur && "bg-slate-50 text-slate-400", isCur && "hover:bg-slate-50", isToday && "ring-2 ring-lime-500 ring-inset", dragOverKey === key && "bg-lime-50 ring-2 ring-lime-400 ring-inset")}>
@@ -312,7 +325,7 @@ export default function CalendarPage() {
               const key = format(date, "yyyy-MM-dd");
               return (
                 <div key={i}
-                  onDragOver={(e) => { if (draggingTaskId != null) { e.preventDefault(); setDragOverKey(key); } }}
+                  onDragOver={(e) => { if (draggingTaskId != null || draggingEvent) { e.preventDefault(); setDragOverKey(key); } }}
                   onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOverKey(null); }}
                   onDrop={() => dropOnDay(date)}
                   className={cn("min-h-[300px] p-2 border rounded-lg transition-colors", isToday && "ring-2 ring-lime-500 ring-inset", dragOverKey === key && "bg-lime-50 ring-2 ring-lime-400 ring-inset")}>
