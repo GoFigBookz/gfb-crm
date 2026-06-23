@@ -246,16 +246,20 @@ A single shared login today (e.g. one TouchBistro client with two restaurants, o
 one Wise account) is just COINCIDENCE — the next client will have a different login,
 so the model must always allow "add a client connection" for every provider.
 Providers (all per-client): **Jobber** (real OAuth, per company), **PayPal**,
-**Stripe**, **Wise**, **TouchBistro**, **Dropbox**. (Google/Microsoft = Markie's own
-firm email; QuickBooks = per realm already.)
+**Stripe**, **Square**, **Wise**, **TouchBistro**, **Dropbox**. (Google/Microsoft =
+Markie's own firm email; QuickBooks = per realm already.) SALES feeds (Stripe,
+Square, Jobber, TouchBistro) pull monthly totals → **Fig posts the monthly sales
+receipt to QBO, Sage reconciles, Markie approves** (posting pending QBO write conn).
 STATUS / deep-dive (2026-06-23):
 - Jobber = real OAuth + GraphQL hours import; shared-account allowed; hours split by
   each client's employee roster at import. PRIORITY 1 — get per-client working first.
-- Wise / Stripe / PayPal / TouchBistro = API-key-paste connectors with monthly
-  statement-pull sync funcs (`api/connector-router.ts`). NEED per-provider
-  verification with REAL credentials + a live test — some auth/endpoints are likely
-  placeholder (PayPal uses OAuth client-credentials not a bare key; TouchBistro's
-  public REST API is unconfirmed). Work through them ONE AT A TIME with Markie.
+- Wise / Stripe / Square / PayPal / TouchBistro = API-key-paste connectors with monthly
+  statement-pull sync funcs (`api/connector-router.ts`). Square = `syncSquare` (GET
+  /v2/payments, Bearer access token, amounts in cents, cursor-paginated; revenue −
+  processing_fee). NEED per-provider verification with REAL credentials + a live test —
+  some auth/endpoints are likely placeholder (PayPal uses OAuth client-credentials not a
+  bare key; TouchBistro's public REST API is unconfirmed). Work through them ONE AT A
+  TIME with Markie.
 - Dropbox = file storage; connection stored per client, no statements to pull (no-op
   sync). For document access, not statements.
 

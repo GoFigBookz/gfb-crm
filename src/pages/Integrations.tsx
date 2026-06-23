@@ -20,13 +20,14 @@ const providers = [
   { id: "jobber", name: "Jobber", icon: "J", color: "bg-orange-500", scopes: ["Invoices", "Quotes", "Clients", "Visits"], perClient: true },
   { id: "touchbistro", name: "TouchBistro", icon: "TB", color: "bg-rose-600", scopes: ["Sales", "Menu", "Labor", "Reports"], perClient: true },
   { id: "paypal", name: "PayPal", icon: "P", color: "bg-blue-700", scopes: ["Payments", "Invoices", "Transactions", "Statements"], perClient: true },
+  { id: "square", name: "Square", icon: "Sq", color: "bg-slate-800", scopes: ["Payments", "Sales", "Fees", "Payouts"], perClient: true },
   { id: "dropbox", name: "Dropbox", icon: "D", color: "bg-blue-400", scopes: ["Files"], perClient: true },
   { id: "icloud", name: "iCloud", icon: "i", color: "bg-slate-600", scopes: ["Files"] },
 ];
 
 // Per-client integrations that need client context — every client has its OWN login
 // for each of these (a shared login today is just coincidence; new clients differ).
-const PER_CLIENT_PROVIDERS = ["wise", "stripe", "jobber", "touchbistro", "paypal", "dropbox"];
+const PER_CLIENT_PROVIDERS = ["wise", "stripe", "jobber", "touchbistro", "paypal", "square", "dropbox"];
 
 export default function Integrations() {
   const utils = trpc.useUtils();

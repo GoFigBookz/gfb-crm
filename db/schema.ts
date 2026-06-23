@@ -48,7 +48,7 @@ export const connectedAccounts = sqliteTable("connected_accounts", {
   provider: text("provider", { enum: [
     "google", "microsoft", "dropbox", "icloud",
     "quickbooks",
-    "wise", "stripe", "jobber", "touchbistro", "paypal",
+    "wise", "stripe", "jobber", "touchbistro", "paypal", "square",
   ]}).notNull(),
   providerAccountId: text("providerAccountId"),            // OAuth account ID (null for API key connectors)
   accountLabel: text("accountLabel").default("Primary").notNull(),
@@ -1460,7 +1460,7 @@ export const connectorStatements = sqliteTable("connector_statements", {
   clientId: integer("clientId").notNull(),
   userId: integer("userId").notNull(),
   connectedAccountId: integer("connectedAccountId").notNull(),
-  provider: text("provider", { enum: ["wise", "stripe", "jobber", "touchbistro", "paypal"] }).notNull(),
+  provider: text("provider", { enum: ["wise", "stripe", "jobber", "touchbistro", "paypal", "square"] }).notNull(),
 
   // Statement period
   periodStart: integer("periodStart", { mode: "timestamp" }).notNull(),
@@ -1501,7 +1501,7 @@ export const connectorSyncLogs = sqliteTable("connector_sync_logs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   connectedAccountId: integer("connectedAccountId").notNull(),
   clientId: integer("clientId").notNull(),
-  provider: text("provider", { enum: ["wise", "stripe", "jobber", "touchbistro", "paypal"] }).notNull(),
+  provider: text("provider", { enum: ["wise", "stripe", "jobber", "touchbistro", "paypal", "square"] }).notNull(),
 
   syncType: text("syncType", { enum: ["statements", "transactions", "balances", "invoices", "payouts", "all"] }).default("all").notNull(),
   status: text("status", { enum: ["success", "error", "partial"] }).notNull(),
