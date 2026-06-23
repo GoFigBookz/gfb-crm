@@ -64,6 +64,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     { to: "/emails", icon: Mail, label: "Emails" },
     { to: "/messages", icon: MessageSquare, label: "Messages" },
     { to: "/quick-add", icon: Plus, label: "Quick Add" },
+    { to: "/personal", icon: Lock, label: "Personal" },
   ];
 
   // Tools & Compliance.

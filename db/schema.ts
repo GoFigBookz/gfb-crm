@@ -1713,3 +1713,22 @@ export const clientParties = sqliteTable("client_parties", {
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// ========== PERSONAL SPACE (Liv) — WALLED OFF FROM ALL CLIENT DATA ==========
+// Markie's private personal life: tasks, reminders, notes. Scoped strictly to
+// the owning user (userId) and NEVER joined to clients. This is the separate
+// "personal section" Markie asked for — Liv manages it; it must never mix with
+// client work. No clientId column on purpose.
+export const personalItems = sqliteTable("personal_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("userId").notNull(),
+  kind: text("kind", { enum: ["task", "reminder", "note"] }).default("task").notNull(),
+  title: text("title").notNull(),
+  body: text("body"),
+  dueDate: integer("dueDate", { mode: "timestamp" }),
+  priority: text("priority", { enum: ["low", "medium", "high"] }).default("medium").notNull(),
+  done: integer("done", { mode: "boolean" }).default(false).notNull(),
+  doneAt: integer("doneAt", { mode: "timestamp" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
