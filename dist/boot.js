@@ -55342,21 +55342,35 @@ var init_assistant_router = __esm({
           }
         };
         let tier = 0;
+        const sleep = (ms2) => new Promise((r) => setTimeout(r, ms2));
+        const TRANSIENT = /* @__PURE__ */ new Set([429, 500, 502, 503, 529]);
         for (let i = 0; i < 6; i++) {
           const body = { model, max_tokens: 1024, system, messages };
           if (toolTiers[tier]) body.tools = toolTiers[tier];
-          const res = await fetch(ANTHROPIC_URL, {
-            method: "POST",
-            headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify(body)
-          });
-          if (!res.ok) {
-            const b = await res.text().catch(() => "");
-            if (res.status === 400 && tier < toolTiers.length - 1 && /tool/i.test(b)) {
+          let res;
+          let b = "";
+          for (let attempt = 0; attempt < 3; attempt++) {
+            res = await fetch(ANTHROPIC_URL, {
+              method: "POST",
+              headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+              body: JSON.stringify(body)
+            });
+            if (res.ok) break;
+            b = await res.text().catch(() => "");
+            if (TRANSIENT.has(res.status) && attempt < 2) {
+              await sleep(600 * (attempt + 1));
+              continue;
+            }
+            break;
+          }
+          if (!res || !res.ok) {
+            const status = res?.status ?? 0;
+            if (status === 400 && tier < toolTiers.length - 1 && /tool/i.test(b)) {
               tier++;
               continue;
             }
-            return { reply: `Assistant error (${res.status}). ${b.slice(0, 160)}`, actions, agent };
+            const friendly = TRANSIENT.has(status) ? "The AI is briefly overloaded right now \u2014 give it a moment and try again." : "Sorry, I hit a snag answering that. Try again in a sec.";
+            return { reply: friendly, actions, agent };
           }
           const data = await res.json();
           if (data.stop_reason === "tool_use") {
@@ -55379,7 +55393,7 @@ var init_assistant_router = __esm({
             messages.push({ role: "assistant", content: data.content });
             continue;
           }
-          const reply = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
+          const reply = (data.content || []).filter((b2) => b2.type === "text").map((b2) => b2.text).join("\n").trim();
           await saveTurn(reply || "(no reply)");
           return { reply: reply || "(no reply)", actions, agent };
         }
@@ -63458,7 +63472,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.49";
+var BUILD_TAG = "2026-06-23.50";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
