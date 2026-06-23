@@ -13,6 +13,7 @@ const STATUS_META: Record<Status, { icon: typeof CheckCircle2; color: string; bg
 
 export default function SystemHealth() {
   const report = trpc.jinx.runChecks.useQuery(undefined, { refetchOnWindowFocus: false });
+  const scorecard = trpc.jinx.scorecard.useQuery(undefined, { refetchOnWindowFocus: false });
 
   const grouped = useMemo(() => {
     const checks = report.data?.checks ?? [];
@@ -87,6 +88,48 @@ export default function SystemHealth() {
           ))}
         </>
       )}
+
+      {/* Agent scorecard — how often each agent's proposals get accepted. */}
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Agent Scorecard</h2>
+        <p className="text-xs text-muted-foreground -mt-1">
+          How often each agent's proposals are accepted vs. rejected on review — your measurable "are they getting smarter" signal.
+        </p>
+        {scorecard.isLoading && <div className="text-sm text-muted-foreground">Scoring…</div>}
+        {scorecard.data && scorecard.data.agents.length === 0 && (
+          <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+            No reviewed agent work yet — scores appear once agents post proposals and you approve/dismiss them in Triage.
+          </div>
+        )}
+        {scorecard.data && scorecard.data.agents.length > 0 && (
+          <div className="rounded-lg border divide-y">
+            {scorecard.data.agents.map((a) => {
+              const gradeColor =
+                a.grade === "excellent" ? "text-emerald-600" :
+                a.grade === "good" ? "text-lime-600" :
+                a.grade === "watch" ? "text-amber-600" : "text-slate-400";
+              const trendIcon = a.trend === "up" ? "↑" : a.trend === "down" ? "↓" : a.trend === "flat" ? "→" : "";
+              return (
+                <div key={a.agent} className="flex items-center gap-3 p-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">{a.agent}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {a.reviewed} reviewed · {a.approved} accepted · {a.dismissed} rejected{a.pending ? ` · ${a.pending} pending` : ""}
+                      {a.avgConfidence != null ? ` · avg conf ${a.avgConfidence}%` : ""}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className={`text-lg font-bold ${gradeColor}`}>
+                      {a.acceptanceRate != null ? `${a.acceptanceRate}%` : "—"} <span className="text-sm font-normal text-slate-400">{trendIcon}</span>
+                    </div>
+                    <div className={`text-xs capitalize ${gradeColor}`}>{a.grade === "n/a" ? "needs data" : a.grade}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

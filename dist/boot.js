@@ -54528,6 +54528,11 @@ var init_assistant_core = __esm({
         input_schema: { type: "object", properties: {} }
       },
       {
+        name: "agent_scorecard",
+        description: "Jinx's agent scorecard: how often each agent's proposals are accepted vs rejected (accuracy), plus drift trend. Use when Markie asks how the agents/team are doing, who's accurate, or if they're improving.",
+        input_schema: { type: "object", properties: {} }
+      },
+      {
         name: "add_personal",
         description: "Add a PERSONAL item (task, reminder, or note) to Markie's private personal space \u2014 NOT client work. Use this for anything about his own life (errands, appointments, family, reminders). This is Liv's domain.",
         input_schema: {
@@ -54678,10 +54683,95 @@ var init_qa_core = __esm({
   }
 });
 
+// api/scorecard-core.ts
+function toMs(d) {
+  if (d == null) return null;
+  const t2 = d instanceof Date ? d.getTime() : Number(d);
+  return Number.isFinite(t2) ? t2 : null;
+}
+function normConf(c) {
+  if (c == null || !Number.isFinite(c)) return null;
+  return c <= 1 ? Math.round(c * 100) : Math.round(c);
+}
+function gradeFor(acceptance, reviewed) {
+  if (acceptance == null || reviewed < 3) return "n/a";
+  if (acceptance >= 90) return "excellent";
+  if (acceptance >= 75) return "good";
+  return "watch";
+}
+function scoreAgents(rows, now = Date.now()) {
+  const byAgent = /* @__PURE__ */ new Map();
+  for (const r of rows) {
+    const name2 = (r.agentName ?? "").trim() || "Unknown";
+    if (!byAgent.has(name2)) byAgent.set(name2, []);
+    byAgent.get(name2).push(r);
+  }
+  const agents = [];
+  for (const [agent, items] of byAgent) {
+    const approved = items.filter((i) => i.status === "approved").length;
+    const dismissed = items.filter((i) => i.status === "dismissed").length;
+    const pending = items.filter((i) => i.status === "new" || i.status === "awaiting_client").length;
+    const reviewed = approved + dismissed;
+    const acceptanceRate = reviewed ? Math.round(approved / reviewed * 100) : null;
+    const confs = items.map((i) => normConf(i.confidence)).filter((c) => c != null);
+    const avgConfidence = confs.length ? Math.round(confs.reduce((a, b) => a + b, 0) / confs.length) : null;
+    const recent = items.filter((i) => {
+      const t2 = toMs(i.createdAt);
+      return t2 != null && now - t2 <= RECENT_WINDOW_MS;
+    });
+    const prior = items.filter((i) => {
+      const t2 = toMs(i.createdAt);
+      return t2 != null && now - t2 > RECENT_WINDOW_MS;
+    });
+    const rate = (xs) => {
+      const a = xs.filter((i) => i.status === "approved").length;
+      const d = xs.filter((i) => i.status === "dismissed").length;
+      return a + d ? a / (a + d) * 100 : null;
+    };
+    const rRecent = rate(recent), rPrior = rate(prior);
+    let trend = "n/a";
+    if (rRecent != null && rPrior != null) {
+      trend = rRecent > rPrior + 5 ? "up" : rRecent < rPrior - 5 ? "down" : "flat";
+    }
+    agents.push({
+      agent,
+      total: items.length,
+      approved,
+      dismissed,
+      pending,
+      reviewed,
+      acceptanceRate,
+      avgConfidence,
+      trend,
+      grade: gradeFor(acceptanceRate, reviewed)
+    });
+  }
+  agents.sort((a, b) => b.reviewed - a.reviewed || a.agent.localeCompare(b.agent));
+  const totReviewed = agents.reduce((s, a) => s + a.reviewed, 0);
+  const totApproved = agents.reduce((s, a) => s + a.approved, 0);
+  const totPending = agents.reduce((s, a) => s + a.pending, 0);
+  return {
+    agents,
+    overall: {
+      reviewed: totReviewed,
+      acceptanceRate: totReviewed ? Math.round(totApproved / totReviewed * 100) : null,
+      pending: totPending
+    },
+    ts: new Date(now).toISOString()
+  };
+}
+var RECENT_WINDOW_MS;
+var init_scorecard_core = __esm({
+  "api/scorecard-core.ts"() {
+    RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1e3;
+  }
+});
+
 // api/qa-router.ts
 var qa_router_exports = {};
 __export(qa_router_exports, {
   qaRouter: () => qaRouter,
+  runAgentScorecard: () => runAgentScorecard,
   runHealthReport: () => runHealthReport
 });
 async function countTable(db, table) {
@@ -54749,6 +54839,20 @@ async function gatherFacts() {
 async function runHealthReport() {
   return evaluateQa(await gatherFacts());
 }
+async function runAgentScorecard() {
+  const db = getDb();
+  let rows = [];
+  try {
+    rows = await db.select({
+      agentName: triageFindings.agentName,
+      status: triageFindings.status,
+      confidence: triageFindings.confidence,
+      createdAt: triageFindings.createdAt
+    }).from(triageFindings);
+  } catch {
+  }
+  return scoreAgents(rows);
+}
 var TABLES, TRACKED_ENV, qaRouter;
 var init_qa_router = __esm({
   "api/qa-router.ts"() {
@@ -54757,6 +54861,8 @@ var init_qa_router = __esm({
     init_connection();
     init_drizzle_orm();
     init_qa_core();
+    init_schema();
+    init_scorecard_core();
     TABLES = [
       "clients",
       "users",
@@ -54780,6 +54886,10 @@ var init_qa_router = __esm({
       /** Jinx's full health report. Any signed-in staff member can run it. */
       runChecks: authedQuery.query(async () => {
         return runHealthReport();
+      }),
+      /** Jinx's agent scorecard — measurable quality per agent. */
+      scorecard: authedQuery.query(async () => {
+        return runAgentScorecard();
       }),
       /** Lightweight liveness — used by uptime pings / the status dot. */
       ping: authedQuery.input(external_exports.object({}).optional()).query(async () => {
@@ -54928,6 +55038,19 @@ async function execFirmStatus(userId) {
   ];
   return `Firm snapshot: ${parts.join("; ")}.`;
 }
+async function execAgentScorecard() {
+  const { runAgentScorecard: runAgentScorecard2 } = await Promise.resolve().then(() => (init_qa_router(), qa_router_exports));
+  const sc = await runAgentScorecard2();
+  if (!sc.agents.length) return "No agent work has been reviewed yet \u2014 scores show up once agents post proposals and you approve/dismiss them.";
+  const lines = sc.agents.map((a) => {
+    const rate = a.acceptanceRate != null ? `${a.acceptanceRate}%` : "\u2014";
+    const trend = a.trend === "up" ? " \u2191" : a.trend === "down" ? " \u2193" : "";
+    return `${a.agent}: ${rate} accepted (${a.reviewed} reviewed)${trend} \u2014 ${a.grade === "n/a" ? "needs data" : a.grade}`;
+  });
+  const overall = sc.overall.acceptanceRate != null ? `Overall ${sc.overall.acceptanceRate}% accepted across ${sc.overall.reviewed} reviewed.` : "";
+  return `${overall}
+${lines.join("\n")}`.trim();
+}
 async function execSystemHealth() {
   const { runHealthReport: runHealthReport2 } = await Promise.resolve().then(() => (init_qa_router(), qa_router_exports));
   const r = await runHealthReport2();
@@ -54947,6 +55070,7 @@ async function runTool(name2, input, userId) {
     if (name2 === "complete_task") return await execCompleteTask(input, userId);
     if (name2 === "draft_email") return await execDraftEmail(input, userId);
     if (name2 === "system_health") return await execSystemHealth();
+    if (name2 === "agent_scorecard") return await execAgentScorecard();
     if (name2 === "firm_status") return await execFirmStatus(userId);
     return `Unknown tool: ${name2}`;
   } catch (e) {
@@ -62897,7 +63021,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.34";
+var BUILD_TAG = "2026-06-23.35";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
