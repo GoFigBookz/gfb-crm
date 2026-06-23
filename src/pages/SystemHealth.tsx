@@ -14,6 +14,7 @@ const STATUS_META: Record<Status, { icon: typeof CheckCircle2; color: string; bg
 export default function SystemHealth() {
   const report = trpc.jinx.runChecks.useQuery(undefined, { refetchOnWindowFocus: false });
   const scorecard = trpc.jinx.scorecard.useQuery(undefined, { refetchOnWindowFocus: false });
+  const activity = trpc.jinx.activity.useQuery(undefined, { refetchOnWindowFocus: false });
 
   const grouped = useMemo(() => {
     const checks = report.data?.checks ?? [];
@@ -127,6 +128,30 @@ export default function SystemHealth() {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Agent activity — the governed-autonomy audit trail. */}
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Recent Agent Activity</h2>
+        <p className="text-xs text-muted-foreground -mt-1">Every action the agents take is logged here — your audit trail.</p>
+        {activity.data && activity.data.length === 0 && (
+          <div className="rounded-lg border p-4 text-sm text-muted-foreground">No agent actions logged yet.</div>
+        )}
+        {activity.data && activity.data.length > 0 && (
+          <div className="rounded-lg border divide-y">
+            {activity.data.map((a: any) => (
+              <div key={a.id} className="flex items-start gap-3 p-3">
+                <span className="text-xs font-medium text-lime-700 capitalize shrink-0 w-16">{a.agentScope}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm">{a.summary || a.action}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {a.action.replace(/_/g, " ")}{a.createdAt ? ` · ${new Date(a.createdAt).toLocaleString()}` : ""}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

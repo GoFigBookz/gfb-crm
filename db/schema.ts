@@ -1748,3 +1748,20 @@ export const agentLearnings = sqliteTable("agent_learnings", {
   source: text("source").default("markie"),      // markie | correction | confirmed
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// ========== AGENT AUDIT LOG (governed autonomy) ==========
+// Every action an agent takes is recorded here — what, when, which agent, the
+// amount (if any), and whether it was auto-done within policy or escalated to
+// Markie. This is the "humans above the system" audit trail: you set the rules,
+// agents act within them, and every step is inspectable.
+export const agentAuditLog = sqliteTable("agent_audit_log", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("userId").notNull(),
+  agentScope: text("agentScope").default("all").notNull(), // which agent acted
+  action: text("action").notNull(),                        // tool/action name
+  summary: text("summary"),                                // human-readable result
+  amount: real("amount"),                                  // $ involved, if any
+  decision: text("decision").default("done").notNull(),    // done | auto | escalated | blocked
+  clientId: integer("clientId"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
