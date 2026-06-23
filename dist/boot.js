@@ -48502,23 +48502,35 @@ function driveFolderId(urlOrId) {
   if (/^[A-Za-z0-9_-]{20,}$/.test(s)) return s;
   return null;
 }
+async function listFolder(token, folderId) {
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+  const fields = encodeURIComponent("files(id,name,mimeType,modifiedTime)");
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=100&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) throw new Error(`Couldn't open the Drive folder (${res.status}). Reconnect Google in Integrations with Drive access.`);
+  return (await res.json()).files || [];
+}
 async function readNewestTimesheetFromDrive(userId, folderUrlOrId) {
   const folderId = driveFolderId(folderUrlOrId);
   if (!folderId) throw new Error("That client has no Google Drive folder linked \u2014 add the folder URL on the client card.");
   const acct = await googleAccount(userId);
   if (!acct) throw new Error("Google isn't connected. Connect it in Integrations (with Drive access) so I can read the timesheet from Drive.");
   const token = await getValidGoogleAccessToken(acct);
-  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
-  const fields = encodeURIComponent("files(id,name,mimeType,modifiedTime)");
-  const listRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=50&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  if (!listRes.ok) throw new Error(`Couldn't open the Drive folder (${listRes.status}). Reconnect Google in Integrations with Drive access.`);
-  const files2 = (await listRes.json()).files || [];
+  const isFolder = (f) => f.mimeType === "application/vnd.google-apps.folder";
+  const top = await listFolder(token, folderId);
+  const payrollSubs = top.filter((f) => isFolder(f) && /payroll|time\s*sheet|timesheet|hours|pay run/i.test(f.name || ""));
+  let files2 = top.filter((f) => !isFolder(f));
+  for (const sub of payrollSubs.slice(0, 4)) {
+    try {
+      files2 = files2.concat((await listFolder(token, sub.id)).filter((f) => !isFolder(f)));
+    } catch {
+    }
+  }
   const importable = (f) => f.mimeType === "application/pdf" || f.mimeType === "text/csv" || f.mimeType === "text/plain" || (f.mimeType || "").startsWith("image/") || f.mimeType === "application/vnd.google-apps.spreadsheet" || f.mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  const candidates = files2.filter(importable);
-  if (!candidates.length) throw new Error("No timesheet files found in that Drive folder. Save the detailed timesheet (PDF or CSV) into the client's folder first.");
+  const candidates = files2.filter(importable).sort((a, b) => String(b.modifiedTime || "").localeCompare(String(a.modifiedTime || "")));
+  if (!candidates.length) throw new Error("No timesheet files found in that Drive folder (or its Payroll subfolder). Save the detailed timesheet (PDF or CSV) there first.");
   const named = candidates.filter((f) => /time\s*sheet|timesheet|time card|hours/i.test(f.name || ""));
   const pick2 = named[0] || candidates[0];
   if (pick2.mimeType === "application/vnd.google-apps.spreadsheet") {
@@ -63876,7 +63888,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.55";
+var BUILD_TAG = "2026-06-23.57";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
