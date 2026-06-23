@@ -152,16 +152,19 @@ async function syncCalendar(accessToken: string, userId: number, accountId: numb
         .limit(1);
 
       if (existing.length === 0) {
-        const startDate = event.start?.dateTime
-          ? new Date(event.start.dateTime)
-          : event.start?.date
-            ? new Date(event.start.date)
-            : new Date();
-        const endDate = event.end?.dateTime
-          ? new Date(event.end.dateTime)
-          : event.end?.date
-            ? new Date(event.end.date)
-            : new Date();
+        // All-day events are "YYYY-MM-DD" — parse as LOCAL noon so they don't
+        // drift a day (UTC midnight shows on the wrong weekday in Eastern).
+        const gDate = (part: any): Date | null => {
+          if (part?.dateTime) return new Date(part.dateTime);
+          if (!part?.date) return null;
+          const [y, m, d] = String(part.date).split("-").map(Number);
+          return new Date(y, m - 1, d, 12, 0, 0);
+        };
+        const allDay = !event.start?.dateTime;
+        const startDate = gDate(event.start) || new Date();
+        let endDate = gDate(event.end) || startDate;
+        if (allDay && endDate.getTime() > startDate.getTime()) endDate = new Date(endDate.getTime() - 86400000); // Google all-day end is exclusive
+        if (endDate.getTime() < startDate.getTime()) endDate = startDate;
 
         await db.insert(calendarEvents).values({
           userId,
@@ -172,7 +175,7 @@ async function syncCalendar(accessToken: string, userId: number, accountId: numb
           location: event.location || "",
           startDate,
           endDate,
-          isAllDay: !event.start?.dateTime,
+          isAllDay: allDay,
           attendees: JSON.stringify(event.attendees || []),
           status: event.status === "cancelled" ? "cancelled" : "confirmed",
           color: event.colorId || "",

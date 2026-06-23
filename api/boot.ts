@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-23.79";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.80";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -1425,8 +1425,12 @@ async function startServer() {
   const { relinkFindings } = await import("./relink-findings");
   await relinkFindings();
 
-  const { startSyncScheduler } = await import("./sync-scheduler");
-  startSyncScheduler();
+  // Start QBO + GOOGLE auto-sync schedulers. The Google one (every 30 min +
+  // once on boot) pulls Calendar/Tasks/Gmail FROM Google into the CRM — the
+  // inbound half of two-way sync. The outbound half (CRM → Google) is pushed
+  // live from task/calendar create+edit via google-push.ts.
+  const { startAllSchedulers } = await import("./all-sync-scheduler");
+  startAllSchedulers();
 
   // QBO native-token keep-alive: run shortly after boot, then daily. Best-effort
   // and isolated — a refresh failure only flags that one connection for reconnect.

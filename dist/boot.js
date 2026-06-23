@@ -21,11 +21,11 @@ var __export = (target, all) => {
   for (var name2 in all)
     __defProp(target, name2, { get: all[name2], enumerable: true });
 };
-var __copyProps = (to, from, except2, desc7) => {
+var __copyProps = (to, from, except2, desc8) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key) && key !== except2)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc7 = __getOwnPropDesc(from, key)) || desc7.enumerable });
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc8 = __getOwnPropDesc(from, key)) || desc8.enumerable });
   }
   return to;
 };
@@ -214,12 +214,12 @@ var init_getErrorShape_vC8mUXJD = __esm({
     __commonJS2 = (cb, mod) => function() {
       return mod || (0, cb[__getOwnPropNames2(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
     };
-    __copyProps2 = (to, from, except2, desc7) => {
+    __copyProps2 = (to, from, except2, desc8) => {
       if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames2(from), i = 0, n = keys.length, key; i < n; i++) {
         key = keys[i];
         if (!__hasOwnProp2.call(to, key) && key !== except2) __defProp2(to, key, {
           get: ((k) => from[k]).bind(null, key),
-          enumerable: !(desc7 = __getOwnPropDesc2(from, key)) || desc7.enumerable
+          enumerable: !(desc8 = __getOwnPropDesc2(from, key)) || desc8.enumerable
         });
       }
       return to;
@@ -3340,8 +3340,8 @@ var init_schemas = __esm({
     });
     $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
       $ZodType.init(inst, def);
-      const desc7 = Object.getOwnPropertyDescriptor(def, "shape");
-      if (!desc7?.get) {
+      const desc8 = Object.getOwnPropertyDescriptor(def, "shape");
+      if (!desc8?.get) {
         const sh = def.shape;
         Object.defineProperty(def, "shape", {
           get: () => {
@@ -24898,13 +24898,13 @@ var require_dist = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc7 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc7 || ("get" in desc7 ? !m.__esModule : desc7.writable || desc7.configurable)) {
-        desc7 = { enumerable: true, get: function() {
+      var desc8 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc8 || ("get" in desc8 ? !m.__esModule : desc8.writable || desc8.configurable)) {
+        desc8 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc7);
+      Object.defineProperty(o, k2, desc8);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -35143,7 +35143,7 @@ var init_google_tasks_router = __esm({
       ).mutation(async ({ ctx, input }) => {
         const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
         const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-        const { eq: eq3, and: and4, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+        const { eq: eq3, and: and5, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
         const db = getDb2();
         const token2 = await getGoogleToken(ctx.user.id, ctx.db);
         if (!token2) {
@@ -35152,7 +35152,7 @@ var init_google_tasks_router = __esm({
             message: "No Google account connected. Connect Google in Integrations."
           });
         }
-        const where = input.clientId ? and4(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and4(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
+        const where = input.clientId ? and5(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and5(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
         const crmTasks = await db.select().from(tasks5).where(where);
         const results = [];
         for (const task of crmTasks.slice(0, 50)) {
@@ -59899,11 +59899,6 @@ var init_seed_tax_rate_reviews = __esm({
 });
 
 // api/sync-scheduler.ts
-var sync_scheduler_exports = {};
-__export(sync_scheduler_exports, {
-  getSchedulerStatus: () => getSchedulerStatus,
-  startSyncScheduler: () => startSyncScheduler
-});
 function startSyncScheduler() {
   if (schedulerRunning) return;
   schedulerRunning = true;
@@ -59942,9 +59937,6 @@ async function runAutoSync() {
     }
   }
 }
-function getSchedulerStatus() {
-  return { running: schedulerRunning, intervalMs: 6 * 60 * 60 * 1e3 };
-}
 var schedulerRunning;
 var init_sync_scheduler = __esm({
   "api/sync-scheduler.ts"() {
@@ -59952,6 +59944,292 @@ var init_sync_scheduler = __esm({
     init_schema();
     init_drizzle_orm();
     schedulerRunning = false;
+  }
+});
+
+// api/google-sync.ts
+async function refreshGoogleToken(accountId, refreshToken2) {
+  const clientId = process.env.GOOGLE_CLIENT_ID || "";
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
+  try {
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        refresh_token: refreshToken2,
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: "refresh_token"
+      })
+    });
+    const data = await response.json();
+    if (data.access_token) {
+      const db = getDb();
+      await db.update(connectedAccounts).set({
+        accessToken: data.access_token,
+        expiresAt: data.expires_in ? new Date(Date.now() + data.expires_in * 1e3) : null,
+        lastSyncedAt: /* @__PURE__ */ new Date()
+      }).where(eq(connectedAccounts.id, accountId));
+      return data.access_token;
+    }
+  } catch (err) {
+    console.error("[Google Sync] Token refresh failed:", err);
+  }
+  return null;
+}
+async function syncGmail(accessToken, userId, accountId) {
+  try {
+    const response = await fetch(
+      "https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=50&labelIds=INBOX",
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const data = await response.json();
+    if (!data.messages) return 0;
+    const db = getDb();
+    let added = 0;
+    for (const msg of data.messages.slice(0, 10)) {
+      const detailResponse = await fetch(
+        `https://www.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const detail = await detailResponse.json();
+      const headers = detail.payload?.headers || [];
+      const subject = headers.find((h) => h.name === "Subject")?.value || "No Subject";
+      const from = headers.find((h) => h.name === "From")?.value || "";
+      const date5 = headers.find((h) => h.name === "Date")?.value;
+      const existing = await db.select().from(emails).where(eq(emails.gmailMessageId, msg.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(emails).values({
+          userId,
+          connectedAccountId: accountId,
+          gmailMessageId: msg.id,
+          threadId: detail.threadId,
+          subject,
+          from,
+          to: "",
+          body: "",
+          // Would need full fetch for body
+          bodyHtml: "",
+          folder: "inbox",
+          isRead: detail.labelIds?.includes("UNREAD") ? false : true,
+          isStarred: detail.labelIds?.includes("STARRED") || false,
+          receivedAt: date5 ? new Date(date5) : /* @__PURE__ */ new Date(),
+          sentAt: date5 ? new Date(date5) : /* @__PURE__ */ new Date(),
+          hasAttachments: detail.payload?.parts?.some((p) => p.filename) || false,
+          snippet: detail.snippet || ""
+        });
+        added++;
+      }
+    }
+    return added;
+  } catch (err) {
+    console.error("[Google Sync] Gmail sync failed:", err);
+    return 0;
+  }
+}
+async function syncCalendar(accessToken, userId, accountId) {
+  try {
+    const now = /* @__PURE__ */ new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1e3);
+    const thirtyDaysAhead = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
+    const response = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${thirtyDaysAgo.toISOString()}&timeMax=${thirtyDaysAhead.toISOString()}&singleEvents=true&orderBy=startTime`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const data = await response.json();
+    if (!data.items) return 0;
+    const db = getDb();
+    let added = 0;
+    for (const event of data.items) {
+      const existing = await db.select().from(calendarEvents).where(eq(calendarEvents.googleEventId, event.id)).limit(1);
+      if (existing.length === 0) {
+        const gDate = (part) => {
+          if (part?.dateTime) return new Date(part.dateTime);
+          if (!part?.date) return null;
+          const [y, m, d] = String(part.date).split("-").map(Number);
+          return new Date(y, m - 1, d, 12, 0, 0);
+        };
+        const allDay = !event.start?.dateTime;
+        const startDate = gDate(event.start) || /* @__PURE__ */ new Date();
+        let endDate = gDate(event.end) || startDate;
+        if (allDay && endDate.getTime() > startDate.getTime()) endDate = new Date(endDate.getTime() - 864e5);
+        if (endDate.getTime() < startDate.getTime()) endDate = startDate;
+        await db.insert(calendarEvents).values({
+          userId,
+          connectedAccountId: accountId,
+          googleEventId: event.id,
+          title: event.summary || "Untitled Event",
+          description: event.description || "",
+          location: event.location || "",
+          startDate,
+          endDate,
+          isAllDay: allDay,
+          attendees: JSON.stringify(event.attendees || []),
+          status: event.status === "cancelled" ? "cancelled" : "confirmed",
+          color: event.colorId || ""
+        });
+        added++;
+      }
+    }
+    return added;
+  } catch (err) {
+    console.error("[Google Sync] Calendar sync failed:", err);
+    return 0;
+  }
+}
+async function syncTasks(accessToken, userId, accountId) {
+  try {
+    const listsResponse = await fetch(
+      "https://tasks.googleapis.com/tasks/v1/users/@me/lists",
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const listsData = await listsResponse.json();
+    if (!listsData.items) return 0;
+    const db = getDb();
+    let added = 0;
+    for (const list of listsData.items) {
+      const tasksResponse = await fetch(
+        `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const tasksData = await tasksResponse.json();
+      if (!tasksData.items) continue;
+      for (const task of tasksData.items) {
+        const existing = await db.select().from(tasks).where(eq(tasks.title, task.title)).limit(1);
+        if (existing.length === 0) {
+          await db.insert(tasks).values({
+            userId,
+            clientId: null,
+            title: task.title || "Untitled Task",
+            description: task.notes || "",
+            status: task.status === "completed" ? "completed" : "pending",
+            priority: "medium",
+            category: "General",
+            dueDate: task.due ? new Date(task.due) : null,
+            completedAt: task.completed ? new Date(task.completed) : null,
+            isRecurring: false,
+            source: "google-tasks"
+          });
+          added++;
+        }
+      }
+    }
+    return added;
+  } catch (err) {
+    console.error("[Google Sync] Tasks sync failed:", err);
+    return 0;
+  }
+}
+async function syncGoogleAccount(accountId) {
+  const result = { emailsAdded: 0, eventsAdded: 0, tasksAdded: 0, errors: [] };
+  try {
+    const db = getDb();
+    const rows = await db.select().from(connectedAccounts).where(eq(connectedAccounts.id, accountId)).limit(1);
+    const account = rows[0];
+    if (!account || !account.isActive) {
+      result.errors.push("Account not found or inactive");
+      return result;
+    }
+    let accessToken = account.accessToken;
+    if (account.refreshToken && (!account.expiresAt || new Date(account.expiresAt) < /* @__PURE__ */ new Date())) {
+      const newToken = await refreshGoogleToken(accountId, account.refreshToken);
+      if (newToken) {
+        accessToken = newToken;
+      } else {
+        result.errors.push("Token refresh failed");
+        return result;
+      }
+    }
+    const syncEnabled = account.syncEnabled ? JSON.parse(account.syncEnabled) : {};
+    const userId = account.userId;
+    if (syncEnabled.email !== false) {
+      result.emailsAdded = await syncGmail(accessToken, userId, accountId);
+    }
+    if (syncEnabled.calendar !== false) {
+      result.eventsAdded = await syncCalendar(accessToken, userId, accountId);
+    }
+    if (syncEnabled.tasks !== false) {
+      result.tasksAdded = await syncTasks(accessToken, userId, accountId);
+    }
+    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(connectedAccounts.id, accountId));
+  } catch (err) {
+    result.errors.push(String(err));
+    console.error("[Google Sync] Account sync failed:", err);
+  }
+  return result;
+}
+async function syncAllGoogleAccounts() {
+  const db = getDb();
+  const accounts = await db.select().from(connectedAccounts).where(eq(connectedAccounts.provider, "google"));
+  const results = [];
+  for (const account of accounts) {
+    if (account.isActive) {
+      const result = await syncGoogleAccount(account.id);
+      results.push({ accountId: account.id, result });
+    }
+  }
+  return results;
+}
+var init_google_sync = __esm({
+  "api/google-sync.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+  }
+});
+
+// api/all-sync-scheduler.ts
+var all_sync_scheduler_exports = {};
+__export(all_sync_scheduler_exports, {
+  getSchedulerStatus: () => getSchedulerStatus,
+  startAllSchedulers: () => startAllSchedulers
+});
+function startAllSchedulers() {
+  startSyncScheduler();
+  if (googleSyncRunning) return;
+  googleSyncRunning = true;
+  console.log("[GOOGLE SYNC] Auto-sync scheduler started");
+  const THIRTY_MINUTES = 30 * 60 * 1e3;
+  setInterval(async () => {
+    try {
+      await runGoogleSync();
+    } catch (err) {
+      console.error("[GOOGLE SYNC] Auto-sync failed:", err);
+    }
+  }, THIRTY_MINUTES);
+  setTimeout(() => {
+    runGoogleSync().catch((err) => console.error("[GOOGLE SYNC] Initial sync failed:", err));
+  }, 6e4);
+}
+async function runGoogleSync() {
+  console.log("[GOOGLE SYNC] Starting sync for all Google accounts");
+  try {
+    const results = await syncAllGoogleAccounts();
+    for (const { accountId, result } of results) {
+      const total = result.emailsAdded + result.eventsAdded + result.tasksAdded;
+      if (total > 0) {
+        console.log(`[GOOGLE SYNC] Account ${accountId}: +${result.emailsAdded} emails, +${result.eventsAdded} events, +${result.tasksAdded} tasks`);
+      }
+      if (result.errors.length > 0) {
+        console.error(`[GOOGLE SYNC] Account ${accountId} errors:`, result.errors);
+      }
+    }
+  } catch (err) {
+    console.error("[GOOGLE SYNC] Failed:", err);
+  }
+}
+function getSchedulerStatus() {
+  return {
+    qbo: { running: true },
+    google: { running: googleSyncRunning, intervalMs: 30 * 60 * 1e3 }
+  };
+}
+var googleSyncRunning;
+var init_all_sync_scheduler = __esm({
+  "api/all-sync-scheduler.ts"() {
+    init_sync_scheduler();
+    init_google_sync();
+    googleSyncRunning = false;
   }
 });
 
@@ -64269,7 +64547,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.79";
+var BUILD_TAG = "2026-06-23.80";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -65067,11 +65345,11 @@ app.post("/api/admin/figgy", async (c) => {
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       return c.json({ success: true, op, client: {
         name: cl.name,
         hasWSIB: cl.hasWSIB,
@@ -65095,13 +65373,13 @@ app.post("/api/admin/figgy", async (c) => {
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const db = getDb2();
       const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       const scope = buildScopeForClient2(cl, onb);
       const quote = computeQuote2(scope);
       const comparison = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
@@ -65112,7 +65390,7 @@ app.post("/api/admin/figgy", async (c) => {
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -65120,7 +65398,7 @@ app.post("/api/admin/figgy", async (c) => {
       const db = getDb2();
       const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
       const comparison = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
       const qNum = await nextQuoteNumber2(db);
@@ -65141,7 +65419,7 @@ app.post("/api/admin/figgy", async (c) => {
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and5 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -65254,7 +65532,7 @@ app.post("/api/admin/figgy", async (c) => {
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq3(signatureDocuments2.id, docId));
         }
-        const signedCount = (await db.select().from(signatureDocuments2).where(and4(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
+        const signedCount = (await db.select().from(signatureDocuments2).where(and5(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
         steps.push(`signed ${signedCount}/2 documents`);
         await db.update(clients3).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients3.id, cl.id));
         const res = await createClientTaskRules2({
@@ -65294,7 +65572,7 @@ app.post("/api/admin/figgy", async (c) => {
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -65302,7 +65580,7 @@ app.post("/api/admin/figgy", async (c) => {
       const db = getDb2();
       const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
       const content = renderEngagementHtml2({
         firm: getFirmSettings2(),
@@ -65421,7 +65699,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and4, ne: ne4, like: like2 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and5, ne: ne4, like: like2 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const matches = await db.select().from(clients3).where(like2(clients3.name, "%Doc King%"));
       for (const cl of matches) {
@@ -65429,7 +65707,7 @@ async function startServer() {
           await db.update(clients3).set({ clientType: "wholesale" }).where(eq3(clients3.id, cl.id));
         }
         await db.update(clientTaskRules4).set({ active: false }).where(eq3(clientTaskRules4.clientId, cl.id));
-        await db.delete(tasks5).where(and4(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
+        await db.delete(tasks5).where(and5(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
       }
     } catch (e) {
       console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e);
@@ -65437,7 +65715,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and4, like: like2, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and5, like: like2, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
         const matches = await db.select().from(clients3).where(like2(clients3.name, nameLike));
@@ -65488,7 +65766,7 @@ async function startServer() {
       };
       for (const cl of orig) {
         for (const [last, ytd] of Object.entries(origYtd)) {
-          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and4(eq3(employees2.clientId, cl.id), like2(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
+          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and5(eq3(employees2.clientId, cl.id), like2(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
         }
       }
     } catch (e) {
@@ -65628,8 +65906,8 @@ async function startServer() {
   await ensureOAuthColumns2();
   const { relinkFindings: relinkFindings2 } = await Promise.resolve().then(() => (init_relink_findings(), relink_findings_exports));
   await relinkFindings2();
-  const { startSyncScheduler: startSyncScheduler2 } = await Promise.resolve().then(() => (init_sync_scheduler(), sync_scheduler_exports));
-  startSyncScheduler2();
+  const { startAllSchedulers: startAllSchedulers2 } = await Promise.resolve().then(() => (init_all_sync_scheduler(), all_sync_scheduler_exports));
+  startAllSchedulers2();
   setTimeout(() => {
     keepAliveNativeConnections2().catch(() => {
     });
