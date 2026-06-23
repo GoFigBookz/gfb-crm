@@ -54122,11 +54122,14 @@ var init_assistant_core = __esm({
       "You are Figgy, the assistant for Markie's bookkeeping practice (Go Fig Bookz).",
       "Markie is often on his phone or driving \u2014 be BRIEF and direct. Short sentences, no fluff, no preamble.",
       "You are a GENERAL assistant \u2014 like a normal AI chat \u2014 AND you can act on his practice.",
-      "Things you can do for the practice:",
+      "Things you can DO for the practice (use the tools \u2014 don't just describe, actually do it):",
       "1) Add a task \u2014 call add_task with the FULL natural-language request (include the client name, the action, and any due date/priority Markie said).",
       "2) Report his agenda \u2014 call get_agenda when he asks what's on his plate / today / this week / if he's behind.",
       "3) Add a personal item \u2014 call add_personal for anything about his own life (errands, appointments, reminders).",
-      "4) Check system health \u2014 call system_health if he asks whether the app is working.",
+      "4) Schedule an event \u2014 call schedule_event to put something on his calendar.",
+      "5) Complete a task \u2014 call complete_task when he says a task is done / finished / handled.",
+      "6) Firm status \u2014 call firm_status for what needs review / what's open across clients.",
+      "7) Check system health \u2014 call system_health if he asks whether the app is working.",
       "GENERAL QUESTIONS: answer anything else like a helpful AI assistant \u2014 facts, how-tos, drafting, math, advice.",
       "Use the web_search tool whenever the answer needs CURRENT or LOCAL info: weather, news, prices, store/where-to-buy, hours, sports, or anything that changes over time. Then answer in one or two short lines with the key facts (don't dump links).",
       "After a tool runs, confirm in one short line. Never invent client names or data; if you're unsure of a fact, search or say so."
@@ -54199,6 +54202,29 @@ var init_assistant_core = __esm({
         input_schema: {
           type: "object",
           properties: { range: { type: "string", enum: ["today", "week", "overdue", "all"], description: "Time window; defaults to today + overdue." } }
+        }
+      },
+      {
+        name: "schedule_event",
+        description: "Put something on Markie's calendar (an actual event). Give a title and the start as ISO 8601 \u2014 use the current date/time you were given to resolve 'tomorrow 2pm', 'Friday', etc. Optional durationMinutes (default 60) or allDay.",
+        input_schema: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            start: { type: "string", description: "ISO 8601 start, e.g. 2026-06-24T14:00:00" },
+            durationMinutes: { type: "number" },
+            allDay: { type: "boolean" }
+          },
+          required: ["title", "start"]
+        }
+      },
+      {
+        name: "complete_task",
+        description: "Mark one of Markie's OPEN tasks as done. Pass `match` = words from the task's title. If several match you'll get the list back to confirm which.",
+        input_schema: {
+          type: "object",
+          properties: { match: { type: "string", description: "Words from the task title to find it." } },
+          required: ["match"]
         }
       },
       {
@@ -54541,6 +54567,31 @@ async function execAddPersonal(input, userId) {
   const when = dueDate ? ` (due ${dueDate.toLocaleDateString(void 0, { month: "short", day: "numeric" })})` : "";
   return `Added to your personal space: "${title}"${when}.`;
 }
+async function execScheduleEvent(input, userId) {
+  const title = String(input?.title ?? "").trim();
+  if (!title) return "What should I call the event?";
+  const start = new Date(input?.start);
+  if (isNaN(start.getTime())) return "I couldn't read that date/time \u2014 give me the day and time again.";
+  const allDay = !!input?.allDay;
+  const dur = Number(input?.durationMinutes) || 60;
+  const end = allDay ? new Date(start.getTime() + 864e5) : new Date(start.getTime() + dur * 6e4);
+  const db = getDb();
+  await db.insert(calendarEvents).values({ userId, title, startDate: start, endDate: end, isAllDay: allDay, status: "confirmed" });
+  const when = allDay ? start.toLocaleDateString("en-CA", { timeZone: TZ, weekday: "short", month: "short", day: "numeric" }) : start.toLocaleString("en-CA", { timeZone: TZ, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  return `Added to your calendar: "${title}" \u2014 ${when}.`;
+}
+async function execCompleteTask(input, userId) {
+  const m = String(input?.match ?? "").trim().toLowerCase();
+  if (!m) return "Which task should I mark done?";
+  const db = getDb();
+  const open = await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.completed, false)));
+  const hits = open.filter((t3) => String(t3.title ?? "").toLowerCase().includes(m));
+  if (!hits.length) return `I don't see an open task matching "${input.match}".`;
+  if (hits.length > 1) return `A few match \u2014 which one? ${hits.slice(0, 5).map((h) => `"${h.title}"`).join(", ")}.`;
+  const t2 = hits[0];
+  await db.update(tasks).set({ completed: true, status: "completed", stage: "done", completedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
+  return `Done \u2014 marked "${t2.title}" complete.`;
+}
 async function execFirmStatus(userId) {
   const db = getDb();
   const cls = await db.select({ id: clients.id, status: clients.status }).from(clients);
@@ -54574,6 +54625,8 @@ async function runTool(name2, input, userId) {
     if (name2 === "add_task") return await execAddTask(String(input?.text ?? ""), userId);
     if (name2 === "get_agenda") return await execGetAgenda(userId);
     if (name2 === "add_personal") return await execAddPersonal(input, userId);
+    if (name2 === "schedule_event") return await execScheduleEvent(input, userId);
+    if (name2 === "complete_task") return await execCompleteTask(input, userId);
     if (name2 === "system_health") return await execSystemHealth();
     if (name2 === "firm_status") return await execFirmStatus(userId);
     return `Unknown tool: ${name2}`;
@@ -54581,7 +54634,7 @@ async function runTool(name2, input, userId) {
     return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
   }
 }
-var ANTHROPIC_URL, assistantRouter;
+var TZ, ANTHROPIC_URL, assistantRouter;
 var init_assistant_router = __esm({
   "api/assistant-router.ts"() {
     init_zod();
@@ -54591,6 +54644,7 @@ var init_assistant_router = __esm({
     init_drizzle_orm();
     init_task_command_core();
     init_assistant_core();
+    TZ = "America/Toronto";
     ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
     assistantRouter = createRouter({
       ask: authedQuery.input(external_exports.object({
@@ -54632,7 +54686,7 @@ ${locLine}`;
             for (const block of data.content || []) {
               if (block.type === "tool_use") {
                 const out = await runTool(block.name, block.input, ctx.user.id);
-                if (block.name === "add_task" || block.name === "add_personal") actions.push(out);
+                if (["add_task", "add_personal", "schedule_event", "complete_task"].includes(block.name)) actions.push(out);
                 results.push({ type: "tool_result", tool_use_id: block.id, content: out });
               }
             }
@@ -62513,7 +62567,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.27";
+var BUILD_TAG = "2026-06-23.28";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

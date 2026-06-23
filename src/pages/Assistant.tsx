@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Bot, Send, Mic, Sparkles, MapPin, MapPinOff } from "lucide-react";
+import { Bot, Send, Mic, Sparkles, MapPin, MapPinOff, Volume2, VolumeX, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/providers/trpc";
@@ -31,10 +31,16 @@ export default function Assistant() {
   const [input, setInput] = useState("");
   const [agent, setAgent] = useState<AgentKey>("liv");
   const [locStatus, setLocStatus] = useState<"unknown" | "on" | "off">("unknown");
+  const [speakOn, setSpeakOn] = useState(false);   // read replies aloud
+  const [handsFree, setHandsFree] = useState(false); // continuous talk-back-and-forth
+  const [listening, setListening] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const handsFreeRef = useRef(false);
   const ask = trpc.assistant.ask.useMutation();
   const utils = trpc.useUtils();
   const active = ROSTER.find((r) => r.key === agent)!;
+  useEffect(() => { handsFreeRef.current = handsFree; }, [handsFree]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, ask.isPending]);
 
@@ -71,6 +77,54 @@ export default function Assistant() {
       );
     });
 
+  // Speak a reply aloud (Siri-style). In hands-free mode, re-open the mic once
+  // the agent finishes talking so it's a continuous back-and-forth.
+  const speak = (text: string) => {
+    const synth = (window as any).speechSynthesis;
+    if (!synth || (!speakOn && !handsFreeRef.current)) return;
+    try {
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(text.replace(/[*_#`]/g, ""));
+      u.lang = "en-US";
+      u.rate = 1.02;
+      u.onend = () => { if (handsFreeRef.current) startListening(); };
+      synth.speak(u);
+    } catch { /* TTS unavailable — silent */ }
+  };
+
+  const startListening = () => {
+    const SR = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    if (!SR) { alert("Voice input isn't supported in this browser."); return; }
+    if (recognitionRef.current) return; // already listening
+    const rec = new SR();
+    rec.lang = "en-US";
+    rec.interimResults = false;
+    rec.onresult = (e: any) => {
+      const t = e.results[0][0].transcript;
+      setInput(t);
+      send(t);
+    };
+    rec.onend = () => { recognitionRef.current = null; setListening(false); };
+    rec.onerror = () => { recognitionRef.current = null; setListening(false); };
+    recognitionRef.current = rec;
+    setListening(true);
+    rec.start();
+  };
+
+  const stopVoice = () => {
+    try { (window as any).speechSynthesis?.cancel(); } catch { /* noop */ }
+    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    recognitionRef.current = null;
+    setListening(false);
+  };
+
+  const toggleHandsFree = () => {
+    if (handsFree) { setHandsFree(false); stopVoice(); }
+    else { setHandsFree(true); setSpeakOn(true); startListening(); }
+  };
+
+  useEffect(() => () => stopVoice(), []); // cleanup on unmount
+
   const send = async (text: string) => {
     const msg = text.trim();
     if (!msg || ask.isPending) return;
@@ -83,19 +137,16 @@ export default function Assistant() {
       const r = await ask.mutateAsync({ message: msg, history, agent, location });
       if (r.agent) setAgent(r.agent as AgentKey);
       setMessages((m) => [...m, { role: "assistant", content: r.reply }]);
-      if (r.actions?.length) { utils.task.list.invalidate(); }
+      if (r.actions?.length) { utils.task.list.invalidate(); utils.calendar?.list?.invalidate?.(); }
+      speak(r.reply);
     } catch (e: any) {
       setMessages((m) => [...m, { role: "assistant", content: `⚠️ ${e?.message || "Something went wrong."}` }]);
     }
   };
 
   const micDictate = () => {
-    const SR = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-    if (!SR) { alert("Voice input isn't supported in this browser."); return; }
-    const rec = new SR();
-    rec.lang = "en-US";
-    rec.onresult = (e: any) => setInput(e.results[0][0].transcript);
-    rec.start();
+    if (listening) { stopVoice(); return; }
+    startListening();
   };
 
   return (
@@ -162,8 +213,23 @@ export default function Assistant() {
         <div ref={endRef} />
       </div>
 
+      {handsFree && (
+        <div className="flex items-center justify-center gap-2 text-xs text-lime-700 pb-1">
+          <Radio className="h-3.5 w-3.5 animate-pulse" />
+          {listening ? "Listening… just talk" : ask.isPending ? `${active.name} is thinking…` : `${active.name} is speaking…`}
+          <button onClick={toggleHandsFree} className="underline">stop</button>
+        </div>
+      )}
       <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="flex items-center gap-2 pt-2 border-t">
-        <Button type="button" variant="outline" size="icon" onClick={micDictate} title="Speak"><Mic className="h-4 w-4" /></Button>
+        <Button type="button" variant={listening ? "default" : "outline"} size="icon" onClick={micDictate} title="Tap to speak" className={listening ? "bg-red-500 hover:bg-red-600" : ""}>
+          <Mic className="h-4 w-4" />
+        </Button>
+        <Button type="button" variant={speakOn ? "default" : "outline"} size="icon" onClick={() => { if (speakOn) stopVoice(); setSpeakOn(!speakOn); }} title={speakOn ? "Voice replies on" : "Voice replies off"} className={speakOn ? "bg-lime-600" : ""}>
+          {speakOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+        </Button>
+        <Button type="button" variant={handsFree ? "default" : "outline"} size="icon" onClick={toggleHandsFree} title="Hands-free conversation" className={handsFree ? "bg-lime-600" : ""}>
+          <Radio className="h-4 w-4" />
+        </Button>
         <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder={`Message ${active.name}…`} className="flex-1" autoFocus />
         <Button type="submit" disabled={!input.trim() || ask.isPending} className="bg-lime-600"><Send className="h-4 w-4" /></Button>
       </form>

@@ -11,11 +11,14 @@ export const ASSISTANT_SYSTEM = [
   "You are Figgy, the assistant for Markie's bookkeeping practice (Go Fig Bookz).",
   "Markie is often on his phone or driving — be BRIEF and direct. Short sentences, no fluff, no preamble.",
   "You are a GENERAL assistant — like a normal AI chat — AND you can act on his practice.",
-  "Things you can do for the practice:",
+  "Things you can DO for the practice (use the tools — don't just describe, actually do it):",
   "1) Add a task — call add_task with the FULL natural-language request (include the client name, the action, and any due date/priority Markie said).",
   "2) Report his agenda — call get_agenda when he asks what's on his plate / today / this week / if he's behind.",
   "3) Add a personal item — call add_personal for anything about his own life (errands, appointments, reminders).",
-  "4) Check system health — call system_health if he asks whether the app is working.",
+  "4) Schedule an event — call schedule_event to put something on his calendar.",
+  "5) Complete a task — call complete_task when he says a task is done / finished / handled.",
+  "6) Firm status — call firm_status for what needs review / what's open across clients.",
+  "7) Check system health — call system_health if he asks whether the app is working.",
   "GENERAL QUESTIONS: answer anything else like a helpful AI assistant — facts, how-tos, drafting, math, advice.",
   "Use the web_search tool whenever the answer needs CURRENT or LOCAL info: weather, news, prices, store/where-to-buy, hours, sports, or anything that changes over time. Then answer in one or two short lines with the key facts (don't dump links).",
   "After a tool runs, confirm in one short line. Never invent client names or data; if you're unsure of a fact, search or say so.",
@@ -143,6 +146,29 @@ export const ASSISTANT_TOOLS = [
     input_schema: {
       type: "object",
       properties: { range: { type: "string", enum: ["today", "week", "overdue", "all"], description: "Time window; defaults to today + overdue." } },
+    },
+  },
+  {
+    name: "schedule_event",
+    description: "Put something on Markie's calendar (an actual event). Give a title and the start as ISO 8601 — use the current date/time you were given to resolve 'tomorrow 2pm', 'Friday', etc. Optional durationMinutes (default 60) or allDay.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        start: { type: "string", description: "ISO 8601 start, e.g. 2026-06-24T14:00:00" },
+        durationMinutes: { type: "number" },
+        allDay: { type: "boolean" },
+      },
+      required: ["title", "start"],
+    },
+  },
+  {
+    name: "complete_task",
+    description: "Mark one of Markie's OPEN tasks as done. Pass `match` = words from the task's title. If several match you'll get the list back to confirm which.",
+    input_schema: {
+      type: "object",
+      properties: { match: { type: "string", description: "Words from the task title to find it." } },
+      required: ["match"],
     },
   },
   {
