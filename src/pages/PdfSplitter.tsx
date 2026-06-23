@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Upload, FileText, Download, Trash2, Scissors, AlertCircle, Plus, FileStack } from "lucide-react";
+import { Upload, FileText, Download, Trash2, Scissors, AlertCircle, Plus, FileStack, FolderInput } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { PDFDocument } from "pdf-lib";
 import JSZip from "jszip";
 
-type Doc = { startPage: number; endPage: number; type: string; date: string; name: string };
+type Doc = { startPage: number; endPage: number; type: string; folder: string; date: string; name: string };
 
 /** Filesystem-safe filename (no path separators / illegal chars). */
 function safeName(s: string): string {
@@ -119,7 +119,7 @@ export default function PdfSplitter() {
 
   const setDoc = (i: number, patch: Partial<Doc>) => setDocs((d) => d ? d.map((x, j) => j === i ? { ...x, ...patch } : x) : d);
   const removeDoc = (i: number) => setDocs((d) => d ? d.filter((_, j) => j !== i) : d);
-  const addDoc = () => setDocs((d) => [...(d || []), { startPage: 1, endPage: 1, type: "other", date: "", name: "Document" }]);
+  const addDoc = () => setDocs((d) => [...(d || []), { startPage: 1, endPage: 1, type: "other", folder: "", date: "", name: "Document" }]);
 
   const splitAndDownload = async () => {
     if (!buffer || !docs) return;
@@ -138,11 +138,14 @@ export default function PdfSplitter() {
         const copied = await out.copyPages(src, indices);
         copied.forEach((pg) => out.addPage(pg));
         const bytes = await out.save();
-        let fname = safeName(d.name);
-        let n = fname; let k = 2;
-        while (used.has(n.toLowerCase())) { n = `${fname} (${k++})`; }
-        used.add(n.toLowerCase());
-        zip.file(`${n}.pdf`, bytes);
+        const fname = safeName(d.name);
+        const folder = (d.folder || "").replace(/[\\/:*?"<>|]+/g, "").trim();
+        // Dedupe within the destination folder (keeps the Assets/Donations layout clean).
+        let path = folder ? `${folder}/${fname}` : fname;
+        let k = 2;
+        while (used.has(path.toLowerCase())) { path = folder ? `${folder}/${fname} (${k++})` : `${fname} (${k++})`; }
+        used.add(path.toLowerCase());
+        zip.file(`${path}.pdf`, bytes);
       }
       const blob = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(blob);
@@ -230,8 +233,12 @@ export default function PdfSplitter() {
               )}
               {docs.map((d, i) => (
                 <div key={i} className="flex flex-wrap items-center gap-2 p-2 rounded-lg border hover:bg-slate-50">
-                  <Badge variant="outline" className="text-xs capitalize">{d.type}</Badge>
-                  <Input value={d.name} onChange={(e) => setDoc(i, { name: e.target.value })} className="h-8 flex-1 min-w-[220px]" placeholder="File name" />
+                  <Badge variant="outline" className="text-xs capitalize">{d.type.replace(/_/g, " ")}</Badge>
+                  <Input value={d.name} onChange={(e) => setDoc(i, { name: e.target.value })} className="h-8 flex-1 min-w-[200px]" placeholder="File name" />
+                  <div className="flex items-center gap-1 text-xs text-slate-500" title="Subfolder inside the ZIP">
+                    <FolderInput className="h-3.5 w-3.5 text-slate-400" />
+                    <Input value={d.folder} onChange={(e) => setDoc(i, { folder: e.target.value })} className="h-8 w-28" placeholder="(folder)" />
+                  </div>
                   <div className="flex items-center gap-1 text-xs text-slate-500">
                     pages
                     <Input type="number" min={1} max={pageCount} value={d.startPage} onChange={(e) => setDoc(i, { startPage: Number(e.target.value) })} className="h-8 w-16 text-center" />

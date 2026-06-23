@@ -16,18 +16,21 @@
 import { z } from "zod";
 import { createRouter, staffQuery } from "./middleware";
 
-export type SplitDoc = { startPage: number; endPage: number; type: string; name: string; date: string };
+export type SplitDoc = { startPage: number; endPage: number; type: string; folder: string; name: string; date: string };
 
 const SYSTEM = [
-  "You split a SCANNED BATCH PDF (many separate documents stacked into one file) into its individual documents.",
+  "You split a SCANNED BATCH PDF (many separate documents stacked into one file) into its individual documents. We KEEP the original scanned pages — never flatten to text.",
   "Return ONLY valid JSON, no prose, no code fences, EXACTLY:",
-  `{"documents":[{"startPage":1,"endPage":2,"type":"<bank statement|invoice|receipt|tax|contract|asset|other>","date":"YYYY-MM-DD or empty","name":"<clean filename, no extension>"}]}`,
+  `{"documents":[{"startPage":1,"endPage":2,"type":"asset_loan|donation|bank_statement|invoice|receipt|tax|contract|other","folder":"Assets|Donations|","date":"YYYY-MM-DD or empty","name":"<clean filename, no extension>"}]}`,
   "Rules:",
   "- Pages are 1-indexed. Ranges are inclusive and must cover the document fully; a document can be 1 or many pages.",
-  "- Documents must NOT overlap and should be in page order. Together they should cover the whole file (don't drop pages — if a page is blank/separator, attach it to the document it belongs with or its own 'other').",
-  "- type: best single category from the list.",
-  "- date: the document's own date (statement period end, invoice date, etc.) as YYYY-MM-DD; empty if none.",
-  "- name: a clear, file-safe name like '2026-05-31 RBC Chequing Statement' or '2026-04-12 Invoice Home Depot' or '2026 Vehicle Purchase Agreement'. Put the date first when known. No slashes or special characters.",
+  "- Documents must NOT overlap and should be in page order. Together they cover the whole file (don't drop pages).",
+  "- date: the document's own date (statement period end, invoice/receipt date, etc.) as YYYY-MM-DD; empty if none.",
+  "- NAME each document by its category, EXACTLY in these formats (no extension, no slashes or special characters):",
+  "  * asset_loan (vehicle/equipment purchase agreement, loan/financing agreement): \"<loan or account # if shown> - <asset name>\"  e.g. \"2152 - Ford F-450\", \"2164 - GEHL V275 Skid Steer\". If NO account number is visible, use just \"<asset name>\". Set folder = \"Assets\".",
+  "  * donation (donation receipt/slip): \"<YYYY-MM-DD> - <payee/charity name> - Donation $<amount>\"  e.g. \"2025-10-03 - Delia Social Cultural Centre - Donation $1000\". Set folder = \"Donations\".",
+  "  * everything else: \"<YYYY-MM-DD> - <payee or short description> - <document type>\"  e.g. \"2026-05-31 - RBC - Chequing Statement\". Set folder = \"\" (empty).",
+  "- Extract the loan/account number and asset name from the document text when present.",
 ].join("\n");
 
 function extractJson(text: string): any | null {
@@ -87,6 +90,7 @@ export const pdfSplitterRouter = createRouter({
             startPage: Math.max(1, parseInt(String(d?.startPage)) || 1),
             endPage: Math.max(1, parseInt(String(d?.endPage)) || 1),
             type: String(d?.type ?? "other").trim() || "other",
+            folder: String(d?.folder ?? "").trim().replace(/[\\/:*?"<>|]+/g, ""),
             date: String(d?.date ?? "").trim(),
             name: String(d?.name ?? "").trim() || "Document",
           }))
