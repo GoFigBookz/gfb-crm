@@ -38,6 +38,19 @@ PULLING DATA:
 - Year-end: 1120/1120-S (corporate), 1040 + Schedule C (personal/sole prop); 1099-NEC for contractors (≈ Canada's T4A).
 - Terminology in this CRM: for US clients show "Sales Tax" (not HST), suppress WSIB/EHT/CRA-specific items.
 
+REPORTS API MODERNIZATION (Intuit, effective 2026): the QBO Reports API is moving
+to a modernized backend in phases — Group 1 (ProfitAndLoss, BalanceSheet, CashFlow,
+TrialBalance, GeneralLedger-adjacent, TransactionList, TransactionListByVendor,
+ARAgingSummary, AccountListDetail, JournalReport) ramps from Jul 1 2026 → 100% by
+Jul 16; Group 2 (GeneralLedger, P&L Detail, AP/AR aging detail, SalesByCustomer/
+Product/Class/Department, VendorExpenses, inventory/customer/vendor balances) Jul 13
+→ Jul 22. Default switches automatically (no action needed). Opt in early with the
+'testing_migration' query param; confirm via the 'v3modernResponse=true' response
+header. EXCEPTION: TaxSummary is NOT modernized yet — do not pass testing_migration
+on it. ACTION FOR US: when we pull reports (we use TransactionList / TransactionList-
+ByVendor for vendor coding), validate parsing against the modernized response shape;
+field names/structure can shift, so don't hard-assume column order — read by name.
+
 GOLDEN RULES (always): nothing posts to QBO without Markie's review; verify every change against LIVE QBO before reporting done; per-client isolation (each call's realmId is fixed); the Sanity Guard stays on.`.trim();
 
 /** Short pointer for agents who don't post to the books. */
