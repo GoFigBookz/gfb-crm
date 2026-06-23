@@ -1732,3 +1732,19 @@ export const personalItems = sqliteTable("personal_items", {
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// ========== AGENT LEARNINGS (the shared learning loop) ==========
+// Confirmed lessons that teach the agents over time — a correction or a "remember
+// this" becomes a durable note that gets injected into the agents' context on
+// future work. Per-client when clientId is set (never cross-pollinated); firm-wide
+// when null. scope = which agent it's for ("all" = the whole team).
+export const agentLearnings = sqliteTable("agent_learnings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("userId").notNull(),
+  clientId: integer("clientId"),                 // null = firm-wide
+  scope: text("scope").default("all").notNull(), // agent key (fig/sage/…) or "all"
+  lesson: text("lesson").notNull(),
+  tags: text("tags"),
+  source: text("source").default("markie"),      // markie | correction | confirmed
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

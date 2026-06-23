@@ -22320,6 +22320,7 @@ var init_sqlite_core = __esm({
 // db/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
+  agentLearnings: () => agentLearnings,
   aiAgentConfigs: () => aiAgentConfigs,
   aiAgentRuns: () => aiAgentRuns,
   appSettings: () => appSettings,
@@ -22387,7 +22388,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems;
+var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23978,6 +23979,19 @@ var init_schema = __esm({
       doneAt: integer2("doneAt", { mode: "timestamp" }),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    agentLearnings = sqliteTable("agent_learnings", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      userId: integer2("userId").notNull(),
+      clientId: integer2("clientId"),
+      // null = firm-wide
+      scope: text("scope").default("all").notNull(),
+      // agent key (fig/sage/…) or "all"
+      lesson: text("lesson").notNull(),
+      tags: text("tags"),
+      source: text("source").default("markie"),
+      // markie | correction | confirmed
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
   }
 });
@@ -54078,6 +54092,28 @@ var init_pdf_splitter_router = __esm({
   }
 });
 
+// api/learning-core.ts
+function ms(d) {
+  if (d == null) return 0;
+  const t2 = d instanceof Date ? d.getTime() : Number(d);
+  return Number.isFinite(t2) ? t2 : 0;
+}
+function selectRelevant(all, agent, limit = 15) {
+  return all.filter((l) => l.scope === agent || l.scope === "all").sort((a, b) => ms(b.createdAt) - ms(a.createdAt)).slice(0, limit);
+}
+function formatLessonsBlock(lessons) {
+  if (!lessons.length) return "";
+  const lines = lessons.map((l) => `- ${l.lesson}${l.clientName ? ` [${l.clientName}]` : ""}`);
+  return [
+    "=== REMEMBERED (confirmed by Markie \u2014 apply these, they override defaults) ===",
+    ...lines
+  ].join("\n");
+}
+var init_learning_core = __esm({
+  "api/learning-core.ts"() {
+  }
+});
+
 // api/skills/common.ts
 var COMMON_STANDARDS;
 var init_common3 = __esm({
@@ -54502,6 +54538,18 @@ var init_assistant_core = __esm({
           type: "object",
           properties: { match: { type: "string", description: "Words from the task title to find it." } },
           required: ["match"]
+        }
+      },
+      {
+        name: "remember",
+        description: "Save a lasting lesson/preference Markie teaches or confirms (e.g. a coding rule, how he likes something done, a client quirk). It will be applied on future work. Set scope to the agent it's for (fig/sage/wren/liv/tess/jade/skye/jinx) or 'all'.",
+        input_schema: {
+          type: "object",
+          properties: {
+            lesson: { type: "string", description: "The lesson, stated as a durable instruction." },
+            scope: { type: "string", description: "Agent key it applies to, or 'all'." }
+          },
+          required: ["lesson"]
         }
       },
       {
@@ -54967,6 +55015,14 @@ async function execAddPersonal(input, userId) {
   const when = dueDate ? ` (due ${dueDate.toLocaleDateString(void 0, { month: "short", day: "numeric" })})` : "";
   return `Added to your personal space: "${title}"${when}.`;
 }
+async function execRemember(input, userId) {
+  const lesson = String(input?.lesson ?? "").trim();
+  if (!lesson) return "What should I remember?";
+  const scope = String(input?.scope ?? "all").trim().toLowerCase() || "all";
+  const db = getDb();
+  await db.insert(agentLearnings).values({ userId, scope, lesson, source: "markie" });
+  return `Got it \u2014 I'll remember that${scope !== "all" ? ` for ${scope}` : ""}: "${lesson}".`;
+}
 async function execDraftEmail(input, userId) {
   const to = extractEmail(String(input?.to ?? ""));
   if (!to) return "Who's it going to? I need the recipient's email address.";
@@ -55069,6 +55125,7 @@ async function runTool(name2, input, userId) {
     if (name2 === "schedule_event") return await execScheduleEvent(input, userId);
     if (name2 === "complete_task") return await execCompleteTask(input, userId);
     if (name2 === "draft_email") return await execDraftEmail(input, userId);
+    if (name2 === "remember") return await execRemember(input, userId);
     if (name2 === "system_health") return await execSystemHealth();
     if (name2 === "agent_scorecard") return await execAgentScorecard();
     if (name2 === "firm_status") return await execFirmStatus(userId);
@@ -55087,6 +55144,7 @@ var init_assistant_router = __esm({
     init_drizzle_orm();
     init_google_token();
     init_email_core();
+    init_learning_core();
     init_task_command_core();
     init_assistant_core();
     TZ = "America/Toronto";
@@ -55104,9 +55162,14 @@ var init_assistant_router = __esm({
         const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
         const nowLine = `Current date & time: ${(/* @__PURE__ */ new Date()).toLocaleString("en-CA", { timeZone: "America/Toronto", dateStyle: "full", timeStyle: "short" })} (America/Toronto).`;
         const locLine = input.location ? `Markie's CURRENT location (live from his device \u2014 he travels, so this is where he is right now): latitude ${input.location.lat}, longitude ${input.location.lon}${input.location.label ? ` (${input.location.label})` : ""}. Use it for "near me"/local questions (weather, stores, hours) \u2014 search around this spot.` : `Markie travels and his location is UNKNOWN right now. If a question needs where he is ("near me", local weather/stores/hours), briefly ASK what city he's in before answering \u2014 do NOT assume a town.`;
-        const system = `${frontDeskSystem(agent)}
-${nowLine}
-${locLine}`;
+        let lessonsBlock = "";
+        try {
+          const db = getDb();
+          const rows = await db.select({ scope: agentLearnings.scope, lesson: agentLearnings.lesson, createdAt: agentLearnings.createdAt }).from(agentLearnings).where(eq(agentLearnings.userId, ctx.user.id)).orderBy(desc(agentLearnings.createdAt)).limit(100);
+          lessonsBlock = formatLessonsBlock(selectRelevant(rows, agent));
+        } catch {
+        }
+        const system = [frontDeskSystem(agent), nowLine, locLine, lessonsBlock].filter(Boolean).join("\n");
         const webSearch = process.env.FIGGY_WEB_SEARCH === "off" ? [] : [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }];
         const tools = [...ASSISTANT_TOOLS, ...webSearch];
         const messages = [
@@ -55206,6 +55269,50 @@ var init_personal_router = __esm({
       remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
         await db.delete(personalItems).where(and(eq(personalItems.id, input.id), eq(personalItems.userId, ctx.user.id)));
+        return { ok: true };
+      })
+    });
+  }
+});
+
+// api/learning-router.ts
+var learningRouter;
+var init_learning_router = __esm({
+  "api/learning-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    learningRouter = createRouter({
+      list: authedQuery.input(external_exports.object({ clientId: external_exports.number().nullable().optional(), scope: external_exports.string().optional() }).optional()).query(async ({ ctx, input }) => {
+        const db = getDb();
+        const conds = [eq(agentLearnings.userId, ctx.user.id)];
+        if (input?.clientId != null) conds.push(eq(agentLearnings.clientId, input.clientId));
+        if (input?.scope) conds.push(eq(agentLearnings.scope, input.scope));
+        return db.select().from(agentLearnings).where(and(...conds)).orderBy(desc(agentLearnings.createdAt));
+      }),
+      add: authedQuery.input(external_exports.object({
+        lesson: external_exports.string().min(1).max(1e3),
+        scope: external_exports.string().max(40).default("all"),
+        clientId: external_exports.number().nullable().optional(),
+        tags: external_exports.string().max(200).optional(),
+        source: external_exports.string().max(40).default("markie")
+      })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        await db.insert(agentLearnings).values({
+          userId: ctx.user.id,
+          clientId: input.clientId ?? null,
+          scope: input.scope || "all",
+          lesson: input.lesson,
+          tags: input.tags ?? null,
+          source: input.source || "markie"
+        });
+        return { ok: true };
+      }),
+      remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        await db.delete(agentLearnings).where(and(eq(agentLearnings.id, input.id), eq(agentLearnings.userId, ctx.user.id)));
         return { ok: true };
       })
     });
@@ -55476,6 +55583,7 @@ var init_router = __esm({
     init_assistant_router();
     init_qa_router();
     init_personal_router();
+    init_learning_router();
     init_public_router();
     init_middleware();
     appRouter = createRouter({
@@ -55538,7 +55646,8 @@ var init_router = __esm({
       pdfSplitter: pdfSplitterRouter,
       assistant: assistantRouter,
       jinx: qaRouter,
-      personal: personalRouter
+      personal: personalRouter,
+      learning: learningRouter
     });
   }
 });
@@ -58105,6 +58214,35 @@ async function ensurePersonalSchema() {
 }
 var init_ensure_personal_schema = __esm({
   "api/ensure-personal-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/ensure-learning-schema.ts
+var ensure_learning_schema_exports = {};
+__export(ensure_learning_schema_exports, {
+  ensureLearningSchema: () => ensureLearningSchema
+});
+async function ensureLearningSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS agent_learnings (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      clientId integer,
+      scope text DEFAULT 'all' NOT NULL,
+      lesson text NOT NULL,
+      tags text,
+      source text DEFAULT 'markie',
+      createdAt integer
+    )`);
+  } catch (e) {
+    console.error("[learning] ensure agent_learnings failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_learning_schema = __esm({
+  "api/ensure-learning-schema.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -61475,12 +61613,12 @@ function makeAsyncResource(thing, dispose) {
   return it;
 }
 var disposablePromiseTimerResult = /* @__PURE__ */ Symbol();
-function timerResource(ms) {
+function timerResource(ms2) {
   let timer = null;
   return makeResource({ start() {
     if (timer) throw new Error("Timer already started");
     const promise2 = new Promise((resolve) => {
-      timer = setTimeout(() => resolve(disposablePromiseTimerResult), ms);
+      timer = setTimeout(() => resolve(disposablePromiseTimerResult), ms2);
     });
     return promise2;
   } }, () => {
@@ -63021,7 +63159,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.36";
+var BUILD_TAG = "2026-06-23.37";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -63945,6 +64083,8 @@ async function startServer() {
     await ensureRbacSchema2();
     const { ensurePersonalSchema: ensurePersonalSchema2 } = await Promise.resolve().then(() => (init_ensure_personal_schema(), ensure_personal_schema_exports));
     await ensurePersonalSchema2();
+    const { ensureLearningSchema: ensureLearningSchema2 } = await Promise.resolve().then(() => (init_ensure_learning_schema(), ensure_learning_schema_exports));
+    await ensureLearningSchema2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));

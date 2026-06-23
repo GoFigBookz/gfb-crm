@@ -61,7 +61,7 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-const BUILD_TAG = "2026-06-23.36";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.37";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -975,6 +975,8 @@ async function startServer() {
     await ensureRbacSchema();
     const { ensurePersonalSchema } = await import("./ensure-personal-schema");
     await ensurePersonalSchema();
+    const { ensureLearningSchema } = await import("./ensure-learning-schema");
+    await ensureLearningSchema();
     // Repair legacy date rows stored in MILLISECONDS in a seconds column (they
     // render as year ~58000). Anything above year-2100-in-seconds is really ms → ÷1000.
     try {
