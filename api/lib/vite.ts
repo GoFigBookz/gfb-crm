@@ -34,6 +34,13 @@ export function serveStaticFiles(app: any) {
   }));
   app.use("/.well-known/*", serveStatic({ root: distPath }));
 
+  // PWA icons by EXACT path — the /*.png glob does NOT reliably match here and
+  // was falling through to the SPA fallback (serving index.html as the icon),
+  // which made Chrome see invalid icons → no "Install". Exact mounts work.
+  for (const f of ["/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/icon.svg", "/logo.jpg"]) {
+    app.use(f, serveStatic({ root: distPath }));
+  }
+
   // SPA fallback: serve index.html for all non-API routes. Served with
   // no-cache so every deploy's fresh asset hashes are picked up immediately —
   // this is what prevents the "white screen after deploy" cache trap.

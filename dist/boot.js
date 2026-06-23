@@ -57778,6 +57778,9 @@ function serveStaticFiles(app2) {
     onFound: (_p, c) => c.header("Content-Type", "application/manifest+json")
   }));
   app2.use("/.well-known/*", serveStatic({ root: distPath }));
+  for (const f of ["/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/icon.svg", "/logo.jpg"]) {
+    app2.use(f, serveStatic({ root: distPath }));
+  }
   app2.get("/*", async (c, next) => {
     const pathname = c.req.path;
     if (pathname.startsWith("/api/")) return next();
@@ -63278,7 +63281,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.40";
+var BUILD_TAG = "2026-06-23.41";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
