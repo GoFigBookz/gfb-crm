@@ -6,9 +6,36 @@
 import { z } from "zod";
 import { createRouter, publicQuery, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { triageFindings, notifications, clients } from "../db/schema";
+import { triageFindings, notifications, clients, agentLearnings } from "../db/schema";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { learnFromApprovals } from "./vendor-learning";
+
+/** Map a finding's free-text agentName to a roster scope key (else "all"). */
+function scopeFromAgentName(name: string | null | undefined): string {
+  const n = (name ?? "").toLowerCase();
+  for (const k of ["fig", "sage", "wren", "liv", "jinx", "tess", "jade", "skye"]) if (n.includes(k)) return k;
+  if (n.includes("figgy") || n.includes("bookkeep")) return "fig";
+  return "all";
+}
+
+/** When Markie leaves a note on a review, capture it as a durable lesson so the
+ *  agents apply it next time (the general learning loop closing on corrections). */
+async function captureReviewLearning(db: ReturnType<typeof getDb>, ids: number[], action: string, notes?: string) {
+  const lesson = (notes ?? "").trim();
+  if (!lesson) return;
+  try {
+    const rows = (await db.select().from(triageFindings).where(inArray(triageFindings.id, ids))) as any[];
+    for (const f of rows) {
+      await db.insert(agentLearnings).values({
+        userId: 1,
+        clientId: f.clientId ?? null,
+        scope: scopeFromAgentName(f.agentName),
+        lesson: `${action === "dismiss" ? "When this comes up, " : ""}${lesson}${f.title ? ` (re: ${f.title})` : ""}`,
+        source: "correction",
+      } as any);
+    }
+  } catch { /* best-effort — never block the review */ }
+}
 
 /** Stamp an explicit human account override into a finding's sourceData so the
  *  learning loop (and the card) reflect Markie's correction, not Figgy's guess. */
@@ -150,6 +177,8 @@ export const agentWebhookRouter = createRouter({
           await learnFromApprovals([input.id]);
         } catch { /* learning is best-effort — never block the approve */ }
       }
+      // Any review note (approve OR dismiss) teaches the general learning loop.
+      await captureReviewLearning(db, [input.id], input.action, input.notes);
       return { success: true };
     }),
 
@@ -175,6 +204,7 @@ export const agentWebhookRouter = createRouter({
         try { learned = (await learnFromApprovals(input.ids)).learned; }
         catch { /* best-effort — never block the batch approve */ }
       }
+      await captureReviewLearning(db, input.ids, input.action, input.notes);
       return { success: true, updated: input.ids.length, learned };
     }),
 
