@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-23.73";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.74";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -125,13 +125,34 @@ app.get("/api/oauth/google/debug", async (c) => {
             apiProbe[label] = { status: r.status, ok: r.ok, body: r.ok ? `ok (${body.length} bytes)` : body.slice(0, 200) };
           } catch (e) { apiProbe[label] = { error: e instanceof Error ? e.message : String(e) }; }
         };
-        await probe("calendar", "https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=1");
+        await probe("calendar", "https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=10&timeMin=2026-06-01T00:00:00Z&timeMax=2026-08-01T00:00:00Z&singleEvents=true");
         await probe("tasks", "https://tasks.googleapis.com/tasks/v1/users/@me/lists");
         await probe("drive", "https://www.googleapis.com/drive/v3/files?pageSize=1");
         await probe("gmail", "https://gmail.googleapis.com/gmail/v1/users/me/profile");
+        // How many events did Google actually return to the CRM token?
+        try {
+          const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=50&timeMin=2026-06-01T00:00:00Z&timeMax=2026-08-01T00:00:00Z&singleEvents=true", { headers: { Authorization: `Bearer ${tok}` } });
+          const j: any = await r.json();
+          apiProbe.calendarEventsReturnedByGoogle = Array.isArray(j.items) ? j.items.length : 0;
+        } catch { /* ignore */ }
       }
     }
   } catch (e) { apiProbe = { error: e instanceof Error ? e.message : String(e) }; }
+
+  // Raw DB state — are events/tasks actually stored, and under which users?
+  let dbCounts: any = null;
+  try {
+    const db = getDb();
+    const one = async (sql: string) => { const r: any = await db.run({ sql, args: [] } as any); const rows = r?.rows ?? r ?? []; return rows[0] ? (rows[0].n ?? Object.values(rows[0])[0]) : 0; };
+    const rowsOf = async (sql: string) => { const r: any = await db.run({ sql, args: [] } as any); return r?.rows ?? r ?? []; };
+    dbCounts = {
+      calendarEvents: await one("SELECT COUNT(*) n FROM calendar_events"),
+      tasksTotal: await one("SELECT COUNT(*) n FROM tasks"),
+      tasksWithDueIncomplete: await one("SELECT COUNT(*) n FROM tasks WHERE dueDate IS NOT NULL AND (completed IS NULL OR completed=0)"),
+      taskUserIds: await rowsOf("SELECT userId, COUNT(*) n FROM tasks GROUP BY userId"),
+      users: await rowsOf("SELECT id, email, role FROM users"),
+    };
+  } catch (e) { dbCounts = { error: e instanceof Error ? e.message : String(e) }; }
 
   return c.json({
     build: BUILD_TAG,
@@ -142,6 +163,7 @@ app.get("/api/oauth/google/debug", async (c) => {
     hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
     firmGoogle,
     apiProbe,
+    dbCounts,
     lastConnectAttempt: lastGoogleOAuth,
     note: "apiProbe shows the CRM calling Google with its own token. 403 = Workspace blocks the app (mark Trusted in Admin). 401/invalid = token. ok = it works.",
   });

@@ -64200,7 +64200,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.73";
+var BUILD_TAG = "2026-06-23.74";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64268,14 +64268,42 @@ app.get("/api/oauth/google/debug", async (c) => {
             apiProbe[label] = { error: e instanceof Error ? e.message : String(e) };
           }
         };
-        await probe("calendar", "https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=1");
+        await probe("calendar", "https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=10&timeMin=2026-06-01T00:00:00Z&timeMax=2026-08-01T00:00:00Z&singleEvents=true");
         await probe("tasks", "https://tasks.googleapis.com/tasks/v1/users/@me/lists");
         await probe("drive", "https://www.googleapis.com/drive/v3/files?pageSize=1");
         await probe("gmail", "https://gmail.googleapis.com/gmail/v1/users/me/profile");
+        try {
+          const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=50&timeMin=2026-06-01T00:00:00Z&timeMax=2026-08-01T00:00:00Z&singleEvents=true", { headers: { Authorization: `Bearer ${tok}` } });
+          const j = await r.json();
+          apiProbe.calendarEventsReturnedByGoogle = Array.isArray(j.items) ? j.items.length : 0;
+        } catch {
+        }
       }
     }
   } catch (e) {
     apiProbe = { error: e instanceof Error ? e.message : String(e) };
+  }
+  let dbCounts = null;
+  try {
+    const db = getDb();
+    const one = async (sql4) => {
+      const r = await db.run({ sql: sql4, args: [] });
+      const rows = r?.rows ?? r ?? [];
+      return rows[0] ? rows[0].n ?? Object.values(rows[0])[0] : 0;
+    };
+    const rowsOf = async (sql4) => {
+      const r = await db.run({ sql: sql4, args: [] });
+      return r?.rows ?? r ?? [];
+    };
+    dbCounts = {
+      calendarEvents: await one("SELECT COUNT(*) n FROM calendar_events"),
+      tasksTotal: await one("SELECT COUNT(*) n FROM tasks"),
+      tasksWithDueIncomplete: await one("SELECT COUNT(*) n FROM tasks WHERE dueDate IS NOT NULL AND (completed IS NULL OR completed=0)"),
+      taskUserIds: await rowsOf("SELECT userId, COUNT(*) n FROM tasks GROUP BY userId"),
+      users: await rowsOf("SELECT id, email, role FROM users")
+    };
+  } catch (e) {
+    dbCounts = { error: e instanceof Error ? e.message : String(e) };
   }
   return c.json({
     build: BUILD_TAG,
@@ -64286,6 +64314,7 @@ app.get("/api/oauth/google/debug", async (c) => {
     hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
     firmGoogle,
     apiProbe,
+    dbCounts,
     lastConnectAttempt: lastGoogleOAuth,
     note: "apiProbe shows the CRM calling Google with its own token. 403 = Workspace blocks the app (mark Trusted in Admin). 401/invalid = token. ok = it works."
   });
