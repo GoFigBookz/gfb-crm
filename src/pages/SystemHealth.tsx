@@ -12,7 +12,7 @@ const STATUS_META: Record<Status, { icon: typeof CheckCircle2; color: string; bg
 };
 
 export default function SystemHealth() {
-  const report = trpc.gage.runChecks.useQuery(undefined, { refetchOnWindowFocus: false });
+  const report = trpc.jinx.runChecks.useQuery(undefined, { refetchOnWindowFocus: false });
 
   const grouped = useMemo(() => {
     const checks = report.data?.checks ?? [];
@@ -35,7 +35,7 @@ export default function SystemHealth() {
             <ShieldCheck className="w-6 h-6 text-slate-700" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold">Gage — System Health</h1>
+            <h1 className="text-xl font-semibold">Jinx — System Health</h1>
             <p className="text-sm text-muted-foreground">Your QA watchdog. Checks the app is actually working.</p>
           </div>
         </div>

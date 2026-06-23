@@ -1,11 +1,11 @@
 /**
  * GAGE ROUTER — the QA/watchdog agent's live health check.
  * =============================================================================
- * Gage gathers raw facts from the running system (DB reachable, key tables +
+ * Jinx gathers raw facts from the running system (DB reachable, key tables +
  * row counts, which env keys are set, QBO/connector health, recent sync errors)
  * and hands them to the pure evaluator in qa-core. The result is a graded
  * report (ok/warn/fail) Markie can glance at instead of living in Claude.
- * Read-only — Gage never changes data, it only inspects.
+ * Read-only — Jinx never changes data, it only inspects.
  * =============================================================================
  */
 import { z } from "zod";
@@ -104,13 +104,13 @@ async function gatherFacts(): Promise<QaFacts> {
   return { dbReachable, dbError, tableCounts, env, qbo, connectorCount, recentSyncErrors };
 }
 
-/** Run the full health report (reusable — also called by Gage in the chatbot). */
+/** Run the full health report (reusable — also called by Jinx in the chatbot). */
 export async function runHealthReport() {
   return evaluateQa(await gatherFacts());
 }
 
 export const qaRouter = createRouter({
-  /** Gage's full health report. Any signed-in staff member can run it. */
+  /** Jinx's full health report. Any signed-in staff member can run it. */
   runChecks: authedQuery.query(async () => {
     return runHealthReport();
   }),
