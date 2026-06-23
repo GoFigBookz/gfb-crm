@@ -11,11 +11,11 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
-interface SidebarProps { collapsed: boolean; onToggle: () => void; }
+interface SidebarProps { collapsed: boolean; onToggle: () => void; mobileOpen?: boolean; onMobileClose?: () => void; }
 
 type SectionKey = "work" | "clients" | "payroll" | "comms" | "tools" | "insights" | "admin";
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose }: SidebarProps) {
   const { user, can } = useAuth();
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     work: false,
@@ -101,6 +101,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     <NavLink
       to={to}
       end={end}
+      onClick={() => onMobileClose?.()}
       className={({ isActive }) =>
         cn(
           "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200",
@@ -148,8 +149,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   };
 
   return (
+    <>
+    {/* Mobile backdrop — tap to close the drawer. */}
+    {mobileOpen && (
+      <div className="fixed inset-0 bg-black/40 z-40 md:hidden" onClick={() => onMobileClose?.()} />
+    )}
     <aside className={cn(
-      "bg-slate-900 text-white flex flex-col transition-all duration-300 ease-in-out h-screen",
+      "bg-slate-900 text-white flex flex-col transition-transform duration-300 ease-in-out h-screen z-50",
+      // Desktop: in-flow column. Mobile: fixed drawer that slides in/out.
+      "fixed inset-y-0 left-0 md:static md:translate-x-0",
+      mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
       collapsed ? "w-16" : "w-56"
     )}>
       {/* Logo */}
@@ -206,5 +215,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </div>
       </div>
     </aside>
+    </>
   );
 }
