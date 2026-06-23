@@ -35125,6 +35125,26 @@ function matchClientId(addresses, byAddr) {
 function base64url3(s) {
   return Buffer.from(s, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
+function replyDraftSystem(styleSamples) {
+  const samples = styleSamples.filter(Boolean).slice(0, 5).map((s, i) => `--- Example ${i + 1} ---
+${s.slice(0, 800)}`).join("\n\n");
+  return [
+    "You are Liv, drafting an email reply ON BEHALF OF Markie (Go Fig Bookz, a bookkeeping firm).",
+    "Write a reply to the client email the user gives you. Match MARKIE'S OWN TONE from the writing samples below \u2014 his greeting style, sign-off, warmth, and brevity. Be helpful, professional, and concise.",
+    "Output ONLY the reply body text (no subject line, no quoted original, no preamble like 'Here is a draft'). It's a DRAFT Markie will review before sending.",
+    samples ? `
+MARKIE'S WRITING SAMPLES:
+${samples}` : "\n(No samples available yet \u2014 use a warm, concise, professional bookkeeper's tone.)"
+  ].join("\n");
+}
+function taskSuggestSystem() {
+  return [
+    "You read a client email and decide if it implies a task for the bookkeeper.",
+    'Return ONLY JSON: {"task": "<short imperative task title, or empty if none>", "due": "YYYY-MM-DD or empty"}.',
+    "Task only if the email asks for or requires an action (send a report, file something, answer a question, fix an issue). Greetings/FYIs/thank-yous \u2192 empty task.",
+    "Keep the title short and action-first, e.g. 'Send May bank statements' or 'Confirm HST filing date'."
+  ].join("\n");
+}
 function buildRawMessage(opts) {
   const from = opts.fromName ? `${opts.fromName} <${opts.fromEmail}>` : opts.fromEmail;
   const lines = [
@@ -42564,6 +42584,19 @@ var init_integration_router = __esm({
 
 // api/email-router.ts
 import { randomUUID } from "crypto";
+async function callClaude(system, userText, maxTokens = 700) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("Email AI needs ANTHROPIC_API_KEY set on the server.");
+  const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: "user", content: userText }] })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`Claude error ${res.status}: ${JSON.stringify(data).slice(0, 160)}`);
+  return (data?.content ?? []).filter((b) => b?.type === "text").map((b) => b.text).join("\n").trim();
+}
 async function providerSend(account, msg) {
   if (account.provider === "google") {
     const token = await getValidGoogleAccessToken(account);
@@ -42598,6 +42631,7 @@ var init_email_router = __esm({
     init_drizzle_orm();
     init_email_core();
     init_google_token();
+    init_schema();
     emailRouter = createRouter({
       // List emails (inbox or sent)
       list: authedQuery.input(external_exports.object({
@@ -42812,6 +42846,57 @@ var init_email_router = __esm({
           sentAt: /* @__PURE__ */ new Date()
         }).returning();
         return { success: true, email: email3 };
+      }),
+      // Liv: draft a reply in Markie's tone (learned from his own recent sent emails).
+      // Returns a DRAFT only — Markie reviews/edits, then sends via `reply`.
+      draftReply: authedQuery.input(external_exports.object({ emailId: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const orig = (await db.select().from(emails).where(and(eq(emails.id, input.emailId), eq(emails.userId, ctx.user.id))).limit(1))[0];
+        if (!orig) throw new Error("Email not found");
+        const sent = await db.select().from(emails).where(and(eq(emails.userId, ctx.user.id), eq(emails.isSent, true))).orderBy(desc(emails.sentAt)).limit(5);
+        const samples = sent.map((e) => e.bodyPlain || (e.body || "").replace(/<[^>]*>/g, " ")).filter(Boolean);
+        const userText = `Client email to reply to:
+From: ${orig.fromName || orig.fromAddress}
+Subject: ${orig.subject || ""}
+
+${orig.bodyPlain || (orig.body || "").replace(/<[^>]*>/g, " ")}`;
+        const draft = await callClaude(replyDraftSystem(samples), userText, 800);
+        return { draft };
+      }),
+      // Liv: suggest a task from an inbound client email (optionally create it).
+      suggestTask: authedQuery.input(external_exports.object({ emailId: external_exports.number(), create: external_exports.boolean().optional() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const e = (await db.select().from(emails).where(and(eq(emails.id, input.emailId), eq(emails.userId, ctx.user.id))).limit(1))[0];
+        if (!e) throw new Error("Email not found");
+        const userText = `From: ${e.fromName || e.fromAddress}
+Subject: ${e.subject || ""}
+
+${e.bodyPlain || (e.body || "").replace(/<[^>]*>/g, " ")}`;
+        const raw2 = await callClaude(taskSuggestSystem(), userText, 200);
+        let parsed = {};
+        try {
+          const m = raw2.match(/\{[\s\S]*\}/);
+          parsed = m ? JSON.parse(m[0]) : {};
+        } catch {
+          parsed = {};
+        }
+        const title = String(parsed.task || "").trim();
+        const due = String(parsed.due || "").trim();
+        if (!title) return { task: "", created: false };
+        let created = false;
+        if (input.create) {
+          await db.insert(tasks).values({
+            userId: ctx.user.id,
+            clientId: e.clientId,
+            title,
+            dueDate: due ? new Date(due) : null,
+            priority: "medium",
+            status: "pending",
+            completed: false
+          });
+          created = true;
+        }
+        return { task: title, due, created };
       }),
       // Get email stats
       stats: authedQuery.query(async ({ ctx }) => {
@@ -61802,7 +61887,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.14";
+var BUILD_TAG = "2026-06-23.15";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

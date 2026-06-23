@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractEmail, splitAddresses, matchClientId, buildRawMessage } from "./email-core";
+import { extractEmail, splitAddresses, matchClientId, buildRawMessage, replyDraftSystem, taskSuggestSystem } from "./email-core";
 
 describe("extractEmail", () => {
   it("pulls the address out of a display-name header", () => {
@@ -28,6 +28,24 @@ describe("matchClientId", () => {
   it("returns null when nothing matches (so non-client mail is skipped)", () => {
     expect(matchClientId(["random@gmail.com"], byAddr)).toBeNull();
     expect(matchClientId([], byAddr)).toBeNull();
+  });
+});
+
+describe("replyDraftSystem", () => {
+  it("embeds Markie's writing samples + draft-only instruction", () => {
+    const sys = replyDraftSystem(["Hey! Thanks, I'll get that over Friday. — Markie", "All set on my end, cheers"]);
+    expect(sys).toContain("MARKIE'S WRITING SAMPLES");
+    expect(sys).toContain("Thanks, I'll get that over Friday");
+    expect(sys.toLowerCase()).toContain("draft");
+  });
+  it("handles no samples gracefully", () => {
+    expect(replyDraftSystem([])).toContain("No samples available");
+  });
+});
+
+describe("taskSuggestSystem", () => {
+  it("asks for strict JSON", () => {
+    expect(taskSuggestSystem()).toContain('{"task"');
   });
 });
 
