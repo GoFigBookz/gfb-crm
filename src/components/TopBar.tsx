@@ -1,20 +1,25 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { Bell, Search, LogOut } from "lucide-react";
+import { Bell, Search, LogOut, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 
 interface TopBarProps {
   sidebarCollapsed: boolean;
+  onMenu?: () => void;
 }
 
-export function TopBar({}: TopBarProps) {
+export function TopBar({ onMenu }: TopBarProps) {
   const { logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6">
-      <div className="flex items-center gap-4 flex-1">
+    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-3 md:px-6">
+      <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+        {/* Hamburger — opens the nav drawer on phones. */}
+        <button onClick={() => onMenu?.()} className="md:hidden p-2 rounded-lg hover:bg-slate-100 shrink-0" aria-label="Menu">
+          <Menu className="h-5 w-5 text-slate-700" />
+        </button>
         <div className="relative max-w-md w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input

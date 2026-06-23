@@ -9,6 +9,7 @@ export function AppLayout() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const isDemoMode = localStorage.getItem('demo-mode') === 'true';
 
   useEffect(() => {
@@ -34,10 +35,15 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar sidebarCollapsed={sidebarCollapsed} />
-        <main className="flex-1 overflow-auto p-6">
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+      />
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <TopBar sidebarCollapsed={sidebarCollapsed} onMenu={() => setMobileOpen(true)} />
+        <main className="flex-1 overflow-auto p-3 md:p-6">
           {isDemoMode && (
             <div className="mb-4 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
               <div className="flex items-center gap-2 text-amber-700 text-sm">
