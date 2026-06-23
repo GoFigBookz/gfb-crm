@@ -6,7 +6,7 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { tasks, calendarEvents, clients, personalItems } from "../db/schema";
+import { tasks, calendarEvents, clients, personalItems, triageFindings } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { parseTaskCommand } from "./task-command-core";
 import { ASSISTANT_TOOLS, formatAgenda, detectAgent, frontDeskSystem, AGENT_ROSTER, type AgentKey } from "./assistant-core";
@@ -69,6 +69,29 @@ async function execAddPersonal(input: any, userId: number): Promise<string> {
   return `Added to your personal space: "${title}"${when}.`;
 }
 
+async function execFirmStatus(userId: number): Promise<string> {
+  const db = getDb();
+  // Active clients.
+  const cls = (await db.select({ id: clients.id, status: clients.status }).from(clients)) as any[];
+  const activeClients = cls.filter((c) => (c.status ?? "active") === "active").length;
+  // Open + overdue tasks (Markie's).
+  const open = (await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.completed, false)))) as any[];
+  const now = Date.now();
+  const overdue = open.filter((t) => t.dueDate && new Date(t.dueDate).getTime() < now).length;
+  // Triage findings waiting for review (status "new"), by severity.
+  const findings = (await db.select({ severity: triageFindings.severity, status: triageFindings.status }).from(triageFindings)) as any[];
+  const pending = findings.filter((f) => f.status === "new");
+  const crit = pending.filter((f) => f.severity === "critical").length;
+  const warn = pending.filter((f) => f.severity === "warning").length;
+
+  const parts = [
+    `${activeClients} active client${activeClients === 1 ? "" : "s"}`,
+    `${open.length} open task${open.length === 1 ? "" : "s"}${overdue ? ` (${overdue} overdue)` : ""}`,
+    `${pending.length} item${pending.length === 1 ? "" : "s"} awaiting review${pending.length ? ` — ${crit} critical, ${warn} warnings` : ""}`,
+  ];
+  return `Firm snapshot: ${parts.join("; ")}.`;
+}
+
 async function execSystemHealth(): Promise<string> {
   const { runHealthReport } = await import("./qa-router");
   const r = await runHealthReport();
@@ -87,6 +110,7 @@ async function runTool(name: string, input: any, userId: number): Promise<string
     if (name === "get_agenda") return await execGetAgenda(userId);
     if (name === "add_personal") return await execAddPersonal(input, userId);
     if (name === "system_health") return await execSystemHealth();
+    if (name === "firm_status") return await execFirmStatus(userId);
     return `Unknown tool: ${name}`;
   } catch (e) {
     return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
