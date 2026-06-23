@@ -98,7 +98,7 @@ export const assistantRouter = createRouter({
     .input(z.object({
       message: z.string().min(1).max(2000),
       history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })).max(20).optional(),
-      agent: z.enum(["fig", "sage", "wren", "liv", "jinx"]).optional(),
+      agent: z.enum(["fig", "sage", "wren", "liv", "jinx", "tess", "jade", "skye"]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const apiKey = process.env.ANTHROPIC_API_KEY;

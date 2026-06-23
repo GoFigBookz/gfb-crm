@@ -54025,11 +54025,13 @@ var init_pdf_splitter_router = __esm({
 function detectAgent(message2, current) {
   const m = (message2 || "").toLowerCase().trimStart();
   for (const key of Object.keys(AGENT_ROSTER)) {
-    const n = key;
-    const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${n}\\b`);
+    const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${key}\\b`);
     if (re.test(m)) return key;
   }
-  return current ?? "fig";
+  for (const rule of TOPIC_RULES) {
+    if (rule.re.test(m)) return rule.agent;
+  }
+  return current ?? "liv";
 }
 function frontDeskSystem(agent) {
   const a = AGENT_ROSTER[agent];
@@ -54038,7 +54040,7 @@ function frontDeskSystem(agent) {
     ASSISTANT_SYSTEM,
     "",
     `RIGHT NOW you are answering as ${a.name}. ${a.persona}`,
-    `Open with your name if it's the first reply in this thread, e.g. "${a.name} here \u2014".`,
+    `Markie's question was routed to you because it's in your area, even if he didn't name you. Open with your name so he knows who picked it up, e.g. "${a.name} here \u2014".`,
     `Your teammates: ${team}. If a request really belongs to a teammate, say who should take it (e.g. "I'll flag Sage to prep the HST"), then still help as much as you can. Markie can switch to anyone by saying "Hey <name>".`,
     "You can still add tasks and report the agenda for Markie regardless of which agent you are."
   ].join("\n");
@@ -54056,7 +54058,7 @@ function formatAgenda(a) {
   if (!parts.length) return "You're all clear \u2014 nothing overdue, due today, or on the calendar.";
   return parts.join("\n\n");
 }
-var ASSISTANT_SYSTEM, AGENT_ROSTER, ASSISTANT_TOOLS;
+var ASSISTANT_SYSTEM, AGENT_ROSTER, TOPIC_RULES, ASSISTANT_TOOLS;
 var init_assistant_core = __esm({
   "api/assistant-core.ts"() {
     ASSISTANT_SYSTEM = [
@@ -54097,8 +54099,33 @@ var init_assistant_core = __esm({
         name: "Jinx",
         role: "QA / IT watchdog",
         persona: "You are Jinx, the QA/IT watchdog \u2014 you make sure the app actually works (database, data, integrations, config, core flows). Plain-spoken; you report status and flag problems. Read-only."
+      },
+      tess: {
+        name: "Tess",
+        role: "tax specialist",
+        persona: "You are Tess, the tax specialist (Canadian) \u2014 corporate (T2) and personal (T1) tax, HST/GST returns, year-end tax, instalments, CRA. Precise and conservative; you prepare for Markie's sign-off and never file."
+      },
+      jade: {
+        name: "Jade",
+        role: "fractional CFO",
+        persona: "You are Jade, the fractional CFO \u2014 forward-looking finance: cash-flow forecasting, profitability and margins, KPIs, budget-vs-actual, ways to run leaner or grow revenue. Strategic and concrete; quantify impact, never fabricate figures."
+      },
+      skye: {
+        name: "Skye",
+        role: "social / marketing",
+        persona: "You are Skye, social/marketing \u2014 content calendar, on-brand posts (LinkedIn/Facebook/Instagram), repurposing wins and tips, scheduling and growing the audience. Warm, plain-language, never spammy."
       }
     };
+    TOPIC_RULES = [
+      { agent: "jinx", re: /\b(system health|is .*(working|broken|down)|app (is )?(down|broken|not working|slow)|not loading|outage|crash|deploy(ed|ment)?|bug|errors?)\b/ },
+      { agent: "skye", re: /\b(social media|social post|linkedin|instagram|facebook|tiktok|content calendar|marketing|hashtags?|campaign|captions?|newsletter)\b/ },
+      { agent: "jade", re: /\b(cash ?flow|forecast|profit(ability)?|margins?|kpis?|budget|runway|pricing|grow revenue|financial health|projections?)\b/ },
+      { agent: "tess", re: /\b(income tax|tax returns?|t1|t2|t4|t5|cra|capital gains?|deductions?|rrsp|instal?ments?|year[- ]?end tax|personal tax|corporate tax)\b/ },
+      { agent: "wren", re: /\b(audit|tie[- ]?outs?|reconcil\w*|variance|workpapers?|month[- ]?end close|controller|sign[- ]?off)\b/ },
+      { agent: "sage", re: /\b(hst|gst|wsib|eht|payroll|remit\w*|source deduction|compliance|filing prep|review (fig|the books))\b/ },
+      { agent: "liv", re: /\b(e-?mails?|repl(y|ies)|drafts?|inbox|calendar|schedule|appointments?|meetings?|reminders?|remind me|personal)\b/ },
+      { agent: "fig", re: /\b(categori[sz]e|code (this|these|the|my)|receipts?|bookkeep\w*|post (this|the|a|these) (transaction|bill|expense)|vendors?|enter (a |the )?(bill|expense|transaction))\b/ }
+    ];
     ASSISTANT_TOOLS = [
       {
         name: "add_task",
@@ -54488,7 +54515,7 @@ var init_assistant_router = __esm({
       ask: authedQuery.input(external_exports.object({
         message: external_exports.string().min(1).max(2e3),
         history: external_exports.array(external_exports.object({ role: external_exports.enum(["user", "assistant"]), content: external_exports.string() })).max(20).optional(),
-        agent: external_exports.enum(["fig", "sage", "wren", "liv", "jinx"]).optional()
+        agent: external_exports.enum(["fig", "sage", "wren", "liv", "jinx", "tess", "jade", "skye"]).optional()
       })).mutation(async ({ ctx, input }) => {
         const apiKey = process.env.ANTHROPIC_API_KEY;
         const agent = detectAgent(input.message, input.agent ?? null);
@@ -62402,7 +62429,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.22";
+var BUILD_TAG = "2026-06-23.23";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
