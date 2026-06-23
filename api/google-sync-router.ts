@@ -221,8 +221,19 @@ export const googleSyncRouter = createRouter({
 
         if (existing[0]) continue;
 
-        const start = new Date(event.start?.dateTime || event.start?.date);
-        const end = new Date(event.end?.dateTime || event.end?.date || event.start?.dateTime || event.start?.date);
+        // All-day events arrive as "YYYY-MM-DD" — parse as LOCAL noon so they
+        // don't drift a day (UTC-midnight shows on the wrong weekday in Eastern).
+        const gDate = (part: any): Date | null => {
+          if (part?.dateTime) return new Date(part.dateTime);
+          if (!part?.date) return null;
+          const [y, m, d] = String(part.date).split("-").map(Number);
+          return new Date(y, m - 1, d, 12, 0, 0);
+        };
+        const allDay = !event.start?.dateTime;
+        const start = gDate(event.start) || new Date();
+        let end = gDate(event.end) || start;
+        if (allDay && end.getTime() > start.getTime()) end = new Date(end.getTime() - 86400000); // Google all-day end is exclusive
+        if (end.getTime() < start.getTime()) end = start;
         const status = event.status === "cancelled" ? "cancelled" : event.status === "tentative" ? "tentative" : "confirmed";
         const [calEvent] = await db.insert(calendarEvents).values({
           userId: ctx.user.id,
@@ -231,8 +242,8 @@ export const googleSyncRouter = createRouter({
           title: event.summary || "(No title)",
           description: event.description || "",
           startDate: start,                         // schema column is startDate (NOT startTime)
-          endDate: isNaN(end.getTime()) ? start : end,
-          isAllDay: !event.start?.dateTime,
+          endDate: end,
+          isAllDay: allDay,
           location: event.location || "",
           attendees: event.attendees?.map((a: { email: string; displayName?: string }) =>
             `${a.displayName || ""} <${a.email}>`

@@ -35457,8 +35457,17 @@ var init_google_sync_router = __esm({
         for (const event of events) {
           const existing = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.googleEventId, event.id)).limit(1);
           if (existing[0]) continue;
-          const start = new Date(event.start?.dateTime || event.start?.date);
-          const end = new Date(event.end?.dateTime || event.end?.date || event.start?.dateTime || event.start?.date);
+          const gDate = (part) => {
+            if (part?.dateTime) return new Date(part.dateTime);
+            if (!part?.date) return null;
+            const [y, m, d] = String(part.date).split("-").map(Number);
+            return new Date(y, m - 1, d, 12, 0, 0);
+          };
+          const allDay = !event.start?.dateTime;
+          const start = gDate(event.start) || /* @__PURE__ */ new Date();
+          let end = gDate(event.end) || start;
+          if (allDay && end.getTime() > start.getTime()) end = new Date(end.getTime() - 864e5);
+          if (end.getTime() < start.getTime()) end = start;
           const status = event.status === "cancelled" ? "cancelled" : event.status === "tentative" ? "tentative" : "confirmed";
           const [calEvent] = await db.insert(calendarEvents).values({
             userId: ctx.user.id,
@@ -35468,8 +35477,8 @@ var init_google_sync_router = __esm({
             description: event.description || "",
             startDate: start,
             // schema column is startDate (NOT startTime)
-            endDate: isNaN(end.getTime()) ? start : end,
-            isAllDay: !event.start?.dateTime,
+            endDate: end,
+            isAllDay: allDay,
             location: event.location || "",
             attendees: event.attendees?.map(
               (a) => `${a.displayName || ""} <${a.email}>`
@@ -64260,7 +64269,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.78";
+var BUILD_TAG = "2026-06-23.79";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64377,17 +64386,22 @@ app.get("/api/oauth/google/debug", async (c) => {
       const j = await r.json();
       const items = j.items || [];
       const db = getDb();
+      const gDate = (part) => {
+        if (part?.dateTime) return new Date(part.dateTime);
+        if (!part?.date) return null;
+        const [y, m, d] = String(part.date).split("-").map(Number);
+        return new Date(y, m - 1, d, 12, 0, 0);
+      };
+      await db.run(sql.raw(`DELETE FROM calendar_events WHERE googleEventId IS NOT NULL`));
       let inserted = 0, skipped = 0;
       const errors = [];
       for (const e of items) {
         try {
-          const ex = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.googleEventId, e.id)).limit(1);
-          if (ex[0]) {
-            skipped++;
-            continue;
-          }
-          const start = new Date(e.start?.dateTime || e.start?.date);
-          const end = new Date(e.end?.dateTime || e.end?.date || e.start?.dateTime || e.start?.date);
+          const allDay = !e.start?.dateTime;
+          const start = gDate(e.start) || /* @__PURE__ */ new Date();
+          let end = gDate(e.end) || start;
+          if (allDay && end.getTime() > start.getTime()) end = new Date(end.getTime() - 864e5);
+          if (end.getTime() < start.getTime()) end = start;
           await db.insert(calendarEvents).values({
             userId: acct.userId || 1,
             connectedAccountId: acct.id,
@@ -64395,8 +64409,8 @@ app.get("/api/oauth/google/debug", async (c) => {
             title: e.summary || "(No title)",
             description: e.description || "",
             startDate: start,
-            endDate: isNaN(end.getTime()) ? start : end,
-            isAllDay: !e.start?.dateTime,
+            endDate: end,
+            isAllDay: allDay,
             location: e.location || "",
             status: e.status === "cancelled" ? "cancelled" : e.status === "tentative" ? "tentative" : "confirmed"
           });

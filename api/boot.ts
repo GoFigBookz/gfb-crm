@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-23.78";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.79";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -170,18 +170,30 @@ app.get("/api/oauth/google/debug", async (c) => {
       const j: any = await r.json();
       const items = j.items || [];
       const db = getDb();
+      // All-day events come as "YYYY-MM-DD" — parse as LOCAL noon so they don't
+      // drift a day from a UTC-midnight conversion. Timed events keep their tz.
+      const gDate = (part: any): Date | null => {
+        if (part?.dateTime) return new Date(part.dateTime);
+        if (!part?.date) return null;
+        const [y, m, d] = String(part.date).split("-").map(Number);
+        return new Date(y, m - 1, d, 12, 0, 0);
+      };
+      // Re-sync cleanly: drop previously-synced Google events (keep manual CRM
+      // ones, which have no googleEventId) so corrected dates replace bad ones.
+      await db.run(sql.raw(`DELETE FROM calendar_events WHERE googleEventId IS NOT NULL`));
       let inserted = 0, skipped = 0; const errors: string[] = [];
       for (const e of items) {
         try {
-          const ex = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.googleEventId, e.id)).limit(1);
-          if (ex[0]) { skipped++; continue; }
-          const start = new Date(e.start?.dateTime || e.start?.date);
-          const end = new Date(e.end?.dateTime || e.end?.date || e.start?.dateTime || e.start?.date);
+          const allDay = !e.start?.dateTime;
+          const start = gDate(e.start) || new Date();
+          let end = gDate(e.end) || start;
+          if (allDay && end.getTime() > start.getTime()) end = new Date(end.getTime() - 86400000); // Google all-day end is exclusive
+          if (end.getTime() < start.getTime()) end = start;
           await db.insert(calendarEvents).values({
             userId: acct.userId || 1, connectedAccountId: acct.id, googleEventId: e.id,
             title: e.summary || "(No title)", description: e.description || "",
-            startDate: start, endDate: isNaN(end.getTime()) ? start : end,
-            isAllDay: !e.start?.dateTime, location: e.location || "",
+            startDate: start, endDate: end,
+            isAllDay: allDay, location: e.location || "",
             status: e.status === "cancelled" ? "cancelled" : e.status === "tentative" ? "tentative" : "confirmed",
           });
           inserted++;
