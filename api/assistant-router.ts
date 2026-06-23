@@ -6,10 +6,11 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { tasks, calendarEvents, clients, personalItems, triageFindings, connectedAccounts } from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { tasks, calendarEvents, clients, personalItems, triageFindings, connectedAccounts, agentLearnings } from "../db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { getValidGoogleAccessToken } from "./google-token";
 import { buildRawMessage, extractEmail } from "./email-core";
+import { selectRelevant, formatLessonsBlock } from "./learning-core";
 
 const TZ = "America/Toronto";
 import { parseTaskCommand } from "./task-command-core";
@@ -71,6 +72,15 @@ async function execAddPersonal(input: any, userId: number): Promise<string> {
   await db.insert(personalItems).values({ userId, kind, title, dueDate, priority: "medium", done: false } as any);
   const when = dueDate ? ` (due ${dueDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })})` : "";
   return `Added to your personal space: "${title}"${when}.`;
+}
+
+async function execRemember(input: any, userId: number): Promise<string> {
+  const lesson = String(input?.lesson ?? "").trim();
+  if (!lesson) return "What should I remember?";
+  const scope = String(input?.scope ?? "all").trim().toLowerCase() || "all";
+  const db = getDb();
+  await db.insert(agentLearnings).values({ userId, scope, lesson, source: "markie" } as any);
+  return `Got it — I'll remember that${scope !== "all" ? ` for ${scope}` : ""}: "${lesson}".`;
 }
 
 async function execDraftEmail(input: any, userId: number): Promise<string> {
@@ -188,6 +198,7 @@ async function runTool(name: string, input: any, userId: number): Promise<string
     if (name === "schedule_event") return await execScheduleEvent(input, userId);
     if (name === "complete_task") return await execCompleteTask(input, userId);
     if (name === "draft_email") return await execDraftEmail(input, userId);
+    if (name === "remember") return await execRemember(input, userId);
     if (name === "system_health") return await execSystemHealth();
     if (name === "agent_scorecard") return await execAgentScorecard();
     if (name === "firm_status") return await execFirmStatus(userId);
@@ -219,7 +230,15 @@ export const assistantRouter = createRouter({
       const locLine = input.location
         ? `Markie's CURRENT location (live from his device — he travels, so this is where he is right now): latitude ${input.location.lat}, longitude ${input.location.lon}${input.location.label ? ` (${input.location.label})` : ""}. Use it for "near me"/local questions (weather, stores, hours) — search around this spot.`
         : `Markie travels and his location is UNKNOWN right now. If a question needs where he is ("near me", local weather/stores/hours), briefly ASK what city he's in before answering — do NOT assume a town.`;
-      const system = `${frontDeskSystem(agent)}\n${nowLine}\n${locLine}`;
+      // Learning loop: inject the lessons Markie has taught/confirmed for this agent.
+      let lessonsBlock = "";
+      try {
+        const db = getDb();
+        const rows = (await db.select({ scope: agentLearnings.scope, lesson: agentLearnings.lesson, createdAt: agentLearnings.createdAt })
+          .from(agentLearnings).where(eq(agentLearnings.userId, ctx.user.id)).orderBy(desc(agentLearnings.createdAt)).limit(100)) as any[];
+        lessonsBlock = formatLessonsBlock(selectRelevant(rows, agent));
+      } catch { /* table may not exist yet — skip */ }
+      const system = [frontDeskSystem(agent), nowLine, locLine, lessonsBlock].filter(Boolean).join("\n");
       // Server-side web search for general/current/local questions (weather, prices,
       // where-to-buy, hours, news…). Off only if explicitly disabled.
       const webSearch = process.env.FIGGY_WEB_SEARCH === "off"

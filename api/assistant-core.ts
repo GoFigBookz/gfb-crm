@@ -176,6 +176,18 @@ export const ASSISTANT_TOOLS = [
     },
   },
   {
+    name: "remember",
+    description: "Save a lasting lesson/preference Markie teaches or confirms (e.g. a coding rule, how he likes something done, a client quirk). It will be applied on future work. Set scope to the agent it's for (fig/sage/wren/liv/tess/jade/skye/jinx) or 'all'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        lesson: { type: "string", description: "The lesson, stated as a durable instruction." },
+        scope: { type: "string", description: "Agent key it applies to, or 'all'." },
+      },
+      required: ["lesson"],
+    },
+  },
+  {
     name: "draft_email",
     description: "Draft an email and save it to Markie's Gmail Drafts for him to review and send (NEVER auto-sends). Use when he asks to write/draft/reply to someone. Write the body in Markie's voice.",
     input_schema: {

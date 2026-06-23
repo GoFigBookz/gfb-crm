@@ -55,6 +55,7 @@ import { pdfSplitterRouter } from "./pdf-splitter-router";
 import { assistantRouter } from "./assistant-router";
 import { qaRouter } from "./qa-router";
 import { personalRouter } from "./personal-router";
+import { learningRouter } from "./learning-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
 
@@ -119,6 +120,7 @@ export const appRouter = createRouter({
   assistant: assistantRouter,
   jinx: qaRouter,
   personal: personalRouter,
+  learning: learningRouter,
 });
 
 export type AppRouter = typeof appRouter;
