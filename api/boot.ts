@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-23.84";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.85";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -216,6 +216,28 @@ app.get("/api/oauth/google/debug", async (c) => {
     syncRun,
     lastConnectAttempt: lastGoogleOAuth,
     note: "Add ?sync=1 to pull your Google Calendar into the CRM now. syncRun shows inserted/errors.",
+  });
+});
+
+// QuickBooks readiness check — confirm the prod Intuit app is configured BEFORE
+// connecting companies (so tomorrow's payroll-QBO connect isn't blind). No secrets.
+app.get("/api/qbo/debug", async (c) => {
+  const viteAppUrl = process.env.VITE_APP_URL || null;
+  const redirectUri = process.env.QBO_REDIRECT_URI || `${(viteAppUrl || "http://localhost:3000").replace(/\/$/, "")}/api/qbo/callback`;
+  let connections: any = null;
+  try {
+    const db = getDb();
+    const rows = await db.select({ id: qboConnections.id, clientId: qboConnections.clientId, realmId: qboConnections.realmId, companyName: qboConnections.companyName, transport: qboConnections.transport, isActive: qboConnections.isActive, reconnectReason: qboConnections.reconnectReason }).from(qboConnections);
+    connections = rows;
+  } catch (e) { connections = { error: e instanceof Error ? e.message : String(e) }; }
+  return c.json({
+    build: BUILD_TAG,
+    hasClientId: !!(process.env.QBO_CLIENT_ID || process.env.SANDBOX_QBO_CLIENT_ID),
+    hasClientSecret: !!(process.env.QBO_CLIENT_SECRET || process.env.SANDBOX_QBO_CLIENT_SECRET),
+    hasTokenKey: !!(process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET),
+    redirectUri,
+    connections,
+    note: "hasClientId/Secret/TokenKey must all be true and redirectUri must be registered in the Intuit app before connecting. connections lists realms already linked.",
   });
 });
 

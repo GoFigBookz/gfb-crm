@@ -64567,7 +64567,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.84";
+var BUILD_TAG = "2026-06-23.85";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64735,6 +64735,27 @@ app.get("/api/oauth/google/debug", async (c) => {
     syncRun,
     lastConnectAttempt: lastGoogleOAuth,
     note: "Add ?sync=1 to pull your Google Calendar into the CRM now. syncRun shows inserted/errors."
+  });
+});
+app.get("/api/qbo/debug", async (c) => {
+  const viteAppUrl = process.env.VITE_APP_URL || null;
+  const redirectUri2 = process.env.QBO_REDIRECT_URI || `${(viteAppUrl || "http://localhost:3000").replace(/\/$/, "")}/api/qbo/callback`;
+  let connections = null;
+  try {
+    const db = getDb();
+    const rows = await db.select({ id: qboConnections.id, clientId: qboConnections.clientId, realmId: qboConnections.realmId, companyName: qboConnections.companyName, transport: qboConnections.transport, isActive: qboConnections.isActive, reconnectReason: qboConnections.reconnectReason }).from(qboConnections);
+    connections = rows;
+  } catch (e) {
+    connections = { error: e instanceof Error ? e.message : String(e) };
+  }
+  return c.json({
+    build: BUILD_TAG,
+    hasClientId: !!(process.env.QBO_CLIENT_ID || process.env.SANDBOX_QBO_CLIENT_ID),
+    hasClientSecret: !!(process.env.QBO_CLIENT_SECRET || process.env.SANDBOX_QBO_CLIENT_SECRET),
+    hasTokenKey: !!(process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET),
+    redirectUri: redirectUri2,
+    connections,
+    note: "hasClientId/Secret/TokenKey must all be true and redirectUri must be registered in the Intuit app before connecting. connections lists realms already linked."
   });
 });
 app.get("/api/qbo/connect", async (c) => {
@@ -65279,10 +65300,10 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "clients") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, qboConnections: qboConnections3, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, qboConnections: qboConnections2, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const db = getDb2();
       const cs = await db.select().from(clients3);
-      const conns = await db.select().from(qboConnections3);
+      const conns = await db.select().from(qboConnections2);
       const ruleRows = await db.select().from(clientTaskRules4);
       const byClient = /* @__PURE__ */ new Map();
       for (const cn of conns) {
