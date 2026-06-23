@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-23.61";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.62";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -260,26 +260,41 @@ app.get("/api/oauth/google/callback", async (c) => {
     } catch (e) {
       console.error("[Google OAuth] clear prior google rows failed (continuing):", e instanceof Error ? e.message : e);
     }
-    await db.insert(connectedAccounts).values({
+    // Insert ONLY the columns the live table actually has — bulletproof against
+    // schema drift (the real cause of the silent insert failure). Timestamps are
+    // epoch SECONDS to match Drizzle's {mode:"timestamp"} columns.
+    const nowSec = Math.floor(Date.now() / 1000);
+    const candidate: Record<string, any> = {
       userId,
       provider: "google",
       providerAccountId: userInfo.id ?? null,
       accountLabel: stateData.accountLabel || "Google",
       accountEmail: userInfo.email ?? null,
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
-      expiresAt: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null,
-      scopes: tokenData.scope,
-      isActive: true,
+      accessToken: tokenData.access_token ?? null,
+      refreshToken: tokenData.refresh_token ?? null,
+      expiresAt: tokenData.expires_in ? nowSec + Number(tokenData.expires_in) : null,
+      scopes: tokenData.scope ?? null,
+      isActive: 1,
       syncEnabled: JSON.stringify({ email: true, calendar: true, files: true, tasks: true }),
-    });
+      createdAt: nowSec,
+      updatedAt: nowSec,
+    };
+    const tableInfo: any = await db.run(sql`PRAGMA table_info(connected_accounts)`);
+    const liveCols = new Set<string>();
+    for (const r of (tableInfo?.rows ?? tableInfo ?? [])) liveCols.add(String((r as any).name ?? (r as any)[1] ?? ""));
+    const useCols = Object.keys(candidate).filter((c) => liveCols.has(c));
+    const colsSql = sql.raw(useCols.map((c) => `"${c}"`).join(", "));
+    const valsSql = sql.join(useCols.map((c) => sql`${candidate[c]}`), sql`, `);
+    await db.run(sql`INSERT INTO connected_accounts (${colsSql}) VALUES (${valsSql})`);
 
     lastGoogleOAuth = { ok: true, at: new Date().toISOString(), email: userInfo.email, userId };
     return c.redirect("/integrations?success=google_connected", 302);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[Google OAuth] callback failed:", message);
-    lastGoogleOAuth = { ok: false, at: new Date().toISOString(), error: message };
+    const cause = (err as any)?.cause;
+    const detail = cause ? ` || cause: ${cause.message || String(cause)}` : "";
+    console.error("[Google OAuth] callback failed:", message + detail);
+    lastGoogleOAuth = { ok: false, at: new Date().toISOString(), error: message + detail };
     return c.redirect("/integrations?error=" + encodeURIComponent(message), 302);
   }
 });

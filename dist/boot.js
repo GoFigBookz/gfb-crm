@@ -63923,7 +63923,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.61";
+var BUILD_TAG = "2026-06-23.62";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64085,25 +64085,37 @@ app.get("/api/oauth/google/callback", async (c) => {
     } catch (e) {
       console.error("[Google OAuth] clear prior google rows failed (continuing):", e instanceof Error ? e.message : e);
     }
-    await db.insert(connectedAccounts).values({
+    const nowSec = Math.floor(Date.now() / 1e3);
+    const candidate = {
       userId,
       provider: "google",
       providerAccountId: userInfo.id ?? null,
       accountLabel: stateData.accountLabel || "Google",
       accountEmail: userInfo.email ?? null,
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
-      expiresAt: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1e3) : null,
-      scopes: tokenData.scope,
-      isActive: true,
-      syncEnabled: JSON.stringify({ email: true, calendar: true, files: true, tasks: true })
-    });
+      accessToken: tokenData.access_token ?? null,
+      refreshToken: tokenData.refresh_token ?? null,
+      expiresAt: tokenData.expires_in ? nowSec + Number(tokenData.expires_in) : null,
+      scopes: tokenData.scope ?? null,
+      isActive: 1,
+      syncEnabled: JSON.stringify({ email: true, calendar: true, files: true, tasks: true }),
+      createdAt: nowSec,
+      updatedAt: nowSec
+    };
+    const tableInfo = await db.run(sql`PRAGMA table_info(connected_accounts)`);
+    const liveCols = /* @__PURE__ */ new Set();
+    for (const r of tableInfo?.rows ?? tableInfo ?? []) liveCols.add(String(r.name ?? r[1] ?? ""));
+    const useCols = Object.keys(candidate).filter((c2) => liveCols.has(c2));
+    const colsSql = sql.raw(useCols.map((c2) => `"${c2}"`).join(", "));
+    const valsSql = sql.join(useCols.map((c2) => sql`${candidate[c2]}`), sql`, `);
+    await db.run(sql`INSERT INTO connected_accounts (${colsSql}) VALUES (${valsSql})`);
     lastGoogleOAuth = { ok: true, at: (/* @__PURE__ */ new Date()).toISOString(), email: userInfo.email, userId };
     return c.redirect("/integrations?success=google_connected", 302);
   } catch (err) {
     const message2 = err instanceof Error ? err.message : String(err);
-    console.error("[Google OAuth] callback failed:", message2);
-    lastGoogleOAuth = { ok: false, at: (/* @__PURE__ */ new Date()).toISOString(), error: message2 };
+    const cause = err?.cause;
+    const detail = cause ? ` || cause: ${cause.message || String(cause)}` : "";
+    console.error("[Google OAuth] callback failed:", message2 + detail);
+    lastGoogleOAuth = { ok: false, at: (/* @__PURE__ */ new Date()).toISOString(), error: message2 + detail };
     return c.redirect("/integrations?error=" + encodeURIComponent(message2), 302);
   }
 });
