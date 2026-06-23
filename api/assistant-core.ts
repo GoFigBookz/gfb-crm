@@ -102,6 +102,11 @@ export const ASSISTANT_TOOLS = [
     },
   },
   {
+    name: "system_health",
+    description: "Run a live system health check (Gage's job): database, key data, integrations, configuration, recent errors. Use when Markie asks if everything is working / if anything is broken / what's down.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "add_personal",
     description: "Add a PERSONAL item (task, reminder, or note) to Markie's private personal space — NOT client work. Use this for anything about his own life (errands, appointments, family, reminders). This is Liv's domain.",
     input_schema: {
