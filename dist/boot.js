@@ -63922,7 +63922,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.59";
+var BUILD_TAG = "2026-06-23.60";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -63960,11 +63960,12 @@ app.get("/api/oauth/google/debug", async (c) => {
   const { googleRedirectUri: googleRedirectUri2 } = await Promise.resolve().then(() => (init_google_redirect(), google_redirect_exports));
   return c.json({
     redirectUri: googleRedirectUri2(),
+    clientId: process.env.GOOGLE_CLIENT_ID || null,
     viteAppUrl: process.env.VITE_APP_URL || null,
     googleRedirectUriEnv: process.env.GOOGLE_REDIRECT_URI || null,
     hasClientId: !!process.env.GOOGLE_CLIENT_ID,
     hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
-    note: "Add the value of redirectUri to the Figgy CRM OAuth client's Authorized redirect URIs in Google Cloud Console."
+    note: "The clientId here MUST be the SAME OAuth client where you added the redirect URI. If they differ, that's the mismatch."
   });
 });
 app.get("/api/qbo/connect", async (c) => {
