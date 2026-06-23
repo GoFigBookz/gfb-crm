@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-23.71";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.72";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -105,6 +105,34 @@ app.get("/api/oauth/google/debug", async (c) => {
   } catch (e) {
     firmGoogle = { found: false, error: e instanceof Error ? e.message : String(e) };
   }
+  // LIVE PROBE: make the CRM actually call Google with ITS token and report the
+  // exact result per service — this tells us if a Workspace policy is refusing
+  // the app (403), the token is dead (401), or it works (and the sync is the bug).
+  let apiProbe: any = null;
+  try {
+    const { getFirmGoogleAccount, getValidGoogleAccessToken } = await import("./google-token");
+    const acct = await getFirmGoogleAccount();
+    if (!acct) { apiProbe = { error: "no google account" }; }
+    else {
+      let tok = "";
+      try { tok = await getValidGoogleAccessToken(acct as any); apiProbe = { tokenRefresh: "ok", scopes: (acct as any).scopes || null }; }
+      catch (e) { apiProbe = { tokenRefresh: "FAILED: " + (e instanceof Error ? e.message : String(e)) }; }
+      if (tok) {
+        const probe = async (label: string, url: string) => {
+          try {
+            const r = await fetch(url, { headers: { Authorization: `Bearer ${tok}` } });
+            const body = await r.text();
+            apiProbe[label] = { status: r.status, ok: r.ok, body: r.ok ? `ok (${body.length} bytes)` : body.slice(0, 200) };
+          } catch (e) { apiProbe[label] = { error: e instanceof Error ? e.message : String(e) }; }
+        };
+        await probe("calendar", "https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=1");
+        await probe("tasks", "https://tasks.googleapis.com/tasks/v1/users/@me/lists");
+        await probe("drive", "https://www.googleapis.com/drive/v3/files?pageSize=1");
+        await probe("gmail", "https://gmail.googleapis.com/gmail/v1/users/me/profile");
+      }
+    }
+  } catch (e) { apiProbe = { error: e instanceof Error ? e.message : String(e) }; }
+
   return c.json({
     build: BUILD_TAG,
     redirectUri: googleRedirectUri(),
@@ -113,8 +141,9 @@ app.get("/api/oauth/google/debug", async (c) => {
     hasClientId: !!process.env.GOOGLE_CLIENT_ID,
     hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
     firmGoogle,
+    apiProbe,
     lastConnectAttempt: lastGoogleOAuth,
-    note: "firmGoogle.found:true means the app sees your Google connection (the Integrations card will show Connected on this same build).",
+    note: "apiProbe shows the CRM calling Google with its own token. 403 = Workspace blocks the app (mark Trusted in Admin). 401/invalid = token. ok = it works.",
   });
 });
 

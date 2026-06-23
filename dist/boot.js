@@ -64192,7 +64192,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.71";
+var BUILD_TAG = "2026-06-23.72";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64236,6 +64236,39 @@ app.get("/api/oauth/google/debug", async (c) => {
   } catch (e) {
     firmGoogle = { found: false, error: e instanceof Error ? e.message : String(e) };
   }
+  let apiProbe = null;
+  try {
+    const { getFirmGoogleAccount: getFirmGoogleAccount2, getValidGoogleAccessToken: getValidGoogleAccessToken2 } = await Promise.resolve().then(() => (init_google_token(), google_token_exports));
+    const acct = await getFirmGoogleAccount2();
+    if (!acct) {
+      apiProbe = { error: "no google account" };
+    } else {
+      let tok = "";
+      try {
+        tok = await getValidGoogleAccessToken2(acct);
+        apiProbe = { tokenRefresh: "ok", scopes: acct.scopes || null };
+      } catch (e) {
+        apiProbe = { tokenRefresh: "FAILED: " + (e instanceof Error ? e.message : String(e)) };
+      }
+      if (tok) {
+        const probe = async (label, url2) => {
+          try {
+            const r = await fetch(url2, { headers: { Authorization: `Bearer ${tok}` } });
+            const body = await r.text();
+            apiProbe[label] = { status: r.status, ok: r.ok, body: r.ok ? `ok (${body.length} bytes)` : body.slice(0, 200) };
+          } catch (e) {
+            apiProbe[label] = { error: e instanceof Error ? e.message : String(e) };
+          }
+        };
+        await probe("calendar", "https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=1");
+        await probe("tasks", "https://tasks.googleapis.com/tasks/v1/users/@me/lists");
+        await probe("drive", "https://www.googleapis.com/drive/v3/files?pageSize=1");
+        await probe("gmail", "https://gmail.googleapis.com/gmail/v1/users/me/profile");
+      }
+    }
+  } catch (e) {
+    apiProbe = { error: e instanceof Error ? e.message : String(e) };
+  }
   return c.json({
     build: BUILD_TAG,
     redirectUri: googleRedirectUri2(),
@@ -64244,8 +64277,9 @@ app.get("/api/oauth/google/debug", async (c) => {
     hasClientId: !!process.env.GOOGLE_CLIENT_ID,
     hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
     firmGoogle,
+    apiProbe,
     lastConnectAttempt: lastGoogleOAuth,
-    note: "firmGoogle.found:true means the app sees your Google connection (the Integrations card will show Connected on this same build)."
+    note: "apiProbe shows the CRM calling Google with its own token. 403 = Workspace blocks the app (mark Trusted in Admin). 401/invalid = token. ok = it works."
   });
 });
 app.get("/api/qbo/connect", async (c) => {
