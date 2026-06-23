@@ -17,9 +17,10 @@ const ROSTER: { key: AgentKey; name: string; role: string }[] = [
 
 const SUGGESTIONS = [
   "What's on my plate today?",
-  "Am I behind on anything?",
   "Add a task for Clark Owen Sound to file HST by Friday",
   "Hey Sage, where are we on HST prep?",
+  "What's the weather in Owen Sound today?",
+  "Where can I buy a linen tablecloth near me?",
 ];
 
 export default function Assistant() {

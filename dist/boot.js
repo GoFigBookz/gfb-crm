@@ -54062,10 +54062,15 @@ var init_assistant_core = __esm({
     ASSISTANT_SYSTEM = [
       "You are Figgy, the assistant for Markie's bookkeeping practice (Go Fig Bookz).",
       "Markie is often on his phone or driving \u2014 be BRIEF and direct. Short sentences, no fluff, no preamble.",
-      "You can do two things:",
+      "You are a GENERAL assistant \u2014 like a normal AI chat \u2014 AND you can act on his practice.",
+      "Things you can do for the practice:",
       "1) Add a task \u2014 call add_task with the FULL natural-language request (include the client name, the action, and any due date/priority Markie said).",
       "2) Report his agenda \u2014 call get_agenda when he asks what's on his plate / today / this week / if he's behind.",
-      "After a tool runs, confirm in one short line. If asked something you can't do yet, say so briefly. Never invent client names or data."
+      "3) Add a personal item \u2014 call add_personal for anything about his own life (errands, appointments, reminders).",
+      "4) Check system health \u2014 call system_health if he asks whether the app is working.",
+      "GENERAL QUESTIONS: answer anything else like a helpful AI assistant \u2014 facts, how-tos, drafting, math, advice.",
+      "Use the web_search tool whenever the answer needs CURRENT or LOCAL info: weather, news, prices, store/where-to-buy, hours, sports, or anything that changes over time. Then answer in one or two short lines with the key facts (don't dump links).",
+      "After a tool runs, confirm in one short line. Never invent client names or data; if you're unsure of a fact, search or say so."
     ].join("\n");
     AGENT_ROSTER = {
       fig: {
@@ -54489,7 +54494,11 @@ var init_assistant_router = __esm({
         const agent = detectAgent(input.message, input.agent ?? null);
         if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [], agent };
         const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
-        const system = frontDeskSystem(agent);
+        const nowLine = `Current date & time: ${(/* @__PURE__ */ new Date()).toLocaleString("en-CA", { timeZone: "America/Toronto", dateStyle: "full", timeStyle: "short" })} (America/Toronto).`;
+        const system = `${frontDeskSystem(agent)}
+${nowLine}`;
+        const webSearch = process.env.FIGGY_WEB_SEARCH === "off" ? [] : [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }];
+        const tools = [...ASSISTANT_TOOLS, ...webSearch];
         const messages = [
           ...(input.history || []).map((h) => ({ role: h.role, content: h.content })),
           { role: "user", content: input.message }
@@ -54499,7 +54508,7 @@ var init_assistant_router = __esm({
           const res = await fetch(ANTHROPIC_URL, {
             method: "POST",
             headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify({ model, max_tokens: 1024, system, tools: ASSISTANT_TOOLS, messages })
+            body: JSON.stringify({ model, max_tokens: 1024, system, tools, messages })
           });
           if (!res.ok) {
             const b = await res.text().catch(() => "");
@@ -54517,6 +54526,10 @@ var init_assistant_router = __esm({
               }
             }
             messages.push({ role: "user", content: results });
+            continue;
+          }
+          if (data.stop_reason === "pause_turn") {
+            messages.push({ role: "assistant", content: data.content });
             continue;
           }
           const reply = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
@@ -62389,7 +62402,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.21";
+var BUILD_TAG = "2026-06-23.22";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
