@@ -379,7 +379,7 @@ export default function Integrations() {
                             </div>
                           )}
                           {provider.id === "jobber" && (
-                            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">Each company has its OWN Jobber login. To connect a second company, first sign out of Jobber (or use a private/incognito window) and sign into THAT company's account — otherwise Jobber re-links the one you're already in.</p>
+                            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">If this company has its OWN separate Jobber login, sign out of Jobber (or use a private/incognito window) and sign into THAT account before connecting. If your companies SHARE one Jobber account, just connect each — hours stay separate by each company's employee list.</p>
                           )}
                           {provider.perClient && provider.id !== "jobber" && (
                             <div className="space-y-2">
@@ -435,7 +435,7 @@ export default function Integrations() {
                           </div>
                         )}
                         {provider.id === "jobber" && (
-                          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">Each company has its OWN Jobber login. To connect a second company, first sign out of Jobber (or use a private/incognito window) and sign into THAT company's account — otherwise Jobber re-links the one you're already in.</p>
+                          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">If this company has its OWN separate Jobber login, sign out of Jobber (or use a private/incognito window) and sign into THAT account before connecting. If your companies SHARE one Jobber account, just connect each — hours stay separate by each company's employee list.</p>
                         )}
                         {provider.perClient && provider.id !== "jobber" && (
                           <div className="space-y-2">

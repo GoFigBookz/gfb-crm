@@ -47900,17 +47900,6 @@ async function exchangeAndPersist2(input) {
   const db = getDb();
   await ensureJobberTable();
   const acc = await fetchJobberAccount(data.access_token);
-  if (acc) {
-    const all = await db.select().from(jobberConnections);
-    const clash = all.find(
-      (c) => c.active && c.jobberAccountId === acc.id && c.clientId !== state.clientId
-    );
-    if (clash) {
-      throw new Error(
-        `This Jobber account "${acc.name || acc.id}" is already connected to another client. Each company needs its OWN Jobber login. Sign out of Jobber (or use a private/incognito window), sign into THIS company's Jobber account, then click Connect again.`
-      );
-    }
-  }
   const existing = await db.select().from(jobberConnections).where(eq(jobberConnections.clientId, state.clientId)).limit(1);
   const row = {
     clientId: state.clientId,
@@ -61512,7 +61501,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.6";
+var BUILD_TAG = "2026-06-23.7";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

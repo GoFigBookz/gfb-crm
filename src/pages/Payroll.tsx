@@ -102,7 +102,7 @@ function JobberConnect({ clientId }: { clientId: number }) {
           <DialogHeader><DialogTitle>Set up Jobber (one-time)</DialogTitle></DialogHeader>
           <div className="space-y-3 pt-2">
             <p className="text-sm text-slate-500">Paste your Jobber app's <strong>Client ID</strong> and <strong>Client Secret</strong> (developer.getjobber.com → Manage Apps). Stored encrypted — you won't need to do this again.</p>
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5"><strong>Two companies = two Jobber accounts.</strong> To connect a second company, first sign out of Jobber (or use a private/incognito window) and sign into that company's Jobber login — otherwise Jobber re-links the account you're already in. Figgy now blocks linking the same account twice.</p>
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">If this company has its OWN separate Jobber login, sign out of Jobber (or use a private/incognito window) and sign into THAT account before connecting. If your companies SHARE one Jobber account, just connect each — hours stay separate by each company's employee list.</p>
             <div><Label>Client ID</Label><Input value={cid} onChange={(e) => setCid(e.target.value)} placeholder="xxxxxxxx-xxxx-…" /></div>
             <div><Label>Client Secret</Label><Input value={csec} onChange={(e) => setCsec(e.target.value)} placeholder="(secret)" /></div>
             <Button className="w-full bg-lime-500" disabled={saveCreds.isPending || cid.trim().length < 10 || csec.trim().length < 10}
