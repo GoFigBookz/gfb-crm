@@ -54008,6 +54008,27 @@ var init_pdf_splitter_router = __esm({
 });
 
 // api/assistant-core.ts
+function detectAgent(message2, current) {
+  const m = (message2 || "").toLowerCase().trimStart();
+  for (const key of Object.keys(AGENT_ROSTER)) {
+    const n = key;
+    const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${n}\\b`);
+    if (re.test(m)) return key;
+  }
+  return current ?? "fig";
+}
+function frontDeskSystem(agent) {
+  const a = AGENT_ROSTER[agent];
+  const team = Object.keys(AGENT_ROSTER).map((k) => `${AGENT_ROSTER[k].name} (${AGENT_ROSTER[k].role})`).join(", ");
+  return [
+    ASSISTANT_SYSTEM,
+    "",
+    `RIGHT NOW you are answering as ${a.name}. ${a.persona}`,
+    `Open with your name if it's the first reply in this thread, e.g. "${a.name} here \u2014".`,
+    `Your teammates: ${team}. If a request really belongs to a teammate, say who should take it (e.g. "I'll flag Sage to prep the HST"), then still help as much as you can. Markie can switch to anyone by saying "Hey <name>".`,
+    "You can still add tasks and report the agenda for Markie regardless of which agent you are."
+  ].join("\n");
+}
 function formatAgenda(a) {
   const line = (t2) => `\u2022 ${t2.title}${t2.client ? ` (${t2.client})` : ""}${t2.due ? ` \u2014 due ${t2.due}` : ""}`;
   const parts = [];
@@ -54021,7 +54042,7 @@ function formatAgenda(a) {
   if (!parts.length) return "You're all clear \u2014 nothing overdue, due today, or on the calendar.";
   return parts.join("\n\n");
 }
-var ASSISTANT_SYSTEM, ASSISTANT_TOOLS;
+var ASSISTANT_SYSTEM, AGENT_ROSTER, ASSISTANT_TOOLS;
 var init_assistant_core = __esm({
   "api/assistant-core.ts"() {
     ASSISTANT_SYSTEM = [
@@ -54032,6 +54053,33 @@ var init_assistant_core = __esm({
       "2) Report his agenda \u2014 call get_agenda when he asks what's on his plate / today / this week / if he's behind.",
       "After a tool runs, confirm in one short line. If asked something you can't do yet, say so briefly. Never invent client names or data."
     ].join("\n");
+    AGENT_ROSTER = {
+      fig: {
+        name: "Fig",
+        role: "junior bookkeeper",
+        persona: "You are Fig, the junior bookkeeper \u2014 day-to-day books: coding transactions from vendor history, reconciling, receipts, first-pass HST/payroll. Practical and precise. You never post without review."
+      },
+      sage: {
+        name: "Sage",
+        role: "senior bookkeeper",
+        persona: "You are Sage, the senior bookkeeper \u2014 you review Fig's work and own compliance prep (HST returns, WSIB/EHT, payroll). Calm, thorough, catch-the-slip mindset."
+      },
+      wren: {
+        name: "Wren",
+        role: "controller / auditor",
+        persona: "You are Wren, the controller/auditor \u2014 assurance: month-end tie-outs, variance checks, CRA-style HST audit, signed workpaper. Rigorous and skeptical; you sign off last."
+      },
+      liv: {
+        name: "Liv",
+        role: "executive assistant",
+        persona: "You are Liv, Markie's executive assistant \u2014 email triage, drafting replies in his tone, calendar, and his personal life (kept private, separate from clients). Warm, organized, anticipates needs."
+      },
+      gage: {
+        name: "Gage",
+        role: "QA / IT watchdog",
+        persona: "You are Gage, the QA/IT watchdog \u2014 you make sure the app actually works (database, data, integrations, config, core flows). Plain-spoken; you report status and flag problems. Read-only."
+      }
+    };
     ASSISTANT_TOOLS = [
       {
         name: "add_task",
@@ -54128,11 +54176,14 @@ var init_assistant_router = __esm({
     assistantRouter = createRouter({
       ask: authedQuery.input(external_exports.object({
         message: external_exports.string().min(1).max(2e3),
-        history: external_exports.array(external_exports.object({ role: external_exports.enum(["user", "assistant"]), content: external_exports.string() })).max(20).optional()
+        history: external_exports.array(external_exports.object({ role: external_exports.enum(["user", "assistant"]), content: external_exports.string() })).max(20).optional(),
+        agent: external_exports.enum(["fig", "sage", "wren", "liv", "gage"]).optional()
       })).mutation(async ({ ctx, input }) => {
         const apiKey = process.env.ANTHROPIC_API_KEY;
-        if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [] };
+        const agent = detectAgent(input.message, input.agent ?? null);
+        if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [], agent };
         const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
+        const system = frontDeskSystem(agent);
         const messages = [
           ...(input.history || []).map((h) => ({ role: h.role, content: h.content })),
           { role: "user", content: input.message }
@@ -54142,11 +54193,11 @@ var init_assistant_router = __esm({
           const res = await fetch(ANTHROPIC_URL, {
             method: "POST",
             headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify({ model, max_tokens: 1024, system: ASSISTANT_SYSTEM, tools: ASSISTANT_TOOLS, messages })
+            body: JSON.stringify({ model, max_tokens: 1024, system, tools: ASSISTANT_TOOLS, messages })
           });
           if (!res.ok) {
             const b = await res.text().catch(() => "");
-            return { reply: `Assistant error (${res.status}). ${b.slice(0, 160)}`, actions };
+            return { reply: `Assistant error (${res.status}). ${b.slice(0, 160)}`, actions, agent };
           }
           const data = await res.json();
           if (data.stop_reason === "tool_use") {
@@ -54163,9 +54214,9 @@ var init_assistant_router = __esm({
             continue;
           }
           const reply = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
-          return { reply: reply || "(no reply)", actions };
+          return { reply: reply || "(no reply)", actions, agent };
         }
-        return { reply: "Sorry \u2014 I got stuck in a loop. Try rephrasing.", actions };
+        return { reply: "Sorry \u2014 I got stuck in a loop. Try rephrasing.", actions, agent };
       })
     });
   }
@@ -62170,7 +62221,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.17";
+var BUILD_TAG = "2026-06-23.18";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

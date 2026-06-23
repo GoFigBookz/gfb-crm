@@ -9,7 +9,7 @@ import { getDb } from "./queries/connection";
 import { tasks, calendarEvents, clients } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { parseTaskCommand } from "./task-command-core";
-import { ASSISTANT_SYSTEM, ASSISTANT_TOOLS, formatAgenda } from "./assistant-core";
+import { ASSISTANT_TOOLS, formatAgenda, detectAgent, frontDeskSystem, AGENT_ROSTER, type AgentKey } from "./assistant-core";
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
@@ -72,11 +72,16 @@ export const assistantRouter = createRouter({
     .input(z.object({
       message: z.string().min(1).max(2000),
       history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })).max(20).optional(),
+      agent: z.enum(["fig", "sage", "wren", "liv", "gage"]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const apiKey = process.env.ANTHROPIC_API_KEY;
-      if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [] as string[] };
+      // Who is Markie addressing? An explicit name in the message wins; else stay
+      // with the agent the UI last had (sticky); else default to Fig.
+      const agent: AgentKey = detectAgent(input.message, input.agent ?? null);
+      if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [] as string[], agent };
       const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
+      const system = frontDeskSystem(agent);
 
       const messages: any[] = [
         ...(input.history || []).map((h) => ({ role: h.role, content: h.content })),
@@ -88,11 +93,11 @@ export const assistantRouter = createRouter({
         const res = await fetch(ANTHROPIC_URL, {
           method: "POST",
           headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-          body: JSON.stringify({ model, max_tokens: 1024, system: ASSISTANT_SYSTEM, tools: ASSISTANT_TOOLS, messages }),
+          body: JSON.stringify({ model, max_tokens: 1024, system, tools: ASSISTANT_TOOLS, messages }),
         });
         if (!res.ok) {
           const b = await res.text().catch(() => "");
-          return { reply: `Assistant error (${res.status}). ${b.slice(0, 160)}`, actions };
+          return { reply: `Assistant error (${res.status}). ${b.slice(0, 160)}`, actions, agent };
         }
         const data: any = await res.json();
         if (data.stop_reason === "tool_use") {
@@ -109,8 +114,8 @@ export const assistantRouter = createRouter({
           continue;
         }
         const reply = (data.content || []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
-        return { reply: reply || "(no reply)", actions };
+        return { reply: reply || "(no reply)", actions, agent };
       }
-      return { reply: "Sorry — I got stuck in a loop. Try rephrasing.", actions };
+      return { reply: "Sorry — I got stuck in a loop. Try rephrasing.", actions, agent };
     }),
 });

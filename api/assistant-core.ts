@@ -16,6 +16,73 @@ export const ASSISTANT_SYSTEM = [
   "After a tool runs, confirm in one short line. If asked something you can't do yet, say so briefly. Never invent client names or data.",
 ].join("\n");
 
+/**
+ * FRONT DESK — the chatbot is ONE door to the whole team. Markie can address any
+ * agent by name ("Hey Sage", "Hey Wren") and the bot answers AS that agent.
+ * Each agent has a one-line voice/scope; the bot adopts it and hands off clearly.
+ */
+export type AgentKey = "fig" | "sage" | "wren" | "liv" | "gage";
+
+export const AGENT_ROSTER: Record<AgentKey, { name: string; role: string; persona: string }> = {
+  fig: {
+    name: "Fig",
+    role: "junior bookkeeper",
+    persona: "You are Fig, the junior bookkeeper — day-to-day books: coding transactions from vendor history, reconciling, receipts, first-pass HST/payroll. Practical and precise. You never post without review.",
+  },
+  sage: {
+    name: "Sage",
+    role: "senior bookkeeper",
+    persona: "You are Sage, the senior bookkeeper — you review Fig's work and own compliance prep (HST returns, WSIB/EHT, payroll). Calm, thorough, catch-the-slip mindset.",
+  },
+  wren: {
+    name: "Wren",
+    role: "controller / auditor",
+    persona: "You are Wren, the controller/auditor — assurance: month-end tie-outs, variance checks, CRA-style HST audit, signed workpaper. Rigorous and skeptical; you sign off last.",
+  },
+  liv: {
+    name: "Liv",
+    role: "executive assistant",
+    persona: "You are Liv, Markie's executive assistant — email triage, drafting replies in his tone, calendar, and his personal life (kept private, separate from clients). Warm, organized, anticipates needs.",
+  },
+  gage: {
+    name: "Gage",
+    role: "QA / IT watchdog",
+    persona: "You are Gage, the QA/IT watchdog — you make sure the app actually works (database, data, integrations, config, core flows). Plain-spoken; you report status and flag problems. Read-only.",
+  },
+};
+
+/**
+ * Detect which agent Markie is addressing. Recognizes "hey <name>", "<name>,",
+ * or "ask <name>" at the START of the message. Returns the agent key, or the
+ * `current` sticky agent if none is named (so a conversation stays with whoever
+ * he last addressed), defaulting to Fig. Pure → unit-tested.
+ */
+export function detectAgent(message: string, current?: AgentKey | null): AgentKey {
+  const m = (message || "").toLowerCase().trimStart();
+  for (const key of Object.keys(AGENT_ROSTER) as AgentKey[]) {
+    const n = key; // names are the same as keys, lowercased
+    const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${n}\\b`);
+    if (re.test(m)) return key;
+  }
+  return current ?? "fig";
+}
+
+/** Build the system prompt for the addressed agent (base tools + persona). */
+export function frontDeskSystem(agent: AgentKey): string {
+  const a = AGENT_ROSTER[agent];
+  const team = (Object.keys(AGENT_ROSTER) as AgentKey[])
+    .map((k) => `${AGENT_ROSTER[k].name} (${AGENT_ROSTER[k].role})`)
+    .join(", ");
+  return [
+    ASSISTANT_SYSTEM,
+    "",
+    `RIGHT NOW you are answering as ${a.name}. ${a.persona}`,
+    `Open with your name if it's the first reply in this thread, e.g. "${a.name} here —".`,
+    `Your teammates: ${team}. If a request really belongs to a teammate, say who should take it (e.g. "I'll flag Sage to prep the HST"), then still help as much as you can. Markie can switch to anyone by saying "Hey <name>".`,
+    "You can still add tasks and report the agenda for Markie regardless of which agent you are.",
+  ].join("\n");
+}
+
 export const ASSISTANT_TOOLS = [
   {
     name: "add_task",
