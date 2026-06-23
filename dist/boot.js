@@ -53601,6 +53601,103 @@ var init_calculator_router = __esm({
   }
 });
 
+// api/bank-converter-router.ts
+function extractJson(text2) {
+  if (!text2) return null;
+  const fenced = text2.replace(/```json\s*|\s*```/gi, "");
+  const start = fenced.indexOf("{");
+  const end = fenced.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    return JSON.parse(fenced.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+var SYSTEM, bankConverterRouter;
+var init_bank_converter_router = __esm({
+  "api/bank-converter-router.ts"() {
+    init_zod();
+    init_middleware();
+    SYSTEM = [
+      "You extract transactions from a bank or credit-card statement PDF for bookkeeping import.",
+      "Return ONLY valid JSON, no prose, no code fences, in EXACTLY this shape:",
+      `{"bank":"<bank name or empty>","account":"<masked acct # or empty>","transactions":[{"date":"YYYY-MM-DD","description":"<payee/description>","amount":<number>}]}`,
+      "Rules:",
+      "- One row per posted transaction, in statement order.",
+      "- amount is a SINGLE SIGNED number: NEGATIVE for money OUT (withdrawals, debits, purchases, fees, payments made); POSITIVE for money IN (deposits, credits, refunds).",
+      "- For a credit-card statement, purchases are NEGATIVE and payments/credits are POSITIVE.",
+      "- date is the transaction (not posted) date when both exist, ISO YYYY-MM-DD. Infer the year from the statement period if a row omits it.",
+      "- Do NOT include opening/closing balance lines, running balances, subtotals, interest-summary boxes, or marketing text \u2014 only real transactions.",
+      "- Strip currency symbols and thousands separators from amount.",
+      "- If you cannot read it, return an empty transactions array."
+    ].join("\n");
+    bankConverterRouter = createRouter({
+      parsePdf: staffQuery.input(external_exports.object({
+        base64: external_exports.string().min(1),
+        // raw base64 (no data: prefix)
+        fileName: external_exports.string().optional()
+      })).mutation(async ({ input }) => {
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) {
+          return { ok: false, error: "PDF parsing needs ANTHROPIC_API_KEY set on the server. (CSV/QFX/OFX uploads work without it.)" };
+        }
+        if (input.base64.length > 8e6) {
+          return { ok: false, error: "PDF too large (over ~6MB). Split it or export a shorter date range." };
+        }
+        const model = process.env.FIGGY_BANK_PDF_MODEL || "claude-haiku-4-5";
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 9e4);
+        try {
+          const res = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            signal: ctrl.signal,
+            headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({
+              model,
+              max_tokens: 8192,
+              system: SYSTEM,
+              messages: [{
+                role: "user",
+                content: [
+                  { type: "document", source: { type: "base64", media_type: "application/pdf", data: input.base64 } },
+                  { type: "text", text: "Extract every transaction from this statement as the JSON described. JSON only." }
+                ]
+              }]
+            })
+          });
+          if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            return { ok: false, error: `Claude PDF read failed (${res.status}). ${body.slice(0, 200)}` };
+          }
+          const data = await res.json();
+          const text2 = (data?.content ?? []).filter((b) => b?.type === "text").map((b) => String(b.text ?? "")).join("\n");
+          const parsed = extractJson(text2);
+          if (!parsed || !Array.isArray(parsed.transactions)) {
+            return { ok: false, error: "Couldn't read transactions from that PDF. Try a clearer copy, or export CSV from online banking." };
+          }
+          const txns = parsed.transactions.map((t2) => ({
+            date: String(t2?.date ?? "").trim(),
+            description: String(t2?.description ?? "").trim(),
+            amount: typeof t2?.amount === "number" ? t2.amount : parseFloat(String(t2?.amount ?? "").replace(/[$,\s]/g, ""))
+          })).filter((t2) => t2.date && Number.isFinite(t2.amount));
+          return {
+            ok: true,
+            bank: String(parsed.bank ?? "").trim() || "PDF Statement",
+            account: String(parsed.account ?? "").trim(),
+            transactions: txns
+          };
+        } catch (e) {
+          const msg = e instanceof Error && e.name === "AbortError" ? "Timed out reading the PDF (90s). Try a shorter statement." : e instanceof Error ? e.message : String(e);
+          return { ok: false, error: msg };
+        } finally {
+          clearTimeout(timer);
+        }
+      })
+    });
+  }
+});
+
 // api/public-router.ts
 var publicRouter;
 var init_public_router = __esm({
@@ -53860,6 +53957,7 @@ var init_router = __esm({
     init_interco_router();
     init_dashboard_router();
     init_calculator_router();
+    init_bank_converter_router();
     init_public_router();
     init_middleware();
     appRouter = createRouter({
@@ -53917,7 +54015,8 @@ var init_router = __esm({
       restore: restoreRouter,
       interco: intercoRouter,
       dashboard: dashboardRouter,
-      calculator: calculatorRouter
+      calculator: calculatorRouter,
+      bankConverter: bankConverterRouter
     });
   }
 });
@@ -61311,7 +61410,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.35";
+var BUILD_TAG = "2026-06-23.1";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

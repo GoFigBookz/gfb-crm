@@ -50,6 +50,7 @@ import { bulkImportRouter } from "./bulk-import-router";
 import { intercoRouter } from "./interco-router";
 import { dashboardRouter } from "./dashboard-router";
 import { calculatorRouter } from "./calculator-router";
+import { bankConverterRouter } from "./bank-converter-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
 
@@ -109,6 +110,7 @@ export const appRouter = createRouter({
   interco: intercoRouter,
   dashboard: dashboardRouter,
   calculator: calculatorRouter,
+  bankConverter: bankConverterRouter,
 });
 
 export type AppRouter = typeof appRouter;

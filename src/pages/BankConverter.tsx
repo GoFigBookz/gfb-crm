@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { trpc } from "@/providers/trpc";
 
 /* =================================================================
    TYPES
@@ -443,6 +444,27 @@ function downloadCSV(content: string, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
+/** Map a Claude-extracted PDF transaction into the shared ParsedTransaction shape. */
+function txnFromExtracted(t: { date: string; description: string; amount: number }, i: number): ParsedTransaction {
+  const d = parseDate(t.date);
+  const amount = t.amount;
+  return {
+    id: i,
+    date: d.iso || t.date,
+    rawDate: t.date,
+    payee: t.description,
+    description: t.description,
+    memo: "",
+    amount,
+    debit: amount < 0 ? Math.abs(amount) : 0,
+    credit: amount > 0 ? amount : 0,
+    category: "",
+    account: "",
+    chequeNum: "",
+    type: amount < 0 ? "debit" : amount > 0 ? "credit" : "transfer",
+  };
+}
+
 /* =================================================================
    PAGE COMPONENT
    ================================================================= */
@@ -454,6 +476,9 @@ export default function BankConverter() {
   const [exportType, setExportType] = useState<"qbo" | "iif" | "journal">("qbo");
   const [includeHeader, setIncludeHeader] = useState(true);
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const parsePdf = trpc.bankConverter.parsePdf.useMutation();
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -465,8 +490,40 @@ export default function BankConverter() {
   }, []);
 
   const processFile = useCallback((file: File) => {
+    setParseError(null);
+    const isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
+
+    // PDF → send to the server (Claude reads the statement) → transactions.
+    if (isPdf) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const dataUrl = (e.target?.result as string) || "";
+        const base64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+        if (!base64) { setParseError("Could not read that PDF file."); return; }
+        setParsing(true);
+        try {
+          const r = await parsePdf.mutateAsync({ base64, fileName: file.name });
+          if (!r.ok) { setParseError(r.error); return; }
+          if (r.transactions.length === 0) { setParseError("No transactions found in that PDF. Try a clearer copy or export CSV from online banking."); return; }
+          setParsedFile({
+            fileName: file.name,
+            bank: r.bank || "PDF Statement",
+            format: "PDF",
+            transactions: r.transactions.map(txnFromExtracted),
+            rawData: [["Date", "Description", "Amount"], ...r.transactions.map((t) => [t.date, t.description, String(t.amount)])],
+          });
+        } catch (err: any) {
+          setParseError(err?.message || "PDF parsing failed.");
+        } finally {
+          setParsing(false);
+        }
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
     if (!file.name.match(/\.(csv|txt|qfx|ofx)$/i)) {
-      alert("Please upload a CSV, QFX, OFX, or TXT file. PDF support requires manual CSV export from your bank.");
+      alert("Please upload a PDF, CSV, QFX, OFX, or TXT file.");
       return;
     }
     const reader = new FileReader();
@@ -480,7 +537,7 @@ export default function BankConverter() {
       }
     };
     reader.readAsText(file);
-  }, []);
+  }, [parsePdf]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -529,7 +586,7 @@ export default function BankConverter() {
           Bank Statement → QBO Converter
         </h1>
         <p className="text-slate-500">
-          Upload any Canadian bank CSV and get a clean, QBO-ready import file with correct dates.
+          Upload a bank statement <strong>PDF</strong> (or a CSV/QFX/OFX export) and get a clean, QBO-ready import file with correct dates.
         </p>
       </div>
 
@@ -541,29 +598,45 @@ export default function BankConverter() {
           onDrop={onDrop}
           className={cn(
             "border-2 border-dashed rounded-xl p-12 text-center transition-all",
-            isDragging ? "border-lime-500 bg-lime-50" : "border-slate-300 bg-slate-50"
+            parsing ? "border-lime-400 bg-lime-50/60" : isDragging ? "border-lime-500 bg-lime-50" : "border-slate-300 bg-slate-50"
           )}
         >
-          <Upload className={cn("h-12 w-12 mx-auto mb-4", isDragging ? "text-lime-500" : "text-slate-400")} />
-          <p className="text-lg font-medium text-slate-700 mb-2">
-            {isDragging ? "Drop your bank statement here" : "Drag & drop your bank statement CSV"}
-          </p>
-          <p className="text-sm text-slate-500 mb-4">
-            Supports: RBC, TD, Scotiabank, BMO, CIBC, Tangerine, Simplii, and generic CSV
-          </p>
-          <input
-            type="file"
-            accept=".csv,.txt,.qfx,.ofx"
-            onChange={onFileInput}
-            className="hidden"
-            id="bank-file"
-          />
-          <Button variant="outline" onClick={() => document.getElementById("bank-file")?.click()}>
-            <FileText className="h-4 w-4 mr-2" /> Browse Files
-          </Button>
-          <p className="text-xs text-slate-400 mt-4">
-            PDF? Export to CSV from your online banking first, then upload here.
-          </p>
+          {parsing ? (
+            <>
+              <div className="h-12 w-12 mx-auto mb-4 rounded-full border-4 border-lime-200 border-t-lime-500 animate-spin" />
+              <p className="text-lg font-medium text-slate-700 mb-2">Reading your statement…</p>
+              <p className="text-sm text-slate-500">Figgy is extracting the transactions from the PDF — this can take a few seconds for a multi-page statement.</p>
+            </>
+          ) : (
+            <>
+              <Upload className={cn("h-12 w-12 mx-auto mb-4", isDragging ? "text-lime-500" : "text-slate-400")} />
+              <p className="text-lg font-medium text-slate-700 mb-2">
+                {isDragging ? "Drop your bank statement here" : "Drag & drop your bank statement (PDF or CSV)"}
+              </p>
+              <p className="text-sm text-slate-500 mb-4">
+                PDF statements from any bank, plus CSV/QFX/OFX exports (RBC, TD, Scotiabank, BMO, CIBC, Tangerine, Simplii…)
+              </p>
+              <input
+                type="file"
+                accept=".pdf,.csv,.txt,.qfx,.ofx"
+                onChange={onFileInput}
+                className="hidden"
+                id="bank-file"
+              />
+              <Button variant="outline" onClick={() => document.getElementById("bank-file")?.click()}>
+                <FileText className="h-4 w-4 mr-2" /> Browse Files
+              </Button>
+              <p className="text-xs text-slate-400 mt-4">
+                PDF reading uses AI — review the parsed rows below before you export.
+              </p>
+            </>
+          )}
+          {parseError && (
+            <div className="mt-5 mx-auto max-w-lg flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{parseError}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -663,7 +736,7 @@ export default function BankConverter() {
                   <Download className="h-4 w-4 mr-2" />
                   Download QBO File
                 </Button>
-                <Button variant="outline" onClick={() => { setParsedFile(null); setForm({}); }}>
+                <Button variant="outline" onClick={() => { setParsedFile(null); setParseError(null); }}>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Clear & Upload New
                 </Button>
