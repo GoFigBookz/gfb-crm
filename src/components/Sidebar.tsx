@@ -6,7 +6,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft, FileStack,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target,
+  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,6 +29,22 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
 
   const toggleSection = (key: SectionKey) => {
     setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // FAVORITES — Markie pins the pages he uses most to the top. Right-click any nav
+  // item (or click its hover star) to add/remove. Persisted per-device.
+  const FAV_KEY = "figgy.sidebar.favorites";
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try { const s = localStorage.getItem(FAV_KEY); if (s) return JSON.parse(s); } catch { /* ignore */ }
+    return ["/", "/payroll", "/clients", "/calendar"]; // sensible defaults
+  });
+  const isFav = (to: string) => favorites.includes(to);
+  const toggleFav = (to: string) => {
+    setFavorites((prev) => {
+      const next = prev.includes(to) ? prev.filter((x) => x !== to) : [...prev, to];
+      try { localStorage.setItem(FAV_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
   };
 
   // Work — the daily close cockpit: where things stand + what to do next.
@@ -97,14 +113,21 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/system-health", icon: Gauge, label: "System Health" },
   ];
 
+  // Flat registry so a favorited path resolves back to its icon + label.
+  const allItems = [...workItems, ...payrollItems, ...clientItems, ...commsItems, ...toolItems, ...insightItems, ...adminItems];
+  const itemByPath = new Map(allItems.map((i) => [i.to, i]));
+  const favItems = favorites.map((to) => itemByPath.get(to)).filter(Boolean) as { to: string; icon: any; label: string }[];
+
   const NavItem = ({ to, icon: Icon, label, end = false }: { to: string; icon: any; label: string; end?: boolean }) => (
     <NavLink
       to={to}
       end={end}
       onClick={() => onMobileClose?.()}
+      onContextMenu={(e) => { e.preventDefault(); toggleFav(to); }}
+      title={collapsed ? label : "Right-click to add/remove from Favorites"}
       className={({ isActive }) =>
         cn(
-          "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200",
+          "group/nav flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200",
           isActive
             ? "bg-lime-600 text-white"
             : "text-slate-400 hover:bg-slate-800 hover:text-white"
@@ -113,6 +136,18 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     >
       <Icon className="h-5 w-5 flex-shrink-0" />
       {!collapsed && <span className="font-medium text-sm truncate">{label}</span>}
+      {!collapsed && (
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFav(to); }}
+          title={isFav(to) ? "Remove from Favorites" : "Add to Favorites"}
+          className={cn(
+            "ml-auto flex-shrink-0 p-0.5 rounded transition-opacity",
+            isFav(to) ? "opacity-100" : "opacity-0 group-hover/nav:opacity-100"
+          )}
+        >
+          <Star className={cn("h-3.5 w-3.5", isFav(to) ? "fill-amber-400 text-amber-400" : "text-slate-400")} />
+        </button>
+      )}
     </NavLink>
   );
 
@@ -176,15 +211,22 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
 
       {/* Nav */}
       <nav className="flex-1 py-3 px-2 overflow-y-auto">
-        {/* Pinned quick-access — the everyday drivers, always visible so you never
-            hunt for them (Payroll is weekly core work). */}
-        <div className="space-y-0.5 mb-2">
-          <NavItem to="/" icon={LayoutDashboard} label="Dashboard" end />
-          <NavItem to="/payroll" icon={Wallet} label="Payroll" />
-          <NavItem to="/clients" icon={Users} label="Clients" />
-          <NavItem to="/tasks" icon={CheckSquare} label="Tasks" />
-          <NavItem to="/month-end-close" icon={Gauge} label="Month-End Close" />
-        </div>
+        {/* FAVORITES — your pinned pages. Right-click any item (or its star) to
+            add/remove. Hidden when you have none. */}
+        {favItems.length > 0 && (
+          <div className="mb-2">
+            {!collapsed && (
+              <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-amber-400/80">
+                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> Favorites
+              </div>
+            )}
+            <div className="space-y-0.5 mt-0.5">
+              {favItems.map((item) => (
+                <NavItem key={`fav-${item.to}`} to={item.to} icon={item.icon} label={item.label} end={item.to === "/"} />
+              ))}
+            </div>
+          </div>
+        )}
         {!collapsed && <div className="border-t border-slate-800 my-2 mx-1" />}
         <Section label="Work" icon={Gauge} sectionKey="work" items={workItems} />
         <Section label="People & Payroll" icon={Wallet} sectionKey="payroll" items={payrollItems} />
