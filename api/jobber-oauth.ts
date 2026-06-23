@@ -87,6 +87,10 @@ export async function buildAuthorizeUrl(clientId: number | null): Promise<string
   u.searchParams.set("redirect_uri", redirectUri());
   u.searchParams.set("response_type", "code");
   u.searchParams.set("state", signState(clientId));
+  // Best-effort: ask Jobber to force a fresh login screen so the user can pick the
+  // RIGHT account instead of silently reusing whoever's already signed in. Jobber
+  // doesn't document this, but unknown params are ignored, so it's safe to try.
+  u.searchParams.set("prompt", "login");
   return u.toString();
 }
 
@@ -148,12 +152,25 @@ export async function exchangeAndPersist(input: { code: string; stateRaw: string
   const db = getDb();
   await ensureJobberTable();
 
-  // Identify WHICH Jobber account this token belongs to and store its name so the
-  // UI shows which account each client is linked to. We do NOT block linking the
-  // same account to multiple clients: some firms run several CRM clients out of ONE
-  // Jobber account (e.g. Clark Pools' two locations). Hours stay separated at
-  // import time — each pay run only fills employees on THAT client's roster.
+  // Identify WHICH Jobber account this token belongs to. Each company has its OWN
+  // Jobber account, so REFUSE to bind the same account to a second client — that's
+  // the silent-reuse trap (browser still signed into the first account → Jobber
+  // returns it again). Blocking here keeps the two companies' data separate and
+  // stops the wrong timesheet importing.
   const acc = await fetchJobberAccount(data.access_token);
+  if (acc) {
+    const all = await db.select().from(jobberConnections);
+    const clash = (all as Conn[]).find(
+      (c) => c.active && c.jobberAccountId === acc.id && c.clientId !== state.clientId,
+    );
+    if (clash) {
+      throw new Error(
+        `This connected the SAME Jobber account again ("${acc.name || acc.id}") — your browser is still signed into it. ` +
+        `To connect the OTHER company: open jobber.com, SIGN OUT (or switch to the other company's login), then click Connect again. ` +
+        `Nothing was changed.`,
+      );
+    }
+  }
 
   const existing = await db.select().from(jobberConnections).where(eq(jobberConnections.clientId, state.clientId)).limit(1);
   const row = {
