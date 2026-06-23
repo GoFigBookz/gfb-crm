@@ -24,6 +24,7 @@ const PER_CLIENT_PROVIDERS = [
   "jobber",
   "touchbistro",
   "paypal",
+  "square",
   "dropbox",
 ] as const;
 
@@ -39,6 +40,7 @@ const PROVIDER_CONFIGS: Record<
   jobber: { name: "Jobber", baseUrl: "https://api.getjobber.com" },
   touchbistro: { name: "TouchBistro", baseUrl: "https://api.touchbistro.com" },
   paypal: { name: "PayPal", baseUrl: "https://api.paypal.com" },
+  square: { name: "Square", baseUrl: "https://connect.squareup.com" },
   dropbox: { name: "Dropbox", baseUrl: "https://api.dropboxapi.com" },
 };
 
@@ -74,6 +76,8 @@ async function syncProviderData(params: SyncParams): Promise<SyncResult> {
       return syncTouchBistro(params);
     case "paypal":
       return syncPayPal(params);
+    case "square":
+      return syncSquare(params);
     case "dropbox":
       // Dropbox is file storage, not a statement source — the connection is stored
       // per client for document access; there are no monthly statements to pull.
@@ -257,6 +261,70 @@ async function syncStripe(params: SyncParams): Promise<SyncResult> {
       status: "error",
       recordsSynced: 0,
       errorMessage: error instanceof Error ? error.message : "Stripe sync failed",
+    };
+  }
+}
+
+// ---- SQUARE ----
+// Square POS: pull COMPLETED payments for the period (amounts are in cents).
+// Revenue = sum(amount_money); fees = sum(processing_fee). Paginates by cursor.
+async function syncSquare(params: SyncParams): Promise<SyncResult> {
+  try {
+    const beginTime = params.periodStart.toISOString();
+    const endTime = params.periodEnd.toISOString();
+    let cursor: string | undefined;
+    let payments: any[] = [];
+
+    // Bounded loop so a busy month can't run away (≈ up to 1000 payments).
+    for (let page = 0; page < 10; page++) {
+      const url = new URL(`${PROVIDER_CONFIGS.square.baseUrl}/v2/payments`);
+      url.searchParams.set("begin_time", beginTime);
+      url.searchParams.set("end_time", endTime);
+      url.searchParams.set("sort_order", "ASC");
+      url.searchParams.set("limit", "100");
+      if (cursor) url.searchParams.set("cursor", cursor);
+
+      const res = await fetch(url.toString(), {
+        headers: {
+          Authorization: `Bearer ${params.apiKey}`,
+          "Square-Version": "2024-12-18",
+          "Content-Type": "application/json",
+        },
+      });
+      if (!res.ok) {
+        return { status: "error", recordsSynced: 0, errorMessage: `Square API error: ${res.status}` };
+      }
+      const data = await res.json();
+      payments = payments.concat(data.payments || []);
+      cursor = data.cursor;
+      if (!cursor) break;
+    }
+
+    // Only completed payments count as sales; amounts are integer cents.
+    const completed = payments.filter((p: any) => (p.status ?? "COMPLETED") === "COMPLETED");
+    const totalRevenue = completed.reduce((sum: number, p: any) => sum + (p.amount_money?.amount || 0) / 100, 0);
+    const totalFees = completed.reduce(
+      (sum: number, p: any) =>
+        sum + (p.processing_fee || []).reduce((f: number, pf: any) => f + (pf.amount_money?.amount || 0) / 100, 0),
+      0,
+    );
+
+    await upsertStatement(getDb(), params, {
+      totalRevenue,
+      totalExpenses: 0,
+      totalFees,
+      netAmount: totalRevenue - totalFees,
+      transactionCount: completed.length,
+      transactionsJson: JSON.stringify(completed.slice(0, 500)),
+      rawJson: JSON.stringify({ payments: payments.length, completed: completed.length }),
+    });
+
+    return { status: "success", recordsSynced: completed.length };
+  } catch (error) {
+    return {
+      status: "error",
+      recordsSynced: 0,
+      errorMessage: error instanceof Error ? error.message : "Square sync failed",
     };
   }
 }

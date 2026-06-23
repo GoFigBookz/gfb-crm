@@ -22434,7 +22434,8 @@ var init_schema = __esm({
         "stripe",
         "jobber",
         "touchbistro",
-        "paypal"
+        "paypal",
+        "square"
       ] }).notNull(),
       providerAccountId: text("providerAccountId"),
       // OAuth account ID (null for API key connectors)
@@ -23746,7 +23747,7 @@ var init_schema = __esm({
       clientId: integer2("clientId").notNull(),
       userId: integer2("userId").notNull(),
       connectedAccountId: integer2("connectedAccountId").notNull(),
-      provider: text("provider", { enum: ["wise", "stripe", "jobber", "touchbistro", "paypal"] }).notNull(),
+      provider: text("provider", { enum: ["wise", "stripe", "jobber", "touchbistro", "paypal", "square"] }).notNull(),
       // Statement period
       periodStart: integer2("periodStart", { mode: "timestamp" }).notNull(),
       periodEnd: integer2("periodEnd", { mode: "timestamp" }).notNull(),
@@ -23778,7 +23779,7 @@ var init_schema = __esm({
       id: integer2("id").primaryKey({ autoIncrement: true }),
       connectedAccountId: integer2("connectedAccountId").notNull(),
       clientId: integer2("clientId").notNull(),
-      provider: text("provider", { enum: ["wise", "stripe", "jobber", "touchbistro", "paypal"] }).notNull(),
+      provider: text("provider", { enum: ["wise", "stripe", "jobber", "touchbistro", "paypal", "square"] }).notNull(),
       syncType: text("syncType", { enum: ["statements", "transactions", "balances", "invoices", "payouts", "all"] }).default("all").notNull(),
       status: text("status", { enum: ["success", "error", "partial"] }).notNull(),
       recordsSynced: integer2("recordsSynced").default(0).notNull(),
@@ -52007,6 +52008,8 @@ async function syncProviderData(params) {
       return syncTouchBistro(params);
     case "paypal":
       return syncPayPal(params);
+    case "square":
+      return syncSquare(params);
     case "dropbox":
       return { status: "success", recordsSynced: 0 };
     default:
@@ -52143,6 +52146,58 @@ async function syncStripe(params) {
       status: "error",
       recordsSynced: 0,
       errorMessage: error48 instanceof Error ? error48.message : "Stripe sync failed"
+    };
+  }
+}
+async function syncSquare(params) {
+  try {
+    const beginTime = params.periodStart.toISOString();
+    const endTime = params.periodEnd.toISOString();
+    let cursor;
+    let payments = [];
+    for (let page = 0; page < 10; page++) {
+      const url2 = new URL(`${PROVIDER_CONFIGS.square.baseUrl}/v2/payments`);
+      url2.searchParams.set("begin_time", beginTime);
+      url2.searchParams.set("end_time", endTime);
+      url2.searchParams.set("sort_order", "ASC");
+      url2.searchParams.set("limit", "100");
+      if (cursor) url2.searchParams.set("cursor", cursor);
+      const res = await fetch(url2.toString(), {
+        headers: {
+          Authorization: `Bearer ${params.apiKey}`,
+          "Square-Version": "2024-12-18",
+          "Content-Type": "application/json"
+        }
+      });
+      if (!res.ok) {
+        return { status: "error", recordsSynced: 0, errorMessage: `Square API error: ${res.status}` };
+      }
+      const data = await res.json();
+      payments = payments.concat(data.payments || []);
+      cursor = data.cursor;
+      if (!cursor) break;
+    }
+    const completed = payments.filter((p) => (p.status ?? "COMPLETED") === "COMPLETED");
+    const totalRevenue = completed.reduce((sum3, p) => sum3 + (p.amount_money?.amount || 0) / 100, 0);
+    const totalFees = completed.reduce(
+      (sum3, p) => sum3 + (p.processing_fee || []).reduce((f, pf) => f + (pf.amount_money?.amount || 0) / 100, 0),
+      0
+    );
+    await upsertStatement(getDb(), params, {
+      totalRevenue,
+      totalExpenses: 0,
+      totalFees,
+      netAmount: totalRevenue - totalFees,
+      transactionCount: completed.length,
+      transactionsJson: JSON.stringify(completed.slice(0, 500)),
+      rawJson: JSON.stringify({ payments: payments.length, completed: completed.length })
+    });
+    return { status: "success", recordsSynced: completed.length };
+  } catch (error48) {
+    return {
+      status: "error",
+      recordsSynced: 0,
+      errorMessage: error48 instanceof Error ? error48.message : "Square sync failed"
     };
   }
 }
@@ -52285,6 +52340,7 @@ var init_connector_router = __esm({
       "jobber",
       "touchbistro",
       "paypal",
+      "square",
       "dropbox"
     ];
     PROVIDER_CONFIGS = {
@@ -52293,6 +52349,7 @@ var init_connector_router = __esm({
       jobber: { name: "Jobber", baseUrl: "https://api.getjobber.com" },
       touchbistro: { name: "TouchBistro", baseUrl: "https://api.touchbistro.com" },
       paypal: { name: "PayPal", baseUrl: "https://api.paypal.com" },
+      square: { name: "Square", baseUrl: "https://connect.squareup.com" },
       dropbox: { name: "Dropbox", baseUrl: "https://api.dropboxapi.com" }
     };
     connectorRouter = createRouter({
@@ -62456,7 +62513,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.25";
+var BUILD_TAG = "2026-06-23.26";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
