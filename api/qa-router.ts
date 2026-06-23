@@ -1,0 +1,126 @@
+/**
+ * GAGE ROUTER — the QA/watchdog agent's live health check.
+ * =============================================================================
+ * Gage gathers raw facts from the running system (DB reachable, key tables +
+ * row counts, which env keys are set, QBO/connector health, recent sync errors)
+ * and hands them to the pure evaluator in qa-core. The result is a graded
+ * report (ok/warn/fail) Markie can glance at instead of living in Claude.
+ * Read-only — Gage never changes data, it only inspects.
+ * =============================================================================
+ */
+import { z } from "zod";
+import { createRouter, authedQuery } from "./middleware";
+import { getDb } from "./queries/connection";
+import { sql } from "drizzle-orm";
+import { evaluateQa, type QaFacts } from "./qa-core";
+
+const TABLES = [
+  "clients", "users", "tasks", "emails", "employees",
+  "pay_runs", "qbo_connections", "connected_accounts",
+  "triage_findings", "vendor_memory",
+];
+
+const TRACKED_ENV = [
+  "ANTHROPIC_API_KEY", "FIGGY_TOKEN_KEY", "QBO_CLIENT_ID",
+  "QBO_CLIENT_SECRET", "FIGGY_MAKE_API_TOKEN",
+];
+
+async function countTable(db: any, table: string): Promise<number | null> {
+  try {
+    const res: any = await db.run(sql.raw(`SELECT COUNT(*) AS n FROM "${table}"`));
+    const rows = res?.rows ?? res ?? [];
+    const row = rows[0] ?? {};
+    const n = (row.n ?? row[0] ?? row["COUNT(*)"]);
+    return Number(n) || 0;
+  } catch {
+    return null; // table missing or query failed → core marks it fail
+  }
+}
+
+async function gatherFacts(): Promise<QaFacts> {
+  const db = getDb();
+
+  // DB reachable?
+  let dbReachable = false;
+  let dbError: string | undefined;
+  try {
+    await db.run(sql`SELECT 1`);
+    dbReachable = true;
+  } catch (e) {
+    dbError = e instanceof Error ? e.message : String(e);
+  }
+
+  // Table counts.
+  const tableCounts: Record<string, number | null> = {};
+  if (dbReachable) {
+    for (const t of TABLES) tableCounts[t] = await countTable(db, t);
+  } else {
+    for (const t of TABLES) tableCounts[t] = null;
+  }
+
+  // Env presence.
+  const env: Record<string, boolean> = {};
+  for (const name of TRACKED_ENV) env[name] = !!process.env[name];
+
+  // QBO connection health.
+  let qbo: QaFacts["qbo"];
+  try {
+    const res: any = await db.run(
+      sql.raw(`SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN "isActive" = 1 THEN 1 ELSE 0 END) AS active,
+        SUM(CASE WHEN "reconnectReason" IS NOT NULL AND "reconnectReason" != '' THEN 1 ELSE 0 END) AS needReconnect
+      FROM qbo_connections`),
+    );
+    const row = (res?.rows ?? res ?? [])[0] ?? {};
+    qbo = {
+      total: Number(row.total ?? 0) || 0,
+      active: Number(row.active ?? 0) || 0,
+      needReconnect: Number(row.needReconnect ?? 0) || 0,
+    };
+  } catch {
+    // column set may differ on older DBs; skip the QBO check rather than fail.
+  }
+
+  // Connector account count.
+  let connectorCount: number | undefined;
+  const cc = await countTable(db, "connected_accounts");
+  if (cc !== null) connectorCount = cc;
+
+  // Recent sync errors (last 50 connector sync logs).
+  let recentSyncErrors: number | undefined;
+  try {
+    const res: any = await db.run(
+      sql.raw(`SELECT COUNT(*) AS n FROM (
+        SELECT status FROM connector_sync_logs ORDER BY id DESC LIMIT 50
+      ) WHERE status = 'error' OR status = 'failed'`),
+    );
+    const row = (res?.rows ?? res ?? [])[0] ?? {};
+    recentSyncErrors = Number(row.n ?? 0) || 0;
+  } catch {
+    // table may not exist on this DB; skip.
+  }
+
+  return { dbReachable, dbError, tableCounts, env, qbo, connectorCount, recentSyncErrors };
+}
+
+export const qaRouter = createRouter({
+  /** Gage's full health report. Any signed-in staff member can run it. */
+  runChecks: authedQuery.query(async () => {
+    const facts = await gatherFacts();
+    return evaluateQa(facts);
+  }),
+
+  /** Lightweight liveness — used by uptime pings / the status dot. */
+  ping: authedQuery
+    .input(z.object({}).optional())
+    .query(async () => {
+      const db = getDb();
+      try {
+        await db.run(sql`SELECT 1`);
+        return { ok: true, ts: new Date().toISOString() };
+      } catch (e) {
+        return { ok: false, ts: new Date().toISOString(), error: e instanceof Error ? e.message : String(e) };
+      }
+    }),
+});

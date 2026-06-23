@@ -54171,6 +54171,250 @@ var init_assistant_router = __esm({
   }
 });
 
+// api/qa-core.ts
+function rollup(statuses) {
+  if (statuses.includes("fail")) return "fail";
+  if (statuses.includes("warn")) return "warn";
+  return "ok";
+}
+function evaluateQa(facts) {
+  const checks = [];
+  checks.push({
+    id: "db",
+    category: "Database",
+    label: "Database connection",
+    status: facts.dbReachable ? "ok" : "fail",
+    detail: facts.dbReachable ? "Responding to queries." : `Not reachable${facts.dbError ? `: ${facts.dbError}` : "."}`
+  });
+  for (const t2 of EXPECTED_TABLES) {
+    const count5 = facts.tableCounts[t2.name];
+    if (count5 === void 0 || count5 === null) {
+      checks.push({
+        id: `table:${t2.name}`,
+        category: "Tables",
+        label: t2.label,
+        status: "fail",
+        detail: "Table missing or query failed."
+      });
+    } else if (count5 === 0 && !t2.emptyOk) {
+      checks.push({
+        id: `table:${t2.name}`,
+        category: "Tables",
+        label: t2.label,
+        status: "warn",
+        detail: "Present but empty (expected some rows)."
+      });
+    } else {
+      checks.push({
+        id: `table:${t2.name}`,
+        category: "Tables",
+        label: t2.label,
+        status: "ok",
+        detail: `${count5} row${count5 === 1 ? "" : "s"}.`
+      });
+    }
+  }
+  for (const e of REQUIRED_ENV) {
+    const present = !!facts.env[e.name];
+    checks.push({
+      id: `env:${e.name}`,
+      category: "Configuration",
+      label: e.name,
+      status: present ? "ok" : "fail",
+      detail: present ? "Set." : `Missing \u2014 needed for ${e.why}.`
+    });
+  }
+  for (const e of OPTIONAL_ENV) {
+    const present = !!facts.env[e.name];
+    checks.push({
+      id: `env:${e.name}`,
+      category: "Configuration",
+      label: e.name,
+      status: present ? "ok" : "warn",
+      detail: present ? "Set." : `Not set \u2014 ${e.why} stays off until configured.`
+    });
+  }
+  if (facts.qbo) {
+    const { total, active, needReconnect } = facts.qbo;
+    let status = "ok";
+    let detail = `${active}/${total} connection${total === 1 ? "" : "s"} active.`;
+    if (total === 0) {
+      status = "warn";
+      detail = "No QBO connections yet (bridge or native OAuth not bound).";
+    } else if (needReconnect > 0) {
+      status = "warn";
+      detail = `${needReconnect} connection${needReconnect === 1 ? "" : "s"} need reconnect.`;
+    } else if (active === 0) {
+      status = "warn";
+      detail = `${total} connection${total === 1 ? "" : "s"} but none active.`;
+    }
+    checks.push({ id: "qbo", category: "QuickBooks", label: "QBO connections", status, detail });
+  }
+  if (typeof facts.connectorCount === "number") {
+    checks.push({
+      id: "connectors",
+      category: "Integrations",
+      label: "Connected provider accounts",
+      status: "ok",
+      detail: `${facts.connectorCount} account${facts.connectorCount === 1 ? "" : "s"} linked.`
+    });
+  }
+  if (typeof facts.recentSyncErrors === "number") {
+    checks.push({
+      id: "sync-errors",
+      category: "Integrations",
+      label: "Recent sync errors",
+      status: facts.recentSyncErrors > 0 ? "warn" : "ok",
+      detail: facts.recentSyncErrors > 0 ? `${facts.recentSyncErrors} failed sync(s) recently.` : "No recent sync failures."
+    });
+  }
+  const ok = checks.filter((c) => c.status === "ok").length;
+  const warn = checks.filter((c) => c.status === "warn").length;
+  const fail = checks.filter((c) => c.status === "fail").length;
+  return {
+    status: rollup(checks.map((c) => c.status)),
+    counts: { ok, warn, fail, total: checks.length },
+    checks,
+    ts: (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+var EXPECTED_TABLES, REQUIRED_ENV, OPTIONAL_ENV;
+var init_qa_core = __esm({
+  "api/qa-core.ts"() {
+    EXPECTED_TABLES = [
+      { name: "clients", label: "Clients", emptyOk: false },
+      { name: "users", label: "Users", emptyOk: false },
+      { name: "tasks", label: "Tasks", emptyOk: true },
+      { name: "emails", label: "Emails", emptyOk: true },
+      { name: "employees", label: "Employees", emptyOk: true },
+      { name: "pay_runs", label: "Pay runs", emptyOk: true },
+      { name: "qbo_connections", label: "QBO connections", emptyOk: true },
+      { name: "connected_accounts", label: "Connector accounts", emptyOk: true },
+      { name: "triage_findings", label: "Triage findings", emptyOk: true },
+      { name: "vendor_memory", label: "Vendor memory", emptyOk: true }
+    ];
+    REQUIRED_ENV = [
+      { name: "ANTHROPIC_API_KEY", why: "AI features (Liv drafts, chatbot, bank converter, PDF splitter, web classify)" }
+    ];
+    OPTIONAL_ENV = [
+      { name: "FIGGY_TOKEN_KEY", why: "QBO token encryption at rest (native OAuth)" },
+      { name: "QBO_CLIENT_ID", why: "QBO native OAuth (production app)" },
+      { name: "QBO_CLIENT_SECRET", why: "QBO native OAuth (production app)" },
+      { name: "FIGGY_MAKE_API_TOKEN", why: "Make scenario-run bridge (Drive folders, backlog suggest)" }
+    ];
+  }
+});
+
+// api/qa-router.ts
+async function countTable(db, table) {
+  try {
+    const res = await db.run(sql.raw(`SELECT COUNT(*) AS n FROM "${table}"`));
+    const rows = res?.rows ?? res ?? [];
+    const row = rows[0] ?? {};
+    const n = row.n ?? row[0] ?? row["COUNT(*)"];
+    return Number(n) || 0;
+  } catch {
+    return null;
+  }
+}
+async function gatherFacts() {
+  const db = getDb();
+  let dbReachable = false;
+  let dbError;
+  try {
+    await db.run(sql`SELECT 1`);
+    dbReachable = true;
+  } catch (e) {
+    dbError = e instanceof Error ? e.message : String(e);
+  }
+  const tableCounts = {};
+  if (dbReachable) {
+    for (const t2 of TABLES) tableCounts[t2] = await countTable(db, t2);
+  } else {
+    for (const t2 of TABLES) tableCounts[t2] = null;
+  }
+  const env2 = {};
+  for (const name2 of TRACKED_ENV) env2[name2] = !!process.env[name2];
+  let qbo;
+  try {
+    const res = await db.run(
+      sql.raw(`SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN "isActive" = 1 THEN 1 ELSE 0 END) AS active,
+        SUM(CASE WHEN "reconnectReason" IS NOT NULL AND "reconnectReason" != '' THEN 1 ELSE 0 END) AS needReconnect
+      FROM qbo_connections`)
+    );
+    const row = (res?.rows ?? res ?? [])[0] ?? {};
+    qbo = {
+      total: Number(row.total ?? 0) || 0,
+      active: Number(row.active ?? 0) || 0,
+      needReconnect: Number(row.needReconnect ?? 0) || 0
+    };
+  } catch {
+  }
+  let connectorCount;
+  const cc = await countTable(db, "connected_accounts");
+  if (cc !== null) connectorCount = cc;
+  let recentSyncErrors;
+  try {
+    const res = await db.run(
+      sql.raw(`SELECT COUNT(*) AS n FROM (
+        SELECT status FROM connector_sync_logs ORDER BY id DESC LIMIT 50
+      ) WHERE status = 'error' OR status = 'failed'`)
+    );
+    const row = (res?.rows ?? res ?? [])[0] ?? {};
+    recentSyncErrors = Number(row.n ?? 0) || 0;
+  } catch {
+  }
+  return { dbReachable, dbError, tableCounts, env: env2, qbo, connectorCount, recentSyncErrors };
+}
+var TABLES, TRACKED_ENV, qaRouter;
+var init_qa_router = __esm({
+  "api/qa-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_drizzle_orm();
+    init_qa_core();
+    TABLES = [
+      "clients",
+      "users",
+      "tasks",
+      "emails",
+      "employees",
+      "pay_runs",
+      "qbo_connections",
+      "connected_accounts",
+      "triage_findings",
+      "vendor_memory"
+    ];
+    TRACKED_ENV = [
+      "ANTHROPIC_API_KEY",
+      "FIGGY_TOKEN_KEY",
+      "QBO_CLIENT_ID",
+      "QBO_CLIENT_SECRET",
+      "FIGGY_MAKE_API_TOKEN"
+    ];
+    qaRouter = createRouter({
+      /** Gage's full health report. Any signed-in staff member can run it. */
+      runChecks: authedQuery.query(async () => {
+        const facts = await gatherFacts();
+        return evaluateQa(facts);
+      }),
+      /** Lightweight liveness — used by uptime pings / the status dot. */
+      ping: authedQuery.input(external_exports.object({}).optional()).query(async () => {
+        const db = getDb();
+        try {
+          await db.run(sql`SELECT 1`);
+          return { ok: true, ts: (/* @__PURE__ */ new Date()).toISOString() };
+        } catch (e) {
+          return { ok: false, ts: (/* @__PURE__ */ new Date()).toISOString(), error: e instanceof Error ? e.message : String(e) };
+        }
+      })
+    });
+  }
+});
+
 // api/public-router.ts
 var publicRouter;
 var init_public_router = __esm({
@@ -54433,6 +54677,7 @@ var init_router = __esm({
     init_bank_converter_router();
     init_pdf_splitter_router();
     init_assistant_router();
+    init_qa_router();
     init_public_router();
     init_middleware();
     appRouter = createRouter({
@@ -54493,7 +54738,8 @@ var init_router = __esm({
       calculator: calculatorRouter,
       bankConverter: bankConverterRouter,
       pdfSplitter: pdfSplitterRouter,
-      assistant: assistantRouter
+      assistant: assistantRouter,
+      gage: qaRouter
     });
   }
 });
@@ -61887,7 +62133,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.15";
+var BUILD_TAG = "2026-06-23.16";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

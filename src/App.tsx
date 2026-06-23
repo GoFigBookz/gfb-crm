@@ -32,6 +32,7 @@ import EngagementLetters from "./pages/EngagementLetters";
 import BankConverter from "./pages/BankConverter";
 import PdfSplitter from "./pages/PdfSplitter";
 import Assistant from "./pages/Assistant";
+import SystemHealth from "./pages/SystemHealth";
 import TaxDeadlines from "./pages/TaxDeadlines";
 import YearEndChecklist from "./pages/YearEndChecklist";
 import Templates from "./pages/Templates";
@@ -100,6 +101,7 @@ function AppRoutes() {
         <Route path="/bank-converter" element={<BankConverter />} />
         <Route path="/pdf-splitter" element={<PdfSplitter />} />
         <Route path="/assistant" element={<Assistant />} />
+        <Route path="/system-health" element={<SystemHealth />} />
         <Route path="/tax-deadlines" element={<TaxDeadlines />} />
         <Route path="/year-end" element={<YearEndChecklist />} />
         <Route path="/templates" element={<Templates />} />
