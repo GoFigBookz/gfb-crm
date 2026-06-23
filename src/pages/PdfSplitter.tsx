@@ -26,9 +26,10 @@ function abToBase64(buf: ArrayBuffer | Uint8Array): string {
   return btoa(binary);
 }
 
-// Keep each chunk sent to the AI under the API limit (well below 32MB) and ≤100 pages.
-const MAX_CHUNK_BYTES = 18 * 1024 * 1024;
-const MAX_CHUNK_PAGES = 100;
+// Keep each request SMALL so big scans upload reliably (no "failed to fetch" from
+// a slow/heavy POST). Many small chunks, read in parallel, beats a few huge ones.
+const MAX_CHUNK_BYTES = 4 * 1024 * 1024;
+const MAX_CHUNK_PAGES = 8;
 
 export default function PdfSplitter() {
   const [file, setFile] = useState<File | null>(null);
@@ -86,8 +87,14 @@ export default function PdfSplitter() {
           const i = next++;
           const c = chunks[i];
           const b64 = await buildChunkB64(c);
-          const r = await plan.mutateAsync({ base64: b64, fileName: f.name, pageCount: c.end - c.start + 1 });
-          if (!r.ok) throw new Error(r.error);
+          // Retry a couple of times — a single dropped request shouldn't sink the batch.
+          let r: any = null; let lastErr = "";
+          for (let attempt = 0; attempt < 3 && !r?.ok; attempt++) {
+            if (attempt > 0) await new Promise((res) => setTimeout(res, 1500 * attempt));
+            try { r = await plan.mutateAsync({ base64: b64, fileName: f.name, pageCount: c.end - c.start + 1 }); }
+            catch (err: any) { lastErr = err?.message || "request failed"; r = null; }
+          }
+          if (!r || !r.ok) throw new Error(r?.error || lastErr || `Couldn't read pages ${c.start}–${c.end}.`);
           results[i] = { offset: c.start - 1, docs: r.documents as Doc[] };
           done++; note();
         }

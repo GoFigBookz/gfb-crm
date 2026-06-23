@@ -61505,7 +61505,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.4";
+var BUILD_TAG = "2026-06-23.5";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
