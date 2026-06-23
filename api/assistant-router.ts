@@ -107,7 +107,15 @@ export const assistantRouter = createRouter({
       const agent: AgentKey = detectAgent(input.message, input.agent ?? null);
       if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [] as string[], agent };
       const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
-      const system = frontDeskSystem(agent);
+      // Tell it "now" so it can answer time/date without searching, in Markie's TZ.
+      const nowLine = `Current date & time: ${new Date().toLocaleString("en-CA", { timeZone: "America/Toronto", dateStyle: "full", timeStyle: "short" })} (America/Toronto).`;
+      const system = `${frontDeskSystem(agent)}\n${nowLine}`;
+      // Server-side web search for general/current/local questions (weather, prices,
+      // where-to-buy, hours, news…). Off only if explicitly disabled.
+      const webSearch = process.env.FIGGY_WEB_SEARCH === "off"
+        ? []
+        : [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }];
+      const tools = [...ASSISTANT_TOOLS, ...webSearch];
 
       const messages: any[] = [
         ...(input.history || []).map((h) => ({ role: h.role, content: h.content })),
@@ -119,7 +127,7 @@ export const assistantRouter = createRouter({
         const res = await fetch(ANTHROPIC_URL, {
           method: "POST",
           headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-          body: JSON.stringify({ model, max_tokens: 1024, system, tools: ASSISTANT_TOOLS, messages }),
+          body: JSON.stringify({ model, max_tokens: 1024, system, tools, messages }),
         });
         if (!res.ok) {
           const b = await res.text().catch(() => "");
@@ -137,6 +145,11 @@ export const assistantRouter = createRouter({
             }
           }
           messages.push({ role: "user", content: results });
+          continue;
+        }
+        // web_search runs server-side; a long search can pause — resend to continue.
+        if (data.stop_reason === "pause_turn") {
+          messages.push({ role: "assistant", content: data.content });
           continue;
         }
         const reply = (data.content || []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
