@@ -48519,14 +48519,28 @@ async function readNewestTimesheetFromDrive(userId, folderUrlOrId) {
   if (!acct) throw new Error("Google isn't connected. Connect it in Integrations (with Drive access) so I can read the timesheet from Drive.");
   const token = await getValidGoogleAccessToken(acct);
   const isFolder = (f) => f.mimeType === "application/vnd.google-apps.folder";
-  const top = await listFolder(token, folderId);
-  const payrollSubs = top.filter((f) => isFolder(f) && /payroll|time\s*sheet|timesheet|hours|pay run/i.test(f.name || ""));
-  let files2 = top.filter((f) => !isFolder(f));
-  for (const sub of payrollSubs.slice(0, 4)) {
-    try {
-      files2 = files2.concat((await listFolder(token, sub.id)).filter((f) => !isFolder(f)));
-    } catch {
+  let files2 = [];
+  let frontier = [folderId];
+  const seen = /* @__PURE__ */ new Set([folderId]);
+  for (let depth = 0; depth < 4 && frontier.length; depth++) {
+    const next = [];
+    for (const id of frontier.slice(0, 60)) {
+      let kids = [];
+      try {
+        kids = await listFolder(token, id);
+      } catch {
+        continue;
+      }
+      for (const k of kids) {
+        if (isFolder(k)) {
+          if (!seen.has(k.id)) {
+            seen.add(k.id);
+            next.push(k.id);
+          }
+        } else files2.push(k);
+      }
     }
+    frontier = next;
   }
   const importable = (f) => f.mimeType === "application/pdf" || f.mimeType === "text/csv" || f.mimeType === "text/plain" || (f.mimeType || "").startsWith("image/") || f.mimeType === "application/vnd.google-apps.spreadsheet" || f.mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   const candidates = files2.filter(importable).sort((a, b) => String(b.modifiedTime || "").localeCompare(String(a.modifiedTime || "")));
@@ -48635,8 +48649,11 @@ async function extractTimesheetFromFile(data, mediaType, periodStart, periodEnd)
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY isn't set \u2014 needed to read the timesheet file.");
   const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
-  const system = "You read a DETAILED restaurant timesheet (one row per shift) and total hours per employee. Return ONLY JSON, no prose.";
-  const prompt = `This is a detailed timesheet covering ${periodStart} to ${periodEnd}. For EACH employee return: their TOTAL worked hours for the period, and their LONGEST single shift in hours (to catch a missed clock-out). Return ONLY: {"employees":[{"name":"<as shown>","hours":<number>,"maxShiftHours":<number>}]}. Sum every shift per employee. Exclude owner/non-payroll rows, breaks, and subtotal/total rows.`;
+  const system = "You read a DETAILED restaurant timesheet (one row per shift, e.g. a TouchBistro Timesheet Details export) and total hours per employee. Return ONLY JSON, no prose.";
+  const prompt = `This is a detailed timesheet covering ${periodStart} to ${periodEnd}. Each row is one shift for one staff member. For EACH employee return three things:
+- "hours": their TOTAL PAYABLE worked hours for the whole period = sum of payable regular + payable overtime hours across all their rows (use the "Payable(Reg. Hrs)" + payable OT columns if present; otherwise the paid hours, NOT the raw shift length which includes unpaid breaks).
+- "maxShiftHours": the LARGEST single-shift "Shift Length (hrs)" value (raw clock-in to clock-out) among their rows \u2014 this catches a missed clock-out.
+Return ONLY: {"employees":[{"name":"<Last, First as shown>","hours":<number>,"maxShiftHours":<number>}]}. EXCLUDE owner/admin rows (e.g. Staff Name "Admin, Admin" or Staff Type "Admin", or any row with a 0.00 rate of pay), unpaid-break rows, and any subtotal/total rows. Round hours to 2 decimals.`;
   const content = [fileBlock(data, mediaType), { type: "text", text: prompt }];
   const res = await fetch(ANTHROPIC_URL2, {
     method: "POST",
@@ -63888,7 +63905,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.57";
+var BUILD_TAG = "2026-06-23.58";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
