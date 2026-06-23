@@ -41,6 +41,11 @@ export default function PdfSplitter() {
   const [splitting, setSplitting] = useState(false);
   const [working, setWorking] = useState(false);
   const [progress, setProgress] = useState("");
+  // "smart" = AI reads + names each document. "simple" = mechanical split into
+  // even pieces (no AI, no server — always works, instant).
+  const [mode, setMode] = useState<"smart" | "simple">("smart");
+  const [simpleBy, setSimpleBy] = useState<"pages" | "parts">("pages");
+  const [simpleN, setSimpleN] = useState(5);
   const plan = trpc.pdfSplitter.plan.useMutation();
 
   const reset = () => { setFile(null); setBuffer(null); setPageCount(0); setDocs(null); setError(null); setProgress(""); };
@@ -48,12 +53,15 @@ export default function PdfSplitter() {
   const processFile = useCallback(async (f: File) => {
     setError(null); setDocs(null); setProgress("");
     if (!/\.pdf$/i.test(f.name) && f.type !== "application/pdf") { setError("Please upload a PDF file."); return; }
-    setWorking(true);
     try {
       const buf = await f.arrayBuffer();
       const pdf = await PDFDocument.load(buf, { ignoreEncryption: true });
       const total = pdf.getPageCount();
       setFile(f); setBuffer(buf); setPageCount(total);
+
+      // Simple mode: just load it and show the mechanical-split controls — no AI.
+      if (mode === "simple") return;
+      setWorking(true);
 
       // Decide chunking: keep each AI read under the size + page limits. A big 80MB+
       // scan is read in several chunks AUTOMATICALLY (in parallel) and merged — the
@@ -117,7 +125,49 @@ export default function PdfSplitter() {
       setWorking(false);
       setProgress("");
     }
-  }, [plan]);
+  }, [plan, mode]);
+
+  // Simple, mechanical split — even pieces, no AI, no server. Always works.
+  const doSimpleSplit = async () => {
+    if (!buffer) return;
+    setSplitting(true); setError(null);
+    try {
+      const src = await PDFDocument.load(buffer, { ignoreEncryption: true });
+      const total = src.getPageCount();
+      const ranges: [number, number][] = [];
+      if (simpleBy === "pages") {
+        const n = Math.max(1, Math.floor(simpleN));
+        for (let s = 1; s <= total; s += n) ranges.push([s, Math.min(total, s + n - 1)]);
+      } else {
+        const parts = Math.max(1, Math.min(total, Math.floor(simpleN)));
+        const per = Math.ceil(total / parts);
+        for (let s = 1; s <= total; s += per) ranges.push([s, Math.min(total, s + per - 1)]);
+      }
+      const zip = new JSZip();
+      const base = (file?.name || "scan").replace(/\.pdf$/i, "");
+      let idx = 1;
+      for (const [start, end] of ranges) {
+        const out = await PDFDocument.create();
+        const indices: number[] = [];
+        for (let p = start; p <= end; p++) indices.push(p - 1);
+        const copied = await out.copyPages(src, indices);
+        copied.forEach((pg) => out.addPage(pg));
+        const bytes = await out.save();
+        zip.file(`${base} - part ${idx} (p${start}${end > start ? `-${end}` : ""}).pdf`, bytes);
+        idx++;
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${base}_pieces.zip`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setError(e?.message || "Split failed.");
+    } finally {
+      setSplitting(false);
+    }
+  };
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); setIsDragging(false);
@@ -184,7 +234,23 @@ export default function PdfSplitter() {
         <p className="text-slate-500">Scan a stack of documents into one PDF — Figgy finds each document, names it, and gives you clean separate files.</p>
       </div>
 
-      {!docs && (
+      {/* Mode chooser */}
+      {!docs && !(mode === "simple" && buffer) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button type="button" onClick={() => setMode("smart")}
+            className={cn("rounded-lg border p-3 text-left transition-all", mode === "smart" ? "border-lime-500 bg-lime-50 ring-1 ring-lime-200" : "border-slate-200 bg-white hover:border-slate-300")}>
+            <p className="font-medium text-sm flex items-center gap-1.5"><Scissors className="h-4 w-4 text-lime-600" /> Smart split (AI)</p>
+            <p className="text-xs text-slate-500 mt-0.5">Reads each document, names it (bank statement, invoice, etc.), one file per document.</p>
+          </button>
+          <button type="button" onClick={() => setMode("simple")}
+            className={cn("rounded-lg border p-3 text-left transition-all", mode === "simple" ? "border-lime-500 bg-lime-50 ring-1 ring-lime-200" : "border-slate-200 bg-white hover:border-slate-300")}>
+            <p className="font-medium text-sm flex items-center gap-1.5"><FileStack className="h-4 w-4 text-slate-500" /> Simple split</p>
+            <p className="text-xs text-slate-500 mt-0.5">Just break into even pieces (every N pages, or X equal parts). No AI — instant, never fails.</p>
+          </button>
+        </div>
+      )}
+
+      {!docs && !(mode === "simple" && buffer) && (
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragLeave={() => setIsDragging(false)}
@@ -216,6 +282,38 @@ export default function PdfSplitter() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Simple split panel — shown once a file is loaded in simple mode */}
+      {mode === "simple" && buffer && !docs && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2"><FileStack className="h-5 w-5 text-lime-500" /> Simple split</CardTitle>
+            <CardDescription>{file?.name} · {pageCount} pages. Break it into even pieces — no AI, instant.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex rounded-lg border bg-white p-0.5">
+                <button onClick={() => setSimpleBy("pages")} className={cn("px-3 py-1.5 text-sm rounded-md", simpleBy === "pages" ? "bg-lime-500 text-white" : "text-slate-600")}>Every N pages</button>
+                <button onClick={() => setSimpleBy("parts")} className={cn("px-3 py-1.5 text-sm rounded-md", simpleBy === "parts" ? "bg-lime-500 text-white" : "text-slate-600")}>Into N equal parts</button>
+              </div>
+              <Input type="number" min={1} max={pageCount} value={simpleN} onChange={(e) => setSimpleN(Math.max(1, Number(e.target.value)))} className="h-9 w-24" />
+              <span className="text-sm text-slate-500">{simpleBy === "pages" ? "pages per file" : "files"}</span>
+            </div>
+            <p className="text-xs text-slate-500">
+              {simpleBy === "pages"
+                ? `→ ${Math.max(1, Math.ceil(pageCount / Math.max(1, simpleN)))} files of up to ${simpleN} page${simpleN > 1 ? "s" : ""} each.`
+                : `→ ${Math.min(pageCount, Math.max(1, simpleN))} files of about ${Math.ceil(pageCount / Math.max(1, Math.min(pageCount, simpleN)))} pages each.`}
+            </p>
+            {error && <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"><AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /><span>{error}</span></div>}
+            <div className="flex gap-3">
+              <Button className="bg-lime-500" disabled={splitting} onClick={doSimpleSplit}>
+                <Download className="h-4 w-4 mr-2" /> {splitting ? "Splitting…" : "Split & download (.zip)"}
+              </Button>
+              <Button variant="outline" onClick={reset}><Trash2 className="h-4 w-4 mr-2" /> Start over</Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {docs && (
