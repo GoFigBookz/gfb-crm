@@ -78,13 +78,16 @@ async function execAddPersonal(input: any, userId: number): Promise<string> {
   return `Added to your personal space: "${title}"${when}.`;
 }
 
-async function execRemember(input: any, userId: number): Promise<string> {
+async function execRemember(input: any, userId: number, activeAgent: string): Promise<string> {
   const lesson = String(input?.lesson ?? "").trim();
   if (!lesson) return "What should I remember?";
-  const scope = String(input?.scope ?? "all").trim().toLowerCase() || "all";
+  // Default to the ACTIVE agent's own knowledge base (so e.g. tax research Tess
+  // does lands in Tess's knowledge), unless explicitly told "all" or another agent.
+  const scope = String(input?.scope ?? activeAgent ?? "all").trim().toLowerCase() || "all";
+  const source = input?.source === "research" ? "research" : "markie";
   const db = getDb();
-  await db.insert(agentLearnings).values({ userId, scope, lesson, source: "markie" } as any);
-  return `Got it — I'll remember that${scope !== "all" ? ` for ${scope}` : ""}: "${lesson}".`;
+  await db.insert(agentLearnings).values({ userId, scope, lesson, source } as any);
+  return `Saved to ${scope === "all" ? "the team's" : scope + "'s"} knowledge: "${lesson}".`;
 }
 
 async function execDraftEmail(input: any, userId: number): Promise<string> {
@@ -194,7 +197,7 @@ async function execSystemHealth(): Promise<string> {
   return `${head}\n${lines.join("\n")}`;
 }
 
-async function runTool(name: string, input: any, userId: number): Promise<string> {
+async function runTool(name: string, input: any, userId: number, activeAgent: string): Promise<string> {
   try {
     if (name === "add_task") return await execAddTask(String(input?.text ?? ""), userId);
     if (name === "get_agenda") return await execGetAgenda(userId);
@@ -202,7 +205,7 @@ async function runTool(name: string, input: any, userId: number): Promise<string
     if (name === "schedule_event") return await execScheduleEvent(input, userId);
     if (name === "complete_task") return await execCompleteTask(input, userId);
     if (name === "draft_email") return await execDraftEmail(input, userId);
-    if (name === "remember") return await execRemember(input, userId);
+    if (name === "remember") return await execRemember(input, userId, activeAgent);
     if (name === "system_health") return await execSystemHealth();
     if (name === "agent_scorecard") return await execAgentScorecard();
     if (name === "firm_status") return await execFirmStatus(userId);
@@ -296,7 +299,7 @@ export const assistantRouter = createRouter({
           const results: any[] = [];
           for (const block of data.content || []) {
             if (block.type === "tool_use") {
-              const out = await runTool(block.name, block.input, ctx.user.id);
+              const out = await runTool(block.name, block.input, ctx.user.id, agent);
               if (["add_task", "add_personal", "schedule_event", "complete_task"].includes(block.name)) actions.push(out);
               if (ACTION_TOOLS.has(block.name)) {
                 await recordAudit({ userId: ctx.user.id, agentScope: agent, action: block.name, summary: out, decision: "done" });

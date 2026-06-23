@@ -54215,6 +54215,7 @@ var init_common3 = __esm({
 HOW YOU WORK (every agent, every task \u2014 non-negotiable):
 - Be EXCELLENT, not fast. Do the best possible job; accuracy beats speed.
 - RESEARCH before you act. If you're not 100% sure of a rule, rate, account, deadline or fact, LOOK IT UP (use web_search for anything current or external) instead of guessing.
+- GROW YOUR KNOWLEDGE: whenever you research something new and reusable for your role (a tax rule, a rate, a regulation, a best practice), SAVE it with the remember tool (source 'research') so it lands in your knowledge base and you/the team never have to look it up again. It auto-files to YOUR area.
 - DOUBLE-CHECK before you report: re-read the numbers, confirm totals tie, sanity-check dates and amounts. Catch your own mistakes first.
 - CITE what you rely on (the CRA/IRS rule, the report, the GL line, the source URL) so it's verifiable \u2014 not a guess.
 - NEVER invent an account, a client, a number, or a fact. If something's missing, say exactly what you need to finish.
@@ -54262,6 +54263,19 @@ PULLING DATA:
 - Payroll: IRS/state (W-2, W-4, 941/940, FUTA/SUTA, Social Security + Medicare).
 - Year-end: 1120/1120-S (corporate), 1040 + Schedule C (personal/sole prop); 1099-NEC for contractors (\u2248 Canada's T4A).
 - Terminology in this CRM: for US clients show "Sales Tax" (not HST), suppress WSIB/EHT/CRA-specific items.
+
+REPORTS API MODERNIZATION (Intuit, effective 2026): the QBO Reports API is moving
+to a modernized backend in phases \u2014 Group 1 (ProfitAndLoss, BalanceSheet, CashFlow,
+TrialBalance, GeneralLedger-adjacent, TransactionList, TransactionListByVendor,
+ARAgingSummary, AccountListDetail, JournalReport) ramps from Jul 1 2026 \u2192 100% by
+Jul 16; Group 2 (GeneralLedger, P&L Detail, AP/AR aging detail, SalesByCustomer/
+Product/Class/Department, VendorExpenses, inventory/customer/vendor balances) Jul 13
+\u2192 Jul 22. Default switches automatically (no action needed). Opt in early with the
+'testing_migration' query param; confirm via the 'v3modernResponse=true' response
+header. EXCEPTION: TaxSummary is NOT modernized yet \u2014 do not pass testing_migration
+on it. ACTION FOR US: when we pull reports (we use TransactionList / TransactionList-
+ByVendor for vendor coding), validate parsing against the modernized response shape;
+field names/structure can shift, so don't hard-assume column order \u2014 read by name.
 
 GOLDEN RULES (always): nothing posts to QBO without Markie's review; verify every change against LIVE QBO before reporting done; per-client isolation (each call's realmId is fixed); the Sanity Guard stays on.`.trim();
     QBO_AWARE = `
@@ -54635,12 +54649,13 @@ var init_assistant_core = __esm({
       },
       {
         name: "remember",
-        description: "Save a lasting lesson/preference Markie teaches or confirms (e.g. a coding rule, how he likes something done, a client quirk). It will be applied on future work. Set scope to the agent it's for (fig/sage/wren/liv/tess/jade/skye/jinx) or 'all'.",
+        description: "Save a durable lesson to a knowledge base so it's applied on future work. Use it (1) when Markie teaches/confirms something, AND (2) when YOU research something new and reusable for your role (a tax rule, a rate, a regulation, a best practice). Defaults to YOUR OWN knowledge base; set scope to another agent or 'all' only if it belongs there. Set source to 'research' when it's something you looked up.",
         input_schema: {
           type: "object",
           properties: {
-            lesson: { type: "string", description: "The lesson, stated as a durable instruction." },
-            scope: { type: "string", description: "Agent key it applies to, or 'all'." }
+            lesson: { type: "string", description: "The fact/lesson, stated as a durable, reusable instruction or fact (include the source/date if researched)." },
+            scope: { type: "string", description: "Agent key it applies to (fig/sage/wren/liv/tess/jade/skye/jinx) or 'all'. Defaults to you." },
+            source: { type: "string", description: "'research' if you looked it up, else omit." }
           },
           required: ["lesson"]
         }
@@ -55113,13 +55128,14 @@ async function execAddPersonal(input, userId) {
   const when = dueDate ? ` (due ${dueDate.toLocaleDateString(void 0, { month: "short", day: "numeric" })})` : "";
   return `Added to your personal space: "${title}"${when}.`;
 }
-async function execRemember(input, userId) {
+async function execRemember(input, userId, activeAgent) {
   const lesson = String(input?.lesson ?? "").trim();
   if (!lesson) return "What should I remember?";
-  const scope = String(input?.scope ?? "all").trim().toLowerCase() || "all";
+  const scope = String(input?.scope ?? activeAgent ?? "all").trim().toLowerCase() || "all";
+  const source = input?.source === "research" ? "research" : "markie";
   const db = getDb();
-  await db.insert(agentLearnings).values({ userId, scope, lesson, source: "markie" });
-  return `Got it \u2014 I'll remember that${scope !== "all" ? ` for ${scope}` : ""}: "${lesson}".`;
+  await db.insert(agentLearnings).values({ userId, scope, lesson, source });
+  return `Saved to ${scope === "all" ? "the team's" : scope + "'s"} knowledge: "${lesson}".`;
 }
 async function execDraftEmail(input, userId) {
   const to = extractEmail(String(input?.to ?? ""));
@@ -55215,7 +55231,7 @@ async function execSystemHealth() {
   return `${head}
 ${lines.join("\n")}`;
 }
-async function runTool(name2, input, userId) {
+async function runTool(name2, input, userId, activeAgent) {
   try {
     if (name2 === "add_task") return await execAddTask(String(input?.text ?? ""), userId);
     if (name2 === "get_agenda") return await execGetAgenda(userId);
@@ -55223,7 +55239,7 @@ async function runTool(name2, input, userId) {
     if (name2 === "schedule_event") return await execScheduleEvent(input, userId);
     if (name2 === "complete_task") return await execCompleteTask(input, userId);
     if (name2 === "draft_email") return await execDraftEmail(input, userId);
-    if (name2 === "remember") return await execRemember(input, userId);
+    if (name2 === "remember") return await execRemember(input, userId, activeAgent);
     if (name2 === "system_health") return await execSystemHealth();
     if (name2 === "agent_scorecard") return await execAgentScorecard();
     if (name2 === "firm_status") return await execFirmStatus(userId);
@@ -55313,7 +55329,7 @@ var init_assistant_router = __esm({
             const results = [];
             for (const block of data.content || []) {
               if (block.type === "tool_use") {
-                const out = await runTool(block.name, block.input, ctx.user.id);
+                const out = await runTool(block.name, block.input, ctx.user.id, agent);
                 if (["add_task", "add_personal", "schedule_event", "complete_task"].includes(block.name)) actions.push(out);
                 if (ACTION_TOOLS.has(block.name)) {
                   await recordAudit({ userId: ctx.user.id, agentScope: agent, action: block.name, summary: out, decision: "done" });
@@ -63407,7 +63423,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.46";
+var BUILD_TAG = "2026-06-23.47";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

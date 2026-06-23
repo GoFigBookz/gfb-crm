@@ -177,12 +177,13 @@ export const ASSISTANT_TOOLS = [
   },
   {
     name: "remember",
-    description: "Save a lasting lesson/preference Markie teaches or confirms (e.g. a coding rule, how he likes something done, a client quirk). It will be applied on future work. Set scope to the agent it's for (fig/sage/wren/liv/tess/jade/skye/jinx) or 'all'.",
+    description: "Save a durable lesson to a knowledge base so it's applied on future work. Use it (1) when Markie teaches/confirms something, AND (2) when YOU research something new and reusable for your role (a tax rule, a rate, a regulation, a best practice). Defaults to YOUR OWN knowledge base; set scope to another agent or 'all' only if it belongs there. Set source to 'research' when it's something you looked up.",
     input_schema: {
       type: "object",
       properties: {
-        lesson: { type: "string", description: "The lesson, stated as a durable instruction." },
-        scope: { type: "string", description: "Agent key it applies to, or 'all'." },
+        lesson: { type: "string", description: "The fact/lesson, stated as a durable, reusable instruction or fact (include the source/date if researched)." },
+        scope: { type: "string", description: "Agent key it applies to (fig/sage/wren/liv/tess/jade/skye/jinx) or 'all'. Defaults to you." },
+        source: { type: "string", description: "'research' if you looked it up, else omit." },
       },
       required: ["lesson"],
     },
