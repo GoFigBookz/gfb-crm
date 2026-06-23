@@ -22359,6 +22359,7 @@ __export(schema_exports, {
   notifications: () => notifications,
   payRunLines: () => payRunLines,
   payRuns: () => payRuns,
+  personalItems: () => personalItems,
   portalFiles: () => portalFiles,
   portalSettings: () => portalSettings,
   portalTokens: () => portalTokens,
@@ -22386,7 +22387,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties;
+var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23961,6 +23962,19 @@ var init_schema = __esm({
       qboId: text("qboId"),
       // QBO Vendor/Customer Id once synced
       active: integer2("active", { mode: "boolean" }).default(true),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    personalItems = sqliteTable("personal_items", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      userId: integer2("userId").notNull(),
+      kind: text("kind", { enum: ["task", "reminder", "note"] }).default("task").notNull(),
+      title: text("title").notNull(),
+      body: text("body"),
+      dueDate: integer2("dueDate", { mode: "timestamp" }),
+      priority: text("priority", { enum: ["low", "medium", "high"] }).default("medium").notNull(),
+      done: integer2("done", { mode: "boolean" }).default(false).notNull(),
+      doneAt: integer2("doneAt", { mode: "timestamp" }),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
@@ -54097,6 +54111,19 @@ var init_assistant_core = __esm({
           type: "object",
           properties: { range: { type: "string", enum: ["today", "week", "overdue", "all"], description: "Time window; defaults to today + overdue." } }
         }
+      },
+      {
+        name: "add_personal",
+        description: "Add a PERSONAL item (task, reminder, or note) to Markie's private personal space \u2014 NOT client work. Use this for anything about his own life (errands, appointments, family, reminders). This is Liv's domain.",
+        input_schema: {
+          type: "object",
+          properties: {
+            title: { type: "string", description: "The personal item, in plain English." },
+            kind: { type: "string", enum: ["task", "reminder", "note"], description: "Defaults to task." },
+            due: { type: "string", description: "Optional due date as YYYY-MM-DD." }
+          },
+          required: ["title"]
+        }
       }
     ];
   }
@@ -54153,10 +54180,22 @@ async function execGetAgenda(userId) {
   }).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()).map((e) => ({ title: e.title, when: e.isAllDay ? "all day" : new Date(e.startDate).toLocaleTimeString(void 0, { hour: "numeric", minute: "2-digit" }) }));
   return formatAgenda({ overdue, today: today2, upcoming, events });
 }
+async function execAddPersonal(input, userId) {
+  const db = getDb();
+  const title = String(input?.title ?? "").trim();
+  if (!title) return "I need a bit more detail to add that.";
+  const kind = ["task", "reminder", "note"].includes(input?.kind) ? input.kind : "task";
+  let dueDate = null;
+  if (input?.due && /^\d{4}-\d{2}-\d{2}$/.test(input.due)) dueDate = /* @__PURE__ */ new Date(input.due + "T12:00:00");
+  await db.insert(personalItems).values({ userId, kind, title, dueDate, priority: "medium", done: false });
+  const when = dueDate ? ` (due ${dueDate.toLocaleDateString(void 0, { month: "short", day: "numeric" })})` : "";
+  return `Added to your personal space: "${title}"${when}.`;
+}
 async function runTool(name2, input, userId) {
   try {
     if (name2 === "add_task") return await execAddTask(String(input?.text ?? ""), userId);
     if (name2 === "get_agenda") return await execGetAgenda(userId);
+    if (name2 === "add_personal") return await execAddPersonal(input, userId);
     return `Unknown tool: ${name2}`;
   } catch (e) {
     return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
@@ -54206,7 +54245,7 @@ var init_assistant_router = __esm({
             for (const block of data.content || []) {
               if (block.type === "tool_use") {
                 const out = await runTool(block.name, block.input, ctx.user.id);
-                if (block.name === "add_task") actions.push(out);
+                if (block.name === "add_task" || block.name === "add_personal") actions.push(out);
                 results.push({ type: "tool_result", tool_use_id: block.id, content: out });
               }
             }
@@ -54461,6 +54500,67 @@ var init_qa_router = __esm({
         } catch (e) {
           return { ok: false, ts: (/* @__PURE__ */ new Date()).toISOString(), error: e instanceof Error ? e.message : String(e) };
         }
+      })
+    });
+  }
+});
+
+// api/personal-router.ts
+var personalRouter;
+var init_personal_router = __esm({
+  "api/personal-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    personalRouter = createRouter({
+      list: authedQuery.input(external_exports.object({ includeDone: external_exports.boolean().optional() }).optional()).query(async ({ ctx, input }) => {
+        const db = getDb();
+        const conds = [eq(personalItems.userId, ctx.user.id)];
+        if (!input?.includeDone) conds.push(eq(personalItems.done, false));
+        return db.select().from(personalItems).where(and(...conds)).orderBy(desc(personalItems.createdAt));
+      }),
+      add: authedQuery.input(external_exports.object({
+        kind: external_exports.enum(["task", "reminder", "note"]).default("task"),
+        title: external_exports.string().min(1).max(500),
+        body: external_exports.string().max(5e3).optional(),
+        dueDate: external_exports.date().nullable().optional(),
+        priority: external_exports.enum(["low", "medium", "high"]).default("medium")
+      })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        await db.insert(personalItems).values({
+          userId: ctx.user.id,
+          kind: input.kind,
+          title: input.title,
+          body: input.body ?? null,
+          dueDate: input.dueDate ?? null,
+          priority: input.priority,
+          done: false
+        });
+        return { ok: true };
+      }),
+      toggle: authedQuery.input(external_exports.object({ id: external_exports.number(), done: external_exports.boolean() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        await db.update(personalItems).set({ done: input.done, doneAt: input.done ? /* @__PURE__ */ new Date() : null, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(personalItems.id, input.id), eq(personalItems.userId, ctx.user.id)));
+        return { ok: true };
+      }),
+      update: authedQuery.input(external_exports.object({
+        id: external_exports.number(),
+        title: external_exports.string().min(1).max(500).optional(),
+        body: external_exports.string().max(5e3).nullable().optional(),
+        dueDate: external_exports.date().nullable().optional(),
+        priority: external_exports.enum(["low", "medium", "high"]).optional()
+      })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const { id, ...rest } = input;
+        await db.update(personalItems).set({ ...rest, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(personalItems.id, id), eq(personalItems.userId, ctx.user.id)));
+        return { ok: true };
+      }),
+      remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        await db.delete(personalItems).where(and(eq(personalItems.id, input.id), eq(personalItems.userId, ctx.user.id)));
+        return { ok: true };
       })
     });
   }
@@ -54729,6 +54829,7 @@ var init_router = __esm({
     init_pdf_splitter_router();
     init_assistant_router();
     init_qa_router();
+    init_personal_router();
     init_public_router();
     init_middleware();
     appRouter = createRouter({
@@ -54790,7 +54891,8 @@ var init_router = __esm({
       bankConverter: bankConverterRouter,
       pdfSplitter: pdfSplitterRouter,
       assistant: assistantRouter,
-      gage: qaRouter
+      gage: qaRouter,
+      personal: personalRouter
     });
   }
 });
@@ -57316,6 +57418,38 @@ async function ensureRbacSchema() {
 }
 var init_ensure_rbac_schema = __esm({
   "api/ensure-rbac-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/ensure-personal-schema.ts
+var ensure_personal_schema_exports = {};
+__export(ensure_personal_schema_exports, {
+  ensurePersonalSchema: () => ensurePersonalSchema
+});
+async function ensurePersonalSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS personal_items (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      kind text DEFAULT 'task' NOT NULL,
+      title text NOT NULL,
+      body text,
+      dueDate integer,
+      priority text DEFAULT 'medium' NOT NULL,
+      done integer DEFAULT 0 NOT NULL,
+      doneAt integer,
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[personal] ensure personal_items table failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_personal_schema = __esm({
+  "api/ensure-personal-schema.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -62221,7 +62355,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.18";
+var BUILD_TAG = "2026-06-23.19";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -63143,6 +63277,8 @@ async function startServer() {
     await ensurePracticeSnapshotsTable2();
     const { ensureRbacSchema: ensureRbacSchema2 } = await Promise.resolve().then(() => (init_ensure_rbac_schema(), ensure_rbac_schema_exports));
     await ensureRbacSchema2();
+    const { ensurePersonalSchema: ensurePersonalSchema2 } = await Promise.resolve().then(() => (init_ensure_personal_schema(), ensure_personal_schema_exports));
+    await ensurePersonalSchema2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));

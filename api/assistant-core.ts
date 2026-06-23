@@ -101,6 +101,19 @@ export const ASSISTANT_TOOLS = [
       properties: { range: { type: "string", enum: ["today", "week", "overdue", "all"], description: "Time window; defaults to today + overdue." } },
     },
   },
+  {
+    name: "add_personal",
+    description: "Add a PERSONAL item (task, reminder, or note) to Markie's private personal space — NOT client work. Use this for anything about his own life (errands, appointments, family, reminders). This is Liv's domain.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "The personal item, in plain English." },
+        kind: { type: "string", enum: ["task", "reminder", "note"], description: "Defaults to task." },
+        due: { type: "string", description: "Optional due date as YYYY-MM-DD." },
+      },
+      required: ["title"],
+    },
+  },
 ];
 
 export type AgendaItem = { title: string; client?: string | null; due?: string | null };

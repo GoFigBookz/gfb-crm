@@ -6,7 +6,7 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { tasks, calendarEvents, clients } from "../db/schema";
+import { tasks, calendarEvents, clients, personalItems } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { parseTaskCommand } from "./task-command-core";
 import { ASSISTANT_TOOLS, formatAgenda, detectAgent, frontDeskSystem, AGENT_ROSTER, type AgentKey } from "./assistant-core";
@@ -57,10 +57,23 @@ async function execGetAgenda(userId: number): Promise<string> {
   return formatAgenda({ overdue, today, upcoming, events });
 }
 
+async function execAddPersonal(input: any, userId: number): Promise<string> {
+  const db = getDb();
+  const title = String(input?.title ?? "").trim();
+  if (!title) return "I need a bit more detail to add that.";
+  const kind = ["task", "reminder", "note"].includes(input?.kind) ? input.kind : "task";
+  let dueDate: Date | null = null;
+  if (input?.due && /^\d{4}-\d{2}-\d{2}$/.test(input.due)) dueDate = new Date(input.due + "T12:00:00");
+  await db.insert(personalItems).values({ userId, kind, title, dueDate, priority: "medium", done: false } as any);
+  const when = dueDate ? ` (due ${dueDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })})` : "";
+  return `Added to your personal space: "${title}"${when}.`;
+}
+
 async function runTool(name: string, input: any, userId: number): Promise<string> {
   try {
     if (name === "add_task") return await execAddTask(String(input?.text ?? ""), userId);
     if (name === "get_agenda") return await execGetAgenda(userId);
+    if (name === "add_personal") return await execAddPersonal(input, userId);
     return `Unknown tool: ${name}`;
   } catch (e) {
     return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
@@ -106,7 +119,7 @@ export const assistantRouter = createRouter({
           for (const block of data.content || []) {
             if (block.type === "tool_use") {
               const out = await runTool(block.name, block.input, ctx.user.id);
-              if (block.name === "add_task") actions.push(out);
+              if (block.name === "add_task" || block.name === "add_personal") actions.push(out);
               results.push({ type: "tool_result", tool_use_id: block.id, content: out });
             }
           }
