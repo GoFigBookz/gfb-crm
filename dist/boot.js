@@ -56570,6 +56570,66 @@ var init_router = __esm({
   }
 });
 
+// api/ensure-calendar-schema.ts
+var ensure_calendar_schema_exports = {};
+__export(ensure_calendar_schema_exports, {
+  ensureCalendarSchema: () => ensureCalendarSchema
+});
+async function ensureCalendarSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS calendar_events (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      title text NOT NULL,
+      startDate integer NOT NULL,
+      endDate integer NOT NULL
+    )`);
+  } catch (e) {
+    console.error("[calendar] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+  try {
+    const have = /* @__PURE__ */ new Set();
+    const res = await db.run(sql`PRAGMA table_info(calendar_events)`);
+    for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
+    const cols = [
+      ["clientId", "integer"],
+      ["connectedAccountId", "integer"],
+      ["taskId", "integer"],
+      ["googleEventId", "text"],
+      ["outlookEventId", "text"],
+      ["description", "text"],
+      ["location", "text"],
+      ["isAllDay", "integer DEFAULT 0 NOT NULL"],
+      ["attendees", "text"],
+      ["recurrence", "text"],
+      ["color", "text"],
+      ["meeting_link", "text"],
+      ["isRecurring", "integer DEFAULT 0 NOT NULL"],
+      ["status", "text DEFAULT 'confirmed' NOT NULL"],
+      ["createdAt", "integer"],
+      ["updatedAt", "integer"]
+    ];
+    for (const [name2, type] of cols) {
+      if (have.has(name2)) continue;
+      try {
+        await db.run(sql.raw(`ALTER TABLE calendar_events ADD COLUMN "${name2}" ${type}`));
+        console.log(`[calendar] added column: ${name2}`);
+      } catch (e) {
+        console.error(`[calendar] add column ${name2} failed:`, e instanceof Error ? e.message : e);
+      }
+    }
+  } catch (e) {
+    console.error("[calendar] ensure columns failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_calendar_schema = __esm({
+  "api/ensure-calendar-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/ensure-connectors-schema.ts
 var ensure_connectors_schema_exports = {};
 __export(ensure_connectors_schema_exports, {
@@ -64200,7 +64260,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.77";
+var BUILD_TAG = "2026-06-23.78";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64308,6 +64368,8 @@ app.get("/api/oauth/google/debug", async (c) => {
   let syncRun = null;
   if (c.req.query("sync") === "1") {
     try {
+      const { ensureCalendarSchema: ensureCalendarSchema2 } = await Promise.resolve().then(() => (init_ensure_calendar_schema(), ensure_calendar_schema_exports));
+      await ensureCalendarSchema2();
       const { getFirmGoogleAccount: getFirmGoogleAccount2, getValidGoogleAccessToken: getValidGoogleAccessToken2 } = await Promise.resolve().then(() => (init_google_token(), google_token_exports));
       const acct = await getFirmGoogleAccount2();
       const at = await getValidGoogleAccessToken2(acct);
@@ -65297,6 +65359,8 @@ async function startServer() {
     await ensureChatSchema2();
     const { ensureConnectorsSchema: ensureConnectorsSchema2 } = await Promise.resolve().then(() => (init_ensure_connectors_schema(), ensure_connectors_schema_exports));
     await ensureConnectorsSchema2();
+    const { ensureCalendarSchema: ensureCalendarSchema2 } = await Promise.resolve().then(() => (init_ensure_calendar_schema(), ensure_calendar_schema_exports));
+    await ensureCalendarSchema2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
