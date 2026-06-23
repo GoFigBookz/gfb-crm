@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-23.85";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.86";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -228,7 +228,15 @@ app.get("/api/qbo/debug", async (c) => {
   try {
     const db = getDb();
     const rows = await db.select({ id: qboConnections.id, clientId: qboConnections.clientId, realmId: qboConnections.realmId, companyName: qboConnections.companyName, transport: qboConnections.transport, isActive: qboConnections.isActive, reconnectReason: qboConnections.reconnectReason }).from(qboConnections);
-    connections = rows;
+    const cl = await db.select({ id: clients.id, name: clients.name, company: clients.company, status: clients.status }).from(clients);
+    const byId = new Map((cl as any[]).map((c) => [c.id, c]));
+    const tok = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3);
+    connections = (rows as any[]).map((r) => {
+      const c = byId.get(r.clientId);
+      const ct = new Set(tok(`${c?.name ?? ""} ${c?.company ?? ""}`));
+      const matches = tok(r.companyName).some((w) => ct.has(w));
+      return { ...r, linkedClientName: c ? (c.name || c.company) : null, linkedClientStatus: c?.status ?? "MISSING", mappingOk: !!c && matches };
+    });
   } catch (e) { connections = { error: e instanceof Error ? e.message : String(e) }; }
   return c.json({
     build: BUILD_TAG,

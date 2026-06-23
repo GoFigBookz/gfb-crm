@@ -64567,7 +64567,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.85";
+var BUILD_TAG = "2026-06-23.86";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64744,7 +64744,15 @@ app.get("/api/qbo/debug", async (c) => {
   try {
     const db = getDb();
     const rows = await db.select({ id: qboConnections.id, clientId: qboConnections.clientId, realmId: qboConnections.realmId, companyName: qboConnections.companyName, transport: qboConnections.transport, isActive: qboConnections.isActive, reconnectReason: qboConnections.reconnectReason }).from(qboConnections);
-    connections = rows;
+    const cl = await db.select({ id: clients.id, name: clients.name, company: clients.company, status: clients.status }).from(clients);
+    const byId = new Map(cl.map((c2) => [c2.id, c2]));
+    const tok = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3);
+    connections = rows.map((r) => {
+      const c2 = byId.get(r.clientId);
+      const ct = new Set(tok(`${c2?.name ?? ""} ${c2?.company ?? ""}`));
+      const matches = tok(r.companyName).some((w) => ct.has(w));
+      return { ...r, linkedClientName: c2 ? c2.name || c2.company : null, linkedClientStatus: c2?.status ?? "MISSING", mappingOk: !!c2 && matches };
+    });
   } catch (e) {
     connections = { error: e instanceof Error ? e.message : String(e) };
   }
