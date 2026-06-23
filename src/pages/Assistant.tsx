@@ -37,10 +37,31 @@ export default function Assistant() {
   const endRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const handsFreeRef = useRef(false);
+  const wakeLockRef = useRef<any>(null);
   const ask = trpc.assistant.ask.useMutation();
   const utils = trpc.useUtils();
   const active = ROSTER.find((r) => r.key === agent)!;
   useEffect(() => { handsFreeRef.current = handsFree; }, [handsFree]);
+
+  // Restore the "voice replies" preference so it stays on day to day.
+  useEffect(() => { if (localStorage.getItem("figgySpeak") === "1") setSpeakOn(true); }, []);
+  useEffect(() => { localStorage.setItem("figgySpeak", speakOn ? "1" : "0"); }, [speakOn]);
+
+  // Keep the screen awake while in a hands-free conversation (so it doesn't sleep
+  // mid-chat during all-day use). Released when hands-free ends.
+  const acquireWakeLock = async () => {
+    try { wakeLockRef.current = await (navigator as any).wakeLock?.request("screen"); } catch { /* unsupported — fine */ }
+  };
+  const releaseWakeLock = async () => {
+    try { await wakeLockRef.current?.release(); } catch { /* ignore */ }
+    wakeLockRef.current = null;
+  };
+  // Re-acquire the wake lock if the tab was backgrounded then refocused.
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === "visible" && handsFreeRef.current) acquireWakeLock(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, ask.isPending]);
 
@@ -119,11 +140,11 @@ export default function Assistant() {
   };
 
   const toggleHandsFree = () => {
-    if (handsFree) { setHandsFree(false); stopVoice(); }
-    else { setHandsFree(true); setSpeakOn(true); startListening(); }
+    if (handsFree) { setHandsFree(false); stopVoice(); releaseWakeLock(); }
+    else { setHandsFree(true); setSpeakOn(true); acquireWakeLock(); startListening(); }
   };
 
-  useEffect(() => () => stopVoice(), []); // cleanup on unmount
+  useEffect(() => () => { stopVoice(); releaseWakeLock(); }, []); // cleanup on unmount
 
   const send = async (text: string) => {
     const msg = text.trim();
