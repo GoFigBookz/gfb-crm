@@ -51957,72 +51957,48 @@ async function syncJobber(params) {
     };
   }
 }
-async function syncTouchBistro(params) {
-  try {
-    const start = params.periodStart.toISOString().split("T")[0];
-    const end = params.periodEnd.toISOString().split("T")[0];
-    const res = await fetch(
-      `https://api.touchbistro.com/v1/sales?start_date=${start}&end_date=${end}`,
-      {
-        headers: {
-          Authorization: `Bearer ${params.apiKey}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
-    if (!res.ok) {
-      return {
-        status: "error",
-        recordsSynced: 0,
-        errorMessage: `TouchBistro API error: ${res.status}`
-      };
-    }
-    const data = await res.json();
-    const sales = data.sales || data.data || [];
-    const totalRevenue = sales.reduce(
-      (sum3, s) => sum3 + (s.total || s.amount || 0),
-      0
-    );
-    const totalFees = sales.reduce(
-      (sum3, s) => sum3 + (s.fees || s.tips || 0),
-      0
-    );
-    await upsertStatement(getDb(), params, {
-      totalRevenue,
-      totalExpenses: 0,
-      totalFees,
-      netAmount: totalRevenue - totalFees,
-      transactionCount: sales.length,
-      transactionsJson: JSON.stringify(sales.slice(0, 500)),
-      rawJson: JSON.stringify(data)
-    });
-    return { status: "success", recordsSynced: sales.length };
-  } catch (error48) {
-    return {
-      status: "error",
-      recordsSynced: 0,
-      errorMessage: error48 instanceof Error ? error48.message : "TouchBistro sync failed"
-    };
+async function syncTouchBistro(_params) {
+  return {
+    status: "error",
+    recordsSynced: 0,
+    errorMessage: "TouchBistro auto-pull isn't wired yet \u2014 confirm the data path (TouchBistro Cloud export vs. partner API). For now, export the monthly sales report and enter it as the client's monthly sales receipt, or run it through Bank \u2192 QBO."
+  };
+}
+async function paypalAccessToken(apiKey) {
+  if (!apiKey.includes(":")) return apiKey.trim();
+  const [clientId, secret] = apiKey.split(":").map((s) => s.trim());
+  const basic = Buffer.from(`${clientId}:${secret}`).toString("base64");
+  const res = await fetch("https://api-m.paypal.com/v1/oauth2/token", {
+    method: "POST",
+    headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
+    body: "grant_type=client_credentials"
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) {
+    throw new Error(`PayPal auth failed (${res.status}). Paste the app's "Client ID:Secret" (with a colon between).`);
   }
+  return data.access_token;
 }
 async function syncPayPal(params) {
   try {
     const startDate = params.periodStart.toISOString();
     const endDate = params.periodEnd.toISOString();
+    const token = await paypalAccessToken(params.apiKey);
     const res = await fetch(
-      `https://api.paypal.com/v1/reporting/transactions?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`,
+      `https://api-m.paypal.com/v1/reporting/transactions?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&fields=all&page_size=500`,
       {
         headers: {
-          Authorization: `Bearer ${params.apiKey}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
         }
       }
     );
     if (!res.ok) {
+      const body = await res.text().catch(() => "");
       return {
         status: "error",
         recordsSynced: 0,
-        errorMessage: `PayPal API error: ${res.status}. Note: PayPal requires an OAuth access token (not client ID/secret).`
+        errorMessage: `PayPal API error: ${res.status}. ${body.slice(0, 160)}`
       };
     }
     const data = await res.json();
@@ -61517,7 +61493,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.9";
+var BUILD_TAG = "2026-06-23.10";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
