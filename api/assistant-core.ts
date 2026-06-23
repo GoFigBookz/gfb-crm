@@ -7,6 +7,8 @@
  * Pure pieces here are unit-tested.
  * =============================================================================
  */
+import { skillFor } from "./agent-skills";
+
 export const ASSISTANT_SYSTEM = [
   "You are Figgy, the assistant for Markie's bookkeeping practice (Go Fig Bookz).",
   "Markie is often on his phone or driving — be BRIEF and direct. Short sentences, no fluff, no preamble.",
@@ -128,7 +130,8 @@ export function frontDeskSystem(agent: AgentKey): string {
     `Markie's question was routed to you because it's in your area, even if he didn't name you. Open with your name so he knows who picked it up, e.g. "${a.name} here —".`,
     `Your teammates: ${team}. If a request really belongs to a teammate, say who should take it (e.g. "I'll flag Sage to prep the HST"), then still help as much as you can. Markie can switch to anyone by saying "Hey <name>".`,
     "You can still add tasks and report the agenda for Markie regardless of which agent you are.",
-  ].join("\n");
+    skillFor(agent) ? `\n=== YOUR SKILL PACK (apply this — it's how you do your job well) ===\n${skillFor(agent)}` : "",
+  ].filter(Boolean).join("\n");
 }
 
 export const ASSISTANT_TOOLS = [
