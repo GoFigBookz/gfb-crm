@@ -175,7 +175,8 @@ export const integrationRouter = createRouter({
     }))
     .query(async ({ ctx, input }) => {
       const clientId = process.env.GOOGLE_CLIENT_ID || "";
-      const redirectUri = `${process.env.VITE_APP_URL || "https://figgy.gofig.ca"}/api/oauth/google/callback`;
+      const { googleRedirectUri } = await import("./google-redirect");
+      const redirectUri = googleRedirectUri();
       const scopes = input.scopes || [
         "https://www.googleapis.com/auth/calendar",
         "https://www.googleapis.com/auth/calendar.events",

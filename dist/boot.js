@@ -42480,6 +42480,22 @@ var init_task_router = __esm({
   }
 });
 
+// api/google-redirect.ts
+var google_redirect_exports = {};
+__export(google_redirect_exports, {
+  googleRedirectUri: () => googleRedirectUri
+});
+function googleRedirectUri() {
+  const explicit = (process.env.GOOGLE_REDIRECT_URI || "").trim();
+  if (explicit) return explicit.replace(/\/+$/, "");
+  const base = (process.env.VITE_APP_URL || "https://figgy.gofig.ca").trim().replace(/\/+$/, "");
+  return `${base}/api/oauth/google/callback`;
+}
+var init_google_redirect = __esm({
+  "api/google-redirect.ts"() {
+  }
+});
+
 // api/integration-router.ts
 var integrationRouter;
 var init_integration_router = __esm({
@@ -42610,7 +42626,8 @@ var init_integration_router = __esm({
         scopes: external_exports.array(external_exports.string()).optional()
       })).query(async ({ ctx, input }) => {
         const clientId = process.env.GOOGLE_CLIENT_ID || "";
-        const redirectUri2 = `${process.env.VITE_APP_URL || "https://figgy.gofig.ca"}/api/oauth/google/callback`;
+        const { googleRedirectUri: googleRedirectUri2 } = await Promise.resolve().then(() => (init_google_redirect(), google_redirect_exports));
+        const redirectUri2 = googleRedirectUri2();
         const scopes = input.scopes || [
           "https://www.googleapis.com/auth/calendar",
           "https://www.googleapis.com/auth/calendar.events",
@@ -63905,7 +63922,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.58";
+var BUILD_TAG = "2026-06-23.59";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -63937,6 +63954,17 @@ app.get("/api/version", (c) => {
     assetExists,
     assetFiles,
     indexHead
+  });
+});
+app.get("/api/oauth/google/debug", async (c) => {
+  const { googleRedirectUri: googleRedirectUri2 } = await Promise.resolve().then(() => (init_google_redirect(), google_redirect_exports));
+  return c.json({
+    redirectUri: googleRedirectUri2(),
+    viteAppUrl: process.env.VITE_APP_URL || null,
+    googleRedirectUriEnv: process.env.GOOGLE_REDIRECT_URI || null,
+    hasClientId: !!process.env.GOOGLE_CLIENT_ID,
+    hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+    note: "Add the value of redirectUri to the Figgy CRM OAuth client's Authorized redirect URIs in Google Cloud Console."
   });
 });
 app.get("/api/qbo/connect", async (c) => {
@@ -64011,7 +64039,8 @@ app.get("/api/oauth/google/callback", async (c) => {
     }
     const clientId = process.env.GOOGLE_CLIENT_ID || "";
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
-    const redirectUri2 = `${process.env.VITE_APP_URL || "https://figgy.gofig.ca"}/api/oauth/google/callback`;
+    const { googleRedirectUri: googleRedirectUri2 } = await Promise.resolve().then(() => (init_google_redirect(), google_redirect_exports));
+    const redirectUri2 = googleRedirectUri2();
     if (!clientId || !clientSecret) {
       throw new Error("Google OAuth credentials not configured");
     }
