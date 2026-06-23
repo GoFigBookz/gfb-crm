@@ -17,9 +17,17 @@ export default function InstallAppCard() {
   const isIos = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
 
   useEffect(() => {
-    const onBIP = (e: any) => { e.preventDefault(); setDeferred(e); };
-    window.addEventListener("beforeinstallprompt", onBIP);
-    return () => window.removeEventListener("beforeinstallprompt", onBIP);
+    // The event may have already fired before this card mounted — main.tsx
+    // stashes it on window. Pick it up, and also listen for later fires.
+    if ((window as any).__deferredInstall) setDeferred((window as any).__deferredInstall);
+    const onAvail = () => setDeferred((window as any).__deferredInstall);
+    const onInstalled = () => setDeferred(null);
+    window.addEventListener("pwa-install-available", onAvail);
+    window.addEventListener("pwa-installed", onInstalled);
+    return () => {
+      window.removeEventListener("pwa-install-available", onAvail);
+      window.removeEventListener("pwa-installed", onInstalled);
+    };
   }, []);
 
   const install = async () => {
@@ -27,6 +35,7 @@ export default function InstallAppCard() {
       deferred.prompt();
       try { await deferred.userChoice; } catch { /* ignore */ }
       setDeferred(null);
+      (window as any).__deferredInstall = undefined;
     } else if (isIos) {
       setIosHelp(true);
     } else {

@@ -25,3 +25,17 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   });
 }
+
+// Capture the install prompt AS EARLY AS POSSIBLE — Chrome fires
+// beforeinstallprompt at page load, before the Integrations card mounts. Stash
+// it globally so the Install button can fire it whenever the user gets there.
+(window as any).__deferredInstall = undefined;
+window.addEventListener("beforeinstallprompt", (e: any) => {
+  e.preventDefault();
+  (window as any).__deferredInstall = e;
+  window.dispatchEvent(new Event("pwa-install-available"));
+});
+window.addEventListener("appinstalled", () => {
+  (window as any).__deferredInstall = undefined;
+  window.dispatchEvent(new Event("pwa-installed"));
+});
