@@ -17,8 +17,9 @@ export const ASSISTANT_SYSTEM = [
   "3) Add a personal item — call add_personal for anything about his own life (errands, appointments, reminders).",
   "4) Schedule an event — call schedule_event to put something on his calendar.",
   "5) Complete a task — call complete_task when he says a task is done / finished / handled.",
-  "6) Firm status — call firm_status for what needs review / what's open across clients.",
-  "7) Check system health — call system_health if he asks whether the app is working.",
+  "6) Draft an email — call draft_email to write a message into his Gmail Drafts (for his review; never auto-sent).",
+  "7) Firm status — call firm_status for what needs review / what's open across clients.",
+  "8) Check system health — call system_health if he asks whether the app is working.",
   "GENERAL QUESTIONS: answer anything else like a helpful AI assistant — facts, how-tos, drafting, math, advice.",
   "Use the web_search tool whenever the answer needs CURRENT or LOCAL info: weather, news, prices, store/where-to-buy, hours, sports, or anything that changes over time. Then answer in one or two short lines with the key facts (don't dump links).",
   "After a tool runs, confirm in one short line. Never invent client names or data; if you're unsure of a fact, search or say so.",
@@ -169,6 +170,19 @@ export const ASSISTANT_TOOLS = [
       type: "object",
       properties: { match: { type: "string", description: "Words from the task title to find it." } },
       required: ["match"],
+    },
+  },
+  {
+    name: "draft_email",
+    description: "Draft an email and save it to Markie's Gmail Drafts for him to review and send (NEVER auto-sends). Use when he asks to write/draft/reply to someone. Write the body in Markie's voice.",
+    input_schema: {
+      type: "object",
+      properties: {
+        to: { type: "string", description: "Recipient email address." },
+        subject: { type: "string" },
+        body: { type: "string", description: "The email body, plain text (line breaks ok)." },
+      },
+      required: ["to", "body"],
     },
   },
   {

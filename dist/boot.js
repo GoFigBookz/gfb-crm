@@ -54128,8 +54128,9 @@ var init_assistant_core = __esm({
       "3) Add a personal item \u2014 call add_personal for anything about his own life (errands, appointments, reminders).",
       "4) Schedule an event \u2014 call schedule_event to put something on his calendar.",
       "5) Complete a task \u2014 call complete_task when he says a task is done / finished / handled.",
-      "6) Firm status \u2014 call firm_status for what needs review / what's open across clients.",
-      "7) Check system health \u2014 call system_health if he asks whether the app is working.",
+      "6) Draft an email \u2014 call draft_email to write a message into his Gmail Drafts (for his review; never auto-sent).",
+      "7) Firm status \u2014 call firm_status for what needs review / what's open across clients.",
+      "8) Check system health \u2014 call system_health if he asks whether the app is working.",
       "GENERAL QUESTIONS: answer anything else like a helpful AI assistant \u2014 facts, how-tos, drafting, math, advice.",
       "Use the web_search tool whenever the answer needs CURRENT or LOCAL info: weather, news, prices, store/where-to-buy, hours, sports, or anything that changes over time. Then answer in one or two short lines with the key facts (don't dump links).",
       "After a tool runs, confirm in one short line. Never invent client names or data; if you're unsure of a fact, search or say so."
@@ -54225,6 +54226,19 @@ var init_assistant_core = __esm({
           type: "object",
           properties: { match: { type: "string", description: "Words from the task title to find it." } },
           required: ["match"]
+        }
+      },
+      {
+        name: "draft_email",
+        description: "Draft an email and save it to Markie's Gmail Drafts for him to review and send (NEVER auto-sends). Use when he asks to write/draft/reply to someone. Write the body in Markie's voice.",
+        input_schema: {
+          type: "object",
+          properties: {
+            to: { type: "string", description: "Recipient email address." },
+            subject: { type: "string" },
+            body: { type: "string", description: "The email body, plain text (line breaks ok)." }
+          },
+          required: ["to", "body"]
         }
       },
       {
@@ -54567,6 +54581,34 @@ async function execAddPersonal(input, userId) {
   const when = dueDate ? ` (due ${dueDate.toLocaleDateString(void 0, { month: "short", day: "numeric" })})` : "";
   return `Added to your personal space: "${title}"${when}.`;
 }
+async function execDraftEmail(input, userId) {
+  const to = extractEmail(String(input?.to ?? ""));
+  if (!to) return "Who's it going to? I need the recipient's email address.";
+  const body = String(input?.body ?? "").trim();
+  if (!body) return "What should the email say?";
+  const subject = String(input?.subject ?? "").trim() || "(no subject)";
+  const db = getDb();
+  const accts = await db.select().from(connectedAccounts).where(and(eq(connectedAccounts.userId, userId), eq(connectedAccounts.provider, "google")));
+  const account = accts.find((a) => a.isActive) || accts[0];
+  if (!account) return "I need your Google email connected first (Integrations \u2192 Google) before I can draft mail.";
+  try {
+    const token = await getValidGoogleAccessToken(account);
+    const html = body.replace(/\n/g, "<br>");
+    const raw2 = buildRawMessage({ fromEmail: account.accountEmail || "", to, subject, html });
+    const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ message: { raw: raw2 } })
+    });
+    if (!res.ok) {
+      const t2 = await res.text().catch(() => "");
+      return `Couldn't save the draft (${res.status}). ${t2.slice(0, 120)}`;
+    }
+    return `Drafted an email to ${to} ("${subject}") \u2014 it's in your Gmail Drafts to review and send.`;
+  } catch (e) {
+    return `Couldn't draft that: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
 async function execScheduleEvent(input, userId) {
   const title = String(input?.title ?? "").trim();
   if (!title) return "What should I call the event?";
@@ -54627,6 +54669,7 @@ async function runTool(name2, input, userId) {
     if (name2 === "add_personal") return await execAddPersonal(input, userId);
     if (name2 === "schedule_event") return await execScheduleEvent(input, userId);
     if (name2 === "complete_task") return await execCompleteTask(input, userId);
+    if (name2 === "draft_email") return await execDraftEmail(input, userId);
     if (name2 === "system_health") return await execSystemHealth();
     if (name2 === "firm_status") return await execFirmStatus(userId);
     return `Unknown tool: ${name2}`;
@@ -54642,6 +54685,8 @@ var init_assistant_router = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+    init_google_token();
+    init_email_core();
     init_task_command_core();
     init_assistant_core();
     TZ = "America/Toronto";
@@ -62576,7 +62621,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.29";
+var BUILD_TAG = "2026-06-23.30";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

@@ -6,8 +6,10 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { tasks, calendarEvents, clients, personalItems, triageFindings } from "../db/schema";
+import { tasks, calendarEvents, clients, personalItems, triageFindings, connectedAccounts } from "../db/schema";
 import { eq, and } from "drizzle-orm";
+import { getValidGoogleAccessToken } from "./google-token";
+import { buildRawMessage, extractEmail } from "./email-core";
 
 const TZ = "America/Toronto";
 import { parseTaskCommand } from "./task-command-core";
@@ -69,6 +71,36 @@ async function execAddPersonal(input: any, userId: number): Promise<string> {
   await db.insert(personalItems).values({ userId, kind, title, dueDate, priority: "medium", done: false } as any);
   const when = dueDate ? ` (due ${dueDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })})` : "";
   return `Added to your personal space: "${title}"${when}.`;
+}
+
+async function execDraftEmail(input: any, userId: number): Promise<string> {
+  const to = extractEmail(String(input?.to ?? ""));
+  if (!to) return "Who's it going to? I need the recipient's email address.";
+  const body = String(input?.body ?? "").trim();
+  if (!body) return "What should the email say?";
+  const subject = String(input?.subject ?? "").trim() || "(no subject)";
+  const db = getDb();
+  const accts = (await db.select().from(connectedAccounts)
+    .where(and(eq(connectedAccounts.userId, userId), eq(connectedAccounts.provider, "google")))) as any[];
+  const account = accts.find((a) => a.isActive) || accts[0];
+  if (!account) return "I need your Google email connected first (Integrations → Google) before I can draft mail.";
+  try {
+    const token = await getValidGoogleAccessToken(account);
+    const html = body.replace(/\n/g, "<br>");
+    const raw = buildRawMessage({ fromEmail: account.accountEmail || "", to, subject, html });
+    const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ message: { raw } }),
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      return `Couldn't save the draft (${res.status}). ${t.slice(0, 120)}`;
+    }
+    return `Drafted an email to ${to} ("${subject}") — it's in your Gmail Drafts to review and send.`;
+  } catch (e) {
+    return `Couldn't draft that: ${e instanceof Error ? e.message : String(e)}`;
+  }
 }
 
 async function execScheduleEvent(input: any, userId: number): Promise<string> {
@@ -142,6 +174,7 @@ async function runTool(name: string, input: any, userId: number): Promise<string
     if (name === "add_personal") return await execAddPersonal(input, userId);
     if (name === "schedule_event") return await execScheduleEvent(input, userId);
     if (name === "complete_task") return await execCompleteTask(input, userId);
+    if (name === "draft_email") return await execDraftEmail(input, userId);
     if (name === "system_health") return await execSystemHealth();
     if (name === "firm_status") return await execFirmStatus(userId);
     return `Unknown tool: ${name}`;
