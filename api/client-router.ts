@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { clients, satisfactionScores, tasks, clientTaskRules } from "../db/schema";
-import { eq, and, like, desc, ne, inArray } from "drizzle-orm";
+import { eq, and, like, desc, ne, inArray, sql } from "drizzle-orm";
 import { restrictedClientIds } from "./rbac";
 import { syncInsert, syncUpdate } from "./sync-hooks";
 import { ensureComplianceForClient, reconcileClientFromIntake } from "./task-generator";
@@ -356,6 +356,56 @@ export const clientRouter = createRouter({
         .where(clientScope(ctx, id));
 
       return { success: true };
+    }),
+
+  // Merge a DUPLICATE client into a keeper. Moves EVERY related record
+  // (auto-discovers all tables with a clientId column, so nothing is orphaned now
+  // or in future), fills any blank fields on the keeper from the duplicate, then
+  // deletes the duplicate. keepId = the record to keep (the one with most info).
+  merge: authedQuery
+    .input(z.object({ keepId: z.number(), dupeId: z.number() }))
+    .mutation(async ({ input }) => {
+      const { keepId, dupeId } = input;
+      if (keepId === dupeId) throw new Error("Pick two different clients to merge.");
+      const db = getDb();
+      const keep = (await db.select().from(clients).where(eq(clients.id, keepId)).limit(1))[0] as any;
+      const dupe = (await db.select().from(clients).where(eq(clients.id, dupeId)).limit(1))[0] as any;
+      if (!keep || !dupe) throw new Error("One of those clients no longer exists.");
+
+      // 1) Re-point every table that references a client to the keeper.
+      const moved: Record<string, number> = {};
+      const tbls: any = await db.run(sql`SELECT name FROM sqlite_master WHERE type='table'`);
+      for (const row of (tbls?.rows ?? tbls ?? [])) {
+        const t = String((row as any).name ?? (row as any)[0] ?? "");
+        if (!t || t === "clients" || t.startsWith("sqlite_")) continue;
+        let cols: any;
+        try { cols = await db.run(sql.raw(`PRAGMA table_info("${t}")`)); } catch { continue; }
+        const names = new Set<string>();
+        for (const c of (cols?.rows ?? cols ?? [])) names.add(String((c as any).name ?? (c as any)[1] ?? ""));
+        if (!names.has("clientId")) continue;
+        try {
+          const res: any = await db.run(sql.raw(`UPDATE "${t}" SET "clientId" = ${keepId} WHERE "clientId" = ${dupeId}`));
+          const n = res?.rowsAffected ?? res?.changes ?? 0;
+          if (n) moved[t] = n;
+        } catch (e) { console.error(`[merge] ${t} failed:`, e instanceof Error ? e.message : e); }
+      }
+
+      // 2) Fill blank keeper fields from the duplicate (don't overwrite real data).
+      const fill: Record<string, any> = {};
+      for (const [k, v] of Object.entries(dupe)) {
+        if (k === "id") continue;
+        const cur = keep[k];
+        const curEmpty = cur === null || cur === undefined || cur === "" ;
+        const dupHas = v !== null && v !== undefined && v !== "";
+        if (curEmpty && dupHas) fill[k] = v;
+      }
+      if (Object.keys(fill).length) {
+        try { await db.update(clients).set({ ...fill, updatedAt: new Date() }).where(eq(clients.id, keepId)); } catch (e) { console.error("[merge] fill keeper failed:", e); }
+      }
+
+      // 3) Remove the duplicate.
+      await db.delete(clients).where(eq(clients.id, dupeId));
+      return { success: true, keepId, dupeId, moved, filledFields: Object.keys(fill) };
     }),
 
   // Delete client — cascades to their tasks + recurring rules so nothing is

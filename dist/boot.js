@@ -41902,6 +41902,57 @@ var init_client_router = __esm({
         await db.update(clients).set(updates).where(clientScope(ctx, id));
         return { success: true };
       }),
+      // Merge a DUPLICATE client into a keeper. Moves EVERY related record
+      // (auto-discovers all tables with a clientId column, so nothing is orphaned now
+      // or in future), fills any blank fields on the keeper from the duplicate, then
+      // deletes the duplicate. keepId = the record to keep (the one with most info).
+      merge: authedQuery.input(external_exports.object({ keepId: external_exports.number(), dupeId: external_exports.number() })).mutation(async ({ input }) => {
+        const { keepId, dupeId } = input;
+        if (keepId === dupeId) throw new Error("Pick two different clients to merge.");
+        const db = getDb();
+        const keep = (await db.select().from(clients).where(eq(clients.id, keepId)).limit(1))[0];
+        const dupe = (await db.select().from(clients).where(eq(clients.id, dupeId)).limit(1))[0];
+        if (!keep || !dupe) throw new Error("One of those clients no longer exists.");
+        const moved = {};
+        const tbls = await db.run(sql`SELECT name FROM sqlite_master WHERE type='table'`);
+        for (const row of tbls?.rows ?? tbls ?? []) {
+          const t2 = String(row.name ?? row[0] ?? "");
+          if (!t2 || t2 === "clients" || t2.startsWith("sqlite_")) continue;
+          let cols;
+          try {
+            cols = await db.run(sql.raw(`PRAGMA table_info("${t2}")`));
+          } catch {
+            continue;
+          }
+          const names = /* @__PURE__ */ new Set();
+          for (const c of cols?.rows ?? cols ?? []) names.add(String(c.name ?? c[1] ?? ""));
+          if (!names.has("clientId")) continue;
+          try {
+            const res = await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${keepId} WHERE "clientId" = ${dupeId}`));
+            const n = res?.rowsAffected ?? res?.changes ?? 0;
+            if (n) moved[t2] = n;
+          } catch (e) {
+            console.error(`[merge] ${t2} failed:`, e instanceof Error ? e.message : e);
+          }
+        }
+        const fill = {};
+        for (const [k, v] of Object.entries(dupe)) {
+          if (k === "id") continue;
+          const cur = keep[k];
+          const curEmpty = cur === null || cur === void 0 || cur === "";
+          const dupHas = v !== null && v !== void 0 && v !== "";
+          if (curEmpty && dupHas) fill[k] = v;
+        }
+        if (Object.keys(fill).length) {
+          try {
+            await db.update(clients).set({ ...fill, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, keepId));
+          } catch (e) {
+            console.error("[merge] fill keeper failed:", e);
+          }
+        }
+        await db.delete(clients).where(eq(clients.id, dupeId));
+        return { success: true, keepId, dupeId, moved, filledFields: Object.keys(fill) };
+      }),
       // Delete client — cascades to their tasks + recurring rules so nothing is
       // left orphaned (and they stop showing in task lists / generating new work).
       delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
@@ -64026,7 +64077,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.69";
+var BUILD_TAG = "2026-06-23.70";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

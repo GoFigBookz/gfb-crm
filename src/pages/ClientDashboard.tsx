@@ -92,6 +92,20 @@ export default function ClientDashboard() {
   const deleteClient = trpc.crmClient.delete.useMutation({
     onSuccess: () => { utils.crmClient.list.invalidate(); navigate("/clients"); },
   });
+  // Merge a duplicate INTO this client (this record is the keeper).
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeSearch, setMergeSearch] = useState("");
+  const [mergeDupeId, setMergeDupeId] = useState<number | null>(null);
+  const { data: allClientsForMerge } = trpc.crmClient.list.useQuery(undefined, { enabled: mergeOpen });
+  const mergeClient = trpc.crmClient.merge.useMutation({
+    onSuccess: (r: any) => {
+      const movedTotal = Object.values(r?.moved || {}).reduce((s: number, n: any) => s + (Number(n) || 0), 0);
+      alert(`Merged. Moved ${movedTotal} record(s) onto this client and removed the duplicate.`);
+      setMergeOpen(false); setMergeDupeId(null); setMergeSearch("");
+      utils.crmClient.get.invalidate({ id }); utils.crmClient.list.invalidate();
+    },
+    onError: (e) => alert("Merge failed: " + e.message),
+  });
   const saveSnapshot = trpc.clientDashboard.saveSnapshot.useMutation({
     onSuccess: () => utils.clientDashboard.getByClient.invalidate({ clientId: id }),
   });
@@ -231,6 +245,10 @@ export default function ClientDashboard() {
               {activateClient.isPending ? "Reactivating…" : "Reactivate"}
             </Button>
           )}
+          <Button size="sm" variant="outline" className="border-amber-300 text-amber-700"
+            onClick={() => setMergeOpen(true)} title="Merge a duplicate client into this one (this record is kept)">
+            <Users className="h-3.5 w-3.5 mr-1" /> Merge duplicate
+          </Button>
           <Button size="sm" variant="outline" className="border-red-300 text-red-600"
             onClick={() => { if (confirm(`PERMANENTLY DELETE ${client.name} and all its data? This cannot be undone.`)) deleteClient.mutate({ id }); }}>
             Delete
@@ -1091,6 +1109,46 @@ export default function ClientDashboard() {
 
       <TimeLogDialog open={showLogTime} onClose={() => setShowLogTime(false)} clientId={id}
         tasks={dashboardData?.tasks || []} onSubmit={(data: any) => createTime.mutate(data)} isPending={createTime.isPending} />
+
+      {/* Merge a duplicate INTO this client (this record is kept). */}
+      <Dialog open={mergeOpen} onOpenChange={(v) => { setMergeOpen(v); if (!v) { setMergeDupeId(null); setMergeSearch(""); } }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Merge a duplicate into {splitClientName(client.name, client.company).primary}</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-slate-500">
+              Pick the <strong>duplicate</strong> record. All of its data (tasks, emails, files, payroll, etc.) moves onto
+              <strong> this</strong> client, blank fields here get filled from it, then the duplicate is deleted. Keep the one with the most info open — that's this one.
+            </p>
+            <Input placeholder="Search clients…" value={mergeSearch} onChange={(e) => setMergeSearch(e.target.value)} />
+            <div className="max-h-64 overflow-y-auto border rounded-lg divide-y">
+              {(allClientsForMerge || [])
+                .filter((c: any) => c.id !== id)
+                .filter((c: any) => { const q = mergeSearch.toLowerCase(); return !q || (c.name || "").toLowerCase().includes(q) || (c.company || "").toLowerCase().includes(q); })
+                .slice(0, 50)
+                .map((c: any) => (
+                  <button key={c.id} onClick={() => setMergeDupeId(c.id)}
+                    className={cn("flex items-center justify-between w-full px-3 py-2 text-left text-sm hover:bg-slate-50", mergeDupeId === c.id && "bg-amber-50")}>
+                    <span className="truncate">{splitClientName(c.name, c.company).primary}{c.company ? ` · ${c.company}` : ""}</span>
+                    {mergeDupeId === c.id && <CheckCircle className="h-4 w-4 text-amber-600 shrink-0" />}
+                  </button>
+                ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setMergeOpen(false)}>Cancel</Button>
+              <Button className="bg-amber-600 hover:bg-amber-700"
+                disabled={!mergeDupeId || mergeClient.isPending}
+                onClick={() => {
+                  const dupe = (allClientsForMerge || []).find((c: any) => c.id === mergeDupeId);
+                  if (dupe && confirm(`Merge "${dupe.name}" INTO "${client.name}" and delete the duplicate? This cannot be undone.`)) {
+                    mergeClient.mutate({ keepId: id, dupeId: mergeDupeId! });
+                  }
+                }}>
+                {mergeClient.isPending ? "Merging…" : "Merge & delete duplicate"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {editingIntake && (
         <EditIntakeDialog
