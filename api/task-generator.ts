@@ -9,6 +9,9 @@ export type OnboardingData = {
   clientId: number;
   userId: number;
   assignedTo?: string | null;
+  // "CA" (default) or "US" — switches sales-tax labels (HST/GST ↔ Sales Tax) and
+  // suppresses Canada-only obligations (WSIB / EHT) for US clients.
+  country?: string | null;
   fiscalYearEnd?: string | null;
   hstGstFrequency?: string | null;
   payrollFrequency?: string | null;
@@ -95,6 +98,9 @@ export function parseFiscalYearEnd(fiscalYearEnd?: string | null): { month: numb
 export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
   const rules: TaskRuleConfig[] = [];
   const fy = parseFiscalYearEnd(data.fiscalYearEnd);
+  // US clients file state SALES TAX, not HST/GST; WSIB + EHT are Canada-only.
+  const isUS = (data.country || "CA") === "US";
+  const stLabel = isUS ? "Sales Tax" : "HST/GST";
 
   // === BOOKKEEPING / RECONCILIATION (cadence = scope) ===
   const bkFreq = data.bookkeepingFrequency || "monthly";
@@ -302,8 +308,8 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
     });
   }
 
-  // === EHT — Ontario Employer Health Tax (only when applicable) ===
-  if (data.hasEHT) {
+  // === EHT — Ontario Employer Health Tax (only when applicable; CA-only) ===
+  if (data.hasEHT && !isUS) {
     rules.push({
       ruleType: "eht_annual",
       title: "EHT Annual Return (Ontario)",
@@ -319,13 +325,13 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
     });
   }
 
-  // === HST/GST FILING ===
+  // === HST/GST FILING (US: state SALES TAX) ===
   if (data.hstGstFrequency && data.hstGstFrequency !== "none") {
     if (data.hstGstFrequency === "monthly") {
       rules.push({
         ruleType: "hst_monthly",
-        title: "Monthly HST/GST Return",
-        description: "Prepare and file monthly HST/GST return. Reconcile ITCs and remit net amount.",
+        title: `Monthly ${stLabel} Return`,
+        description: isUS ? "Prepare and file the monthly state sales-tax return and remit the amount collected." : "Prepare and file monthly HST/GST return. Reconcile ITCs and remit net amount.",
         category: "Tax",
         priority: "high",
         frequency: "monthly",
@@ -337,8 +343,8 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
     } else if (data.hstGstFrequency === "quarterly") {
       rules.push({
         ruleType: "hst_quarterly",
-        title: "Quarterly HST/GST Return",
-        description: "Prepare and file quarterly HST/GST return. Reconcile ITCs and remit net amount.",
+        title: `Quarterly ${stLabel} Return`,
+        description: isUS ? "Prepare and file the quarterly state sales-tax return and remit the amount collected." : "Prepare and file quarterly HST/GST return. Reconcile ITCs and remit net amount.",
         category: "Tax",
         priority: "high",
         frequency: "quarterly",
@@ -350,8 +356,8 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
     } else if (data.hstGstFrequency === "annually") {
       rules.push({
         ruleType: "hst_annual",
-        title: "Annual HST/GST Return",
-        description: "Prepare and file annual HST/GST return. Due 3 months after fiscal year end.",
+        title: `Annual ${stLabel} Return`,
+        description: isUS ? "Prepare and file the annual state sales-tax return." : "Prepare and file annual HST/GST return. Due 3 months after fiscal year end.",
         category: "Tax",
         priority: "high",
         frequency: "yearly",
@@ -414,7 +420,8 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
   // WSIB reports quarterly (Q1–Q4). Each quarter is due by the end of the month
   // AFTER the quarter ends (Apr/Jul/Oct/Jan); aim to file mid-month → due day 15
   // with lead time. Run the remittance on the client's WSIB card, then file.
-  if (data.wsibRequired) {
+  // CA-only (US workers' comp is per-state, handled outside this rule).
+  if (data.wsibRequired && !isUS) {
     rules.push({
       ruleType: "wsib_quarterly",
       title: "WSIB Quarterly Filing",
@@ -786,6 +793,7 @@ async function clientToOnboardingData(
     clientId,
     userId: opts.userId ?? c.userId ?? 1,
     assignedTo: opts.assignedTo ?? c.assignedTo ?? null,
+    country: c.country || (c.qboAccountType === "us_clients" ? "US" : "CA"),
     fiscalYearEnd,
     hstGstFrequency: hstFreq,
     payrollFrequency: c.hasPayroll ? (c.payrollFrequency || "monthly") : null,

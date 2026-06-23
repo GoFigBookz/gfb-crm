@@ -196,6 +196,103 @@ client upsert on onboard/edit; (3) inbound client read-back; (4) extend to
 payroll/employees/tasks; (5) conflict handling + nightly full reconcile.
 BLOCKERS: canonical-sheet decision + `FIGGY_MAKE_API_TOKEN` on the server.
 
+## BANK STATEMENT CONVERTER — PDF → CSV → QBO (Markie 2026-06-22, BROKEN, fix)
+The "Bank → QBO" converter (`/bank-converter`, src/pages + api/bank-converter*)
+must do **PDF bank statement → CSV → QBO import format**. It's currently not
+working end-to-end. Fix the chain: accept a PDF statement, extract the transaction
+table (date/description/amount/balance), normalize, and output a QBO-importable CSV
+(3-column Date,Description,Amount or QBO's expected layout) — then a one-click path
+into QBO (CSV/QBO Web Connect). Verify with a real statement before calling done.
+(Markie: "Don't skip over things I've told you to fix.")
+
+## FIGGY JR POSTING — CONSOLIDATION VERDICT (audited 2026-06-22)
+We do NOT need to rebuild posting. Audit of both sides:
+- **CRM side is review-complete**: brain (history coding + cold-start + web classify,
+  read-only, tested) → Triage (enrich, traffic-light, approve/dismiss/ask-client) →
+  learning loop (approve writes confirmed vendorMemory). The ONLY missing wire is
+  **approve → post**; `qboRequest` is already write-capable on the NATIVE transport
+  (the Make bridge is read-only by design).
+- **Make side**: 6 QBO Poster clones + 5 Auto-Approve clones (all OFF) that are
+  structurally identical, differing only by hardcoded client name / connection id /
+  map-tab / tax codes. The active "Auto-Approve GATE TEST (5353339)" already runs the
+  gate for ALL clients in ONE scenario = proof the consolidation works.
+- **Cleanest path** (when a live native WRITE connection exists — needs Intuit prod
+  creds, Markie's part): add ONE poster module in the CRM (finding.sourceData → QBO
+  Bill/Purchase via qboRequest POST), wire it to a GATED "approve & post" in Triage
+  (nothing auto-posts), reuse the existing learn-on-approve. Then RETIRE the ~14 Make
+  per-client clones (already OFF) — keep only the read-only proxies + per-realm tools.
+- Net: ~1–1.5 wk for manual review-and-post (Phases poster + queue + one-click),
+  auto-post rules later. Front-loadable: build the poster module + tests now against
+  documented QBO shapes, switch on when the connection lands.
+
+## DRIVE FOLDER AUTO-CREATE — BUILT (2026-06-22), needs token + live test
+"Auto-create folders under the hardcoded GFB Clients parent; never save to root."
+- `api/client-drive-folders.ts` builds the standard tree (`Finance - <Client>` →
+  1 Company Documentation/Engagement Letters, 2 Tax Filings/[HST·Payroll·WSIB·
+  Dividends·Corp Tax | US: Sales Tax·Payroll·Dividends·Corp Tax], 3 Year-End
+  Financials/[01 Financials·02 Accountant], 4 Statements, 5 Triage, 6 Vendors,
+  7 Customers, ARCHIVE) under `GFB_CLIENTS_PARENT_FOLDER_ID`
+  (1OdxTvo0DiWnDL0e9g2ii6eG5ysBke_0G). Idempotent (reuses existing folders).
+- Transport `api/drive-make-bridge.ts` → Make Drive proxy scenario 5342854
+  (interface {url,method,body,qs_fields,qs_q}) via the scenario-RUN API. WRITE op,
+  so it uses the authenticated run API → needs **FIGGY_MAKE_API_TOKEN**.
+- Wired: auto-attempt on `crmClient.create` (non-blocking, only if token set) +
+  manual `crmClient.createDriveFolder` mutation + a "Create Drive folder" button
+  on the client card when the link is missing.
+- **TO GO LIVE (Markie):** set FIGGY_MAKE_API_TOKEN on the deployed CRM, click
+  "Create Drive folder" on a test client, confirm the tree appears under GFB
+  Clients. CAVEAT: if "GFB Clients" lives on a SHARED DRIVE, scenario 5342854 may
+  need `supportsAllDrives=true` added to its Drive module (its interface doesn't
+  expose that param) — verify on the first live run; if creates 404/403, that's it.
+  Can't be verified from the dev env (no Google access).
+
+## CRA AUDIT SUPPORT SECTION (Markie 2026-06-22 — "think about workflow for future")
+CRA keeps auditing clients' **HST** (common, painful). Markie wants a section that
+pulls all the data and helps him *defend* an audit. Scoping notes for the future build:
+- **Owner**: senior bookkeeper / controller (CFO-tier) role — gate behind RBAC
+  `senior_bookkeeper`+ once roles exist (ties to the RBAC backlog item). Not a
+  junior surface.
+- **What an HST audit needs (the data to pull, per client + period under audit):**
+  - HST return(s) as filed (line 101 sales, 105 collected, 108 ITCs, net) — from
+    the HST filing tab/sheet + QBO.
+  - Sales tie-out: QBO total sales for the period → line 101 (catch mismatches).
+  - ITC support: every input-tax-credit-bearing expense with a **source document**
+    (receipt/invoice) link — CRA disallows ITCs without backup. This is where the
+    receipt/Drive intake + vendor brain already help (we have sourceData + Drive).
+  - Exceptions report: ITCs claimed with NO attached document; tax coded to the
+    wrong rate; personal/meals (50%) flags; large/round-number entries.
+  - Bank/HST reconciliation: remittances actually paid vs filed.
+- **Deliverable shape (borrow the MacrosLM "citation-backed workpaper" pattern,
+  already in this backlog):** one audit workpaper per client/period — each line
+  item with its evidence link — exportable to PDF to hand CRA. "Reviewed + signed."
+- **Build dependency:** strongest once the live QBO connection is on (pull GL +
+  documents). Until then, can assemble from the HST sheet + Drive receipts.
+- **Reuse:** the tie-out engine here is the same one the month-end "tie-outs"
+  cockpit item wants — build ONE tie-out core, surface it in both. Don't fork.
+
+## RBAC — per-staff client access (CORE BUILT 2026-06-22)
+Access model (Markie ask: "some users won't have access to all clients"):
+- **admin + senior_bookkeeper → ALL clients** (owner/controller view).
+- **junior_bookkeeper → all clients UNLESS `restrictedToClients` is on**, then only
+  the clients granted in `client_access`. Flag defaults OFF (non-disruptive — no one
+  gets locked out on deploy; admin opts a user in + picks clients).
+- client role → unchanged (clients.userId ownership).
+BUILT: `users.restrictedToClients` + `client_access` table (+ boot schema guard
+`ensure-rbac-schema.ts`); `api/rbac.ts` helpers; scoping applied to
+`crmClient.list` + `crmClient.get`; user-router `clientAccess`/`setClientAccess`/
+`setRestricted`/`setActive` (all admin); Users page rebuilt (add user via
+`localAuth.register`, role select, deactivate, per-client access dialog). Admin +
+Insights sidebar sections now both gated to senior+ (juniors don't see them).
+REMAINING (extend the same `restrictedClientIds(ctx)` filter for full enforcement):
+- Other per-client READ surfaces: `payroll.clients`, the tasks board/list, the
+  month-end board, client-dashboard-router — a restricted junior can still reach
+  clients through these until scoped.
+- Route-level guard on `/users` (+ admin pages) — currently sidebar-hidden only;
+  backend mutations are adminQuery-protected, but add a route guard for polish.
+- Task-assignment validation: restrict the assignee picker (and server) to users
+  who can access that client.
+- Client-scoped communications (emails/messages) for restricted users.
+
 ## 1. Transaction posting into QuickBooks — THE core workload (HIGH)
 Decision (Markie): build the **QBO API poster** (not a Chrome/browser bot — QBO
 has a full write API; browser automation is brittle and unnecessary). Posting

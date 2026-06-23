@@ -307,17 +307,47 @@ export const payrollRouter = createRouter({
       return { success: true };
     }),
 
+  // Disconnect a client's Jobber connection (so it can be re-linked to the
+  // correct account — e.g. if the wrong company's account got linked).
+  disconnectJobber: staffQuery
+    .input(z.object({ clientId: z.number() }))
+    .mutation(async ({ input }) => {
+      const { disconnectJobber } = await import("./jobber-oauth");
+      await disconnectJobber(input.clientId);
+      return { success: true };
+    }),
+
+  // All per-client Jobber OAuth connections (for the Integrations page — each
+  // company is its OWN Jobber account, managed/disconnected individually here).
+  listJobberConnections: staffQuery.query(async () => {
+    const { ensureJobberTable } = await import("./jobber-oauth");
+    await ensureJobberTable();
+    const db = getDb();
+    const { jobberConnections } = await import("../db/schema");
+    const rows = await db.select().from(jobberConnections);
+    const cls = await db.select({ id: clients.id, name: clients.name }).from(clients);
+    const nameById = new Map((cls as any[]).map((c) => [c.id, c.name]));
+    return (rows as any[]).map((r) => ({
+      id: r.id,
+      clientId: r.clientId,
+      clientName: nameById.get(r.clientId) || `Client ${r.clientId}`,
+      accountName: r.accountName ?? null,
+      active: !!r.active,
+      reconnectReason: r.reconnectReason ?? null,
+    }));
+  }),
+
   // Jobber connection status for a client (for the Connect button / badge).
   jobberStatus: staffQuery
     .input(z.object({ clientId: z.number() }))
     .query(async ({ input }) => {
       const { jobberConfigured, getValidConnection } = await import("./jobber-oauth");
-      if (!(await jobberConfigured())) return { configured: false, connected: false };
+      if (!(await jobberConfigured())) return { configured: false, connected: false, accountName: null as string | null };
       try {
         const conn = await getValidConnection(input.clientId);
-        return { configured: true, connected: !!conn, accountName: conn?.accountName ?? null };
+        return { configured: true, connected: !!conn, accountName: (conn?.accountName ?? null) as string | null };
       } catch {
-        return { configured: true, connected: false };
+        return { configured: true, connected: false, accountName: null as string | null };
       }
     }),
 

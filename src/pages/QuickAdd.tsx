@@ -27,6 +27,22 @@ export default function QuickAdd() {
     }
   });
 
+  // Natural-language "add a task for <client>: <what> by <when>" box.
+  const [nl, setNl] = useState("");
+  const [nlResult, setNlResult] = useState<string | null>(null);
+  const quickAdd = trpc.task.quickAddFromText.useMutation({
+    onSuccess: (r: any) => {
+      utils.task.list.invalidate();
+      const p = r.parsed;
+      const who = p.matchedClient ? ` · ${p.clientName}` : "";
+      const when = p.dueDate ? ` · due ${format(new Date(p.dueDate), "MMM d")}` : "";
+      setNlResult(`Added: “${p.title}”${who}${when}${p.priority === "high" ? " · 🔥 high" : ""}`);
+      setNl("");
+      setTimeout(() => setNlResult(null), 4000);
+    },
+    onError: (e) => setNlResult(e.message),
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
@@ -83,6 +99,27 @@ export default function QuickAdd() {
           </div>
         )}
 
+        {/* Natural-language quick add — type it like you'd text it. */}
+        <div className="mb-5 p-4 rounded-xl border-2 border-lime-200 bg-lime-50/40">
+          <Label className="text-sm font-semibold text-slate-700 mb-2 block">Type it like a text</Label>
+          <div className="flex gap-2">
+            <Input
+              value={nl}
+              onChange={(e) => setNl(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && nl.trim()) quickAdd.mutate({ text: nl.trim() }); }}
+              placeholder='e.g. "add a task for Clark Owen Sound: file HST by Friday"'
+              className="text-base py-5"
+            />
+            <Button type="button" disabled={!nl.trim() || quickAdd.isPending} className="bg-lime-600 hover:bg-lime-700 px-5"
+              onClick={() => quickAdd.mutate({ text: nl.trim() })}>
+              {quickAdd.isPending ? "…" : "Add"}
+            </Button>
+          </div>
+          <p className="text-xs text-slate-500 mt-2">Figures out the client, due date (“Friday”, “tomorrow”, “by Jun 30”) and priority (“urgent”). The same parser will power the text-the-bot workflow.</p>
+          {nlResult && <p className="text-sm text-lime-700 mt-2 font-medium">{nlResult}</p>}
+        </div>
+
+        <p className="text-xs uppercase font-semibold text-slate-400 mb-2">or fill it out manually</p>
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Task Title */}
           <div>

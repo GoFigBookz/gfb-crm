@@ -31,6 +31,9 @@ export default function Integrations() {
   const utils = trpc.useUtils();
   const { data: accounts } = trpc.integration.list.useQuery();
   const { data: clients } = trpc.crmClient.list.useQuery();
+  // When ADDING a connection, only offer ACTIVE + LEAD clients — never inactive.
+  // (Inactive can still be found by searching the Clients page.)
+  const connectClients = (clients || []).filter((c: any) => c.status === "active" || c.status === "lead" || c.status === "prospect");
   const deleteAccount = trpc.integration.delete.useMutation({ onSuccess: () => utils.integration.list.invalidate() });
   const toggleActive = trpc.integration.toggleActive.useMutation({ onSuccess: () => utils.integration.list.invalidate() });
   const updateSync = trpc.integration.updateSync.useMutation({ onSuccess: () => utils.integration.list.invalidate() });
@@ -58,6 +61,14 @@ export default function Integrations() {
     { environment: "production" },
     { enabled: false }
   );
+
+  // Jobber uses real per-client OAuth (jobberConnections table), not the generic
+  // API-key connector — surface those here so each company connects/disconnects
+  // individually, with the linked Jobber account name shown.
+  const { data: jobberConns } = trpc.payroll.listJobberConnections.useQuery();
+  const disconnectJobber = trpc.payroll.disconnectJobber.useMutation({
+    onSuccess: () => utils.payroll.listJobberConnections.invalidate(),
+  });
 
   // Google / Microsoft auth URLs
   const getGoogleAuthUrl = trpc.integration.getGoogleAuthUrl.useQuery(
@@ -122,6 +133,13 @@ export default function Integrations() {
       const url = result.data?.url || "";
       if (url) window.location.href = url;
       setAddProvider(null);
+      return;
+    }
+
+    // Jobber → real OAuth per client (sign into THAT company's Jobber account).
+    if (provider === "jobber") {
+      if (!selectedClient) return;
+      window.location.href = `/api/jobber/connect?clientId=${selectedClient}`;
       return;
     }
 
@@ -191,6 +209,21 @@ export default function Integrations() {
                 reconnectReason: (c as any).reconnectReason ?? null,
                 realmId: c.realmId,
                 clientId: c.clientId,
+              }))
+            // Jobber: real per-client OAuth connections
+            : provider.id === "jobber"
+            ? (jobberConns || []).map((j) => ({
+                id: j.id,
+                provider: "jobber" as const,
+                accountLabel: j.accountName ? `${j.clientName} — ${j.accountName}` : j.clientName,
+                accountEmail: j.accountName || "(account name pending)",
+                isActive: j.active,
+                syncEnabled: null,
+                lastSyncedAt: null,
+                createdAt: null,
+                updatedAt: null,
+                reconnectReason: j.reconnectReason,
+                clientId: j.clientId,
               }))
             // For per-client providers, use filtered connected accounts
             : PER_CLIENT_PROVIDERS.includes(provider.id)
@@ -281,6 +314,20 @@ export default function Integrations() {
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </>
+                          ) : provider.id === "jobber" ? (
+                            <>
+                              {(account as any).reconnectReason ? (
+                                <Button variant="ghost" size="sm" className="text-amber-600"
+                                  title={`Reconnect needed: ${(account as any).reconnectReason}`}
+                                  onClick={() => { window.location.href = `/api/jobber/connect?clientId=${(account as any).clientId}`; }}>
+                                  ⚠ Reconnect
+                                </Button>
+                              ) : null}
+                              <Button variant="ghost" size="sm" className="text-red-500"
+                                onClick={() => { if (confirm(`Disconnect ${account.accountLabel} from Jobber?`)) disconnectJobber.mutate({ clientId: (account as any).clientId }); }}>
+                                Disconnect
+                              </Button>
+                            </>
                           ) : PER_CLIENT_PROVIDERS.includes(provider.id) ? (
                             <>
                               <Button variant="ghost" size="sm" onClick={() => pullStatements.mutate({ connectionId: account.id })} disabled={pullStatements.isPending}>
@@ -318,7 +365,7 @@ export default function Integrations() {
                               <Select value={selectedClient} onValueChange={setSelectedClient}>
                                 <SelectTrigger><SelectValue placeholder="Choose client..." /></SelectTrigger>
                                 <SelectContent>
-                                  {clients?.map((c) => (
+                                  {connectClients.map((c) => (
                                     <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
                                   ))}
                                 </SelectContent>
@@ -331,7 +378,10 @@ export default function Integrations() {
                               <Input placeholder="e.g., Personal Gmail, Work Account" value={accountLabel} onChange={(e) => setAccountLabel(e.target.value)} />
                             </div>
                           )}
-                          {provider.perClient && (
+                          {provider.id === "jobber" && (
+                            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">Each company has its OWN Jobber login. To connect a second company, first sign out of Jobber (or use a private/incognito window) and sign into THAT company's account — otherwise Jobber re-links the one you're already in.</p>
+                          )}
+                          {provider.perClient && provider.id !== "jobber" && (
                             <div className="space-y-2">
                               <Label>API Key / Access Token *</Label>
                               <Input placeholder="Paste API key here..." value={perClientApiKey} onChange={(e) => setPerClientApiKey(e.target.value)} />
@@ -343,6 +393,7 @@ export default function Integrations() {
                             onClick={() => handleConnect(provider.id)}
                             disabled={
                               provider.id === "quickbooks" ? false :
+                              provider.id === "jobber" ? !selectedClient :
                               provider.perClient ? (!selectedClient || !perClientApiKey.trim()) :
                               !accountLabel.trim()
                             }
@@ -369,7 +420,7 @@ export default function Integrations() {
                             <Select value={selectedClient} onValueChange={setSelectedClient}>
                               <SelectTrigger><SelectValue placeholder="Choose client..." /></SelectTrigger>
                               <SelectContent>
-                                {clients?.map((c) => (
+                                {connectClients.map((c) => (
                                   <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
                                 ))}
                               </SelectContent>
@@ -383,7 +434,10 @@ export default function Integrations() {
                             <p className="text-xs text-slate-500">Give this account a name so you can identify it later</p>
                           </div>
                         )}
-                        {provider.perClient && (
+                        {provider.id === "jobber" && (
+                          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">Each company has its OWN Jobber login. To connect a second company, first sign out of Jobber (or use a private/incognito window) and sign into THAT company's account — otherwise Jobber re-links the one you're already in.</p>
+                        )}
+                        {provider.perClient && provider.id !== "jobber" && (
                           <div className="space-y-2">
                             <Label>API Key / Access Token *</Label>
                             <Input placeholder="Paste API key here..." value={perClientApiKey} onChange={(e) => setPerClientApiKey(e.target.value)} />
@@ -405,6 +459,7 @@ export default function Integrations() {
                           onClick={() => handleConnect(provider.id)}
                           disabled={
                             provider.id === "quickbooks" ? false :
+                            provider.id === "jobber" ? !selectedClient :
                             provider.perClient ? (!selectedClient || !perClientApiKey.trim()) :
                             !accountLabel.trim()
                           }

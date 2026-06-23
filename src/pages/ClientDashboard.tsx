@@ -1672,6 +1672,8 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
     wsibAccountNumber: client.wsibAccountNumber || o.wsibAccountNumber || "", payrollRpNumber: client.payrollRpNumber || "",
     craRacDone: !!client.craRacDone, monthlyFee: client.monthlyFee ?? 0,
     clientType: client.clientType || "monthly",
+    country: client.country || (client.qboAccountType === "us_clients" ? "US" : "CA"),
+    province: client.province || "",
     hasHST: !!client.hasHST, hstPeriod: client.hstPeriod || "quarterly",
     hasWSIB: !!client.hasWSIB, hasPayroll: !!client.hasPayroll,
     hasIntercoJournals: !!client.hasIntercoJournals,
@@ -1698,6 +1700,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
   });
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
   const truthy = (v: any) => v === true || v === "true";
+  const isUS = f.country === "US"; // US-geared intake: EIN/state/sales-tax, no HST/WSIB/CRA
   // IMPORTANT: these are called as functions ({field(...)}) — NOT rendered as
   // <Component/> — so the inputs are NOT remounted on every keystroke (which
   // would steal focus and make typing impossible).
@@ -1726,7 +1729,7 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
   return (
     <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-3xl max-h-[88vh] overflow-auto">
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><Edit className="h-4 w-4" /> Edit intake — {client.name}</DialogTitle></DialogHeader>
+        <DialogHeader className="sticky top-0 bg-white z-10 -mx-6 px-6 pb-2 border-b"><DialogTitle className="flex items-center gap-2"><Edit className="h-4 w-4" /> Edit intake — {client.name}</DialogTitle></DialogHeader>
 
         <p className="text-xs uppercase font-semibold text-slate-500">Contact</p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -1738,7 +1741,11 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
         <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Service type</p>
         <div className="grid grid-cols-2 gap-2">
           {sel("clientType", "Client type", [["monthly","Monthly bookkeeping"],["quarterly","Quarterly"],["annual","Annual / year-end only"],["payroll","Payroll"],["wholesale","Wholesale (flow-through — QBO resale only)"]])}
+          {sel("country", "Country", [["CA","🇨🇦 Canada"],["US","🇺🇸 United States"]])}
         </div>
+        {isUS && (
+          <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1 -mt-1">US client — intake uses EIN, state sales tax &amp; US payroll. Canada-only items (HST/GST, WSIB, CRA Represent-a-Client) are hidden.</p>
+        )}
         {f.clientType === "wholesale" && (
           <p className="text-xs text-slate-500 -mt-1">Flow-through client: no month-end close, no quote, and no recurring compliance tasks. Switching to wholesale pauses any existing tasks.</p>
         )}
@@ -1761,33 +1768,41 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
             {/* STANDARD — every operational client */}
             <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Business details</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {field("taxId", "CRA BN", "text", !f.taxId)}
+              {field("taxId", isUS ? "EIN (Federal Tax ID)" : "CRA BN", "text", !f.taxId)}
+              {field("province", isUS ? "State" : "Province")}
               {sel("yearEndMonth", "Year-end", ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map(m=>[m,m] as [string,string]))}
               {sel("bookkeepingFrequency", "Bookkeeping", [["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"],["none","None"]])}
               {field("avgMonthlyTransactions", "Avg monthly txns", "number")}
               {field("bankAccountCount", "# Bank accts", "number")}{field("creditCardCount", "# Credit cards", "number")}
               {field("monthsBehind", "Months behind", "number")}
-              {field("companyKey", "Company Key (Service Canada)")}{field("craRepId", "CRA RepID")}
+              {/* Service Canada / CRA fields — Canada only */}
+              {!isUS && field("companyKey", "Company Key (Service Canada)")}
+              {!isUS && field("craRepId", "CRA RepID")}
             </div>
-            {check("craRacDone", "CRA Represent-a-Client (RAC) access is set up")}
+            {!isUS && check("craRacDone", "CRA Represent-a-Client (RAC) access is set up")}
 
-            <p className="text-xs uppercase font-semibold text-slate-500 mt-2">Government registry</p>
+            <p className="text-xs uppercase font-semibold text-slate-500 mt-2">{isUS ? "Business registry" : "Government registry"}</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {field("industry", "Industry")}{field("registryNumber", "Registry #")}
-              {field("incorporationDate", "Incorporation date")}{field("corpType", "Corp type")}
-              {field("governmentStatus", "Govt status")}
+              {field("industry", "Industry")}{field("registryNumber", isUS ? "State registration #" : "Registry #")}
+              {field("incorporationDate", "Incorporation date")}{field("corpType", isUS ? "Entity type (LLC/S-Corp/…)" : "Corp type")}
+              {field("governmentStatus", isUS ? "Registration status" : "Govt status")}
             </div>
             {field("bio", "Bio / description")}
 
             {/* Drill-downs: tick what this client has → its fields + tasks appear. */}
             <p className="text-xs uppercase font-semibold text-slate-500 mt-3">What this client has <span className="font-normal lowercase text-slate-400">— tick to enable; fields &amp; tasks appear</span></p>
 
-            {check("hasHST", "Charges / files HST")}
+            {check("hasHST", isUS ? "Collects state sales tax" : "Charges / files HST")}
             {truthy(f.hasHST) && (
               <div className="ml-6 pl-3 border-l-2 border-lime-200 grid grid-cols-2 gap-2">
-                {sel("hstPeriod", "HST filing frequency", [["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"]])}
-                <div className="space-y-1"><Label className="text-xs">HST # <span className="text-slate-400">(auto from BN)</span></Label>
-                  <Input className="h-8 bg-slate-50" value={f.hstNumber || (f.taxId ? `${f.taxId}RT0001` : "")} readOnly /></div>
+                {sel("hstPeriod", isUS ? "Sales tax filing frequency" : "HST filing frequency", [["monthly","Monthly"],["quarterly","Quarterly"],["annual","Annual"]])}
+                {isUS ? (
+                  <div className="space-y-1"><Label className="text-xs">Sales tax permit / registration #</Label>
+                    <Input className="h-8" value={f.hstNumber} onChange={(e) => set("hstNumber", e.target.value)} /></div>
+                ) : (
+                  <div className="space-y-1"><Label className="text-xs">HST # <span className="text-slate-400">(auto from BN)</span></Label>
+                    <Input className="h-8 bg-slate-50" value={f.hstNumber || (f.taxId ? `${f.taxId}RT0001` : "")} readOnly /></div>
+                )}
               </div>
             )}
 
@@ -1796,30 +1811,35 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
               <div className="ml-6 pl-3 border-l-2 border-lime-200 space-y-2">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   {sel("payrollFrequency", "Pay frequency", [["weekly","Weekly"],["bi-weekly","Bi-weekly"],["semi-monthly","Semi-monthly"],["monthly","Monthly"],["self","Self"]])}
-                  {sel("payrollRemitterFreq", "CRA remitter", [["regular","Regular"],["quarterly","Quarterly"],["accelerated","Accelerated"]])}
+                  {/* CRA remitter cadence + RP program account are Canada-only. */}
+                  {!isUS && sel("payrollRemitterFreq", "CRA remitter", [["regular","Regular"],["quarterly","Quarterly"],["accelerated","Accelerated"]])}
                   {field("employeeCount", "# Employees", "number")}
-                  <div className="space-y-1"><Label className="text-xs">Payroll RP # <span className="text-slate-400">(auto from BN)</span></Label>
-                    <Input className="h-8 bg-slate-50" value={f.payrollRpNumber || (f.taxId ? `${f.taxId}RP0001` : "")} readOnly /></div>
+                  {!isUS && (
+                    <div className="space-y-1"><Label className="text-xs">Payroll RP # <span className="text-slate-400">(auto from BN)</span></Label>
+                      <Input className="h-8 bg-slate-50" value={f.payrollRpNumber || (f.taxId ? `${f.taxId}RP0001` : "")} readOnly /></div>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-x-4">
-                  {check("hasEHT", "Has EHT (Ontario)")}
+                  {!isUS && check("hasEHT", "Has EHT (Ontario)")}
                   {check("payrollExternal", "We don't run it (autopay / client self-manages)")}
                 </div>
                 {field("payrollHistoryUrl", "Past payroll history sheet (URL)")}
+                {isUS && <p className="text-[11px] text-slate-400">US payroll: federal + state withholding, FUTA/SUTA. (CRA remitter / RP# don't apply.)</p>}
               </div>
             )}
 
-            {check("hasWSIB", "Has WSIB")}
-            {!!f.hasWSIB && (
+            {/* WSIB is an Ontario program — Canada only. */}
+            {!isUS && check("hasWSIB", "Has WSIB")}
+            {!isUS && !!f.hasWSIB && (
               <div className="ml-6 pl-3 border-l-2 border-lime-200 grid grid-cols-2 gap-2">
                 {field("wsibAccountNumber", "WSIB #", "text", !f.wsibAccountNumber)}
               </div>
             )}
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 mt-1">
-              {check("paysDividends", "Pays dividends (T5)")}
-              {check("hasInvestments", "Investment income (T5)")}
-              {check("hasSubcontractors", "Subcontractors (T5018)")}
+              {check("paysDividends", isUS ? "Pays dividends (1099-DIV)" : "Pays dividends (T5)")}
+              {check("hasInvestments", isUS ? "Investment income (1099)" : "Investment income (T5)")}
+              {check("hasSubcontractors", isUS ? "Subcontractors (1099-NEC)" : "Subcontractors (T5018)")}
               {check("hasIntercoJournals", "Inter-company journals (monthly recon)")}
               {check("hasJobCosting", "Job costing")}
               {check("usesHubdoc", "Uses Hubdoc")}
@@ -1855,12 +1875,17 @@ function EditIntakeDialog({ client, onboarding, onClose, onSave, isPending }: {
         <div className="space-y-1"><Label className="text-xs">Services / notes</Label>
           <Textarea value={f.servicesNeeded} onChange={(e) => set("servicesNeeded", e.target.value)} rows={2} /></div>
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 pt-3 mt-2 -mx-6 px-6 border-t bg-white sticky bottom-0">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button disabled={isPending} onClick={() => onSave({
             ...f,
+            qboAccountType: isUS ? "us_clients" : "ca_clients",
             hasHST: truthy(f.hasHST),
-            hasWSIB: !!f.hasWSIB, hasPayroll: truthy(f.hasPayroll),
+            // Canada-only obligations never apply to a US client.
+            hasWSIB: isUS ? false : !!f.hasWSIB,
+            hasEHT: isUS ? false : !!f.hasEHT,
+            craRacDone: isUS ? false : !!f.craRacDone,
+            hasPayroll: truthy(f.hasPayroll),
             hasIntercoJournals: !!f.hasIntercoJournals,
             // "Has employees" is implied by "Runs payroll" — one source of truth.
             hasEmployees: truthy(f.hasPayroll),
@@ -2595,6 +2620,14 @@ function QuickLinksCard({ client, onboarding, variant = "card" }: { client: any;
       setEditOpen(false);
     },
   });
+  const createDrive = trpc.crmClient.createDriveFolder.useMutation({
+    onSuccess: (r: any) => {
+      if (r?.ok) { utils.crmClient.get.invalidate(); }
+      else if (r?.skipped === "not_configured") alert("Drive auto-create isn't switched on yet — set FIGGY_MAKE_API_TOKEN on the server, then try again. (Or paste the folder URL via Edit.)");
+      else if (r?.error) alert(`Couldn't create the Drive folder: ${r.error}`);
+    },
+    onError: (e) => alert(e.message),
+  });
 
   const quickLinks: { label: string; url: string }[] = linksJson;
 
@@ -2640,9 +2673,11 @@ function QuickLinksCard({ client, onboarding, variant = "card" }: { client: any;
           <FolderOpen className="h-3.5 w-3.5" /> Google Drive <ExternalLink className="h-3 w-3 opacity-50" />
         </a>
       ) : (
-        <Badge variant="outline" className="text-slate-400 bg-slate-50">
-          <FolderOpen className="h-3.5 w-3.5 mr-1" /> No Drive folder set
-        </Badge>
+        <button onClick={() => createDrive.mutate({ clientId: client.id })} disabled={createDrive.isPending}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-sm hover:bg-amber-100 transition-colors disabled:opacity-60"
+          title="Create the standard folder tree under GFB Clients">
+          <FolderOpen className="h-3.5 w-3.5" /> {createDrive.isPending ? "Creating…" : "Create Drive folder"}
+        </button>
       )}
       {displayLinks.map((link: any, idx: number) => {
         const internal = link.url?.startsWith("/");

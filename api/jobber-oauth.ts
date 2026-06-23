@@ -90,6 +90,34 @@ export async function buildAuthorizeUrl(clientId: number | null): Promise<string
   return u.toString();
 }
 
+/**
+ * Fetch the connected Jobber ACCOUNT identity (id + name) using a fresh access
+ * token. This is the linchpin of per-client isolation: each Jobber account is a
+ * separate company, so storing the account id lets us (a) show which company is
+ * linked and (b) REFUSE to bind the same Jobber account to two CRM clients
+ * (the silent-re-auth trap, where the browser is still logged into the first
+ * account and Jobber returns it again). Best-effort: returns null on any error.
+ */
+async function fetchJobberAccount(accessToken: string): Promise<{ id: string; name: string } | null> {
+  try {
+    const res = await fetch(JOBBER_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/json",
+        "X-JOBBER-GRAPHQL-VERSION": JOBBER_API_VERSION,
+      },
+      body: JSON.stringify({ query: "query { account { id name } }" }),
+    });
+    const json: any = await res.json().catch(() => ({}));
+    const acc = json?.data?.account;
+    if (!res.ok || json?.errors || !acc?.id) return null;
+    return { id: String(acc.id), name: String(acc.name ?? "") };
+  } catch {
+    return null;
+  }
+}
+
 async function postToken(params: Record<string, string>): Promise<any> {
   const res = await fetch(TOKEN_URL, {
     method: "POST",
@@ -119,9 +147,32 @@ export async function exchangeAndPersist(input: { code: string; stateRaw: string
   const expiresAt = new Date(Date.now() + (Number(data.expires_in) || 3600) * 1000);
   const db = getDb();
   await ensureJobberTable();
+
+  // Identify WHICH Jobber account this token belongs to, and refuse to bind the
+  // same account to a different CRM client. Without this, connecting a second
+  // company while still logged into the first Jobber account silently re-auths
+  // and returns the FIRST account's data under the second client (the leak
+  // Markie saw: Collingwood showing Owen Sound's hours).
+  const acc = await fetchJobberAccount(data.access_token);
+  if (acc) {
+    const all = await db.select().from(jobberConnections);
+    const clash = (all as Conn[]).find(
+      (c) => c.active && c.jobberAccountId === acc.id && c.clientId !== state.clientId,
+    );
+    if (clash) {
+      throw new Error(
+        `This Jobber account "${acc.name || acc.id}" is already connected to another client. ` +
+        `Each company needs its OWN Jobber login. Sign out of Jobber (or use a private/incognito ` +
+        `window), sign into THIS company's Jobber account, then click Connect again.`,
+      );
+    }
+  }
+
   const existing = await db.select().from(jobberConnections).where(eq(jobberConnections.clientId, state.clientId)).limit(1);
   const row = {
     clientId: state.clientId,
+    accountName: acc?.name ?? null,
+    jobberAccountId: acc?.id ?? null,
     accessToken: encryptSecret(data.access_token),
     refreshToken: encryptSecret(data.refresh_token),
     expiresAt, active: true, reconnectReason: null, updatedAt: new Date(),
@@ -176,6 +227,16 @@ export function bearerFor(conn: Conn): string {
   return decryptSecret(conn.accessToken) || "";
 }
 
+/** Mark a client's Jobber connection inactive (so it can be re-connected to the
+ *  correct account). Used when a wrong account got linked. */
+export async function disconnectJobber(clientId: number): Promise<void> {
+  await ensureJobberTable();
+  const db = getDb();
+  await db.update(jobberConnections)
+    .set({ active: false, reconnectReason: "disconnected", updatedAt: new Date() })
+    .where(eq(jobberConnections.clientId, clientId));
+}
+
 export async function ensureJobberTable(): Promise<void> {
   try {
     const db = getDb();
@@ -183,6 +244,7 @@ export async function ensureJobberTable(): Promise<void> {
       id integer PRIMARY KEY AUTOINCREMENT,
       clientId integer NOT NULL,
       accountName text,
+      jobberAccountId text,
       accessToken text,
       refreshToken text,
       expiresAt integer,
@@ -191,5 +253,16 @@ export async function ensureJobberTable(): Promise<void> {
       createdAt integer,
       updatedAt integer
     )`);
+    // Add columns missing on older tables (idempotent, PRAGMA-checked).
+    const have = new Set<string>();
+    try {
+      const res: any = await db.run(sql`PRAGMA table_info(jobber_connections)`);
+      for (const r of (res?.rows ?? res ?? [])) have.add(String((r as any).name ?? (r as any)[1] ?? ""));
+    } catch { /* best-effort */ }
+    for (const [col, type] of [["accountName", "text"], ["jobberAccountId", "text"], ["reconnectReason", "text"]] as [string, string][]) {
+      if (!have.has(col)) {
+        try { await db.run(sql.raw(`ALTER TABLE jobber_connections ADD COLUMN ${col} ${type}`)); } catch { /* already there */ }
+      }
+    }
   } catch (e) { console.error("[jobber] ensure table failed:", e instanceof Error ? e.message : e); }
 }

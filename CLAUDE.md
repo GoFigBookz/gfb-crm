@@ -9,6 +9,13 @@ Work smarter not harder: **less of Markie's time, less money (Make ops),
 accurate books on cheap autopilot, an AI that learns & grows per client. Build
 ONCE on consolidated rails — never per-client clones.**
 
+## Deploy rule (Markie, 2026-06-23 — NON-NEGOTIABLE)
+**Work isn't done until it's on `main`.** Railway auto-deploys figgy.gofig.ca from
+`main` ONLY. Markie cannot see or test anything on a dev branch — leaving it there
+is useless to him. So: develop on the dev branch, then ALWAYS open a PR to `main`
+and MERGE it (standing permission granted) so it deploys. Every batch of work ends
+with a merge to main, not a push to the branch.
+
 ## Operating preference (Markie, 2026-06-19)
 **"Always do which one is best."** When there's a clearly-best technical option,
 PICK IT and proceed — don't stop to make me choose. Still flag genuinely
@@ -34,6 +41,10 @@ auto-driven close checklist.
   on the document, never sender/folder/alias.
 - Verify every change against live QBO before reporting done. Sanity Guard
   stays on and is never weakened.
+- **SHARE BONUS / REVENUE SHARE = ORIGINALITY ONLY.** Originality.AI is the ONLY
+  client that gets a share bonus (revenue share). NO other client — incl. Clark
+  Pools (Owen Sound + Collingwood) — gets the Share-bonus column. Don't seed
+  `payrollBonuses`/`payrollRevenueShare` on anyone else. (Markie, repeated.)
 
 ## Where we are (2026-06-11)
 - **Phase 1 DONE + live-proven:** richer 34-col capture (invoice#, subtotal,

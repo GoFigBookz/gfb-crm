@@ -178,7 +178,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         <Section label="Clients" icon={Users} sectionKey="clients" items={clientItems} />
         <Section label="Comms" icon={Mail} sectionKey="comms" items={commsItems} />
         <Section label="Tools & Compliance" icon={Wrench} sectionKey="tools" items={toolItems} />
-        <Section label="Insights" icon={TrendingUp} sectionKey="insights" items={insightItems} />
+        {/* Insights + Admin are senior/owner-only — juniors don't see them. */}
+        {can.senior && (
+          <Section label="Insights" icon={TrendingUp} sectionKey="insights" items={insightItems} />
+        )}
         {can.senior && (
           <Section label="Admin" icon={Lock} sectionKey="admin" items={adminItems} />
         )}

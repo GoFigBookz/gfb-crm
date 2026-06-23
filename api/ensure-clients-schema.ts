@@ -46,7 +46,7 @@ const COLUMNS: Array<[string, string]> = [
   ["assignedTo", "text"], ["oneDriveFolderId", "text"],
   ["payrollRpNumber", "text"], ["driveFolderUrl", "text"], ["clientInfoDocUrl", "text"], ["nextPayday", "text"],
   ["qboCustomerId", "text"], ["qboConnectionId", "integer"],
-  ["industry", "text DEFAULT 'other'"], ["province", "text DEFAULT 'ON'"], ["qboAccountType", "text DEFAULT 'ca_clients'"],
+  ["industry", "text DEFAULT 'other'"], ["country", "text DEFAULT 'CA'"], ["province", "text DEFAULT 'ON'"], ["qboAccountType", "text DEFAULT 'ca_clients'"],
   ["figgyEmail", "text"], ["contactName", "text"], ["craRacDone", "integer DEFAULT 0"], ["groupName", "text"],
   // Government-registry / lookup fields the card + intake save read AND write.
   // (Previously only added by import-client-master; include here so the every-boot

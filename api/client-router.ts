@@ -2,7 +2,8 @@ import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { clients, satisfactionScores, tasks, clientTaskRules } from "../db/schema";
-import { eq, and, like, desc, ne } from "drizzle-orm";
+import { eq, and, like, desc, ne, inArray } from "drizzle-orm";
+import { restrictedClientIds } from "./rbac";
 import { syncInsert, syncUpdate } from "./sync-hooks";
 import { ensureComplianceForClient, reconcileClientFromIntake } from "./task-generator";
 import { figgyEmailFor } from "./seed-triage-emails";
@@ -55,12 +56,17 @@ export const clientRouter = createRouter({
       const status = input?.status ?? "all";
 
       const conditions = [];
-      
+
       // Client role only sees their own data
       if (userRole === "client") {
         conditions.push(eq(clients.userId, userId));
       }
-      // Staff (junior+) sees ALL clients — shared practice view
+      // Staff (junior+) sees ALL clients — UNLESS restricted to specific clients (RBAC).
+      const allowed = await restrictedClientIds(ctx);
+      if (allowed !== null) {
+        // Empty grant set → see nothing (use -1 so the IN matches no rows).
+        conditions.push(inArray(clients.id, allowed.length ? allowed : [-1]));
+      }
 
       if (status !== "all") conditions.push(eq(clients.status, status));
       if (search) conditions.push(like(clients.name, `%${search}%`));
@@ -82,6 +88,9 @@ export const clientRouter = createRouter({
   get: authedQuery
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
+      // RBAC: a restricted user can't open a client they weren't granted.
+      const allowed = await restrictedClientIds(ctx);
+      if (allowed !== null && !allowed.includes(input.id)) return null;
       const db = getDb();
       const result = await db
         .select()
@@ -178,7 +187,28 @@ export const clientRouter = createRouter({
         await ensureComplianceForClient(client.id, { userId: ctx.user.id, assignedTo: client.assignedTo });
       }
 
+      // Best-effort: provision the standard Drive folder tree under the hardcoded
+      // "GFB Clients" parent (no-ops if the Make Drive token isn't set; never blocks
+      // creation). Wholesale flow-through clients don't need a working folder set.
+      if (client && isOperationalClient(client.clientType)) {
+        try {
+          const { ensureClientDriveFolder } = await import("./client-drive-folders");
+          const { driveConfigured } = await import("./drive-make-bridge");
+          if (driveConfigured()) await ensureClientDriveFolder(client.id);
+        } catch (e) { console.error("[drive] auto-create on client create failed (non-fatal):", e instanceof Error ? e.message : e); }
+      }
+
       return client;
+    }),
+
+  // Manually provision (or repair) a client's Google Drive folder tree under the
+  // hardcoded "GFB Clients" parent. Surfaced as the card's "Create Drive folder"
+  // button when the link is missing.
+  createDriveFolder: authedQuery
+    .input(z.object({ clientId: z.number(), force: z.boolean().optional() }))
+    .mutation(async ({ input }) => {
+      const { ensureClientDriveFolder } = await import("./client-drive-folders");
+      return ensureClientDriveFolder(input.clientId, { force: input.force });
     }),
 
   // Update client

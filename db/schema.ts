@@ -19,12 +19,25 @@ export const users = sqliteTable("users", {
   authProvider: text("authProvider", { enum: ["kimi", "google", "microsoft", "local"] }).default("local").notNull(),
   // Active status
   isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(),
+  // RBAC: when true, this user can ONLY see the clients explicitly granted in
+  // client_access (admins/seniors always see all; default false = unchanged/all).
+  restrictedToClients: integer("restrictedToClients", { mode: "boolean" }).default(false).notNull(),
   // For password reset
   resetToken: text("resetToken"),
   resetTokenExpires: integer("resetTokenExpires", { mode: "timestamp" }),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   lastSignInAt: integer("lastSignInAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// ========== CLIENT ACCESS GRANTS (RBAC: per-staff client scoping) ==========
+// Which clients a restricted user may access. Only consulted when the user's
+// restrictedToClients flag is on; admins/seniors bypass it (see api/rbac.ts).
+export const clientAccess = sqliteTable("client_access", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("userId").notNull(),
+  clientId: integer("clientId").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
 // ========== CONNECTED ACCOUNTS (Multi-account OAuth + API Key Connectors) ==========
@@ -338,6 +351,9 @@ export const clients = sqliteTable("clients", {
   qboConnectionId: integer("qboConnectionId"),
   // Firm mapping columns
   industry: text("industry").default("other"),
+  // "CA" (default) or "US" — drives US-geared intake (EIN/state/sales tax) and
+  // suppresses Canada-only obligations (HST/WSIB/CRA) for US clients.
+  country: text("country").default("CA"),
   province: text("province").default("ON"),
   qboAccountType: text("qboAccountType").default("ca_clients"),
   figgyEmail: text("figgyEmail"),
@@ -1644,6 +1660,7 @@ export const jobberConnections = sqliteTable("jobber_connections", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   clientId: integer("clientId").notNull(),
   accountName: text("accountName"),
+  jobberAccountId: text("jobberAccountId"), // Jobber account identity — guards cross-client isolation
   accessToken: text("accessToken"),       // enc:v1: envelope
   refreshToken: text("refreshToken"),     // enc:v1: envelope
   expiresAt: integer("expiresAt", { mode: "timestamp" }),
