@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Bot, Send, Mic, Sparkles, MapPin, MapPinOff, Volume2, VolumeX, Radio } from "lucide-react";
+import { Bot, Send, Mic, Sparkles, MapPin, MapPinOff, Volume2, VolumeX, Radio, Plus, FolderInput } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/providers/trpc";
@@ -26,10 +26,16 @@ const SUGGESTIONS = [
   "Where can I buy a linen tablecloth near me?",
 ];
 
+function newConvId() {
+  try { return crypto.randomUUID(); } catch { return `c_${Date.now()}_${Math.random().toString(36).slice(2)}`; }
+}
+
 export default function Assistant() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [agent, setAgent] = useState<AgentKey>("liv");
+  const [convId, setConvId] = useState<string>(() => localStorage.getItem("figgyConvId") || newConvId());
+  const [showSave, setShowSave] = useState(false);
   const [locStatus, setLocStatus] = useState<"unknown" | "on" | "off">("unknown");
   const [speakOn, setSpeakOn] = useState(false);   // read replies aloud
   const [handsFree, setHandsFree] = useState(false); // continuous talk-back-and-forth
@@ -42,6 +48,26 @@ export default function Assistant() {
   const utils = trpc.useUtils();
   const active = ROSTER.find((r) => r.key === agent)!;
   useEffect(() => { handsFreeRef.current = handsFree; }, [handsFree]);
+
+  // Persist the conversation id + restore the thread on load so chats survive
+  // refresh/close instead of vanishing.
+  useEffect(() => { localStorage.setItem("figgyConvId", convId); }, [convId]);
+  const historyQ = trpc.chat.messages.useQuery({ conversationId: convId }, { refetchOnWindowFocus: false });
+  useEffect(() => {
+    if (historyQ.data && messages.length === 0) {
+      setMessages(historyQ.data.map((m: any) => ({ role: m.role, content: m.content })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyQ.data]);
+  const clientsQ = trpc.crmClient.list.useQuery({ limit: 100 }, { enabled: showSave });
+  const fileToClient = trpc.chat.fileToClient.useMutation({ onSuccess: () => setShowSave(false) });
+
+  const newChat = () => {
+    const id = newConvId();
+    setConvId(id);
+    setMessages([]);
+    setInput("");
+  };
 
   // Restore the "voice replies" preference so it stays on day to day.
   useEffect(() => { if (localStorage.getItem("figgySpeak") === "1") setSpeakOn(true); }, []);
@@ -155,7 +181,7 @@ export default function Assistant() {
     try {
       const location = await getLocation();
       if (location) setLocStatus("on");
-      const r = await ask.mutateAsync({ message: msg, history, agent, location });
+      const r = await ask.mutateAsync({ message: msg, history, agent, location, conversationId: convId });
       if (r.agent) setAgent(r.agent as AgentKey);
       setMessages((m) => [...m, { role: "assistant", content: r.reply }]);
       if (r.actions?.length) { utils.task.list.invalidate(); utils.calendar?.list?.invalidate?.(); }
@@ -192,6 +218,31 @@ export default function Assistant() {
               <MapPinOff className="h-3.5 w-3.5" /> Enable location
             </button>
           )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={newChat} className="flex items-center gap-1 text-xs text-slate-600 hover:text-lime-700 border rounded-full px-2.5 py-1" title="Start a fresh conversation">
+            <Plus className="h-3.5 w-3.5" /> New chat
+          </button>
+          <div className="relative">
+            <button onClick={() => setShowSave((s) => !s)} disabled={messages.length === 0} className="flex items-center gap-1 text-xs text-slate-600 hover:text-lime-700 border rounded-full px-2.5 py-1 disabled:opacity-40" title="File this conversation to a client's record">
+              <FolderInput className="h-3.5 w-3.5" /> Save to client
+            </button>
+            {showSave && (
+              <div className="absolute z-20 mt-1 w-60 max-h-72 overflow-auto rounded-lg border bg-white shadow-lg p-1">
+                {clientsQ.isLoading && <div className="text-xs text-slate-500 p-2">Loading clients…</div>}
+                {(clientsQ.data ?? []).map((c: any) => (
+                  <button
+                    key={c.id}
+                    onClick={() => fileToClient.mutate({ conversationId: convId, clientId: c.id })}
+                    className="block w-full text-left text-sm px-2 py-1.5 rounded hover:bg-lime-50"
+                  >
+                    {c.name}{c.company ? ` — ${c.company}` : ""}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {fileToClient.isSuccess && <span className="text-xs text-emerald-600">Saved ✓</span>}
         </div>
         <div className="flex flex-wrap gap-1.5">
           {ROSTER.map((r) => (

@@ -1765,3 +1765,18 @@ export const agentAuditLog = sqliteTable("agent_audit_log", {
   clientId: integer("clientId"),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// ========== AGENT CHAT HISTORY ==========
+// Persists the chatbot conversations so they survive refresh/close (they used to
+// vanish). Grouped by conversationId. clientId is null by default (private); set
+// only when Markie explicitly FILES a conversation to a client's record.
+export const chatMessages = sqliteTable("chat_messages", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("userId").notNull(),
+  conversationId: text("conversationId").notNull(),
+  agent: text("agent"),                       // which agent answered
+  role: text("role").notNull(),               // "user" | "assistant"
+  content: text("content").notNull(),
+  clientId: integer("clientId"),              // set only when filed to a client
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

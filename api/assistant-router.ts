@@ -6,7 +6,7 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { tasks, calendarEvents, clients, personalItems, triageFindings, connectedAccounts, agentLearnings } from "../db/schema";
+import { tasks, calendarEvents, clients, personalItems, triageFindings, connectedAccounts, agentLearnings, chatMessages } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { getValidGoogleAccessToken } from "./google-token";
 import { buildRawMessage, extractEmail } from "./email-core";
@@ -219,6 +219,7 @@ export const assistantRouter = createRouter({
       history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })).max(20).optional(),
       agent: z.enum(["fig", "sage", "wren", "liv", "jinx", "tess", "jade", "skye"]).optional(),
       location: z.object({ lat: z.number(), lon: z.number(), label: z.string().max(120).optional() }).optional(),
+      conversationId: z.string().max(64).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -259,6 +260,20 @@ export const assistantRouter = createRouter({
       ];
       const actions: string[] = [];
 
+      // Persist the turn (user message + reply) so the conversation survives
+      // refresh/close. Only when the UI supplies a conversationId.
+      const convId = input.conversationId;
+      const saveTurn = async (replyText: string) => {
+        if (!convId || !replyText) return;
+        try {
+          const db = getDb();
+          await db.insert(chatMessages).values([
+            { userId: ctx.user.id, conversationId: convId, agent, role: "user", content: input.message },
+            { userId: ctx.user.id, conversationId: convId, agent, role: "assistant", content: replyText },
+          ] as any);
+        } catch { /* history is best-effort — never block the reply */ }
+      };
+
       let useTools = true; // drop to false if the model rejects tool calling
       for (let i = 0; i < 6; i++) {
         const body: any = { model, max_tokens: 1024, system, messages };
@@ -298,6 +313,7 @@ export const assistantRouter = createRouter({
           continue;
         }
         const reply = (data.content || []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
+        await saveTurn(reply || "(no reply)");
         return { reply: reply || "(no reply)", actions, agent };
       }
       return { reply: "Sorry — I got stuck in a loop. Try rephrasing.", actions, agent };

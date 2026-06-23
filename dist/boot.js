@@ -22326,6 +22326,7 @@ __export(schema_exports, {
   aiAgentRuns: () => aiAgentRuns,
   appSettings: () => appSettings,
   calendarEvents: () => calendarEvents,
+  chatMessages: () => chatMessages,
   clientAccess: () => clientAccess,
   clientContacts: () => clientContacts,
   clientDashboardSnapshots: () => clientDashboardSnapshots,
@@ -22389,7 +22390,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings, agentAuditLog;
+var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings, agentAuditLog, chatMessages;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -24008,6 +24009,19 @@ var init_schema = __esm({
       decision: text("decision").default("done").notNull(),
       // done | auto | escalated | blocked
       clientId: integer2("clientId"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    chatMessages = sqliteTable("chat_messages", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      userId: integer2("userId").notNull(),
+      conversationId: text("conversationId").notNull(),
+      agent: text("agent"),
+      // which agent answered
+      role: text("role").notNull(),
+      // "user" | "assistant"
+      content: text("content").notNull(),
+      clientId: integer2("clientId"),
+      // set only when filed to a client
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
   }
@@ -55240,7 +55254,8 @@ var init_assistant_router = __esm({
         message: external_exports.string().min(1).max(2e3),
         history: external_exports.array(external_exports.object({ role: external_exports.enum(["user", "assistant"]), content: external_exports.string() })).max(20).optional(),
         agent: external_exports.enum(["fig", "sage", "wren", "liv", "jinx", "tess", "jade", "skye"]).optional(),
-        location: external_exports.object({ lat: external_exports.number(), lon: external_exports.number(), label: external_exports.string().max(120).optional() }).optional()
+        location: external_exports.object({ lat: external_exports.number(), lon: external_exports.number(), label: external_exports.string().max(120).optional() }).optional(),
+        conversationId: external_exports.string().max(64).optional()
       })).mutation(async ({ ctx, input }) => {
         const apiKey = process.env.ANTHROPIC_API_KEY;
         const agent = detectAgent(input.message, input.agent ?? null);
@@ -55263,6 +55278,18 @@ var init_assistant_router = __esm({
           { role: "user", content: input.message }
         ];
         const actions = [];
+        const convId = input.conversationId;
+        const saveTurn = async (replyText) => {
+          if (!convId || !replyText) return;
+          try {
+            const db = getDb();
+            await db.insert(chatMessages).values([
+              { userId: ctx.user.id, conversationId: convId, agent, role: "user", content: input.message },
+              { userId: ctx.user.id, conversationId: convId, agent, role: "assistant", content: replyText }
+            ]);
+          } catch {
+          }
+        };
         let useTools = true;
         for (let i = 0; i < 6; i++) {
           const body = { model, max_tokens: 1024, system, messages };
@@ -55302,6 +55329,7 @@ var init_assistant_router = __esm({
             continue;
           }
           const reply = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
+          await saveTurn(reply || "(no reply)");
           return { reply: reply || "(no reply)", actions, agent };
         }
         return { reply: "Sorry \u2014 I got stuck in a loop. Try rephrasing.", actions, agent };
@@ -55409,6 +55437,66 @@ var init_learning_router = __esm({
       remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
         await db.delete(agentLearnings).where(and(eq(agentLearnings.id, input.id), eq(agentLearnings.userId, ctx.user.id)));
+        return { ok: true };
+      })
+    });
+  }
+});
+
+// api/chat-router.ts
+var chatRouter;
+var init_chat_router = __esm({
+  "api/chat-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    chatRouter = createRouter({
+      /** All messages in one conversation (to restore the thread on load). */
+      messages: authedQuery.input(external_exports.object({ conversationId: external_exports.string() })).query(async ({ ctx, input }) => {
+        const db = getDb();
+        return db.select().from(chatMessages).where(and(eq(chatMessages.userId, ctx.user.id), eq(chatMessages.conversationId, input.conversationId))).orderBy(asc(chatMessages.id));
+      }),
+      /** Recent conversations (one row each: last message preview + agent + time). */
+      conversations: authedQuery.input(external_exports.object({ limit: external_exports.number().min(1).max(50).optional() }).optional()).query(async ({ ctx, input }) => {
+        const db = getDb();
+        const rows = await db.select().from(chatMessages).where(eq(chatMessages.userId, ctx.user.id)).orderBy(desc(chatMessages.id));
+        const seen = /* @__PURE__ */ new Map();
+        for (const r of rows) {
+          if (!seen.has(r.conversationId)) {
+            seen.set(r.conversationId, {
+              conversationId: r.conversationId,
+              agent: r.agent,
+              clientId: r.clientId,
+              preview: String(r.content || "").slice(0, 80),
+              at: r.createdAt
+            });
+          }
+        }
+        return Array.from(seen.values()).slice(0, input?.limit ?? 20);
+      }),
+      /** File a whole conversation onto a client's record. */
+      fileToClient: authedQuery.input(external_exports.object({ conversationId: external_exports.string(), clientId: external_exports.number().nullable() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        await db.update(chatMessages).set({ clientId: input.clientId }).where(and(eq(chatMessages.userId, ctx.user.id), eq(chatMessages.conversationId, input.conversationId)));
+        return { ok: true };
+      }),
+      /** Conversations filed to a given client (shown on the client's card). */
+      forClient: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
+        const db = getDb();
+        const rows = await db.select().from(chatMessages).where(and(eq(chatMessages.userId, ctx.user.id), eq(chatMessages.clientId, input.clientId))).orderBy(asc(chatMessages.id));
+        const convs = /* @__PURE__ */ new Map();
+        for (const r of rows) {
+          if (!convs.has(r.conversationId)) convs.set(r.conversationId, { conversationId: r.conversationId, agent: r.agent, at: r.createdAt, messages: [] });
+          convs.get(r.conversationId).messages.push({ role: r.role, content: r.content, at: r.createdAt });
+        }
+        return Array.from(convs.values());
+      }),
+      /** Delete a conversation (for the owning user). */
+      remove: authedQuery.input(external_exports.object({ conversationId: external_exports.string() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        await db.delete(chatMessages).where(and(eq(chatMessages.userId, ctx.user.id), eq(chatMessages.conversationId, input.conversationId)));
         return { ok: true };
       })
     });
@@ -55680,6 +55768,7 @@ var init_router = __esm({
     init_qa_router();
     init_personal_router();
     init_learning_router();
+    init_chat_router();
     init_public_router();
     init_middleware();
     appRouter = createRouter({
@@ -55743,7 +55832,8 @@ var init_router = __esm({
       assistant: assistantRouter,
       jinx: qaRouter,
       personal: personalRouter,
-      learning: learningRouter
+      learning: learningRouter,
+      chat: chatRouter
     });
   }
 });
@@ -58372,6 +58462,35 @@ async function ensureAuditSchema() {
 }
 var init_ensure_audit_schema = __esm({
   "api/ensure-audit-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/ensure-chat-schema.ts
+var ensure_chat_schema_exports = {};
+__export(ensure_chat_schema_exports, {
+  ensureChatSchema: () => ensureChatSchema
+});
+async function ensureChatSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS chat_messages (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      conversationId text NOT NULL,
+      agent text,
+      role text NOT NULL,
+      content text NOT NULL,
+      clientId integer,
+      createdAt integer
+    )`);
+  } catch (e) {
+    console.error("[chat] ensure chat_messages failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_chat_schema = __esm({
+  "api/ensure-chat-schema.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -63288,7 +63407,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.45";
+var BUILD_TAG = "2026-06-23.46";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64216,6 +64335,8 @@ async function startServer() {
     await ensureLearningSchema2();
     const { ensureAuditSchema: ensureAuditSchema2 } = await Promise.resolve().then(() => (init_ensure_audit_schema(), ensure_audit_schema_exports));
     await ensureAuditSchema2();
+    const { ensureChatSchema: ensureChatSchema2 } = await Promise.resolve().then(() => (init_ensure_chat_schema(), ensure_chat_schema_exports));
+    await ensureChatSchema2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));

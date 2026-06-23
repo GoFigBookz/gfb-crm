@@ -56,6 +56,7 @@ import { assistantRouter } from "./assistant-router";
 import { qaRouter } from "./qa-router";
 import { personalRouter } from "./personal-router";
 import { learningRouter } from "./learning-router";
+import { chatRouter } from "./chat-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
 
@@ -121,6 +122,7 @@ export const appRouter = createRouter({
   jinx: qaRouter,
   personal: personalRouter,
   learning: learningRouter,
+  chat: chatRouter,
 });
 
 export type AppRouter = typeof appRouter;
