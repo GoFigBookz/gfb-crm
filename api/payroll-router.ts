@@ -442,6 +442,68 @@ export const payrollRouter = createRouter({
       return { ok: true, ...r };
     }),
 
+  // Import hours from an UPLOADED detailed timesheet file (TouchBistro export:
+  // PDF / image / CSV). No Google needed — the file is sent straight to the run.
+  // Uses the DETAILED report so we get each person's longest single shift and can
+  // flag a likely missed clock-out (>10h). Same matcher/flagging as the other
+  // imports. `data` is base64 (no data: prefix).
+  importTimesheetFile: staffQuery
+    .input(z.object({
+      runId: z.number(),
+      data: z.string().min(1),
+      mediaType: z.string().min(3),
+      fileName: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const run = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0] as any;
+      if (!run) throw new Error("Pay run not found");
+      const start = new Date(run.payPeriodStart).toISOString().slice(0, 10);
+      const end = new Date(run.payPeriodEnd).toISOString().slice(0, 10);
+      let hours: any[];
+      try {
+        const { extractTimesheetFromFile } = await import("./timesheet-file-parse");
+        hours = await extractTimesheetFromFile(input.data, input.mediaType, start, end);
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : String(e), matched: 0, unmatched: [] as any[], totalUsers: 0 };
+      }
+      if (!hours.length) {
+        return { ok: false, error: "Couldn't find any employee hours in that file. Make sure it's the DETAILED timesheet (one row per shift), not a summary screenshot.", matched: 0, unmatched: [] as any[], totalUsers: 0 };
+      }
+      const r = await applyImportedHours(db, input.runId, run.clientId, hours);
+      return { ok: true, ...r };
+    }),
+
+  // Import the newest detailed timesheet Markie dropped in the client's Google
+  // Drive folder (his preferred "save it, I'll import it" flow). Reuses the
+  // detailed-file parser so it keeps the >10h missed-clock-out flag. Needs Google
+  // connected in Integrations (with Drive access).
+  importTimesheetFromDrive: staffQuery
+    .input(z.object({ runId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const run = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0] as any;
+      if (!run) throw new Error("Pay run not found");
+      const client = (await db.select().from(clients).where(eq(clients.id, run.clientId)).limit(1))[0] as any;
+      const start = new Date(run.payPeriodStart).toISOString().slice(0, 10);
+      const end = new Date(run.payPeriodEnd).toISOString().slice(0, 10);
+      let hours: any[]; let fileName = "";
+      try {
+        const { readNewestTimesheetFromDrive } = await import("./touchbistro-client");
+        const { extractTimesheetFromFile } = await import("./timesheet-file-parse");
+        const file = await readNewestTimesheetFromDrive(ctx.user.id, client?.driveFolderUrl || "");
+        fileName = file.name;
+        hours = await extractTimesheetFromFile(file.data, file.mediaType, start, end);
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : String(e), matched: 0, unmatched: [] as any[], totalUsers: 0 };
+      }
+      if (!hours.length) {
+        return { ok: false, error: `Read "${fileName}" from Drive but couldn't find employee hours in it. Make sure it's the DETAILED timesheet (one row per shift).`, matched: 0, unmatched: [] as any[], totalUsers: 0 };
+      }
+      const r = await applyImportedHours(db, input.runId, run.clientId, hours);
+      return { ok: true, fileName, ...r };
+    }),
+
   // One run with its lines + employee names (the clean sheet).
   getRun: staffQuery
     .input(z.object({ runId: z.number() }))
