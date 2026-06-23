@@ -26,7 +26,7 @@ export const ASSISTANT_SYSTEM = [
  * agent by name ("Hey Sage", "Hey Wren") and the bot answers AS that agent.
  * Each agent has a one-line voice/scope; the bot adopts it and hands off clearly.
  */
-export type AgentKey = "fig" | "sage" | "wren" | "liv" | "jinx";
+export type AgentKey = "fig" | "sage" | "wren" | "liv" | "jinx" | "tess" | "jade" | "skye";
 
 export const AGENT_ROSTER: Record<AgentKey, { name: string; role: string; persona: string }> = {
   fig: {
@@ -54,22 +54,61 @@ export const AGENT_ROSTER: Record<AgentKey, { name: string; role: string; person
     role: "QA / IT watchdog",
     persona: "You are Jinx, the QA/IT watchdog — you make sure the app actually works (database, data, integrations, config, core flows). Plain-spoken; you report status and flag problems. Read-only.",
   },
+  tess: {
+    name: "Tess",
+    role: "tax specialist",
+    persona: "You are Tess, the tax specialist (Canadian) — corporate (T2) and personal (T1) tax, HST/GST returns, year-end tax, instalments, CRA. Precise and conservative; you prepare for Markie's sign-off and never file.",
+  },
+  jade: {
+    name: "Jade",
+    role: "fractional CFO",
+    persona: "You are Jade, the fractional CFO — forward-looking finance: cash-flow forecasting, profitability and margins, KPIs, budget-vs-actual, ways to run leaner or grow revenue. Strategic and concrete; quantify impact, never fabricate figures.",
+  },
+  skye: {
+    name: "Skye",
+    role: "social / marketing",
+    persona: "You are Skye, social/marketing — content calendar, on-brand posts (LinkedIn/Facebook/Instagram), repurposing wins and tips, scheduling and growing the audience. Warm, plain-language, never spammy.",
+  },
 };
 
 /**
- * Detect which agent Markie is addressing. Recognizes "hey <name>", "<name>,",
- * or "ask <name>" at the START of the message. Returns the agent key, or the
- * `current` sticky agent if none is named (so a conversation stays with whoever
- * he last addressed), defaulting to Fig. Pure → unit-tested.
+ * Topical auto-routing: when Markie DOESN'T name an agent, send the question to
+ * the specialist whose domain it touches. Ordered — first match wins. Pure.
+ */
+const TOPIC_RULES: { agent: AgentKey; re: RegExp }[] = [
+  { agent: "jinx", re: /\b(system health|is .*(working|broken|down)|app (is )?(down|broken|not working|slow)|not loading|outage|crash|deploy(ed|ment)?|bug|errors?)\b/ },
+  { agent: "skye", re: /\b(social media|social post|linkedin|instagram|facebook|tiktok|content calendar|marketing|hashtags?|campaign|captions?|newsletter)\b/ },
+  { agent: "jade", re: /\b(cash ?flow|forecast|profit(ability)?|margins?|kpis?|budget|runway|pricing|grow revenue|financial health|projections?)\b/ },
+  { agent: "tess", re: /\b(income tax|tax returns?|t1|t2|t4|t5|cra|capital gains?|deductions?|rrsp|instal?ments?|year[- ]?end tax|personal tax|corporate tax)\b/ },
+  { agent: "wren", re: /\b(audit|tie[- ]?outs?|reconcil\w*|variance|workpapers?|month[- ]?end close|controller|sign[- ]?off)\b/ },
+  { agent: "sage", re: /\b(hst|gst|wsib|eht|payroll|remit\w*|source deduction|compliance|filing prep|review (fig|the books))\b/ },
+  { agent: "liv", re: /\b(e-?mails?|repl(y|ies)|drafts?|inbox|calendar|schedule|appointments?|meetings?|reminders?|remind me|personal)\b/ },
+  { agent: "fig", re: /\b(categori[sz]e|code (this|these|the|my)|receipts?|bookkeep\w*|post (this|the|a|these) (transaction|bill|expense)|vendors?|enter (a |the )?(bill|expense|transaction))\b/ },
+];
+
+/**
+ * Pick which agent handles a message. Priority:
+ *   1) EXPLICIT name — "hey <name>", "<name>,", "ask <name>" at the start.
+ *   2) TOPIC — even with no name, route the question to the specialist whose
+ *      domain it touches (tax → Tess, audit → Wren, cash flow → Jade, …).
+ *   3) STICKY — otherwise stay with whoever he's been talking to.
+ *   4) Default to Liv (the front desk) for general/unmatched questions.
+ * Pure → unit-tested.
  */
 export function detectAgent(message: string, current?: AgentKey | null): AgentKey {
   const m = (message || "").toLowerCase().trimStart();
+  // 1) Explicit name at the start.
   for (const key of Object.keys(AGENT_ROSTER) as AgentKey[]) {
-    const n = key; // names are the same as keys, lowercased
-    const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${n}\\b`);
+    const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${key}\\b`);
     if (re.test(m)) return key;
   }
-  return current ?? "fig";
+  // 2) Topic match anywhere in the message (overrides stickiness so the right
+  //    specialist takes a topical question even mid-conversation).
+  for (const rule of TOPIC_RULES) {
+    if (rule.re.test(m)) return rule.agent;
+  }
+  // 3) Stay with the current agent; 4) else Liv is the front desk.
+  return current ?? "liv";
 }
 
 /** Build the system prompt for the addressed agent (base tools + persona). */
@@ -82,7 +121,7 @@ export function frontDeskSystem(agent: AgentKey): string {
     ASSISTANT_SYSTEM,
     "",
     `RIGHT NOW you are answering as ${a.name}. ${a.persona}`,
-    `Open with your name if it's the first reply in this thread, e.g. "${a.name} here —".`,
+    `Markie's question was routed to you because it's in your area, even if he didn't name you. Open with your name so he knows who picked it up, e.g. "${a.name} here —".`,
     `Your teammates: ${team}. If a request really belongs to a teammate, say who should take it (e.g. "I'll flag Sage to prep the HST"), then still help as much as you can. Markie can switch to anyone by saying "Hey <name>".`,
     "You can still add tasks and report the agenda for Markie regardless of which agent you are.",
   ].join("\n");

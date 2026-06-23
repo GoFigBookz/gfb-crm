@@ -9,11 +9,21 @@ describe("detectAgent", () => {
     expect(detectAgent("Fig, code these receipts")).toBe("fig");
     expect(detectAgent("hey jinx is everything working")).toBe("jinx");
   });
-  it("stays with the current agent when none is named", () => {
-    expect(detectAgent("what about the payroll?", "sage")).toBe("sage");
+  it("stays with the current agent for a generic follow-up", () => {
+    expect(detectAgent("and when is that due?", "tess")).toBe("tess");
   });
-  it("defaults to Fig with no name and no current", () => {
-    expect(detectAgent("add a task to call John")).toBe("fig");
+  it("defaults to Liv (front desk) for general questions with no name/current", () => {
+    expect(detectAgent("what's the weather today?")).toBe("liv");
+    expect(detectAgent("where can I buy a tablecloth?")).toBe("liv");
+  });
+  it("auto-routes by topic even without a name, overriding stickiness", () => {
+    expect(detectAgent("what's the tax treatment of a T2 capital gain?", "fig")).toBe("tess");
+    expect(detectAgent("can you tie out the bank reconciliation?", "liv")).toBe("wren");
+    expect(detectAgent("how's cash flow looking this quarter?", "sage")).toBe("jade");
+    expect(detectAgent("draft a LinkedIn post about year-end", "fig")).toBe("skye");
+    expect(detectAgent("is the app down?", null)).toBe("jinx");
+    expect(detectAgent("when is the HST payroll remittance due?", null)).toBe("sage");
+    expect(detectAgent("can you draft a reply to this email?", null)).toBe("liv");
   });
 });
 

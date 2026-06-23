@@ -5,13 +5,16 @@ import { Input } from "@/components/ui/input";
 import { trpc } from "@/providers/trpc";
 
 type Msg = { role: "user" | "assistant"; content: string };
-type AgentKey = "fig" | "sage" | "wren" | "liv" | "jinx";
+type AgentKey = "fig" | "sage" | "wren" | "liv" | "jinx" | "tess" | "jade" | "skye";
 
 const ROSTER: { key: AgentKey; name: string; role: string }[] = [
+  { key: "liv", name: "Liv", role: "executive assistant (front desk)" },
   { key: "fig", name: "Fig", role: "junior bookkeeper" },
   { key: "sage", name: "Sage", role: "senior bookkeeper" },
   { key: "wren", name: "Wren", role: "controller / auditor" },
-  { key: "liv", name: "Liv", role: "executive assistant" },
+  { key: "tess", name: "Tess", role: "tax specialist" },
+  { key: "jade", name: "Jade", role: "fractional CFO" },
+  { key: "skye", name: "Skye", role: "social / marketing" },
   { key: "jinx", name: "Jinx", role: "QA / IT watchdog" },
 ];
 
@@ -26,7 +29,7 @@ const SUGGESTIONS = [
 export default function Assistant() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
-  const [agent, setAgent] = useState<AgentKey>("fig");
+  const [agent, setAgent] = useState<AgentKey>("liv");
   const endRef = useRef<HTMLDivElement>(null);
   const ask = trpc.assistant.ask.useMutation();
   const utils = trpc.useUtils();
@@ -66,7 +69,7 @@ export default function Assistant() {
           <div className="w-9 h-9 rounded-full bg-lime-500 flex items-center justify-center text-white"><Bot className="h-5 w-5" /></div>
           <div>
             <h1 className="text-lg font-bold text-slate-900 leading-tight">Talking to {active.name}</h1>
-            <p className="text-xs text-slate-500">{active.role} — say "Hey Sage / Wren / Liv / Jinx" to switch anytime.</p>
+            <p className="text-xs text-slate-500">{active.role} — just ask; I route to the right teammate. Or say "Hey Tess / Sage / Wren…" to pick one.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5">
