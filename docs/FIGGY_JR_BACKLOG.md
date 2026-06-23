@@ -196,6 +196,17 @@ client upsert on onboard/edit; (3) inbound client read-back; (4) extend to
 payroll/employees/tasks; (5) conflict handling + nightly full reconcile.
 BLOCKERS: canonical-sheet decision + `FIGGY_MAKE_API_TOKEN` on the server.
 
+## PAYROLL → QBO = PUSH HOURS (TimeActivity), NOT journal entries (Markie 2026-06-23)
+CORRECTION: Markie does NOT post payroll journal entries from the CRM. The CRM is a
+TIMESHEET — the only thing to push to QuickBooks is the **hours** (per employee, per
+period), which QBO Payroll then uses to pay people. So:
+- Build = create QBO **TimeActivity** entries via the Accounting API (POST /timeactivity:
+  EmployeeRef + TxnDate + Hours/Minutes), one per employee per day/period. NOT a
+  JournalEntry. **No GL-account mapping needed** (that was the wrong path).
+- Needs: (a) the native QBO **write** connection (Intuit prod app — Markie's long pole),
+  (b) CRM employee → QBO employee mapping (so hours land on the right person).
+- Do NOT build a payroll journal-entry poster or GL-mapping UI — not their workflow.
+
 ## BANK STATEMENT CONVERTER — PDF → CSV → QBO (Markie 2026-06-22, BROKEN, fix)
 The "Bank → QBO" converter (`/bank-converter`, src/pages + api/bank-converter*)
 must do **PDF bank statement → CSV → QBO import format**. It's currently not
