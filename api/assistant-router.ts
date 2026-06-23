@@ -8,6 +8,8 @@ import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { tasks, calendarEvents, clients, personalItems, triageFindings } from "../db/schema";
 import { eq, and } from "drizzle-orm";
+
+const TZ = "America/Toronto";
 import { parseTaskCommand } from "./task-command-core";
 import { ASSISTANT_TOOLS, formatAgenda, detectAgent, frontDeskSystem, AGENT_ROSTER, type AgentKey } from "./assistant-core";
 
@@ -69,6 +71,35 @@ async function execAddPersonal(input: any, userId: number): Promise<string> {
   return `Added to your personal space: "${title}"${when}.`;
 }
 
+async function execScheduleEvent(input: any, userId: number): Promise<string> {
+  const title = String(input?.title ?? "").trim();
+  if (!title) return "What should I call the event?";
+  const start = new Date(input?.start);
+  if (isNaN(start.getTime())) return "I couldn't read that date/time — give me the day and time again.";
+  const allDay = !!input?.allDay;
+  const dur = Number(input?.durationMinutes) || 60;
+  const end = allDay ? new Date(start.getTime() + 86400000) : new Date(start.getTime() + dur * 60000);
+  const db = getDb();
+  await db.insert(calendarEvents).values({ userId, title, startDate: start, endDate: end, isAllDay: allDay, status: "confirmed" } as any);
+  const when = allDay
+    ? start.toLocaleDateString("en-CA", { timeZone: TZ, weekday: "short", month: "short", day: "numeric" })
+    : start.toLocaleString("en-CA", { timeZone: TZ, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  return `Added to your calendar: "${title}" — ${when}.`;
+}
+
+async function execCompleteTask(input: any, userId: number): Promise<string> {
+  const m = String(input?.match ?? "").trim().toLowerCase();
+  if (!m) return "Which task should I mark done?";
+  const db = getDb();
+  const open = (await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.completed, false)))) as any[];
+  const hits = open.filter((t) => String(t.title ?? "").toLowerCase().includes(m));
+  if (!hits.length) return `I don't see an open task matching "${input.match}".`;
+  if (hits.length > 1) return `A few match — which one? ${hits.slice(0, 5).map((h) => `"${h.title}"`).join(", ")}.`;
+  const t = hits[0];
+  await db.update(tasks).set({ completed: true, status: "completed", stage: "done", completedAt: new Date() }).where(eq(tasks.id, t.id));
+  return `Done — marked "${t.title}" complete.`;
+}
+
 async function execFirmStatus(userId: number): Promise<string> {
   const db = getDb();
   // Active clients.
@@ -109,6 +140,8 @@ async function runTool(name: string, input: any, userId: number): Promise<string
     if (name === "add_task") return await execAddTask(String(input?.text ?? ""), userId);
     if (name === "get_agenda") return await execGetAgenda(userId);
     if (name === "add_personal") return await execAddPersonal(input, userId);
+    if (name === "schedule_event") return await execScheduleEvent(input, userId);
+    if (name === "complete_task") return await execCompleteTask(input, userId);
     if (name === "system_health") return await execSystemHealth();
     if (name === "firm_status") return await execFirmStatus(userId);
     return `Unknown tool: ${name}`;
@@ -170,7 +203,7 @@ export const assistantRouter = createRouter({
           for (const block of data.content || []) {
             if (block.type === "tool_use") {
               const out = await runTool(block.name, block.input, ctx.user.id);
-              if (block.name === "add_task" || block.name === "add_personal") actions.push(out);
+              if (["add_task", "add_personal", "schedule_event", "complete_task"].includes(block.name)) actions.push(out);
               results.push({ type: "tool_result", tool_use_id: block.id, content: out });
             }
           }
