@@ -43,13 +43,14 @@ export default function CalendarPage() {
   const { data: clientList } = trpc.crmClient.list.useQuery();
   const clientName = (cid: any) => (clientList || []).find((c: any) => c.id === cid)?.name ?? null;
 
-  // Pull Google Calendar + Tasks into the CRM so they show here. Auto-runs once
-  // on load when Google is connected, plus a manual "Sync Google" button.
-  const { data: accounts } = trpc.integration.list.useQuery();
-  const googleAcct = (accounts || []).find((a: any) => a.provider === "google" && a.isActive);
+  // Pull Google Calendar + Tasks into the CRM so they show here. Detection uses the
+  // FIRM-WIDE account accessor (proven), not the per-session list — so it works
+  // regardless of which user row the OAuth landed on. Auto-runs once on load.
+  const { data: firmAcct } = trpc.googleSync.firmAccount.useQuery();
+  const googleAcct = firmAcct?.connected ? firmAcct : null;
   const syncCal = trpc.googleSync.syncCalendar.useMutation({ onSuccess: () => utils.calendar.list.invalidate() });
   const syncGTasks = trpc.googleSync.syncTasks.useMutation({ onSuccess: () => { utils.task.list.invalidate(); utils.task.upcoming.invalidate(); } });
-  const syncGoogle = () => { if (googleAcct) { syncCal.mutate({ accountId: googleAcct.id }); syncGTasks.mutate({ accountId: googleAcct.id }); } };
+  const syncGoogle = () => { if (googleAcct?.id) { syncCal.mutate({ accountId: googleAcct.id }); syncGTasks.mutate({ accountId: googleAcct.id }); } };
   const [autoSynced, setAutoSynced] = useState(false);
   useEffect(() => {
     if (googleAcct && !autoSynced) { setAutoSynced(true); syncGoogle(); }

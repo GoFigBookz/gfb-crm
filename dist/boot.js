@@ -35324,6 +35324,14 @@ var init_google_sync_router = __esm({
     init_email_core();
     init_google_token();
     googleSyncRouter = createRouter({
+      // The firm's Google account via the PROVEN firm-wide accessor (not per-user) —
+      // so the UI can show "connected" and sync regardless of which user row the OAuth
+      // landed on. Returns the account id to use for syncCalendar/syncTasks.
+      firmAccount: staffQuery.query(async () => {
+        const { getFirmGoogleAccount: getFirmGoogleAccount2 } = await Promise.resolve().then(() => (init_google_token(), google_token_exports));
+        const a = await getFirmGoogleAccount2();
+        return a ? { connected: true, id: a.id, email: a.accountEmail || null } : { connected: false, id: null, email: null };
+      }),
       // Sync Gmail inbox for a connected account
       syncGmail: staffQuery.input(external_exports.object({
         accountId: external_exports.number(),
@@ -35449,24 +35457,24 @@ var init_google_sync_router = __esm({
         for (const event of events) {
           const existing = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.googleEventId, event.id)).limit(1);
           if (existing[0]) continue;
+          const start = new Date(event.start?.dateTime || event.start?.date);
+          const end = new Date(event.end?.dateTime || event.end?.date || event.start?.dateTime || event.start?.date);
+          const status = event.status === "cancelled" ? "cancelled" : event.status === "tentative" ? "tentative" : "confirmed";
           const [calEvent] = await db.insert(calendarEvents).values({
             userId: ctx.user.id,
             connectedAccountId: account.id,
             googleEventId: event.id,
             title: event.summary || "(No title)",
             description: event.description || "",
-            startTime: new Date(event.start?.dateTime || event.start?.date),
-            endTime: new Date(event.end?.dateTime || event.end?.date),
+            startDate: start,
+            // schema column is startDate (NOT startTime)
+            endDate: isNaN(end.getTime()) ? start : end,
             isAllDay: !event.start?.dateTime,
             location: event.location || "",
             attendees: event.attendees?.map(
               (a) => `${a.displayName || ""} <${a.email}>`
-            ).join(", ") || "",
-            status: event.status || "confirmed",
-            recurringEventId: event.recurringEventId || null,
-            organizer: event.organizer?.email || "",
-            htmlLink: event.htmlLink || "",
-            syncedAt: /* @__PURE__ */ new Date()
+            ).join(", ") || null,
+            status
           }).returning();
           syncedEvents.push(calEvent);
         }
@@ -64192,7 +64200,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.72";
+var BUILD_TAG = "2026-06-23.73";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

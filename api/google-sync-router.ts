@@ -33,6 +33,17 @@ async function googleApiRequest(accessToken: string, endpoint: string, params?: 
 }
 
 export const googleSyncRouter = createRouter({
+  // The firm's Google account via the PROVEN firm-wide accessor (not per-user) —
+  // so the UI can show "connected" and sync regardless of which user row the OAuth
+  // landed on. Returns the account id to use for syncCalendar/syncTasks.
+  firmAccount: staffQuery.query(async () => {
+    const { getFirmGoogleAccount } = await import("./google-token");
+    const a = await getFirmGoogleAccount();
+    return a
+      ? { connected: true, id: a.id as number, email: (a.accountEmail as string) || null }
+      : { connected: false, id: null as number | null, email: null as string | null };
+  }),
+
   // Sync Gmail inbox for a connected account
   syncGmail: staffQuery
     .input(z.object({
@@ -210,24 +221,23 @@ export const googleSyncRouter = createRouter({
 
         if (existing[0]) continue;
 
+        const start = new Date(event.start?.dateTime || event.start?.date);
+        const end = new Date(event.end?.dateTime || event.end?.date || event.start?.dateTime || event.start?.date);
+        const status = event.status === "cancelled" ? "cancelled" : event.status === "tentative" ? "tentative" : "confirmed";
         const [calEvent] = await db.insert(calendarEvents).values({
           userId: ctx.user.id,
           connectedAccountId: account.id,
           googleEventId: event.id,
           title: event.summary || "(No title)",
           description: event.description || "",
-          startTime: new Date(event.start?.dateTime || event.start?.date),
-          endTime: new Date(event.end?.dateTime || event.end?.date),
+          startDate: start,                         // schema column is startDate (NOT startTime)
+          endDate: isNaN(end.getTime()) ? start : end,
           isAllDay: !event.start?.dateTime,
           location: event.location || "",
-          attendees: event.attendees?.map((a: { email: string; displayName?: string }) => 
+          attendees: event.attendees?.map((a: { email: string; displayName?: string }) =>
             `${a.displayName || ""} <${a.email}>`
-          ).join(", ") || "",
-          status: event.status || "confirmed",
-          recurringEventId: event.recurringEventId || null,
-          organizer: event.organizer?.email || "",
-          htmlLink: event.htmlLink || "",
-          syncedAt: new Date(),
+          ).join(", ") || null,
+          status,
         }).returning();
 
         syncedEvents.push(calEvent);
