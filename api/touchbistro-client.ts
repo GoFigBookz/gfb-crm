@@ -109,12 +109,22 @@ export async function readNewestTimesheetFromDrive(
   const token = await getValidGoogleAccessToken(acct);
 
   const isFolder = (f: any) => f.mimeType === "application/vnd.google-apps.folder";
-  const top = await listFolder(token, folderId);
-  // Also look inside a Payroll / Timesheets / Hours subfolder if there is one.
-  const payrollSubs = top.filter((f) => isFolder(f) && /payroll|time\s*sheet|timesheet|hours|pay run/i.test(f.name || ""));
-  let files = top.filter((f) => !isFolder(f));
-  for (const sub of payrollSubs.slice(0, 4)) {
-    try { files = files.concat((await listFolder(token, sub.id)).filter((f) => !isFolder(f))); } catch { /* skip */ }
+  // BFS the client's whole folder tree (Payroll often lives a couple levels deep,
+  // e.g. <Client>/2 - Tax Filings/Payroll). Bounded so we never runaway-crawl.
+  let files: any[] = [];
+  let frontier = [folderId];
+  const seen = new Set<string>([folderId]);
+  for (let depth = 0; depth < 4 && frontier.length; depth++) {
+    const next: string[] = [];
+    for (const id of frontier.slice(0, 60)) {
+      let kids: any[] = [];
+      try { kids = await listFolder(token, id); } catch { continue; }
+      for (const k of kids) {
+        if (isFolder(k)) { if (!seen.has(k.id)) { seen.add(k.id); next.push(k.id); } }
+        else files.push(k);
+      }
+    }
+    frontier = next;
   }
 
   const importable = (f: any) =>
