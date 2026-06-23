@@ -41748,6 +41748,7 @@ var init_client_router = __esm({
       })).mutation(async ({ ctx, input }) => {
         const db = getDb();
         const { hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency, quoteAmount, quoteSentAt, quoteApprovedAt, ...rest } = input;
+        const wholesale = rest.clientType === "wholesale";
         const [client] = await db.insert(clients).values({
           ...rest,
           userId: ctx.user.id,
@@ -41755,8 +41756,8 @@ var init_client_router = __esm({
           hstPeriod,
           hasWSIB,
           wsibQuarter,
-          hasPayroll,
-          payrollFrequency,
+          hasPayroll: wholesale ? false : hasPayroll,
+          payrollFrequency: wholesale ? null : payrollFrequency,
           quoteAmount,
           quoteSentAt,
           quoteApprovedAt
@@ -41842,14 +41843,17 @@ var init_client_router = __esm({
         const { id, hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency, billingType, monthlyFee, transactionsPerMonth, workflowStatus, quoteAmount, quoteSentAt, quoteApprovedAt, engagementSentAt, engagementSignedAt, ...updates } = input;
         const current = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
         const currentClient = current[0];
+        const wholesale = (updates.clientType ?? currentClient?.clientType) === "wholesale";
+        const effHasPayroll = wholesale ? false : hasPayroll;
+        const effPayrollFreq = wholesale ? null : payrollFrequency;
         await db.update(clients).set({
           ...updates,
           ...hasHST !== void 0 && { hasHST },
           ...hstPeriod !== void 0 && { hstPeriod },
           ...hasWSIB !== void 0 && { hasWSIB },
           ...wsibQuarter !== void 0 && { wsibQuarter },
-          ...hasPayroll !== void 0 && { hasPayroll },
-          ...payrollFrequency !== void 0 && { payrollFrequency },
+          ...(effHasPayroll !== void 0 || wholesale) && { hasPayroll: effHasPayroll },
+          ...(effPayrollFreq !== void 0 || wholesale) && { payrollFrequency: effPayrollFreq },
           ...billingType !== void 0 && { billingType },
           ...monthlyFee !== void 0 && { monthlyFee },
           ...transactionsPerMonth !== void 0 && { transactionsPerMonth },
@@ -45864,6 +45868,12 @@ async function pullClientMasterIntoCrm() {
       Object.assign(f.onb ? onb : sv, patch);
     }
     const match2 = bn && byBn.get(norm5(bn)) || byName.get(norm5(name2));
+    const willBeWholesale = (sv.clientType ?? match2?.clientType) === "wholesale";
+    if (willBeWholesale) {
+      delete sv.hasPayroll;
+      delete sv.payrollFrequency;
+      sv.hasPayroll = false;
+    }
     if (match2) {
       const patch = {};
       for (const [k, v] of Object.entries(sv)) {
@@ -48836,6 +48846,7 @@ function craGrossForNet(targetNet, P, ytd, periodsElapsed) {
   return round2((lo + hi) / 2);
 }
 function isPayrollClient(c) {
+  if ((c.clientType || "") === "wholesale") return false;
   return !!c.hasPayroll;
 }
 async function backfillHasPayroll() {
@@ -64015,7 +64026,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.66";
+var BUILD_TAG = "2026-06-23.67";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

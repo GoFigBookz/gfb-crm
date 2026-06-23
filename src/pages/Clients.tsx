@@ -129,11 +129,18 @@ export default function Clients() {
   for (const c of (portfolio?.clients ?? []) as any[]) healthById.set(c.clientId, { status: c.status, toReview: c.toReview });
 
   const healthRank: Record<string, number> = { red: 0, yellow: 1, green: 2 };
+  // Payroll classification. Wholesale (flow-through) is NEVER payroll. "Auto" =
+  // QuickBooks autopay (West York, Fractal, or hours-source = qbo_autopay);
+  // everyone else with payroll is "manual" (hours entered/imported here).
+  const isPayrollC = (c: any) => (c.clientType || "monthly") !== "wholesale" && (c.hasPayroll || c.clientType === "payroll");
+  const isAutoPay = (c: any) => c.payrollHoursSource === "qbo_autopay" || /west\s*york|fractal/i.test(c.name || "");
   const filtered = clients?.filter((c) => {
     if (!matchTab(c)) return false;
     if (firmFilter !== "all" && (c as any).qboAccountType !== firmFilter) return false;
-    // "Payroll" is a flag (hasPayroll), not a clientType value — match it specially.
-    if (typeFilter === "payroll") { if (!(c as any).hasPayroll && (c as any).clientType !== "payroll") return false; }
+    // Payroll filters are flag-based (hasPayroll), not a clientType value.
+    if (typeFilter === "payroll") { if (!isPayrollC(c)) return false; }
+    else if (typeFilter === "payroll_manual") { if (!isPayrollC(c) || isAutoPay(c)) return false; }
+    else if (typeFilter === "payroll_auto") { if (!isPayrollC(c) || !isAutoPay(c)) return false; }
     else if (typeFilter !== "all" && ((c as any).clientType || "monthly") !== typeFilter) return false;
     return true;
   }).slice().sort((a, b) => {
@@ -218,7 +225,9 @@ export default function Clients() {
             <SelectItem value="monthly">🗓️ Monthly</SelectItem>
             <SelectItem value="quarterly">📅 Quarterly</SelectItem>
             <SelectItem value="annual">📆 Annual</SelectItem>
-            <SelectItem value="payroll">💵 Payroll</SelectItem>
+            <SelectItem value="payroll">💵 Payroll (all)</SelectItem>
+            <SelectItem value="payroll_manual">✍️ Payroll — manual entry</SelectItem>
+            <SelectItem value="payroll_auto">🤖 Payroll — QuickBooks autopay</SelectItem>
             <SelectItem value="wholesale">🧾 Wholesale (flow-through)</SelectItem>
           </SelectContent>
         </Select>

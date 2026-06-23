@@ -159,6 +159,8 @@ export const clientRouter = createRouter({
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
       const { hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency, quoteAmount, quoteSentAt, quoteApprovedAt, ...rest } = input;
+      // Wholesale = flow-through (QBO resale only) → never payroll.
+      const wholesale = (rest as any).clientType === "wholesale";
       const [client] = await db.insert(clients).values({
         ...rest,
         userId: ctx.user.id,
@@ -166,8 +168,8 @@ export const clientRouter = createRouter({
         hstPeriod,
         hasWSIB,
         wsibQuarter,
-        hasPayroll,
-        payrollFrequency,
+        hasPayroll: wholesale ? false : hasPayroll,
+        payrollFrequency: wholesale ? null : payrollFrequency,
         quoteAmount,
         quoteSentAt,
         quoteApprovedAt,
@@ -270,6 +272,12 @@ export const clientRouter = createRouter({
       const current = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
       const currentClient = current[0];
 
+      // Wholesale = flow-through (QBO resale only) → never payroll. If the client
+      // is (or is being set) wholesale, force payroll OFF regardless of input.
+      const wholesale = ((updates as any).clientType ?? currentClient?.clientType) === "wholesale";
+      const effHasPayroll = wholesale ? false : hasPayroll;
+      const effPayrollFreq = wholesale ? null : payrollFrequency;
+
       await db
         .update(clients)
         .set({
@@ -278,8 +286,8 @@ export const clientRouter = createRouter({
           ...(hstPeriod !== undefined && { hstPeriod }),
           ...(hasWSIB !== undefined && { hasWSIB }),
           ...(wsibQuarter !== undefined && { wsibQuarter }),
-          ...(hasPayroll !== undefined && { hasPayroll }),
-          ...(payrollFrequency !== undefined && { payrollFrequency }),
+          ...((effHasPayroll !== undefined || wholesale) && { hasPayroll: effHasPayroll }),
+          ...((effPayrollFreq !== undefined || wholesale) && { payrollFrequency: effPayrollFreq }),
           ...(billingType !== undefined && { billingType }),
           ...(monthlyFee !== undefined && { monthlyFee }),
           ...(transactionsPerMonth !== undefined && { transactionsPerMonth }),

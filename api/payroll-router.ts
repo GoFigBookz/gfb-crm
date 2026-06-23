@@ -86,6 +86,9 @@ const WEST_YORK_META = {
 const KNOWN_PAYROLL = ["west york", "originality", "clark", "spot", "sher", "punjab"];
 
 function isPayrollClient(c: any): boolean {
+  // Wholesale = flow-through (QBO resale only). It is NEVER a payroll client,
+  // even if a stray sheet value set hasPayroll. Wholesale always wins.
+  if ((c.clientType || "") === "wholesale") return false;
   return !!c.hasPayroll;
 }
 

@@ -84,6 +84,10 @@ export async function pullClientMasterIntoCrm(): Promise<{ scanned: number; upda
     }
 
     const match = (bn && byBn.get(norm(bn))) || byName.get(norm(name));
+    // Wholesale (flow-through) is never payroll — don't let a stray sheet value
+    // re-flag it. If the client is (or is being set) wholesale, drop payroll fields.
+    const willBeWholesale = (sv.clientType ?? match?.clientType) === "wholesale";
+    if (willBeWholesale) { delete sv.hasPayroll; delete sv.payrollFrequency; sv.hasPayroll = false; }
     if (match) {
       const patch: Record<string, any> = {};
       for (const [k, v] of Object.entries(sv)) {
