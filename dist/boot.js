@@ -48453,8 +48453,17 @@ function workbookFor(clientName) {
 }
 async function googleAccount(userId) {
   const db = getDb();
-  const accts = await db.select().from(connectedAccounts).where(and(eq(connectedAccounts.userId, userId), eq(connectedAccounts.provider, "google")));
-  return accts.find((a) => a.isActive) || accts[0] || null;
+  const accts = await db.select({
+    id: connectedAccounts.id,
+    provider: connectedAccounts.provider,
+    accessToken: connectedAccounts.accessToken,
+    refreshToken: connectedAccounts.refreshToken,
+    expiresAt: connectedAccounts.expiresAt,
+    accountEmail: connectedAccounts.accountEmail,
+    isActive: connectedAccounts.isActive
+  }).from(connectedAccounts).where(eq(connectedAccounts.userId, userId));
+  const google = accts.filter((a) => a.provider === "google");
+  return google.find((a) => a.isActive && a.refreshToken) || google.find((a) => a.refreshToken) || google.find((a) => a.isActive) || google[0] || null;
 }
 async function readWorkbookText(userId, sheetId) {
   const acct = await googleAccount(userId);
@@ -58745,6 +58754,61 @@ var init_ensure_chat_schema = __esm({
   }
 });
 
+// api/ensure-connectors-schema.ts
+var ensure_connectors_schema_exports = {};
+__export(ensure_connectors_schema_exports, {
+  ensureConnectorsSchema: () => ensureConnectorsSchema
+});
+async function ensureConnectorsSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS connected_accounts (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      clientId integer,
+      provider text NOT NULL,
+      createdAt integer
+    )`);
+  } catch (e) {
+    console.error("[connectors] ensure connected_accounts table failed:", e instanceof Error ? e.message : e);
+  }
+  try {
+    const have = /* @__PURE__ */ new Set();
+    const res = await db.run(sql`PRAGMA table_info(connected_accounts)`);
+    for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
+    const cols = [
+      ["providerAccountId", "text"],
+      ["accountLabel", "text DEFAULT 'Primary' NOT NULL"],
+      ["accountEmail", "text"],
+      ["accessToken", "text"],
+      ["refreshToken", "text"],
+      ["expiresAt", "integer"],
+      ["scopes", "text"],
+      ["isActive", "integer DEFAULT 1 NOT NULL"],
+      ["syncEnabled", `text DEFAULT '{"email":true,"calendar":true,"files":true,"tasks":true}'`],
+      ["lastSyncedAt", "integer"],
+      ["createdAt", "integer"],
+      ["updatedAt", "integer"]
+    ];
+    for (const [name2, type] of cols) {
+      if (have.has(name2)) continue;
+      try {
+        await db.run(sql.raw(`ALTER TABLE connected_accounts ADD COLUMN "${name2}" ${type}`));
+      } catch (e) {
+        console.error(`[connectors] add column ${name2} failed:`, e instanceof Error ? e.message : e);
+      }
+    }
+  } catch (e) {
+    console.error("[connectors] ensure connected_accounts columns failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_connectors_schema = __esm({
+  "api/ensure-connectors-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/seed-ai-agents.ts
 var seed_ai_agents_exports = {};
 __export(seed_ai_agents_exports, {
@@ -63656,7 +63720,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.54";
+var BUILD_TAG = "2026-06-23.55";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64587,6 +64651,8 @@ async function startServer() {
     await ensureAuditSchema2();
     const { ensureChatSchema: ensureChatSchema2 } = await Promise.resolve().then(() => (init_ensure_chat_schema(), ensure_chat_schema_exports));
     await ensureChatSchema2();
+    const { ensureConnectorsSchema: ensureConnectorsSchema2 } = await Promise.resolve().then(() => (init_ensure_connectors_schema(), ensure_connectors_schema_exports));
+    await ensureConnectorsSchema2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
