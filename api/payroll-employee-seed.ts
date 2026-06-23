@@ -7,7 +7,7 @@ export type SeedEmployee = {
   hourlyRate?: number; annualSalary?: number;
   position?: string; email?: string; notes?: string;
 };
-export type SeedClientRoster = { clientMatch: string; sourceFileId?: string; replace?: boolean; employees: SeedEmployee[] };
+export type SeedClientRoster = { clientMatch: string; sourceFileId?: string; replace?: boolean; merge?: boolean; employees: SeedEmployee[] };
 
 export const PAYROLL_EMPLOYEE_SEED: SeedClientRoster[] = [
   // ---------------------------------------------------------------------------
@@ -182,7 +182,7 @@ export const PAYROLL_EMPLOYEE_SEED: SeedClientRoster[] = [
   // ---------------------------------------------------------------------------
   // Rates CONFIRMED 2026-06-21 from Markie's Sher-E payroll sheet (rate column
   // aligned to the roster order; 6/12/2026 run). replace:true cleans prior seed.
-  { clientMatch: "sher", replace: true, sourceFileId: "1BsiHTPaSnFhXZPwI_5YnLK32rdJhFOi6EWdCeujnPIo", employees: [
+  { clientMatch: "sher", replace: true, merge: true, sourceFileId: "1BsiHTPaSnFhXZPwI_5YnLK32rdJhFOi6EWdCeujnPIo", employees: [
     { firstName: "Surya", lastName: "Bhattrai", position: "Chef", payType: "salary", annualSalary: 70000, notes: "$70,000 salary per sheet" },
     { firstName: "Upendra", lastName: "Bahadur Poudel", position: "BOH", payType: "hourly", hourlyRate: 21.00 },
     { firstName: "Akash", lastName: "Dahal", position: "FOH", payType: "hourly", hourlyRate: 17.60 },
@@ -198,7 +198,7 @@ export const PAYROLL_EMPLOYEE_SEED: SeedClientRoster[] = [
   // Excludes Jaspal Singh ("Not in Payroll") and Kimberly Daly (terminated May 8).
   // clientMatch "spot" matches "Auld Spot"/"Old Spot". replace:true.
   // ---------------------------------------------------------------------------
-  { clientMatch: "spot", replace: true, sourceFileId: "1BXK_SxiogGbFSfz1jX1uekyUG9n02huEDXmbmNCX51I", employees: [
+  { clientMatch: "spot", replace: true, merge: true, sourceFileId: "1BXK_SxiogGbFSfz1jX1uekyUG9n02huEDXmbmNCX51I", employees: [
     { firstName: "James", lastName: "Allard", position: "BOH", payType: "hourly", hourlyRate: 20.00 },
     { firstName: "Bhima", lastName: "Bhattarai", position: "FOH", payType: "hourly", hourlyRate: 17.60 },
     { firstName: "Heather", lastName: "Capstick", position: "FOH", payType: "hourly", hourlyRate: 18.00 },

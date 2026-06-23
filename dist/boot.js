@@ -56915,7 +56915,7 @@ var init_payroll_employee_seed = __esm({
       // ---------------------------------------------------------------------------
       // Rates CONFIRMED 2026-06-21 from Markie's Sher-E payroll sheet (rate column
       // aligned to the roster order; 6/12/2026 run). replace:true cleans prior seed.
-      { clientMatch: "sher", replace: true, sourceFileId: "1BsiHTPaSnFhXZPwI_5YnLK32rdJhFOi6EWdCeujnPIo", employees: [
+      { clientMatch: "sher", replace: true, merge: true, sourceFileId: "1BsiHTPaSnFhXZPwI_5YnLK32rdJhFOi6EWdCeujnPIo", employees: [
         { firstName: "Surya", lastName: "Bhattrai", position: "Chef", payType: "salary", annualSalary: 7e4, notes: "$70,000 salary per sheet" },
         { firstName: "Upendra", lastName: "Bahadur Poudel", position: "BOH", payType: "hourly", hourlyRate: 21 },
         { firstName: "Akash", lastName: "Dahal", position: "FOH", payType: "hourly", hourlyRate: 17.6 },
@@ -56930,7 +56930,7 @@ var init_payroll_employee_seed = __esm({
       // Excludes Jaspal Singh ("Not in Payroll") and Kimberly Daly (terminated May 8).
       // clientMatch "spot" matches "Auld Spot"/"Old Spot". replace:true.
       // ---------------------------------------------------------------------------
-      { clientMatch: "spot", replace: true, sourceFileId: "1BXK_SxiogGbFSfz1jX1uekyUG9n02huEDXmbmNCX51I", employees: [
+      { clientMatch: "spot", replace: true, merge: true, sourceFileId: "1BXK_SxiogGbFSfz1jX1uekyUG9n02huEDXmbmNCX51I", employees: [
         { firstName: "James", lastName: "Allard", position: "BOH", payType: "hourly", hourlyRate: 20 },
         { firstName: "Bhima", lastName: "Bhattarai", position: "FOH", payType: "hourly", hourlyRate: 17.6 },
         { firstName: "Heather", lastName: "Capstick", position: "FOH", payType: "hourly", hourlyRate: 18 },
@@ -57005,11 +57005,16 @@ async function seedPayrollEmployees() {
     }
     result.matched++;
     const current = await db.select().from(employees).where(eq(employees.clientId, client.id));
-    if (current.length > 0) {
+    if (current.length > 0 && !roster.merge) {
       result.skipped += roster.employees.length;
       continue;
     }
+    const have = new Set(current.map((e) => `${norm7(e.firstName)} ${norm7(e.lastName)}`.trim()));
     for (const emp of roster.employees) {
+      if (roster.merge && have.has(`${norm7(emp.firstName)} ${norm7(emp.lastName || "")}`.trim())) {
+        result.skipped++;
+        continue;
+      }
       await db.insert(employees).values({
         clientId: client.id,
         firstName: emp.firstName,
@@ -63526,7 +63531,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.52";
+var BUILD_TAG = "2026-06-23.53";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64594,7 +64599,8 @@ async function startServer() {
     if (process.env.FIGGY_SKIP_EMPLOYEE_SEED !== "on") {
       try {
         const { seedPayrollEmployees: seedPayrollEmployees2 } = await Promise.resolve().then(() => (init_seed_payroll_employees(), seed_payroll_employees_exports));
-        await seedPayrollEmployees2();
+        const r = await seedPayrollEmployees2();
+        console.log("[seed] payroll employees:", JSON.stringify(r));
       } catch (e) {
         console.error("[seed] payroll employees failed (non-fatal):", e instanceof Error ? e.message : e);
       }
