@@ -107,10 +107,21 @@ export default function Clients() {
     setSearchParams({ status: t });
   };
 
+  // Fetch ALL (status filtering is done client-side below) so the tabs + counts
+  // stay consistent and the "lead" tab shows leads AND prospects to match its badge.
   const { data: clients, isLoading } = trpc.crmClient.list.useQuery({
     search: search || undefined,
-    status: tab,
+    status: "all",
+    limit: 100,
   });
+
+  const matchTab = (c: any) =>
+    tab === "all" ? true
+    : tab === "active" ? c.status === "active"
+    : tab === "lead" ? (c.status === "lead" || c.status === "prospect")
+    : tab === "prospect" ? c.status === "prospect"
+    : tab === "inactive" ? c.status === "inactive"
+    : true;
 
   // Month-end close health per client → traffic light + "to post" on each card.
   const { data: portfolio } = trpc.monthEnd.getPortfolio.useQuery({});
@@ -119,8 +130,11 @@ export default function Clients() {
 
   const healthRank: Record<string, number> = { red: 0, yellow: 1, green: 2 };
   const filtered = clients?.filter((c) => {
+    if (!matchTab(c)) return false;
     if (firmFilter !== "all" && (c as any).qboAccountType !== firmFilter) return false;
-    if (typeFilter !== "all" && ((c as any).clientType || "monthly") !== typeFilter) return false;
+    // "Payroll" is a flag (hasPayroll), not a clientType value — match it specially.
+    if (typeFilter === "payroll") { if (!(c as any).hasPayroll && (c as any).clientType !== "payroll") return false; }
+    else if (typeFilter !== "all" && ((c as any).clientType || "monthly") !== typeFilter) return false;
     return true;
   }).slice().sort((a, b) => {
     if (sort === "health") {
