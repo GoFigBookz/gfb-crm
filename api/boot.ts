@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-23.62";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-23.63";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -267,9 +267,11 @@ app.get("/api/oauth/google/callback", async (c) => {
     const candidate: Record<string, any> = {
       userId,
       provider: "google",
-      providerAccountId: userInfo.id ?? null,
+      // Never null — live table has a NOT NULL constraint here. Fall back to the
+      // email or a synthetic id if Google didn't return a profile.
+      providerAccountId: userInfo.id ?? userInfo.email ?? `google:${userId}`,
       accountLabel: stateData.accountLabel || "Google",
-      accountEmail: userInfo.email ?? null,
+      accountEmail: userInfo.email ?? "markie@gofig.ca",
       accessToken: tokenData.access_token ?? null,
       refreshToken: tokenData.refresh_token ?? null,
       expiresAt: tokenData.expires_in ? nowSec + Number(tokenData.expires_in) : null,

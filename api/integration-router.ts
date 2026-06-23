@@ -178,6 +178,9 @@ export const integrationRouter = createRouter({
       const { googleRedirectUri } = await import("./google-redirect");
       const redirectUri = googleRedirectUri();
       const scopes = input.scopes || [
+        "openid",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile",
         "https://www.googleapis.com/auth/calendar",
         "https://www.googleapis.com/auth/calendar.events",
         "https://www.googleapis.com/auth/tasks",

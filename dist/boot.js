@@ -42629,6 +42629,9 @@ var init_integration_router = __esm({
         const { googleRedirectUri: googleRedirectUri2 } = await Promise.resolve().then(() => (init_google_redirect(), google_redirect_exports));
         const redirectUri2 = googleRedirectUri2();
         const scopes = input.scopes || [
+          "openid",
+          "https://www.googleapis.com/auth/userinfo.email",
+          "https://www.googleapis.com/auth/userinfo.profile",
           "https://www.googleapis.com/auth/calendar",
           "https://www.googleapis.com/auth/calendar.events",
           "https://www.googleapis.com/auth/tasks",
@@ -63923,7 +63926,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.62";
+var BUILD_TAG = "2026-06-23.63";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64089,9 +64092,11 @@ app.get("/api/oauth/google/callback", async (c) => {
     const candidate = {
       userId,
       provider: "google",
-      providerAccountId: userInfo.id ?? null,
+      // Never null — live table has a NOT NULL constraint here. Fall back to the
+      // email or a synthetic id if Google didn't return a profile.
+      providerAccountId: userInfo.id ?? userInfo.email ?? `google:${userId}`,
       accountLabel: stateData.accountLabel || "Google",
-      accountEmail: userInfo.email ?? null,
+      accountEmail: userInfo.email ?? "markie@gofig.ca",
       accessToken: tokenData.access_token ?? null,
       refreshToken: tokenData.refresh_token ?? null,
       expiresAt: tokenData.expires_in ? nowSec + Number(tokenData.expires_in) : null,
