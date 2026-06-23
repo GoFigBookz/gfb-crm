@@ -206,6 +206,17 @@ period), which QBO Payroll then uses to pay people. So:
 - Needs: (a) the native QBO **write** connection (Intuit prod app — Markie's long pole),
   (b) CRM employee → QBO employee mapping (so hours land on the right person).
 - Do NOT build a payroll journal-entry poster or GL-mapping UI — not their workflow.
+FULL LOOP (Markie 2026-06-23): (1) CRM timesheet → PUSH hours to QBO (TimeActivity);
+(2) Markie runs payroll IN QBO Payroll off those hours; (3) READ the processed
+payroll BACK into the CRM (per-employee gross/deductions/net + YTD) so the CRM holds
+the real numbers — also feeds the Originality CRA YTD comparison. Read-back can use
+the QBO Payroll API (payslips/employees) once the native connection is live.
+RESEARCHED 2026-06-23 (Intuit docs): PUSH hours = POST /v3/company/{realm}/timeactivity
+(TimeActivity = employee + TxnDate + Hours/Minutes); works with QBO Payroll basic
+time tracking. Richer pay-type mapping (OT/holiday) = the Time API + Payroll
+Compensation (QBO Payroll customers). READ-BACK = QBO Payroll API
+(payslips / Payroll_EmployeeCompensation). Build when the native write connection is
+live; confirm with one live test (one employee, one entry) before reporting done.
 
 ## BANK STATEMENT CONVERTER — PDF → CSV → QBO (Markie 2026-06-22, BROKEN, fix)
 The "Bank → QBO" converter (`/bank-converter`, src/pages + api/bank-converter*)
