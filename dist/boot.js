@@ -56293,6 +56293,61 @@ var init_router = __esm({
   }
 });
 
+// api/ensure-connectors-schema.ts
+var ensure_connectors_schema_exports = {};
+__export(ensure_connectors_schema_exports, {
+  ensureConnectorsSchema: () => ensureConnectorsSchema
+});
+async function ensureConnectorsSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS connected_accounts (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      clientId integer,
+      provider text NOT NULL,
+      createdAt integer
+    )`);
+  } catch (e) {
+    console.error("[connectors] ensure connected_accounts table failed:", e instanceof Error ? e.message : e);
+  }
+  try {
+    const have = /* @__PURE__ */ new Set();
+    const res = await db.run(sql`PRAGMA table_info(connected_accounts)`);
+    for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
+    const cols = [
+      ["providerAccountId", "text"],
+      ["accountLabel", "text DEFAULT 'Primary' NOT NULL"],
+      ["accountEmail", "text"],
+      ["accessToken", "text"],
+      ["refreshToken", "text"],
+      ["expiresAt", "integer"],
+      ["scopes", "text"],
+      ["isActive", "integer DEFAULT 1 NOT NULL"],
+      ["syncEnabled", `text DEFAULT '{"email":true,"calendar":true,"files":true,"tasks":true}'`],
+      ["lastSyncedAt", "integer"],
+      ["createdAt", "integer"],
+      ["updatedAt", "integer"]
+    ];
+    for (const [name2, type] of cols) {
+      if (have.has(name2)) continue;
+      try {
+        await db.run(sql.raw(`ALTER TABLE connected_accounts ADD COLUMN "${name2}" ${type}`));
+      } catch (e) {
+        console.error(`[connectors] add column ${name2} failed:`, e instanceof Error ? e.message : e);
+      }
+    }
+  } catch (e) {
+    console.error("[connectors] ensure connected_accounts columns failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_connectors_schema = __esm({
+  "api/ensure-connectors-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/bridge-bootstrap.ts
 var bridge_bootstrap_exports = {};
 __export(bridge_bootstrap_exports, {
@@ -58951,61 +59006,6 @@ async function ensureChatSchema() {
 }
 var init_ensure_chat_schema = __esm({
   "api/ensure-chat-schema.ts"() {
-    init_connection();
-    init_drizzle_orm();
-  }
-});
-
-// api/ensure-connectors-schema.ts
-var ensure_connectors_schema_exports = {};
-__export(ensure_connectors_schema_exports, {
-  ensureConnectorsSchema: () => ensureConnectorsSchema
-});
-async function ensureConnectorsSchema() {
-  const db = getDb();
-  try {
-    await db.run(sql`CREATE TABLE IF NOT EXISTS connected_accounts (
-      id integer PRIMARY KEY AUTOINCREMENT,
-      userId integer NOT NULL,
-      clientId integer,
-      provider text NOT NULL,
-      createdAt integer
-    )`);
-  } catch (e) {
-    console.error("[connectors] ensure connected_accounts table failed:", e instanceof Error ? e.message : e);
-  }
-  try {
-    const have = /* @__PURE__ */ new Set();
-    const res = await db.run(sql`PRAGMA table_info(connected_accounts)`);
-    for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
-    const cols = [
-      ["providerAccountId", "text"],
-      ["accountLabel", "text DEFAULT 'Primary' NOT NULL"],
-      ["accountEmail", "text"],
-      ["accessToken", "text"],
-      ["refreshToken", "text"],
-      ["expiresAt", "integer"],
-      ["scopes", "text"],
-      ["isActive", "integer DEFAULT 1 NOT NULL"],
-      ["syncEnabled", `text DEFAULT '{"email":true,"calendar":true,"files":true,"tasks":true}'`],
-      ["lastSyncedAt", "integer"],
-      ["createdAt", "integer"],
-      ["updatedAt", "integer"]
-    ];
-    for (const [name2, type] of cols) {
-      if (have.has(name2)) continue;
-      try {
-        await db.run(sql.raw(`ALTER TABLE connected_accounts ADD COLUMN "${name2}" ${type}`));
-      } catch (e) {
-        console.error(`[connectors] add column ${name2} failed:`, e instanceof Error ? e.message : e);
-      }
-    }
-  } catch (e) {
-    console.error("[connectors] ensure connected_accounts columns failed:", e instanceof Error ? e.message : e);
-  }
-}
-var init_ensure_connectors_schema = __esm({
-  "api/ensure-connectors-schema.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -63922,7 +63922,8 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.60";
+var lastGoogleOAuth = null;
+var BUILD_TAG = "2026-06-23.61";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -63965,7 +63966,8 @@ app.get("/api/oauth/google/debug", async (c) => {
     googleRedirectUriEnv: process.env.GOOGLE_REDIRECT_URI || null,
     hasClientId: !!process.env.GOOGLE_CLIENT_ID,
     hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
-    note: "The clientId here MUST be the SAME OAuth client where you added the redirect URI. If they differ, that's the mismatch."
+    lastConnectAttempt: lastGoogleOAuth,
+    note: "lastConnectAttempt shows the result of your most recent Connect Google click (ok:true = saved). If ok:false, the error says why."
   });
 });
 app.get("/api/qbo/connect", async (c) => {
@@ -64060,17 +64062,35 @@ app.get("/api/oauth/google/callback", async (c) => {
     if (tokenData.error) {
       throw new Error(`Token exchange failed: ${tokenData.error}`);
     }
-    const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` }
-    });
-    const userInfo = await userInfoResponse.json();
+    let userInfo = {};
+    try {
+      const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` }
+      });
+      userInfo = await userInfoResponse.json();
+    } catch {
+    }
+    try {
+      const { ensureConnectorsSchema: ensureConnectorsSchema2 } = await Promise.resolve().then(() => (init_ensure_connectors_schema(), ensure_connectors_schema_exports));
+      await ensureConnectorsSchema2();
+    } catch (e) {
+      console.error("[Google OAuth] ensureConnectorsSchema failed (continuing):", e instanceof Error ? e.message : e);
+    }
     const db = getDb();
+    const userId = stateData.userId || 1;
+    try {
+      await db.delete(connectedAccounts).where(
+        and(eq(connectedAccounts.userId, userId), eq(connectedAccounts.provider, "google"))
+      );
+    } catch (e) {
+      console.error("[Google OAuth] clear prior google rows failed (continuing):", e instanceof Error ? e.message : e);
+    }
     await db.insert(connectedAccounts).values({
-      userId: stateData.userId || 1,
+      userId,
       provider: "google",
-      providerAccountId: userInfo.id,
-      accountLabel: stateData.accountLabel,
-      accountEmail: userInfo.email,
+      providerAccountId: userInfo.id ?? null,
+      accountLabel: stateData.accountLabel || "Google",
+      accountEmail: userInfo.email ?? null,
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       expiresAt: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1e3) : null,
@@ -64078,10 +64098,12 @@ app.get("/api/oauth/google/callback", async (c) => {
       isActive: true,
       syncEnabled: JSON.stringify({ email: true, calendar: true, files: true, tasks: true })
     });
+    lastGoogleOAuth = { ok: true, at: (/* @__PURE__ */ new Date()).toISOString(), email: userInfo.email, userId };
     return c.redirect("/integrations?success=google_connected", 302);
   } catch (err) {
     const message2 = err instanceof Error ? err.message : String(err);
     console.error("[Google OAuth] callback failed:", message2);
+    lastGoogleOAuth = { ok: false, at: (/* @__PURE__ */ new Date()).toISOString(), error: message2 };
     return c.redirect("/integrations?error=" + encodeURIComponent(message2), 302);
   }
 });

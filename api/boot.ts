@@ -14,7 +14,7 @@ import { Paths } from "@contracts/constants";
 // DB imports for inline OAuth callbacks
 import { getDb } from "./queries/connection";
 import { connectedAccounts, qboConnections, triageFindings, clients } from "../db/schema";
-import { eq, sql, like } from "drizzle-orm";
+import { eq, and, sql, like } from "drizzle-orm";
 import { matchClientIdByName } from "./client-match";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
@@ -61,7 +61,10 @@ export function getRecentClientErrors() { return recentClientErrors; }
 // booted and which build it is. If `startedAt` is stale after a merge to main,
 // the Railway deploy isn't picking up new code (not a code/cache problem).
 const BOOT_TIME = new Date().toISOString();
-const BUILD_TAG = "2026-06-23.60";  // bump each deploy so prod vs source is unambiguous
+// Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
+// connect from /api/oauth/google/debug instead of guessing.
+let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
+const BUILD_TAG = "2026-06-23.61";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -100,7 +103,8 @@ app.get("/api/oauth/google/debug", async (c) => {
     googleRedirectUriEnv: process.env.GOOGLE_REDIRECT_URI || null,
     hasClientId: !!process.env.GOOGLE_CLIENT_ID,
     hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
-    note: "The clientId here MUST be the SAME OAuth client where you added the redirect URI. If they differ, that's the mismatch.",
+    lastConnectAttempt: lastGoogleOAuth,
+    note: "lastConnectAttempt shows the result of your most recent Connect Google click (ok:true = saved). If ok:false, the error says why.",
   });
 });
 
@@ -226,20 +230,42 @@ app.get("/api/oauth/google/callback", async (c) => {
       throw new Error(`Token exchange failed: ${tokenData.error}`);
     }
 
-    // Get user info
-    const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
-    });
-    const userInfo = await userInfoResponse.json();
+    // Get user info (best-effort — never let a userinfo hiccup lose the tokens).
+    let userInfo: any = {};
+    try {
+      const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+      userInfo = await userInfoResponse.json();
+    } catch { /* keep going with empty userInfo */ }
 
-    // Save to connected_accounts
+    // Make sure the table has every column the insert writes (a missing column
+    // is a silent "no such column" that would bounce the user back with no row).
+    try {
+      const { ensureConnectorsSchema } = await import("./ensure-connectors-schema");
+      await ensureConnectorsSchema();
+    } catch (e) {
+      console.error("[Google OAuth] ensureConnectorsSchema failed (continuing):", e instanceof Error ? e.message : e);
+    }
+
     const db = getDb();
+    const userId = stateData.userId || 1;
+    // Upsert: clear any prior Google row for this user (same account or relinks)
+    // so repeated "Connect" clicks don't error on a unique/duplicate and tokens
+    // always refresh to the latest grant.
+    try {
+      await db.delete(connectedAccounts).where(
+        and(eq(connectedAccounts.userId, userId), eq(connectedAccounts.provider, "google")),
+      );
+    } catch (e) {
+      console.error("[Google OAuth] clear prior google rows failed (continuing):", e instanceof Error ? e.message : e);
+    }
     await db.insert(connectedAccounts).values({
-      userId: stateData.userId || 1,
+      userId,
       provider: "google",
-      providerAccountId: userInfo.id,
-      accountLabel: stateData.accountLabel,
-      accountEmail: userInfo.email,
+      providerAccountId: userInfo.id ?? null,
+      accountLabel: stateData.accountLabel || "Google",
+      accountEmail: userInfo.email ?? null,
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       expiresAt: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null,
@@ -248,10 +274,12 @@ app.get("/api/oauth/google/callback", async (c) => {
       syncEnabled: JSON.stringify({ email: true, calendar: true, files: true, tasks: true }),
     });
 
+    lastGoogleOAuth = { ok: true, at: new Date().toISOString(), email: userInfo.email, userId };
     return c.redirect("/integrations?success=google_connected", 302);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[Google OAuth] callback failed:", message);
+    lastGoogleOAuth = { ok: false, at: new Date().toISOString(), error: message };
     return c.redirect("/integrations?error=" + encodeURIComponent(message), 302);
   }
 });
