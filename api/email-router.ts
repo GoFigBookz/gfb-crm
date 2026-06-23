@@ -4,6 +4,36 @@ import { getDb } from "./queries/connection";
 import { emails, connectedAccounts, clientEmails, senderRules, clients } from "../db/schema";
 import { eq, and, desc, inArray, isNull, ne, like } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { buildRawMessage, extractEmail } from "./email-core";
+import { getValidGoogleAccessToken } from "./google-token";
+
+/** Actually send a message through the connected provider. Returns the provider's
+ *  thread/message ids so the stored row threads correctly. Throws on failure so a
+ *  failed send never looks successful. */
+async function providerSend(
+  account: typeof connectedAccounts.$inferSelect,
+  msg: { to: string; cc?: string | null; subject: string; html: string; fromName?: string; threadId?: string | null },
+): Promise<{ gmailMessageId?: string; threadId?: string }> {
+  if (account.provider === "google") {
+    const token = await getValidGoogleAccessToken(account);
+    const raw = buildRawMessage({
+      fromName: msg.fromName, fromEmail: account.accountEmail || "", to: msg.to,
+      cc: msg.cc, subject: msg.subject, html: msg.html,
+    });
+    const body: any = { raw };
+    if (msg.threadId) body.threadId = msg.threadId;
+    const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({} as any));
+    if (!res.ok) throw new Error(`Gmail send failed (${res.status}): ${JSON.stringify(data).slice(0, 200)}`);
+    return { gmailMessageId: data.id, threadId: data.threadId };
+  }
+  // Microsoft (Graph) send is not wired yet — be honest rather than fake-send.
+  throw new Error("Sending is wired for Google accounts right now. (Microsoft/Outlook send is coming next.)");
+}
 
 export const emailRouter = createRouter({
   // List emails (inbox or sent)
@@ -202,14 +232,19 @@ export const emailRouter = createRouter({
           .where(eq(clients.id, input.clientId));
       }
 
-      const threadId = input.threadId || randomUUID();
+      // Actually send it through the provider FIRST — only record it if it sent.
+      const sent = await providerSend(account, {
+        to: input.to, cc: input.cc, subject: input.subject, html: input.body,
+        fromName: ctx.user.name || account.accountEmail || undefined,
+        threadId: input.threadId,
+      });
+      const threadId = sent.threadId || input.threadId || randomUUID();
 
-      // For demo: store in DB without actually sending
-      // In production, this would use nodemailer or provider API
       const [email] = await db.insert(emails).values({
         userId: ctx.user.id,
         connectedAccountId: input.connectedAccountId,
         clientId: input.clientId || null,
+        gmailMessageId: sent.gmailMessageId || null,
         threadId,
         fromAddress: account.accountEmail,
         fromName: ctx.user.name || account.accountEmail,
@@ -265,20 +300,29 @@ export const emailRouter = createRouter({
       const account = acctRows[0];
 
       // The reply goes TO the original sender
-      const replyTo = original.fromAddress;
-      const subject = original.subject.startsWith("Re: ")
+      const replyToAddr = extractEmail(original.replyTo || original.fromAddress) || original.fromAddress;
+      const subject = (original.subject || "").startsWith("Re: ")
         ? original.subject
-        : `Re: ${original.subject}`;
+        : `Re: ${original.subject || ""}`;
+
+      // Send for real, threaded to the original conversation, FROM the account that
+      // received it (so John's-company mail replies from finance@adbank.network).
+      const sent = await providerSend(account, {
+        to: replyToAddr, cc: input.cc || original.ccAddresses, subject,
+        html: input.body, fromName: ctx.user.name || account.accountEmail || undefined,
+        threadId: original.threadId,
+      });
 
       const [email] = await db.insert(emails).values({
         userId: ctx.user.id,
         connectedAccountId: original.connectedAccountId,
         clientId: original.clientId,
-        threadId: original.threadId,
+        gmailMessageId: sent.gmailMessageId || null,
+        threadId: sent.threadId || original.threadId,
         fromAddress: account.accountEmail,
         fromName: ctx.user.name || account.accountEmail,
-        replyTo,
-        toAddresses: replyTo,
+        replyTo: replyToAddr,
+        toAddresses: replyToAddr,
         ccAddresses: input.cc || original.ccAddresses || null,
         subject,
         body: input.body,

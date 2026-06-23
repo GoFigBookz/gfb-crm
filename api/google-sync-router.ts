@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { createRouter, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { connectedAccounts, emails, calendarEvents, tasks } from "../db/schema";
+import { connectedAccounts, emails, calendarEvents, tasks, clients, clientEmails } from "../db/schema";
 import { eq, and, desc, gte } from "drizzle-orm";
+import { matchClientId, splitAddresses } from "./email-core";
+import { getValidGoogleAccessToken } from "./google-token";
 
 /**
  * GOOGLE SYNC ROUTER
@@ -53,11 +55,18 @@ export const googleSyncRouter = createRouter({
       
       if (!accounts[0]) throw new Error("Google account not found");
       const account = accounts[0];
-      if (!account.accessToken) throw new Error("Account not authenticated");
+      const token = await getValidGoogleAccessToken(account); // refreshes if expired
+
+      // Build the client-address map: ONLY emails to/from a known client are kept.
+      const cls = await db.select({ id: clients.id, email: clients.email }).from(clients);
+      const ces = await db.select().from(clientEmails);
+      const byAddr = new Map<string, number>();
+      for (const c of cls as any[]) if (c.email) byAddr.set(String(c.email).toLowerCase(), c.id);
+      for (const ce of ces as any[]) if (ce.email) byAddr.set(String(ce.email).toLowerCase(), ce.clientId);
 
       // List messages
       const listData = await googleApiRequest(
-        account.accessToken,
+        token,
         "https://gmail.googleapis.com/gmail/v1/users/me/messages",
         {
           maxResults: String(input.maxResults),
@@ -67,11 +76,12 @@ export const googleSyncRouter = createRouter({
 
       const messages = listData.messages || [];
       const syncedEmails = [];
+      let skippedNonClient = 0;
 
       for (const msg of messages) {
         // Get full message
         const msgData = await googleApiRequest(
-          account.accessToken,
+          token,
           `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`
         );
 
@@ -81,10 +91,17 @@ export const googleSyncRouter = createRouter({
 
         const from = getHeader("From");
         const to = getHeader("To");
+        const cc = getHeader("Cc");
         const subject = getHeader("Subject");
         const date = getHeader("Date");
         const threadId = msgData.threadId;
-        const messageId = getHeader("Message-ID");
+
+        // ONLY keep client emails — match sender/recipients to a known client.
+        const matchedClientId = matchClientId(
+          [...splitAddresses(from), ...splitAddresses(to), ...splitAddresses(cc)],
+          byAddr,
+        );
+        if (!matchedClientId) { skippedNonClient++; continue; }
 
         // Extract plain text body
         let bodyPlain = "";
@@ -108,6 +125,7 @@ export const googleSyncRouter = createRouter({
         const [email] = await db.insert(emails).values({
           userId: ctx.user.id,
           connectedAccountId: account.id,
+          clientId: matchedClientId,
           gmailMessageId: msg.id,
           threadId: threadId,
           fromAddress: from,
@@ -136,6 +154,7 @@ export const googleSyncRouter = createRouter({
       return {
         success: true,
         synced: syncedEmails.length,
+        skippedNonClient,
         totalInBatch: messages.length,
         account: account.accountLabel,
       };

@@ -1258,8 +1258,8 @@ function uint8ArrayToBase64(bytes) {
   }
   return btoa(binaryString);
 }
-function base64urlToUint8Array(base64url3) {
-  const base643 = base64url3.replace(/-/g, "+").replace(/_/g, "/");
+function base64urlToUint8Array(base64url4) {
+  const base643 = base64url4.replace(/-/g, "+").replace(/_/g, "/");
   const padding = "=".repeat((4 - base643.length % 4) % 4);
   return base64ToUint8Array(base643 + padding);
 }
@@ -35104,6 +35104,85 @@ var init_google_tasks_router = __esm({
   }
 });
 
+// api/email-core.ts
+function extractEmail(raw2) {
+  if (!raw2) return "";
+  const m = raw2.match(/<([^>]+)>/);
+  const addr = (m ? m[1] : raw2).trim().toLowerCase();
+  return /\S+@\S+\.\S+/.test(addr) ? addr.replace(/^.*?([^\s<,;]+@[^\s>,;]+).*$/, "$1") : "";
+}
+function splitAddresses(header2) {
+  if (!header2) return [];
+  return header2.split(/[,;]/).map((p) => extractEmail(p)).filter(Boolean);
+}
+function matchClientId(addresses, byAddr) {
+  for (const a of addresses) {
+    const id = byAddr.get(a.toLowerCase());
+    if (id) return id;
+  }
+  return null;
+}
+function base64url3(s) {
+  return Buffer.from(s, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function buildRawMessage(opts) {
+  const from = opts.fromName ? `${opts.fromName} <${opts.fromEmail}>` : opts.fromEmail;
+  const lines = [
+    `From: ${from}`,
+    `To: ${opts.to}`
+  ];
+  if (opts.cc) lines.push(`Cc: ${opts.cc}`);
+  lines.push(
+    `Subject: ${opts.subject}`,
+    "MIME-Version: 1.0",
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: 7bit",
+    "",
+    opts.html
+  );
+  return base64url3(lines.join("\r\n"));
+}
+var init_email_core = __esm({
+  "api/email-core.ts"() {
+  }
+});
+
+// api/google-token.ts
+async function getValidGoogleAccessToken(account) {
+  const notExpired = account.expiresAt && new Date(account.expiresAt) > new Date(Date.now() + 6e4);
+  if (account.accessToken && notExpired) return account.accessToken;
+  if (!account.refreshToken) {
+    if (account.accessToken) return account.accessToken;
+    throw new Error("Google account not authenticated (no token). Reconnect it in Integrations.");
+  }
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      refresh_token: account.refreshToken,
+      client_id: process.env.GOOGLE_CLIENT_ID || "",
+      client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+      grant_type: "refresh_token"
+    })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) {
+    throw new Error(`Google token refresh failed (${res.status}). Reconnect the account in Integrations.`);
+  }
+  await getDb().update(connectedAccounts).set({
+    accessToken: data.access_token,
+    expiresAt: data.expires_in ? new Date(Date.now() + data.expires_in * 1e3) : null
+  }).where(eq(connectedAccounts.id, account.id));
+  return data.access_token;
+}
+var init_google_token = __esm({
+  "api/google-token.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+  }
+});
+
 // api/google-sync-router.ts
 async function googleApiRequest(accessToken, endpoint, params) {
   const url2 = new URL(endpoint);
@@ -35125,6 +35204,8 @@ var init_google_sync_router = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+    init_email_core();
+    init_google_token();
     googleSyncRouter = createRouter({
       // Sync Gmail inbox for a connected account
       syncGmail: staffQuery.input(external_exports.object({
@@ -35141,9 +35222,14 @@ var init_google_sync_router = __esm({
         )).limit(1);
         if (!accounts[0]) throw new Error("Google account not found");
         const account = accounts[0];
-        if (!account.accessToken) throw new Error("Account not authenticated");
+        const token = await getValidGoogleAccessToken(account);
+        const cls = await db.select({ id: clients.id, email: clients.email }).from(clients);
+        const ces = await db.select().from(clientEmails);
+        const byAddr = /* @__PURE__ */ new Map();
+        for (const c of cls) if (c.email) byAddr.set(String(c.email).toLowerCase(), c.id);
+        for (const ce of ces) if (ce.email) byAddr.set(String(ce.email).toLowerCase(), ce.clientId);
         const listData = await googleApiRequest(
-          account.accessToken,
+          token,
           "https://gmail.googleapis.com/gmail/v1/users/me/messages",
           {
             maxResults: String(input.maxResults),
@@ -35152,19 +35238,28 @@ var init_google_sync_router = __esm({
         );
         const messages = listData.messages || [];
         const syncedEmails = [];
+        let skippedNonClient = 0;
         for (const msg of messages) {
           const msgData = await googleApiRequest(
-            account.accessToken,
+            token,
             `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`
           );
           const headers = msgData.payload?.headers || [];
           const getHeader = (name2) => headers.find((h) => h.name.toLowerCase() === name2.toLowerCase())?.value || "";
           const from = getHeader("From");
           const to = getHeader("To");
+          const cc = getHeader("Cc");
           const subject = getHeader("Subject");
           const date5 = getHeader("Date");
           const threadId = msgData.threadId;
-          const messageId = getHeader("Message-ID");
+          const matchedClientId = matchClientId(
+            [...splitAddresses(from), ...splitAddresses(to), ...splitAddresses(cc)],
+            byAddr
+          );
+          if (!matchedClientId) {
+            skippedNonClient++;
+            continue;
+          }
           let bodyPlain = "";
           const parts = msgData.payload?.parts || [msgData.payload];
           for (const part of parts) {
@@ -35178,6 +35273,7 @@ var init_google_sync_router = __esm({
           const [email3] = await db.insert(emails).values({
             userId: ctx.user.id,
             connectedAccountId: account.id,
+            clientId: matchedClientId,
             gmailMessageId: msg.id,
             threadId,
             fromAddress: from,
@@ -35199,6 +35295,7 @@ var init_google_sync_router = __esm({
         return {
           success: true,
           synced: syncedEmails.length,
+          skippedNonClient,
           totalInBatch: messages.length,
           account: account.accountLabel
         };
@@ -42467,6 +42564,30 @@ var init_integration_router = __esm({
 
 // api/email-router.ts
 import { randomUUID } from "crypto";
+async function providerSend(account, msg) {
+  if (account.provider === "google") {
+    const token = await getValidGoogleAccessToken(account);
+    const raw2 = buildRawMessage({
+      fromName: msg.fromName,
+      fromEmail: account.accountEmail || "",
+      to: msg.to,
+      cc: msg.cc,
+      subject: msg.subject,
+      html: msg.html
+    });
+    const body = { raw: raw2 };
+    if (msg.threadId) body.threadId = msg.threadId;
+    const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(`Gmail send failed (${res.status}): ${JSON.stringify(data).slice(0, 200)}`);
+    return { gmailMessageId: data.id, threadId: data.threadId };
+  }
+  throw new Error("Sending is wired for Google accounts right now. (Microsoft/Outlook send is coming next.)");
+}
 var emailRouter;
 var init_email_router = __esm({
   "api/email-router.ts"() {
@@ -42475,6 +42596,8 @@ var init_email_router = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+    init_email_core();
+    init_google_token();
     emailRouter = createRouter({
       // List emails (inbox or sent)
       list: authedQuery.input(external_exports.object({
@@ -42611,11 +42734,20 @@ var init_email_router = __esm({
         if (input.clientId) {
           await db.update(clients).set({ lastContactedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, input.clientId));
         }
-        const threadId = input.threadId || randomUUID();
+        const sent = await providerSend(account, {
+          to: input.to,
+          cc: input.cc,
+          subject: input.subject,
+          html: input.body,
+          fromName: ctx.user.name || account.accountEmail || void 0,
+          threadId: input.threadId
+        });
+        const threadId = sent.threadId || input.threadId || randomUUID();
         const [email3] = await db.insert(emails).values({
           userId: ctx.user.id,
           connectedAccountId: input.connectedAccountId,
           clientId: input.clientId || null,
+          gmailMessageId: sent.gmailMessageId || null,
           threadId,
           fromAddress: account.accountEmail,
           fromName: ctx.user.name || account.accountEmail,
@@ -42649,17 +42781,26 @@ var init_email_router = __esm({
           throw new Error("Connected account not found");
         }
         const account = acctRows[0];
-        const replyTo = original.fromAddress;
-        const subject = original.subject.startsWith("Re: ") ? original.subject : `Re: ${original.subject}`;
+        const replyToAddr = extractEmail(original.replyTo || original.fromAddress) || original.fromAddress;
+        const subject = (original.subject || "").startsWith("Re: ") ? original.subject : `Re: ${original.subject || ""}`;
+        const sent = await providerSend(account, {
+          to: replyToAddr,
+          cc: input.cc || original.ccAddresses,
+          subject,
+          html: input.body,
+          fromName: ctx.user.name || account.accountEmail || void 0,
+          threadId: original.threadId
+        });
         const [email3] = await db.insert(emails).values({
           userId: ctx.user.id,
           connectedAccountId: original.connectedAccountId,
           clientId: original.clientId,
-          threadId: original.threadId,
+          gmailMessageId: sent.gmailMessageId || null,
+          threadId: sent.threadId || original.threadId,
           fromAddress: account.accountEmail,
           fromName: ctx.user.name || account.accountEmail,
-          replyTo,
-          toAddresses: replyTo,
+          replyTo: replyToAddr,
+          toAddresses: replyToAddr,
           ccAddresses: input.cc || original.ccAddresses || null,
           subject,
           body: input.body,
@@ -61495,7 +61636,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.12";
+var BUILD_TAG = "2026-06-23.13";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
