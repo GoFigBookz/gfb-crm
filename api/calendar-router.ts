@@ -30,7 +30,7 @@ export const calendarRouter = createRouter({
         .from(calendarEvents)
         .where(and(...conditions))
         .orderBy(calendarEvents.startDate)
-        .limit(input?.limit ?? 50)
+        .limit(input?.limit ?? 1000)   // was 50 → truncated month/year views
         .offset(input?.offset ?? 0);
     }),
 

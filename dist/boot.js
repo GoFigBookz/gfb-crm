@@ -42424,7 +42424,7 @@ var init_task_router = __esm({
         if (input?.priority && input.priority !== "all") conditions.push(eq(tasks.priority, input.priority));
         if (input?.completed !== void 0) conditions.push(eq(tasks.completed, input.completed));
         const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
-        const results = await db.select().from(tasks).where(whereClause).orderBy(desc(tasks.dueDate)).limit(input?.limit ?? 50).offset(input?.offset ?? 0);
+        const results = await db.select().from(tasks).where(whereClause).orderBy(desc(tasks.dueDate)).limit(input?.limit ?? 500).offset(input?.offset ?? 0);
         return results;
       }),
       // Get upcoming tasks
@@ -43392,7 +43392,7 @@ var init_calendar_router = __esm({
         if (input?.endDate) conditions.push(lte(calendarEvents.endDate, input.endDate));
         if (input?.clientId) conditions.push(eq(calendarEvents.clientId, input.clientId));
         if (input?.connectedAccountId) conditions.push(eq(calendarEvents.connectedAccountId, input.connectedAccountId));
-        return db.select().from(calendarEvents).where(and(...conditions)).orderBy(calendarEvents.startDate).limit(input?.limit ?? 50).offset(input?.offset ?? 0);
+        return db.select().from(calendarEvents).where(and(...conditions)).orderBy(calendarEvents.startDate).limit(input?.limit ?? 1e3).offset(input?.offset ?? 0);
       }),
       // Get single event
       get: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {
@@ -64560,7 +64560,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.81";
+var BUILD_TAG = "2026-06-23.82";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

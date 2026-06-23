@@ -47,7 +47,7 @@ export const taskRouter = createRouter({
         .from(tasks)
         .where(whereClause)
         .orderBy(desc(tasks.dueDate))
-        .limit(input?.limit ?? 50)
+        .limit(input?.limit ?? 500)   // was 50 → only returned the 50 farthest-future tasks, hiding current/overdue ones
         .offset(input?.offset ?? 0);
 
       return results;
