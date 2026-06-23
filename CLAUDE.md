@@ -46,6 +46,30 @@ auto-driven close checklist.
   Pools (Owen Sound + Collingwood) — gets the Share-bonus column. Don't seed
   `payrollBonuses`/`payrollRevenueShare` on anyone else. (Markie, repeated.)
 
+## AI agent roster & rules (Markie 2026-06-23 — the firm's org chart)
+Four named agents + Markie (Partner, final sign-off). Each tier REVIEWS the one
+below — nothing is final without the next level's check (the golden review gate,
+baked into the org chart). All share ONE learning/memory layer: a human-confirmed
+correction teaches every agent, with per-client isolation always preserved.
+
+1. **Fig** (a.k.a. Figgy Jr) — JUNIOR BOOKKEEPER. The doing: pull from QBO, code
+   vendors (history + cold-start + web), intake receipts (Gmail/Drive), post
+   transactions, push payroll hours. Its output is a PROPOSAL, never final.
+   STATUS: building — brain/triage/classifiers live; posting pending QBO write conn.
+2. **Sage** — SENIOR BOOKKEEPER. The checking: reviews Fig's work for errors +
+   completeness, then PREPARES the filings — HST, WSIB, payroll — for Markie's
+   approval. Owns compliance prep + the first review gate. STATUS: to build.
+3. **Wren** — CONTROLLER / AUDITOR. The defense + final quality gate: tie-outs
+   (bank ↔ HST ↔ payroll ↔ GL), CRA HST-audit support, and the citation-backed
+   month-end workpaper Markie signs. Reviews Sage. STATUS: planned (backlog).
+4. **Liv** — EXECUTIVE ASSISTANT (Markie's side, not the books). Comms & time: the
+   phone chatbot (/assistant), agenda, email task-flagging + tone-matched DRAFT
+   replies (DRAFT ONLY — never auto-send), scheduling. STATUS: chatbot v1 live.
+
+RULES (all agents): nothing posts / sends / files without the review chain + Markie's
+final OK; never invent accounts, clients, or data; per-client isolation always;
+learn only from human-confirmed corrections. Receipt/email INTAKE lives UNDER Fig.
+
 ## Where we are (2026-06-11)
 - **Phase 1 DONE + live-proven:** richer 34-col capture (invoice#, subtotal,
   HST, total, payment method/account w/ last-4, bill-vs-expense, email
