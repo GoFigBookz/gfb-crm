@@ -48444,7 +48444,9 @@ var init_jobber_client = __esm({
 var touchbistro_client_exports = {};
 __export(touchbistro_client_exports, {
   TOUCHBISTRO_WORKBOOKS: () => TOUCHBISTRO_WORKBOOKS,
+  driveFolderId: () => driveFolderId,
   importTouchBistroHoursData: () => importTouchBistroHoursData,
+  readNewestTimesheetFromDrive: () => readNewestTimesheetFromDrive,
   workbookFor: () => workbookFor
 });
 function workbookFor(clientName) {
@@ -48491,6 +48493,46 @@ async function readWorkbookText(userId, sheetId) {
     if (out.length > 6e4) break;
   }
   return out.slice(0, 6e4);
+}
+function driveFolderId(urlOrId) {
+  if (!urlOrId) return null;
+  const s = String(urlOrId).trim();
+  const m = s.match(/folders\/([A-Za-z0-9_-]{10,})/) || s.match(/[?&]id=([A-Za-z0-9_-]{10,})/);
+  if (m) return m[1];
+  if (/^[A-Za-z0-9_-]{20,}$/.test(s)) return s;
+  return null;
+}
+async function readNewestTimesheetFromDrive(userId, folderUrlOrId) {
+  const folderId = driveFolderId(folderUrlOrId);
+  if (!folderId) throw new Error("That client has no Google Drive folder linked \u2014 add the folder URL on the client card.");
+  const acct = await googleAccount(userId);
+  if (!acct) throw new Error("Google isn't connected. Connect it in Integrations (with Drive access) so I can read the timesheet from Drive.");
+  const token = await getValidGoogleAccessToken(acct);
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+  const fields = encodeURIComponent("files(id,name,mimeType,modifiedTime)");
+  const listRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=50&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!listRes.ok) throw new Error(`Couldn't open the Drive folder (${listRes.status}). Reconnect Google in Integrations with Drive access.`);
+  const files2 = (await listRes.json()).files || [];
+  const importable = (f) => f.mimeType === "application/pdf" || f.mimeType === "text/csv" || f.mimeType === "text/plain" || (f.mimeType || "").startsWith("image/") || f.mimeType === "application/vnd.google-apps.spreadsheet" || f.mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  const candidates = files2.filter(importable);
+  if (!candidates.length) throw new Error("No timesheet files found in that Drive folder. Save the detailed timesheet (PDF or CSV) into the client's folder first.");
+  const named = candidates.filter((f) => /time\s*sheet|timesheet|time card|hours/i.test(f.name || ""));
+  const pick2 = named[0] || candidates[0];
+  if (pick2.mimeType === "application/vnd.google-apps.spreadsheet") {
+    const r3 = await fetch(`https://www.googleapis.com/drive/v3/files/${pick2.id}/export?mimeType=text/csv`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r3.ok) throw new Error(`Couldn't read "${pick2.name}" from Drive (${r3.status}).`);
+    const buf2 = Buffer.from(await r3.arrayBuffer());
+    return { data: buf2.toString("base64"), mediaType: "text/csv", name: pick2.name };
+  }
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${pick2.id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`Couldn't read "${pick2.name}" from Drive (${r.status}).`);
+  const buf = Buffer.from(await r.arrayBuffer());
+  let mediaType = pick2.mimeType || "application/octet-stream";
+  if (mediaType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") mediaType = "text/csv";
+  return { data: buf.toString("base64"), mediaType, name: pick2.name };
 }
 function extractJson(text2) {
   try {
@@ -48548,6 +48590,63 @@ var init_touchbistro_client = __esm({
       { match: "spot", sheetId: "1BXK_SxiogGbFSfz1jX1uekyUG9n02huEDXmbmNCX51I" }
       // The Auld Spot / Old Spot
     ];
+  }
+});
+
+// api/timesheet-file-parse.ts
+var timesheet_file_parse_exports = {};
+__export(timesheet_file_parse_exports, {
+  extractTimesheetFromFile: () => extractTimesheetFromFile
+});
+function fileBlock(data, mediaType) {
+  if (mediaType === "application/pdf") return { type: "document", source: { type: "base64", media_type: mediaType, data } };
+  if (mediaType.startsWith("image/")) return { type: "image", source: { type: "base64", media_type: mediaType, data } };
+  const text2 = Buffer.from(data, "base64").toString("utf8").slice(0, 8e4);
+  return { type: "text", text: `DETAILED TIMESHEET (${mediaType}):
+${text2}` };
+}
+function extractJson2(text2) {
+  try {
+    return JSON.parse(text2);
+  } catch {
+  }
+  const m = text2.match(/\{[\s\S]*\}/);
+  if (m) {
+    try {
+      return JSON.parse(m[0]);
+    } catch {
+    }
+  }
+  return null;
+}
+async function extractTimesheetFromFile(data, mediaType, periodStart, periodEnd) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY isn't set \u2014 needed to read the timesheet file.");
+  const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
+  const system = "You read a DETAILED restaurant timesheet (one row per shift) and total hours per employee. Return ONLY JSON, no prose.";
+  const prompt = `This is a detailed timesheet covering ${periodStart} to ${periodEnd}. For EACH employee return: their TOTAL worked hours for the period, and their LONGEST single shift in hours (to catch a missed clock-out). Return ONLY: {"employees":[{"name":"<as shown>","hours":<number>,"maxShiftHours":<number>}]}. Sum every shift per employee. Exclude owner/non-payroll rows, breaks, and subtotal/total rows.`;
+  const content = [fileBlock(data, mediaType), { type: "text", text: prompt }];
+  const res = await fetch(ANTHROPIC_URL2, {
+    method: "POST",
+    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model, max_tokens: 1500, system, messages: [{ role: "user", content }] })
+  });
+  if (!res.ok) {
+    const b = await res.text().catch(() => "");
+    throw new Error(`Couldn't read the timesheet file (${res.status}). ${b.slice(0, 120)}`);
+  }
+  const json2 = extractJson2(((await res.json()).content || []).filter((b) => b.type === "text").map((b) => b.text).join(""));
+  const emps = json2?.employees || [];
+  return emps.filter((e) => e && e.name).map((e) => ({
+    userName: String(e.name),
+    hours: Number(e.hours) || 0,
+    maxShiftHours: Number(e.maxShiftHours) || 0
+  }));
+}
+var ANTHROPIC_URL2;
+var init_timesheet_file_parse = __esm({
+  "api/timesheet-file-parse.ts"() {
+    ANTHROPIC_URL2 = "https://api.anthropic.com/v1/messages";
   }
 });
 
@@ -48925,6 +49024,63 @@ var init_payroll_router = __esm({
         }
         const r = await applyImportedHours(db, input.runId, run2.clientId, hours);
         return { ok: true, ...r };
+      }),
+      // Import hours from an UPLOADED detailed timesheet file (TouchBistro export:
+      // PDF / image / CSV). No Google needed — the file is sent straight to the run.
+      // Uses the DETAILED report so we get each person's longest single shift and can
+      // flag a likely missed clock-out (>10h). Same matcher/flagging as the other
+      // imports. `data` is base64 (no data: prefix).
+      importTimesheetFile: staffQuery.input(external_exports.object({
+        runId: external_exports.number(),
+        data: external_exports.string().min(1),
+        mediaType: external_exports.string().min(3),
+        fileName: external_exports.string().optional()
+      })).mutation(async ({ input }) => {
+        const db = getDb();
+        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run2) throw new Error("Pay run not found");
+        const start = new Date(run2.payPeriodStart).toISOString().slice(0, 10);
+        const end = new Date(run2.payPeriodEnd).toISOString().slice(0, 10);
+        let hours;
+        try {
+          const { extractTimesheetFromFile: extractTimesheetFromFile2 } = await Promise.resolve().then(() => (init_timesheet_file_parse(), timesheet_file_parse_exports));
+          hours = await extractTimesheetFromFile2(input.data, input.mediaType, start, end);
+        } catch (e) {
+          return { ok: false, error: e instanceof Error ? e.message : String(e), matched: 0, unmatched: [], totalUsers: 0 };
+        }
+        if (!hours.length) {
+          return { ok: false, error: "Couldn't find any employee hours in that file. Make sure it's the DETAILED timesheet (one row per shift), not a summary screenshot.", matched: 0, unmatched: [], totalUsers: 0 };
+        }
+        const r = await applyImportedHours(db, input.runId, run2.clientId, hours);
+        return { ok: true, ...r };
+      }),
+      // Import the newest detailed timesheet Markie dropped in the client's Google
+      // Drive folder (his preferred "save it, I'll import it" flow). Reuses the
+      // detailed-file parser so it keeps the >10h missed-clock-out flag. Needs Google
+      // connected in Integrations (with Drive access).
+      importTimesheetFromDrive: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run2) throw new Error("Pay run not found");
+        const client = (await db.select().from(clients).where(eq(clients.id, run2.clientId)).limit(1))[0];
+        const start = new Date(run2.payPeriodStart).toISOString().slice(0, 10);
+        const end = new Date(run2.payPeriodEnd).toISOString().slice(0, 10);
+        let hours;
+        let fileName = "";
+        try {
+          const { readNewestTimesheetFromDrive: readNewestTimesheetFromDrive2 } = await Promise.resolve().then(() => (init_touchbistro_client(), touchbistro_client_exports));
+          const { extractTimesheetFromFile: extractTimesheetFromFile2 } = await Promise.resolve().then(() => (init_timesheet_file_parse(), timesheet_file_parse_exports));
+          const file2 = await readNewestTimesheetFromDrive2(ctx.user.id, client?.driveFolderUrl || "");
+          fileName = file2.name;
+          hours = await extractTimesheetFromFile2(file2.data, file2.mediaType, start, end);
+        } catch (e) {
+          return { ok: false, error: e instanceof Error ? e.message : String(e), matched: 0, unmatched: [], totalUsers: 0 };
+        }
+        if (!hours.length) {
+          return { ok: false, error: `Read "${fileName}" from Drive but couldn't find employee hours in it. Make sure it's the DETAILED timesheet (one row per shift).`, matched: 0, unmatched: [], totalUsers: 0 };
+        }
+        const r = await applyImportedHours(db, input.runId, run2.clientId, hours);
+        return { ok: true, fileName, ...r };
       }),
       // One run with its lines + employee names (the clean sheet).
       getRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).query(async ({ input }) => {
@@ -54155,7 +54311,7 @@ var init_calculator_router = __esm({
 });
 
 // api/bank-converter-router.ts
-function extractJson2(text2) {
+function extractJson3(text2) {
   if (!text2) return null;
   const fenced = text2.replace(/```json\s*|\s*```/gi, "");
   const start = fenced.indexOf("{");
@@ -54225,7 +54381,7 @@ var init_bank_converter_router = __esm({
           }
           const data = await res.json();
           const text2 = (data?.content ?? []).filter((b) => b?.type === "text").map((b) => String(b.text ?? "")).join("\n");
-          const parsed = extractJson2(text2);
+          const parsed = extractJson3(text2);
           if (!parsed || !Array.isArray(parsed.transactions)) {
             return { ok: false, error: "Couldn't read transactions from that PDF. Try a clearer copy, or export CSV from online banking." };
           }
@@ -54252,7 +54408,7 @@ var init_bank_converter_router = __esm({
 });
 
 // api/pdf-splitter-router.ts
-function extractJson3(text2) {
+function extractJson4(text2) {
   if (!text2) return null;
   const fenced = text2.replace(/```json\s*|\s*```/gi, "");
   const start = fenced.indexOf("{");
@@ -54327,7 +54483,7 @@ var init_pdf_splitter_router = __esm({
           }
           const data = await res.json();
           const text2 = (data?.content ?? []).filter((b) => b?.type === "text").map((b) => String(b.text ?? "")).join("\n");
-          const parsed = extractJson3(text2);
+          const parsed = extractJson4(text2);
           if (!parsed || !Array.isArray(parsed.documents)) {
             return { ok: false, error: "Couldn't detect document boundaries. Try a clearer scan." };
           }
@@ -55451,7 +55607,7 @@ async function runTool(name2, input, userId, activeAgent) {
     return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
   }
 }
-var ACTION_TOOLS, TZ, ANTHROPIC_URL2, assistantRouter;
+var ACTION_TOOLS, TZ, ANTHROPIC_URL3, assistantRouter;
 var init_assistant_router = __esm({
   "api/assistant-router.ts"() {
     init_zod();
@@ -55467,7 +55623,7 @@ var init_assistant_router = __esm({
     init_assistant_core();
     ACTION_TOOLS = /* @__PURE__ */ new Set(["add_task", "add_personal", "schedule_event", "complete_task", "draft_email", "remember"]);
     TZ = "America/Toronto";
-    ANTHROPIC_URL2 = "https://api.anthropic.com/v1/messages";
+    ANTHROPIC_URL3 = "https://api.anthropic.com/v1/messages";
     assistantRouter = createRouter({
       ask: authedQuery.input(external_exports.object({
         message: external_exports.string().min(1).max(2e3),
@@ -55538,7 +55694,7 @@ var init_assistant_router = __esm({
           let res;
           let b = "";
           for (let attempt = 0; attempt < 3; attempt++) {
-            res = await fetch(ANTHROPIC_URL2, {
+            res = await fetch(ANTHROPIC_URL3, {
               method: "POST",
               headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
               body: JSON.stringify(body)

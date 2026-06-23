@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download, Pencil, Users, DollarSign, SlidersHorizontal } from "lucide-react";
+import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download, Upload, Pencil, Users, DollarSign, SlidersHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -412,6 +412,40 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
     },
     onError: (e) => alert(e.message),
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const importFile = trpc.payroll.importTimesheetFile.useMutation({
+    onSuccess: (r: any) => {
+      invalidate();
+      if (!r.ok) { alert("Timesheet import failed:\n" + r.error); return; }
+      const extra = r.unmatched?.length ? `\n\nNot matched to an employee (check names):\n${r.unmatched.map((u: any) => `• ${u.name} — ${u.hours}h`).join("\n")}` : "";
+      const flags = r.flagged?.length ? `\n\n⚠ Check these — long single shift (possible missed clock-out):\n${r.flagged.map((f: any) => `• ${f.name} — ${f.maxShiftHours}h shift`).join("\n")}` : "";
+      alert(`Imported hours for ${r.matched} of ${r.totalUsers} from the timesheet.${flags}${extra}\n\nReview the timesheet before approving.`);
+    },
+    onError: (e) => alert(e.message),
+  });
+  const importFromDrive = trpc.payroll.importTimesheetFromDrive.useMutation({
+    onSuccess: (r: any) => {
+      invalidate();
+      if (!r.ok) { alert("Drive import failed:\n" + r.error); return; }
+      const extra = r.unmatched?.length ? `\n\nNot matched to an employee (check names):\n${r.unmatched.map((u: any) => `• ${u.name} — ${u.hours}h`).join("\n")}` : "";
+      const flags = r.flagged?.length ? `\n\n⚠ Check these — long single shift (possible missed clock-out):\n${r.flagged.map((f: any) => `• ${f.name} — ${f.maxShiftHours}h shift`).join("\n")}` : "";
+      alert(`Imported "${r.fileName}" from Drive — ${r.matched} of ${r.totalUsers} matched.${flags}${extra}\n\nReview the timesheet before approving.`);
+    },
+    onError: (e) => alert(e.message),
+  });
+  const onTimesheetFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    if (file.size > 12 * 1024 * 1024) { alert("That file is over 12 MB — please export a smaller PDF/CSV."); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const res = String(reader.result || "");
+      const data = res.includes(",") ? res.split(",")[1] : res; // strip data: prefix
+      importFile.mutate({ runId, data, mediaType: file.type || "application/octet-stream", fileName: file.name });
+    };
+    reader.readAsDataURL(file);
+  };
 
   if (!data) return <div className="text-sm text-slate-400 p-3">Loading…</div>;
   const { run, lines } = data;
@@ -438,9 +472,21 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
           </div>
           <div className="flex items-center gap-2">
             {features?.kind === "touchbistro" && (
-              <Button size="sm" variant="outline" className="h-8 border-rose-300 text-rose-700" onClick={() => importTb.mutate({ runId })} disabled={importTb.isPending}>
-                <Download className="h-3.5 w-3.5 mr-1" /> {importTb.isPending ? "Reading sheet…" : "Import TouchBistro hours"}
-              </Button>
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.csv,.txt,image/*,application/pdf"
+                  className="hidden"
+                  onChange={onTimesheetFile}
+                />
+                <Button size="sm" variant="outline" className="h-8 border-rose-300 text-rose-700" onClick={() => importFromDrive.mutate({ runId })} disabled={importFromDrive.isPending} title="Import the newest timesheet you saved in this client's Google Drive folder (needs Google connected)">
+                  <Download className="h-3.5 w-3.5 mr-1" /> {importFromDrive.isPending ? "Reading from Drive…" : "Import from Drive"}
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 text-rose-600" onClick={() => fileInputRef.current?.click()} disabled={importFile.isPending} title="Or upload the detailed timesheet file straight from this device">
+                  <Upload className="h-3.5 w-3.5 mr-1" /> {importFile.isPending ? "Reading timesheet…" : "Upload file"}
+                </Button>
+              </>
             )}
             {features?.kind === "jobber" && jobber?.connected && (
               <Button size="sm" variant="outline" className="h-8 border-amber-300 text-amber-700" onClick={() => importJobber.mutate({ runId })} disabled={importJobber.isPending}>

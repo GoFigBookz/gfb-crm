@@ -68,6 +68,66 @@ async function readWorkbookText(userId: number, sheetId: string): Promise<string
   return out.slice(0, 60000);
 }
 
+/** Pull a Drive folder ID out of a folder URL (or accept a bare ID). */
+export function driveFolderId(urlOrId: string | null | undefined): string | null {
+  if (!urlOrId) return null;
+  const s = String(urlOrId).trim();
+  const m = s.match(/folders\/([A-Za-z0-9_-]{10,})/) || s.match(/[?&]id=([A-Za-z0-9_-]{10,})/);
+  if (m) return m[1];
+  if (/^[A-Za-z0-9_-]{20,}$/.test(s)) return s; // already an ID
+  return null;
+}
+
+/**
+ * Read the NEWEST timesheet file Markie dropped in a client's Drive folder and
+ * return it as base64 + media type (so it runs through the SAME detailed parser
+ * as an uploaded file → keeps the >10h missed-clock-out flag). This is the
+ * "save the report to the folder, I import it" flow Markie likes. Read-only.
+ * Prefers files whose name mentions "time"; falls back to the newest pdf/csv/sheet.
+ */
+export async function readNewestTimesheetFromDrive(
+  userId: number, folderUrlOrId: string,
+): Promise<{ data: string; mediaType: string; name: string }> {
+  const folderId = driveFolderId(folderUrlOrId);
+  if (!folderId) throw new Error("That client has no Google Drive folder linked — add the folder URL on the client card.");
+  const acct = await googleAccount(userId);
+  if (!acct) throw new Error("Google isn't connected. Connect it in Integrations (with Drive access) so I can read the timesheet from Drive.");
+  const token = await getValidGoogleAccessToken(acct);
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+  const fields = encodeURIComponent("files(id,name,mimeType,modifiedTime)");
+  const listRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=50&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!listRes.ok) throw new Error(`Couldn't open the Drive folder (${listRes.status}). Reconnect Google in Integrations with Drive access.`);
+  const files = (((await listRes.json()) as any).files || []) as any[];
+  const importable = (f: any) =>
+    f.mimeType === "application/pdf" ||
+    f.mimeType === "text/csv" || f.mimeType === "text/plain" ||
+    (f.mimeType || "").startsWith("image/") ||
+    f.mimeType === "application/vnd.google-apps.spreadsheet" ||
+    f.mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  const candidates = files.filter(importable);
+  if (!candidates.length) throw new Error("No timesheet files found in that Drive folder. Save the detailed timesheet (PDF or CSV) into the client's folder first.");
+  // Prefer the newest file whose name mentions a timesheet; else the newest importable file.
+  const named = candidates.filter((f) => /time\s*sheet|timesheet|time card|hours/i.test(f.name || ""));
+  const pick = (named[0] || candidates[0]);
+
+  // Google-native sheets must be exported; everything else is downloaded as-is.
+  if (pick.mimeType === "application/vnd.google-apps.spreadsheet") {
+    const r = await fetch(`https://www.googleapis.com/drive/v3/files/${pick.id}/export?mimeType=text/csv`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) throw new Error(`Couldn't read "${pick.name}" from Drive (${r.status}).`);
+    const buf = Buffer.from(await r.arrayBuffer());
+    return { data: buf.toString("base64"), mediaType: "text/csv", name: pick.name };
+  }
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${pick.id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`Couldn't read "${pick.name}" from Drive (${r.status}).`);
+  const buf = Buffer.from(await r.arrayBuffer());
+  let mediaType = pick.mimeType || "application/octet-stream";
+  if (mediaType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") mediaType = "text/csv"; // best-effort; parser decodes text
+  return { data: buf.toString("base64"), mediaType, name: pick.name };
+}
+
 function extractJson(text: string): any {
   try { return JSON.parse(text); } catch { /* fall through */ }
   const m = text.match(/\{[\s\S]*\}/);
