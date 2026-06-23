@@ -93,6 +93,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     { to: "/settings", icon: Settings, label: "Settings" },
     { to: "/integrations", icon: Globe, label: "Integrations" },
     { to: "/users", icon: Building2, label: "Users & Firms" },
+    { to: "/system-health", icon: Gauge, label: "System Health" },
   ];
 
   const NavItem = ({ to, icon: Icon, label, end = false }: { to: string; icon: any; label: string; end?: boolean }) => (

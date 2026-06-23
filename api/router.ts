@@ -53,6 +53,7 @@ import { calculatorRouter } from "./calculator-router";
 import { bankConverterRouter } from "./bank-converter-router";
 import { pdfSplitterRouter } from "./pdf-splitter-router";
 import { assistantRouter } from "./assistant-router";
+import { qaRouter } from "./qa-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
 
@@ -115,6 +116,7 @@ export const appRouter = createRouter({
   bankConverter: bankConverterRouter,
   pdfSplitter: pdfSplitterRouter,
   assistant: assistantRouter,
+  gage: qaRouter,
 });
 
 export type AppRouter = typeof appRouter;
