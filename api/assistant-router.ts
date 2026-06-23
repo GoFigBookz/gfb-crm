@@ -155,6 +155,19 @@ async function execFirmStatus(userId: number): Promise<string> {
   return `Firm snapshot: ${parts.join("; ")}.`;
 }
 
+async function execAgentScorecard(): Promise<string> {
+  const { runAgentScorecard } = await import("./qa-router");
+  const sc = await runAgentScorecard();
+  if (!sc.agents.length) return "No agent work has been reviewed yet — scores show up once agents post proposals and you approve/dismiss them.";
+  const lines = sc.agents.map((a) => {
+    const rate = a.acceptanceRate != null ? `${a.acceptanceRate}%` : "—";
+    const trend = a.trend === "up" ? " ↑" : a.trend === "down" ? " ↓" : "";
+    return `${a.agent}: ${rate} accepted (${a.reviewed} reviewed)${trend} — ${a.grade === "n/a" ? "needs data" : a.grade}`;
+  });
+  const overall = sc.overall.acceptanceRate != null ? `Overall ${sc.overall.acceptanceRate}% accepted across ${sc.overall.reviewed} reviewed.` : "";
+  return `${overall}\n${lines.join("\n")}`.trim();
+}
+
 async function execSystemHealth(): Promise<string> {
   const { runHealthReport } = await import("./qa-router");
   const r = await runHealthReport();
@@ -176,6 +189,7 @@ async function runTool(name: string, input: any, userId: number): Promise<string
     if (name === "complete_task") return await execCompleteTask(input, userId);
     if (name === "draft_email") return await execDraftEmail(input, userId);
     if (name === "system_health") return await execSystemHealth();
+    if (name === "agent_scorecard") return await execAgentScorecard();
     if (name === "firm_status") return await execFirmStatus(userId);
     return `Unknown tool: ${name}`;
   } catch (e) {

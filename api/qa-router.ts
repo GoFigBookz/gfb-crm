@@ -13,6 +13,8 @@ import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { sql } from "drizzle-orm";
 import { evaluateQa, type QaFacts } from "./qa-core";
+import { triageFindings } from "../db/schema";
+import { scoreAgents } from "./scorecard-core";
 
 const TABLES = [
   "clients", "users", "tasks", "emails", "employees",
@@ -109,10 +111,30 @@ export async function runHealthReport() {
   return evaluateQa(await gatherFacts());
 }
 
+/** Agent scorecard — how often each agent's proposals get accepted (reusable). */
+export async function runAgentScorecard() {
+  const db = getDb();
+  let rows: any[] = [];
+  try {
+    rows = (await db.select({
+      agentName: triageFindings.agentName,
+      status: triageFindings.status,
+      confidence: triageFindings.confidence,
+      createdAt: triageFindings.createdAt,
+    }).from(triageFindings)) as any[];
+  } catch { /* table may be empty/absent — score nothing */ }
+  return scoreAgents(rows);
+}
+
 export const qaRouter = createRouter({
   /** Jinx's full health report. Any signed-in staff member can run it. */
   runChecks: authedQuery.query(async () => {
     return runHealthReport();
+  }),
+
+  /** Jinx's agent scorecard — measurable quality per agent. */
+  scorecard: authedQuery.query(async () => {
+    return runAgentScorecard();
   }),
 
   /** Lightweight liveness — used by uptime pings / the status dot. */

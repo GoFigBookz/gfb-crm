@@ -199,6 +199,11 @@ export const ASSISTANT_TOOLS = [
     input_schema: { type: "object", properties: {} },
   },
   {
+    name: "agent_scorecard",
+    description: "Jinx's agent scorecard: how often each agent's proposals are accepted vs rejected (accuracy), plus drift trend. Use when Markie asks how the agents/team are doing, who's accurate, or if they're improving.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "add_personal",
     description: "Add a PERSONAL item (task, reminder, or note) to Markie's private personal space — NOT client work. Use this for anything about his own life (errands, appointments, family, reminders). This is Liv's domain.",
     input_schema: {
