@@ -104,11 +104,15 @@ async function gatherFacts(): Promise<QaFacts> {
   return { dbReachable, dbError, tableCounts, env, qbo, connectorCount, recentSyncErrors };
 }
 
+/** Run the full health report (reusable — also called by Gage in the chatbot). */
+export async function runHealthReport() {
+  return evaluateQa(await gatherFacts());
+}
+
 export const qaRouter = createRouter({
   /** Gage's full health report. Any signed-in staff member can run it. */
   runChecks: authedQuery.query(async () => {
-    const facts = await gatherFacts();
-    return evaluateQa(facts);
+    return runHealthReport();
   }),
 
   /** Lightweight liveness — used by uptime pings / the status dot. */

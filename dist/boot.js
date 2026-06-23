@@ -54113,6 +54113,11 @@ var init_assistant_core = __esm({
         }
       },
       {
+        name: "system_health",
+        description: "Run a live system health check (Gage's job): database, key data, integrations, configuration, recent errors. Use when Markie asks if everything is working / if anything is broken / what's down.",
+        input_schema: { type: "object", properties: {} }
+      },
+      {
         name: "add_personal",
         description: "Add a PERSONAL item (task, reminder, or note) to Markie's private personal space \u2014 NOT client work. Use this for anything about his own life (errands, appointments, family, reminders). This is Liv's domain.",
         input_schema: {
@@ -54126,138 +54131,6 @@ var init_assistant_core = __esm({
         }
       }
     ];
-  }
-});
-
-// api/assistant-router.ts
-async function execAddTask(text2, userId) {
-  const db = getDb();
-  const cls = await db.select({ id: clients.id, name: clients.name }).from(clients);
-  const parsed = parseTaskCommand(text2, cls);
-  await db.insert(tasks).values({
-    userId,
-    clientId: parsed.clientId,
-    title: parsed.title,
-    dueDate: parsed.dueDate,
-    priority: parsed.priority,
-    status: "pending",
-    completed: false
-  });
-  const who = parsed.clientName ? ` for ${parsed.clientName}` : "";
-  const when = parsed.dueDate ? ` (due ${parsed.dueDate.toLocaleDateString(void 0, { month: "short", day: "numeric" })})` : "";
-  return `Added task: "${parsed.title}"${who}${when}.`;
-}
-async function execGetAgenda(userId) {
-  const db = getDb();
-  const cls = await db.select({ id: clients.id, name: clients.name }).from(clients);
-  const nameById = new Map(cls.map((c) => [c.id, c.name]));
-  const now = /* @__PURE__ */ new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const todayEnd = new Date(todayStart.getTime() + 864e5);
-  const open = await db.select().from(tasks).where(eq(tasks.completed, false));
-  const dstr = (d) => {
-    try {
-      return new Date(d).toLocaleDateString(void 0, { month: "short", day: "numeric" });
-    } catch {
-      return "";
-    }
-  };
-  const overdue = [], today2 = [], upcoming = [];
-  for (const t2 of open) {
-    if (!t2.dueDate) continue;
-    const d = new Date(t2.dueDate);
-    const item = { title: t2.title, client: t2.clientId ? nameById.get(t2.clientId) : null, due: dstr(d) };
-    if (d < todayStart) overdue.push(item);
-    else if (d < todayEnd) today2.push({ ...item, due: null });
-    else upcoming.push(item);
-  }
-  overdue.sort((a, b) => a.due.localeCompare(b.due));
-  upcoming.sort((a, b) => new Date(a.due).getTime() - new Date(b.due).getTime());
-  const evs = await db.select().from(calendarEvents).where(eq(calendarEvents.userId, userId));
-  const events = evs.filter((e) => {
-    const s = new Date(e.startDate);
-    return s >= todayStart && s < todayEnd;
-  }).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()).map((e) => ({ title: e.title, when: e.isAllDay ? "all day" : new Date(e.startDate).toLocaleTimeString(void 0, { hour: "numeric", minute: "2-digit" }) }));
-  return formatAgenda({ overdue, today: today2, upcoming, events });
-}
-async function execAddPersonal(input, userId) {
-  const db = getDb();
-  const title = String(input?.title ?? "").trim();
-  if (!title) return "I need a bit more detail to add that.";
-  const kind = ["task", "reminder", "note"].includes(input?.kind) ? input.kind : "task";
-  let dueDate = null;
-  if (input?.due && /^\d{4}-\d{2}-\d{2}$/.test(input.due)) dueDate = /* @__PURE__ */ new Date(input.due + "T12:00:00");
-  await db.insert(personalItems).values({ userId, kind, title, dueDate, priority: "medium", done: false });
-  const when = dueDate ? ` (due ${dueDate.toLocaleDateString(void 0, { month: "short", day: "numeric" })})` : "";
-  return `Added to your personal space: "${title}"${when}.`;
-}
-async function runTool(name2, input, userId) {
-  try {
-    if (name2 === "add_task") return await execAddTask(String(input?.text ?? ""), userId);
-    if (name2 === "get_agenda") return await execGetAgenda(userId);
-    if (name2 === "add_personal") return await execAddPersonal(input, userId);
-    return `Unknown tool: ${name2}`;
-  } catch (e) {
-    return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
-  }
-}
-var ANTHROPIC_URL, assistantRouter;
-var init_assistant_router = __esm({
-  "api/assistant-router.ts"() {
-    init_zod();
-    init_middleware();
-    init_connection();
-    init_schema();
-    init_drizzle_orm();
-    init_task_command_core();
-    init_assistant_core();
-    ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-    assistantRouter = createRouter({
-      ask: authedQuery.input(external_exports.object({
-        message: external_exports.string().min(1).max(2e3),
-        history: external_exports.array(external_exports.object({ role: external_exports.enum(["user", "assistant"]), content: external_exports.string() })).max(20).optional(),
-        agent: external_exports.enum(["fig", "sage", "wren", "liv", "gage"]).optional()
-      })).mutation(async ({ ctx, input }) => {
-        const apiKey = process.env.ANTHROPIC_API_KEY;
-        const agent = detectAgent(input.message, input.agent ?? null);
-        if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [], agent };
-        const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
-        const system = frontDeskSystem(agent);
-        const messages = [
-          ...(input.history || []).map((h) => ({ role: h.role, content: h.content })),
-          { role: "user", content: input.message }
-        ];
-        const actions = [];
-        for (let i = 0; i < 6; i++) {
-          const res = await fetch(ANTHROPIC_URL, {
-            method: "POST",
-            headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify({ model, max_tokens: 1024, system, tools: ASSISTANT_TOOLS, messages })
-          });
-          if (!res.ok) {
-            const b = await res.text().catch(() => "");
-            return { reply: `Assistant error (${res.status}). ${b.slice(0, 160)}`, actions, agent };
-          }
-          const data = await res.json();
-          if (data.stop_reason === "tool_use") {
-            messages.push({ role: "assistant", content: data.content });
-            const results = [];
-            for (const block of data.content || []) {
-              if (block.type === "tool_use") {
-                const out = await runTool(block.name, block.input, ctx.user.id);
-                if (block.name === "add_task" || block.name === "add_personal") actions.push(out);
-                results.push({ type: "tool_result", tool_use_id: block.id, content: out });
-              }
-            }
-            messages.push({ role: "user", content: results });
-            continue;
-          }
-          const reply = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
-          return { reply: reply || "(no reply)", actions, agent };
-        }
-        return { reply: "Sorry \u2014 I got stuck in a loop. Try rephrasing.", actions, agent };
-      })
-    });
   }
 });
 
@@ -54396,6 +54269,11 @@ var init_qa_core = __esm({
 });
 
 // api/qa-router.ts
+var qa_router_exports = {};
+__export(qa_router_exports, {
+  qaRouter: () => qaRouter,
+  runHealthReport: () => runHealthReport
+});
 async function countTable(db, table) {
   try {
     const res = await db.run(sql.raw(`SELECT COUNT(*) AS n FROM "${table}"`));
@@ -54458,6 +54336,9 @@ async function gatherFacts() {
   }
   return { dbReachable, dbError, tableCounts, env: env2, qbo, connectorCount, recentSyncErrors };
 }
+async function runHealthReport() {
+  return evaluateQa(await gatherFacts());
+}
 var TABLES, TRACKED_ENV, qaRouter;
 var init_qa_router = __esm({
   "api/qa-router.ts"() {
@@ -54488,8 +54369,7 @@ var init_qa_router = __esm({
     qaRouter = createRouter({
       /** Gage's full health report. Any signed-in staff member can run it. */
       runChecks: authedQuery.query(async () => {
-        const facts = await gatherFacts();
-        return evaluateQa(facts);
+        return runHealthReport();
       }),
       /** Lightweight liveness — used by uptime pings / the status dot. */
       ping: authedQuery.input(external_exports.object({}).optional()).query(async () => {
@@ -54500,6 +54380,149 @@ var init_qa_router = __esm({
         } catch (e) {
           return { ok: false, ts: (/* @__PURE__ */ new Date()).toISOString(), error: e instanceof Error ? e.message : String(e) };
         }
+      })
+    });
+  }
+});
+
+// api/assistant-router.ts
+async function execAddTask(text2, userId) {
+  const db = getDb();
+  const cls = await db.select({ id: clients.id, name: clients.name }).from(clients);
+  const parsed = parseTaskCommand(text2, cls);
+  await db.insert(tasks).values({
+    userId,
+    clientId: parsed.clientId,
+    title: parsed.title,
+    dueDate: parsed.dueDate,
+    priority: parsed.priority,
+    status: "pending",
+    completed: false
+  });
+  const who = parsed.clientName ? ` for ${parsed.clientName}` : "";
+  const when = parsed.dueDate ? ` (due ${parsed.dueDate.toLocaleDateString(void 0, { month: "short", day: "numeric" })})` : "";
+  return `Added task: "${parsed.title}"${who}${when}.`;
+}
+async function execGetAgenda(userId) {
+  const db = getDb();
+  const cls = await db.select({ id: clients.id, name: clients.name }).from(clients);
+  const nameById = new Map(cls.map((c) => [c.id, c.name]));
+  const now = /* @__PURE__ */ new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(todayStart.getTime() + 864e5);
+  const open = await db.select().from(tasks).where(eq(tasks.completed, false));
+  const dstr = (d) => {
+    try {
+      return new Date(d).toLocaleDateString(void 0, { month: "short", day: "numeric" });
+    } catch {
+      return "";
+    }
+  };
+  const overdue = [], today2 = [], upcoming = [];
+  for (const t2 of open) {
+    if (!t2.dueDate) continue;
+    const d = new Date(t2.dueDate);
+    const item = { title: t2.title, client: t2.clientId ? nameById.get(t2.clientId) : null, due: dstr(d) };
+    if (d < todayStart) overdue.push(item);
+    else if (d < todayEnd) today2.push({ ...item, due: null });
+    else upcoming.push(item);
+  }
+  overdue.sort((a, b) => a.due.localeCompare(b.due));
+  upcoming.sort((a, b) => new Date(a.due).getTime() - new Date(b.due).getTime());
+  const evs = await db.select().from(calendarEvents).where(eq(calendarEvents.userId, userId));
+  const events = evs.filter((e) => {
+    const s = new Date(e.startDate);
+    return s >= todayStart && s < todayEnd;
+  }).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()).map((e) => ({ title: e.title, when: e.isAllDay ? "all day" : new Date(e.startDate).toLocaleTimeString(void 0, { hour: "numeric", minute: "2-digit" }) }));
+  return formatAgenda({ overdue, today: today2, upcoming, events });
+}
+async function execAddPersonal(input, userId) {
+  const db = getDb();
+  const title = String(input?.title ?? "").trim();
+  if (!title) return "I need a bit more detail to add that.";
+  const kind = ["task", "reminder", "note"].includes(input?.kind) ? input.kind : "task";
+  let dueDate = null;
+  if (input?.due && /^\d{4}-\d{2}-\d{2}$/.test(input.due)) dueDate = /* @__PURE__ */ new Date(input.due + "T12:00:00");
+  await db.insert(personalItems).values({ userId, kind, title, dueDate, priority: "medium", done: false });
+  const when = dueDate ? ` (due ${dueDate.toLocaleDateString(void 0, { month: "short", day: "numeric" })})` : "";
+  return `Added to your personal space: "${title}"${when}.`;
+}
+async function execSystemHealth() {
+  const { runHealthReport: runHealthReport2 } = await Promise.resolve().then(() => (init_qa_router(), qa_router_exports));
+  const r = await runHealthReport2();
+  const problems = r.checks.filter((c) => c.status !== "ok");
+  const head = r.status === "ok" ? `All good \u2014 ${r.counts.ok} checks green.` : `${r.counts.fail} problem(s), ${r.counts.warn} need attention (${r.counts.ok} OK).`;
+  if (!problems.length) return head;
+  const lines = problems.slice(0, 8).map((c) => `${c.status === "fail" ? "\u{1F534}" : "\u{1F7E1}"} ${c.label}: ${c.detail}`);
+  return `${head}
+${lines.join("\n")}`;
+}
+async function runTool(name2, input, userId) {
+  try {
+    if (name2 === "add_task") return await execAddTask(String(input?.text ?? ""), userId);
+    if (name2 === "get_agenda") return await execGetAgenda(userId);
+    if (name2 === "add_personal") return await execAddPersonal(input, userId);
+    if (name2 === "system_health") return await execSystemHealth();
+    return `Unknown tool: ${name2}`;
+  } catch (e) {
+    return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
+var ANTHROPIC_URL, assistantRouter;
+var init_assistant_router = __esm({
+  "api/assistant-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_task_command_core();
+    init_assistant_core();
+    ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+    assistantRouter = createRouter({
+      ask: authedQuery.input(external_exports.object({
+        message: external_exports.string().min(1).max(2e3),
+        history: external_exports.array(external_exports.object({ role: external_exports.enum(["user", "assistant"]), content: external_exports.string() })).max(20).optional(),
+        agent: external_exports.enum(["fig", "sage", "wren", "liv", "gage"]).optional()
+      })).mutation(async ({ ctx, input }) => {
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        const agent = detectAgent(input.message, input.agent ?? null);
+        if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [], agent };
+        const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
+        const system = frontDeskSystem(agent);
+        const messages = [
+          ...(input.history || []).map((h) => ({ role: h.role, content: h.content })),
+          { role: "user", content: input.message }
+        ];
+        const actions = [];
+        for (let i = 0; i < 6; i++) {
+          const res = await fetch(ANTHROPIC_URL, {
+            method: "POST",
+            headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({ model, max_tokens: 1024, system, tools: ASSISTANT_TOOLS, messages })
+          });
+          if (!res.ok) {
+            const b = await res.text().catch(() => "");
+            return { reply: `Assistant error (${res.status}). ${b.slice(0, 160)}`, actions, agent };
+          }
+          const data = await res.json();
+          if (data.stop_reason === "tool_use") {
+            messages.push({ role: "assistant", content: data.content });
+            const results = [];
+            for (const block of data.content || []) {
+              if (block.type === "tool_use") {
+                const out = await runTool(block.name, block.input, ctx.user.id);
+                if (block.name === "add_task" || block.name === "add_personal") actions.push(out);
+                results.push({ type: "tool_result", tool_use_id: block.id, content: out });
+              }
+            }
+            messages.push({ role: "user", content: results });
+            continue;
+          }
+          const reply = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
+          return { reply: reply || "(no reply)", actions, agent };
+        }
+        return { reply: "Sorry \u2014 I got stuck in a loop. Try rephrasing.", actions, agent };
       })
     });
   }
@@ -62355,7 +62378,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.19";
+var BUILD_TAG = "2026-06-23.20";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

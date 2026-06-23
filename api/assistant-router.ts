@@ -69,11 +69,24 @@ async function execAddPersonal(input: any, userId: number): Promise<string> {
   return `Added to your personal space: "${title}"${when}.`;
 }
 
+async function execSystemHealth(): Promise<string> {
+  const { runHealthReport } = await import("./qa-router");
+  const r = await runHealthReport();
+  const problems = r.checks.filter((c) => c.status !== "ok");
+  const head = r.status === "ok"
+    ? `All good — ${r.counts.ok} checks green.`
+    : `${r.counts.fail} problem(s), ${r.counts.warn} need attention (${r.counts.ok} OK).`;
+  if (!problems.length) return head;
+  const lines = problems.slice(0, 8).map((c) => `${c.status === "fail" ? "🔴" : "🟡"} ${c.label}: ${c.detail}`);
+  return `${head}\n${lines.join("\n")}`;
+}
+
 async function runTool(name: string, input: any, userId: number): Promise<string> {
   try {
     if (name === "add_task") return await execAddTask(String(input?.text ?? ""), userId);
     if (name === "get_agenda") return await execGetAgenda(userId);
     if (name === "add_personal") return await execAddPersonal(input, userId);
+    if (name === "system_health") return await execSystemHealth();
     return `Unknown tool: ${name}`;
   } catch (e) {
     return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
