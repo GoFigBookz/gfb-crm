@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, adminQuery, publicQuery } from "./middleware";
+import { createRouter, adminQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { clients, clientOnboarding, tasks, clientTaskRules, users as usersTable } from "../db/schema";
 import { eq, count } from "drizzle-orm";
@@ -65,7 +65,7 @@ function inferClientAttributes(notes: string) {
 
 export const restoreRouter = createRouter({
   // Public restore — only works when database is empty (safe guard)
-  restoreAll: publicQuery
+  restoreAll: adminQuery
     .mutation(async () => {
       const db = getDb();
       
@@ -256,7 +256,7 @@ export const restoreRouter = createRouter({
     }),
 
   // Bulk update client business info from master data
-  bulkUpdateBusinessInfo: publicQuery
+  bulkUpdateBusinessInfo: adminQuery
     .input(z.array(z.object({
       name: z.string(),
       taxId: z.string().nullable().optional(),

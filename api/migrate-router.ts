@@ -1,14 +1,13 @@
 import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-
-const MIGRATE_TOKEN = process.env.MIGRATE_TOKEN || "gfb-migrate-2026";
+import { checkSecret } from "./lib/admin-auth";
 
 export const migrateRouter = createRouter({
   runGovData: publicQuery
     .input(z.object({ token: z.string(), migration: z.enum(["gov_data", "connectors", "triage_queue"]).default("gov_data") }))
     .mutation(async ({ input }) => {
-      if (input.token !== MIGRATE_TOKEN) {
+      if (!checkSecret(input.token, "MIGRATE_TOKEN")) {
         throw new Error("Invalid token");
       }
 

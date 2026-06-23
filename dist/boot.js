@@ -34764,17 +34764,32 @@ var init_connection = __esm({
   }
 });
 
+// api/lib/admin-auth.ts
+var admin_auth_exports = {};
+__export(admin_auth_exports, {
+  checkSecret: () => checkSecret
+});
+function checkSecret(provided, envName) {
+  const secret = process.env[envName];
+  if (!secret || secret.length < 8) return false;
+  return provided === secret;
+}
+var init_admin_auth = __esm({
+  "api/lib/admin-auth.ts"() {
+  }
+});
+
 // api/migrate-router.ts
-var MIGRATE_TOKEN, migrateRouter;
+var migrateRouter;
 var init_migrate_router = __esm({
   "api/migrate-router.ts"() {
     init_zod();
     init_middleware();
     init_connection();
-    MIGRATE_TOKEN = process.env.MIGRATE_TOKEN || "gfb-migrate-2026";
+    init_admin_auth();
     migrateRouter = createRouter({
       runGovData: publicQuery.input(external_exports.object({ token: external_exports.string(), migration: external_exports.enum(["gov_data", "connectors", "triage_queue"]).default("gov_data") })).mutation(async ({ input }) => {
-        if (input.token !== MIGRATE_TOKEN) {
+        if (!checkSecret(input.token, "MIGRATE_TOKEN")) {
           throw new Error("Invalid token");
         }
         const db = getDb();
@@ -34805,9 +34820,9 @@ var init_migrate_router = __esm({
 
 // api/voice-router.ts
 function validateVoiceToken(token) {
-  return token === VOICE_TOKEN;
+  return checkSecret(token, "VOICE_WEBHOOK_TOKEN");
 }
-var VOICE_TOKEN, voiceRouter;
+var voiceRouter;
 var init_voice_router = __esm({
   "api/voice-router.ts"() {
     init_zod();
@@ -34815,7 +34830,7 @@ var init_voice_router = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
-    VOICE_TOKEN = process.env.VOICE_WEBHOOK_TOKEN || "gfb-voice-2026";
+    init_admin_auth();
     voiceRouter = createRouter({
       // Voice task creation
       // POST /api/trpc/voice.createTask
@@ -52759,7 +52774,7 @@ var init_restore_router = __esm({
     ];
     restoreRouter = createRouter({
       // Public restore — only works when database is empty (safe guard)
-      restoreAll: publicQuery.mutation(async () => {
+      restoreAll: adminQuery.mutation(async () => {
         const db = getDb();
         const userRows = await db.select().from(users).limit(1);
         const userId = userRows[0]?.id || 1;
@@ -52982,7 +52997,7 @@ var init_restore_router = __esm({
         };
       }),
       // Bulk update client business info from master data
-      bulkUpdateBusinessInfo: publicQuery.input(external_exports.array(external_exports.object({
+      bulkUpdateBusinessInfo: adminQuery.input(external_exports.array(external_exports.object({
         name: external_exports.string(),
         taxId: external_exports.string().nullable().optional(),
         hstNumber: external_exports.string().nullable().optional(),
@@ -53062,7 +53077,7 @@ var init_restore_router = __esm({
 });
 
 // api/bulk-import-router.ts
-var BULK_IMPORT_TOKEN, CLIENTS_DATA, bulkImportRouter;
+var CLIENTS_DATA, bulkImportRouter;
 var init_bulk_import_router = __esm({
   "api/bulk-import-router.ts"() {
     init_zod();
@@ -53071,7 +53086,7 @@ var init_bulk_import_router = __esm({
     init_schema();
     init_task_generator();
     init_drizzle_orm();
-    BULK_IMPORT_TOKEN = process.env.BULK_IMPORT_TOKEN || "gfb-import-2026";
+    init_admin_auth();
     CLIENTS_DATA = [
       {
         name: "Aim Construction Inc.",
@@ -53380,7 +53395,7 @@ var init_bulk_import_router = __esm({
     ];
     bulkImportRouter = createRouter({
       importClients: publicQuery.input(external_exports.object({ token: external_exports.string() })).mutation(async ({ input }) => {
-        if (input.token !== BULK_IMPORT_TOKEN) {
+        if (!checkSecret(input.token, "BULK_IMPORT_TOKEN")) {
           throw new Error("Invalid token");
         }
         const db = getDb();
@@ -63423,7 +63438,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-23.47";
+var BUILD_TAG = "2026-06-23.48";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -63837,7 +63852,8 @@ app.post("/api/intake/webhook", async (c) => {
 app.post("/api/admin/import-clients", async (c) => {
   try {
     const body = await c.req.json().catch(() => ({}));
-    if (body.token !== "gfb-import-2026") {
+    const { checkSecret: checkSecret2 } = await Promise.resolve().then(() => (init_admin_auth(), admin_auth_exports));
+    if (!checkSecret2(body.token, "BULK_IMPORT_TOKEN")) {
       return c.json({ error: "Invalid token" }, 401);
     }
     const db = getDb();

@@ -4,8 +4,7 @@ import { getDb } from "./queries/connection";
 import { clients, tasks, taskRecurrences } from "../db/schema";
 import { ensureComplianceForClient } from "./task-generator";
 import { eq } from "drizzle-orm";
-
-const BULK_IMPORT_TOKEN = process.env.BULK_IMPORT_TOKEN || "gfb-import-2026";
+import { checkSecret } from "./lib/admin-auth";
 
 // Complete client data from Markie's master sheet
 const CLIENTS_DATA = [
@@ -319,7 +318,7 @@ export const bulkImportRouter = createRouter({
   importClients: publicQuery
     .input(z.object({ token: z.string() }))
     .mutation(async ({ input }) => {
-      if (input.token !== BULK_IMPORT_TOKEN) {
+      if (!checkSecret(input.token, "BULK_IMPORT_TOKEN")) {
         throw new Error("Invalid token");
       }
 
