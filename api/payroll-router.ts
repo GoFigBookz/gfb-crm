@@ -317,6 +317,26 @@ export const payrollRouter = createRouter({
       return { success: true };
     }),
 
+  // All per-client Jobber OAuth connections (for the Integrations page — each
+  // company is its OWN Jobber account, managed/disconnected individually here).
+  listJobberConnections: staffQuery.query(async () => {
+    const { ensureJobberTable } = await import("./jobber-oauth");
+    await ensureJobberTable();
+    const db = getDb();
+    const { jobberConnections } = await import("../db/schema");
+    const rows = await db.select().from(jobberConnections);
+    const cls = await db.select({ id: clients.id, name: clients.name }).from(clients);
+    const nameById = new Map((cls as any[]).map((c) => [c.id, c.name]));
+    return (rows as any[]).map((r) => ({
+      id: r.id,
+      clientId: r.clientId,
+      clientName: nameById.get(r.clientId) || `Client ${r.clientId}`,
+      accountName: r.accountName ?? null,
+      active: !!r.active,
+      reconnectReason: r.reconnectReason ?? null,
+    }));
+  }),
+
   // Jobber connection status for a client (for the Connect button / badge).
   jobberStatus: staffQuery
     .input(z.object({ clientId: z.number() }))

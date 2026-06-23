@@ -48353,6 +48353,25 @@ var init_payroll_router = __esm({
         await disconnectJobber2(input.clientId);
         return { success: true };
       }),
+      // All per-client Jobber OAuth connections (for the Integrations page — each
+      // company is its OWN Jobber account, managed/disconnected individually here).
+      listJobberConnections: staffQuery.query(async () => {
+        const { ensureJobberTable: ensureJobberTable2 } = await Promise.resolve().then(() => (init_jobber_oauth(), jobber_oauth_exports));
+        await ensureJobberTable2();
+        const db = getDb();
+        const { jobberConnections: jobberConnections2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+        const rows = await db.select().from(jobberConnections2);
+        const cls = await db.select({ id: clients.id, name: clients.name }).from(clients);
+        const nameById = new Map(cls.map((c) => [c.id, c.name]));
+        return rows.map((r) => ({
+          id: r.id,
+          clientId: r.clientId,
+          clientName: nameById.get(r.clientId) || `Client ${r.clientId}`,
+          accountName: r.accountName ?? null,
+          active: !!r.active,
+          reconnectReason: r.reconnectReason ?? null
+        }));
+      }),
       // Jobber connection status for a client (for the Connect button / badge).
       jobberStatus: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const { jobberConfigured: jobberConfigured2, getValidConnection: getValidConnection2 } = await Promise.resolve().then(() => (init_jobber_oauth(), jobber_oauth_exports));
@@ -61292,7 +61311,7 @@ function getRecentClientErrors() {
   return recentClientErrors;
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
-var BUILD_TAG = "2026-06-22.34";
+var BUILD_TAG = "2026-06-22.35";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

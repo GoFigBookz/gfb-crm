@@ -196,6 +196,35 @@ client upsert on onboard/edit; (3) inbound client read-back; (4) extend to
 payroll/employees/tasks; (5) conflict handling + nightly full reconcile.
 BLOCKERS: canonical-sheet decision + `FIGGY_MAKE_API_TOKEN` on the server.
 
+## BANK STATEMENT CONVERTER — PDF → CSV → QBO (Markie 2026-06-22, BROKEN, fix)
+The "Bank → QBO" converter (`/bank-converter`, src/pages + api/bank-converter*)
+must do **PDF bank statement → CSV → QBO import format**. It's currently not
+working end-to-end. Fix the chain: accept a PDF statement, extract the transaction
+table (date/description/amount/balance), normalize, and output a QBO-importable CSV
+(3-column Date,Description,Amount or QBO's expected layout) — then a one-click path
+into QBO (CSV/QBO Web Connect). Verify with a real statement before calling done.
+(Markie: "Don't skip over things I've told you to fix.")
+
+## FIGGY JR POSTING — CONSOLIDATION VERDICT (audited 2026-06-22)
+We do NOT need to rebuild posting. Audit of both sides:
+- **CRM side is review-complete**: brain (history coding + cold-start + web classify,
+  read-only, tested) → Triage (enrich, traffic-light, approve/dismiss/ask-client) →
+  learning loop (approve writes confirmed vendorMemory). The ONLY missing wire is
+  **approve → post**; `qboRequest` is already write-capable on the NATIVE transport
+  (the Make bridge is read-only by design).
+- **Make side**: 6 QBO Poster clones + 5 Auto-Approve clones (all OFF) that are
+  structurally identical, differing only by hardcoded client name / connection id /
+  map-tab / tax codes. The active "Auto-Approve GATE TEST (5353339)" already runs the
+  gate for ALL clients in ONE scenario = proof the consolidation works.
+- **Cleanest path** (when a live native WRITE connection exists — needs Intuit prod
+  creds, Markie's part): add ONE poster module in the CRM (finding.sourceData → QBO
+  Bill/Purchase via qboRequest POST), wire it to a GATED "approve & post" in Triage
+  (nothing auto-posts), reuse the existing learn-on-approve. Then RETIRE the ~14 Make
+  per-client clones (already OFF) — keep only the read-only proxies + per-realm tools.
+- Net: ~1–1.5 wk for manual review-and-post (Phases poster + queue + one-click),
+  auto-post rules later. Front-loadable: build the poster module + tests now against
+  documented QBO shapes, switch on when the connection lands.
+
 ## DRIVE FOLDER AUTO-CREATE — BUILT (2026-06-22), needs token + live test
 "Auto-create folders under the hardcoded GFB Clients parent; never save to root."
 - `api/client-drive-folders.ts` builds the standard tree (`Finance - <Client>` →
