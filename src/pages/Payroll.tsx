@@ -566,7 +566,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
           </div>
         </div>
 
-        <ApprovalBar run={run} onCreateLink={() => createApprovalLink.mutate({ runId })} creating={createApprovalLink.isPending} isTouchbistro={features?.kind === "touchbistro"} />
+        <ApprovalBar run={run} onCreateLink={() => createApprovalLink.mutate({ runId })} creating={createApprovalLink.isPending} isTouchbistro={features?.kind === "touchbistro"} isJobber={features?.kind === "jobber"} />
 
         {statHols && statHols.length > 0 && (
           <div className="text-sm bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800">
@@ -760,7 +760,7 @@ function LineRow({ line, showOt, showBonus, showVac, showSick, showPhone, showRe
 }
 
 /** Client hours-approval bar: generate a shareable link, show status. */
-function ApprovalBar({ run, onCreateLink, creating, isTouchbistro }: { run: any; onCreateLink: () => void; creating: boolean; isTouchbistro?: boolean }) {
+function ApprovalBar({ run, onCreateLink, creating, isTouchbistro, isJobber }: { run: any; onCreateLink: () => void; creating: boolean; isTouchbistro?: boolean; isJobber?: boolean }) {
   const [copied, setCopied] = useState(false);
   const token = run.approvalToken;
   const url = token ? `${window.location.origin}/approve/${token}` : "";
@@ -793,6 +793,12 @@ function ApprovalBar({ run, onCreateLink, creating, isTouchbistro }: { run: any;
         <a href="https://login.touchbistro.com/" target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center h-7 text-xs px-2 rounded-md border border-rose-300 text-rose-700 hover:bg-rose-50">
           <ExternalLink className="h-3.5 w-3.5 mr-1" /> TouchBistro login
+        </a>
+      )}
+      {isJobber && (
+        <a href="https://secure.getjobber.com/" target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center h-7 text-xs px-2 rounded-md border border-amber-300 text-amber-700 hover:bg-amber-50">
+          <ExternalLink className="h-3.5 w-3.5 mr-1" /> Jobber login
         </a>
       )}
     </div>

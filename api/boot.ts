@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-24.113";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-24.114";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -1532,6 +1532,14 @@ async function startServer() {
       if (r) console.log(`[seed-collingwood] created ${r.created}, filled ${r.filled}, banked ${r.banked}${r.skipped ? " | skipped: " + r.skipped : ""}`);
     } catch (e) {
       console.error("[seed-collingwood] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Seed the TouchBistro restaurant rosters + rates (Sher-E-Punjab, Auld Spot).
+    try {
+      const { seedTouchbistroPayroll } = await import("./seed-touchbistro-payroll");
+      const r = await seedTouchbistroPayroll();
+      console.log(`[seed-touchbistro] created ${r.created}, filled ${r.filled}${r.skipped.length ? " | skipped: " + r.skipped.join("; ") : ""}`);
+    } catch (e) {
+      console.error("[seed-touchbistro] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Link each client to its existing Drive folder under "GFB → GFB Clients"
     // so the client page's Google Drive button jumps to their files.
