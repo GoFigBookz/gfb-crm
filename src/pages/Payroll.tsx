@@ -372,6 +372,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   const invalidate = () => { utils.payroll.getRun.invalidate({ runId }); if (data?.run.clientId) utils.payroll.listRuns.invalidate({ clientId: data.run.clientId }); };
   const updateLine = trpc.payroll.updateLine.useMutation({ onSuccess: invalidate });
   const estimateLine = trpc.payroll.estimateLine.useMutation({ onSuccess: invalidate });
+  const estimateRun = trpc.payroll.estimateRun.useMutation({ onSuccess: invalidate, onError: (e) => alert(e.message) });
   const setStatus = trpc.payroll.setRunStatus.useMutation({ onSuccess: invalidate });
   const addLine = trpc.payroll.addLine.useMutation({ onSuccess: () => { invalidate(); if (data?.run.clientId) utils.employee.list.invalidate({ clientId: data.run.clientId }); }, onError: (e) => alert(e.message) });
   const removeLine = trpc.payroll.removeLine.useMutation({ onSuccess: invalidate });
@@ -386,12 +387,13 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   const cBonus = colPrefs.bonus ?? featureDefaults.bonus;
   const cPhone = colPrefs.phone ?? featureDefaults.phone;
   const cReimb = colPrefs.reimb ?? featureDefaults.reimb;
-  // Total rendered columns (for the footer spans): Employee, Rate, Reg, OT,
+  const cOt = colPrefs.ot ?? true; // OT shown by default; hideable for clients that never have it
+  // Total rendered columns (for the footer spans): Employee, Rate, Reg, [OT],
   // [stat],[vac],[sick],[bonus], Gross, [tax×4], [phone],[reimb], action.
-  const totalCols = 4 + (showStat ? 1 : 0) + (cVac ? 1 : 0) + (cSick ? 1 : 0) + (cBonus ? 1 : 0)
+  const totalCols = 3 + (cOt ? 1 : 0) + (showStat ? 1 : 0) + (cVac ? 1 : 0) + (cSick ? 1 : 0) + (cBonus ? 1 : 0)
     + 1 + (showTax ? 4 : 0) + (cPhone ? 1 : 0) + (cReimb ? 1 : 0) + 1;
-  // Spacer between "Totals" and the Gross cell = Rate + Reg + OT + optional hour cols.
-  const spacerBeforeGross = 3 + (showStat ? 1 : 0) + (cVac ? 1 : 0) + (cSick ? 1 : 0) + (cBonus ? 1 : 0);
+  // Spacer between "Totals" and the Gross cell = Rate + Reg + [OT] + optional hour cols.
+  const spacerBeforeGross = 2 + (cOt ? 1 : 0) + (showStat ? 1 : 0) + (cVac ? 1 : 0) + (cSick ? 1 : 0) + (cBonus ? 1 : 0);
   const { data: jobber } = trpc.payroll.jobberStatus.useQuery({ clientId: data?.run.clientId ?? 0 }, { enabled: !!data?.run.clientId });
   const importJobber = trpc.payroll.importJobberHours.useMutation({
     onSuccess: (r: any) => {
@@ -513,6 +515,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuLabel>Show columns</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem checked={cOt} onCheckedChange={(v) => setCol("ot", !!v)}>Overtime</DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem checked={showStat} onCheckedChange={(v) => setCol("stat", !!v)}>Stat 1.5×</DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem checked={cVac} onCheckedChange={(v) => setCol("vac", !!v)}>Vacation hrs</DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem checked={cSick} onCheckedChange={(v) => setCol("sick", !!v)}>Sick hrs</DropdownMenuCheckboxItem>
@@ -546,7 +549,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
                   <th className="text-left py-1.5 pr-2">Employee</th>
                   <th className="text-right px-1">Rate</th>
                   <th className="text-right px-1">Reg hrs</th>
-                  <th className="text-right px-1">OT</th>
+                  {cOt && <th className="text-right px-1">OT</th>}
                   {showStat && <th className="text-right px-1" title="Hours worked on a stat holiday — paid at 1.5×">Stat 1.5×</th>}
                   {cVac && <th className="text-right px-1">Vac hrs</th>}
                   {cSick && <th className="text-right px-1">Sick hrs</th>}
@@ -563,7 +566,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
               </thead>
               <tbody>
                 {sortedLines.map((l: any) => (
-                  <LineRow key={l.id} line={l} showBonus={cBonus} showVac={cVac} showSick={cSick} showPhone={cPhone} showReimb={cReimb} showTax={showTax} showStat={showStat}
+                  <LineRow key={l.id} line={l} showOt={cOt} showBonus={cBonus} showVac={cVac} showSick={cSick} showPhone={cPhone} showReimb={cReimb} showTax={showTax} showStat={showStat}
                     onSave={(patch) => updateLine.mutate({ id: l.id, ...patch })}
                     onEstimate={() => estimateLine.mutate({ id: l.id })}
                     onEditEmployee={() => { const emp = (clientEmps || []).find((e: any) => e.id === l.employeeId); if (emp) onEditEmployee(emp); }}
@@ -589,6 +592,44 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
           </div>
         )}
 
+        {/* WHOLE-PAY TOTALS — Gross + estimated taxes on the run, always at the bottom.
+            "Estimate taxes" runs the CRA calc on every line (needs each employee's rate). */}
+        {lines.length > 0 && (
+          <div className="rounded-lg border bg-slate-50 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Whole-pay totals</span>
+              <Button size="sm" variant="outline" className="h-7 text-xs" disabled={estimateRun.isPending}
+                onClick={() => estimateRun.mutate({ runId })}>
+                <Calculator className="h-3.5 w-3.5 mr-1" /> {estimateRun.isPending ? "Estimating…" : "Estimate taxes"}
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+              <div className="rounded bg-white border px-2 py-1.5">
+                <div className="text-[11px] text-slate-500">Gross total pay</div>
+                <div className="font-semibold text-lime-700">{money(run.totalGross)}</div>
+              </div>
+              <div className="rounded bg-white border px-2 py-1.5">
+                <div className="text-[11px] text-slate-500">Employee deductions (CPP·EI·tax)</div>
+                <div className="font-semibold">{money(run.totalEmployeeDeductions)}</div>
+              </div>
+              <div className="rounded bg-white border px-2 py-1.5">
+                <div className="text-[11px] text-slate-500">Employer cost (CPP·EI 1.4×)</div>
+                <div className="font-semibold">{money(run.totalEmployerCost)}</div>
+              </div>
+              <div className="rounded bg-white border px-2 py-1.5">
+                <div className="text-[11px] text-slate-500">Net pay</div>
+                <div className="font-semibold">{money(run.totalNet)}</div>
+              </div>
+            </div>
+            <div className="text-[11px] text-slate-500">
+              CRA remittance (taxes on the whole pay) ≈ <strong>{money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))}</strong>
+              {" "}· cash needed (net + remittance) ≈ <strong>{money((run.totalNet || 0) + (run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))}</strong>.
+              {(run.totalEmployeeDeductions || 0) === 0 && <span className="text-amber-600"> Tap “Estimate taxes” (each employee needs a pay rate first).</span>}
+              {" "}Estimate only — QuickBooks Payroll does the authoritative calculation.
+            </div>
+          </div>
+        )}
+
         <AddLineForm
           available={availableEmps}
           onAddExisting={(employeeId) => addLine.mutate({ payRunId: runId, employeeId })}
@@ -606,7 +647,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   );
 }
 
-function LineRow({ line, showBonus, showVac, showSick, showPhone, showReimb, showTax, showStat, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; showBonus?: boolean; showVac?: boolean; showSick?: boolean; showPhone?: boolean; showReimb?: boolean; showTax?: boolean; showStat?: boolean; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
+function LineRow({ line, showOt, showBonus, showVac, showSick, showPhone, showReimb, showTax, showStat, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; showOt?: boolean; showBonus?: boolean; showVac?: boolean; showSick?: boolean; showPhone?: boolean; showReimb?: boolean; showTax?: boolean; showStat?: boolean; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
   const [v, setV] = useState({
     regularHours: line.regularHours ?? 0, overtimeHours: line.overtimeHours ?? 0,
     statHolidayHours: line.statHolidayHours ?? 0, vacationHours: line.vacationHours ?? 0, sickHours: line.sickHours ?? 0,
@@ -615,6 +656,7 @@ function LineRow({ line, showBonus, showVac, showSick, showPhone, showReimb, sho
     federalTax: line.federalTax ?? 0, netPay: line.netPay ?? 0,
     phoneAllowance: line.phoneAllowance ?? 0, reimbursement: line.reimbursement ?? 0,
   });
+  const [noteV, setNoteV] = useState<string>(line.notes ?? "");
   const num = (s: string) => { const n = parseFloat(s); return isNaN(n) ? 0 : n; };
   const rate = line.hourlyRate ?? null;
   // Sum hour types into gross: (reg + vac + sick)×rate + (OT + stat-worked)×1.5×rate
@@ -627,7 +669,8 @@ function LineRow({ line, showBonus, showVac, showSick, showPhone, showReimb, sho
     const sick = showSick ? v.sickHours : 0;
     const bonus = showBonus ? v.shareBonus : 0;
     const stat = showStat ? v.statHolidayHours : 0;
-    const g = Math.round((((v.regularHours + vac + sick) * r) + ((v.overtimeHours + stat) * r * 1.5) + bonus) * 100) / 100;
+    const ot = showOt ? v.overtimeHours : 0;
+    const g = Math.round((((v.regularHours + vac + sick) * r) + ((ot + stat) * r * 1.5) + bonus) * 100) / 100;
     setV({ ...v, grossPay: g }); onSave({ grossPay: g });
   };
   const cell = (key: keyof typeof v) => (
@@ -637,14 +680,22 @@ function LineRow({ line, showBonus, showVac, showSick, showPhone, showReimb, sho
   );
   return (
     <tr className="border-b last:border-0">
-      <td className="py-1 pr-2 font-medium">
-        <button className="hover:text-lime-700 hover:underline text-left" title="Edit employee card" onClick={onEditEmployee}>{line.employeeName}</button>
-        {line.payType ? <span className="text-[10px] text-slate-400 ml-1">{line.payType}</span> : null}
-        {line.notes ? <span className="text-amber-600 ml-1" title={line.notes}>⚠</span> : null}
+      <td className="py-1 pr-2 font-medium align-top">
+        <div className="flex items-center gap-1">
+          <button className="hover:text-lime-700 hover:underline text-left" title="Edit employee card" onClick={onEditEmployee}>{line.employeeName}</button>
+          {line.payType ? <span className="text-[10px] text-slate-400">{line.payType}</span> : null}
+          {noteV ? <span className="text-amber-600" title="Has a note">📝</span> : null}
+        </div>
+        {/* Readable, editable note/comment per employee (replaces the tiny ⚠ that
+            wasn't legible). Pre-fills with any auto-flag like a long single shift. */}
+        <Input value={noteV} placeholder="add a note…"
+          onChange={(e) => setNoteV(e.target.value)}
+          onBlur={() => { if (noteV !== (line.notes ?? "")) onSave({ notes: noteV }); }}
+          className={`mt-1 h-6 w-44 text-[11px] px-1 ${noteV ? "border-amber-300 bg-amber-50 text-amber-800" : "text-slate-500"}`} />
       </td>
       <td className="px-1 text-right text-xs text-slate-500">{rate != null ? `$${rate}` : "—"}</td>
       <td className="px-1">{cell("regularHours")}</td>
-      <td className="px-1">{cell("overtimeHours")}</td>
+      {showOt && <td className="px-1">{cell("overtimeHours")}</td>}
       {showStat && <td className="px-1">{cell("statHolidayHours")}</td>}
       {showVac && <td className="px-1">{cell("vacationHours")}</td>}
       {showSick && <td className="px-1">{cell("sickHours")}</td>}

@@ -695,6 +695,36 @@ export const payrollRouter = createRouter({
       return { success: true, estimate: line };
     }),
 
+  // Estimate CPP/EI/tax for EVERY line in the run (so "taxes on the whole pay"
+  // can show at the bottom for any client, not just the tax-comparison ones).
+  // Uses each line's current gross (run ∑ first); lines with no rate stay $0.
+  estimateRun: staffQuery
+    .input(z.object({ runId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const run = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0] as any;
+      if (!run) throw new Error("Pay run not found");
+      const rows = (await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId))) as any[];
+      const P = periodsPerYear(normalizeFrequency(run?.frequency));
+      const elapsed = periodsElapsedBeforeRun(run);
+      let estimated = 0;
+      for (const row of rows) {
+        const gross = row.grossPay || 0;
+        if (gross <= 0) continue; // no rate/hours yet — leave at zero
+        const ytd = await ytdGrossBeforeRun(db, row.employeeId, run);
+        const line = computeCraLine({ grossPeriod: gross, periodsPerYear: P, ytdPensionableBefore: ytd, periodsElapsedBefore: elapsed });
+        await db.update(payRunLines).set({
+          grossPay: line.grossPay, cppEmployee: line.cppEmployee, cpp2Employee: line.cpp2Employee,
+          eiEmployee: line.eiEmployee, federalTax: line.federalTax, provincialTax: line.provincialTax,
+          cppEmployer: line.cppEmployer, cpp2Employer: line.cpp2Employer, eiEmployer: line.eiEmployer,
+          netPay: line.netPay, updatedAt: new Date(),
+        }).where(eq(payRunLines.id, row.id));
+        estimated++;
+      }
+      await recomputeRunTotals(input.runId);
+      return { success: true, estimated, total: rows.length };
+    }),
+
   setRunStatus: staffQuery
     .input(z.object({ runId: z.number(), status: z.enum(["draft", "review", "approved", "paid", "posted"]) }))
     .mutation(async ({ input }) => {

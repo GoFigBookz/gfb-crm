@@ -43122,6 +43122,40 @@ var init_payroll_router = __esm({
         await recomputeRunTotals(row.payRunId);
         return { success: true, estimate: line };
       }),
+      // Estimate CPP/EI/tax for EVERY line in the run (so "taxes on the whole pay"
+      // can show at the bottom for any client, not just the tax-comparison ones).
+      // Uses each line's current gross (run ∑ first); lines with no rate stay $0.
+      estimateRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ input }) => {
+        const db = getDb();
+        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run2) throw new Error("Pay run not found");
+        const rows = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
+        const P = periodsPerYear(normalizeFrequency(run2?.frequency));
+        const elapsed = periodsElapsedBeforeRun(run2);
+        let estimated = 0;
+        for (const row of rows) {
+          const gross = row.grossPay || 0;
+          if (gross <= 0) continue;
+          const ytd = await ytdGrossBeforeRun(db, row.employeeId, run2);
+          const line = computeCraLine({ grossPeriod: gross, periodsPerYear: P, ytdPensionableBefore: ytd, periodsElapsedBefore: elapsed });
+          await db.update(payRunLines).set({
+            grossPay: line.grossPay,
+            cppEmployee: line.cppEmployee,
+            cpp2Employee: line.cpp2Employee,
+            eiEmployee: line.eiEmployee,
+            federalTax: line.federalTax,
+            provincialTax: line.provincialTax,
+            cppEmployer: line.cppEmployer,
+            cpp2Employer: line.cpp2Employer,
+            eiEmployer: line.eiEmployer,
+            netPay: line.netPay,
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq(payRunLines.id, row.id));
+          estimated++;
+        }
+        await recomputeRunTotals(input.runId);
+        return { success: true, estimated, total: rows.length };
+      }),
       setRunStatus: staffQuery.input(external_exports.object({ runId: external_exports.number(), status: external_exports.enum(["draft", "review", "approved", "paid", "posted"]) })).mutation(async ({ input }) => {
         const db = getDb();
         await db.update(payRuns).set({ status: input.status, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, input.runId));
@@ -76471,7 +76505,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.102";
+var BUILD_TAG = "2026-06-24.103";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
