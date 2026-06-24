@@ -57553,6 +57553,7 @@ var init_ensure_calendar_schema = __esm({
 // api/seed-collingwood-payroll.ts
 var seed_collingwood_payroll_exports = {};
 __export(seed_collingwood_payroll_exports, {
+  applyCollingwoodPhoneAllowances: () => applyCollingwoodPhoneAllowances,
   seedCollingwoodPayroll: () => seedCollingwoodPayroll
 });
 async function keep(obj) {
@@ -57629,12 +57630,38 @@ async function seedCollingwoodPayroll() {
       }
     }
     if (created || filled || banked) console.log(`[seed-collingwood] created ${created}, filled ${filled}, banked ${banked}`);
+    await applyCollingwoodPhoneAllowances();
     return { created, filled, banked, skipped: "" };
   } catch (err) {
     console.error("[seed-collingwood] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID, ROSTER, norm6;
+async function applyCollingwoodPhoneAllowances() {
+  const db = getDb();
+  try {
+    const client = (await db.select().from(clients).where(eq(clients.id, CLIENT_ID)).limit(1))[0];
+    if (!client || !/colling/i.test(client.name || "")) return { on: 0, off: 0, skipped: "client 7 not Collingwood" };
+    const emps = await db.select().from(employees).where(eq(employees.clientId, CLIENT_ID));
+    let on = 0, off = 0;
+    for (const e of emps) {
+      const entitled = PHONE_ENTITLED.some(([f, l]) => norm6(f) === norm6(e.firstName) && norm6(l) === norm6(e.lastName));
+      if (entitled) {
+        if (e.getsPhoneAllowance !== true || e.phoneAllowance !== PHONE_ALLOWANCE) {
+          await db.update(employees).set(await keep({ getsPhoneAllowance: true, phoneAllowance: PHONE_ALLOWANCE, updatedAt: /* @__PURE__ */ new Date() })).where(eq(employees.id, e.id));
+          on++;
+        }
+      } else if (e.getsPhoneAllowance || (e.phoneAllowance ?? 0) > 0) {
+        await db.update(employees).set(await keep({ getsPhoneAllowance: false, phoneAllowance: null, updatedAt: /* @__PURE__ */ new Date() })).where(eq(employees.id, e.id));
+        off++;
+      }
+    }
+    if (on || off) console.log(`[collingwood-phone] set ${on} on, ${off} off`);
+    return { on, off, skipped: "" };
+  } catch (err) {
+    console.error("[collingwood-phone] failed:", err instanceof Error ? err.message : err);
+  }
+}
+var CLIENT_ID, ROSTER, norm6, PHONE_ALLOWANCE, PHONE_ENTITLED;
 var init_seed_collingwood_payroll = __esm({
   "api/seed-collingwood-payroll.ts"() {
     init_connection();
@@ -57647,7 +57674,7 @@ var init_seed_collingwood_payroll = __esm({
       { first: "Chris", last: "Hawton", payType: "salary", annualSalary: 6e4, phone: 23.08 },
       { first: "Brendan", last: "Essex", payType: "salary", annualSalary: 8e4, phone: 23.08 },
       { first: "Matteo", last: "Companion", payType: "hourly", hourlyRate: 18 },
-      { first: "Logan", last: "Greig", payType: "hourly", hourlyRate: 24, phone: 23.08 },
+      { first: "Logan", last: "Greig", payType: "hourly", hourlyRate: 24 },
       { first: "Chris", last: "Haight", payType: "hourly", hourlyRate: 27, phone: 23.08 },
       { first: "Corey", last: "Hawton", payType: "hourly", hourlyRate: 26.5, phone: 23.08 },
       { first: "Justin", last: "Koutsomichos", payType: "hourly", hourlyRate: 23, phone: 23.08 },
@@ -57660,6 +57687,20 @@ var init_seed_collingwood_payroll = __esm({
       { first: "Alan", last: "Weaver", payType: "hourly", hourlyRate: 35, phone: 23.08 }
     ];
     norm6 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    PHONE_ALLOWANCE = 23.08;
+    PHONE_ENTITLED = [
+      ["Chris", "Hawton"],
+      // salary
+      ["Brendan", "Essex"],
+      ["Corey", "Hawton"],
+      ["Chris", "Haight"],
+      ["Justin", "Koutsomichos"],
+      ["Aidan", "MacDonald"],
+      ["Adrian", "Robbeson"],
+      ["Chris", "Thompson"],
+      ["Lisa", "Venditti"],
+      ["Alan", "Weaver"]
+    ];
   }
 });
 
