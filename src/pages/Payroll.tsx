@@ -409,18 +409,20 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   const cPhone = colPrefs.phone ?? (featureDefaults.phone || anyPhone);
   const cReimb = colPrefs.reimb ?? (featureDefaults.reimb || anyReimb);
   const cOt = colPrefs.ot ?? false; // OT off by default; add it from the chip when needed
-  // Total rendered columns (for the footer spans): Employee, Rate, Reg, [OT],
-  // [stat],[vac],[sick],[bonus], Gross, [tax×4], [phone],[reimb], action.
   const { data: jobber } = trpc.payroll.jobberStatus.useQuery({ clientId: data?.run.clientId ?? 0 }, { enabled: !!data?.run.clientId });
+  // Jobber workers whose name didn't auto-match the roster — surfaced for one-click
+  // mapping (saved by Jobber id, so future imports match exactly).
+  const [jobberUnmatched, setJobberUnmatched] = useState<any[]>([]);
+  const mapJobberWorker = trpc.payroll.mapJobberWorker.useMutation();
   const importJobber = trpc.payroll.importJobberHours.useMutation({
     onSuccess: (r: any) => {
       invalidate();
       if (!r.ok) { alert("Jobber import failed:\n" + r.error); return; }
       if (data?.run.clientId) utils.employee.list.invalidate({ clientId: data.run.clientId });
-      const made = r.created?.length ? `\n\n➕ Added ${r.created.length} new employee(s) from the sheet — set their pay rate:\n${r.created.map((n: string) => `• ${n}`).join("\n")}` : "";
-      const extra = r.unmatched?.length ? `\n\nNot matched to an employee (check names):\n${r.unmatched.map((u: any) => `• ${u.name} — ${u.hours}h`).join("\n")}` : "";
+      setJobberUnmatched(r.unmatched ?? []); // drive the inline mapping panel
       const flags = r.flagged?.length ? `\n\n⚠ Check these — long single shift (possible missed clock-out):\n${r.flagged.map((f: any) => `• ${f.name} — ${f.maxShiftHours}h shift`).join("\n")}` : "";
-      alert(`Imported hours for ${r.matched} of ${r.totalUsers} Jobber worker(s).${made}${flags}${extra}`);
+      const mapNote = r.unmatched?.length ? `\n\n${r.unmatched.length} worker(s) didn't match — map them in the panel below (saved for next time).` : "";
+      alert(`Imported hours for ${r.matched} of ${r.totalUsers} Jobber worker(s).${flags}${mapNote}`);
     },
     onError: (e) => alert(e.message),
   });
@@ -575,6 +577,29 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
         </div>
 
         <ApprovalBar run={run} onCreateLink={() => createApprovalLink.mutate({ runId })} creating={createApprovalLink.isPending} isTouchbistro={features?.kind === "touchbistro"} isJobber={features?.kind === "jobber"} />
+
+        {jobberUnmatched.length > 0 && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
+            <div className="text-sm font-semibold text-amber-800">Match {jobberUnmatched.length} Jobber worker{jobberUnmatched.length > 1 ? "s" : ""} to an employee</div>
+            <p className="text-[11px] text-amber-700">These names came from Jobber but didn't match your roster. Pick the right employee once — it's saved against that employee, so every future import matches automatically.</p>
+            {jobberUnmatched.map((w: any) => (
+              <div key={w.userId || w.name} className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm w-52 truncate" title={w.name}>{w.name} <span className="text-slate-500">· {w.hours}h</span></span>
+                <Select onValueChange={(empId) => mapJobberWorker.mutate(
+                  { runId, employeeId: Number(empId), jobberUserId: w.userId ? String(w.userId) : undefined, jobberName: w.name, hours: w.hours },
+                  { onSuccess: () => { setJobberUnmatched((prev) => prev.filter((x) => (x.userId || x.name) !== (w.userId || w.name))); invalidate(); } },
+                )}>
+                  <SelectTrigger className="h-8 w-60"><SelectValue placeholder="Choose employee…" /></SelectTrigger>
+                  <SelectContent>
+                    {(clientEmps || []).map((e: any) => (
+                      <SelectItem key={e.id} value={String(e.id)}>{e.lastName ? `${e.lastName}, ${e.firstName}` : e.firstName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
+        )}
 
         {statHols && statHols.length > 0 && (
           <div className="text-sm bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800">

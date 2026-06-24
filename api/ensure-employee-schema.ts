@@ -21,6 +21,7 @@ const COLUMNS: [string, string][] = [
   ["isContractor", "integer"],
   ["wsibEligible", "integer"],
   ["jobberName", "text"],
+  ["jobberUserId", "text"],
   ["terminationDate", "integer"],
   ["terminationReason", "text"],
   ["hasHealthBenefits", "integer"],

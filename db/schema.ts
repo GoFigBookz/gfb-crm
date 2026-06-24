@@ -1068,6 +1068,7 @@ export const employees = sqliteTable("employees", {
   // Jobber timesheet name alias — maps a Jobber label (e.g. "Grace") to this
   // employee when it doesn't match firstName/lastName, so hours import cleanly.
   jobberName: text("jobberName"),
+  jobberUserId: text("jobberUserId"), // stable Jobber user id — exact match key once mapped (immune to name spelling)
   terminationDate: integer("terminationDate", { mode: "timestamp" }),
   terminationReason: text("terminationReason"),
   // Benefits
