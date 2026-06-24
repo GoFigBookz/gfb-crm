@@ -4,6 +4,7 @@
  * own data; never invents clients. Needs ANTHROPIC_API_KEY (already set).
  */
 import { z } from "zod";
+import Anthropic from "@anthropic-ai/sdk";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { tasks, calendarEvents, clients, personalItems, triageFindings, connectedAccounts, agentLearnings, chatMessages } from "../db/schema";
@@ -20,7 +21,6 @@ const TZ = "America/Toronto";
 import { parseTaskCommand } from "./task-command-core";
 import { ASSISTANT_TOOLS, formatAgenda, detectAgent, frontDeskSystem, AGENT_ROSTER, type AgentKey } from "./assistant-core";
 
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
 async function execAddTask(text: string, userId: number): Promise<string> {
   const db = getDb();
@@ -316,18 +316,11 @@ export const assistantRouter = createRouter({
       } catch { /* table may not exist yet — skip */ }
       const system = [frontDeskSystem(agent), nowLine, locLine, lessonsBlock].filter(Boolean).join("\n");
       // Server-side web tools: SEARCH (find things) + FETCH (open a specific URL
-      // the user shares, e.g. "look at my website figgy.gofig.ca"). Off only if
-      // explicitly disabled.
+      // the user shares). Current tool versions for Sonnet 4.6. Off only if disabled.
       const webOff = process.env.FIGGY_WEB_SEARCH === "off";
-      const webSearch = webOff ? [] : [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }];
-      const webFetch = webOff ? [] : [{ type: "web_fetch_20250910", name: "web_fetch", max_uses: 5 }];
-      // Tool tiers, tried in order if a model/tool combo 400s: full → drop fetch
-      // (keep search) → no server tools → no tools at all. Keeps the chat working.
-      const toolTiers = [
-        [...ASSISTANT_TOOLS, ...webSearch, ...webFetch],
-        [...ASSISTANT_TOOLS, ...webSearch],
-        [...ASSISTANT_TOOLS],
-        null,
+      const serverTools: any[] = webOff ? [] : [
+        { type: "web_search_20260209", name: "web_search", max_uses: 4 },
+        { type: "web_fetch_20260209", name: "web_fetch", max_uses: 5 },
       ];
 
       // Build the user turn — with an image/PDF block when something's attached
@@ -361,85 +354,66 @@ export const assistantRouter = createRouter({
         } catch { /* history is best-effort — never block the reply */ }
       };
 
-      let tier = 0; // current tool tier (see toolTiers); steps down on a tool 400
-      const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-      const TRANSIENT = new Set([429, 500, 502, 503, 529]);
+      // Official Anthropic SDK — built-in retries/backoff for 429/5xx, typed errors,
+      // a robust transport. We drive the tool loop ourselves (custom audit + actions).
+      const client = new Anthropic({ apiKey, maxRetries: 3 });
+      let dropServerTools = false; // set if a server-tool combo is rejected, then retry without them
+
+      // Run the tool_use blocks from a response, append results, return how many ran.
+      const handleToolUses = async (content: any[]): Promise<number> => {
+        const toolUses = (content || []).filter((b: any) => b.type === "tool_use");
+        if (!toolUses.length) return 0;
+        messages.push({ role: "assistant", content });
+        const results: any[] = [];
+        for (const block of toolUses) {
+          const out = await runTool(block.name, block.input, ctx.user.id, agent);
+          if (["add_task", "add_personal", "schedule_event", "complete_task"].includes(block.name)) actions.push(out);
+          if (ACTION_TOOLS.has(block.name)) await recordAudit({ userId: ctx.user.id, agentScope: agent, action: block.name, summary: out, decision: "done" });
+          results.push({ type: "tool_result", tool_use_id: block.id, content: out });
+        }
+        messages.push({ role: "user", content: results });
+        return toolUses.length;
+      };
+
       for (let i = 0; i < 6; i++) {
-        const body: any = { model, max_tokens: 1024, system, messages };
-        if (toolTiers[tier]) body.tools = toolTiers[tier];
-        // Send, retrying transient overloads (429/5xx/529) with backoff.
-        let res: Response | undefined;
-        let b = "";
-        for (let attempt = 0; attempt < 3; attempt++) {
-          res = await fetch(ANTHROPIC_URL, {
-            method: "POST",
-            headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          if (res.ok) break;
-          b = await res.text().catch(() => "");
-          if (TRANSIENT.has(res.status) && attempt < 2) { await sleep(600 * (attempt + 1)); continue; }
-          break;
-        }
-        if (!res || !res.ok) {
-          const status = res?.status ?? 0;
-          // A tool/model incompatibility → step down a tool tier and retry.
-          if (status === 400 && tier < toolTiers.length - 1 && /tool/i.test(b)) { tier++; continue; }
-          console.error("[assistant] API error", { status, model, tier, body: b?.slice(0, 500) });
-          if (TRANSIENT.has(status)) return { reply: "The AI is briefly overloaded right now — give it a moment and try again.", actions, agent };
-          // Surface the real reason once so the actual cause is visible (temp debug).
-          let detail = "";
-          try { const j = JSON.parse(b); detail = j?.error?.message || j?.error?.type || ""; } catch { detail = (b || "").slice(0, 160); }
-          return { reply: `Snag talking to the AI — debug: HTTP ${status}${detail ? ` · ${detail}` : ""}`, actions, agent };
-        }
-        const data: any = await res.json();
-        if (data.stop_reason === "tool_use") {
-          messages.push({ role: "assistant", content: data.content });
-          const results: any[] = [];
-          for (const block of data.content || []) {
-            if (block.type === "tool_use") {
-              const out = await runTool(block.name, block.input, ctx.user.id, agent);
-              if (["add_task", "add_personal", "schedule_event", "complete_task"].includes(block.name)) actions.push(out);
-              if (ACTION_TOOLS.has(block.name)) {
-                await recordAudit({ userId: ctx.user.id, agentScope: agent, action: block.name, summary: out, decision: "done" });
-              }
-              results.push({ type: "tool_result", tool_use_id: block.id, content: out });
-            }
+        const tools = [...ASSISTANT_TOOLS, ...(dropServerTools ? [] : serverTools)];
+        let data: any;
+        try {
+          data = await client.messages.create({ model, max_tokens: 1024, system, messages, tools } as any);
+        } catch (err: any) {
+          // Transient overloads/rate limits are already retried by the SDK; a final
+          // failure here is real. Surface a clear, typed reason.
+          if (err instanceof Anthropic.BadRequestError && !dropServerTools && /tool|web_search|web_fetch/i.test(err.message || "")) {
+            dropServerTools = true; // a server-tool combo was rejected — retry without them
+            continue;
           }
-          messages.push({ role: "user", content: results });
+          console.error("[assistant] API error", { name: err?.name, status: err?.status, message: err?.message });
+          if (err instanceof Anthropic.AuthenticationError) return { reply: "The AI key isn't valid — check ANTHROPIC_API_KEY on the server.", actions, agent };
+          if (err instanceof Anthropic.RateLimitError) return { reply: "The AI is rate-limited right now — give it a minute and try again.", actions, agent };
+          if (err instanceof Anthropic.InternalServerError) return { reply: "The AI is briefly overloaded — try again in a sec.", actions, agent };
+          if (err instanceof Anthropic.APIConnectionError) return { reply: "Couldn't reach the AI just now — check the connection and retry.", actions, agent };
+          const msg = err instanceof Anthropic.APIError ? `${err.status ?? ""} ${err.message}`.trim() : (err?.message || "unknown error");
+          return { reply: `Snag talking to the AI: ${msg}`, actions, agent };
+        }
+
+        if (data.stop_reason === "tool_use") {
+          await handleToolUses(data.content);
           continue;
         }
-        // web_search runs server-side; a long search can pause — resend to continue.
+        // Server tools (web search/fetch) can pause mid-run — resend to continue.
         if (data.stop_reason === "pause_turn") {
           messages.push({ role: "assistant", content: data.content });
           continue;
         }
+
         let reply = (data.content || []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
-
-        // The model can stop on max_tokens mid-tool-call (no text yet but a
-        // tool_use block is present) — run the tool(s) and keep going.
-        if (!reply && data.stop_reason === "max_tokens") {
-          const toolUses = (data.content || []).filter((b: any) => b.type === "tool_use");
-          if (toolUses.length) {
-            messages.push({ role: "assistant", content: data.content });
-            const results: any[] = [];
-            for (const block of toolUses) {
-              const out = await runTool(block.name, block.input, ctx.user.id, agent);
-              if (["add_task", "add_personal", "schedule_event", "complete_task"].includes(block.name)) actions.push(out);
-              if (ACTION_TOOLS.has(block.name)) await recordAudit({ userId: ctx.user.id, agentScope: agent, action: block.name, summary: out, decision: "done" });
-              results.push({ type: "tool_result", tool_use_id: block.id, content: out });
-            }
-            messages.push({ role: "user", content: results });
-            continue;
-          }
-        }
-
-        // Still nothing? Fall back to any tool confirmations from this turn.
+        // Stopped on max_tokens mid-tool-call (a tool_use block but no text yet) — run it, continue.
+        if (!reply && data.stop_reason === "max_tokens" && (await handleToolUses(data.content))) continue;
+        // Fall back to tool-action confirmations if the model produced no prose.
         if (!reply && actions.length) reply = actions.join("\n");
-        // Genuinely empty model turn — log the reason and tell the user plainly.
         if (!reply) {
           console.error("[assistant] empty reply", { stop_reason: data.stop_reason, blocks: (data.content || []).map((b: any) => b.type), agent });
-          reply = `I blanked on that one — try saying it once more. (debug: stop=${data.stop_reason || "none"}, got=${(data.content || []).map((b: any) => b.type).join(",") || "nothing"})`;
+          reply = "I didn't catch that — say it once more?";
         }
         await saveTurn(reply);
         return { reply, actions, agent };
