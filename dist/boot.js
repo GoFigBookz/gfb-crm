@@ -43601,6 +43601,35 @@ var init_payroll_router = __esm({
           ...payrollKind(c.name, c.payrollHoursSource)
         })).sort((a, b) => a.name.localeCompare(b.name));
       }),
+      // Year-to-date payroll totals — per client + firm-wide — so Markie can answer
+      // "how much payroll this year" at a glance without opening QuickBooks. Sums the
+      // gross/net on every saved pay run dated in the year (any status).
+      yearSummary: staffQuery.input(external_exports.object({ year: external_exports.number().optional() }).optional()).query(async ({ ctx, input }) => {
+        const db = getDb();
+        const { restrictedClientIds: restrictedClientIds2 } = await Promise.resolve().then(() => (init_rbac(), rbac_exports));
+        const allowed = await restrictedClientIds2(ctx);
+        const year2 = input?.year ?? (/* @__PURE__ */ new Date()).getFullYear();
+        const cs = await db.select().from(clients);
+        const nameById = new Map(cs.map((c) => [c.id, c.name]));
+        const runs = await db.select().from(payRuns);
+        const byClient = /* @__PURE__ */ new Map();
+        let totalGross = 0, totalNet = 0, totalRuns = 0;
+        for (const r of runs) {
+          const d = new Date(r.payDate || r.payPeriodEnd);
+          if (d.getFullYear() !== year2) continue;
+          if (allowed !== null && !allowed.includes(r.clientId)) continue;
+          const cur = byClient.get(r.clientId) || { clientId: r.clientId, name: nameById.get(r.clientId) || `#${r.clientId}`, runs: 0, gross: 0, net: 0 };
+          cur.runs++;
+          cur.gross += r.totalGross || 0;
+          cur.net += r.totalNet || 0;
+          byClient.set(r.clientId, cur);
+          totalGross += r.totalGross || 0;
+          totalNet += r.totalNet || 0;
+          totalRuns++;
+        }
+        const clientsArr = [...byClient.values()].sort((a, b) => b.gross - a.gross);
+        return { year: year2, clients: clientsArr, totalGross, totalNet, totalRuns };
+      }),
       // Pay runs for a client, newest period first.
       listRuns: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
