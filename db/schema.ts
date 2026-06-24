@@ -974,6 +974,44 @@ export const clientDashboardSnapshots = sqliteTable("client_dashboard_snapshots"
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// ========== CLIENT CASH-FLOW SNAPSHOTS ==========
+// Markie's real priority (2026-06-24): cash position, not P&L. One cheap row per
+// client per day from the QBO sync — bank balances, AR/AP, uncategorized-to-post,
+// stale-feed (disconnect proxy), and whether cash covers upcoming payroll.
+export const clientCashSnapshots = sqliteTable("client_cash_snapshots", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  connectionId: integer("connectionId"),
+  date: text("date").notNull(), // "YYYY-MM-DD" — one row per client per day
+
+  // Cash position (QBO book balances; split by currency for USD→CAD transfer calls)
+  cashTotal: real("cashTotal").default(0),       // all bank accounts, base value
+  cashCad: real("cashCad").default(0),
+  cashUsd: real("cashUsd").default(0),
+  creditCardOwed: real("creditCardOwed").default(0),
+  bankAccounts: text("bankAccounts"),            // JSON [{name,balance,currency,type,staleDays}]
+
+  // Money in vs out
+  arOutstanding: real("arOutstanding").default(0),
+  apOutstanding: real("apOutstanding").default(0),
+
+  // To-post / coding hygiene
+  uncategorizedBalance: real("uncategorizedBalance").default(0),
+  uncategorizedCount: integer("uncategorizedCount").default(0),
+
+  // Stale feed = disconnect proxy (max days since last txn across bank accounts)
+  staleFeedDays: integer("staleFeedDays"),
+  staleAccounts: text("staleAccounts"),          // JSON [names]
+
+  // Payroll coverage (CRM-derived obligation vs CAD cash)
+  upcomingPayrollAmount: real("upcomingPayrollAmount"),
+  upcomingPayrollDate: integer("upcomingPayrollDate", { mode: "timestamp" }),
+  coversPayroll: integer("coversPayroll", { mode: "boolean" }),
+  payrollShortfall: real("payrollShortfall"),    // CAD to transfer if not covered
+
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // ========== PAYROLL TIMESHEETS ==========
 export const timesheets = sqliteTable("timesheets", {
   id: integer("id").primaryKey({ autoIncrement: true }),

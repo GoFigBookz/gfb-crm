@@ -1,8 +1,23 @@
 import { z } from "zod";
 import { createRouter, authedQuery, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { tasks, clientDashboardSnapshots, timesheets, clientOnboarding, qboCustomers, qboInvoices, qboPayments } from "../db/schema";
+import { tasks, clientDashboardSnapshots, clientCashSnapshots, clients, timesheets, clientOnboarding, qboCustomers, qboInvoices, qboPayments } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
+
+/** Parse a stored cash snapshot row's JSON fields + derive a risk flag. */
+function shapeCashSnapshot(s: any) {
+  if (!s) return null;
+  const bankAccounts = (() => { try { return s.bankAccounts ? JSON.parse(s.bankAccounts) : []; } catch { return []; } })();
+  const staleAccounts = (() => { try { return s.staleAccounts ? JSON.parse(s.staleAccounts) : []; } catch { return []; } })();
+  // Risk: red = can't cover payroll; amber = stale feed or negative cash; else green.
+  let risk: "red" | "amber" | "green" = "green";
+  const reasons: string[] = [];
+  if (s.coversPayroll === false) { risk = "red"; reasons.push(`Cash $${Math.round(s.cashCad || 0).toLocaleString()} < payroll $${Math.round(s.upcomingPayrollAmount || 0).toLocaleString()} (transfer $${Math.round(s.payrollShortfall || 0).toLocaleString()})`); }
+  if ((s.cashCad || 0) < 0) { if (risk !== "red") risk = "amber"; reasons.push("Negative CAD cash"); }
+  if (staleAccounts.length || (s.staleFeedDays != null && s.staleFeedDays >= 14)) { if (risk !== "red") risk = "amber"; reasons.push(staleAccounts.length ? `Stale feed: ${staleAccounts.join(", ")}` : `No bank activity in ${s.staleFeedDays}d`); }
+  if ((s.uncategorizedCount || 0) > 0) { reasons.push(`${s.uncategorizedCount} uncategorized to post`); }
+  return { ...s, bankAccounts, staleAccounts, risk, reasons };
+}
 
 export const clientDashboardRouter = createRouter({
   // Get all dashboard data for a client
@@ -163,6 +178,40 @@ export const clientDashboardRouter = createRouter({
         },
       };
     }),
+
+  // Latest cash-flow snapshot for one client (parsed + risk-flagged).
+  getCashFlow: authedQuery
+    .input(z.object({ clientId: z.number() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const rows = await db.select().from(clientCashSnapshots)
+        .where(eq(clientCashSnapshots.clientId, input.clientId))
+        .orderBy(desc(clientCashSnapshots.date), desc(clientCashSnapshots.id)).limit(1);
+      return shapeCashSnapshot(rows[0]);
+    }),
+
+  // Portfolio "Cash Watch": every client's latest cash snapshot, worst first.
+  cashWatch: authedQuery.query(async () => {
+    const db = getDb();
+    const snaps = await db.select().from(clientCashSnapshots).orderBy(desc(clientCashSnapshots.date), desc(clientCashSnapshots.id));
+    const latestByClient = new Map<number, any>();
+    for (const s of snaps as any[]) if (!latestByClient.has(s.clientId)) latestByClient.set(s.clientId, s);
+    const clientRows = await db.select({ id: clients.id, name: clients.name }).from(clients);
+    const nameById = new Map((clientRows as any[]).map((c) => [c.id, c.name]));
+    const order = { red: 0, amber: 1, green: 2 } as const;
+    const list = Array.from(latestByClient.values())
+      .map((s) => ({ ...shapeCashSnapshot(s), clientName: nameById.get(s.clientId) || `Client ${s.clientId}` }))
+      .sort((a, b) => (order[a.risk] - order[b.risk]) || ((b.payrollShortfall || 0) - (a.payrollShortfall || 0)));
+    return {
+      clients: list,
+      summary: {
+        total: list.length,
+        cantCoverPayroll: list.filter((c) => c.coversPayroll === false).length,
+        staleFeeds: list.filter((c) => c.staleAccounts?.length || (c.staleFeedDays != null && c.staleFeedDays >= 14)).length,
+        totalCadCash: list.reduce((s, c) => s + (c.cashCad || 0), 0),
+      },
+    };
+  }),
 
   // Get all timesheets for a client grouped by pay period
   getTimesheetsByPeriod: authedQuery

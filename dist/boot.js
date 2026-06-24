@@ -22328,6 +22328,7 @@ __export(schema_exports, {
   calendarEvents: () => calendarEvents,
   chatMessages: () => chatMessages,
   clientAccess: () => clientAccess,
+  clientCashSnapshots: () => clientCashSnapshots,
   clientContacts: () => clientContacts,
   clientDashboardSnapshots: () => clientDashboardSnapshots,
   clientEmails: () => clientEmails,
@@ -22390,7 +22391,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings, agentAuditLog, chatMessages;
+var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings, agentAuditLog, chatMessages;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23284,6 +23285,38 @@ var init_schema = __esm({
       periodEnd: integer2("periodEnd", { mode: "timestamp" }),
       // Source
       source: text("source", { enum: ["qbo", "manual", "import"] }).default("manual"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    clientCashSnapshots = sqliteTable("client_cash_snapshots", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      connectionId: integer2("connectionId"),
+      date: text("date").notNull(),
+      // "YYYY-MM-DD" — one row per client per day
+      // Cash position (QBO book balances; split by currency for USD→CAD transfer calls)
+      cashTotal: real("cashTotal").default(0),
+      // all bank accounts, base value
+      cashCad: real("cashCad").default(0),
+      cashUsd: real("cashUsd").default(0),
+      creditCardOwed: real("creditCardOwed").default(0),
+      bankAccounts: text("bankAccounts"),
+      // JSON [{name,balance,currency,type,staleDays}]
+      // Money in vs out
+      arOutstanding: real("arOutstanding").default(0),
+      apOutstanding: real("apOutstanding").default(0),
+      // To-post / coding hygiene
+      uncategorizedBalance: real("uncategorizedBalance").default(0),
+      uncategorizedCount: integer2("uncategorizedCount").default(0),
+      // Stale feed = disconnect proxy (max days since last txn across bank accounts)
+      staleFeedDays: integer2("staleFeedDays"),
+      staleAccounts: text("staleAccounts"),
+      // JSON [names]
+      // Payroll coverage (CRM-derived obligation vs CAD cash)
+      upcomingPayrollAmount: real("upcomingPayrollAmount"),
+      upcomingPayrollDate: integer2("upcomingPayrollDate", { mode: "timestamp" }),
+      coversPayroll: integer2("coversPayroll", { mode: "boolean" }),
+      payrollShortfall: real("payrollShortfall"),
+      // CAD to transfer if not covered
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
     timesheets = sqliteTable("timesheets", {
@@ -38942,10 +38975,10 @@ function endOfWeek(d) {
 function endOfMonth2(d) {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0);
 }
-function matchClient(text2, clients4) {
+function matchClient(text2, clients3) {
   const n = norm3(text2);
   let best = null;
-  for (const c of clients4) {
+  for (const c of clients3) {
     const cn = norm3(c.name);
     if (!cn) continue;
     const idx = n.indexOf(cn);
@@ -38956,9 +38989,9 @@ function matchClient(text2, clients4) {
   const cleaned = text2.replace(re, "").replace(/\s{2,}/g, " ").replace(/^[\s:,-]+|[\s:,-]+$/g, "").trim();
   return { text: cleaned, client: best.client };
 }
-function parseTaskCommand(raw2, clients4, now = /* @__PURE__ */ new Date()) {
+function parseTaskCommand(raw2, clients3, now = /* @__PURE__ */ new Date()) {
   let text2 = stripLeadVerb(raw2);
-  const c = matchClient(text2, clients4);
+  const c = matchClient(text2, clients3);
   text2 = c.text;
   const d = extractDueDate(text2, now);
   text2 = d.text;
@@ -41576,10 +41609,10 @@ var init_payroll_provincial_2026 = __esm({
 });
 
 // api/payroll-cra-core.ts
-function cppForPeriod(grossPeriod, ytdPensionableBefore, periodsPerYear2 = 12, periodsElapsedBefore = 0, c = CRA_2026) {
+function cppForPeriod(grossPeriod, ytdPensionableBefore, periodsPerYear3 = 12, periodsElapsedBefore = 0, c = CRA_2026) {
   const before = pos(ytdPensionableBefore);
   const after = before + pos(grossPeriod);
-  const exemptionPeriod = c.cpp.exemption / periodsPerYear2;
+  const exemptionPeriod = c.cpp.exemption / periodsPerYear3;
   const baseEarnings = pos(Math.min(after, c.cpp.ympe) - Math.min(before, c.cpp.ympe));
   const ytdBase = c.cpp.rate * pos(Math.min(before, c.cpp.ympe) - exemptionPeriod * periodsElapsedBefore);
   const rawBase = c.cpp.rate * pos(baseEarnings - exemptionPeriod);
@@ -45163,10 +45196,142 @@ var init_ensure_calendar_schema = __esm({
   }
 });
 
+// api/qbo-cashflow.ts
+function bankBreakdownFromAccounts(rows) {
+  let cashCad = 0, cashUsd = 0, creditCardOwed = 0, uncategorizedBalance = 0, uncategorizedCount = 0;
+  const bankAccounts = [];
+  for (const a of rows) {
+    if (a.active === false) continue;
+    const type = (a.accountType || "").toLowerCase();
+    const bal = Number(a.currentBalance) || 0;
+    const cur = (a.currencyRef || "").toLowerCase();
+    const name2 = a.name || "(unnamed)";
+    if (/uncategor|ask my accountant/i.test(name2)) {
+      if (bal !== 0) {
+        uncategorizedBalance += Math.abs(bal);
+        uncategorizedCount++;
+      }
+    }
+    if (type === "bank") {
+      if (cur === USD) cashUsd += bal;
+      else cashCad += bal;
+      bankAccounts.push({ name: name2, balance: bal, currency: cur === USD ? "USD" : "CAD", type: "Bank", staleDays: null });
+    } else if (type === "credit card" || type === "creditcard") {
+      creditCardOwed += Math.abs(bal);
+      bankAccounts.push({ name: name2, balance: bal, currency: cur === USD ? "USD" : "CAD", type: "Credit Card", staleDays: null });
+    }
+  }
+  return { cashTotal: cashCad + cashUsd, cashCad, cashUsd, creditCardOwed, uncategorizedBalance, uncategorizedCount, bankAccounts };
+}
+function periodsPerYear2(freq) {
+  switch ((freq || "").toLowerCase()) {
+    case "weekly":
+      return 52;
+    case "bi-weekly":
+    case "biweekly":
+      return 26;
+    case "semi-monthly":
+    case "semi_monthly":
+      return 24;
+    case "monthly":
+      return 12;
+    default:
+      return 0;
+  }
+}
+function estimateUpcomingPayroll(employees2, freq) {
+  const ppy = periodsPerYear2(freq);
+  if (ppy === 0) return null;
+  const weeksPerPeriod = 52 / ppy;
+  let gross = 0;
+  for (const e of employees2) {
+    if (e.isActive === false || e.isContractor === true) continue;
+    if ((e.payType || "salary") === "hourly") {
+      gross += (Number(e.hourlyRate) || 0) * (Number(e.hoursPerWeek) || 0) * weeksPerPeriod;
+    } else if ((e.payType || "salary") === "salary") {
+      gross += (Number(e.annualSalary) || 0) / ppy;
+    }
+  }
+  if (gross <= 0) return null;
+  return Math.round(gross * 1.12 * 100) / 100;
+}
+function nextPayrollDate(freq, from) {
+  const ppy = periodsPerYear2(freq);
+  if (ppy === 0) return null;
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate(), 12, 0, 0);
+  switch ((freq || "").toLowerCase()) {
+    case "weekly":
+      d.setDate(d.getDate() + 7);
+      break;
+    case "bi-weekly":
+    case "biweekly":
+      d.setDate(d.getDate() + 14);
+      break;
+    case "semi-monthly":
+    case "semi_monthly":
+      d.setDate(
+        d.getDate() <= 15 ? 15 : 0
+        /* last day rollover */
+      );
+      if (d.getDate() === 0) {
+        d.setMonth(d.getMonth() + 1, 0);
+      }
+      break;
+    case "monthly":
+      d.setMonth(d.getMonth() + 1, 1);
+      break;
+  }
+  return d;
+}
+function staleFeedFromTransactionList(report, now, thresholdDays = 10) {
+  const empty = { perAccount: {}, maxStaleDays: null, staleAccounts: [] };
+  try {
+    const cols = report?.Columns?.Column ?? [];
+    const colType = (c) => String(c?.ColType ?? c?.ColTitle ?? "").toLowerCase();
+    let dateIdx = cols.findIndex((c) => /date/.test(colType(c)));
+    let acctIdx = cols.findIndex((c) => /account/.test(colType(c)));
+    if (dateIdx < 0) dateIdx = 0;
+    if (acctIdx < 0) acctIdx = -1;
+    const lastByAccount = {};
+    let lastOverall = 0;
+    const walk = (row) => {
+      const cd = row?.ColData;
+      if (Array.isArray(cd) && cd.length) {
+        const dv = cd[dateIdx]?.value;
+        const t2 = dv ? Date.parse(String(dv)) : NaN;
+        if (!isNaN(t2)) {
+          lastOverall = Math.max(lastOverall, t2);
+          const acct = acctIdx >= 0 ? String(cd[acctIdx]?.value || "").trim() : "";
+          if (acct) lastByAccount[acct] = Math.max(lastByAccount[acct] || 0, t2);
+        }
+      }
+      for (const k of row?.Rows?.Row ?? []) walk(k);
+    };
+    for (const r of report?.Rows?.Row ?? []) walk(r);
+    const dayMs = 864e5;
+    const perAccount = {};
+    for (const [acct, t2] of Object.entries(lastByAccount)) perAccount[acct] = Math.floor((now.getTime() - t2) / dayMs);
+    let maxStaleDays = null;
+    if (Object.keys(perAccount).length) maxStaleDays = Math.max(...Object.values(perAccount));
+    else if (lastOverall) maxStaleDays = Math.floor((now.getTime() - lastOverall) / dayMs);
+    const staleAccounts = Object.entries(perAccount).filter(([, d]) => d >= thresholdDays).map(([a]) => a);
+    return { perAccount, maxStaleDays, staleAccounts };
+  } catch {
+    return empty;
+  }
+}
+var USD;
+var init_qbo_cashflow = __esm({
+  "api/qbo-cashflow.ts"() {
+    USD = "usd";
+  }
+});
+
 // api/qbo-snapshot.ts
 var qbo_snapshot_exports = {};
 __export(qbo_snapshot_exports, {
   balanceSheetFromAccounts: () => balanceSheetFromAccounts,
+  captureCashSnapshot: () => captureCashSnapshot,
   profitAndLossFromReport: () => profitAndLossFromReport,
   reportGroupValue: () => reportGroupValue,
   runQboSync: () => runQboSync,
@@ -45233,6 +45398,73 @@ function profitAndLossFromReport(report) {
   }
   return { revenue, expenses, netIncome: net };
 }
+async function captureCashSnapshot(connection) {
+  if (connection.clientId == null) return;
+  const db = getDb();
+  const clientId = connection.clientId;
+  const now = /* @__PURE__ */ new Date();
+  const acctRows = await db.select({ name: qboAccounts.name, accountType: qboAccounts.accountType, currentBalance: qboAccounts.currentBalance, currencyRef: qboAccounts.currencyRef, active: qboAccounts.active }).from(qboAccounts).where(eq(qboAccounts.connectionId, connection.id));
+  const bank = bankBreakdownFromAccounts(acctRows);
+  const invRows = await db.select({ balance: qboInvoices.balance }).from(qboInvoices).where(eq(qboInvoices.connectionId, connection.id));
+  const arOutstanding = invRows.reduce((s, i) => s + (Number(i.balance) || 0), 0);
+  let apOutstanding = 0;
+  try {
+    const billData = await qboRequest(connection, "/query?query=SELECT * FROM Bill MAXRESULTS 1000");
+    const bills = billData?.QueryResponse?.Bill || [];
+    apOutstanding = bills.reduce((s, b) => s + (Number(b.Balance) || 0), 0);
+  } catch (e) {
+    console.error(`[cashflow] AP query (conn ${connection.id}):`, e instanceof Error ? e.message : e);
+  }
+  let stale = { maxStaleDays: null, staleAccounts: [], perAccount: {} };
+  try {
+    const start = new Date(now.getTime() - 120 * 864e5).toISOString().slice(0, 10);
+    const end = now.toISOString().slice(0, 10);
+    const report = await qboRequest(connection, `/reports/TransactionList?start_date=${start}&end_date=${end}&columns=tx_date,account_name,subt_nat_amount`);
+    stale = staleFeedFromTransactionList(report, now);
+    for (const ba of bank.bankAccounts) {
+      const d = stale.perAccount[ba.name];
+      if (d != null) ba.staleDays = d;
+    }
+  } catch (e) {
+    console.error(`[cashflow] TransactionList (conn ${connection.id}):`, e instanceof Error ? e.message : e);
+  }
+  const clientRow = (await db.select({ payrollFrequency: clients.payrollFrequency, hasPayroll: clients.hasPayroll }).from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+  let upcomingPayrollAmount = null, coversPayroll = null, payrollShortfall = null;
+  let upcomingPayrollDate = null;
+  if (clientRow?.hasPayroll) {
+    const emps = await db.select({ payType: employees.payType, annualSalary: employees.annualSalary, hourlyRate: employees.hourlyRate, hoursPerWeek: employees.hoursPerWeek, isActive: employees.isActive, isContractor: employees.isContractor }).from(employees).where(eq(employees.clientId, clientId));
+    upcomingPayrollAmount = estimateUpcomingPayroll(emps, clientRow.payrollFrequency);
+    if (upcomingPayrollAmount != null) {
+      upcomingPayrollDate = nextPayrollDate(clientRow.payrollFrequency, now);
+      coversPayroll = bank.cashCad >= upcomingPayrollAmount;
+      payrollShortfall = coversPayroll ? 0 : Math.round((upcomingPayrollAmount - bank.cashCad) * 100) / 100;
+    }
+  }
+  const date5 = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const row = {
+    clientId,
+    connectionId: connection.id,
+    date: date5,
+    cashTotal: bank.cashTotal,
+    cashCad: bank.cashCad,
+    cashUsd: bank.cashUsd,
+    creditCardOwed: bank.creditCardOwed,
+    bankAccounts: JSON.stringify(bank.bankAccounts),
+    arOutstanding,
+    apOutstanding,
+    uncategorizedBalance: bank.uncategorizedBalance,
+    uncategorizedCount: bank.uncategorizedCount,
+    staleFeedDays: stale.maxStaleDays,
+    staleAccounts: JSON.stringify(stale.staleAccounts),
+    upcomingPayrollAmount,
+    upcomingPayrollDate,
+    coversPayroll,
+    payrollShortfall
+  };
+  const ex = (await db.select({ id: clientCashSnapshots.id }).from(clientCashSnapshots).where(and(eq(clientCashSnapshots.clientId, clientId), eq(clientCashSnapshots.date, date5))).limit(1))[0];
+  if (ex) await db.update(clientCashSnapshots).set(row).where(eq(clientCashSnapshots.id, ex.id));
+  else await db.insert(clientCashSnapshots).values(row);
+}
 async function syncConnection(connection) {
   const out = {
     connectionId: connection.id,
@@ -45297,6 +45529,11 @@ async function syncConnection(connection) {
       } else {
         await db.insert(clientDashboardSnapshots).values(row);
       }
+      try {
+        await captureCashSnapshot(connection);
+      } catch (e) {
+        console.error(`[qbo-sync] cashflow ${out.company}:`, e instanceof Error ? e.message : e);
+      }
     }
     await db.update(qboConnections).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(qboConnections.id, connection.id));
     out.ok = true;
@@ -45332,6 +45569,7 @@ var init_qbo_snapshot = __esm({
     init_schema();
     init_drizzle_orm();
     init_qbo_router();
+    init_qbo_cashflow();
   }
 });
 
@@ -48053,6 +48291,65 @@ async function ensureChatSchema() {
 }
 var init_ensure_chat_schema = __esm({
   "api/ensure-chat-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/ensure-cashflow-schema.ts
+var ensure_cashflow_schema_exports = {};
+__export(ensure_cashflow_schema_exports, {
+  ensureCashflowSchema: () => ensureCashflowSchema
+});
+async function ensureCashflowSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS client_cash_snapshots (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      clientId integer NOT NULL,
+      date text NOT NULL
+    )`);
+  } catch (e) {
+    console.error("[cashflow] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+  try {
+    const have = /* @__PURE__ */ new Set();
+    const res = await db.run(sql`PRAGMA table_info(client_cash_snapshots)`);
+    for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
+    const cols = [
+      ["connectionId", "integer"],
+      ["cashTotal", "real DEFAULT 0"],
+      ["cashCad", "real DEFAULT 0"],
+      ["cashUsd", "real DEFAULT 0"],
+      ["creditCardOwed", "real DEFAULT 0"],
+      ["bankAccounts", "text"],
+      ["arOutstanding", "real DEFAULT 0"],
+      ["apOutstanding", "real DEFAULT 0"],
+      ["uncategorizedBalance", "real DEFAULT 0"],
+      ["uncategorizedCount", "integer DEFAULT 0"],
+      ["staleFeedDays", "integer"],
+      ["staleAccounts", "text"],
+      ["upcomingPayrollAmount", "real"],
+      ["upcomingPayrollDate", "integer"],
+      ["coversPayroll", "integer"],
+      ["payrollShortfall", "real"],
+      ["createdAt", "integer"]
+    ];
+    for (const [name2, type] of cols) {
+      if (have.has(name2)) continue;
+      try {
+        await db.run(sql.raw(`ALTER TABLE client_cash_snapshots ADD COLUMN "${name2}" ${type}`));
+        console.log(`[cashflow] added column: ${name2}`);
+      } catch (e) {
+        console.error(`[cashflow] add column ${name2} failed:`, e instanceof Error ? e.message : e);
+      }
+    }
+  } catch (e) {
+    console.error("[cashflow] ensure columns failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_cashflow_schema = __esm({
+  "api/ensure-cashflow-schema.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -58610,6 +58907,41 @@ init_middleware();
 init_connection();
 init_schema();
 init_drizzle_orm();
+function shapeCashSnapshot(s) {
+  if (!s) return null;
+  const bankAccounts = (() => {
+    try {
+      return s.bankAccounts ? JSON.parse(s.bankAccounts) : [];
+    } catch {
+      return [];
+    }
+  })();
+  const staleAccounts = (() => {
+    try {
+      return s.staleAccounts ? JSON.parse(s.staleAccounts) : [];
+    } catch {
+      return [];
+    }
+  })();
+  let risk = "green";
+  const reasons = [];
+  if (s.coversPayroll === false) {
+    risk = "red";
+    reasons.push(`Cash $${Math.round(s.cashCad || 0).toLocaleString()} < payroll $${Math.round(s.upcomingPayrollAmount || 0).toLocaleString()} (transfer $${Math.round(s.payrollShortfall || 0).toLocaleString()})`);
+  }
+  if ((s.cashCad || 0) < 0) {
+    if (risk !== "red") risk = "amber";
+    reasons.push("Negative CAD cash");
+  }
+  if (staleAccounts.length || s.staleFeedDays != null && s.staleFeedDays >= 14) {
+    if (risk !== "red") risk = "amber";
+    reasons.push(staleAccounts.length ? `Stale feed: ${staleAccounts.join(", ")}` : `No bank activity in ${s.staleFeedDays}d`);
+  }
+  if ((s.uncategorizedCount || 0) > 0) {
+    reasons.push(`${s.uncategorizedCount} uncategorized to post`);
+  }
+  return { ...s, bankAccounts, staleAccounts, risk, reasons };
+}
 var clientDashboardRouter = createRouter({
   // Get all dashboard data for a client
   getByClient: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
@@ -58701,6 +59033,32 @@ var clientDashboardRouter = createRouter({
         outstanding,
         invoiceCount: allInvoices.length,
         paymentCount: allPayments.length
+      }
+    };
+  }),
+  // Latest cash-flow snapshot for one client (parsed + risk-flagged).
+  getCashFlow: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+    const db = getDb();
+    const rows = await db.select().from(clientCashSnapshots).where(eq(clientCashSnapshots.clientId, input.clientId)).orderBy(desc(clientCashSnapshots.date), desc(clientCashSnapshots.id)).limit(1);
+    return shapeCashSnapshot(rows[0]);
+  }),
+  // Portfolio "Cash Watch": every client's latest cash snapshot, worst first.
+  cashWatch: authedQuery.query(async () => {
+    const db = getDb();
+    const snaps = await db.select().from(clientCashSnapshots).orderBy(desc(clientCashSnapshots.date), desc(clientCashSnapshots.id));
+    const latestByClient = /* @__PURE__ */ new Map();
+    for (const s of snaps) if (!latestByClient.has(s.clientId)) latestByClient.set(s.clientId, s);
+    const clientRows = await db.select({ id: clients.id, name: clients.name }).from(clients);
+    const nameById = new Map(clientRows.map((c) => [c.id, c.name]));
+    const order = { red: 0, amber: 1, green: 2 };
+    const list = Array.from(latestByClient.values()).map((s) => ({ ...shapeCashSnapshot(s), clientName: nameById.get(s.clientId) || `Client ${s.clientId}` })).sort((a, b) => order[a.risk] - order[b.risk] || (b.payrollShortfall || 0) - (a.payrollShortfall || 0));
+    return {
+      clients: list,
+      summary: {
+        total: list.length,
+        cantCoverPayroll: list.filter((c) => c.coversPayroll === false).length,
+        staleFeeds: list.filter((c) => c.staleAccounts?.length || c.staleFeedDays != null && c.staleFeedDays >= 14).length,
+        totalCadCash: list.reduce((s, c) => s + (c.cashCad || 0), 0)
       }
     };
   }),
@@ -64265,7 +64623,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.89";
+var BUILD_TAG = "2026-06-24.90";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64913,7 +65271,7 @@ app.post("/api/admin/import-clients", async (c) => {
       return c.json({ error: "Invalid token" }, 401);
     }
     const db = getDb();
-    const { clients: clients4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { clients: clients3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const { ensureComplianceForClient: ensureComplianceForClient2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
     const CLIENTS_DATA2 = [
@@ -64941,12 +65299,12 @@ app.post("/api/admin/import-clients", async (c) => {
     const results = { imported: 0, skipped: 0, tasksCreated: 0, errors: [] };
     for (const clientData of CLIENTS_DATA2) {
       try {
-        const existing = await db.select().from(clients4).where(eq3(clients4.name, clientData.name)).limit(1);
+        const existing = await db.select().from(clients3).where(eq3(clients3.name, clientData.name)).limit(1);
         if (existing.length > 0) {
           results.skipped++;
           continue;
         }
-        const [client] = await db.insert(clients4).values({
+        const [client] = await db.insert(clients3).values({
           ...clientData,
           userId: 1,
           createdAt: /* @__PURE__ */ new Date(),
@@ -65035,9 +65393,9 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "clients") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, qboConnections: qboConnections2, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, qboConnections: qboConnections2, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const db = getDb2();
-      const cs = await db.select().from(clients4);
+      const cs = await db.select().from(clients3);
       const conns = await db.select().from(qboConnections2);
       const ruleRows = await db.select().from(clientTaskRules4);
       const byClient = /* @__PURE__ */ new Map();
@@ -65120,10 +65478,10 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       return c.json({ success: true, op, client: {
@@ -65148,12 +65506,12 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       const scope = buildScopeForClient2(cl, onb);
@@ -65165,14 +65523,14 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
       const { renderQuoteHtml: renderQuoteHtml2 } = await Promise.resolve().then(() => (init_quote_doc(), quote_doc_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
@@ -65189,12 +65547,12 @@ app.post("/api/admin/figgy", async (c) => {
         documentType: "custom",
         clientEmail: cl.email || null
       });
-      await db.update(clients4).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: /* @__PURE__ */ new Date(), workflowStatus: "quote_sent" }).where(eq3(clients4.id, cl.id));
+      await db.update(clients3).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: /* @__PURE__ */ new Date(), workflowStatus: "quote_sent" }).where(eq3(clients3.id, cl.id));
       return c.json({ success: true, op, clientName: cl.name, recurringMonthly: quote.recurringMonthly, nearestPackage: quote.nearestPackage, ...res });
     }
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, and: and5 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
@@ -65205,15 +65563,15 @@ app.post("/api/admin/figgy", async (c) => {
       const steps = [];
       const TESTNAME = "E2E Test Co Inc.";
       try {
-        const prev = await db.select().from(clients4).where(eq3(clients4.name, TESTNAME));
+        const prev = await db.select().from(clients3).where(eq3(clients3.name, TESTNAME));
         for (const p of prev) {
           await db.delete(tasks5).where(eq3(tasks5.clientId, p.id));
           await db.delete(clientTaskRules4).where(eq3(clientTaskRules4.clientId, p.id));
           await db.delete(signatureDocuments2).where(eq3(signatureDocuments2.clientId, p.id));
           await db.delete(clientOnboarding2).where(eq3(clientOnboarding2.clientId, p.id));
-          await db.delete(clients4).where(eq3(clients4.id, p.id));
+          await db.delete(clients3).where(eq3(clients3.id, p.id));
         }
-        const [cl] = await db.insert(clients4).values({
+        const [cl] = await db.insert(clients3).values({
           userId: 1,
           name: TESTNAME,
           company: TESTNAME,
@@ -65310,7 +65668,7 @@ app.post("/api/admin/figgy", async (c) => {
         }
         const signedCount = (await db.select().from(signatureDocuments2).where(and5(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
         steps.push(`signed ${signedCount}/2 documents`);
-        await db.update(clients4).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients4.id, cl.id));
+        await db.update(clients3).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients3.id, cl.id));
         const res = await createClientTaskRules2({
           clientId: cl.id,
           userId: 1,
@@ -65347,14 +65705,14 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
       const { renderEngagementHtml: renderEngagementHtml2 } = await Promise.resolve().then(() => (init_quote_doc(), quote_doc_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
@@ -65429,6 +65787,8 @@ async function startServer() {
     await ensureConnectorsSchema2();
     const { ensureCalendarSchema: ensureCalendarSchema2 } = await Promise.resolve().then(() => (init_ensure_calendar_schema(), ensure_calendar_schema_exports));
     await ensureCalendarSchema2();
+    const { ensureCashflowSchema: ensureCashflowSchema2 } = await Promise.resolve().then(() => (init_ensure_cashflow_schema(), ensure_cashflow_schema_exports));
+    await ensureCashflowSchema2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
@@ -65451,11 +65811,11 @@ async function startServer() {
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { reorderNumberedName: reorderNumberedName2 } = await Promise.resolve().then(() => (init_client_name(), client_name_exports));
       const db = getDb2();
-      const rows = await db.select().from(clients4);
+      const rows = await db.select().from(clients3);
       for (const cl of rows) {
         const patch = {};
         const newName = reorderNumberedName2(cl.name);
@@ -65464,7 +65824,7 @@ async function startServer() {
         if (newCompany && newCompany !== cl.company) patch.company = newCompany;
         if (Object.keys(patch).length) {
           try {
-            await db.update(clients4).set(patch).where(eq3(clients4.id, cl.id));
+            await db.update(clients3).set(patch).where(eq3(clients3.id, cl.id));
           } catch {
           }
         }
@@ -65474,13 +65834,13 @@ async function startServer() {
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, and: and5, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
-      const matches = await db.select().from(clients4).where(like3(clients4.name, "%Doc King%"));
+      const matches = await db.select().from(clients3).where(like3(clients3.name, "%Doc King%"));
       for (const cl of matches) {
         if (cl.clientType !== "wholesale") {
-          await db.update(clients4).set({ clientType: "wholesale" }).where(eq3(clients4.id, cl.id));
+          await db.update(clients3).set({ clientType: "wholesale" }).where(eq3(clients3.id, cl.id));
         }
         await db.update(clientTaskRules4).set({ active: false }).where(eq3(clientTaskRules4.clientId, cl.id));
         await db.delete(tasks5).where(and5(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
@@ -65490,15 +65850,15 @@ async function startServer() {
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients3, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, and: and5, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
-        const matches = await db.select().from(clients4).where(like3(clients4.name, nameLike));
+        const matches = await db.select().from(clients3).where(like3(clients3.name, nameLike));
         for (const cl of matches) {
           const patch = {};
           for (const [k, v] of Object.entries(flags)) if (!cl[k]) patch[k] = v;
-          if (Object.keys(patch).length) await db.update(clients4).set(patch).where(eq3(clients4.id, cl.id));
+          if (Object.keys(patch).length) await db.update(clients3).set(patch).where(eq3(clients3.id, cl.id));
         }
         return matches;
       };
@@ -65511,11 +65871,11 @@ async function startServer() {
         const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
         const marker = await db.select().from(appSettings2).where(eq3(appSettings2.key, "fix_sharebonus_originality_only_v1")).limit(1);
         if (!marker[0]) {
-          const all = await db.select().from(clients4);
+          const all = await db.select().from(clients3);
           for (const cl of all) {
             if (/originality/i.test(cl.name || "")) continue;
             if (cl.payrollBonuses || cl.payrollRevenueShare) {
-              await db.update(clients4).set({ payrollBonuses: 0, payrollRevenueShare: 0 }).where(eq3(clients4.id, cl.id));
+              await db.update(clients3).set({ payrollBonuses: 0, payrollRevenueShare: 0 }).where(eq3(clients3.id, cl.id));
             }
           }
           await db.insert(appSettings2).values({ key: "fix_sharebonus_originality_only_v1", value: (/* @__PURE__ */ new Date()).toISOString() });

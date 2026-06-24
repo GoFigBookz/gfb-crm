@@ -33,6 +33,7 @@ import BankConverter from "./pages/BankConverter";
 import PdfSplitter from "./pages/PdfSplitter";
 import Assistant from "./pages/Assistant";
 import SystemHealth from "./pages/SystemHealth";
+import CashWatch from "./pages/CashWatch";
 import Personal from "./pages/Personal";
 import TaxDeadlines from "./pages/TaxDeadlines";
 import YearEndChecklist from "./pages/YearEndChecklist";
@@ -103,6 +104,7 @@ function AppRoutes() {
         <Route path="/pdf-splitter" element={<PdfSplitter />} />
         <Route path="/assistant" element={<Assistant />} />
         <Route path="/system-health" element={<SystemHealth />} />
+        <Route path="/cash-watch" element={<CashWatch />} />
         <Route path="/personal" element={<Personal />} />
         <Route path="/tax-deadlines" element={<TaxDeadlines />} />
         <Route path="/year-end" element={<YearEndChecklist />} />

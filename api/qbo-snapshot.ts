@@ -17,9 +17,10 @@
  * Read-only — never writes to QBO. Disable with FIGGY_QBO_SYNC_DISABLE=on.
  */
 import { getDb } from "./queries/connection";
-import { qboConnections, qboAccounts, clientDashboardSnapshots, qboSyncLogs, clients } from "../db/schema";
+import { qboConnections, qboAccounts, qboInvoices, clientDashboardSnapshots, clientCashSnapshots, qboSyncLogs, clients, employees } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { qboRequest, ensureValidToken, doSyncCustomers, doSyncInvoices, doSyncPayments, doSyncAccounts } from "./qbo-router";
+import { bankBreakdownFromAccounts, estimateUpcomingPayroll, nextPayrollDate, staleFeedFromTransactionList } from "./qbo-cashflow";
 
 function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -103,6 +104,76 @@ export interface ConnectionSyncResult {
   error?: string;
 }
 
+/** Build + upsert the per-client daily cash-flow snapshot from already-synced
+ *  accounts/invoices (0 extra QBO calls) + one Bill query (AP) + one
+ *  TransactionList (stale-feed proxy) + CRM payroll obligation. Isolated to this
+ *  connection's clientId. Assumes accounts/invoices were just synced. */
+export async function captureCashSnapshot(connection: typeof qboConnections.$inferSelect): Promise<void> {
+  if (connection.clientId == null) return;
+  const db = getDb();
+  const clientId = connection.clientId;
+  const now = new Date();
+
+  // Cash / CC / uncategorized from the synced Chart of Accounts (no extra call).
+  const acctRows = await db.select({ name: qboAccounts.name, accountType: qboAccounts.accountType, currentBalance: qboAccounts.currentBalance, currencyRef: qboAccounts.currencyRef, active: qboAccounts.active })
+    .from(qboAccounts).where(eq(qboAccounts.connectionId, connection.id));
+  const bank = bankBreakdownFromAccounts(acctRows as any[]);
+
+  // AR from synced invoices (no extra call).
+  const invRows = await db.select({ balance: qboInvoices.balance }).from(qboInvoices).where(eq(qboInvoices.connectionId, connection.id));
+  const arOutstanding = (invRows as any[]).reduce((s, i) => s + (Number(i.balance) || 0), 0);
+
+  // AP — one Bill query (best-effort).
+  let apOutstanding = 0;
+  try {
+    const billData = await qboRequest(connection, "/query?query=SELECT * FROM Bill MAXRESULTS 1000");
+    const bills = (billData?.QueryResponse?.Bill || []) as any[];
+    apOutstanding = bills.reduce((s, b) => s + (Number(b.Balance) || 0), 0);
+  } catch (e) { console.error(`[cashflow] AP query (conn ${connection.id}):`, e instanceof Error ? e.message : e); }
+
+  // Stale-feed proxy — one TransactionList (best-effort).
+  let stale = { maxStaleDays: null as number | null, staleAccounts: [] as string[], perAccount: {} as Record<string, number> };
+  try {
+    const start = new Date(now.getTime() - 120 * 86400000).toISOString().slice(0, 10);
+    const end = now.toISOString().slice(0, 10);
+    const report = await qboRequest(connection, `/reports/TransactionList?start_date=${start}&end_date=${end}&columns=tx_date,account_name,subt_nat_amount`);
+    stale = staleFeedFromTransactionList(report, now);
+    // Fold per-account staleness into the bank account lines for the UI.
+    for (const ba of bank.bankAccounts) { const d = stale.perAccount[ba.name]; if (d != null) ba.staleDays = d; }
+  } catch (e) { console.error(`[cashflow] TransactionList (conn ${connection.id}):`, e instanceof Error ? e.message : e); }
+
+  // Payroll obligation (CRM-derived) → CAD coverage.
+  const clientRow = (await db.select({ payrollFrequency: clients.payrollFrequency, hasPayroll: clients.hasPayroll }).from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
+  let upcomingPayrollAmount: number | null = null, coversPayroll: boolean | null = null, payrollShortfall: number | null = null;
+  let upcomingPayrollDate: Date | null = null;
+  if (clientRow?.hasPayroll) {
+    const emps = await db.select({ payType: employees.payType, annualSalary: employees.annualSalary, hourlyRate: employees.hourlyRate, hoursPerWeek: employees.hoursPerWeek, isActive: employees.isActive, isContractor: employees.isContractor })
+      .from(employees).where(eq(employees.clientId, clientId));
+    upcomingPayrollAmount = estimateUpcomingPayroll(emps as any[], clientRow.payrollFrequency);
+    if (upcomingPayrollAmount != null) {
+      upcomingPayrollDate = nextPayrollDate(clientRow.payrollFrequency, now);
+      coversPayroll = bank.cashCad >= upcomingPayrollAmount;
+      payrollShortfall = coversPayroll ? 0 : Math.round((upcomingPayrollAmount - bank.cashCad) * 100) / 100;
+    }
+  }
+
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const row = {
+    clientId, connectionId: connection.id, date,
+    cashTotal: bank.cashTotal, cashCad: bank.cashCad, cashUsd: bank.cashUsd, creditCardOwed: bank.creditCardOwed,
+    bankAccounts: JSON.stringify(bank.bankAccounts),
+    arOutstanding, apOutstanding,
+    uncategorizedBalance: bank.uncategorizedBalance, uncategorizedCount: bank.uncategorizedCount,
+    staleFeedDays: stale.maxStaleDays, staleAccounts: JSON.stringify(stale.staleAccounts),
+    upcomingPayrollAmount, upcomingPayrollDate, coversPayroll, payrollShortfall,
+  };
+  // One row per client per day.
+  const ex = (await db.select({ id: clientCashSnapshots.id }).from(clientCashSnapshots)
+    .where(and(eq(clientCashSnapshots.clientId, clientId), eq(clientCashSnapshots.date, date))).limit(1))[0];
+  if (ex) await db.update(clientCashSnapshots).set(row).where(eq(clientCashSnapshots.id, ex.id));
+  else await db.insert(clientCashSnapshots).values(row);
+}
+
 /** Sync one connection's entities + write its daily financial snapshot. */
 export async function syncConnection(connection: typeof qboConnections.$inferSelect): Promise<ConnectionSyncResult> {
   const out: ConnectionSyncResult = {
@@ -156,6 +227,9 @@ export async function syncConnection(connection: typeof qboConnections.$inferSel
       } else {
         await db.insert(clientDashboardSnapshots).values(row);
       }
+
+      // Cash-flow snapshot (Markie's real priority) — best-effort, never sinks the sync.
+      try { await captureCashSnapshot(connection); } catch (e) { console.error(`[qbo-sync] cashflow ${out.company}:`, e instanceof Error ? e.message : e); }
     }
 
     await db.update(qboConnections).set({ lastSyncedAt: new Date() }).where(eq(qboConnections.id, connection.id));
