@@ -85,3 +85,26 @@ Status: ✅ done & live · 🔨 building tonight · ⏳ backlogged (tracked task
   before touching the calendar again.
 - ❓ **Cat Bay onboarding** — no such client exists; add it first.
 - ❓ **T4 vs T2** — "Jan 20" applied to T4/T4A slip prep (the `t4_annual` rule).
+
+## Cash flow over P&L (build 2026-06-24.90) — Markie's reprioritization
+Markie: cash position matters, not P&L/COGS. Built a cash-flow layer on the daily
+QBO sync. Decisions confirmed with Markie: **QBO book balance + stale-feed flag**
+(true bank balance / live feed status isn't in the QBO accounting API); lead with
+**all four** signals.
+- `api/qbo-cashflow.ts` (pure, 8 tests) + `captureCashSnapshot` in qbo-snapshot.ts:
+  - Bank balances CAD/USD split + credit-card owed + uncategorized-to-post, from
+    the synced Chart of Accounts (0 extra QBO calls)
+  - AR (synced invoices) + AP (1 Bill query)
+  - Stale-feed proxy = per-account days-since-last-txn (1 TransactionList) → the
+    "is the bank disconnected" signal
+  - Payroll coverage: estimates upcoming run from CRM employees × frequency +12%
+    burden; flags when CAD cash can't cover → CAD transfer amount
+  - `client_cash_snapshots` table (one row/client/day) + boot schema guard
+- UI: **Cash Watch** page (Work cockpit, worst-first) + `clientDashboard.cashWatch`
+  / `getCashFlow`. P&L/BS snapshot kept but de-emphasized.
+- VERIFIED: end-to-end DB write path locally (CAD/USD split, uncategorized, JSON,
+  upsert); 217 tests pass; adversarial review of the prior QBO sync = no high/med bugs.
+- DEPENDENCY: the payroll-coverage forecast needs **employees entered per payroll
+  client** (salary/rate/hours). Without them, coverage shows blank (cash still shows).
+- POPULATES: on next deploy the daily sync fills Cash Watch for the QBO-connected
+  clients; trigger now via `GET /api/qbo/sync-now`, view at `/cash-watch`.
