@@ -63968,7 +63968,7 @@ var assistantRouter = createRouter({
     const sleep = (ms2) => new Promise((r) => setTimeout(r, ms2));
     const TRANSIENT = /* @__PURE__ */ new Set([429, 500, 502, 503, 529]);
     for (let i = 0; i < 6; i++) {
-      const body = { model, max_tokens: 700, system, messages };
+      const body = { model, max_tokens: 1024, system, messages };
       if (toolTiers[tier]) body.tools = toolTiers[tier];
       let res;
       let b = "";
@@ -64016,9 +64016,29 @@ var assistantRouter = createRouter({
         messages.push({ role: "assistant", content: data.content });
         continue;
       }
-      const reply = (data.content || []).filter((b2) => b2.type === "text").map((b2) => b2.text).join("\n").trim();
-      await saveTurn(reply || "(no reply)");
-      return { reply: reply || "(no reply)", actions, agent };
+      let reply = (data.content || []).filter((b2) => b2.type === "text").map((b2) => b2.text).join("\n").trim();
+      if (!reply && data.stop_reason === "max_tokens") {
+        const toolUses = (data.content || []).filter((b2) => b2.type === "tool_use");
+        if (toolUses.length) {
+          messages.push({ role: "assistant", content: data.content });
+          const results = [];
+          for (const block of toolUses) {
+            const out = await runTool(block.name, block.input, ctx.user.id, agent);
+            if (["add_task", "add_personal", "schedule_event", "complete_task"].includes(block.name)) actions.push(out);
+            if (ACTION_TOOLS.has(block.name)) await recordAudit({ userId: ctx.user.id, agentScope: agent, action: block.name, summary: out, decision: "done" });
+            results.push({ type: "tool_result", tool_use_id: block.id, content: out });
+          }
+          messages.push({ role: "user", content: results });
+          continue;
+        }
+      }
+      if (!reply && actions.length) reply = actions.join("\n");
+      if (!reply) {
+        console.error("[assistant] empty reply", { stop_reason: data.stop_reason, blocks: (data.content || []).map((b2) => b2.type), agent });
+        reply = `I blanked on that one \u2014 try saying it once more. (debug: stop=${data.stop_reason || "none"}, got=${(data.content || []).map((b2) => b2.type).join(",") || "nothing"})`;
+      }
+      await saveTurn(reply);
+      return { reply, actions, agent };
     }
     return { reply: "Sorry \u2014 I got stuck in a loop. Try rephrasing.", actions, agent };
   })
@@ -64716,7 +64736,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.96";
+var BUILD_TAG = "2026-06-24.97";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

@@ -365,7 +365,7 @@ export const assistantRouter = createRouter({
       const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
       const TRANSIENT = new Set([429, 500, 502, 503, 529]);
       for (let i = 0; i < 6; i++) {
-        const body: any = { model, max_tokens: 700, system, messages };
+        const body: any = { model, max_tokens: 1024, system, messages };
         if (toolTiers[tier]) body.tools = toolTiers[tier];
         // Send, retrying transient overloads (429/5xx/529) with backoff.
         let res: Response | undefined;
@@ -412,9 +412,35 @@ export const assistantRouter = createRouter({
           messages.push({ role: "assistant", content: data.content });
           continue;
         }
-        const reply = (data.content || []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
-        await saveTurn(reply || "(no reply)");
-        return { reply: reply || "(no reply)", actions, agent };
+        let reply = (data.content || []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
+
+        // The model can stop on max_tokens mid-tool-call (no text yet but a
+        // tool_use block is present) — run the tool(s) and keep going.
+        if (!reply && data.stop_reason === "max_tokens") {
+          const toolUses = (data.content || []).filter((b: any) => b.type === "tool_use");
+          if (toolUses.length) {
+            messages.push({ role: "assistant", content: data.content });
+            const results: any[] = [];
+            for (const block of toolUses) {
+              const out = await runTool(block.name, block.input, ctx.user.id, agent);
+              if (["add_task", "add_personal", "schedule_event", "complete_task"].includes(block.name)) actions.push(out);
+              if (ACTION_TOOLS.has(block.name)) await recordAudit({ userId: ctx.user.id, agentScope: agent, action: block.name, summary: out, decision: "done" });
+              results.push({ type: "tool_result", tool_use_id: block.id, content: out });
+            }
+            messages.push({ role: "user", content: results });
+            continue;
+          }
+        }
+
+        // Still nothing? Fall back to any tool confirmations from this turn.
+        if (!reply && actions.length) reply = actions.join("\n");
+        // Genuinely empty model turn — log the reason and tell the user plainly.
+        if (!reply) {
+          console.error("[assistant] empty reply", { stop_reason: data.stop_reason, blocks: (data.content || []).map((b: any) => b.type), agent });
+          reply = `I blanked on that one — try saying it once more. (debug: stop=${data.stop_reason || "none"}, got=${(data.content || []).map((b: any) => b.type).join(",") || "nothing"})`;
+        }
+        await saveTurn(reply);
+        return { reply, actions, agent };
       }
       return { reply: "Sorry — I got stuck in a loop. Try rephrasing.", actions, agent };
     }),
