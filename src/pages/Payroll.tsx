@@ -82,6 +82,10 @@ function JobberConnect({ clientId }: { clientId: number }) {
         <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300" title="Linked Jobber company">
           Jobber: {jobber.accountName || "connected"} ✓
         </Badge>
+        <a href="https://secure.getjobber.com/" target="_blank" rel="noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-amber-700 hover:underline" title="Open Jobber to log in and compare">
+          log in <ExternalLink className="h-3 w-3" />
+        </a>
         <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs text-slate-400 hover:text-red-600"
           title="Disconnect — use if the wrong Jobber company is linked"
           onClick={() => { if (confirm(`Disconnect ${jobber.accountName || "Jobber"} from this client?`)) disconnect.mutate({ clientId }); }}>
@@ -281,9 +285,6 @@ export default function Payroll() {
                 )}
               </Card>
 
-              {/* Banked hours — shared client ledger that syncs into payroll */}
-              <BankedHoursBoard clientId={selected.id} />
-
               {/* Runs list */}
               {!runs ? <p className="text-sm text-slate-400">Loading runs…</p>
                 : runs.length === 0 ? (
@@ -316,6 +317,10 @@ export default function Payroll() {
               {(selected as any).payrollCraComparison && (
                 <TaxReconPanel clientId={selected.id} highlight />
               )}
+
+              {/* Details, kept at the BOTTOM so the pay sheet stays at the top:
+                  banked hours only shows staff who actually have banked hours. */}
+              <BankedHoursBoard clientId={selected.id} />
             </>
           )}
       </div>

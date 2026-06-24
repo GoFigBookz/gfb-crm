@@ -47,7 +47,9 @@ async function clientBoard(clientId: number) {
     byEmp.get(e.employeeId)!.push(e);
   }
   const rows = emps
-    .filter((e) => e.isActive !== false || byEmp.has(e.id))
+    // Only employees who ACTUALLY have banked-hours data — no zero/empty rows
+    // cluttering the board (Markie: "don't pull through everything with zeros").
+    .filter((e) => byEmp.has(e.id))
     .map((e) => {
       const entries = byEmp.get(e.id) ?? [];
       const s = summarize(entries.map((x) => ({ entryDate: x.entryDate, hours: x.hours, kind: x.kind })));
@@ -60,6 +62,7 @@ async function clientBoard(clientId: number) {
         lastActivity: s.lastActivity,
       };
     })
+    .filter((r) => r.totalBanked !== 0 || r.totalTaken !== 0)
     .sort((a, b) => a.name.localeCompare(b.name));
   const totalBalance = Math.round(rows.reduce((sum, r) => sum + r.balance, 0) * 100) / 100;
   return { rows, totalBalance };

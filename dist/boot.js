@@ -77386,7 +77386,7 @@ async function clientBoard(clientId) {
     if (!byEmp.has(e.employeeId)) byEmp.set(e.employeeId, []);
     byEmp.get(e.employeeId).push(e);
   }
-  const rows = emps.filter((e) => e.isActive !== false || byEmp.has(e.id)).map((e) => {
+  const rows = emps.filter((e) => byEmp.has(e.id)).map((e) => {
     const entries = byEmp.get(e.id) ?? [];
     const s = summarize(entries.map((x) => ({ entryDate: x.entryDate, hours: x.hours, kind: x.kind })));
     return {
@@ -77397,7 +77397,7 @@ async function clientBoard(clientId) {
       totalTaken: s.totalTaken,
       lastActivity: s.lastActivity
     };
-  }).sort((a, b) => a.name.localeCompare(b.name));
+  }).filter((r) => r.totalBanked !== 0 || r.totalTaken !== 0).sort((a, b) => a.name.localeCompare(b.name));
   const totalBalance = Math.round(rows.reduce((sum3, r) => sum3 + r.balance, 0) * 100) / 100;
   return { rows, totalBalance };
 }
@@ -78081,7 +78081,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.112";
+var BUILD_TAG = "2026-06-24.113";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
