@@ -38590,8 +38590,20 @@ async function linkDriveFolders() {
   const all = await db.select().from(clients);
   let linked = 0, alreadySet = 0;
   const unmatched = [];
+  const longNums = (s) => String(s ?? "").match(/\d{6,}/g) || [];
+  const findFolder = (c) => {
+    const direct = NAME_TO_FOLDER[norm2(c.name)] ?? NAME_TO_FOLDER[norm2(c.company)];
+    if (direct) return direct;
+    const clientNums = /* @__PURE__ */ new Set([...longNums(c.name), ...longNums(c.company)]);
+    if (clientNums.size) {
+      for (const [key, id] of Object.entries(NAME_TO_FOLDER)) {
+        if (longNums(key).some((n) => clientNums.has(n))) return id;
+      }
+    }
+    return null;
+  };
   for (const c of all) {
-    const folderId = NAME_TO_FOLDER[norm2(c.name)] ?? NAME_TO_FOLDER[norm2(c.company)];
+    const folderId = findFolder(c);
     if (!folderId) {
       unmatched.push(c.name);
       continue;
@@ -76430,7 +76442,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.100";
+var BUILD_TAG = "2026-06-24.101";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

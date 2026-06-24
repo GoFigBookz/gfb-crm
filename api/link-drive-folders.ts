@@ -70,8 +70,25 @@ export async function linkDriveFolders(): Promise<{ linked: number; alreadySet: 
   const all: any[] = await db.select().from(clients);
   let linked = 0, alreadySet = 0;
   const unmatched: string[] = [];
+  // Match a client to a folder. Direct normalized-name match first; then an
+  // order-independent fallback on the unique registry/BN number (6+ digits) —
+  // needed because some map keys are number-first ("1001196626 ontario ltd sher
+  // e punjab") while the client name is trade-name-first ("Sher-E-Punjab
+  // (1001196626 Ontario Ltd.)"), so the plain string compare misses.
+  const longNums = (s: any) => String(s ?? "").match(/\d{6,}/g) || [];
+  const findFolder = (c: any): string | null => {
+    const direct = NAME_TO_FOLDER[norm(c.name)] ?? NAME_TO_FOLDER[norm(c.company)];
+    if (direct) return direct;
+    const clientNums = new Set([...longNums(c.name), ...longNums(c.company)]);
+    if (clientNums.size) {
+      for (const [key, id] of Object.entries(NAME_TO_FOLDER)) {
+        if (longNums(key).some((n) => clientNums.has(n))) return id;
+      }
+    }
+    return null;
+  };
   for (const c of all) {
-    const folderId = NAME_TO_FOLDER[norm(c.name)] ?? NAME_TO_FOLDER[norm(c.company)];
+    const folderId = findFolder(c);
     if (!folderId) { unmatched.push(c.name); continue; }
     if (c.driveFolderUrl) { alreadySet++; continue; }
     try {
