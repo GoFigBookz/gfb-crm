@@ -1,5 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { estimateFromGross, estimateFromNet, salaryPerPeriod, periodsPerYear, SELECTIVE_RATES, nextPayPeriod, normalizeFrequency } from "./payroll-core";
+import { estimateFromGross, estimateFromNet, salaryPerPeriod, periodsPerYear, SELECTIVE_RATES, nextPayPeriod, normalizeFrequency, remittanceDueDate } from "./payroll-core";
+
+describe("remittanceDueDate (PD7A)", () => {
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  it("regular remitter → 15th of the month after the pay date", () => {
+    expect(iso(remittanceDueDate(new Date(2026, 5, 26)))).toBe("2026-07-15"); // June pay → Jul 15
+    expect(iso(remittanceDueDate(new Date(2026, 11, 31)))).toBe("2027-01-15"); // Dec → Jan 15 next yr
+  });
+  it("accelerated threshold-1 → 25th same month (pay ≤15th) / 10th next month (pay >15th)", () => {
+    expect(iso(remittanceDueDate(new Date(2026, 5, 10), true))).toBe("2026-06-25");
+    expect(iso(remittanceDueDate(new Date(2026, 5, 26), true))).toBe("2026-07-10");
+  });
+});
 
 describe("payroll-core — Selective Painting flat estimator", () => {
   it("gross→net uses the verified 0.7739 factor", () => {

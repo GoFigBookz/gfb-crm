@@ -638,6 +638,12 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
             </div>
             <div className="text-[11px] text-slate-500">
               CRA remittance (taxes on the whole pay) ≈ <strong>{money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))}</strong>
+              {(() => {
+                const base = run.payDate || run.payPeriodEnd;
+                if (!base) return null;
+                const p = new Date(base); const due = new Date(p.getFullYear(), p.getMonth() + 1, 15);
+                return <> — <strong>due {due.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</strong> (PD7A, 15th of next month)</>;
+              })()}
               {" "}· cash needed (net + remittance) ≈ <strong>{money((run.totalNet || 0) + (run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))}</strong>.
               {(run.totalEmployeeDeductions || 0) === 0 && <span className="text-amber-600"> Tap “Estimate taxes” (each employee needs a pay rate first).</span>}
               {" "}Estimate only — QuickBooks Payroll does the authoritative calculation.

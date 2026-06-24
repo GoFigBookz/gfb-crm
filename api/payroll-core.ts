@@ -141,3 +141,16 @@ export function nextPayPeriod(
   const end = new Date(Date.UTC(baseY, baseM + 1, 0));
   return withPay(start, end);
 }
+
+/** PD7A (CRA payroll) remittance due date for a given pay date.
+ *  - Regular remitter: the 15th of the month AFTER the pay date.
+ *  - Accelerated threshold-1: the 25th of the SAME month for pay dates on/before
+ *    the 15th, otherwise the 10th of the next month.
+ *  Local-noon to avoid timezone day-drift. */
+export function remittanceDueDate(payDate: Date, accelerated = false): Date {
+  const y = payDate.getFullYear(), m = payDate.getMonth(), d = payDate.getDate();
+  if (accelerated) {
+    return d <= 15 ? new Date(y, m, 25, 12, 0, 0) : new Date(y, m + 1, 10, 12, 0, 0);
+  }
+  return new Date(y, m + 1, 15, 12, 0, 0);
+}
