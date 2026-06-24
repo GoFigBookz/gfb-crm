@@ -260,10 +260,10 @@ export default function Payroll() {
                 </CardHeader>
                 {showRoster && (
                   <CardContent className="space-y-1.5">
-                    {(roster || []).map((e: any) => (
+                    {[...(roster || [])].sort((a: any, b: any) => String(a.lastName || a.firstName || "").localeCompare(String(b.lastName || b.firstName || ""))).map((e: any) => (
                       <div key={e.id} className="flex items-center gap-3 p-2 rounded-lg border hover:bg-slate-50">
                         <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setEditingEmp(e)}>
-                          <p className="text-sm font-medium">{e.firstName} {e.lastName} {e.isActive === false ? <span className="text-[10px] text-slate-400">(inactive)</span> : null}</p>
+                          <p className="text-sm font-medium">{e.lastName ? `${e.lastName}, ${e.firstName}` : e.firstName} {e.isActive === false ? <span className="text-[10px] text-slate-400">(inactive)</span> : null}</p>
                           <p className="text-xs text-slate-500">
                             {e.payType || "—"}
                             {e.payType === "salary" && e.annualSalary ? ` · $${e.annualSalary.toLocaleString()}/yr` : ""}
@@ -528,19 +528,61 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
     </button>
   );
 
+  // ----- Pre-flight readiness (Gusto/QBO-style): catch problems BEFORE this run is
+  // sent for approval or posted. Pure read over the lines already loaded. -----
+  const names = (ls: any[]) => ls.slice(0, 3).map((l) => l.employeeName).join(", ") + (ls.length > 3 ? `, +${ls.length - 3} more` : "");
+  const missingRate = lines.filter((l: any) => l.payType !== "salary" && (l.hourlyRate ?? 0) === 0 && ((l.regularHours ?? 0) > 0 || (l.overtimeHours ?? 0) > 0));
+  const zeroHours = lines.filter((l: any) => l.payType !== "salary" && (l.regularHours ?? 0) === 0 && (l.overtimeHours ?? 0) === 0 && (l.statHolidayHours ?? 0) === 0);
+  const flaggedNotes = lines.filter((l: any) => String(l.notes ?? "").trim().length > 0);
+  const readiness: { sev: "red" | "amber" | "info"; text: string }[] = [];
+  if (missingRate.length) readiness.push({ sev: "red", text: `${missingRate.length} with hours but no pay rate — gross can't calculate (${names(missingRate)})` });
+  if (zeroHours.length) readiness.push({ sev: "amber", text: `${zeroHours.length} with no hours entered (${names(zeroHours)})` });
+  if (jobberUnmatched.length) readiness.push({ sev: "amber", text: `${jobberUnmatched.length} Jobber worker(s) still to match (below)` });
+  if (flaggedNotes.length) readiness.push({ sev: "amber", text: `${flaggedNotes.length} flagged note(s) to review (${names(flaggedNotes)})` });
+  if ((run.approvalStatus || "none") !== "approved") readiness.push({ sev: "info", text: "Client approval not received yet" });
+  const sevCls = { red: "text-rose-700", amber: "text-amber-700", info: "text-slate-500" } as const;
+  // Status pipeline (guided, like a real payroll run).
+  const STAGES: { key: string; label: string }[] = [
+    { key: "draft", label: "Draft" }, { key: "review", label: "Review" },
+    { key: "approved", label: "Approved" }, { key: "paid", label: "Paid" },
+    { key: "posted", label: "Posted to QBO" },
+  ];
+  const stageIdx = STAGES.findIndex((s) => s.key === run.status);
+  const summaryTile = (label: string, value: React.ReactNode) => (
+    <div className="rounded bg-white border px-2 py-1.5">
+      <div className="text-[11px] text-slate-500">{label}</div>
+      <div className="font-semibold text-slate-800">{value}</div>
+    </div>
+  );
+
   return (
     <Card className="mt-1 border-lime-200">
       <CardContent className="p-3 space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Label className="text-xs text-slate-500">Status</Label>
-            <Select value={run.status} onValueChange={(s) => setStatus.mutate({ runId, status: s as any })}>
-              <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {["draft", "review", "approved", "paid", "posted"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
+        {/* At-a-glance summary — the key numbers first, like Gusto/QBO. */}
+        {lines.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-sm">
+            {summaryTile("Employees", lines.length)}
+            {summaryTile("Total hours", tHours.toFixed(2))}
+            {summaryTile("Gross", <span className="text-lime-700">{money(run.totalGross)}</span>)}
+            {summaryTile("Pay date", run.payDate ? fmtUTC(run.payDate, true) : "—")}
+            {summaryTile("Client approval", (run.approvalStatus || "none") === "approved"
+              ? <span className="text-lime-700">approved</span>
+              : <span className="text-amber-600">{run.approvalStatus || "not sent"}</span>)}
           </div>
+        )}
+
+        {/* Guided status pipeline (replaces the bare dropdown). */}
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-[11px] text-slate-400 mr-1">Stage:</span>
+          {STAGES.map((s, i) => (
+            <button key={s.key} onClick={() => setStatus.mutate({ runId, status: s.key as any })}
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${i === stageIdx ? "bg-lime-600 text-white border-lime-600" : i < stageIdx ? "bg-lime-50 text-lime-700 border-lime-200" : "bg-white text-slate-400 border-slate-200 hover:border-slate-300"}`}>
+              {i < stageIdx ? "✓ " : ""}{s.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-end flex-wrap gap-2">
           <div className="flex items-center gap-2">
             {features?.kind === "touchbistro" && (
               <>
@@ -600,6 +642,26 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
               </div>
             ))}
           </div>
+        )}
+
+        {/* Pre-flight readiness — green when clean, else the things to fix first. */}
+        {lines.length > 0 && (
+          readiness.length === 0 ? (
+            <div className="flex items-center gap-2 rounded-lg border border-lime-200 bg-lime-50 px-3 py-2 text-sm text-lime-800">
+              <CheckCircle2 className="h-4 w-4" /> Ready — rates set, hours in, and client approved.
+            </div>
+          ) : (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm space-y-1">
+              <div className="font-medium text-amber-800 flex items-center gap-1.5"><AlertTriangle className="h-4 w-4" /> Before you send this run</div>
+              <ul className="space-y-0.5">
+                {readiness.map((r, i) => (
+                  <li key={i} className={`text-[12px] flex items-start gap-1.5 ${sevCls[r.sev]}`}>
+                    <span className="mt-0.5">•</span><span>{r.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
         )}
 
         {statHols && statHols.length > 0 && (
