@@ -22376,6 +22376,13 @@ __export(schema_exports, {
   qboPayments: () => qboPayments,
   qboSyncLogs: () => qboSyncLogs,
   recurringTasks: () => recurringTasks,
+  rrAccountMap: () => rrAccountMap,
+  rrClientConfig: () => rrClientConfig,
+  rrJe: () => rrJe,
+  rrJeLines: () => rrJeLines,
+  rrProgress: () => rrProgress,
+  rrProjects: () => rrProjects,
+  rrShareLinks: () => rrShareLinks,
   satisfactionScores: () => satisfactionScores,
   senderRules: () => senderRules,
   signatureDocuments: () => signatureDocuments,
@@ -22392,7 +22399,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings, agentAuditLog, chatMessages;
+var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -24080,6 +24087,105 @@ var init_schema = __esm({
       clientId: integer2("clientId"),
       // set only when filed to a client
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    rrProjects = sqliteTable("rr_projects", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      name: text("name").notNull(),
+      customerJob: text("customerJob"),
+      // QBO Customer:Job name to tag JE lines
+      contractValue: real("contractValue").default(0).notNull(),
+      // Carry-in for jobs that started before the module went live:
+      openingPct: real("openingPct").default(0),
+      // cumulative % recognised before tracking (0..1)
+      openingInvoiced: real("openingInvoiced").default(0),
+      startDate: integer2("startDate", { mode: "timestamp" }),
+      expectedEndDate: integer2("expectedEndDate", { mode: "timestamp" }),
+      status: text("status", { enum: ["active", "complete", "archived"] }).default("active").notNull(),
+      notes: text("notes"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    rrProgress = sqliteTable("rr_progress", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      projectId: integer2("projectId").notNull(),
+      clientId: integer2("clientId").notNull(),
+      periodKey: text("periodKey").notNull(),
+      // "YYYY-MM"
+      pctComplete: real("pctComplete").default(0).notNull(),
+      // cumulative 0..1
+      invoicedToDate: real("invoicedToDate"),
+      // cumulative billings; null = carry forward
+      note: text("note"),
+      enteredBy: text("enteredBy"),
+      // "markie" | "client" | agent key
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    rrJe = sqliteTable("rr_je", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      projectId: integer2("projectId").notNull(),
+      periodKey: text("periodKey").notNull(),
+      kind: text("kind", { enum: ["accrual", "reversal"] }).notNull(),
+      jeDate: text("jeDate").notNull(),
+      // "YYYY-MM-DD"
+      status: text("status", { enum: ["draft", "approved", "posted", "void"] }).default("draft").notNull(),
+      totalDebit: real("totalDebit").default(0),
+      totalCredit: real("totalCredit").default(0),
+      qboTxnId: text("qboTxnId"),
+      // QBO JournalEntry Id once posted
+      postedAt: integer2("postedAt", { mode: "timestamp" }),
+      postedBy: integer2("postedBy"),
+      approvedAt: integer2("approvedAt", { mode: "timestamp" }),
+      approvedBy: integer2("approvedBy"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    rrJeLines = sqliteTable("rr_je_lines", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      jeId: integer2("jeId").notNull(),
+      accountKey: text("accountKey").notNull(),
+      // contract_asset | revenue | deferred_revenue
+      qboAccountId: text("qboAccountId"),
+      // resolved at post time
+      debit: real("debit").default(0),
+      credit: real("credit").default(0),
+      customerJob: text("customerJob"),
+      memo: text("memo")
+    });
+    rrAccountMap = sqliteTable("rr_account_map", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      accountKey: text("accountKey").notNull(),
+      // contract_asset | revenue | deferred_revenue
+      qboAccountId: text("qboAccountId"),
+      qboAccountName: text("qboAccountName"),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    rrClientConfig = sqliteTable("rr_client_config", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      enabled: integer2("enabled", { mode: "boolean" }).default(true),
+      fiscalYearStartMonth: integer2("fiscalYearStartMonth").default(1),
+      // 1..12 (Jan default)
+      depositsBookedToRevenue: integer2("depositsBookedToRevenue", { mode: "boolean" }).default(false),
+      pctSource: text("pctSource"),
+      // "manual" | "cost_to_cost" | client-entered
+      pctEnteredByRole: text("pctEnteredByRole"),
+      // who enters % (bookkeeper/client/PM)
+      notes: text("notes"),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    rrShareLinks = sqliteTable("rr_share_links", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      token: text("token").notNull(),
+      label: text("label"),
+      active: integer2("active", { mode: "boolean" }).default(true).notNull(),
+      createdBy: integer2("createdBy"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      revokedAt: integer2("revokedAt", { mode: "timestamp" })
     });
   }
 });
@@ -60552,6 +60658,135 @@ var init_ensure_employee_ytd_schema = __esm({
   }
 });
 
+// api/ensure-revrec-schema.ts
+var ensure_revrec_schema_exports = {};
+__export(ensure_revrec_schema_exports, {
+  ensureRevRecSchema: () => ensureRevRecSchema
+});
+async function ensureRevRecSchema() {
+  const db = getDb();
+  const statements = [
+    {
+      name: "rr_projects",
+      sql: `CREATE TABLE IF NOT EXISTS rr_projects (
+        id integer PRIMARY KEY AUTOINCREMENT,
+        clientId integer NOT NULL,
+        name text NOT NULL,
+        customerJob text,
+        contractValue real DEFAULT 0 NOT NULL,
+        openingPct real DEFAULT 0,
+        openingInvoiced real DEFAULT 0,
+        startDate integer,
+        expectedEndDate integer,
+        status text DEFAULT 'active' NOT NULL,
+        notes text,
+        createdAt integer,
+        updatedAt integer
+      )`
+    },
+    {
+      name: "rr_progress",
+      sql: `CREATE TABLE IF NOT EXISTS rr_progress (
+        id integer PRIMARY KEY AUTOINCREMENT,
+        projectId integer NOT NULL,
+        clientId integer NOT NULL,
+        periodKey text NOT NULL,
+        pctComplete real DEFAULT 0 NOT NULL,
+        invoicedToDate real,
+        note text,
+        enteredBy text,
+        createdAt integer,
+        updatedAt integer
+      )`
+    },
+    {
+      name: "rr_je",
+      sql: `CREATE TABLE IF NOT EXISTS rr_je (
+        id integer PRIMARY KEY AUTOINCREMENT,
+        clientId integer NOT NULL,
+        projectId integer NOT NULL,
+        periodKey text NOT NULL,
+        kind text NOT NULL,
+        jeDate text NOT NULL,
+        status text DEFAULT 'draft' NOT NULL,
+        totalDebit real DEFAULT 0,
+        totalCredit real DEFAULT 0,
+        qboTxnId text,
+        postedAt integer,
+        postedBy integer,
+        approvedAt integer,
+        approvedBy integer,
+        createdAt integer,
+        updatedAt integer
+      )`
+    },
+    {
+      name: "rr_je_lines",
+      sql: `CREATE TABLE IF NOT EXISTS rr_je_lines (
+        id integer PRIMARY KEY AUTOINCREMENT,
+        jeId integer NOT NULL,
+        accountKey text NOT NULL,
+        qboAccountId text,
+        debit real DEFAULT 0,
+        credit real DEFAULT 0,
+        customerJob text,
+        memo text
+      )`
+    },
+    {
+      name: "rr_account_map",
+      sql: `CREATE TABLE IF NOT EXISTS rr_account_map (
+        id integer PRIMARY KEY AUTOINCREMENT,
+        clientId integer NOT NULL,
+        accountKey text NOT NULL,
+        qboAccountId text,
+        qboAccountName text,
+        updatedAt integer
+      )`
+    },
+    {
+      name: "rr_client_config",
+      sql: `CREATE TABLE IF NOT EXISTS rr_client_config (
+        id integer PRIMARY KEY AUTOINCREMENT,
+        clientId integer NOT NULL,
+        enabled integer DEFAULT 1,
+        fiscalYearStartMonth integer DEFAULT 1,
+        depositsBookedToRevenue integer DEFAULT 0,
+        pctSource text,
+        pctEnteredByRole text,
+        notes text,
+        updatedAt integer
+      )`
+    },
+    {
+      name: "rr_share_links",
+      sql: `CREATE TABLE IF NOT EXISTS rr_share_links (
+        id integer PRIMARY KEY AUTOINCREMENT,
+        clientId integer NOT NULL,
+        token text NOT NULL,
+        label text,
+        active integer DEFAULT 1 NOT NULL,
+        createdBy integer,
+        createdAt integer,
+        revokedAt integer
+      )`
+    }
+  ];
+  for (const s of statements) {
+    try {
+      await db.run(sql.raw(s.sql));
+    } catch (e) {
+      console.error(`[revrec] ensure ${s.name} failed:`, e instanceof Error ? e.message : e);
+    }
+  }
+}
+var init_ensure_revrec_schema = __esm({
+  "api/ensure-revrec-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/seed-ai-agents.ts
 var seed_ai_agents_exports = {};
 __export(seed_ai_agents_exports, {
@@ -76239,6 +76474,486 @@ var chatRouter = createRouter({
   })
 });
 
+// api/revrec-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_schema();
+init_drizzle_orm();
+
+// api/revrec-core.ts
+function round25(n) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+function clampPct(p) {
+  if (!Number.isFinite(p)) return 0;
+  if (p < 0) return 0;
+  if (p > 1) return 1;
+  return p;
+}
+function buildProjectSchedule(project, progress) {
+  const rows = [...progress].sort((a, b) => a.periodKey.localeCompare(b.periodKey));
+  const cv = project.contractValue || 0;
+  let priorPct = clampPct(project.openingPct ?? 0);
+  let priorInvoiced = project.openingInvoiced ?? 0;
+  const out = [];
+  for (const r of rows) {
+    const pct = clampPct(r.pctComplete);
+    const invoiced = r.invoicedToDate == null ? priorInvoiced : r.invoicedToDate;
+    const earned = round25(cv * pct);
+    const revenueThisPeriod = round25(cv * (pct - priorPct));
+    const contractAsset = round25(Math.max(earned - invoiced, 0));
+    const deferredRevenue = round25(Math.max(invoiced - earned, 0));
+    out.push({
+      periodKey: r.periodKey,
+      pctComplete: pct,
+      priorPct,
+      contractValue: cv,
+      earnedToDate: earned,
+      revenueThisPeriod,
+      invoicedToDate: round25(invoiced),
+      contractAsset,
+      deferredRevenue
+    });
+    priorPct = pct;
+    priorInvoiced = invoiced;
+  }
+  return out;
+}
+function latestPeriod(schedule) {
+  return schedule.length ? schedule[schedule.length - 1] : null;
+}
+function firstDayOfNextPeriod(periodKey) {
+  const [y, m] = periodKey.split("-").map((s) => parseInt(s, 10));
+  const ny = m >= 12 ? y + 1 : y;
+  const nm = m >= 12 ? 1 : m + 1;
+  return `${ny}-${String(nm).padStart(2, "0")}-01`;
+}
+function lastDayOfPeriod(periodKey) {
+  const [y, m] = periodKey.split("-").map((s) => parseInt(s, 10));
+  const day2 = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${y}-${String(m).padStart(2, "0")}-${String(day2).padStart(2, "0")}`;
+}
+function generateJeForPeriod(period, opts) {
+  const lines = [];
+  const job = period_customerJobOf(period);
+  if (period.contractAsset > 0) {
+    lines.push({ accountKey: "contract_asset", debit: period.contractAsset, credit: 0, customerJob: job, memo: `WIP accrual ${period.periodKey} \u2014 underbilling` });
+    lines.push({ accountKey: "revenue", debit: 0, credit: period.contractAsset, customerJob: job, memo: `WIP accrual ${period.periodKey} \u2014 revenue earned not yet billed` });
+  }
+  if (opts.depositsBookedToRevenue && period.deferredRevenue > 0) {
+    lines.push({ accountKey: "revenue", debit: period.deferredRevenue, credit: 0, customerJob: job, memo: `WIP deferral ${period.periodKey} \u2014 overbilling` });
+    lines.push({ accountKey: "deferred_revenue", debit: 0, credit: period.deferredRevenue, customerJob: job, memo: `WIP deferral ${period.periodKey} \u2014 billed ahead of work` });
+  }
+  if (lines.length === 0) return null;
+  const accrual = sealJe("accrual", lastDayOfPeriod(period.periodKey), period.periodKey, lines);
+  const reversal = sealJe(
+    "reversal",
+    firstDayOfNextPeriod(period.periodKey),
+    period.periodKey,
+    lines.map((l) => ({ ...l, debit: l.credit, credit: l.debit, memo: l.memo.replace("WIP ", "WIP reversal ") }))
+  );
+  return { accrual, reversal };
+}
+function period_customerJobOf(_period) {
+  return null;
+}
+function sealJe(kind, date5, periodKey, lines) {
+  const totalDebit = round25(lines.reduce((s, l) => s + l.debit, 0));
+  const totalCredit = round25(lines.reduce((s, l) => s + l.credit, 0));
+  return { kind, date: date5, periodKey, lines, totalDebit, totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 5e-3 };
+}
+function tagJeWithJob(je, customerJob) {
+  if (!customerJob) return je;
+  return { ...je, lines: je.lines.map((l) => ({ ...l, customerJob })) };
+}
+function validateForPosting(je, accountMap) {
+  const errors = [];
+  if (!je) return { ok: false, errors: ["Nothing to post for this period."] };
+  if (!je.balanced) errors.push(`Journal entry is out of balance (debits ${je.totalDebit} \u2260 credits ${je.totalCredit}).`);
+  const keysUsed = new Set(je.lines.map((l) => l.accountKey));
+  for (const key of keysUsed) {
+    if (!accountMap[key]) errors.push(`No QBO account mapped for "${key}". Set the account mapping before posting.`);
+  }
+  for (const l of je.lines) {
+    if (l.debit < 0 || l.credit < 0) errors.push(`Negative amount on a ${l.accountKey} line \u2014 corrections must be re-entered as a positive reversing period.`);
+  }
+  return { ok: errors.length === 0, errors };
+}
+function rollupProject(project, schedule) {
+  const last = latestPeriod(schedule);
+  const cv = project.contractValue || 0;
+  const earned = last?.earnedToDate ?? round25(cv * clampPct(project.openingPct ?? 0));
+  const invoiced = last?.invoicedToDate ?? (project.openingInvoiced ?? 0);
+  return {
+    projectId: project.projectId,
+    name: project.name,
+    customerJob: project.customerJob ?? null,
+    contractValue: cv,
+    pctComplete: last?.pctComplete ?? clampPct(project.openingPct ?? 0),
+    earnedToDate: earned,
+    invoicedToDate: round25(invoiced),
+    contractAsset: last?.contractAsset ?? round25(Math.max(earned - invoiced, 0)),
+    deferredRevenue: last?.deferredRevenue ?? round25(Math.max(invoiced - earned, 0)),
+    remainingToEarn: round25(cv - earned)
+  };
+}
+function buildRevenueCalendar(months, perProject) {
+  const rows = perProject.map((p) => {
+    const byMonth = months.map((m) => {
+      const hit = p.schedule.find((s) => s.periodKey === m);
+      return hit ? hit.revenueThisPeriod : 0;
+    });
+    return { projectId: p.projectId, name: p.name, byMonth, total: round25(byMonth.reduce((s, v) => s + v, 0)) };
+  });
+  const totalsByMonth = months.map((_, i) => round25(rows.reduce((s, r) => s + r.byMonth[i], 0)));
+  const grandTotal = round25(totalsByMonth.reduce((s, v) => s + v, 0));
+  return { months, rows, totalsByMonth, grandTotal };
+}
+function fiscalYearMonths(firstMonthKey) {
+  const [y, m] = firstMonthKey.split("-").map((s) => parseInt(s, 10));
+  const out = [];
+  for (let i = 0; i < 12; i++) {
+    const mm = (m - 1 + i) % 12 + 1;
+    const yy = y + Math.floor((m - 1 + i) / 12);
+    out.push(`${yy}-${String(mm).padStart(2, "0")}`);
+  }
+  return out;
+}
+
+// api/revrec-router.ts
+var ACCOUNT_KEYS = ["contract_asset", "revenue", "deferred_revenue"];
+async function loadProjectInputs(clientId) {
+  const db = getDb();
+  const projs = await db.select().from(rrProjects).where(eq(rrProjects.clientId, clientId));
+  const out = [];
+  for (const p of projs) {
+    const prog = await db.select().from(rrProgress).where(eq(rrProgress.projectId, p.id));
+    out.push({
+      raw: p,
+      project: {
+        projectId: p.id,
+        name: p.name,
+        customerJob: p.customerJob,
+        contractValue: p.contractValue ?? 0,
+        openingPct: p.openingPct ?? 0,
+        openingInvoiced: p.openingInvoiced ?? 0
+      },
+      progress: prog.map((r) => ({
+        periodKey: r.periodKey,
+        pctComplete: r.pctComplete ?? 0,
+        invoicedToDate: r.invoicedToDate
+      }))
+    });
+  }
+  return out;
+}
+async function getConfig(clientId) {
+  const db = getDb();
+  const row = (await db.select().from(rrClientConfig).where(eq(rrClientConfig.clientId, clientId)).limit(1))[0];
+  return {
+    enabled: row?.enabled ?? true,
+    fiscalYearStartMonth: row?.fiscalYearStartMonth ?? 1,
+    depositsBookedToRevenue: row?.depositsBookedToRevenue ?? false,
+    pctSource: row?.pctSource ?? null,
+    pctEnteredByRole: row?.pctEnteredByRole ?? null,
+    notes: row?.notes ?? null
+  };
+}
+async function getAccountMap(clientId) {
+  const db = getDb();
+  const rows = await db.select().from(rrAccountMap).where(eq(rrAccountMap.clientId, clientId));
+  const map2 = { _rows: rows };
+  for (const r of rows) map2[r.accountKey] = r.qboAccountId ?? null;
+  return map2;
+}
+async function buildClientView(clientId, fyStartKey) {
+  const cfg = await getConfig(clientId);
+  const inputs = await loadProjectInputs(clientId);
+  const active = inputs.filter((i) => i.raw.status !== "archived");
+  const projects = active.map((i) => {
+    const schedule = buildProjectSchedule(i.project, i.progress);
+    const rollup2 = rollupProject(i.project, schedule);
+    return { id: i.raw.id, status: i.raw.status, schedule, rollup: rollup2, customerJob: i.project.customerJob ?? null };
+  });
+  const allPeriods = active.flatMap((i) => i.progress.map((p) => p.periodKey)).sort();
+  const latestPeriod2 = allPeriods.length ? allPeriods[allPeriods.length - 1] : null;
+  const fyYear = latestPeriod2 ? parseInt(latestPeriod2.slice(0, 4), 10) : (/* @__PURE__ */ new Date()).getUTCFullYear();
+  const startKey = fyStartKey ?? `${cfg.fiscalYearStartMonth <= (latestPeriod2 ? parseInt(latestPeriod2.slice(5), 10) : 12) ? fyYear : fyYear}-${String(cfg.fiscalYearStartMonth).padStart(2, "0")}`;
+  const months = fiscalYearMonths(startKey);
+  const calendar = buildRevenueCalendar(
+    months,
+    projects.map((p) => ({ projectId: p.id, name: p.rollup.name, schedule: p.schedule }))
+  );
+  const totals = projects.reduce(
+    (acc, p) => {
+      acc.contractValue += p.rollup.contractValue;
+      acc.earnedToDate += p.rollup.earnedToDate;
+      acc.invoicedToDate += p.rollup.invoicedToDate;
+      acc.contractAsset += p.rollup.contractAsset;
+      acc.deferredRevenue += p.rollup.deferredRevenue;
+      acc.remainingToEarn += p.rollup.remainingToEarn;
+      return acc;
+    },
+    { contractValue: 0, earnedToDate: 0, invoicedToDate: 0, contractAsset: 0, deferredRevenue: 0, remainingToEarn: 0 }
+  );
+  return { config: cfg, projects, calendar, totals };
+}
+var revRecRouter = createRouter({
+  // ===== PROJECTS =====
+  projectsList: authedQuery.input(external_exports.object({ clientId: external_exports.number(), includeArchived: external_exports.boolean().optional() })).query(async ({ input }) => {
+    const db = getDb();
+    const conds = [eq(rrProjects.clientId, input.clientId)];
+    if (!input.includeArchived) conds.push(eq(rrProjects.status, "active"));
+    return db.select().from(rrProjects).where(and(...conds)).orderBy(desc(rrProjects.createdAt));
+  }),
+  projectCreate: authedQuery.input(external_exports.object({
+    clientId: external_exports.number(),
+    name: external_exports.string().min(1).max(200),
+    customerJob: external_exports.string().max(200).nullable().optional(),
+    contractValue: external_exports.number().min(0).default(0),
+    openingPct: external_exports.number().min(0).max(1).nullable().optional(),
+    openingInvoiced: external_exports.number().min(0).nullable().optional(),
+    startDate: external_exports.date().nullable().optional(),
+    expectedEndDate: external_exports.date().nullable().optional(),
+    notes: external_exports.string().max(2e3).nullable().optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const res = await db.insert(rrProjects).values({
+      clientId: input.clientId,
+      name: input.name,
+      customerJob: input.customerJob ?? null,
+      contractValue: input.contractValue,
+      openingPct: input.openingPct ?? 0,
+      openingInvoiced: input.openingInvoiced ?? 0,
+      startDate: input.startDate ?? null,
+      expectedEndDate: input.expectedEndDate ?? null,
+      notes: input.notes ?? null,
+      status: "active"
+    });
+    return { ok: true, id: Number(res.lastInsertRowid) };
+  }),
+  projectUpdate: authedQuery.input(external_exports.object({
+    id: external_exports.number(),
+    name: external_exports.string().min(1).max(200).optional(),
+    customerJob: external_exports.string().max(200).nullable().optional(),
+    contractValue: external_exports.number().min(0).optional(),
+    openingPct: external_exports.number().min(0).max(1).nullable().optional(),
+    openingInvoiced: external_exports.number().min(0).nullable().optional(),
+    startDate: external_exports.date().nullable().optional(),
+    expectedEndDate: external_exports.date().nullable().optional(),
+    status: external_exports.enum(["active", "complete", "archived"]).optional(),
+    notes: external_exports.string().max(2e3).nullable().optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const { id, ...rest } = input;
+    await db.update(rrProjects).set({ ...rest, updatedAt: /* @__PURE__ */ new Date() }).where(eq(rrProjects.id, id));
+    return { ok: true };
+  }),
+  projectArchive: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.update(rrProjects).set({ status: "archived", updatedAt: /* @__PURE__ */ new Date() }).where(eq(rrProjects.id, input.id));
+    return { ok: true };
+  }),
+  // ===== PROGRESS (period % + billings) =====
+  progressUpsert: authedQuery.input(external_exports.object({
+    projectId: external_exports.number(),
+    clientId: external_exports.number(),
+    periodKey: external_exports.string().regex(/^\d{4}-\d{2}$/),
+    pctComplete: external_exports.number().min(0).max(1),
+    invoicedToDate: external_exports.number().min(0).nullable().optional(),
+    note: external_exports.string().max(1e3).nullable().optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const existing = (await db.select().from(rrProgress).where(and(eq(rrProgress.projectId, input.projectId), eq(rrProgress.periodKey, input.periodKey))).limit(1))[0];
+    if (existing) {
+      await db.update(rrProgress).set({
+        pctComplete: input.pctComplete,
+        invoicedToDate: input.invoicedToDate ?? null,
+        note: input.note ?? null,
+        enteredBy: ctx.user.email ?? String(ctx.user.id),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq(rrProgress.id, existing.id));
+    } else {
+      await db.insert(rrProgress).values({
+        projectId: input.projectId,
+        clientId: input.clientId,
+        periodKey: input.periodKey,
+        pctComplete: input.pctComplete,
+        invoicedToDate: input.invoicedToDate ?? null,
+        note: input.note ?? null,
+        enteredBy: ctx.user.email ?? String(ctx.user.id)
+      });
+    }
+    return { ok: true };
+  }),
+  progressList: authedQuery.input(external_exports.object({ projectId: external_exports.number() })).query(async ({ input }) => {
+    const db = getDb();
+    return db.select().from(rrProgress).where(eq(rrProgress.projectId, input.projectId)).orderBy(rrProgress.periodKey);
+  }),
+  progressDelete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.delete(rrProgress).where(eq(rrProgress.id, input.id));
+    return { ok: true };
+  }),
+  // ===== SCHEDULE + CALENDAR (computed) =====
+  schedule: authedQuery.input(external_exports.object({ clientId: external_exports.number(), fyStartKey: external_exports.string().regex(/^\d{4}-\d{2}$/).optional() })).query(async ({ input }) => {
+    return buildClientView(input.clientId, input.fyStartKey);
+  }),
+  // ===== CONFIG =====
+  configGet: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => getConfig(input.clientId)),
+  configSet: authedQuery.input(external_exports.object({
+    clientId: external_exports.number(),
+    enabled: external_exports.boolean().optional(),
+    fiscalYearStartMonth: external_exports.number().min(1).max(12).optional(),
+    depositsBookedToRevenue: external_exports.boolean().optional(),
+    pctSource: external_exports.string().max(100).nullable().optional(),
+    pctEnteredByRole: external_exports.string().max(100).nullable().optional(),
+    notes: external_exports.string().max(2e3).nullable().optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const { clientId, ...rest } = input;
+    const existing = (await db.select().from(rrClientConfig).where(eq(rrClientConfig.clientId, clientId)).limit(1))[0];
+    if (existing) {
+      await db.update(rrClientConfig).set({ ...rest, updatedAt: /* @__PURE__ */ new Date() }).where(eq(rrClientConfig.id, existing.id));
+    } else {
+      await db.insert(rrClientConfig).values({ clientId, ...rest });
+    }
+    return { ok: true };
+  }),
+  // ===== ACCOUNT MAPPING (per client, explicit — never guessed) =====
+  accountMapGet: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+    const db = getDb();
+    const rows = await db.select().from(rrAccountMap).where(eq(rrAccountMap.clientId, input.clientId));
+    const byKey = {};
+    for (const r of rows) byKey[r.accountKey] = r;
+    return ACCOUNT_KEYS.map((key) => ({
+      accountKey: key,
+      qboAccountId: byKey[key]?.qboAccountId ?? null,
+      qboAccountName: byKey[key]?.qboAccountName ?? null
+    }));
+  }),
+  accountMapSet: authedQuery.input(external_exports.object({
+    clientId: external_exports.number(),
+    accountKey: external_exports.enum(ACCOUNT_KEYS),
+    qboAccountId: external_exports.string().max(50).nullable(),
+    qboAccountName: external_exports.string().max(200).nullable().optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const existing = (await db.select().from(rrAccountMap).where(and(eq(rrAccountMap.clientId, input.clientId), eq(rrAccountMap.accountKey, input.accountKey))).limit(1))[0];
+    if (existing) {
+      await db.update(rrAccountMap).set({ qboAccountId: input.qboAccountId, qboAccountName: input.qboAccountName ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(rrAccountMap.id, existing.id));
+    } else {
+      await db.insert(rrAccountMap).values({ clientId: input.clientId, accountKey: input.accountKey, qboAccountId: input.qboAccountId, qboAccountName: input.qboAccountName ?? null });
+    }
+    return { ok: true };
+  }),
+  // ===== JOURNAL ENTRIES (Phase 2 — DRAFT only, never auto-posts) =====
+  jeGenerate: authedQuery.input(external_exports.object({ clientId: external_exports.number(), projectId: external_exports.number(), periodKey: external_exports.string().regex(/^\d{4}-\d{2}$/) })).mutation(async ({ input }) => {
+    const db = getDb();
+    const proj = (await db.select().from(rrProjects).where(eq(rrProjects.id, input.projectId)).limit(1))[0];
+    if (!proj || proj.clientId !== input.clientId) throw new Error("Project not found for this client.");
+    const prog = await db.select().from(rrProgress).where(eq(rrProgress.projectId, input.projectId));
+    const schedule = buildProjectSchedule(
+      { projectId: proj.id, name: proj.name, customerJob: proj.customerJob, contractValue: proj.contractValue ?? 0, openingPct: proj.openingPct ?? 0, openingInvoiced: proj.openingInvoiced ?? 0 },
+      prog.map((r) => ({ periodKey: r.periodKey, pctComplete: r.pctComplete ?? 0, invoicedToDate: r.invoicedToDate }))
+    );
+    const period = schedule.find((s) => s.periodKey === input.periodKey);
+    if (!period) throw new Error(`No progress recorded for ${input.periodKey}.`);
+    const cfg = await getConfig(input.clientId);
+    const gen = generateJeForPeriod(period, { depositsBookedToRevenue: cfg.depositsBookedToRevenue });
+    if (!gen) return { ok: true, generated: 0, note: "Nothing to accrue for this period (fully billed)." };
+    const accrual = tagJeWithJob(gen.accrual, proj.customerJob);
+    const reversal = tagJeWithJob(gen.reversal, proj.customerJob);
+    const map2 = await getAccountMap(input.clientId);
+    const validation = validateForPosting(accrual, map2);
+    const stale = await db.select().from(rrJe).where(and(eq(rrJe.projectId, input.projectId), eq(rrJe.periodKey, input.periodKey)));
+    for (const s of stale) {
+      if (s.status === "draft") {
+        await db.delete(rrJeLines).where(eq(rrJeLines.jeId, s.id));
+        await db.delete(rrJe).where(eq(rrJe.id, s.id));
+      }
+    }
+    for (const je of [accrual, reversal]) {
+      const res = await db.insert(rrJe).values({
+        clientId: input.clientId,
+        projectId: input.projectId,
+        periodKey: input.periodKey,
+        kind: je.kind,
+        jeDate: je.date,
+        status: "draft",
+        totalDebit: je.totalDebit,
+        totalCredit: je.totalCredit
+      });
+      const jeId = Number(res.lastInsertRowid);
+      for (const l of je.lines) {
+        await db.insert(rrJeLines).values({
+          jeId,
+          accountKey: l.accountKey,
+          qboAccountId: map2[l.accountKey] ?? null,
+          debit: l.debit,
+          credit: l.credit,
+          customerJob: l.customerJob ?? null,
+          memo: l.memo
+        });
+      }
+    }
+    return { ok: true, generated: 2, validation, accrual, reversal };
+  }),
+  jeList: authedQuery.input(external_exports.object({ clientId: external_exports.number(), projectId: external_exports.number().optional() })).query(async ({ input }) => {
+    const db = getDb();
+    const conds = [eq(rrJe.clientId, input.clientId)];
+    if (input.projectId) conds.push(eq(rrJe.projectId, input.projectId));
+    const jes = await db.select().from(rrJe).where(and(...conds)).orderBy(desc(rrJe.periodKey), rrJe.kind);
+    const out = [];
+    for (const je of jes) {
+      const lines = await db.select().from(rrJeLines).where(eq(rrJeLines.jeId, je.id));
+      out.push({ ...je, lines });
+    }
+    return out;
+  }),
+  // ===== CLIENT SHARE LINKS =====
+  shareList: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+    const db = getDb();
+    return db.select().from(rrShareLinks).where(eq(rrShareLinks.clientId, input.clientId)).orderBy(desc(rrShareLinks.createdAt));
+  }),
+  shareCreate: authedQuery.input(external_exports.object({ clientId: external_exports.number(), label: external_exports.string().max(120).optional() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const token2 = `rr_${crypto.randomUUID().replace(/-/g, "")}`;
+    await db.insert(rrShareLinks).values({ clientId: input.clientId, token: token2, label: input.label ?? null, active: true, createdBy: ctx.user.id });
+    return { ok: true, token: token2 };
+  }),
+  shareRevoke: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.update(rrShareLinks).set({ active: false, revokedAt: /* @__PURE__ */ new Date() }).where(eq(rrShareLinks.id, input.id));
+    return { ok: true };
+  }),
+  // ===== PUBLIC (token-gated, read-only) =====
+  publicView: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
+    const db = getDb();
+    const link = (await db.select().from(rrShareLinks).where(eq(rrShareLinks.token, input.token)).limit(1))[0];
+    if (!link || !link.active) return null;
+    const client = (await db.select().from(clients).where(eq(clients.id, link.clientId)).limit(1))[0];
+    const view = await buildClientView(link.clientId);
+    return {
+      clientName: client?.name ?? "Your projects",
+      label: link.label ?? null,
+      generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      totals: view.totals,
+      calendar: view.calendar,
+      projects: view.projects.map((p) => ({
+        name: p.rollup.name,
+        customerJob: p.customerJob,
+        contractValue: p.rollup.contractValue,
+        pctComplete: p.rollup.pctComplete,
+        earnedToDate: p.rollup.earnedToDate,
+        invoicedToDate: p.rollup.invoicedToDate,
+        remainingToEarn: p.rollup.remainingToEarn
+      }))
+    };
+  })
+});
+
 // api/public-router.ts
 init_zod();
 init_middleware();
@@ -76496,7 +77211,8 @@ var appRouter = createRouter({
   jinx: qaRouter,
   personal: personalRouter,
   learning: learningRouter,
-  chat: chatRouter
+  chat: chatRouter,
+  revRec: revRecRouter
 });
 
 // node_modules/hono/dist/utils/cookie.js
@@ -76778,7 +77494,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.107";
+var BUILD_TAG = "2026-06-24.108";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -77977,6 +78693,8 @@ async function startServer() {
     await ensureRateHistorySchema2();
     const { ensureEmployeeYtdColumns: ensureEmployeeYtdColumns2 } = await Promise.resolve().then(() => (init_ensure_employee_ytd_schema(), ensure_employee_ytd_schema_exports));
     await ensureEmployeeYtdColumns2();
+    const { ensureRevRecSchema: ensureRevRecSchema2 } = await Promise.resolve().then(() => (init_ensure_revrec_schema(), ensure_revrec_schema_exports));
+    await ensureRevRecSchema2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));

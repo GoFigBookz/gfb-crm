@@ -19,6 +19,7 @@ import { splitClientName } from "@/lib/clientName";
 import { format, isPast, isToday } from "date-fns";
 import { TaskDetailDialog } from "@/components/TaskDetailDialog";
 import { STANDARD_TASK_TITLES } from "@/lib/task-options";
+import { RevRecTab } from "@/components/RevRecTab";
 
 export default function ClientDashboard() {
   const { clientId } = useParams<{ clientId: string }>();
@@ -450,13 +451,14 @@ export default function ClientDashboard() {
           compliance/tasks/payroll/etc., matching "we only invoice them." */}
       {(() => { const wholesale = ((client as any).clientType || "monthly") === "wholesale"; return (
       <Tabs value={wholesale && !["overview","billing"].includes(activeTab) ? "overview" : activeTab} onValueChange={setActiveTab}>
-        <TabsList className={cn("grid w-full", wholesale ? "grid-cols-2" : client.hasPayroll ? "grid-cols-7" : "grid-cols-6")}>
+        <TabsList className={cn("grid w-full", wholesale ? "grid-cols-2" : client.hasPayroll ? "grid-cols-8" : "grid-cols-7")}>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           {!wholesale && <TabsTrigger value="tasks">Tasks ({openTasks.length})</TabsTrigger>}
           {!wholesale && <TabsTrigger value="financials">Financials</TabsTrigger>}
           <TabsTrigger value="billing">Billing</TabsTrigger>
           {!wholesale && client.hasPayroll && <TabsTrigger value="payroll">Payroll</TabsTrigger>}
           {!wholesale && <TabsTrigger value="compliance">Compliance</TabsTrigger>}
+          {!wholesale && <TabsTrigger value="revrec">Rev Rec</TabsTrigger>}
           {!wholesale && <TabsTrigger value="time">Time</TabsTrigger>}
         </TabsList>
 
@@ -988,6 +990,11 @@ export default function ClientDashboard() {
         {/* COMPLIANCE TAB */}
         <TabsContent value="compliance" className="space-y-4 mt-4">
           <ComplianceTab clientId={id} client={client} onboarding={onboarding} closeStatus={closeStatus} tasks={dashboardData?.tasks || []} onOpenTask={setEditingTask} />
+        </TabsContent>
+
+        {/* REVENUE RECOGNITION (WIP) TAB */}
+        <TabsContent value="revrec">
+          <RevRecTab clientId={id} />
         </TabsContent>
 
         {/* TIME & HOURS TAB */}

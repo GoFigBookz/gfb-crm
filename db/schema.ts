@@ -1844,3 +1844,106 @@ export const chatMessages = sqliteTable("chat_messages", {
   clientId: integer("clientId"),              // set only when filed to a client
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// ========== REVENUE RECOGNITION / WIP (percentage-of-completion) ==========
+// Per-client, client-agnostic POC revenue recognition (ASPE 3400). Built once on
+// consolidated rails; first client = Clark Pools Owen Sound. Everything is scoped
+// by clientId; nothing posts to QBO without bookkeeper review. All tables rr_*.
+
+// One construction/service job (contract) tracked for revenue recognition.
+export const rrProjects = sqliteTable("rr_projects", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  name: text("name").notNull(),
+  customerJob: text("customerJob"),            // QBO Customer:Job name to tag JE lines
+  contractValue: real("contractValue").default(0).notNull(),
+  // Carry-in for jobs that started before the module went live:
+  openingPct: real("openingPct").default(0),   // cumulative % recognised before tracking (0..1)
+  openingInvoiced: real("openingInvoiced").default(0),
+  startDate: integer("startDate", { mode: "timestamp" }),
+  expectedEndDate: integer("expectedEndDate", { mode: "timestamp" }),
+  status: text("status", { enum: ["active", "complete", "archived"] }).default("active").notNull(),
+  notes: text("notes"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// One cumulative progress snapshot per project per period (YYYY-MM).
+export const rrProgress = sqliteTable("rr_progress", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("projectId").notNull(),
+  clientId: integer("clientId").notNull(),
+  periodKey: text("periodKey").notNull(),      // "YYYY-MM"
+  pctComplete: real("pctComplete").default(0).notNull(), // cumulative 0..1
+  invoicedToDate: real("invoicedToDate"),      // cumulative billings; null = carry forward
+  note: text("note"),
+  enteredBy: text("enteredBy"),                // "markie" | "client" | agent key
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// A generated journal entry (accrual or its reversal) for one project-period.
+export const rrJe = sqliteTable("rr_je", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  projectId: integer("projectId").notNull(),
+  periodKey: text("periodKey").notNull(),
+  kind: text("kind", { enum: ["accrual", "reversal"] }).notNull(),
+  jeDate: text("jeDate").notNull(),            // "YYYY-MM-DD"
+  status: text("status", { enum: ["draft", "approved", "posted", "void"] }).default("draft").notNull(),
+  totalDebit: real("totalDebit").default(0),
+  totalCredit: real("totalCredit").default(0),
+  qboTxnId: text("qboTxnId"),                  // QBO JournalEntry Id once posted
+  postedAt: integer("postedAt", { mode: "timestamp" }),
+  postedBy: integer("postedBy"),
+  approvedAt: integer("approvedAt", { mode: "timestamp" }),
+  approvedBy: integer("approvedBy"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+export const rrJeLines = sqliteTable("rr_je_lines", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  jeId: integer("jeId").notNull(),
+  accountKey: text("accountKey").notNull(),    // contract_asset | revenue | deferred_revenue
+  qboAccountId: text("qboAccountId"),          // resolved at post time
+  debit: real("debit").default(0),
+  credit: real("credit").default(0),
+  customerJob: text("customerJob"),
+  memo: text("memo"),
+});
+
+// Per-client mapping of the three logical accounts → real (locked) QBO account ids.
+export const rrAccountMap = sqliteTable("rr_account_map", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  accountKey: text("accountKey").notNull(),    // contract_asset | revenue | deferred_revenue
+  qboAccountId: text("qboAccountId"),
+  qboAccountName: text("qboAccountName"),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Per-client module config (the "open inputs" — never guessed).
+export const rrClientConfig = sqliteTable("rr_client_config", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).default(true),
+  fiscalYearStartMonth: integer("fiscalYearStartMonth").default(1), // 1..12 (Jan default)
+  depositsBookedToRevenue: integer("depositsBookedToRevenue", { mode: "boolean" }).default(false),
+  pctSource: text("pctSource"),                // "manual" | "cost_to_cost" | client-entered
+  pctEnteredByRole: text("pctEnteredByRole"),  // who enters % (bookkeeper/client/PM)
+  notes: text("notes"),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Read-only client share links for the branded schedule view.
+export const rrShareLinks = sqliteTable("rr_share_links", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  token: text("token").notNull(),
+  label: text("label"),
+  active: integer("active", { mode: "boolean" }).default(true).notNull(),
+  createdBy: integer("createdBy"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  revokedAt: integer("revokedAt", { mode: "timestamp" }),
+});

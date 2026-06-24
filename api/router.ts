@@ -57,6 +57,7 @@ import { qaRouter } from "./qa-router";
 import { personalRouter } from "./personal-router";
 import { learningRouter } from "./learning-router";
 import { chatRouter } from "./chat-router";
+import { revRecRouter } from "./revrec-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
 
@@ -123,6 +124,7 @@ export const appRouter = createRouter({
   personal: personalRouter,
   learning: learningRouter,
   chat: chatRouter,
+  revRec: revRecRouter,
 });
 
 export type AppRouter = typeof appRouter;
