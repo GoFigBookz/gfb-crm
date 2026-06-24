@@ -151,6 +151,7 @@ const PHONE_ENTITLED: [string, string][] = [
   ["Chris", "Thompson"],
   ["Lisa", "Venditti"],
   ["Alan", "Weaver"],
+  ["Logan", "Greig"],       // confirmed from Markie's live run data (2026-06-24)
 ];
 
 export async function applyCollingwoodPhoneAllowances(): Promise<{ on: number; off: number; skipped: string } | void> {

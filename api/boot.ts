@@ -292,6 +292,17 @@ app.get("/api/payroll/seed-collingwood", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Load this period's hours + phone allowances into the open Collingwood draft run.
+//   GET /api/payroll/seed-collingwood-run
+app.get("/api/payroll/seed-collingwood-run", async (c) => {
+  try {
+    const { seedCollingwoodRunHours } = await import("./seed-collingwood-run-hours");
+    const r = await seedCollingwoodRunHours();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // a RAW ProfitAndLoss sample for the first client-bound connection so the report
 // parser can be hardened against the real shape. Read-only against QBO.
 //   GET /api/qbo/sync-now[?raw=1]
@@ -1532,6 +1543,15 @@ async function startServer() {
       if (r) console.log(`[seed-collingwood] created ${r.created}, filled ${r.filled}, banked ${r.banked}${r.skipped ? " | skipped: " + r.skipped : ""}`);
     } catch (e) {
       console.error("[seed-collingwood] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Load this period's hours + phone allowances into the OPEN Collingwood draft run
+    // so Markie can run payroll today without the Jobber import (stop-gap, draft-only).
+    try {
+      const { seedCollingwoodRunHours } = await import("./seed-collingwood-run-hours");
+      const r = await seedCollingwoodRunHours();
+      if (r) console.log(`[seed-collingwood-run] run ${r.run}, filled ${r.filled}, phoneSet ${r.phoneSet}${r.skipped ? " | skipped: " + r.skipped : ""}`);
+    } catch (e) {
+      console.error("[seed-collingwood-run] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Seed the TouchBistro restaurant rosters + rates (Sher-E-Punjab, Auld Spot).
     try {
