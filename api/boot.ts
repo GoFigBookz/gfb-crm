@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-24.87";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-24.88";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -1430,6 +1430,16 @@ async function startServer() {
       if (r.rulesRemoved || r.tasksRemoved) console.log(`[dedupe-tasks] -${r.rulesRemoved} rules, -${r.tasksRemoved} tasks`);
     } catch (e) {
       console.error("[dedupe-tasks] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Re-date recurring compliance tasks to Markie's rules (year-end → 30th of
+    // month after; T4 → Jan 20; HST quarterly → 15th), flag Align as QBO autopay,
+    // Columbus as prospect, West York weekly. Idempotent — safe every boot.
+    try {
+      const { reconcileOvernight } = await import("./reconcile-overnight");
+      const r = await reconcileOvernight();
+      console.log(`[reconcile] year-end ${r.yearEndRedated}, T4 ${r.t4Redated}, HST ${r.hstRedated} re-dated; Align autopay=${r.alignFlagged} (-${r.alignTasksRetired} tasks/-${r.alignRulesRetired} rules); Columbus prospect=${r.columbusProspect}; West York weekly=${r.westYorkWeekly}${r.notes.length ? " | " + r.notes.join("; ") : ""}`);
+    } catch (e) {
+      console.error("[reconcile] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Link each client to its existing Drive folder under "GFB → GFB Clients"
     // so the client page's Google Drive button jumps to their files.

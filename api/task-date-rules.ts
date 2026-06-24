@@ -55,20 +55,24 @@ export function correctedDueDate(
   yearEndMonth: number | null,
 ): Date | null {
   const ref = currentDue ?? new Date();
-  const year = ref.getFullYear();
   const rt = (ruleType || "").toLowerCase();
+  // Pick the occurrence NEAREST the current due date (across last/this/next year)
+  // so re-running is idempotent — never drifts a task into a different year.
+  const nearest = (fn: (y: number) => Date): Date => {
+    const cands = [ref.getFullYear() - 1, ref.getFullYear(), ref.getFullYear() + 1].map(fn);
+    return cands.reduce((best, d) => Math.abs(d.getTime() - ref.getTime()) < Math.abs(best.getTime() - ref.getTime()) ? d : best);
+  };
 
   if (rt.includes("year_end") || rt.includes("yearend")) {
     if (!yearEndMonth) return null; // need the fiscal year-end to place it
-    // Keep the close in the same fiscal cycle the task already targets.
-    return yearEndCloseDueDate(yearEndMonth, year);
+    return nearest((y) => yearEndCloseDueDate(yearEndMonth, y));
   }
   if (rt.includes("t4")) {
-    return t4DueDate(year);
+    return nearest((y) => t4DueDate(y));
   }
   if (rt.includes("hst") && rt.includes("quarter")) {
     const qEnd = quarterEndForMonth(ref.getMonth() + 1);
-    return hstQuarterlyDueDate(qEnd, year);
+    return nearest((y) => hstQuarterlyDueDate(qEnd, y));
   }
   return null;
 }

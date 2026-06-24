@@ -42186,8 +42186,8 @@ async function pushTaskToGoogle(taskId) {
     const db = getDb();
     const t2 = (await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1))[0];
     if (!t2) return;
-    const at = await token();
-    if (!at) return;
+    const at2 = await token();
+    if (!at2) return;
     const payload = {
       title: t2.title || "(untitled)",
       notes: t2.description || void 0,
@@ -42196,9 +42196,9 @@ async function pushTaskToGoogle(taskId) {
     if (t2.dueDate) payload.due = new Date(t2.dueDate).toISOString();
     if (t2.completedAt) payload.completed = new Date(t2.completedAt).toISOString();
     if (t2.googleTaskId) {
-      await gfetch(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${t2.googleTaskId}`, "PATCH", at, payload);
+      await gfetch(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${t2.googleTaskId}`, "PATCH", at2, payload);
     } else {
-      const created = await gfetch("https://tasks.googleapis.com/tasks/v1/lists/@default/tasks", "POST", at, payload);
+      const created = await gfetch("https://tasks.googleapis.com/tasks/v1/lists/@default/tasks", "POST", at2, payload);
       if (created?.id) await db.update(tasks).set({ googleTaskId: created.id }).where(eq(tasks.id, taskId));
     }
   } catch (e) {
@@ -42210,8 +42210,8 @@ async function pushEventToGoogle(eventId) {
     const db = getDb();
     const ev = (await db.select().from(calendarEvents).where(eq(calendarEvents.id, eventId)).limit(1))[0];
     if (!ev) return;
-    const at = await token();
-    if (!at) return;
+    const at2 = await token();
+    if (!at2) return;
     const payload = {
       summary: ev.title || "(untitled)",
       description: ev.description || void 0,
@@ -42232,9 +42232,9 @@ async function pushEventToGoogle(eventId) {
       if (emails2.length) payload.attendees = emails2.map((email3) => ({ email: email3 }));
     }
     if (ev.googleEventId) {
-      await gfetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${ev.googleEventId}`, "PATCH", at, payload);
+      await gfetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${ev.googleEventId}`, "PATCH", at2, payload);
     } else {
-      const created = await gfetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", "POST", at, payload);
+      const created = await gfetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", "POST", at2, payload);
       if (created?.id) await db.update(calendarEvents).set({ googleEventId: created.id }).where(eq(calendarEvents.id, eventId));
     }
   } catch (e) {
@@ -42244,11 +42244,11 @@ async function pushEventToGoogle(eventId) {
 async function deleteGoogleEvent(googleEventId) {
   if (!googleEventId) return;
   try {
-    const at = await token();
-    if (!at) return;
+    const at2 = await token();
+    if (!at2) return;
     await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${at}` }
+      headers: { Authorization: `Bearer ${at2}` }
     });
   } catch (e) {
     console.error("[google-push] delete event failed:", e instanceof Error ? e.message : e);
@@ -42286,24 +42286,24 @@ function extractPriority(text2) {
   return { text: out.replace(/\s+/g, " ").trim(), priority };
 }
 function extractDueDate(text2, now = /* @__PURE__ */ new Date()) {
-  const at = (d) => {
+  const at2 = (d) => {
     d.setHours(17, 0, 0, 0);
     return d;
   };
   const lower = text2.toLowerCase();
   const rel = [
-    [/\b(today|tonight|eod|end of day)\b/, () => at(new Date(now))],
-    [/\btomorrow\b/, () => at(addDays(now, 1))],
-    [/\b(this week|by end of week|eow)\b/, () => at(endOfWeek(now))],
-    [/\b(next week)\b/, () => at(addDays(now, 7))],
-    [/\b(this month|end of month|eom)\b/, () => at(endOfMonth2(now))],
+    [/\b(today|tonight|eod|end of day)\b/, () => at2(new Date(now))],
+    [/\btomorrow\b/, () => at2(addDays(now, 1))],
+    [/\b(this week|by end of week|eow)\b/, () => at2(endOfWeek(now))],
+    [/\b(next week)\b/, () => at2(addDays(now, 7))],
+    [/\b(this month|end of month|eom)\b/, () => at2(endOfMonth2(now))],
     [/\bin (\d+) days?\b/, () => {
       const m = lower.match(/\bin (\d+) days?\b/);
-      return at(addDays(now, Number(m[1])));
+      return at2(addDays(now, Number(m[1])));
     }],
     [/\bin (\d+) weeks?\b/, () => {
       const m = lower.match(/\bin (\d+) weeks?\b/);
-      return at(addDays(now, Number(m[1]) * 7));
+      return at2(addDays(now, Number(m[1]) * 7));
     }]
   ];
   for (const [re, fn] of rel) {
@@ -42315,7 +42315,7 @@ function extractDueDate(text2, now = /* @__PURE__ */ new Date()) {
     const d = new Date(now);
     let delta = (target - d.getDay() + 7) % 7;
     if (delta === 0) delta = 7;
-    return { text: stripMatch(text2, /\b(?:by |on |next )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i), dueDate: at(addDays(now, delta)) };
+    return { text: stripMatch(text2, /\b(?:by |on |next )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i), dueDate: at2(addDays(now, delta)) };
   }
   const md = lower.match(/\b(?:by |on |due )?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b/);
   if (md) {
@@ -42324,7 +42324,7 @@ function extractDueDate(text2, now = /* @__PURE__ */ new Date()) {
     let year2 = now.getFullYear();
     const cand = new Date(year2, month, day2);
     if (cand.getTime() < now.getTime() - 864e5) year2 += 1;
-    return { text: stripMatch(text2, /\b(?:by |on |due )?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}\b/i), dueDate: at(new Date(year2, month, day2)) };
+    return { text: stripMatch(text2, /\b(?:by |on |due )?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}\b/i), dueDate: at2(new Date(year2, month, day2)) };
   }
   return { text: text2 };
 }
@@ -59918,6 +59918,170 @@ var init_seed_tax_rate_reviews = __esm({
   }
 });
 
+// api/task-date-rules.ts
+function lastDayOfMonth(year2, month1to12) {
+  return new Date(year2, month1to12, 0).getDate();
+}
+function at(year2, month1to12, day2) {
+  const d = Math.min(day2, lastDayOfMonth(year2, month1to12));
+  return new Date(year2, month1to12 - 1, d, 12, 0, 0);
+}
+function yearEndCloseDueDate(yearEndMonth, periodYear) {
+  let m = yearEndMonth + 1;
+  let y = periodYear;
+  if (m > 12) {
+    m = 1;
+    y = periodYear + 1;
+  }
+  return at(y, m, 30);
+}
+function hstQuarterlyDueDate(quarterEndMonth, periodYear) {
+  let m = quarterEndMonth + 1;
+  let y = periodYear;
+  if (m > 12) {
+    m = 1;
+    y = periodYear + 1;
+  }
+  return at(y, m, 15);
+}
+function quarterEndForMonth(month1to12) {
+  return [3, 6, 9, 12].filter((q) => q <= month1to12).pop() ?? 12;
+}
+function t4DueDate(filingYear) {
+  return at(filingYear, 1, 20);
+}
+function correctedDueDate(ruleType, currentDue, yearEndMonth) {
+  const ref = currentDue ?? /* @__PURE__ */ new Date();
+  const rt = (ruleType || "").toLowerCase();
+  const nearest = (fn) => {
+    const cands = [ref.getFullYear() - 1, ref.getFullYear(), ref.getFullYear() + 1].map(fn);
+    return cands.reduce((best, d) => Math.abs(d.getTime() - ref.getTime()) < Math.abs(best.getTime() - ref.getTime()) ? d : best);
+  };
+  if (rt.includes("year_end") || rt.includes("yearend")) {
+    if (!yearEndMonth) return null;
+    return nearest((y) => yearEndCloseDueDate(yearEndMonth, y));
+  }
+  if (rt.includes("t4")) {
+    return nearest((y) => t4DueDate(y));
+  }
+  if (rt.includes("hst") && rt.includes("quarter")) {
+    const qEnd = quarterEndForMonth(ref.getMonth() + 1);
+    return nearest((y) => hstQuarterlyDueDate(qEnd, y));
+  }
+  return null;
+}
+var init_task_date_rules = __esm({
+  "api/task-date-rules.ts"() {
+  }
+});
+
+// api/reconcile-overnight.ts
+var reconcile_overnight_exports = {};
+__export(reconcile_overnight_exports, {
+  reconcileOvernight: () => reconcileOvernight
+});
+function monthToNum(m) {
+  if (!m) return null;
+  const i = MONTHS6.indexOf(String(m).slice(0, 3).toLowerCase());
+  return i < 0 ? null : i + 1;
+}
+function sameDay(a, b) {
+  if (!a || !b) return false;
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+async function reconcileOvernight() {
+  const db = getDb();
+  const out = {
+    yearEndRedated: 0,
+    t4Redated: 0,
+    hstRedated: 0,
+    alignTasksRetired: 0,
+    alignRulesRetired: 0,
+    alignFlagged: false,
+    columbusProspect: false,
+    westYorkWeekly: false,
+    notes: []
+  };
+  const allRules = await db.select({ id: clientTaskRules.id, ruleType: clientTaskRules.ruleType }).from(clientTaskRules);
+  const ruleType = /* @__PURE__ */ new Map();
+  for (const r of allRules) ruleType.set(r.id, r.ruleType);
+  const allClients = await db.select({ id: clients.id, name: clients.name, yearEndMonth: clients.yearEndMonth }).from(clients);
+  const yeByClient = /* @__PURE__ */ new Map();
+  for (const c of allClients) yeByClient.set(c.id, monthToNum(c.yearEndMonth));
+  const openTasks = await db.select().from(tasks).where(eq(tasks.completed, false));
+  for (const t2 of openTasks) {
+    const rt = t2.ruleId != null ? ruleType.get(t2.ruleId) : void 0;
+    if (!rt) continue;
+    const cur = t2.dueDate ? new Date(t2.dueDate) : null;
+    if (rt === "year_end") {
+      const ye = t2.clientId != null ? yeByClient.get(t2.clientId) ?? null : null;
+      const next = correctedDueDate("year_end", cur, ye);
+      if (next && !sameDay(cur, next)) {
+        await db.update(tasks).set({ dueDate: next, updatedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
+        out.yearEndRedated++;
+      }
+    } else if (rt === "t4_annual") {
+      const next = correctedDueDate("t4_annual", cur, null);
+      if (next && !sameDay(cur, next)) {
+        await db.update(tasks).set({ dueDate: next, updatedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
+        out.t4Redated++;
+      }
+    } else if (rt === "hst_quarterly") {
+      if (cur && cur.getDate() !== 15) {
+        const next = new Date(cur.getFullYear(), cur.getMonth(), 15, 12, 0, 0);
+        await db.update(tasks).set({ dueDate: next, updatedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
+        out.hstRedated++;
+      }
+    }
+  }
+  const align = allClients.find((c) => /align by design/i.test(c.name));
+  if (align) {
+    await db.update(clients).set({ payrollHoursSource: "qbo_autopay", updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, align.id));
+    out.alignFlagged = true;
+    const payrollTypes = ["payroll_tax_prep", "payroll_remit_regular", "payroll_remit_accelerated", "payroll_remit_quarterly", "payroll_remit_monthly"];
+    const alignRules = await db.select().from(clientTaskRules).where(eq(clientTaskRules.clientId, align.id));
+    const retireRuleIds = alignRules.filter((r) => payrollTypes.includes(r.ruleType)).map((r) => r.id);
+    if (retireRuleIds.length) {
+      for (const rid of retireRuleIds) {
+        const r = await db.update(clientTaskRules).set({ active: false, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(clientTaskRules.id, rid), eq(clientTaskRules.active, true)));
+        if (r.rowsAffected) out.alignRulesRetired++;
+      }
+      const del = await db.delete(tasks).where(and(inArray(tasks.ruleId, retireRuleIds), eq(tasks.completed, false)));
+      out.alignTasksRetired = del.rowsAffected ?? 0;
+    }
+  } else {
+    out.notes.push("Align by Design not found \u2014 autopay flag skipped.");
+  }
+  const columbus = allClients.find((c) => /columbus/i.test(c.name));
+  if (columbus) {
+    const r = await db.update(clients).set({ status: "prospect", updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(clients.id, columbus.id), eq(clients.status, "active")));
+    out.columbusProspect = !!r.rowsAffected;
+  } else {
+    out.notes.push("Columbus not found \u2014 prospect status skipped.");
+  }
+  const wy = allClients.find((c) => /west york/i.test(c.name));
+  if (wy) {
+    const r = await db.update(clients).set({ payrollFrequency: "weekly", updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, wy.id));
+    out.westYorkWeekly = !!r.rowsAffected;
+  } else {
+    out.notes.push("West York not found \u2014 weekly cadence skipped.");
+  }
+  if (!allClients.some((c) => /cat\s*bay/i.test(c.name))) {
+    out.notes.push("Cat Bay client not in directory \u2014 onboarding status not applied (add the client first).");
+  }
+  return out;
+}
+var MONTHS6;
+var init_reconcile_overnight = __esm({
+  "api/reconcile-overnight.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_task_date_rules();
+    MONTHS6 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  }
+});
+
 // api/sync-scheduler.ts
 function startSyncScheduler() {
   if (schedulerRunning) return;
@@ -64568,7 +64732,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.87";
+var BUILD_TAG = "2026-06-24.88";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64680,8 +64844,8 @@ app.get("/api/oauth/google/debug", async (c) => {
       await ensureCalendarSchema2();
       const { getFirmGoogleAccount: getFirmGoogleAccount2, getValidGoogleAccessToken: getValidGoogleAccessToken2 } = await Promise.resolve().then(() => (init_google_token(), google_token_exports));
       const acct = await getFirmGoogleAccount2();
-      const at = await getValidGoogleAccessToken2(acct);
-      const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=250&timeMin=2026-05-01T00:00:00Z&timeMax=2026-12-31T00:00:00Z&singleEvents=true&orderBy=startTime", { headers: { Authorization: `Bearer ${at}` } });
+      const at2 = await getValidGoogleAccessToken2(acct);
+      const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=250&timeMin=2026-05-01T00:00:00Z&timeMax=2026-12-31T00:00:00Z&singleEvents=true&orderBy=startTime", { headers: { Authorization: `Bearer ${at2}` } });
       const j = await r.json();
       const items = j.items || [];
       const db = getDb();
@@ -65753,9 +65917,9 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and5, ne: ne4, like: like2 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and5, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
-      const matches = await db.select().from(clients3).where(like2(clients3.name, "%Doc King%"));
+      const matches = await db.select().from(clients3).where(like3(clients3.name, "%Doc King%"));
       for (const cl of matches) {
         if (cl.clientType !== "wholesale") {
           await db.update(clients3).set({ clientType: "wholesale" }).where(eq3(clients3.id, cl.id));
@@ -65769,10 +65933,10 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and5, like: like2, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and5, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
-        const matches = await db.select().from(clients3).where(like2(clients3.name, nameLike));
+        const matches = await db.select().from(clients3).where(like3(clients3.name, nameLike));
         for (const cl of matches) {
           const patch = {};
           for (const [k, v] of Object.entries(flags)) if (!cl[k]) patch[k] = v;
@@ -65820,7 +65984,7 @@ async function startServer() {
       };
       for (const cl of orig) {
         for (const [last, ytd] of Object.entries(origYtd)) {
-          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and5(eq3(employees2.clientId, cl.id), like2(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
+          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and5(eq3(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
         }
       }
     } catch (e) {
@@ -65943,6 +66107,13 @@ async function startServer() {
       if (r.rulesRemoved || r.tasksRemoved) console.log(`[dedupe-tasks] -${r.rulesRemoved} rules, -${r.tasksRemoved} tasks`);
     } catch (e) {
       console.error("[dedupe-tasks] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { reconcileOvernight: reconcileOvernight2 } = await Promise.resolve().then(() => (init_reconcile_overnight(), reconcile_overnight_exports));
+      const r = await reconcileOvernight2();
+      console.log(`[reconcile] year-end ${r.yearEndRedated}, T4 ${r.t4Redated}, HST ${r.hstRedated} re-dated; Align autopay=${r.alignFlagged} (-${r.alignTasksRetired} tasks/-${r.alignRulesRetired} rules); Columbus prospect=${r.columbusProspect}; West York weekly=${r.westYorkWeekly}${r.notes.length ? " | " + r.notes.join("; ") : ""}`);
+    } catch (e) {
+      console.error("[reconcile] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { linkDriveFolders: linkDriveFolders2 } = await Promise.resolve().then(() => (init_link_drive_folders(), link_drive_folders_exports));
