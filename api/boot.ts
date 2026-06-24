@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-24.110";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-24.111";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -281,7 +281,17 @@ app.get("/api/payroll/drive-preview", async (c) => {
   }
 });
 
-// Trigger the QBO → CRM sync on demand and return a per-connection summary, plus
+// Seed/refresh the Clark Collingwood payroll roster on demand (fill-only, safe).
+//   GET /api/payroll/seed-collingwood
+app.get("/api/payroll/seed-collingwood", async (c) => {
+  try {
+    const { seedCollingwoodPayroll } = await import("./seed-collingwood-payroll");
+    const r = await seedCollingwoodPayroll();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // a RAW ProfitAndLoss sample for the first client-bound connection so the report
 // parser can be hardened against the real shape. Read-only against QBO.
 //   GET /api/qbo/sync-now[?raw=1]
@@ -1513,6 +1523,15 @@ async function startServer() {
       console.log(`[reconcile] year-end ${r.yearEndRedated}, T4 ${r.t4Redated}, HST ${r.hstRedated} re-dated; Align autopay=${r.alignFlagged} (-${r.alignTasksRetired} tasks/-${r.alignRulesRetired} rules); Columbus prospect=${r.columbusProspect}; West York weekly=${r.westYorkWeekly}${r.notes.length ? " | " + r.notes.join("; ") : ""}`);
     } catch (e) {
       console.error("[reconcile] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Seed Clark Collingwood (client 7) payroll roster from their old payroll
+    // sheet — fill-only + isolation-checked, so Markie can run a real pay run.
+    try {
+      const { seedCollingwoodPayroll } = await import("./seed-collingwood-payroll");
+      const r = await seedCollingwoodPayroll();
+      if (r) console.log(`[seed-collingwood] created ${r.created}, filled ${r.filled}, banked ${r.banked}${r.skipped ? " | skipped: " + r.skipped : ""}`);
+    } catch (e) {
+      console.error("[seed-collingwood] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Link each client to its existing Drive folder under "GFB → GFB Clients"
     // so the client page's Google Drive button jumps to their files.
