@@ -8,7 +8,7 @@
  *    Vite content-hashes filenames, so cached files never go stale).
  *  - API / tRPC: never cached (always live).
  */
-const CACHE = "gfb-shell-v3";
+const CACHE = "gfb-shell-v4";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
