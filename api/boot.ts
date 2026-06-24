@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-24.88";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-24.89";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -247,6 +247,35 @@ app.get("/api/qbo/debug", async (c) => {
     connections,
     note: "hasClientId/Secret/TokenKey must all be true and redirectUri must be registered in the Intuit app before connecting. connections lists realms already linked.",
   });
+});
+
+// Trigger the QBO → CRM sync on demand and return a per-connection summary, plus
+// a RAW ProfitAndLoss sample for the first client-bound connection so the report
+// parser can be hardened against the real shape. Read-only against QBO.
+//   GET /api/qbo/sync-now[?raw=1]
+app.get("/api/qbo/sync-now", async (c) => {
+  try {
+    const { runQboSync } = await import("./qbo-snapshot");
+    const r = await runQboSync();
+    let plSample: any = undefined;
+    if (c.req.query("raw") === "1") {
+      try {
+        const db = getDb();
+        const conn = (await db.select().from(qboConnections).where(and(eq(qboConnections.isActive, true))))
+          .find((x: any) => x.clientId != null);
+        if (conn) {
+          const { qboRequest } = await import("./qbo-router");
+          const now = new Date();
+          const start = `${now.getFullYear()}-01-01`;
+          const end = now.toISOString().slice(0, 10);
+          plSample = { company: (conn as any).companyName, report: await qboRequest(conn as any, `/reports/ProfitAndLoss?start_date=${start}&end_date=${end}`) };
+        }
+      } catch (e) { plSample = { error: e instanceof Error ? e.message : String(e) }; }
+    }
+    return c.json({ build: BUILD_TAG, ...r, plSample });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 500);
+  }
 });
 
 // ================================================================

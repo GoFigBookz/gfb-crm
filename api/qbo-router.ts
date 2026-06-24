@@ -83,7 +83,7 @@ function jaccardSimilarity(a: string, b: string): number {
 // Standalone sync functions (called by both router endpoints and webhook)
 // ================================================================
 
-async function doSyncCustomers(connectionId: number) {
+export async function doSyncCustomers(connectionId: number) {
   const db = getDb();
   const connRow = await db.select().from(qboConnections).where(eq(qboConnections.id, connectionId)).limit(1);
   if (!connRow[0]) throw new Error("Connection not found");
@@ -142,7 +142,7 @@ async function doSyncCustomers(connectionId: number) {
   return { success: true, recordsSynced: customers.length, inserted };
 }
 
-async function doSyncInvoices(connectionId: number) {
+export async function doSyncInvoices(connectionId: number) {
   const db = getDb();
   const connRow = await db.select().from(qboConnections).where(eq(qboConnections.id, connectionId)).limit(1);
   if (!connRow[0]) throw new Error("Connection not found");
@@ -191,7 +191,7 @@ async function doSyncInvoices(connectionId: number) {
   return { success: true, recordsSynced: invoices.length };
 }
 
-async function doSyncPayments(connectionId: number) {
+export async function doSyncPayments(connectionId: number) {
   const db = getDb();
   const connRow = await db.select().from(qboConnections).where(eq(qboConnections.id, connectionId)).limit(1);
   if (!connRow[0]) throw new Error("Connection not found");
@@ -236,7 +236,7 @@ async function doSyncPayments(connectionId: number) {
   return { success: true, recordsSynced: payments.length };
 }
 
-async function doSyncAccounts(connectionId: number) {
+export async function doSyncAccounts(connectionId: number) {
   const db = getDb();
   const connRow = await db.select().from(qboConnections).where(eq(qboConnections.id, connectionId)).limit(1);
   if (!connRow[0]) throw new Error("Connection not found");

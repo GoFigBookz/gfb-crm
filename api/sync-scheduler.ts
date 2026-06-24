@@ -3,71 +3,41 @@
  * Runs automatic QBO sync on a schedule.
  * Also triggers agent finding refreshes and dashboard updates.
  */
-import { getDb } from "./queries/connection";
-import { qboConnections } from "../db/schema";
-import { eq } from "drizzle-orm";
-
 let schedulerRunning = false;
+
+// DAILY, not hourly: each sync run issues a handful of read-only Make calls per
+// connection. Daily keeps us well under the Make Core ops cap while month-end
+// data (which changes slowly) stays fresh. The dashboards read the cached
+// snapshot, never live QBO.
+const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 export function startSyncScheduler() {
   if (schedulerRunning) return;
   schedulerRunning = true;
 
-  console.log("[SYNC] Auto-sync scheduler started");
+  console.log("[SYNC] Auto-sync scheduler started (daily)");
 
-  // Every 6 hours: sync all active QBO connections
-  const SIX_HOURS = 6 * 60 * 60 * 1000;
-  setInterval(async () => {
-    try {
-      await runAutoSync();
-    } catch (err) {
-      console.error("[SYNC] Auto-sync failed:", err);
-    }
-  }, SIX_HOURS);
+  setInterval(() => {
+    runAutoSync().catch((err) => console.error("[SYNC] Auto-sync failed:", err));
+  }, SYNC_INTERVAL_MS);
 
-  // Run once immediately on startup (after 30s delay)
+  // Run once shortly after startup (after 45s delay so boot/seeds settle).
   setTimeout(() => {
     runAutoSync().catch((err) => console.error("[SYNC] Initial sync failed:", err));
-  }, 30000);
+  }, 45000);
 }
 
 async function runAutoSync() {
-  const db = getDb();
-  const connections = await db.select().from(qboConnections).where(eq(qboConnections.isActive, true));
-
-  console.log(`[SYNC] Starting auto-sync for ${connections.length} QBO connections`);
-
-  for (const conn of connections) {
-    try {
-      // Check if token needs refresh
-      const now = new Date();
-      const expiry = conn.expiresAt ? new Date(conn.expiresAt) : null;
-      if (expiry && expiry < new Date(now.getTime() + 5 * 60 * 1000)) {
-        console.log(`[SYNC] Token for ${conn.companyName} expires soon, needs refresh`);
-        // Token refresh would be triggered here via the QBO router
-      }
-
-      // (No-op heartbeat: the real per-entity sync logs its own rows with a valid
-      // entityType. We intentionally don't insert a placeholder log here — the old
-      // insert omitted the required entityType and crashed every cycle.)
-      console.log(`[SYNC] Queued sync for ${conn.companyName} (${conn.accountType})`);
-
-      // After sync, invalidate dashboard caches
-      // This ensures client dashboards show fresh QBO data
-      try {
-        const { utils: trpcUtils } = await import("./router");
-        // Dashboard data will refresh on next page load
-        console.log(`[SYNC] Dashboard cache flagged for refresh: ${conn.companyName}`);
-      } catch {
-        // Utils not available in this context — dashboards refresh on next load
-      }
-
-    } catch (err) {
-      console.error(`[SYNC] Failed to queue sync for ${conn.companyName}:`, err);
-    }
+  // The real pull: per-connection entity sync + cached per-client financial
+  // snapshot (api/qbo-snapshot.ts). Isolated + best-effort per connection.
+  const { runQboSync } = await import("./qbo-snapshot");
+  const r = await runQboSync();
+  if (r.ran) {
+    const ok = r.results.filter((x) => x.ok).length;
+    console.log(`[SYNC] QBO pull complete: ${ok}/${r.connections} connections ok`);
   }
 }
 
 export function getSchedulerStatus() {
-  return { running: schedulerRunning, intervalMs: 6 * 60 * 60 * 1000 };
+  return { running: schedulerRunning, intervalMs: SYNC_INTERVAL_MS };
 }

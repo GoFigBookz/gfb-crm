@@ -22,14 +22,13 @@ export const clientDashboardRouter = createRouter({
         ))
         .orderBy(desc(tasks.dueDate));
 
-      // Dashboard snapshot (latest)
+      // Dashboard snapshot (latest). NOT filtered by user — a client's books are
+      // firm-wide, and the scheduled QBO sync writes under the firm user, so any
+      // staff viewing the client must see the same financials.
       const snapshots = await db
         .select()
         .from(clientDashboardSnapshots)
-        .where(and(
-          eq(clientDashboardSnapshots.clientId, clientId),
-          eq(clientDashboardSnapshots.userId, ctx.user.id)
-        ))
+        .where(eq(clientDashboardSnapshots.clientId, clientId))
         .orderBy(desc(clientDashboardSnapshots.createdAt))
         .limit(1);
 
