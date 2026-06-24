@@ -37610,6 +37610,23 @@ var init_sheets_sync_bridge = __esm({
   }
 });
 
+// api/sync-hooks.ts
+function syncInsert(table, record2) {
+  if (!record2 || !record2.id) return;
+  pushToSheets(table, record2).catch(() => {
+  });
+}
+function syncUpdate(table, record2) {
+  if (!record2 || !record2.id) return;
+  pushToSheets(table, record2).catch(() => {
+  });
+}
+var init_sync_hooks = __esm({
+  "api/sync-hooks.ts"() {
+    init_sheets_sync_bridge();
+  }
+});
+
 // api/client-match.ts
 async function matchClientIdByName(raw2) {
   const t2 = norm(raw2);
@@ -43331,6 +43348,7 @@ function craGrossForNet(targetNet, P, ytd, periodsElapsed) {
 }
 function isPayrollClient(c) {
   if ((c.clientType || "") === "wholesale") return false;
+  if (c.payrollFrequency === "self") return false;
   return !!c.hasPayroll;
 }
 async function backfillHasPayroll() {
@@ -62391,6 +62409,341 @@ var init_reconcile_overnight = __esm({
   }
 });
 
+// api/client-task-creator.ts
+function nextHSTDueDate(period, now = /* @__PURE__ */ new Date()) {
+  const year2 = now.getFullYear();
+  const month = now.getMonth();
+  if (period === "monthly") {
+    const due = new Date(year2, month + 1, 1);
+    return due;
+  }
+  if (period === "quarterly") {
+    const q = Math.floor(month / 3);
+    const dueMonths = [3, 6, 9, 0];
+    const dueYear = q === 3 ? year2 + 1 : year2;
+    return new Date(dueYear, dueMonths[q], 1);
+  }
+  if (period === "annual") {
+    return new Date(year2, 0, 1);
+  }
+  return new Date(year2, month + 1, 1);
+}
+function nextPayrollDueDate(frequency, now = /* @__PURE__ */ new Date()) {
+  const year2 = now.getFullYear();
+  const month = now.getMonth();
+  return new Date(year2, month + 1, 15);
+}
+function nextWSIBDueDate(quarter, now = /* @__PURE__ */ new Date()) {
+  const year2 = now.getFullYear();
+  const month = now.getMonth();
+  const q = Math.floor(month / 3);
+  if (quarter === "Q1") return new Date(year2, 3, 1);
+  if (quarter === "Q2") return new Date(year2, 6, 1);
+  if (quarter === "Q3") return new Date(year2, 9, 1);
+  if (quarter === "Q4") return new Date(year2 + 1, 0, 1);
+  if (quarter === "all" || !quarter) {
+    const dueMonths = [3, 6, 9, 0];
+    const dueYear = q === 3 ? year2 + 1 : year2;
+    return new Date(dueYear, dueMonths[q], 1);
+  }
+  return new Date(year2, month + 1, 1);
+}
+async function createRecurringTasksForClient(clientId, userId, flags, clientName, assignedTo) {
+  const db = getDb();
+  const created = [];
+  const now = /* @__PURE__ */ new Date();
+  if (flags.hasHST && flags.hstPeriod) {
+    const dueDate = nextHSTDueDate(flags.hstPeriod, now);
+    const title = `HST Filing \u2014 ${clientName}`;
+    const existing = await db.select({ id: tasks.id }).from(tasks).where(
+      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`HST Filing%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
+    ).limit(1);
+    if (existing.length === 0) {
+      const [task] = await db.insert(tasks).values({
+        userId,
+        clientId,
+        title,
+        description: `Prepare and file ${flags.hstPeriod} HST return.`,
+        dueDate,
+        priority: "high",
+        status: "pending",
+        category: "Tax Filing",
+        assignedTo: assignedTo || void 0,
+        isRecurring: true,
+        recurrenceCount: 0
+      }).returning();
+      if (task) {
+        syncInsert("tasks", task);
+        created.push(task.id);
+        const recurrencePattern = flags.hstPeriod === "monthly" ? "FREQ=MONTHLY;INTERVAL=1" : flags.hstPeriod === "quarterly" ? "FREQ=MONTHLY;INTERVAL=3" : "FREQ=YEARLY;INTERVAL=1";
+        await db.insert(recurringTasks).values({
+          clientId,
+          userId,
+          title,
+          description: `Prepare and file ${flags.hstPeriod} HST return for ${clientName}.`,
+          frequency: flags.hstPeriod === "monthly" ? "monthly" : flags.hstPeriod === "quarterly" ? "quarterly" : "yearly",
+          startDate: now,
+          nextDueDate: dueDate,
+          priority: "high",
+          category: "Tax Filing",
+          assignedTo: assignedTo || void 0,
+          active: true
+        });
+      }
+    }
+  }
+  if (flags.hasWSIB) {
+    const dueDate = nextWSIBDueDate(flags.wsibQuarter || "all", now);
+    const title = `WSIB Filing \u2014 ${clientName}`;
+    const existing = await db.select({ id: tasks.id }).from(tasks).where(
+      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`WSIB Filing%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
+    ).limit(1);
+    if (existing.length === 0) {
+      const [task] = await db.insert(tasks).values({
+        userId,
+        clientId,
+        title,
+        description: `Prepare and file WSIB return${flags.wsibQuarter && flags.wsibQuarter !== "all" ? ` for ${flags.wsibQuarter}` : ""}.`,
+        dueDate,
+        priority: "high",
+        status: "pending",
+        category: "Tax Filing",
+        assignedTo: assignedTo || void 0,
+        isRecurring: true,
+        recurrenceCount: 0
+      }).returning();
+      if (task) {
+        syncInsert("tasks", task);
+        created.push(task.id);
+        await db.insert(recurringTasks).values({
+          clientId,
+          userId,
+          title,
+          description: `Prepare and file WSIB return for ${clientName}.`,
+          frequency: "quarterly",
+          startDate: now,
+          nextDueDate: dueDate,
+          priority: "high",
+          category: "Tax Filing",
+          assignedTo: assignedTo || void 0,
+          active: true
+        });
+      }
+    }
+  }
+  if (flags.hasPayroll && flags.payrollFrequency && !flags.payrollExternal) {
+    const dueDate = nextPayrollDueDate(flags.payrollFrequency, now);
+    const title = `Payroll Remittance \u2014 ${clientName}`;
+    const existing = await db.select({ id: tasks.id }).from(tasks).where(
+      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`Payroll Remittance%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
+    ).limit(1);
+    if (existing.length === 0) {
+      const [task] = await db.insert(tasks).values({
+        userId,
+        clientId,
+        title,
+        description: `Process ${flags.payrollFrequency} payroll and remit source deductions.`,
+        dueDate,
+        priority: "high",
+        status: "pending",
+        category: "Payroll",
+        assignedTo: assignedTo || void 0,
+        isRecurring: true,
+        recurrenceCount: 0
+      }).returning();
+      if (task) {
+        syncInsert("tasks", task);
+        created.push(task.id);
+        const recurrencePattern = flags.payrollFrequency === "weekly" ? "FREQ=WEEKLY;INTERVAL=1" : flags.payrollFrequency === "bi-weekly" ? "FREQ=WEEKLY;INTERVAL=2" : flags.payrollFrequency === "semi-monthly" ? "FREQ=MONTHLY;BYMONTHDAY=15,-1" : flags.payrollFrequency === "monthly" ? "FREQ=MONTHLY;INTERVAL=1" : "FREQ=YEARLY;INTERVAL=1";
+        await db.insert(recurringTasks).values({
+          clientId,
+          userId,
+          title,
+          description: `Process ${flags.payrollFrequency} payroll and remit source deductions for ${clientName}.`,
+          frequency: flags.payrollFrequency === "weekly" ? "weekly" : flags.payrollFrequency === "bi-weekly" ? "biweekly" : flags.payrollFrequency === "semi-monthly" ? "monthly" : flags.payrollFrequency === "monthly" ? "monthly" : "yearly",
+          startDate: now,
+          nextDueDate: dueDate,
+          priority: "high",
+          category: "Payroll",
+          assignedTo: assignedTo || void 0,
+          active: true
+        });
+      }
+    }
+    const t4Due = new Date(now.getFullYear() + 1, 1, 28);
+    const t4Title = `T4 Filing \u2014 ${clientName}`;
+    const t4Existing = await db.select({ id: tasks.id }).from(tasks).where(
+      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${t4Title} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
+    ).limit(1);
+    if (t4Existing.length === 0) {
+      const [t4Task] = await db.insert(tasks).values({
+        userId,
+        clientId,
+        title: t4Title,
+        description: `Prepare and file annual T4/T4A slips and summary for ${clientName}.`,
+        dueDate: t4Due,
+        priority: "high",
+        status: "pending",
+        category: "Payroll",
+        assignedTo: assignedTo || void 0,
+        isRecurring: true,
+        recurrenceCount: 0
+      }).returning();
+      if (t4Task) {
+        syncInsert("tasks", t4Task);
+        created.push(t4Task.id);
+        await db.insert(recurringTasks).values({
+          clientId,
+          userId,
+          title: t4Title,
+          description: `Prepare and file annual T4/T4A slips and summary for ${clientName}.`,
+          frequency: "yearly",
+          startDate: now,
+          nextDueDate: t4Due,
+          priority: "high",
+          category: "Payroll",
+          assignedTo: assignedTo || void 0,
+          active: true
+        });
+      }
+    }
+  }
+  if (flags.hasPayroll && (flags.payrollExternal || flags.payrollFrequency === "self")) {
+    const dueDate = new Date(now.getFullYear() + 1, 1, 28);
+    const title = `Year-end payroll reconciliation \u2014 ${clientName}`;
+    const existing = await db.select({ id: tasks.id }).from(tasks).where(
+      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${title} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
+    ).limit(1);
+    if (existing.length === 0) {
+      const description = `${clientName} runs their own payroll. Get the year's payroll data (T4 summary / payroll register) from the client and reconcile it against their year-end.`;
+      const [task] = await db.insert(tasks).values({
+        userId,
+        clientId,
+        title,
+        description,
+        dueDate,
+        priority: "high",
+        status: "pending",
+        category: "Payroll",
+        assignedTo: assignedTo || void 0,
+        isRecurring: true,
+        recurrenceCount: 0
+      }).returning();
+      if (task) {
+        syncInsert("tasks", task);
+        created.push(task.id);
+        await db.insert(recurringTasks).values({
+          clientId,
+          userId,
+          title,
+          description,
+          frequency: "yearly",
+          startDate: now,
+          nextDueDate: dueDate,
+          priority: "high",
+          category: "Payroll",
+          assignedTo: assignedTo || void 0,
+          active: true
+        });
+      }
+    }
+  }
+  if (flags.paysDividends) {
+    const t5Due = new Date(now.getFullYear() + 1, 1, 28);
+    const t5Title = `T5 Filing \u2014 ${clientName}`;
+    const t5Existing = await db.select({ id: tasks.id }).from(tasks).where(
+      sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${t5Title} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
+    ).limit(1);
+    if (t5Existing.length === 0) {
+      const [t5Task] = await db.insert(tasks).values({
+        userId,
+        clientId,
+        title: t5Title,
+        description: `Prepare and file T5 slips and summary (dividends/interest) for ${clientName}.`,
+        dueDate: t5Due,
+        priority: "high",
+        status: "pending",
+        category: "Tax Filing",
+        assignedTo: assignedTo || void 0,
+        isRecurring: true,
+        recurrenceCount: 0
+      }).returning();
+      if (t5Task) {
+        syncInsert("tasks", t5Task);
+        created.push(t5Task.id);
+        await db.insert(recurringTasks).values({
+          clientId,
+          userId,
+          title: t5Title,
+          description: `Prepare and file annual T5 slips and summary (dividends) for ${clientName}.`,
+          frequency: "yearly",
+          startDate: now,
+          nextDueDate: t5Due,
+          priority: "high",
+          category: "Tax Filing",
+          assignedTo: assignedTo || void 0,
+          active: true
+        });
+      }
+    }
+  }
+  return { created, count: created.length };
+}
+var init_client_task_creator = __esm({
+  "api/client-task-creator.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_sync_hooks();
+  }
+});
+
+// api/seed-client-run-payroll.ts
+var seed_client_run_payroll_exports = {};
+__export(seed_client_run_payroll_exports, {
+  markClientRunPayroll: () => markClientRunPayroll
+});
+async function markClientRunPayroll() {
+  const db = getDb();
+  try {
+    const owner = (await db.select().from(users).where(eq(users.email, "markie.antle@gmail.com")).limit(1))[0] || (await db.select().from(users).limit(1))[0];
+    const userId = owner?.id;
+    if (!userId) return { updated: [], skipped: "no user" };
+    const cs = await db.select().from(clients);
+    const updated = [];
+    for (const c of cs) {
+      if ((c.clientType || "") === "wholesale") continue;
+      if (!PATTERNS.some((p) => p.test(c.name || ""))) continue;
+      const needsUpdate = c.payrollFrequency !== "self" || !c.payrollExternal || !c.hasPayroll;
+      if (needsUpdate) {
+        await db.update(clients).set({ hasPayroll: true, payrollFrequency: "self", payrollExternal: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+      }
+      await createRecurringTasksForClient(
+        c.id,
+        userId,
+        { hasPayroll: true, payrollFrequency: "self", payrollExternal: true },
+        c.name,
+        c.assignedTo || "Markie"
+      );
+      updated.push(c.name);
+    }
+    if (updated.length) console.log(`[client-run-payroll] set self + year-end recon for: ${updated.join(", ")}`);
+    return { updated, skipped: "" };
+  } catch (err) {
+    console.error("[client-run-payroll] failed:", err instanceof Error ? err.message : err);
+  }
+}
+var PATTERNS;
+var init_seed_client_run_payroll = __esm({
+  "api/seed-client-run-payroll.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_client_task_creator();
+    PATTERNS = [/selective\s*painting/i, /studio\s*lel/i, /aline\s*plumbing/i];
+  }
+});
+
 // api/sync-scheduler.ts
 function startSyncScheduler() {
   if (schedulerRunning) return;
@@ -69379,21 +69732,7 @@ init_connection();
 init_schema();
 init_drizzle_orm();
 init_rbac();
-
-// api/sync-hooks.ts
-init_sheets_sync_bridge();
-function syncInsert(table, record2) {
-  if (!record2 || !record2.id) return;
-  pushToSheets(table, record2).catch(() => {
-  });
-}
-function syncUpdate(table, record2) {
-  if (!record2 || !record2.id) return;
-  pushToSheets(table, record2).catch(() => {
-  });
-}
-
-// api/client-router.ts
+init_sync_hooks();
 init_task_generator();
 init_seed_triage_emails();
 init_month_end_core();
@@ -69811,6 +70150,7 @@ init_connection();
 init_schema();
 init_drizzle_orm();
 init_task_generator();
+init_sync_hooks();
 
 // api/workflow-templates.ts
 var WORKFLOW_TEMPLATES = [
@@ -72421,6 +72761,7 @@ init_middleware();
 init_connection();
 init_schema();
 init_drizzle_orm();
+init_sync_hooks();
 import crypto4 from "crypto";
 var portalRouter = createRouter({
   // Staff: Create a portal access token for a client
@@ -73349,6 +73690,7 @@ init_middleware();
 init_connection();
 init_schema();
 init_drizzle_orm();
+init_sync_hooks();
 import crypto6 from "crypto";
 var signatureRouter = createRouter({
   // List signature documents for a client or all
@@ -73516,6 +73858,7 @@ init_middleware();
 init_connection();
 init_schema();
 init_drizzle_orm();
+init_sync_hooks();
 function generateDefaultSections(onboarding) {
   const sections = [
     {
@@ -73723,6 +74066,7 @@ init_middleware();
 init_connection();
 init_schema();
 init_drizzle_orm();
+init_sync_hooks();
 var timeRouter = createRouter({
   // List time entries with filters
   list: staffQuery.input(
@@ -80232,6 +80576,13 @@ async function startServer() {
       if (r) console.log(`[payroll-reminders] +${r.tasksAdded} tasks, +${r.eventsAdded} blocks${r.skipped ? " | skipped: " + r.skipped : ""}`);
     } catch (e) {
       console.error("[payroll-reminders] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { markClientRunPayroll: markClientRunPayroll2 } = await Promise.resolve().then(() => (init_seed_client_run_payroll(), seed_client_run_payroll_exports));
+      const r = await markClientRunPayroll2();
+      if (r?.updated?.length) console.log(`[client-run-payroll] ${r.updated.join(", ")}`);
+    } catch (e) {
+      console.error("[client-run-payroll] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { seedTouchbistroPayroll: seedTouchbistroPayroll2 } = await Promise.resolve().then(() => (init_seed_touchbistro_payroll(), seed_touchbistro_payroll_exports));

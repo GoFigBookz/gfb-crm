@@ -276,6 +276,39 @@ export async function createRecurringTasksForClient(
     }
   }
 
+  // --- Year-end payroll reconciliation --- for clients who RUN THEIR OWN payroll
+  // (payrollFrequency "self" or flagged external). We don't process these per
+  // period; instead, once a year we collect their payroll data and tie it out to
+  // their year-end. One high-priority annual task, due Feb 28 (T4 season).
+  if (flags.hasPayroll && (flags.payrollExternal || flags.payrollFrequency === "self")) {
+    const dueDate = new Date(now.getFullYear() + 1, 1, 28); // Feb 28 next year
+    const title = `Year-end payroll reconciliation — ${clientName}`;
+    const existing = await db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(
+        sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${title} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1000)}`
+      )
+      .limit(1);
+    if (existing.length === 0) {
+      const description = `${clientName} runs their own payroll. Get the year's payroll data (T4 summary / payroll register) from the client and reconcile it against their year-end.`;
+      const [task] = await db.insert(tasks).values({
+        userId, clientId, title, description, dueDate,
+        priority: "high", status: "pending", category: "Payroll",
+        assignedTo: assignedTo || undefined, isRecurring: true, recurrenceCount: 0,
+      }).returning();
+      if (task) {
+        syncInsert("tasks", task);
+        created.push(task.id);
+        await db.insert(recurringTasks).values({
+          clientId, userId, title, description,
+          frequency: "yearly", startDate: now, nextDueDate: dueDate,
+          priority: "high", category: "Payroll", assignedTo: assignedTo || undefined, active: true,
+        });
+      }
+    }
+  }
+
   // --- Dividend / T5 Task (triggered by the client's "Dividends" payroll feature) ---
   if (flags.paysDividends) {
     const t5Due = new Date(now.getFullYear() + 1, 1, 28); // Feb 28 next year
