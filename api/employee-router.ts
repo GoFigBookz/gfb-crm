@@ -4,6 +4,19 @@ import { getDb } from "./queries/connection";
 import { employees, employeeRateHistory } from "../db/schema";
 import { eq, desc } from "drizzle-orm";
 import { encryptSecret, decryptSecret, checkRevealCode } from "./sensitive";
+import { employeeColumns } from "./ensure-employee-schema";
+
+/** Keep only the keys that are real columns on the live employees table, so a
+ *  drifted/older DB (missing a newer column) can never make a Save throw. */
+async function keepEmployeeColumns(obj: Record<string, any>): Promise<Record<string, any>> {
+  try {
+    const cols = await employeeColumns();
+    if (!cols.size) return obj; // PRAGMA failed — don't drop anything
+    const out: Record<string, any> = {};
+    for (const k of Object.keys(obj)) if (cols.has(k)) out[k] = obj[k];
+    return out;
+  } catch { return obj; }
+}
 
 /** Record a pay-rate change (a raise, or the initial rate) with the DAY it took
  *  effect, so we keep the full history behind the employee's current rate. */
@@ -99,7 +112,7 @@ export const employeeRouter = createRouter({
       const { sin, ...rest } = input;
       const values: any = { ...rest, createdAt: new Date(), updatedAt: new Date() };
       if (sin !== undefined) values.sin = sin ? encryptSecret(sin) : null; // encrypted at rest
-      const result = await db.insert(employees).values(values);
+      const result = await db.insert(employees).values(await keepEmployeeColumns(values));
       const id = Number(result.lastInsertRowid);
       // Seed the rate history with this employee's starting rate.
       if (rest.hourlyRate != null || rest.annualSalary != null) {
@@ -168,7 +181,7 @@ export const employeeRouter = createRouter({
       const before = (await db.select().from(employees).where(eq(employees.id, id)).limit(1))[0] as any;
       const patch: any = { ...data, updatedAt: new Date() };
       if (sin !== undefined) patch.sin = sin ? encryptSecret(sin) : null; // encrypted at rest
-      await db.update(employees).set(patch).where(eq(employees.id, id));
+      await db.update(employees).set(await keepEmployeeColumns(patch)).where(eq(employees.id, id));
       const rateChanged =
         (data.hourlyRate !== undefined && data.hourlyRate !== (before?.hourlyRate ?? null)) ||
         (data.annualSalary !== undefined && data.annualSalary !== (before?.annualSalary ?? null));

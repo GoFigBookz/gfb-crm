@@ -9,14 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
+import { EmployeeCardDialog } from "@/components/EmployeeCardDialog";
 
 export default function Employees() {
   const { can } = useAuth();
   const [selectedClient, setSelectedClient] = useState<number | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [showAdd, setShowAdd] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null); // employee being edited, or { clientId } for new
   const [expanded, setExpanded] = useState<number | null>(null);
-  const [form, setForm] = useState<Record<string, string>>({});
 
   const { data: clients } = trpc.crmClient.list.useQuery();
   const { data: employees } = trpc.employee.list.useQuery(
@@ -24,36 +23,10 @@ export default function Employees() {
     { enabled: !!selectedClient }
   );
 
-  const create = trpc.employee.create.useMutation({ onSuccess: () => { utils.employee.list.invalidate(); setShowAdd(false); setForm({}); } });
-  const update = trpc.employee.update.useMutation({ onSuccess: () => { utils.employee.list.invalidate(); setEditingId(null); } });
-  const del = trpc.employee.delete.useMutation({ onSuccess: () => utils.employee.list.invalidate() });
-
   const utils = trpc.useUtils();
-
-  const handleSave = () => {
-    if (!selectedClient) return;
-    const payload = {
-      clientId: selectedClient,
-      firstName: form.firstName || "",
-      lastName: form.lastName || "",
-      position: form.position || undefined,
-      department: form.department || undefined,
-      payType: (form.payType || "salary") as any,
-      annualSalary: form.annualSalary ? parseFloat(form.annualSalary) : undefined,
-      hourlyRate: form.hourlyRate ? parseFloat(form.hourlyRate) : undefined,
-      hoursPerWeek: form.hoursPerWeek ? parseFloat(form.hoursPerWeek) : undefined,
-      email: form.email || undefined,
-      phone: form.phone || undefined,
-      address: form.address || undefined,
-      isContractor: form.isContractor === "true",
-      notes: form.notes || undefined,
-    };
-    if (editingId) {
-      update.mutate({ id: editingId, ...payload });
-    } else {
-      create.mutate(payload);
-    }
-  };
+  const create = trpc.employee.create.useMutation({ onSuccess: () => { utils.employee.list.invalidate(); setEditing(null); }, onError: (e) => alert(e.message) });
+  const update = trpc.employee.update.useMutation({ onSuccess: () => { utils.employee.list.invalidate(); setEditing(null); }, onError: (e) => alert(e.message) });
+  const del = trpc.employee.delete.useMutation({ onSuccess: () => utils.employee.list.invalidate(), onError: (e) => alert(e.message) });
 
   return (
     <div className="space-y-6">
@@ -88,57 +61,11 @@ export default function Employees() {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">{employees?.length || 0} Employees</h2>
             {can.senior && (
-              <Button size="sm" className="bg-lime-500" onClick={() => { setShowAdd(true); setEditingId(null); setForm({}); }}>
+              <Button size="sm" className="bg-lime-500" onClick={() => setEditing({ clientId: selectedClient })}>
                 <Plus className="h-4 w-4 mr-1" /> Add Employee
               </Button>
             )}
           </div>
-
-          {(showAdd || editingId) && can.senior && (
-            <Card className="border-lime-300">
-              <CardHeader>
-                <CardTitle>{editingId ? "Edit Employee" : "Add New Employee"}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2"><Label>First Name *</Label><Input value={form.firstName || ""} onChange={e => setForm({...form, firstName: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Last Name *</Label><Input value={form.lastName || ""} onChange={e => setForm({...form, lastName: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Position</Label><Input value={form.position || ""} onChange={e => setForm({...form, position: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Department</Label><Input value={form.department || ""} onChange={e => setForm({...form, department: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Pay Type</Label>
-                    <Select value={form.payType || "salary"} onValueChange={v => setForm({...form, payType: v})}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="salary">Salary</SelectItem>
-                        <SelectItem value="hourly">Hourly</SelectItem>
-                        <SelectItem value="commission">Commission</SelectItem>
-                        <SelectItem value="contract">Contract</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2"><Label>Annual Salary ($)</Label><Input type="number" value={form.annualSalary || ""} onChange={e => setForm({...form, annualSalary: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Hourly Rate ($)</Label><Input type="number" value={form.hourlyRate || ""} onChange={e => setForm({...form, hourlyRate: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Hours/Week</Label><Input type="number" value={form.hoursPerWeek || "40"} onChange={e => setForm({...form, hoursPerWeek: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email || ""} onChange={e => setForm({...form, email: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Phone</Label><Input value={form.phone || ""} onChange={e => setForm({...form, phone: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>Contractor?</Label>
-                    <Select value={form.isContractor || "false"} onValueChange={v => setForm({...form, isContractor: v})}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="false">Employee</SelectItem>
-                        <SelectItem value="true">Contractor</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2"><Label>Address</Label><Input value={form.address || ""} onChange={e => setForm({...form, address: e.target.value})} /></div>
-                <div className="flex gap-2">
-                  <Button onClick={handleSave} className="bg-lime-500"><Save className="h-4 w-4 mr-1" /> Save</Button>
-                  <Button variant="outline" onClick={() => { setShowAdd(false); setEditingId(null); }}><X className="h-4 w-4 mr-1" /> Cancel</Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           <div className="space-y-3">
             {employees?.map((emp) => {
@@ -178,10 +105,13 @@ export default function Employees() {
                         <div><p className="text-slate-500 text-xs">Phone</p><p className="font-medium">{emp.phone || "—"}</p></div>
                         <div><p className="text-slate-500 text-xs">Hours/Week</p><p className="font-medium">{emp.hoursPerWeek || "—"}</p></div>
                         <div><p className="text-slate-500 text-xs">Pay Type</p><p className="font-medium capitalize">{emp.payType || "—"}</p></div>
+                        {(emp as any).getsPhoneAllowance && <div><p className="text-slate-500 text-xs">Phone allowance</p><p className="font-medium">${(emp as any).phoneAllowance ?? 0}/pay</p></div>}
+                        {(emp as any).getsReimbursement && <div><p className="text-slate-500 text-xs">Reimbursement</p><p className="font-medium">${(emp as any).reimbursementAmount ?? 0}/pay{(emp as any).reimbursementNote ? ` · ${(emp as any).reimbursementNote}` : ""}</p></div>}
+                        {(emp as any).getsRevenueShare && <div><p className="text-slate-500 text-xs">Revenue share</p><p className="font-medium">{(emp as any).revenueSharePercent ?? 0}%</p></div>}
                       </div>
                       <div className="flex gap-3 pt-2">
                         {can.senior && (
-                          <Button size="sm" variant="outline" onClick={() => { setEditingId(emp.id); setForm({ ...emp as any }); setShowAdd(false); }}>
+                          <Button size="sm" variant="outline" onClick={() => setEditing(emp)}>
                             <Pencil className="h-3 w-3 mr-1" /> Edit
                           </Button>
                         )}
@@ -201,6 +131,18 @@ export default function Employees() {
             )}
           </div>
         </>
+      )}
+
+      {editing && (
+        <EmployeeCardDialog
+          employee={editing}
+          onClose={() => setEditing(null)}
+          onSave={(data) => {
+            if (editing.id) update.mutate({ id: editing.id, ...data });
+            else create.mutate({ clientId: editing.clientId ?? selectedClient!, firstName: data.firstName || "", lastName: data.lastName || "", ...data });
+          }}
+          pending={create.isPending || update.isPending}
+        />
       )}
     </div>
   );
