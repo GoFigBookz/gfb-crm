@@ -385,10 +385,12 @@ export const assistantRouter = createRouter({
           const status = res?.status ?? 0;
           // A tool/model incompatibility → step down a tool tier and retry.
           if (status === 400 && tier < toolTiers.length - 1 && /tool/i.test(b)) { tier++; continue; }
-          const friendly = TRANSIENT.has(status)
-            ? "The AI is briefly overloaded right now — give it a moment and try again."
-            : "Sorry, I hit a snag answering that. Try again in a sec.";
-          return { reply: friendly, actions, agent };
+          console.error("[assistant] API error", { status, model, tier, body: b?.slice(0, 500) });
+          if (TRANSIENT.has(status)) return { reply: "The AI is briefly overloaded right now — give it a moment and try again.", actions, agent };
+          // Surface the real reason once so the actual cause is visible (temp debug).
+          let detail = "";
+          try { const j = JSON.parse(b); detail = j?.error?.message || j?.error?.type || ""; } catch { detail = (b || "").slice(0, 160); }
+          return { reply: `Snag talking to the AI — debug: HTTP ${status}${detail ? ` · ${detail}` : ""}`, actions, agent };
         }
         const data: any = await res.json();
         if (data.stop_reason === "tool_use") {

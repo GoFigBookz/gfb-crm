@@ -63992,8 +63992,16 @@ var assistantRouter = createRouter({
           tier++;
           continue;
         }
-        const friendly = TRANSIENT.has(status) ? "The AI is briefly overloaded right now \u2014 give it a moment and try again." : "Sorry, I hit a snag answering that. Try again in a sec.";
-        return { reply: friendly, actions, agent };
+        console.error("[assistant] API error", { status, model, tier, body: b?.slice(0, 500) });
+        if (TRANSIENT.has(status)) return { reply: "The AI is briefly overloaded right now \u2014 give it a moment and try again.", actions, agent };
+        let detail = "";
+        try {
+          const j = JSON.parse(b);
+          detail = j?.error?.message || j?.error?.type || "";
+        } catch {
+          detail = (b || "").slice(0, 160);
+        }
+        return { reply: `Snag talking to the AI \u2014 debug: HTTP ${status}${detail ? ` \xB7 ${detail}` : ""}`, actions, agent };
       }
       const data = await res.json();
       if (data.stop_reason === "tool_use") {
@@ -64736,7 +64744,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.97";
+var BUILD_TAG = "2026-06-24.98";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
