@@ -178,13 +178,16 @@ async function recomputeRunTotals(runId: number) {
  *  (restaurant sheets) / first name. */
 export async function applyImportedHours(
   db: any, runId: number, clientId: number,
-  hours: { userName: string; hours: number; maxShiftHours?: number }[],
+  hours: { userName: string; hours: number; maxShiftHours?: number; userId?: string }[],
 ) {
   const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
+  const rosterExists = (emps as any[]).length > 0; // when a roster exists, surface unmatched for mapping (don't auto-create dupes)
   const norm = (s: string) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
   const byAlias = new Map<string, any>(), byFull = new Map<string, any>(), byFirst = new Map<string, any>();
   const byLast = new Map<string, any>(); // unique last name → employee (handles Matt↔Matteo nicknames)
+  const byJobberId = new Map<string, any>(); // EXACT match once mapped — immune to name spelling
   for (const e of emps as any[]) {
+    if (e.jobberUserId) byJobberId.set(String(e.jobberUserId), e);
     if (e.jobberName) byAlias.set(norm(e.jobberName), e);
     byFull.set(norm(`${e.firstName} ${e.lastName}`), e);
     byFull.set(norm(`${e.lastName}, ${e.firstName}`), e); // restaurant sheets use "Last, First"
@@ -217,17 +220,20 @@ export async function applyImportedHours(
   const lineByEmp = new Map((lines as any[]).map((l) => [l.employeeId, l]));
   const { longShiftNote } = await import("./timesheet-core");
   let matched = 0;
-  const unmatched: { name: string; hours: number }[] = [];
+  const unmatched: { name: string; hours: number; userId?: string }[] = [];
   const created: string[] = [];
   const flagged: { name: string; hours: number; maxShiftHours: number }[] = [];
   for (const h of hours) {
-    let emp = matchEmp(h.userName);
+    // Exact Jobber-id match first (set once via the mapping step) — then fall back to names.
+    let emp = (h.userId && byJobberId.get(String(h.userId))) || matchEmp(h.userName);
     if (!emp) {
-      // No roster match — auto-create from the timesheet so the run actually
-      // populates (clients like restaurants often have no employees on file yet;
-      // the timesheet IS the roster). Pay rate left blank for Markie to set.
+      // When the client already has a roster, DON'T auto-create a duplicate — return
+      // the unmatched worker so Markie maps it to the right employee (one click, saved
+      // by Jobber id forever). Only auto-create for a cold/empty roster (restaurants
+      // where the timesheet IS the roster).
+      if (rosterExists) { unmatched.push({ name: h.userName, hours: h.hours, userId: h.userId }); continue; }
       const { first, last } = parseName(h.userName);
-      if (!first && !last) { unmatched.push({ name: h.userName, hours: h.hours }); continue; }
+      if (!first && !last) { unmatched.push({ name: h.userName, hours: h.hours, userId: h.userId }); continue; }
       const [ins] = await db.insert(employees).values({
         clientId, firstName: first || h.userName.trim(), lastName: last || "",
         payType: "hourly", isActive: true,
@@ -460,6 +466,32 @@ export const payrollRouter = createRouter({
       }
       const r = await applyImportedHours(db, input.runId, run.clientId, hours);
       return { ok: true, ...r };
+    }),
+
+  // Map a Jobber worker (that didn't auto-match) to a CRM employee. Saves the
+  // stable Jobber user id on the employee so EVERY future import matches exactly —
+  // no name spelling/nickname problems — and fills this run's hours immediately.
+  mapJobberWorker: staffQuery
+    .input(z.object({ runId: z.number(), employeeId: z.number(), jobberUserId: z.string().optional(), jobberName: z.string().optional(), hours: z.number().optional() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const run = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0] as any;
+      if (!run) throw new Error("Pay run not found");
+      const emp = (await db.select().from(employees).where(eq(employees.id, input.employeeId)).limit(1))[0] as any;
+      if (!emp || emp.clientId !== run.clientId) throw new Error("Employee not on this client");
+      // Remember the mapping for next time (per-client isolation: employee belongs to this client).
+      const patch: any = { updatedAt: new Date() };
+      if (input.jobberUserId) patch.jobberUserId = String(input.jobberUserId);
+      if (input.jobberName) patch.jobberName = input.jobberName;
+      await db.update(employees).set(patch).where(eq(employees.id, input.employeeId));
+      // Fill the hours on this run now.
+      if (input.hours != null) {
+        const line = (await db.select().from(payRunLines).where(and(eq(payRunLines.payRunId, input.runId), eq(payRunLines.employeeId, input.employeeId))).limit(1))[0] as any;
+        if (line) await db.update(payRunLines).set({ regularHours: input.hours, updatedAt: new Date() }).where(eq(payRunLines.id, line.id));
+        else await db.insert(payRunLines).values({ payRunId: input.runId, employeeId: input.employeeId, regularHours: input.hours } as any);
+        await recomputeRunTotals(input.runId);
+      }
+      return { ok: true };
     }),
 
   // Import hours from the client's TouchBistro Google Sheets payroll workbook

@@ -23380,6 +23380,8 @@ var init_schema = __esm({
       // Jobber timesheet name alias — maps a Jobber label (e.g. "Grace") to this
       // employee when it doesn't match firstName/lastName, so hours import cleanly.
       jobberName: text("jobberName"),
+      jobberUserId: text("jobberUserId"),
+      // stable Jobber user id — exact match key once mapped (immune to name spelling)
       terminationDate: integer2("terminationDate", { mode: "timestamp" }),
       terminationReason: text("terminationReason"),
       // Benefits
@@ -41513,6 +41515,7 @@ var init_ensure_employee_schema = __esm({
       ["isContractor", "integer"],
       ["wsibEligible", "integer"],
       ["jobberName", "text"],
+      ["jobberUserId", "text"],
       ["terminationDate", "integer"],
       ["terminationReason", "text"],
       ["hasHealthBenefits", "integer"],
@@ -43416,10 +43419,13 @@ async function recomputeRunTotals(runId) {
 }
 async function applyImportedHours(db, runId, clientId, hours) {
   const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
+  const rosterExists = emps.length > 0;
   const norm11 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
   const byAlias = /* @__PURE__ */ new Map(), byFull = /* @__PURE__ */ new Map(), byFirst = /* @__PURE__ */ new Map();
   const byLast = /* @__PURE__ */ new Map();
+  const byJobberId = /* @__PURE__ */ new Map();
   for (const e of emps) {
+    if (e.jobberUserId) byJobberId.set(String(e.jobberUserId), e);
     if (e.jobberName) byAlias.set(norm11(e.jobberName), e);
     byFull.set(norm11(`${e.firstName} ${e.lastName}`), e);
     byFull.set(norm11(`${e.lastName}, ${e.firstName}`), e);
@@ -43458,11 +43464,15 @@ async function applyImportedHours(db, runId, clientId, hours) {
   const created = [];
   const flagged = [];
   for (const h of hours) {
-    let emp = matchEmp(h.userName);
+    let emp = h.userId && byJobberId.get(String(h.userId)) || matchEmp(h.userName);
     if (!emp) {
+      if (rosterExists) {
+        unmatched.push({ name: h.userName, hours: h.hours, userId: h.userId });
+        continue;
+      }
       const { first, last } = parseName(h.userName);
       if (!first && !last) {
-        unmatched.push({ name: h.userName, hours: h.hours });
+        unmatched.push({ name: h.userName, hours: h.hours, userId: h.userId });
         continue;
       }
       const [ins] = await db.insert(employees).values({
@@ -43687,6 +43697,27 @@ var init_payroll_router = __esm({
         }
         const r = await applyImportedHours(db, input.runId, run2.clientId, hours);
         return { ok: true, ...r };
+      }),
+      // Map a Jobber worker (that didn't auto-match) to a CRM employee. Saves the
+      // stable Jobber user id on the employee so EVERY future import matches exactly —
+      // no name spelling/nickname problems — and fills this run's hours immediately.
+      mapJobberWorker: staffQuery.input(external_exports.object({ runId: external_exports.number(), employeeId: external_exports.number(), jobberUserId: external_exports.string().optional(), jobberName: external_exports.string().optional(), hours: external_exports.number().optional() })).mutation(async ({ input }) => {
+        const db = getDb();
+        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run2) throw new Error("Pay run not found");
+        const emp = (await db.select().from(employees).where(eq(employees.id, input.employeeId)).limit(1))[0];
+        if (!emp || emp.clientId !== run2.clientId) throw new Error("Employee not on this client");
+        const patch = { updatedAt: /* @__PURE__ */ new Date() };
+        if (input.jobberUserId) patch.jobberUserId = String(input.jobberUserId);
+        if (input.jobberName) patch.jobberName = input.jobberName;
+        await db.update(employees).set(patch).where(eq(employees.id, input.employeeId));
+        if (input.hours != null) {
+          const line = (await db.select().from(payRunLines).where(and(eq(payRunLines.payRunId, input.runId), eq(payRunLines.employeeId, input.employeeId))).limit(1))[0];
+          if (line) await db.update(payRunLines).set({ regularHours: input.hours, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRunLines.id, line.id));
+          else await db.insert(payRunLines).values({ payRunId: input.runId, employeeId: input.employeeId, regularHours: input.hours });
+          await recomputeRunTotals(input.runId);
+        }
+        return { ok: true };
       }),
       // Import hours from the client's TouchBistro Google Sheets payroll workbook
       // (restaurants — Sher-E-Punjab, Old Spot). Reads the sheet via the connected
