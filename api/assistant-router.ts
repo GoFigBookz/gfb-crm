@@ -418,6 +418,10 @@ export const assistantRouter = createRouter({
           if (err instanceof Anthropic.RateLimitError) return { reply: "The AI is rate-limited right now — give it a minute and try again.", actions, agent };
           if (err instanceof Anthropic.InternalServerError) return { reply: "The AI is briefly overloaded — try again in a sec.", actions, agent };
           if (err instanceof Anthropic.APIConnectionError) return { reply: "Couldn't reach the AI just now — check the connection and retry.", actions, agent };
+          // Out of Anthropic credits → not a bug, a billing top-up. Say so plainly.
+          if (/credit balance|too low|billing|insufficient (funds|credit)|purchase credits/i.test(err?.message || "")) {
+            return { reply: "I'm out of AI credits at the moment — top up the Anthropic account (console.anthropic.com → Plans & Billing) and I'll be right back. This affects all the agents, not just me.", actions, agent };
+          }
           const msg = err instanceof Anthropic.APIError ? `${err.status ?? ""} ${err.message}`.trim() : (err?.message || "unknown error");
           return { reply: `Snag talking to the AI: ${msg}`, actions, agent };
         }
