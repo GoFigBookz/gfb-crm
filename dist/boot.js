@@ -23408,6 +23408,14 @@ var init_schema = __esm({
       // from a client's prior-system payroll sheet) — feeds CPP/EI maxing so the
       // CRA-grade calc is correct from the first run in the CRM.
       ytdGrossOpening: real("ytdGrossOpening"),
+      // YTD carry-forward from QBO Payroll (or entered manually) — year-to-date employee
+      // withholdings as of `ytdAsOf`. Gross feeds CPP/EI maxing; CPP/EI/tax give a clean
+      // remittance + cash-flow picture and an accurate carry-forward.
+      ytdCppOpening: real("ytdCppOpening"),
+      ytdEiOpening: real("ytdEiOpening"),
+      ytdTaxOpening: real("ytdTaxOpening"),
+      ytdAsOf: integer2("ytdAsOf", { mode: "timestamp" }),
+      ytdSource: text("ytdSource"),
       getsBonus: integer2("getsBonus", { mode: "boolean" }).default(false),
       getsDividends: integer2("getsDividends", { mode: "boolean" }).default(false),
       getsPhoneAllowance: integer2("getsPhoneAllowance", { mode: "boolean" }).default(false),
@@ -41381,6 +41389,11 @@ var init_employee_router = __esm({
         getsPhoneAllowance: external_exports.boolean().optional(),
         getsReimbursement: external_exports.boolean().optional(),
         ytdGrossOpening: external_exports.number().nullable().optional(),
+        ytdCppOpening: external_exports.number().nullable().optional(),
+        ytdEiOpening: external_exports.number().nullable().optional(),
+        ytdTaxOpening: external_exports.number().nullable().optional(),
+        ytdAsOf: external_exports.date().nullable().optional(),
+        ytdSource: external_exports.string().optional(),
         wsibEligible: external_exports.boolean().optional(),
         jobberName: external_exports.string().optional(),
         sin: external_exports.string().optional(),
@@ -41436,6 +41449,11 @@ var init_employee_router = __esm({
         getsPhoneAllowance: external_exports.boolean().optional(),
         getsReimbursement: external_exports.boolean().optional(),
         ytdGrossOpening: external_exports.number().nullable().optional(),
+        ytdCppOpening: external_exports.number().nullable().optional(),
+        ytdEiOpening: external_exports.number().nullable().optional(),
+        ytdTaxOpening: external_exports.number().nullable().optional(),
+        ytdAsOf: external_exports.date().nullable().optional(),
+        ytdSource: external_exports.string().optional(),
         wsibEligible: external_exports.boolean().optional(),
         jobberName: external_exports.string().optional(),
         sin: external_exports.string().optional(),
@@ -60496,6 +60514,44 @@ var init_ensure_rate_history_schema = __esm({
   }
 });
 
+// api/ensure-employee-ytd-schema.ts
+var ensure_employee_ytd_schema_exports = {};
+__export(ensure_employee_ytd_schema_exports, {
+  ensureEmployeeYtdColumns: () => ensureEmployeeYtdColumns
+});
+async function ensureEmployeeYtdColumns() {
+  const db = getDb();
+  try {
+    const have = /* @__PURE__ */ new Set();
+    const res = await db.run(sql`PRAGMA table_info(employees)`);
+    for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
+    const cols = [
+      ["ytdCppOpening", "real"],
+      ["ytdEiOpening", "real"],
+      ["ytdTaxOpening", "real"],
+      ["ytdAsOf", "integer"],
+      ["ytdSource", "text"]
+    ];
+    for (const [name2, type] of cols) {
+      if (have.has(name2)) continue;
+      try {
+        await db.run(sql.raw(`ALTER TABLE employees ADD COLUMN "${name2}" ${type}`));
+        console.log(`[employee-ytd] added column: ${name2}`);
+      } catch (e) {
+        console.error(`[employee-ytd] add column ${name2} failed:`, e instanceof Error ? e.message : e);
+      }
+    }
+  } catch (e) {
+    console.error("[employee-ytd] ensure columns failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_employee_ytd_schema = __esm({
+  "api/ensure-employee-ytd-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/seed-ai-agents.ts
 var seed_ai_agents_exports = {};
 __export(seed_ai_agents_exports, {
@@ -76722,7 +76778,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.104";
+var BUILD_TAG = "2026-06-24.105";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -77890,6 +77946,8 @@ async function startServer() {
     await ensureCashflowSchema2();
     const { ensureRateHistorySchema: ensureRateHistorySchema2 } = await Promise.resolve().then(() => (init_ensure_rate_history_schema(), ensure_rate_history_schema_exports));
     await ensureRateHistorySchema2();
+    const { ensureEmployeeYtdColumns: ensureEmployeeYtdColumns2 } = await Promise.resolve().then(() => (init_ensure_employee_ytd_schema(), ensure_employee_ytd_schema_exports));
+    await ensureEmployeeYtdColumns2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));

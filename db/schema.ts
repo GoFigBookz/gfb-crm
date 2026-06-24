@@ -1102,6 +1102,14 @@ export const employees = sqliteTable("employees", {
   // from a client's prior-system payroll sheet) — feeds CPP/EI maxing so the
   // CRA-grade calc is correct from the first run in the CRM.
   ytdGrossOpening: real("ytdGrossOpening"),
+  // YTD carry-forward from QBO Payroll (or entered manually) — year-to-date employee
+  // withholdings as of `ytdAsOf`. Gross feeds CPP/EI maxing; CPP/EI/tax give a clean
+  // remittance + cash-flow picture and an accurate carry-forward.
+  ytdCppOpening: real("ytdCppOpening"),
+  ytdEiOpening: real("ytdEiOpening"),
+  ytdTaxOpening: real("ytdTaxOpening"),
+  ytdAsOf: integer("ytdAsOf", { mode: "timestamp" }),
+  ytdSource: text("ytdSource"),
   getsBonus: integer("getsBonus", { mode: "boolean" }).default(false),
   getsDividends: integer("getsDividends", { mode: "boolean" }).default(false),
   getsPhoneAllowance: integer("getsPhoneAllowance", { mode: "boolean" }).default(false),

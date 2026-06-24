@@ -1006,6 +1006,10 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
     getsPhoneAllowance: employee.getsPhoneAllowance ?? ((employee.phoneAllowance ?? 0) > 0),
     getsReimbursement: employee.getsReimbursement ?? ((employee.reimbursementAmount ?? 0) > 0),
     ytdGrossOpening: employee.ytdGrossOpening != null ? String(employee.ytdGrossOpening) : "",
+    ytdCppOpening: employee.ytdCppOpening != null ? String(employee.ytdCppOpening) : "",
+    ytdEiOpening: employee.ytdEiOpening != null ? String(employee.ytdEiOpening) : "",
+    ytdTaxOpening: employee.ytdTaxOpening != null ? String(employee.ytdTaxOpening) : "",
+    ytdAsOf: employee.ytdAsOf ? new Date(employee.ytdAsOf).toISOString().slice(0, 10) : "",
     notes: employee.notes || "",
   });
   const set = (k: string, v: any) => setF({ ...f, [k]: v });
@@ -1126,9 +1130,19 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
               </div>
             )}
           </div>
-          <div>
-            <Label>Opening YTD gross (this year)</Label>
-            <Input type="number" value={f.ytdGrossOpening} onChange={(e) => set("ytdGrossOpening", e.target.value)} placeholder="Carryforward from prior payroll — feeds CPP/EI maxing" />
+          {/* YTD carry-forward from QuickBooks Payroll — the year-to-date employee
+              withholdings as of a date. Gross feeds CPP/EI maxing; CPP/EI/tax give
+              an accurate carry-forward + remittance picture. */}
+          <div className="rounded-md border bg-slate-50 px-2 py-2 space-y-2">
+            <Label className="text-xs uppercase tracking-wide text-slate-500">YTD carry-forward (from QuickBooks Payroll)</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div><Label className="text-xs">YTD gross</Label><Input type="number" value={f.ytdGrossOpening} onChange={(e) => set("ytdGrossOpening", e.target.value)} placeholder="feeds CPP/EI maxing" /></div>
+              <div><Label className="text-xs">As of date</Label><Input type="date" value={f.ytdAsOf} onChange={(e) => set("ytdAsOf", e.target.value)} /></div>
+              <div><Label className="text-xs">YTD CPP</Label><Input type="number" value={f.ytdCppOpening} onChange={(e) => set("ytdCppOpening", e.target.value)} /></div>
+              <div><Label className="text-xs">YTD EI</Label><Input type="number" value={f.ytdEiOpening} onChange={(e) => set("ytdEiOpening", e.target.value)} /></div>
+              <div><Label className="text-xs">YTD income tax</Label><Input type="number" value={f.ytdTaxOpening} onChange={(e) => set("ytdTaxOpening", e.target.value)} /></div>
+            </div>
+            <p className="text-[11px] text-slate-500">Enter from the QuickBooks Payroll YTD report (or it'll be synced once the QuickBooks connection is re-authorized). Carries CPP/EI toward their annual max so the calc is right from the first run.</p>
           </div>
           <div>
             <Label>Notes / history</Label>
@@ -1157,6 +1171,10 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
               getsBonus: !!f.getsBonus, getsDividends: !!f.getsDividends,
               getsPhoneAllowance: !!f.getsPhoneAllowance, getsReimbursement: !!f.getsReimbursement,
               ytdGrossOpening: f.ytdGrossOpening.trim() === "" ? null : num(f.ytdGrossOpening),
+              ytdCppOpening: f.ytdCppOpening.trim() === "" ? null : num(f.ytdCppOpening),
+              ytdEiOpening: f.ytdEiOpening.trim() === "" ? null : num(f.ytdEiOpening),
+              ytdTaxOpening: f.ytdTaxOpening.trim() === "" ? null : num(f.ytdTaxOpening),
+              ...(f.ytdAsOf ? { ytdAsOf: new Date(f.ytdAsOf + "T12:00:00"), ytdSource: "manual" } : {}),
               ...(sinTouched ? { sin: sin.trim() } : {}),
               ...(f.rateEffectiveDate ? { rateEffectiveDate: new Date(f.rateEffectiveDate + "T12:00:00") } : {}),
               isActive: f.isActive, notes: f.notes.trim() || undefined,
