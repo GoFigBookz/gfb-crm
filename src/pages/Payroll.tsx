@@ -518,7 +518,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
           </div>
         </div>
 
-        <ApprovalBar run={run} onCreateLink={() => createApprovalLink.mutate({ runId })} creating={createApprovalLink.isPending} />
+        <ApprovalBar run={run} onCreateLink={() => createApprovalLink.mutate({ runId })} creating={createApprovalLink.isPending} isTouchbistro={features?.kind === "touchbistro"} />
 
         {statHols && statHols.length > 0 && (
           <div className="text-sm bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800">
@@ -658,7 +658,7 @@ function LineRow({ line, showBonus, showVac, showSick, showPhone, showReimb, sho
 }
 
 /** Client hours-approval bar: generate a shareable link, show status. */
-function ApprovalBar({ run, onCreateLink, creating }: { run: any; onCreateLink: () => void; creating: boolean }) {
+function ApprovalBar({ run, onCreateLink, creating, isTouchbistro }: { run: any; onCreateLink: () => void; creating: boolean; isTouchbistro?: boolean }) {
   const [copied, setCopied] = useState(false);
   const token = run.approvalToken;
   const url = token ? `${window.location.origin}/approve/${token}` : "";
@@ -686,6 +686,12 @@ function ApprovalBar({ run, onCreateLink, creating }: { run: any; onCreateLink: 
           <a href={`mailto:?subject=${encodeURIComponent("Payroll hours for approval")}&body=${encodeURIComponent(`Please review and approve the payroll hours: ${url}`)}`}
             className="text-xs text-lime-700 hover:underline">email</a>
         </>
+      )}
+      {isTouchbistro && (
+        <a href="https://login.touchbistro.com/" target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center h-7 text-xs px-2 rounded-md border border-rose-300 text-rose-700 hover:bg-rose-50">
+          <ExternalLink className="h-3.5 w-3.5 mr-1" /> TouchBistro login
+        </a>
       )}
     </div>
   );

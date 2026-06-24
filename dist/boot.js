@@ -64744,7 +64744,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.98";
+var BUILD_TAG = "2026-06-24.99";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
