@@ -42501,6 +42501,7 @@ var init_timesheet_file_parse = __esm({
 // api/payroll-router.ts
 var payroll_router_exports = {};
 __export(payroll_router_exports, {
+  applyImportedHours: () => applyImportedHours,
   backfillHasPayroll: () => backfillHasPayroll,
   payrollRouter: () => payrollRouter,
   seedPayrollSchedules: () => seedPayrollSchedules
@@ -42634,17 +42635,44 @@ async function applyImportedHours(db, runId, clientId, hours) {
     const n = norm9(label);
     return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm9(n.split(/[ ,]/)[0])) || null;
   };
+  const parseName = (label) => {
+    const s = (label || "").trim();
+    if (!s) return { first: "", last: "" };
+    if (s.includes(",")) {
+      const [l, f] = s.split(",");
+      return { first: (f || "").trim(), last: (l || "").trim() };
+    }
+    const t2 = s.split(/\s+/);
+    return { first: t2[0] || "", last: t2.slice(1).join(" ") };
+  };
   const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
   const lineByEmp = new Map(lines.map((l) => [l.employeeId, l]));
   const { longShiftNote: longShiftNote2 } = await Promise.resolve().then(() => (init_timesheet_core(), timesheet_core_exports));
   let matched = 0;
   const unmatched = [];
+  const created = [];
   const flagged = [];
   for (const h of hours) {
-    const emp = matchEmp(h.userName);
+    let emp = matchEmp(h.userName);
     if (!emp) {
-      unmatched.push({ name: h.userName, hours: h.hours });
-      continue;
+      const { first, last } = parseName(h.userName);
+      if (!first && !last) {
+        unmatched.push({ name: h.userName, hours: h.hours });
+        continue;
+      }
+      const [ins] = await db.insert(employees).values({
+        clientId,
+        firstName: first || h.userName.trim(),
+        lastName: last || "",
+        payType: "hourly",
+        isActive: true
+      }).returning();
+      emp = ins;
+      created.push(`${ins.firstName} ${ins.lastName}`.trim());
+      byFull.set(norm9(h.userName), ins);
+      byFull.set(norm9(`${ins.firstName} ${ins.lastName}`), ins);
+      byFull.set(norm9(`${ins.lastName}, ${ins.firstName}`), ins);
+      if (ins.firstName && !byFirst.has(norm9(ins.firstName))) byFirst.set(norm9(ins.firstName), ins);
     }
     const note = longShiftNote2(h.maxShiftHours ?? 0);
     if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
@@ -42652,12 +42680,13 @@ async function applyImportedHours(db, runId, clientId, hours) {
     if (line) {
       await db.update(payRunLines).set({ regularHours: h.hours, notes: note ?? line.notes ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRunLines.id, line.id));
     } else {
-      await db.insert(payRunLines).values({ payRunId: runId, employeeId: emp.id, regularHours: h.hours, notes: note ?? null });
+      const [newLine] = await db.insert(payRunLines).values({ payRunId: runId, employeeId: emp.id, regularHours: h.hours, notes: note ?? null }).returning();
+      if (newLine) lineByEmp.set(emp.id, newLine);
     }
     matched++;
   }
   await recomputeRunTotals(runId);
-  return { matched, unmatched, flagged, totalUsers: hours.length };
+  return { matched, created, unmatched, flagged, totalUsers: hours.length };
 }
 var WEST_YORK_META, KNOWN_PAYROLL, payrollRouter;
 var init_payroll_router = __esm({
@@ -76442,7 +76471,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.101";
+var BUILD_TAG = "2026-06-24.102";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

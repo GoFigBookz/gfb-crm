@@ -176,7 +176,7 @@ async function recomputeRunTotals(runId: number) {
  *  timesheet lines. Used by BOTH Jobber and TouchBistro imports. Flags a long
  *  single shift (missed clock-out). Matches by alias / full name / "Last, First"
  *  (restaurant sheets) / first name. */
-async function applyImportedHours(
+export async function applyImportedHours(
   db: any, runId: number, clientId: number,
   hours: { userName: string; hours: number; maxShiftHours?: number }[],
 ) {
@@ -193,27 +193,54 @@ async function applyImportedHours(
     const n = norm(label);
     return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm(n.split(/[ ,]/)[0])) || null;
   };
+  // Parse a timesheet label into first/last ("Last, First" or "First Last").
+  const parseName = (label: string): { first: string; last: string } => {
+    const s = (label || "").trim();
+    if (!s) return { first: "", last: "" };
+    if (s.includes(",")) { const [l, f] = s.split(","); return { first: (f || "").trim(), last: (l || "").trim() }; }
+    const t = s.split(/\s+/); return { first: t[0] || "", last: t.slice(1).join(" ") };
+  };
   const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
   const lineByEmp = new Map((lines as any[]).map((l) => [l.employeeId, l]));
   const { longShiftNote } = await import("./timesheet-core");
   let matched = 0;
   const unmatched: { name: string; hours: number }[] = [];
+  const created: string[] = [];
   const flagged: { name: string; hours: number; maxShiftHours: number }[] = [];
   for (const h of hours) {
-    const emp = matchEmp(h.userName);
-    if (!emp) { unmatched.push({ name: h.userName, hours: h.hours }); continue; }
+    let emp = matchEmp(h.userName);
+    if (!emp) {
+      // No roster match — auto-create from the timesheet so the run actually
+      // populates (clients like restaurants often have no employees on file yet;
+      // the timesheet IS the roster). Pay rate left blank for Markie to set.
+      const { first, last } = parseName(h.userName);
+      if (!first && !last) { unmatched.push({ name: h.userName, hours: h.hours }); continue; }
+      const [ins] = await db.insert(employees).values({
+        clientId, firstName: first || h.userName.trim(), lastName: last || "",
+        payType: "hourly", isActive: true,
+      } as any).returning();
+      emp = ins;
+      created.push(`${ins.firstName} ${ins.lastName}`.trim());
+      // Register every form so a repeat of the SAME name in this import reuses it
+      // (no duplicate employee): the raw label + "First Last" + "Last, First".
+      byFull.set(norm(h.userName), ins);
+      byFull.set(norm(`${ins.firstName} ${ins.lastName}`), ins);
+      byFull.set(norm(`${ins.lastName}, ${ins.firstName}`), ins);
+      if (ins.firstName && !byFirst.has(norm(ins.firstName))) byFirst.set(norm(ins.firstName), ins);
+    }
     const note = longShiftNote(h.maxShiftHours ?? 0);
     if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
     const line = lineByEmp.get(emp.id) as any;
     if (line) {
       await db.update(payRunLines).set({ regularHours: h.hours, notes: note ?? line.notes ?? null, updatedAt: new Date() }).where(eq(payRunLines.id, line.id));
     } else {
-      await db.insert(payRunLines).values({ payRunId: runId, employeeId: emp.id, regularHours: h.hours, notes: note ?? null } as any);
+      const [newLine] = await db.insert(payRunLines).values({ payRunId: runId, employeeId: emp.id, regularHours: h.hours, notes: note ?? null } as any).returning();
+      if (newLine) lineByEmp.set(emp.id, newLine); // so a repeat of this employee in the import updates the same line, not a new one
     }
     matched++;
   }
   await recomputeRunTotals(runId);
-  return { matched, unmatched, flagged, totalUsers: hours.length };
+  return { matched, created, unmatched, flagged, totalUsers: hours.length };
 }
 
 export const payrollRouter = createRouter({

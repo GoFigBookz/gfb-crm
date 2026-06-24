@@ -397,9 +397,11 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
     onSuccess: (r: any) => {
       invalidate();
       if (!r.ok) { alert("Jobber import failed:\n" + r.error); return; }
+      if (data?.run.clientId) utils.employee.list.invalidate({ clientId: data.run.clientId });
+      const made = r.created?.length ? `\n\n➕ Added ${r.created.length} new employee(s) from the sheet — set their pay rate:\n${r.created.map((n: string) => `• ${n}`).join("\n")}` : "";
       const extra = r.unmatched?.length ? `\n\nNot matched to an employee (check names):\n${r.unmatched.map((u: any) => `• ${u.name} — ${u.hours}h`).join("\n")}` : "";
       const flags = r.flagged?.length ? `\n\n⚠ Check these — long single shift (possible missed clock-out):\n${r.flagged.map((f: any) => `• ${f.name} — ${f.maxShiftHours}h shift`).join("\n")}` : "";
-      alert(`Imported hours for ${r.matched} of ${r.totalUsers} Jobber worker(s).${flags}${extra}`);
+      alert(`Imported hours for ${r.matched} of ${r.totalUsers} Jobber worker(s).${made}${flags}${extra}`);
     },
     onError: (e) => alert(e.message),
   });
@@ -407,8 +409,10 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
     onSuccess: (r: any) => {
       invalidate();
       if (!r.ok) { alert("TouchBistro import failed:\n" + r.error); return; }
+      if (data?.run.clientId) utils.employee.list.invalidate({ clientId: data.run.clientId });
+      const made = r.created?.length ? `\n\n➕ Added ${r.created.length} new employee(s) from the sheet — set their pay rate:\n${r.created.map((n: string) => `• ${n}`).join("\n")}` : "";
       const extra = r.unmatched?.length ? `\n\nNot matched to an employee (check names):\n${r.unmatched.map((u: any) => `• ${u.name} — ${u.hours}h`).join("\n")}` : "";
-      alert(`Imported hours for ${r.matched} of ${r.totalUsers} from the TouchBistro sheet.${extra}\n\nReview the timesheet before approving.`);
+      alert(`Imported hours for ${r.matched} of ${r.totalUsers} from the TouchBistro sheet.${made}${extra}\n\nReview the timesheet before approving.`);
     },
     onError: (e) => alert(e.message),
   });
@@ -417,9 +421,11 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
     onSuccess: (r: any) => {
       invalidate();
       if (!r.ok) { alert("Timesheet import failed:\n" + r.error); return; }
+      if (data?.run.clientId) utils.employee.list.invalidate({ clientId: data.run.clientId });
+      const made = r.created?.length ? `\n\n➕ Added ${r.created.length} new employee(s) from the sheet — set their pay rate:\n${r.created.map((n: string) => `• ${n}`).join("\n")}` : "";
       const extra = r.unmatched?.length ? `\n\nNot matched to an employee (check names):\n${r.unmatched.map((u: any) => `• ${u.name} — ${u.hours}h`).join("\n")}` : "";
       const flags = r.flagged?.length ? `\n\n⚠ Check these — long single shift (possible missed clock-out):\n${r.flagged.map((f: any) => `• ${f.name} — ${f.maxShiftHours}h shift`).join("\n")}` : "";
-      alert(`Imported hours for ${r.matched} of ${r.totalUsers} from the timesheet.${flags}${extra}\n\nReview the timesheet before approving.`);
+      alert(`Imported hours for ${r.matched} of ${r.totalUsers} from the timesheet.${made}${flags}${extra}\n\nReview the timesheet before approving.`);
     },
     onError: (e) => alert(e.message),
   });
@@ -427,9 +433,11 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
     onSuccess: (r: any) => {
       invalidate();
       if (!r.ok) { alert("Drive import failed:\n" + r.error); return; }
+      if (data?.run.clientId) utils.employee.list.invalidate({ clientId: data.run.clientId });
+      const made = r.created?.length ? `\n\n➕ Added ${r.created.length} new employee(s) from the sheet — set their pay rate:\n${r.created.map((n: string) => `• ${n}`).join("\n")}` : "";
       const extra = r.unmatched?.length ? `\n\nNot matched to an employee (check names):\n${r.unmatched.map((u: any) => `• ${u.name} — ${u.hours}h`).join("\n")}` : "";
       const flags = r.flagged?.length ? `\n\n⚠ Check these — long single shift (possible missed clock-out):\n${r.flagged.map((f: any) => `• ${f.name} — ${f.maxShiftHours}h shift`).join("\n")}` : "";
-      alert(`Imported "${r.fileName}" from Drive — ${r.matched} of ${r.totalUsers} matched.${flags}${extra}\n\nReview the timesheet before approving.`);
+      alert(`Imported "${r.fileName}" from Drive — ${r.matched} of ${r.totalUsers} matched.${made}${flags}${extra}\n\nReview the timesheet before approving.`);
     },
     onError: (e) => alert(e.message),
   });
