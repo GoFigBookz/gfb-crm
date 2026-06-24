@@ -76778,7 +76778,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.106";
+var BUILD_TAG = "2026-06-24.107";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -76980,6 +76980,35 @@ app.get("/api/qbo/debug", async (c) => {
     connections,
     note: "hasClientId/Secret/TokenKey must all be true and redirectUri must be registered in the Intuit app before connecting. connections lists realms already linked."
   });
+});
+app.get("/api/payroll/drive-preview", async (c) => {
+  const clientId = Number(c.req.query("clientId") || 0);
+  if (!clientId) return c.json({ error: "pass ?clientId=N (the client's id)" }, 400);
+  try {
+    const db = getDb();
+    const client = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+    if (!client) return c.json({ error: "client not found" }, 404);
+    const driveFolderLinked = !!client.driveFolderUrl;
+    if (!driveFolderLinked) return c.json({ client: client.name, driveFolderLinked: false, note: "No Drive folder linked yet \u2014 the boot linker sets it; check after the latest deploy has booted." });
+    const { readNewestTimesheetFromDrive: readNewestTimesheetFromDrive2 } = await Promise.resolve().then(() => (init_touchbistro_client(), touchbistro_client_exports));
+    const { extractTimesheetFromFile: extractTimesheetFromFile2 } = await Promise.resolve().then(() => (init_timesheet_file_parse(), timesheet_file_parse_exports));
+    const file2 = await readNewestTimesheetFromDrive2(1, client.driveFolderUrl);
+    const now = /* @__PURE__ */ new Date();
+    const start = new Date(now.getTime() - 90 * 864e5).toISOString().slice(0, 10);
+    const end = now.toISOString().slice(0, 10);
+    const hours = await extractTimesheetFromFile2(file2.data, file2.mediaType, start, end);
+    return c.json({
+      client: client.name,
+      driveFolderLinked: true,
+      fileFound: file2.name,
+      mediaType: file2.mediaType,
+      employeeCount: hours.length,
+      employees: hours.map((h) => ({ name: h.userName, hours: h.hours, maxShiftHours: h.maxShiftHours })),
+      note: "PREVIEW ONLY \u2014 nothing imported. Tap 'Import from Drive' on the pay run to bring these in."
+    });
+  } catch (e) {
+    return c.json({ client: clientId, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
 });
 app.get("/api/qbo/sync-now", async (c) => {
   try {

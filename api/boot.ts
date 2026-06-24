@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-24.106";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-24.107";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -247,6 +247,38 @@ app.get("/api/qbo/debug", async (c) => {
     connections,
     note: "hasClientId/Secret/TokenKey must all be true and redirectUri must be registered in the Intuit app before connecting. connections lists realms already linked.",
   });
+});
+
+// READ-ONLY preview of the Drive timesheet import for a client — finds the newest
+// timesheet in the client's Drive folder and parses the names + hours, WITHOUT
+// importing anything. Lets Markie confirm Sher-E-Punjab / Auld Spot read correctly.
+//   GET /api/payroll/drive-preview?clientId=N
+app.get("/api/payroll/drive-preview", async (c) => {
+  const clientId = Number(c.req.query("clientId") || 0);
+  if (!clientId) return c.json({ error: "pass ?clientId=N (the client's id)" }, 400);
+  try {
+    const db = getDb();
+    const client = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0] as any;
+    if (!client) return c.json({ error: "client not found" }, 404);
+    const driveFolderLinked = !!client.driveFolderUrl;
+    if (!driveFolderLinked) return c.json({ client: client.name, driveFolderLinked: false, note: "No Drive folder linked yet — the boot linker sets it; check after the latest deploy has booted." });
+    const { readNewestTimesheetFromDrive } = await import("./touchbistro-client");
+    const { extractTimesheetFromFile } = await import("./timesheet-file-parse");
+    const file = await readNewestTimesheetFromDrive(1, client.driveFolderUrl);
+    const now = new Date();
+    const start = new Date(now.getTime() - 90 * 86400000).toISOString().slice(0, 10);
+    const end = now.toISOString().slice(0, 10);
+    const hours = await extractTimesheetFromFile(file.data, file.mediaType, start, end);
+    return c.json({
+      client: client.name, driveFolderLinked: true,
+      fileFound: file.name, mediaType: file.mediaType,
+      employeeCount: hours.length,
+      employees: hours.map((h: any) => ({ name: h.userName, hours: h.hours, maxShiftHours: h.maxShiftHours })),
+      note: "PREVIEW ONLY — nothing imported. Tap 'Import from Drive' on the pay run to bring these in.",
+    });
+  } catch (e) {
+    return c.json({ client: clientId, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
 });
 
 // Trigger the QBO → CRM sync on demand and return a per-connection summary, plus
