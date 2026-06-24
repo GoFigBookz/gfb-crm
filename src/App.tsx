@@ -26,6 +26,7 @@ import Employees from "./pages/Employees";
 import Payroll from "./pages/Payroll";
 import PayrollApproval from "./pages/PayrollApproval";
 import RevRecShare from "./pages/RevRecShare";
+import BankedHoursShare from "./pages/BankedHoursShare";
 import ClientRequest from "./pages/ClientRequest";
 import Messages from "./pages/Messages";
 import Interco from "./pages/Interco";
@@ -77,6 +78,9 @@ function AppRoutes() {
 
       {/* Public read-only WIP / revenue recognition schedule for the client */}
       <Route path="/share/revrec/:token" element={<RevRecShare />} />
+
+      {/* Public read+write banked-hours sheet for the client */}
+      <Route path="/share/banked/:token" element={<BankedHoursShare />} />
 
       {/* Client document/info request checklist (public, token-based) */}
       <Route path="/request/:token" element={<ClientRequest />} />

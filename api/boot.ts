@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-24.109";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-24.110";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -1260,6 +1260,8 @@ async function startServer() {
     await ensureEmployeeYtdColumns();
     const { ensureRevRecSchema } = await import("./ensure-revrec-schema");
     await ensureRevRecSchema();
+    const { ensureBankedHoursSchema } = await import("./ensure-banked-hours-schema");
+    await ensureBankedHoursSchema();
     // Repair legacy date rows stored in MILLISECONDS in a seconds column (they
     // render as year ~58000). Anything above year-2100-in-seconds is really ms → ÷1000.
     try {

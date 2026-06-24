@@ -22325,6 +22325,8 @@ __export(schema_exports, {
   aiAgentConfigs: () => aiAgentConfigs,
   aiAgentRuns: () => aiAgentRuns,
   appSettings: () => appSettings,
+  bankedHourEntries: () => bankedHourEntries,
+  bankedHourShareLinks: () => bankedHourShareLinks,
   calendarEvents: () => calendarEvents,
   chatMessages: () => chatMessages,
   clientAccess: () => clientAccess,
@@ -22399,7 +22401,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks;
+var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -24182,6 +24184,34 @@ var init_schema = __esm({
       clientId: integer2("clientId").notNull(),
       token: text("token").notNull(),
       label: text("label"),
+      active: integer2("active", { mode: "boolean" }).default(true).notNull(),
+      createdBy: integer2("createdBy"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      revokedAt: integer2("revokedAt", { mode: "timestamp" })
+    });
+    bankedHourEntries = sqliteTable("banked_hour_entries", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      employeeId: integer2("employeeId").notNull(),
+      entryDate: integer2("entryDate", { mode: "timestamp" }).notNull(),
+      hours: real("hours").notNull(),
+      // signed: + banked, − taken/paid
+      kind: text("kind", { enum: ["opening", "accrue", "redeem", "adjust"] }).default("accrue").notNull(),
+      note: text("note"),
+      source: text("source").default("manual"),
+      // manual | client | payroll | import
+      payRunId: integer2("payRunId"),
+      // set when a payout was tied to a pay run
+      enteredBy: text("enteredBy"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    bankedHourShareLinks = sqliteTable("banked_hour_share_links", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      token: text("token").notNull(),
+      label: text("label"),
+      allowEdit: integer2("allowEdit", { mode: "boolean" }).default(true).notNull(),
       active: integer2("active", { mode: "boolean" }).default(true).notNull(),
       createdBy: integer2("createdBy"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
@@ -60895,6 +60925,61 @@ var init_ensure_revrec_schema = __esm({
   }
 });
 
+// api/ensure-banked-hours-schema.ts
+var ensure_banked_hours_schema_exports = {};
+__export(ensure_banked_hours_schema_exports, {
+  ensureBankedHoursSchema: () => ensureBankedHoursSchema
+});
+async function ensureBankedHoursSchema() {
+  const db = getDb();
+  const statements = [
+    {
+      name: "banked_hour_entries",
+      sql: `CREATE TABLE IF NOT EXISTS banked_hour_entries (
+        id integer PRIMARY KEY AUTOINCREMENT,
+        clientId integer NOT NULL,
+        employeeId integer NOT NULL,
+        entryDate integer NOT NULL,
+        hours real NOT NULL,
+        kind text DEFAULT 'accrue' NOT NULL,
+        note text,
+        source text DEFAULT 'manual',
+        payRunId integer,
+        enteredBy text,
+        createdAt integer,
+        updatedAt integer
+      )`
+    },
+    {
+      name: "banked_hour_share_links",
+      sql: `CREATE TABLE IF NOT EXISTS banked_hour_share_links (
+        id integer PRIMARY KEY AUTOINCREMENT,
+        clientId integer NOT NULL,
+        token text NOT NULL,
+        label text,
+        allowEdit integer DEFAULT 1 NOT NULL,
+        active integer DEFAULT 1 NOT NULL,
+        createdBy integer,
+        createdAt integer,
+        revokedAt integer
+      )`
+    }
+  ];
+  for (const s of statements) {
+    try {
+      await db.run(sql.raw(s.sql));
+    } catch (e) {
+      console.error(`[banked-hours] ensure ${s.name} failed:`, e instanceof Error ? e.message : e);
+    }
+  }
+}
+var init_ensure_banked_hours_schema = __esm({
+  "api/ensure-banked-hours-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/seed-ai-agents.ts
 var seed_ai_agents_exports = {};
 __export(seed_ai_agents_exports, {
@@ -77062,6 +77147,245 @@ var revRecRouter = createRouter({
   })
 });
 
+// api/banked-hours-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_schema();
+init_drizzle_orm();
+
+// api/banked-hours-core.ts
+function round26(n) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+function toTime(d) {
+  const t2 = new Date(d).getTime();
+  return Number.isFinite(t2) ? t2 : 0;
+}
+function buildLedger(entries) {
+  const sorted = [...entries].sort((a, b) => {
+    const t2 = toTime(a.entryDate) - toTime(b.entryDate);
+    return t2 !== 0 ? t2 : (a.id ?? 0) - (b.id ?? 0);
+  });
+  let bal = 0;
+  return sorted.map((e) => {
+    bal = round26(bal + (e.hours || 0));
+    return { ...e, runningBalance: bal };
+  });
+}
+function summarize(entries) {
+  let totalBanked = 0;
+  let totalTaken = 0;
+  let last = 0;
+  for (const e of entries) {
+    const h = e.hours || 0;
+    if (h >= 0) totalBanked += h;
+    else totalTaken += -h;
+    last = Math.max(last, toTime(e.entryDate));
+  }
+  return {
+    balance: round26(totalBanked - totalTaken),
+    totalBanked: round26(totalBanked),
+    totalTaken: round26(totalTaken),
+    entryCount: entries.length,
+    lastActivity: last ? new Date(last).toISOString() : null
+  };
+}
+function parseOpeningBalances(text2) {
+  const out = [];
+  for (const raw2 of (text2 || "").split(/\r?\n/)) {
+    const line = raw2.trim();
+    if (!line) continue;
+    const m = line.match(/^(.*?)[\s,;\t]+(-?\d+(?:\.\d+)?)\s*$/);
+    if (!m) continue;
+    const name2 = m[1].replace(/[\t,;]+/g, " ").replace(/\s+/g, " ").trim();
+    const hours = parseFloat(m[2]);
+    if (!name2 || !Number.isFinite(hours)) continue;
+    out.push({ name: name2, hours });
+  }
+  return out;
+}
+
+// api/banked-hours-router.ts
+function matchEmployee(name2, emps) {
+  const norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
+  const target = norm9(name2);
+  if (!target) return null;
+  for (const e of emps) {
+    const full = norm9(`${e.firstName} ${e.lastName}`);
+    const rev = norm9(`${e.lastName} ${e.firstName}`);
+    if (target === full || target === rev) return e;
+  }
+  for (const e of emps) {
+    const ln = norm9(e.lastName);
+    const fi = norm9(e.firstName).charAt(0);
+    if (ln && target.includes(ln) && (!fi || target.includes(fi))) return e;
+  }
+  return null;
+}
+async function clientBoard(clientId) {
+  const db = getDb();
+  const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
+  const allEntries = await db.select().from(bankedHourEntries).where(eq(bankedHourEntries.clientId, clientId));
+  const byEmp = /* @__PURE__ */ new Map();
+  for (const e of allEntries) {
+    if (!byEmp.has(e.employeeId)) byEmp.set(e.employeeId, []);
+    byEmp.get(e.employeeId).push(e);
+  }
+  const rows = emps.filter((e) => e.isActive !== false || byEmp.has(e.id)).map((e) => {
+    const entries = byEmp.get(e.id) ?? [];
+    const s = summarize(entries.map((x) => ({ entryDate: x.entryDate, hours: x.hours, kind: x.kind })));
+    return {
+      employeeId: e.id,
+      name: `${e.firstName} ${e.lastName}`,
+      balance: s.balance,
+      totalBanked: s.totalBanked,
+      totalTaken: s.totalTaken,
+      lastActivity: s.lastActivity
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+  const totalBalance = Math.round(rows.reduce((sum3, r) => sum3 + r.balance, 0) * 100) / 100;
+  return { rows, totalBalance };
+}
+var bankedHoursRouter = createRouter({
+  // Per-employee ledger (newest first for display; balance computed oldest→newest).
+  ledger: staffQuery.input(external_exports.object({ employeeId: external_exports.number() })).query(async ({ input }) => {
+    const db = getDb();
+    const rows = await db.select().from(bankedHourEntries).where(eq(bankedHourEntries.employeeId, input.employeeId));
+    const led = buildLedger(rows.map((r) => ({ ...r, entryDate: r.entryDate })));
+    const s = summarize(rows.map((r) => ({ entryDate: r.entryDate, hours: r.hours, kind: r.kind })));
+    return { summary: s, ledger: led.reverse() };
+  }),
+  // Per-client balance board.
+  board: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => clientBoard(input.clientId)),
+  addEntry: staffQuery.input(external_exports.object({
+    clientId: external_exports.number(),
+    employeeId: external_exports.number(),
+    entryDate: external_exports.date().optional(),
+    hours: external_exports.number(),
+    kind: external_exports.enum(["opening", "accrue", "redeem", "adjust"]),
+    note: external_exports.string().max(500).nullable().optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    let hours = input.hours;
+    if (input.kind === "redeem") hours = -Math.abs(input.hours);
+    else if (input.kind === "accrue" || input.kind === "opening") hours = Math.abs(input.hours);
+    await db.insert(bankedHourEntries).values({
+      clientId: input.clientId,
+      employeeId: input.employeeId,
+      entryDate: input.entryDate ?? /* @__PURE__ */ new Date(),
+      hours,
+      kind: input.kind,
+      note: input.note ?? null,
+      source: "manual",
+      enteredBy: ctx.user.email ?? String(ctx.user.id)
+    });
+    return { ok: true };
+  }),
+  updateEntry: staffQuery.input(external_exports.object({
+    id: external_exports.number(),
+    entryDate: external_exports.date().optional(),
+    hours: external_exports.number().optional(),
+    kind: external_exports.enum(["opening", "accrue", "redeem", "adjust"]).optional(),
+    note: external_exports.string().max(500).nullable().optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const { id, ...rest } = input;
+    const patch = { ...rest, updatedAt: /* @__PURE__ */ new Date() };
+    if (rest.hours != null && rest.kind === "redeem") patch.hours = -Math.abs(rest.hours);
+    await db.update(bankedHourEntries).set(patch).where(eq(bankedHourEntries.id, id));
+    return { ok: true };
+  }),
+  deleteEntry: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.delete(bankedHourEntries).where(eq(bankedHourEntries.id, input.id));
+    return { ok: true };
+  }),
+  // Import opening balances from the client's old payroll sheet (pasted text).
+  importOpening: staffQuery.input(external_exports.object({ clientId: external_exports.number(), text: external_exports.string().min(1), asOf: external_exports.date().optional(), replaceExistingOpenings: external_exports.boolean().optional() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const parsed = parseOpeningBalances(input.text);
+    const emps = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
+    const matched = [];
+    const unmatched = [];
+    for (const row of parsed) {
+      const e = matchEmployee(row.name, emps);
+      if (e) matched.push({ ...row, employeeId: e.id });
+      else unmatched.push(row);
+    }
+    if (input.replaceExistingOpenings) {
+      for (const m of matched) {
+        await db.delete(bankedHourEntries).where(and(eq(bankedHourEntries.employeeId, m.employeeId), eq(bankedHourEntries.kind, "opening")));
+      }
+    }
+    for (const m of matched) {
+      await db.insert(bankedHourEntries).values({
+        clientId: input.clientId,
+        employeeId: m.employeeId,
+        entryDate: input.asOf ?? /* @__PURE__ */ new Date(),
+        hours: m.hours,
+        kind: "opening",
+        note: "Opening balance from old payroll sheet",
+        source: "import",
+        enteredBy: ctx.user.email ?? String(ctx.user.id)
+      });
+    }
+    return { ok: true, imported: matched.length, matched, unmatched };
+  }),
+  // ===== SHARE LINKS (read+write client sheet) =====
+  shareList: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+    const db = getDb();
+    return db.select().from(bankedHourShareLinks).where(eq(bankedHourShareLinks.clientId, input.clientId)).orderBy(desc(bankedHourShareLinks.createdAt));
+  }),
+  shareCreate: staffQuery.input(external_exports.object({ clientId: external_exports.number(), label: external_exports.string().max(120).optional(), allowEdit: external_exports.boolean().default(true) })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const token2 = `bh_${crypto.randomUUID().replace(/-/g, "")}`;
+    await db.insert(bankedHourShareLinks).values({ clientId: input.clientId, token: token2, label: input.label ?? null, allowEdit: input.allowEdit, active: true, createdBy: ctx.user.id });
+    return { ok: true, token: token2 };
+  }),
+  shareRevoke: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.update(bankedHourShareLinks).set({ active: false, revokedAt: /* @__PURE__ */ new Date() }).where(eq(bankedHourShareLinks.id, input.id));
+    return { ok: true };
+  }),
+  // ===== PUBLIC (token-gated client sheet) =====
+  publicView: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
+    const db = getDb();
+    const link = (await db.select().from(bankedHourShareLinks).where(eq(bankedHourShareLinks.token, input.token)).limit(1))[0];
+    if (!link || !link.active) return null;
+    const client = (await db.select().from(clients).where(eq(clients.id, link.clientId)).limit(1))[0];
+    const board = await clientBoard(link.clientId);
+    return { clientName: client?.name ?? "Your team", label: link.label ?? null, allowEdit: !!link.allowEdit, generatedAt: (/* @__PURE__ */ new Date()).toISOString(), ...board };
+  }),
+  publicAdd: publicQuery.input(external_exports.object({
+    token: external_exports.string().min(6),
+    employeeId: external_exports.number(),
+    hours: external_exports.number(),
+    kind: external_exports.enum(["accrue", "redeem"]),
+    note: external_exports.string().max(500).optional(),
+    enteredByName: external_exports.string().max(120).optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const link = (await db.select().from(bankedHourShareLinks).where(eq(bankedHourShareLinks.token, input.token)).limit(1))[0];
+    if (!link || !link.active) throw new Error("This link is not valid.");
+    if (!link.allowEdit) throw new Error("This link is view-only.");
+    const emp = (await db.select().from(employees).where(eq(employees.id, input.employeeId)).limit(1))[0];
+    if (!emp || emp.clientId !== link.clientId) throw new Error("Employee not found.");
+    const hours = input.kind === "redeem" ? -Math.abs(input.hours) : Math.abs(input.hours);
+    await db.insert(bankedHourEntries).values({
+      clientId: link.clientId,
+      employeeId: input.employeeId,
+      entryDate: /* @__PURE__ */ new Date(),
+      hours,
+      kind: input.kind,
+      note: input.note ?? null,
+      source: "client",
+      enteredBy: input.enteredByName ? `client:${input.enteredByName}` : "client"
+    });
+    return { ok: true };
+  })
+});
+
 // api/public-router.ts
 init_zod();
 init_middleware();
@@ -77320,7 +77644,8 @@ var appRouter = createRouter({
   personal: personalRouter,
   learning: learningRouter,
   chat: chatRouter,
-  revRec: revRecRouter
+  revRec: revRecRouter,
+  bankedHours: bankedHoursRouter
 });
 
 // node_modules/hono/dist/utils/cookie.js
@@ -77602,7 +77927,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.108";
+var BUILD_TAG = "2026-06-24.110";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -78805,6 +79130,8 @@ async function startServer() {
     await ensureEmployeeYtdColumns2();
     const { ensureRevRecSchema: ensureRevRecSchema2 } = await Promise.resolve().then(() => (init_ensure_revrec_schema(), ensure_revrec_schema_exports));
     await ensureRevRecSchema2();
+    const { ensureBankedHoursSchema: ensureBankedHoursSchema2 } = await Promise.resolve().then(() => (init_ensure_banked_hours_schema(), ensure_banked_hours_schema_exports));
+    await ensureBankedHoursSchema2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));

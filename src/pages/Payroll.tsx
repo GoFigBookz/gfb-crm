@@ -16,6 +16,7 @@ import { TAX_2026 } from "../../api/payroll-tax-core";
 import { nextPayPeriod, normalizeFrequency } from "../../api/payroll-core";
 import { AlertTriangle, CheckCircle2, Lock } from "lucide-react";
 import { EmployeeCardDialog } from "@/components/EmployeeCardDialog";
+import { BankedHoursBoard } from "@/components/BankedHoursPanel";
 
 // Pay-period dates are UTC date-only (stored at UTC midnight) — format/serialize with
 // UTC getters so the calendar day doesn't shift back a day in Ontario's timezone.
@@ -274,6 +275,9 @@ export default function Payroll() {
                   </CardContent>
                 )}
               </Card>
+
+              {/* Banked hours — shared client ledger that syncs into payroll */}
+              <BankedHoursBoard clientId={selected.id} />
 
               {/* Runs list */}
               {!runs ? <p className="text-sm text-slate-400">Loading runs…</p>
