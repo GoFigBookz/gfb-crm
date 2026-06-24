@@ -41413,12 +41413,119 @@ var init_sensitive = __esm({
   }
 });
 
+// api/ensure-employee-schema.ts
+var ensure_employee_schema_exports = {};
+__export(ensure_employee_schema_exports, {
+  employeeColumns: () => employeeColumns,
+  ensureEmployeeSchema: () => ensureEmployeeSchema
+});
+async function employeeColumns() {
+  const db = getDb();
+  const have = /* @__PURE__ */ new Set();
+  try {
+    const res = await db.run(sql`PRAGMA table_info(employees)`);
+    for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
+  } catch (e) {
+    console.error("[employee-schema] PRAGMA failed:", e instanceof Error ? e.message : e);
+  }
+  return have;
+}
+async function ensureEmployeeSchema() {
+  const db = getDb();
+  const have = await employeeColumns();
+  for (const [name2, type] of COLUMNS) {
+    if (have.has(name2)) continue;
+    try {
+      await db.run(sql.raw(`ALTER TABLE employees ADD COLUMN "${name2}" ${type}`));
+      console.log(`[employee-schema] added column: ${name2}`);
+    } catch (e) {
+      console.error(`[employee-schema] add column ${name2} failed:`, e instanceof Error ? e.message : e);
+    }
+  }
+  try {
+    const have2 = /* @__PURE__ */ new Set();
+    const res = await db.run(sql`PRAGMA table_info(pay_run_lines)`);
+    for (const r of res?.rows ?? res ?? []) have2.add(String(r.name ?? r[1] ?? ""));
+    for (const [name2, type] of [["phoneAllowance", "real"], ["reimbursement", "real"], ["vacationPayAccrued", "real"], ["vacationPayPaid", "real"]]) {
+      if (have2.has(name2)) continue;
+      try {
+        await db.run(sql.raw(`ALTER TABLE pay_run_lines ADD COLUMN "${name2}" ${type}`));
+        console.log(`[employee-schema] pay_run_lines added: ${name2}`);
+      } catch (e) {
+        console.error(`[employee-schema] pay_run_lines add ${name2} failed:`, e instanceof Error ? e.message : e);
+      }
+    }
+  } catch {
+  }
+}
+var COLUMNS;
+var init_ensure_employee_schema = __esm({
+  "api/ensure-employee-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+    COLUMNS = [
+      ["startDate", "integer"],
+      ["department", "text"],
+      ["address", "text"],
+      ["isContractor", "integer"],
+      ["wsibEligible", "integer"],
+      ["jobberName", "text"],
+      ["terminationDate", "integer"],
+      ["terminationReason", "text"],
+      ["hasHealthBenefits", "integer"],
+      ["hasDentalBenefits", "integer"],
+      ["hasRrsp", "integer"],
+      ["rrspMatchPercent", "real"],
+      ["onGovernmentGrant", "integer"],
+      ["grantType", "text"],
+      ["grantStartDate", "integer"],
+      ["grantEndDate", "integer"],
+      ["federalTaxCredits", "text"],
+      ["provincialTaxCredits", "text"],
+      ["t4Box14Wages", "real"],
+      ["t4Box16Cpp", "real"],
+      ["t4Box18Ei", "real"],
+      ["t4Box20Rpp", "real"],
+      ["t4Box44UnionDues", "real"],
+      ["t4Box46Charitable", "real"],
+      ["contractUrl", "text"],
+      ["phoneAllowance", "real"],
+      ["reimbursementAmount", "real"],
+      ["reimbursementNote", "text"],
+      ["getsRevenueShare", "integer"],
+      ["revenueSharePercent", "real"],
+      ["ytdGrossOpening", "real"],
+      ["ytdCppOpening", "real"],
+      ["ytdEiOpening", "real"],
+      ["ytdTaxOpening", "real"],
+      ["ytdAsOf", "integer"],
+      ["ytdSource", "text"],
+      ["getsBonus", "integer"],
+      ["getsDividends", "integer"],
+      ["getsPhoneAllowance", "integer"],
+      ["getsReimbursement", "integer"],
+      ["notes", "text"]
+    ];
+  }
+});
+
 // api/employee-router.ts
 var employee_router_exports = {};
 __export(employee_router_exports, {
   employeeRouter: () => employeeRouter,
   recordRateChange: () => recordRateChange
 });
+async function keepEmployeeColumns(obj) {
+  try {
+    const cols = await employeeColumns();
+    if (!cols.size) return obj;
+    const out = {};
+    for (const k of Object.keys(obj)) if (cols.has(k)) out[k] = obj[k];
+    return out;
+  } catch {
+    return obj;
+  }
+}
 async function recordRateChange(db, e) {
   try {
     await db.insert(employeeRateHistory).values({
@@ -41448,6 +41555,7 @@ var init_employee_router = __esm({
     init_schema();
     init_drizzle_orm();
     init_sensitive();
+    init_ensure_employee_schema();
     employeeRouter = createRouter({
       list: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
@@ -41509,7 +41617,7 @@ var init_employee_router = __esm({
         const { sin, ...rest } = input;
         const values = { ...rest, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() };
         if (sin !== void 0) values.sin = sin ? encryptSecret(sin) : null;
-        const result = await db.insert(employees).values(values);
+        const result = await db.insert(employees).values(await keepEmployeeColumns(values));
         const id = Number(result.lastInsertRowid);
         if (rest.hourlyRate != null || rest.annualSalary != null) {
           await recordRateChange(db, { employeeId: id, clientId: rest.clientId, payType: rest.payType, hourlyRate: rest.hourlyRate, annualSalary: rest.annualSalary, effectiveDate: rest.hireDate ?? rest.startDate ?? /* @__PURE__ */ new Date(), source: "manual", note: "Starting rate" });
@@ -41573,7 +41681,7 @@ var init_employee_router = __esm({
         const before = (await db.select().from(employees).where(eq(employees.id, id)).limit(1))[0];
         const patch = { ...data, updatedAt: /* @__PURE__ */ new Date() };
         if (sin !== void 0) patch.sin = sin ? encryptSecret(sin) : null;
-        await db.update(employees).set(patch).where(eq(employees.id, id));
+        await db.update(employees).set(await keepEmployeeColumns(patch)).where(eq(employees.id, id));
         const rateChanged = data.hourlyRate !== void 0 && data.hourlyRate !== (before?.hourlyRate ?? null) || data.annualSalary !== void 0 && data.annualSalary !== (before?.annualSalary ?? null);
         if (before && rateChanged) {
           await recordRateChange(db, {
@@ -43465,8 +43573,8 @@ var init_payroll_router = __esm({
           payRunId: input.payRunId,
           employeeId,
           grossPay: gross,
-          phoneAllowance: emp?.phoneAllowance ?? 0,
-          reimbursement: emp?.reimbursementAmount ?? 0
+          phoneAllowance: emp?.getsPhoneAllowance ? emp?.phoneAllowance ?? 0 : 0,
+          reimbursement: emp?.getsReimbursement ? emp?.reimbursementAmount ?? 0 : 0
         }).returning();
         await recomputeRunTotals(input.payRunId);
         return line;
@@ -59930,7 +60038,7 @@ async function ensureClientsColumns() {
     console.error("[schema] table_info(clients) failed:", e instanceof Error ? e.message : e);
     return { added };
   }
-  for (const [col, type] of COLUMNS) {
+  for (const [col, type] of COLUMNS2) {
     if (have.has(col)) continue;
     try {
       await db.run(sql.raw(`ALTER TABLE clients ADD COLUMN "${col}" ${type}`));
@@ -60264,12 +60372,12 @@ async function ensureOnboardingColumns() {
     }
   }
 }
-var COLUMNS;
+var COLUMNS2;
 var init_ensure_clients_schema = __esm({
   "api/ensure-clients-schema.ts"() {
     init_connection();
     init_drizzle_orm();
-    COLUMNS = [
+    COLUMNS2 = [
       ["phone", "text"],
       ["company", "text"],
       ["website", "text"],
@@ -78691,6 +78799,8 @@ async function startServer() {
     await ensureCashflowSchema2();
     const { ensureRateHistorySchema: ensureRateHistorySchema2 } = await Promise.resolve().then(() => (init_ensure_rate_history_schema(), ensure_rate_history_schema_exports));
     await ensureRateHistorySchema2();
+    const { ensureEmployeeSchema: ensureEmployeeSchema2 } = await Promise.resolve().then(() => (init_ensure_employee_schema(), ensure_employee_schema_exports));
+    await ensureEmployeeSchema2();
     const { ensureEmployeeYtdColumns: ensureEmployeeYtdColumns2 } = await Promise.resolve().then(() => (init_ensure_employee_ytd_schema(), ensure_employee_ytd_schema_exports));
     await ensureEmployeeYtdColumns2();
     const { ensureRevRecSchema: ensureRevRecSchema2 } = await Promise.resolve().then(() => (init_ensure_revrec_schema(), ensure_revrec_schema_exports));

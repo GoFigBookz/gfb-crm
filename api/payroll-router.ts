@@ -680,8 +680,8 @@ export const payrollRouter = createRouter({
       // Seed the recurring add-ons from the employee card so they're pre-filled.
       const [line] = await db.insert(payRunLines).values({
         payRunId: input.payRunId, employeeId, grossPay: gross,
-        phoneAllowance: emp?.phoneAllowance ?? 0,
-        reimbursement: emp?.reimbursementAmount ?? 0,
+        phoneAllowance: emp?.getsPhoneAllowance ? (emp?.phoneAllowance ?? 0) : 0,
+        reimbursement: emp?.getsReimbursement ? (emp?.reimbursementAmount ?? 0) : 0,
       }).returning();
       await recomputeRunTotals(input.payRunId);
       return line;

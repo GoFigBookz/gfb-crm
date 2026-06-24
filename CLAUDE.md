@@ -321,6 +321,24 @@ STATUS / deep-dive (2026-06-23):
   `triage`, `rationale`; `decideDedup` compares invoice#s via
   `normalizeInvoiceNumber` (strip spaces/dashes/`INV`/`#`). tRPC
   `qboBrain.suggestCoding` takes optional `autoApproveThreshold`.
+- **REVENUE RECOGNITION / WIP MODULE (2026-06-24, Phase 1 + draft JEs live on main).**
+  Per-client percentage-of-completion (ASPE 3400), built ONCE client-agnostic; first
+  client = Clark Pools Owen Sound (clientId 3). Pure core `api/revrec-core.ts`
+  (18 tests): `buildProjectSchedule` (earned=cv×pct, revThisPeriod=cv×Δpct,
+  contractAsset=max(earned−invoiced,0), deferred=max(invoiced−earned,0); carry-in via
+  openingPct/openingInvoiced), `generateJeForPeriod` (accrual dated period-end + flipped
+  reversal next-period-day-1; Entry1 Dr ContractAsset/Cr Revenue, Entry2 Dr Revenue/Cr
+  DeferredRevenue only when depositsBookedToRevenue), `validateForPosting` (debits=credits,
+  all 3 accounts mapped, no negatives), `buildRevenueCalendar`/`fiscalYearMonths`. Tables
+  `rr_*` (projects/progress/je/je_lines/account_map/client_config/share_links), all scoped
+  by clientId; guard `api/ensure-revrec-schema.ts` wired in boot. tRPC `revRec.*`
+  (`api/revrec-router.ts`): projects CRUD, progressUpsert, schedule, config get/set,
+  accountMap get/set (explicit — NEVER guessed), jeGenerate (DRAFT only, never posts),
+  shareCreate/Revoke, publicView (token). UI: "Rev Rec" tab on ClientDashboard
+  (`src/components/RevRecTab.tsx`) + branded read-only client page
+  `src/pages/RevRecShare.tsx` at `/share/revrec/:token`. PHASE 2-3 DEFERRED (post draft
+  JE to QBO via Make scenario) pending per-client inputs: the 3 QBO account IDs, the
+  deposits-booked-to-revenue flag, fiscal year-end. Local end-to-end verified vs Clark OS.
 - Dev branch this session: `claude/figgy-junior-handoff-yiejeq`.
 - **NAMED AGENT ROSTER WIRED (2026-06-23):** the team is seeded + shown by name —
   Fig (junior bookkeeper), Sage (senior bookkeeper: reviews Fig + preps HST/WSIB/
