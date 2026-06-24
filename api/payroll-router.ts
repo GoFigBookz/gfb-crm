@@ -364,6 +364,34 @@ export const payrollRouter = createRouter({
       .sort((a, b) => a.name.localeCompare(b.name));
   }),
 
+  // Year-to-date payroll totals — per client + firm-wide — so Markie can answer
+  // "how much payroll this year" at a glance without opening QuickBooks. Sums the
+  // gross/net on every saved pay run dated in the year (any status).
+  yearSummary: staffQuery
+    .input(z.object({ year: z.number().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const { restrictedClientIds } = await import("./rbac");
+      const allowed = await restrictedClientIds(ctx);
+      const year = input?.year ?? new Date().getFullYear();
+      const cs = (await db.select().from(clients)) as any[];
+      const nameById = new Map(cs.map((c) => [c.id, c.name]));
+      const runs = (await db.select().from(payRuns)) as any[];
+      const byClient = new Map<number, any>();
+      let totalGross = 0, totalNet = 0, totalRuns = 0;
+      for (const r of runs) {
+        const d = new Date(r.payDate || r.payPeriodEnd);
+        if (d.getFullYear() !== year) continue;
+        if (allowed !== null && !allowed.includes(r.clientId)) continue;
+        const cur = byClient.get(r.clientId) || { clientId: r.clientId, name: nameById.get(r.clientId) || `#${r.clientId}`, runs: 0, gross: 0, net: 0 };
+        cur.runs++; cur.gross += r.totalGross || 0; cur.net += r.totalNet || 0;
+        byClient.set(r.clientId, cur);
+        totalGross += r.totalGross || 0; totalNet += r.totalNet || 0; totalRuns++;
+      }
+      const clientsArr = [...byClient.values()].sort((a, b) => b.gross - a.gross);
+      return { year, clients: clientsArr, totalGross, totalNet, totalRuns };
+    }),
+
   // Pay runs for a client, newest period first.
   listRuns: staffQuery
     .input(z.object({ clientId: z.number() }))

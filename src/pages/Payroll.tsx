@@ -122,6 +122,46 @@ function JobberConnect({ clientId }: { clientId: number }) {
   );
 }
 
+/** Year-to-date payroll at a glance — firm total + per-client gross, no QBO needed. */
+function YearToDateCard() {
+  const year = new Date().getFullYear();
+  const { data } = trpc.payroll.yearSummary.useQuery({ year });
+  const [open, setOpen] = useState(false);
+  if (!data || data.totalRuns === 0) return null;
+  return (
+    <Card className="border-lime-200 bg-lime-50/40">
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-lime-600" />
+            <span className="text-sm font-semibold text-slate-700">{year} payroll year-to-date</span>
+            <span className="text-xs text-slate-400">· {data.totalRuns} run{data.totalRuns === 1 ? "" : "s"} across {data.clients.length} compan{data.clients.length === 1 ? "y" : "ies"}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <div className="text-[11px] text-slate-500">Gross payroll</div>
+              <div className="text-lg font-bold text-lime-700">{money(data.totalGross)}</div>
+            </div>
+            <button className="text-xs text-lime-700 hover:underline" onClick={() => setOpen((o) => !o)}>
+              {open ? "hide" : "by company"}
+            </button>
+          </div>
+        </div>
+        {open && (
+          <div className="mt-3 border-t pt-2 space-y-1">
+            {data.clients.map((c: any) => (
+              <div key={c.clientId} className="flex items-center justify-between text-sm">
+                <span className="text-slate-600">{c.name} <span className="text-slate-400 text-xs">· {c.runs} run{c.runs === 1 ? "" : "s"}</span></span>
+                <span className="font-medium text-slate-800">{money(c.gross)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Payroll() {
   const utils = trpc.useUtils();
   const { data: clients } = trpc.payroll.clients.useQuery();
@@ -194,6 +234,8 @@ export default function Payroll() {
           <button className="text-xs opacity-60 hover:opacity-100" onClick={() => setNotice(null)}>dismiss</button>
         </div>
       )}
+
+      <YearToDateCard />
 
       <div className="space-y-4">
           {!selected ? (
