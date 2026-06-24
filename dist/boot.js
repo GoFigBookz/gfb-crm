@@ -58259,6 +58259,118 @@ var init_seed_payroll_recurring = __esm({
   }
 });
 
+// api/seed-sher-backfill.ts
+var seed_sher_backfill_exports = {};
+__export(seed_sher_backfill_exports, {
+  backfillSherPayroll: () => backfillSherPayroll
+});
+async function backfillSherPayroll() {
+  const db = getDb();
+  try {
+    const cs = await db.select().from(clients);
+    const client = cs.find((c) => /sher|punjab/i.test(c.name || ""));
+    if (!client) return { client: null, runsAdded: 0, skipped: "Sher-E-Punjab client not found" };
+    const clientId = client.id;
+    const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
+    const empByKey = /* @__PURE__ */ new Map();
+    for (const e of existing) empByKey.set(key2(e.firstName, e.lastName), e);
+    for (const r of ROSTER2) {
+      const k = key2(r.first, r.last);
+      if (empByKey.has(k)) continue;
+      const [ins] = await db.insert(employees).values({
+        clientId,
+        firstName: r.first,
+        lastName: r.last,
+        payType: r.payType,
+        hourlyRate: r.payType === "hourly" ? r.rate ?? null : null,
+        annualSalary: r.payType === "salary" ? r.salary ?? null : null,
+        isActive: true,
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).returning();
+      if (ins) empByKey.set(k, ins);
+    }
+    const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
+    let runsAdded = 0;
+    for (const p of PERIODS) {
+      const payDate = d(p.payDate);
+      const exists2 = allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate);
+      if (exists2) continue;
+      let totalGross = 0;
+      const [run2] = await db.insert(payRuns).values({
+        clientId,
+        payPeriodStart: d(p.start),
+        payPeriodEnd: d(p.end),
+        payDate,
+        frequency: "biweekly",
+        status: "review",
+        hoursSource: "manual",
+        notes: "Backfill from Google payroll sheet",
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).returning();
+      if (!run2) continue;
+      for (const r of ROSTER2) {
+        const k = key2(r.first, r.last);
+        const emp = empByKey.get(k);
+        if (!emp) continue;
+        const ln = p.lines[k];
+        const gross = round28(ln?.gross ?? 0);
+        totalGross += gross;
+        await db.insert(payRunLines).values({
+          payRunId: run2.id,
+          employeeId: emp.id,
+          regularHours: ln?.hours ?? 0,
+          grossPay: gross
+        });
+      }
+      await db.update(payRuns).set({ totalGross: round28(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      runsAdded++;
+    }
+    if (runsAdded) console.log(`[sher-backfill] added ${runsAdded} run(s)`);
+    return { client: clientId, runsAdded, skipped: "" };
+  } catch (err) {
+    console.error("[sher-backfill] failed:", err instanceof Error ? err.message : err);
+  }
+}
+var round28, norm9, key2, d, ROSTER2, PERIODS;
+var init_seed_sher_backfill = __esm({
+  "api/seed-sher-backfill.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    round28 = (n) => Math.round(n * 100) / 100;
+    norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key2 = (first, last) => `${norm9(last)}|${norm9(first)}`;
+    d = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
+    ROSTER2 = [
+      { first: "Surya", last: "Bhattrai", payType: "salary", salary: 7e4 },
+      { first: "Upendra", last: "Bahadur Poudel", payType: "hourly", rate: 21 },
+      { first: "Akash", last: "Dahal", payType: "hourly", rate: 17.6 },
+      { first: "Rohit", last: "Dhimal", payType: "hourly", rate: 19 },
+      { first: "Dhiren", last: "Gurung", payType: "hourly", rate: 18 },
+      { first: "Suraj", last: "Limbu", payType: "hourly", rate: 18 },
+      { first: "Deepak", last: "Vasisth", payType: "hourly", rate: 17.6 }
+    ];
+    PERIODS = [
+      { payDate: "2026-06-26", start: "2026-06-10", end: "2026-06-23", lines: {
+        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key2("Akash", "Dahal")]: { hours: 77.02, gross: 1409.77 },
+        [key2("Rohit", "Dhimal")]: { hours: 102.74, gross: 2030.14 },
+        [key2("Suraj", "Limbu")]: { hours: 79.99, gross: 1497.41 },
+        [key2("Deepak", "Vasisth")]: { hours: 63.92, gross: 1169.99 }
+      } },
+      { payDate: "2026-06-12", start: "2026-05-27", end: "2026-06-09", lines: {
+        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key2("Akash", "Dahal")]: { hours: 71.26, gross: 1304.34 },
+        [key2("Rohit", "Dhimal")]: { hours: 90.92, gross: 1796.58 },
+        [key2("Suraj", "Limbu")]: { hours: 88.32, gross: 1653.35 },
+        [key2("Deepak", "Vasisth")]: { hours: 76.68, gross: 1403.55 }
+      } }
+    ];
+  }
+});
+
 // api/qbo-cashflow.ts
 function bankBreakdownFromAccounts(rows) {
   let cashCad = 0, cashUsd = 0, creditCardOwed = 0, uncategorizedBalance = 0, uncategorizedCount = 0;
@@ -58999,7 +59111,7 @@ async function dedupeClients(confirm) {
   const groups = /* @__PURE__ */ new Map();
   for (const r of clientRows) {
     const id = Number(r.id ?? r[0]);
-    const key3 = `${norm9(r.name ?? r[1])}|${norm9(r.company ?? r[2])}`;
+    const key3 = `${norm10(r.name ?? r[1])}|${norm10(r.company ?? r[2])}`;
     if (!groups.has(key3)) groups.set(key3, []);
     groups.get(key3).push(id);
   }
@@ -59079,12 +59191,12 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm9, asRows, num2;
+var norm10, asRows, num2;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
-    norm9 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    norm10 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
     num2 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
@@ -59748,9 +59860,9 @@ async function seedPayrollEmployees() {
       result.skipped += roster.employees.length;
       continue;
     }
-    const have = new Set(current.map((e) => `${norm10(e.firstName)} ${norm10(e.lastName)}`.trim()));
+    const have = new Set(current.map((e) => `${norm11(e.firstName)} ${norm11(e.lastName)}`.trim()));
     for (const emp of roster.employees) {
-      if (roster.merge && have.has(`${norm10(emp.firstName)} ${norm10(emp.lastName || "")}`.trim())) {
+      if (roster.merge && have.has(`${norm11(emp.firstName)} ${norm11(emp.lastName || "")}`.trim())) {
         result.skipped++;
         continue;
       }
@@ -59774,7 +59886,7 @@ async function seedPayrollEmployees() {
   for (const mv of PAYROLL_EMPLOYEE_MOVES) {
     const to = findClient(clientsNow, mv.toMatch);
     if (!to) continue;
-    const matches = (await db.select().from(employees)).filter((e) => norm10(e.firstName) === norm10(mv.firstName) && norm10(e.lastName) === norm10(mv.lastName));
+    const matches = (await db.select().from(employees)).filter((e) => norm11(e.firstName) === norm11(mv.firstName) && norm11(e.lastName) === norm11(mv.lastName));
     for (const e of matches) {
       if (e.clientId === to.id) continue;
       const from = findClient(clientsNow, mv.fromMatch);
@@ -59799,7 +59911,7 @@ async function seedPayrollEmployees() {
     for (const link of PAYROLL_CONTRACT_LINKS) {
       const client = findClient(clientsNow, link.clientMatch);
       if (!client) continue;
-      const emp = all.find((e) => e.clientId === client.id && norm10(e.firstName) === norm10(link.firstName) && (!link.lastName || norm10(e.lastName) === norm10(link.lastName)));
+      const emp = all.find((e) => e.clientId === client.id && norm11(e.firstName) === norm11(link.firstName) && (!link.lastName || norm11(e.lastName) === norm11(link.lastName)));
       if (emp && !emp.contractUrl) {
         await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
         contracts++;
@@ -59810,7 +59922,7 @@ async function seedPayrollEmployees() {
     console.log(`[seed] payroll employees: +${result.added} -${result.removed} moved ${moved} salary-filled ${filled} contracts ${contracts}`);
   return { ...result, moved, filled, contracts };
 }
-var PAYROLL_EMPLOYEE_MOVES, norm10, findClient;
+var PAYROLL_EMPLOYEE_MOVES, norm11, findClient;
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
@@ -59821,8 +59933,8 @@ var init_seed_payroll_employees = __esm({
     PAYROLL_EMPLOYEE_MOVES = [
       { firstName: "Stacey", lastName: "Gillham", fromMatch: "2303851", toMatch: "originality", note: "Moved to Originality as of the 15th" }
     ];
-    norm10 = (s) => (s || "").toLowerCase().trim();
-    findClient = (all, match2) => all.find((c) => norm10(c.name).includes(norm10(match2)));
+    norm11 = (s) => (s || "").toLowerCase().trim();
+    findClient = (all, match2) => all.find((c) => norm11(c.name).includes(norm11(match2)));
   }
 });
 
@@ -62037,8 +62149,8 @@ async function seedGovRegistry() {
     return report;
   }
   for (const g of GOV) {
-    let c = g.bn ? all.find((x) => norm11(x.taxId) === norm11(g.bn)) : void 0;
-    if (!c && g.nameKey) c = all.find((x) => norm11(x.name).includes(norm11(g.nameKey)) || norm11(x.company).includes(norm11(g.nameKey)));
+    let c = g.bn ? all.find((x) => norm12(x.taxId) === norm12(g.bn)) : void 0;
+    if (!c && g.nameKey) c = all.find((x) => norm12(x.name).includes(norm12(g.nameKey)) || norm12(x.company).includes(norm12(g.nameKey)));
     if (!c) continue;
     report.matched++;
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
@@ -62057,7 +62169,7 @@ async function seedGovRegistry() {
   }
   return report;
 }
-var GOV, norm11;
+var GOV, norm12;
 var init_seed_gov_registry = __esm({
   "api/seed-gov-registry.ts"() {
     init_connection();
@@ -62099,7 +62211,7 @@ var init_seed_gov_registry = __esm({
       { bn: "809545346", industry: "Healthcare/Wellness", bio: "Healthcare business in the osteopathic / wellness field, providing therapeutic services and alternative health treatments." },
       { nameKey: "universal drywall", industry: "Construction/Drywall", bio: "Drywall and construction services company providing interior framing, drywall installation and exterior finishes. USA (Florida) entity." }
     ];
-    norm11 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm12 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   }
 });
 
@@ -62741,118 +62853,6 @@ var init_seed_client_run_payroll = __esm({
     init_drizzle_orm();
     init_client_task_creator();
     PATTERNS = [/selective\s*painting/i, /studio\s*lel/i, /aline\s*plumbing/i];
-  }
-});
-
-// api/seed-sher-backfill.ts
-var seed_sher_backfill_exports = {};
-__export(seed_sher_backfill_exports, {
-  backfillSherPayroll: () => backfillSherPayroll
-});
-async function backfillSherPayroll() {
-  const db = getDb();
-  try {
-    const cs = await db.select().from(clients);
-    const client = cs.find((c) => /sher|punjab/i.test(c.name || ""));
-    if (!client) return { client: null, runsAdded: 0, skipped: "Sher-E-Punjab client not found" };
-    const clientId = client.id;
-    const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
-    const empByKey = /* @__PURE__ */ new Map();
-    for (const e of existing) empByKey.set(key2(e.firstName, e.lastName), e);
-    for (const r of ROSTER2) {
-      const k = key2(r.first, r.last);
-      if (empByKey.has(k)) continue;
-      const [ins] = await db.insert(employees).values({
-        clientId,
-        firstName: r.first,
-        lastName: r.last,
-        payType: r.payType,
-        hourlyRate: r.payType === "hourly" ? r.rate ?? null : null,
-        annualSalary: r.payType === "salary" ? r.salary ?? null : null,
-        isActive: true,
-        createdAt: /* @__PURE__ */ new Date(),
-        updatedAt: /* @__PURE__ */ new Date()
-      }).returning();
-      if (ins) empByKey.set(k, ins);
-    }
-    const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
-    let runsAdded = 0;
-    for (const p of PERIODS) {
-      const payDate = d(p.payDate);
-      const exists2 = allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate);
-      if (exists2) continue;
-      let totalGross = 0;
-      const [run2] = await db.insert(payRuns).values({
-        clientId,
-        payPeriodStart: d(p.start),
-        payPeriodEnd: d(p.end),
-        payDate,
-        frequency: "biweekly",
-        status: "review",
-        hoursSource: "manual",
-        notes: "Backfill from Google payroll sheet",
-        createdAt: /* @__PURE__ */ new Date(),
-        updatedAt: /* @__PURE__ */ new Date()
-      }).returning();
-      if (!run2) continue;
-      for (const r of ROSTER2) {
-        const k = key2(r.first, r.last);
-        const emp = empByKey.get(k);
-        if (!emp) continue;
-        const ln = p.lines[k];
-        const gross = round28(ln?.gross ?? 0);
-        totalGross += gross;
-        await db.insert(payRunLines).values({
-          payRunId: run2.id,
-          employeeId: emp.id,
-          regularHours: ln?.hours ?? 0,
-          grossPay: gross
-        });
-      }
-      await db.update(payRuns).set({ totalGross: round28(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
-      runsAdded++;
-    }
-    if (runsAdded) console.log(`[sher-backfill] added ${runsAdded} run(s)`);
-    return { client: clientId, runsAdded, skipped: "" };
-  } catch (err) {
-    console.error("[sher-backfill] failed:", err instanceof Error ? err.message : err);
-  }
-}
-var round28, norm12, key2, d, ROSTER2, PERIODS;
-var init_seed_sher_backfill = __esm({
-  "api/seed-sher-backfill.ts"() {
-    init_connection();
-    init_schema();
-    init_drizzle_orm();
-    round28 = (n) => Math.round(n * 100) / 100;
-    norm12 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key2 = (first, last) => `${norm12(last)}|${norm12(first)}`;
-    d = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
-    ROSTER2 = [
-      { first: "Surya", last: "Bhattrai", payType: "salary", salary: 7e4 },
-      { first: "Upendra", last: "Bahadur Poudel", payType: "hourly", rate: 21 },
-      { first: "Akash", last: "Dahal", payType: "hourly", rate: 17.6 },
-      { first: "Rohit", last: "Dhimal", payType: "hourly", rate: 19 },
-      { first: "Dhiren", last: "Gurung", payType: "hourly", rate: 18 },
-      { first: "Suraj", last: "Limbu", payType: "hourly", rate: 18 },
-      { first: "Deepak", last: "Vasisth", payType: "hourly", rate: 17.6 }
-    ];
-    PERIODS = [
-      { payDate: "2026-06-26", start: "2026-06-10", end: "2026-06-23", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 77.02, gross: 1409.77 },
-        [key2("Rohit", "Dhimal")]: { hours: 102.74, gross: 2030.14 },
-        [key2("Suraj", "Limbu")]: { hours: 79.99, gross: 1497.41 },
-        [key2("Deepak", "Vasisth")]: { hours: 63.92, gross: 1169.99 }
-      } },
-      { payDate: "2026-06-12", start: "2026-05-27", end: "2026-06-09", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 71.26, gross: 1304.34 },
-        [key2("Rohit", "Dhimal")]: { hours: 90.92, gross: 1796.58 },
-        [key2("Suraj", "Limbu")]: { hours: 88.32, gross: 1653.35 },
-        [key2("Deepak", "Vasisth")]: { hours: 76.68, gross: 1403.55 }
-      } }
-    ];
   }
 });
 
@@ -79449,6 +79449,15 @@ app.get("/api/payroll/ensure-reminders", async (c) => {
   try {
     const { ensurePayrollReminders: ensurePayrollReminders2 } = await Promise.resolve().then(() => (init_seed_payroll_recurring(), seed_payroll_recurring_exports));
     const r = await ensurePayrollReminders2();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.get("/api/payroll/backfill-sher", async (c) => {
+  try {
+    const { backfillSherPayroll: backfillSherPayroll2 } = await Promise.resolve().then(() => (init_seed_sher_backfill(), seed_sher_backfill_exports));
+    const r = await backfillSherPayroll2();
     return c.json({ ok: true, ...r });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);

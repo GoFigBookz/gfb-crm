@@ -314,6 +314,17 @@ app.get("/api/payroll/ensure-reminders", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Backfill Sher-E-Punjab pay runs from the Google sheet.
+//   GET /api/payroll/backfill-sher
+app.get("/api/payroll/backfill-sher", async (c) => {
+  try {
+    const { backfillSherPayroll } = await import("./seed-sher-backfill");
+    const r = await backfillSherPayroll();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // a RAW ProfitAndLoss sample for the first client-bound connection so the report
 // parser can be hardened against the real shape. Read-only against QBO.
 //   GET /api/qbo/sync-now[?raw=1]
