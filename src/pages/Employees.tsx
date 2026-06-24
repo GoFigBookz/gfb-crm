@@ -116,6 +116,13 @@ export default function Employees() {
                           </Button>
                         )}
                         {can.senior && (
+                          <Button size="sm" variant="outline"
+                            className={emp.isActive === false ? "text-emerald-600 border-emerald-300" : "text-slate-500"}
+                            onClick={() => update.mutate({ id: emp.id, isActive: emp.isActive === false })}>
+                            {emp.isActive === false ? "Reactivate" : "Make inactive"}
+                          </Button>
+                        )}
+                        {can.senior && (
                           <Button size="sm" variant="ghost" className="text-red-500" onClick={() => del.mutate({ id: emp.id })}>
                             <Trash2 className="h-3 w-3 mr-1" /> Delete
                           </Button>
