@@ -544,6 +544,19 @@ export const payrollRouter = createRouter({
       const db = getDb();
       const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0] as any;
       if (!client) throw new Error("Client not found");
+      // Clients we have a VERIFIED roster for (read straight from their payroll
+      // sheets) use the deterministic seed — reliable, no dependency on the AI
+      // workbook reader (which returns nothing if Google/parse hiccups).
+      if (input.clientId === 7) {
+        const { seedCollingwoodPayroll } = await import("./seed-collingwood-payroll");
+        const r = await seedCollingwoodPayroll();
+        return { ok: true, created: [] as string[], updated: [] as string[], total: (r?.created ?? 0) + (r?.filled ?? 0), seeded: r };
+      }
+      if (input.clientId === 15 || input.clientId === 16) {
+        const { seedTouchbistroPayroll } = await import("./seed-touchbistro-payroll");
+        const r = await seedTouchbistroPayroll();
+        return { ok: true, created: [] as string[], updated: [] as string[], total: r.created + r.filled, seeded: r };
+      }
       let roster: any[];
       try {
         const { readEmployeeRosterFromWorkbook } = await import("./touchbistro-client");
@@ -592,9 +605,25 @@ export const payrollRouter = createRouter({
       const runRows = await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1);
       const run = runRows[0];
       if (!run) return null;
-      const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
+      let lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
       const emps = await db.select().from(employees).where(eq(employees.clientId, run.clientId));
       const empById = new Map((emps as any[]).map((e) => [e.id, e]));
+      // Backfill the recurring add-ons (phone allowance / reimbursement) onto any
+      // line that's still blank but whose employee is entitled — so runs created
+      // before the card was set up show the amounts without recreating the run.
+      // Only for runs not yet paid; never overwrites a non-zero value Markie set.
+      if (run.status !== "paid") {
+        let touched = false;
+        for (const l of lines as any[]) {
+          const e = empById.get(l.employeeId);
+          if (!e) continue;
+          const patch: any = {};
+          if (e.getsPhoneAllowance && (e.phoneAllowance ?? 0) > 0 && (l.phoneAllowance ?? 0) === 0) patch.phoneAllowance = e.phoneAllowance;
+          if (e.getsReimbursement && (e.reimbursementAmount ?? 0) > 0 && (l.reimbursement ?? 0) === 0) patch.reimbursement = e.reimbursementAmount;
+          if (Object.keys(patch).length) { await db.update(payRunLines).set(patch).where(eq(payRunLines.id, l.id)); touched = true; }
+        }
+        if (touched) lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
+      }
       const withNames = (lines as any[]).map((l) => {
         const e = empById.get(l.employeeId);
         return {
@@ -631,11 +660,17 @@ export const payrollRouter = createRouter({
         runType: input.runType ?? "regular",
         status: "draft",
       }).returning();
-      // Seed lines from active employees.
+      // Seed lines from active employees — including the recurring per-pay add-ons
+      // (phone allowance / reimbursement) from each employee card, gated on their
+      // toggle, so the amounts actually show on the run.
       const emps = await db.select().from(employees).where(and(eq(employees.clientId, input.clientId), eq(employees.isActive, true)));
       for (const e of emps as any[]) {
         const gross = e.payType === "salary" ? salaryPerPeriod(e.annualSalary, input.frequency) : 0;
-        await db.insert(payRunLines).values({ payRunId: run.id, employeeId: e.id, grossPay: gross });
+        await db.insert(payRunLines).values({
+          payRunId: run.id, employeeId: e.id, grossPay: gross,
+          phoneAllowance: e.getsPhoneAllowance ? (e.phoneAllowance ?? 0) : 0,
+          reimbursement: e.getsReimbursement ? (e.reimbursementAmount ?? 0) : 0,
+        });
       }
       await recomputeRunTotals(run.id);
       return run;
