@@ -303,6 +303,17 @@ app.get("/api/payroll/seed-collingwood-run", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Materialise the recurring payroll reminders (tasks + 4h morning calendar blocks).
+//   GET /api/payroll/ensure-reminders
+app.get("/api/payroll/ensure-reminders", async (c) => {
+  try {
+    const { ensurePayrollReminders } = await import("./seed-payroll-recurring");
+    const r = await ensurePayrollReminders();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // a RAW ProfitAndLoss sample for the first client-bound connection so the report
 // parser can be hardened against the real shape. Read-only against QBO.
 //   GET /api/qbo/sync-now[?raw=1]
@@ -1552,6 +1563,16 @@ async function startServer() {
       if (r) console.log(`[seed-collingwood-run] run ${r.run}, filled ${r.filled}, phoneSet ${r.phoneSet}${r.skipped ? " | skipped: " + r.skipped : ""}`);
     } catch (e) {
       console.error("[seed-collingwood-run] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Recurring payroll reminders (task + 4h morning calendar block) for the payroll
+    // clients — biweekly Wed (Clark OS/CW, Auld Spot, Sher-E-Punjab) + weekly Wed
+    // (West York). Rolling 8-week window, idempotent.
+    try {
+      const { ensurePayrollReminders } = await import("./seed-payroll-recurring");
+      const r = await ensurePayrollReminders();
+      if (r) console.log(`[payroll-reminders] +${r.tasksAdded} tasks, +${r.eventsAdded} blocks${r.skipped ? " | skipped: " + r.skipped : ""}`);
+    } catch (e) {
+      console.error("[payroll-reminders] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Seed the TouchBistro restaurant rosters + rates (Sher-E-Punjab, Auld Spot).
     try {

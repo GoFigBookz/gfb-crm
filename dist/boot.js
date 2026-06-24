@@ -58095,6 +58095,123 @@ var init_seed_collingwood_run_hours = __esm({
   }
 });
 
+// api/seed-payroll-recurring.ts
+var seed_payroll_recurring_exports = {};
+__export(seed_payroll_recurring_exports, {
+  ensurePayrollReminders: () => ensurePayrollReminders
+});
+function wallToUtc(dateStr, timeStr) {
+  const guess = /* @__PURE__ */ new Date(`${dateStr}T${timeStr}Z`);
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ2,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+  const p = {};
+  for (const part of dtf.formatToParts(guess)) p[part.type] = part.value;
+  const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+  return new Date(guess.getTime() - (asUTC - guess.getTime()));
+}
+async function ensurePayrollReminders() {
+  const db = getDb();
+  try {
+    const owner = (await db.select().from(users).where(eq(users.email, OWNER_EMAIL)).limit(1))[0] || (await db.select().from(users).limit(1))[0];
+    if (!owner) return { tasksAdded: 0, eventsAdded: 0, skipped: "no user" };
+    const userId = owner.id;
+    const cs = await db.select().from(clients);
+    const find2 = (pred) => cs.find((c) => pred((c.name || "").toLowerCase()));
+    const clarkCw = find2((n) => /colling/.test(n));
+    const clarkOs = find2((n) => /clark/.test(n) && /(owen|sound)/.test(n));
+    const auldSpot = find2((n) => /spot/.test(n));
+    const sherPunjab = find2((n) => /sher|punjab/.test(n));
+    const westYork = find2((n) => /west\s*york/.test(n));
+    const BIWEEKLY = [clarkCw, clarkOs, auldSpot, sherPunjab].filter(Boolean);
+    const WEEKLY = [westYork].filter(Boolean);
+    const todayStr = ymdInTz(/* @__PURE__ */ new Date());
+    const base = /* @__PURE__ */ new Date(`${todayStr}T12:00:00Z`);
+    const sinceCutoff = new Date(base.getTime() - 2 * 864e5);
+    const existingTasks = await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.category, "Payroll"), gte(tasks.dueDate, sinceCutoff)));
+    const haveTask = new Set(existingTasks.map((t2) => `${t2.clientId}|${ymdInTz(new Date(t2.dueDate))}`));
+    const existingEvents = await db.select().from(calendarEvents).where(and(eq(calendarEvents.userId, userId), gte(calendarEvents.startDate, sinceCutoff)));
+    const haveEvent = new Set(existingEvents.filter((e) => /^Payroll run/.test(e.title || "")).map((e) => ymdInTz(new Date(e.startDate))));
+    let tasksAdded = 0, eventsAdded = 0;
+    const { pushEventToGoogle: pushEventToGoogle2 } = await Promise.resolve().then(() => (init_google_push(), google_push_exports));
+    for (let i = 0; i <= WINDOW_DAYS; i++) {
+      const d = new Date(base.getTime() + i * 864e5);
+      if (weekdayInTz(d) !== "Wed") continue;
+      const dateStr = ymdInTz(d);
+      const dayDiff = Math.round((d.getTime() - base.getTime()) / 864e5);
+      const isBiweekly = dayDiff % 14 === 0;
+      const due = [...WEEKLY, ...isBiweekly ? BIWEEKLY : []];
+      if (!due.length) continue;
+      if (!haveEvent.has(dateStr)) {
+        const names = due.map((c) => c.name).join(", ");
+        const [ev] = await db.insert(calendarEvents).values({
+          userId,
+          title: "Payroll run",
+          description: `Run payroll: ${names}`,
+          startDate: wallToUtc(dateStr, BLOCK_START),
+          endDate: wallToUtc(dateStr, BLOCK_END),
+          isAllDay: false,
+          color: "#16a34a",
+          status: "confirmed",
+          isRecurring: true
+        }).returning();
+        eventsAdded++;
+        haveEvent.add(dateStr);
+        if (ev?.id) {
+          try {
+            await pushEventToGoogle2(ev.id);
+          } catch {
+          }
+        }
+      }
+      const dueAt = wallToUtc(dateStr, BLOCK_END);
+      for (const c of due) {
+        const k = `${c.id}|${dateStr}`;
+        if (haveTask.has(k)) continue;
+        await db.insert(tasks).values({
+          userId,
+          clientId: c.id,
+          title: `Run payroll \u2014 ${c.name}`,
+          description: "Recurring payroll run.",
+          dueDate: dueAt,
+          priority: "high",
+          status: "pending",
+          category: "Payroll",
+          isRecurring: true
+        });
+        tasksAdded++;
+        haveTask.add(k);
+      }
+    }
+    if (tasksAdded || eventsAdded) console.log(`[payroll-reminders] +${tasksAdded} tasks, +${eventsAdded} calendar blocks`);
+    return { tasksAdded, eventsAdded, skipped: "" };
+  } catch (err) {
+    console.error("[payroll-reminders] failed:", err instanceof Error ? err.message : err);
+  }
+}
+var OWNER_EMAIL, TZ2, WINDOW_DAYS, BLOCK_START, BLOCK_END, ymdInTz, weekdayInTz;
+var init_seed_payroll_recurring = __esm({
+  "api/seed-payroll-recurring.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    OWNER_EMAIL = "markie.antle@gmail.com";
+    TZ2 = "America/Toronto";
+    WINDOW_DAYS = 56;
+    BLOCK_START = "08:00:00";
+    BLOCK_END = "12:00:00";
+    ymdInTz = (d) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ2, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+    weekdayInTz = (d) => new Intl.DateTimeFormat("en-US", { timeZone: TZ2, weekday: "short" }).format(d);
+  }
+});
+
 // api/qbo-cashflow.ts
 function bankBreakdownFromAccounts(rows) {
   let cashCad = 0, cashUsd = 0, creditCardOwed = 0, uncategorizedBalance = 0, uncategorizedCount = 0;
@@ -78840,6 +78957,15 @@ app.get("/api/payroll/seed-collingwood-run", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+app.get("/api/payroll/ensure-reminders", async (c) => {
+  try {
+    const { ensurePayrollReminders: ensurePayrollReminders2 } = await Promise.resolve().then(() => (init_seed_payroll_recurring(), seed_payroll_recurring_exports));
+    const r = await ensurePayrollReminders2();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 app.get("/api/qbo/sync-now", async (c) => {
   try {
     const { runQboSync: runQboSync2 } = await Promise.resolve().then(() => (init_qbo_snapshot(), qbo_snapshot_exports));
@@ -80070,6 +80196,13 @@ async function startServer() {
       if (r) console.log(`[seed-collingwood-run] run ${r.run}, filled ${r.filled}, phoneSet ${r.phoneSet}${r.skipped ? " | skipped: " + r.skipped : ""}`);
     } catch (e) {
       console.error("[seed-collingwood-run] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { ensurePayrollReminders: ensurePayrollReminders2 } = await Promise.resolve().then(() => (init_seed_payroll_recurring(), seed_payroll_recurring_exports));
+      const r = await ensurePayrollReminders2();
+      if (r) console.log(`[payroll-reminders] +${r.tasksAdded} tasks, +${r.eventsAdded} blocks${r.skipped ? " | skipped: " + r.skipped : ""}`);
+    } catch (e) {
+      console.error("[payroll-reminders] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { seedTouchbistroPayroll: seedTouchbistroPayroll2 } = await Promise.resolve().then(() => (init_seed_touchbistro_payroll(), seed_touchbistro_payroll_exports));
