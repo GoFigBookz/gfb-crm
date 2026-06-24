@@ -133,15 +133,18 @@ export default function Assistant() {
   // the agent finishes talking so it's a continuous back-and-forth.
   const speak = (text: string) => {
     const synth = (window as any).speechSynthesis;
-    if (!synth || (!speakOn && !handsFreeRef.current)) return;
+    // If we can't/shouldn't speak, still re-open the mic in hands-free so the
+    // back-and-forth never stalls (e.g. browsers without text-to-speech).
+    if (!synth || (!speakOn && !handsFreeRef.current)) { if (handsFreeRef.current) startListening(); return; }
     try {
       synth.cancel();
       const u = new SpeechSynthesisUtterance(text.replace(/[*_#`]/g, ""));
       u.lang = "en-US";
       u.rate = 1.02;
       u.onend = () => { if (handsFreeRef.current) startListening(); };
+      u.onerror = () => { if (handsFreeRef.current) startListening(); };
       synth.speak(u);
-    } catch { /* TTS unavailable — silent */ }
+    } catch { if (handsFreeRef.current) startListening(); }
   };
 
   const startListening = () => {

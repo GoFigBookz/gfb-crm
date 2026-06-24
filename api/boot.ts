@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-23.86";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-24.87";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -178,12 +178,12 @@ app.get("/api/oauth/google/debug", async (c) => {
         const [y, m, d] = String(part.date).split("-").map(Number);
         return new Date(y, m - 1, d, 12, 0, 0);
       };
-      // Re-sync cleanly: drop previously-synced Google events (keep manual CRM
-      // ones, which have no googleEventId) so corrected dates replace bad ones.
-      await db.run(sql.raw(`DELETE FROM calendar_events WHERE googleEventId IS NOT NULL`));
       let inserted = 0, skipped = 0; const errors: string[] = [];
       for (const e of items) {
         try {
+          // Dedup by googleEventId — non-destructive (no mass DELETE).
+          const ex = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.googleEventId, e.id)).limit(1);
+          if (ex[0]) { skipped++; continue; }
           const allDay = !e.start?.dateTime;
           const start = gDate(e.start) || new Date();
           let end = gDate(e.end) || start;

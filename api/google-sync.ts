@@ -217,17 +217,19 @@ async function syncTasks(accessToken: string, userId: number, accountId: number)
       if (!tasksData.items) continue;
 
       for (const task of tasksData.items) {
-        // Check if already exists
+        // Dedup by googleTaskId (NOT title) and STORE it, so the two-way push
+        // never creates a duplicate copy back in Google Tasks.
         const existing = await db
-          .select()
+          .select({ id: tasks.id })
           .from(tasks)
-          .where(eq(tasks.title, task.title))
+          .where(eq(tasks.googleTaskId, task.id))
           .limit(1);
 
         if (existing.length === 0) {
           await db.insert(tasks).values({
             userId,
             clientId: null,
+            googleTaskId: task.id,
             title: task.title || "Untitled Task",
             description: task.notes || "",
             status: task.status === "completed" ? "completed" : "pending",

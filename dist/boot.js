@@ -60115,11 +60115,12 @@ async function syncTasks(accessToken, userId, accountId) {
       const tasksData = await tasksResponse.json();
       if (!tasksData.items) continue;
       for (const task of tasksData.items) {
-        const existing = await db.select().from(tasks).where(eq(tasks.title, task.title)).limit(1);
+        const existing = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.googleTaskId, task.id)).limit(1);
         if (existing.length === 0) {
           await db.insert(tasks).values({
             userId,
             clientId: null,
+            googleTaskId: task.id,
             title: task.title || "Untitled Task",
             description: task.notes || "",
             status: task.status === "completed" ? "completed" : "pending",
@@ -64567,7 +64568,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-23.86";
+var BUILD_TAG = "2026-06-24.87";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -64690,11 +64691,15 @@ app.get("/api/oauth/google/debug", async (c) => {
         const [y, m, d] = String(part.date).split("-").map(Number);
         return new Date(y, m - 1, d, 12, 0, 0);
       };
-      await db.run(sql.raw(`DELETE FROM calendar_events WHERE googleEventId IS NOT NULL`));
       let inserted = 0, skipped = 0;
       const errors = [];
       for (const e of items) {
         try {
+          const ex = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.googleEventId, e.id)).limit(1);
+          if (ex[0]) {
+            skipped++;
+            continue;
+          }
           const allDay = !e.start?.dateTime;
           const start = gDate(e.start) || /* @__PURE__ */ new Date();
           let end = gDate(e.end) || start;
