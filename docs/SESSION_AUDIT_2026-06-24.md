@@ -39,3 +39,16 @@ Status: ✅ done & live · 🔨 building tonight · ⏳ backlogged (tracked task
 ## Notes
 - QBO connections are read-only Make bridges → on-demand only; that's why nothing auto-shows. #17 builds the real sync.
 - Connection→client mapping appears correct (binds `clientId=client.id` by name match); `/api/qbo/debug` now proves it per-connection.
+
+## Overnight progress (build 2026-06-24.88)
+- ✅ **#12 Re-date rules APPLIED** — `api/reconcile-overnight.ts` (idempotent boot pass):
+  year-end → 30th of month after FY end (Sep→Oct 30, Dec→Jan 30); T4 → Jan 20;
+  HST quarterly → 15th (keeps fiscal-quarter month). Verified on live data shape:
+  32 year-end / 11 T4 / 13 HST re-dated; 2nd pass = 0 changes (idempotent).
+- ✅ **#13 Payroll cadences** — Align by Design → QBO autopay (flag + payroll tasks/rules retired);
+  West York → weekly. (West York was already weekly.)
+- ✅ **#11 Columbus → prospect** (applied). Inactive-task hiding already live.
+- ❓ **Cat Bay onboarding** — NO "Cat Bay" client exists in the directory; can't apply. Add the client first.
+- ❓ **#14 Go Fig Bookz → Insights** — the firm is NOT in the client directory under any
+  spelling ("go fig"/"gofig"/"go figure" all return nothing). Needs the firm added as a
+  self-client (flagged) before it can feed Practice Health. Confirm with Markie.

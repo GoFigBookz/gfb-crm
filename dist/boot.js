@@ -56753,11 +56753,16 @@ async function ensureBridgeReady() {
     }
     const all = await db.select().from(clients);
     for (const b of BRIDGED) {
-      const client = all.find((c) => `${c.name ?? ""} ${c.company ?? ""}`.toLowerCase().includes(b.match));
-      if (!client) {
+      const hits = all.filter((c) => `${c.name ?? ""} ${c.company ?? ""}`.toLowerCase().includes(b.match));
+      if (hits.length === 0) {
         console.warn(`[bridge] no CRM client matched "${b.match}" \u2014 skipping ${b.company}`);
         continue;
       }
+      if (hits.length > 1) {
+        console.error(`[bridge] AMBIGUOUS: "${b.match}" matched ${hits.length} clients (${hits.map((c) => c.name).join(", ")}) \u2014 refusing to bind ${b.company}`);
+        continue;
+      }
+      const client = hits[0];
       const existing = (await db.select().from(qboConnections).where(eq(qboConnections.realmId, b.realmId)).limit(1))[0];
       const patch = {
         userId: 1,
@@ -56791,8 +56796,8 @@ var init_bridge_bootstrap = __esm({
       { realmId: "13633946244024404", company: "Clark Pools and Spas Collingwood Inc", match: "collingwood", bridgeUrl: "https://hook.us2.make.com/2s1inh9yfy749c3o42yx6bm4hohfios3" },
       // hook 2441594 / scenario 5359734 / conn 9291854
       // Wave 2 (2026-06-14) — already-authorized QBO companies, one read-only proxy each.
-      { realmId: "9130348545738576", company: "Universal Construction Group Inc.", match: "universal", bridgeUrl: "https://hook.us2.make.com/pu75kvdginyxool3fuoj5nb267poso21" },
-      // hook 2454385 / scenario 5388644 / conn 9309073
+      { realmId: "9130348545738576", company: "Universal Construction Group Inc.", match: "universal construction", bridgeUrl: "https://hook.us2.make.com/pu75kvdginyxool3fuoj5nb267poso21" },
+      // hook 2454385 / scenario 5388644 / conn 9309073 — "construction" disambiguates from Universal Drywall (USA)
       { realmId: "9341454721167426", company: "Alderson Development Ltd", match: "alderson", bridgeUrl: "https://hook.us2.make.com/nqf3obsko1zd6s233tt7pa7y62phfxw1" },
       // hook 2454386 / scenario 5388646 / conn 9328844
       { realmId: "193514344934582", company: "Ovita Construction Ltd.", match: "ovita construction", bridgeUrl: "https://hook.us2.make.com/jj4cyyftgcjm4ndclxtq3lxma984qtrl" },
