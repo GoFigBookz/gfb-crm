@@ -3,6 +3,7 @@ import { Bot, Send, Mic, Sparkles, MapPin, MapPinOff, Volume2, VolumeX, Radio, P
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/providers/trpc";
+import { dedupePhrases } from "@/lib/dedupe-speech";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type AgentKey = "fig" | "sage" | "wren" | "liv" | "jinx" | "tess" | "jade" | "skye";
@@ -170,13 +171,16 @@ export default function Assistant() {
         else interim += r[0].transcript;
       }
       sessionFinalRef.current = sessionFinal;
-      const full = (finalTranscriptRef.current + sessionFinal + interim).trim().slice(0, 7900);
+      // Dedupe the finalized text (guards against the browser re-emitting on its
+      // auto-restart); append the live interim raw so typing-ahead still shows.
+      const committed = dedupePhrases((finalTranscriptRef.current + sessionFinal).trim());
+      const full = (committed + (interim ? " " + interim : "")).trim().slice(0, 7900);
       setInput(full);
       // Hands-free: auto-send after a ~1.8s pause, then the agent replies & re-listens.
       if (handsFreeRef.current) {
         clearTimeout(silenceRef.current);
         silenceRef.current = setTimeout(() => {
-          const text = (finalTranscriptRef.current + sessionFinalRef.current).trim();
+          const text = dedupePhrases((finalTranscriptRef.current + sessionFinalRef.current).trim());
           if (text) { manualStopRef.current = true; try { rec.stop(); } catch { /* noop */ } send(text); }
         }, 1800);
       }
