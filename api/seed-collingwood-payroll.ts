@@ -46,7 +46,7 @@ const ROSTER: SeedEmp[] = [
   { first: "Chris", last: "Hawton", payType: "salary", annualSalary: 60000, phone: 23.08 },
   { first: "Brendan", last: "Essex", payType: "salary", annualSalary: 80000, phone: 23.08 },
   { first: "Matteo", last: "Companion", payType: "hourly", hourlyRate: 18.0 },
-  { first: "Logan", last: "Greig", payType: "hourly", hourlyRate: 24.0, phone: 23.08 },
+  { first: "Logan", last: "Greig", payType: "hourly", hourlyRate: 24.0 },
   { first: "Chris", last: "Haight", payType: "hourly", hourlyRate: 27.0, phone: 23.08 },
   { first: "Corey", last: "Hawton", payType: "hourly", hourlyRate: 26.5, phone: 23.08 },
   { first: "Justin", last: "Koutsomichos", payType: "hourly", hourlyRate: 23.0, phone: 23.08 },
@@ -128,8 +128,54 @@ export async function seedCollingwoodPayroll(): Promise<{ created: number; fille
       }
     }
     if (created || filled || banked) console.log(`[seed-collingwood] created ${created}, filled ${filled}, banked ${banked}`);
+    await applyCollingwoodPhoneAllowances();
     return { created, filled, banked, skipped: "" };
   } catch (err) {
     console.error("[seed-collingwood] failed:", err instanceof Error ? err.message : err);
+  }
+}
+
+// Authoritative phone-allowance list confirmed by Markie (2026-06-24): these
+// Collingwood staff get a $23.08/pay phone allowance; everyone else does NOT.
+// Unlike the fill-only seed above, this SETS the value to match Markie's
+// instruction exactly (entitled → on $23.08; others → off).
+const PHONE_ALLOWANCE = 23.08;
+const PHONE_ENTITLED: [string, string][] = [
+  ["Chris", "Hawton"],      // salary
+  ["Brendan", "Essex"],
+  ["Corey", "Hawton"],
+  ["Chris", "Haight"],
+  ["Justin", "Koutsomichos"],
+  ["Aidan", "MacDonald"],
+  ["Adrian", "Robbeson"],
+  ["Chris", "Thompson"],
+  ["Lisa", "Venditti"],
+  ["Alan", "Weaver"],
+];
+
+export async function applyCollingwoodPhoneAllowances(): Promise<{ on: number; off: number; skipped: string } | void> {
+  const db = getDb();
+  try {
+    const client = (await db.select().from(clients).where(eq(clients.id, CLIENT_ID)).limit(1))[0] as any;
+    if (!client || !/colling/i.test(client.name || "")) return { on: 0, off: 0, skipped: "client 7 not Collingwood" };
+    const emps = (await db.select().from(employees).where(eq(employees.clientId, CLIENT_ID))) as any[];
+    let on = 0, off = 0;
+    for (const e of emps) {
+      const entitled = PHONE_ENTITLED.some(([f, l]) => norm(f) === norm(e.firstName) && norm(l) === norm(e.lastName));
+      if (entitled) {
+        if (e.getsPhoneAllowance !== true || e.phoneAllowance !== PHONE_ALLOWANCE) {
+          await db.update(employees).set(await keep({ getsPhoneAllowance: true, phoneAllowance: PHONE_ALLOWANCE, updatedAt: new Date() })).where(eq(employees.id, e.id));
+          on++;
+        }
+      } else if (e.getsPhoneAllowance || (e.phoneAllowance ?? 0) > 0) {
+        // Not on Markie's entitled list → ensure no phone allowance.
+        await db.update(employees).set(await keep({ getsPhoneAllowance: false, phoneAllowance: null, updatedAt: new Date() })).where(eq(employees.id, e.id));
+        off++;
+      }
+    }
+    if (on || off) console.log(`[collingwood-phone] set ${on} on, ${off} off`);
+    return { on, off, skipped: "" };
+  } catch (err) {
+    console.error("[collingwood-phone] failed:", err instanceof Error ? err.message : err);
   }
 }

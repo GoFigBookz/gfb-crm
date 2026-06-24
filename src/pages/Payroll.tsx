@@ -268,6 +268,11 @@ export default function Payroll() {
                           </p>
                         </div>
                         <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setEditingEmp(e)}><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button size="sm" variant="ghost" className={`h-7 px-2 text-xs ${e.isActive === false ? "text-emerald-600 hover:text-emerald-700" : "text-slate-400 hover:text-slate-600"}`}
+                          title={e.isActive === false ? "Reactivate this employee" : "Make inactive (removed from new pay runs)"}
+                          onClick={() => updateEmp.mutate({ id: e.id, isActive: e.isActive === false })}>
+                          {e.isActive === false ? "Reactivate" : "Deactivate"}
+                        </Button>
                         <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600" onClick={() => { if (confirm(`Delete ${e.firstName} ${e.lastName}?`)) deleteEmp.mutate({ id: e.id }); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
                     ))}
