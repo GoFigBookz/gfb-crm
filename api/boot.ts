@@ -1574,6 +1574,14 @@ async function startServer() {
     } catch (e) {
       console.error("[payroll-reminders] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
+    // Clients who RUN THEIR OWN payroll → off the payroll page, year-end recon task only.
+    try {
+      const { markClientRunPayroll } = await import("./seed-client-run-payroll");
+      const r = await markClientRunPayroll();
+      if (r?.updated?.length) console.log(`[client-run-payroll] ${r.updated.join(", ")}`);
+    } catch (e) {
+      console.error("[client-run-payroll] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
     // Seed the TouchBistro restaurant rosters + rates (Sher-E-Punjab, Auld Spot).
     try {
       const { seedTouchbistroPayroll } = await import("./seed-touchbistro-payroll");

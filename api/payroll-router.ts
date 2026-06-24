@@ -89,6 +89,10 @@ function isPayrollClient(c: any): boolean {
   // Wholesale = flow-through (QBO resale only). It is NEVER a payroll client,
   // even if a stray sheet value set hasPayroll. Wholesale always wins.
   if ((c.clientType || "") === "wholesale") return false;
+  // "Client runs their own payroll" (payrollFrequency = "self"). We don't process
+  // these per period — they're a YEAR-END reconciliation only — so keep them off
+  // the payroll page. (Autopay clients like West York stay; they're qbo_autopay.)
+  if (c.payrollFrequency === "self") return false;
   return !!c.hasPayroll;
 }
 

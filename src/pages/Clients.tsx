@@ -134,13 +134,16 @@ export default function Clients() {
   // everyone else with payroll is "manual" (hours entered/imported here).
   const isPayrollC = (c: any) => (c.clientType || "monthly") !== "wholesale" && (c.hasPayroll || c.clientType === "payroll");
   const isAutoPay = (c: any) => c.payrollHoursSource === "qbo_autopay" || /west\s*york|fractal/i.test(c.name || "");
+  // "Client runs their own payroll" — we only reconcile at year-end, not per period.
+  const isClientRun = (c: any) => c.payrollFrequency === "self" || !!c.payrollExternal;
   const filtered = clients?.filter((c) => {
     if (!matchTab(c)) return false;
     if (firmFilter !== "all" && (c as any).qboAccountType !== firmFilter) return false;
     // Payroll filters are flag-based (hasPayroll), not a clientType value.
     if (typeFilter === "payroll") { if (!isPayrollC(c)) return false; }
-    else if (typeFilter === "payroll_manual") { if (!isPayrollC(c) || isAutoPay(c)) return false; }
+    else if (typeFilter === "payroll_manual") { if (!isPayrollC(c) || isAutoPay(c) || isClientRun(c)) return false; }
     else if (typeFilter === "payroll_auto") { if (!isPayrollC(c) || !isAutoPay(c)) return false; }
+    else if (typeFilter === "payroll_self") { if (!isClientRun(c)) return false; }
     else if (typeFilter !== "all" && ((c as any).clientType || "monthly") !== typeFilter) return false;
     return true;
   }).slice().sort((a, b) => {
@@ -228,6 +231,7 @@ export default function Clients() {
             <SelectItem value="payroll">💵 Payroll (all)</SelectItem>
             <SelectItem value="payroll_manual">✍️ Payroll — manual entry</SelectItem>
             <SelectItem value="payroll_auto">🤖 Payroll — QuickBooks autopay</SelectItem>
+            <SelectItem value="payroll_self">🙋 Payroll — client runs it (year-end recon)</SelectItem>
             <SelectItem value="wholesale">🧾 Wholesale (flow-through)</SelectItem>
           </SelectContent>
         </Select>
