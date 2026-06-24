@@ -63430,8 +63430,10 @@ var ASSISTANT_SYSTEM = [
   "4) Schedule an event \u2014 call schedule_event to put something on his calendar.",
   "5) Complete a task \u2014 call complete_task when he says a task is done / finished / handled.",
   "6) Draft an email \u2014 call draft_email to write a message into his Gmail Drafts (for his review; never auto-sent).",
-  "7) Firm status \u2014 call firm_status for what needs review / what's open across clients.",
-  "8) Check system health \u2014 call system_health if he asks whether the app is working.",
+  "7) Search his email \u2014 call search_email to READ his Gmail inbox (find a message, see what someone said, triage replies, flag tasks from email). Read-only.",
+  "8) Search his Drive \u2014 call search_drive to find files/documents in his Google Drive by name or contents, and return the links.",
+  "9) Firm status \u2014 call firm_status for what needs review / what's open across clients.",
+  "10) Check system health \u2014 call system_health if he asks whether the app is working.",
   "GENERAL QUESTIONS: answer anything else like a helpful AI assistant \u2014 facts, how-tos, drafting, math, advice.",
   "Use web_search whenever the answer needs CURRENT or LOCAL info: weather, news, prices, store/where-to-buy, hours, sports, anything that changes. Use web_fetch to OPEN a specific URL Markie gives you (e.g. 'look at my website figgy.gofig.ca' or a link he shares) and read/critique the actual page. If he attaches an image or PDF, look at it directly. Share relevant links/sources in your answer.",
   "After a tool runs, confirm in one short line. Never invent client names or data; if you're unsure of a fact, search or say so."
@@ -63582,6 +63584,30 @@ var ASSISTANT_TOOLS = [
     }
   },
   {
+    name: "search_email",
+    description: 'Search Markie\'s Gmail inbox and READ matching messages (sender, subject, date, snippet). Use to find an email, check what someone said, triage what needs a reply, or flag tasks from email. Read-only. Pass a Gmail search `query` (e.g. "from:cra.gc.ca", "invoice newer_than:7d", "subject:payroll").',
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Gmail search query (Gmail's normal search syntax)." },
+        maxResults: { type: "number", description: "How many messages to return (default 8, max 15)." }
+      },
+      required: ["query"]
+    }
+  },
+  {
+    name: "search_drive",
+    description: "Search Markie's Google Drive for files by name or contents and return their name, link, and last-modified date. Use to find a client's document, a statement, a PDF, etc. Read-only. Pass `query` = words to look for.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Words to find in the file name or contents." },
+        maxResults: { type: "number", description: "How many files to return (default 8, max 15)." }
+      },
+      required: ["query"]
+    }
+  },
+  {
     name: "firm_status",
     description: "Get a live snapshot of the practice: # active clients, open/overdue tasks, and Figgy's triage findings waiting for review (by severity). Use when asked what needs review/attention, what's open, or how the firm is doing right now.",
     input_schema: { type: "object", properties: {} }
@@ -63727,6 +63753,66 @@ async function execDraftEmail(input, userId) {
     return `Couldn't draft that: ${e instanceof Error ? e.message : String(e)}`;
   }
 }
+async function execSearchEmail(input, userId) {
+  const query = String(input?.query ?? "").trim();
+  if (!query) return "What should I search your email for?";
+  const max2 = Math.min(Math.max(Number(input?.maxResults) || 8, 1), 15);
+  const { getFirmGoogleAccount: getFirmGoogleAccount2 } = await Promise.resolve().then(() => (init_google_token(), google_token_exports));
+  const account = await getFirmGoogleAccount2(userId);
+  if (!account) return "I need your Google email connected first (Integrations \u2192 Google) before I can read your inbox.";
+  try {
+    const token2 = await getValidGoogleAccessToken(account);
+    const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${max2}&q=${encodeURIComponent(query)}`, { headers: { Authorization: `Bearer ${token2}` } });
+    if (!listRes.ok) return `Couldn't search email (${listRes.status}).`;
+    const list = await listRes.json();
+    const ids = (list.messages || []).map((m) => m.id);
+    if (!ids.length) return `No emails matched "${query}".`;
+    const rows = [];
+    for (const id of ids) {
+      const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`, { headers: { Authorization: `Bearer ${token2}` } });
+      if (!r.ok) continue;
+      const m = await r.json();
+      const h = (n) => (m.payload?.headers || []).find((x) => x.name === n)?.value || "";
+      const from = h("From").replace(/<.*>/, "").trim() || h("From");
+      const date5 = h("Date") ? new Date(h("Date")).toLocaleDateString(void 0, { month: "short", day: "numeric" }) : "";
+      rows.push(`\u2022 ${from}${date5 ? ` (${date5})` : ""} \u2014 ${h("Subject") || "(no subject)"}
+  ${(m.snippet || "").slice(0, 140)}`);
+    }
+    return rows.length ? `Found ${rows.length} email(s) for "${query}":
+${rows.join("\n")}` : `No readable emails matched "${query}".`;
+  } catch (e) {
+    return `Couldn't read your email: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
+async function execSearchDrive(input, userId) {
+  const query = String(input?.query ?? "").trim();
+  if (!query) return "What file should I look for in your Drive?";
+  const max2 = Math.min(Math.max(Number(input?.maxResults) || 8, 1), 15);
+  const { getFirmGoogleAccount: getFirmGoogleAccount2 } = await Promise.resolve().then(() => (init_google_token(), google_token_exports));
+  const account = await getFirmGoogleAccount2(userId);
+  if (!account) return "I need your Google account connected first (Integrations \u2192 Google) before I can search your Drive.";
+  try {
+    const token2 = await getValidGoogleAccessToken(account);
+    const esc3 = query.replace(/'/g, "\\'");
+    const q = `(name contains '${esc3}' or fullText contains '${esc3}') and trashed = false`;
+    const url2 = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&pageSize=${max2}&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent("files(id,name,modifiedTime,webViewLink,mimeType)")}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+    const res = await fetch(url2, { headers: { Authorization: `Bearer ${token2}` } });
+    if (!res.ok) return `Couldn't search Drive (${res.status}).`;
+    const data = await res.json();
+    const files2 = data.files || [];
+    if (!files2.length) return `No Drive files matched "${query}".`;
+    const rows = files2.map((f) => {
+      const mod = f.modifiedTime ? new Date(f.modifiedTime).toLocaleDateString(void 0, { month: "short", day: "numeric", year: "numeric" }) : "";
+      const kind = String(f.mimeType || "").includes("folder") ? "\u{1F4C1}" : "\u{1F4C4}";
+      return `${kind} ${f.name}${mod ? ` (modified ${mod})` : ""}${f.webViewLink ? `
+  ${f.webViewLink}` : ""}`;
+    });
+    return `Found ${rows.length} file(s) for "${query}":
+${rows.join("\n")}`;
+  } catch (e) {
+    return `Couldn't search your Drive: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
 async function execScheduleEvent(input, userId) {
   const title = String(input?.title ?? "").trim();
   if (!title) return "What should I call the event?";
@@ -63801,6 +63887,8 @@ async function runTool(name2, input, userId, activeAgent) {
     if (name2 === "schedule_event") return await execScheduleEvent(input, userId);
     if (name2 === "complete_task") return await execCompleteTask(input, userId);
     if (name2 === "draft_email") return await execDraftEmail(input, userId);
+    if (name2 === "search_email") return await execSearchEmail(input, userId);
+    if (name2 === "search_drive") return await execSearchDrive(input, userId);
     if (name2 === "remember") return await execRemember(input, userId, activeAgent);
     if (name2 === "system_health") return await execSystemHealth();
     if (name2 === "agent_scorecard") return await execAgentScorecard();
@@ -64623,7 +64711,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.90";
+var BUILD_TAG = "2026-06-24.91";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

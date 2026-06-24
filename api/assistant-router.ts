@@ -119,6 +119,64 @@ async function execDraftEmail(input: any, userId: number): Promise<string> {
   }
 }
 
+async function execSearchEmail(input: any, userId: number): Promise<string> {
+  const query = String(input?.query ?? "").trim();
+  if (!query) return "What should I search your email for?";
+  const max = Math.min(Math.max(Number(input?.maxResults) || 8, 1), 15);
+  const { getFirmGoogleAccount } = await import("./google-token");
+  const account = await getFirmGoogleAccount(userId);
+  if (!account) return "I need your Google email connected first (Integrations → Google) before I can read your inbox.";
+  try {
+    const token = await getValidGoogleAccessToken(account);
+    const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${max}&q=${encodeURIComponent(query)}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!listRes.ok) return `Couldn't search email (${listRes.status}).`;
+    const list = await listRes.json();
+    const ids: string[] = (list.messages || []).map((m: any) => m.id);
+    if (!ids.length) return `No emails matched "${query}".`;
+    const rows: string[] = [];
+    for (const id of ids) {
+      const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) continue;
+      const m = await r.json();
+      const h = (n: string) => (m.payload?.headers || []).find((x: any) => x.name === n)?.value || "";
+      const from = h("From").replace(/<.*>/, "").trim() || h("From");
+      const date = h("Date") ? new Date(h("Date")).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+      rows.push(`• ${from}${date ? ` (${date})` : ""} — ${h("Subject") || "(no subject)"}\n  ${(m.snippet || "").slice(0, 140)}`);
+    }
+    return rows.length ? `Found ${rows.length} email(s) for "${query}":\n${rows.join("\n")}` : `No readable emails matched "${query}".`;
+  } catch (e) {
+    return `Couldn't read your email: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
+
+async function execSearchDrive(input: any, userId: number): Promise<string> {
+  const query = String(input?.query ?? "").trim();
+  if (!query) return "What file should I look for in your Drive?";
+  const max = Math.min(Math.max(Number(input?.maxResults) || 8, 1), 15);
+  const { getFirmGoogleAccount } = await import("./google-token");
+  const account = await getFirmGoogleAccount(userId);
+  if (!account) return "I need your Google account connected first (Integrations → Google) before I can search your Drive.";
+  try {
+    const token = await getValidGoogleAccessToken(account);
+    const esc = query.replace(/'/g, "\\'");
+    const q = `(name contains '${esc}' or fullText contains '${esc}') and trashed = false`;
+    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&pageSize=${max}&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent("files(id,name,modifiedTime,webViewLink,mimeType)")}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return `Couldn't search Drive (${res.status}).`;
+    const data = await res.json();
+    const files: any[] = data.files || [];
+    if (!files.length) return `No Drive files matched "${query}".`;
+    const rows = files.map((f) => {
+      const mod = f.modifiedTime ? new Date(f.modifiedTime).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "";
+      const kind = String(f.mimeType || "").includes("folder") ? "📁" : "📄";
+      return `${kind} ${f.name}${mod ? ` (modified ${mod})` : ""}${f.webViewLink ? `\n  ${f.webViewLink}` : ""}`;
+    });
+    return `Found ${rows.length} file(s) for "${query}":\n${rows.join("\n")}`;
+  } catch (e) {
+    return `Couldn't search your Drive: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
+
 async function execScheduleEvent(input: any, userId: number): Promise<string> {
   const title = String(input?.title ?? "").trim();
   if (!title) return "What should I call the event?";
@@ -204,6 +262,8 @@ async function runTool(name: string, input: any, userId: number, activeAgent: st
     if (name === "schedule_event") return await execScheduleEvent(input, userId);
     if (name === "complete_task") return await execCompleteTask(input, userId);
     if (name === "draft_email") return await execDraftEmail(input, userId);
+    if (name === "search_email") return await execSearchEmail(input, userId);
+    if (name === "search_drive") return await execSearchDrive(input, userId);
     if (name === "remember") return await execRemember(input, userId, activeAgent);
     if (name === "system_health") return await execSystemHealth();
     if (name === "agent_scorecard") return await execAgentScorecard();

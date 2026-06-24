@@ -20,8 +20,10 @@ export const ASSISTANT_SYSTEM = [
   "4) Schedule an event — call schedule_event to put something on his calendar.",
   "5) Complete a task — call complete_task when he says a task is done / finished / handled.",
   "6) Draft an email — call draft_email to write a message into his Gmail Drafts (for his review; never auto-sent).",
-  "7) Firm status — call firm_status for what needs review / what's open across clients.",
-  "8) Check system health — call system_health if he asks whether the app is working.",
+  "7) Search his email — call search_email to READ his Gmail inbox (find a message, see what someone said, triage replies, flag tasks from email). Read-only.",
+  "8) Search his Drive — call search_drive to find files/documents in his Google Drive by name or contents, and return the links.",
+  "9) Firm status — call firm_status for what needs review / what's open across clients.",
+  "10) Check system health — call system_health if he asks whether the app is working.",
   "GENERAL QUESTIONS: answer anything else like a helpful AI assistant — facts, how-tos, drafting, math, advice.",
   "Use web_search whenever the answer needs CURRENT or LOCAL info: weather, news, prices, store/where-to-buy, hours, sports, anything that changes. Use web_fetch to OPEN a specific URL Markie gives you (e.g. 'look at my website figgy.gofig.ca' or a link he shares) and read/critique the actual page. If he attaches an image or PDF, look at it directly. Share relevant links/sources in your answer.",
   "After a tool runs, confirm in one short line. Never invent client names or data; if you're unsure of a fact, search or say so.",
@@ -199,6 +201,30 @@ export const ASSISTANT_TOOLS = [
         body: { type: "string", description: "The email body, plain text (line breaks ok)." },
       },
       required: ["to", "body"],
+    },
+  },
+  {
+    name: "search_email",
+    description: "Search Markie's Gmail inbox and READ matching messages (sender, subject, date, snippet). Use to find an email, check what someone said, triage what needs a reply, or flag tasks from email. Read-only. Pass a Gmail search `query` (e.g. \"from:cra.gc.ca\", \"invoice newer_than:7d\", \"subject:payroll\").",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Gmail search query (Gmail's normal search syntax)." },
+        maxResults: { type: "number", description: "How many messages to return (default 8, max 15)." },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "search_drive",
+    description: "Search Markie's Google Drive for files by name or contents and return their name, link, and last-modified date. Use to find a client's document, a statement, a PDF, etc. Read-only. Pass `query` = words to look for.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Words to find in the file name or contents." },
+        maxResults: { type: "number", description: "How many files to return (default 8, max 15)." },
+      },
+      required: ["query"],
     },
   },
   {
