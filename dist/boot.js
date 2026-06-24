@@ -63905,7 +63905,7 @@ async function runTool(name2, input, userId, activeAgent) {
 }
 var assistantRouter = createRouter({
   ask: authedQuery.input(external_exports.object({
-    message: external_exports.string().min(1).max(2e3),
+    message: external_exports.string().min(1).max(8e3),
     history: external_exports.array(external_exports.object({ role: external_exports.enum(["user", "assistant"]), content: external_exports.string() })).max(20).optional(),
     agent: external_exports.enum(["fig", "sage", "wren", "liv", "jinx", "tess", "jade", "skye"]).optional(),
     location: external_exports.object({ lat: external_exports.number(), lon: external_exports.number(), label: external_exports.string().max(120).optional() }).optional(),
@@ -64716,7 +64716,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.92";
+var BUILD_TAG = "2026-06-24.93";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;

@@ -277,7 +277,7 @@ async function runTool(name: string, input: any, userId: number, activeAgent: st
 export const assistantRouter = createRouter({
   ask: authedQuery
     .input(z.object({
-      message: z.string().min(1).max(2000),
+      message: z.string().min(1).max(8000),
       history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })).max(20).optional(),
       agent: z.enum(["fig", "sage", "wren", "liv", "jinx", "tess", "jade", "skye"]).optional(),
       location: z.object({ lat: z.number(), lon: z.number(), label: z.string().max(120).optional() }).optional(),

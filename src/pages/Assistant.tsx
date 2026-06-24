@@ -46,7 +46,8 @@ export default function Assistant() {
   const recognitionRef = useRef<any>(null);
   const handsFreeRef = useRef(false);
   const manualStopRef = useRef(false);   // user intentionally turned the mic off
-  const finalTranscriptRef = useRef("");  // accumulated final speech
+  const finalTranscriptRef = useRef("");  // finalized text from PRIOR (auto-restarted) sessions
+  const sessionFinalRef = useRef("");     // finalized text in the CURRENT session
   const silenceRef = useRef<any>(null);   // hands-free auto-send timer
   const wakeLockRef = useRef<any>(null);
   const ask = trpc.assistant.ask.useMutation();
@@ -157,27 +158,38 @@ export default function Assistant() {
     rec.interimResults = true;    // live transcript
     manualStopRef.current = false;
     finalTranscriptRef.current = "";
+    sessionFinalRef.current = "";
     rec.onresult = (e: any) => {
-      let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      // Rebuild the CURRENT session's transcript from ALL results each event (do
+      // NOT append per-event — mobile Chrome re-emits results, which was doubling
+      // the text). finalTranscriptRef holds only text from prior auto-restarts.
+      let sessionFinal = "", interim = "";
+      for (let i = 0; i < e.results.length; i++) {
         const r = e.results[i];
-        if (r.isFinal) finalTranscriptRef.current += r[0].transcript + " ";
+        if (r.isFinal) sessionFinal += r[0].transcript + " ";
         else interim += r[0].transcript;
       }
-      setInput((finalTranscriptRef.current + interim).trim());
+      sessionFinalRef.current = sessionFinal;
+      const full = (finalTranscriptRef.current + sessionFinal + interim).trim().slice(0, 7900);
+      setInput(full);
       // Hands-free: auto-send after a ~1.8s pause, then the agent replies & re-listens.
       if (handsFreeRef.current) {
         clearTimeout(silenceRef.current);
         silenceRef.current = setTimeout(() => {
-          const text = finalTranscriptRef.current.trim();
+          const text = (finalTranscriptRef.current + sessionFinalRef.current).trim();
           if (text) { manualStopRef.current = true; try { rec.stop(); } catch { /* noop */ } send(text); }
         }, 1800);
       }
     };
     rec.onend = () => {
       // Browsers auto-stop after ~60s or on silence — keep it alive unless the
-      // user turned it off. This is what keeps the mic on for a full conversation.
-      if (!manualStopRef.current) { try { rec.start(); return; } catch { /* fall through */ } }
+      // user turned it off. Commit this session's finalized text before restarting
+      // so the running transcript carries over WITHOUT re-counting it.
+      if (!manualStopRef.current) {
+        finalTranscriptRef.current = (finalTranscriptRef.current + sessionFinalRef.current);
+        sessionFinalRef.current = "";
+        try { rec.start(); return; } catch { /* fall through */ }
+      }
       recognitionRef.current = null; setListening(false);
     };
     rec.onerror = (ev: any) => {
@@ -226,6 +238,7 @@ export default function Assistant() {
     const history = messages.slice(-12);
     setMessages((m) => [...m, { role: "user", content: msg + (att ? ` 📎 ${att.name}` : "") }]);
     setInput("");
+    finalTranscriptRef.current = ""; sessionFinalRef.current = ""; // start the next dictation clean
     setAttachment(null);
     try {
       const location = await getLocation();
