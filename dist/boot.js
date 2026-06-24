@@ -11220,13 +11220,13 @@ function _promise(Class2, innerType) {
 }
 // @__NO_SIDE_EFFECTS__
 function _custom(Class2, fn, _params) {
-  const norm9 = normalizeParams(_params);
-  norm9.abort ?? (norm9.abort = true);
+  const norm10 = normalizeParams(_params);
+  norm10.abort ?? (norm10.abort = true);
   const schema = new Class2({
     type: "custom",
     check: "custom",
     fn,
-    ...norm9
+    ...norm10
   });
   return schema;
 }
@@ -43129,17 +43129,17 @@ async function recomputeRunTotals(runId) {
 }
 async function applyImportedHours(db, runId, clientId, hours) {
   const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
-  const norm9 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  const norm10 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
   const byAlias = /* @__PURE__ */ new Map(), byFull = /* @__PURE__ */ new Map(), byFirst = /* @__PURE__ */ new Map();
   for (const e of emps) {
-    if (e.jobberName) byAlias.set(norm9(e.jobberName), e);
-    byFull.set(norm9(`${e.firstName} ${e.lastName}`), e);
-    byFull.set(norm9(`${e.lastName}, ${e.firstName}`), e);
-    if (!byFirst.has(norm9(e.firstName))) byFirst.set(norm9(e.firstName), e);
+    if (e.jobberName) byAlias.set(norm10(e.jobberName), e);
+    byFull.set(norm10(`${e.firstName} ${e.lastName}`), e);
+    byFull.set(norm10(`${e.lastName}, ${e.firstName}`), e);
+    if (!byFirst.has(norm10(e.firstName))) byFirst.set(norm10(e.firstName), e);
   }
   const matchEmp = (label) => {
-    const n = norm9(label);
-    return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm9(n.split(/[ ,]/)[0])) || null;
+    const n = norm10(label);
+    return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm10(n.split(/[ ,]/)[0])) || null;
   };
   const parseName = (label) => {
     const s = (label || "").trim();
@@ -43175,10 +43175,10 @@ async function applyImportedHours(db, runId, clientId, hours) {
       }).returning();
       emp = ins;
       created.push(`${ins.firstName} ${ins.lastName}`.trim());
-      byFull.set(norm9(h.userName), ins);
-      byFull.set(norm9(`${ins.firstName} ${ins.lastName}`), ins);
-      byFull.set(norm9(`${ins.lastName}, ${ins.firstName}`), ins);
-      if (ins.firstName && !byFirst.has(norm9(ins.firstName))) byFirst.set(norm9(ins.firstName), ins);
+      byFull.set(norm10(h.userName), ins);
+      byFull.set(norm10(`${ins.firstName} ${ins.lastName}`), ins);
+      byFull.set(norm10(`${ins.lastName}, ${ins.firstName}`), ins);
+      if (ins.firstName && !byFirst.has(norm10(ins.firstName))) byFirst.set(norm10(ins.firstName), ins);
     }
     const note = longShiftNote2(h.maxShiftHours ?? 0);
     if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
@@ -43483,9 +43483,9 @@ var init_payroll_router = __esm({
         }
         const { recordRateChange: recordRateChange2 } = await Promise.resolve().then(() => (init_employee_router(), employee_router_exports));
         const existing = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
-        const norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+        const norm10 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
         const byName = /* @__PURE__ */ new Map();
-        for (const e of existing) byName.set(norm9(`${e.firstName} ${e.lastName}`), e);
+        for (const e of existing) byName.set(norm10(`${e.firstName} ${e.lastName}`), e);
         const parseName = (label) => {
           const s = (label || "").trim();
           if (s.includes(",")) {
@@ -43500,7 +43500,7 @@ var init_payroll_router = __esm({
           const { first, last } = parseName(row.name);
           if (!first && !last) continue;
           const eff = row.effectiveDate ? /* @__PURE__ */ new Date(row.effectiveDate + "T12:00:00") : /* @__PURE__ */ new Date();
-          const hit = byName.get(norm9(`${first} ${last}`)) || byName.get(norm9(row.name));
+          const hit = byName.get(norm10(`${first} ${last}`)) || byName.get(norm10(row.name));
           if (hit) {
             const changed = row.hourlyRate != null && row.hourlyRate !== hit.hourlyRate || row.annualSalary != null && row.annualSalary !== hit.annualSalary;
             if (changed) {
@@ -43512,7 +43512,7 @@ var init_payroll_router = __esm({
             const [ins] = await db.insert(employees).values({ clientId: input.clientId, firstName: first || row.name, lastName: last || "", payType: row.payType ?? "hourly", hourlyRate: row.hourlyRate ?? null, annualSalary: row.annualSalary ?? null, isActive: true }).returning();
             await recordRateChange2(db, { employeeId: ins.id, clientId: input.clientId, payType: ins.payType, hourlyRate: ins.hourlyRate, annualSalary: ins.annualSalary, effectiveDate: eff, note: "Starting rate (roster sheet)", source: "roster_sheet" });
             created.push(`${first} ${last}`.trim());
-            byName.set(norm9(`${first} ${last}`), ins);
+            byName.set(norm10(`${first} ${last}`), ins);
           }
         }
         return { ok: true, created, updated, total: roster.length };
@@ -43915,10 +43915,10 @@ function normalizePhone(raw2) {
 }
 async function matchClientByPhone(phone) {
   const db = getDb();
-  const norm9 = normalizePhone(phone);
-  if (!norm9) return null;
+  const norm10 = normalizePhone(phone);
+  if (!norm10) return null;
   const all = await db.select().from(clients);
-  const hit = all.find((c) => normalizePhone(c.phone || "") === norm9);
+  const hit = all.find((c) => normalizePhone(c.phone || "") === norm10);
   return hit ? { id: hit.id, name: hit.name } : null;
 }
 async function ingestInboundSms(from, body, externalId) {
@@ -57550,6 +57550,119 @@ var init_ensure_calendar_schema = __esm({
   }
 });
 
+// api/seed-collingwood-payroll.ts
+var seed_collingwood_payroll_exports = {};
+__export(seed_collingwood_payroll_exports, {
+  seedCollingwoodPayroll: () => seedCollingwoodPayroll
+});
+async function keep(obj) {
+  try {
+    const cols = await employeeColumns();
+    if (!cols.size) return obj;
+    const out = {};
+    for (const k of Object.keys(obj)) if (cols.has(k)) out[k] = obj[k];
+    return out;
+  } catch {
+    return obj;
+  }
+}
+async function seedCollingwoodPayroll() {
+  const db = getDb();
+  try {
+    const client = (await db.select().from(clients).where(eq(clients.id, CLIENT_ID)).limit(1))[0];
+    if (!client) return { created: 0, filled: 0, banked: 0, skipped: "client 7 not found" };
+    if (!/colling/i.test(client.name || "")) return { created: 0, filled: 0, banked: 0, skipped: `client 7 is "${client.name}", not Collingwood` };
+    const existing = await db.select().from(employees).where(eq(employees.clientId, CLIENT_ID));
+    let created = 0, filled = 0, banked = 0;
+    for (const e of ROSTER) {
+      const match2 = existing.find((x) => norm6(x.firstName) === norm6(e.first) && norm6(x.lastName) === norm6(e.last));
+      let employeeId;
+      if (!match2) {
+        const vals = await keep({
+          clientId: CLIENT_ID,
+          firstName: e.first,
+          lastName: e.last,
+          payType: e.payType,
+          hourlyRate: e.payType === "hourly" ? e.hourlyRate ?? null : null,
+          annualSalary: e.payType === "salary" ? e.annualSalary ?? null : null,
+          getsPhoneAllowance: !!e.phone,
+          phoneAllowance: e.phone ?? null,
+          isActive: true,
+          createdAt: /* @__PURE__ */ new Date(),
+          updatedAt: /* @__PURE__ */ new Date()
+        });
+        const res = await db.insert(employees).values(vals);
+        employeeId = Number(res.lastInsertRowid);
+        await recordRateChange(db, { employeeId, clientId: CLIENT_ID, payType: e.payType, hourlyRate: e.hourlyRate, annualSalary: e.annualSalary, effectiveDate: /* @__PURE__ */ new Date(), note: "Starting rate (Collingwood sheet)", source: "import" });
+        created++;
+      } else {
+        employeeId = match2.id;
+        const patch = {};
+        if (match2.payType == null) patch.payType = e.payType;
+        if (e.payType === "hourly" && match2.hourlyRate == null && e.hourlyRate != null) patch.hourlyRate = e.hourlyRate;
+        if (e.payType === "salary" && match2.annualSalary == null && e.annualSalary != null) patch.annualSalary = e.annualSalary;
+        if (e.phone && !match2.getsPhoneAllowance && (match2.phoneAllowance == null || match2.phoneAllowance === 0)) {
+          patch.getsPhoneAllowance = true;
+          patch.phoneAllowance = e.phone;
+        }
+        if (Object.keys(patch).length) {
+          patch.updatedAt = /* @__PURE__ */ new Date();
+          await db.update(employees).set(await keep(patch)).where(eq(employees.id, employeeId));
+          filled++;
+        }
+      }
+      if (e.banked != null) {
+        const have = await db.select().from(bankedHourEntries).where(and(eq(bankedHourEntries.employeeId, employeeId), eq(bankedHourEntries.kind, "opening")));
+        if (!have.length) {
+          await db.insert(bankedHourEntries).values({
+            clientId: CLIENT_ID,
+            employeeId,
+            entryDate: /* @__PURE__ */ new Date(),
+            hours: e.banked,
+            kind: "opening",
+            note: "Opening balance (Collingwood sheet)",
+            source: "import",
+            enteredBy: "seed"
+          });
+          banked++;
+        }
+      }
+    }
+    if (created || filled || banked) console.log(`[seed-collingwood] created ${created}, filled ${filled}, banked ${banked}`);
+    return { created, filled, banked, skipped: "" };
+  } catch (err) {
+    console.error("[seed-collingwood] failed:", err instanceof Error ? err.message : err);
+  }
+}
+var CLIENT_ID, ROSTER, norm6;
+var init_seed_collingwood_payroll = __esm({
+  "api/seed-collingwood-payroll.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_employee_router();
+    init_ensure_employee_schema();
+    CLIENT_ID = 7;
+    ROSTER = [
+      { first: "Chris", last: "Hawton", payType: "salary", annualSalary: 6e4, phone: 23.08 },
+      { first: "Brendan", last: "Essex", payType: "salary", annualSalary: 8e4, phone: 23.08 },
+      { first: "Matteo", last: "Companion", payType: "hourly", hourlyRate: 18 },
+      { first: "Logan", last: "Greig", payType: "hourly", hourlyRate: 24, phone: 23.08 },
+      { first: "Chris", last: "Haight", payType: "hourly", hourlyRate: 27, phone: 23.08 },
+      { first: "Corey", last: "Hawton", payType: "hourly", hourlyRate: 26.5, phone: 23.08 },
+      { first: "Justin", last: "Koutsomichos", payType: "hourly", hourlyRate: 23, phone: 23.08 },
+      { first: "Dave", last: "Lally", payType: "hourly", hourlyRate: 24 },
+      { first: "Aidan", last: "MacDonald", payType: "hourly", hourlyRate: 21, phone: 23 },
+      { first: "Justin", last: "Pool", payType: "hourly", hourlyRate: 22 },
+      { first: "Adrian", last: "Robbeson", payType: "hourly", hourlyRate: 24, phone: 23.08 },
+      { first: "Chris", last: "Thompson", payType: "hourly", hourlyRate: 24, phone: 23.08 },
+      { first: "Lisa", last: "Venditti", payType: "hourly", hourlyRate: 25, phone: 23.08 },
+      { first: "Alan", last: "Weaver", payType: "hourly", hourlyRate: 35, phone: 23.08 }
+    ];
+    norm6 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+  }
+});
+
 // api/qbo-cashflow.ts
 function bankBreakdownFromAccounts(rows) {
   let cashCad = 0, cashUsd = 0, creditCardOwed = 0, uncategorizedBalance = 0, uncategorizedCount = 0;
@@ -58290,7 +58403,7 @@ async function dedupeClients(confirm) {
   const groups = /* @__PURE__ */ new Map();
   for (const r of clientRows) {
     const id = Number(r.id ?? r[0]);
-    const key = `${norm6(r.name ?? r[1])}|${norm6(r.company ?? r[2])}`;
+    const key = `${norm7(r.name ?? r[1])}|${norm7(r.company ?? r[2])}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(id);
   }
@@ -58370,12 +58483,12 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm6, asRows, num2;
+var norm7, asRows, num2;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
-    norm6 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    norm7 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
     num2 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
@@ -58734,9 +58847,9 @@ async function dedupeTasks() {
   for (const group of ruleGroups.values()) {
     if (group.length < 2) continue;
     group.sort((a, b) => a.id - b.id);
-    const keep = group[0];
+    const keep2 = group[0];
     const dropIds = group.slice(1).map((r) => r.id);
-    await db.update(tasks).set({ ruleId: keep.id }).where(inArray(tasks.ruleId, dropIds));
+    await db.update(tasks).set({ ruleId: keep2.id }).where(inArray(tasks.ruleId, dropIds));
     await db.delete(clientTaskRules).where(inArray(clientTaskRules.id, dropIds));
     rulesRemoved += dropIds.length;
   }
@@ -59039,9 +59152,9 @@ async function seedPayrollEmployees() {
       result.skipped += roster.employees.length;
       continue;
     }
-    const have = new Set(current.map((e) => `${norm7(e.firstName)} ${norm7(e.lastName)}`.trim()));
+    const have = new Set(current.map((e) => `${norm8(e.firstName)} ${norm8(e.lastName)}`.trim()));
     for (const emp of roster.employees) {
-      if (roster.merge && have.has(`${norm7(emp.firstName)} ${norm7(emp.lastName || "")}`.trim())) {
+      if (roster.merge && have.has(`${norm8(emp.firstName)} ${norm8(emp.lastName || "")}`.trim())) {
         result.skipped++;
         continue;
       }
@@ -59065,7 +59178,7 @@ async function seedPayrollEmployees() {
   for (const mv of PAYROLL_EMPLOYEE_MOVES) {
     const to = findClient(clientsNow, mv.toMatch);
     if (!to) continue;
-    const matches = (await db.select().from(employees)).filter((e) => norm7(e.firstName) === norm7(mv.firstName) && norm7(e.lastName) === norm7(mv.lastName));
+    const matches = (await db.select().from(employees)).filter((e) => norm8(e.firstName) === norm8(mv.firstName) && norm8(e.lastName) === norm8(mv.lastName));
     for (const e of matches) {
       if (e.clientId === to.id) continue;
       const from = findClient(clientsNow, mv.fromMatch);
@@ -59090,7 +59203,7 @@ async function seedPayrollEmployees() {
     for (const link of PAYROLL_CONTRACT_LINKS) {
       const client = findClient(clientsNow, link.clientMatch);
       if (!client) continue;
-      const emp = all.find((e) => e.clientId === client.id && norm7(e.firstName) === norm7(link.firstName) && (!link.lastName || norm7(e.lastName) === norm7(link.lastName)));
+      const emp = all.find((e) => e.clientId === client.id && norm8(e.firstName) === norm8(link.firstName) && (!link.lastName || norm8(e.lastName) === norm8(link.lastName)));
       if (emp && !emp.contractUrl) {
         await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
         contracts++;
@@ -59101,7 +59214,7 @@ async function seedPayrollEmployees() {
     console.log(`[seed] payroll employees: +${result.added} -${result.removed} moved ${moved} salary-filled ${filled} contracts ${contracts}`);
   return { ...result, moved, filled, contracts };
 }
-var PAYROLL_EMPLOYEE_MOVES, norm7, findClient;
+var PAYROLL_EMPLOYEE_MOVES, norm8, findClient;
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
@@ -59112,8 +59225,8 @@ var init_seed_payroll_employees = __esm({
     PAYROLL_EMPLOYEE_MOVES = [
       { firstName: "Stacey", lastName: "Gillham", fromMatch: "2303851", toMatch: "originality", note: "Moved to Originality as of the 15th" }
     ];
-    norm7 = (s) => (s || "").toLowerCase().trim();
-    findClient = (all, match2) => all.find((c) => norm7(c.name).includes(norm7(match2)));
+    norm8 = (s) => (s || "").toLowerCase().trim();
+    findClient = (all, match2) => all.find((c) => norm8(c.name).includes(norm8(match2)));
   }
 });
 
@@ -61313,8 +61426,8 @@ async function seedGovRegistry() {
     return report;
   }
   for (const g of GOV) {
-    let c = g.bn ? all.find((x) => norm8(x.taxId) === norm8(g.bn)) : void 0;
-    if (!c && g.nameKey) c = all.find((x) => norm8(x.name).includes(norm8(g.nameKey)) || norm8(x.company).includes(norm8(g.nameKey)));
+    let c = g.bn ? all.find((x) => norm9(x.taxId) === norm9(g.bn)) : void 0;
+    if (!c && g.nameKey) c = all.find((x) => norm9(x.name).includes(norm9(g.nameKey)) || norm9(x.company).includes(norm9(g.nameKey)));
     if (!c) continue;
     report.matched++;
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
@@ -61333,7 +61446,7 @@ async function seedGovRegistry() {
   }
   return report;
 }
-var GOV, norm8;
+var GOV, norm9;
 var init_seed_gov_registry = __esm({
   "api/seed-gov-registry.ts"() {
     init_connection();
@@ -61375,7 +61488,7 @@ var init_seed_gov_registry = __esm({
       { bn: "809545346", industry: "Healthcare/Wellness", bio: "Healthcare business in the osteopathic / wellness field, providing therapeutic services and alternative health treatments." },
       { nameKey: "universal drywall", industry: "Construction/Drywall", bio: "Drywall and construction services company providing interior framing, drywall installation and exterior finishes. USA (Florida) entity." }
     ];
-    norm8 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm9 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   }
 });
 
@@ -68950,9 +69063,9 @@ var clientRouter = createRouter({
     const { keepId, dupeId } = input;
     if (keepId === dupeId) throw new Error("Pick two different clients to merge.");
     const db = getDb();
-    const keep = (await db.select().from(clients).where(eq(clients.id, keepId)).limit(1))[0];
+    const keep2 = (await db.select().from(clients).where(eq(clients.id, keepId)).limit(1))[0];
     const dupe = (await db.select().from(clients).where(eq(clients.id, dupeId)).limit(1))[0];
-    if (!keep || !dupe) throw new Error("One of those clients no longer exists.");
+    if (!keep2 || !dupe) throw new Error("One of those clients no longer exists.");
     const moved = {};
     const tbls = await db.run(sql`SELECT name FROM sqlite_master WHERE type='table'`);
     for (const row of tbls?.rows ?? tbls ?? []) {
@@ -68978,7 +69091,7 @@ var clientRouter = createRouter({
     const fill = {};
     for (const [k, v] of Object.entries(dupe)) {
       if (k === "id") continue;
-      const cur = keep[k];
+      const cur = keep2[k];
       const curEmpty = cur === null || cur === void 0 || cur === "";
       const dupHas = v !== null && v !== void 0 && v !== "";
       if (curEmpty && dupHas) fill[k] = v;
@@ -77208,17 +77321,17 @@ function parseOpeningBalances(text2) {
 
 // api/banked-hours-router.ts
 function matchEmployee(name2, emps) {
-  const norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
-  const target = norm9(name2);
+  const norm10 = (s) => (s || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
+  const target = norm10(name2);
   if (!target) return null;
   for (const e of emps) {
-    const full = norm9(`${e.firstName} ${e.lastName}`);
-    const rev = norm9(`${e.lastName} ${e.firstName}`);
+    const full = norm10(`${e.firstName} ${e.lastName}`);
+    const rev = norm10(`${e.lastName} ${e.firstName}`);
     if (target === full || target === rev) return e;
   }
   for (const e of emps) {
-    const ln = norm9(e.lastName);
-    const fi = norm9(e.firstName).charAt(0);
+    const ln = norm10(e.lastName);
+    const fi = norm10(e.firstName).charAt(0);
     if (ln && target.includes(ln) && (!fi || target.includes(fi))) return e;
   }
   return null;
@@ -77927,7 +78040,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.110";
+var BUILD_TAG = "2026-06-24.111";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -78157,6 +78270,15 @@ app.get("/api/payroll/drive-preview", async (c) => {
     });
   } catch (e) {
     return c.json({ client: clientId, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.get("/api/payroll/seed-collingwood", async (c) => {
+  try {
+    const { seedCollingwoodPayroll: seedCollingwoodPayroll2 } = await Promise.resolve().then(() => (init_seed_collingwood_payroll(), seed_collingwood_payroll_exports));
+    const r = await seedCollingwoodPayroll2();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
 app.get("/api/qbo/sync-now", async (c) => {
@@ -79375,6 +79497,13 @@ async function startServer() {
       console.log(`[reconcile] year-end ${r.yearEndRedated}, T4 ${r.t4Redated}, HST ${r.hstRedated} re-dated; Align autopay=${r.alignFlagged} (-${r.alignTasksRetired} tasks/-${r.alignRulesRetired} rules); Columbus prospect=${r.columbusProspect}; West York weekly=${r.westYorkWeekly}${r.notes.length ? " | " + r.notes.join("; ") : ""}`);
     } catch (e) {
       console.error("[reconcile] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { seedCollingwoodPayroll: seedCollingwoodPayroll2 } = await Promise.resolve().then(() => (init_seed_collingwood_payroll(), seed_collingwood_payroll_exports));
+      const r = await seedCollingwoodPayroll2();
+      if (r) console.log(`[seed-collingwood] created ${r.created}, filled ${r.filled}, banked ${r.banked}${r.skipped ? " | skipped: " + r.skipped : ""}`);
+    } catch (e) {
+      console.error("[seed-collingwood] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { linkDriveFolders: linkDriveFolders2 } = await Promise.resolve().then(() => (init_link_drive_folders(), link_drive_folders_exports));
