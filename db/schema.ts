@@ -1947,3 +1947,37 @@ export const rrShareLinks = sqliteTable("rr_share_links", {
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   revokedAt: integer("revokedAt", { mode: "timestamp" }),
 });
+
+// ========== BANKED HOURS (lieu / saved hours ledger) ==========
+// Per-employee banked-hours ledger — replaces the client's old Google-sheet
+// banked-hours tab with ONE shared ledger the client updates and the bookkeeper
+// views/updates, that syncs into payroll. Each row is a signed hours movement:
+// + when banked (opening/accrue), − when taken or paid out (redeem).
+export const bankedHourEntries = sqliteTable("banked_hour_entries", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  employeeId: integer("employeeId").notNull(),
+  entryDate: integer("entryDate", { mode: "timestamp" }).notNull(),
+  hours: real("hours").notNull(),            // signed: + banked, − taken/paid
+  kind: text("kind", { enum: ["opening", "accrue", "redeem", "adjust"] }).default("accrue").notNull(),
+  note: text("note"),
+  source: text("source").default("manual"),  // manual | client | payroll | import
+  payRunId: integer("payRunId"),             // set when a payout was tied to a pay run
+  enteredBy: text("enteredBy"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Read+write client share links for the banked-hours sheet (client updates;
+// bookkeeper views/updates in the CRM). Revocable by token.
+export const bankedHourShareLinks = sqliteTable("banked_hour_share_links", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  token: text("token").notNull(),
+  label: text("label"),
+  allowEdit: integer("allowEdit", { mode: "boolean" }).default(true).notNull(),
+  active: integer("active", { mode: "boolean" }).default(true).notNull(),
+  createdBy: integer("createdBy"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  revokedAt: integer("revokedAt", { mode: "timestamp" }),
+});

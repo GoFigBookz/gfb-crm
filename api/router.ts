@@ -58,6 +58,7 @@ import { personalRouter } from "./personal-router";
 import { learningRouter } from "./learning-router";
 import { chatRouter } from "./chat-router";
 import { revRecRouter } from "./revrec-router";
+import { bankedHoursRouter } from "./banked-hours-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
 
@@ -125,6 +126,7 @@ export const appRouter = createRouter({
   learning: learningRouter,
   chat: chatRouter,
   revRec: revRecRouter,
+  bankedHours: bankedHoursRouter,
 });
 
 export type AppRouter = typeof appRouter;

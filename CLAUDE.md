@@ -339,6 +339,32 @@ STATUS / deep-dive (2026-06-23):
   `src/pages/RevRecShare.tsx` at `/share/revrec/:token`. PHASE 2-3 DEFERRED (post draft
   JE to QBO via Make scenario) pending per-client inputs: the 3 QBO account IDs, the
   deposits-booked-to-revenue flag, fiscal year-end. Local end-to-end verified vs Clark OS.
+- **BANKED HOURS LEDGER (2026-06-24, live on main).** Per-employee banked/lieu
+  hours ledger that REPLACES the client's old Google-sheet banked-hours tab — ONE
+  shared ledger the client updates and Markie views/updates, synced into payroll.
+  Pure core `api/banked-hours-core.ts` (10 tests): signed movements (+banked
+  opening/accrue, −taken/paid redeem), `buildLedger` (running balance), `summarize`
+  (balance/totalBanked/totalTaken), `parseOpeningBalances` (paste old-sheet rows
+  "Last, First<tab>hours"), `validateMovement` (warns on negative). Tables
+  `banked_hour_entries` + `banked_hour_share_links`, scoped by clientId; guard
+  `api/ensure-banked-hours-schema.ts` in boot. tRPC `bankedHours.*`
+  (`api/banked-hours-router.ts`): ledger (per emp), board (per client), add/update/
+  delete entry, importOpening (name-matched seed from old sheet), share create/
+  revoke, publicView + publicAdd (token, read+write). Helper `recordBankedPayout`
+  (redeem tied to payRunId) for deeper pay-run sync later. UI: BankedHoursEmployee
+  panel on the employee card + BankedHoursBoard on the Payroll page (selected
+  client) + branded read+write client page `src/pages/BankedHoursShare.tsx` at
+  `/share/banked/:token`. To seed a client: open their Payroll page → Banked hours
+  → Import old sheet (paste). Local end-to-end verified (Clark OS, balance math).
+- **EMPLOYEE CARD = ONE SHARED EDITOR (2026-06-24).** `src/components/EmployeeCardDialog.tsx`
+  (extracted from Payroll) now powers BOTH the pay-run view and the Employee
+  Management page. Root-caused "cards not editable": employees table was missing
+  newer columns (only ytd* had a guard) so every Save threw. Fixed with
+  `api/ensure-employee-schema.ts` (full column guard) + create/update patch
+  filtered to existing columns (`keepEmployeeColumns`) so a Save can't fail on
+  drift. Phone-allowance/reimbursement columns auto-show on a pay run when any
+  employee has one (was gated on the client feature flag — the "missed" Collingwood
+  phone allowance); seeded onto lines gated by the per-employee toggle.
 - Dev branch this session: `claude/figgy-junior-handoff-yiejeq`.
 - **NAMED AGENT ROSTER WIRED (2026-06-23):** the team is seeded + shown by name —
   Fig (junior bookkeeper), Sage (senior bookkeeper: reviews Fig + preps HST/WSIB/

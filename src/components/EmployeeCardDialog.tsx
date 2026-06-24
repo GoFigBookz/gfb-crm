@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { trpc } from "@/providers/trpc";
+import { BankedHoursEmployee } from "@/components/BankedHoursPanel";
 
 /**
  * Shared, fully-editable employee card — used by the Payroll pay-run view AND the
@@ -183,6 +184,10 @@ export function EmployeeCardDialog({ employee, onClose, onSave, pending, payFreq
               </div>
             )}
           </div>
+          {/* Banked hours ledger (per employee) — only once the employee exists. */}
+          {!isNew && employee.id && employee.clientId && (
+            <BankedHoursEmployee clientId={employee.clientId} employeeId={employee.id} />
+          )}
           {/* YTD carry-forward from QuickBooks Payroll. */}
           <div className="rounded-md border bg-slate-50 px-2 py-2 space-y-2">
             <Label className="text-xs uppercase tracking-wide text-slate-500">YTD carry-forward (from QuickBooks Payroll)</Label>
