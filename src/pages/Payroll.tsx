@@ -9,11 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { trpc } from "@/providers/trpc";
 import { format } from "date-fns";
 import { TAX_2026 } from "../../api/payroll-tax-core";
 import { nextPayPeriod, normalizeFrequency } from "../../api/payroll-core";
-import { AlertTriangle, CheckCircle2, Lock } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Lock, StickyNote } from "lucide-react";
 import { EmployeeCardDialog } from "@/components/EmployeeCardDialog";
 import { BankedHoursBoard } from "@/components/BankedHoursPanel";
 
@@ -740,7 +741,6 @@ function LineRow({ line, cols, showTax, onSave, onEstimate, onRemove, onEditEmpl
     phoneAllowance: line.phoneAllowance ?? 0, reimbursement: line.reimbursement ?? 0,
   });
   const [noteV, setNoteV] = useState<string>(line.notes ?? "");
-  const [editNote, setEditNote] = useState(false);
   const num = (s: string) => { const n = parseFloat(s); return isNaN(n) ? 0 : n; };
   const rate = line.hourlyRate ?? null;
   const has = (k: string) => cols.some((c) => c.key === k);
@@ -767,17 +767,31 @@ function LineRow({ line, cols, showTax, onSave, onEstimate, onRemove, onEditEmpl
         <div className="flex items-center gap-1.5">
           <button className="hover:text-lime-700 hover:underline text-left" title="Edit employee card" onClick={onEditEmployee}>{line.employeeName}</button>
           {line.payType === "salary" ? <span className="text-[10px] text-slate-400">salary</span> : null}
-          {/* Note collapses to a tiny toggle so it doesn't look like a blank entry box. */}
-          {(noteV || editNote) ? null : (
-            <button className="text-[10px] text-slate-300 hover:text-slate-500" title="Add a note" onClick={() => setEditNote(true)}>＋note</button>
-          )}
+          {/* Small clickable note/flag BY THE NAME (not a box under it). Amber warning
+              when there's a note (e.g. a possible missed clock-out); click to drill in. */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                title={noteV ? "Hours flag / note — click for detail" : "Add a note"}
+                className={noteV ? "text-amber-500 hover:text-amber-600" : "text-slate-300 hover:text-slate-500"}>
+                {noteV ? <AlertTriangle className="h-3.5 w-3.5" /> : <StickyNote className="h-3.5 w-3.5" />}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-72 space-y-2">
+              <div className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Hours note — {line.employeeName}
+              </div>
+              <textarea value={noteV} rows={3}
+                onChange={(e) => setNoteV(e.target.value)}
+                placeholder="e.g. possible missed clock-out — confirm hours before running"
+                className="w-full text-xs border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-lime-400" />
+              <div className="flex justify-end gap-1">
+                {noteV ? <Button size="sm" variant="ghost" className="h-7 text-xs text-rose-500" onClick={() => { setNoteV(""); onSave({ notes: "" }); }}>Clear</Button> : null}
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { if (noteV !== (line.notes ?? "")) onSave({ notes: noteV }); }}>Save note</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
-        {(noteV || editNote) && (
-          <Input value={noteV} placeholder="note…" autoFocus={editNote && !noteV}
-            onChange={(e) => setNoteV(e.target.value)}
-            onBlur={() => { setEditNote(false); if (noteV !== (line.notes ?? "")) onSave({ notes: noteV }); }}
-            className={`mt-1 h-6 w-44 text-[11px] px-1 ${noteV ? "border-amber-300 bg-amber-50 text-amber-800" : "text-slate-500"}`} />
-        )}
       </td>
       <td className="px-2 text-right text-xs text-slate-500 whitespace-nowrap">{rate != null ? `$${rate}` : line.payType === "salary" ? "salary" : "—"}</td>
       {cols.map((c) => <td key={c.key} className="px-2">{cell(c.key as keyof typeof v)}</td>)}

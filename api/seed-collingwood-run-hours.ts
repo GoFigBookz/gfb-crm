@@ -41,13 +41,8 @@ const HOURS: Record<string, number> = {
   [key("Lisa", "Venditti")]: 93.8,
   [key("Alan", "Weaver")]: 56.0,
 };
-// Confirmed $23.08/pay phone allowance (everyone else = none). Matches Markie's run.
-const PHONE_ENTITLED = new Set([
-  key("Chris", "Hawton"), key("Brendan", "Essex"), key("Logan", "Greig"),
-  key("Chris", "Haight"), key("Corey", "Hawton"), key("Justin", "Koutsomichos"),
-  key("Aidan", "MacDonald"), key("Adrian", "Robbeson"), key("Chris", "Thompson"),
-  key("Lisa", "Venditti"), key("Alan", "Weaver"),
-]);
+// Phone allowance (Markie 2026-06-24): EVERYONE gets $23.08/pay EXCEPT these two.
+const PHONE_EXEMPT_LAST = ["companion", "lally"]; // Matteo Companion + Dave Lally only
 // Biweekly (26 pays/yr) for the salaried gross estimate.
 const PERIODS_PER_YEAR = 26;
 
@@ -90,7 +85,7 @@ export async function seedCollingwoodRunHours(): Promise<{ run: number | null; f
       }
 
       // Phone allowance — set to the confirmed value (fixes missing/wrong ones).
-      const entitled = PHONE_ENTITLED.has(k);
+      const entitled = !PHONE_EXEMPT_LAST.includes(norm(e.lastName));
       const targetPhone = entitled ? PHONE : 0;
       if ((l.phoneAllowance ?? 0) !== targetPhone) { patch.phoneAllowance = targetPhone; phoneSet++; }
 

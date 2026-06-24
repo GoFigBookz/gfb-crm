@@ -43114,7 +43114,7 @@ async function applyCollingwoodPhoneAllowances() {
     const emps = await db.select().from(employees).where(eq(employees.clientId, CLIENT_ID));
     let on = 0, off = 0;
     for (const e of emps) {
-      const entitled = PHONE_ENTITLED.some(([f, l]) => norm6(f) === norm6(e.firstName) && norm6(l) === norm6(e.lastName));
+      const entitled = !PHONE_EXEMPT_LAST.includes(norm6(e.lastName));
       if (entitled) {
         if (e.getsPhoneAllowance !== true || e.phoneAllowance !== PHONE_ALLOWANCE) {
           await db.update(employees).set(await keep({ getsPhoneAllowance: true, phoneAllowance: PHONE_ALLOWANCE, updatedAt: /* @__PURE__ */ new Date() })).where(eq(employees.id, e.id));
@@ -43131,7 +43131,7 @@ async function applyCollingwoodPhoneAllowances() {
     console.error("[collingwood-phone] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID, ROSTER, norm6, PHONE_ALLOWANCE, PHONE_ENTITLED;
+var CLIENT_ID, ROSTER, norm6, PHONE_ALLOWANCE, PHONE_EXEMPT_LAST;
 var init_seed_collingwood_payroll = __esm({
   "api/seed-collingwood-payroll.ts"() {
     init_connection();
@@ -43144,13 +43144,13 @@ var init_seed_collingwood_payroll = __esm({
       { first: "Chris", last: "Hawton", payType: "salary", annualSalary: 6e4, phone: 23.08 },
       { first: "Brendan", last: "Essex", payType: "salary", annualSalary: 8e4, phone: 23.08 },
       { first: "Matteo", last: "Companion", payType: "hourly", hourlyRate: 18 },
-      { first: "Logan", last: "Greig", payType: "hourly", hourlyRate: 24 },
+      { first: "Logan", last: "Greig", payType: "hourly", hourlyRate: 24, phone: 23.08 },
       { first: "Chris", last: "Haight", payType: "hourly", hourlyRate: 27, phone: 23.08 },
       { first: "Corey", last: "Hawton", payType: "hourly", hourlyRate: 26.5, phone: 23.08 },
       { first: "Justin", last: "Koutsomichos", payType: "hourly", hourlyRate: 23, phone: 23.08 },
       { first: "Dave", last: "Lally", payType: "hourly", hourlyRate: 24 },
       { first: "Aidan", last: "MacDonald", payType: "hourly", hourlyRate: 21, phone: 23.08 },
-      { first: "Justin", last: "Pool", payType: "hourly", hourlyRate: 22 },
+      { first: "Justin", last: "Pool", payType: "hourly", hourlyRate: 22, phone: 23.08 },
       { first: "Adrian", last: "Robbeson", payType: "hourly", hourlyRate: 24, phone: 23.08 },
       { first: "Chris", last: "Thompson", payType: "hourly", hourlyRate: 24, phone: 23.08 },
       { first: "Lisa", last: "Venditti", payType: "hourly", hourlyRate: 25, phone: 23.08 },
@@ -43158,21 +43158,7 @@ var init_seed_collingwood_payroll = __esm({
     ];
     norm6 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     PHONE_ALLOWANCE = 23.08;
-    PHONE_ENTITLED = [
-      ["Chris", "Hawton"],
-      // salary
-      ["Brendan", "Essex"],
-      ["Corey", "Hawton"],
-      ["Chris", "Haight"],
-      ["Justin", "Koutsomichos"],
-      ["Aidan", "MacDonald"],
-      ["Adrian", "Robbeson"],
-      ["Chris", "Thompson"],
-      ["Lisa", "Venditti"],
-      ["Alan", "Weaver"],
-      ["Logan", "Greig"]
-      // confirmed from Markie's live run data (2026-06-24)
-    ];
+    PHONE_EXEMPT_LAST = ["companion", "lally"];
   }
 });
 
@@ -58059,7 +58045,7 @@ async function seedCollingwoodRunHours() {
         const g = round27(reg * rate);
         if (g !== (l.grossPay ?? 0)) patch.grossPay = g;
       }
-      const entitled = PHONE_ENTITLED2.has(k);
+      const entitled = !PHONE_EXEMPT_LAST2.includes(norm8(e.lastName));
       const targetPhone = entitled ? PHONE : 0;
       if ((l.phoneAllowance ?? 0) !== targetPhone) {
         patch.phoneAllowance = targetPhone;
@@ -58079,7 +58065,7 @@ async function seedCollingwoodRunHours() {
     console.error("[seed-collingwood-run] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID2, PHONE, round27, norm8, key, HOURS, PHONE_ENTITLED2, PERIODS_PER_YEAR;
+var CLIENT_ID2, PHONE, round27, norm8, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
 var init_seed_collingwood_run_hours = __esm({
   "api/seed-collingwood-run-hours.ts"() {
     init_connection();
@@ -58104,19 +58090,7 @@ var init_seed_collingwood_run_hours = __esm({
       [key("Lisa", "Venditti")]: 93.8,
       [key("Alan", "Weaver")]: 56
     };
-    PHONE_ENTITLED2 = /* @__PURE__ */ new Set([
-      key("Chris", "Hawton"),
-      key("Brendan", "Essex"),
-      key("Logan", "Greig"),
-      key("Chris", "Haight"),
-      key("Corey", "Hawton"),
-      key("Justin", "Koutsomichos"),
-      key("Aidan", "MacDonald"),
-      key("Adrian", "Robbeson"),
-      key("Chris", "Thompson"),
-      key("Lisa", "Venditti"),
-      key("Alan", "Weaver")
-    ]);
+    PHONE_EXEMPT_LAST2 = ["companion", "lally"];
     PERIODS_PER_YEAR = 26;
   }
 });

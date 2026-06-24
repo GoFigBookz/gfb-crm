@@ -46,13 +46,13 @@ const ROSTER: SeedEmp[] = [
   { first: "Chris", last: "Hawton", payType: "salary", annualSalary: 60000, phone: 23.08 },
   { first: "Brendan", last: "Essex", payType: "salary", annualSalary: 80000, phone: 23.08 },
   { first: "Matteo", last: "Companion", payType: "hourly", hourlyRate: 18.0 },
-  { first: "Logan", last: "Greig", payType: "hourly", hourlyRate: 24.0 },
+  { first: "Logan", last: "Greig", payType: "hourly", hourlyRate: 24.0, phone: 23.08 },
   { first: "Chris", last: "Haight", payType: "hourly", hourlyRate: 27.0, phone: 23.08 },
   { first: "Corey", last: "Hawton", payType: "hourly", hourlyRate: 26.5, phone: 23.08 },
   { first: "Justin", last: "Koutsomichos", payType: "hourly", hourlyRate: 23.0, phone: 23.08 },
   { first: "Dave", last: "Lally", payType: "hourly", hourlyRate: 24.0 },
   { first: "Aidan", last: "MacDonald", payType: "hourly", hourlyRate: 21.0, phone: 23.08 },
-  { first: "Justin", last: "Pool", payType: "hourly", hourlyRate: 22.0 },
+  { first: "Justin", last: "Pool", payType: "hourly", hourlyRate: 22.0, phone: 23.08 },
   { first: "Adrian", last: "Robbeson", payType: "hourly", hourlyRate: 24.0, phone: 23.08 },
   { first: "Chris", last: "Thompson", payType: "hourly", hourlyRate: 24.0, phone: 23.08 },
   { first: "Lisa", last: "Venditti", payType: "hourly", hourlyRate: 25.0, phone: 23.08 },
@@ -135,24 +135,11 @@ export async function seedCollingwoodPayroll(): Promise<{ created: number; fille
   }
 }
 
-// Authoritative phone-allowance list confirmed by Markie (2026-06-24): these
-// Collingwood staff get a $23.08/pay phone allowance; everyone else does NOT.
-// Unlike the fill-only seed above, this SETS the value to match Markie's
-// instruction exactly (entitled → on $23.08; others → off).
+// Phone allowance rule confirmed by Markie (2026-06-24): EVERY Collingwood
+// employee gets a $23.08/pay phone allowance EXCEPT these two. This SETS the
+// value on the employee card to match exactly (entitled → on $23.08; exempt → off).
 const PHONE_ALLOWANCE = 23.08;
-const PHONE_ENTITLED: [string, string][] = [
-  ["Chris", "Hawton"],      // salary
-  ["Brendan", "Essex"],
-  ["Corey", "Hawton"],
-  ["Chris", "Haight"],
-  ["Justin", "Koutsomichos"],
-  ["Aidan", "MacDonald"],
-  ["Adrian", "Robbeson"],
-  ["Chris", "Thompson"],
-  ["Lisa", "Venditti"],
-  ["Alan", "Weaver"],
-  ["Logan", "Greig"],       // confirmed from Markie's live run data (2026-06-24)
-];
+const PHONE_EXEMPT_LAST = ["companion", "lally"]; // Matteo Companion + Dave Lally only
 
 export async function applyCollingwoodPhoneAllowances(): Promise<{ on: number; off: number; skipped: string } | void> {
   const db = getDb();
@@ -162,7 +149,7 @@ export async function applyCollingwoodPhoneAllowances(): Promise<{ on: number; o
     const emps = (await db.select().from(employees).where(eq(employees.clientId, CLIENT_ID))) as any[];
     let on = 0, off = 0;
     for (const e of emps) {
-      const entitled = PHONE_ENTITLED.some(([f, l]) => norm(f) === norm(e.firstName) && norm(l) === norm(e.lastName));
+      const entitled = !PHONE_EXEMPT_LAST.includes(norm(e.lastName));
       if (entitled) {
         if (e.getsPhoneAllowance !== true || e.phoneAllowance !== PHONE_ALLOWANCE) {
           await db.update(employees).set(await keep({ getsPhoneAllowance: true, phoneAllowance: PHONE_ALLOWANCE, updatedAt: new Date() })).where(eq(employees.id, e.id));
