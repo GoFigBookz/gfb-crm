@@ -373,7 +373,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   // CRM payroll is a TIMESHEET feeding QBO Payroll — so CPP/EI/tax/net columns only
   // appear for the Originality revenue-share tax-comparison (payrollCraComparison).
   const showTax = !!features?.payrollCraComparison;
-  const prefsKey = `payroll-cols-${features?.id ?? "x"}`;
+  const prefsKey = `payroll-cols-v2-${features?.id ?? "x"}`;
   const [colPrefs, setColPrefs] = useState<Record<string, boolean>>(() => {
     try { return JSON.parse(localStorage.getItem(prefsKey) || "{}"); } catch { return {}; }
   });
@@ -408,11 +408,9 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   const anyReimb = (data?.lines ?? []).some((l: any) => (l.reimbursement ?? 0) > 0) || (clientEmps ?? []).some((e: any) => e.getsReimbursement || (e.reimbursementAmount ?? 0) > 0);
   const cPhone = colPrefs.phone ?? (featureDefaults.phone || anyPhone);
   const cReimb = colPrefs.reimb ?? (featureDefaults.reimb || anyReimb);
-  const cOt = colPrefs.ot ?? true; // OT shown by default; hideable for clients that never have it
+  const cOt = colPrefs.ot ?? false; // OT off by default; add it from the chip when needed
   // Total rendered columns (for the footer spans): Employee, Rate, Reg, [OT],
   // [stat],[vac],[sick],[bonus], Gross, [tax×4], [phone],[reimb], action.
-  const totalCols = 3 + (cOt ? 1 : 0) + (showStat ? 1 : 0) + (cVac ? 1 : 0) + (cSick ? 1 : 0) + (cBonus ? 1 : 0)
-    + 1 + (showTax ? 4 : 0) + (cPhone ? 1 : 0) + (cReimb ? 1 : 0) + 1;
   const { data: jobber } = trpc.payroll.jobberStatus.useQuery({ clientId: data?.run.clientId ?? 0 }, { enabled: !!data?.run.clientId });
   const importJobber = trpc.payroll.importJobberHours.useMutation({
     onSuccess: (r: any) => {
@@ -498,15 +496,28 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   const inRun = new Set(lines.map((l: any) => l.employeeId));
   const availableEmps = (clientEmps || []).filter((e: any) => !inRun.has(e.id));
 
-  // Column totals for the footer — each aligned under its own column (no fragile
-  // colspan spacers), plus a grand total of all PAID hours for the run.
+  // ONE source of truth for the numeric columns, in display order. Header, every
+  // body row, and the totals row all iterate THIS list — so they can never drift
+  // out of alignment again. Gross sits at the far right (after phone/reimburse) in
+  // the timesheet view; for the tax-comparison view it leads the CPP/EI/Tax/Net
+  // group. money:true → formatted as $ in the totals row; false → hours.
   const sumCol = (k: string) => (lines as any[]).reduce((a, l) => a + (Number(l[k]) || 0), 0);
-  const tReg = sumCol("regularHours"), tOt = sumCol("overtimeHours"), tStat = sumCol("statHolidayHours");
-  const tVac = sumCol("vacationHours"), tSick = sumCol("sickHours"), tBonus = sumCol("shareBonus");
-  const tPhone = sumCol("phoneAllowance"), tReimb = sumCol("reimbursement");
-  const tHours = tReg + (cOt ? tOt : 0) + (showStat ? tStat : 0) + (cVac ? tVac : 0) + (cSick ? tSick : 0);
-  // Clickable column chips so the optional pay types (vacation, stat, sick…) are
-  // OFF by default and added with one obvious click — not buried in a menu.
+  const col = (key: string, label: string, show: boolean, money: boolean, title?: string) => ({ key, label, show, money, title, total: sumCol(key) });
+  const hourCols = [
+    col("regularHours", "Reg hrs", true, false),
+    col("overtimeHours", "OT", cOt, false),
+    col("statHolidayHours", "Stat 1.5×", showStat, false, "Hours worked on a stat holiday — paid at 1.5×"),
+    col("vacationHours", "Vac hrs", cVac, false),
+    col("sickHours", "Sick hrs", cSick, false),
+    col("shareBonus", "Share bonus", cBonus, true),
+  ];
+  const tailCols = showTax
+    ? [col("grossPay", "Gross", true, true), col("cppEmployee", "CPP", true, true), col("eiEmployee", "EI", true, true), col("federalTax", "Tax", true, true), col("netPay", "Net", true, true), col("phoneAllowance", "Phone", cPhone, true), col("reimbursement", "Reimb", cReimb, true)]
+    : [col("phoneAllowance", "Phone", cPhone, true), col("reimbursement", "Reimburse", cReimb, true), col("grossPay", "Gross", true, true)];
+  const numCols = [...hourCols, ...tailCols].filter((c) => c.show);
+  const tHours = hourCols.filter((c) => c.show).reduce((a, c) => a + c.total, 0);
+  // Clickable chips so the optional pay types are OFF by default and added with one
+  // obvious click — not buried in a menu.
   const colChip = (label: string, on: boolean, toggle: () => void) => (
     <button type="button" onClick={toggle}
       className={`px-2 py-0.5 rounded-full border text-[11px] transition-colors ${on ? "bg-lime-100 border-lime-300 text-lime-800" : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"}`}>
@@ -587,30 +598,20 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
               {colChip("Phone", cPhone, () => setCol("phone", !cPhone))}
               {colChip("Reimburse", cReimb, () => setCol("reimb", !cReimb))}
             </div>
-            <table className="w-full text-sm">
+            <table className="text-sm border-collapse">
               <thead>
                 <tr className="text-xs text-slate-500 border-b">
-                  <th className="text-left py-1.5 pr-2">Employee</th>
-                  <th className="text-right px-1">Rate</th>
-                  <th className="text-right px-1">Reg hrs</th>
-                  {cOt && <th className="text-right px-1">OT</th>}
-                  {showStat && <th className="text-right px-1" title="Hours worked on a stat holiday — paid at 1.5×">Stat 1.5×</th>}
-                  {cVac && <th className="text-right px-1">Vac hrs</th>}
-                  {cSick && <th className="text-right px-1">Sick hrs</th>}
-                  {cBonus && <th className="text-right px-1">Share bonus</th>}
-                  <th className="text-right px-1">Gross</th>
-                  {showTax && <th className="text-right px-1">CPP</th>}
-                  {showTax && <th className="text-right px-1">EI</th>}
-                  {showTax && <th className="text-right px-1">Tax</th>}
-                  {showTax && <th className="text-right px-1">Net</th>}
-                  {cPhone && <th className="text-right px-1">Phone</th>}
-                  {cReimb && <th className="text-right px-1">Reimb</th>}
+                  <th className="text-left py-1.5 pr-3">Employee</th>
+                  <th className="text-right px-2">Rate</th>
+                  {numCols.map((c) => (
+                    <th key={c.key} className="text-right px-2" title={c.title}>{c.label}</th>
+                  ))}
                   <th className="px-1"></th>
                 </tr>
               </thead>
               <tbody>
                 {sortedLines.map((l: any) => (
-                  <LineRow key={l.id} line={l} showOt={cOt} showBonus={cBonus} showVac={cVac} showSick={cSick} showPhone={cPhone} showReimb={cReimb} showTax={showTax} showStat={showStat}
+                  <LineRow key={l.id} line={l} cols={numCols} showTax={showTax}
                     onSave={(patch) => updateLine.mutate({ id: l.id, ...patch })}
                     onEstimate={() => estimateLine.mutate({ id: l.id })}
                     onEditEmployee={() => { const emp = (clientEmps || []).find((e: any) => e.id === l.employeeId); if (emp) onEditEmployee(emp); }}
@@ -619,29 +620,21 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-slate-300 font-semibold bg-slate-50">
-                  <td className="py-1.5 pr-2">
+                  <td className="py-1.5 pr-3">
                     Totals
                     <span className="block text-[11px] font-normal text-slate-500">{tHours.toFixed(2)} total hrs</span>
                   </td>
-                  <td className="text-right px-1 text-slate-300">—</td>
-                  <td className="text-right px-1">{tReg.toFixed(2)}</td>
-                  {cOt && <td className="text-right px-1">{tOt.toFixed(2)}</td>}
-                  {showStat && <td className="text-right px-1">{tStat.toFixed(2)}</td>}
-                  {cVac && <td className="text-right px-1">{tVac.toFixed(2)}</td>}
-                  {cSick && <td className="text-right px-1">{tSick.toFixed(2)}</td>}
-                  {cBonus && <td className="text-right px-1">{money(tBonus)}</td>}
-                  <td className="text-right px-1 text-lime-700">{money(run.totalGross)}</td>
-                  {showTax && <td className="text-right px-1 text-slate-500" title="Total employee deductions (CPP·EI·tax)">{money(run.totalEmployeeDeductions)}</td>}
-                  {showTax && <td className="px-1"></td>}
-                  {showTax && <td className="px-1"></td>}
-                  {showTax && <td className="text-right px-1">{money(run.totalNet)}</td>}
-                  {cPhone && <td className="text-right px-1">{money(tPhone)}</td>}
-                  {cReimb && <td className="text-right px-1">{money(tReimb)}</td>}
+                  <td className="text-right px-2 text-slate-300">—</td>
+                  {numCols.map((c) => (
+                    <td key={c.key} className={`text-right px-2 ${c.key === "grossPay" ? "text-lime-700" : ""}`}>
+                      {c.money ? money(c.total) : c.total.toFixed(2)}
+                    </td>
+                  ))}
                   <td className="px-1"></td>
                 </tr>
                 {showTax && (
                   <tr className="text-xs text-slate-500">
-                    <td className="pt-1" colSpan={totalCols}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))} · Net total includes phone/reimbursement add-ons.</td>
+                    <td className="pt-1" colSpan={numCols.length + 3}>Employer cost (CPP 1× + EI 1.4×): {money(run.totalEmployerCost)} · CRA remittance ≈ {money((run.totalEmployeeDeductions || 0) + (run.totalEmployerCost || 0))} · Net total includes phone/reimbursement add-ons.</td>
                   </tr>
                 )}
               </tfoot>
@@ -710,7 +703,9 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   );
 }
 
-function LineRow({ line, showOt, showBonus, showVac, showSick, showPhone, showReimb, showTax, showStat, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; showOt?: boolean; showBonus?: boolean; showVac?: boolean; showSick?: boolean; showPhone?: boolean; showReimb?: boolean; showTax?: boolean; showStat?: boolean; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
+type NumCol = { key: string; label: string; show: boolean; money: boolean; title?: string; total: number };
+
+function LineRow({ line, cols, showTax, onSave, onEstimate, onRemove, onEditEmployee }: { line: any; cols: NumCol[]; showTax?: boolean; onSave: (patch: any) => void; onEstimate: () => void; onRemove: () => void; onEditEmployee: () => void }) {
   const [v, setV] = useState({
     regularHours: line.regularHours ?? 0, overtimeHours: line.overtimeHours ?? 0,
     statHolidayHours: line.statHolidayHours ?? 0, vacationHours: line.vacationHours ?? 0, sickHours: line.sickHours ?? 0,
@@ -720,19 +715,19 @@ function LineRow({ line, showOt, showBonus, showVac, showSick, showPhone, showRe
     phoneAllowance: line.phoneAllowance ?? 0, reimbursement: line.reimbursement ?? 0,
   });
   const [noteV, setNoteV] = useState<string>(line.notes ?? "");
+  const [editNote, setEditNote] = useState(false);
   const num = (s: string) => { const n = parseFloat(s); return isNaN(n) ? 0 : n; };
   const rate = line.hourlyRate ?? null;
+  const has = (k: string) => cols.some((c) => c.key === k);
   // Sum hour types into gross: (reg + vac + sick)×rate + (OT + stat-worked)×1.5×rate
-  // + share bonus. Stat-holiday hours WORKED are premium pay (time-and-a-half).
-  // (Rough total for the timesheet — QBO Payroll does the authoritative pay calc.)
+  // + share bonus. Only counts the hour types whose column is currently shown.
   const sumGross = () => {
     const r = rate || 0;
-    // Only count hour types whose column is shown (we don't pay sick by default).
-    const vac = showVac ? v.vacationHours : 0;
-    const sick = showSick ? v.sickHours : 0;
-    const bonus = showBonus ? v.shareBonus : 0;
-    const stat = showStat ? v.statHolidayHours : 0;
-    const ot = showOt ? v.overtimeHours : 0;
+    const vac = has("vacationHours") ? v.vacationHours : 0;
+    const sick = has("sickHours") ? v.sickHours : 0;
+    const bonus = has("shareBonus") ? v.shareBonus : 0;
+    const stat = has("statHolidayHours") ? v.statHolidayHours : 0;
+    const ot = has("overtimeHours") ? v.overtimeHours : 0;
     const g = Math.round((((v.regularHours + vac + sick) * r) + ((ot + stat) * r * 1.5) + bonus) * 100) / 100;
     setV({ ...v, grossPay: g }); onSave({ grossPay: g });
   };
@@ -742,34 +737,25 @@ function LineRow({ line, showOt, showBonus, showVac, showSick, showPhone, showRe
       className="h-7 w-20 text-right text-xs px-1" />
   );
   return (
-    <tr className="border-b last:border-0">
-      <td className="py-1 pr-2 font-medium align-top">
-        <div className="flex items-center gap-1">
+    <tr className="border-b last:border-0 align-middle">
+      <td className="py-1 pr-3 font-medium whitespace-nowrap">
+        <div className="flex items-center gap-1.5">
           <button className="hover:text-lime-700 hover:underline text-left" title="Edit employee card" onClick={onEditEmployee}>{line.employeeName}</button>
-          {line.payType ? <span className="text-[10px] text-slate-400">{line.payType}</span> : null}
-          {noteV ? <span className="text-amber-600" title="Has a note">📝</span> : null}
+          {line.payType === "salary" ? <span className="text-[10px] text-slate-400">salary</span> : null}
+          {/* Note collapses to a tiny toggle so it doesn't look like a blank entry box. */}
+          {(noteV || editNote) ? null : (
+            <button className="text-[10px] text-slate-300 hover:text-slate-500" title="Add a note" onClick={() => setEditNote(true)}>＋note</button>
+          )}
         </div>
-        {/* Readable, editable note/comment per employee (replaces the tiny ⚠ that
-            wasn't legible). Pre-fills with any auto-flag like a long single shift. */}
-        <Input value={noteV} placeholder="add a note…"
-          onChange={(e) => setNoteV(e.target.value)}
-          onBlur={() => { if (noteV !== (line.notes ?? "")) onSave({ notes: noteV }); }}
-          className={`mt-1 h-6 w-44 text-[11px] px-1 ${noteV ? "border-amber-300 bg-amber-50 text-amber-800" : "text-slate-500"}`} />
+        {(noteV || editNote) && (
+          <Input value={noteV} placeholder="note…" autoFocus={editNote && !noteV}
+            onChange={(e) => setNoteV(e.target.value)}
+            onBlur={() => { setEditNote(false); if (noteV !== (line.notes ?? "")) onSave({ notes: noteV }); }}
+            className={`mt-1 h-6 w-44 text-[11px] px-1 ${noteV ? "border-amber-300 bg-amber-50 text-amber-800" : "text-slate-500"}`} />
+        )}
       </td>
-      <td className="px-1 text-right text-xs text-slate-500">{rate != null ? `$${rate}` : "—"}</td>
-      <td className="px-1">{cell("regularHours")}</td>
-      {showOt && <td className="px-1">{cell("overtimeHours")}</td>}
-      {showStat && <td className="px-1">{cell("statHolidayHours")}</td>}
-      {showVac && <td className="px-1">{cell("vacationHours")}</td>}
-      {showSick && <td className="px-1">{cell("sickHours")}</td>}
-      {showBonus && <td className="px-1">{cell("shareBonus")}</td>}
-      <td className="px-1">{cell("grossPay")}</td>
-      {showTax && <td className="px-1">{cell("cppEmployee")}</td>}
-      {showTax && <td className="px-1">{cell("eiEmployee")}</td>}
-      {showTax && <td className="px-1">{cell("federalTax")}</td>}
-      {showTax && <td className="px-1">{cell("netPay")}</td>}
-      {showPhone && <td className="px-1">{cell("phoneAllowance")}</td>}
-      {showReimb && <td className="px-1">{cell("reimbursement")}</td>}
+      <td className="px-2 text-right text-xs text-slate-500 whitespace-nowrap">{rate != null ? `$${rate}` : line.payType === "salary" ? "salary" : "—"}</td>
+      {cols.map((c) => <td key={c.key} className="px-2">{cell(c.key as keyof typeof v)}</td>)}
       <td className="px-1 whitespace-nowrap">
         <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" title="Sum hours×rate + OT + stat + bonus into gross" onClick={sumGross}>∑</Button>
         {showTax && <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" title="Estimate deductions from gross (comparison check)" onClick={onEstimate}><Calculator className="h-3.5 w-3.5" /></Button>}

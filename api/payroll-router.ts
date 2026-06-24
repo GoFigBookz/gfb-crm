@@ -183,22 +183,35 @@ export async function applyImportedHours(
   const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
   const norm = (s: string) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
   const byAlias = new Map<string, any>(), byFull = new Map<string, any>(), byFirst = new Map<string, any>();
+  const byLast = new Map<string, any>(); // unique last name → employee (handles Matt↔Matteo nicknames)
   for (const e of emps as any[]) {
     if (e.jobberName) byAlias.set(norm(e.jobberName), e);
     byFull.set(norm(`${e.firstName} ${e.lastName}`), e);
     byFull.set(norm(`${e.lastName}, ${e.firstName}`), e); // restaurant sheets use "Last, First"
     if (!byFirst.has(norm(e.firstName))) byFirst.set(norm(e.firstName), e);
+    const ln = norm(e.lastName);
+    if (ln) byLast.set(ln, byLast.has(ln) ? "AMBIG" : e); // collide → ambiguous, don't guess
   }
-  const matchEmp = (label: string) => {
-    const n = norm(label);
-    return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm(n.split(/[ ,]/)[0])) || null;
-  };
   // Parse a timesheet label into first/last ("Last, First" or "First Last").
   const parseName = (label: string): { first: string; last: string } => {
     const s = (label || "").trim();
     if (!s) return { first: "", last: "" };
     if (s.includes(",")) { const [l, f] = s.split(","); return { first: (f || "").trim(), last: (l || "").trim() }; }
     const t = s.split(/\s+/); return { first: t[0] || "", last: t.slice(1).join(" ") };
+  };
+  const matchEmp = (label: string) => {
+    const n = norm(label);
+    let m = byAlias.get(n) || byFull.get(n);
+    if (m) return m;
+    const { first, last } = parseName(label);
+    // Try both name orders (Jobber exports "First Last"; CRM/QBO store "Last, First").
+    m = byFull.get(norm(`${first} ${last}`)) || byFull.get(norm(`${last}, ${first}`));
+    if (m) return m;
+    // Unique last name — catches nicknames (Matt → Matteo Companion) without guessing
+    // when two employees share a surname.
+    if (last) { const bl = byLast.get(norm(last)); if (bl && bl !== "AMBIG") return bl; }
+    // Last resort: first name only.
+    return byFirst.get(norm(first)) || byFirst.get(norm(n.split(/[ ,]/)[0])) || null;
   };
   const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
   const lineByEmp = new Map((lines as any[]).map((l) => [l.employeeId, l]));

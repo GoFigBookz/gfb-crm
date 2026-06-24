@@ -43418,16 +43418,15 @@ async function applyImportedHours(db, runId, clientId, hours) {
   const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
   const norm11 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
   const byAlias = /* @__PURE__ */ new Map(), byFull = /* @__PURE__ */ new Map(), byFirst = /* @__PURE__ */ new Map();
+  const byLast = /* @__PURE__ */ new Map();
   for (const e of emps) {
     if (e.jobberName) byAlias.set(norm11(e.jobberName), e);
     byFull.set(norm11(`${e.firstName} ${e.lastName}`), e);
     byFull.set(norm11(`${e.lastName}, ${e.firstName}`), e);
     if (!byFirst.has(norm11(e.firstName))) byFirst.set(norm11(e.firstName), e);
+    const ln = norm11(e.lastName);
+    if (ln) byLast.set(ln, byLast.has(ln) ? "AMBIG" : e);
   }
-  const matchEmp = (label) => {
-    const n = norm11(label);
-    return byAlias.get(n) || byFull.get(n) || byFirst.get(n) || byFirst.get(norm11(n.split(/[ ,]/)[0])) || null;
-  };
   const parseName = (label) => {
     const s = (label || "").trim();
     if (!s) return { first: "", last: "" };
@@ -43437,6 +43436,19 @@ async function applyImportedHours(db, runId, clientId, hours) {
     }
     const t2 = s.split(/\s+/);
     return { first: t2[0] || "", last: t2.slice(1).join(" ") };
+  };
+  const matchEmp = (label) => {
+    const n = norm11(label);
+    let m = byAlias.get(n) || byFull.get(n);
+    if (m) return m;
+    const { first, last } = parseName(label);
+    m = byFull.get(norm11(`${first} ${last}`)) || byFull.get(norm11(`${last}, ${first}`));
+    if (m) return m;
+    if (last) {
+      const bl = byLast.get(norm11(last));
+      if (bl && bl !== "AMBIG") return bl;
+    }
+    return byFirst.get(norm11(first)) || byFirst.get(norm11(n.split(/[ ,]/)[0])) || null;
   };
   const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
   const lineByEmp = new Map(lines.map((l) => [l.employeeId, l]));
