@@ -74,9 +74,9 @@ export default function Assistant() {
     setInput("");
   };
 
-  // Restore the "voice replies" preference so it stays on day to day.
-  useEffect(() => { if (localStorage.getItem("figgySpeak") === "1") setSpeakOn(true); }, []);
-  useEffect(() => { localStorage.setItem("figgySpeak", speakOn ? "1" : "0"); }, [speakOn]);
+  // Voice replies DEFAULT OFF every time (Markie's call — he turns it on only when
+  // he wants it). We deliberately do NOT restore it from a saved preference, so
+  // the assistant is silent on open and never starts talking on its own.
 
   // Keep the screen awake while in a hands-free conversation (so it doesn't sleep
   // mid-chat during all-day use). Released when hands-free ends.

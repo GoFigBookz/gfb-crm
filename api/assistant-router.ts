@@ -365,7 +365,7 @@ export const assistantRouter = createRouter({
       const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
       const TRANSIENT = new Set([429, 500, 502, 503, 529]);
       for (let i = 0; i < 6; i++) {
-        const body: any = { model, max_tokens: 1024, system, messages };
+        const body: any = { model, max_tokens: 700, system, messages };
         if (toolTiers[tier]) body.tools = toolTiers[tier];
         // Send, retrying transient overloads (429/5xx/529) with backoff.
         let res: Response | undefined;

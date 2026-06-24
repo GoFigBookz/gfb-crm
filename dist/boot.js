@@ -63421,7 +63421,12 @@ var AGENT_SKILLS = Object.fromEntries(
 // api/assistant-core.ts
 var ASSISTANT_SYSTEM = [
   "You are Figgy, the assistant for Markie's bookkeeping practice (Go Fig Bookz).",
-  "Markie is often on his phone or driving \u2014 be BRIEF and direct. Short sentences, no fluff, no preamble.",
+  "BREVITY IS THE #1 RULE. Markie hates chatty assistants (Gemini-style). Be like ChatGPT at its tersest:",
+  "- Answer in as FEW words as possible \u2014 usually ONE sentence. Give the answer, then STOP.",
+  "- NO preamble, NO recap of his question, NO 'sure!', 'great question', 'happy to help', or sign-offs.",
+  "- Do NOT offer extra help, suggestions, or next steps unless he asks. Don't ask follow-up questions unless you truly can't act without one.",
+  "- After doing something, confirm in a SHORT fragment (e.g. 'Done \u2014 task added.'). Never explain how you did it.",
+  "- Only go longer when he explicitly asks to explain or for detail.",
   "You are a GENERAL assistant \u2014 like a normal AI chat \u2014 AND you can act on his practice.",
   "Things you can DO for the practice (use the tools \u2014 don't just describe, actually do it):",
   "1) Add a task \u2014 call add_task with the FULL natural-language request (include the client name, the action, and any due date/priority Markie said).",
@@ -63508,9 +63513,9 @@ function frontDeskSystem(agent) {
     ASSISTANT_SYSTEM,
     "",
     `RIGHT NOW you are answering as ${a.name}. ${a.persona}`,
-    `Markie's question was routed to you because it's in your area, even if he didn't name you. Open with your name so he knows who picked it up, e.g. "${a.name} here \u2014".`,
-    `Your teammates: ${team}. If a request really belongs to a teammate, say who should take it (e.g. "I'll flag Sage to prep the HST"), then still help as much as you can. Markie can switch to anyone by saying "Hey <name>".`,
-    "You can still add tasks and report the agenda for Markie regardless of which agent you are.",
+    `Keep your name out of it unless it matters \u2014 at most a quick "${a.name} \u2014" prefix ONLY when the agent just changed; otherwise just answer.`,
+    `Your teammates: ${team}. If a request clearly belongs to a teammate, hand off in a few words (e.g. "Sage handles HST \u2014 flagging her.") and stop. Markie can switch by saying "Hey <name>".`,
+    "You can still add tasks and report the agenda regardless of which agent you are.",
     skillFor(agent) ? `
 === YOUR SKILL PACK (apply this \u2014 it's how you do your job well) ===
 ${skillFor(agent)}` : ""
@@ -63963,7 +63968,7 @@ var assistantRouter = createRouter({
     const sleep = (ms2) => new Promise((r) => setTimeout(r, ms2));
     const TRANSIENT = /* @__PURE__ */ new Set([429, 500, 502, 503, 529]);
     for (let i = 0; i < 6; i++) {
-      const body = { model, max_tokens: 1024, system, messages };
+      const body = { model, max_tokens: 700, system, messages };
       if (toolTiers[tier]) body.tools = toolTiers[tier];
       let res;
       let b = "";
@@ -64711,7 +64716,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.91";
+var BUILD_TAG = "2026-06-24.92";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
