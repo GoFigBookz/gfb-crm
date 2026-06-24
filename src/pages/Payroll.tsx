@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download, Upload, Pencil, Users, DollarSign, SlidersHorizontal } from "lucide-react";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download, Upload, Pencil, Users, DollarSign } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -365,7 +364,7 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   // per-client from the "Columns" menu — the choice is remembered (localStorage).
   // We don't pay sick hours, so Sick is OFF by default; Vacation is ON.
   const featureDefaults = {
-    vac: true,
+    vac: false,
     sick: false,
     bonus: !!(features?.payrollBonuses || features?.payrollRevenueShare),
     phone: !!features?.payrollPhoneAllowance,
@@ -414,8 +413,6 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   // [stat],[vac],[sick],[bonus], Gross, [tax×4], [phone],[reimb], action.
   const totalCols = 3 + (cOt ? 1 : 0) + (showStat ? 1 : 0) + (cVac ? 1 : 0) + (cSick ? 1 : 0) + (cBonus ? 1 : 0)
     + 1 + (showTax ? 4 : 0) + (cPhone ? 1 : 0) + (cReimb ? 1 : 0) + 1;
-  // Spacer between "Totals" and the Gross cell = Rate + Reg + [OT] + optional hour cols.
-  const spacerBeforeGross = 2 + (cOt ? 1 : 0) + (showStat ? 1 : 0) + (cVac ? 1 : 0) + (cSick ? 1 : 0) + (cBonus ? 1 : 0);
   const { data: jobber } = trpc.payroll.jobberStatus.useQuery({ clientId: data?.run.clientId ?? 0 }, { enabled: !!data?.run.clientId });
   const importJobber = trpc.payroll.importJobberHours.useMutation({
     onSuccess: (r: any) => {
@@ -501,6 +498,22 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
   const inRun = new Set(lines.map((l: any) => l.employeeId));
   const availableEmps = (clientEmps || []).filter((e: any) => !inRun.has(e.id));
 
+  // Column totals for the footer — each aligned under its own column (no fragile
+  // colspan spacers), plus a grand total of all PAID hours for the run.
+  const sumCol = (k: string) => (lines as any[]).reduce((a, l) => a + (Number(l[k]) || 0), 0);
+  const tReg = sumCol("regularHours"), tOt = sumCol("overtimeHours"), tStat = sumCol("statHolidayHours");
+  const tVac = sumCol("vacationHours"), tSick = sumCol("sickHours"), tBonus = sumCol("shareBonus");
+  const tPhone = sumCol("phoneAllowance"), tReimb = sumCol("reimbursement");
+  const tHours = tReg + (cOt ? tOt : 0) + (showStat ? tStat : 0) + (cVac ? tVac : 0) + (cSick ? tSick : 0);
+  // Clickable column chips so the optional pay types (vacation, stat, sick…) are
+  // OFF by default and added with one obvious click — not buried in a menu.
+  const colChip = (label: string, on: boolean, toggle: () => void) => (
+    <button type="button" onClick={toggle}
+      className={`px-2 py-0.5 rounded-full border text-[11px] transition-colors ${on ? "bg-lime-100 border-lime-300 text-lime-800" : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"}`}>
+      {on ? "✓ " : "+ "}{label}
+    </button>
+  );
+
   return (
     <Card className="mt-1 border-lime-200">
       <CardContent className="p-3 space-y-3">
@@ -545,22 +558,6 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
                 <Button size="sm" variant="outline" className="h-8 border-amber-300 text-amber-700"><ExternalLink className="h-3.5 w-3.5 mr-1" /> Connect Jobber</Button>
               </a>
             )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="h-8"><SlidersHorizontal className="h-3.5 w-3.5 mr-1" /> Columns</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel>Show columns</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem checked={cOt} onCheckedChange={(v) => setCol("ot", !!v)}>Overtime</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={showStat} onCheckedChange={(v) => setCol("stat", !!v)}>Stat 1.5×</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={cVac} onCheckedChange={(v) => setCol("vac", !!v)}>Vacation hrs</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={cSick} onCheckedChange={(v) => setCol("sick", !!v)}>Sick hrs</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={cBonus} onCheckedChange={(v) => setCol("bonus", !!v)}>Share bonus</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={cPhone} onCheckedChange={(v) => setCol("phone", !!v)}>Phone allowance</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={cReimb} onCheckedChange={(v) => setCol("reimb", !!v)}>Reimbursement</DropdownMenuCheckboxItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
             <Button size="sm" variant="outline" className="h-8" onClick={() => exportRunCsv(run, lines)}><Download className="h-3.5 w-3.5 mr-1" /> Export hours (CSV)</Button>
             <Button size="sm" variant="ghost" className="h-8 text-red-500 hover:text-red-600" onClick={onDelete}><Trash2 className="h-3.5 w-3.5 mr-1" /> Delete run</Button>
           </div>
@@ -580,6 +577,16 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
           <p className="text-sm text-slate-400 py-3 text-center">No employees on this run yet — add one below to start the timesheet.</p>
         ) : (
           <div className="overflow-x-auto">
+            <div className="flex items-center gap-1.5 flex-wrap pb-2">
+              <span className="text-[11px] text-slate-400 mr-0.5">Add a column:</span>
+              {colChip("Overtime", cOt, () => setCol("ot", !cOt))}
+              {colChip("Stat 1.5×", showStat, () => setCol("stat", !showStat))}
+              {colChip("Vacation", cVac, () => setCol("vac", !cVac))}
+              {colChip("Sick", cSick, () => setCol("sick", !cSick))}
+              {colChip("Share bonus", cBonus, () => setCol("bonus", !cBonus))}
+              {colChip("Phone", cPhone, () => setCol("phone", !cPhone))}
+              {colChip("Reimburse", cReimb, () => setCol("reimb", !cReimb))}
+            </div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs text-slate-500 border-b">
@@ -611,13 +618,26 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
                 ))}
               </tbody>
               <tfoot>
-                <tr className="border-t font-semibold">
-                  <td className="py-1.5 pr-2">Totals</td>
-                  <td colSpan={spacerBeforeGross}></td>
+                <tr className="border-t-2 border-slate-300 font-semibold bg-slate-50">
+                  <td className="py-1.5 pr-2">
+                    Totals
+                    <span className="block text-[11px] font-normal text-slate-500">{tHours.toFixed(2)} total hrs</span>
+                  </td>
+                  <td className="text-right px-1 text-slate-300">—</td>
+                  <td className="text-right px-1">{tReg.toFixed(2)}</td>
+                  {cOt && <td className="text-right px-1">{tOt.toFixed(2)}</td>}
+                  {showStat && <td className="text-right px-1">{tStat.toFixed(2)}</td>}
+                  {cVac && <td className="text-right px-1">{tVac.toFixed(2)}</td>}
+                  {cSick && <td className="text-right px-1">{tSick.toFixed(2)}</td>}
+                  {cBonus && <td className="text-right px-1">{money(tBonus)}</td>}
                   <td className="text-right px-1 text-lime-700">{money(run.totalGross)}</td>
-                  {showTax && <td colSpan={3} className="text-right px-1 text-slate-500">deduct {money(run.totalEmployeeDeductions)}</td>}
+                  {showTax && <td className="text-right px-1 text-slate-500" title="Total employee deductions (CPP·EI·tax)">{money(run.totalEmployeeDeductions)}</td>}
+                  {showTax && <td className="px-1"></td>}
+                  {showTax && <td className="px-1"></td>}
                   {showTax && <td className="text-right px-1">{money(run.totalNet)}</td>}
-                  <td colSpan={1 + (cPhone ? 1 : 0) + (cReimb ? 1 : 0)}></td>
+                  {cPhone && <td className="text-right px-1">{money(tPhone)}</td>}
+                  {cReimb && <td className="text-right px-1">{money(tReimb)}</td>}
+                  <td className="px-1"></td>
                 </tr>
                 {showTax && (
                   <tr className="text-xs text-slate-500">
