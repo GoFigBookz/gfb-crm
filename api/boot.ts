@@ -1582,6 +1582,14 @@ async function startServer() {
     } catch (e) {
       console.error("[client-run-payroll] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
+    // Year backfill — Sher-E-Punjab pay runs from the Google sheet (per-employee).
+    try {
+      const { backfillSherPayroll } = await import("./seed-sher-backfill");
+      const r = await backfillSherPayroll();
+      if (r?.runsAdded) console.log(`[sher-backfill] +${r.runsAdded} runs`);
+    } catch (e) {
+      console.error("[sher-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
     // Seed the TouchBistro restaurant rosters + rates (Sher-E-Punjab, Auld Spot).
     try {
       const { seedTouchbistroPayroll } = await import("./seed-touchbistro-payroll");
