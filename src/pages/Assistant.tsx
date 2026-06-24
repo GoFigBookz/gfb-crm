@@ -3,7 +3,7 @@ import { Bot, Send, Mic, Sparkles, MapPin, MapPinOff, Volume2, VolumeX, Radio, P
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/providers/trpc";
-import { dedupePhrases } from "@/lib/dedupe-speech";
+import { cleanTranscript } from "@/lib/dedupe-speech";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type AgentKey = "fig" | "sage" | "wren" | "liv" | "jinx" | "tess" | "jade" | "skye";
@@ -161,36 +161,32 @@ export default function Assistant() {
     finalTranscriptRef.current = "";
     sessionFinalRef.current = "";
     rec.onresult = (e: any) => {
-      // Rebuild the CURRENT session's transcript from ALL results each event (do
-      // NOT append per-event — mobile Chrome re-emits results, which was doubling
-      // the text). finalTranscriptRef holds only text from prior auto-restarts.
-      let sessionFinal = "", interim = "";
+      // Collect ALL of this session's result segments (mobile Chrome emits growing
+      // prefixes like "hey", "hey Sky", "hey Sky do…" and re-emits on restart);
+      // cleanTranscript merges them by overlap so we don't get the runaway garble.
+      const segs: string[] = [];
       for (let i = 0; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) sessionFinal += r[0].transcript + " ";
-        else interim += r[0].transcript;
+        const t = e.results[i]?.[0]?.transcript;
+        if (t) segs.push(t);
       }
-      sessionFinalRef.current = sessionFinal;
-      // Dedupe the finalized text (guards against the browser re-emitting on its
-      // auto-restart); append the live interim raw so typing-ahead still shows.
-      const committed = dedupePhrases((finalTranscriptRef.current + sessionFinal).trim());
-      const full = (committed + (interim ? " " + interim : "")).trim().slice(0, 7900);
+      const sessionText = cleanTranscript(segs);
+      sessionFinalRef.current = sessionText;
+      const full = cleanTranscript([finalTranscriptRef.current, sessionText]).slice(0, 7900);
       setInput(full);
       // Hands-free: auto-send after a ~1.8s pause, then the agent replies & re-listens.
       if (handsFreeRef.current) {
         clearTimeout(silenceRef.current);
         silenceRef.current = setTimeout(() => {
-          const text = dedupePhrases((finalTranscriptRef.current + sessionFinalRef.current).trim());
+          const text = cleanTranscript([finalTranscriptRef.current, sessionFinalRef.current]);
           if (text) { manualStopRef.current = true; try { rec.stop(); } catch { /* noop */ } send(text); }
         }, 1800);
       }
     };
     rec.onend = () => {
       // Browsers auto-stop after ~60s or on silence — keep it alive unless the
-      // user turned it off. Commit this session's finalized text before restarting
-      // so the running transcript carries over WITHOUT re-counting it.
+      // user turned it off. Commit this session's text (merged) before restarting.
       if (!manualStopRef.current) {
-        finalTranscriptRef.current = (finalTranscriptRef.current + sessionFinalRef.current);
+        finalTranscriptRef.current = cleanTranscript([finalTranscriptRef.current, sessionFinalRef.current]);
         sessionFinalRef.current = "";
         try { rec.start(); return; } catch { /* fall through */ }
       }
