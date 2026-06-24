@@ -52,3 +52,36 @@ Status: ✅ done & live · 🔨 building tonight · ⏳ backlogged (tracked task
 - ❓ **#14 Go Fig Bookz → Insights** — the firm is NOT in the client directory under any
   spelling ("go fig"/"gofig"/"go figure" all return nothing). Needs the firm added as a
   self-client (flagged) before it can feed Practice Health. Confirm with Markie.
+
+## Overnight progress — continued (build 2026-06-24.89)
+- ✅ **#18 Connection→client mapping cleaned 100%** — `api/bridge-bootstrap.ts`:
+  found a REAL latent bug — match `"universal"` hit BOTH "Universal Construction
+  Group Inc." AND "Universal Drywall (USA)", so the Universal Construction realm
+  could bind to the wrong client. Fixed to `"universal construction"` and the
+  binder now REFUSES to bind any realm whose match string hits >1 client (logs
+  AMBIGUOUS) — guarantees per-client book isolation. `/api/qbo/debug` reports
+  per-connection `mappingOk`.
+- ✅ **#17 QBO → CRM sync BUILT** — `api/qbo-snapshot.ts` + scheduler wired.
+  Root cause of "connected but not syncing": the scheduler only logged a no-op
+  heartbeat; it never pulled. Now a DAILY pass (Make-ops-cap-safe) pulls each
+  active connection (isolated, best-effort): customers/invoices/payments/accounts
+  → qbo_* tables; Balance Sheet derived from the Chart of Accounts; P&L from the
+  ProfitAndLoss report (defensive parse, 8 unit tests); upserts ONE
+  clientDashboardSnapshots row per client per day. Dashboards read the cached
+  snapshot (no live fan-out). Trigger/inspect: `GET /api/qbo/sync-now?raw=1`.
+- ✅ **#3 Sam duplicate** — Markie already deleted it on the CRM; local DB shows
+  no "Sam" remaining. Merge tool stays available for future dupes.
+
+## Still genuinely needs Markie (can't be done autonomously)
+- 📅 **#15 Native QBO connect** (5 payroll cos) — needs Markie to click Connect per
+  company (OAuth). Readiness GREEN. After: retire that realm's read-only bridge.
+- 📅 **#16 SMS + Wise + PayPal + Stripe** — needs real API keys / credentials.
+- 📅 **#6 TouchBistro live import test** — needs Markie's real timesheet files.
+- ❓ **#14 Go Fig Bookz → Insights** — firm not in the directory at all. Decision
+  needed: add the firm as a self-client and HOW it should surface in Insights.
+- ❓ **#7 Timezone switcher** — deferred deliberately: calendar dates were JUST
+  fixed; adding an app-wide tz transform risks regressing them. Want Markie's
+  confirmation on the exact behavior (display-only switcher vs per-event zone)
+  before touching the calendar again.
+- ❓ **Cat Bay onboarding** — no such client exists; add it first.
+- ❓ **T4 vs T2** — "Jan 20" applied to T4/T4A slip prep (the `t4_annual` rule).
