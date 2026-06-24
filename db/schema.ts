@@ -1111,6 +1111,24 @@ export const employees = sqliteTable("employees", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// ========== EMPLOYEE PAY-RATE HISTORY (raises tracked by effective date) ==========
+// Every rate change (a raise, or the initial rate from the roster sheet) writes a
+// row here so we keep the full history + the DAY each rate took effect. The
+// employee's current rate stays on employees.hourlyRate/annualSalary; this is the
+// audit trail behind it.
+export const employeeRateHistory = sqliteTable("employee_rate_history", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  employeeId: integer("employeeId").notNull(),
+  clientId: integer("clientId"),
+  payType: text("payType"),                                  // hourly | salary | …
+  hourlyRate: real("hourlyRate"),
+  annualSalary: real("annualSalary"),
+  effectiveDate: integer("effectiveDate", { mode: "timestamp" }).notNull(), // the DAY of the raise
+  note: text("note"),
+  source: text("source"),                                    // "roster_sheet" | "manual" | "import"
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // ========== PAYROLL: PAY RUNS (the "one clean sheet" per client per period) ==========
 // A pay run groups one line per employee for a single pay period. Keyed to
 // clients.id (tenant boundary). hoursSource records provenance (manual entry vs

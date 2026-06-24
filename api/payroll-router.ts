@@ -534,6 +534,56 @@ export const payrollRouter = createRouter({
       return { ok: true, fileName, ...r };
     }),
 
+  // Import the EMPLOYEE ROSTER (names + pay rates) from the LAST tab of the
+  // client's payroll workbook (Markie keeps the roster on the last page). Creates
+  // missing employees, updates rates that changed, and logs every rate with its
+  // effective date in employee_rate_history (raises tracked by day).
+  importEmployeeRoster: staffQuery
+    .input(z.object({ clientId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0] as any;
+      if (!client) throw new Error("Client not found");
+      let roster: any[];
+      try {
+        const { readEmployeeRosterFromWorkbook } = await import("./touchbistro-client");
+        roster = await readEmployeeRosterFromWorkbook(ctx.user.id, client.name || "");
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : String(e), created: [] as string[], updated: [] as string[], total: 0 };
+      }
+      const { recordRateChange } = await import("./employee-router");
+      const existing = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
+      const norm = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+      const byName = new Map<string, any>();
+      for (const e of existing as any[]) byName.set(norm(`${e.firstName} ${e.lastName}`), e);
+      const parseName = (label: string) => {
+        const s = (label || "").trim();
+        if (s.includes(",")) { const [l, f] = s.split(","); return { first: (f || "").trim(), last: (l || "").trim() }; }
+        const t = s.split(/\s+/); return { first: t[0] || "", last: t.slice(1).join(" ") };
+      };
+      const created: string[] = [], updated: string[] = [];
+      for (const row of roster) {
+        const { first, last } = parseName(row.name);
+        if (!first && !last) continue;
+        const eff = row.effectiveDate ? new Date(row.effectiveDate + "T12:00:00") : new Date();
+        const hit = byName.get(norm(`${first} ${last}`)) || byName.get(norm(row.name));
+        if (hit) {
+          const changed = (row.hourlyRate != null && row.hourlyRate !== hit.hourlyRate) || (row.annualSalary != null && row.annualSalary !== hit.annualSalary);
+          if (changed) {
+            await db.update(employees).set({ payType: row.payType ?? hit.payType, hourlyRate: row.hourlyRate ?? hit.hourlyRate, annualSalary: row.annualSalary ?? hit.annualSalary, updatedAt: new Date() }).where(eq(employees.id, hit.id));
+            await recordRateChange(db, { employeeId: hit.id, clientId: input.clientId, payType: row.payType ?? hit.payType, hourlyRate: row.hourlyRate ?? hit.hourlyRate, annualSalary: row.annualSalary ?? hit.annualSalary, effectiveDate: eff, note: "Rate from roster sheet", source: "roster_sheet" });
+            updated.push(`${first} ${last}`.trim());
+          }
+        } else {
+          const [ins] = await db.insert(employees).values({ clientId: input.clientId, firstName: first || row.name, lastName: last || "", payType: row.payType ?? "hourly", hourlyRate: row.hourlyRate ?? null, annualSalary: row.annualSalary ?? null, isActive: true } as any).returning();
+          await recordRateChange(db, { employeeId: ins.id, clientId: input.clientId, payType: ins.payType, hourlyRate: ins.hourlyRate, annualSalary: ins.annualSalary, effectiveDate: eff, note: "Starting rate (roster sheet)", source: "roster_sheet" });
+          created.push(`${first} ${last}`.trim());
+          byName.set(norm(`${first} ${last}`), ins);
+        }
+      }
+      return { ok: true, created, updated, total: roster.length };
+    }),
+
   // One run with its lines + employee names (the clean sheet).
   getRun: staffQuery
     .input(z.object({ runId: z.number() }))

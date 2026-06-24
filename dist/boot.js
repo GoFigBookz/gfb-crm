@@ -22347,6 +22347,7 @@ __export(schema_exports, {
   connectorSyncLogs: () => connectorSyncLogs,
   dividendPayments: () => dividendPayments,
   emails: () => emails,
+  employeeRateHistory: () => employeeRateHistory,
   employees: () => employees,
   engagementLetters: () => engagementLetters,
   files: () => files,
@@ -22391,7 +22392,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings, agentAuditLog, chatMessages;
+var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings, agentAuditLog, chatMessages;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -23414,6 +23415,21 @@ var init_schema = __esm({
       notes: text("notes"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    employeeRateHistory = sqliteTable("employee_rate_history", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      employeeId: integer2("employeeId").notNull(),
+      clientId: integer2("clientId"),
+      payType: text("payType"),
+      // hourly | salary | …
+      hourlyRate: real("hourlyRate"),
+      annualSalary: real("annualSalary"),
+      effectiveDate: integer2("effectiveDate", { mode: "timestamp" }).notNull(),
+      // the DAY of the raise
+      note: text("note"),
+      source: text("source"),
+      // "roster_sheet" | "manual" | "import"
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
     payRuns = sqliteTable("pay_runs", {
       id: integer2("id").primaryKey({ autoIncrement: true }),
@@ -41283,6 +41299,186 @@ var init_sensitive = __esm({
   }
 });
 
+// api/employee-router.ts
+var employee_router_exports = {};
+__export(employee_router_exports, {
+  employeeRouter: () => employeeRouter,
+  recordRateChange: () => recordRateChange
+});
+async function recordRateChange(db, e) {
+  try {
+    await db.insert(employeeRateHistory).values({
+      employeeId: e.employeeId,
+      clientId: e.clientId ?? null,
+      payType: e.payType ?? null,
+      hourlyRate: e.hourlyRate ?? null,
+      annualSalary: e.annualSalary ?? null,
+      effectiveDate: e.effectiveDate ?? /* @__PURE__ */ new Date(),
+      note: e.note ?? null,
+      source: e.source ?? "manual"
+    });
+  } catch (err) {
+    console.error("[rate-history] record failed:", err instanceof Error ? err.message : err);
+  }
+}
+function stripSin(row) {
+  const { sin, ...rest } = row;
+  return { ...rest, hasSin: !!sin };
+}
+var employeeRouter;
+var init_employee_router = __esm({
+  "api/employee-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_sensitive();
+    employeeRouter = createRouter({
+      list: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        const db = getDb();
+        const rows = await db.select().from(employees).where(eq(employees.clientId, input.clientId)).orderBy(employees.lastName);
+        return rows.map(stripSin);
+      }),
+      get: staffQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ input }) => {
+        const db = getDb();
+        const row = await db.select().from(employees).where(eq(employees.id, input.id)).limit(1);
+        return row[0] ? stripSin(row[0]) : null;
+      }),
+      // Code-gated SIN reveal (for printing T4/T4A). Requires FIGGY_SIN_PIN.
+      revealSin: staffQuery.input(external_exports.object({ id: external_exports.number(), code: external_exports.string() })).mutation(async ({ input }) => {
+        const gate = checkRevealCode(input.code);
+        if (!gate.ok) return { ok: false, reason: gate.reason };
+        const db = getDb();
+        const row = (await db.select().from(employees).where(eq(employees.id, input.id)).limit(1))[0];
+        return { ok: true, sin: row?.sin ? decryptSecret(row.sin) : null };
+      }),
+      create: seniorQuery.input(external_exports.object({
+        clientId: external_exports.number(),
+        firstName: external_exports.string().min(1),
+        lastName: external_exports.string().min(1),
+        dateOfBirth: external_exports.date().optional(),
+        hireDate: external_exports.date().optional(),
+        startDate: external_exports.date().optional(),
+        payType: external_exports.enum(["salary", "hourly", "commission", "contract"]).optional(),
+        annualSalary: external_exports.number().optional(),
+        hourlyRate: external_exports.number().optional(),
+        hoursPerWeek: external_exports.number().optional(),
+        position: external_exports.string().optional(),
+        department: external_exports.string().optional(),
+        email: external_exports.string().optional(),
+        phone: external_exports.string().optional(),
+        address: external_exports.string().optional(),
+        isContractor: external_exports.boolean().optional(),
+        contractUrl: external_exports.string().optional(),
+        phoneAllowance: external_exports.number().nullable().optional(),
+        reimbursementAmount: external_exports.number().nullable().optional(),
+        reimbursementNote: external_exports.string().optional(),
+        getsRevenueShare: external_exports.boolean().optional(),
+        revenueSharePercent: external_exports.number().nullable().optional(),
+        getsBonus: external_exports.boolean().optional(),
+        getsDividends: external_exports.boolean().optional(),
+        getsPhoneAllowance: external_exports.boolean().optional(),
+        getsReimbursement: external_exports.boolean().optional(),
+        ytdGrossOpening: external_exports.number().nullable().optional(),
+        wsibEligible: external_exports.boolean().optional(),
+        jobberName: external_exports.string().optional(),
+        sin: external_exports.string().optional(),
+        notes: external_exports.string().optional()
+      })).mutation(async ({ input }) => {
+        const db = getDb();
+        const { sin, ...rest } = input;
+        const values = { ...rest, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() };
+        if (sin !== void 0) values.sin = sin ? encryptSecret(sin) : null;
+        const result = await db.insert(employees).values(values);
+        const id = Number(result.lastInsertRowid);
+        if (rest.hourlyRate != null || rest.annualSalary != null) {
+          await recordRateChange(db, { employeeId: id, clientId: rest.clientId, payType: rest.payType, hourlyRate: rest.hourlyRate, annualSalary: rest.annualSalary, effectiveDate: rest.hireDate ?? rest.startDate ?? /* @__PURE__ */ new Date(), source: "manual", note: "Starting rate" });
+        }
+        return { success: true, id };
+      }),
+      update: seniorQuery.input(external_exports.object({
+        id: external_exports.number(),
+        firstName: external_exports.string().optional(),
+        lastName: external_exports.string().optional(),
+        dateOfBirth: external_exports.date().optional(),
+        hireDate: external_exports.date().optional(),
+        startDate: external_exports.date().optional(),
+        payType: external_exports.enum(["salary", "hourly", "commission", "contract"]).optional(),
+        annualSalary: external_exports.number().optional(),
+        hourlyRate: external_exports.number().optional(),
+        hoursPerWeek: external_exports.number().optional(),
+        position: external_exports.string().optional(),
+        department: external_exports.string().optional(),
+        email: external_exports.string().optional(),
+        phone: external_exports.string().optional(),
+        address: external_exports.string().optional(),
+        isContractor: external_exports.boolean().optional(),
+        isActive: external_exports.boolean().optional(),
+        terminationDate: external_exports.date().optional(),
+        terminationReason: external_exports.string().optional(),
+        hasHealthBenefits: external_exports.boolean().optional(),
+        hasDentalBenefits: external_exports.boolean().optional(),
+        hasRrsp: external_exports.boolean().optional(),
+        rrspMatchPercent: external_exports.number().optional(),
+        onGovernmentGrant: external_exports.boolean().optional(),
+        grantType: external_exports.string().optional(),
+        grantStartDate: external_exports.date().optional(),
+        grantEndDate: external_exports.date().optional(),
+        contractUrl: external_exports.string().optional(),
+        phoneAllowance: external_exports.number().nullable().optional(),
+        reimbursementAmount: external_exports.number().nullable().optional(),
+        reimbursementNote: external_exports.string().optional(),
+        getsRevenueShare: external_exports.boolean().optional(),
+        revenueSharePercent: external_exports.number().nullable().optional(),
+        getsBonus: external_exports.boolean().optional(),
+        getsDividends: external_exports.boolean().optional(),
+        getsPhoneAllowance: external_exports.boolean().optional(),
+        getsReimbursement: external_exports.boolean().optional(),
+        ytdGrossOpening: external_exports.number().nullable().optional(),
+        wsibEligible: external_exports.boolean().optional(),
+        jobberName: external_exports.string().optional(),
+        sin: external_exports.string().optional(),
+        notes: external_exports.string().optional(),
+        // When a rate change is a RAISE, the day it takes effect (+ optional note).
+        rateEffectiveDate: external_exports.date().optional(),
+        rateNote: external_exports.string().optional()
+      })).mutation(async ({ input }) => {
+        const { id, sin, rateEffectiveDate, rateNote, ...data } = input;
+        const db = getDb();
+        const before = (await db.select().from(employees).where(eq(employees.id, id)).limit(1))[0];
+        const patch = { ...data, updatedAt: /* @__PURE__ */ new Date() };
+        if (sin !== void 0) patch.sin = sin ? encryptSecret(sin) : null;
+        await db.update(employees).set(patch).where(eq(employees.id, id));
+        const rateChanged = data.hourlyRate !== void 0 && data.hourlyRate !== (before?.hourlyRate ?? null) || data.annualSalary !== void 0 && data.annualSalary !== (before?.annualSalary ?? null);
+        if (before && rateChanged) {
+          await recordRateChange(db, {
+            employeeId: id,
+            clientId: before.clientId,
+            payType: data.payType ?? before.payType,
+            hourlyRate: data.hourlyRate ?? before.hourlyRate,
+            annualSalary: data.annualSalary ?? before.annualSalary,
+            effectiveDate: rateEffectiveDate ?? /* @__PURE__ */ new Date(),
+            note: rateNote ?? "Rate change",
+            source: "manual"
+          });
+        }
+        return { success: true };
+      }),
+      // Pay-rate history for one employee (newest first) — the raise log.
+      rateHistory: staffQuery.input(external_exports.object({ employeeId: external_exports.number() })).query(async ({ input }) => {
+        const db = getDb();
+        return await db.select().from(employeeRateHistory).where(eq(employeeRateHistory.employeeId, input.employeeId)).orderBy(desc(employeeRateHistory.effectiveDate), desc(employeeRateHistory.id));
+      }),
+      delete: seniorQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+        const db = getDb();
+        await db.delete(employees).where(eq(employees.id, input.id));
+        return { success: true };
+      })
+    });
+  }
+});
+
 // api/payroll-core.ts
 function periodsPerYear(freq) {
   switch (freq) {
@@ -42199,6 +42395,7 @@ __export(touchbistro_client_exports, {
   TOUCHBISTRO_WORKBOOKS: () => TOUCHBISTRO_WORKBOOKS,
   driveFolderId: () => driveFolderId,
   importTouchBistroHoursData: () => importTouchBistroHoursData,
+  readEmployeeRosterFromWorkbook: () => readEmployeeRosterFromWorkbook,
   readNewestTimesheetFromDrive: () => readNewestTimesheetFromDrive,
   workbookFor: () => workbookFor
 });
@@ -42343,6 +42540,53 @@ ${text2}`;
   const json2 = extractJson(txt);
   const emps = json2?.employees || [];
   return emps.filter((e) => e && e.name).map((e) => ({ userName: String(e.name), hours: Number(e.hours) || 0 }));
+}
+async function readEmployeeRosterFromWorkbook(userId, clientName) {
+  const sheetId = workbookFor(clientName);
+  if (!sheetId) throw new Error(`No payroll workbook is linked for "${clientName}".`);
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY isn't set \u2014 needed to read the roster sheet.");
+  const acct = await googleAccount(userId);
+  if (!acct) throw new Error("Google isn't connected (Integrations \u2192 Google, with Drive access).");
+  const token2 = await getValidGoogleAccessToken(acct);
+  const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title`, { headers: { Authorization: `Bearer ${token2}` } });
+  if (!metaRes.ok) throw new Error(`Couldn't open the sheet (${metaRes.status}). Reconnect Google in Integrations with Drive access.`);
+  const meta3 = await metaRes.json();
+  const titles = (meta3.sheets || []).map((s) => s?.properties?.title).filter(Boolean);
+  if (!titles.length) throw new Error("No tabs found in the workbook.");
+  const lastTab = titles[titles.length - 1];
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(lastTab)}`, { headers: { Authorization: `Bearer ${token2}` } });
+  if (!r.ok) throw new Error(`Couldn't read the "${lastTab}" tab (${r.status}).`);
+  const d = await r.json();
+  const rows = d.values || [];
+  const text2 = (`### TAB: ${lastTab}
+` + rows.map((row) => row.join("	")).join("\n")).slice(0, 6e4);
+  const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
+  const system = "You extract an employee roster (names + pay rates) from a payroll workbook tab. Return ONLY JSON, no prose.";
+  const prompt = `This is the employee roster tab. Return ONLY {"employees":[{"name":"<First Last as shown>","payType":"hourly"|"salary","hourlyRate":<number or null>,"annualSalary":<number or null>,"effectiveDate":"<YYYY-MM-DD or null \u2014 only if a rate/raise/effective date column exists>"}]}. EXCLUDE header rows, subtotal/total rows, and anyone marked "not in payroll". If a value is missing, use null. Salary annual amounts go in annualSalary; per-hour amounts go in hourlyRate.
+
+TAB:
+${text2}`;
+  const res = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model, max_tokens: 2e3, system, messages: [{ role: "user", content: prompt }] })
+  });
+  if (!res.ok) {
+    const b = await res.text().catch(() => "");
+    throw new Error(`Couldn't read the roster (${res.status}). ${b.slice(0, 120)}`);
+  }
+  const data = await res.json();
+  const out = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+  const json2 = extractJson(out);
+  const emps = json2?.employees || [];
+  return emps.filter((e) => e && e.name).map((e) => ({
+    name: String(e.name).trim(),
+    payType: e.payType === "salary" ? "salary" : e.payType === "hourly" ? "hourly" : null,
+    hourlyRate: e.hourlyRate != null && !isNaN(Number(e.hourlyRate)) ? Number(e.hourlyRate) : null,
+    annualSalary: e.annualSalary != null && !isNaN(Number(e.annualSalary)) ? Number(e.annualSalary) : null,
+    effectiveDate: typeof e.effectiveDate === "string" && /^\d{4}-\d{2}-\d{2}/.test(e.effectiveDate) ? e.effectiveDate : null
+  }));
 }
 var ANTHROPIC_URL, TOUCHBISTRO_WORKBOOKS;
 var init_touchbistro_client = __esm({
@@ -42959,6 +43203,57 @@ var init_payroll_router = __esm({
         }
         const r = await applyImportedHours(db, input.runId, run2.clientId, hours);
         return { ok: true, fileName, ...r };
+      }),
+      // Import the EMPLOYEE ROSTER (names + pay rates) from the LAST tab of the
+      // client's payroll workbook (Markie keeps the roster on the last page). Creates
+      // missing employees, updates rates that changed, and logs every rate with its
+      // effective date in employee_rate_history (raises tracked by day).
+      importEmployeeRoster: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        if (!client) throw new Error("Client not found");
+        let roster;
+        try {
+          const { readEmployeeRosterFromWorkbook: readEmployeeRosterFromWorkbook2 } = await Promise.resolve().then(() => (init_touchbistro_client(), touchbistro_client_exports));
+          roster = await readEmployeeRosterFromWorkbook2(ctx.user.id, client.name || "");
+        } catch (e) {
+          return { ok: false, error: e instanceof Error ? e.message : String(e), created: [], updated: [], total: 0 };
+        }
+        const { recordRateChange: recordRateChange2 } = await Promise.resolve().then(() => (init_employee_router(), employee_router_exports));
+        const existing = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
+        const norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+        const byName = /* @__PURE__ */ new Map();
+        for (const e of existing) byName.set(norm9(`${e.firstName} ${e.lastName}`), e);
+        const parseName = (label) => {
+          const s = (label || "").trim();
+          if (s.includes(",")) {
+            const [l, f] = s.split(",");
+            return { first: (f || "").trim(), last: (l || "").trim() };
+          }
+          const t2 = s.split(/\s+/);
+          return { first: t2[0] || "", last: t2.slice(1).join(" ") };
+        };
+        const created = [], updated = [];
+        for (const row of roster) {
+          const { first, last } = parseName(row.name);
+          if (!first && !last) continue;
+          const eff = row.effectiveDate ? /* @__PURE__ */ new Date(row.effectiveDate + "T12:00:00") : /* @__PURE__ */ new Date();
+          const hit = byName.get(norm9(`${first} ${last}`)) || byName.get(norm9(row.name));
+          if (hit) {
+            const changed = row.hourlyRate != null && row.hourlyRate !== hit.hourlyRate || row.annualSalary != null && row.annualSalary !== hit.annualSalary;
+            if (changed) {
+              await db.update(employees).set({ payType: row.payType ?? hit.payType, hourlyRate: row.hourlyRate ?? hit.hourlyRate, annualSalary: row.annualSalary ?? hit.annualSalary, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, hit.id));
+              await recordRateChange2(db, { employeeId: hit.id, clientId: input.clientId, payType: row.payType ?? hit.payType, hourlyRate: row.hourlyRate ?? hit.hourlyRate, annualSalary: row.annualSalary ?? hit.annualSalary, effectiveDate: eff, note: "Rate from roster sheet", source: "roster_sheet" });
+              updated.push(`${first} ${last}`.trim());
+            }
+          } else {
+            const [ins] = await db.insert(employees).values({ clientId: input.clientId, firstName: first || row.name, lastName: last || "", payType: row.payType ?? "hourly", hourlyRate: row.hourlyRate ?? null, annualSalary: row.annualSalary ?? null, isActive: true }).returning();
+            await recordRateChange2(db, { employeeId: ins.id, clientId: input.clientId, payType: ins.payType, hourlyRate: ins.hourlyRate, annualSalary: ins.annualSalary, effectiveDate: eff, note: "Starting rate (roster sheet)", source: "roster_sheet" });
+            created.push(`${first} ${last}`.trim());
+            byName.set(norm9(`${first} ${last}`), ins);
+          }
+        }
+        return { ok: true, created, updated, total: roster.length };
       }),
       // One run with its lines + employee names (the clean sheet).
       getRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).query(async ({ input }) => {
@@ -60152,6 +60447,55 @@ var init_ensure_cashflow_schema = __esm({
   }
 });
 
+// api/ensure-rate-history-schema.ts
+var ensure_rate_history_schema_exports = {};
+__export(ensure_rate_history_schema_exports, {
+  ensureRateHistorySchema: () => ensureRateHistorySchema
+});
+async function ensureRateHistorySchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS employee_rate_history (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      employeeId integer NOT NULL,
+      effectiveDate integer NOT NULL
+    )`);
+  } catch (e) {
+    console.error("[rate-history] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+  try {
+    const have = /* @__PURE__ */ new Set();
+    const res = await db.run(sql`PRAGMA table_info(employee_rate_history)`);
+    for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
+    const cols = [
+      ["clientId", "integer"],
+      ["payType", "text"],
+      ["hourlyRate", "real"],
+      ["annualSalary", "real"],
+      ["note", "text"],
+      ["source", "text"],
+      ["createdAt", "integer"]
+    ];
+    for (const [name2, type] of cols) {
+      if (have.has(name2)) continue;
+      try {
+        await db.run(sql.raw(`ALTER TABLE employee_rate_history ADD COLUMN "${name2}" ${type}`));
+        console.log(`[rate-history] added column: ${name2}`);
+      } catch (e) {
+        console.error(`[rate-history] add column ${name2} failed:`, e instanceof Error ? e.message : e);
+      }
+    }
+  } catch (e) {
+    console.error("[rate-history] ensure columns failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_rate_history_schema = __esm({
+  "api/ensure-rate-history-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/seed-ai-agents.ts
 var seed_ai_agents_exports = {};
 __export(seed_ai_agents_exports, {
@@ -71341,135 +71685,8 @@ var userRouter = createRouter({
   })
 });
 
-// api/employee-router.ts
-init_zod();
-init_middleware();
-init_connection();
-init_schema();
-init_drizzle_orm();
-init_sensitive();
-function stripSin(row) {
-  const { sin, ...rest } = row;
-  return { ...rest, hasSin: !!sin };
-}
-var employeeRouter = createRouter({
-  list: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
-    const db = getDb();
-    const rows = await db.select().from(employees).where(eq(employees.clientId, input.clientId)).orderBy(employees.lastName);
-    return rows.map(stripSin);
-  }),
-  get: staffQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ input }) => {
-    const db = getDb();
-    const row = await db.select().from(employees).where(eq(employees.id, input.id)).limit(1);
-    return row[0] ? stripSin(row[0]) : null;
-  }),
-  // Code-gated SIN reveal (for printing T4/T4A). Requires FIGGY_SIN_PIN.
-  revealSin: staffQuery.input(external_exports.object({ id: external_exports.number(), code: external_exports.string() })).mutation(async ({ input }) => {
-    const gate = checkRevealCode(input.code);
-    if (!gate.ok) return { ok: false, reason: gate.reason };
-    const db = getDb();
-    const row = (await db.select().from(employees).where(eq(employees.id, input.id)).limit(1))[0];
-    return { ok: true, sin: row?.sin ? decryptSecret(row.sin) : null };
-  }),
-  create: seniorQuery.input(external_exports.object({
-    clientId: external_exports.number(),
-    firstName: external_exports.string().min(1),
-    lastName: external_exports.string().min(1),
-    dateOfBirth: external_exports.date().optional(),
-    hireDate: external_exports.date().optional(),
-    startDate: external_exports.date().optional(),
-    payType: external_exports.enum(["salary", "hourly", "commission", "contract"]).optional(),
-    annualSalary: external_exports.number().optional(),
-    hourlyRate: external_exports.number().optional(),
-    hoursPerWeek: external_exports.number().optional(),
-    position: external_exports.string().optional(),
-    department: external_exports.string().optional(),
-    email: external_exports.string().optional(),
-    phone: external_exports.string().optional(),
-    address: external_exports.string().optional(),
-    isContractor: external_exports.boolean().optional(),
-    contractUrl: external_exports.string().optional(),
-    phoneAllowance: external_exports.number().nullable().optional(),
-    reimbursementAmount: external_exports.number().nullable().optional(),
-    reimbursementNote: external_exports.string().optional(),
-    getsRevenueShare: external_exports.boolean().optional(),
-    revenueSharePercent: external_exports.number().nullable().optional(),
-    getsBonus: external_exports.boolean().optional(),
-    getsDividends: external_exports.boolean().optional(),
-    getsPhoneAllowance: external_exports.boolean().optional(),
-    getsReimbursement: external_exports.boolean().optional(),
-    ytdGrossOpening: external_exports.number().nullable().optional(),
-    wsibEligible: external_exports.boolean().optional(),
-    jobberName: external_exports.string().optional(),
-    sin: external_exports.string().optional(),
-    notes: external_exports.string().optional()
-  })).mutation(async ({ input }) => {
-    const db = getDb();
-    const { sin, ...rest } = input;
-    const values = { ...rest, createdAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() };
-    if (sin !== void 0) values.sin = sin ? encryptSecret(sin) : null;
-    const result = await db.insert(employees).values(values);
-    return { success: true, id: Number(result.lastInsertRowid) };
-  }),
-  update: seniorQuery.input(external_exports.object({
-    id: external_exports.number(),
-    firstName: external_exports.string().optional(),
-    lastName: external_exports.string().optional(),
-    dateOfBirth: external_exports.date().optional(),
-    hireDate: external_exports.date().optional(),
-    startDate: external_exports.date().optional(),
-    payType: external_exports.enum(["salary", "hourly", "commission", "contract"]).optional(),
-    annualSalary: external_exports.number().optional(),
-    hourlyRate: external_exports.number().optional(),
-    hoursPerWeek: external_exports.number().optional(),
-    position: external_exports.string().optional(),
-    department: external_exports.string().optional(),
-    email: external_exports.string().optional(),
-    phone: external_exports.string().optional(),
-    address: external_exports.string().optional(),
-    isContractor: external_exports.boolean().optional(),
-    isActive: external_exports.boolean().optional(),
-    terminationDate: external_exports.date().optional(),
-    terminationReason: external_exports.string().optional(),
-    hasHealthBenefits: external_exports.boolean().optional(),
-    hasDentalBenefits: external_exports.boolean().optional(),
-    hasRrsp: external_exports.boolean().optional(),
-    rrspMatchPercent: external_exports.number().optional(),
-    onGovernmentGrant: external_exports.boolean().optional(),
-    grantType: external_exports.string().optional(),
-    grantStartDate: external_exports.date().optional(),
-    grantEndDate: external_exports.date().optional(),
-    contractUrl: external_exports.string().optional(),
-    phoneAllowance: external_exports.number().nullable().optional(),
-    reimbursementAmount: external_exports.number().nullable().optional(),
-    reimbursementNote: external_exports.string().optional(),
-    getsRevenueShare: external_exports.boolean().optional(),
-    revenueSharePercent: external_exports.number().nullable().optional(),
-    getsBonus: external_exports.boolean().optional(),
-    getsDividends: external_exports.boolean().optional(),
-    getsPhoneAllowance: external_exports.boolean().optional(),
-    getsReimbursement: external_exports.boolean().optional(),
-    ytdGrossOpening: external_exports.number().nullable().optional(),
-    wsibEligible: external_exports.boolean().optional(),
-    jobberName: external_exports.string().optional(),
-    sin: external_exports.string().optional(),
-    notes: external_exports.string().optional()
-  })).mutation(async ({ input }) => {
-    const { id, sin, ...data } = input;
-    const db = getDb();
-    const patch = { ...data, updatedAt: /* @__PURE__ */ new Date() };
-    if (sin !== void 0) patch.sin = sin ? encryptSecret(sin) : null;
-    await db.update(employees).set(patch).where(eq(employees.id, id));
-    return { success: true };
-  }),
-  delete: seniorQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
-    const db = getDb();
-    await db.delete(employees).where(eq(employees.id, input.id));
-    return { success: true };
-  })
-});
-
 // api/router.ts
+init_employee_router();
 init_payroll_router();
 
 // api/contacts-router.ts
@@ -76505,7 +76722,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.103";
+var BUILD_TAG = "2026-06-24.104";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -77671,6 +77888,8 @@ async function startServer() {
     await ensureCalendarSchema2();
     const { ensureCashflowSchema: ensureCashflowSchema2 } = await Promise.resolve().then(() => (init_ensure_cashflow_schema(), ensure_cashflow_schema_exports));
     await ensureCashflowSchema2();
+    const { ensureRateHistorySchema: ensureRateHistorySchema2 } = await Promise.resolve().then(() => (init_ensure_rate_history_schema(), ensure_rate_history_schema_exports));
+    await ensureRateHistorySchema2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));

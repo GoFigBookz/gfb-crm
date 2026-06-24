@@ -1,9 +1,25 @@
 import { z } from "zod";
 import { createRouter, staffQuery, seniorQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { employees } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { employees, employeeRateHistory } from "../db/schema";
+import { eq, desc } from "drizzle-orm";
 import { encryptSecret, decryptSecret, checkRevealCode } from "./sensitive";
+
+/** Record a pay-rate change (a raise, or the initial rate) with the DAY it took
+ *  effect, so we keep the full history behind the employee's current rate. */
+export async function recordRateChange(db: any, e: {
+  employeeId: number; clientId?: number | null; payType?: string | null;
+  hourlyRate?: number | null; annualSalary?: number | null;
+  effectiveDate?: Date | null; note?: string | null; source?: string;
+}): Promise<void> {
+  try {
+    await db.insert(employeeRateHistory).values({
+      employeeId: e.employeeId, clientId: e.clientId ?? null, payType: e.payType ?? null,
+      hourlyRate: e.hourlyRate ?? null, annualSalary: e.annualSalary ?? null,
+      effectiveDate: e.effectiveDate ?? new Date(), note: e.note ?? null, source: e.source ?? "manual",
+    } as any);
+  } catch (err) { console.error("[rate-history] record failed:", err instanceof Error ? err.message : err); }
+}
 
 /** Never leak the stored (encrypted) SIN. Return a hasSin flag instead. */
 function stripSin<T extends { sin?: string | null }>(row: T): T & { hasSin: boolean } {
@@ -79,7 +95,12 @@ export const employeeRouter = createRouter({
       const values: any = { ...rest, createdAt: new Date(), updatedAt: new Date() };
       if (sin !== undefined) values.sin = sin ? encryptSecret(sin) : null; // encrypted at rest
       const result = await db.insert(employees).values(values);
-      return { success: true, id: Number(result.lastInsertRowid) };
+      const id = Number(result.lastInsertRowid);
+      // Seed the rate history with this employee's starting rate.
+      if (rest.hourlyRate != null || rest.annualSalary != null) {
+        await recordRateChange(db, { employeeId: id, clientId: rest.clientId, payType: rest.payType, hourlyRate: rest.hourlyRate, annualSalary: rest.annualSalary, effectiveDate: rest.hireDate ?? rest.startDate ?? new Date(), source: "manual", note: "Starting rate" });
+      }
+      return { success: true, id };
     }),
 
   update: seniorQuery
@@ -126,14 +147,42 @@ export const employeeRouter = createRouter({
       jobberName: z.string().optional(),
       sin: z.string().optional(),
       notes: z.string().optional(),
+      // When a rate change is a RAISE, the day it takes effect (+ optional note).
+      rateEffectiveDate: z.date().optional(),
+      rateNote: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
-      const { id, sin, ...data } = input;
+      const { id, sin, rateEffectiveDate, rateNote, ...data } = input;
       const db = getDb();
+      // Detect a pay-rate change so we can log the raise with its effective date.
+      const before = (await db.select().from(employees).where(eq(employees.id, id)).limit(1))[0] as any;
       const patch: any = { ...data, updatedAt: new Date() };
       if (sin !== undefined) patch.sin = sin ? encryptSecret(sin) : null; // encrypted at rest
       await db.update(employees).set(patch).where(eq(employees.id, id));
+      const rateChanged =
+        (data.hourlyRate !== undefined && data.hourlyRate !== (before?.hourlyRate ?? null)) ||
+        (data.annualSalary !== undefined && data.annualSalary !== (before?.annualSalary ?? null));
+      if (before && rateChanged) {
+        await recordRateChange(db, {
+          employeeId: id, clientId: before.clientId,
+          payType: data.payType ?? before.payType,
+          hourlyRate: data.hourlyRate ?? before.hourlyRate,
+          annualSalary: data.annualSalary ?? before.annualSalary,
+          effectiveDate: rateEffectiveDate ?? new Date(),
+          note: rateNote ?? "Rate change", source: "manual",
+        });
+      }
       return { success: true };
+    }),
+
+  // Pay-rate history for one employee (newest first) — the raise log.
+  rateHistory: staffQuery
+    .input(z.object({ employeeId: z.number() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      return await db.select().from(employeeRateHistory)
+        .where(eq(employeeRateHistory.employeeId, input.employeeId))
+        .orderBy(desc(employeeRateHistory.effectiveDate), desc(employeeRateHistory.id));
     }),
 
   delete: seniorQuery

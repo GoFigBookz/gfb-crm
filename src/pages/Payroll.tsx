@@ -418,6 +418,18 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
     },
     onError: (e) => alert(e.message),
   });
+  const importRoster = trpc.payroll.importEmployeeRoster.useMutation({
+    onSuccess: (r: any) => {
+      if (data?.run.clientId) utils.employee.list.invalidate({ clientId: data.run.clientId });
+      invalidate();
+      if (!r.ok) { alert("Roster import failed:\n" + r.error); return; }
+      const c = r.created?.length ? `\n➕ Added: ${r.created.join(", ")}` : "";
+      const u = r.updated?.length ? `\n✎ Rate updated (raise logged): ${r.updated.join(", ")}` : "";
+      const none = (!r.created?.length && !r.updated?.length) ? "\nEveryone already up to date." : "";
+      alert(`Employees + pay rates synced from the sheet's last tab — ${r.total} found.${c}${u}${none}`);
+    },
+    onError: (e) => alert(e.message),
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFile = trpc.payroll.importTimesheetFile.useMutation({
     onSuccess: (r: any) => {
@@ -495,6 +507,9 @@ function RunDetail({ runId, features, onDelete, onEditEmployee }: { runId: numbe
                 </Button>
                 <Button size="sm" variant="ghost" className="h-8 text-rose-600" onClick={() => fileInputRef.current?.click()} disabled={importFile.isPending} title="Or upload the detailed timesheet file straight from this device">
                   <Upload className="h-3.5 w-3.5 mr-1" /> {importFile.isPending ? "Reading timesheet…" : "Upload file"}
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 border-rose-300 text-rose-700" onClick={() => importRoster.mutate({ clientId: run.clientId })} disabled={importRoster.isPending} title="Import the employee list + pay rates from the LAST tab of this client's payroll sheet (raises get logged with their effective date)">
+                  <Users className="h-3.5 w-3.5 mr-1" /> {importRoster.isPending ? "Reading roster…" : "Import employees + rates"}
                 </Button>
               </>
             )}
@@ -969,7 +984,9 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
   const [sinTouched, setSinTouched] = useState(false);
   const [sinCode, setSinCode] = useState("");
   const revealSin = trpc.employee.revealSin.useMutation();
+  const rateHistory = trpc.employee.rateHistory.useQuery({ employeeId: employee.id ?? 0 }, { enabled: !!employee.id });
   const [f, setF] = useState({
+    rateEffectiveDate: "", // when changing the rate (a raise) — the day it takes effect; blank = today
     firstName: employee.firstName || "", lastName: employee.lastName || "",
     payType: employee.payType || "hourly",
     annualSalary: employee.annualSalary != null ? String(employee.annualSalary) : "",
@@ -1022,6 +1039,32 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
             )}
             <div><Label>Hrs / week</Label><Input type="number" value={f.hoursPerWeek} onChange={(e) => set("hoursPerWeek", e.target.value)} /></div>
           </div>
+          {/* Raise tracking — when you change the rate, set the day it takes effect
+              (blank = today). Past raises are listed below. */}
+          {!isNew && (
+            <div className="rounded-md border bg-slate-50 px-2 py-2 space-y-1.5">
+              <div className="grid grid-cols-2 gap-3 items-end">
+                <div>
+                  <Label className="text-xs">Raise effective date</Label>
+                  <Input type="date" value={f.rateEffectiveDate} onChange={(e) => set("rateEffectiveDate", e.target.value)} />
+                </div>
+                <p className="text-[11px] text-slate-500 pb-1.5">Set when you change the rate above. Blank = today.</p>
+              </div>
+              {!!rateHistory.data?.length && (
+                <div className="text-[11px] text-slate-600">
+                  <div className="font-medium text-slate-500 uppercase tracking-wide mb-0.5">Pay-rate history</div>
+                  <ul className="space-y-0.5">
+                    {rateHistory.data.map((h: any) => (
+                      <li key={h.id} className="flex justify-between gap-2">
+                        <span>{h.effectiveDate ? new Date(h.effectiveDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—"}{h.note ? ` · ${h.note}` : ""}</span>
+                        <span className="font-medium">{h.hourlyRate != null ? `$${h.hourlyRate}/hr` : h.annualSalary != null ? `$${Number(h.annualSalary).toLocaleString()}/yr` : "—"}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
           <div>
             <Label>Position</Label><Input value={f.position} onChange={(e) => set("position", e.target.value)} />
           </div>
@@ -1115,6 +1158,7 @@ function EmployeeCardDialog({ employee, onClose, onSave, pending }: {
               getsPhoneAllowance: !!f.getsPhoneAllowance, getsReimbursement: !!f.getsReimbursement,
               ytdGrossOpening: f.ytdGrossOpening.trim() === "" ? null : num(f.ytdGrossOpening),
               ...(sinTouched ? { sin: sin.trim() } : {}),
+              ...(f.rateEffectiveDate ? { rateEffectiveDate: new Date(f.rateEffectiveDate + "T12:00:00") } : {}),
               isActive: f.isActive, notes: f.notes.trim() || undefined,
             })}>{pending ? "Saving…" : isNew ? "Create" : "Save"}</Button>
           </div>

@@ -182,3 +182,51 @@ export async function importTouchBistroHoursData(
   const emps = (json?.employees || []) as any[];
   return emps.filter((e) => e && e.name).map((e) => ({ userName: String(e.name), hours: Number(e.hours) || 0 }));
 }
+
+export type RosterRow = { name: string; payType: string | null; hourlyRate: number | null; annualSalary: number | null; effectiveDate: string | null };
+
+/** Read the employee ROSTER (names + pay rates) from the LAST tab of a client's
+ *  payroll workbook — Markie keeps the roster on the last page. AI-parsed so it
+ *  tolerates messy layouts; pulls a per-row effective/raise date if present. */
+export async function readEmployeeRosterFromWorkbook(userId: number, clientName: string): Promise<RosterRow[]> {
+  const sheetId = workbookFor(clientName);
+  if (!sheetId) throw new Error(`No payroll workbook is linked for "${clientName}".`);
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY isn't set — needed to read the roster sheet.");
+  const acct = await googleAccount(userId);
+  if (!acct) throw new Error("Google isn't connected (Integrations → Google, with Drive access).");
+  const token = await getValidGoogleAccessToken(acct);
+  const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties.title`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!metaRes.ok) throw new Error(`Couldn't open the sheet (${metaRes.status}). Reconnect Google in Integrations with Drive access.`);
+  const meta = await metaRes.json();
+  const titles: string[] = (meta.sheets || []).map((s: any) => s?.properties?.title).filter(Boolean);
+  if (!titles.length) throw new Error("No tabs found in the workbook.");
+  const lastTab = titles[titles.length - 1]; // the roster is on the LAST page
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(lastTab)}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`Couldn't read the "${lastTab}" tab (${r.status}).`);
+  const d = await r.json();
+  const rows = (d.values || []) as string[][];
+  const text = (`### TAB: ${lastTab}\n` + rows.map((row) => row.join("\t")).join("\n")).slice(0, 60000);
+  const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
+  const system = "You extract an employee roster (names + pay rates) from a payroll workbook tab. Return ONLY JSON, no prose.";
+  const prompt =
+    `This is the employee roster tab. Return ONLY {"employees":[{"name":"<First Last as shown>","payType":"hourly"|"salary","hourlyRate":<number or null>,"annualSalary":<number or null>,"effectiveDate":"<YYYY-MM-DD or null — only if a rate/raise/effective date column exists>"}]}. ` +
+    `EXCLUDE header rows, subtotal/total rows, and anyone marked "not in payroll". If a value is missing, use null. Salary annual amounts go in annualSalary; per-hour amounts go in hourlyRate.\n\nTAB:\n${text}`;
+  const res = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model, max_tokens: 2000, system, messages: [{ role: "user", content: prompt }] }),
+  });
+  if (!res.ok) { const b = await res.text().catch(() => ""); throw new Error(`Couldn't read the roster (${res.status}). ${b.slice(0, 120)}`); }
+  const data: any = await res.json();
+  const out = (data.content || []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
+  const json = extractJson(out);
+  const emps = (json?.employees || []) as any[];
+  return emps.filter((e) => e && e.name).map((e) => ({
+    name: String(e.name).trim(),
+    payType: e.payType === "salary" ? "salary" : e.payType === "hourly" ? "hourly" : null,
+    hourlyRate: e.hourlyRate != null && !isNaN(Number(e.hourlyRate)) ? Number(e.hourlyRate) : null,
+    annualSalary: e.annualSalary != null && !isNaN(Number(e.annualSalary)) ? Number(e.annualSalary) : null,
+    effectiveDate: typeof e.effectiveDate === "string" && /^\d{4}-\d{2}-\d{2}/.test(e.effectiveDate) ? e.effectiveDate : null,
+  }));
+}
