@@ -15,7 +15,7 @@ import { selectRelevant, formatLessonsBlock } from "./learning-core";
 import { recordAudit } from "./agent-audit";
 
 // Tools that DO something (vs read-only) — these get written to the audit trail.
-const ACTION_TOOLS = new Set(["add_task", "add_personal", "schedule_event", "complete_task", "draft_email", "remember"]);
+const ACTION_TOOLS = new Set(["add_task", "add_personal", "schedule_event", "complete_task", "draft_email", "remember", "remember_personal"]);
 
 const TZ = "America/Toronto";
 import { parseTaskCommand } from "./task-command-core";
@@ -89,6 +89,30 @@ async function execRemember(input: any, userId: number, activeAgent: string): Pr
   const db = getDb();
   await db.insert(agentLearnings).values({ userId, scope, lesson, source } as any);
   return `Saved to ${scope === "all" ? "the team's" : scope + "'s"} knowledge: "${lesson}".`;
+}
+
+async function execRememberPersonal(input: any, userId: number): Promise<string> {
+  const fact = String(input?.fact ?? "").trim();
+  if (!fact) return "What about your life should I remember?";
+  const { normalizeCategory } = await import("./personal-core");
+  const { personalFacts } = await import("../db/schema");
+  const category = normalizeCategory(input?.category);
+  const db = getDb();
+  await db.insert(personalFacts).values({ userId, category, fact, pinned: !!input?.pinned, source: "liv" } as any);
+  return `Got it — saved to your private notes (${category}): "${fact}".`;
+}
+
+async function execRecallPersonal(input: any, userId: number): Promise<string> {
+  const { personalFacts } = await import("../db/schema");
+  const db = getDb();
+  const rows = (await db.select().from(personalFacts).where(eq(personalFacts.userId, userId))) as any[];
+  const q = String(input?.query ?? "").trim().toLowerCase();
+  const hits = q
+    ? rows.filter((r) => `${r.fact} ${r.category} ${r.tags ?? ""}`.toLowerCase().includes(q))
+    : rows;
+  if (!hits.length) return q ? `I don't have anything on "${q}" in your personal notes yet.` : "Your personal knowledge base is empty so far.";
+  hits.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+  return hits.slice(0, 25).map((r) => `- [${r.category}] ${r.fact}`).join("\n");
 }
 
 async function execDraftEmail(input: any, userId: number): Promise<string> {
@@ -265,6 +289,8 @@ async function runTool(name: string, input: any, userId: number, activeAgent: st
     if (name === "search_email") return await execSearchEmail(input, userId);
     if (name === "search_drive") return await execSearchDrive(input, userId);
     if (name === "remember") return await execRemember(input, userId, activeAgent);
+    if (name === "remember_personal") return await execRememberPersonal(input, userId);
+    if (name === "recall_personal") return await execRecallPersonal(input, userId);
     if (name === "system_health") return await execSystemHealth();
     if (name === "agent_scorecard") return await execAgentScorecard();
     if (name === "firm_status") return await execFirmStatus(userId);

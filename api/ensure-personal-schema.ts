@@ -26,4 +26,19 @@ export async function ensurePersonalSchema(): Promise<void> {
   } catch (e) {
     console.error("[personal] ensure personal_items table failed:", e instanceof Error ? e.message : e);
   }
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS personal_facts (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      category text DEFAULT 'misc' NOT NULL,
+      fact text NOT NULL,
+      tags text,
+      pinned integer DEFAULT 0 NOT NULL,
+      source text DEFAULT 'markie',
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[personal] ensure personal_facts table failed:", e instanceof Error ? e.message : e);
+  }
 }
