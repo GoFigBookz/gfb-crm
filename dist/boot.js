@@ -22366,6 +22366,7 @@ __export(schema_exports, {
   notifications: () => notifications,
   payRunLines: () => payRunLines,
   payRuns: () => payRuns,
+  personalFacts: () => personalFacts,
   personalItems: () => personalItems,
   portalFiles: () => portalFiles,
   portalSettings: () => portalSettings,
@@ -22401,7 +22402,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks;
+var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -24045,6 +24046,18 @@ var init_schema = __esm({
       priority: text("priority", { enum: ["low", "medium", "high"] }).default("medium").notNull(),
       done: integer2("done", { mode: "boolean" }).default(false).notNull(),
       doneAt: integer2("doneAt", { mode: "timestamp" }),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    personalFacts = sqliteTable("personal_facts", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      userId: integer2("userId").notNull(),
+      category: text("category").default("misc").notNull(),
+      fact: text("fact").notNull(),
+      tags: text("tags"),
+      pinned: integer2("pinned", { mode: "boolean" }).default(false).notNull(),
+      source: text("source").default("markie"),
+      // markie | liv | dump
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
@@ -43133,7 +43146,7 @@ var init_seed_collingwood_payroll = __esm({
       { first: "Corey", last: "Hawton", payType: "hourly", hourlyRate: 26.5, phone: 23.08 },
       { first: "Justin", last: "Koutsomichos", payType: "hourly", hourlyRate: 23, phone: 23.08 },
       { first: "Dave", last: "Lally", payType: "hourly", hourlyRate: 24 },
-      { first: "Aidan", last: "MacDonald", payType: "hourly", hourlyRate: 21, phone: 23 },
+      { first: "Aidan", last: "MacDonald", payType: "hourly", hourlyRate: 21, phone: 23.08 },
       { first: "Justin", last: "Pool", payType: "hourly", hourlyRate: 22 },
       { first: "Adrian", last: "Robbeson", payType: "hourly", hourlyRate: 24, phone: 23.08 },
       { first: "Chris", last: "Thompson", payType: "hourly", hourlyRate: 24, phone: 23.08 },
@@ -43829,7 +43842,7 @@ var init_payroll_router = __esm({
           const e = empById.get(l.employeeId);
           return {
             ...l,
-            employeeName: e ? `${e.firstName} ${e.lastName}` : `Employee #${l.employeeId}`,
+            employeeName: e ? e.lastName ? `${e.lastName}, ${e.firstName}` : e.firstName : `Employee #${l.employeeId}`,
             payType: e?.payType ?? null,
             hourlyRate: e?.hourlyRate ?? null,
             annualSalary: e?.annualSalary ?? null
@@ -44073,7 +44086,7 @@ var init_payroll_router = __esm({
           const rec = reconcileWithholding(a.gross, a.tax, fraction);
           return {
             employeeId: empId,
-            name: e ? `${e.firstName} ${e.lastName}` : `Employee #${empId}`,
+            name: e ? e.lastName ? `${e.lastName}, ${e.firstName}` : e.firstName : `Employee #${empId}`,
             ytdGross: rec.ytdGross,
             ytdTax: rec.ytdTaxDeducted,
             annualizedIncome: rec.annualizedIncome,
@@ -44136,7 +44149,7 @@ var init_payroll_router = __esm({
           const box14 = round2(a.gross);
           return {
             employeeId: empId,
-            name: e ? `${e.firstName} ${e.lastName}` : `Employee #${empId}`,
+            name: e ? e.lastName ? `${e.lastName}, ${e.firstName}` : e.firstName : `Employee #${empId}`,
             address: e?.address || "",
             hasSin: !!e?.sin,
             box14,
@@ -45905,7 +45918,7 @@ var init_values = __esm({
 var sleep;
 var init_sleep = __esm({
   "node_modules/@anthropic-ai/sdk/internal/utils/sleep.mjs"() {
-    sleep = (ms2, signal) => new Promise((resolve4) => {
+    sleep = (ms3, signal) => new Promise((resolve4) => {
       if (signal?.aborted)
         return resolve4();
       const onAbort = () => {
@@ -45915,7 +45928,7 @@ var init_sleep = __esm({
       const timer = setTimeout(() => {
         signal?.removeEventListener("abort", onAbort);
         resolve4();
-      }, ms2);
+      }, ms3);
       signal?.addEventListener("abort", onAbort, { once: true });
     });
   }
@@ -50109,8 +50122,8 @@ function backoff(attempt, baseMs, capMs) {
 function jitter(lowMs, highMs) {
   return lowMs + Math.random() * (highMs - lowMs);
 }
-function applyJitter(ms2) {
-  return ms2 * (1 - Math.random() * 0.25);
+function applyJitter(ms3) {
+  return ms3 * (1 - Math.random() * 0.25);
 }
 var init_backoff = __esm({
   "node_modules/@anthropic-ai/sdk/internal/utils/backoff.mjs"() {
@@ -57144,7 +57157,7 @@ var init_client4 = __esm({
         const request = this.makeRequest(options, null, void 0);
         return new PagePromise(this, request, Page2);
       }
-      async fetchWithTimeout(url2, init, ms2, controller, requestOptions, logCtx) {
+      async fetchWithTimeout(url2, init, ms3, controller, requestOptions, logCtx) {
         const { signal, method, ...options } = init || {};
         const abort = this._makeAbort(controller);
         if (signal)
@@ -57161,7 +57174,7 @@ var init_client4 = __esm({
         }
         const baseFetch = this.fetch;
         const timedFetch = async (innerUrl, innerInit) => {
-          const timeout = setTimeout(abort, ms2);
+          const timeout = setTimeout(abort, ms3);
           try {
             return await baseFetch.call(void 0, innerUrl, innerInit);
           } finally {
@@ -57431,6 +57444,116 @@ var init_agent_audit = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+  }
+});
+
+// api/personal-core.ts
+var personal_core_exports = {};
+__export(personal_core_exports, {
+  CATEGORY_LABELS: () => CATEGORY_LABELS,
+  PERSONAL_CATEGORIES: () => PERSONAL_CATEGORIES,
+  buildPersonalContext: () => buildPersonalContext,
+  normalizeCategory: () => normalizeCategory,
+  selectPersonalFacts: () => selectPersonalFacts,
+  splitDump: () => splitDump
+});
+function normalizeCategory(c) {
+  const s = (c || "").toLowerCase().trim().replace(/\s+/g, "_");
+  if (!s) return "misc";
+  if (PERSONAL_CATEGORIES.includes(s)) return s;
+  if (/(family|kid|child|wife|spouse|partner|friend|contact)/.test(s)) return "people";
+  if (/(birthday|anniversary|date|renew)/.test(s)) return "important_dates";
+  if (/(doctor|med|health|dentist|prescription)/.test(s)) return "health";
+  if (/(car|vehicle|truck|plate|insurance)/.test(s)) return "vehicles";
+  if (/(bank|bill|subscription|money|finance)/.test(s)) return "finances";
+  if (/(login|account|membership|service|password)/.test(s)) return "accounts";
+  if (/(like|prefer|favou?rite|size|taste)/.test(s)) return "preferences";
+  if (/(trip|travel|flight|hotel|passport)/.test(s)) return "travel";
+  if (/(goal|resolution|project)/.test(s)) return "goals";
+  if (/(home|house|address|utility|maintenance)/.test(s)) return "home";
+  return "misc";
+}
+function ms2(d) {
+  if (d == null) return 0;
+  const t2 = d instanceof Date ? d.getTime() : Number(d);
+  return Number.isFinite(t2) ? t2 : 0;
+}
+function selectPersonalFacts(all, limit2 = 40) {
+  return [...all].sort((a, b) => {
+    const p = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+    return p !== 0 ? p : ms2(b.createdAt) - ms2(a.createdAt);
+  }).slice(0, limit2);
+}
+function buildPersonalContext(facts, openItems = []) {
+  const picked = selectPersonalFacts(facts);
+  if (!picked.length && !openItems.length) return "";
+  const byCat = /* @__PURE__ */ new Map();
+  for (const f of picked) {
+    const c = normalizeCategory(f.category);
+    if (!byCat.has(c)) byCat.set(c, []);
+    byCat.get(c).push(`${f.pinned ? "\u2605 " : ""}${f.fact}`);
+  }
+  const order = [...PERSONAL_CATEGORIES].filter((c) => byCat.has(c)).concat([...byCat.keys()].filter((c) => !PERSONAL_CATEGORIES.includes(c)));
+  const lines = [
+    "=== MARKIE'S PERSONAL LIFE (PRIVATE \u2014 this is Liv's domain only; NEVER share it with other agents, clients, or mix it with firm work) ==="
+  ];
+  for (const c of order) {
+    lines.push(`${CATEGORY_LABELS[c] ?? c}:`);
+    for (const f of byCat.get(c)) lines.push(`  - ${f}`);
+  }
+  const open3 = openItems.filter((i) => i.kind !== "note" && !i.done);
+  if (open3.length) {
+    lines.push("Open personal items:");
+    for (const i of open3.slice(0, 20)) {
+      const due = i.dueDate ? ` (due ${new Date(ms2(i.dueDate)).toISOString().slice(0, 10)})` : "";
+      lines.push(`  - [${i.kind}] ${i.title}${due}`);
+    }
+  }
+  return lines.join("\n");
+}
+function splitDump(text2) {
+  return (text2 || "").split(/\r?\n/).map((l) => l.replace(/^\s*[-*•·]\s*/, "").trim()).filter((l) => l.length > 1);
+}
+var PERSONAL_CATEGORIES, CATEGORY_LABELS;
+var init_personal_core = __esm({
+  "api/personal-core.ts"() {
+    PERSONAL_CATEGORIES = [
+      "people",
+      // family, friends, contacts and who they are
+      "important_dates",
+      // birthdays, anniversaries, renewals
+      "health",
+      // doctors, meds, conditions, appointments
+      "home",
+      // address, utilities, maintenance, services
+      "vehicles",
+      // cars, plates, insurance, service
+      "accounts",
+      // logins/services (NOT passwords), memberships
+      "finances",
+      // personal banking, bills, subscriptions
+      "preferences",
+      // tastes, sizes, likes/dislikes
+      "travel",
+      // trips, loyalty numbers, documents
+      "goals",
+      // personal goals / projects
+      "misc"
+      // anything else / unsorted dump
+    ];
+    CATEGORY_LABELS = {
+      people: "People",
+      important_dates: "Important dates",
+      health: "Health",
+      home: "Home",
+      vehicles: "Vehicles",
+      accounts: "Accounts & memberships",
+      finances: "Personal finances",
+      preferences: "Preferences",
+      travel: "Travel",
+      goals: "Goals",
+      misc: "Misc / inbox"
+    };
   }
 });
 
@@ -60858,6 +60981,21 @@ async function ensurePersonalSchema() {
     )`);
   } catch (e) {
     console.error("[personal] ensure personal_items table failed:", e instanceof Error ? e.message : e);
+  }
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS personal_facts (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      category text DEFAULT 'misc' NOT NULL,
+      fact text NOT NULL,
+      tags text,
+      pinned integer DEFAULT 0 NOT NULL,
+      source text DEFAULT 'markie',
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[personal] ensure personal_facts table failed:", e instanceof Error ? e.message : e);
   }
 }
 var init_ensure_personal_schema = __esm({
@@ -65072,12 +65210,12 @@ function makeAsyncResource(thing, dispose) {
   return it;
 }
 var disposablePromiseTimerResult = /* @__PURE__ */ Symbol();
-function timerResource(ms2) {
+function timerResource(ms3) {
   let timer = null;
   return makeResource({ start() {
     if (timer) throw new Error("Timer already started");
     const promise2 = new Promise((resolve4) => {
-      timer = setTimeout(() => resolve4(disposablePromiseTimerResult), ms2);
+      timer = setTimeout(() => resolve4(disposablePromiseTimerResult), ms3);
     });
     return promise2;
   } }, () => {
@@ -76109,7 +76247,7 @@ YOUR EXPERTISE \u2014 executive assistant & front desk.
 WHAT YOU DO: watch client email, surface what needs action as tasks, draft replies in MARKIE'S tone (learned from his own sent mail), manage his calendar, and run his PERSONAL life in a private space that NEVER mixes with client data.
 EMAIL: identify the ask, urgency, and who it's about; draft a reply that sounds like Markie (his greeting, warmth, brevity, sign-off). Drafts are ALWAYS for his review \u2014 never auto-send. Use the right from-identity (e.g. finance@adbank.network for John's companies).
 TASKS/CALENDAR: capture clearly (client + action + due date); schedule with sensible defaults; protect his time.
-PERSONAL: errands, appointments, reminders, family \u2014 kept strictly private and separate from the firm.
+PERSONAL: errands, appointments, reminders, family \u2014 kept strictly private and separate from the firm. You also keep a PRIVATE KNOWLEDGE BASE of Markie's life and actively LEARN it: whenever he tells you something durable about himself (family/people, important dates, health, home, vehicles, accounts, personal finances, preferences, travel, goals), save it with remember_personal (pick the right category; pin the essentials). Before answering anything personal, recall_personal first so you reply from what you actually know. When he dumps a package about his life, file each item as a fact, ask only the few clarifying questions that matter, and confirm what you stored. This memory is for Markie ONLY \u2014 never expose it to other agents, clients, or firm work, and never use the firm-wide \`remember\` tool for personal facts.
 INTAKE QUESTIONS: who's it for / which client? what's the deadline? is this work or personal? what outcome does Markie want?
 FRONT DESK: you route "Hey <name>" to the right teammate and bring back the answer.`.trim();
 
@@ -76443,6 +76581,29 @@ var ASSISTANT_TOOLS = [
       },
       required: ["title"]
     }
+  },
+  {
+    name: "remember_personal",
+    description: "Save a durable FACT about Markie's personal life to his PRIVATE knowledge base (Liv only \u2014 walled off from clients and every other agent). Use when he tells you something about his life to keep: family/people, important dates, health, home, vehicles, accounts/memberships, personal finances, preferences, travel, goals. One fact per call. This is how you learn his life so you can help proactively. NEVER use the firm-wide `remember` tool for personal facts.",
+    input_schema: {
+      type: "object",
+      properties: {
+        fact: { type: "string", description: 'The fact, stated durably (e.g. "Wife: Sarah, birthday Mar 12").' },
+        category: { type: "string", description: "One of: people, important_dates, health, home, vehicles, accounts, finances, preferences, travel, goals, misc." },
+        pinned: { type: "boolean", description: "True for always-relevant essentials (immediate family, home address)." }
+      },
+      required: ["fact"]
+    }
+  },
+  {
+    name: "recall_personal",
+    description: "Search Markie's PRIVATE personal knowledge base for facts about his life. Use before answering anything personal so you reply from what you actually know about him. Returns matching facts. Liv only.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: 'What to look up (e.g. "car", "kids birthdays", "doctor"). Omit to list everything.' }
+      }
+    }
   }
 ];
 function formatAgenda(a) {
@@ -76460,7 +76621,7 @@ function formatAgenda(a) {
 }
 
 // api/assistant-router.ts
-var ACTION_TOOLS = /* @__PURE__ */ new Set(["add_task", "add_personal", "schedule_event", "complete_task", "draft_email", "remember"]);
+var ACTION_TOOLS = /* @__PURE__ */ new Set(["add_task", "add_personal", "schedule_event", "complete_task", "draft_email", "remember", "remember_personal"]);
 var TZ = "America/Toronto";
 async function execAddTask(text2, userId) {
   const db = getDb();
@@ -76533,6 +76694,26 @@ async function execRemember(input, userId, activeAgent) {
   const db = getDb();
   await db.insert(agentLearnings).values({ userId, scope, lesson, source });
   return `Saved to ${scope === "all" ? "the team's" : scope + "'s"} knowledge: "${lesson}".`;
+}
+async function execRememberPersonal(input, userId) {
+  const fact = String(input?.fact ?? "").trim();
+  if (!fact) return "What about your life should I remember?";
+  const { normalizeCategory: normalizeCategory2 } = await Promise.resolve().then(() => (init_personal_core(), personal_core_exports));
+  const { personalFacts: personalFacts2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+  const category = normalizeCategory2(input?.category);
+  const db = getDb();
+  await db.insert(personalFacts2).values({ userId, category, fact, pinned: !!input?.pinned, source: "liv" });
+  return `Got it \u2014 saved to your private notes (${category}): "${fact}".`;
+}
+async function execRecallPersonal(input, userId) {
+  const { personalFacts: personalFacts2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+  const db = getDb();
+  const rows = await db.select().from(personalFacts2).where(eq(personalFacts2.userId, userId));
+  const q = String(input?.query ?? "").trim().toLowerCase();
+  const hits = q ? rows.filter((r) => `${r.fact} ${r.category} ${r.tags ?? ""}`.toLowerCase().includes(q)) : rows;
+  if (!hits.length) return q ? `I don't have anything on "${q}" in your personal notes yet.` : "Your personal knowledge base is empty so far.";
+  hits.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+  return hits.slice(0, 25).map((r) => `- [${r.category}] ${r.fact}`).join("\n");
 }
 async function execDraftEmail(input, userId) {
   const to = extractEmail(String(input?.to ?? ""));
@@ -76698,6 +76879,8 @@ async function runTool(name2, input, userId, activeAgent) {
     if (name2 === "search_email") return await execSearchEmail(input, userId);
     if (name2 === "search_drive") return await execSearchDrive(input, userId);
     if (name2 === "remember") return await execRemember(input, userId, activeAgent);
+    if (name2 === "remember_personal") return await execRememberPersonal(input, userId);
+    if (name2 === "recall_personal") return await execRecallPersonal(input, userId);
     if (name2 === "system_health") return await execSystemHealth();
     if (name2 === "agent_scorecard") return await execAgentScorecard();
     if (name2 === "firm_status") return await execFirmStatus(userId);
@@ -76828,6 +77011,7 @@ init_middleware();
 init_connection();
 init_schema();
 init_drizzle_orm();
+init_personal_core();
 var personalRouter = createRouter({
   list: authedQuery.input(external_exports.object({ includeDone: external_exports.boolean().optional() }).optional()).query(async ({ ctx, input }) => {
     const db = getDb();
@@ -76875,6 +77059,63 @@ var personalRouter = createRouter({
     const db = getDb();
     await db.delete(personalItems).where(and(eq(personalItems.id, input.id), eq(personalItems.userId, ctx.user.id)));
     return { ok: true };
+  }),
+  // ===== PERSONAL KNOWLEDGE BASE (Liv's private memory) =====
+  // Durable facts about Markie's personal life. Scoped strictly to ctx.user.id —
+  // walled off from clients and from every agent's context except Liv's.
+  factsList: authedQuery.input(external_exports.object({ category: external_exports.string().optional() }).optional()).query(async ({ ctx, input }) => {
+    const db = getDb();
+    const conds = [eq(personalFacts.userId, ctx.user.id)];
+    if (input?.category) conds.push(eq(personalFacts.category, normalizeCategory(input.category)));
+    return db.select().from(personalFacts).where(and(...conds)).orderBy(desc(personalFacts.pinned), desc(personalFacts.createdAt));
+  }),
+  factAdd: authedQuery.input(external_exports.object({
+    fact: external_exports.string().min(1).max(2e3),
+    category: external_exports.string().max(60).optional(),
+    tags: external_exports.string().max(300).nullable().optional(),
+    pinned: external_exports.boolean().optional(),
+    source: external_exports.string().max(40).optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    await db.insert(personalFacts).values({
+      userId: ctx.user.id,
+      category: normalizeCategory(input.category),
+      fact: input.fact,
+      tags: input.tags ?? null,
+      pinned: input.pinned ?? false,
+      source: input.source ?? "markie"
+    });
+    return { ok: true };
+  }),
+  factUpdate: authedQuery.input(external_exports.object({
+    id: external_exports.number(),
+    fact: external_exports.string().min(1).max(2e3).optional(),
+    category: external_exports.string().max(60).optional(),
+    tags: external_exports.string().max(300).nullable().optional(),
+    pinned: external_exports.boolean().optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const { id, category, ...rest } = input;
+    const patch = { ...rest, updatedAt: /* @__PURE__ */ new Date() };
+    if (category != null) patch.category = normalizeCategory(category);
+    await db.update(personalFacts).set(patch).where(and(eq(personalFacts.id, id), eq(personalFacts.userId, ctx.user.id)));
+    return { ok: true };
+  }),
+  factRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    await db.delete(personalFacts).where(and(eq(personalFacts.id, input.id), eq(personalFacts.userId, ctx.user.id)));
+    return { ok: true };
+  }),
+  // Bulk "dump" — paste a package about your life; each line becomes a fact for
+  // Liv to file (lands in the chosen category, default misc/inbox to organize).
+  factDump: authedQuery.input(external_exports.object({ text: external_exports.string().min(1), category: external_exports.string().max(60).optional() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const lines = splitDump(input.text);
+    const cat = normalizeCategory(input.category ?? "misc");
+    for (const fact of lines) {
+      await db.insert(personalFacts).values({ userId: ctx.user.id, category: cat, fact, source: "dump", pinned: false });
+    }
+    return { ok: true, added: lines.length };
   })
 });
 

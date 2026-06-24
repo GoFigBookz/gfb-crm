@@ -1797,6 +1797,22 @@ export const personalItems = sqliteTable("personal_items", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// Liv's PRIVATE personal knowledge base — durable facts about Markie's personal
+// life (people, dates, health, home, vehicles, preferences…). Scoped strictly to
+// userId, NO clientId by design: walled off from client/firm data and never
+// injected into any agent's context except Liv's.
+export const personalFacts = sqliteTable("personal_facts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("userId").notNull(),
+  category: text("category").default("misc").notNull(),
+  fact: text("fact").notNull(),
+  tags: text("tags"),
+  pinned: integer("pinned", { mode: "boolean" }).default(false).notNull(),
+  source: text("source").default("markie"),  // markie | liv | dump
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // ========== AGENT LEARNINGS (the shared learning loop) ==========
 // Confirmed lessons that teach the agents over time — a correction or a "remember
 // this" becomes a durable note that gets injected into the agents' context on

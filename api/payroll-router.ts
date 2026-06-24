@@ -628,7 +628,7 @@ export const payrollRouter = createRouter({
         const e = empById.get(l.employeeId);
         return {
           ...l,
-          employeeName: e ? `${e.firstName} ${e.lastName}` : `Employee #${l.employeeId}`,
+          employeeName: e ? (e.lastName ? `${e.lastName}, ${e.firstName}` : e.firstName) : `Employee #${l.employeeId}`,
           payType: e?.payType ?? null,
           hourlyRate: e?.hourlyRate ?? null,
           annualSalary: e?.annualSalary ?? null,
@@ -880,7 +880,7 @@ export const payrollRouter = createRouter({
         const rec = reconcileWithholding(a.gross, a.tax, fraction);
         return {
           employeeId: empId,
-          name: e ? `${e.firstName} ${e.lastName}` : `Employee #${empId}`,
+          name: e ? (e.lastName ? `${e.lastName}, ${e.firstName}` : e.firstName) : `Employee #${empId}`,
           ytdGross: rec.ytdGross, ytdTax: rec.ytdTaxDeducted,
           annualizedIncome: rec.annualizedIncome, expectedYtdTax: rec.expectedYtdTax,
           variance: rec.variance, underWithheld: rec.underWithheld,
@@ -953,7 +953,7 @@ export const payrollRouter = createRouter({
         const box14 = round2(a.gross);
         return {
           employeeId: empId,
-          name: e ? `${e.firstName} ${e.lastName}` : `Employee #${empId}`,
+          name: e ? (e.lastName ? `${e.lastName}, ${e.firstName}` : e.firstName) : `Employee #${empId}`,
           address: e?.address || "",
           hasSin: !!e?.sin,
           box14, // employment income

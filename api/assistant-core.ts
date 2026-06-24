@@ -260,6 +260,29 @@ export const ASSISTANT_TOOLS = [
       required: ["title"],
     },
   },
+  {
+    name: "remember_personal",
+    description: "Save a durable FACT about Markie's personal life to his PRIVATE knowledge base (Liv only — walled off from clients and every other agent). Use when he tells you something about his life to keep: family/people, important dates, health, home, vehicles, accounts/memberships, personal finances, preferences, travel, goals. One fact per call. This is how you learn his life so you can help proactively. NEVER use the firm-wide `remember` tool for personal facts.",
+    input_schema: {
+      type: "object",
+      properties: {
+        fact: { type: "string", description: "The fact, stated durably (e.g. \"Wife: Sarah, birthday Mar 12\")." },
+        category: { type: "string", description: "One of: people, important_dates, health, home, vehicles, accounts, finances, preferences, travel, goals, misc." },
+        pinned: { type: "boolean", description: "True for always-relevant essentials (immediate family, home address)." },
+      },
+      required: ["fact"],
+    },
+  },
+  {
+    name: "recall_personal",
+    description: "Search Markie's PRIVATE personal knowledge base for facts about his life. Use before answering anything personal so you reply from what you actually know about him. Returns matching facts. Liv only.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "What to look up (e.g. \"car\", \"kids birthdays\", \"doctor\"). Omit to list everything." },
+      },
+    },
+  },
 ];
 
 export type AgendaItem = { title: string; client?: string | null; due?: string | null };

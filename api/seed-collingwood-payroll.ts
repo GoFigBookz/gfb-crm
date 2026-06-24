@@ -51,7 +51,7 @@ const ROSTER: SeedEmp[] = [
   { first: "Corey", last: "Hawton", payType: "hourly", hourlyRate: 26.5, phone: 23.08 },
   { first: "Justin", last: "Koutsomichos", payType: "hourly", hourlyRate: 23.0, phone: 23.08 },
   { first: "Dave", last: "Lally", payType: "hourly", hourlyRate: 24.0 },
-  { first: "Aidan", last: "MacDonald", payType: "hourly", hourlyRate: 21.0, phone: 23.0 },
+  { first: "Aidan", last: "MacDonald", payType: "hourly", hourlyRate: 21.0, phone: 23.08 },
   { first: "Justin", last: "Pool", payType: "hourly", hourlyRate: 22.0 },
   { first: "Adrian", last: "Robbeson", payType: "hourly", hourlyRate: 24.0, phone: 23.08 },
   { first: "Chris", last: "Thompson", payType: "hourly", hourlyRate: 24.0, phone: 23.08 },
