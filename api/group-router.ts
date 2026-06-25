@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 
 /**
  * COMPANY GROUPS — consolidated rollup across a set of related entities (e.g. all of
- * John Gillham's companies). Phase 1: list groups + a per-company + group-total view
+ * Jon Gillham's companies). Phase 1: list groups + a per-company + group-total view
  * built from what the CRM already holds (YTD payroll gross from pay runs, headcount,
  * open tasks, fiscal/HST flags, and net interco position). Read-only; QBO-fed figures
  * deepen this once connected.
