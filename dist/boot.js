@@ -11220,13 +11220,13 @@ function _promise(Class2, innerType) {
 }
 // @__NO_SIDE_EFFECTS__
 function _custom(Class2, fn, _params) {
-  const norm14 = normalizeParams(_params);
-  norm14.abort ?? (norm14.abort = true);
+  const norm15 = normalizeParams(_params);
+  norm15.abort ?? (norm15.abort = true);
   const schema = new Class2({
     type: "custom",
     check: "custom",
     fn,
-    ...norm14
+    ...norm15
   });
   return schema;
 }
@@ -43426,17 +43426,17 @@ async function recomputeRunTotals(runId) {
 async function applyImportedHours(db, runId, clientId, hours) {
   const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
   const rosterExists = emps.length > 0;
-  const norm14 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  const norm15 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
   const byAlias = /* @__PURE__ */ new Map(), byFull = /* @__PURE__ */ new Map(), byFirst = /* @__PURE__ */ new Map();
   const byLast = /* @__PURE__ */ new Map();
   const byJobberId = /* @__PURE__ */ new Map();
   for (const e of emps) {
     if (e.jobberUserId) byJobberId.set(String(e.jobberUserId), e);
-    if (e.jobberName) byAlias.set(norm14(e.jobberName), e);
-    byFull.set(norm14(`${e.firstName} ${e.lastName}`), e);
-    byFull.set(norm14(`${e.lastName}, ${e.firstName}`), e);
-    if (!byFirst.has(norm14(e.firstName))) byFirst.set(norm14(e.firstName), e);
-    const ln = norm14(e.lastName);
+    if (e.jobberName) byAlias.set(norm15(e.jobberName), e);
+    byFull.set(norm15(`${e.firstName} ${e.lastName}`), e);
+    byFull.set(norm15(`${e.lastName}, ${e.firstName}`), e);
+    if (!byFirst.has(norm15(e.firstName))) byFirst.set(norm15(e.firstName), e);
+    const ln = norm15(e.lastName);
     if (ln) byLast.set(ln, byLast.has(ln) ? "AMBIG" : e);
   }
   const parseName = (label) => {
@@ -43450,17 +43450,17 @@ async function applyImportedHours(db, runId, clientId, hours) {
     return { first: t2[0] || "", last: t2.slice(1).join(" ") };
   };
   const matchEmp = (label) => {
-    const n = norm14(label);
+    const n = norm15(label);
     let m = byAlias.get(n) || byFull.get(n);
     if (m) return m;
     const { first, last } = parseName(label);
-    m = byFull.get(norm14(`${first} ${last}`)) || byFull.get(norm14(`${last}, ${first}`));
+    m = byFull.get(norm15(`${first} ${last}`)) || byFull.get(norm15(`${last}, ${first}`));
     if (m) return m;
     if (last) {
-      const bl = byLast.get(norm14(last));
+      const bl = byLast.get(norm15(last));
       if (bl && bl !== "AMBIG") return bl;
     }
-    return byFirst.get(norm14(first)) || byFirst.get(norm14(n.split(/[ ,]/)[0])) || null;
+    return byFirst.get(norm15(first)) || byFirst.get(norm15(n.split(/[ ,]/)[0])) || null;
   };
   const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
   const lineByEmp = new Map(lines.map((l) => [l.employeeId, l]));
@@ -43490,10 +43490,10 @@ async function applyImportedHours(db, runId, clientId, hours) {
       }).returning();
       emp = ins;
       created.push(`${ins.firstName} ${ins.lastName}`.trim());
-      byFull.set(norm14(h.userName), ins);
-      byFull.set(norm14(`${ins.firstName} ${ins.lastName}`), ins);
-      byFull.set(norm14(`${ins.lastName}, ${ins.firstName}`), ins);
-      if (ins.firstName && !byFirst.has(norm14(ins.firstName))) byFirst.set(norm14(ins.firstName), ins);
+      byFull.set(norm15(h.userName), ins);
+      byFull.set(norm15(`${ins.firstName} ${ins.lastName}`), ins);
+      byFull.set(norm15(`${ins.lastName}, ${ins.firstName}`), ins);
+      if (ins.firstName && !byFirst.has(norm15(ins.firstName))) byFirst.set(norm15(ins.firstName), ins);
     }
     const note = longShiftNote2(h.maxShiftHours ?? 0);
     if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
@@ -43858,9 +43858,9 @@ var init_payroll_router = __esm({
         }
         const { recordRateChange: recordRateChange2 } = await Promise.resolve().then(() => (init_employee_router(), employee_router_exports));
         const existing = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
-        const norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+        const norm15 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
         const byName = /* @__PURE__ */ new Map();
-        for (const e of existing) byName.set(norm14(`${e.firstName} ${e.lastName}`), e);
+        for (const e of existing) byName.set(norm15(`${e.firstName} ${e.lastName}`), e);
         const parseName = (label) => {
           const s = (label || "").trim();
           if (s.includes(",")) {
@@ -43875,7 +43875,7 @@ var init_payroll_router = __esm({
           const { first, last } = parseName(row.name);
           if (!first && !last) continue;
           const eff = row.effectiveDate ? /* @__PURE__ */ new Date(row.effectiveDate + "T12:00:00") : /* @__PURE__ */ new Date();
-          const hit = byName.get(norm14(`${first} ${last}`)) || byName.get(norm14(row.name));
+          const hit = byName.get(norm15(`${first} ${last}`)) || byName.get(norm15(row.name));
           if (hit) {
             const changed = row.hourlyRate != null && row.hourlyRate !== hit.hourlyRate || row.annualSalary != null && row.annualSalary !== hit.annualSalary;
             if (changed) {
@@ -43887,7 +43887,7 @@ var init_payroll_router = __esm({
             const [ins] = await db.insert(employees).values({ clientId: input.clientId, firstName: first || row.name, lastName: last || "", payType: row.payType ?? "hourly", hourlyRate: row.hourlyRate ?? null, annualSalary: row.annualSalary ?? null, isActive: true }).returning();
             await recordRateChange2(db, { employeeId: ins.id, clientId: input.clientId, payType: ins.payType, hourlyRate: ins.hourlyRate, annualSalary: ins.annualSalary, effectiveDate: eff, note: "Starting rate (roster sheet)", source: "roster_sheet" });
             created.push(`${first} ${last}`.trim());
-            byName.set(norm14(`${first} ${last}`), ins);
+            byName.set(norm15(`${first} ${last}`), ins);
           }
         }
         return { ok: true, created, updated, total: roster.length };
@@ -44311,10 +44311,10 @@ function normalizePhone(raw2) {
 }
 async function matchClientByPhone(phone) {
   const db = getDb();
-  const norm14 = normalizePhone(phone);
-  if (!norm14) return null;
+  const norm15 = normalizePhone(phone);
+  if (!norm15) return null;
   const all = await db.select().from(clients);
-  const hit = all.find((c) => normalizePhone(c.phone || "") === norm14);
+  const hit = all.find((c) => normalizePhone(c.phone || "") === norm15);
   return hit ? { id: hit.id, name: hit.name } : null;
 }
 async function ingestInboundSms(from, body, externalId) {
@@ -58555,6 +58555,147 @@ var init_seed_os_backfill = __esm({
   }
 });
 
+// api/seed-employee-dedup.ts
+var seed_employee_dedup_exports = {};
+__export(seed_employee_dedup_exports, {
+  dedupEmployees: () => dedupEmployees
+});
+async function repoint(db, fromId, toId) {
+  for (const tbl of [payRunLines, timesheets, employeeRateHistory, bankedHourEntries]) {
+    try {
+      await db.update(tbl).set({ employeeId: toId }).where(eq(tbl.employeeId, fromId));
+    } catch {
+    }
+  }
+}
+async function dedupClient(clientId, names) {
+  const db = getDb();
+  const nameByKey = /* @__PURE__ */ new Map();
+  for (const n of names) nameByKey.set(idKey(n.first, n.last), n);
+  const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
+  const groups = /* @__PURE__ */ new Map();
+  for (const e of emps) {
+    const k = idKey(e.firstName || "", e.lastName || "");
+    const arr = groups.get(k) || [];
+    arr.push(e);
+    groups.set(k, arr);
+  }
+  let merged = 0, renamed = 0;
+  for (const [k, group] of groups) {
+    let keeper = group[0];
+    if (group.length > 1) {
+      const lineCounts = /* @__PURE__ */ new Map();
+      for (const g of group) {
+        const lc = await db.select().from(payRunLines).where(eq(payRunLines.employeeId, g.id));
+        lineCounts.set(g.id, lc.length);
+      }
+      keeper = [...group].sort((a, b) => completeness(b) - completeness(a) || lineCounts.get(b.id) - lineCounts.get(a.id) || a.id - b.id)[0];
+      for (const g of group) {
+        if (g.id === keeper.id) continue;
+        const patch = {};
+        for (const f of ["position", "payType", "hourlyRate", "annualSalary", "jobberName", "jobberUserId", "phoneAllowance", "getsPhoneAllowance", "ytdGrossOpening"]) {
+          if ((keeper[f] == null || keeper[f] === "") && g[f] != null && g[f] !== "") patch[f] = g[f];
+        }
+        if (Object.keys(patch).length) {
+          patch.updatedAt = /* @__PURE__ */ new Date();
+          await db.update(employees).set(patch).where(eq(employees.id, keeper.id));
+          Object.assign(keeper, patch);
+        }
+        await repoint(db, g.id, keeper.id);
+        await db.delete(employees).where(eq(employees.id, g.id));
+        merged++;
+      }
+    }
+    const want = nameByKey.get(k);
+    if (want && (keeper.firstName !== want.first || keeper.lastName !== want.last)) {
+      await db.update(employees).set({ firstName: want.first, lastName: want.last, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, keeper.id));
+      renamed++;
+    }
+  }
+  return { merged, renamed };
+}
+async function dedupEmployees() {
+  const db = getDb();
+  try {
+    const cs = await db.select().from(clients);
+    const targets = [
+      { match: (c) => /clark/i.test(c.name || "") && /(owen|sound)/i.test(c.name || ""), names: OS_NAMES },
+      { match: (c) => /colling/i.test(c.name || ""), names: CW_NAMES },
+      { match: (c) => /sher|punjab/i.test(c.name || ""), names: SHER_NAMES }
+    ];
+    let merged = 0, renamed = 0;
+    for (const t2 of targets) {
+      const client = cs.find(t2.match);
+      if (!client) continue;
+      const r = await dedupClient(client.id, t2.names);
+      merged += r.merged;
+      renamed += r.renamed;
+    }
+    if (merged || renamed) console.log(`[emp-dedup] merged ${merged} dupe(s), renamed ${renamed}`);
+    return { merged, renamed, skipped: "" };
+  } catch (err) {
+    console.error("[emp-dedup] failed:", err instanceof Error ? err.message : err);
+  }
+}
+var norm11, idKey, OS_NAMES, CW_NAMES, SHER_NAMES, completeness;
+var init_seed_employee_dedup = __esm({
+  "api/seed-employee-dedup.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    norm11 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    idKey = (first, last) => (norm11(first) + norm11(last)).split("").sort().join("");
+    OS_NAMES = [
+      { first: "Jammie", last: "Cook" },
+      { first: "Grace", last: "Dickerson" },
+      { first: "Dean", last: "Dickerson" },
+      { first: "Bruce", last: "Funston" },
+      { first: "Ethan", last: "Holt" },
+      { first: "Isabella", last: "Holt" },
+      { first: "Chris", last: "Kennedy" },
+      { first: "Michael", last: "Kennedy" },
+      { first: "Alexis", last: "Montgomery" },
+      { first: "Jamie", last: "Moseley" },
+      { first: "Brad", last: "Nickle" },
+      { first: "Brad", last: "Shaw" },
+      { first: "Debbie", last: "Maritin" },
+      { first: "Neil", last: "Korchak" }
+    ];
+    CW_NAMES = [
+      { first: "Chris", last: "Hawton" },
+      { first: "Brendan", last: "Essex" },
+      { first: "Matteo", last: "Companion" },
+      { first: "Logan", last: "Greig" },
+      { first: "Chris", last: "Haight" },
+      { first: "Corey", last: "Hawton" },
+      { first: "Justin", last: "Koutsomichos" },
+      { first: "Dave", last: "Lally" },
+      { first: "Aidan", last: "MacDonald" },
+      { first: "Justin", last: "Pool" },
+      { first: "Adrian", last: "Robbeson" },
+      { first: "Chris", last: "Thompson" },
+      { first: "Lisa", last: "Venditti" },
+      { first: "Alan", last: "Weaver" }
+    ];
+    SHER_NAMES = [
+      { first: "Surya", last: "Bhattrai" },
+      { first: "Upendra", last: "Bahadur Poudel" },
+      { first: "Akash", last: "Dahal" },
+      { first: "Rohit", last: "Dhimal" },
+      { first: "Dhiren", last: "Gurung" },
+      { first: "Suraj", last: "Limbu" },
+      { first: "Deepak", last: "Vasisth" }
+    ];
+    completeness = (e) => {
+      let n = 0;
+      for (const k of ["firstName", "lastName", "position", "payType", "hourlyRate", "annualSalary", "jobberName", "jobberUserId", "phoneAllowance", "ytdGrossOpening"]) {
+        if (e[k] != null && e[k] !== "") n++;
+      }
+      return n;
+    };
+  }
+});
+
 // api/qbo-cashflow.ts
 function bankBreakdownFromAccounts(rows) {
   let cashCad = 0, cashUsd = 0, creditCardOwed = 0, uncategorizedBalance = 0, uncategorizedCount = 0;
@@ -59295,7 +59436,7 @@ async function dedupeClients(confirm) {
   const groups = /* @__PURE__ */ new Map();
   for (const r of clientRows) {
     const id = Number(r.id ?? r[0]);
-    const key4 = `${norm11(r.name ?? r[1])}|${norm11(r.company ?? r[2])}`;
+    const key4 = `${norm12(r.name ?? r[1])}|${norm12(r.company ?? r[2])}`;
     if (!groups.has(key4)) groups.set(key4, []);
     groups.get(key4).push(id);
   }
@@ -59375,12 +59516,12 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm11, asRows, num2;
+var norm12, asRows, num2;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
-    norm11 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    norm12 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
     num2 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
@@ -60044,9 +60185,9 @@ async function seedPayrollEmployees() {
       result.skipped += roster.employees.length;
       continue;
     }
-    const have = new Set(current.map((e) => `${norm12(e.firstName)} ${norm12(e.lastName)}`.trim()));
+    const have = new Set(current.map((e) => `${norm13(e.firstName)} ${norm13(e.lastName)}`.trim()));
     for (const emp of roster.employees) {
-      if (roster.merge && have.has(`${norm12(emp.firstName)} ${norm12(emp.lastName || "")}`.trim())) {
+      if (roster.merge && have.has(`${norm13(emp.firstName)} ${norm13(emp.lastName || "")}`.trim())) {
         result.skipped++;
         continue;
       }
@@ -60070,7 +60211,7 @@ async function seedPayrollEmployees() {
   for (const mv of PAYROLL_EMPLOYEE_MOVES) {
     const to = findClient(clientsNow, mv.toMatch);
     if (!to) continue;
-    const matches = (await db.select().from(employees)).filter((e) => norm12(e.firstName) === norm12(mv.firstName) && norm12(e.lastName) === norm12(mv.lastName));
+    const matches = (await db.select().from(employees)).filter((e) => norm13(e.firstName) === norm13(mv.firstName) && norm13(e.lastName) === norm13(mv.lastName));
     for (const e of matches) {
       if (e.clientId === to.id) continue;
       const from = findClient(clientsNow, mv.fromMatch);
@@ -60095,7 +60236,7 @@ async function seedPayrollEmployees() {
     for (const link of PAYROLL_CONTRACT_LINKS) {
       const client = findClient(clientsNow, link.clientMatch);
       if (!client) continue;
-      const emp = all.find((e) => e.clientId === client.id && norm12(e.firstName) === norm12(link.firstName) && (!link.lastName || norm12(e.lastName) === norm12(link.lastName)));
+      const emp = all.find((e) => e.clientId === client.id && norm13(e.firstName) === norm13(link.firstName) && (!link.lastName || norm13(e.lastName) === norm13(link.lastName)));
       if (emp && !emp.contractUrl) {
         await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
         contracts++;
@@ -60106,7 +60247,7 @@ async function seedPayrollEmployees() {
     console.log(`[seed] payroll employees: +${result.added} -${result.removed} moved ${moved} salary-filled ${filled} contracts ${contracts}`);
   return { ...result, moved, filled, contracts };
 }
-var PAYROLL_EMPLOYEE_MOVES, norm12, findClient;
+var PAYROLL_EMPLOYEE_MOVES, norm13, findClient;
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
@@ -60117,8 +60258,8 @@ var init_seed_payroll_employees = __esm({
     PAYROLL_EMPLOYEE_MOVES = [
       { firstName: "Stacey", lastName: "Gillham", fromMatch: "2303851", toMatch: "originality", note: "Moved to Originality as of the 15th" }
     ];
-    norm12 = (s) => (s || "").toLowerCase().trim();
-    findClient = (all, match2) => all.find((c) => norm12(c.name).includes(norm12(match2)));
+    norm13 = (s) => (s || "").toLowerCase().trim();
+    findClient = (all, match2) => all.find((c) => norm13(c.name).includes(norm13(match2)));
   }
 });
 
@@ -62333,8 +62474,8 @@ async function seedGovRegistry() {
     return report;
   }
   for (const g of GOV) {
-    let c = g.bn ? all.find((x) => norm13(x.taxId) === norm13(g.bn)) : void 0;
-    if (!c && g.nameKey) c = all.find((x) => norm13(x.name).includes(norm13(g.nameKey)) || norm13(x.company).includes(norm13(g.nameKey)));
+    let c = g.bn ? all.find((x) => norm14(x.taxId) === norm14(g.bn)) : void 0;
+    if (!c && g.nameKey) c = all.find((x) => norm14(x.name).includes(norm14(g.nameKey)) || norm14(x.company).includes(norm14(g.nameKey)));
     if (!c) continue;
     report.matched++;
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
@@ -62353,7 +62494,7 @@ async function seedGovRegistry() {
   }
   return report;
 }
-var GOV, norm13;
+var GOV, norm14;
 var init_seed_gov_registry = __esm({
   "api/seed-gov-registry.ts"() {
     init_connection();
@@ -62395,7 +62536,7 @@ var init_seed_gov_registry = __esm({
       { bn: "809545346", industry: "Healthcare/Wellness", bio: "Healthcare business in the osteopathic / wellness field, providing therapeutic services and alternative health treatments." },
       { nameKey: "universal drywall", industry: "Construction/Drywall", bio: "Drywall and construction services company providing interior framing, drywall installation and exterior finishes. USA (Florida) entity." }
     ];
-    norm13 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm14 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   }
 });
 
@@ -78660,17 +78801,17 @@ function parseOpeningBalances(text2) {
 
 // api/banked-hours-router.ts
 function matchEmployee(name2, emps) {
-  const norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
-  const target = norm14(name2);
+  const norm15 = (s) => (s || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
+  const target = norm15(name2);
   if (!target) return null;
   for (const e of emps) {
-    const full = norm14(`${e.firstName} ${e.lastName}`);
-    const rev = norm14(`${e.lastName} ${e.firstName}`);
+    const full = norm15(`${e.firstName} ${e.lastName}`);
+    const rev = norm15(`${e.lastName} ${e.firstName}`);
     if (target === full || target === rev) return e;
   }
   for (const e of emps) {
-    const ln = norm14(e.lastName);
-    const fi = norm14(e.firstName).charAt(0);
+    const ln = norm15(e.lastName);
+    const fi = norm15(e.firstName).charAt(0);
     if (ln && target.includes(ln) && (!fi || target.includes(fi))) return e;
   }
   return null;
@@ -79651,6 +79792,15 @@ app.get("/api/payroll/backfill-os", async (c) => {
   try {
     const { backfillOwenSoundPayroll: backfillOwenSoundPayroll2 } = await Promise.resolve().then(() => (init_seed_os_backfill(), seed_os_backfill_exports));
     const r = await backfillOwenSoundPayroll2();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.get("/api/payroll/dedup-employees", async (c) => {
+  try {
+    const { dedupEmployees: dedupEmployees2 } = await Promise.resolve().then(() => (init_seed_employee_dedup(), seed_employee_dedup_exports));
+    const r = await dedupEmployees2();
     return c.json({ ok: true, ...r });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
@@ -80914,6 +81064,13 @@ async function startServer() {
       if (r?.runsAdded) console.log(`[os-backfill] +${r.runsAdded} runs`);
     } catch (e) {
       console.error("[os-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { dedupEmployees: dedupEmployees2 } = await Promise.resolve().then(() => (init_seed_employee_dedup(), seed_employee_dedup_exports));
+      const r = await dedupEmployees2();
+      if (r && (r.merged || r.renamed)) console.log(`[emp-dedup] merged ${r.merged}, renamed ${r.renamed}`);
+    } catch (e) {
+      console.error("[emp-dedup] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { seedTouchbistroPayroll: seedTouchbistroPayroll2 } = await Promise.resolve().then(() => (init_seed_touchbistro_payroll(), seed_touchbistro_payroll_exports));
