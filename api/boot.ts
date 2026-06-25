@@ -424,6 +424,17 @@ app.get("/api/groups/seed", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Flag Go Fig Bookz as the firm self-client (anchors Practice Health).
+//   GET /api/firm/seed
+app.get("/api/firm/seed", async (c) => {
+  try {
+    const { seedFirmClient } = await import("./seed-firm-client");
+    const r = await seedFirmClient();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // Scaffold the interco tracker — current-month period shell per group payer.
 //   GET /api/interco/scaffold
 app.get("/api/interco/scaffold", async (c) => {
@@ -1801,6 +1812,13 @@ async function startServer() {
       if (r?.created) console.log(`[interco-scaffold] created ${r.created}`);
     } catch (e) {
       console.error("[interco-scaffold] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Flag Go Fig Bookz as the firm self-client (anchors Practice Health).
+    try {
+      const { seedFirmClient } = await import("./seed-firm-client");
+      await seedFirmClient();
+    } catch (e) {
+      console.error("[firm-client] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
     // rows, repoint their pay-run lines, fix the "Last, First" split).
