@@ -272,6 +272,7 @@ export const taskRouter = createRouter({
       id: z.number(),
       title: z.string().min(1).max(255).optional(),
       description: z.string().optional(),
+      startDate: z.date().nullable().optional(),
       dueDate: z.date().nullable().optional(),
       priority: z.enum(["low", "medium", "high"]).optional(),
       status: z.enum(["pending", "in_progress", "completed", "overdue"]).optional(),

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router";
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, Building2, CheckSquare, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, Building2, CheckSquare, RefreshCw, Play } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -125,7 +125,7 @@ export default function CalendarPage() {
   // whose due date is in the past is SURFACED on today (so today reflects the
   // real workload and the calendar isn't blank) — but its stored due date is
   // left untouched, so we still know how late it is. Reschedule = drag it.
-  type Item = { id: string; title: string; date: Date; end: Date; kind: "event" | "task"; clientId: any; color: string; overdue: boolean; daysLate: number; dueDate?: Date; raw: any };
+  type Item = { id: string; title: string; date: Date; end: Date; kind: "event" | "task"; clientId: any; color: string; overdue: boolean; daysLate: number; dueDate?: Date; start?: boolean; raw: any };
   const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
   const items: Item[] = [
     ...((events || []).map((e: any) => ({
@@ -139,6 +139,13 @@ export default function CalendarPage() {
       const daysLate = isOverdue ? differenceInCalendarDays(startToday, d) : 0;
       return { id: `t${t.id}`, title: t.title, date: placement, end: placement, kind: "task" as const, clientId: t.clientId,
         color: "amber", overdue: isOverdue, daysLate, dueDate: d, raw: t };
+    })),
+    // "Begin work" markers: a task with a start date also appears (lighter, ▶) on
+    // its start day, so the calendar shows when to START as well as when it's due.
+    ...((allTasks || []).filter((t: any) => t.startDate && t.dueDate && !t.completed).map((t: any) => {
+      const s = new Date(t.startDate);
+      return { id: `ts${t.id}`, title: t.title, date: s, end: s, kind: "task" as const, clientId: t.clientId,
+        color: "blue", overdue: false, daysLate: 0, dueDate: new Date(t.dueDate), start: true, raw: t };
     })),
   ];
   const overdueCount = items.filter((it) => it.kind === "task" && it.overdue).length;
@@ -168,16 +175,17 @@ export default function CalendarPage() {
       onDragEnd={() => { setDraggingTaskId(null); setDraggingEvent(null); setDragOverKey(null); }}
       className={cn("text-xs truncate px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 flex items-center gap-1 cursor-grab active:cursor-grabbing",
         (draggingTaskId === it.raw.id || draggingEvent?.id === it.id) && "opacity-40",
-        it.kind === "task" ? (it.overdue ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700")
+        it.start ? "bg-sky-100 text-sky-700"
+          : it.kind === "task" ? (it.overdue ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700")
           : it.color === "purple" ? "bg-purple-100 text-purple-700" : "bg-lime-100 text-lime-700")}
       onClick={(ev) => {
         ev.stopPropagation();
         if (it.kind === "task") setOpenTask(it.raw);
         else if (it.raw.title?.includes("Discovery Call") && it.raw.clientId) navigate(`/discovery?clientId=${it.raw.clientId}`);
       }}
-      title={it.title}
+      title={it.start ? `Start: ${it.title}` : it.title}
     >
-      {it.kind === "task" ? <CheckSquare className="h-3 w-3 shrink-0" /> : <CalIcon className="h-3 w-3 shrink-0" />}
+      {it.start ? <Play className="h-3 w-3 shrink-0" /> : it.kind === "task" ? <CheckSquare className="h-3 w-3 shrink-0" /> : <CalIcon className="h-3 w-3 shrink-0" />}
       <span className="truncate">{it.title}</span>
       {it.overdue && <span className="ml-auto shrink-0 text-[10px] font-semibold">{it.daysLate}d late</span>}
     </div>

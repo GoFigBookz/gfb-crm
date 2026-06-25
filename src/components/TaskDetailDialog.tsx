@@ -35,6 +35,7 @@ export function TaskDetailDialog({ task, onClose, onChanged }: {
   const [stage, setStage] = useState(task.stage || (task.completed ? "done" : "todo"));
   const [assignedTo, setAssignedTo] = useState(task.assignedTo || "unassigned");
   const [clientId, setClientId] = useState(task.clientId ? String(task.clientId) : "none");
+  const [startDate, setStartDate] = useState(task.startDate ? format(new Date(task.startDate), "yyyy-MM-dd") : "");
   const [dueDate, setDueDate] = useState(task.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd") : "");
 
   const invalidate = () => {
@@ -71,6 +72,7 @@ export function TaskDetailDialog({ task, onClose, onChanged }: {
       stage: stage as any,
       assignedTo: assignedTo === "unassigned" ? "" : assignedTo,
       clientId: clientId === "none" ? null : Number(clientId),
+      startDate: startDate ? new Date(startDate) : null,
       dueDate: dueDate ? new Date(dueDate) : null,
     });
   };
@@ -150,6 +152,10 @@ export function TaskDetailDialog({ task, onClose, onChanged }: {
                   {STAGES.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>Start date</Label>
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div>
               <Label>Due date</Label>

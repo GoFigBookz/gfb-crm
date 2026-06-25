@@ -73337,6 +73337,7 @@ var taskRouter = createRouter({
     id: external_exports.number(),
     title: external_exports.string().min(1).max(255).optional(),
     description: external_exports.string().optional(),
+    startDate: external_exports.date().nullable().optional(),
     dueDate: external_exports.date().nullable().optional(),
     priority: external_exports.enum(["low", "medium", "high"]).optional(),
     status: external_exports.enum(["pending", "in_progress", "completed", "overdue"]).optional(),
