@@ -229,6 +229,56 @@ async function execSearchDrive(input: any, userId: number): Promise<string> {
   }
 }
 
+async function execReadFile(input: any, userId: number): Promise<string> {
+  const fileId = String(input?.fileId ?? "").trim();
+  const query = String(input?.query ?? "").trim();
+  if (!fileId && !query) return "Tell me which file to read — a name or some keywords.";
+  const { getFirmGoogleAccount } = await import("./google-token");
+  const account = await getFirmGoogleAccount(userId);
+  if (!account) return "I need your Google account connected first (Integrations → Google) before I can read your files.";
+  try {
+    const token = await getValidGoogleAccessToken(account);
+    const H = { Authorization: `Bearer ${token}` };
+    const FIELDS = "id,name,mimeType,webViewLink";
+    // Resolve the file: by id, else top search match (skip folders).
+    let file: any = null;
+    if (fileId) {
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=${encodeURIComponent(FIELDS)}&supportsAllDrives=true`, { headers: H });
+      if (r.ok) file = await r.json();
+    } else {
+      const esc = query.replace(/'/g, "\\'");
+      const q = `(name contains '${esc}' or fullText contains '${esc}') and trashed = false and mimeType != 'application/vnd.google-apps.folder'`;
+      const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&pageSize=1&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent(`files(${FIELDS})`)}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+      const r = await fetch(url, { headers: H });
+      if (r.ok) file = ((await r.json()).files || [])[0];
+    }
+    if (!file) return `I couldn't find a file matching "${query || fileId}".`;
+    const mt = String(file.mimeType || "");
+    const link = file.webViewLink ? `\n${file.webViewLink}` : "";
+    let exportUrl = "";
+    if (mt === "application/vnd.google-apps.document" || mt === "application/vnd.google-apps.presentation")
+      exportUrl = `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=text/plain`;
+    else if (mt === "application/vnd.google-apps.spreadsheet")
+      exportUrl = `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=text/csv`;
+    else if (mt.startsWith("text/") || mt === "application/json" || mt === "application/csv")
+      exportUrl = `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media&supportsAllDrives=true`;
+    else if (mt === "application/pdf")
+      return `"${file.name}" is a PDF — drop it into the chat with the 📎 paperclip and I'll read it directly.${link}`;
+    else if (mt.startsWith("image/"))
+      return `"${file.name}" is an image — attach it with the 📎 paperclip and I can look at it.${link}`;
+    else return `"${file.name}" is a ${mt} file I can't read as text here. Open it:${link}`;
+
+    const r = await fetch(exportUrl, { headers: H });
+    if (!r.ok) return `I found "${file.name}" but couldn't read it (${r.status}).`;
+    const text = await r.text();
+    const CAP = 7000;
+    const body = text.length > CAP ? text.slice(0, CAP) + "\n…(truncated — ask me to read a specific part)" : text;
+    return `📄 ${file.name}\n\n${body || "(the file is empty)"}`;
+  } catch (e) {
+    return `Couldn't read that file: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
+
 async function execScheduleEvent(input: any, userId: number): Promise<string> {
   const title = String(input?.title ?? "").trim();
   if (!title) return "What should I call the event?";
@@ -317,6 +367,7 @@ async function runTool(name: string, input: any, userId: number, activeAgent: st
     if (name === "draft_email") return await execDraftEmail(input, userId);
     if (name === "search_email") return await execSearchEmail(input, userId);
     if (name === "search_drive") return await execSearchDrive(input, userId);
+    if (name === "read_file") return await execReadFile(input, userId);
     if (name === "remember") return await execRemember(input, userId, activeAgent);
     if (name === "remember_personal") return await execRememberPersonal(input, userId);
     if (name === "recall_personal") return await execRecallPersonal(input, userId);

@@ -26,7 +26,7 @@ export const ASSISTANT_SYSTEM = [
   "5) Complete a task — call complete_task when he says a task is done / finished / handled.",
   "6) Draft an email — call draft_email to write a message into his Gmail Drafts (for his review; never auto-sent).",
   "7) Search his email — call search_email to READ his Gmail inbox (find a message, see what someone said, triage replies, flag tasks from email). Read-only.",
-  "8) Search his Drive — call search_drive to find files/documents in his Google Drive by name or contents, and return the links.",
+  "8) Drive files — call search_drive to FIND files, and read_file to READ what's inside a Doc/Sheet/Slides/text file (don't just link it — open it and use the contents). For a PDF or image, ask Markie to attach it with the paperclip so you can read/see it directly.",
   "9) Firm status — call firm_status for what needs review / what's open across clients.",
   "10) Check system health — call system_health if he asks whether the app is working.",
   "GENERAL QUESTIONS: answer anything else like a helpful AI assistant — facts, how-tos, drafting, math, advice.",
@@ -236,6 +236,17 @@ export const ASSISTANT_TOOLS = [
         maxResults: { type: "number", description: "How many files to return (default 8, max 15)." },
       },
       required: ["query"],
+    },
+  },
+  {
+    name: "read_file",
+    description: "READ the actual contents of a file in Markie's Google Drive — Google Docs, Sheets, Slides, and plain-text/CSV/markdown files. Use this when you need to SEE what's inside a file (not just find it): review a doc, pull numbers from a sheet, read a brief. Pass `query` (file name or keywords) and it reads the best match; or pass a `fileId` if you already have one from search_drive. For PDFs/images, tell Markie to attach the file to the chat (paperclip) so you can read/see it directly.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "File name or keywords to find the file to read." },
+        fileId: { type: "string", description: "Exact Drive file id, if known." },
+      },
     },
   },
   {
