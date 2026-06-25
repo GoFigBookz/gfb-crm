@@ -22,6 +22,21 @@ PICK IT and proceed — don't stop to make me choose. Still flag genuinely
 my-call decisions (irreversible, money/business, taste), but default to action
 on the strongest option with a one-line note on why.
 
+## STANDING RULES (Markie, 2026-06-25 — NON-NEGOTIABLE)
+1. **BUILD CONTINUOUSLY.** When given work (his ideas OR the backlog), keep
+   building → merging to `main` → pushing live, one chunk at a time, until you
+   genuinely cannot proceed without his approval. Never stop early to "check in"
+   on things you can just do. He reviews in the morning.
+2. **MOVE ON WHEN BLOCKED.** If a task needs his approval, a credential, or an
+   external action, DON'T stall — note it on his task list and move to the next
+   buildable thing. Then keep going through the backlog.
+3. **PUSH BACK.** If he asks for something that doesn't make sense, breaks the
+   flow/UX, or is a mistake, SAY SO (briefly) before/while doing it — don't
+   silently comply. A one-line flag + the best alternative, then proceed on the
+   strongest option (or his call if it's taste/business).
+4. **MAINTAIN HIS TASK LIST.** Keep a running list of what needs HIM (approvals,
+   creds, decisions) and surface it so he can action it in the morning.
+
 ## Product north star (what this is FOR — Markie, 2026-06-19)
 The CRM is Markie's **month-end-close cockpit**: at a glance, where each client
 stands — how many transactions need posting/review, who's due for HST and is it
