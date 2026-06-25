@@ -70,7 +70,7 @@ const REQUIRED_ENV = [
   { name: "ANTHROPIC_API_KEY", why: "AI features (Liv drafts, chatbot, bank converter, PDF splitter, web classify)" },
 ];
 const OPTIONAL_ENV = [
-  { name: "FIGGY_TOKEN_KEY", why: "QBO token encryption at rest (native OAuth)" },
+  { name: "FIGGY_TOKEN_KEY", why: "QBO token encryption at rest — set via FIGGY_TOKEN_KEY, APP_SECRET, or the auto-generated key" },
   { name: "QBO_CLIENT_ID", why: "QBO native OAuth (production app)" },
   { name: "QBO_CLIENT_SECRET", why: "QBO native OAuth (production app)" },
   { name: "FIGGY_MAKE_API_TOKEN", why: "Make scenario-run bridge (Drive folders, backlog suggest)" },
