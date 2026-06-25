@@ -84,6 +84,26 @@ export const clientRouter = createRouter({
       return results;
     }),
 
+  // Client counts for the dashboard KPI strip. This procedure was MISSING — the
+  // dashboard called crmClient.stats but nothing answered, so "Clients" showed 0/0
+  // (Markie 2026-06-25). active = status active; total = real engaged clients
+  // (active + inactive), excluding leads/prospects/archived (those have their own
+  // pipeline KPI). RBAC-aware: a restricted user counts only their granted clients.
+  stats: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const userRole = ctx.user.role;
+    const conditions: any[] = [];
+    if (userRole === "client") conditions.push(eq(clients.userId, ctx.user.id));
+    const allowed = await restrictedClientIds(ctx);
+    if (allowed !== null) conditions.push(inArray(clients.id, allowed.length ? allowed : [-1]));
+    const where = conditions.length ? and(...conditions) : undefined;
+    const rows = (await db.select().from(clients).where(where)) as any[];
+    const active = rows.filter((c) => c.status === "active").length;
+    const inactive = rows.filter((c) => c.status === "inactive").length;
+    const leads = rows.filter((c) => c.status === "lead" || c.status === "prospect").length;
+    return { active, inactive, leads, total: active + inactive, allRows: rows.length };
+  }),
+
   // Get single client
   get: authedQuery
     .input(z.object({ id: z.number() }))

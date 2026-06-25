@@ -37822,23 +37822,6 @@ function buildTaskRules(data) {
   const fy = parseFiscalYearEnd(data.fiscalYearEnd);
   const isUS = (data.country || "CA") === "US";
   const stLabel = isUS ? "Sales Tax" : "HST/GST";
-  const bkFreq = data.bookkeepingFrequency || "monthly";
-  if (bkFreq !== "none") {
-    const bkLabel = bkFreq === "quarterly" ? "Quarterly" : bkFreq === "annual" ? "Annual" : "Monthly";
-    const bkEnum = bkFreq === "quarterly" ? "quarterly" : bkFreq === "annual" ? "yearly" : "monthly";
-    rules.push({
-      ruleType: "bookkeeping_reconcile",
-      title: `${bkLabel} Bookkeeping \u2014 Reconcile All Statements`,
-      description: "Reconcile all bank accounts, credit cards, and loan statements for the period. Categorize all transactions and review uncleared items.",
-      category: "Reconciliation",
-      priority: "high",
-      frequency: bkEnum,
-      dueDayOfMonth: 15,
-      daysBeforeDue: 5,
-      fiscalYearEndMonth: fy?.month,
-      fiscalYearEndDay: fy?.day
-    });
-  }
   const receiptPlatforms = [];
   if (data.usesStripe) receiptPlatforms.push("Stripe");
   if (data.usesSquare) receiptPlatforms.push("Square");
@@ -38139,23 +38122,6 @@ function buildTaskRules(data) {
       frequency: "quarterly",
       dueDayOfMonth: 15,
       daysBeforeDue: 7,
-      fiscalYearEndMonth: fy?.month,
-      fiscalYearEndDay: fy?.day
-    });
-  }
-  const bankCount = data.bankAccountCount || 1;
-  const ccCount = data.creditCardCount || 0;
-  const totalAccounts = bankCount + ccCount;
-  if (totalAccounts > 0) {
-    rules.push({
-      ruleType: "bank_reconcile",
-      title: "Bank & Credit Card Reconciliation",
-      description: `Reconcile all ${bankCount} bank account(s) and ${ccCount} credit card(s). Match transactions, clear items, and review uncleared transactions.`,
-      category: "Banking",
-      priority: "high",
-      frequency: "monthly",
-      dueDayOfMonth: 10,
-      daysBeforeDue: 0,
       fiscalYearEndMonth: fy?.month,
       fiscalYearEndDay: fy?.day
     });
@@ -60470,7 +60436,7 @@ function detectRule(title, category) {
 }
 async function rescheduleAndCleanupTasks() {
   const db = getDb();
-  const stats = { rescheduled: 0, deletedInactive: 0, deletedAutoPayroll: 0, deduped: 0 };
+  const stats = { rescheduled: 0, deletedInactive: 0, deletedAutoPayroll: 0, deletedReconcile: 0, deduped: 0 };
   try {
     const allTasks = await db.select().from(tasks);
     const allClients = await db.select().from(clients);
@@ -60492,6 +60458,12 @@ async function rescheduleAndCleanupTasks() {
         stats.deletedAutoPayroll++;
         continue;
       }
+      const cl = category.toLowerCase();
+      if (cl === "banking" || cl === "reconciliation") {
+        await db.delete(tasks).where(eq(tasks.id, t2.id));
+        stats.deletedReconcile++;
+        continue;
+      }
       const rule = detectRule(title, category);
       if (rule) {
         const sched = taskSchedule(rule, t2.dueDate ? new Date(t2.dueDate) : null, {
@@ -60510,7 +60482,7 @@ async function rescheduleAndCleanupTasks() {
       stats.deduped = r?.tasksRemoved ?? 0;
     } catch {
     }
-    console.log(`[reschedule] re-dated ${stats.rescheduled}, removed ${stats.deletedInactive} inactive-client + ${stats.deletedAutoPayroll} auto-payroll, deduped ${stats.deduped}`);
+    console.log(`[reschedule] re-dated ${stats.rescheduled}, removed ${stats.deletedInactive} inactive-client + ${stats.deletedAutoPayroll} auto-payroll + ${stats.deletedReconcile} standalone-reconcile, deduped ${stats.deduped}`);
     return stats;
   } catch (e) {
     console.error("[reschedule] failed:", e instanceof Error ? e.message : e);
@@ -72789,6 +72761,25 @@ var clientRouter = createRouter({
     const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
     const results = await db.select().from(clients).where(whereClause).orderBy(desc(clients.updatedAt)).limit(input?.limit ?? 50).offset(input?.offset ?? 0);
     return results;
+  }),
+  // Client counts for the dashboard KPI strip. This procedure was MISSING — the
+  // dashboard called crmClient.stats but nothing answered, so "Clients" showed 0/0
+  // (Markie 2026-06-25). active = status active; total = real engaged clients
+  // (active + inactive), excluding leads/prospects/archived (those have their own
+  // pipeline KPI). RBAC-aware: a restricted user counts only their granted clients.
+  stats: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const userRole = ctx.user.role;
+    const conditions = [];
+    if (userRole === "client") conditions.push(eq(clients.userId, ctx.user.id));
+    const allowed = await restrictedClientIds(ctx);
+    if (allowed !== null) conditions.push(inArray(clients.id, allowed.length ? allowed : [-1]));
+    const where = conditions.length ? and(...conditions) : void 0;
+    const rows = await db.select().from(clients).where(where);
+    const active = rows.filter((c) => c.status === "active").length;
+    const inactive = rows.filter((c) => c.status === "inactive").length;
+    const leads = rows.filter((c) => c.status === "lead" || c.status === "prospect").length;
+    return { active, inactive, leads, total: active + inactive, allRows: rows.length };
   }),
   // Get single client
   get: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {

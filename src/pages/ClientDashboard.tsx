@@ -1429,6 +1429,66 @@ function WsibRemittanceCard({ clientId, driveFolderUrl }: { clientId: number; dr
   );
 }
 
+/**
+ * MONTH-END CLOSE CHECKLIST, embedded on the client card (Markie 2026-06-25).
+ * "Click a client → its close sub-task list → tick them off → close the month."
+ * Reconciliation lives HERE now, not as standalone calendar tasks. Uses the same
+ * monthlyClose router as the standalone page, so progress is shared.
+ */
+function ClientCloseChecklist({ clientId }: { clientId: number }) {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1); // 1-12
+  const utils = trpc.useUtils();
+  const { data: items } = trpc.monthlyClose.getChecklistDefinition.useQuery();
+  const { data: checklist } = trpc.monthlyClose.getOrCreate.useQuery({ clientId, year, month }, { enabled: clientId > 0 });
+  const toggle = trpc.monthlyClose.toggleItem.useMutation({
+    onSuccess: () => utils.monthlyClose.getOrCreate.invalidate({ clientId, year, month }),
+  });
+  const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const pct = checklist?.completionPercent ?? 0;
+  const done = pct === 100;
+  const prevMonth = () => { if (month === 1) { setMonth(12); setYear((y) => y - 1); } else setMonth((m) => m - 1); };
+  const nextMonth = () => { if (month === 12) { setMonth(1); setYear((y) => y + 1); } else setMonth((m) => m + 1); };
+
+  return (
+    <Card className={done ? "border-emerald-300 bg-emerald-50/30" : ""}>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CheckCircle className={`h-4 w-4 ${done ? "text-emerald-500" : "text-lime-500"}`} />
+            Month-end close — {MONTH_NAMES[month - 1]} {year}
+          </CardTitle>
+          <div className="flex items-center gap-1">
+            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={prevMonth}>‹</Button>
+            <span className="text-xs text-slate-500 w-10 text-center">{MONTH_NAMES[month - 1]}</span>
+            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={nextMonth} disabled={year === now.getFullYear() && month >= now.getMonth() + 1}>›</Button>
+          </div>
+        </div>
+        <CardDescription>
+          {done ? "Closed — all procedures complete." : `${pct}% complete — tick each item, then the month is closed at 100%.`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <Progress value={pct} className="h-2 mb-1" />
+        {(items || []).map((item: any) => {
+          const checked = (checklist as any)?.[item.field] === true || (checklist as any)?.[item.field] === 1;
+          return (
+            <button key={item.field} type="button" disabled={!checklist || toggle.isPending}
+              onClick={() => checklist && toggle.mutate({ id: checklist.id, field: item.field, checked: !checked })}
+              className={`w-full flex items-center gap-3 p-2 rounded-lg border text-left transition-colors ${checked ? "bg-emerald-50 border-emerald-200" : "bg-white border-slate-200 hover:bg-slate-50"}`}>
+              <span className={`shrink-0 inline-flex items-center justify-center w-4 h-4 rounded border ${checked ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-300"}`}>
+                {checked && <CheckCircle className="h-3 w-3" />}
+              </span>
+              <span className={`text-sm ${checked ? "line-through text-slate-400" : "text-slate-700"}`}>{item.label}</span>
+            </button>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ComplianceTab({ clientId, client, onboarding, closeStatus, tasks, onOpenTask }: {
   clientId: number; client: any; onboarding?: any; closeStatus: any; tasks: any[]; onOpenTask?: (t: any) => void;
 }) {
@@ -1525,6 +1585,10 @@ function ComplianceTab({ clientId, client, onboarding, closeStatus, tasks, onOpe
 
   return (
     <>
+      {/* Month-end close checklist — the per-client sub-task list (reconciliation
+          included), ticked off here instead of cluttering the calendar. */}
+      <ClientCloseChecklist clientId={clientId} />
+
       {/* Filing status from the live close engine */}
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4 text-lime-500" /> Filing status</CardTitle></CardHeader>
