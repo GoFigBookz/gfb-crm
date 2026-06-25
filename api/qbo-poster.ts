@@ -78,6 +78,67 @@ function round2(n: number): number {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// JOURNAL ENTRIES (general + intercompany). A JE is N lines, each a Debit or a
+// Credit to an account; total debits MUST equal total credits. Intercompany is
+// just a JE that touches a due-to/due-from account on each side.
+// ───────────────────────────────────────────────────────────────────────────
+export type JournalLine = {
+  accountId: string;
+  posting: "Debit" | "Credit";
+  amount: number;
+  description?: string | null;
+  /** Optional name (customer/vendor/employee) ref for the line, if needed. */
+  entityId?: string | null;
+  entityType?: "Customer" | "Vendor" | "Employee" | null;
+};
+
+export type JournalInput = {
+  txnDate?: string | null;
+  docNumber?: string | null;
+  privateNote?: string | null;
+  lines: JournalLine[];
+};
+
+/** Build a QBO JournalEntry payload. Pure. */
+export function buildJournalEntryPayload(input: JournalInput): Record<string, unknown> {
+  const Line = input.lines.map((l) => {
+    const detail: Record<string, unknown> = {
+      PostingType: l.posting,
+      AccountRef: { value: String(l.accountId) },
+    };
+    if (l.entityId && l.entityType) {
+      detail.Entity = { Type: l.entityType, EntityRef: { value: String(l.entityId) } };
+    }
+    return {
+      DetailType: "JournalEntryLineDetail",
+      Amount: round2(l.amount),
+      ...(l.description ? { Description: String(l.description).slice(0, 1000) } : {}),
+      JournalEntryLineDetail: detail,
+    };
+  });
+  const payload: Record<string, unknown> = { Line };
+  if (input.txnDate) payload.TxnDate = input.txnDate;
+  if (input.docNumber) payload.DocNumber = String(input.docNumber).slice(0, 21);
+  if (input.privateNote) payload.PrivateNote = String(input.privateNote).slice(0, 4000);
+  return payload;
+}
+
+/** Debits must equal credits (to the penny), every line needs an account + amount. */
+export function validateJournalEntry(input: Partial<JournalInput> | null | undefined): Validation {
+  if (!input || !input.lines || input.lines.length < 2) return { ok: false, reason: "a journal entry needs at least 2 lines" };
+  let debit = 0, credit = 0;
+  for (const l of input.lines) {
+    if (!l.accountId) return { ok: false, reason: "a line has no QBO account (accountId)" };
+    if (!(Number(l.amount) > 0)) return { ok: false, reason: "a line amount is not > 0" };
+    if (l.posting !== "Debit" && l.posting !== "Credit") return { ok: false, reason: "a line is neither Debit nor Credit" };
+    if (l.posting === "Debit") debit = round2(debit + Number(l.amount));
+    else credit = round2(credit + Number(l.amount));
+  }
+  if (round2(debit - credit) !== 0) return { ok: false, reason: `debits (${debit}) do not equal credits (${credit})` };
+  return { ok: true };
+}
+
 export type Validation = { ok: true } | { ok: false; reason: string };
 
 /** Gatekeeper: refuse to post anything incomplete. */
@@ -178,6 +239,40 @@ export async function postFindingToQBO(findingId: number): Promise<PostResult> {
     await db.update(triageFindings).set({ sourceData: JSON.stringify(meta) }).where(eq(triageFindings.id, findingId));
 
     return { posted: true, billId, realmId };
+  } catch (e) {
+    return { posted: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export type JournalResult =
+  | { posted: true; journalId: string; realmId: string }
+  | { posted: false; skipped: string }
+  | { posted: false; error: string };
+
+/**
+ * Post a balanced JOURNAL ENTRY (general or intercompany) to a client's QBO. Same
+ * four safety gates as the bill poster. The journal must balance (validated) or it
+ * refuses. Used for intercompany due-to/due-from, reclasses, and manual JEs — all
+ * REVIEW-GATED (the caller only invokes this on Markie's approval).
+ */
+export async function postJournalEntry(clientId: number, input: JournalInput): Promise<JournalResult> {
+  try {
+    if (!postingMasterEnabled()) return { posted: false, skipped: "posting disabled (FIGGY_QBO_POST off)" };
+    const conn = await connForClient(clientId);
+    if ("error" in conn) return { posted: false, skipped: conn.error };
+    const realmId = String(conn.realmId);
+    if (!POST_ENABLED_REALMS.has(realmId)) return { posted: false, skipped: `realm ${realmId} not enabled for posting` };
+    if (conn.transport !== "native") return { posted: false, skipped: "connection is read-only (Make bridge) — needs native OAuth to write" };
+
+    const valid = validateJournalEntry(input);
+    if (!valid.ok) return { posted: false, skipped: valid.reason };
+
+    const live = await ensureValidToken(conn);
+    const payload = buildJournalEntryPayload(input);
+    const res = await qboRequest(live, "/journalentry", "POST", payload);
+    const journalId = res?.JournalEntry?.Id ? String(res.JournalEntry.Id) : "";
+    if (!journalId) return { posted: false, error: "QBO did not return a JournalEntry Id" };
+    return { posted: true, journalId, realmId };
   } catch (e) {
     return { posted: false, error: e instanceof Error ? e.message : String(e) };
   }

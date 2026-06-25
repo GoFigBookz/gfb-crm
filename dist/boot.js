@@ -45856,8 +45856,11 @@ __export(qbo_poster_exports, {
   POST_ENABLED_REALMS: () => POST_ENABLED_REALMS,
   billInputFromSourceData: () => billInputFromSourceData,
   buildBillPayload: () => buildBillPayload,
+  buildJournalEntryPayload: () => buildJournalEntryPayload,
   postFindingToQBO: () => postFindingToQBO,
+  postJournalEntry: () => postJournalEntry,
   postingMasterEnabled: () => postingMasterEnabled,
+  validateJournalEntry: () => validateJournalEntry,
   validatePostable: () => validatePostable
 });
 function postingMasterEnabled() {
@@ -45885,6 +45888,41 @@ function buildBillPayload(input) {
 }
 function round25(n) {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+function buildJournalEntryPayload(input) {
+  const Line = input.lines.map((l) => {
+    const detail = {
+      PostingType: l.posting,
+      AccountRef: { value: String(l.accountId) }
+    };
+    if (l.entityId && l.entityType) {
+      detail.Entity = { Type: l.entityType, EntityRef: { value: String(l.entityId) } };
+    }
+    return {
+      DetailType: "JournalEntryLineDetail",
+      Amount: round25(l.amount),
+      ...l.description ? { Description: String(l.description).slice(0, 1e3) } : {},
+      JournalEntryLineDetail: detail
+    };
+  });
+  const payload = { Line };
+  if (input.txnDate) payload.TxnDate = input.txnDate;
+  if (input.docNumber) payload.DocNumber = String(input.docNumber).slice(0, 21);
+  if (input.privateNote) payload.PrivateNote = String(input.privateNote).slice(0, 4e3);
+  return payload;
+}
+function validateJournalEntry(input) {
+  if (!input || !input.lines || input.lines.length < 2) return { ok: false, reason: "a journal entry needs at least 2 lines" };
+  let debit = 0, credit = 0;
+  for (const l of input.lines) {
+    if (!l.accountId) return { ok: false, reason: "a line has no QBO account (accountId)" };
+    if (!(Number(l.amount) > 0)) return { ok: false, reason: "a line amount is not > 0" };
+    if (l.posting !== "Debit" && l.posting !== "Credit") return { ok: false, reason: "a line is neither Debit nor Credit" };
+    if (l.posting === "Debit") debit = round25(debit + Number(l.amount));
+    else credit = round25(credit + Number(l.amount));
+  }
+  if (round25(debit - credit) !== 0) return { ok: false, reason: `debits (${debit}) do not equal credits (${credit})` };
+  return { ok: true };
 }
 function validatePostable(input) {
   if (!input) return { ok: false, reason: "no input" };
@@ -45967,6 +46005,26 @@ async function postFindingToQBO(findingId) {
     meta3.postedAt = (/* @__PURE__ */ new Date()).toISOString();
     await db.update(triageFindings).set({ sourceData: JSON.stringify(meta3) }).where(eq(triageFindings.id, findingId));
     return { posted: true, billId, realmId };
+  } catch (e) {
+    return { posted: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+async function postJournalEntry(clientId, input) {
+  try {
+    if (!postingMasterEnabled()) return { posted: false, skipped: "posting disabled (FIGGY_QBO_POST off)" };
+    const conn = await connForClient(clientId);
+    if ("error" in conn) return { posted: false, skipped: conn.error };
+    const realmId = String(conn.realmId);
+    if (!POST_ENABLED_REALMS.has(realmId)) return { posted: false, skipped: `realm ${realmId} not enabled for posting` };
+    if (conn.transport !== "native") return { posted: false, skipped: "connection is read-only (Make bridge) \u2014 needs native OAuth to write" };
+    const valid = validateJournalEntry(input);
+    if (!valid.ok) return { posted: false, skipped: valid.reason };
+    const live = await ensureValidToken(conn);
+    const payload = buildJournalEntryPayload(input);
+    const res = await qboRequest(live, "/journalentry", "POST", payload);
+    const journalId = res?.JournalEntry?.Id ? String(res.JournalEntry.Id) : "";
+    if (!journalId) return { posted: false, error: "QBO did not return a JournalEntry Id" };
+    return { posted: true, journalId, realmId };
   } catch (e) {
     return { posted: false, error: e instanceof Error ? e.message : String(e) };
   }
@@ -83939,7 +83997,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.119";
+var BUILD_TAG = "2026-06-25.120";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

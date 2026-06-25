@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildBillPayload, validatePostable, billInputFromSourceData, POST_ENABLED_REALMS } from "./qbo-poster";
+import { buildBillPayload, validatePostable, billInputFromSourceData, POST_ENABLED_REALMS, buildJournalEntryPayload, validateJournalEntry } from "./qbo-poster";
 
 describe("buildBillPayload", () => {
   it("builds a valid QBO Bill with vendor, line account, tax code, date, doc#", () => {
@@ -72,6 +72,46 @@ describe("billInputFromSourceData", () => {
   it("returns null on a non-postable finding", () => {
     expect(billInputFromSourceData(JSON.stringify({ title: "missing docs" }))).toBeNull();
     expect(billInputFromSourceData("not json")).toBeNull();
+  });
+});
+
+describe("buildJournalEntryPayload + validateJournalEntry", () => {
+  it("builds a balanced 2-line JE", () => {
+    const inp = { txnDate: "2026-06-25", privateNote: "reclass", lines: [
+      { accountId: "10", posting: "Debit" as const, amount: 100, description: "to expense" },
+      { accountId: "20", posting: "Credit" as const, amount: 100 },
+    ]};
+    expect(validateJournalEntry(inp)).toEqual({ ok: true });
+    const p: any = buildJournalEntryPayload(inp);
+    expect(p.Line).toHaveLength(2);
+    expect(p.Line[0].JournalEntryLineDetail.PostingType).toBe("Debit");
+    expect(p.Line[0].JournalEntryLineDetail.AccountRef).toEqual({ value: "10" });
+    expect(p.Line[1].JournalEntryLineDetail.PostingType).toBe("Credit");
+    expect(p.TxnDate).toBe("2026-06-25");
+  });
+
+  it("rejects an unbalanced JE", () => {
+    const r = validateJournalEntry({ lines: [
+      { accountId: "10", posting: "Debit", amount: 100 },
+      { accountId: "20", posting: "Credit", amount: 90 },
+    ]});
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects a single-line JE", () => {
+    expect(validateJournalEntry({ lines: [{ accountId: "10", posting: "Debit", amount: 100 }] }).ok).toBe(false);
+  });
+
+  it("supports an intercompany JE with entity refs and 4 balanced lines", () => {
+    const inp = { lines: [
+      { accountId: "1", posting: "Debit" as const, amount: 50, entityId: "9", entityType: "Customer" as const },
+      { accountId: "2", posting: "Credit" as const, amount: 50 },
+      { accountId: "3", posting: "Debit" as const, amount: 25 },
+      { accountId: "4", posting: "Credit" as const, amount: 25 },
+    ]};
+    expect(validateJournalEntry(inp).ok).toBe(true);
+    const p: any = buildJournalEntryPayload(inp);
+    expect(p.Line[0].JournalEntryLineDetail.Entity).toEqual({ Type: "Customer", EntityRef: { value: "9" } });
   });
 });
 
