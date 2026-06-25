@@ -15365,8 +15365,8 @@ function find(record2, predicate) {
   }
   return void 0;
 }
-function forEach(record2, run2) {
-  Object.entries(record2).forEach(([key10, value]) => run2(value, key10));
+function forEach(record2, run3) {
+  Object.entries(record2).forEach(([key10, value]) => run3(value, key10));
 }
 function includes(arr, value) {
   return arr.indexOf(value) !== -1;
@@ -34162,7 +34162,7 @@ var require_promise_limit = __commonJS({
         var job = jobs.shift();
         semaphore.queue = jobs.length;
         if (job) {
-          run2(job.fn).then(job.resolve).catch(job.reject);
+          run3(job.fn).then(job.resolve).catch(job.reject);
         }
       }
       function queue(fn) {
@@ -34171,7 +34171,7 @@ var require_promise_limit = __commonJS({
           semaphore.queue = jobs.length;
         });
       }
-      function run2(fn) {
+      function run3(fn) {
         outstanding++;
         try {
           return Promise.resolve(fn()).then(function(result) {
@@ -34190,7 +34190,7 @@ var require_promise_limit = __commonJS({
         if (outstanding >= count5) {
           return queue(fn);
         } else {
-          return run2(fn);
+          return run3(fn);
         }
       };
       return semaphore;
@@ -43597,12 +43597,12 @@ __export(payroll_router_exports, {
   payrollRouter: () => payrollRouter,
   seedPayrollSchedules: () => seedPayrollSchedules
 });
-async function ytdGrossBeforeRun(db, employeeId, run2) {
+async function ytdGrossBeforeRun(db, employeeId, run3) {
   const emp = (await db.select().from(employees).where(eq(employees.id, employeeId)).limit(1))[0];
   const opening = emp?.ytdGrossOpening || 0;
-  const year2 = new Date(run2.payPeriodEnd).getFullYear();
-  const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, run2.clientId));
-  const priorRunIds = allRuns.filter((r) => new Date(r.payPeriodEnd).getFullYear() === year2 && new Date(r.payPeriodEnd) < new Date(run2.payPeriodStart)).map((r) => r.id);
+  const year2 = new Date(run3.payPeriodEnd).getFullYear();
+  const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, run3.clientId));
+  const priorRunIds = allRuns.filter((r) => new Date(r.payPeriodEnd).getFullYear() === year2 && new Date(r.payPeriodEnd) < new Date(run3.payPeriodStart)).map((r) => r.id);
   if (priorRunIds.length === 0) return opening;
   const allLines = await db.select().from(payRunLines);
   const prior = allLines.filter((l) => l.employeeId === employeeId && priorRunIds.includes(l.payRunId));
@@ -43611,11 +43611,11 @@ async function ytdGrossBeforeRun(db, employeeId, run2) {
 async function pullT4FromQbo(_clientId, _year) {
   return null;
 }
-function periodsElapsedBeforeRun(run2) {
-  const start = new Date(run2.payPeriodStart);
+function periodsElapsedBeforeRun(run3) {
+  const start = new Date(run3.payPeriodStart);
   const m = start.getMonth();
   const d10 = start.getDate();
-  switch (normalizeFrequency(run2?.frequency)) {
+  switch (normalizeFrequency(run3?.frequency)) {
     case "weekly":
       return Math.max(0, Math.floor((start.getTime() - new Date(start.getFullYear(), 0, 1).getTime()) / (7 * 864e5)));
     case "biweekly":
@@ -43983,10 +43983,10 @@ var init_payroll_router = __esm({
         let { start, end } = input;
         if (input.runId && (!start || !end)) {
           const db = getDb();
-          const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
-          if (run2) {
-            start = new Date(run2.payPeriodStart).toISOString().slice(0, 10);
-            end = new Date(run2.payPeriodEnd).toISOString().slice(0, 10);
+          const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+          if (run3) {
+            start = new Date(run3.payPeriodStart).toISOString().slice(0, 10);
+            end = new Date(run3.payPeriodEnd).toISOString().slice(0, 10);
           }
         }
         if (!start || !end) return [];
@@ -44041,18 +44041,18 @@ var init_payroll_router = __esm({
       // to QBO. Returns matched/unmatched + any error verbatim for diagnosis.
       importJobberHours: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ input }) => {
         const db = getDb();
-        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
-        if (!run2) throw new Error("Pay run not found");
-        const start = new Date(run2.payPeriodStart).toISOString().slice(0, 10);
-        const end = new Date(run2.payPeriodEnd).toISOString().slice(0, 10);
+        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run3) throw new Error("Pay run not found");
+        const start = new Date(run3.payPeriodStart).toISOString().slice(0, 10);
+        const end = new Date(run3.payPeriodEnd).toISOString().slice(0, 10);
         const { importTimesheetHours: importTimesheetHours2 } = await Promise.resolve().then(() => (init_jobber_client(), jobber_client_exports));
         let hours;
         try {
-          hours = await importTimesheetHours2(run2.clientId, start, end);
+          hours = await importTimesheetHours2(run3.clientId, start, end);
         } catch (e) {
           return { ok: false, error: e instanceof Error ? e.message : String(e), matched: 0, unmatched: [], totalUsers: 0 };
         }
-        const r = await applyImportedHours(db, input.runId, run2.clientId, hours);
+        const r = await applyImportedHours(db, input.runId, run3.clientId, hours);
         return { ok: true, ...r };
       }),
       // Map a Jobber worker (that didn't auto-match) to a CRM employee. Saves the
@@ -44060,10 +44060,10 @@ var init_payroll_router = __esm({
       // no name spelling/nickname problems — and fills this run's hours immediately.
       mapJobberWorker: staffQuery.input(external_exports.object({ runId: external_exports.number(), employeeId: external_exports.number(), jobberUserId: external_exports.string().optional(), jobberName: external_exports.string().optional(), hours: external_exports.number().optional() })).mutation(async ({ input }) => {
         const db = getDb();
-        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
-        if (!run2) throw new Error("Pay run not found");
+        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run3) throw new Error("Pay run not found");
         const emp = (await db.select().from(employees).where(eq(employees.id, input.employeeId)).limit(1))[0];
-        if (!emp || emp.clientId !== run2.clientId) throw new Error("Employee not on this client");
+        if (!emp || emp.clientId !== run3.clientId) throw new Error("Employee not on this client");
         const patch = { updatedAt: /* @__PURE__ */ new Date() };
         if (input.jobberUserId) patch.jobberUserId = String(input.jobberUserId);
         if (input.jobberName) patch.jobberName = input.jobberName;
@@ -44081,11 +44081,11 @@ var init_payroll_router = __esm({
       // Google account, AI-extracts the period's hours, fills the run.
       importTouchBistroHours: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
-        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
-        if (!run2) throw new Error("Pay run not found");
-        const client = (await db.select().from(clients).where(eq(clients.id, run2.clientId)).limit(1))[0];
-        const start = new Date(run2.payPeriodStart).toISOString().slice(0, 10);
-        const end = new Date(run2.payPeriodEnd).toISOString().slice(0, 10);
+        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run3) throw new Error("Pay run not found");
+        const client = (await db.select().from(clients).where(eq(clients.id, run3.clientId)).limit(1))[0];
+        const start = new Date(run3.payPeriodStart).toISOString().slice(0, 10);
+        const end = new Date(run3.payPeriodEnd).toISOString().slice(0, 10);
         let hours;
         try {
           const { importTouchBistroHoursData: importTouchBistroHoursData2 } = await Promise.resolve().then(() => (init_touchbistro_client(), touchbistro_client_exports));
@@ -44093,7 +44093,7 @@ var init_payroll_router = __esm({
         } catch (e) {
           return { ok: false, error: e instanceof Error ? e.message : String(e), matched: 0, unmatched: [], totalUsers: 0 };
         }
-        const r = await applyImportedHours(db, input.runId, run2.clientId, hours);
+        const r = await applyImportedHours(db, input.runId, run3.clientId, hours);
         return { ok: true, ...r };
       }),
       // Import hours from an UPLOADED detailed timesheet file (TouchBistro export:
@@ -44108,10 +44108,10 @@ var init_payroll_router = __esm({
         fileName: external_exports.string().optional()
       })).mutation(async ({ input }) => {
         const db = getDb();
-        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
-        if (!run2) throw new Error("Pay run not found");
-        const start = new Date(run2.payPeriodStart).toISOString().slice(0, 10);
-        const end = new Date(run2.payPeriodEnd).toISOString().slice(0, 10);
+        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run3) throw new Error("Pay run not found");
+        const start = new Date(run3.payPeriodStart).toISOString().slice(0, 10);
+        const end = new Date(run3.payPeriodEnd).toISOString().slice(0, 10);
         let hours;
         try {
           const { extractTimesheetFromFile: extractTimesheetFromFile2 } = await Promise.resolve().then(() => (init_timesheet_file_parse(), timesheet_file_parse_exports));
@@ -44122,7 +44122,7 @@ var init_payroll_router = __esm({
         if (!hours.length) {
           return { ok: false, error: "Couldn't find any employee hours in that file. Make sure it's the DETAILED timesheet (one row per shift), not a summary screenshot.", matched: 0, unmatched: [], totalUsers: 0 };
         }
-        const r = await applyImportedHours(db, input.runId, run2.clientId, hours);
+        const r = await applyImportedHours(db, input.runId, run3.clientId, hours);
         return { ok: true, ...r };
       }),
       // Import the newest detailed timesheet Markie dropped in the client's Google
@@ -44131,11 +44131,11 @@ var init_payroll_router = __esm({
       // connected in Integrations (with Drive access).
       importTimesheetFromDrive: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
-        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
-        if (!run2) throw new Error("Pay run not found");
-        const client = (await db.select().from(clients).where(eq(clients.id, run2.clientId)).limit(1))[0];
-        const start = new Date(run2.payPeriodStart).toISOString().slice(0, 10);
-        const end = new Date(run2.payPeriodEnd).toISOString().slice(0, 10);
+        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run3) throw new Error("Pay run not found");
+        const client = (await db.select().from(clients).where(eq(clients.id, run3.clientId)).limit(1))[0];
+        const start = new Date(run3.payPeriodStart).toISOString().slice(0, 10);
+        const end = new Date(run3.payPeriodEnd).toISOString().slice(0, 10);
         let hours;
         let fileName = "";
         try {
@@ -44150,7 +44150,7 @@ var init_payroll_router = __esm({
         if (!hours.length) {
           return { ok: false, error: `Read "${fileName}" from Drive but couldn't find employee hours in it. Make sure it's the DETAILED timesheet (one row per shift).`, matched: 0, unmatched: [], totalUsers: 0 };
         }
-        const r = await applyImportedHours(db, input.runId, run2.clientId, hours);
+        const r = await applyImportedHours(db, input.runId, run3.clientId, hours);
         return { ok: true, fileName, ...r };
       }),
       // Import the EMPLOYEE ROSTER (names + pay rates) from the LAST tab of the
@@ -44218,12 +44218,12 @@ var init_payroll_router = __esm({
       getRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
         const runRows = await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1);
-        const run2 = runRows[0];
-        if (!run2) return null;
+        const run3 = runRows[0];
+        if (!run3) return null;
         let lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
-        const emps = await db.select().from(employees).where(eq(employees.clientId, run2.clientId));
+        const emps = await db.select().from(employees).where(eq(employees.clientId, run3.clientId));
         const empById = new Map(emps.map((e) => [e.id, e]));
-        if (run2.status !== "paid") {
+        if (run3.status !== "paid") {
           let touched = false;
           for (const l of lines) {
             const e = empById.get(l.employeeId);
@@ -44248,7 +44248,7 @@ var init_payroll_router = __esm({
             annualSalary: e?.annualSalary ?? null
           };
         }).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
-        return { run: run2, lines: withNames };
+        return { run: run3, lines: withNames };
       }),
       // Create a run and seed one line per active employee (salary pre-filled).
       createRun: staffQuery.input(external_exports.object({
@@ -44261,7 +44261,7 @@ var init_payroll_router = __esm({
         runType: external_exports.enum(["regular", "off_cycle", "bonus"]).optional()
       })).mutation(async ({ input }) => {
         const db = getDb();
-        const [run2] = await db.insert(payRuns).values({
+        const [run3] = await db.insert(payRuns).values({
           clientId: input.clientId,
           payPeriodStart: input.payPeriodStart,
           payPeriodEnd: input.payPeriodEnd,
@@ -44275,15 +44275,15 @@ var init_payroll_router = __esm({
         for (const e of emps) {
           const gross = e.payType === "salary" ? salaryPerPeriod(e.annualSalary, input.frequency) : 0;
           await db.insert(payRunLines).values({
-            payRunId: run2.id,
+            payRunId: run3.id,
             employeeId: e.id,
             grossPay: gross,
             phoneAllowance: e.getsPhoneAllowance ? e.phoneAllowance ?? 0 : 0,
             reimbursement: e.getsReimbursement ? e.reimbursementAmount ?? 0 : 0
           });
         }
-        await recomputeRunTotals(run2.id);
-        return run2;
+        await recomputeRunTotals(run3.id);
+        return run3;
       }),
       // Add a line to a run — for an EXISTING employee, or create a new employee
       // inline (so a client with no employees on file can still build a timesheet).
@@ -44299,12 +44299,12 @@ var init_payroll_router = __esm({
         }).optional()
       })).mutation(async ({ input }) => {
         const db = getDb();
-        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.payRunId)).limit(1))[0];
-        if (!run2) throw new Error("Pay run not found");
+        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.payRunId)).limit(1))[0];
+        if (!run3) throw new Error("Pay run not found");
         let employeeId = input.employeeId;
         if (!employeeId && input.newEmployee) {
           const [emp2] = await db.insert(employees).values({
-            clientId: run2.clientId,
+            clientId: run3.clientId,
             firstName: input.newEmployee.firstName,
             lastName: input.newEmployee.lastName || "",
             payType: input.newEmployee.payType || "hourly",
@@ -44316,7 +44316,7 @@ var init_payroll_router = __esm({
         }
         if (!employeeId) throw new Error("Provide an employee or new employee details");
         const emp = (await db.select().from(employees).where(eq(employees.id, employeeId)).limit(1))[0];
-        const gross = emp?.payType === "salary" ? salaryPerPeriod(emp.annualSalary, run2.frequency) : 0;
+        const gross = emp?.payType === "salary" ? salaryPerPeriod(emp.annualSalary, run3.frequency) : 0;
         const [line] = await db.insert(payRunLines).values({
           payRunId: input.payRunId,
           employeeId,
@@ -44375,10 +44375,10 @@ var init_payroll_router = __esm({
         const db = getDb();
         const row = (await db.select().from(payRunLines).where(eq(payRunLines.id, input.id)).limit(1))[0];
         if (!row) throw new Error("Line not found");
-        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, row.payRunId)).limit(1))[0];
-        const P = periodsPerYear(normalizeFrequency(run2?.frequency));
-        const ytd = await ytdGrossBeforeRun(db, row.employeeId, run2);
-        const elapsed = periodsElapsedBeforeRun(run2);
+        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, row.payRunId)).limit(1))[0];
+        const P = periodsPerYear(normalizeFrequency(run3?.frequency));
+        const ytd = await ytdGrossBeforeRun(db, row.employeeId, run3);
+        const elapsed = periodsElapsedBeforeRun(run3);
         const gross = input.fromNet != null ? craGrossForNet(input.fromNet, P, ytd, elapsed) : row.grossPay || 0;
         const line = computeCraLine({ grossPeriod: gross, periodsPerYear: P, ytdPensionableBefore: ytd, periodsElapsedBefore: elapsed });
         await db.update(payRunLines).set({
@@ -44402,16 +44402,16 @@ var init_payroll_router = __esm({
       // Uses each line's current gross (run ∑ first); lines with no rate stay $0.
       estimateRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ input }) => {
         const db = getDb();
-        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
-        if (!run2) throw new Error("Pay run not found");
+        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run3) throw new Error("Pay run not found");
         const rows = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
-        const P = periodsPerYear(normalizeFrequency(run2?.frequency));
-        const elapsed = periodsElapsedBeforeRun(run2);
+        const P = periodsPerYear(normalizeFrequency(run3?.frequency));
+        const elapsed = periodsElapsedBeforeRun(run3);
         let estimated = 0;
         for (const row of rows) {
           const gross = row.grossPay || 0;
           if (gross <= 0) continue;
-          const ytd = await ytdGrossBeforeRun(db, row.employeeId, run2);
+          const ytd = await ytdGrossBeforeRun(db, row.employeeId, run3);
           const line = computeCraLine({ grossPeriod: gross, periodsPerYear: P, ytdPensionableBefore: ytd, periodsElapsedBefore: elapsed });
           await db.update(payRunLines).set({
             grossPay: line.grossPay,
@@ -44445,12 +44445,12 @@ var init_payroll_router = __esm({
       // Create (or return) a client hours-approval link for a run, and mark it sent.
       createApprovalLink: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ input }) => {
         const db = getDb();
-        const run2 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
-        if (!run2) throw new Error("Pay run not found");
-        const token2 = run2.approvalToken || `pa_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        if (!run3) throw new Error("Pay run not found");
+        const token2 = run3.approvalToken || `pa_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
         await db.update(payRuns).set({
           approvalToken: token2,
-          approvalStatus: run2.approvalStatus === "approved" ? "approved" : "sent",
+          approvalStatus: run3.approvalStatus === "approved" ? "approved" : "sent",
           updatedAt: /* @__PURE__ */ new Date()
         }).where(eq(payRuns.id, input.runId));
         return { token: token2 };
@@ -46775,9 +46775,11 @@ var init_shims = __esm({
 });
 
 // node_modules/@anthropic-ai/sdk/internal/request-options.mjs
-var FallbackEncoder;
+var BetaFallbackState, FallbackEncoder;
 var init_request_options = __esm({
   "node_modules/@anthropic-ai/sdk/internal/request-options.mjs"() {
+    BetaFallbackState = class {
+    };
     FallbackEncoder = ({ headers, body }) => {
       return {
         bodyHeaders: {
@@ -49387,10 +49389,10 @@ var init_deployments = __esm({
 function wasCreatedByStainlessHelper(value) {
   return typeof value === "object" && value !== null && SDK_HELPER_SYMBOL in value;
 }
-function collectStainlessHelpers(tools, messages) {
+function collectStainlessHelpers(tools2, messages) {
   const helpers = /* @__PURE__ */ new Set();
-  if (tools) {
-    for (const tool of tools) {
+  if (tools2) {
+    for (const tool of tools2) {
       if (wasCreatedByStainlessHelper(tool)) {
         helpers.add(tool[SDK_HELPER_SYMBOL]);
       }
@@ -49412,8 +49414,8 @@ function collectStainlessHelpers(tools, messages) {
   }
   return Array.from(helpers);
 }
-function stainlessHelperHeader(tools, messages) {
-  const helpers = collectStainlessHelpers(tools, messages);
+function stainlessHelperHeader(tools2, messages) {
+  const helpers = collectStainlessHelpers(tools2, messages);
   if (helpers.length === 0)
     return {};
   return { "x-stainless-helper": helpers.join(", ") };
@@ -50845,8 +50847,8 @@ var init_poller = __esm({
           throw new AnthropicError("Cannot iterate over a consumed WorkPoller");
         }
         __classPrivateFieldSet(this, _WorkPoller_consumed, true, "f");
-        const log = loggerFor(this.client);
-        log.info("poller starting", {
+        const log2 = loggerFor(this.client);
+        log2.info("poller starting", {
           component: "work-poller",
           environment_id: this.environmentId
         });
@@ -50864,11 +50866,11 @@ var init_poller = __esm({
               if (__classPrivateFieldGet(this, _WorkPoller_controller, "f").signal.aborted)
                 return;
               if (isFatal4xx(e)) {
-                log.error("poll failed permanently, stopping poller", { error: String(e) });
+                log2.error("poll failed permanently, stopping poller", { error: String(e) });
                 throw e;
               }
               const wait = applyJitter(backoff2(attempt));
-              log.warn("poll failed, backing off", { error: String(e), backoff_ms: wait });
+              log2.warn("poll failed, backing off", { error: String(e), backoff_ms: wait });
               attempt++;
               await sleep(wait, __classPrivateFieldGet(this, _WorkPoller_controller, "f").signal);
               continue;
@@ -50880,7 +50882,7 @@ var init_poller = __esm({
               await sleep(jitter(1e3, 3e3), __classPrivateFieldGet(this, _WorkPoller_controller, "f").signal);
               continue;
             }
-            log.info("claimed work", {
+            log2.info("claimed work", {
               component: "work-poller",
               environment_id: this.environmentId,
               work_id: work.id,
@@ -50889,7 +50891,7 @@ var init_poller = __esm({
             try {
               await __classPrivateFieldGet(this, _WorkPoller_runnerClient, "f").beta.environments.work.ack(work.id, { environment_id: work.environment_id }, { headers: buildHeaders([__classPrivateFieldGet(this, _WorkPoller_requestOpts, "f")?.headers]), signal: __classPrivateFieldGet(this, _WorkPoller_controller, "f").signal });
             } catch (e) {
-              log.error("ack failed", { work_id: work.id, error: String(e) });
+              log2.error("ack failed", { work_id: work.id, error: String(e) });
               continue;
             }
             try {
@@ -50900,7 +50902,7 @@ var init_poller = __esm({
                   await __classPrivateFieldGet(this, _WorkPoller_runnerClient, "f").beta.environments.work.stop(work.id, { environment_id: work.environment_id }, { headers: buildHeaders([__classPrivateFieldGet(this, _WorkPoller_requestOpts, "f")?.headers]) });
                 } catch (e) {
                   if (!isStatus(e, 409))
-                    log.warn("stop failed", { work_id: work.id, error: String(e) });
+                    log2.warn("stop failed", { work_id: work.id, error: String(e) });
                 }
               }
             }
@@ -51534,7 +51536,7 @@ async function setupSkills(ctx) {
   if (!client || !sessionId)
     return async () => {
     };
-  const log = loggerFor(client);
+  const log2 = loggerFor(client);
   const session2 = await client.beta.sessions.retrieve(sessionId);
   const skillsRoot = path4.resolve(ctx.workdir, "skills");
   const created = [];
@@ -51547,7 +51549,7 @@ async function setupSkills(ctx) {
         dirname4 = skill.skill_id;
       const dest = path4.resolve(skillsRoot, dirname4);
       if (dest !== skillsRoot && !dest.startsWith(skillsRoot + path4.sep)) {
-        log.warn("skill name escapes the skills dir; skipping", {
+        log2.warn("skill name escapes the skills dir; skipping", {
           component: "agent-tool-context",
           name: version4.name
         });
@@ -51558,14 +51560,14 @@ async function setupSkills(ctx) {
       await fs2.mkdir(dest, { recursive: true, mode: DIR_CREATE_MODE });
       created.push(dest);
       await extractSkillArchive(resp, dest);
-      log.info("downloaded skill", {
+      log2.info("downloaded skill", {
         component: "agent-tool-context",
         skill_id: skill.skill_id,
         version: versionId,
         dest
       });
     } catch (e) {
-      log.warn("failed to download skill", {
+      log2.warn("failed to download skill", {
         component: "agent-tool-context",
         skill_id: skill.skill_id,
         error: String(e)
@@ -51575,7 +51577,7 @@ async function setupSkills(ctx) {
   return async () => {
     for (const dest of created) {
       await fs2.rm(dest, { recursive: true, force: true }).catch((e) => {
-        log.warn("failed to clean up skill", { component: "agent-tool-context", dest, error: String(e) });
+        log2.warn("failed to clean up skill", { component: "agent-tool-context", dest, error: String(e) });
       });
     }
   };
@@ -52275,7 +52277,7 @@ ${out}`;
 });
 
 // node_modules/@anthropic-ai/sdk/lib/environments/worker.mjs
-async function forceStop(client, work, log, requestOptions) {
+async function forceStop(client, work, log2, requestOptions) {
   try {
     await client.beta.environments.work.stop(
       work.id,
@@ -52287,7 +52289,7 @@ async function forceStop(client, work, log, requestOptions) {
     );
   } catch (e) {
     if (!isStatus(e, 409)) {
-      log.error("force-stop on exit failed", { work_id: work.id, error: String(e) });
+      log2.error("force-stop on exit failed", { work_id: work.id, error: String(e) });
     }
   }
 }
@@ -52434,7 +52436,7 @@ var init_worker = __esm({
      * Non-session work items are ignored.
      */
     async function _EnvironmentWorker_handleItem2(work, environmentKey, externalSignal) {
-      const log = loggerFor(this.client);
+      const log2 = loggerFor(this.client);
       const sessionClient = copyClientForHelper(this.client, {
         authToken: environmentKey,
         helper: "environments-worker"
@@ -52453,20 +52455,20 @@ var init_worker = __esm({
       try {
         cleanupSkills = await agentToolset.setupSkills(ctx);
       } catch (e) {
-        log.warn("skill setup failed", { session_id: sessionId, work_id: work.id, error: String(e) });
+        log2.warn("skill setup failed", { session_id: sessionId, work_id: work.id, error: String(e) });
       }
-      const tools = typeof this.tools === "function" ? this.tools(ctx) : this.tools ?? agentToolset.betaAgentToolset20260401(ctx);
+      const tools2 = typeof this.tools === "function" ? this.tools(ctx) : this.tools ?? agentToolset.betaAgentToolset20260401(ctx);
       const ctrl = new AbortController();
       const detachExternal = linkAbort(externalSignal, ctrl);
-      const heartbeatPromise = heartbeatLoop(sessionClient, work, ctrl, log, this.requestOptions).catch((e) => {
+      const heartbeatPromise = heartbeatLoop(sessionClient, work, ctrl, log2, this.requestOptions).catch((e) => {
         if (!ctrl.signal.aborted)
-          log.error("heartbeat loop failed", { work_id: work.id, error: String(e) });
+          log2.error("heartbeat loop failed", { work_id: work.id, error: String(e) });
         ctrl.abort();
       });
       try {
         const runner = new SessionToolRunner(sessionId, {
           client: sessionClient,
-          tools,
+          tools: tools2,
           ...this.maxIdleMs !== void 0 ? { maxIdleMs: this.maxIdleMs } : {},
           ...this.requestOptions !== void 0 ? { requestOptions: this.requestOptions } : {},
           signal: ctrl.signal
@@ -52478,9 +52480,9 @@ var init_worker = __esm({
         detachExternal();
         await heartbeatPromise;
         await cleanupSkills().catch((e) => {
-          log.warn("skill cleanup failed", { session_id: sessionId, work_id: work.id, error: String(e) });
+          log2.warn("skill cleanup failed", { session_id: sessionId, work_id: work.id, error: String(e) });
         });
-        await forceStop(sessionClient, work, log, this.requestOptions);
+        await forceStop(sessionClient, work, log2, this.requestOptions);
       }
     };
   }
@@ -54010,9 +54012,9 @@ var init_BetaMessageStream = __esm({
       _addMessageParam(message2) {
         this.messages.push(message2);
       }
-      _addMessage(message2, emit = true) {
+      _addMessage(message2, emit2 = true) {
         this.receivedMessages.push(message2);
-        if (emit) {
+        if (emit2) {
           this._emit("message", message2);
         }
       }
@@ -56438,9 +56440,9 @@ var init_MessageStream = __esm({
       _addMessageParam(message2) {
         this.messages.push(message2);
       }
-      _addMessage(message2, emit = true) {
+      _addMessage(message2, emit2 = true) {
         this.receivedMessages.push(message2);
-        if (emit) {
+        if (emit2) {
           this._emit("message", message2);
         }
       }
@@ -58002,7 +58004,444 @@ var init_client4 = __esm({
 });
 
 // node_modules/@anthropic-ai/sdk/lib/middleware.mjs
-var encoder2;
+function stripFallbackBlocks(body) {
+  const messages = body.messages.map((message2) => Array.isArray(message2.content) ? { ...message2, content: message2.content.filter((block) => block.type !== "fallback") } : message2).filter((message2) => !Array.isArray(message2.content) || message2.content.length > 0);
+  return { ...body, messages };
+}
+function betaRefusalFallbackMiddleware(fallbacks, options = {}) {
+  let warnedMissingState = false;
+  return async (request, next, ctx) => {
+    const [path7, query] = (ctx.options?.path ?? "").split("?");
+    if (fallbacks.length === 0 || ctx.options?.method !== "post" || path7 !== "/v1/messages" || new URLSearchParams(query).get("beta") !== "true" || typeof ctx.options.body !== "object" || ctx.options.body == null) {
+      return next(request);
+    }
+    if (ctx.options.body.fallbacks != null) {
+      throw new AnthropicError("Sending the `fallbacks:` request param is not supported when using the `betaRefusalFallbackMiddleware`. You should either remove the middleware and send `fallbacks:` with the `server-side-fallback-2026-06-01` beta header to let the API handle refusal fallbacks, or omit the `fallbacks:` param if you'd like `betaRefusalFallbackMiddleware` to handle fallbacks on the client side.");
+    }
+    const onError = options.onError ?? ((error48) => ctx.logger.error(`anthropic-sdk: betaRefusalFallbackMiddleware: ${error48.message}`));
+    request = appendBetas(request, options.betas ?? DEFAULT_BETAS);
+    const body = stripFallbackBlocks(ctx.options.body);
+    const state = ctx.options.fallbackState;
+    const startIndex = state?.index ?? -1;
+    if (!Number.isInteger(startIndex) || startIndex < -1 || startIndex >= fallbacks.length) {
+      throw new AnthropicError(`fallbackState.index ${startIndex} is out of bounds for a chain of ${fallbacks.length} fallback(s); was the state shared with a different middleware?`);
+    }
+    const pin = (index2) => {
+      if (state) {
+        state.index = index2;
+      } else if (!warnedMissingState) {
+        warnedMissingState = true;
+        ctx.logger.warn("anthropic-sdk: betaRefusalFallbackMiddleware fell back without a `fallbackState` request option; follow-up requests will retry models that already refused. Pass a shared `{ fallbackState: new BetaFallbackState() }` to pin them to the accepted model.");
+      }
+    };
+    const initialRequest = typeof request.body !== "string" ? request : {
+      ...request,
+      body: JSON.stringify(startIndex === -1 ? body : { ...body, ...fallbacks[startIndex] })
+    };
+    const response = await next(initialRequest);
+    if (!response.ok) {
+      return response;
+    }
+    if (ctx.options.stream === true) {
+      const firstHop = startIndex + 1;
+      if (firstHop >= fallbacks.length || typeof initialRequest.body !== "string") {
+        return response;
+      }
+      return spliceFallbackStream({
+        request: initialRequest,
+        response,
+        next,
+        ctx,
+        fallbacks,
+        firstHop,
+        onError,
+        pin
+      });
+    }
+    let index = startIndex;
+    let res = response;
+    let requestedModel = (startIndex === -1 ? body : { ...body, ...fallbacks[startIndex] }).model;
+    const fallbackBlocks = [];
+    while (index < fallbacks.length - 1) {
+      const message2 = await ctx.parse(res);
+      if (message2?.type !== "message" || message2.stop_reason !== "refusal") {
+        break;
+      }
+      index += 1;
+      pin(index);
+      const entry = fallbacks[index];
+      fallbackBlocks.push({
+        type: "fallback",
+        // `requestedModel` is always set for a typed body; the `??` defends
+        // against an untyped body that carried no `model` field.
+        from: { model: requestedModel ?? message2.model },
+        to: { model: entry.model },
+        trigger: { type: "refusal", category: message2.stop_details?.category ?? null }
+      });
+      requestedModel = entry.model;
+      res = await next({
+        ...request,
+        body: JSON.stringify({
+          ...body,
+          ...entry,
+          ...message2.stop_details?.fallback_credit_token ? { fallback_credit_token: message2.stop_details.fallback_credit_token } : void 0
+        })
+      });
+    }
+    if (fallbackBlocks.length === 0) {
+      return res;
+    }
+    const served = await ctx.parse(res);
+    if (served?.type !== "message" || served.stop_reason === "refusal" || !Array.isArray(served.content)) {
+      return res;
+    }
+    const headers = new Headers(res.headers);
+    headers.delete("content-length");
+    return new Response(JSON.stringify({ ...served, content: [...fallbackBlocks, ...served.content] }), {
+      status: res.status,
+      statusText: res.statusText,
+      headers
+    });
+  };
+}
+function spliceFallbackStream(args) {
+  const controller = new AbortController();
+  const signal = args.request.signal;
+  if (signal?.aborted) {
+    controller.abort(signal.reason);
+  } else {
+    signal?.addEventListener("abort", makeAbort(controller, signal), { once: true });
+  }
+  const iter = splicedEvents(args, controller);
+  const body = new ReadableStream({
+    async pull(ctrl) {
+      try {
+        const { value, done } = await iter.next();
+        if (done)
+          return ctrl.close();
+        ctrl.enqueue(value);
+      } catch (err) {
+        ctrl.error(err);
+      }
+    },
+    async cancel() {
+      controller.abort();
+      await iter.return?.(void 0);
+    }
+  });
+  return new Response(body, args.response);
+}
+async function* splicedEvents({ request, response, next, ctx, fallbacks, firstHop, onError, pin }, controller) {
+  const a = yield* consumeHop({
+    response,
+    controller,
+    indexBase: 0,
+    hasNext: true,
+    // the caller guarantees firstHop < fallbacks.length
+    onError,
+    splice: null
+  });
+  if (!a.refused)
+    return;
+  let nextIndex = a.nextIndex;
+  let token2 = a.refused.token;
+  let base = [];
+  let partial2 = a.refused.hasPrefillClaim ? toPrefillBlocks(a.blocks) : [];
+  let fromModel = a.model ?? "";
+  let lastUsage = a.refused.usage;
+  let refusalDetails = a.refused.stopDetails;
+  const iterations = [
+    toIterationUsage("message", a.model ?? "", a.refused.usage)
+  ];
+  for (let hop = firstHop; hop < fallbacks.length; hop++) {
+    const model = fallbacks[hop].model;
+    const hasNext = hop + 1 < fallbacks.length;
+    pin(hop);
+    const fbIndex = nextIndex++;
+    yield emit("content_block_start", {
+      type: "content_block_start",
+      index: fbIndex,
+      content_block: {
+        type: "fallback",
+        from: { model: fromModel },
+        to: { model },
+        trigger: { type: "refusal", category: refusalDetails?.category ?? null }
+      }
+    });
+    yield emit("content_block_stop", {
+      type: "content_block_stop",
+      index: fbIndex
+    });
+    let continuation = [...base, ...partial2];
+    let resB = null;
+    let failure = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const reqB = buildFallbackRequest(request, { model, creditToken: token2, continuation });
+      reqB.signal = controller.signal;
+      try {
+        resB = await next(reqB);
+      } catch (err) {
+        if (isAbortError2(err))
+          throw err;
+        failure = {
+          kind: "request_failed",
+          message: `fallback request failed: ${err}`,
+          model,
+          status: null,
+          detail: err
+        };
+        break;
+      }
+      if (resB.ok)
+        break;
+      const errBody = await ctx.parse(resB).catch(() => null);
+      if (attempt === 0 && resB.status === 400 && partial2.length) {
+        ctx.logger.warn(`anthropic-sdk: betaRefusalFallbackMiddleware: fallback request with the partial output appended was rejected (HTTP 400: ${JSON.stringify(errBody)}); retrying without it`);
+        continuation = base;
+        resB = null;
+        continue;
+      }
+      failure = {
+        kind: "request_failed",
+        message: `fallback request failed: HTTP ${resB.status}: ${JSON.stringify(errBody)}`,
+        model,
+        status: resB.status,
+        detail: errBody
+      };
+      break;
+    }
+    if (failure) {
+      onError(failure);
+      if (hasNext)
+        continue;
+      const stopDetails = {
+        ...refusalDetails,
+        recommended_model: model
+      };
+      yield emit("message_delta", {
+        type: "message_delta",
+        context_management: null,
+        delta: {
+          stop_reason: "refusal",
+          stop_sequence: null,
+          container: null,
+          stop_details: stopDetails
+        },
+        usage: lastUsage ?? {}
+      });
+      yield emit("message_stop", { type: "message_stop" });
+      return;
+    }
+    const b = yield* consumeHop({
+      response: resB,
+      controller,
+      indexBase: nextIndex,
+      hasNext,
+      onError,
+      splice: { iterations, model }
+    });
+    if (!b.refused)
+      return;
+    token2 = b.refused.token;
+    refusalDetails = b.refused.stopDetails;
+    base = continuation;
+    partial2 = b.refused.hasPrefillClaim ? toPrefillBlocks(b.blocks) : [];
+    iterations.push(toIterationUsage("message", model, b.refused.usage));
+    lastUsage = b.refused.usage;
+    fromModel = model;
+    nextIndex = b.nextIndex;
+  }
+}
+async function* consumeHop(args) {
+  const { response, controller, indexBase, hasNext, onError, splice } = args;
+  const tracker = new BlockTracker(indexBase);
+  let model;
+  let startUsage = null;
+  for await (const sse2 of Stream2.rawEvents(response, controller)) {
+    const p = safeJSON(sse2.data);
+    switch (p?.type) {
+      case "message_start": {
+        model = p.message.model;
+        startUsage = p.message.usage;
+        if (splice)
+          continue;
+        break;
+      }
+      case "content_block_start": {
+        tracker.start(p);
+        if (splice) {
+          yield emit(p.type, p);
+          continue;
+        }
+        break;
+      }
+      case "content_block_delta": {
+        tracker.delta(p);
+        if (splice) {
+          yield emit(p.type, p);
+          continue;
+        }
+        break;
+      }
+      case "content_block_stop": {
+        tracker.stop(p);
+        if (splice) {
+          yield emit(p.type, p);
+          continue;
+        }
+        break;
+      }
+      case "message_delta": {
+        if (p.delta.stop_reason === "refusal") {
+          const details = p.delta.stop_details?.type === "refusal" ? p.delta.stop_details : null;
+          if (details?.fallback_credit_token && hasNext) {
+            const usage = backfill(p.usage, startUsage);
+            yield* tracker.closeOpenBlocks();
+            return {
+              refused: {
+                token: details.fallback_credit_token,
+                hasPrefillClaim: details.fallback_has_prefill_claim === true,
+                usage,
+                stopDetails: details
+              },
+              model,
+              blocks: tracker.contentBlocks(),
+              nextIndex: tracker.nextIndex
+            };
+          }
+          if (!details?.fallback_credit_token) {
+            onError({
+              kind: "no_credit_token",
+              message: "refusal stop_details has no fallback_credit_token",
+              event: p
+            });
+          } else {
+            onError({
+              kind: "chain_exhausted",
+              message: "refusal but no fallback entries remain",
+              event: p
+            });
+          }
+        }
+        if (splice) {
+          const usage = backfill(p.usage, startUsage);
+          usage.iterations = [
+            ...splice.iterations,
+            toIterationUsage("fallback_message", splice.model, usage)
+          ];
+          p.usage = usage;
+          yield emit("message_delta", p);
+          continue;
+        }
+        break;
+      }
+    }
+    yield passthroughSSE(sse2);
+  }
+  return { refused: null, model, blocks: tracker.contentBlocks(), nextIndex: tracker.nextIndex };
+}
+function buildFallbackRequest(orig, { model, creditToken, continuation }) {
+  const body = JSON.parse(orig.body);
+  body.model = model;
+  body.fallback_credit_token = creditToken;
+  if (continuation.length) {
+    body.messages = [...body.messages, { role: "assistant", content: continuation }];
+  }
+  return { ...orig, headers: new Headers(orig.headers), body: JSON.stringify(body) };
+}
+function applyDelta(blocks, index, delta) {
+  const block = blocks.find((x) => x.index === index)?.block;
+  if (!block)
+    return;
+  switch (delta.type) {
+    case "text_delta": {
+      block.text = (block.text ?? "") + delta.text;
+      break;
+    }
+    case "input_json_delta": {
+      block._partial_json = (block._partial_json ?? "") + delta.partial_json;
+      break;
+    }
+    case "citations_delta":
+      (block.citations ?? (block.citations = [])).push(delta.citation);
+      break;
+    case "thinking_delta": {
+      block.thinking = (block.thinking ?? "") + delta.thinking;
+      break;
+    }
+    case "signature_delta": {
+      block.signature = delta.signature;
+      break;
+    }
+    case "compaction_delta": {
+      break;
+    }
+    default:
+      /* @__PURE__ */ ((_) => {
+      })(delta);
+  }
+}
+function toPrefillBlocks(responseBlocks) {
+  return responseBlocks.map((b) => {
+    if (typeof b?._partial_json !== "string")
+      return b;
+    const { _partial_json, ...block } = b;
+    return { ...block, input: safeJSON(_partial_json) ?? block.input };
+  });
+}
+function appendBetas(request, betas) {
+  if (!betas.length)
+    return request;
+  const headers = new Headers(request.headers);
+  const existing = new Set(headers.get("anthropic-beta")?.split(",").map((s) => s.trim()));
+  for (const beta of betas) {
+    if (!existing.has(beta)) {
+      headers.append("anthropic-beta", beta);
+      existing.add(beta);
+    }
+  }
+  return { ...request, headers };
+}
+function emit(event, payload) {
+  const sse2 = { event, data: JSON.stringify(payload), raw: [] };
+  return encoder2.encode(serializeSSE(sse2));
+}
+function passthroughSSE(sse2) {
+  return encoder2.encode(sse2.raw.length ? sse2.raw.join("\n") + "\n\n" : serializeSSE(sse2));
+}
+function toIterationUsage(type2, model, u) {
+  return {
+    type: type2,
+    model,
+    input_tokens: u?.input_tokens ?? 0,
+    output_tokens: u?.output_tokens ?? 0,
+    cache_read_input_tokens: u?.cache_read_input_tokens ?? 0,
+    cache_creation_input_tokens: u?.cache_creation_input_tokens ?? 0,
+    cache_creation: u?.cache_creation ?? null
+  };
+}
+function backfill(primary, fallback) {
+  const out = { ...fallback ?? {}, ...primary ?? {} };
+  for (const k of Object.keys(out)) {
+    if (out[k] == null && fallback?.[k] != null)
+      out[k] = fallback[k];
+  }
+  return out;
+}
+function serializeSSE(sse2) {
+  let out = "";
+  if (sse2.event !== null)
+    out += `event: ${sse2.event}
+`;
+  for (const line of sse2.data.split("\n"))
+    out += `data: ${line}
+`;
+  return out + "\n";
+}
+function makeAbort(controller, signal) {
+  return () => controller.abort(signal.reason);
+}
+var encoder2, DEFAULT_BETAS, BlockTracker;
 var init_middleware3 = __esm({
   "node_modules/@anthropic-ai/sdk/lib/middleware.mjs"() {
     init_error();
@@ -58011,10 +58450,80 @@ var init_middleware3 = __esm({
     init_values();
     init_request_options();
     encoder2 = new TextEncoder();
+    DEFAULT_BETAS = ["fallback-credit-2026-06-01"];
+    BlockTracker = class {
+      constructor(indexBase = 0) {
+        this.indexBase = indexBase;
+        this.blocks = [];
+        this.open = [];
+        this.nextIndex = indexBase;
+      }
+      /** The accumulated content blocks, in start order. */
+      contentBlocks() {
+        return this.blocks.map((b) => b.block);
+      }
+      /** Track a content_block_start, shifting `event.index`. */
+      start(event) {
+        this.blocks.push({ index: event.index, block: { ...event.content_block } });
+        event.index += this.indexBase;
+        this.open.push(event.index);
+        this.nextIndex = Math.max(this.nextIndex, event.index + 1);
+      }
+      /** Apply a content_block_delta to its accumulating block, shifting `event.index`. */
+      delta(event) {
+        applyDelta(this.blocks, event.index, event.delta);
+        event.index += this.indexBase;
+      }
+      /** Track a content_block_stop, shifting `event.index`. */
+      stop(event) {
+        event.index += this.indexBase;
+        const i = this.open.indexOf(event.index);
+        if (i !== -1)
+          this.open.splice(i, 1);
+        this.nextIndex = Math.max(this.nextIndex, event.index + 1);
+      }
+      /** content_block_stop events for any blocks still open. */
+      *closeOpenBlocks() {
+        for (const index of this.open) {
+          yield emit("content_block_stop", {
+            type: "content_block_stop",
+            index
+          });
+        }
+        this.open.length = 0;
+      }
+    };
   }
 });
 
 // node_modules/@anthropic-ai/sdk/index.mjs
+var sdk_exports = {};
+__export(sdk_exports, {
+  AI_PROMPT: () => AI_PROMPT,
+  APIConnectionError: () => APIConnectionError,
+  APIConnectionTimeoutError: () => APIConnectionTimeoutError,
+  APIError: () => APIError,
+  APIPromise: () => APIPromise,
+  APIUserAbortError: () => APIUserAbortError,
+  Anthropic: () => Anthropic,
+  AnthropicError: () => AnthropicError,
+  AuthenticationError: () => AuthenticationError,
+  BadRequestError: () => BadRequestError,
+  BaseAnthropic: () => BaseAnthropic,
+  BetaFallbackState: () => BetaFallbackState,
+  ConflictError: () => ConflictError,
+  HUMAN_PROMPT: () => HUMAN_PROMPT,
+  InternalServerError: () => InternalServerError,
+  NotFoundError: () => NotFoundError,
+  PagePromise: () => PagePromise,
+  PermissionDeniedError: () => PermissionDeniedError,
+  RateLimitError: () => RateLimitError,
+  RetryableError: () => RetryableError,
+  UnprocessableEntityError: () => UnprocessableEntityError,
+  betaRefusalFallbackMiddleware: () => betaRefusalFallbackMiddleware,
+  default: () => Anthropic,
+  toFile: () => toFile
+});
 var init_sdk = __esm({
   "node_modules/@anthropic-ai/sdk/index.mjs"() {
     init_client4();
@@ -58783,14 +59292,14 @@ async function ensurePayrollReminders() {
     const runs = computeReminderRuns(todayStr, BIWEEKLY_ANCHOR, holidays, WINDOW_DAYS);
     const scheduled = /* @__PURE__ */ new Map();
     const correctKeys = /* @__PURE__ */ new Set();
-    for (const run2 of runs) {
-      const dueClients = [...WEEKLY, ...run2.isBiweekly ? BIWEEKLY : []];
+    for (const run3 of runs) {
+      const dueClients = [...WEEKLY, ...run3.isBiweekly ? BIWEEKLY : []];
       if (!dueClients.length) continue;
       for (const c of dueClients) {
-        correctKeys.add(`${c.id}|${run2.runISO}`);
-        const arr = scheduled.get(run2.runISO) || [];
-        arr.push({ client: c, dateStr: run2.runISO, statShift: run2.statShifted });
-        scheduled.set(run2.runISO, arr);
+        correctKeys.add(`${c.id}|${run3.runISO}`);
+        const arr = scheduled.get(run3.runISO) || [];
+        arr.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
+        scheduled.set(run3.runISO, arr);
       }
     }
     let tasksRemoved = 0;
@@ -58928,7 +59437,7 @@ async function backfillSherPayroll() {
       const exists2 = allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate);
       if (exists2) continue;
       let totalGross = 0;
-      const [run2] = await db.insert(payRuns).values({
+      const [run3] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d(p.start),
         payPeriodEnd: d(p.end),
@@ -58940,7 +59449,7 @@ async function backfillSherPayroll() {
         createdAt: /* @__PURE__ */ new Date(),
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
-      if (!run2) continue;
+      if (!run3) continue;
       for (const r of ROSTER2) {
         const k = key2(r.first, r.last);
         const emp = empByKey.get(k);
@@ -58949,13 +59458,13 @@ async function backfillSherPayroll() {
         const gross = round210(ln?.gross ?? 0);
         totalGross += gross;
         await db.insert(payRunLines).values({
-          payRunId: run2.id,
+          payRunId: run3.id,
           employeeId: emp.id,
           regularHours: ln?.hours ?? 0,
           grossPay: gross
         });
       }
-      await db.update(payRuns).set({ totalGross: round210(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round210(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[sher-backfill] added ${runsAdded} run(s)`);
@@ -59133,9 +59642,9 @@ async function backfillOwenSoundPayroll() {
     const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
     let runsAdded = 0, linesAdded = 0;
     for (const p of PERIODS2) {
-      let run2 = allRuns.find((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate);
-      if (!run2) {
-        [run2] = await db.insert(payRuns).values({
+      let run3 = allRuns.find((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate);
+      if (!run3) {
+        [run3] = await db.insert(payRuns).values({
           clientId,
           payPeriodStart: d2(p.start),
           payPeriodEnd: d2(p.end),
@@ -59147,20 +59656,20 @@ async function backfillOwenSoundPayroll() {
           createdAt: /* @__PURE__ */ new Date(),
           updatedAt: /* @__PURE__ */ new Date()
         }).returning();
-        if (!run2) continue;
-        allRuns.push(run2);
+        if (!run3) continue;
+        allRuns.push(run3);
         runsAdded++;
       }
-      const have = new Set((await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run2.id))).map((l) => l.employeeId));
+      const have = new Set((await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run3.id))).map((l) => l.employeeId));
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp || have.has(emp.id)) continue;
-        await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: round211(v.gross) });
+        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: round211(v.gross) });
         linesAdded++;
       }
-      const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run2.id));
+      const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run3.id));
       const tg = round211(lines.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
-      await db.update(payRuns).set({ totalGross: tg, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: tg, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
     }
     if (runsAdded || linesAdded) console.log(`[os-backfill] added ${runsAdded} run(s), ${linesAdded} line(s)`);
     return { client: clientId, runsAdded, skipped: "" };
@@ -59366,7 +59875,7 @@ async function backfillCollingwoodPayroll() {
     for (const p of PERIODS3) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
       let totalGross = 0;
-      const [run2] = await db.insert(payRuns).values({
+      const [run3] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d3(p.start),
         payPeriodEnd: d3(p.end),
@@ -59378,15 +59887,15 @@ async function backfillCollingwoodPayroll() {
         createdAt: /* @__PURE__ */ new Date(),
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
-      if (!run2) continue;
+      if (!run3) continue;
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
         const gross = round212(v.gross);
         totalGross += gross;
-        await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
+        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round212(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round212(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[cw-backfill] added ${runsAdded} run(s)`);
@@ -59627,7 +60136,7 @@ async function backfillAuldPayroll() {
     for (const p of PERIODS4) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
       let totalGross = 0;
-      const [run2] = await db.insert(payRuns).values({
+      const [run3] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d4(p.start),
         payPeriodEnd: d4(p.end),
@@ -59639,15 +60148,15 @@ async function backfillAuldPayroll() {
         createdAt: /* @__PURE__ */ new Date(),
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
-      if (!run2) continue;
+      if (!run3) continue;
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
         const gross = round213(v.gross);
         totalGross += gross;
-        await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
+        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round213(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round213(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[auld-backfill] added ${runsAdded} run(s)`);
@@ -59933,7 +60442,7 @@ async function backfillOriginalityPayroll() {
         const exists2 = allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate && (r.notes || "") === note);
         if (exists2) continue;
         let totalGross = 0;
-        const [run2] = await db.insert(payRuns).values({
+        const [run3] = await db.insert(payRuns).values({
           clientId,
           payPeriodStart: d5(p.start),
           payPeriodEnd: d5(p.end),
@@ -59945,15 +60454,15 @@ async function backfillOriginalityPayroll() {
           createdAt: /* @__PURE__ */ new Date(),
           updatedAt: /* @__PURE__ */ new Date()
         }).returning();
-        if (!run2) continue;
+        if (!run3) continue;
         for (const [k, v] of Object.entries(p.lines)) {
           const emp = empByKey.get(k);
           if (!emp) continue;
           const gross = round214(v.gross);
           totalGross += gross;
-          await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
+          await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
         }
-        await db.update(payRuns).set({ totalGross: round214(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+        await db.update(payRuns).set({ totalGross: round214(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
         runsAdded++;
       }
     };
@@ -60200,7 +60709,7 @@ async function backfill2303851Payroll() {
     for (const p of PERIODS5) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
       const gross = round215(p.gross);
-      const [run2] = await db.insert(payRuns).values({
+      const [run3] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d6(p.start),
         payPeriodEnd: d6(p.end),
@@ -60212,9 +60721,9 @@ async function backfill2303851Payroll() {
         createdAt: /* @__PURE__ */ new Date(),
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
-      if (!run2) continue;
-      await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
-      await db.update(payRuns).set({ totalGross: gross, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      if (!run3) continue;
+      await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
+      await db.update(payRuns).set({ totalGross: gross, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[2303851-backfill] added ${runsAdded} run(s)`);
@@ -60289,7 +60798,7 @@ async function backfillFractalPayroll() {
     let runsAdded = 0;
     for (const p of PERIODS6) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
-      const [run2] = await db.insert(payRuns).values({
+      const [run3] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d7(p.start),
         payPeriodEnd: d7(p.end),
@@ -60301,9 +60810,9 @@ async function backfillFractalPayroll() {
         createdAt: /* @__PURE__ */ new Date(),
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
-      if (!run2) continue;
-      await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: 0, grossPay: round216(MONTHLY2) });
-      await db.update(payRuns).set({ totalGross: round216(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      if (!run3) continue;
+      await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: round216(MONTHLY2) });
+      await db.update(payRuns).set({ totalGross: round216(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[fractal-backfill] added ${runsAdded} run(s)`);
@@ -60378,7 +60887,7 @@ async function backfillMotionInvestPayroll() {
     for (const p of PERIODS7) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
       let totalGross = 0;
-      const [run2] = await db.insert(payRuns).values({
+      const [run3] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d8(p.start),
         payPeriodEnd: d8(p.end),
@@ -60390,15 +60899,15 @@ async function backfillMotionInvestPayroll() {
         createdAt: /* @__PURE__ */ new Date(),
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
-      if (!run2) continue;
+      if (!run3) continue;
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
         const gross = round217(v.gross);
         totalGross += gross;
-        await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
+        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[motioninvest-backfill] added ${runsAdded} run(s)`);
@@ -60493,7 +61002,7 @@ async function backfillMotionInvestRevShare() {
       }
       if (!due || exists2 || !lines.length) continue;
       let totalGross = 0;
-      const [run2] = await db.insert(payRuns).values({
+      const [run3] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d9(q.start),
         payPeriodEnd: d9(q.end),
@@ -60505,12 +61014,12 @@ async function backfillMotionInvestRevShare() {
         createdAt: /* @__PURE__ */ new Date(),
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
-      if (!run2) continue;
+      if (!run3) continue;
       for (const ln of lines) {
         totalGross += ln.amount;
-        await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: ln.emp.id, regularHours: 0, grossPay: ln.amount });
+        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: ln.emp.id, regularHours: 0, grossPay: ln.amount });
       }
-      await db.update(payRuns).set({ totalGross: round218(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round218(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[mi-revshare] added ${runsAdded} quarterly run(s)`);
@@ -63448,6 +63957,240 @@ var init_browser_credentials = __esm({
     init_drizzle_orm();
     init_qbo_oauth();
     ensured = false;
+  }
+});
+
+// api/browser-brain.ts
+var browser_brain_exports = {};
+__export(browser_brain_exports, {
+  advanceBrain: () => advanceBrain,
+  approvePending: () => approvePending,
+  brainStatus: () => brainStatus,
+  denyPending: () => denyPending,
+  startBrain: () => startBrain,
+  stopBrain: () => stopBrain
+});
+function log(text2) {
+  if (!run2) return;
+  run2.log.push({ at: Date.now(), text: text2 });
+  if (run2.log.length > 200) run2.log.shift();
+}
+function brainStatus() {
+  const sess = sessionInfo();
+  if (!run2) return { active: false, browser: sess };
+  return {
+    active: true,
+    goal: run2.goal,
+    status: run2.status,
+    steps: run2.steps,
+    pending: run2.pending || null,
+    log: run2.log.slice(-40),
+    browser: sess
+  };
+}
+function tools() {
+  return [
+    { type: "computer_20250124", name: "computer", display_width_px: VW, display_height_px: VH, display_number: 1 },
+    {
+      name: "request_approval",
+      description: "Call BEFORE any state-changing action (publish/post/save/submit/send/delete/reconcile/lock/approve). Pauses for Markie's approval.",
+      input_schema: {
+        type: "object",
+        properties: {
+          summary: { type: "string", description: "The exact action you want to take, e.g. 'Click Publish on the Home Depot receipt for Alderson'." },
+          reason: { type: "string", description: "Why this is correct (vendor, amount, account, date)." }
+        },
+        required: ["summary", "reason"]
+      }
+    },
+    {
+      name: "task_done",
+      description: "Call when the goal is fully complete.",
+      input_schema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] }
+    }
+  ];
+}
+async function shot() {
+  const buf = await screenshot();
+  return buf.toString("base64");
+}
+async function execComputer(input) {
+  const s = await ensureSession();
+  const a = input?.action;
+  const [x, y] = Array.isArray(input?.coordinate) ? input.coordinate : [void 0, void 0];
+  switch (a) {
+    case "screenshot":
+      return "screenshot";
+    case "mouse_move":
+      if (x != null) await s.page.mouse.move(x, y);
+      return `move (${x},${y})`;
+    case "left_click":
+      if (x != null) await s.page.mouse.click(x, y);
+      return `click (${x},${y})`;
+    case "double_click":
+      if (x != null) await s.page.mouse.click(x, y, { clickCount: 2 });
+      return `double-click (${x},${y})`;
+    case "right_click":
+      if (x != null) await s.page.mouse.click(x, y, { button: "right" });
+      return `right-click (${x},${y})`;
+    case "left_click_drag":
+      if (x != null) {
+        await s.page.mouse.move(x, y);
+        await s.page.mouse.down();
+        await s.page.mouse.up();
+      }
+      return "drag";
+    case "type":
+      await s.page.keyboard.type(String(input.text || ""), { delay: 12 });
+      return `type "${String(input.text || "").slice(0, 40)}"`;
+    case "key":
+      await s.page.keyboard.press(mapKey(String(input.text || input.key || "Enter")));
+      return `key ${input.text || input.key}`;
+    case "scroll": {
+      const dir = input.scroll_direction || "down";
+      const amt = Number(input.scroll_amount || 3) * 100;
+      await s.page.mouse.wheel({ deltaY: dir === "up" ? -amt : amt });
+      return `scroll ${dir}`;
+    }
+    case "wait":
+      await new Promise((r) => setTimeout(r, Math.min(3e3, Number(input.duration || 1) * 1e3)));
+      return "wait";
+    case "cursor_position":
+      return "cursor_position";
+    default:
+      return `unsupported(${a})`;
+  }
+}
+function mapKey(k) {
+  const m = { Return: "Enter", Enter: "Enter", Tab: "Tab", Escape: "Escape", BackSpace: "Backspace", Delete: "Delete", space: "Space" };
+  return m[k] || k;
+}
+async function callClaude2() {
+  const key10 = process.env.ANTHROPIC_API_KEY;
+  if (!key10) throw new Error("ANTHROPIC_API_KEY not set \u2014 the browser brain needs it.");
+  const { default: Anthropic2 } = await Promise.resolve().then(() => (init_sdk(), sdk_exports));
+  const client = new Anthropic2({ apiKey: key10 });
+  return client.beta.messages.create(
+    {
+      model: MODEL,
+      max_tokens: 1024,
+      system: SYSTEM3,
+      tools: tools(),
+      messages: run2.messages,
+      betas: ["computer-use-2025-01-24"]
+    }
+  );
+}
+async function startBrain(goal) {
+  await ensureSession();
+  run2 = { goal, steps: 0, status: "running", log: [], messages: [], pending: null };
+  const img = await shot();
+  run2.messages.push({
+    role: "user",
+    content: [
+      { type: "text", text: `GOAL: ${goal}
+
+Here is the current browser screen. Begin, one careful step at a time. Remember: call request_approval before anything that changes data.` },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: img } }
+    ]
+  });
+  log(`Goal set: ${goal}`);
+}
+async function advanceBrain() {
+  if (!run2) throw new Error("No active task. Start one first.");
+  if (run2.status === "awaiting_approval") return;
+  let burst = 0;
+  while (run2.steps < MAX_STEPS && burst < 6) {
+    run2.status = "running";
+    const resp = await callClaude2();
+    run2.messages.push({ role: "assistant", content: resp.content });
+    run2.steps += 1;
+    burst += 1;
+    const toolUses = (resp.content || []).filter((b) => b.type === "tool_use");
+    const texts = (resp.content || []).filter((b) => b.type === "text").map((b) => b.text).join(" ").trim();
+    if (texts) log(`Figs: ${texts.slice(0, 200)}`);
+    if (toolUses.length === 0) {
+      run2.status = "done";
+      log("Figs stopped (no further action).");
+      return;
+    }
+    const approval = toolUses.find((t2) => t2.name === "request_approval");
+    const done = toolUses.find((t2) => t2.name === "task_done");
+    if (done) {
+      run2.status = "done";
+      log(`\u2705 Done: ${done.input?.summary || ""}`);
+      return;
+    }
+    if (approval) {
+      run2.status = "awaiting_approval";
+      run2.pending = { id: approval.id, summary: String(approval.input?.summary || "do something"), reason: String(approval.input?.reason || "") };
+      log(`\u23F8 Needs your OK: ${run2.pending.summary}`);
+      return;
+    }
+    const results = [];
+    for (const t2 of toolUses) {
+      if (t2.name !== "computer") {
+        results.push({ type: "tool_result", tool_use_id: t2.id, content: "unsupported tool" });
+        continue;
+      }
+      const label = await execComputer(t2.input).catch((e) => `error: ${e instanceof Error ? e.message : e}`);
+      log(`\u2022 ${label}`);
+      await new Promise((r) => setTimeout(r, 400));
+      const img = await shot();
+      results.push({
+        type: "tool_result",
+        tool_use_id: t2.id,
+        content: [{ type: "image", source: { type: "base64", media_type: "image/png", data: img } }]
+      });
+    }
+    run2.messages.push({ role: "user", content: results });
+  }
+  if (run2.steps >= MAX_STEPS) {
+    run2.status = "done";
+    log("Reached the step limit \u2014 pausing. Give the next goal or continue.");
+  }
+}
+async function approvePending() {
+  if (!run2 || run2.status !== "awaiting_approval" || !run2.pending) throw new Error("Nothing to approve.");
+  const p = run2.pending;
+  run2.messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: p.id, content: "APPROVED by Markie. Proceed with exactly that action now, then continue." }] });
+  run2.pending = null;
+  run2.status = "running";
+  log("\u2714 Approved \u2014 proceeding.");
+  await advanceBrain();
+}
+async function denyPending(note) {
+  if (!run2 || run2.status !== "awaiting_approval" || !run2.pending) throw new Error("Nothing to deny.");
+  const p = run2.pending;
+  run2.messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: p.id, content: `DENIED by Markie${note ? `: ${note}` : ""}. Do NOT do that. Either try a safe alternative or call task_done.`, is_error: true }] });
+  run2.pending = null;
+  run2.status = "running";
+  log(`\u2717 Denied${note ? `: ${note}` : ""}`);
+  await advanceBrain();
+}
+function stopBrain() {
+  if (run2) log("Task stopped by Markie.");
+  run2 = null;
+}
+var MODEL, MAX_STEPS, VW, VH, run2, SYSTEM3;
+var init_browser_brain = __esm({
+  "api/browser-brain.ts"() {
+    init_browser_agent();
+    MODEL = process.env.FIGGY_BROWSER_MODEL || "claude-sonnet-4-6";
+    MAX_STEPS = 40;
+    VW = 1280;
+    VH = 800;
+    run2 = null;
+    SYSTEM3 = `You are Figs, a meticulous junior bookkeeper working inside a real web browser for a Canadian bookkeeping firm. You are doing real work in Hubdoc and QuickBooks Online.
+
+ABSOLUTE RULES:
+- You may freely NAVIGATE and READ: move the mouse, click links/tabs/menus, scroll, open a document, type into a SEARCH or filter box, take screenshots.
+- You must NEVER perform a STATE-CHANGING action on your own. Before clicking anything that posts, publishes, saves, submits, sends, deletes, reconciles, locks, approves, or otherwise changes the books or the client's data, you MUST call the request_approval tool describing exactly what you want to do and why, and then STOP and wait. A human (Markie) approves it; only then will it run.
+- Work one careful step at a time. After each action, look at the new screenshot before deciding the next step.
+- If you are unsure, or something looks wrong, call request_approval and explain \u2014 do not guess on anything that changes data.
+- When the goal is fully complete, call task_done with a short summary.
+
+You will be given a goal. Pursue it step by step, narrating briefly what you see and intend.`;
   }
 });
 
@@ -66525,7 +67268,7 @@ async function seedDemoData() {
       const start = new Date(end);
       start.setDate(1);
       const gross = roster.reduce((s, r) => s + r[2], 0);
-      const run2 = await db.insert(payRuns).values({
+      const run3 = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: start,
         payPeriodEnd: end,
@@ -66535,7 +67278,7 @@ async function seedDemoData() {
         hoursSource: "manual",
         totalGross: gross
       }).returning();
-      const runId = run2[0]?.id;
+      const runId = run3[0]?.id;
       await db.insert(payRunLines).values(
         roster.map(([, , amt], i) => ({ payRunId: runId, employeeId: emps[i]?.id, grossPay: amt, regularHours: 0 }))
       );
@@ -75493,12 +76236,12 @@ var aiAgentRouter = createRouter({
     input: external_exports.string().optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const [run2] = await db.insert(aiAgentRuns).values({
+    const [run3] = await db.insert(aiAgentRuns).values({
       ...input,
       userId: ctx.user.id,
       status: "running"
     });
-    return run2;
+    return run3;
   }),
   // Update run (when agent completes)
   updateRun: authedQuery.input(external_exports.object({
@@ -82074,10 +82817,10 @@ var assistantRouter = createRouter({
     };
     const runLoop = async () => {
       for (let i = 0; i < 5; i++) {
-        const tools = [...ASSISTANT_TOOLS, ...dropServerTools ? [] : serverTools];
+        const tools2 = [...ASSISTANT_TOOLS, ...dropServerTools ? [] : serverTools];
         let data;
         try {
-          data = await client.messages.create({ model, max_tokens: 1024, system, messages, tools });
+          data = await client.messages.create({ model, max_tokens: 1024, system, messages, tools: tools2 });
         } catch (err) {
           if (err instanceof Anthropic.BadRequestError && !dropServerTools && /tool|web_search|web_fetch/i.test(err.message || "")) {
             dropServerTools = true;
@@ -83558,11 +84301,11 @@ var publicRouter = createRouter({
   // ===== PAYROLL HOURS APPROVAL (public, token-gated — for clients) =====
   payrollApprovalGet: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
     const db = getDb();
-    const run2 = (await db.select().from(payRuns).where(eq(payRuns.approvalToken, input.token)).limit(1))[0];
-    if (!run2) return null;
-    const client = (await db.select().from(clients).where(eq(clients.id, run2.clientId)).limit(1))[0];
-    const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run2.id));
-    const emps = await db.select().from(employees).where(eq(employees.clientId, run2.clientId));
+    const run3 = (await db.select().from(payRuns).where(eq(payRuns.approvalToken, input.token)).limit(1))[0];
+    if (!run3) return null;
+    const client = (await db.select().from(clients).where(eq(clients.id, run3.clientId)).limit(1))[0];
+    const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run3.id));
+    const emps = await db.select().from(employees).where(eq(employees.clientId, run3.clientId));
     const byId = new Map(emps.map((e) => [e.id, e]));
     const rows = lines.map((l) => {
       const e = byId.get(l.employeeId);
@@ -83577,13 +84320,13 @@ var publicRouter = createRouter({
     }).sort((a, b) => a.name.localeCompare(b.name));
     return {
       clientName: client?.name ?? "Your company",
-      payPeriodStart: run2.payPeriodStart,
-      payPeriodEnd: run2.payPeriodEnd,
-      payDate: run2.payDate,
-      status: run2.approvalStatus ?? "sent",
-      approvedByName: run2.approvedByName ?? null,
-      approvedAt: run2.approvedAt ?? null,
-      approvalNote: run2.approvalNote ?? null,
+      payPeriodStart: run3.payPeriodStart,
+      payPeriodEnd: run3.payPeriodEnd,
+      payDate: run3.payDate,
+      status: run3.approvalStatus ?? "sent",
+      approvedByName: run3.approvedByName ?? null,
+      approvedAt: run3.approvedAt ?? null,
+      approvalNote: run3.approvalNote ?? null,
       lines: rows
     };
   }),
@@ -83594,8 +84337,8 @@ var publicRouter = createRouter({
     note: external_exports.string().optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const run2 = (await db.select().from(payRuns).where(eq(payRuns.approvalToken, input.token)).limit(1))[0];
-    if (!run2) throw new Error("This approval link is not valid.");
+    const run3 = (await db.select().from(payRuns).where(eq(payRuns.approvalToken, input.token)).limit(1))[0];
+    if (!run3) throw new Error("This approval link is not valid.");
     await db.update(payRuns).set({
       approvalStatus: input.decision,
       approvedByName: input.approverName,
@@ -83604,7 +84347,7 @@ var publicRouter = createRouter({
       // When the client approves the hours, advance the run to "approved".
       ...input.decision === "approved" ? { status: "approved" } : {},
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(payRuns.id, run2.id));
+    }).where(eq(payRuns.id, run3.id));
     return { success: true };
   }),
   // ===== CLIENT REQUESTS (public, token-gated — the client's to-do list) =====
@@ -83997,7 +84740,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.120";
+var BUILD_TAG = "2026-06-25.121";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -85492,6 +86235,70 @@ app.post("/api/figs-browser/login", async (c) => {
     const res = await loginWithCredential2(cred);
     await markCredentialUsed2(Number(b?.id));
     return c.json({ ok: true, ...res });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.get("/api/figs-browser/brain/status", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { brainStatus: brainStatus2 } = await Promise.resolve().then(() => (init_browser_brain(), browser_brain_exports));
+    return c.json(brainStatus2());
+  } catch (e) {
+    return c.json({ active: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.post("/api/figs-browser/brain/start", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { startBrain: startBrain2, advanceBrain: advanceBrain2 } = await Promise.resolve().then(() => (init_browser_brain(), browser_brain_exports));
+    const { goal } = await c.req.json();
+    if (!goal) return c.json({ ok: false, error: "goal required" }, 200);
+    await startBrain2(String(goal));
+    advanceBrain2().catch((e) => console.error("[figs-brain] advance failed:", e instanceof Error ? e.message : e));
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.post("/api/figs-browser/brain/continue", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { advanceBrain: advanceBrain2 } = await Promise.resolve().then(() => (init_browser_brain(), browser_brain_exports));
+    advanceBrain2().catch(() => {
+    });
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.post("/api/figs-browser/brain/approve", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { approvePending: approvePending2 } = await Promise.resolve().then(() => (init_browser_brain(), browser_brain_exports));
+    approvePending2().catch((e) => console.error("[figs-brain] approve:", e));
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.post("/api/figs-browser/brain/deny", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { denyPending: denyPending2 } = await Promise.resolve().then(() => (init_browser_brain(), browser_brain_exports));
+    const b = await c.req.json().catch(() => ({}));
+    denyPending2(b?.note).catch((e) => console.error("[figs-brain] deny:", e));
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.post("/api/figs-browser/brain/stop", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { stopBrain: stopBrain2 } = await Promise.resolve().then(() => (init_browser_brain(), browser_brain_exports));
+    stopBrain2();
+    return c.json({ ok: true });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }

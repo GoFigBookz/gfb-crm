@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-25.120";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-25.121";  // bump each deploy so prod vs source is unambiguous
 
 // CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
 // secret into a hosting dashboard very often drags a trailing space or newline,
@@ -1570,6 +1570,44 @@ app.post("/api/figs-browser/login", async (c) => {
     await markCredentialUsed(Number(b?.id));
     return c.json({ ok: true, ...res });
   } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+
+// ── Stage 3: the browser BRAIN (supervised computer-use autopilot). Admin only. ──
+app.get("/api/figs-browser/brain/status", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try { const { brainStatus } = await import("./browser-brain"); return c.json(brainStatus()); }
+  catch (e) { return c.json({ active: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.post("/api/figs-browser/brain/start", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { startBrain, advanceBrain } = await import("./browser-brain");
+    const { goal } = await c.req.json();
+    if (!goal) return c.json({ ok: false, error: "goal required" }, 200);
+    await startBrain(String(goal));
+    advanceBrain().catch((e) => console.error("[figs-brain] advance failed:", e instanceof Error ? e.message : e));
+    return c.json({ ok: true });
+  } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.post("/api/figs-browser/brain/continue", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try { const { advanceBrain } = await import("./browser-brain"); advanceBrain().catch(() => {}); return c.json({ ok: true }); }
+  catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.post("/api/figs-browser/brain/approve", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try { const { approvePending } = await import("./browser-brain"); approvePending().catch((e) => console.error("[figs-brain] approve:", e)); return c.json({ ok: true }); }
+  catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.post("/api/figs-browser/brain/deny", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try { const { denyPending } = await import("./browser-brain"); const b = await c.req.json().catch(() => ({})); denyPending(b?.note).catch((e) => console.error("[figs-brain] deny:", e)); return c.json({ ok: true }); }
+  catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.post("/api/figs-browser/brain/stop", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try { const { stopBrain } = await import("./browser-brain"); stopBrain(); return c.json({ ok: true }); }
+  catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
 });
 
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
