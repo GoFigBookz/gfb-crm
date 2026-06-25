@@ -22739,6 +22739,10 @@ var init_schema = __esm({
       // Client grouping — one owner (e.g. "John Smith") can have multiple companies;
       // clients sharing a groupName are surfaced together as related companies.
       groupName: text("groupName"),
+      // Self/firm flag — Go Fig Bookz is our OWN firm AND a client we book. When set,
+      // it's excluded from the client roster counts and instead anchors Practice Health
+      // (its QBO books = practice revenue/billed-vs-collected). Exactly one client.
+      isFirm: integer2("isFirm", { mode: "boolean" }).default(false),
       // CRA Represent a Client (RAC) authorization status
       craRacDone: integer2("craRacDone", { mode: "boolean" }).default(false),
       // Government-registry data (from Canada's Business Registries / auto-lookup on add).
@@ -24833,13 +24837,13 @@ var init_base64 = __esm({
       if (!b64re.test(asc2))
         throw new TypeError("malformed base64.");
       asc2 += "==".slice(2 - (asc2.length & 3));
-      let u24, r1, r24;
+      let u24, r1, r25;
       let binArray = [];
       for (let i = 0; i < asc2.length; ) {
-        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r24 = b64tab[asc2.charAt(i++)]);
+        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r25 = b64tab[asc2.charAt(i++)]);
         if (r1 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255));
-        } else if (r24 === 64) {
+        } else if (r25 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255));
         } else {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255, u24 & 255));
@@ -36825,7 +36829,7 @@ var require_bcrypt = __commonJS({
           } else
             throw err;
         }
-        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r24 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r24, real_salt = salt.substring(offset + 3, offset + 25);
+        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r25 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r25, real_salt = salt.substring(offset + 3, offset + 25);
         s += minor >= "a" ? "\0" : "";
         var passwordb = stringToBytes(s), saltb = base64_decode(real_salt, BCRYPT_SALT_LEN);
         function finish(bytes) {
@@ -39904,10 +39908,10 @@ var init_qbo_router = __esm({
       // --- Sync All ---
       syncAll: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => {
         const r1 = await doSyncCustomers(input.connectionId);
-        const r24 = await doSyncInvoices(input.connectionId);
+        const r25 = await doSyncInvoices(input.connectionId);
         const r3 = await doSyncPayments(input.connectionId);
         const r4 = await doSyncAccounts(input.connectionId);
-        return { success: true, customers: r1, invoices: r24, payments: r3, accounts: r4 };
+        return { success: true, customers: r1, invoices: r25, payments: r3, accounts: r4 };
       }),
       // --- Data Retrieval ---
       getCustomers: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
@@ -59992,6 +59996,66 @@ var init_seed_company_groups = __esm({
   }
 });
 
+// api/seed-firm-client.ts
+var seed_firm_client_exports = {};
+__export(seed_firm_client_exports, {
+  seedFirmClient: () => seedFirmClient
+});
+async function seedFirmClient() {
+  const db = getDb();
+  try {
+    const cs = await db.select().from(clients);
+    const matches = cs.filter((c) => {
+      const email3 = (c.email || "").toLowerCase();
+      const name2 = c.name || "";
+      return email3 === FIRM_EMAIL || NAME_RE.test(name2);
+    });
+    let firm = matches.find((c) => c.isFirm) || matches[0] || null;
+    if (firm) {
+      for (const c of cs) {
+        if (c.isFirm && c.id !== firm.id) {
+          await db.update(clients).set({ isFirm: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+        }
+      }
+      if (!firm.isFirm) {
+        await db.update(clients).set({ isFirm: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, firm.id));
+        console.log(`[firm-client] flagged "${firm.name}" (id ${firm.id}) as the firm self-client`);
+      }
+      return { firmId: firm.id, created: false };
+    }
+    const userId = cs[0]?.userId ?? 1;
+    const inserted = await db.insert(clients).values({
+      userId,
+      name: FIRM.displayName,
+      email: FIRM.email,
+      phone: FIRM.phone,
+      website: FIRM.website,
+      company: FIRM.legalName,
+      status: "active",
+      clientType: "monthly",
+      hstNumber: FIRM.hstNumber,
+      hasHST: true,
+      isFirm: true
+    }).returning();
+    const id = inserted[0]?.id ?? null;
+    console.log(`[firm-client] created firm self-client "${FIRM.displayName}" (id ${id})`);
+    return { firmId: id, created: true };
+  } catch (err) {
+    console.error("[firm-client] failed:", err instanceof Error ? err.message : err);
+  }
+}
+var NAME_RE, FIRM_EMAIL;
+var init_seed_firm_client = __esm({
+  "api/seed-firm-client.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_firm_settings();
+    NAME_RE = /g[o0]\s*fig|gofig|fig\s*b[o0]{1,2}kz|figbook|12738988/i;
+    FIRM_EMAIL = "markie@gofig.ca";
+  }
+});
+
 // api/seed-interco-scaffold.ts
 var seed_interco_scaffold_exports = {};
 __export(seed_interco_scaffold_exports, {
@@ -63124,6 +63188,7 @@ var init_ensure_clients_schema = __esm({
       ["contactName", "text"],
       ["craRacDone", "integer DEFAULT 0"],
       ["groupName", "text"],
+      ["isFirm", "integer DEFAULT 0"],
       // Government-registry / lookup fields the card + intake save read AND write.
       // (Previously only added by import-client-master; include here so the every-boot
       // guard always covers them and intake saves can't hit a missing column.)
@@ -64098,8 +64163,8 @@ async function seedDockKingFlowthrough() {
       report.updated++;
     }
     const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, c.id)).returning();
-    const r24 = await db.delete(tasks).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
-    report.tasksPaused += (r1?.length || 0) + (r24?.length || 0);
+    const r25 = await db.delete(tasks).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
+    report.tasksPaused += (r1?.length || 0) + (r25?.length || 0);
   }
   return report;
 }
@@ -78493,6 +78558,119 @@ var groupRouter = createRouter({
   })
 });
 
+// api/practice-health-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_schema();
+var r24 = (n) => Math.round(n * 100) / 100;
+var yearOf2 = (d10) => d10 ? new Date(d10).getFullYear() : null;
+var feeOf = (c) => Number(c.monthlyFee) || Number(c.estimatedMonthlyValue) || 0;
+var practiceHealthRouter = createRouter({
+  summary: staffQuery.input(external_exports.object({ year: external_exports.number().optional() }).optional()).query(async ({ input }) => {
+    const db = getDb();
+    const year2 = input?.year ?? (/* @__PURE__ */ new Date()).getFullYear();
+    const now = /* @__PURE__ */ new Date();
+    const monthStart = new Date(year2, now.getMonth(), 1);
+    const [cs, runs, invoices2, allTasks] = await Promise.all([
+      db.select().from(clients),
+      db.select().from(payRuns),
+      db.select().from(qboInvoices),
+      db.select().from(tasks)
+    ]);
+    const all = cs;
+    const firm = all.find((c) => c.isFirm) || null;
+    const book = all.filter((c) => !c.isFirm);
+    const active = book.filter((c) => c.status === "active");
+    const roster = {
+      total: book.length,
+      active: active.length,
+      prospect: book.filter((c) => c.status === "prospect").length,
+      lead: book.filter((c) => c.status === "lead").length,
+      inactive: book.filter((c) => c.status === "inactive").length,
+      churned: book.filter((c) => c.workflowStatus === "churned").length,
+      newThisMonth: book.filter((c) => c.createdAt && new Date(c.createdAt) >= monthStart).length,
+      hstClients: active.filter((c) => !!c.hasHST).length,
+      payrollClients: active.filter((c) => !!c.hasPayroll && !c.payrollExternal).length,
+      byType: {
+        monthly: active.filter((c) => c.clientType === "monthly").length,
+        quarterly: active.filter((c) => c.clientType === "quarterly").length,
+        annual: active.filter((c) => c.clientType === "annual").length,
+        payroll: active.filter((c) => c.clientType === "payroll").length,
+        wholesale: active.filter((c) => c.clientType === "wholesale").length
+      }
+    };
+    const withFee = active.filter((c) => feeOf(c) > 0);
+    const mrr = r24(active.reduce((s, c) => s + feeOf(c), 0));
+    const revenue = {
+      mrr,
+      annualized: r24(mrr * 12),
+      clientsWithFee: withFee.length,
+      clientsMissingFee: active.length - withFee.length,
+      avgFee: active.length ? r24(mrr / active.length) : 0
+    };
+    const ytdRuns = runs.filter((p) => yearOf2(p.payDate ?? p.payPeriodEnd) === year2);
+    const payrollClientIds = new Set(ytdRuns.map((p) => p.clientId));
+    const payrollProcessed = {
+      year: year2,
+      ytdGross: r24(ytdRuns.reduce((s, p) => s + (Number(p.totalGross) || 0), 0)),
+      runs: ytdRuns.length,
+      clients: payrollClientIds.size
+    };
+    const ytdPayrollByClient = /* @__PURE__ */ new Map();
+    for (const p of ytdRuns) ytdPayrollByClient.set(p.clientId, (ytdPayrollByClient.get(p.clientId) || 0) + (Number(p.totalGross) || 0));
+    const openTasksByClient = /* @__PURE__ */ new Map();
+    for (const t2 of allTasks) {
+      if (t2.completed || t2.status === "completed") continue;
+      if (t2.clientId == null) continue;
+      openTasksByClient.set(t2.clientId, (openTasksByClient.get(t2.clientId) || 0) + 1);
+    }
+    const topClients = active.map((c) => ({
+      id: c.id,
+      name: c.name,
+      clientType: c.clientType,
+      monthlyFee: feeOf(c),
+      hasPayroll: !!c.hasPayroll && !c.payrollExternal,
+      ytdPayroll: r24(ytdPayrollByClient.get(c.id) || 0),
+      openTasks: openTasksByClient.get(c.id) || 0
+    })).sort((a, b) => b.monthlyFee - a.monthlyFee || b.ytdPayroll - a.ytdPayroll || a.name.localeCompare(b.name)).slice(0, 10);
+    let billing = null;
+    if (firm) {
+      const firmInv = invoices2.filter((i) => i.clientId === firm.id && yearOf2(i.transactionDate) === year2);
+      if (firmInv.length) {
+        const invoiced = r24(firmInv.reduce((s, i) => s + (Number(i.totalAmount) || 0), 0));
+        const outstanding = r24(firmInv.reduce((s, i) => s + (Number(i.balance) || 0), 0));
+        const collected = r24(invoiced - outstanding);
+        const dayMs = 864e5;
+        const aged = (lo, hi) => r24(
+          firmInv.filter((i) => (Number(i.balance) || 0) > 0 && i.dueDate).filter((i) => {
+            const d10 = (now.getTime() - new Date(i.dueDate).getTime()) / dayMs;
+            return d10 > lo && d10 <= hi;
+          }).reduce((s, i) => s + (Number(i.balance) || 0), 0)
+        );
+        billing = {
+          invoiced,
+          collected,
+          outstanding,
+          aging30: aged(0, 30),
+          aging60: aged(30, 60),
+          aging90: aged(60, Infinity),
+          collectionRate: invoiced ? Math.round(collected / invoiced * 100) : 0
+        };
+      }
+    }
+    return {
+      year: year2,
+      firm: firm ? { id: firm.id, name: firm.name, qboConnected: !!firm.qboConnectionId } : null,
+      roster,
+      revenue,
+      payrollProcessed,
+      topClients,
+      billing
+    };
+  })
+});
+
 // api/router.ts
 init_dashboard_router();
 
@@ -80863,6 +81041,7 @@ var appRouter = createRouter({
   restore: restoreRouter,
   interco: intercoRouter,
   group: groupRouter,
+  practiceHealth: practiceHealthRouter,
   dashboard: dashboardRouter,
   calculator: calculatorRouter,
   bankConverter: bankConverterRouter,
@@ -81499,6 +81678,15 @@ app.get("/api/groups/seed", async (c) => {
   try {
     const { seedCompanyGroups: seedCompanyGroups2 } = await Promise.resolve().then(() => (init_seed_company_groups(), seed_company_groups_exports));
     const r = await seedCompanyGroups2();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.get("/api/firm/seed", async (c) => {
+  try {
+    const { seedFirmClient: seedFirmClient2 } = await Promise.resolve().then(() => (init_seed_firm_client(), seed_firm_client_exports));
+    const r = await seedFirmClient2();
     return c.json({ ok: true, ...r });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
@@ -82843,6 +83031,12 @@ async function startServer() {
       if (r?.created) console.log(`[interco-scaffold] created ${r.created}`);
     } catch (e) {
       console.error("[interco-scaffold] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { seedFirmClient: seedFirmClient2 } = await Promise.resolve().then(() => (init_seed_firm_client(), seed_firm_client_exports));
+      await seedFirmClient2();
+    } catch (e) {
+      console.error("[firm-client] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { dedupEmployees: dedupEmployees2 } = await Promise.resolve().then(() => (init_seed_employee_dedup(), seed_employee_dedup_exports));

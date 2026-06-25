@@ -48,6 +48,7 @@ const COLUMNS: Array<[string, string]> = [
   ["qboCustomerId", "text"], ["qboConnectionId", "integer"],
   ["industry", "text DEFAULT 'other'"], ["country", "text DEFAULT 'CA'"], ["province", "text DEFAULT 'ON'"], ["qboAccountType", "text DEFAULT 'ca_clients'"],
   ["figgyEmail", "text"], ["contactName", "text"], ["craRacDone", "integer DEFAULT 0"], ["groupName", "text"],
+  ["isFirm", "integer DEFAULT 0"],
   // Government-registry / lookup fields the card + intake save read AND write.
   // (Previously only added by import-client-master; include here so the every-boot
   // guard always covers them and intake saves can't hit a missing column.)

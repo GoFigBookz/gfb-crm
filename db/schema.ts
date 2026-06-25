@@ -361,6 +361,10 @@ export const clients = sqliteTable("clients", {
   // Client grouping — one owner (e.g. "John Smith") can have multiple companies;
   // clients sharing a groupName are surfaced together as related companies.
   groupName: text("groupName"),
+  // Self/firm flag — Go Fig Bookz is our OWN firm AND a client we book. When set,
+  // it's excluded from the client roster counts and instead anchors Practice Health
+  // (its QBO books = practice revenue/billed-vs-collected). Exactly one client.
+  isFirm: integer("isFirm", { mode: "boolean" }).default(false),
   // CRA Represent a Client (RAC) authorization status
   craRacDone: integer("craRacDone", { mode: "boolean" }).default(false),
   // Government-registry data (from Canada's Business Registries / auto-lookup on add).
