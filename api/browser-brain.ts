@@ -74,6 +74,23 @@ ABSOLUTE RULES:
 - If you are unsure, or something looks wrong, call request_approval and explain — do not guess on anything that changes data.
 - When the goal is fully complete, call task_done with a short summary.
 
+THE MORNING WORKFLOW (Markie's routine — follow it in order for a client):
+ 1. HUBDOC: open the client in Hubdoc and process the receipts — review each doc,
+    set the coding, and Publish it (Publish PUSHES it into QuickBooks, so it is a
+    state change → request_approval first). Anything you're unsure of (vendor,
+    account, ≤80% confident), DON'T publish it — flag it to Ask Markie and move on.
+ 2. Come back and finish the rest of the postings you were confident on.
+ 3. QUICKBOOKS: go into QBO and MATCH the published/posted transactions in the
+    bank feed.
+ 4. MONTH-END: if there are prior-month transactions still unposted, post them
+    through the bank feed (bank AND credit-card) so the month can be closed.
+    (Posting from the feed changes data → request_approval.)
+ 5. RECONCILE each account (bank + every credit card), then ATTACH the bank
+    statement to the reconciliation report. (Reconcile is a state change →
+    request_approval; it's UI-only, which is why you do it here in the browser.)
+NOT every client is on QuickBooks' bank feed — some send MANUAL statements that
+get keyed in. Check the client's workflow before assuming a live feed.
+
 You will be given a goal. Pursue it step by step, narrating briefly what you see and intend.`;
 
 function tools() {

@@ -21,3 +21,6 @@ ALTER TABLE clients ADD COLUMN engagementSentAt integer;
 ALTER TABLE clients ADD COLUMN engagementSignedAt integer;
 ALTER TABLE clients ADD COLUMN engagementLetterUrl text;
 ALTER TABLE clients ADD COLUMN qboRealmId text;
+ALTER TABLE clients ADD COLUMN usesHubdoc integer DEFAULT 0;
+ALTER TABLE clients ADD COLUMN bankSource text;
+ALTER TABLE clients ADD COLUMN workflowNotes text;

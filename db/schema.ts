@@ -353,6 +353,14 @@ export const clients = sqliteTable("clients", {
   // the client master + never "lost" — kept in sync from the live connection
   // (qbo_connections.realmId) at boot by ensure-client-realm-sync.
   qboRealmId: text("qboRealmId"),
+  // BOOKKEEPING WORKFLOW (Markie 2026-06-25) — how Figs processes this client.
+  // usesHubdoc: receipts flow through Hubdoc (Figs posts them in the browser).
+  // bankSource: how bank/CC transactions arrive — "bank_feed" (live in QBO) or
+  //   "manual" (client emails statements; we key them in). null = unknown/not set.
+  // workflowNotes: anything client-specific about their close routine.
+  usesHubdoc: integer("usesHubdoc", { mode: "boolean" }).default(false),
+  bankSource: text("bankSource", { enum: ["bank_feed", "manual"] }),
+  workflowNotes: text("workflowNotes"),
   // Firm mapping columns
   industry: text("industry").default("other"),
   // "CA" (default) or "US" — drives US-geared intake (EIN/state/sales tax) and
