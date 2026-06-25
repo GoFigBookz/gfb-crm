@@ -45853,16 +45853,22 @@ var init_vendor_learning = __esm({
 // api/qbo-poster.ts
 var qbo_poster_exports = {};
 __export(qbo_poster_exports, {
-  POST_ENABLED_REALMS: () => POST_ENABLED_REALMS,
+  PILOT_REALMS: () => PILOT_REALMS,
   billInputFromSourceData: () => billInputFromSourceData,
   buildBillPayload: () => buildBillPayload,
   buildJournalEntryPayload: () => buildJournalEntryPayload,
+  isRealmPostEnabled: () => isRealmPostEnabled,
   postFindingToQBO: () => postFindingToQBO,
   postJournalEntry: () => postJournalEntry,
   postingMasterEnabled: () => postingMasterEnabled,
   validateJournalEntry: () => validateJournalEntry,
   validatePostable: () => validatePostable
 });
+function isRealmPostEnabled(realmId) {
+  const restrict = (process.env.FIGGY_POST_REALMS || "").trim();
+  if (!restrict) return true;
+  return restrict.split(/[,\s]+/).filter(Boolean).includes(String(realmId));
+}
 function postingMasterEnabled() {
   return process.env.FIGGY_QBO_POST === "on";
 }
@@ -45986,7 +45992,7 @@ async function postFindingToQBO(findingId) {
     const conn = await connForClient(f.clientId);
     if ("error" in conn) return { posted: false, skipped: conn.error };
     const realmId = String(conn.realmId);
-    if (!POST_ENABLED_REALMS.has(realmId)) return { posted: false, skipped: `realm ${realmId} not enabled for posting` };
+    if (!isRealmPostEnabled(realmId)) return { posted: false, skipped: `realm ${realmId} not enabled for posting` };
     if (conn.transport !== "native") return { posted: false, skipped: "connection is read-only (Make bridge) \u2014 needs native OAuth to write" };
     const input = billInputFromSourceData(f.sourceData);
     const valid = validatePostable(input);
@@ -46015,7 +46021,7 @@ async function postJournalEntry(clientId, input) {
     const conn = await connForClient(clientId);
     if ("error" in conn) return { posted: false, skipped: conn.error };
     const realmId = String(conn.realmId);
-    if (!POST_ENABLED_REALMS.has(realmId)) return { posted: false, skipped: `realm ${realmId} not enabled for posting` };
+    if (!isRealmPostEnabled(realmId)) return { posted: false, skipped: `realm ${realmId} not enabled for posting` };
     if (conn.transport !== "native") return { posted: false, skipped: "connection is read-only (Make bridge) \u2014 needs native OAuth to write" };
     const valid = validateJournalEntry(input);
     if (!valid.ok) return { posted: false, skipped: valid.reason };
@@ -46029,14 +46035,14 @@ async function postJournalEntry(clientId, input) {
     return { posted: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
-var POST_ENABLED_REALMS;
+var PILOT_REALMS;
 var init_qbo_poster = __esm({
   "api/qbo-poster.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     init_qbo_router();
-    POST_ENABLED_REALMS = /* @__PURE__ */ new Set([
+    PILOT_REALMS = /* @__PURE__ */ new Set([
       "9341454721167426",
       // Alderson Developments Ltd
       "193514344934582",
@@ -84740,7 +84746,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.121";
+var BUILD_TAG = "2026-06-25.122";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

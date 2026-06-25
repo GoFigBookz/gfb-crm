@@ -9,7 +9,8 @@
  * SAFETY (layered, all must pass before anything posts):
  *   1. Master flag FIGGY_QBO_POST must be "on" (OFF by default → ships dormant;
  *      flip it only after the first live post is verified together).
- *   2. The client's realm must be in POST_ENABLED_REALMS (the 3 we're lighting up).
+ *   2. The client's realm must pass isRealmPostEnabled (all clients by default;
+ *      optionally restricted via FIGGY_POST_REALMS).
  *   3. The connection must be NATIVE + active (the read-only Make webhook proxy
  *      can't write — we refuse to post through it).
  *   4. The payload must validate (vendor, ≥1 line, account per line, amounts > 0).
@@ -25,13 +26,25 @@ import { qboConnections, triageFindings, clients } from "../db/schema";
 import { and, eq } from "drizzle-orm";
 import { qboRequest, ensureValidToken } from "./qbo-router";
 
-/** Realms we're lighting up first (Markie, 2026-06-25): Alderson, Ovita
- *  Construction, Ovita Holdings. Add more here as each is verified. */
-export const POST_ENABLED_REALMS = new Set<string>([
+/** The realms we verified posting on FIRST (Alderson, Ovita Construction, Ovita
+ *  Holdings). Kept for reference / as the recommended pilot set. */
+export const PILOT_REALMS = new Set<string>([
   "9341454721167426", // Alderson Developments Ltd
   "193514344934582",  // Ovita Construction Ltd
   "193514710535449",  // Ovita Holdings Inc
 ]);
+
+/**
+ * Posting now covers ALL clients (Markie wants it firm-wide). The real gate is
+ * the master flag below; per-realm scope is OPTIONAL via FIGGY_POST_REALMS (a
+ * comma-separated realm list) if you ever want to restrict it again. Unset =
+ * every client with a native write connection is eligible.
+ */
+export function isRealmPostEnabled(realmId: string): boolean {
+  const restrict = (process.env.FIGGY_POST_REALMS || "").trim();
+  if (!restrict) return true; // all clients
+  return restrict.split(/[,\s]+/).filter(Boolean).includes(String(realmId));
+}
 
 export function postingMasterEnabled(): boolean {
   return process.env.FIGGY_QBO_POST === "on";
@@ -218,7 +231,7 @@ export async function postFindingToQBO(findingId: number): Promise<PostResult> {
     if ("error" in conn) return { posted: false, skipped: conn.error };
 
     const realmId = String(conn.realmId);
-    if (!POST_ENABLED_REALMS.has(realmId)) return { posted: false, skipped: `realm ${realmId} not enabled for posting` };
+    if (!isRealmPostEnabled(realmId)) return { posted: false, skipped: `realm ${realmId} not enabled for posting` };
     if (conn.transport !== "native") return { posted: false, skipped: "connection is read-only (Make bridge) — needs native OAuth to write" };
 
     const input = billInputFromSourceData(f.sourceData);
@@ -261,7 +274,7 @@ export async function postJournalEntry(clientId: number, input: JournalInput): P
     const conn = await connForClient(clientId);
     if ("error" in conn) return { posted: false, skipped: conn.error };
     const realmId = String(conn.realmId);
-    if (!POST_ENABLED_REALMS.has(realmId)) return { posted: false, skipped: `realm ${realmId} not enabled for posting` };
+    if (!isRealmPostEnabled(realmId)) return { posted: false, skipped: `realm ${realmId} not enabled for posting` };
     if (conn.transport !== "native") return { posted: false, skipped: "connection is read-only (Make bridge) — needs native OAuth to write" };
 
     const valid = validateJournalEntry(input);
