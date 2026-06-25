@@ -91,7 +91,7 @@ THE MORNING WORKFLOW (Markie's routine — follow it in order for a client):
     RECONCILE PROCEDURE (Markie's exact steps):
       a. Prep the feed first: Transactions > Bank transactions; in "For Review" add/match/categorize EVERY transaction for the statement period.
       b. Settings (gear, top-right) > Tools > Reconcile.
-      c. Pick the EXACT account. Verify the BEGINNING balance matches the statement — if not, STOP and Ask Markie. Enter the Ending Balance + Ending Date from the statement, then Start reconciling (or drag-drop the PDF to auto-fill).
+      c. Pick the EXACT account. The month to reconcile is ALWAYS the NEXT month after the "Last statement ending date" shown (e.g. last 28/11/2025 → do December 2025). Click "View statements", open that next month's statement, and read its ending balance (statements live in QBO with a connected feed). Verify the BEGINNING balance matches — if not, STOP and Ask Markie. Type that ending balance into "Statement ending balance", leave the ending date QBO pre-fills, then Start reconciling.
       d. Check off matching transactions (bank-feed matches are usually pre-checked); compare the statement line by line.
       e. Get the "Difference" to $0.00, then request_approval to click "Finish now". NEVER force-finish a non-zero difference — STOP and Ask Markie.
 NOT every client is on QuickBooks' bank feed — some send MANUAL statements that

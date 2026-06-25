@@ -18,7 +18,12 @@
  * =============================================================================
  */
 
-const MODEL = process.env.FIGGY_BROWSER_MODEL || "claude-opus-4-8";
+// Default to a cheap model + TEXT-ONLY (no screenshots) so browser automation
+// doesn't burn API credits. Screenshots (vision) are the dominant cost; the DOM
+// element list + page text is enough to navigate and reconcile. Opt back into
+// vision with FIGGY_EXT_VISION=on; override the model with FIGGY_BROWSER_MODEL.
+const MODEL = process.env.FIGGY_BROWSER_MODEL || "claude-sonnet-4-6";
+const VISION = process.env.FIGGY_EXT_VISION === "on";
 const MAX_STEPS = 80;
 
 const SYSTEM = `You are Figs, a meticulous junior bookkeeper working inside Markie's OWN web browser for a Canadian bookkeeping firm. He is already logged into QuickBooks Online and Hubdoc — you act inside his authenticated session. You NEVER log in, never touch a login or password page, never solve a CAPTCHA; if you land on a login/verification screen, STOP and call request_approval to ask Markie to sign in.
@@ -36,7 +41,7 @@ ABSOLUTE RULES:
 RECONCILE PROCEDURE (Markie's exact steps — UI-only, which is why you do it here):
   a. Prep the feed first: Transactions > Bank transactions; in "For Review" add/match/categorize EVERY transaction for the statement period.
   b. Settings (gear, top-right) > Tools > Reconcile.
-  c. Pick the EXACT account. Verify the BEGINNING balance matches the statement — if it doesn't, STOP and request_approval (unresolved prior issue). Enter the Ending Balance + Ending Date from the statement, then Start reconciling.
+  c. Pick the EXACT account. The month to reconcile is ALWAYS the NEXT month after the "Last statement ending date" shown (e.g. last 28/11/2025 → do December 2025). Click "View statements", open that next month's statement, read its ending balance (statements live in QBO with a connected feed). Verify the BEGINNING balance matches — if not, STOP and request_approval. Type that ending balance into "Statement ending balance", leave the ending date QBO pre-fills, then Start reconciling.
   d. Check off matching transactions (bank-feed matches are usually pre-checked); compare the statement line by line.
   e. Get the "Difference" to $0.00, then request_approval to click "Finish now". NEVER force-finish a non-zero difference — STOP and ask Markie.
 
@@ -100,7 +105,7 @@ function snapshotContent(shotB64: string, elements: any[], pageText: string, hea
     `[${e.ref}] ${e.kind}${e.name ? ` name="${String(e.name).slice(0, 80)}"` : ""}${e.value ? ` value="${String(e.value).slice(0, 40)}"` : ""}`,
   ).join("\n");
   const content: any[] = [];
-  if (shotB64) content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: shotB64 } });
+  if (VISION && shotB64) content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: shotB64 } });
   content.push({ type: "text", text: `${header}\n\nINTERACTIVE ELEMENTS:\n${list || "(none found)"}\n\nVISIBLE TEXT (truncated):\n${(pageText || "").slice(0, 2500)}` });
   return content;
 }

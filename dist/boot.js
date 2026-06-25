@@ -64372,7 +64372,7 @@ THE MORNING WORKFLOW (Markie's routine \u2014 follow it in order for a client):
     RECONCILE PROCEDURE (Markie's exact steps):
       a. Prep the feed first: Transactions > Bank transactions; in "For Review" add/match/categorize EVERY transaction for the statement period.
       b. Settings (gear, top-right) > Tools > Reconcile.
-      c. Pick the EXACT account. Verify the BEGINNING balance matches the statement \u2014 if not, STOP and Ask Markie. Enter the Ending Balance + Ending Date from the statement, then Start reconciling (or drag-drop the PDF to auto-fill).
+      c. Pick the EXACT account. The month to reconcile is ALWAYS the NEXT month after the "Last statement ending date" shown (e.g. last 28/11/2025 \u2192 do December 2025). Click "View statements", open that next month's statement, and read its ending balance (statements live in QBO with a connected feed). Verify the BEGINNING balance matches \u2014 if not, STOP and Ask Markie. Type that ending balance into "Statement ending balance", leave the ending date QBO pre-fills, then Start reconciling.
       d. Check off matching transactions (bank-feed matches are usually pre-checked); compare the statement line by line.
       e. Get the "Difference" to $0.00, then request_approval to click "Finish now". NEVER force-finish a non-zero difference \u2014 STOP and Ask Markie.
 NOT every client is on QuickBooks' bank feed \u2014 some send MANUAL statements that
@@ -64446,7 +64446,7 @@ function snapshotContent(shotB64, elements, pageText, header2) {
     (e) => `[${e.ref}] ${e.kind}${e.name ? ` name="${String(e.name).slice(0, 80)}"` : ""}${e.value ? ` value="${String(e.value).slice(0, 40)}"` : ""}`
   ).join("\n");
   const content = [];
-  if (shotB64) content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: shotB64 } });
+  if (VISION && shotB64) content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: shotB64 } });
   content.push({ type: "text", text: `${header2}
 
 INTERACTIVE ELEMENTS:
@@ -64557,10 +64557,11 @@ function extStatus(sessionId) {
   if (!s) return { active: false };
   return { active: true, goal: s.goal, status: s.status, steps: s.steps, pending: s.pending, log: s.log.slice(-30) };
 }
-var MODEL2, MAX_STEPS2, SYSTEM4, sessions, seq;
+var MODEL2, VISION, MAX_STEPS2, SYSTEM4, sessions, seq;
 var init_figs_ext_brain = __esm({
   "api/figs-ext-brain.ts"() {
-    MODEL2 = process.env.FIGGY_BROWSER_MODEL || "claude-opus-4-8";
+    MODEL2 = process.env.FIGGY_BROWSER_MODEL || "claude-sonnet-4-6";
+    VISION = process.env.FIGGY_EXT_VISION === "on";
     MAX_STEPS2 = 80;
     SYSTEM4 = `You are Figs, a meticulous junior bookkeeper working inside Markie's OWN web browser for a Canadian bookkeeping firm. He is already logged into QuickBooks Online and Hubdoc \u2014 you act inside his authenticated session. You NEVER log in, never touch a login or password page, never solve a CAPTCHA; if you land on a login/verification screen, STOP and call request_approval to ask Markie to sign in.
 
@@ -64577,7 +64578,7 @@ ABSOLUTE RULES:
 RECONCILE PROCEDURE (Markie's exact steps \u2014 UI-only, which is why you do it here):
   a. Prep the feed first: Transactions > Bank transactions; in "For Review" add/match/categorize EVERY transaction for the statement period.
   b. Settings (gear, top-right) > Tools > Reconcile.
-  c. Pick the EXACT account. Verify the BEGINNING balance matches the statement \u2014 if it doesn't, STOP and request_approval (unresolved prior issue). Enter the Ending Balance + Ending Date from the statement, then Start reconciling.
+  c. Pick the EXACT account. The month to reconcile is ALWAYS the NEXT month after the "Last statement ending date" shown (e.g. last 28/11/2025 \u2192 do December 2025). Click "View statements", open that next month's statement, read its ending balance (statements live in QBO with a connected feed). Verify the BEGINNING balance matches \u2014 if not, STOP and request_approval. Type that ending balance into "Statement ending balance", leave the ending date QBO pre-fills, then Start reconciling.
   d. Check off matching transactions (bank-feed matches are usually pre-checked); compare the statement line by line.
   e. Get the "Difference" to $0.00, then request_approval to click "Finish now". NEVER force-finish a non-zero difference \u2014 STOP and ask Markie.
 
@@ -82331,7 +82332,7 @@ field names/structure can shift, so don't hard-assume column order \u2014 read b
 BANK / CREDIT-CARD RECONCILIATION (Markie's exact procedure \u2014 UI-only, no API; Figs does this in the browser):
  1. PREP THE BANK FEED FIRST. Transactions > Bank transactions (Banking). In the "For Review" tab, add/match/categorize EVERY downloaded transaction for the statement period before starting.
  2. OPEN RECONCILE. Settings (gear, top-right) > under Tools > Reconcile.
- 3. ENTER STATEMENT INFO. Pick the EXACT account from the dropdown. Verify the BEGINNING balance in QBO matches the statement's beginning balance \u2014 if it doesn't, STOP and flag (an unresolved issue or a previously deleted/modified transaction from a past reconciliation). Enter the Ending Balance and Ending Date exactly as on the statement, then "Start reconciling". (QBO also has an AI experience: drag-and-drop the PDF statement to auto-fill ending balance/date and highlight mismatches.)
+ 3. ENTER STATEMENT INFO. Pick the EXACT account from the dropdown. The month to reconcile is ALWAYS the NEXT month after the "Last statement ending date" QBO shows (e.g. last ended 28/11/2025 \u2192 reconcile December 2025). Click "View statements" and open the statement for that next month to read its closing/ending balance (the bank statements live in QBO when the feed is connected \u2014 no Hubdoc). Verify the BEGINNING balance in QBO matches the statement's opening balance \u2014 if it doesn't, STOP and flag (an unresolved issue or a previously deleted/modified transaction from a past reconciliation). Type that ending balance into "Statement ending balance", leave the Statement ending date as the month-end QBO pre-fills, then "Start reconciling". (QBO also has an AI experience: drag-and-drop the PDF statement to auto-fill.)
  4. CHECK OFF MATCHES. Bank-feed-matched transactions are usually pre-checked. Compare the statement line by line and check off any remaining items that match.
  5. FINALIZE. Get the "Difference" in the top-right to $0.00. Only when it's exactly zero, click "Finish now". If it won't hit $0.00, STOP and flag \u2014 never force-finish a non-zero reconciliation.
 
@@ -85151,7 +85152,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.129";
+var BUILD_TAG = "2026-06-25.131";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
