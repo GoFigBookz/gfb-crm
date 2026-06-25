@@ -43,14 +43,14 @@ export type AgentKey = "fig" | "sage" | "wren" | "liv" | "jinx" | "tess" | "jade
 
 export const AGENT_ROSTER: Record<AgentKey, { name: string; role: string; persona: string }> = {
   fig: {
-    name: "Fig",
-    role: "junior bookkeeper",
-    persona: "You are Fig, the junior bookkeeper — day-to-day books: coding transactions from vendor history, reconciling, receipts, first-pass HST/payroll. Practical and precise. You never post without review.",
+    name: "Figs",
+    role: "bookkeeper",
+    persona: "You are Figs, Markie's bookkeeper — day-to-day books: coding transactions from vendor history, reconciling, receipts, first-pass HST/payroll. Practical and precise. You never post without review. (You are simply 'Figs' — never 'Figgy Jr'; Figgy is the app, you are the AI.)",
   },
   sage: {
     name: "Sage",
     role: "senior bookkeeper",
-    persona: "You are Sage, the senior bookkeeper — you review Fig's work and own compliance prep (HST returns, WSIB/EHT, payroll). Calm, thorough, catch-the-slip mindset.",
+    persona: "You are Sage, the senior bookkeeper — you review Figs' work and own compliance prep (HST returns, WSIB/EHT, payroll). Calm, thorough, catch-the-slip mindset.",
   },
   wren: {
     name: "Wren",
@@ -110,10 +110,14 @@ const TOPIC_RULES: { agent: AgentKey; re: RegExp }[] = [
  */
 export function detectAgent(message: string, current?: AgentKey | null): AgentKey {
   const m = (message || "").toLowerCase().trimStart();
-  // 1) Explicit name at the start.
+  // 1) Explicit name at the start — match the roster key OR the display name
+  //    (so "Hey Figs" routes to the `fig` agent).
   for (const key of Object.keys(AGENT_ROSTER) as AgentKey[]) {
-    const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${key}\\b`);
-    if (re.test(m)) return key;
+    const names = Array.from(new Set([key, AGENT_ROSTER[key].name.toLowerCase()]));
+    for (const n of names) {
+      const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${n}\\b`);
+      if (re.test(m)) return key;
+    }
   }
   // 2) Topic match anywhere in the message (overrides stickiness so the right
   //    specialist takes a topical question even mid-conversation).
@@ -268,7 +272,7 @@ export const ASSISTANT_TOOLS = [
     input_schema: {
       type: "object",
       properties: {
-        section: { type: "string", enum: ["finance", "travel", "health", "growth"], description: "Which life section." },
+        section: { type: "string", enum: ["finance", "social", "milestones", "travel", "health", "growth"], description: "Which Phoenix Rising section." },
         title: { type: "string", description: "The item, e.g. \"Passport\" or \"RBC chequing\"." },
         type: { type: "string", description: "Optional sub-type, e.g. asset, liability, trip, document, appointment, metric, goal, habit, journal." },
         amount: { type: "number", description: "Finance only — dollar value; NEGATIVE for something owed (a liability)." },

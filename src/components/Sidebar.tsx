@@ -6,7 +6,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft, FileStack,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart,
+  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -83,7 +83,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/messages", icon: MessageSquare, label: "Messages" },
     { to: "/quick-add", icon: Plus, label: "Quick Add" },
     { to: "/personal", icon: Lock, label: "Personal" },
-    { to: "/my-life", icon: Heart, label: "My Life" },
+    { to: "/my-life", icon: Flame, label: "Phoenix Rising" },
   ];
 
   // Tools & Compliance.
@@ -202,10 +202,10 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
       {/* Logo */}
       <div className="flex items-center justify-between h-16 px-3 border-b border-slate-800 flex-shrink-0">
         {!collapsed && (
-          <img src="/assets/logo.jpg" alt="Go Fig Bookz" className="h-9 w-auto object-contain rounded bg-white px-1" />
+          <img src="/figgy-logo.svg" alt="Figgy" className="h-9 w-auto object-contain" />
         )}
         {collapsed && (
-          <img src="/assets/logo.jpg" alt="Go Fig Bookz" className="h-7 w-auto object-contain rounded bg-white mx-auto px-0.5" />
+          <img src="/figgy-mark.svg" alt="Figgy" className="h-8 w-auto object-contain mx-auto" />
         )}
         <button onClick={onToggle} className="p-1 rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0">
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}

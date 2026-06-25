@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Phoenix Rising">
+  <defs>
+    <linearGradient id="phx" x1="32" y1="6" x2="32" y2="42" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fde047"/>
+      <stop offset="0.5" stop-color="#fb923c"/>
+      <stop offset="1" stop-color="#ef4444"/>
+    </linearGradient>
+    <linearGradient id="lotus" x1="32" y1="40" x2="32" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f9a8d4"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- phoenix: body + spread wings + flame crest, rising -->
+  <g fill="url(#phx)">
+    <!-- left wing -->
+    <path d="M31 30c-4-2-9-6-15-6-3 0-5 1-7 3 4 0 6 2 8 4-3-1-6 0-8 2 5-1 8 1 11 3 3 2 7 3 11 2l0-11Z"/>
+    <!-- right wing -->
+    <path d="M33 30c4-2 9-6 15-6 3 0 5 1 7 3-4 0-6 2-8 4 3-1 6 0 8 2-5-1-8 1-11 3-3 2-7 3-11 2l0-11Z"/>
+    <!-- body + head + tail -->
+    <path d="M32 14c-2.4 0-4.2 1.9-4.2 4.2 0 1.6.9 3 2.2 3.7l-1.6 16c-.2 2 .8 3.6 1.9 5.1.7.9 2.1.9 2.8 0 1.1-1.5 2.1-3.1 1.9-5.1l-1.6-16c1.3-.7 2.2-2.1 2.2-3.7 0-2.3-1.8-4.2-3.6-4.2Z"/>
+    <!-- flame crest -->
+    <path d="M32 5c-1.4 2-2 3.8-1.4 5.7.3 1 1.1 1.7 1.4 2.7.3-1 1.1-1.7 1.4-2.7C34 8.8 33.4 7 32 5Z"/>
+  </g>
+  <!-- beak -->
+  <path d="M30.4 16.6 27.6 18l2.8 1Z" fill="#ef4444"/>
+
+  <!-- lotus the phoenix rises from -->
+  <g>
+    <path d="M32 56c-7 0-13-3.5-15-7 4-1.5 10-1.5 15 1 5-2.5 11-2.5 15-1-2 3.5-8 7-15 7Z" fill="url(#lotus)" opacity="0.95"/>
+    <path d="M32 55c-3.5 0-6.5-2.5-7.5-5.5 3 .3 5.6 1.8 7.5 4 1.9-2.2 4.5-3.7 7.5-4-1 3-4 5.5-7.5 5.5Z" fill="#f0abfc"/>
+    <path d="M32 54c-1.6-2.6-1.6-5.6 0-8 1.6 2.4 1.6 5.4 0 8Z" fill="#fbcfe8"/>
+  </g>
+</svg>

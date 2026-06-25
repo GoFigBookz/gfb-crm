@@ -81,7 +81,7 @@ async function execAddPersonal(input: any, userId: number): Promise<string> {
 
 async function execAddLifeItem(input: any, userId: number): Promise<string> {
   const db = getDb();
-  const sections = ["finance", "travel", "health", "growth"];
+  const sections = ["finance", "social", "milestones", "travel", "health", "growth"];
   const section = sections.includes(input?.section) ? input.section : null;
   const title = String(input?.title ?? "").trim();
   if (!section || !title) return "I need a section (finance/travel/health/growth) and a title to add that to your life hub.";

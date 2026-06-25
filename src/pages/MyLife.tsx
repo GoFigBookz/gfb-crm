@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Heart, Wallet, Plane, Activity, Sprout, Plus, Lock, Pin, Trash2, CalendarDays } from "lucide-react";
+import { Heart, Wallet, Plane, Activity, Sprout, Plus, Lock, Pin, Trash2, CalendarDays, Users, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { trpc } from "@/providers/trpc";
 
 const money = (n: number) => (n || 0).toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
-const SECTION_ICON: Record<string, any> = { finance: Wallet, travel: Plane, health: Activity, growth: Sprout };
+const SECTION_ICON: Record<string, any> = { finance: Wallet, social: Users, milestones: Sparkles, travel: Plane, health: Activity, growth: Sprout };
 
 export default function MyLife() {
   const { data: overview } = trpc.life.overview.useQuery();
@@ -20,12 +20,12 @@ export default function MyLife() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-5">
       <div className="flex items-center gap-3">
-        <Heart className="h-7 w-7 text-rose-500" />
+        <img src="/phoenix-rising.svg" alt="Phoenix Rising" className="h-12 w-12 shrink-0" />
         <div className="flex-1">
-          <h1 className="text-2xl font-bold flex items-center gap-2">My Life
+          <h1 className="text-2xl font-bold flex items-center gap-2">Phoenix Rising
             <Badge variant="outline" className="text-[10px] text-slate-500"><Lock className="h-3 w-3 mr-1" /> Private · only you</Badge>
           </h1>
-          <p className="text-sm text-slate-500">Your whole life in one place, kept by Liv — walled off from anything work. Finance, travel, health, growth.</p>
+          <p className="text-sm text-slate-500">Your whole life in one place, kept by Liv — walled off from anything work. Finance, your social calendar, milestones, travel, health, growth.</p>
         </div>
       </div>
 
