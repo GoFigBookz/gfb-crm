@@ -20,5 +20,10 @@ COPY init.sh ./init.sh
 
 RUN mkdir -p /app/data && chmod +x /app/init.sh
 RUN apk add --no-cache sqlite
+# Chromium for the "Figs at Work" browser agent (puppeteer-core drives the system
+# Chromium — Playwright's bundled build won't run on Alpine/musl). Additive + only
+# launched when FIGGY_BROWSER_AGENT=on, so it never affects the rest of the app.
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont || true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 EXPOSE 3000
 CMD ["/app/init.sh"]

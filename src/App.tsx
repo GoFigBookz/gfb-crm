@@ -15,6 +15,7 @@ import AIAgents from "./pages/AIAgents";
 import Integrations from "./pages/Integrations";
 import SettingsPage from "./pages/SettingsPage";
 import Triage from "./pages/Triage";
+import FigsAtWork from "./pages/FigsAtWork";
 import QBO from "./pages/QBO";
 
 import Calculators from "./pages/Calculators";
@@ -95,6 +96,7 @@ function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/triage" element={<Triage />} />
+        <Route path="/figs-at-work" element={<FigsAtWork />} />
         <Route path="/leads" element={<Leads />} />
         <Route path="/clients" element={<Clients />} />
         <Route path="/tasks" element={<Tasks />} />
