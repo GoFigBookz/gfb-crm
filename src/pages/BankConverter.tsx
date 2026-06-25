@@ -605,7 +605,7 @@ export default function BankConverter() {
             <>
               <div className="h-12 w-12 mx-auto mb-4 rounded-full border-4 border-lime-200 border-t-lime-500 animate-spin" />
               <p className="text-lg font-medium text-slate-700 mb-2">Reading your statement…</p>
-              <p className="text-sm text-slate-500">Figgy is extracting the transactions from the PDF — this can take a few seconds for a multi-page statement.</p>
+              <p className="text-sm text-slate-500">Figs is extracting the transactions from the PDF — this can take a few seconds for a multi-page statement.</p>
             </>
           ) : (
             <>

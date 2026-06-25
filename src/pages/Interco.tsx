@@ -67,7 +67,7 @@ export default function Interco() {
       <Card className="border-amber-200 bg-amber-50">
         <CardContent className="py-3 text-sm text-amber-900 flex items-start gap-2">
           <Lock className="h-4 w-4 mt-0.5 flex-shrink-0" />
-          <span><b>Review-only.</b> Figgy never posts to QBO — this builds a draft JE for you to post by hand. Once the live QBO connection is on, entries pull from QBO and the readiness gate checks automatically. Accounts are picked from your locked chart — never invented.</span>
+          <span><b>Review-only.</b> Figs never posts to QBO — this builds a draft JE for you to post by hand. Once the live QBO connection is on, entries pull from QBO and the readiness gate checks automatically. Accounts are picked from your locked chart — never invented.</span>
         </CardContent>
       </Card>
 

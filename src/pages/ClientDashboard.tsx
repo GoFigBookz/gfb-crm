@@ -285,7 +285,7 @@ export default function ClientDashboard() {
             <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-red-700">Missing required info</p>
-              <p className="text-sm text-red-600">{missing.join(" · ")} — add via the client's record so filings and Figgy coding work.</p>
+              <p className="text-sm text-red-600">{missing.join(" · ")} — add via the client's record so filings and Figs coding work.</p>
             </div>
           </div>
         );
@@ -1248,20 +1248,20 @@ function ClientChatsCard({ clientId }: { clientId: number }) {
           <Bot className="h-4 w-4 text-slate-500" /> Agent conversations ({convs?.length ?? 0})
           <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform ${collapsed ? "" : "rotate-90"}`} />
         </CardTitle>
-        <CardDescription>Chats you filed to this client from Ask Figgy ("Save to client").</CardDescription>
+        <CardDescription>Chats you filed to this client from Ask Figs ("Save to client").</CardDescription>
       </CardHeader>
       {!collapsed && (
         <CardContent className="space-y-2">
           {isLoading ? (
             <p className="text-sm text-slate-400">Loading…</p>
           ) : !convs || convs.length === 0 ? (
-            <p className="text-sm text-slate-400">No conversations filed here yet. In <b>Ask Figgy</b>, tap <b>Save to client</b> to keep a chat on this card.</p>
+            <p className="text-sm text-slate-400">No conversations filed here yet. In <b>Ask Figs</b>, tap <b>Save to client</b> to keep a chat on this card.</p>
           ) : (
             convs.map((c: any) => (
               <div key={c.conversationId} className="rounded-lg border">
                 <button className="w-full text-left p-2.5 hover:bg-slate-50 flex items-center justify-between gap-2" onClick={() => setOpenId(openId === c.conversationId ? null : c.conversationId)}>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate capitalize">{c.agent || "Figgy"} · {c.messages?.length ?? 0} messages</p>
+                    <p className="text-sm font-medium truncate capitalize">{c.agent || "Figs"} · {c.messages?.length ?? 0} messages</p>
                     <p className="text-xs text-slate-500 truncate">{c.messages?.[0]?.content?.slice(0, 70) || ""} · {fmt(c.at)}</p>
                   </div>
                   <ChevronRight className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${openId === c.conversationId ? "rotate-90" : ""}`} />
@@ -1270,7 +1270,7 @@ function ClientChatsCard({ clientId }: { clientId: number }) {
                   <div className="border-t p-2.5 space-y-1.5 max-h-80 overflow-auto">
                     {c.messages.map((m: any, i: number) => (
                       <div key={i} className={`text-sm ${m.role === "user" ? "text-slate-900" : "text-slate-600"}`}>
-                        <span className="font-medium">{m.role === "user" ? "You" : (c.agent || "Figgy")}:</span> <span className="whitespace-pre-wrap">{m.content}</span>
+                        <span className="font-medium">{m.role === "user" ? "You" : (c.agent || "Figs")}:</span> <span className="whitespace-pre-wrap">{m.content}</span>
                       </div>
                     ))}
                   </div>
