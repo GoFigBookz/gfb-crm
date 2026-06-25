@@ -122,6 +122,48 @@ function JobberConnect({ clientId }: { clientId: number }) {
   );
 }
 
+/** NEXT payroll runs — the number Markie actually needs at a glance. Replaces the
+ *  old "$1.5M gross payroll" headline ("means nothing"). Driven by the recurring
+ *  Payroll reminder tasks, so it matches the calendar (always-Wednesday, stat-
+ *  shifted with a ⚠ when a run moves off a closed banking day). */
+function NextRunsCard({ onPick }: { onPick: (clientId: number) => void }) {
+  const { data } = trpc.payroll.upcomingRuns.useQuery();
+  if (!data || data.length === 0) return null;
+  const todayYmd = ymd(new Date());
+  const fmtDue = (iso: string) => {
+    const d = new Date(iso);
+    const day = ymd(d);
+    const wd = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" }).format(d);
+    return { label: `${wd} ${fmtUTC(iso, true)}`, isToday: day === todayYmd };
+  };
+  return (
+    <Card className="border-lime-200 bg-lime-50/40">
+      <CardContent className="p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <Wallet className="h-4 w-4 text-lime-600" />
+          <span className="text-sm font-semibold text-slate-700">Next payroll runs</span>
+          <span className="text-xs text-slate-400">· when each company is due</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          {data.map((r: any) => {
+            const f = fmtDue(r.dueDate);
+            return (
+              <button key={r.clientId} onClick={() => onPick(r.clientId)}
+                className={`text-left rounded-lg border px-3 py-2 hover:shadow-sm transition ${f.isToday ? "border-amber-400 bg-amber-50" : "bg-white border-slate-200"}`}>
+                <div className="text-sm font-medium text-slate-800 truncate">{r.name}</div>
+                <div className={`text-xs ${f.isToday ? "text-amber-700 font-semibold" : "text-slate-500"}`}>
+                  {f.isToday ? "Due today" : `Due ${f.label}`}
+                  {r.statShifted && <span className="ml-1 text-amber-600" title="Moved earlier — the usual Wednesday is a stat holiday (banks closed)">⚠ stat-shifted</span>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 /** Year-to-date payroll at a glance — firm total + per-client gross, no QBO needed. */
 function YearToDateCard() {
   const year = new Date().getFullYear();
@@ -234,6 +276,8 @@ export default function Payroll() {
           <button className="text-xs opacity-60 hover:opacity-100" onClick={() => setNotice(null)}>dismiss</button>
         </div>
       )}
+
+      <NextRunsCard onPick={(cid) => { setClientId(cid); setOpenRunId(null); }} />
 
       <YearToDateCard />
 

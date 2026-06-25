@@ -1,5 +1,5 @@
 /**
- * RECURRING PAYROLL REMINDERS — Markie 2026-06-24.
+ * RECURRING PAYROLL REMINDERS — Markie 2026-06-24, hardened 2026-06-25.
  * One source of truth per payroll run: a high-priority TASK (shows in the daily
  * agenda + dashboard) plus ONE 4-hour morning calendar block per payroll Wednesday
  * (shows on the calendar, pushed to Google so it can't be missed). No separate
@@ -7,9 +7,24 @@
  * calendar.
  *
  *  - Clark OS, Clark CW, Auld/Old Spot, Sher-E-Punjab = BIWEEKLY, every 2nd
- *    Wednesday, anchored to today (2026-06-24).
+ *    Wednesday.
  *  - West York = WEEKLY, every Wednesday.
  *  - 4-hour block 8:00 AM – 12:00 PM (America/Toronto, DST-correct).
+ *
+ * THE BUG WE FIXED (money-risk): the old version anchored the biweekly cadence to
+ * "today" at boot — assuming boot always runs on a payroll Wednesday. It doesn't.
+ * When boot ran on, say, a Thursday (2026-06-25), the `% 14` math was measured from
+ * a non-Wednesday, so every-other-week tasks drifted OFF Wednesday entirely (Markie
+ * saw "run payroll … on the 25th", a Thursday). Now the biweekly cadence is anchored
+ * to a FIXED, Markie-CONFIRMED payroll Wednesday (BIWEEKLY_ANCHOR) so it can never
+ * drift with boot day, and EVERY task is guaranteed to land on a Wednesday.
+ *
+ * STAT HOLIDAYS: if a payroll Wednesday is an Ontario stat holiday (banks closed),
+ * the run is moved EARLIER to the prior business day and the task/event carry a ⚠
+ * notice so Markie runs it in time (per "account for stat holidays").
+ *
+ * CLEANUP: any stray future payroll task for these clients that ISN'T on its correct
+ * scheduled day is deleted before we regenerate — so the bad "25th" tasks disappear.
  *
  * SAFE / IDEMPOTENT: materialises occurrences in a rolling 8-week window; re-running
  * (boot + daily) only adds what's missing, never duplicates. Per-client isolation:
@@ -18,12 +33,18 @@
 import { getDb } from "./queries/connection";
 import { users, clients, tasks, calendarEvents } from "../db/schema";
 import { eq, and, gte } from "drizzle-orm";
+import { ontarioStatHolidays } from "./stat-holidays";
 
 const OWNER_EMAIL = "markie.antle@gmail.com";
 const TZ = "America/Toronto";
 const WINDOW_DAYS = 56;            // ~8 weeks of occurrences kept materialised ahead
 const BLOCK_START = "08:00:00";    // 4-hour morning block
 const BLOCK_END = "12:00:00";
+
+/** A CONFIRMED biweekly payroll Wednesday for Clark OS/CW, Auld Spot, Sher-E-Punjab
+ *  (Markie, 2026-06-24). FIXED on purpose: the every-other-Wednesday cadence is
+ *  measured from this date, so it stays on Wednesdays no matter what day boot runs. */
+const BIWEEKLY_ANCHOR = "2026-06-24";
 
 /** The UTC instant whose Toronto wall-clock time is dateStr + timeStr (DST-aware). */
 function wallToUtc(dateStr: string, timeStr: string): Date {
@@ -42,13 +63,40 @@ function wallToUtc(dateStr: string, timeStr: string): Date {
 const ymdInTz = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 const weekdayInTz = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short" }).format(d);
 
-export async function ensurePayrollReminders(): Promise<{ tasksAdded: number; eventsAdded: number; skipped: string } | void> {
+/** Whole days between two YYYY-MM-DD strings (calendar-day math, TZ-independent). */
+function daysBetween(aISO: string, bISO: string): number {
+  const a = Date.UTC(+aISO.slice(0, 4), +aISO.slice(5, 7) - 1, +aISO.slice(8, 10));
+  const b = Date.UTC(+bISO.slice(0, 4), +bISO.slice(5, 7) - 1, +bISO.slice(8, 10));
+  return Math.round((a - b) / 86400000);
+}
+
+/** Set of Ontario stat-holiday YYYY-MM-DD strings spanning the years we touch. */
+function statSet(years: number[]): Set<string> {
+  const s = new Set<string>();
+  for (const y of years) for (const h of ontarioStatHolidays(y)) s.add(h.date);
+  return s;
+}
+
+/** The latest business day on/before dateStr that isn't a weekend or stat holiday. */
+function priorBusinessDay(dateStr: string, holidays: Set<string>): string {
+  let cur = dateStr;
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(`${cur}T12:00:00Z`);
+    const wd = d.getUTCDay(); // 0=Sun..6=Sat (noon-UTC date is stable)
+    if (wd !== 0 && wd !== 6 && !holidays.has(cur)) return cur;
+    d.setUTCDate(d.getUTCDate() - 1);
+    cur = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  }
+  return cur;
+}
+
+export async function ensurePayrollReminders(): Promise<{ tasksAdded: number; eventsAdded: number; tasksRemoved: number; skipped: string } | void> {
   const db = getDb();
   try {
     // Owner (Markie) — by email, else the first user.
     const owner = (await db.select().from(users).where(eq(users.email, OWNER_EMAIL)).limit(1))[0]
       || (await db.select().from(users).limit(1))[0];
-    if (!owner) return { tasksAdded: 0, eventsAdded: 0, skipped: "no user" };
+    if (!owner) return { tasksAdded: 0, eventsAdded: 0, tasksRemoved: 0, skipped: "no user" };
     const userId = (owner as any).id;
 
     // Resolve the payroll clients by name (per-client isolation kept — each gets its
@@ -63,52 +111,85 @@ export async function ensurePayrollReminders(): Promise<{ tasksAdded: number; ev
 
     const BIWEEKLY = [clarkCw, clarkOs, auldSpot, sherPunjab].filter(Boolean);
     const WEEKLY = [westYork].filter(Boolean);
+    const ALL_PAYROLL_IDS = new Set([...BIWEEKLY, ...WEEKLY].map((c) => c.id));
 
-    // "Today" in Toronto = the biweekly anchor (Markie confirmed today is a payroll Wed).
     const todayStr = ymdInTz(new Date());
     const base = new Date(`${todayStr}T12:00:00Z`); // noon UTC → stable calendar day in TZ
+    const holidays = statSet([base.getUTCFullYear(), base.getUTCFullYear() + 1]);
 
-    // Existing payroll tasks + payroll blocks (this user) so we never duplicate.
-    const sinceCutoff = new Date(base.getTime() - 2 * 86400000);
-    const existingTasks = (await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.category, "Payroll"), gte(tasks.dueDate, sinceCutoff)))) as any[];
+    // --- Build the CORRECT schedule for the rolling window first (set of {clientId|date}). ---
+    // A "correct" date is the payroll Wednesday, shifted earlier off a stat holiday.
+    const scheduled = new Map<string, { client: any; dateStr: string; statShift: boolean }[]>(); // dateStr -> entries
+    const correctKeys = new Set<string>(); // `${clientId}|${runDate}`
+    for (let i = 0; i <= WINDOW_DAYS; i++) {
+      const d = new Date(base.getTime() + i * 86400000);
+      if (weekdayInTz(d) !== "Wed") continue;
+      const wedStr = ymdInTz(d);
+      const isBiweekly = daysBetween(wedStr, BIWEEKLY_ANCHOR) % 14 === 0;
+      const dueClients: any[] = [...WEEKLY, ...(isBiweekly ? BIWEEKLY : [])];
+      if (!dueClients.length) continue;
+      // Stat-holiday shift: if the Wednesday is a stat holiday, run the prior business day.
+      const statShift = holidays.has(wedStr);
+      const runDate = statShift ? priorBusinessDay(wedStr, holidays) : wedStr;
+      for (const c of dueClients) {
+        correctKeys.add(`${c.id}|${runDate}`);
+        const arr = scheduled.get(runDate) || [];
+        arr.push({ client: c, dateStr: runDate, statShift });
+        scheduled.set(runDate, arr);
+      }
+    }
+
+    // --- Cleanup: delete future payroll tasks for these clients that AREN'T on a
+    // correct scheduled day (the stray wrong-dated "25th" tasks). Only touch
+    // open/auto-generated ones; never delete a completed task. ---
+    let tasksRemoved = 0;
+    const since = new Date(base.getTime() - 2 * 86400000);
+    const allPayrollTasks = (await db.select().from(tasks)
+      .where(and(eq(tasks.userId, userId), eq(tasks.category, "Payroll"), gte(tasks.dueDate, since)))) as any[];
+    for (const t of allPayrollTasks) {
+      if (!t.clientId || !ALL_PAYROLL_IDS.has(t.clientId)) continue;
+      if (t.status === "completed" || t.completed) continue;
+      const due = t.dueDate ? ymdInTz(new Date(t.dueDate)) : "";
+      if (!correctKeys.has(`${t.clientId}|${due}`)) {
+        await db.delete(tasks).where(eq(tasks.id, t.id));
+        tasksRemoved++;
+      }
+    }
+
+    // Re-read remaining tasks/events so we never duplicate.
+    const existingTasks = (await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.category, "Payroll"), gte(tasks.dueDate, since)))) as any[];
     const haveTask = new Set(existingTasks.map((t) => `${t.clientId}|${ymdInTz(new Date(t.dueDate))}`));
-    const existingEvents = (await db.select().from(calendarEvents).where(and(eq(calendarEvents.userId, userId), gte(calendarEvents.startDate, sinceCutoff)))) as any[];
+    const existingEvents = (await db.select().from(calendarEvents).where(and(eq(calendarEvents.userId, userId), gte(calendarEvents.startDate, since)))) as any[];
     const haveEvent = new Set(existingEvents.filter((e) => /^Payroll run/.test(e.title || "")).map((e) => ymdInTz(new Date(e.startDate))));
 
     let tasksAdded = 0, eventsAdded = 0;
     const { pushEventToGoogle } = await import("./google-push");
 
-    for (let i = 0; i <= WINDOW_DAYS; i++) {
-      const d = new Date(base.getTime() + i * 86400000);
-      if (weekdayInTz(d) !== "Wed") continue;
-      const dateStr = ymdInTz(d);
-      const dayDiff = Math.round((d.getTime() - base.getTime()) / 86400000);
-      const isBiweekly = dayDiff % 14 === 0; // anchored to today
-
-      const due: any[] = [...WEEKLY, ...(isBiweekly ? BIWEEKLY : [])];
-      if (!due.length) continue;
+    for (const [runDate, entries] of [...scheduled.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      const statShift = entries.some((e) => e.statShift);
+      const statNote = statShift ? " ⚠ moved earlier — the usual Wednesday is a stat holiday (banks closed); run it this day." : "";
 
       // One 4-hour morning block for the day (lists who's due).
-      if (!haveEvent.has(dateStr)) {
-        const names = due.map((c) => c.name).join(", ");
+      if (!haveEvent.has(runDate)) {
+        const names = entries.map((e) => e.client.name).join(", ");
         const [ev] = await db.insert(calendarEvents).values({
-          userId, title: "Payroll run", description: `Run payroll: ${names}`,
-          startDate: wallToUtc(dateStr, BLOCK_START), endDate: wallToUtc(dateStr, BLOCK_END),
+          userId, title: "Payroll run", description: `Run payroll: ${names}.${statNote}`,
+          startDate: wallToUtc(runDate, BLOCK_START), endDate: wallToUtc(runDate, BLOCK_END),
           isAllDay: false, color: "#16a34a", status: "confirmed", isRecurring: true,
         } as any).returning();
         eventsAdded++;
-        haveEvent.add(dateStr);
+        haveEvent.add(runDate);
         if (ev?.id) { try { await pushEventToGoogle(ev.id); } catch { /* best-effort */ } }
       }
 
       // One high-priority task per client due that day.
-      const dueAt = wallToUtc(dateStr, BLOCK_END); // due by end of the block (noon)
-      for (const c of due) {
-        const k = `${c.id}|${dateStr}`;
+      const dueAt = wallToUtc(runDate, BLOCK_END); // due by end of the block (noon)
+      for (const e of entries) {
+        const k = `${e.client.id}|${runDate}`;
         if (haveTask.has(k)) continue;
         await db.insert(tasks).values({
-          userId, clientId: c.id, title: `Run payroll — ${c.name}`,
-          description: "Recurring payroll run.", dueDate: dueAt,
+          userId, clientId: e.client.id, title: `Run payroll — ${e.client.name}`,
+          description: `Recurring payroll run.${statNote}`, dueDate: dueAt,
           priority: "high", status: "pending", category: "Payroll", isRecurring: true,
         } as any);
         tasksAdded++;
@@ -116,8 +197,8 @@ export async function ensurePayrollReminders(): Promise<{ tasksAdded: number; ev
       }
     }
 
-    if (tasksAdded || eventsAdded) console.log(`[payroll-reminders] +${tasksAdded} tasks, +${eventsAdded} calendar blocks`);
-    return { tasksAdded, eventsAdded, skipped: "" };
+    if (tasksAdded || eventsAdded || tasksRemoved) console.log(`[payroll-reminders] +${tasksAdded} tasks, +${eventsAdded} calendar blocks, -${tasksRemoved} stray tasks`);
+    return { tasksAdded, eventsAdded, tasksRemoved, skipped: "" };
   } catch (err) {
     console.error("[payroll-reminders] failed:", err instanceof Error ? err.message : err);
   }
