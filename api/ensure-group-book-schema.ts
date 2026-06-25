@@ -52,6 +52,16 @@ export async function ensureGroupBookTables(): Promise<void> {
       allocation TEXT,
       comment TEXT
     )`));
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS group_book_share_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      groupName TEXT NOT NULL,
+      token TEXT NOT NULL,
+      label TEXT,
+      active INTEGER DEFAULT 1 NOT NULL,
+      createdBy INTEGER,
+      createdAt INTEGER,
+      revokedAt INTEGER
+    )`));
   } catch (e) {
     console.error("[schema] ensureGroupBookTables failed:", e instanceof Error ? e.message : e);
   }

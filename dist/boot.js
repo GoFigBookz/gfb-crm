@@ -22353,6 +22353,7 @@ __export(schema_exports, {
   employees: () => employees,
   engagementLetters: () => engagementLetters,
   files: () => files,
+  groupBookShareLinks: () => groupBookShareLinks,
   groupEntities: () => groupEntities,
   groupFamilyBenefit: () => groupFamilyBenefit,
   groupOwnership: () => groupOwnership,
@@ -22406,7 +22407,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit;
+var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -24296,6 +24297,16 @@ var init_schema = __esm({
       // which company/companies pay it
       comment: text("comment")
     });
+    groupBookShareLinks = sqliteTable("group_book_share_links", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      groupName: text("groupName").notNull(),
+      token: text("token").notNull(),
+      label: text("label"),
+      active: integer2("active", { mode: "boolean" }).default(true).notNull(),
+      createdBy: integer2("createdBy"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      revokedAt: integer2("revokedAt", { mode: "timestamp" })
+    });
   }
 });
 
@@ -24893,13 +24904,13 @@ var init_base64 = __esm({
       if (!b64re.test(asc2))
         throw new TypeError("malformed base64.");
       asc2 += "==".slice(2 - (asc2.length & 3));
-      let u24, r1, r26;
+      let u24, r1, r25;
       let binArray = [];
       for (let i = 0; i < asc2.length; ) {
-        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r26 = b64tab[asc2.charAt(i++)]);
+        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r25 = b64tab[asc2.charAt(i++)]);
         if (r1 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255));
-        } else if (r26 === 64) {
+        } else if (r25 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255));
         } else {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255, u24 & 255));
@@ -36885,7 +36896,7 @@ var require_bcrypt = __commonJS({
           } else
             throw err;
         }
-        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r26 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r26, real_salt = salt.substring(offset + 3, offset + 25);
+        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r25 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r25, real_salt = salt.substring(offset + 3, offset + 25);
         s += minor >= "a" ? "\0" : "";
         var passwordb = stringToBytes(s), saltb = base64_decode(real_salt, BCRYPT_SALT_LEN);
         function finish(bytes) {
@@ -36933,7 +36944,7 @@ var require_main = __commonJS({
     var fs4 = __require("fs");
     var path7 = __require("path");
     var os = __require("os");
-    var crypto10 = __require("crypto");
+    var crypto11 = __require("crypto");
     var TIPS = [
       "\u25C8 encrypted .env [www.dotenvx.com]",
       "\u25C8 secrets for agents [www.dotenvx.com]",
@@ -37177,7 +37188,7 @@ var require_main = __commonJS({
       const authTag = ciphertext.subarray(-16);
       ciphertext = ciphertext.subarray(12, -16);
       try {
-        const aesgcm = crypto10.createDecipheriv("aes-256-gcm", key10, nonce);
+        const aesgcm = crypto11.createDecipheriv("aes-256-gcm", key10, nonce);
         aesgcm.setAuthTag(authTag);
         return `${aesgcm.update(ciphertext)}${aesgcm.final()}`;
       } catch (error48) {
@@ -39964,10 +39975,10 @@ var init_qbo_router = __esm({
       // --- Sync All ---
       syncAll: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => {
         const r1 = await doSyncCustomers(input.connectionId);
-        const r26 = await doSyncInvoices(input.connectionId);
+        const r25 = await doSyncInvoices(input.connectionId);
         const r3 = await doSyncPayments(input.connectionId);
         const r4 = await doSyncAccounts(input.connectionId);
-        return { success: true, customers: r1, invoices: r26, payments: r3, accounts: r4 };
+        return { success: true, customers: r1, invoices: r25, payments: r3, accounts: r4 };
       }),
       // --- Data Retrieval ---
       getCustomers: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
@@ -45857,13 +45868,13 @@ var uuid42;
 var init_uuid = __esm({
   "node_modules/@anthropic-ai/sdk/internal/utils/uuid.mjs"() {
     uuid42 = function() {
-      const { crypto: crypto10 } = globalThis;
-      if (crypto10?.randomUUID) {
-        uuid42 = crypto10.randomUUID.bind(crypto10);
-        return crypto10.randomUUID();
+      const { crypto: crypto11 } = globalThis;
+      if (crypto11?.randomUUID) {
+        uuid42 = crypto11.randomUUID.bind(crypto11);
+        return crypto11.randomUUID();
       }
       const u8 = new Uint8Array(1);
-      const randomByte = crypto10 ? () => crypto10.getRandomValues(u8)[0] : () => Math.random() * 255 & 255;
+      const randomByte = crypto11 ? () => crypto11.getRandomValues(u8)[0] : () => Math.random() * 255 & 255;
       return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (+c ^ randomByte() & 15 >> +c / 4).toString(16));
     };
   }
@@ -51231,7 +51242,7 @@ import * as fs3 from "node:fs/promises";
 import * as fssync2 from "node:fs";
 import * as path5 from "node:path";
 import * as cp from "node:child_process";
-import * as crypto8 from "node:crypto";
+import * as crypto9 from "node:crypto";
 import * as readline from "node:readline";
 function resolveMaxBytes(configured) {
   return configured === void 0 ? DEFAULT_MAX_FILE_BYTES : configured;
@@ -51718,7 +51729,7 @@ var init_node3 = __esm({
         }
         __classPrivateFieldSet(this, _BashSession_buf, "", "f");
         __classPrivateFieldSet(this, _BashSession_truncated, false, "f");
-        const sentinel2 = `__ANT_CMD_${crypto8.randomUUID()}_DONE__`;
+        const sentinel2 = `__ANT_CMD_${crypto9.randomUUID()}_DONE__`;
         const sentinelSplit = `${sentinel2.slice(0, 8)}''${sentinel2.slice(8)}`;
         const wrapped = `{ ${command}
 } </dev/null 2>&1; printf '\\n${sentinelSplit}%d\\n' $?
@@ -60162,6 +60173,16 @@ async function ensureGroupBookTables() {
       allocation TEXT,
       comment TEXT
     )`));
+    await db.run(sql.raw(`CREATE TABLE IF NOT EXISTS group_book_share_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      groupName TEXT NOT NULL,
+      token TEXT NOT NULL,
+      label TEXT,
+      active INTEGER DEFAULT 1 NOT NULL,
+      createdBy INTEGER,
+      createdAt INTEGER,
+      revokedAt INTEGER
+    )`));
   } catch (e) {
     console.error("[schema] ensureGroupBookTables failed:", e instanceof Error ? e.message : e);
   }
@@ -62110,7 +62131,7 @@ import { createServer as createServerHTTP } from "http";
 import { Http2ServerRequest as Http2ServerRequest2, constants as h2constants } from "http2";
 import { Http2ServerRequest } from "http2";
 import { Readable as Readable2 } from "stream";
-import crypto9 from "crypto";
+import crypto10 from "crypto";
 async function readWithoutBlocking(readPromise) {
   return Promise.race([readPromise, Promise.resolve().then(() => Promise.resolve(void 0))]);
 }
@@ -62452,7 +62473,7 @@ var init_dist5 = __esm({
     };
     X_ALREADY_SENT = "x-hono-already-sent";
     if (typeof global.crypto === "undefined") {
-      global.crypto = crypto9;
+      global.crypto = crypto10;
     }
     outgoingEnded = /* @__PURE__ */ Symbol("outgoingEnded");
     incomingDraining = /* @__PURE__ */ Symbol("incomingDraining");
@@ -64448,8 +64469,8 @@ async function seedDockKingFlowthrough() {
       report.updated++;
     }
     const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, c.id)).returning();
-    const r26 = await db.delete(tasks).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
-    report.tasksPaused += (r1?.length || 0) + (r26?.length || 0);
+    const r25 = await db.delete(tasks).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
+    report.tasksPaused += (r1?.length || 0) + (r25?.length || 0);
   }
   return report;
 }
@@ -78962,7 +78983,67 @@ init_middleware();
 init_connection();
 init_schema();
 init_drizzle_orm();
-var r25 = (n) => Math.round(n * 100) / 100;
+import crypto8 from "crypto";
+var r2x = (n) => Math.round(n * 100) / 100;
+async function buildBook(groupName, fiscalYear) {
+  const db = getDb();
+  const g = groupName;
+  const [entities, ownership, profit, family] = await Promise.all([
+    db.select().from(groupEntities).where(eq(groupEntities.groupName, g)),
+    db.select().from(groupOwnership).where(eq(groupOwnership.groupName, g)),
+    db.select().from(groupProfit).where(eq(groupProfit.groupName, g)),
+    db.select().from(groupFamilyBenefit).where(eq(groupFamilyBenefit.groupName, g))
+  ]);
+  const ent = entities.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const own = ownership;
+  const prof = profit;
+  const years = Array.from(new Set(prof.map((p) => p.fiscalYear))).sort().reverse();
+  const fy = fiscalYear && years.includes(fiscalYear) ? fiscalYear : years[0];
+  const fyProfit = prof.filter((p) => p.fiscalYear === fy);
+  const ownByCo = /* @__PURE__ */ new Map();
+  for (const o of own) {
+    if (!ownByCo.has(o.companyName)) ownByCo.set(o.companyName, []);
+    ownByCo.get(o.companyName).push(o);
+  }
+  const byHolder = /* @__PURE__ */ new Map();
+  let attributed = 0;
+  for (const p of fyProfit) {
+    for (const h of ownByCo.get(p.companyName) || []) {
+      if (h.ownershipPct == null) continue;
+      const amount = r2x((Number(p.ytdProfit) || 0) * (Number(h.ownershipPct) / 100));
+      attributed += amount;
+      if (!byHolder.has(h.holderName)) byHolder.set(h.holderName, { name: h.holderName, type: h.holderType, total: 0, lines: [] });
+      const rec = byHolder.get(h.holderName);
+      rec.total = r2x(rec.total + amount);
+      rec.lines.push({ company: p.companyName, pct: Number(h.ownershipPct), amount });
+    }
+  }
+  const dividendByPerson = Array.from(byHolder.values()).sort((a, b) => b.total - a.total);
+  const unattributed = r2x(fyProfit.reduce((s, p) => s + (Number(p.ytdProfit) || 0), 0) - attributed);
+  const iscMap = /* @__PURE__ */ new Map();
+  for (const o of own) {
+    if (o.holderType !== "individual" || o.ownershipPct == null || o.ownershipPct < 25) continue;
+    if (!iscMap.has(o.holderName)) iscMap.set(o.holderName, { name: o.holderName, companies: [] });
+    iscMap.get(o.holderName).companies.push({ company: o.companyName, pct: Number(o.ownershipPct), note: o.note || void 0 });
+  }
+  const beneficialOwners = Array.from(iscMap.values()).sort((a, b) => b.companies.length - a.companies.length);
+  return {
+    groupName: g,
+    entities: ent,
+    ownership: own,
+    family,
+    fiscalYears: years,
+    fiscalYear: fy,
+    profit: fyProfit.sort((a, b) => (Number(b.ytdProfit) || 0) - (Number(a.ytdProfit) || 0)),
+    fyTotals: {
+      ytdProfit: r2x(fyProfit.reduce((s, p) => s + (Number(p.ytdProfit) || 0), 0)),
+      taxLiability: r2x(fyProfit.reduce((s, p) => s + (Number(p.taxLiability) || 0), 0))
+    },
+    dividendByPerson,
+    unattributed,
+    beneficialOwners
+  };
+}
 var groupBookRouter = createRouter({
   // Which groups have a control book seeded (for a "view book" affordance).
   groups: staffQuery.query(async () => {
@@ -78972,66 +79053,30 @@ var groupBookRouter = createRouter({
     for (const r of rows) m.set(r.groupName, (m.get(r.groupName) || 0) + 1);
     return Array.from(m.entries()).map(([name2, entities]) => ({ name: name2, entities }));
   }),
-  get: staffQuery.input(external_exports.object({ groupName: external_exports.string(), fiscalYear: external_exports.string().optional() })).query(async ({ input }) => {
+  get: staffQuery.input(external_exports.object({ groupName: external_exports.string(), fiscalYear: external_exports.string().optional() })).query(async ({ input }) => buildBook(input.groupName, input.fiscalYear)),
+  // ===== Share links (read-only owner view) =====
+  shareList: staffQuery.input(external_exports.object({ groupName: external_exports.string() })).query(async ({ input }) => {
     const db = getDb();
-    const g = input.groupName;
-    const [entities, ownership, profit, family] = await Promise.all([
-      db.select().from(groupEntities).where(eq(groupEntities.groupName, g)),
-      db.select().from(groupOwnership).where(eq(groupOwnership.groupName, g)),
-      db.select().from(groupProfit).where(eq(groupProfit.groupName, g)),
-      db.select().from(groupFamilyBenefit).where(eq(groupFamilyBenefit.groupName, g))
-    ]);
-    const ent = entities.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-    const own = ownership;
-    const prof = profit;
-    const years = Array.from(new Set(prof.map((p) => p.fiscalYear))).sort().reverse();
-    const fy = input.fiscalYear && years.includes(input.fiscalYear) ? input.fiscalYear : years[0];
-    const fyProfit = prof.filter((p) => p.fiscalYear === fy);
-    const ownByCo = /* @__PURE__ */ new Map();
-    for (const o of own) {
-      if (!ownByCo.has(o.companyName)) ownByCo.set(o.companyName, []);
-      ownByCo.get(o.companyName).push(o);
-    }
-    const byHolder = /* @__PURE__ */ new Map();
-    let attributed = 0;
-    for (const p of fyProfit) {
-      const holders = ownByCo.get(p.companyName) || [];
-      for (const h of holders) {
-        if (h.ownershipPct == null) continue;
-        const amount = r25((Number(p.ytdProfit) || 0) * (Number(h.ownershipPct) / 100));
-        attributed += amount;
-        if (!byHolder.has(h.holderName)) byHolder.set(h.holderName, { name: h.holderName, type: h.holderType, total: 0, lines: [] });
-        const rec = byHolder.get(h.holderName);
-        rec.total = r25(rec.total + amount);
-        rec.lines.push({ company: p.companyName, pct: Number(h.ownershipPct), amount });
-      }
-    }
-    const dividendByPerson = Array.from(byHolder.values()).sort((a, b) => b.total - a.total);
-    const unattributed = r25(fyProfit.reduce((s, p) => s + (Number(p.ytdProfit) || 0), 0) - attributed);
-    const iscMap = /* @__PURE__ */ new Map();
-    for (const o of own) {
-      if (o.holderType !== "individual" || o.ownershipPct == null || o.ownershipPct < 25) continue;
-      if (!iscMap.has(o.holderName)) iscMap.set(o.holderName, { name: o.holderName, companies: [] });
-      iscMap.get(o.holderName).companies.push({ company: o.companyName, pct: Number(o.ownershipPct), note: o.note || void 0 });
-    }
-    const beneficialOwners = Array.from(iscMap.values()).sort((a, b) => b.companies.length - a.companies.length);
-    const fyTotals = {
-      ytdProfit: r25(fyProfit.reduce((s, p) => s + (Number(p.ytdProfit) || 0), 0)),
-      taxLiability: r25(fyProfit.reduce((s, p) => s + (Number(p.taxLiability) || 0), 0))
-    };
-    return {
-      groupName: g,
-      entities: ent,
-      ownership: own,
-      family,
-      fiscalYears: years,
-      fiscalYear: fy,
-      profit: fyProfit.sort((a, b) => (Number(b.ytdProfit) || 0) - (Number(a.ytdProfit) || 0)),
-      fyTotals,
-      dividendByPerson,
-      unattributed,
-      beneficialOwners
-    };
+    return db.select().from(groupBookShareLinks).where(eq(groupBookShareLinks.groupName, input.groupName)).orderBy(desc(groupBookShareLinks.createdAt));
+  }),
+  shareCreate: staffQuery.input(external_exports.object({ groupName: external_exports.string(), label: external_exports.string().max(120).optional() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const token2 = `gb_${crypto8.randomUUID().replace(/-/g, "")}`;
+    await db.insert(groupBookShareLinks).values({ groupName: input.groupName, token: token2, label: input.label ?? null, active: true, createdBy: ctx.user.id });
+    return { ok: true, token: token2 };
+  }),
+  shareRevoke: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.update(groupBookShareLinks).set({ active: false, revokedAt: /* @__PURE__ */ new Date() }).where(eq(groupBookShareLinks.id, input.id));
+    return { ok: true };
+  }),
+  // ===== PUBLIC (token-gated, read-only) =====
+  publicView: publicQuery.input(external_exports.object({ token: external_exports.string().min(6), fiscalYear: external_exports.string().optional() })).query(async ({ input }) => {
+    const db = getDb();
+    const link = (await db.select().from(groupBookShareLinks).where(eq(groupBookShareLinks.token, input.token)).limit(1))[0];
+    if (!link || !link.active) return null;
+    const book = await buildBook(link.groupName, input.fiscalYear);
+    return { label: link.label ?? null, generatedAt: (/* @__PURE__ */ new Date()).toISOString(), ...book };
   })
 });
 

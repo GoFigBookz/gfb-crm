@@ -27,6 +27,7 @@ import Payroll from "./pages/Payroll";
 import PayrollApproval from "./pages/PayrollApproval";
 import RevRecShare from "./pages/RevRecShare";
 import BankedHoursShare from "./pages/BankedHoursShare";
+import GroupBookShare from "./pages/GroupBookShare";
 import ClientRequest from "./pages/ClientRequest";
 import Messages from "./pages/Messages";
 import Interco from "./pages/Interco";
@@ -82,6 +83,7 @@ function AppRoutes() {
 
       {/* Public read+write banked-hours sheet for the client */}
       <Route path="/share/banked/:token" element={<BankedHoursShare />} />
+      <Route path="/share/group/:token" element={<GroupBookShare />} />
 
       {/* Client document/info request checklist (public, token-based) */}
       <Route path="/request/:token" element={<ClientRequest />} />
