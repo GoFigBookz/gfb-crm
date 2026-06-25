@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-25.126";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-25.127";  // bump each deploy so prod vs source is unambiguous
 
 // CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
 // secret into a hosting dashboard very often drags a trailing space or newline,
@@ -1641,6 +1641,61 @@ app.post("/api/figs-browser/brain/stop", async (c) => {
   if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
   try { const { stopBrain } = await import("./browser-brain"); stopBrain(); return c.json({ ok: true }); }
   catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+
+// ── FIGS CHROME EXTENSION (runs in Markie's REAL, logged-in browser) ──────────
+// The extension is the eyes+hands; api/figs-ext-brain.ts is the brain. Auth is a
+// shared token (cross-origin from his Chrome → no cookie reliance). CORS is open
+// on these routes because a browser extension calls them.
+async function getExtToken(create = false): Promise<string> {
+  const { getDb } = await import("./queries/connection");
+  const { appSettings } = await import("../db/schema");
+  const { eq } = await import("drizzle-orm");
+  const db = getDb();
+  const row = await db.select().from(appSettings).where(eq(appSettings.key, "figs_ext_token")).limit(1);
+  if ((row[0] as any)?.value) return (row[0] as any).value;
+  if (!create) return "";
+  const tok = "fxt_" + (await import("crypto")).randomBytes(24).toString("hex");
+  await db.insert(appSettings).values({ key: "figs_ext_token", value: tok });
+  return tok;
+}
+async function requireExtToken(c: any): Promise<boolean> {
+  const tok = c.req.header("x-figs-token") || "";
+  if (!tok) return false;
+  const real = await getExtToken(false);
+  return !!real && tok === real;
+}
+const extCors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type,x-figs-token", "Access-Control-Allow-Methods": "POST,GET,OPTIONS" };
+app.options("/api/figs-ext/*", (c) => new Response(null, { status: 204, headers: extCors }));
+// Admin: mint/show the token to paste into the extension once.
+app.get("/api/figs-ext/token", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  return c.json({ token: await getExtToken(true) });
+});
+app.post("/api/figs-ext/start", async (c) => {
+  if (!(await requireExtToken(c))) return c.json({ error: "bad token" }, 401, extCors);
+  try { const b = await c.req.json(); const { extStart } = await import("./figs-ext-brain"); return c.json(extStart(String(b?.goal || "")), 200, extCors); }
+  catch (e) { return c.json({ error: e instanceof Error ? e.message : String(e) }, 200, extCors); }
+});
+app.post("/api/figs-ext/step", async (c) => {
+  if (!(await requireExtToken(c))) return c.json({ error: "bad token" }, 401, extCors);
+  try { const b = await c.req.json(); const { extStep } = await import("./figs-ext-brain"); return c.json(await extStep(String(b?.sessionId), String(b?.shot || ""), Number(b?.vw), Number(b?.vh)), 200, extCors); }
+  catch (e) { return c.json({ error: e instanceof Error ? e.message : String(e) }, 200, extCors); }
+});
+app.post("/api/figs-ext/approve", async (c) => {
+  if (!(await requireExtToken(c))) return c.json({ error: "bad token" }, 401, extCors);
+  try { const b = await c.req.json(); const { extApprove } = await import("./figs-ext-brain"); return c.json(await extApprove(String(b?.sessionId)), 200, extCors); }
+  catch (e) { return c.json({ error: e instanceof Error ? e.message : String(e) }, 200, extCors); }
+});
+app.post("/api/figs-ext/deny", async (c) => {
+  if (!(await requireExtToken(c))) return c.json({ error: "bad token" }, 401, extCors);
+  try { const b = await c.req.json(); const { extDeny } = await import("./figs-ext-brain"); return c.json(await extDeny(String(b?.sessionId), b?.note), 200, extCors); }
+  catch (e) { return c.json({ error: e instanceof Error ? e.message : String(e) }, 200, extCors); }
+});
+app.post("/api/figs-ext/stop", async (c) => {
+  if (!(await requireExtToken(c))) return c.json({ error: "bad token" }, 401, extCors);
+  try { const b = await c.req.json(); const { extStop } = await import("./figs-ext-brain"); return c.json(extStop(String(b?.sessionId)), 200, extCors); }
+  catch (e) { return c.json({ error: e instanceof Error ? e.message : String(e) }, 200, extCors); }
 });
 
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
