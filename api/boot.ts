@@ -347,6 +347,17 @@ app.get("/api/payroll/backfill-cw", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Backfill The Auld Spot Pub pay runs from the Google sheet.
+//   GET /api/payroll/backfill-auld
+app.get("/api/payroll/backfill-auld", async (c) => {
+  try {
+    const { backfillAuldPayroll } = await import("./seed-auld-backfill");
+    const r = await backfillAuldPayroll();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // Dedup + name-correct the Clark/Sher rosters (merge dupes, fix Last, First).
 //   GET /api/payroll/dedup-employees
 app.get("/api/payroll/dedup-employees", async (c) => {
@@ -1649,6 +1660,14 @@ async function startServer() {
       if (r?.runsAdded) console.log(`[cw-backfill] +${r.runsAdded} runs`);
     } catch (e) {
       console.error("[cw-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Year backfill — The Auld Spot Pub pay runs from the Google sheet (per-employee).
+    try {
+      const { backfillAuldPayroll } = await import("./seed-auld-backfill");
+      const r = await backfillAuldPayroll();
+      if (r?.runsAdded) console.log(`[auld-backfill] +${r.runsAdded} runs`);
+    } catch (e) {
+      console.error("[auld-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
     // rows, repoint their pay-run lines, fix the "Last, First" split).
