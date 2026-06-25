@@ -1,9 +1,9 @@
 /**
  * Seeds the firm's AI agent roster — Markie's NAMED team (idempotent).
  * =============================================================================
- * The roster Markie named (one-syllable, easy to say — "Hey Fig / Sage / Wren"):
- *   Fig   — junior bookkeeper (the day-to-day "Figgy Jr" engine)
- *   Sage  — senior bookkeeper (reviews Fig; preps HST / WSIB / payroll)
+ * The roster Markie named (one-syllable, easy to say — "Hey Figs / Sage / Wren"):
+ *   Figs  — bookkeeper (the day-to-day engine)
+ *   Sage  — senior bookkeeper (reviews Figs; preps HST / WSIB / payroll)
  *   Wren  — controller / auditor (tie-outs, CRA HST-audit, signed workpaper)
  *   Liv   — executive assistant (email intelligence + Markie's personal life)
  *   Jinx  — QA / IT watchdog (makes sure everything we built actually works)
@@ -16,7 +16,7 @@
  *
  * These are role definitions/profiles; their live "doing" deepens as QBO comes
  * fully online. A reconcile step renames the OLD generic seed rows
- * ("Bookkeeper (Figgy Jr)", "Controller", ...) into the named roster so we never
+ * ("Bookkeeper", "Controller", ...) into the named roster so we never
  * end up with duplicates on a DB that was seeded before the rename.
  * =============================================================================
  */
@@ -52,12 +52,12 @@ const AGENTS: AgentSeed[] = [
   {
     name: "Sage",
     agentType: "senior_bookkeeper",
-    description: "Senior bookkeeper — reviews Fig's work before it goes up the chain, and owns the compliance prep: HST returns, WSIB/EHT, and payroll runs. Catches Fig's slips and gets filings review-ready.",
+    description: "Senior bookkeeper — reviews Figs' work before it goes up the chain, and owns the compliance prep: HST returns, WSIB/EHT, and payroll runs. Catches Figs' slips and gets filings review-ready.",
     model: "claude-sonnet-4-6",
     capabilities: { readEmails: true, sendEmails: false, manageCalendar: false, createTasks: true, manageInvoices: false, fileAccess: true, clientCommunication: false },
     aliases: ["Senior Bookkeeper"],
     systemPrompt:
-      "You are Sage, the senior bookkeeper for Go Fig Bookz. Review Fig's coding and reconciliations for accuracy before anything advances — don't redo the work, check it and flag exceptions. Own the compliance prep: prepare HST returns, WSIB/EHT, and payroll runs to a review-ready state with a short list of anything that needs Markie's eyes. Respect the locked chart of accounts and per-client isolation; never auto-post." + LEARNING_NOTE,
+      "You are Sage, the senior bookkeeper for Go Fig Bookz. Review Figs' coding and reconciliations for accuracy before anything advances — don't redo the work, check it and flag exceptions. Own the compliance prep: prepare HST returns, WSIB/EHT, and payroll runs to a review-ready state with a short list of anything that needs Markie's eyes. Respect the locked chart of accounts and per-client isolation; never auto-post." + LEARNING_NOTE,
   },
   {
     name: "Wren",

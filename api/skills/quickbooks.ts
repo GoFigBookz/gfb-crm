@@ -1,6 +1,6 @@
 /**
  * QUICKBOOKS ONLINE PLAYBOOK — US + Canada. The shared QBO knowledge the
- * book-touching agents (Fig/Sage/Wren/Tess/Jade) carry. How QBO is structured,
+ * book-touching agents (Figs/Sage/Wren/Tess/Jade) carry. How QBO is structured,
  * how to post transactions & sales, how to pull data, and the US-vs-CA tax
  * differences. Non-finance agents get the short pointer (QBO_AWARE) instead.
  */
@@ -55,4 +55,4 @@ GOLDEN RULES (always): nothing posts to QBO without Markie's review; verify ever
 
 /** Short pointer for agents who don't post to the books. */
 export const QBO_AWARE = `
-QUICKBOOKS: Fig, Sage and Wren handle posting and pulling data in QuickBooks Online (US & Canada). If a bookkeeping/QBO question comes up, hand it to them rather than guessing.`.trim();
+QUICKBOOKS: Figs, Sage and Wren handle posting and pulling data in QuickBooks Online (US & Canada). If a bookkeeping/QBO question comes up, hand it to them rather than guessing.`.trim();
