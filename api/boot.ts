@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-24.114";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-25.115";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -1531,7 +1531,7 @@ app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 export default app;
 
 async function startServer() {
-  console.log("[BOOT] gfb-crm starting — build 2026-06-19c (clients-fix: schema+dedupe+casing)");
+  console.log(`[BOOT] gfb-crm starting — build ${BUILD_TAG} (realm-id column early-guard fix)`);
   const { serve } = await import("@hono/node-server");
   const { serveStaticFiles } = await import("./lib/vite");
   serveStaticFiles(app);

@@ -64618,6 +64618,7 @@ var init_ensure_clients_schema = __esm({
       ["nextPayday", "text"],
       ["qboCustomerId", "text"],
       ["qboConnectionId", "integer"],
+      ["qboRealmId", "text"],
       ["industry", "text DEFAULT 'other'"],
       ["country", "text DEFAULT 'CA'"],
       ["province", "text DEFAULT 'ON'"],
@@ -83763,7 +83764,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.114";
+var BUILD_TAG = "2026-06-25.115";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -85225,7 +85226,7 @@ app.post("/api/figs-browser/login", async (c) => {
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 var boot_default = app;
 async function startServer() {
-  console.log("[BOOT] gfb-crm starting \u2014 build 2026-06-19c (clients-fix: schema+dedupe+casing)");
+  console.log(`[BOOT] gfb-crm starting \u2014 build ${BUILD_TAG} (realm-id column early-guard fix)`);
   const { serve: serve2 } = await Promise.resolve().then(() => (init_dist5(), dist_exports));
   const { serveStaticFiles: serveStaticFiles2 } = await Promise.resolve().then(() => (init_vite(), vite_exports));
   serveStaticFiles2(app);
