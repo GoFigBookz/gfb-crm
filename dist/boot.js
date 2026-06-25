@@ -79675,6 +79675,7 @@ function frontDeskSystem(agent) {
     "",
     `RIGHT NOW you are answering as ${a.name}. ${a.persona}`,
     "The whole Go Fig Bookz AI team is women \u2014 you and every teammate use she/her. Refer to yourself and the others with female pronouns.",
+    "YOU DO THE WORK \u2014 never hand it back to Markie. You and the team own the work end-to-end; Markie tells you WHAT he wants, you figure out HOW and get it done. Do NOT tell him to go find a file, set up a folder, search a sheet, copy data, or do steps himself. Use your tools (Drive/Gmail/web search, tasks, the CRM) to do it yourself, or hand off to the teammate who can. Only ask Markie for something when you ABSOLUTELY cannot proceed without it \u2014 a login/credential, an approval to post or send, or a genuine business decision only he can make \u2014 and when you do, ask for that one specific thing, don't offload the task. If you're missing info, try to find it yourself first; ask only as a last resort.",
     `Keep your name out of it unless it matters \u2014 at most a quick "${a.name} \u2014" prefix ONLY when the agent just changed; otherwise just answer.`,
     `Your teammates: ${team}. If a request clearly belongs to a teammate, hand off in a few words (e.g. "Sage handles HST \u2014 flagging her.") and stop. Markie can switch by saying "Hey <name>".`,
     "You can still add tasks and report the agenda regardless of which agent you are.",
@@ -80182,46 +80183,65 @@ var assistantRouter = createRouter({
       messages.push({ role: "user", content: results });
       return toolUses.length;
     };
-    for (let i = 0; i < 6; i++) {
-      const tools = [...ASSISTANT_TOOLS, ...dropServerTools ? [] : serverTools];
-      let data;
-      try {
-        data = await client.messages.create({ model, max_tokens: 1024, system, messages, tools });
-      } catch (err) {
-        if (err instanceof Anthropic.BadRequestError && !dropServerTools && /tool|web_search|web_fetch/i.test(err.message || "")) {
-          dropServerTools = true;
+    const runLoop = async () => {
+      for (let i = 0; i < 6; i++) {
+        const tools = [...ASSISTANT_TOOLS, ...dropServerTools ? [] : serverTools];
+        let data;
+        try {
+          data = await client.messages.create({ model, max_tokens: 1024, system, messages, tools });
+        } catch (err) {
+          if (err instanceof Anthropic.BadRequestError && !dropServerTools && /tool|web_search|web_fetch/i.test(err.message || "")) {
+            dropServerTools = true;
+            continue;
+          }
+          console.error("[assistant] API error", { name: err?.name, status: err?.status, message: err?.message });
+          if (err instanceof Anthropic.AuthenticationError) return { reply: "The AI key isn't valid \u2014 check ANTHROPIC_API_KEY on the server.", actions, agent };
+          if (err instanceof Anthropic.RateLimitError) return { reply: "The AI is rate-limited right now \u2014 give it a minute and try again.", actions, agent };
+          if (err instanceof Anthropic.InternalServerError) return { reply: "The AI is briefly overloaded \u2014 try again in a sec.", actions, agent };
+          if (err instanceof Anthropic.APIConnectionError) return { reply: "Couldn't reach the AI just now \u2014 check the connection and retry.", actions, agent };
+          if (/credit balance|too low|billing|insufficient (funds|credit)|purchase credits/i.test(err?.message || "")) {
+            return { reply: "I'm out of AI credits at the moment \u2014 top up the Anthropic account (console.anthropic.com \u2192 Plans & Billing) and I'll be right back. This affects all the agents, not just me.", actions, agent };
+          }
+          const msg = err instanceof Anthropic.APIError ? `${err.status ?? ""} ${err.message}`.trim() : err?.message || "unknown error";
+          return { reply: `Snag talking to the AI: ${msg}`, actions, agent };
+        }
+        if (data.stop_reason === "tool_use") {
+          await handleToolUses(data.content);
           continue;
         }
-        console.error("[assistant] API error", { name: err?.name, status: err?.status, message: err?.message });
-        if (err instanceof Anthropic.AuthenticationError) return { reply: "The AI key isn't valid \u2014 check ANTHROPIC_API_KEY on the server.", actions, agent };
-        if (err instanceof Anthropic.RateLimitError) return { reply: "The AI is rate-limited right now \u2014 give it a minute and try again.", actions, agent };
-        if (err instanceof Anthropic.InternalServerError) return { reply: "The AI is briefly overloaded \u2014 try again in a sec.", actions, agent };
-        if (err instanceof Anthropic.APIConnectionError) return { reply: "Couldn't reach the AI just now \u2014 check the connection and retry.", actions, agent };
-        if (/credit balance|too low|billing|insufficient (funds|credit)|purchase credits/i.test(err?.message || "")) {
-          return { reply: "I'm out of AI credits at the moment \u2014 top up the Anthropic account (console.anthropic.com \u2192 Plans & Billing) and I'll be right back. This affects all the agents, not just me.", actions, agent };
+        if (data.stop_reason === "pause_turn") {
+          messages.push({ role: "assistant", content: data.content });
+          continue;
         }
-        const msg = err instanceof Anthropic.APIError ? `${err.status ?? ""} ${err.message}`.trim() : err?.message || "unknown error";
-        return { reply: `Snag talking to the AI: ${msg}`, actions, agent };
+        let reply = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
+        if (!reply && data.stop_reason === "max_tokens" && await handleToolUses(data.content)) continue;
+        if (!reply && actions.length) reply = actions.join("\n");
+        if (!reply) {
+          console.error("[assistant] empty reply", { stop_reason: data.stop_reason, blocks: (data.content || []).map((b) => b.type), agent });
+          reply = "I didn't catch that \u2014 say it once more?";
+        }
+        await saveTurn(reply);
+        return { reply, actions, agent };
       }
-      if (data.stop_reason === "tool_use") {
-        await handleToolUses(data.content);
-        continue;
-      }
-      if (data.stop_reason === "pause_turn") {
-        messages.push({ role: "assistant", content: data.content });
-        continue;
-      }
-      let reply = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
-      if (!reply && data.stop_reason === "max_tokens" && await handleToolUses(data.content)) continue;
-      if (!reply && actions.length) reply = actions.join("\n");
-      if (!reply) {
-        console.error("[assistant] empty reply", { stop_reason: data.stop_reason, blocks: (data.content || []).map((b) => b.type), agent });
-        reply = "I didn't catch that \u2014 say it once more?";
-      }
-      await saveTurn(reply);
-      return { reply, actions, agent };
+      return { reply: "Sorry \u2014 I got stuck in a loop. Try rephrasing.", actions, agent };
+    };
+    const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 11e4);
+    let deadlineTimer;
+    const deadline = new Promise((resolve4) => {
+      deadlineTimer = setTimeout(() => resolve4({
+        reply: "That one's taking me a while \u2014 let's break it into smaller steps. What's the first piece you want done?",
+        actions,
+        agent
+      }), DEADLINE_MS);
+    });
+    try {
+      return await Promise.race([runLoop(), deadline]);
+    } catch (err) {
+      console.error("[assistant] fatal", { name: err?.name, message: err?.message });
+      return { reply: "Something glitched on my end just now \u2014 give it another go? If it keeps happening, tell me and I'll dig in.", actions, agent };
+    } finally {
+      clearTimeout(deadlineTimer);
     }
-    return { reply: "Sorry \u2014 I got stuck in a loop. Try rephrasing.", actions, agent };
   })
 });
 

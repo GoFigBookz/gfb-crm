@@ -401,6 +401,7 @@ export const assistantRouter = createRouter({
         return toolUses.length;
       };
 
+      const runLoop = async (): Promise<{ reply: string; actions: string[]; agent: AgentKey }> => {
       for (let i = 0; i < 6; i++) {
         const tools = [...ASSISTANT_TOOLS, ...(dropServerTools ? [] : serverTools)];
         let data: any;
@@ -448,6 +449,28 @@ export const assistantRouter = createRouter({
         await saveTurn(reply);
         return { reply, actions, agent };
       }
-      return { reply: "Sorry — I got stuck in a loop. Try rephrasing.", actions, agent };
+        return { reply: "Sorry — I got stuck in a loop. Try rephrasing.", actions, agent };
+      };
+
+      // Always emit a small JSON reply quickly: a hung tool/Anthropic call or a slow
+      // multi-tool turn would otherwise run past the gateway timeout, so the proxy
+      // returns a non-tRPC page and the client shows "Unable to transform response
+      // from server". A deadline + outer catch guarantee a clean reply instead.
+      const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 110_000);
+      let deadlineTimer: any;
+      const deadline = new Promise<{ reply: string; actions: string[]; agent: AgentKey }>((resolve) => {
+        deadlineTimer = setTimeout(() => resolve({
+          reply: "That one's taking me a while — let's break it into smaller steps. What's the first piece you want done?",
+          actions, agent,
+        }), DEADLINE_MS);
+      });
+      try {
+        return await Promise.race([runLoop(), deadline]);
+      } catch (err: any) {
+        console.error("[assistant] fatal", { name: err?.name, message: err?.message });
+        return { reply: "Something glitched on my end just now — give it another go? If it keeps happening, tell me and I'll dig in.", actions, agent };
+      } finally {
+        clearTimeout(deadlineTimer);
+      }
     }),
 });
