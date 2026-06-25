@@ -50,6 +50,7 @@ import { bulkImportRouter } from "./bulk-import-router";
 import { intercoRouter } from "./interco-router";
 import { groupRouter } from "./group-router";
 import { practiceHealthRouter } from "./practice-health-router";
+import { groupBookRouter } from "./group-book-router";
 import { dashboardRouter } from "./dashboard-router";
 import { calculatorRouter } from "./calculator-router";
 import { bankConverterRouter } from "./bank-converter-router";
@@ -120,6 +121,7 @@ export const appRouter = createRouter({
   interco: intercoRouter,
   group: groupRouter,
   practiceHealth: practiceHealthRouter,
+  groupBook: groupBookRouter,
   dashboard: dashboardRouter,
   calculator: calculatorRouter,
   bankConverter: bankConverterRouter,
