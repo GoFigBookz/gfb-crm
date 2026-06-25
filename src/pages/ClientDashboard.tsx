@@ -310,6 +310,7 @@ export default function ClientDashboard() {
         // Only show fields that apply to THIS client (no "No payroll" clutter).
         const items: Array<[string, any]> = [
           ["CRA BN", dash(o.craBusinessNumber || c.taxId)],
+          ["QBO Realm ID", dash(c.qboRealmId)],
           ["Company Key", dash(c.companyKey)],
           ["Registry #", dash(c.registryNumber)],
           ["Incorporated", dash(c.incorporationDate)],
