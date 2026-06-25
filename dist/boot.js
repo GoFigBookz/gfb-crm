@@ -63840,13 +63840,36 @@ __export(browser_agent_exports, {
   click: () => click,
   ensureSession: () => ensureSession,
   goto: () => goto,
+  isBrowserEnabled: () => isBrowserEnabled,
   loginWithCredential: () => loginWithCredential,
   pressKey: () => pressKey,
   screenshot: () => screenshot,
   sessionInfo: () => sessionInfo,
+  setBrowserEnabled: () => setBrowserEnabled,
   stopSession: () => stopSession,
   type: () => type
 });
+async function isBrowserEnabled() {
+  if (BROWSER_ENABLED) return true;
+  try {
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+    const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    const row = await getDb2().select().from(appSettings2).where(eq3(appSettings2.key, "figs_browser_enabled")).limit(1);
+    return row[0]?.value === "on";
+  } catch {
+    return false;
+  }
+}
+async function setBrowserEnabled(on) {
+  const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+  const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+  const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+  const db = getDb2();
+  const existing = await db.select().from(appSettings2).where(eq3(appSettings2.key, "figs_browser_enabled")).limit(1);
+  if (existing[0]) await db.update(appSettings2).set({ value: on ? "on" : "off" }).where(eq3(appSettings2.key, "figs_browser_enabled"));
+  else await db.insert(appSettings2).values({ key: "figs_browser_enabled", value: on ? "on" : "off" });
+}
 function touch(s, status) {
   s.lastActivity = Date.now();
   if (status) s.status = status;
@@ -63879,7 +63902,7 @@ async function launch() {
   return s;
 }
 async function ensureSession() {
-  if (!BROWSER_ENABLED) throw new Error("Browser agent is disabled (set FIGGY_BROWSER_AGENT=on).");
+  if (!await isBrowserEnabled()) throw new Error("Browser agent is disabled (turn it on with the switch on Figs at Work).");
   if (session) return session;
   if (!launching) {
     launching = launch().then((s) => {
@@ -63893,11 +63916,12 @@ async function ensureSession() {
   }
   return launching;
 }
-function sessionInfo() {
-  if (!session) return { running: false, enabled: BROWSER_ENABLED };
+async function sessionInfo() {
+  const enabled = await isBrowserEnabled();
+  if (!session) return { running: false, enabled };
   return {
     running: true,
-    enabled: BROWSER_ENABLED,
+    enabled,
     status: session.status,
     url: session.page.url(),
     startedAt: session.startedAt,
@@ -64345,8 +64369,19 @@ THE MORNING WORKFLOW (Markie's routine \u2014 follow it in order for a client):
  5. RECONCILE each account (bank + every credit card), then ATTACH the bank
     statement to the reconciliation report. (Reconcile is a state change \u2192
     request_approval; it's UI-only, which is why you do it here in the browser.)
+    RECONCILE PROCEDURE (Markie's exact steps):
+      a. Prep the feed first: Transactions > Bank transactions; in "For Review" add/match/categorize EVERY transaction for the statement period.
+      b. Settings (gear, top-right) > Tools > Reconcile.
+      c. Pick the EXACT account. Verify the BEGINNING balance matches the statement \u2014 if not, STOP and Ask Markie. Enter the Ending Balance + Ending Date from the statement, then Start reconciling (or drag-drop the PDF to auto-fill).
+      d. Check off matching transactions (bank-feed matches are usually pre-checked); compare the statement line by line.
+      e. Get the "Difference" to $0.00, then request_approval to click "Finish now". NEVER force-finish a non-zero difference \u2014 STOP and Ask Markie.
 NOT every client is on QuickBooks' bank feed \u2014 some send MANUAL statements that
 get keyed in. Check the client's workflow before assuming a live feed.
+
+NEVER USE "FIGGY CLEARING" (non-negotiable): never reconcile it, never post to it,
+never select it as the account for any transaction. Same for any control/clearing
+account (A/P, A/R, Undeposited Funds, equity). If something wants Figgy Clearing,
+STOP and Ask Markie.
 
 You will be given a goal. Pursue it step by step, narrating briefly what you see and intend.`;
   }
@@ -82091,6 +82126,15 @@ on it. ACTION FOR US: when we pull reports (we use TransactionList / Transaction
 ByVendor for vendor coding), validate parsing against the modernized response shape;
 field names/structure can shift, so don't hard-assume column order \u2014 read by name.
 
+BANK / CREDIT-CARD RECONCILIATION (Markie's exact procedure \u2014 UI-only, no API; Figs does this in the browser):
+ 1. PREP THE BANK FEED FIRST. Transactions > Bank transactions (Banking). In the "For Review" tab, add/match/categorize EVERY downloaded transaction for the statement period before starting.
+ 2. OPEN RECONCILE. Settings (gear, top-right) > under Tools > Reconcile.
+ 3. ENTER STATEMENT INFO. Pick the EXACT account from the dropdown. Verify the BEGINNING balance in QBO matches the statement's beginning balance \u2014 if it doesn't, STOP and flag (an unresolved issue or a previously deleted/modified transaction from a past reconciliation). Enter the Ending Balance and Ending Date exactly as on the statement, then "Start reconciling". (QBO also has an AI experience: drag-and-drop the PDF statement to auto-fill ending balance/date and highlight mismatches.)
+ 4. CHECK OFF MATCHES. Bank-feed-matched transactions are usually pre-checked. Compare the statement line by line and check off any remaining items that match.
+ 5. FINALIZE. Get the "Difference" in the top-right to $0.00. Only when it's exactly zero, click "Finish now". If it won't hit $0.00, STOP and flag \u2014 never force-finish a non-zero reconciliation.
+
+NEVER USE "FIGGY CLEARING" (Markie, NON-NEGOTIABLE): the "Figgy Clearing" account is an internal staging account \u2014 NEVER reconcile it, never post spend/income to it, never pick it as the account for any transaction. Same for any other control/clearing account (A/P, A/R, Undeposited Funds, equity). If a workflow seems to want Figgy Clearing, STOP and flag.
+
 GOLDEN RULES (always): nothing posts to QBO without Markie's review; verify every change against LIVE QBO before reporting done; per-client isolation (each call's realmId is fixed); the Sanity Guard stays on.`.trim();
 var QBO_AWARE = `
 QUICKBOOKS: Figs, Sage and Wren handle posting and pulling data in QuickBooks Online (US & Canada). If a bookkeeping/QBO question comes up, hand it to them rather than guessing.`.trim();
@@ -84905,7 +84949,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.125";
+var BUILD_TAG = "2026-06-25.126";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -86298,7 +86342,18 @@ async function requireAdmin(c) {
 app.get("/api/figs-browser/status", async (c) => {
   if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
   const { sessionInfo: sessionInfo2 } = await Promise.resolve().then(() => (init_browser_agent(), browser_agent_exports));
-  return c.json(sessionInfo2());
+  return c.json(await sessionInfo2());
+});
+app.post("/api/figs-browser/enable", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const b = await c.req.json().catch(() => ({}));
+    const { setBrowserEnabled: setBrowserEnabled2, isBrowserEnabled: isBrowserEnabled2 } = await Promise.resolve().then(() => (init_browser_agent(), browser_agent_exports));
+    await setBrowserEnabled2(!!b?.on);
+    return c.json({ ok: true, enabled: await isBrowserEnabled2() });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
 });
 app.post("/api/figs-browser/start", async (c) => {
   if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
