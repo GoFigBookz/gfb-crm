@@ -34,10 +34,18 @@ export function serveStaticFiles(app: any) {
   }));
   app.use("/.well-known/*", serveStatic({ root: distPath }));
 
-  // PWA icons by EXACT path — the /*.png glob does NOT reliably match here and
-  // was falling through to the SPA fallback (serving index.html as the icon),
-  // which made Chrome see invalid icons → no "Install". Exact mounts work.
-  for (const f of ["/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/icon.svg", "/logo.jpg"]) {
+  // Static images by EXACT path — the /*.png and /*.svg globs do NOT reliably
+  // match here and fall through to the SPA fallback (serving index.html instead
+  // of the file), so the browser shows a broken image. Exact mounts work. Every
+  // logo/avatar SVG the app references MUST be listed here, including nested
+  // /agents/* (a nested path can never match the root /*.svg glob).
+  const EXACT_FILES = [
+    "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/icon.svg", "/logo.jpg",
+    "/figgy-logo.svg", "/figgy-mark.svg", "/phoenix-rising.svg",
+    "/agents/fig.svg", "/agents/sage.svg", "/agents/wren.svg", "/agents/liv.svg",
+    "/agents/jinx.svg", "/agents/tess.svg", "/agents/jade.svg", "/agents/skye.svg",
+  ];
+  for (const f of EXACT_FILES) {
     app.use(f, serveStatic({ root: distPath }));
   }
 

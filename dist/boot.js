@@ -63231,7 +63231,25 @@ function serveStaticFiles(app2) {
     onFound: (_p, c) => c.header("Content-Type", "application/manifest+json")
   }));
   app2.use("/.well-known/*", serveStatic({ root: distPath }));
-  for (const f of ["/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/icon.svg", "/logo.jpg"]) {
+  const EXACT_FILES = [
+    "/icon-192.png",
+    "/icon-512.png",
+    "/apple-touch-icon.png",
+    "/icon.svg",
+    "/logo.jpg",
+    "/figgy-logo.svg",
+    "/figgy-mark.svg",
+    "/phoenix-rising.svg",
+    "/agents/fig.svg",
+    "/agents/sage.svg",
+    "/agents/wren.svg",
+    "/agents/liv.svg",
+    "/agents/jinx.svg",
+    "/agents/tess.svg",
+    "/agents/jade.svg",
+    "/agents/skye.svg"
+  ];
+  for (const f of EXACT_FILES) {
     app2.use(f, serveStatic({ root: distPath }));
   }
   app2.get("/*", async (c, next) => {
