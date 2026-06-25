@@ -10,8 +10,10 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { lifeEntries } from "../db/schema";
+import { lifeEntries, calendarEvents } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
+
+const safeMeta = (s: any): any => { try { return s ? JSON.parse(s) : {}; } catch { return {}; } };
 
 // Section catalogue — the hub's structure. Add a row here to add a section.
 export const LIFE_SECTIONS = [
@@ -95,7 +97,21 @@ export const lifeRouter = createRouter({
         notes: input.notes ?? null, meta: input.meta ?? null,
         createdAt: new Date(), updatedAt: new Date(),
       } as any).returning()) as any[];
-      return ins[0];
+      const entry = ins[0];
+
+      // Social calendar SYNCS with the main calendar so Liv can manage everything:
+      // a dated Social entry creates a linked calendar event (id kept in meta).
+      if (input.section === "social" && input.date) {
+        const ev = (await db.insert(calendarEvents).values({
+          userId: ctx.user.id, title: input.title, startDate: input.date, endDate: input.date,
+          isAllDay: true, color: "purple", description: "Phoenix Rising · Social", status: "confirmed",
+          createdAt: new Date(), updatedAt: new Date(),
+        } as any).returning()) as any[];
+        const meta = JSON.stringify({ ...safeMeta(input.meta), calendarEventId: ev[0]?.id });
+        await db.update(lifeEntries).set({ meta }).where(and(eq(lifeEntries.id, entry.id), eq(lifeEntries.userId, ctx.user.id)));
+        entry.meta = meta;
+      }
+      return entry;
     }),
 
   update: authedQuery
@@ -120,6 +136,19 @@ export const lifeRouter = createRouter({
       // Scope to the owner — never let one user touch another's life.
       await db.update(lifeEntries).set(patch)
         .where(and(eq(lifeEntries.id, id), eq(lifeEntries.userId, ctx.user.id)));
+
+      // Keep a linked Social calendar event in sync (title/date).
+      if (patch.title !== undefined || patch.date !== undefined) {
+        const cur = (await db.select().from(lifeEntries)
+          .where(and(eq(lifeEntries.id, id), eq(lifeEntries.userId, ctx.user.id))).limit(1))[0] as any;
+        const cid = cur?.section === "social" ? safeMeta(cur.meta).calendarEventId : null;
+        if (cid) {
+          const evPatch: any = { updatedAt: new Date(), title: cur.title };
+          if (cur.date) { evPatch.startDate = cur.date; evPatch.endDate = cur.date; }
+          await db.update(calendarEvents).set(evPatch)
+            .where(and(eq(calendarEvents.id, cid), eq(calendarEvents.userId, ctx.user.id)));
+        }
+      }
       return { ok: true };
     }),
 
@@ -127,6 +156,11 @@ export const lifeRouter = createRouter({
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
+      // Remove the linked Social calendar event too, if any.
+      const cur = (await db.select().from(lifeEntries)
+        .where(and(eq(lifeEntries.id, input.id), eq(lifeEntries.userId, ctx.user.id))).limit(1))[0] as any;
+      const cid = cur?.meta ? safeMeta(cur.meta).calendarEventId : null;
+      if (cid) await db.delete(calendarEvents).where(and(eq(calendarEvents.id, cid), eq(calendarEvents.userId, ctx.user.id)));
       await db.delete(lifeEntries)
         .where(and(eq(lifeEntries.id, input.id), eq(lifeEntries.userId, ctx.user.id)));
       return { ok: true };

@@ -48,6 +48,10 @@ export function TopBar({ onMenu }: TopBarProps) {
         <button onClick={() => onMenu?.()} className="md:hidden p-2 rounded-lg hover:bg-slate-100 shrink-0" aria-label="Menu">
           <Menu className="h-5 w-5 text-slate-700" />
         </button>
+        {/* Firm logo (Go Fig Bookz) — top of every page in the business section. */}
+        <Link to="/" className="shrink-0" title="Go Fig Bookz">
+          <img src="/assets/logo.jpg" alt="Go Fig Bookz" className="h-9 w-auto object-contain" />
+        </Link>
         <div className="relative max-w-md w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input

@@ -88,12 +88,23 @@ async function execAddLifeItem(input: any, userId: number): Promise<string> {
   let date: Date | null = null;
   if (input?.date && /^\d{4}-\d{2}-\d{2}$/.test(input.date)) date = new Date(input.date + "T12:00:00");
   const amount = typeof input?.amount === "number" ? input.amount : null;
+  let meta: string | null = null;
+  // Social entries with a date sync to the main calendar (so it's all in one place).
+  if (section === "social" && date) {
+    const ev = (await db.insert(calendarEvents).values({
+      userId, title, startDate: date, endDate: date, isAllDay: true,
+      color: "purple", description: "Phoenix Rising · Social", status: "confirmed",
+      createdAt: new Date(), updatedAt: new Date(),
+    } as any).returning()) as any[];
+    if (ev[0]?.id) meta = JSON.stringify({ calendarEventId: ev[0].id });
+  }
   await db.insert(lifeEntries).values({
     userId, section, type: input?.type ? String(input.type).slice(0, 40) : null,
     title, amount, date, notes: input?.notes ? String(input.notes).slice(0, 5000) : null,
-    createdAt: new Date(), updatedAt: new Date(),
+    meta, createdAt: new Date(), updatedAt: new Date(),
   } as any);
-  return `Added to your ${section} section: "${title}"${amount != null ? ` (${amount.toLocaleString("en-CA", { style: "currency", currency: "CAD" })})` : ""}.`;
+  const onCal = section === "social" && date ? " (also on your calendar)" : "";
+  return `Added to your ${section} section: "${title}"${amount != null ? ` (${amount.toLocaleString("en-CA", { style: "currency", currency: "CAD" })})` : ""}${onCal}.`;
 }
 
 async function execRemember(input: any, userId: number, activeAgent: string): Promise<string> {

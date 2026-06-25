@@ -80273,6 +80273,22 @@ async function execAddLifeItem(input, userId) {
   let date5 = null;
   if (input?.date && /^\d{4}-\d{2}-\d{2}$/.test(input.date)) date5 = /* @__PURE__ */ new Date(input.date + "T12:00:00");
   const amount = typeof input?.amount === "number" ? input.amount : null;
+  let meta3 = null;
+  if (section === "social" && date5) {
+    const ev = await db.insert(calendarEvents).values({
+      userId,
+      title,
+      startDate: date5,
+      endDate: date5,
+      isAllDay: true,
+      color: "purple",
+      description: "Phoenix Rising \xB7 Social",
+      status: "confirmed",
+      createdAt: /* @__PURE__ */ new Date(),
+      updatedAt: /* @__PURE__ */ new Date()
+    }).returning();
+    if (ev[0]?.id) meta3 = JSON.stringify({ calendarEventId: ev[0].id });
+  }
   await db.insert(lifeEntries).values({
     userId,
     section,
@@ -80281,10 +80297,12 @@ async function execAddLifeItem(input, userId) {
     amount,
     date: date5,
     notes: input?.notes ? String(input.notes).slice(0, 5e3) : null,
+    meta: meta3,
     createdAt: /* @__PURE__ */ new Date(),
     updatedAt: /* @__PURE__ */ new Date()
   });
-  return `Added to your ${section} section: "${title}"${amount != null ? ` (${amount.toLocaleString("en-CA", { style: "currency", currency: "CAD" })})` : ""}.`;
+  const onCal = section === "social" && date5 ? " (also on your calendar)" : "";
+  return `Added to your ${section} section: "${title}"${amount != null ? ` (${amount.toLocaleString("en-CA", { style: "currency", currency: "CAD" })})` : ""}${onCal}.`;
 }
 async function execRemember(input, userId, activeAgent) {
   const lesson = String(input?.lesson ?? "").trim();
@@ -80748,6 +80766,13 @@ init_middleware();
 init_connection();
 init_schema();
 init_drizzle_orm();
+var safeMeta = (s) => {
+  try {
+    return s ? JSON.parse(s) : {};
+  } catch {
+    return {};
+  }
+};
 var LIFE_SECTIONS = [
   {
     key: "finance",
@@ -80848,7 +80873,25 @@ var lifeRouter = createRouter({
       createdAt: /* @__PURE__ */ new Date(),
       updatedAt: /* @__PURE__ */ new Date()
     }).returning();
-    return ins[0];
+    const entry = ins[0];
+    if (input.section === "social" && input.date) {
+      const ev = await db.insert(calendarEvents).values({
+        userId: ctx.user.id,
+        title: input.title,
+        startDate: input.date,
+        endDate: input.date,
+        isAllDay: true,
+        color: "purple",
+        description: "Phoenix Rising \xB7 Social",
+        status: "confirmed",
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).returning();
+      const meta3 = JSON.stringify({ ...safeMeta(input.meta), calendarEventId: ev[0]?.id });
+      await db.update(lifeEntries).set({ meta: meta3 }).where(and(eq(lifeEntries.id, entry.id), eq(lifeEntries.userId, ctx.user.id)));
+      entry.meta = meta3;
+    }
+    return entry;
   }),
   update: authedQuery.input(external_exports.object({
     id: external_exports.number(),
@@ -80868,10 +80911,25 @@ var lifeRouter = createRouter({
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
     for (const [k, v] of Object.entries(rest)) if (v !== void 0) patch[k] = v;
     await db.update(lifeEntries).set(patch).where(and(eq(lifeEntries.id, id), eq(lifeEntries.userId, ctx.user.id)));
+    if (patch.title !== void 0 || patch.date !== void 0) {
+      const cur = (await db.select().from(lifeEntries).where(and(eq(lifeEntries.id, id), eq(lifeEntries.userId, ctx.user.id))).limit(1))[0];
+      const cid = cur?.section === "social" ? safeMeta(cur.meta).calendarEventId : null;
+      if (cid) {
+        const evPatch = { updatedAt: /* @__PURE__ */ new Date(), title: cur.title };
+        if (cur.date) {
+          evPatch.startDate = cur.date;
+          evPatch.endDate = cur.date;
+        }
+        await db.update(calendarEvents).set(evPatch).where(and(eq(calendarEvents.id, cid), eq(calendarEvents.userId, ctx.user.id)));
+      }
+    }
     return { ok: true };
   }),
   remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
+    const cur = (await db.select().from(lifeEntries).where(and(eq(lifeEntries.id, input.id), eq(lifeEntries.userId, ctx.user.id))).limit(1))[0];
+    const cid = cur?.meta ? safeMeta(cur.meta).calendarEventId : null;
+    if (cid) await db.delete(calendarEvents).where(and(eq(calendarEvents.id, cid), eq(calendarEvents.userId, ctx.user.id)));
     await db.delete(lifeEntries).where(and(eq(lifeEntries.id, input.id), eq(lifeEntries.userId, ctx.user.id)));
     return { ok: true };
   })
