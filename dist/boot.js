@@ -24833,13 +24833,13 @@ var init_base64 = __esm({
       if (!b64re.test(asc2))
         throw new TypeError("malformed base64.");
       asc2 += "==".slice(2 - (asc2.length & 3));
-      let u24, r1, r23;
+      let u24, r1, r24;
       let binArray = [];
       for (let i = 0; i < asc2.length; ) {
-        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r23 = b64tab[asc2.charAt(i++)]);
+        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r24 = b64tab[asc2.charAt(i++)]);
         if (r1 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255));
-        } else if (r23 === 64) {
+        } else if (r24 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255));
         } else {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255, u24 & 255));
@@ -36825,7 +36825,7 @@ var require_bcrypt = __commonJS({
           } else
             throw err;
         }
-        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r23 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r23, real_salt = salt.substring(offset + 3, offset + 25);
+        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r24 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r24, real_salt = salt.substring(offset + 3, offset + 25);
         s += minor >= "a" ? "\0" : "";
         var passwordb = stringToBytes(s), saltb = base64_decode(real_salt, BCRYPT_SALT_LEN);
         function finish(bytes) {
@@ -39904,10 +39904,10 @@ var init_qbo_router = __esm({
       // --- Sync All ---
       syncAll: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => {
         const r1 = await doSyncCustomers(input.connectionId);
-        const r23 = await doSyncInvoices(input.connectionId);
+        const r24 = await doSyncInvoices(input.connectionId);
         const r3 = await doSyncPayments(input.connectionId);
         const r4 = await doSyncAccounts(input.connectionId);
-        return { success: true, customers: r1, invoices: r23, payments: r3, accounts: r4 };
+        return { success: true, customers: r1, invoices: r24, payments: r3, accounts: r4 };
       }),
       // --- Data Retrieval ---
       getCustomers: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
@@ -64098,8 +64098,8 @@ async function seedDockKingFlowthrough() {
       report.updated++;
     }
     const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, c.id)).returning();
-    const r23 = await db.delete(tasks).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
-    report.tasksPaused += (r1?.length || 0) + (r23?.length || 0);
+    const r24 = await db.delete(tasks).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
+    report.tasksPaused += (r1?.length || 0) + (r24?.length || 0);
   }
   return report;
 }
@@ -78382,7 +78382,44 @@ init_zod();
 init_middleware();
 init_connection();
 init_schema();
+
+// api/settlement-core.ts
 var r22 = (n) => Math.round(n * 100) / 100;
+var EPS = 5e-3;
+function suggestSettlements(entities) {
+  const creditors = entities.filter((e) => e.net > EPS).map((e) => ({ ...e, rem: r22(e.net) })).sort((a, b) => b.rem - a.rem);
+  const debtors = entities.filter((e) => e.net < -EPS).map((e) => ({ ...e, rem: r22(-e.net), cap: e.cashAvailable == null ? Infinity : Math.max(0, e.cashAvailable) })).sort((a, b) => b.rem - a.rem);
+  const transfers = [];
+  let ci = 0;
+  for (const d10 of debtors) {
+    while (d10.rem > EPS && ci < creditors.length) {
+      const c = creditors[ci];
+      if (c.rem <= EPS) {
+        ci++;
+        continue;
+      }
+      const want = Math.min(d10.rem, c.rem);
+      const pay = Math.min(want, d10.cap);
+      if (pay > EPS) {
+        transfers.push({ fromId: d10.id, from: d10.name, toId: c.id, to: c.name, amount: r22(pay), capped: pay < want - EPS });
+        c.rem = r22(c.rem - pay);
+        d10.rem = r22(d10.rem - pay);
+        d10.cap = d10.cap === Infinity ? Infinity : r22(d10.cap - pay);
+      }
+      if (d10.cap !== Infinity && d10.cap <= EPS) break;
+      if (want - pay > EPS) break;
+    }
+  }
+  const residual = [
+    ...creditors.filter((c) => c.rem > EPS).map((c) => ({ id: c.id, name: c.name, net: r22(c.rem) })),
+    ...debtors.filter((d10) => d10.rem > EPS).map((d10) => ({ id: d10.id, name: d10.name, net: r22(-d10.rem) }))
+  ];
+  const groupNet = r22(entities.reduce((s, e) => s + e.net, 0));
+  return { transfers, residual, balanced: Math.abs(groupNet) < 0.01 };
+}
+
+// api/group-router.ts
+var r23 = (n) => Math.round(n * 100) / 100;
 var yearOf = (d10) => d10 ? new Date(d10).getFullYear() : null;
 var groupRouter = createRouter({
   // Distinct group names with a company count (for the group picker).
@@ -78416,7 +78453,7 @@ var groupRouter = createRouter({
     const companies = cs.map((c) => {
       const empList = emps.filter((e) => e.clientId === c.id && e.isActive !== false);
       const ytdRuns = runs.filter((p) => p.clientId === c.id && yearOf(p.payDate ?? p.payPeriodEnd) === year2);
-      const ytdPayroll = r22(ytdRuns.reduce((s, p) => s + (Number(p.totalGross) || 0), 0));
+      const ytdPayroll = r23(ytdRuns.reduce((s, p) => s + (Number(p.totalGross) || 0), 0));
       const openTasks = allTasks.filter((t2) => t2.clientId === c.id && !t2.completed && t2.status !== "completed").length;
       let intercoNet = 0;
       for (const e of interco) {
@@ -78435,21 +78472,24 @@ var groupRouter = createRouter({
         payRuns: ytdRuns.length,
         ytdPayroll,
         openTasks,
-        intercoNet: r22(intercoNet)
+        intercoNet: r23(intercoNet)
       };
     }).sort((a, b) => b.ytdPayroll - a.ytdPayroll || a.name.localeCompare(b.name));
     const totals = {
       companies: companies.length,
       employees: companies.reduce((s, c) => s + c.employees, 0),
-      ytdPayroll: r22(companies.reduce((s, c) => s + c.ytdPayroll, 0)),
+      ytdPayroll: r23(companies.reduce((s, c) => s + c.ytdPayroll, 0)),
       openTasks: companies.reduce((s, c) => s + c.openTasks, 0),
       payRuns: companies.reduce((s, c) => s + c.payRuns, 0),
       // Net interco across the group should net to ~0 when fully matched; the
       // absolute sum of positives flags how much is still moving between entities.
-      intercoOutstanding: r22(companies.filter((c) => c.intercoNet > 0).reduce((s, c) => s + c.intercoNet, 0)),
-      intercoNetCheck: r22(companies.reduce((s, c) => s + c.intercoNet, 0))
+      intercoOutstanding: r23(companies.filter((c) => c.intercoNet > 0).reduce((s, c) => s + c.intercoNet, 0)),
+      intercoNetCheck: r23(companies.reduce((s, c) => s + c.intercoNet, 0))
     };
-    return { groupName: input.groupName, year: year2, companies, totals };
+    const settlement = suggestSettlements(
+      companies.filter((c) => Math.abs(c.intercoNet) > 5e-3).map((c) => ({ id: c.id, name: c.name, net: c.intercoNet }))
+    );
+    return { groupName: input.groupName, year: year2, companies, totals, settlement };
   })
 });
 
