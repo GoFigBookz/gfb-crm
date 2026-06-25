@@ -58560,6 +58560,34 @@ var init_seed_os_backfill = __esm({
         [key3("Debbie", "Maritin")]: { hours: 50.91, gross: 1588.35 },
         [key3("Alexis", "Montgomery")]: { hours: 33.04, gross: 687.23 },
         [key3("Jamie", "Moseley")]: { hours: 77.36, gross: 2011.31 }
+      } },
+      // Winter skeleton crew (staff wages only — owner Adam Holt salary excluded, same
+      // basis as the summer periods). Each row reconciles to reg+stat+vacation.
+      { payDate: "2026-04-03", start: "2026-03-18", end: "2026-03-31", lines: {
+        [key3("Isabella", "Holt")]: { hours: 8, gross: 191.36 },
+        [key3("Debbie", "Maritin")]: { hours: 64.18, gross: 2002.42 },
+        [key3("Jamie", "Moseley")]: { hours: 47.15, gross: 1225.9 }
+      } },
+      { payDate: "2026-03-20", start: "2026-03-04", end: "2026-03-17", lines: {
+        [key3("Isabella", "Holt")]: { hours: 10, gross: 239.2 },
+        [key3("Debbie", "Maritin")]: { hours: 64, gross: 1996.8 },
+        [key3("Jamie", "Moseley")]: { hours: 73, gross: 1898 }
+      } },
+      { payDate: "2026-03-06", start: "2026-02-18", end: "2026-03-03", lines: {
+        [key3("Isabella", "Holt")]: { hours: 9, gross: 215.28 },
+        [key3("Debbie", "Maritin")]: { hours: 69, gross: 1650.48 },
+        [key3("Jamie", "Moseley")]: { hours: 16, gross: 416 }
+      } },
+      { payDate: "2026-02-20", start: "2026-02-04", end: "2026-02-17", lines: {
+        [key3("Isabella", "Holt")]: { hours: 12.83, gross: 306.79 },
+        [key3("Debbie", "Maritin")]: { hours: 42.3, gross: 1011.91 }
+      } },
+      { payDate: "2026-02-06", start: "2026-01-21", end: "2026-02-02", lines: {
+        [key3("Isabella", "Holt")]: { hours: 22, gross: 526.24 },
+        [key3("Debbie", "Maritin")]: { hours: 27, gross: 645.84 }
+      } },
+      { payDate: "2026-01-23", start: "2026-01-07", end: "2026-01-20", lines: {
+        [key3("Debbie", "Maritin")]: { hours: 18, gross: 430.56 }
       } }
     ];
   }
@@ -58730,6 +58758,99 @@ var init_seed_collingwood_backfill = __esm({
         [key4("Chris", "Thompson")]: { hours: 58.73, gross: 1432.6 },
         [key4("Lisa", "Venditti")]: { hours: 88.28, gross: 2230.08 },
         [key4("Alan", "Weaver")]: { hours: 68, gross: 2403.08 }
+      } },
+      // Earlier 2026 periods (Jan 23 → May 01) — each ties to the sheet cost−tax to the penny.
+      { payDate: "2026-05-01", start: "2026-04-15", end: "2026-04-28", lines: {
+        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key4("Matteo", "Companion")]: { hours: 83.73, gross: 1507.14 },
+        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key4("Corey", "Hawton")]: { hours: 79.78, gross: 2077.42 },
+        [key4("Justin", "Koutsomichos")]: { hours: 87.25, gross: 2006.75 },
+        [key4("Dave", "Lally")]: { hours: 96.23, gross: 2309.52 },
+        [key4("Adrian", "Robbeson")]: { hours: 90.07, gross: 2094.69 },
+        [key4("Chris", "Thompson")]: { hours: 37.07, gross: 912.76 },
+        [key4("Lisa", "Venditti")]: { hours: 45.35, gross: 1156.83 }
+      } },
+      { payDate: "2026-04-17", start: "2026-04-01", end: "2026-04-14", lines: {
+        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key4("Matteo", "Companion")]: { hours: 13.58, gross: 244.44 },
+        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key4("Corey", "Hawton")]: { hours: 53.15, gross: 1391.69 },
+        [key4("Justin", "Koutsomichos")]: { hours: 30, gross: 690 },
+        [key4("Dave", "Lally")]: { hours: 21.55, gross: 517.2 },
+        [key4("Adrian", "Robbeson")]: { hours: 16.22, gross: 396.14 },
+        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key4("Lisa", "Venditti")]: { hours: 37.51, gross: 960.91 }
+      } },
+      { payDate: "2026-04-03", start: "2026-03-18", end: "2026-03-31", lines: {
+        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key4("Matteo", "Companion")]: { hours: 0, gross: 0 },
+        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key4("Corey", "Hawton")]: { hours: 70.28, gross: 1905.18 },
+        [key4("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key4("Lisa", "Venditti")]: { hours: 68.27, gross: 1798.1 }
+      } },
+      { payDate: "2026-03-20", start: "2026-03-04", end: "2026-03-17", lines: {
+        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key4("Matteo", "Companion")]: { hours: 0, gross: 0 },
+        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key4("Corey", "Hawton")]: { hours: 92.75, gross: 2506.93 },
+        [key4("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key4("Lisa", "Venditti")]: { hours: 77.78, gross: 2045.36 }
+      } },
+      { payDate: "2026-03-06", start: "2026-02-18", end: "2026-03-03", lines: {
+        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key4("Matteo", "Companion")]: { hours: 0, gross: 0 },
+        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key4("Corey", "Hawton")]: { hours: 91.48, gross: 2472.91 },
+        [key4("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key4("Lisa", "Venditti")]: { hours: 79.71, gross: 2095.62 }
+      } },
+      { payDate: "2026-02-20", start: "2026-02-04", end: "2026-02-17", lines: {
+        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key4("Matteo", "Companion")]: { hours: 0, gross: 0 },
+        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key4("Corey", "Hawton")]: { hours: 89.17, gross: 2411.05 },
+        [key4("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key4("Lisa", "Venditti")]: { hours: 79.18, gross: 2081.84 }
+      } },
+      { payDate: "2026-02-06", start: "2026-01-21", end: "2026-02-03", lines: {
+        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key4("Matteo", "Companion")]: { hours: 0, gross: 0 },
+        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key4("Corey", "Hawton")]: { hours: 85.13, gross: 2302.86 },
+        [key4("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key4("Lisa", "Venditti")]: { hours: 75.33, gross: 1981.66 }
+      } },
+      { payDate: "2026-01-23", start: "2026-01-07", end: "2026-01-20", lines: {
+        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key4("Matteo", "Companion")]: { hours: 0, gross: 0 },
+        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key4("Corey", "Hawton")]: { hours: 87.65, gross: 2370.35 },
+        [key4("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
+        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key4("Lisa", "Venditti")]: { hours: 69.33, gross: 1825.66 }
       } }
     ];
   }
