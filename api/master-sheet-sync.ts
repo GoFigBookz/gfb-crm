@@ -18,7 +18,7 @@
  * =============================================================================
  */
 import { getDb } from "./queries/connection";
-import { clientOnboarding } from "../db/schema";
+import { clientOnboarding, clients } from "../db/schema";
 import { eq } from "drizzle-orm";
 
 export const CANONICAL_MASTER_SHEET_ID =
@@ -40,6 +40,7 @@ export type MasterClient = {
   registryNumber?: string | null; incorporationDate?: string | null;
   corpType?: string | null; governmentStatus?: string | null; bio?: string | null;
   hasIntercoJournals?: boolean | null;
+  qboRealmId?: string | null;
   workflowStatus?: string | null;
   // Sales/payment platforms — discrete checkbox columns (live on client_onboarding,
   // attached here by upsert so each platform is its own TRUE/FALSE column, never a
@@ -67,6 +68,7 @@ export type FieldKey =
   | "corpType" | "govtStatus" | "address" | "phone" | "email" | "website" | "owner"
   | "triageEmail" | "yeMonth" | "hstCadence" | "nextHstDue" | "hstNumber"
   | "payrollPeriod" | "craRemitter" | "payrollRp" | "wsibNo" | "companyKey" | "craRepId"
+  | "qboRealm"
   | "useStripe" | "useSquare" | "useJobber" | "useTouchBistro" | "usePayPal" | "useWise" | "useShopify" | "interco";
 
 type FieldDef = {
@@ -109,6 +111,9 @@ export const MASTER_FIELDS: FieldDef[] = [
   { key: "wsibNo", match: h => h.includes("wsib"), toSheet: c => c.wsibAccountNumber || null, soft: true, fromSheet: r => ({ wsibAccountNumber: r, hasWSIB: true }) },
   { key: "companyKey", match: h => h.includes("company key") || h.includes("service canada"), toSheet: c => c.companyKey || null, soft: true, fromSheet: r => ({ companyKey: r }) },
   { key: "craRepId", match: h => h.includes("repid") || h.includes("rep id") || (h.includes("cra") && h.includes("rep")), toSheet: c => c.craRepId || "YY7F3GN", soft: false, fromSheet: r => ({ craRepId: r }) },
+  // QBO company/realm ID — the realm column Markie lost. Soft (only writes when we
+  // have one, so a manual realm entry is never wiped); inbound updates the file too.
+  { key: "qboRealm", match: h => h.includes("realm") || (h.includes("qbo") && h.includes("id")) || (h.includes("quickbooks") && h.includes("id")), toSheet: c => c.qboRealmId || null, soft: true, fromSheet: r => ({ qboRealmId: r }) },
   // Sales/payment platform checkbox columns (each its own TRUE/FALSE column).
   // `onb: true` → inbound applies these to client_onboarding, not clients.
   { key: "useStripe", match: h => h === "stripe", toSheet: c => boolToSheet(c.usesStripe), soft: false, onb: true, fromSheet: r => ({ usesStripe: boolFromSheet(r) }) },
@@ -126,6 +131,10 @@ export const MASTER_FIELDS: FieldDef[] = [
 // Client Master if missing). Order = how they're appended.
 export const PLATFORM_HEADERS = ["Stripe", "Square", "Shopify", "Jobber", "TouchBistro", "PayPal", "Wise", "Inter-Co Journals"];
 
+// Columns we self-provision into an EXISTING Client Master tab if missing (so a
+// sheet that predates a column gets it added rather than silently dropping data).
+export const SELF_PROVISION_HEADERS = ["QBO Realm ID", ...PLATFORM_HEADERS];
+
 /** The default header row written if the Client Master tab is ever empty. */
 export const DEFAULT_MASTER_HEADER = [
   "Client / Legal Name", "Status", "Industry", "Bio / Description", "CRA Business #",
@@ -133,6 +142,7 @@ export const DEFAULT_MASTER_HEADER = [
   "Email", "Website", "Owner / Contact", "Figgy Triage Email", "Year-End Month",
   "Close Period", "HST Cadence", "Next HST Due", "HST #", "Payroll", "CRA Remitter",
   "Payroll RP #", "WSIB #", "# Employees", "POS / Apps", "Company Key", "CRA RepID",
+  "QBO Realm ID",
   "Stripe", "Square", "Shopify", "Jobber", "TouchBistro", "PayPal", "Wise", "Inter-Co Journals",
 ];
 
@@ -223,7 +233,7 @@ export async function upsertClientToMaster(c: MasterClient): Promise<boolean> {
     // EXPAND the grid first if needed, then write the new headers. Wrapped so a
     // failure here NEVER blocks the client's row write below (best-effort).
     const haveHeaders = new Set(header.map((h) => norm(h)));
-    const missing = PLATFORM_HEADERS.filter((h) => !haveHeaders.has(norm(h)));
+    const missing = SELF_PROVISION_HEADERS.filter((h) => !haveHeaders.has(norm(h)));
     if (missing.length) {
       try {
         const targetWidth = header.length + missing.length;
@@ -295,6 +305,28 @@ export async function upsertClientToMaster(c: MasterClient): Promise<boolean> {
 /** Fire-and-forget wrapper for hot paths (onboarding/edit) — never throws/blocks. */
 export function syncClientToMaster(c: MasterClient): void {
   upsertClientToMaster(c).catch(() => {});
+}
+
+/**
+ * Push every non-lead client's row to the Client Master — used to rebuild the
+ * sheet after the QBO realm IDs were re-synced onto the files. Each client's full
+ * record (incl. qboRealmId) is upserted, so the realm column repopulates and all
+ * other CRM-owned columns refresh too. Sequential + best-effort (the proxy reads
+ * the whole tab per row, so we don't hammer it in parallel). Returns counts.
+ */
+export async function pushAllClientsToMaster(): Promise<{ pushed: number; failed: number; total: number }> {
+  if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return { pushed: 0, failed: 0, total: 0 };
+  const rows = (await getDb().select().from(clients)) as any[];
+  const targets = rows.filter((c) => !isLeadStage(c));
+  let pushed = 0, failed = 0;
+  for (const c of targets) {
+    try {
+      const ok = await upsertClientToMaster(c as MasterClient);
+      if (ok) pushed += 1; else failed += 1;
+    } catch { failed += 1; }
+  }
+  console.log(`[master-sync] pushed ${pushed}/${targets.length} clients to master (incl. realm IDs); ${failed} failed`);
+  return { pushed, failed, total: targets.length };
 }
 
 // ── LEADS TAB ────────────────────────────────────────────────────────────────

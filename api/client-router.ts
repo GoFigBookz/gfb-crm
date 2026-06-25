@@ -161,11 +161,19 @@ export const clientRouter = createRouter({
   }),
 
   // Re-run the realm-ID sync on demand (same as boot): write each client's live
-  // connection realmId onto their file. Admin/staff only.
+  // connection realmId onto their file, THEN push every client (incl. realm IDs)
+  // to the canonical Google Client Master sheet. Admin/staff only.
   resyncRealms: authedQuery.mutation(async () => {
     const { ensureClientRealmSync } = await import("./ensure-client-realm-sync");
-    const res = await ensureClientRealmSync();
-    return res || { linked: 0, ambiguous: [], unmapped: 0 };
+    const sync = (await ensureClientRealmSync()) || { linked: 0, ambiguous: [], unmapped: 0 };
+    let sheet = { pushed: 0, failed: 0, total: 0 };
+    try {
+      const { pushAllClientsToMaster } = await import("./master-sheet-sync");
+      sheet = await pushAllClientsToMaster();
+    } catch (e) {
+      console.error("[realm-sync] master-sheet push failed:", e instanceof Error ? e.message : e);
+    }
+    return { ...sync, sheet };
   }),
 
   // Get single client

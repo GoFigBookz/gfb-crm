@@ -538,10 +538,15 @@ function RealmIdCard() {
               Copy all
             </Button>
             <Button size="sm" onClick={() => resync.mutate()} disabled={resync.isPending}>
-              <RefreshCw className={cn("h-4 w-4 mr-1", resync.isPending && "animate-spin")} /> Re-sync from QBO
+              <RefreshCw className={cn("h-4 w-4 mr-1", resync.isPending && "animate-spin")} /> Re-sync + update master sheet
             </Button>
           </div>
         </div>
+        {resync.data && (
+          <p className="text-xs text-lime-700 mt-1">
+            Synced {resync.data.linked} client file(s){resync.data.sheet ? ` · wrote ${resync.data.sheet.pushed}/${resync.data.sheet.total} rows to the Client Master sheet` : ""}.
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         <div className="divide-y">
