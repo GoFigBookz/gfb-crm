@@ -34982,16 +34982,16 @@ var init_driver_core = __esm({
 // node_modules/drizzle-orm/libsql/driver.js
 function drizzle(...params) {
   if (typeof params[0] === "string") {
-    const instance2 = createClient({
+    const instance = createClient({
       url: params[0]
     });
-    return construct(instance2, params[1]);
+    return construct(instance, params[1]);
   }
   if (isConfig(params[0])) {
     const { connection, client, ...drizzleConfig } = params[0];
     if (client) return construct(client, drizzleConfig);
-    const instance2 = typeof connection === "string" ? createClient({ url: connection }) : createClient(connection);
-    return construct(instance2, drizzleConfig);
+    const instance = typeof connection === "string" ? createClient({ url: connection }) : createClient(connection);
+    return construct(instance, drizzleConfig);
   }
   return construct(params[0], params[1]);
 }
@@ -35020,23 +35020,41 @@ var init_libsql = __esm({
 // api/queries/connection.ts
 var connection_exports = {};
 __export(connection_exports, {
-  getDb: () => getDb
+  dbContext: () => dbContext,
+  getDb: () => getDb,
+  getDemoDb: () => getDemoDb,
+  getRealDb: () => getRealDb,
+  runInDemo: () => runInDemo
 });
+import { AsyncLocalStorage } from "node:async_hooks";
 import path from "path";
-function getDb() {
-  if (!instance) {
-    const cwd = process.cwd();
-    const isInDist = cwd.endsWith("/dist") || cwd.endsWith("\\dist");
-    const basePath = isInDist ? path.resolve(cwd, "..") : cwd;
-    const dbPath = path.resolve(basePath, "data", "crm.db");
-    const url2 = `file:${dbPath}`;
-    console.log("[DB] CWD:", cwd, "Base:", basePath, "DB:", url2);
-    const client = createClient({ url: url2 });
-    instance = drizzle(client, { schema: fullSchema });
-  }
-  return instance;
+function dataDir() {
+  const cwd = process.cwd();
+  const isInDist = cwd.endsWith("/dist") || cwd.endsWith("\\dist");
+  const basePath = isInDist ? path.resolve(cwd, "..") : cwd;
+  return path.resolve(basePath, "data");
 }
-var fullSchema, instance;
+function build(file2) {
+  const dbPath = path.resolve(dataDir(), file2);
+  const url2 = `file:${dbPath}`;
+  console.log("[DB] open", file2, "\u2192", url2);
+  return drizzle(createClient({ url: url2 }), { schema: fullSchema });
+}
+function getRealDb() {
+  if (!realInstance) realInstance = build("crm.db");
+  return realInstance;
+}
+function getDemoDb() {
+  if (!demoInstance) demoInstance = build("demo.db");
+  return demoInstance;
+}
+function getDb() {
+  return dbContext.getStore()?.demo ? getDemoDb() : getRealDb();
+}
+function runInDemo(fn) {
+  return dbContext.run({ demo: true }, fn);
+}
+var fullSchema, dbContext, realInstance, demoInstance;
 var init_connection = __esm({
   "api/queries/connection.ts"() {
     init_schema();
@@ -35044,6 +35062,7 @@ var init_connection = __esm({
     init_node2();
     init_libsql();
     fullSchema = { ...schema_exports, ...relations_exports };
+    dbContext = new AsyncLocalStorage();
   }
 });
 
@@ -65051,6 +65070,217 @@ var init_seed_client_run_payroll = __esm({
   }
 });
 
+// api/seed-demo-data.ts
+async function seedDemoData() {
+  const db = getDb();
+  const done = await db.select().from(groupEntities).where(eq(groupEntities.groupName, "Apex Group"));
+  if (done.length) return;
+  for (const tbl of [payRunLines, payRuns, employees, tasks, groupOwnership, groupProfit, groupFamilyBenefit, groupEntities, clients, users]) {
+    try {
+      await db.delete(tbl);
+    } catch {
+    }
+  }
+  let userId = 1;
+  const u = await db.insert(users).values({
+    email: "demo@gofigbookz.app",
+    name: "Demo Admin",
+    role: "admin",
+    authProvider: "local",
+    isActive: true
+  }).returning();
+  userId = u[0]?.id ?? 1;
+  const C = (over) => ({
+    userId,
+    status: "active",
+    workflowStatus: "active",
+    clientType: "monthly",
+    country: "CA",
+    province: "ON",
+    createdAt: /* @__PURE__ */ new Date(),
+    ...over
+  });
+  const rows = await db.insert(clients).values([
+    C({ name: "Go Fig Bookz (Demo)", email: "hello@demo.app", isFirm: true, monthlyFee: 0, hasHST: true }),
+    C({ name: "Acme Pools Inc.", email: "ap@demo.app", monthlyFee: 650, hasHST: true, hasPayroll: true, yearEndMonth: "Dec", groupName: "Apex Group" }),
+    C({ name: "Globex Bakery Ltd.", email: "gb@demo.app", monthlyFee: 480, hasHST: true, yearEndMonth: "Sep", groupName: "Apex Group" }),
+    C({ name: "Initech Software Inc.", email: "in@demo.app", monthlyFee: 900, hasHST: true, hasPayroll: true, yearEndMonth: "Dec" }),
+    C({ name: "Hooli Media Inc.", email: "hl@demo.app", clientType: "quarterly", monthlyFee: 350, hasHST: true, yearEndMonth: "Jun" }),
+    C({ name: "Wayne Holdings Inc.", email: "wh@demo.app", clientType: "annual", monthlyFee: 200, yearEndMonth: "Dec", groupName: "Apex Group" }),
+    C({ name: "Stark Industries Canada Inc.", email: "si@demo.app", monthlyFee: 1200, hasHST: true, hasPayroll: true, yearEndMonth: "Mar", groupName: "Apex Group" })
+  ]).returning();
+  const byName = (n) => rows.find((r) => r.name === n)?.id;
+  const ROSTERS = {
+    "Acme Pools Inc.": [["Dana", "Whitfield", 5200], ["Marco", "Reyes", 4100], ["Priya", "Singh", 3800]],
+    "Initech Software Inc.": [["Sam", "Becker", 7800], ["Lena", "Ortiz", 6900]],
+    "Stark Industries Canada Inc.": [["Tony", "Stratton", 9e3], ["Pepper", "Posey", 7200], ["Happy", "Hogue", 5400], ["May", "Park", 4600]]
+  };
+  for (const [clientName, roster] of Object.entries(ROSTERS)) {
+    const clientId = byName(clientName);
+    if (!clientId) continue;
+    const emps = await db.insert(employees).values(
+      roster.map(([first, last]) => ({ clientId, firstName: first, lastName: last, isActive: true }))
+    ).returning();
+    for (let m = 2; m >= 0; m--) {
+      const end = /* @__PURE__ */ new Date();
+      end.setMonth(end.getMonth() - m, 28);
+      end.setHours(0, 0, 0, 0);
+      const start = new Date(end);
+      start.setDate(1);
+      const gross = roster.reduce((s, r) => s + r[2], 0);
+      const run2 = await db.insert(payRuns).values({
+        clientId,
+        payPeriodStart: start,
+        payPeriodEnd: end,
+        payDate: end,
+        runType: "regular",
+        status: "paid",
+        hoursSource: "manual",
+        totalGross: gross
+      }).returning();
+      const runId = run2[0]?.id;
+      await db.insert(payRunLines).values(
+        roster.map(([, , amt], i) => ({ payRunId: runId, employeeId: emps[i]?.id, grossPay: amt, regularHours: 0 }))
+      );
+    }
+  }
+  const t2 = (title, clientName, due, status = "pending") => ({
+    userId,
+    title,
+    clientId: clientName ? byName(clientName) : null,
+    dueDate: daysFromNow(due),
+    status,
+    priority: "medium",
+    completed: false,
+    createdAt: /* @__PURE__ */ new Date()
+  });
+  await db.insert(tasks).values([
+    t2("File HST return", "Acme Pools Inc.", 4),
+    t2("Run monthly payroll", "Stark Industries Canada Inc.", 1),
+    t2("Reconcile bank \u2014 May", "Initech Software Inc.", -2, "overdue"),
+    t2("Year-end working papers", "Wayne Holdings Inc.", 21),
+    t2("Post sales receipts", "Hooli Media Inc.", 7),
+    t2("Review vendor coding", "Globex Bakery Ltd.", 3)
+  ]);
+  const G = "Apex Group";
+  await db.insert(groupEntities).values([
+    { groupName: G, companyName: "Stark Industries Canada Inc.", clientId: byName("Stark Industries Canada Inc."), incorporationNumber: "1000111222", businessNumber: "111222333", yearEnd: "Mar 31", address: "1 Stark Tower, Toronto ON", statusNote: "Operating", sortOrder: 1 },
+    { groupName: G, companyName: "Acme Pools Inc.", clientId: byName("Acme Pools Inc."), incorporationNumber: "1000333444", businessNumber: "333444555", yearEnd: "Dec 31", address: "12 Poolside Rd, Barrie ON", statusNote: "Operating", sortOrder: 2 },
+    { groupName: G, companyName: "Wayne Holdings Inc.", clientId: byName("Wayne Holdings Inc."), incorporationNumber: "1000555666", businessNumber: "555666777", yearEnd: "Dec 31", address: "1007 Mountain Dr, Gotham ON", statusNote: "Hold Co", sortOrder: 3 },
+    { groupName: G, companyName: "Globex Bakery Ltd.", clientId: byName("Globex Bakery Ltd."), incorporationNumber: "1000777888", businessNumber: "777888999", yearEnd: "Sep 30", address: "5 Flour St, London ON", statusNote: "Operating", sortOrder: 4 }
+  ]);
+  await db.insert(groupOwnership).values([
+    { groupName: G, companyName: "Wayne Holdings Inc.", holderName: "Sample Owner", holderType: "individual", ownershipPct: 100, shareClass: "Common" },
+    { groupName: G, companyName: "Stark Industries Canada Inc.", holderName: "Sample Owner", holderType: "individual", ownershipPct: 70, shareClass: "Class A Voting" },
+    { groupName: G, companyName: "Stark Industries Canada Inc.", holderName: "Jordan Lee", holderType: "individual", ownershipPct: 30, shareClass: "Class B" },
+    { groupName: G, companyName: "Acme Pools Inc.", holderName: "Sample Owner", holderType: "individual", ownershipPct: 60 },
+    { groupName: G, companyName: "Acme Pools Inc.", holderName: "Riley Quinn", holderType: "individual", ownershipPct: 40 },
+    { groupName: G, companyName: "Globex Bakery Ltd.", holderName: "Wayne Holdings Inc.", holderType: "company", ownershipPct: 100 }
+  ]);
+  await db.insert(groupProfit).values([
+    { groupName: G, companyName: "Stark Industries Canada Inc.", fiscalYear: "2025", ownershipPct: 100, ytdProfit: 412e3, taxLiability: 92700 },
+    { groupName: G, companyName: "Acme Pools Inc.", fiscalYear: "2025", ownershipPct: 100, ytdProfit: 86500, taxLiability: 19460 },
+    { groupName: G, companyName: "Globex Bakery Ltd.", fiscalYear: "2025", ownershipPct: 100, ytdProfit: -14200, taxLiability: -3195 },
+    { groupName: G, companyName: "Wayne Holdings Inc.", fiscalYear: "2025", ownershipPct: 100, ytdProfit: 5300, taxLiability: 1192 },
+    { groupName: G, companyName: "Stark Industries Canada Inc.", fiscalYear: "2024", ownershipPct: 100, ytdProfit: 351e3, taxLiability: 78975 },
+    { groupName: G, companyName: "Acme Pools Inc.", fiscalYear: "2024", ownershipPct: 100, ytdProfit: 72e3, taxLiability: 16200 }
+  ]);
+  await db.insert(groupFamilyBenefit).values([
+    { groupName: G, personName: "Sample Owner", baseSalary: 9e3, allocation: "Wayne Holdings Inc. (100%)" },
+    { groupName: G, personName: "Alex Owner", baseSalary: 6e3, allocation: "Stark Industries Canada Inc. (100%)" }
+  ]);
+  console.log("[demo-db] seeded demo firm: 7 clients, payroll, tasks, Apex Group control book");
+}
+var daysFromNow;
+var init_seed_demo_data = __esm({
+  "api/seed-demo-data.ts"() {
+    init_connection();
+    init_drizzle_orm();
+    init_schema();
+    daysFromNow = (d10) => new Date(Date.now() + d10 * 864e5);
+  }
+});
+
+// api/prepare-demo-db.ts
+var prepare_demo_db_exports = {};
+__export(prepare_demo_db_exports, {
+  prepareDemoDb: () => prepareDemoDb
+});
+async function syncColumns(table, name2) {
+  const demo = getDemoDb();
+  const info = rowsOf(await demo.run(sql.raw(`PRAGMA table_info(${name2})`)));
+  const have = new Set(info.map((r) => String(r.name ?? r[1])));
+  for (const col of Object.values(getTableColumns(table))) {
+    if (have.has(col.name)) continue;
+    const ct = String(col.columnType || "");
+    const t2 = /Integer|Boolean|Timestamp/.test(ct) ? "integer" : /Real|Number/.test(ct) ? "real" : "text";
+    try {
+      await demo.run(sql.raw(`ALTER TABLE ${name2} ADD COLUMN "${col.name}" ${t2}`));
+    } catch {
+    }
+  }
+}
+async function cloneStructure() {
+  const real2 = getRealDb();
+  const demo = getDemoDb();
+  const defs = rowsOf(await real2.run(sql.raw(
+    "SELECT type, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY CASE type WHEN 'table' THEN 0 ELSE 1 END"
+  )));
+  let made = 0;
+  for (const d10 of defs) {
+    const stmt = String(d10.sql ?? "");
+    if (!stmt) continue;
+    try {
+      await demo.run(sql.raw(stmt));
+      made++;
+    } catch {
+    }
+  }
+  return made;
+}
+async function prepareDemoDb() {
+  try {
+    await runInDemo(async () => {
+      const demo = getDemoDb();
+      const tbls = rowsOf(await demo.run(sql.raw("SELECT name FROM sqlite_master WHERE type='table' AND name='clients'")));
+      if (!tbls.length) {
+        const made = await cloneStructure();
+        console.log(`[demo-db] cloned ${made} table/index definitions into demo.db`);
+      }
+      const ec = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
+      await ec.ensurePayrollTables();
+      const { ensureGroupBookTables: ensureGroupBookTables2 } = await Promise.resolve().then(() => (init_ensure_group_book_schema(), ensure_group_book_schema_exports));
+      await ensureGroupBookTables2();
+      for (const [table, name2] of SEEDED_TABLES) await syncColumns(table, name2);
+      await seedDemoData();
+    });
+  } catch (e) {
+    console.error("[demo-db] prepare failed (non-fatal):", e instanceof Error ? e.message : e);
+  }
+}
+var rowsOf, SEEDED_TABLES;
+var init_prepare_demo_db = __esm({
+  "api/prepare-demo-db.ts"() {
+    init_connection();
+    init_drizzle_orm();
+    init_schema();
+    init_seed_demo_data();
+    rowsOf = (res) => res?.rows ?? res ?? [];
+    SEEDED_TABLES = [
+      [users, "users"],
+      [clients, "clients"],
+      [employees, "employees"],
+      [payRuns, "pay_runs"],
+      [payRunLines, "pay_run_lines"],
+      [tasks, "tasks"],
+      [groupEntities, "group_entities"],
+      [groupOwnership, "group_ownership"],
+      [groupProfit, "group_profit"],
+      [groupFamilyBenefit, "group_family_benefit"]
+    ];
+  }
+});
+
 // api/sync-scheduler.ts
 function startSyncScheduler() {
   if (schedulerRunning) return;
@@ -81850,21 +82080,21 @@ app.get("/api/oauth/google/debug", async (c) => {
   let dbCounts = null;
   try {
     const db = getDb();
-    const rowsOf = async (q) => {
+    const rowsOf2 = async (q) => {
       const r = await db.run(sql.raw(q));
       return r?.rows ?? r ?? [];
     };
     const one = async (q) => {
-      const r = await rowsOf(q);
+      const r = await rowsOf2(q);
       return r[0] ? r[0].n ?? Object.values(r[0])[0] : 0;
     };
     dbCounts = {
       calendarEvents: await one("SELECT COUNT(*) n FROM calendar_events"),
       tasksTotal: await one("SELECT COUNT(*) n FROM tasks"),
       tasksWithDueIncomplete: await one("SELECT COUNT(*) n FROM tasks WHERE dueDate IS NOT NULL AND (completed IS NULL OR completed=0)"),
-      taskUserIds: await rowsOf("SELECT userId, COUNT(*) n FROM tasks GROUP BY userId"),
-      calEventUserIds: await rowsOf("SELECT userId, COUNT(*) n FROM calendar_events GROUP BY userId"),
-      users: await rowsOf("SELECT id, email, role FROM users")
+      taskUserIds: await rowsOf2("SELECT userId, COUNT(*) n FROM tasks GROUP BY userId"),
+      calEventUserIds: await rowsOf2("SELECT userId, COUNT(*) n FROM calendar_events GROUP BY userId"),
+      users: await rowsOf2("SELECT id, email, role FROM users")
     };
   } catch (e) {
     dbCounts = { error: e instanceof Error ? e.message : String(e) };
@@ -83075,12 +83305,14 @@ app.post("/api/admin/figgy", async (c) => {
   }
 });
 app.use("/api/trpc/*", async (c) => {
-  return fetchRequestHandler({
+  const handle = () => fetchRequestHandler({
     endpoint: "/api/trpc",
     req: c.req.raw,
     router: appRouter,
     createContext
   });
+  const isDemo = c.req.header("x-demo-mode") === "true";
+  return isDemo ? dbContext.run({ demo: true }, handle) : handle();
 });
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 var boot_default = app;
@@ -83488,6 +83720,12 @@ async function startServer() {
       if (r?.seeded) console.log(`[jon-control-book] seeded ${r.entities} entities`);
     } catch (e) {
       console.error("[jon-control-book] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { prepareDemoDb: prepareDemoDb2 } = await Promise.resolve().then(() => (init_prepare_demo_db(), prepare_demo_db_exports));
+      await prepareDemoDb2();
+    } catch (e) {
+      console.error("[demo-db] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { dedupEmployees: dedupEmployees2 } = await Promise.resolve().then(() => (init_seed_employee_dedup(), seed_employee_dedup_exports));
