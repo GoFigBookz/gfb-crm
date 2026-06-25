@@ -424,6 +424,17 @@ app.get("/api/groups/seed", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Scaffold the interco tracker — current-month period shell per group payer.
+//   GET /api/interco/scaffold
+app.get("/api/interco/scaffold", async (c) => {
+  try {
+    const { seedIntercoScaffold } = await import("./seed-interco-scaffold");
+    const r = await seedIntercoScaffold();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // Dedup + name-correct the Clark/Sher rosters (merge dupes, fix Last, First).
 //   GET /api/payroll/dedup-employees
 app.get("/api/payroll/dedup-employees", async (c) => {
@@ -1782,6 +1793,14 @@ async function startServer() {
       if (r?.tagged) console.log(`[company-groups] tagged ${r.tagged}`);
     } catch (e) {
       console.error("[company-groups] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Scaffold the interco tracker — a current-month period shell per group payer.
+    try {
+      const { seedIntercoScaffold } = await import("./seed-interco-scaffold");
+      const r = await seedIntercoScaffold();
+      if (r?.created) console.log(`[interco-scaffold] created ${r.created}`);
+    } catch (e) {
+      console.error("[interco-scaffold] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
     // rows, repoint their pay-run lines, fix the "Last, First" split).

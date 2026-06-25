@@ -59992,6 +59992,55 @@ var init_seed_company_groups = __esm({
   }
 });
 
+// api/seed-interco-scaffold.ts
+var seed_interco_scaffold_exports = {};
+__export(seed_interco_scaffold_exports, {
+  seedIntercoScaffold: () => seedIntercoScaffold
+});
+async function seedIntercoScaffold() {
+  const db = getDb();
+  try {
+    const period = (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
+    const cs = await db.select().from(clients);
+    let created = 0;
+    const periods = [];
+    for (const g of GROUP_PAYERS) {
+      const payer = cs.find((c) => (c.groupName || "").trim() === g.group && g.payer.test(c.name || "")) || cs.find((c) => (c.groupName || "").trim() === g.group);
+      if (!payer) continue;
+      const [existing] = await db.select().from(intercoPeriods).where(and(eq(intercoPeriods.period, period), eq(intercoPeriods.payerClientId, payer.id)));
+      if (existing) continue;
+      await db.insert(intercoPeriods).values({
+        period,
+        payerClientId: payer.id,
+        intercoAccount: g.account,
+        status: "open",
+        notes: `Scaffold \u2014 ready for the 3-step interco close (${g.group})`,
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      });
+      created++;
+      periods.push(`${g.group}: ${payer.name} ${period}`);
+    }
+    if (created) console.log(`[interco-scaffold] created ${created} period shell(s): ${periods.join("; ")}`);
+    return { created, periods };
+  } catch (err) {
+    console.error("[interco-scaffold] failed:", err instanceof Error ? err.message : err);
+  }
+}
+var GROUP_PAYERS;
+var init_seed_interco_scaffold = __esm({
+  "api/seed-interco-scaffold.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    GROUP_PAYERS = [
+      { group: "Jon Gillham", payer: /2303851/i, account: "Due to/from \u2014 interco (set from chart)" },
+      { group: "Rocco", payer: /ovita\s*holdings/i, account: "Due to/from \u2014 interco (set from chart)" },
+      { group: "Universal", payer: /universal\s*construction/i, account: "Due to/from \u2014 interco (set from chart)" }
+    ];
+  }
+});
+
 // api/seed-employee-dedup.ts
 var seed_employee_dedup_exports = {};
 __export(seed_employee_dedup_exports, {
@@ -81414,6 +81463,15 @@ app.get("/api/groups/seed", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+app.get("/api/interco/scaffold", async (c) => {
+  try {
+    const { seedIntercoScaffold: seedIntercoScaffold2 } = await Promise.resolve().then(() => (init_seed_interco_scaffold(), seed_interco_scaffold_exports));
+    const r = await seedIntercoScaffold2();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 app.get("/api/payroll/dedup-employees", async (c) => {
   try {
     const { dedupEmployees: dedupEmployees2 } = await Promise.resolve().then(() => (init_seed_employee_dedup(), seed_employee_dedup_exports));
@@ -82737,6 +82795,13 @@ async function startServer() {
       if (r?.tagged) console.log(`[company-groups] tagged ${r.tagged}`);
     } catch (e) {
       console.error("[company-groups] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { seedIntercoScaffold: seedIntercoScaffold2 } = await Promise.resolve().then(() => (init_seed_interco_scaffold(), seed_interco_scaffold_exports));
+      const r = await seedIntercoScaffold2();
+      if (r?.created) console.log(`[interco-scaffold] created ${r.created}`);
+    } catch (e) {
+      console.error("[interco-scaffold] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { dedupEmployees: dedupEmployees2 } = await Promise.resolve().then(() => (init_seed_employee_dedup(), seed_employee_dedup_exports));
