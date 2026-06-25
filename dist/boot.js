@@ -54499,56 +54499,56 @@ var init_BetaMessageStream = __esm({
             }
             return snapshot;
           case "content_block_delta": {
-            const snapshotContent = snapshot.content.at(event.index);
+            const snapshotContent2 = snapshot.content.at(event.index);
             switch (event.delta.type) {
               case "text_delta": {
-                if (snapshotContent?.type === "text") {
+                if (snapshotContent2?.type === "text") {
                   snapshot.content[event.index] = {
-                    ...snapshotContent,
-                    text: (snapshotContent.text || "") + event.delta.text
+                    ...snapshotContent2,
+                    text: (snapshotContent2.text || "") + event.delta.text
                   };
                 }
                 break;
               }
               case "citations_delta": {
-                if (snapshotContent?.type === "text") {
+                if (snapshotContent2?.type === "text") {
                   snapshot.content[event.index] = {
-                    ...snapshotContent,
-                    citations: [...snapshotContent.citations ?? [], event.delta.citation]
+                    ...snapshotContent2,
+                    citations: [...snapshotContent2.citations ?? [], event.delta.citation]
                   };
                 }
                 break;
               }
               case "input_json_delta": {
-                if (snapshotContent && tracksToolInput(snapshotContent)) {
-                  const jsonBuf = (snapshotContent[JSON_BUF_PROPERTY] || "") + event.delta.partial_json;
-                  snapshot.content[event.index] = withLazyInput(snapshotContent, jsonBuf);
+                if (snapshotContent2 && tracksToolInput(snapshotContent2)) {
+                  const jsonBuf = (snapshotContent2[JSON_BUF_PROPERTY] || "") + event.delta.partial_json;
+                  snapshot.content[event.index] = withLazyInput(snapshotContent2, jsonBuf);
                 }
                 break;
               }
               case "thinking_delta": {
-                if (snapshotContent?.type === "thinking") {
+                if (snapshotContent2?.type === "thinking") {
                   snapshot.content[event.index] = {
-                    ...snapshotContent,
-                    thinking: snapshotContent.thinking + event.delta.thinking
+                    ...snapshotContent2,
+                    thinking: snapshotContent2.thinking + event.delta.thinking
                   };
                 }
                 break;
               }
               case "signature_delta": {
-                if (snapshotContent?.type === "thinking") {
+                if (snapshotContent2?.type === "thinking") {
                   snapshot.content[event.index] = {
-                    ...snapshotContent,
+                    ...snapshotContent2,
                     signature: event.delta.signature
                   };
                 }
                 break;
               }
               case "compaction_delta": {
-                if (snapshotContent?.type === "compaction") {
+                if (snapshotContent2?.type === "compaction") {
                   snapshot.content[event.index] = {
-                    ...snapshotContent,
-                    content: (snapshotContent.content || "") + event.delta.content,
+                    ...snapshotContent2,
+                    content: (snapshotContent2.content || "") + event.delta.content,
                     encrypted_content: event.delta.encrypted_content
                   };
                 }
@@ -54560,16 +54560,16 @@ var init_BetaMessageStream = __esm({
             return snapshot;
           }
           case "content_block_stop": {
-            const snapshotContent = snapshot.content.at(event.index);
-            if (snapshotContent && tracksToolInput(snapshotContent) && JSON_BUF_PROPERTY in snapshotContent) {
+            const snapshotContent2 = snapshot.content.at(event.index);
+            if (snapshotContent2 && tracksToolInput(snapshotContent2) && JSON_BUF_PROPERTY in snapshotContent2) {
               let input;
               try {
-                input = snapshotContent.input;
+                input = snapshotContent2.input;
               } catch (err) {
                 input = {};
-                __classPrivateFieldGet(this, _BetaMessageStream_handleError, "f").call(this, __classPrivateFieldGet(this, _BetaMessageStream_instances, "m", _BetaMessageStream_toolInputParseError).call(this, snapshotContent, err));
+                __classPrivateFieldGet(this, _BetaMessageStream_handleError, "f").call(this, __classPrivateFieldGet(this, _BetaMessageStream_instances, "m", _BetaMessageStream_toolInputParseError).call(this, snapshotContent2, err));
               }
-              Object.defineProperty(snapshotContent, "input", {
+              Object.defineProperty(snapshotContent2, "input", {
                 value: input,
                 enumerable: true,
                 configurable: true,
@@ -56906,46 +56906,46 @@ var init_MessageStream = __esm({
             snapshot.content.push({ ...event.content_block });
             return snapshot;
           case "content_block_delta": {
-            const snapshotContent = snapshot.content.at(event.index);
+            const snapshotContent2 = snapshot.content.at(event.index);
             switch (event.delta.type) {
               case "text_delta": {
-                if (snapshotContent?.type === "text") {
+                if (snapshotContent2?.type === "text") {
                   snapshot.content[event.index] = {
-                    ...snapshotContent,
-                    text: (snapshotContent.text || "") + event.delta.text
+                    ...snapshotContent2,
+                    text: (snapshotContent2.text || "") + event.delta.text
                   };
                 }
                 break;
               }
               case "citations_delta": {
-                if (snapshotContent?.type === "text") {
+                if (snapshotContent2?.type === "text") {
                   snapshot.content[event.index] = {
-                    ...snapshotContent,
-                    citations: [...snapshotContent.citations ?? [], event.delta.citation]
+                    ...snapshotContent2,
+                    citations: [...snapshotContent2.citations ?? [], event.delta.citation]
                   };
                 }
                 break;
               }
               case "input_json_delta": {
-                if (snapshotContent && tracksToolInput2(snapshotContent)) {
-                  const jsonBuf = (snapshotContent[JSON_BUF_PROPERTY] || "") + event.delta.partial_json;
-                  snapshot.content[event.index] = withLazyInput(snapshotContent, jsonBuf);
+                if (snapshotContent2 && tracksToolInput2(snapshotContent2)) {
+                  const jsonBuf = (snapshotContent2[JSON_BUF_PROPERTY] || "") + event.delta.partial_json;
+                  snapshot.content[event.index] = withLazyInput(snapshotContent2, jsonBuf);
                 }
                 break;
               }
               case "thinking_delta": {
-                if (snapshotContent?.type === "thinking") {
+                if (snapshotContent2?.type === "thinking") {
                   snapshot.content[event.index] = {
-                    ...snapshotContent,
-                    thinking: snapshotContent.thinking + event.delta.thinking
+                    ...snapshotContent2,
+                    thinking: snapshotContent2.thinking + event.delta.thinking
                   };
                 }
                 break;
               }
               case "signature_delta": {
-                if (snapshotContent?.type === "thinking") {
+                if (snapshotContent2?.type === "thinking") {
                   snapshot.content[event.index] = {
-                    ...snapshotContent,
+                    ...snapshotContent2,
                     signature: event.delta.signature
                   };
                 }
@@ -56957,10 +56957,10 @@ var init_MessageStream = __esm({
             return snapshot;
           }
           case "content_block_stop": {
-            const snapshotContent = snapshot.content.at(event.index);
-            if (snapshotContent && tracksToolInput2(snapshotContent) && JSON_BUF_PROPERTY in snapshotContent) {
-              Object.defineProperty(snapshotContent, "input", {
-                value: snapshotContent.input,
+            const snapshotContent2 = snapshot.content.at(event.index);
+            if (snapshotContent2 && tracksToolInput2(snapshotContent2) && JSON_BUF_PROPERTY in snapshotContent2) {
+              Object.defineProperty(snapshotContent2, "input", {
+                value: snapshotContent2.input,
                 enumerable: true,
                 configurable: true,
                 writable: true
@@ -64401,16 +64401,34 @@ function newId() {
   seq += 1;
   return `fx_${seq}_${sessions.size}`;
 }
-function tools2(vw, vh) {
+function idOf(s) {
+  for (const [k, v] of sessions) if (v === s) return k;
+  return "";
+}
+function tools2() {
   return [
-    { type: "computer_20250124", name: "computer", display_width_px: vw, display_height_px: vh, display_number: 1 },
     {
-      name: "request_approval",
-      description: "Call BEFORE any state-changing action (publish/post/save/submit/send/delete/reconcile/lock/approve). Pauses for Markie's approval in the extension.",
+      name: "act",
+      description: "Do ONE thing on the page. Reference an element by its [ref] number from the element list.",
       input_schema: {
         type: "object",
         properties: {
-          summary: { type: "string", description: "The exact action you want to take, e.g. 'Click Finish now to lock the TD CAD Chequing reconciliation at $0.00 difference'." },
+          action: { type: "string", enum: ["click", "type", "scroll", "key"], description: "What to do." },
+          ref: { type: "integer", description: "The element's ref number (from the list). Required for click/type." },
+          text: { type: "string", description: "Text to type (for action=type)." },
+          direction: { type: "string", enum: ["up", "down"], description: "Scroll direction (for action=scroll)." },
+          key: { type: "string", description: "Key to press, e.g. Enter, Tab, Escape (for action=key)." }
+        },
+        required: ["action"]
+      }
+    },
+    {
+      name: "request_approval",
+      description: "Call BEFORE any state-changing action (publish/post/save/submit/send/delete/reconcile/lock/approve). Pauses for Markie's OK in the extension.",
+      input_schema: {
+        type: "object",
+        properties: {
+          summary: { type: "string", description: "The exact action, e.g. 'Click Finish now to lock the TD CAD Chequing reconciliation at $0.00 difference'." },
           reason: { type: "string", description: "Why this is correct (account, balance, date, difference)." }
         },
         required: ["summary", "reason"]
@@ -64419,53 +64437,38 @@ function tools2(vw, vh) {
     { name: "task_done", description: "Call when the goal is fully complete.", input_schema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] } }
   ];
 }
-function toExtAction(input) {
-  const a = input?.action;
-  const [x, y] = Array.isArray(input?.coordinate) ? input.coordinate : [void 0, void 0];
-  switch (a) {
-    case "screenshot":
-      return { kind: "screenshot" };
-    case "mouse_move":
-      return { kind: "move", x, y };
-    case "left_click":
-      return { kind: "click", x, y };
-    case "double_click":
-      return { kind: "double_click", x, y };
-    case "right_click":
-      return { kind: "right_click", x, y };
-    case "left_click_drag":
-      return { kind: "drag", x, y };
-    case "type":
-      return { kind: "type", text: String(input.text || "") };
-    case "key":
-      return { kind: "key", key: String(input.text || input.key || "Enter") };
-    case "scroll":
-      return { kind: "scroll", direction: input.scroll_direction || "down", amount: Number(input.scroll_amount || 3) };
-    case "wait":
-      return { kind: "wait", ms: Math.min(3e3, Number(input.duration || 1) * 1e3) };
-    case "cursor_position":
-      return { kind: "screenshot" };
-    default:
-      return { kind: "screenshot" };
-  }
+function log2(s, text2) {
+  s.log.push({ at: Date.now(), text: text2 });
+  if (s.log.length > 200) s.log.shift();
+}
+function snapshotContent(shotB64, elements, pageText, header2) {
+  const list = (elements || []).slice(0, 200).map(
+    (e) => `[${e.ref}] ${e.kind}${e.name ? ` name="${String(e.name).slice(0, 80)}"` : ""}${e.value ? ` value="${String(e.value).slice(0, 40)}"` : ""}`
+  ).join("\n");
+  const content = [];
+  if (shotB64) content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: shotB64 } });
+  content.push({ type: "text", text: `${header2}
+
+INTERACTIVE ELEMENTS:
+${list || "(none found)"}
+
+VISIBLE TEXT (truncated):
+${(pageText || "").slice(0, 2500)}` });
+  return content;
 }
 async function callClaude3(s) {
   const key10 = process.env.ANTHROPIC_API_KEY;
   if (!key10) throw new Error("ANTHROPIC_API_KEY not set \u2014 Figs' brain needs it.");
   const { default: Anthropic2 } = await Promise.resolve().then(() => (init_sdk(), sdk_exports));
   const client = new Anthropic2({ apiKey: key10 });
-  return client.beta.messages.create({
+  return client.messages.create({
     model: MODEL2,
     max_tokens: 1024,
     system: SYSTEM4,
-    tools: tools2(s.vw, s.vh),
-    messages: s.messages,
-    betas: ["computer-use-2025-01-24"]
+    tools: tools2(),
+    tool_choice: { type: "any" },
+    messages: s.messages
   });
-}
-function log2(s, text2) {
-  s.log.push({ at: Date.now(), text: text2 });
-  if (s.log.length > 200) s.log.shift();
 }
 async function turn(s) {
   if (s.steps >= MAX_STEPS2) {
@@ -64483,56 +64486,47 @@ async function turn(s) {
   const toolUses = blocks.filter((b) => b.type === "tool_use");
   if (toolUses.length === 0) {
     s.status = "done";
-    log2(s, "Figs stopped (no further action).");
+    log2(s, "Figs stopped.");
     return { sessionId: idOf(s), done: true, summary: texts || "done", log: s.log.slice(-30) };
   }
   const done = toolUses.find((t2) => t2.name === "task_done");
   if (done) {
     s.status = "done";
-    s.lastSummary = String(done.input?.summary || "");
-    log2(s, `\u2705 Done: ${s.lastSummary}`);
-    return { sessionId: idOf(s), done: true, summary: s.lastSummary, log: s.log.slice(-30) };
+    log2(s, `\u2705 Done: ${done.input?.summary || ""}`);
+    return { sessionId: idOf(s), done: true, summary: String(done.input?.summary || ""), log: s.log.slice(-30) };
   }
   const approval = toolUses.find((t2) => t2.name === "request_approval");
   if (approval) {
     s.status = "awaiting_approval";
     s.pending = { id: approval.id, summary: String(approval.input?.summary || "do something"), reason: String(approval.input?.reason || "") };
+    s.actIds = [];
     log2(s, `\u23F8 Needs your OK: ${s.pending.summary}`);
     return { sessionId: idOf(s), pending: s.pending, log: s.log.slice(-30) };
   }
-  const computer = toolUses.filter((t2) => t2.name === "computer");
-  s.computerIds = computer.map((t2) => t2.id);
-  const actions = computer.map((t2) => toExtAction(t2.input)).filter(Boolean);
-  for (const a of actions) log2(s, `\u2022 ${a.kind}${a.x != null ? ` (${a.x},${a.y})` : ""}${a.text ? ` "${String(a.text).slice(0, 30)}"` : ""}`);
+  const acts = toolUses.filter((t2) => t2.name === "act");
+  s.actIds = acts.map((t2) => t2.id);
+  const actions = acts.map((t2) => ({ ...t2.input }));
+  for (const a of actions) log2(s, `\u2022 ${a.action}${a.ref != null ? ` [${a.ref}]` : ""}${a.text ? ` "${String(a.text).slice(0, 30)}"` : ""}`);
   return { sessionId: idOf(s), actions, log: s.log.slice(-30) };
-}
-function idOf(s) {
-  for (const [k, v] of sessions) if (v === s) return k;
-  return "";
 }
 function extStart(goal) {
   const id = newId();
-  sessions.set(id, { goal, messages: [], status: "running", pending: null, steps: 0, vw: 1280, vh: 800, computerIds: [], log: [{ at: Date.now(), text: `Goal: ${goal}` }] });
+  sessions.set(id, { goal, messages: [], status: "running", pending: null, steps: 0, actIds: [], log: [{ at: Date.now(), text: `Goal: ${goal}` }] });
   return { sessionId: id };
 }
-async function extStep(sessionId, shotB64, vw, vh) {
+async function extStep(sessionId, shot2, elements, pageText) {
   const s = sessions.get(sessionId);
   if (!s) throw new Error("Unknown session \u2014 start a task first.");
-  s.vw = Math.max(320, Math.round(vw || s.vw));
-  s.vh = Math.max(240, Math.round(vh || s.vh));
-  const image = { type: "image", source: { type: "base64", media_type: "image/png", data: shotB64 } };
   if (s.messages.length === 0) {
-    s.messages.push({ role: "user", content: [
-      { type: "text", text: `GOAL: ${s.goal}
+    s.messages.push({ role: "user", content: snapshotContent(shot2, elements, pageText, `GOAL: ${s.goal}
 
-This is Markie's current browser tab (he is already logged in). Begin, one careful step at a time. Call request_approval before anything that changes the books.` },
-      image
-    ] });
-  } else if (s.computerIds.length > 0) {
-    s.messages.push({ role: "user", content: s.computerIds.map((id) => ({ type: "tool_result", tool_use_id: id, content: [image] })) });
-    s.computerIds = [];
+This is Markie's current tab (already logged in). Begin one careful step at a time. Call request_approval before anything that changes the books.`) });
+  } else if (s.actIds.length > 0) {
+    const content = snapshotContent(shot2, elements, pageText, "Here is the page after your last action.");
+    s.messages.push({ role: "user", content: s.actIds.map((id, i) => ({ type: "tool_result", tool_use_id: id, content: i === 0 ? content : "ok" })) });
+    s.actIds = [];
   } else {
-    s.messages.push({ role: "user", content: [{ type: "text", text: "Current screen:" }, image] });
+    s.messages.push({ role: "user", content: snapshotContent(shot2, elements, pageText, "Current page:") });
   }
   return turn(s);
 }
@@ -64540,7 +64534,7 @@ async function extApprove(sessionId) {
   const s = sessions.get(sessionId);
   if (!s) throw new Error("Unknown session.");
   if (s.status !== "awaiting_approval" || !s.pending) throw new Error("Nothing to approve.");
-  s.messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: s.pending.id, content: "APPROVED by Markie. Proceed with exactly that action now, then continue." }] });
+  s.messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: s.pending.id, content: "APPROVED by Markie. Proceed with exactly that action now (call act), then continue." }] });
   log2(s, "\u2714 Approved \u2014 proceeding.");
   s.pending = null;
   return turn(s);
@@ -64566,21 +64560,24 @@ function extStatus(sessionId) {
 var MODEL2, MAX_STEPS2, SYSTEM4, sessions, seq;
 var init_figs_ext_brain = __esm({
   "api/figs-ext-brain.ts"() {
-    MODEL2 = process.env.FIGGY_BROWSER_MODEL || "claude-sonnet-4-6";
+    MODEL2 = process.env.FIGGY_BROWSER_MODEL || "claude-opus-4-8";
     MAX_STEPS2 = 80;
-    SYSTEM4 = `You are Figs, a meticulous junior bookkeeper working inside Markie's OWN web browser for a Canadian bookkeeping firm. Markie is already logged into QuickBooks Online and Hubdoc \u2014 you act inside his authenticated session. You NEVER log in, never touch a login or password page, never solve a CAPTCHA; if you land on a login/verification screen, STOP and ask Markie to sign in.
+    SYSTEM4 = `You are Figs, a meticulous junior bookkeeper working inside Markie's OWN web browser for a Canadian bookkeeping firm. He is already logged into QuickBooks Online and Hubdoc \u2014 you act inside his authenticated session. You NEVER log in, never touch a login or password page, never solve a CAPTCHA; if you land on a login/verification screen, STOP and call request_approval to ask Markie to sign in.
+
+HOW YOU SEE AND ACT:
+- Each turn you get a screenshot of the page AND a numbered list of the interactive elements on it (each line: "[ref] <kind> name=... value=..."). To act, call the "act" tool with the element's ref number and an action.
+- Work ONE careful step at a time. After each action you get a fresh screenshot + element list \u2014 look before the next step.
 
 ABSOLUTE RULES:
-- You may freely NAVIGATE and READ: move, click links/tabs/menus, scroll, open a document, type into a SEARCH/filter box, screenshot.
-- You must NEVER perform a STATE-CHANGING action on your own. Before clicking anything that posts, publishes, saves, submits, sends, deletes, reconciles, locks, approves, or otherwise changes the books, call request_approval with exactly what you want to do and why, then STOP. Markie approves in the extension; only then does it run.
-- Work one careful step at a time. After each action, look at the new screenshot before the next step.
+- Freely NAVIGATE and READ: click links/tabs/menus, scroll, open a document, type into a SEARCH/filter box.
+- NEVER perform a STATE-CHANGING action on your own. Before anything that posts, publishes, saves, submits, sends, deletes, reconciles, locks, approves, or otherwise changes the books, call request_approval with exactly what you want to do and why, then STOP. Markie approves in the extension; only then do it.
 - If unsure or something looks wrong, call request_approval and explain \u2014 never guess on anything that changes data.
 - When the goal is fully complete, call task_done with a short summary.
 
 RECONCILE PROCEDURE (Markie's exact steps \u2014 UI-only, which is why you do it here):
   a. Prep the feed first: Transactions > Bank transactions; in "For Review" add/match/categorize EVERY transaction for the statement period.
   b. Settings (gear, top-right) > Tools > Reconcile.
-  c. Pick the EXACT account. Verify the BEGINNING balance matches the statement \u2014 if it doesn't, STOP and request_approval (unresolved prior issue). Enter the Ending Balance + Ending Date from the statement, then Start reconciling (or drag-drop the PDF to auto-fill).
+  c. Pick the EXACT account. Verify the BEGINNING balance matches the statement \u2014 if it doesn't, STOP and request_approval (unresolved prior issue). Enter the Ending Balance + Ending Date from the statement, then Start reconciling.
   d. Check off matching transactions (bank-feed matches are usually pre-checked); compare the statement line by line.
   e. Get the "Difference" to $0.00, then request_approval to click "Finish now". NEVER force-finish a non-zero difference \u2014 STOP and ask Markie.
 
@@ -85154,7 +85151,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.127";
+var BUILD_TAG = "2026-06-25.128";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -86792,7 +86789,7 @@ app.post("/api/figs-ext/step", async (c) => {
   try {
     const b = await c.req.json();
     const { extStep: extStep2 } = await Promise.resolve().then(() => (init_figs_ext_brain(), figs_ext_brain_exports));
-    return c.json(await extStep2(String(b?.sessionId), String(b?.shot || ""), Number(b?.vw), Number(b?.vh)), 200, extCors);
+    return c.json(await extStep2(String(b?.sessionId), String(b?.shot || ""), b?.elements || [], String(b?.pageText || "")), 200, extCors);
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : String(e) }, 200, extCors);
   }

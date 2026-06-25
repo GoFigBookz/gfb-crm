@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-25.127";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-25.128";  // bump each deploy so prod vs source is unambiguous
 
 // CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
 // secret into a hosting dashboard very often drags a trailing space or newline,
@@ -1679,7 +1679,7 @@ app.post("/api/figs-ext/start", async (c) => {
 });
 app.post("/api/figs-ext/step", async (c) => {
   if (!(await requireExtToken(c))) return c.json({ error: "bad token" }, 401, extCors);
-  try { const b = await c.req.json(); const { extStep } = await import("./figs-ext-brain"); return c.json(await extStep(String(b?.sessionId), String(b?.shot || ""), Number(b?.vw), Number(b?.vh)), 200, extCors); }
+  try { const b = await c.req.json(); const { extStep } = await import("./figs-ext-brain"); return c.json(await extStep(String(b?.sessionId), String(b?.shot || ""), b?.elements || [], String(b?.pageText || "")), 200, extCors); }
   catch (e) { return c.json({ error: e instanceof Error ? e.message : String(e) }, 200, extCors); }
 });
 app.post("/api/figs-ext/approve", async (c) => {

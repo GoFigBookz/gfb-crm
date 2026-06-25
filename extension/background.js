@@ -29,11 +29,11 @@ async function api(path, body) {
   return res.json();
 }
 
-async function getViewport(tabId) {
-  try { return await chrome.tabs.sendMessage(tabId, { type: "figs-viewport" }); }
+async function getSnapshot(tabId) {
+  try { return await chrome.tabs.sendMessage(tabId, { type: "figs-snapshot" }); }
   catch (_) {
     await injectContent(tabId);
-    return chrome.tabs.sendMessage(tabId, { type: "figs-viewport" });
+    return chrome.tabs.sendMessage(tabId, { type: "figs-snapshot" });
   }
 }
 async function injectContent(tabId) {
@@ -74,10 +74,10 @@ async function loop(firstReply) {
     }
     const actions = reply.actions || [];
     if (actions.length) { const r = await doExec(state.tabId, actions); if (r && r.labels) r.labels.forEach((l) => pushLog("• " + l)); }
-    await new Promise((r) => setTimeout(r, 600));
-    const vp = await getViewport(state.tabId);
-    const shot = await snap(state.tabId, vp.vw, vp.vh);
-    reply = await api("step", { sessionId: state.sessionId, shot, vw: vp.vw, vh: vp.vh });
+    await new Promise((r) => setTimeout(r, 700));
+    const snapData = await getSnapshot(state.tabId);
+    const shot = await snap(state.tabId, snapData.vw, snapData.vh);
+    reply = await api("step", { sessionId: state.sessionId, shot, elements: snapData.elements, pageText: snapData.pageText });
   }
 }
 
@@ -91,9 +91,9 @@ async function start(goal) {
   if (started.error || !started.sessionId) { pushLog("⚠ " + (started.error || "could not start — check token")); state.running = false; state.status = "error"; setBadge("!", "#dc2626"); emit(); return; }
   state.sessionId = started.sessionId;
   pushLog("Goal: " + goal);
-  const vp = await getViewport(tab.id);
-  const shot = await snap(tab.id, vp.vw, vp.vh);
-  const reply = await api("step", { sessionId: state.sessionId, shot, vw: vp.vw, vh: vp.vh });
+  const snapData = await getSnapshot(tab.id);
+  const shot = await snap(tab.id, snapData.vw, snapData.vh);
+  const reply = await api("step", { sessionId: state.sessionId, shot, elements: snapData.elements, pageText: snapData.pageText });
   await loop(reply);
 }
 

@@ -1,36 +1,76 @@
 /**
- * Figs at Work — content script (her HANDS in the page).
- * Executes the click/type/scroll actions her brain decides, in Markie's own
- * logged-in tab. Reports the CSS viewport size so the brain's coordinates line up.
+ * Figs at Work — content script (her EYES + HANDS in the page).
+ * Builds a numbered list of the interactive elements her brain can act on, and
+ * executes click/type/scroll/key by element ref, inside Markie's logged-in tab.
  */
-function viewport() {
-  return { vw: window.innerWidth, vh: window.innerHeight, dpr: window.devicePixelRatio || 1 };
+let REFS = new Map(); // ref -> element, rebuilt each snapshot
+
+function isVisible(el) {
+  const r = el.getBoundingClientRect();
+  if (r.width < 2 || r.height < 2) return false;
+  if (r.bottom < 0 || r.top > (window.innerHeight || 0) || r.right < 0 || r.left > (window.innerWidth || 0)) return false;
+  const st = window.getComputedStyle(el);
+  if (st.visibility === "hidden" || st.display === "none" || st.opacity === "0") return false;
+  return true;
 }
 
-function fire(el, type, x, y) {
-  const ev = new MouseEvent(type, { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, button: 0 });
-  el.dispatchEvent(ev);
-}
-function firePointer(el, type, x, y) {
-  try { el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y, pointerId: 1, isPrimary: true })); } catch (_) {}
+function kindOf(el) {
+  const tag = el.tagName.toLowerCase();
+  const role = el.getAttribute("role");
+  if (tag === "a") return "link";
+  if (tag === "button" || role === "button") return "button";
+  if (tag === "input") return `input(${el.type || "text"})`;
+  if (tag === "textarea") return "textarea";
+  if (tag === "select") return "select";
+  if (role) return role;
+  if (el.isContentEditable) return "editable";
+  return tag;
 }
 
-function clickAt(x, y, dbl) {
-  const el = document.elementFromPoint(x, y);
-  if (!el) return `nothing at (${x},${y})`;
-  firePointer(el, "pointerover", x, y); firePointer(el, "pointerenter", x, y);
-  fire(el, "mousemove", x, y);
-  firePointer(el, "pointerdown", x, y); fire(el, "mousedown", x, y);
-  try { el.focus && el.focus(); } catch (_) {}
-  firePointer(el, "pointerup", x, y); fire(el, "mouseup", x, y);
-  fire(el, "click", x, y);
-  if (dbl) fire(el, "dblclick", x, y);
-  return `${dbl ? "double-" : ""}click ${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}`;
+function nameOf(el) {
+  const aria = el.getAttribute("aria-label");
+  if (aria) return aria.trim();
+  const ph = el.getAttribute("placeholder");
+  const txt = (el.innerText || el.textContent || "").trim().replace(/\s+/g, " ");
+  if (txt) return txt.slice(0, 100);
+  if (ph) return ph.trim();
+  const title = el.getAttribute("title");
+  if (title) return title.trim();
+  const name = el.getAttribute("name");
+  return name || "";
 }
-function rightClickAt(x, y) {
-  const el = document.elementFromPoint(x, y);
-  if (el) el.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 2 }));
-  return "right-click";
+
+function snapshot() {
+  REFS = new Map();
+  const sel = 'a,button,input,textarea,select,[role="button"],[role="link"],[role="tab"],[role="menuitem"],[role="checkbox"],[role="combobox"],[contenteditable="true"],[onclick]';
+  const all = Array.from(document.querySelectorAll(sel));
+  const elements = [];
+  let ref = 0;
+  for (const el of all) {
+    if (!isVisible(el)) continue;
+    if (el.disabled) continue;
+    REFS.set(ref, el);
+    elements.push({ ref, kind: kindOf(el), name: nameOf(el), value: (el.value || "").toString().slice(0, 60) });
+    ref += 1;
+    if (ref > 220) break;
+  }
+  const pageText = (document.body ? document.body.innerText : "").replace(/\n{2,}/g, "\n").slice(0, 4000);
+  return { elements, pageText, vw: window.innerWidth, vh: window.innerHeight };
+}
+
+function fire(el, type, opts) { el.dispatchEvent(new MouseEvent(type, Object.assign({ bubbles: true, cancelable: true, view: window, button: 0 }, opts || {}))); }
+
+function clickEl(el) {
+  el.scrollIntoView({ block: "center", inline: "center" });
+  const r = el.getBoundingClientRect();
+  const x = r.left + r.width / 2, y = r.top + r.height / 2;
+  try { el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: x, clientY: y })); } catch (_) {}
+  fire(el, "mousedown", { clientX: x, clientY: y });
+  try { el.focus(); } catch (_) {}
+  try { el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: x, clientY: y })); } catch (_) {}
+  fire(el, "mouseup", { clientX: x, clientY: y });
+  fire(el, "click", { clientX: x, clientY: y });
+  return `clicked [${el.tagName.toLowerCase()}] ${nameOf(el).slice(0, 40)}`;
 }
 
 function setNativeValue(el, value) {
@@ -38,58 +78,46 @@ function setNativeValue(el, value) {
   const setter = Object.getOwnPropertyDescriptor(proto, "value");
   if (setter && setter.set) setter.set.call(el, value); else el.value = value;
 }
-function typeText(text) {
-  const el = document.activeElement;
-  if (!el) return "no focused field";
+function typeInto(el, text) {
+  try { el.focus(); } catch (_) {}
   if (el.isContentEditable) {
-    document.execCommand("insertText", false, text);
+    el.textContent = text;
     el.dispatchEvent(new InputEvent("input", { bubbles: true }));
-    return `typed (contenteditable)`;
+    return `typed into editable`;
   }
-  if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
-    setNativeValue(el, (el.value || "") + text);
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-    el.dispatchEvent(new Event("change", { bubbles: true }));
-    return `typed "${text.slice(0, 30)}"`;
-  }
-  return "focused element is not typable";
+  setNativeValue(el, text);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+  return `typed "${text.slice(0, 30)}"`;
 }
 function pressKey(name) {
-  const map = { Return: "Enter", enter: "Enter", Enter: "Enter", Tab: "Tab", Escape: "Escape", Esc: "Escape", Backspace: "Backspace", BackSpace: "Backspace", Delete: "Delete", space: " ", Space: " " };
-  const key = map[name] || name;
+  const map = { enter: "Enter", Enter: "Enter", Tab: "Tab", Escape: "Escape", Esc: "Escape" };
+  const key = map[name] || name || "Enter";
   const el = document.activeElement || document.body;
-  const opts = { bubbles: true, cancelable: true, key, code: key.length === 1 ? "Key" + key.toUpperCase() : key };
+  const opts = { bubbles: true, cancelable: true, key, code: key };
   el.dispatchEvent(new KeyboardEvent("keydown", opts));
   el.dispatchEvent(new KeyboardEvent("keyup", opts));
-  // Enter on a form input often needs a submit nudge handled by the app's own keydown.
   return `key ${key}`;
 }
 
-async function exec(action) {
-  const x = Math.round(action.x), y = Math.round(action.y);
-  switch (action.kind) {
-    case "click": return clickAt(x, y, false);
-    case "double_click": return clickAt(x, y, true);
-    case "right_click": return rightClickAt(x, y);
-    case "move": { const el = document.elementFromPoint(x, y); if (el) fire(el, "mousemove", x, y); return "move"; }
-    case "type": return typeText(String(action.text || ""));
-    case "key": return pressKey(String(action.key || "Enter"));
-    case "scroll": { const amt = (Number(action.amount) || 3) * 100 * (action.direction === "up" ? -1 : 1); window.scrollBy(0, amt); return `scroll ${action.direction || "down"}`; }
-    case "drag": return "drag (skipped)";
-    case "wait": await new Promise((r) => setTimeout(r, Math.min(3000, Number(action.ms) || 800))); return "wait";
-    case "screenshot": return "screenshot";
-    default: return `unsupported ${action.kind}`;
-  }
+function execAct(a) {
+  if (a.action === "scroll") { window.scrollBy(0, (a.direction === "up" ? -1 : 1) * Math.round(window.innerHeight * 0.8)); return `scroll ${a.direction || "down"}`; }
+  if (a.action === "key") return pressKey(a.key);
+  const el = REFS.get(Number(a.ref));
+  if (!el) return `no element with ref ${a.ref}`;
+  if (a.action === "click") return clickEl(el);
+  if (a.action === "type") { clickEl(el); return typeInto(el, String(a.text || "")); }
+  return `unsupported ${a.action}`;
 }
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg && msg.type === "figs-viewport") { sendResponse(viewport()); return true; }
+chrome.runtime.onMessage.addListener((msg, _s, sendResponse) => {
+  if (msg && msg.type === "figs-snapshot") { sendResponse(snapshot()); return true; }
   if (msg && msg.type === "figs-exec") {
     (async () => {
       const labels = [];
-      for (const a of msg.actions || []) { labels.push(await exec(a)); await new Promise((r) => setTimeout(r, 250)); }
-      sendResponse({ ok: true, labels, viewport: viewport() });
+      for (const a of msg.actions || []) { labels.push(execAct(a)); await new Promise((r) => setTimeout(r, 300)); }
+      sendResponse({ ok: true, labels });
     })();
-    return true; // async
+    return true;
   }
 });
