@@ -2006,3 +2006,54 @@ export const bankedHourShareLinks = sqliteTable("banked_hour_share_links", {
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   revokedAt: integer("revokedAt", { mode: "timestamp" }),
 });
+
+// ========== GROUP CONTROL BOOK (e.g. Jon Gillham's "Business Entity Management") ==========
+// Recreates the high-value parts of a multi-company owner's control book inside the
+// CRM, scoped by groupName (matches clients.groupName). Read surface for the group
+// page: entities, cap table, dividend/profit-by-fiscal-year, family salary/benefit.
+// Non-sensitive only — NO CRA filing codes / bank account numbers are stored here.
+export const groupEntities = sqliteTable("group_entities", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  groupName: text("groupName").notNull(),
+  companyName: text("companyName").notNull(),
+  clientId: integer("clientId"),            // linked CRM client when one exists
+  operatingName: text("operatingName"),     // DBA / brands
+  incorporationNumber: text("incorporationNumber"),
+  businessNumber: text("businessNumber"),
+  yearEnd: text("yearEnd"),
+  address: text("address"),
+  statusNote: text("statusNote"),           // e.g. "Hold Co", "No Activity", "KILLED"
+  sortOrder: integer("sortOrder").default(0),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+export const groupOwnership = sqliteTable("group_ownership", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  groupName: text("groupName").notNull(),
+  companyName: text("companyName").notNull(),
+  holderName: text("holderName").notNull(),
+  holderType: text("holderType", { enum: ["individual", "company"] }).default("individual"),
+  shares: text("shares"),                   // free text (classes vary)
+  shareClass: text("shareClass"),
+  ownershipPct: real("ownershipPct"),       // 0-100; null when unknown
+  note: text("note"),
+});
+
+export const groupProfit = sqliteTable("group_profit", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  groupName: text("groupName").notNull(),
+  companyName: text("companyName").notNull(),
+  fiscalYear: text("fiscalYear").notNull(), // e.g. "2024"
+  ownershipPct: real("ownershipPct"),       // the report's ownership column (group's share)
+  ytdProfit: real("ytdProfit"),             // "Fiscal Yr to date" profit/loss
+  taxLiability: real("taxLiability"),
+});
+
+export const groupFamilyBenefit = sqliteTable("group_family_benefit", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  groupName: text("groupName").notNull(),
+  personName: text("personName").notNull(),
+  baseSalary: real("baseSalary"),           // monthly
+  allocation: text("allocation"),           // which company/companies pay it
+  comment: text("comment"),
+});

@@ -4,6 +4,7 @@ import { Building2, Users, Wallet, ListChecks, ArrowRightLeft, ExternalLink } fr
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/providers/trpc";
+import { GroupControlBook } from "@/components/GroupControlBook";
 
 const money = (n: number) => (n || 0).toLocaleString("en-CA", { style: "currency", currency: "CAD", minimumFractionDigits: 2 });
 
@@ -141,7 +142,10 @@ export default function Groups() {
           </CardContent>
         </Card>
       )}
-      <p className="text-xs text-slate-400">Phase 1: consolidated totals. Next: interco reconciliation + suggested settlement transfers, the family-benefit tracker, and a share link.</p>
+      {/* Control book — recreated owner master sheet (entities, cap table, dividends, ISC) */}
+      {active && <GroupControlBook groupName={active} />}
+
+      <p className="text-xs text-slate-400">Consolidated totals + interco settlement above; the Control Book recreates the owner's master sheet (entities, cap table, dividends by person, family benefit, significant-control register). Next: a read-only client share link.</p>
     </div>
   );
 }

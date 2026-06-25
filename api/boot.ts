@@ -435,6 +435,20 @@ app.get("/api/firm/seed", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Recreate Jon Gillham's control book (force = wipe + re-seed from source figures).
+//   GET /api/group-book/seed?force=1
+app.get("/api/group-book/seed", async (c) => {
+  try {
+    const { ensureGroupBookTables } = await import("./ensure-group-book-schema");
+    await ensureGroupBookTables();
+    const { seedJonControlBook } = await import("./seed-jon-control-book");
+    const force = c.req.query("force") === "1" || c.req.query("force") === "true";
+    const r = await seedJonControlBook({ force });
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // Scaffold the interco tracker — current-month period shell per group payer.
 //   GET /api/interco/scaffold
 app.get("/api/interco/scaffold", async (c) => {
@@ -1411,6 +1425,8 @@ async function startServer() {
     await ensureSmsTable();
     await ensureIntercoTables();
     await ensurePracticeSnapshotsTable();
+    const { ensureGroupBookTables } = await import("./ensure-group-book-schema");
+    await ensureGroupBookTables();
     const { ensureRbacSchema } = await import("./ensure-rbac-schema");
     await ensureRbacSchema();
     const { ensurePersonalSchema } = await import("./ensure-personal-schema");
@@ -1819,6 +1835,15 @@ async function startServer() {
       await seedFirmClient();
     } catch (e) {
       console.error("[firm-client] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Recreate Jon Gillham's control book into the CRM group_* tables (idempotent;
+    // seeds only when empty so manual edits aren't clobbered).
+    try {
+      const { seedJonControlBook } = await import("./seed-jon-control-book");
+      const r = await seedJonControlBook();
+      if (r?.seeded) console.log(`[jon-control-book] seeded ${r.entities} entities`);
+    } catch (e) {
+      console.error("[jon-control-book] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
     // rows, repoint their pay-run lines, fix the "Last, First" split).
