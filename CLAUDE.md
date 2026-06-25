@@ -36,6 +36,14 @@ on the strongest option with a one-line note on why.
    strongest option (or his call if it's taste/business).
 4. **MAINTAIN HIS TASK LIST.** Keep a running list of what needs HIM (approvals,
    creds, decisions) and surface it so he can action it in the morning.
+5. **CHECK CURRENT STATE BEFORE ADVISING (Markie, 2026-06-25 — repeated).** NEVER
+   advise an action or claim something "works/is broken/is missing" from memory or
+   assumption. VERIFY THE LIVE STATE FIRST — hit the relevant debug endpoint
+   (`/api/qbo/debug`, `/api/oauth/google/debug`), query the actual table, confirm
+   what's deployed (`BUILD_TAG`), check the real connection/flag/secret. Telling
+   him to redo work that was already fine (e.g. "your 22 QBO connections are
+   old/broken" when they weren't) wastes his limited time. Work smarter, not
+   harder = look it up, THEN answer. One verified reply beats three guesses.
 
 ## Product north star (what this is FOR — Markie, 2026-06-19)
 The CRM is Markie's **month-end-close cockpit**: at a glance, where each client
