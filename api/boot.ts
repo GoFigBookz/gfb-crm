@@ -358,6 +358,17 @@ app.get("/api/payroll/backfill-auld", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Backfill Originality.AI pay runs (regular + revenue-share) from the Google sheet.
+//   GET /api/payroll/backfill-originality
+app.get("/api/payroll/backfill-originality", async (c) => {
+  try {
+    const { backfillOriginalityPayroll } = await import("./seed-originality-backfill");
+    const r = await backfillOriginalityPayroll();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // Dedup + name-correct the Clark/Sher rosters (merge dupes, fix Last, First).
 //   GET /api/payroll/dedup-employees
 app.get("/api/payroll/dedup-employees", async (c) => {
@@ -1668,6 +1679,14 @@ async function startServer() {
       if (r?.runsAdded) console.log(`[auld-backfill] +${r.runsAdded} runs`);
     } catch (e) {
       console.error("[auld-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Year backfill — Originality.AI regular + revenue-share runs from the Google sheet.
+    try {
+      const { backfillOriginalityPayroll } = await import("./seed-originality-backfill");
+      const r = await backfillOriginalityPayroll();
+      if (r?.runsAdded) console.log(`[og-backfill] +${r.runsAdded} runs`);
+    } catch (e) {
+      console.error("[og-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
     // rows, repoint their pay-run lines, fix the "Last, First" split).
