@@ -380,6 +380,17 @@ app.get("/api/payroll/backfill-2303851", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Backfill Fractal SaaS Inc (Andrew Raines monthly autopay) from the Google sheet.
+//   GET /api/payroll/backfill-fractal
+app.get("/api/payroll/backfill-fractal", async (c) => {
+  try {
+    const { backfillFractalPayroll } = await import("./seed-fractal-backfill");
+    const r = await backfillFractalPayroll();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // Dedup + name-correct the Clark/Sher rosters (merge dupes, fix Last, First).
 //   GET /api/payroll/dedup-employees
 app.get("/api/payroll/dedup-employees", async (c) => {
@@ -1706,6 +1717,14 @@ async function startServer() {
       if (r?.runsAdded) console.log(`[2303851-backfill] +${r.runsAdded} runs`);
     } catch (e) {
       console.error("[2303851-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Year backfill — Fractal SaaS Inc (Andrew Raines monthly autopay $4,500).
+    try {
+      const { backfillFractalPayroll } = await import("./seed-fractal-backfill");
+      const r = await backfillFractalPayroll();
+      if (r?.runsAdded) console.log(`[fractal-backfill] +${r.runsAdded} runs`);
+    } catch (e) {
+      console.error("[fractal-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
     // rows, repoint their pay-run lines, fix the "Last, First" split).
