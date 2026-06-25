@@ -24829,13 +24829,13 @@ var init_base64 = __esm({
       if (!b64re.test(asc2))
         throw new TypeError("malformed base64.");
       asc2 += "==".slice(2 - (asc2.length & 3));
-      let u24, r1, r22;
+      let u24, r1, r23;
       let binArray = [];
       for (let i = 0; i < asc2.length; ) {
-        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r22 = b64tab[asc2.charAt(i++)]);
+        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r23 = b64tab[asc2.charAt(i++)]);
         if (r1 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255));
-        } else if (r22 === 64) {
+        } else if (r23 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255));
         } else {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255, u24 & 255));
@@ -36821,7 +36821,7 @@ var require_bcrypt = __commonJS({
           } else
             throw err;
         }
-        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r22 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r22, real_salt = salt.substring(offset + 3, offset + 25);
+        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r23 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r23, real_salt = salt.substring(offset + 3, offset + 25);
         s += minor >= "a" ? "\0" : "";
         var passwordb = stringToBytes(s), saltb = base64_decode(real_salt, BCRYPT_SALT_LEN);
         function finish(bytes) {
@@ -39900,10 +39900,10 @@ var init_qbo_router = __esm({
       // --- Sync All ---
       syncAll: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => {
         const r1 = await doSyncCustomers(input.connectionId);
-        const r22 = await doSyncInvoices(input.connectionId);
+        const r23 = await doSyncInvoices(input.connectionId);
         const r3 = await doSyncPayments(input.connectionId);
         const r4 = await doSyncAccounts(input.connectionId);
-        return { success: true, customers: r1, invoices: r22, payments: r3, accounts: r4 };
+        return { success: true, customers: r1, invoices: r23, payments: r3, accounts: r4 };
       }),
       // --- Data Retrieval ---
       getCustomers: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
@@ -59922,6 +59922,61 @@ var init_seed_motioninvest_revshare = __esm({
   }
 });
 
+// api/seed-company-groups.ts
+var seed_company_groups_exports = {};
+__export(seed_company_groups_exports, {
+  seedCompanyGroups: () => seedCompanyGroups
+});
+async function seedCompanyGroups() {
+  const db = getDb();
+  try {
+    const cs = await db.select().from(clients);
+    let tagged = 0;
+    const groups = {};
+    for (const g of GROUPS) {
+      groups[g.group] = [];
+      for (const c of cs) {
+        const name2 = c.name || "";
+        if (!g.match.some((re) => re.test(name2))) continue;
+        groups[g.group].push(name2);
+        if ((c.groupName || "").trim() === g.group) continue;
+        if (c.groupName && c.groupName.trim() && c.groupName.trim() !== g.group) continue;
+        await db.update(clients).set({ groupName: g.group, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+        tagged++;
+      }
+    }
+    if (tagged) console.log(`[company-groups] tagged ${tagged} client(s)`);
+    return { tagged, groups };
+  } catch (err) {
+    console.error("[company-groups] failed:", err instanceof Error ? err.message : err);
+  }
+}
+var GROUPS;
+var init_seed_company_groups = __esm({
+  "api/seed-company-groups.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    GROUPS = [
+      {
+        group: "John Gillham",
+        match: [
+          /2303851/i,
+          /\badbank\b/i,
+          /fractal\s*saas/i,
+          /motion\s*invest/i,
+          /seahorse/i,
+          /originality/i,
+          /clark.*colling/i,
+          /clark.*(owen|sound)/i,
+          /marketing\s*strategy\s*ventures/i,
+          /listing\s*eagle/i
+        ]
+      }
+    ];
+  }
+});
+
 // api/seed-employee-dedup.ts
 var seed_employee_dedup_exports = {};
 __export(seed_employee_dedup_exports, {
@@ -63966,8 +64021,8 @@ async function seedDockKingFlowthrough() {
       report.updated++;
     }
     const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, c.id)).returning();
-    const r22 = await db.delete(tasks).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
-    report.tasksPaused += (r1?.length || 0) + (r22?.length || 0);
+    const r23 = await db.delete(tasks).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
+    report.tasksPaused += (r1?.length || 0) + (r23?.length || 0);
   }
   return report;
 }
@@ -78227,6 +78282,82 @@ var intercoRouter = createRouter({
   })
 });
 
+// api/group-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_schema();
+var r22 = (n) => Math.round(n * 100) / 100;
+var yearOf = (d10) => d10 ? new Date(d10).getFullYear() : null;
+var groupRouter = createRouter({
+  // Distinct group names with a company count (for the group picker).
+  list: staffQuery.query(async () => {
+    const db = getDb();
+    const cs = await db.select().from(clients);
+    const byGroup = /* @__PURE__ */ new Map();
+    for (const c of cs) {
+      const g = (c.groupName || "").trim();
+      if (!g) continue;
+      byGroup.set(g, (byGroup.get(g) || 0) + 1);
+    }
+    return Array.from(byGroup.entries()).map(([name2, count5]) => ({ name: name2, count: count5 })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }),
+  // Consolidated rollup for one group.
+  rollup: staffQuery.input(external_exports.object({ groupName: external_exports.string(), year: external_exports.number().optional() })).query(async ({ input }) => {
+    const db = getDb();
+    const year2 = input.year ?? (/* @__PURE__ */ new Date()).getFullYear();
+    const g = input.groupName.trim().toLowerCase();
+    const cs = (await db.select().from(clients)).filter(
+      (c) => (c.groupName || "").trim().toLowerCase() === g
+    );
+    const ids = new Set(cs.map((c) => c.id));
+    if (!cs.length) return { groupName: input.groupName, year: year2, companies: [], totals: null };
+    const [emps, runs, allTasks, interco] = await Promise.all([
+      db.select().from(employees),
+      db.select().from(payRuns),
+      db.select().from(tasks),
+      db.select().from(intercoEntries)
+    ]);
+    const companies = cs.map((c) => {
+      const empList = emps.filter((e) => e.clientId === c.id && e.isActive !== false);
+      const ytdRuns = runs.filter((p) => p.clientId === c.id && yearOf(p.payDate ?? p.payPeriodEnd) === year2);
+      const ytdPayroll = r22(ytdRuns.reduce((s, p) => s + (Number(p.totalGross) || 0), 0));
+      const openTasks = allTasks.filter((t2) => t2.clientId === c.id && !t2.completed && t2.status !== "completed").length;
+      let intercoNet = 0;
+      for (const e of interco) {
+        if (e.payerClientId === c.id && ids.has(e.counterpartyClientId)) intercoNet += Number(e.amount) || 0;
+        if (e.counterpartyClientId === c.id && ids.has(e.payerClientId)) intercoNet -= Number(e.amount) || 0;
+      }
+      return {
+        id: c.id,
+        name: c.name,
+        status: c.status,
+        clientType: c.clientType,
+        yearEndMonth: c.yearEndMonth ?? null,
+        hasHST: !!c.hasHST,
+        hasPayroll: !!c.hasPayroll,
+        employees: empList.length,
+        payRuns: ytdRuns.length,
+        ytdPayroll,
+        openTasks,
+        intercoNet: r22(intercoNet)
+      };
+    }).sort((a, b) => b.ytdPayroll - a.ytdPayroll || a.name.localeCompare(b.name));
+    const totals = {
+      companies: companies.length,
+      employees: companies.reduce((s, c) => s + c.employees, 0),
+      ytdPayroll: r22(companies.reduce((s, c) => s + c.ytdPayroll, 0)),
+      openTasks: companies.reduce((s, c) => s + c.openTasks, 0),
+      payRuns: companies.reduce((s, c) => s + c.payRuns, 0),
+      // Net interco across the group should net to ~0 when fully matched; the
+      // absolute sum of positives flags how much is still moving between entities.
+      intercoOutstanding: r22(companies.filter((c) => c.intercoNet > 0).reduce((s, c) => s + c.intercoNet, 0)),
+      intercoNetCheck: r22(companies.reduce((s, c) => s + c.intercoNet, 0))
+    };
+    return { groupName: input.groupName, year: year2, companies, totals };
+  })
+});
+
 // api/router.ts
 init_dashboard_router();
 
@@ -80595,6 +80726,7 @@ var appRouter = createRouter({
   bulkImport: bulkImportRouter,
   restore: restoreRouter,
   interco: intercoRouter,
+  group: groupRouter,
   dashboard: dashboardRouter,
   calculator: calculatorRouter,
   bankConverter: bankConverterRouter,
@@ -81222,6 +81354,15 @@ app.get("/api/payroll/motioninvest-revshare", async (c) => {
   try {
     const { backfillMotionInvestRevShare: backfillMotionInvestRevShare2 } = await Promise.resolve().then(() => (init_seed_motioninvest_revshare(), seed_motioninvest_revshare_exports));
     const r = await backfillMotionInvestRevShare2();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.get("/api/groups/seed", async (c) => {
+  try {
+    const { seedCompanyGroups: seedCompanyGroups2 } = await Promise.resolve().then(() => (init_seed_company_groups(), seed_company_groups_exports));
+    const r = await seedCompanyGroups2();
     return c.json({ ok: true, ...r });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
@@ -82543,6 +82684,13 @@ async function startServer() {
       if (r?.runsAdded) console.log(`[mi-revshare] +${r.runsAdded} runs`);
     } catch (e) {
       console.error("[mi-revshare] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { seedCompanyGroups: seedCompanyGroups2 } = await Promise.resolve().then(() => (init_seed_company_groups(), seed_company_groups_exports));
+      const r = await seedCompanyGroups2();
+      if (r?.tagged) console.log(`[company-groups] tagged ${r.tagged}`);
+    } catch (e) {
+      console.error("[company-groups] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { dedupEmployees: dedupEmployees2 } = await Promise.resolve().then(() => (init_seed_employee_dedup(), seed_employee_dedup_exports));
