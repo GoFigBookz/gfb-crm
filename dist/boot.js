@@ -60167,6 +60167,162 @@ var init_seed_firm_client = __esm({
   }
 });
 
+// api/ensure-life-schema.ts
+var ensure_life_schema_exports = {};
+__export(ensure_life_schema_exports, {
+  ensureLifeSchema: () => ensureLifeSchema
+});
+async function ensureLifeSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS life_entries (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      section text NOT NULL,
+      type text,
+      title text NOT NULL,
+      subtitle text,
+      amount real,
+      currency text DEFAULT 'CAD',
+      date integer,
+      status text,
+      notes text,
+      meta text,
+      pinned integer DEFAULT 0,
+      archived integer DEFAULT 0,
+      sortOrder integer DEFAULT 0,
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[life] ensure life_entries table failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_life_schema = __esm({
+  "api/ensure-life-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/seed-phoenix-personal.ts
+var seed_phoenix_personal_exports = {};
+__export(seed_phoenix_personal_exports, {
+  seedPhoenixPersonal: () => seedPhoenixPersonal
+});
+async function seedPhoenixPersonal() {
+  const db = getDb();
+  try {
+    const us = await db.select().from(users);
+    if (!us.length) return { seeded: false };
+    const owner = us.find((u) => /markie@gofig\.ca|markie\.antle@gmail/i.test(u.email || "")) || us.filter((u) => u.role === "admin").sort((a, b) => a.id - b.id)[0] || us[0];
+    const existing = await db.select().from(lifeEntries).where(eq(lifeEntries.userId, owner.id));
+    if (existing.some((e) => safeMeta2(e.meta).seed === SENTINEL)) return { seeded: false };
+    const meta3 = JSON.stringify({ seed: SENTINEL });
+    for (const e of ENTRIES) {
+      await db.insert(lifeEntries).values({
+        userId: owner.id,
+        section: e.section,
+        type: e.type,
+        title: e.title,
+        subtitle: e.subtitle ?? null,
+        date: e.date ? /* @__PURE__ */ new Date(e.date + "T12:00:00") : null,
+        notes: e.notes ?? null,
+        meta: meta3,
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      });
+    }
+    console.log(`[phoenix-personal] seeded ${ENTRIES.length} entries for ${owner.email}`);
+    return { seeded: true, count: ENTRIES.length };
+  } catch (err) {
+    console.error("[phoenix-personal] failed:", err instanceof Error ? err.message : err);
+  }
+}
+var SENTINEL, drive, safeMeta2, ENTRIES;
+var init_seed_phoenix_personal = __esm({
+  "api/seed-phoenix-personal.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    SENTINEL = "phoenix-personal";
+    drive = (id) => `https://drive.google.com/file/d/${id}/view`;
+    safeMeta2 = (s) => {
+      try {
+        return s ? JSON.parse(s) : {};
+      } catch {
+        return {};
+      }
+    };
+    ENTRIES = [
+      // ---- Health ----
+      {
+        section: "health",
+        type: "provider",
+        title: "Dr. Elliot Lass \u2014 Primary Care",
+        subtitle: "Wilson Medical Group",
+        notes: "303\u2013343 Wilson Avenue, North York, ON M3H1T1"
+      },
+      { section: "health", type: "condition", title: "Type 2 Diabetes (well-managed \u2014 HbA1c in non-diabetic range)" },
+      { section: "health", type: "condition", title: "Inflammation, neuropathy, joint pain, high blood pressure (monitoring), chronic fatigue, limited mobility" },
+      {
+        section: "health",
+        type: "metric",
+        title: "HbA1c 5.5% \u2014 NORMAL",
+        date: "2026-05-14",
+        subtitle: "3-month blood sugar avg",
+        notes: "Non-diabetic range (<6.0%). Dynacare order #6659346251, Dr. Lass."
+      },
+      {
+        section: "health",
+        type: "metric",
+        title: "Triglycerides 2.12 mmol/L \u2014 HIGH",
+        date: "2026-05-14",
+        subtitle: "Only abnormal lab (target <1.70)",
+        notes: "Plan: more omega-3 (salmon 3\xD7/wk, walnuts), less refined carbs/sugar, more fiber, 8+ glasses water."
+      },
+      {
+        section: "health",
+        type: "medication",
+        title: "Daily supplements",
+        notes: "AM: Omega-3 1000\u20132000mg, Vitamin D3 2000\u20134000 IU, probiotic. With meals: turmeric curcumin. PM: magnesium glycinate. Berberine \u2014 PENDING Dr. Lass approval (interacts with diabetes meds)."
+      },
+      {
+        section: "health",
+        type: "document",
+        title: "Blood work \u2014 May 14 2026 (PDF)",
+        notes: drive("1qPzLcWydWSq6bfBELBp6dgG-nnmcHvlg")
+      },
+      {
+        section: "health",
+        type: "document",
+        title: "Sage Health Master Record",
+        notes: "https://docs.google.com/document/d/1WAGnTFE-Lk8-G9nN0v1qtvBsg6W7_njeRNAfiHb1SY4/edit"
+      },
+      // ---- Milestones (health goals as how he wants to be doing & feeling) ----
+      { section: "milestones", type: "feeling", title: "More energy" },
+      { section: "milestones", type: "feeling", title: "Better sleep" },
+      { section: "milestones", type: "feeling", title: "Mental clarity \u2014 less brain fog" },
+      { section: "milestones", type: "doing", title: "Improve mobility" },
+      { section: "milestones", type: "doing", title: "Lose weight at a safe 1\u20132 lbs/week" },
+      // ---- Finance ----
+      {
+        section: "finance",
+        type: "note",
+        title: "Freedom Mobile settlement offer",
+        notes: drive("1gGrJ-CZvkxB5S_7dE4HGdvSfjAF8JnXc9_dGB6lO1pw")
+      },
+      // ---- Travel ----
+      {
+        section: "travel",
+        type: "document",
+        title: "Karma Campervans booking \u2014 Toronto (#U-YYZ-8573)",
+        notes: drive("1G_6C6sUHWr5I67nONKd8lSVsp8sQiHrp")
+      }
+    ];
+  }
+});
+
 // api/ensure-group-book-schema.ts
 var ensure_group_book_schema_exports = {};
 __export(ensure_group_book_schema_exports, {
@@ -63632,44 +63788,6 @@ async function ensurePersonalSchema() {
 }
 var init_ensure_personal_schema = __esm({
   "api/ensure-personal-schema.ts"() {
-    init_connection();
-    init_drizzle_orm();
-  }
-});
-
-// api/ensure-life-schema.ts
-var ensure_life_schema_exports = {};
-__export(ensure_life_schema_exports, {
-  ensureLifeSchema: () => ensureLifeSchema
-});
-async function ensureLifeSchema() {
-  const db = getDb();
-  try {
-    await db.run(sql`CREATE TABLE IF NOT EXISTS life_entries (
-      id integer PRIMARY KEY AUTOINCREMENT,
-      userId integer NOT NULL,
-      section text NOT NULL,
-      type text,
-      title text NOT NULL,
-      subtitle text,
-      amount real,
-      currency text DEFAULT 'CAD',
-      date integer,
-      status text,
-      notes text,
-      meta text,
-      pinned integer DEFAULT 0,
-      archived integer DEFAULT 0,
-      sortOrder integer DEFAULT 0,
-      createdAt integer,
-      updatedAt integer
-    )`);
-  } catch (e) {
-    console.error("[life] ensure life_entries table failed:", e instanceof Error ? e.message : e);
-  }
-}
-var init_ensure_life_schema = __esm({
-  "api/ensure-life-schema.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -82651,6 +82769,17 @@ app.get("/api/firm/seed", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+app.get("/api/phoenix/seed", async (c) => {
+  try {
+    const { ensureLifeSchema: ensureLifeSchema2 } = await Promise.resolve().then(() => (init_ensure_life_schema(), ensure_life_schema_exports));
+    await ensureLifeSchema2();
+    const { seedPhoenixPersonal: seedPhoenixPersonal2 } = await Promise.resolve().then(() => (init_seed_phoenix_personal(), seed_phoenix_personal_exports));
+    const r = await seedPhoenixPersonal2();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 app.get("/api/group-book/seed", async (c) => {
   try {
     const { ensureGroupBookTables: ensureGroupBookTables2 } = await Promise.resolve().then(() => (init_ensure_group_book_schema(), ensure_group_book_schema_exports));
@@ -84027,6 +84156,13 @@ async function startServer() {
       await prepareDemoDb2();
     } catch (e) {
       console.error("[demo-db] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { seedPhoenixPersonal: seedPhoenixPersonal2 } = await Promise.resolve().then(() => (init_seed_phoenix_personal(), seed_phoenix_personal_exports));
+      const r = await seedPhoenixPersonal2();
+      if (r?.seeded) console.log(`[phoenix-personal] seeded ${r.count} entries`);
+    } catch (e) {
+      console.error("[phoenix-personal] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { dedupEmployees: dedupEmployees2 } = await Promise.resolve().then(() => (init_seed_employee_dedup(), seed_employee_dedup_exports));
