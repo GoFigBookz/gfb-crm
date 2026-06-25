@@ -353,7 +353,22 @@ export default function ClientDashboard() {
         const c: any = client;
         return (
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Briefcase className="h-4 w-4 text-lime-600" /> Bookkeeping Workflow</CardTitle></CardHeader>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2"><Briefcase className="h-4 w-4 text-lime-600" /> Bookkeeping Workflow</CardTitle>
+                <Button size="sm" variant="outline" className="text-lime-700 border-lime-300"
+                  onClick={async () => {
+                    try {
+                      const r = await fetch("/api/figs-browser/brain/start-routine", { method: "POST", headers: { "content-type": "application/json" }, credentials: "include", body: JSON.stringify({ clientId: id }) });
+                      const j = await r.json().catch(() => ({}));
+                      if (j?.ok) navigate("/figs-at-work");
+                      else alert(j?.error === "forbidden" ? "Admin only." : `Couldn't start Figs: ${j?.error || "the browser agent may be off (FIGGY_BROWSER_AGENT)."}`);
+                    } catch { alert("Couldn't reach Figs."); }
+                  }}>
+                  ▶ Run morning routine
+                </Button>
+              </div>
+            </CardHeader>
             <CardContent className="pt-0">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
                 <div>
