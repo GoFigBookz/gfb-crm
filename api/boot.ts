@@ -830,7 +830,7 @@ app.post("/api/figgy-jr-sync", async (c) => {
       const docType = String(row[5] || "").trim();
       const title = vendor && docType ? (vendor + " \u2014 " + docType) : (vendor || docType || ("Review " + rowId));
       await db.insert(triageFindings).values({
-        agentName: "Figgy Jr",
+        agentName: "Figs",
         clientId,
         findingType: "review",
         severity: "warning",
@@ -869,7 +869,7 @@ app.post("/api/figgy-jr-finding", async (c) => {
     const sevRaw = String(b.severity || "warning");
     const severity = (sevRaw === "critical" || sevRaw === "info" || sevRaw === "warning") ? sevRaw : "warning";
     const [finding] = await db.insert(triageFindings).values({
-      agentName: "Figgy Jr",
+      agentName: "Figs",
       clientId,
       findingType: "review",
       severity: severity as "critical" | "warning" | "info",

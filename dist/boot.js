@@ -45826,7 +45826,7 @@ Use decimals for rates (13% = 0.13). Use 0 only if you genuinely cannot verify a
         const dup = await db.select().from(triageFindings).where(eq(triageFindings.sourceData, rowId)).limit(1);
         if (!dup[0]) {
           await db.insert(triageFindings).values({
-            agentName: "Figgy Jr",
+            agentName: "Figs",
             findingType: "review",
             severity: "info",
             title: `Tax rates auto-updated for ${yr} (${changed.length} change${changed.length > 1 ? "s" : ""})`,
@@ -64141,13 +64141,13 @@ var init_seed_ai_agents = __esm({
     LEARNING_NOTE = " You are a LEARNING agent: improve per client from their history and from Markie's corrections \u2014 remember confirmed codings, tone, and decisions; never repeat a mistake you've been corrected on.";
     AGENTS = [
       {
-        name: "Fig",
+        name: "Figs",
         agentType: "bookkeeper",
-        description: "Junior bookkeeper \u2014 the day-to-day engine. Categorizes & posts transactions from each client's vendor history, reconciles, captures receipts, and preps the first pass of HST/payroll. Keeps the books clean and current \u2014 nothing posts without review.",
+        description: "The bookkeeper \u2014 the day-to-day engine. Categorizes & posts transactions from each client's vendor history, reconciles, captures receipts, and preps the first pass of HST/payroll. Keeps the books clean and current \u2014 nothing posts without review.",
         model: "claude-haiku-4-5",
         capabilities: { readEmails: true, sendEmails: false, manageCalendar: false, createTasks: true, manageInvoices: false, fileAccess: true, clientCommunication: false },
-        aliases: ["Bookkeeper (Figgy Jr)", "Figgy Jr", "Bookkeeper"],
-        systemPrompt: "You are Fig, the junior bookkeeper for Go Fig Bookz. Record and reconcile each client's transactions accurately. Code from the client's vendor history and the LOCKED chart of accounts \u2014 never invent or guess an account. Flag anything uncertain for review; nothing posts to QuickBooks without approval. Be precise, consistent, and conservative." + LEARNING_NOTE
+        aliases: ["Fig", "Bookkeeper (Figgy Jr)", "Figgy Jr", "Bookkeeper"],
+        systemPrompt: "You are Figs, the bookkeeper for Go Fig Bookz. Record and reconcile each client's transactions accurately. Code from the client's vendor history and the LOCKED chart of accounts \u2014 never invent or guess an account. Flag anything uncertain for review; nothing posts to QuickBooks without approval. Be precise, consistent, and conservative." + LEARNING_NOTE
       },
       {
         name: "Sage",
@@ -79944,14 +79944,14 @@ var ASSISTANT_SYSTEM = [
 ].join("\n");
 var AGENT_ROSTER = {
   fig: {
-    name: "Fig",
-    role: "junior bookkeeper",
-    persona: "You are Fig, the junior bookkeeper \u2014 day-to-day books: coding transactions from vendor history, reconciling, receipts, first-pass HST/payroll. Practical and precise. You never post without review."
+    name: "Figs",
+    role: "bookkeeper",
+    persona: "You are Figs, Markie's bookkeeper \u2014 day-to-day books: coding transactions from vendor history, reconciling, receipts, first-pass HST/payroll. Practical and precise. You never post without review. (You are simply 'Figs' \u2014 never 'Figgy Jr'; Figgy is the app, you are the AI.)"
   },
   sage: {
     name: "Sage",
     role: "senior bookkeeper",
-    persona: "You are Sage, the senior bookkeeper \u2014 you review Fig's work and own compliance prep (HST returns, WSIB/EHT, payroll). Calm, thorough, catch-the-slip mindset."
+    persona: "You are Sage, the senior bookkeeper \u2014 you review Figs' work and own compliance prep (HST returns, WSIB/EHT, payroll). Calm, thorough, catch-the-slip mindset."
   },
   wren: {
     name: "Wren",
@@ -79997,8 +79997,11 @@ var TOPIC_RULES = [
 function detectAgent(message2, current) {
   const m = (message2 || "").toLowerCase().trimStart();
   for (const key10 of Object.keys(AGENT_ROSTER)) {
-    const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${key10}\\b`);
-    if (re.test(m)) return key10;
+    const names = Array.from(/* @__PURE__ */ new Set([key10, AGENT_ROSTER[key10].name.toLowerCase()]));
+    for (const n of names) {
+      const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${n}\\b`);
+      if (re.test(m)) return key10;
+    }
   }
   for (const rule of TOPIC_RULES) {
     if (rule.re.test(m)) return rule.agent;
@@ -80147,7 +80150,7 @@ var ASSISTANT_TOOLS = [
     input_schema: {
       type: "object",
       properties: {
-        section: { type: "string", enum: ["finance", "travel", "health", "growth"], description: "Which life section." },
+        section: { type: "string", enum: ["finance", "social", "milestones", "travel", "health", "growth"], description: "Which Phoenix Rising section." },
         title: { type: "string", description: 'The item, e.g. "Passport" or "RBC chequing".' },
         type: { type: "string", description: "Optional sub-type, e.g. asset, liability, trip, document, appointment, metric, goal, habit, journal." },
         amount: { type: "number", description: "Finance only \u2014 dollar value; NEGATIVE for something owed (a liability)." },
@@ -80263,7 +80266,7 @@ async function execAddPersonal(input, userId) {
 }
 async function execAddLifeItem(input, userId) {
   const db = getDb();
-  const sections = ["finance", "travel", "health", "growth"];
+  const sections = ["finance", "social", "milestones", "travel", "health", "growth"];
   const section = sections.includes(input?.section) ? input.section : null;
   const title = String(input?.title ?? "").trim();
   if (!section || !title) return "I need a section (finance/travel/health/growth) and a title to add that to your life hub.";
@@ -80752,6 +80755,20 @@ var LIFE_SECTIONS = [
     blurb: "Accounts, assets, net worth",
     money: true,
     types: ["asset", "liability", "account", "income", "expense", "note"]
+  },
+  {
+    key: "social",
+    title: "Social",
+    blurb: "Your social calendar \u2014 plans & people",
+    money: false,
+    types: ["event", "gathering", "date night", "birthday", "trip", "reminder"]
+  },
+  {
+    key: "milestones",
+    title: "Milestones",
+    blurb: "Where you want to be \u2014 doing & feeling",
+    money: false,
+    types: ["doing", "feeling", "aspiration", "milestone", "wish"]
   },
   {
     key: "travel",
@@ -82898,7 +82915,7 @@ app.post("/api/figgy-jr-sync", async (c) => {
       const docType = String(row[5] || "").trim();
       const title = vendor && docType ? vendor + " \u2014 " + docType : vendor || docType || "Review " + rowId;
       await db.insert(triageFindings).values({
-        agentName: "Figgy Jr",
+        agentName: "Figs",
         clientId,
         findingType: "review",
         severity: "warning",
@@ -82936,7 +82953,7 @@ app.post("/api/figgy-jr-finding", async (c) => {
     const sevRaw = String(b.severity || "warning");
     const severity = sevRaw === "critical" || sevRaw === "info" || sevRaw === "warning" ? sevRaw : "warning";
     const [finding] = await db.insert(triageFindings).values({
-      agentName: "Figgy Jr",
+      agentName: "Figs",
       clientId,
       findingType: "review",
       severity,

@@ -129,7 +129,7 @@ export async function fetchAndApplyTaxRates(opts?: { force?: boolean }): Promise
         const dup = await db.select().from(triageFindings).where(eq(triageFindings.sourceData, rowId)).limit(1);
         if (!dup[0]) {
           await db.insert(triageFindings).values({
-            agentName: "Figgy Jr", findingType: "review", severity: "info",
+            agentName: "Figs", findingType: "review", severity: "info",
             title: `Tax rates auto-updated for ${yr} (${changed.length} change${changed.length > 1 ? "s" : ""})`,
             description: `Auto-fetched current rates and applied them to the calculators:\n` + changed.join("\n") +
               `\n\nSource: ${src}. Glance to confirm; edit /calculators or the tax_rates table if any look wrong.`,

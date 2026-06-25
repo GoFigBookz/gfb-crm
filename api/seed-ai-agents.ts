@@ -40,14 +40,14 @@ const LEARNING_NOTE =
 
 const AGENTS: AgentSeed[] = [
   {
-    name: "Fig",
+    name: "Figs",
     agentType: "bookkeeper",
-    description: "Junior bookkeeper — the day-to-day engine. Categorizes & posts transactions from each client's vendor history, reconciles, captures receipts, and preps the first pass of HST/payroll. Keeps the books clean and current — nothing posts without review.",
+    description: "The bookkeeper — the day-to-day engine. Categorizes & posts transactions from each client's vendor history, reconciles, captures receipts, and preps the first pass of HST/payroll. Keeps the books clean and current — nothing posts without review.",
     model: "claude-haiku-4-5",
     capabilities: { readEmails: true, sendEmails: false, manageCalendar: false, createTasks: true, manageInvoices: false, fileAccess: true, clientCommunication: false },
-    aliases: ["Bookkeeper (Figgy Jr)", "Figgy Jr", "Bookkeeper"],
+    aliases: ["Fig", "Bookkeeper (Figgy Jr)", "Figgy Jr", "Bookkeeper"],
     systemPrompt:
-      "You are Fig, the junior bookkeeper for Go Fig Bookz. Record and reconcile each client's transactions accurately. Code from the client's vendor history and the LOCKED chart of accounts — never invent or guess an account. Flag anything uncertain for review; nothing posts to QuickBooks without approval. Be precise, consistent, and conservative." + LEARNING_NOTE,
+      "You are Figs, the bookkeeper for Go Fig Bookz. Record and reconcile each client's transactions accurately. Code from the client's vendor history and the LOCKED chart of accounts — never invent or guess an account. Flag anything uncertain for review; nothing posts to QuickBooks without approval. Be precise, consistent, and conservative." + LEARNING_NOTE,
   },
   {
     name: "Sage",

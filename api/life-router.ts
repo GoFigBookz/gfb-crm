@@ -17,6 +17,10 @@ import { eq, and, desc } from "drizzle-orm";
 export const LIFE_SECTIONS = [
   { key: "finance", title: "Finance", blurb: "Accounts, assets, net worth", money: true,
     types: ["asset", "liability", "account", "income", "expense", "note"] },
+  { key: "social", title: "Social", blurb: "Your social calendar — plans & people", money: false,
+    types: ["event", "gathering", "date night", "birthday", "trip", "reminder"] },
+  { key: "milestones", title: "Milestones", blurb: "Where you want to be — doing & feeling", money: false,
+    types: ["doing", "feeling", "aspiration", "milestone", "wish"] },
   { key: "travel", title: "Travel", blurb: "Trips, itineraries, documents", money: false,
     types: ["trip", "flight", "stay", "document", "note"] },
   { key: "health", title: "Health", blurb: "Appointments, metrics, meds", money: false,
