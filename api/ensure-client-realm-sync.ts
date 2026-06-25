@@ -112,6 +112,18 @@ export async function ensureClientRealmSync(): Promise<{
       if ((res as any)?.rowsAffected) linked += 1;
     }
 
+    // 2b) Default the bookkeeping workflow for CONNECTED clients (Markie: a client
+    // on QBO = its bank/CC transactions come through the QBO bank feed). Only sets
+    // it where it's NOT already chosen, so a manual override is never overwritten.
+    try {
+      if (await columnExists(db, "clients", "bankSource")) {
+        await db.run(sql.raw(
+          `UPDATE clients SET bankSource = 'bank_feed'
+             WHERE qboRealmId IS NOT NULL AND qboRealmId <> '' AND (bankSource IS NULL OR bankSource = '')`,
+        ));
+      }
+    } catch (e) { console.error("[realm-sync] bankSource default failed (non-fatal):", e instanceof Error ? e.message : e); }
+
     // 3) Count active clients still without a realm (so the UI can flag them).
     const unmappedRows = (await db.all(
       sql.raw(

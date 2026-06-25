@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-25.123";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-25.124";  // bump each deploy so prod vs source is unambiguous
 
 // CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
 // secret into a hosting dashboard very often drags a trailing space or newline,
@@ -1587,6 +1587,29 @@ app.post("/api/figs-browser/brain/start", async (c) => {
     await startBrain(String(goal));
     advanceBrain().catch((e) => console.error("[figs-brain] advance failed:", e instanceof Error ? e.message : e));
     return c.json({ ok: true });
+  } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.post("/api/figs-browser/brain/start-routine", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { clientId } = await c.req.json();
+    const db = getDb();
+    const rows = (await db.all(sql.raw(`SELECT name, company, qboRealmId, usesHubdoc, bankSource, workflowNotes FROM clients WHERE id = ${Number(clientId)} LIMIT 1`))) as any[];
+    const cl = rows[0];
+    if (!cl) return c.json({ ok: false, error: "client not found" }, 200);
+    const name = cl.company || cl.name;
+    const parts: string[] = [`Do the morning bookkeeping routine for ${name}.`];
+    if (cl.usesHubdoc) parts.push("Start in Hubdoc: process the receipts and publish the ones you're confident on; flag anything unsure to Ask Markie.");
+    parts.push("Then go into QuickBooks and match the posted transactions in the bank feed.");
+    if (cl.bankSource === "manual") parts.push("This client sends MANUAL statements (no live bank feed) — key in the bank/credit-card transactions from the statement.");
+    else parts.push("Post any prior-month bank and credit-card feed transactions needed to close the month, then reconcile each account and attach the statement to the reconciliation report.");
+    if (cl.workflowNotes) parts.push(`Client notes: ${cl.workflowNotes}`);
+    parts.push("Ask my approval before anything that publishes, posts, or reconciles.");
+    const goal = parts.join(" ");
+    const { startBrain, advanceBrain } = await import("./browser-brain");
+    await startBrain(goal);
+    advanceBrain().catch((e) => console.error("[figs-brain] routine advance failed:", e instanceof Error ? e.message : e));
+    return c.json({ ok: true, goal });
   } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
 });
 app.post("/api/figs-browser/brain/continue", async (c) => {

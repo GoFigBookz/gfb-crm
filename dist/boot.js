@@ -38994,6 +38994,16 @@ async function ensureClientRealmSync() {
       );
       if (res?.rowsAffected) linked += 1;
     }
+    try {
+      if (await columnExists(db, "clients", "bankSource")) {
+        await db.run(sql.raw(
+          `UPDATE clients SET bankSource = 'bank_feed'
+             WHERE qboRealmId IS NOT NULL AND qboRealmId <> '' AND (bankSource IS NULL OR bankSource = '')`
+        ));
+      }
+    } catch (e) {
+      console.error("[realm-sync] bankSource default failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
     const unmappedRows = await db.all(
       sql.raw(
         `SELECT COUNT(*) AS n FROM clients
@@ -84778,7 +84788,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.123";
+var BUILD_TAG = "2026-06-25.124";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -86295,6 +86305,31 @@ app.post("/api/figs-browser/brain/start", async (c) => {
     await startBrain2(String(goal));
     advanceBrain2().catch((e) => console.error("[figs-brain] advance failed:", e instanceof Error ? e.message : e));
     return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.post("/api/figs-browser/brain/start-routine", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { clientId } = await c.req.json();
+    const db = getDb();
+    const rows = await db.all(sql.raw(`SELECT name, company, qboRealmId, usesHubdoc, bankSource, workflowNotes FROM clients WHERE id = ${Number(clientId)} LIMIT 1`));
+    const cl = rows[0];
+    if (!cl) return c.json({ ok: false, error: "client not found" }, 200);
+    const name2 = cl.company || cl.name;
+    const parts = [`Do the morning bookkeeping routine for ${name2}.`];
+    if (cl.usesHubdoc) parts.push("Start in Hubdoc: process the receipts and publish the ones you're confident on; flag anything unsure to Ask Markie.");
+    parts.push("Then go into QuickBooks and match the posted transactions in the bank feed.");
+    if (cl.bankSource === "manual") parts.push("This client sends MANUAL statements (no live bank feed) \u2014 key in the bank/credit-card transactions from the statement.");
+    else parts.push("Post any prior-month bank and credit-card feed transactions needed to close the month, then reconcile each account and attach the statement to the reconciliation report.");
+    if (cl.workflowNotes) parts.push(`Client notes: ${cl.workflowNotes}`);
+    parts.push("Ask my approval before anything that publishes, posts, or reconciles.");
+    const goal = parts.join(" ");
+    const { startBrain: startBrain2, advanceBrain: advanceBrain2 } = await Promise.resolve().then(() => (init_browser_brain(), browser_brain_exports));
+    await startBrain2(goal);
+    advanceBrain2().catch((e) => console.error("[figs-brain] routine advance failed:", e instanceof Error ? e.message : e));
+    return c.json({ ok: true, goal });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
