@@ -435,6 +435,19 @@ app.get("/api/firm/seed", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Pull Markie's personal records into his private Phoenix hub.
+//   GET /api/phoenix/seed
+app.get("/api/phoenix/seed", async (c) => {
+  try {
+    const { ensureLifeSchema } = await import("./ensure-life-schema");
+    await ensureLifeSchema();
+    const { seedPhoenixPersonal } = await import("./seed-phoenix-personal");
+    const r = await seedPhoenixPersonal();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // Recreate Jon Gillham's control book (force = wipe + re-seed from source figures).
 //   GET /api/group-book/seed?force=1
 app.get("/api/group-book/seed", async (c) => {
@@ -1856,6 +1869,14 @@ async function startServer() {
       await prepareDemoDb();
     } catch (e) {
       console.error("[demo-db] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Pull Markie's personal records (health/finance/travel) into his private Phoenix hub.
+    try {
+      const { seedPhoenixPersonal } = await import("./seed-phoenix-personal");
+      const r = await seedPhoenixPersonal();
+      if (r?.seeded) console.log(`[phoenix-personal] seeded ${r.count} entries`);
+    } catch (e) {
+      console.error("[phoenix-personal] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
     // rows, repoint their pay-run lines, fix the "Last, First" split).
