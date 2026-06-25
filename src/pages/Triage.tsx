@@ -159,10 +159,10 @@ export default function Triage() {
           <ChevronLeft className="h-4 w-4 mr-1" />Dashboard
         </Button>
         <Shield className="h-6 w-6 text-purple-500" />
-        <h1 className="text-2xl font-bold text-slate-800">Figs</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Ask Markie</h1>
       </div>
       <p className="text-sm text-slate-500 -mt-2">
-        Receipts &amp; documents Figs processed. Edit anything wrong, add a note to teach Figs, then approve, dismiss, or ask the client for missing info.
+        Your review queue — everything Figs or Sage isn't sure about lands here for your call (not in the chat). Fix anything wrong, add a note to teach them, then approve, dismiss, or ask the client for what's missing.
       </p>
 
       <div className="flex gap-2 flex-wrap items-center">
