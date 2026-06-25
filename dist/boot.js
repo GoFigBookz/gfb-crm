@@ -80065,7 +80065,7 @@ var ASSISTANT_SYSTEM = [
   "5) Complete a task \u2014 call complete_task when he says a task is done / finished / handled.",
   "6) Draft an email \u2014 call draft_email to write a message into his Gmail Drafts (for his review; never auto-sent).",
   "7) Search his email \u2014 call search_email to READ his Gmail inbox (find a message, see what someone said, triage replies, flag tasks from email). Read-only.",
-  "8) Search his Drive \u2014 call search_drive to find files/documents in his Google Drive by name or contents, and return the links.",
+  "8) Drive files \u2014 call search_drive to FIND files, and read_file to READ what's inside a Doc/Sheet/Slides/text file (don't just link it \u2014 open it and use the contents). For a PDF or image, ask Markie to attach it with the paperclip so you can read/see it directly.",
   "9) Firm status \u2014 call firm_status for what needs review / what's open across clients.",
   "10) Check system health \u2014 call system_health if he asks whether the app is working.",
   "GENERAL QUESTIONS: answer anything else like a helpful AI assistant \u2014 facts, how-tos, drafting, math, advice.",
@@ -80244,6 +80244,17 @@ var ASSISTANT_TOOLS = [
         maxResults: { type: "number", description: "How many files to return (default 8, max 15)." }
       },
       required: ["query"]
+    }
+  },
+  {
+    name: "read_file",
+    description: "READ the actual contents of a file in Markie's Google Drive \u2014 Google Docs, Sheets, Slides, and plain-text/CSV/markdown files. Use this when you need to SEE what's inside a file (not just find it): review a doc, pull numbers from a sheet, read a brief. Pass `query` (file name or keywords) and it reads the best match; or pass a `fileId` if you already have one from search_drive. For PDFs/images, tell Markie to attach the file to the chat (paperclip) so you can read/see it directly.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "File name or keywords to find the file to read." },
+        fileId: { type: "string", description: "Exact Drive file id, if known." }
+      }
     }
   },
   {
@@ -80550,6 +80561,56 @@ ${rows.join("\n")}`;
     return `Couldn't search your Drive: ${e instanceof Error ? e.message : String(e)}`;
   }
 }
+async function execReadFile(input, userId) {
+  const fileId = String(input?.fileId ?? "").trim();
+  const query = String(input?.query ?? "").trim();
+  if (!fileId && !query) return "Tell me which file to read \u2014 a name or some keywords.";
+  const { getFirmGoogleAccount: getFirmGoogleAccount2 } = await Promise.resolve().then(() => (init_google_token(), google_token_exports));
+  const account = await getFirmGoogleAccount2(userId);
+  if (!account) return "I need your Google account connected first (Integrations \u2192 Google) before I can read your files.";
+  try {
+    const token2 = await getValidGoogleAccessToken(account);
+    const H = { Authorization: `Bearer ${token2}` };
+    const FIELDS = "id,name,mimeType,webViewLink";
+    let file2 = null;
+    if (fileId) {
+      const r3 = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=${encodeURIComponent(FIELDS)}&supportsAllDrives=true`, { headers: H });
+      if (r3.ok) file2 = await r3.json();
+    } else {
+      const esc3 = query.replace(/'/g, "\\'");
+      const q = `(name contains '${esc3}' or fullText contains '${esc3}') and trashed = false and mimeType != 'application/vnd.google-apps.folder'`;
+      const url2 = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&pageSize=1&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent(`files(${FIELDS})`)}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+      const r3 = await fetch(url2, { headers: H });
+      if (r3.ok) file2 = ((await r3.json()).files || [])[0];
+    }
+    if (!file2) return `I couldn't find a file matching "${query || fileId}".`;
+    const mt = String(file2.mimeType || "");
+    const link = file2.webViewLink ? `
+${file2.webViewLink}` : "";
+    let exportUrl = "";
+    if (mt === "application/vnd.google-apps.document" || mt === "application/vnd.google-apps.presentation")
+      exportUrl = `https://www.googleapis.com/drive/v3/files/${file2.id}/export?mimeType=text/plain`;
+    else if (mt === "application/vnd.google-apps.spreadsheet")
+      exportUrl = `https://www.googleapis.com/drive/v3/files/${file2.id}/export?mimeType=text/csv`;
+    else if (mt.startsWith("text/") || mt === "application/json" || mt === "application/csv")
+      exportUrl = `https://www.googleapis.com/drive/v3/files/${file2.id}?alt=media&supportsAllDrives=true`;
+    else if (mt === "application/pdf")
+      return `"${file2.name}" is a PDF \u2014 drop it into the chat with the \u{1F4CE} paperclip and I'll read it directly.${link}`;
+    else if (mt.startsWith("image/"))
+      return `"${file2.name}" is an image \u2014 attach it with the \u{1F4CE} paperclip and I can look at it.${link}`;
+    else return `"${file2.name}" is a ${mt} file I can't read as text here. Open it:${link}`;
+    const r = await fetch(exportUrl, { headers: H });
+    if (!r.ok) return `I found "${file2.name}" but couldn't read it (${r.status}).`;
+    const text2 = await r.text();
+    const CAP = 7e3;
+    const body = text2.length > CAP ? text2.slice(0, CAP) + "\n\u2026(truncated \u2014 ask me to read a specific part)" : text2;
+    return `\u{1F4C4} ${file2.name}
+
+${body || "(the file is empty)"}`;
+  } catch (e) {
+    return `Couldn't read that file: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
 async function execScheduleEvent(input, userId) {
   const title = String(input?.title ?? "").trim();
   if (!title) return "What should I call the event?";
@@ -80627,6 +80688,7 @@ async function runTool(name2, input, userId, activeAgent) {
     if (name2 === "draft_email") return await execDraftEmail(input, userId);
     if (name2 === "search_email") return await execSearchEmail(input, userId);
     if (name2 === "search_drive") return await execSearchDrive(input, userId);
+    if (name2 === "read_file") return await execReadFile(input, userId);
     if (name2 === "remember") return await execRemember(input, userId, activeAgent);
     if (name2 === "remember_personal") return await execRememberPersonal(input, userId);
     if (name2 === "recall_personal") return await execRecallPersonal(input, userId);
