@@ -381,6 +381,18 @@ async function runTool(name: string, input: any, userId: number, activeAgent: st
 }
 
 export const assistantRouter = createRouter({
+  // Is the agent brain actually online? The whole team runs on ANTHROPIC_API_KEY;
+  // when it's not set every agent can only reply "needs the key", which reads like
+  // "the agents don't work". This lets the UI show a clear setup banner instead.
+  health: authedQuery.query(() => {
+    const keyConfigured = !!process.env.ANTHROPIC_API_KEY;
+    return {
+      keyConfigured,
+      model: process.env.FIGGY_ASSISTANT_MODEL || "claude-sonnet-4-6",
+      webSearch: process.env.FIGGY_WEB_SEARCH !== "off",
+    };
+  }),
+
   ask: authedQuery
     .input(z.object({
       message: z.string().min(1).max(8000),

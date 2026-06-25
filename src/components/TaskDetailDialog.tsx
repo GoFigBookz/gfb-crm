@@ -14,6 +14,15 @@ import { TASK_CATEGORIES, ASSIGNEES, STANDARD_TASK_TITLES } from "@/lib/task-opt
 
 const STAGES: [string, string][] = [["todo", "To Do"], ["in_progress", "In Progress"], ["review", "Review"], ["done", "Done"]];
 
+/** "yyyy-MM-dd" → Date at LOCAL noon (not UTC midnight, which drifts a day back
+ *  in Ontario and lands the task on the calendar a day early). */
+function ymdToLocalNoon(s: string): Date | null {
+  if (!s) return null;
+  const [y, m, d] = s.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d, 12, 0, 0);
+}
+
 /**
  * One reusable, fully-editable task drill-down. Click any task anywhere
  * (Tasks page list/board/workflow, client card) → this opens with every
@@ -72,8 +81,10 @@ export function TaskDetailDialog({ task, onClose, onChanged }: {
       stage: stage as any,
       assignedTo: assignedTo === "unassigned" ? "" : assignedTo,
       clientId: clientId === "none" ? null : Number(clientId),
-      startDate: startDate ? new Date(startDate) : null,
-      dueDate: dueDate ? new Date(dueDate) : null,
+      // Parse the date-picker value at LOCAL noon, not new Date("yyyy-MM-dd")
+      // (which is UTC midnight → lands a day early on the calendar in Ontario).
+      startDate: ymdToLocalNoon(startDate),
+      dueDate: ymdToLocalNoon(dueDate),
     });
   };
 
