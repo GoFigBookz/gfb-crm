@@ -2,11 +2,7 @@
  * COMPANY GROUPS SEED — tags related entities with a shared `groupName` so the CRM
  * can surface them together (consolidated rollup, interco reconciliation, etc.).
  *
-<<<<<<< HEAD
  * Jon Gillham's group (Markie 2026-06-25): the interco-linked cluster plus his other
-=======
- * John Gillham's group (Markie 2026-06-25): the interco-linked cluster plus his other
->>>>>>> origin/main
  * holdings. Idempotent: only sets groupName where it's blank/different; never clobbers
  * a group a human already set to something else for that client. Matches by name.
  */
@@ -16,11 +12,7 @@ import { eq } from "drizzle-orm";
 
 const GROUPS: { group: string; match: RegExp[] }[] = [
   {
-<<<<<<< HEAD
     group: "Jon Gillham",
-=======
-    group: "John Gillham",
->>>>>>> origin/main
     match: [
       /2303851/i,
       /\badbank\b/i,
@@ -39,12 +31,9 @@ const GROUPS: { group: string; match: RegExp[] }[] = [
 export async function seedCompanyGroups(): Promise<{ tagged: number; groups: Record<string, string[]> } | void> {
   const db = getDb();
   try {
-<<<<<<< HEAD
     // Rename the earlier "John Gillham" spelling to "Jon Gillham" (it's Jon).
     await db.update(clients).set({ groupName: "Jon Gillham", updatedAt: new Date() } as any).where(eq(clients.groupName, "John Gillham"));
 
-=======
->>>>>>> origin/main
     const cs = (await db.select().from(clients)) as any[];
     let tagged = 0;
     const groups: Record<string, string[]> = {};
