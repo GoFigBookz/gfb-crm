@@ -64,7 +64,20 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-25.118";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-25.119";  // bump each deploy so prod vs source is unambiguous
+
+// CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
+// secret into a hosting dashboard very often drags a trailing space or newline,
+// which Google/Intuit reject as `invalid_client` (the exact error Markie hit on
+// the Google connect). Normalizing here means a stray whitespace can NEVER cause
+// that again — every downstream read sees the clean value.
+for (const k of [
+  "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI",
+  "QBO_CLIENT_ID", "QBO_CLIENT_SECRET", "SANDBOX_QBO_CLIENT_ID", "SANDBOX_QBO_CLIENT_SECRET",
+  "MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET",
+]) {
+  if (typeof process.env[k] === "string") process.env[k] = process.env[k]!.trim();
+}
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -203,6 +216,38 @@ app.get("/api/oauth/google/debug", async (c) => {
     } catch (e) { syncRun = { error: e instanceof Error ? e.message : String(e) }; }
   }
 
+  // CREDENTIAL CHECK: send a deliberately-bad code to Google's token endpoint
+  // with the configured client_id/secret. Google's reply tells us about the
+  // CREDENTIAL itself, independent of any reconnect:
+  //   invalid_client  → the client_id/secret pair is WRONG (fix the secret)
+  //   invalid_grant   → the pair is VALID (it only rejected the fake code) ✓
+  // This lets Markie verify the secret is right WITHOUT doing a full reconnect.
+  let credentialCheck: any = null;
+  try {
+    const r = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code: "figgy_probe_not_a_real_code",
+        client_id: process.env.GOOGLE_CLIENT_ID || "",
+        client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+        redirect_uri: googleRedirectUri(),
+        grant_type: "authorization_code",
+      }),
+    });
+    const j: any = await r.json().catch(() => ({}));
+    const err = j?.error || "";
+    credentialCheck = {
+      googleError: err || null,
+      secretValid: err === "invalid_grant",            // valid creds → only the fake code is rejected
+      secretWrong: err === "invalid_client",           // creds themselves rejected
+      verdict:
+        err === "invalid_grant" ? "✅ Client ID + secret are CORRECT — connect Google again and it will work."
+        : err === "invalid_client" ? "❌ Client ID/secret MISMATCH — the GOOGLE_CLIENT_SECRET in Railway is wrong for this Client ID."
+        : `Unexpected: ${err || "no error"}`,
+    };
+  } catch (e) { credentialCheck = { error: e instanceof Error ? e.message : String(e) }; }
+
   return c.json({
     build: BUILD_TAG,
     redirectUri: googleRedirectUri(),
@@ -210,12 +255,13 @@ app.get("/api/oauth/google/debug", async (c) => {
     viteAppUrl: process.env.VITE_APP_URL || null,
     hasClientId: !!process.env.GOOGLE_CLIENT_ID,
     hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+    credentialCheck,
     firmGoogle,
     apiProbe,
     dbCounts,
     syncRun,
     lastConnectAttempt: lastGoogleOAuth,
-    note: "Add ?sync=1 to pull your Google Calendar into the CRM now. syncRun shows inserted/errors.",
+    note: "credentialCheck.verdict tells you if the secret is right WITHOUT reconnecting. Add ?sync=1 to pull Calendar now.",
   });
 });
 

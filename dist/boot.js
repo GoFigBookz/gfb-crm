@@ -83939,7 +83939,20 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.118";
+var BUILD_TAG = "2026-06-25.119";
+for (const k of [
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "GOOGLE_REDIRECT_URI",
+  "QBO_CLIENT_ID",
+  "QBO_CLIENT_SECRET",
+  "SANDBOX_QBO_CLIENT_ID",
+  "SANDBOX_QBO_CLIENT_SECRET",
+  "MICROSOFT_CLIENT_ID",
+  "MICROSOFT_CLIENT_SECRET"
+]) {
+  if (typeof process.env[k] === "string") process.env[k] = process.env[k].trim();
+}
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -84098,6 +84111,32 @@ app.get("/api/oauth/google/debug", async (c) => {
       syncRun = { error: e instanceof Error ? e.message : String(e) };
     }
   }
+  let credentialCheck = null;
+  try {
+    const r = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code: "figgy_probe_not_a_real_code",
+        client_id: process.env.GOOGLE_CLIENT_ID || "",
+        client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+        redirect_uri: googleRedirectUri2(),
+        grant_type: "authorization_code"
+      })
+    });
+    const j = await r.json().catch(() => ({}));
+    const err = j?.error || "";
+    credentialCheck = {
+      googleError: err || null,
+      secretValid: err === "invalid_grant",
+      // valid creds → only the fake code is rejected
+      secretWrong: err === "invalid_client",
+      // creds themselves rejected
+      verdict: err === "invalid_grant" ? "\u2705 Client ID + secret are CORRECT \u2014 connect Google again and it will work." : err === "invalid_client" ? "\u274C Client ID/secret MISMATCH \u2014 the GOOGLE_CLIENT_SECRET in Railway is wrong for this Client ID." : `Unexpected: ${err || "no error"}`
+    };
+  } catch (e) {
+    credentialCheck = { error: e instanceof Error ? e.message : String(e) };
+  }
   return c.json({
     build: BUILD_TAG,
     redirectUri: googleRedirectUri2(),
@@ -84105,12 +84144,13 @@ app.get("/api/oauth/google/debug", async (c) => {
     viteAppUrl: process.env.VITE_APP_URL || null,
     hasClientId: !!process.env.GOOGLE_CLIENT_ID,
     hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+    credentialCheck,
     firmGoogle,
     apiProbe,
     dbCounts,
     syncRun,
     lastConnectAttempt: lastGoogleOAuth,
-    note: "Add ?sync=1 to pull your Google Calendar into the CRM now. syncRun shows inserted/errors."
+    note: "credentialCheck.verdict tells you if the secret is right WITHOUT reconnecting. Add ?sync=1 to pull Calendar now."
   });
 });
 app.get("/api/qbo/debug", async (c) => {
