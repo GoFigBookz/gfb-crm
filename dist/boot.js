@@ -22364,6 +22364,7 @@ __export(schema_exports, {
   invoiceItems: () => invoiceItems,
   invoices: () => invoices,
   jobberConnections: () => jobberConnections,
+  lifeEntries: () => lifeEntries,
   makeIntake: () => makeIntake,
   makeSubmissions: () => makeSubmissions,
   missingItems: () => missingItems,
@@ -22407,7 +22408,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks;
+var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks, lifeEntries;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -24307,6 +24308,30 @@ var init_schema = __esm({
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       revokedAt: integer2("revokedAt", { mode: "timestamp" })
     });
+    lifeEntries = sqliteTable("life_entries", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      userId: integer2("userId").notNull(),
+      section: text("section").notNull(),
+      // finance | travel | health | growth | …
+      type: text("type"),
+      // asset | liability | trip | appointment | metric | goal | journal | note …
+      title: text("title").notNull(),
+      subtitle: text("subtitle"),
+      amount: real("amount"),
+      // finance: signed (+ asset, − liability)
+      currency: text("currency").default("CAD"),
+      date: integer2("date", { mode: "timestamp" }),
+      // dated items (appointments, trips) — can surface on the calendar
+      status: text("status"),
+      notes: text("notes"),
+      meta: text("meta"),
+      // JSON for section-specific fields
+      pinned: integer2("pinned", { mode: "boolean" }).default(false),
+      archived: integer2("archived", { mode: "boolean" }).default(false),
+      sortOrder: integer2("sortOrder").default(0),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
   }
 });
 
@@ -24904,13 +24929,13 @@ var init_base64 = __esm({
       if (!b64re.test(asc2))
         throw new TypeError("malformed base64.");
       asc2 += "==".slice(2 - (asc2.length & 3));
-      let u24, r1, r25;
+      let u24, r1, r26;
       let binArray = [];
       for (let i = 0; i < asc2.length; ) {
-        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r25 = b64tab[asc2.charAt(i++)]);
+        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r26 = b64tab[asc2.charAt(i++)]);
         if (r1 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255));
-        } else if (r25 === 64) {
+        } else if (r26 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255));
         } else {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255, u24 & 255));
@@ -36915,7 +36940,7 @@ var require_bcrypt = __commonJS({
           } else
             throw err;
         }
-        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r25 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r25, real_salt = salt.substring(offset + 3, offset + 25);
+        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r26 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r26, real_salt = salt.substring(offset + 3, offset + 25);
         s += minor >= "a" ? "\0" : "";
         var passwordb = stringToBytes(s), saltb = base64_decode(real_salt, BCRYPT_SALT_LEN);
         function finish(bytes) {
@@ -39994,10 +40019,10 @@ var init_qbo_router = __esm({
       // --- Sync All ---
       syncAll: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => {
         const r1 = await doSyncCustomers(input.connectionId);
-        const r25 = await doSyncInvoices(input.connectionId);
+        const r26 = await doSyncInvoices(input.connectionId);
         const r3 = await doSyncPayments(input.connectionId);
         const r4 = await doSyncAccounts(input.connectionId);
-        return { success: true, customers: r1, invoices: r25, payments: r3, accounts: r4 };
+        return { success: true, customers: r1, invoices: r26, payments: r3, accounts: r4 };
       }),
       // --- Data Retrieval ---
       getCustomers: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
@@ -63612,6 +63637,44 @@ var init_ensure_personal_schema = __esm({
   }
 });
 
+// api/ensure-life-schema.ts
+var ensure_life_schema_exports = {};
+__export(ensure_life_schema_exports, {
+  ensureLifeSchema: () => ensureLifeSchema
+});
+async function ensureLifeSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS life_entries (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      section text NOT NULL,
+      type text,
+      title text NOT NULL,
+      subtitle text,
+      amount real,
+      currency text DEFAULT 'CAD',
+      date integer,
+      status text,
+      notes text,
+      meta text,
+      pinned integer DEFAULT 0,
+      archived integer DEFAULT 0,
+      sortOrder integer DEFAULT 0,
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[life] ensure life_entries table failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_life_schema = __esm({
+  "api/ensure-life-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/ensure-learning-schema.ts
 var ensure_learning_schema_exports = {};
 __export(ensure_learning_schema_exports, {
@@ -64488,8 +64551,8 @@ async function seedDockKingFlowthrough() {
       report.updated++;
     }
     const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, c.id)).returning();
-    const r25 = await db.delete(tasks).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
-    report.tasksPaused += (r1?.length || 0) + (r25?.length || 0);
+    const r26 = await db.delete(tasks).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
+    report.tasksPaused += (r1?.length || 0) + (r26?.length || 0);
   }
   return report;
 }
@@ -80079,6 +80142,22 @@ var ASSISTANT_TOOLS = [
     }
   },
   {
+    name: "add_life_item",
+    description: "Add an entry to Markie's private 'My Life' hub \u2014 his personal life-OS that Liv keeps (walled off from all client work). Use for durable life records he wants to keep in a section: finances/accounts/assets, travel (trips, documents like passport), health (appointments, meds, metrics), or growth (goals, habits, journal). For a one-off reminder/errand use add_personal instead; use this when it belongs in a life section.",
+    input_schema: {
+      type: "object",
+      properties: {
+        section: { type: "string", enum: ["finance", "travel", "health", "growth"], description: "Which life section." },
+        title: { type: "string", description: 'The item, e.g. "Passport" or "RBC chequing".' },
+        type: { type: "string", description: "Optional sub-type, e.g. asset, liability, trip, document, appointment, metric, goal, habit, journal." },
+        amount: { type: "number", description: "Finance only \u2014 dollar value; NEGATIVE for something owed (a liability)." },
+        date: { type: "string", description: "Optional date YYYY-MM-DD (e.g. passport expiry, appointment)." },
+        notes: { type: "string", description: "Optional extra detail." }
+      },
+      required: ["section", "title"]
+    }
+  },
+  {
     name: "remember_personal",
     description: "Save a durable FACT about Markie's personal life to his PRIVATE knowledge base (Liv only \u2014 walled off from clients and every other agent). Use when he tells you something about his life to keep: family/people, important dates, health, home, vehicles, accounts/memberships, personal finances, preferences, travel, goals. One fact per call. This is how you learn his life so you can help proactively. NEVER use the firm-wide `remember` tool for personal facts.",
     input_schema: {
@@ -80117,7 +80196,7 @@ function formatAgenda(a) {
 }
 
 // api/assistant-router.ts
-var ACTION_TOOLS = /* @__PURE__ */ new Set(["add_task", "add_personal", "schedule_event", "complete_task", "draft_email", "remember", "remember_personal"]);
+var ACTION_TOOLS = /* @__PURE__ */ new Set(["add_task", "add_personal", "add_life_item", "schedule_event", "complete_task", "draft_email", "remember", "remember_personal"]);
 var TZ = "America/Toronto";
 async function execAddTask(text2, userId) {
   const db = getDb();
@@ -80181,6 +80260,28 @@ async function execAddPersonal(input, userId) {
   await db.insert(personalItems).values({ userId, kind, title, dueDate, priority: "medium", done: false });
   const when = dueDate ? ` (due ${dueDate.toLocaleDateString(void 0, { month: "short", day: "numeric" })})` : "";
   return `Added to your personal space: "${title}"${when}.`;
+}
+async function execAddLifeItem(input, userId) {
+  const db = getDb();
+  const sections = ["finance", "travel", "health", "growth"];
+  const section = sections.includes(input?.section) ? input.section : null;
+  const title = String(input?.title ?? "").trim();
+  if (!section || !title) return "I need a section (finance/travel/health/growth) and a title to add that to your life hub.";
+  let date5 = null;
+  if (input?.date && /^\d{4}-\d{2}-\d{2}$/.test(input.date)) date5 = /* @__PURE__ */ new Date(input.date + "T12:00:00");
+  const amount = typeof input?.amount === "number" ? input.amount : null;
+  await db.insert(lifeEntries).values({
+    userId,
+    section,
+    type: input?.type ? String(input.type).slice(0, 40) : null,
+    title,
+    amount,
+    date: date5,
+    notes: input?.notes ? String(input.notes).slice(0, 5e3) : null,
+    createdAt: /* @__PURE__ */ new Date(),
+    updatedAt: /* @__PURE__ */ new Date()
+  });
+  return `Added to your ${section} section: "${title}"${amount != null ? ` (${amount.toLocaleString("en-CA", { style: "currency", currency: "CAD" })})` : ""}.`;
 }
 async function execRemember(input, userId, activeAgent) {
   const lesson = String(input?.lesson ?? "").trim();
@@ -80369,6 +80470,7 @@ async function runTool(name2, input, userId, activeAgent) {
     if (name2 === "add_task") return await execAddTask(String(input?.text ?? ""), userId);
     if (name2 === "get_agenda") return await execGetAgenda(userId);
     if (name2 === "add_personal") return await execAddPersonal(input, userId);
+    if (name2 === "add_life_item") return await execAddLifeItem(input, userId);
     if (name2 === "schedule_event") return await execScheduleEvent(input, userId);
     if (name2 === "complete_task") return await execCompleteTask(input, userId);
     if (name2 === "draft_email") return await execDraftEmail(input, userId);
@@ -80634,6 +80736,127 @@ var personalRouter = createRouter({
       await db.insert(personalFacts).values({ userId: ctx.user.id, category: cat, fact, source: "dump", pinned: false });
     }
     return { ok: true, added: lines.length };
+  })
+});
+
+// api/life-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_schema();
+init_drizzle_orm();
+var LIFE_SECTIONS = [
+  {
+    key: "finance",
+    title: "Finance",
+    blurb: "Accounts, assets, net worth",
+    money: true,
+    types: ["asset", "liability", "account", "income", "expense", "note"]
+  },
+  {
+    key: "travel",
+    title: "Travel",
+    blurb: "Trips, itineraries, documents",
+    money: false,
+    types: ["trip", "flight", "stay", "document", "note"]
+  },
+  {
+    key: "health",
+    title: "Health",
+    blurb: "Appointments, metrics, meds",
+    money: false,
+    types: ["appointment", "metric", "medication", "provider", "note"]
+  },
+  {
+    key: "growth",
+    title: "Growth",
+    blurb: "Goals, habits, journal",
+    money: false,
+    types: ["goal", "habit", "journal", "note"]
+  }
+];
+var SECTION_KEYS = LIFE_SECTIONS.map((s) => s.key);
+var r25 = (n) => Math.round(n * 100) / 100;
+var lifeRouter = createRouter({
+  // Section catalogue + per-section counts + finance net worth + what's coming up.
+  overview: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const rows = await db.select().from(lifeEntries).where(and(eq(lifeEntries.userId, ctx.user.id), eq(lifeEntries.archived, false)));
+    const counts = {};
+    for (const r of rows) counts[r.section] = (counts[r.section] || 0) + 1;
+    const fin = rows.filter((r) => r.section === "finance" && r.amount != null);
+    const netWorth = r25(fin.reduce((s, r) => s + (Number(r.amount) || 0), 0));
+    const assets = r25(fin.filter((r) => (Number(r.amount) || 0) > 0).reduce((s, r) => s + Number(r.amount), 0));
+    const liabilities = r25(fin.filter((r) => (Number(r.amount) || 0) < 0).reduce((s, r) => s + Number(r.amount), 0));
+    const now = Date.now();
+    const soon = now + 60 * 864e5;
+    const upcoming = rows.filter((r) => r.date && new Date(r.date).getTime() >= now - 864e5 && new Date(r.date).getTime() <= soon).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 8).map((r) => ({ id: r.id, section: r.section, title: r.title, date: r.date, type: r.type }));
+    return {
+      sections: LIFE_SECTIONS.map((s) => ({ ...s, count: counts[s.key] || 0 })),
+      finance: { netWorth, assets, liabilities },
+      upcoming
+    };
+  }),
+  list: authedQuery.input(external_exports.object({ section: external_exports.enum(SECTION_KEYS), includeArchived: external_exports.boolean().optional() })).query(async ({ ctx, input }) => {
+    const db = getDb();
+    const conds = [eq(lifeEntries.userId, ctx.user.id), eq(lifeEntries.section, input.section)];
+    if (!input.includeArchived) conds.push(eq(lifeEntries.archived, false));
+    return db.select().from(lifeEntries).where(and(...conds)).orderBy(desc(lifeEntries.pinned), desc(lifeEntries.createdAt));
+  }),
+  add: authedQuery.input(external_exports.object({
+    section: external_exports.enum(SECTION_KEYS),
+    type: external_exports.string().max(40).optional(),
+    title: external_exports.string().min(1).max(300),
+    subtitle: external_exports.string().max(300).optional(),
+    amount: external_exports.number().nullable().optional(),
+    currency: external_exports.string().max(8).optional(),
+    date: external_exports.date().nullable().optional(),
+    status: external_exports.string().max(60).optional(),
+    notes: external_exports.string().max(5e3).optional(),
+    meta: external_exports.string().max(8e3).optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const ins = await db.insert(lifeEntries).values({
+      userId: ctx.user.id,
+      section: input.section,
+      type: input.type ?? null,
+      title: input.title,
+      subtitle: input.subtitle ?? null,
+      amount: input.amount ?? null,
+      currency: input.currency ?? "CAD",
+      date: input.date ?? null,
+      status: input.status ?? null,
+      notes: input.notes ?? null,
+      meta: input.meta ?? null,
+      createdAt: /* @__PURE__ */ new Date(),
+      updatedAt: /* @__PURE__ */ new Date()
+    }).returning();
+    return ins[0];
+  }),
+  update: authedQuery.input(external_exports.object({
+    id: external_exports.number(),
+    title: external_exports.string().min(1).max(300).optional(),
+    subtitle: external_exports.string().max(300).nullable().optional(),
+    type: external_exports.string().max(40).nullable().optional(),
+    amount: external_exports.number().nullable().optional(),
+    date: external_exports.date().nullable().optional(),
+    status: external_exports.string().max(60).nullable().optional(),
+    notes: external_exports.string().max(5e3).nullable().optional(),
+    meta: external_exports.string().max(8e3).nullable().optional(),
+    pinned: external_exports.boolean().optional(),
+    archived: external_exports.boolean().optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const { id, ...rest } = input;
+    const patch = { updatedAt: /* @__PURE__ */ new Date() };
+    for (const [k, v] of Object.entries(rest)) if (v !== void 0) patch[k] = v;
+    await db.update(lifeEntries).set(patch).where(and(eq(lifeEntries.id, id), eq(lifeEntries.userId, ctx.user.id)));
+    return { ok: true };
+  }),
+  remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    await db.delete(lifeEntries).where(and(eq(lifeEntries.id, input.id), eq(lifeEntries.userId, ctx.user.id)));
+    return { ok: true };
   })
 });
 
@@ -81709,6 +81932,7 @@ var appRouter = createRouter({
   assistant: assistantRouter,
   jinx: qaRouter,
   personal: personalRouter,
+  life: lifeRouter,
   learning: learningRouter,
   chat: chatRouter,
   revRec: revRecRouter,
@@ -83337,6 +83561,8 @@ async function startServer() {
     await ensureRbacSchema2();
     const { ensurePersonalSchema: ensurePersonalSchema2 } = await Promise.resolve().then(() => (init_ensure_personal_schema(), ensure_personal_schema_exports));
     await ensurePersonalSchema2();
+    const { ensureLifeSchema: ensureLifeSchema2 } = await Promise.resolve().then(() => (init_ensure_life_schema(), ensure_life_schema_exports));
+    await ensureLifeSchema2();
     const { ensureLearningSchema: ensureLearningSchema2 } = await Promise.resolve().then(() => (init_ensure_learning_schema(), ensure_learning_schema_exports));
     await ensureLearningSchema2();
     const { ensureAuditSchema: ensureAuditSchema2 } = await Promise.resolve().then(() => (init_ensure_audit_schema(), ensure_audit_schema_exports));
