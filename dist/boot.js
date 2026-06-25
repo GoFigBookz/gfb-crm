@@ -45540,6 +45540,26 @@ __export(vendor_learning_exports, {
 });
 async function ensureVendorMemoryColumns() {
   const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS vendor_memory (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      connectionId integer NOT NULL,
+      clientId integer,
+      qboVendorId text NOT NULL,
+      vendorName text,
+      preferredAccountId text,
+      preferredAccountName text,
+      preferredTaxCode text,
+      sampleCount integer DEFAULT 0,
+      confirmedByHuman integer DEFAULT 0,
+      confirmedAt integer,
+      lastValidatedAt integer,
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[learn] create vendor_memory failed:", e instanceof Error ? e.message : e);
+  }
   const have = /* @__PURE__ */ new Set();
   try {
     const res = await db.run(sql`PRAGMA table_info(vendor_memory)`);

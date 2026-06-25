@@ -247,19 +247,17 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         {can.senior && (
           <Section label="Admin" icon={Lock} sectionKey="admin" items={adminItems} />
         )}
-        {/* Phoenix Rising — owner-only, pinned to the bottom. Rendered as a direct
-            link (NOT a collapsible Section) so it's always visible. */}
-        {can.admin && (
-          <>
-            <div className="border-t border-slate-800 my-2 mx-1" />
-            {!collapsed && (
-              <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Personal</div>
-            )}
-            {personalNav.map((item) => (
-              <NavItem key={item.to} to={item.to} icon={item.icon} label={item.label} />
-            ))}
-          </>
+        {/* Phoenix Rising — Markie's private life hub, pinned to the bottom as a
+            direct, ALWAYS-VISIBLE link. The data itself is per-user scoped, so a
+            different login only ever sees their own (empty) hub — privacy holds
+            without gating the link (which was hiding it from Markie). */}
+        <div className="border-t border-slate-800 my-2 mx-1" />
+        {!collapsed && (
+          <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Personal</div>
         )}
+        {personalNav.map((item) => (
+          <NavItem key={item.to} to={item.to} icon={item.icon} label={item.label} />
+        ))}
       </nav>
 
       {/* User */}
