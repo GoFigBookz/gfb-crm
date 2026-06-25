@@ -114,6 +114,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
   ];
 
   const adminItems = [
+    { to: "/figs-at-work", icon: Bot, label: "Figs at Work" },
     { to: "/settings", icon: Settings, label: "Settings" },
     { to: "/integrations", icon: Globe, label: "Integrations" },
     { to: "/users", icon: Building2, label: "Users & Firms" },

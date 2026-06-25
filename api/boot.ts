@@ -1432,6 +1432,56 @@ app.use("/api/trpc/*", async (c) => {
   return isDemo ? dbContext.run({ demo: true }, handle) : handle();
 });
 
+// ── FIGS AT WORK — browser agent (Stage 1). Admin-only + dormant unless
+// FIGGY_BROWSER_AGENT=on. Drives a single capped Chromium session Markie watches. ──
+async function requireAdmin(c: any): Promise<boolean> {
+  try {
+    const ctx = await createContext({ req: c.req.raw } as any);
+    return ctx?.user?.role === "admin";
+  } catch { return false; }
+}
+app.get("/api/figs-browser/status", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  const { sessionInfo } = await import("./browser-agent");
+  return c.json(sessionInfo());
+});
+app.post("/api/figs-browser/start", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try { const { ensureSession } = await import("./browser-agent"); await ensureSession(); return c.json({ ok: true }); }
+  catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.post("/api/figs-browser/goto", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try { const { goto } = await import("./browser-agent"); const { url } = await c.req.json(); return c.json(await goto(String(url || ""))); }
+  catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.get("/api/figs-browser/screenshot", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { screenshot } = await import("./browser-agent");
+    const png = await screenshot();
+    return new Response(png as any, { headers: { "content-type": "image/png", "cache-control": "no-store" } });
+  } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.post("/api/figs-browser/act", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { click, type, pressKey } = await import("./browser-agent");
+    const body = await c.req.json();
+    if (body.action === "click") await click(Number(body.x), Number(body.y));
+    else if (body.action === "type") await type(String(body.text || ""));
+    else if (body.action === "key") await pressKey(String(body.key || "Enter"));
+    else return c.json({ ok: false, error: "unknown action" }, 200);
+    return c.json({ ok: true });
+  } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.post("/api/figs-browser/stop", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  const { stopSession } = await import("./browser-agent");
+  await stopSession("user stop");
+  return c.json({ ok: true });
+});
+
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
 export default app;

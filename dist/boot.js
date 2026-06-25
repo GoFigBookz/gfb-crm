@@ -339,9 +339,9 @@ function getMessage(cause) {
 }
 function getCauseFromUnknown(cause) {
   if (cause instanceof Error) return cause;
-  const type = typeof cause;
-  if (type === "undefined" || type === "function" || cause === null) return void 0;
-  if (type !== "object") return new Error(String(cause));
+  const type2 = typeof cause;
+  if (type2 === "undefined" || type2 === "function" || cause === null) return void 0;
+  if (type2 !== "object") return new Error(String(cause));
   if (isObject(cause)) return new UnknownCauseError(cause);
   return void 0;
 }
@@ -14224,9 +14224,9 @@ function convertBaseSchema(schema, ctx) {
   if (schema.const !== void 0) {
     return z.literal(schema.const);
   }
-  const type = schema.type;
-  if (Array.isArray(type)) {
-    const typeSchemas = type.map((t2) => {
+  const type2 = schema.type;
+  if (Array.isArray(type2)) {
+    const typeSchemas = type2.map((t2) => {
       const typeSchema = { ...schema, type: t2 };
       return convertBaseSchema(typeSchema, ctx);
     });
@@ -14238,11 +14238,11 @@ function convertBaseSchema(schema, ctx) {
     }
     return z.union(typeSchemas);
   }
-  if (!type) {
+  if (!type2) {
     return z.any();
   }
   let zodSchema;
-  switch (type) {
+  switch (type2) {
     case "string": {
       let stringSchema = z.string();
       if (schema.format) {
@@ -14309,7 +14309,7 @@ function convertBaseSchema(schema, ctx) {
     }
     case "number":
     case "integer": {
-      let numberSchema = type === "integer" ? z.number().int() : z.number();
+      let numberSchema = type2 === "integer" ? z.number().int() : z.number();
       if (typeof schema.minimum === "number") {
         numberSchema = numberSchema.min(schema.minimum);
       }
@@ -14444,7 +14444,7 @@ function convertBaseSchema(schema, ctx) {
       break;
     }
     default:
-      throw new Error(`Unsupported type: ${type}`);
+      throw new Error(`Unsupported type: ${type2}`);
   }
   if (schema.description) {
     zodSchema = zodSchema.describe(schema.description);
@@ -15668,24 +15668,24 @@ var init_transformer = __esm({
     simpleRules.forEach((rule) => {
       simpleRulesByAnnotation[rule.annotation] = rule;
     });
-    untransformValue = (json2, type, superJson) => {
-      if (isArray(type)) {
-        switch (type[0]) {
+    untransformValue = (json2, type2, superJson) => {
+      if (isArray(type2)) {
+        switch (type2[0]) {
           case "symbol":
-            return symbolRule.untransform(json2, type, superJson);
+            return symbolRule.untransform(json2, type2, superJson);
           case "class":
-            return classRule.untransform(json2, type, superJson);
+            return classRule.untransform(json2, type2, superJson);
           case "custom":
-            return customRule.untransform(json2, type, superJson);
+            return customRule.untransform(json2, type2, superJson);
           case "typed-array":
-            return typedArrayRule.untransform(json2, type, superJson);
+            return typedArrayRule.untransform(json2, type2, superJson);
           default:
-            throw new Error("Unknown transformation: " + type);
+            throw new Error("Unknown transformation: " + type2);
         }
       } else {
-        const transformation = simpleRulesByAnnotation[type];
+        const transformation = simpleRulesByAnnotation[type2];
         if (!transformation) {
-          throw new Error("Unknown transformation: " + type);
+          throw new Error("Unknown transformation: " + type2);
         }
         return transformation.untransform(json2, superJson);
       }
@@ -15728,9 +15728,9 @@ var init_accessDeep = __esm({
           object3 = getNthKey(object3, +key10);
         } else if (isMap(object3)) {
           const row = +key10;
-          const type = +path7[++i] === 0 ? "key" : "value";
+          const type2 = +path7[++i] === 0 ? "key" : "value";
           const keyOfRow = getNthKey(object3, row);
-          switch (type) {
+          switch (type2) {
             case "key":
               object3 = keyOfRow;
               break;
@@ -15766,9 +15766,9 @@ var init_accessDeep = __esm({
             break;
           }
           const row = +key10;
-          const type = +path7[++i] === 0 ? "key" : "value";
+          const type2 = +path7[++i] === 0 ? "key" : "value";
           const keyOfRow = getNthKey(parent, row);
-          switch (type) {
+          switch (type2) {
             case "key":
               parent = keyOfRow;
               break;
@@ -15795,8 +15795,8 @@ var init_accessDeep = __esm({
       if (isMap(parent)) {
         const row = +path7[path7.length - 2];
         const keyToRow = getNthKey(parent, row);
-        const type = +lastKey === 0 ? "key" : "value";
-        switch (type) {
+        const type2 = +lastKey === 0 ? "key" : "value";
+        switch (type2) {
           case "key": {
             const newKey = mapper(keyToRow);
             parent.set(newKey, parent.get(keyToRow));
@@ -15841,8 +15841,8 @@ function traverse(tree, walker2, version4, origin = []) {
   walker2(nodeValue, origin);
 }
 function applyValueAnnotations(plain, annotations, version4, superJson) {
-  traverse(annotations, (type, path7) => {
-    plain = setDeep(plain, path7, (v) => untransformValue(v, type, superJson));
+  traverse(annotations, (type2, path7) => {
+    plain = setDeep(plain, path7, (v) => untransformValue(v, type2, superJson));
   }, version4);
   return plain;
 }
@@ -16210,22 +16210,22 @@ var init_middleware = __esm({
 });
 
 // node_modules/drizzle-orm/entity.js
-function is(value, type) {
+function is(value, type2) {
   if (!value || typeof value !== "object") {
     return false;
   }
-  if (value instanceof type) {
+  if (value instanceof type2) {
     return true;
   }
-  if (!Object.prototype.hasOwnProperty.call(type, entityKind)) {
+  if (!Object.prototype.hasOwnProperty.call(type2, entityKind)) {
     throw new Error(
-      `Class "${type.name ?? "<unknown>"}" doesn't look like a Drizzle entity. If this is incorrect and the class is provided by Drizzle, please report this as a bug.`
+      `Class "${type2.name ?? "<unknown>"}" doesn't look like a Drizzle entity. If this is incorrect and the class is provided by Drizzle, please report this as a bug.`
     );
   }
   let cls = Object.getPrototypeOf(value).constructor;
   if (cls) {
     while (cls) {
-      if (entityKind in cls && cls[entityKind] === type[entityKind]) {
+      if (entityKind in cls && cls[entityKind] === type2[entityKind]) {
         return true;
       }
       cls = Object.getPrototypeOf(cls);
@@ -16764,10 +16764,10 @@ var init_common = __esm({
     };
     IndexedColumn = class {
       static [entityKind] = "IndexedColumn";
-      constructor(name2, keyAsName, type, indexConfig) {
+      constructor(name2, keyAsName, type2, indexConfig) {
         this.name = name2;
         this.keyAsName = keyAsName;
-        this.type = type;
+        this.type = type2;
         this.indexConfig = indexConfig;
       }
       name;
@@ -17727,18 +17727,18 @@ function isConfig(data) {
   if (typeof data !== "object" || data === null) return false;
   if (data.constructor.name !== "Object") return false;
   if ("logger" in data) {
-    const type = typeof data["logger"];
-    if (type !== "boolean" && (type !== "object" || typeof data["logger"]["logQuery"] !== "function") && type !== "undefined") return false;
+    const type2 = typeof data["logger"];
+    if (type2 !== "boolean" && (type2 !== "object" || typeof data["logger"]["logQuery"] !== "function") && type2 !== "undefined") return false;
     return true;
   }
   if ("schema" in data) {
-    const type = typeof data["schema"];
-    if (type !== "object" && type !== "undefined") return false;
+    const type2 = typeof data["schema"];
+    if (type2 !== "object" && type2 !== "undefined") return false;
     return true;
   }
   if ("casing" in data) {
-    const type = typeof data["casing"];
-    if (type !== "string" && type !== "undefined") return false;
+    const type2 = typeof data["casing"];
+    if (type2 !== "string" && type2 !== "undefined") return false;
     return true;
   }
   if ("mode" in data) {
@@ -17746,13 +17746,13 @@ function isConfig(data) {
     return true;
   }
   if ("connection" in data) {
-    const type = typeof data["connection"];
-    if (type !== "string" && type !== "object" && type !== "undefined") return false;
+    const type2 = typeof data["connection"];
+    if (type2 !== "string" && type2 !== "object" && type2 !== "undefined") return false;
     return true;
   }
   if ("client" in data) {
-    const type = typeof data["client"];
-    if (type !== "object" && type !== "function" && type !== "undefined") return false;
+    const type2 = typeof data["client"];
+    if (type2 !== "object" && type2 !== "function" && type2 !== "undefined") return false;
     return true;
   }
   if (Object.keys(data).length === 0) return true;
@@ -18707,10 +18707,10 @@ var init_delete = __esm({
     init_utils();
     init_utils2();
     SQLiteDeleteBase = class extends QueryPromise {
-      constructor(table, session, dialect, withList) {
+      constructor(table, session2, dialect, withList) {
         super();
         this.table = table;
-        this.session = session;
+        this.session = session2;
         this.dialect = dialect;
         this.config = { table, withList };
       }
@@ -19845,7 +19845,7 @@ var init_dialect = __esm({
       }
       buildSetOperationQuery({
         leftSelect,
-        setOperator: { type, isAll, rightSelect, limit: limit2, orderBy, offset }
+        setOperator: { type: type2, isAll, rightSelect, limit: limit2, orderBy, offset }
       }) {
         const leftChunk = sql`${leftSelect.getSQL()} `;
         const rightChunk = sql`${rightSelect.getSQL()}`;
@@ -19872,7 +19872,7 @@ var init_dialect = __esm({
           orderBySql = sql` order by ${sql.join(orderByValues, sql`, `)}`;
         }
         const limitSql = typeof limit2 === "object" || typeof limit2 === "number" && limit2 >= 0 ? sql` limit ${limit2}` : void 0;
-        const operatorChunk = sql.raw(`${type} ${isAll ? "all " : ""}`);
+        const operatorChunk = sql.raw(`${type2} ${isAll ? "all " : ""}`);
         const offsetSql = offset ? sql` offset ${offset}` : void 0;
         return sql`${leftChunk}${operatorChunk}${rightChunk}${orderBySql}${limitSql}${offsetSql}`;
       }
@@ -20183,7 +20183,7 @@ var init_dialect = __esm({
     };
     SQLiteSyncDialect = class extends SQLiteDialect {
       static [entityKind] = "SQLiteSyncDialect";
-      migrate(migrations, session, config2) {
+      migrate(migrations, session2, config2) {
         const migrationsTable = config2 === void 0 ? "__drizzle_migrations" : typeof config2 === "string" ? "__drizzle_migrations" : config2.migrationsTable ?? "__drizzle_migrations";
         const migrationTableCreate = sql`
 			CREATE TABLE IF NOT EXISTS ${sql.identifier(migrationsTable)} (
@@ -20192,35 +20192,35 @@ var init_dialect = __esm({
 				created_at numeric
 			)
 		`;
-        session.run(migrationTableCreate);
-        const dbMigrations = session.values(
+        session2.run(migrationTableCreate);
+        const dbMigrations = session2.values(
           sql`SELECT id, hash, created_at FROM ${sql.identifier(migrationsTable)} ORDER BY created_at DESC LIMIT 1`
         );
         const lastDbMigration = dbMigrations[0] ?? void 0;
-        session.run(sql`BEGIN`);
+        session2.run(sql`BEGIN`);
         try {
           for (const migration of migrations) {
             if (!lastDbMigration || Number(lastDbMigration[2]) < migration.folderMillis) {
               for (const stmt of migration.sql) {
-                session.run(sql.raw(stmt));
+                session2.run(sql.raw(stmt));
               }
-              session.run(
+              session2.run(
                 sql`INSERT INTO ${sql.identifier(
                   migrationsTable
                 )} ("hash", "created_at") VALUES(${migration.hash}, ${migration.folderMillis})`
               );
             }
           }
-          session.run(sql`COMMIT`);
+          session2.run(sql`COMMIT`);
         } catch (e) {
-          session.run(sql`ROLLBACK`);
+          session2.run(sql`ROLLBACK`);
           throw e;
         }
       }
     };
     SQLiteAsyncDialect = class extends SQLiteDialect {
       static [entityKind] = "SQLiteAsyncDialect";
-      async migrate(migrations, session, config2) {
+      async migrate(migrations, session2, config2) {
         const migrationsTable = config2 === void 0 ? "__drizzle_migrations" : typeof config2 === "string" ? "__drizzle_migrations" : config2.migrationsTable ?? "__drizzle_migrations";
         const migrationTableCreate = sql`
 			CREATE TABLE IF NOT EXISTS ${sql.identifier(migrationsTable)} (
@@ -20229,12 +20229,12 @@ var init_dialect = __esm({
 				created_at numeric
 			)
 		`;
-        await session.run(migrationTableCreate);
-        const dbMigrations = await session.values(
+        await session2.run(migrationTableCreate);
+        const dbMigrations = await session2.values(
           sql`SELECT id, hash, created_at FROM ${sql.identifier(migrationsTable)} ORDER BY created_at DESC LIMIT 1`
         );
         const lastDbMigration = dbMigrations[0] ?? void 0;
-        await session.transaction(async (tx) => {
+        await session2.transaction(async (tx) => {
           for (const migration of migrations) {
             if (!lastDbMigration || Number(lastDbMigration[2]) < migration.folderMillis) {
               for (const stmt of migration.sql) {
@@ -20269,10 +20269,10 @@ var init_query_builder = __esm({
 });
 
 // node_modules/drizzle-orm/sqlite-core/query-builders/select.js
-function createSetOperator(type, isAll) {
+function createSetOperator(type2, isAll) {
   return (leftSelect, rightSelect, ...restSelects) => {
     const setOperators = [rightSelect, ...restSelects].map((select) => ({
-      type,
+      type: type2,
       isAll,
       rightSelect: select
     }));
@@ -20353,7 +20353,7 @@ var init_select2 = __esm({
       dialect;
       cacheConfig = void 0;
       usedTables = /* @__PURE__ */ new Set();
-      constructor({ table, fields, isPartialSelect, session, dialect, withList, distinct }) {
+      constructor({ table, fields, isPartialSelect, session: session2, dialect, withList, distinct }) {
         super();
         this.config = {
           withList,
@@ -20363,7 +20363,7 @@ var init_select2 = __esm({
           setOperators: []
         };
         this.isPartialSelect = isPartialSelect;
-        this.session = session;
+        this.session = session2;
         this.dialect = dialect;
         this._ = {
           selectedFields: fields,
@@ -20577,7 +20577,7 @@ var init_select2 = __esm({
        * ```
        */
       crossJoin = this.createJoin("cross");
-      createSetOperator(type, isAll) {
+      createSetOperator(type2, isAll) {
         return (rightSelection) => {
           const rightSelect = typeof rightSelection === "function" ? rightSelection(getSQLiteSetOperators()) : rightSelection;
           if (!haveSameKeys(this.getSelectedFields(), rightSelect.getSelectedFields())) {
@@ -20585,7 +20585,7 @@ var init_select2 = __esm({
               "Set operator error (union / intersect / except): selected fields are not the same or are in a different order"
             );
           }
-          this.config.setOperators.push({ type, isAll, rightSelect });
+          this.config.setOperators.push({ type: type2, isAll, rightSelect });
           return this;
         };
       }
@@ -21040,9 +21040,9 @@ var init_insert = __esm({
     init_utils2();
     init_query_builder2();
     SQLiteInsertBuilder = class {
-      constructor(table, session, dialect, withList) {
+      constructor(table, session2, dialect, withList) {
         this.table = table;
-        this.session = session;
+        this.session = session2;
         this.dialect = dialect;
         this.withList = withList;
       }
@@ -21074,9 +21074,9 @@ var init_insert = __esm({
       }
     };
     SQLiteInsertBase = class extends QueryPromise {
-      constructor(table, values, session, dialect, withList, select) {
+      constructor(table, values, session2, dialect, withList, select) {
         super();
-        this.session = session;
+        this.session = session2;
         this.dialect = dialect;
         this.config = { table, values, withList, select };
       }
@@ -21234,9 +21234,9 @@ var init_update = __esm({
     init_utils2();
     init_view_base();
     SQLiteUpdateBuilder = class {
-      constructor(table, session, dialect, withList) {
+      constructor(table, session2, dialect, withList) {
         this.table = table;
-        this.session = session;
+        this.session = session2;
         this.dialect = dialect;
         this.withList = withList;
       }
@@ -21252,9 +21252,9 @@ var init_update = __esm({
       }
     };
     SQLiteUpdateBase = class extends QueryPromise {
-      constructor(table, set2, session, dialect, withList) {
+      constructor(table, set2, session2, dialect, withList) {
         super();
-        this.session = session;
+        this.session = session2;
         this.dialect = dialect;
         this.config = { set: set2, table, withList, joins: [] };
       }
@@ -21471,7 +21471,7 @@ var init_query = __esm({
     init_query_promise();
     init_relations();
     RelationalQueryBuilder = class {
-      constructor(mode, fullSchema2, schema, tableNamesMap, table, tableConfig, dialect, session) {
+      constructor(mode, fullSchema2, schema, tableNamesMap, table, tableConfig, dialect, session2) {
         this.mode = mode;
         this.fullSchema = fullSchema2;
         this.schema = schema;
@@ -21479,7 +21479,7 @@ var init_query = __esm({
         this.table = table;
         this.tableConfig = tableConfig;
         this.dialect = dialect;
-        this.session = session;
+        this.session = session2;
       }
       static [entityKind] = "SQLiteAsyncRelationalQueryBuilder";
       findMany(config2) {
@@ -21530,7 +21530,7 @@ var init_query = __esm({
       }
     };
     SQLiteRelationalQuery = class extends QueryPromise {
-      constructor(fullSchema2, schema, tableNamesMap, table, tableConfig, dialect, session, config2, mode) {
+      constructor(fullSchema2, schema, tableNamesMap, table, tableConfig, dialect, session2, config2, mode) {
         super();
         this.fullSchema = fullSchema2;
         this.schema = schema;
@@ -21538,7 +21538,7 @@ var init_query = __esm({
         this.table = table;
         this.tableConfig = tableConfig;
         this.dialect = dialect;
-        this.session = session;
+        this.session = session2;
         this.config = config2;
         this.mode = mode;
       }
@@ -21663,10 +21663,10 @@ var init_db = __esm({
     init_query();
     init_raw();
     BaseSQLiteDatabase = class {
-      constructor(resultKind, dialect, session, schema) {
+      constructor(resultKind, dialect, session2, schema) {
         this.resultKind = resultKind;
         this.dialect = dialect;
-        this.session = session;
+        this.session = session2;
         this._ = schema ? {
           schema: schema.schema,
           fullSchema: schema.fullSchema,
@@ -21688,7 +21688,7 @@ var init_db = __esm({
               schema.fullSchema[tableName],
               columns,
               dialect,
-              session
+              session2
             );
           }
         }
@@ -22180,8 +22180,8 @@ var init_session = __esm({
       }
     };
     SQLiteTransaction = class extends BaseSQLiteDatabase {
-      constructor(resultType, dialect, session, schema, nestedIndex = 0) {
-        super(resultType, dialect, session, schema);
+      constructor(resultType, dialect, session2, schema, nestedIndex = 0) {
+        super(resultType, dialect, session2, schema);
         this.schema = schema;
         this.nestedIndex = nestedIndex;
       }
@@ -28312,9 +28312,9 @@ var require_event_target = __commonJS({
        * @param {String} type The name of the event
        * @throws {TypeError} If the `type` argument is not specified
        */
-      constructor(type) {
+      constructor(type2) {
         this[kTarget] = null;
-        this[kType] = type;
+        this[kType] = type2;
       }
       /**
        * @type {*}
@@ -28345,8 +28345,8 @@ var require_event_target = __commonJS({
        * @param {Boolean} [options.wasClean=false] Indicates whether or not the
        *     connection was cleanly closed
        */
-      constructor(type, options = {}) {
-        super(type);
+      constructor(type2, options = {}) {
+        super(type2);
         this[kCode] = options.code === void 0 ? 0 : options.code;
         this[kReason] = options.reason === void 0 ? "" : options.reason;
         this[kWasClean] = options.wasClean === void 0 ? false : options.wasClean;
@@ -28383,8 +28383,8 @@ var require_event_target = __commonJS({
        * @param {*} [options.error=null] The error that generated this event
        * @param {String} [options.message=''] The error message
        */
-      constructor(type, options = {}) {
-        super(type);
+      constructor(type2, options = {}) {
+        super(type2);
         this[kError] = options.error === void 0 ? null : options.error;
         this[kMessage] = options.message === void 0 ? "" : options.message;
       }
@@ -28412,8 +28412,8 @@ var require_event_target = __commonJS({
        *     attributes via object members of the same name
        * @param {*} [options.data=null] The message content
        */
-      constructor(type, options = {}) {
-        super(type);
+      constructor(type2, options = {}) {
+        super(type2);
         this[kData] = options.data === void 0 ? null : options.data;
       }
       /**
@@ -28437,14 +28437,14 @@ var require_event_target = __commonJS({
        *     the listener would be automatically removed when invoked.
        * @public
        */
-      addEventListener(type, handler, options = {}) {
-        for (const listener of this.listeners(type)) {
+      addEventListener(type2, handler, options = {}) {
+        for (const listener of this.listeners(type2)) {
           if (!options[kForOnEventAttribute] && listener[kListener] === handler && !listener[kForOnEventAttribute]) {
             return;
           }
         }
         let wrapper;
-        if (type === "message") {
+        if (type2 === "message") {
           wrapper = function onMessage(data, isBinary) {
             const event = new MessageEvent("message", {
               data: isBinary ? data : data.toString()
@@ -28452,7 +28452,7 @@ var require_event_target = __commonJS({
             event[kTarget] = this;
             callListener(handler, this, event);
           };
-        } else if (type === "close") {
+        } else if (type2 === "close") {
           wrapper = function onClose(code, message2) {
             const event = new CloseEvent("close", {
               code,
@@ -28462,7 +28462,7 @@ var require_event_target = __commonJS({
             event[kTarget] = this;
             callListener(handler, this, event);
           };
-        } else if (type === "error") {
+        } else if (type2 === "error") {
           wrapper = function onError(error48) {
             const event = new ErrorEvent("error", {
               error: error48,
@@ -28471,7 +28471,7 @@ var require_event_target = __commonJS({
             event[kTarget] = this;
             callListener(handler, this, event);
           };
-        } else if (type === "open") {
+        } else if (type2 === "open") {
           wrapper = function onOpen() {
             const event = new Event("open");
             event[kTarget] = this;
@@ -28483,9 +28483,9 @@ var require_event_target = __commonJS({
         wrapper[kForOnEventAttribute] = !!options[kForOnEventAttribute];
         wrapper[kListener] = handler;
         if (options.once) {
-          this.once(type, wrapper);
+          this.once(type2, wrapper);
         } else {
-          this.on(type, wrapper);
+          this.on(type2, wrapper);
         }
       },
       /**
@@ -28495,10 +28495,10 @@ var require_event_target = __commonJS({
        * @param {(Function|Object)} handler The listener to remove
        * @public
        */
-      removeEventListener(type, handler) {
-        for (const listener of this.listeners(type)) {
+      removeEventListener(type2, handler) {
+        for (const listener of this.listeners(type2)) {
           if (listener[kListener] === handler && !listener[kForOnEventAttribute]) {
-            this.removeListener(type, listener);
+            this.removeListener(type2, listener);
             break;
           }
         }
@@ -28764,10 +28764,10 @@ var require_websocket = __commonJS({
       get binaryType() {
         return this._binaryType;
       }
-      set binaryType(type) {
-        if (!BINARY_TYPES.includes(type)) return;
-        this._binaryType = type;
-        if (this._receiver) this._receiver._binaryType = type;
+      set binaryType(type2) {
+        if (!BINARY_TYPES.includes(type2)) return;
+        this._binaryType = type2;
+        if (this._receiver) this._receiver._binaryType = type2;
       }
       /**
        * @type {Number}
@@ -31972,24 +31972,24 @@ function BatchResult(obj) {
   return { stepResults, stepErrors };
 }
 function CursorEntry(obj) {
-  const type = string4(obj["type"]);
-  if (type === "step_begin") {
+  const type2 = string4(obj["type"]);
+  if (type2 === "step_begin") {
     const step = number4(obj["step"]);
     const cols = arrayObjectsMap(obj["cols"], Col);
     return { type: "step_begin", step, cols };
-  } else if (type === "step_end") {
+  } else if (type2 === "step_end") {
     const affectedRowCount = number4(obj["affected_row_count"]);
     const lastInsertRowidStr = stringOpt(obj["last_insert_rowid"]);
     const lastInsertRowid = lastInsertRowidStr !== void 0 ? BigInt(lastInsertRowidStr) : void 0;
     return { type: "step_end", affectedRowCount, lastInsertRowid };
-  } else if (type === "step_error") {
+  } else if (type2 === "step_error") {
     const step = number4(obj["step"]);
     const error48 = Error2(object2(obj["error"]));
     return { type: "step_error", step, error: error48 };
-  } else if (type === "row") {
+  } else if (type2 === "row") {
     const row = arrayObjectsMap(obj["row"], Value3);
     return { type: "row", row };
-  } else if (type === "error") {
+  } else if (type2 === "error") {
     const error48 = Error2(object2(obj["error"]));
     return { type: "error", error: error48 };
   } else {
@@ -32013,17 +32013,17 @@ function DescribeCol(obj) {
   return { name: name2, decltype };
 }
 function Value3(obj) {
-  const type = string4(obj["type"]);
-  if (type === "null") {
+  const type2 = string4(obj["type"]);
+  if (type2 === "null") {
     return null;
-  } else if (type === "integer") {
+  } else if (type2 === "integer") {
     const value = string4(obj["value"]);
     return BigInt(value);
-  } else if (type === "float") {
+  } else if (type2 === "float") {
     return number4(obj["value"]);
-  } else if (type === "text") {
+  } else if (type2 === "text") {
     return string4(obj["value"]);
-  } else if (type === "blob") {
+  } else if (type2 === "blob") {
     return gBase64.toUint8Array(string4(obj["base64"]));
   } else {
     throw new ProtoError("Unexpected type of Value");
@@ -32039,17 +32039,17 @@ var init_json_decode = __esm({
 
 // node_modules/@libsql/hrana-client/lib-esm/ws/json_decode.js
 function ServerMsg(obj) {
-  const type = string4(obj["type"]);
-  if (type === "hello_ok") {
+  const type2 = string4(obj["type"]);
+  if (type2 === "hello_ok") {
     return { type: "hello_ok" };
-  } else if (type === "hello_error") {
+  } else if (type2 === "hello_error") {
     const error48 = Error2(object2(obj["error"]));
     return { type: "hello_error", error: error48 };
-  } else if (type === "response_ok") {
+  } else if (type2 === "response_ok") {
     const requestId = number4(obj["request_id"]);
     const response = Response2(object2(obj["response"]));
     return { type: "response_ok", requestId, response };
-  } else if (type === "response_error") {
+  } else if (type2 === "response_error") {
     const requestId = number4(obj["request_id"]);
     const error48 = Error2(object2(obj["error"]));
     return { type: "response_error", requestId, error: error48 };
@@ -32058,35 +32058,35 @@ function ServerMsg(obj) {
   }
 }
 function Response2(obj) {
-  const type = string4(obj["type"]);
-  if (type === "open_stream") {
+  const type2 = string4(obj["type"]);
+  if (type2 === "open_stream") {
     return { type: "open_stream" };
-  } else if (type === "close_stream") {
+  } else if (type2 === "close_stream") {
     return { type: "close_stream" };
-  } else if (type === "execute") {
+  } else if (type2 === "execute") {
     const result = StmtResult(object2(obj["result"]));
     return { type: "execute", result };
-  } else if (type === "batch") {
+  } else if (type2 === "batch") {
     const result = BatchResult(object2(obj["result"]));
     return { type: "batch", result };
-  } else if (type === "open_cursor") {
+  } else if (type2 === "open_cursor") {
     return { type: "open_cursor" };
-  } else if (type === "close_cursor") {
+  } else if (type2 === "close_cursor") {
     return { type: "close_cursor" };
-  } else if (type === "fetch_cursor") {
+  } else if (type2 === "fetch_cursor") {
     const entries = arrayObjectsMap(obj["entries"], CursorEntry);
     const done = boolean4(obj["done"]);
     return { type: "fetch_cursor", entries, done };
-  } else if (type === "sequence") {
+  } else if (type2 === "sequence") {
     return { type: "sequence" };
-  } else if (type === "describe") {
+  } else if (type2 === "describe") {
     const result = DescribeResult(object2(obj["result"]));
     return { type: "describe", result };
-  } else if (type === "store_sql") {
+  } else if (type2 === "store_sql") {
     return { type: "store_sql" };
-  } else if (type === "close_sql") {
+  } else if (type2 === "close_sql") {
     return { type: "close_sql" };
-  } else if (type === "get_autocommit") {
+  } else if (type2 === "get_autocommit") {
     const isAutocommit = boolean4(obj["is_autocommit"]);
     return { type: "get_autocommit", isAutocommit };
   } else {
@@ -32828,11 +32828,11 @@ function PipelineRespBody(obj) {
   return { baton, baseUrl, results };
 }
 function StreamResult(obj) {
-  const type = string4(obj["type"]);
-  if (type === "ok") {
+  const type2 = string4(obj["type"]);
+  if (type2 === "ok") {
     const response = StreamResponse(object2(obj["response"]));
     return { type: "ok", response };
-  } else if (type === "error") {
+  } else if (type2 === "error") {
     const error48 = Error2(object2(obj["error"]));
     return { type: "error", error: error48 };
   } else {
@@ -32840,25 +32840,25 @@ function StreamResult(obj) {
   }
 }
 function StreamResponse(obj) {
-  const type = string4(obj["type"]);
-  if (type === "close") {
+  const type2 = string4(obj["type"]);
+  if (type2 === "close") {
     return { type: "close" };
-  } else if (type === "execute") {
+  } else if (type2 === "execute") {
     const result = StmtResult(object2(obj["result"]));
     return { type: "execute", result };
-  } else if (type === "batch") {
+  } else if (type2 === "batch") {
     const result = BatchResult(object2(obj["result"]));
     return { type: "batch", result };
-  } else if (type === "sequence") {
+  } else if (type2 === "sequence") {
     return { type: "sequence" };
-  } else if (type === "describe") {
+  } else if (type2 === "describe") {
     const result = DescribeResult(object2(obj["result"]));
     return { type: "describe", result };
-  } else if (type === "store_sql") {
+  } else if (type2 === "store_sql") {
     return { type: "store_sql" };
-  } else if (type === "close_sql") {
+  } else if (type2 === "close_sql") {
     return { type: "close_sql" };
-  } else if (type === "get_autocommit") {
+  } else if (type2 === "get_autocommit") {
     const isAutocommit = boolean4(obj["is_autocommit"]);
     return { type: "get_autocommit", isAutocommit };
   } else {
@@ -34859,14 +34859,14 @@ var init_session2 = __esm({
       }
       async transaction(transaction, _config) {
         const libsqlTx = await this.client.transaction();
-        const session = new _LibSQLSession(
+        const session2 = new _LibSQLSession(
           this.client,
           this.dialect,
           this.schema,
           this.options,
           libsqlTx
         );
-        const tx = new LibSQLTransaction("async", this.dialect, session, this.schema);
+        const tx = new LibSQLTransaction("async", this.dialect, session2, this.schema);
         try {
           const result = await transaction(tx);
           await libsqlTx.commit();
@@ -35024,8 +35024,8 @@ function construct(client, config2 = {}) {
       tableNamesMap: tablesConfig.tableNamesMap
     };
   }
-  const session = new LibSQLSession(client, dialect, schema, { logger, cache: config2.cache }, void 0);
-  const db = new LibSQLDatabase("async", dialect, session, schema);
+  const session2 = new LibSQLSession(client, dialect, schema, { logger, cache: config2.cache }, void 0);
+  const db = new LibSQLDatabase("async", dialect, session2, schema);
   db.$client = client;
   db.$cache = config2.cache;
   if (db.$cache) {
@@ -38530,8 +38530,8 @@ async function reconcileClientFromIntake(clientId, opts = {}) {
     }
     await db.delete(tasks).where(and(eq(tasks.ruleId, r.id), ne(tasks.status, "completed")));
   }
-  for (const [type, config2] of desiredByType) {
-    let rule = existingByType.get(type);
+  for (const [type2, config2] of desiredByType) {
+    let rule = existingByType.get(type2);
     if (!rule) {
       const [ins] = await db.insert(clientTaskRules).values({
         clientId,
@@ -38736,12 +38736,12 @@ function isOperationalClient(clientType) {
   return (clientType || "monthly") !== "wholesale";
 }
 function isRelevantForPeriod(c, asOf = /* @__PURE__ */ new Date()) {
-  const type = c.clientType || "monthly";
-  if (type === "wholesale") return false;
-  if (c.hasPayroll || type === "monthly" || type === "payroll") return true;
+  const type2 = c.clientType || "monthly";
+  if (type2 === "wholesale") return false;
+  if (c.hasPayroll || type2 === "monthly" || type2 === "payroll") return true;
   const m = asOf.getMonth();
-  if (type === "quarterly") return m === 0 || m === 3 || m === 6 || m === 9;
-  if (type === "annual") {
+  if (type2 === "quarterly") return m === 0 || m === 3 || m === 6 || m === 9;
+  if (type2 === "annual") {
     if (c.openWork) return true;
     const fyeIdx = c.yearEndMonth ? MONTHS.indexOf(c.yearEndMonth) : 11;
     if (fyeIdx < 0) return true;
@@ -41652,10 +41652,10 @@ async function employeeColumns() {
 async function ensureEmployeeSchema() {
   const db = getDb();
   const have = await employeeColumns();
-  for (const [name2, type] of COLUMNS) {
+  for (const [name2, type2] of COLUMNS) {
     if (have.has(name2)) continue;
     try {
-      await db.run(sql.raw(`ALTER TABLE employees ADD COLUMN "${name2}" ${type}`));
+      await db.run(sql.raw(`ALTER TABLE employees ADD COLUMN "${name2}" ${type2}`));
       console.log(`[employee-schema] added column: ${name2}`);
     } catch (e) {
       console.error(`[employee-schema] add column ${name2} failed:`, e instanceof Error ? e.message : e);
@@ -41665,10 +41665,10 @@ async function ensureEmployeeSchema() {
     const have2 = /* @__PURE__ */ new Set();
     const res = await db.run(sql`PRAGMA table_info(pay_run_lines)`);
     for (const r of res?.rows ?? res ?? []) have2.add(String(r.name ?? r[1] ?? ""));
-    for (const [name2, type] of [["phoneAllowance", "real"], ["reimbursement", "real"], ["vacationPayAccrued", "real"], ["vacationPayPaid", "real"]]) {
+    for (const [name2, type2] of [["phoneAllowance", "real"], ["reimbursement", "real"], ["vacationPayAccrued", "real"], ["vacationPayPaid", "real"]]) {
       if (have2.has(name2)) continue;
       try {
-        await db.run(sql.raw(`ALTER TABLE pay_run_lines ADD COLUMN "${name2}" ${type}`));
+        await db.run(sql.raw(`ALTER TABLE pay_run_lines ADD COLUMN "${name2}" ${type2}`));
         console.log(`[employee-schema] pay_run_lines added: ${name2}`);
       } catch (e) {
         console.error(`[employee-schema] pay_run_lines add ${name2} failed:`, e instanceof Error ? e.message : e);
@@ -42747,10 +42747,10 @@ async function ensureJobberTable() {
       for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
     } catch {
     }
-    for (const [col, type] of [["accountName", "text"], ["jobberAccountId", "text"], ["reconnectReason", "text"]]) {
+    for (const [col, type2] of [["accountName", "text"], ["jobberAccountId", "text"], ["reconnectReason", "text"]]) {
       if (!have.has(col)) {
         try {
-          await db.run(sql.raw(`ALTER TABLE jobber_connections ADD COLUMN ${col} ${type}`));
+          await db.run(sql.raw(`ALTER TABLE jobber_connections ADD COLUMN ${col} ${type2}`));
         } catch {
         }
       }
@@ -43117,8 +43117,8 @@ function parseTimesheetCsv(text2) {
     if (!name2) continue;
     const lname = name2.toLowerCase();
     if (lname.startsWith("report summary") || lname.startsWith("total") || lname.startsWith("subtotal")) continue;
-    const type = (iType >= 0 ? cells[iType] : "").trim().toLowerCase();
-    if (type === "admin" || lname === "admin, admin" || lname.startsWith("admin,")) continue;
+    const type2 = (iType >= 0 ? cells[iType] : "").trim().toLowerCase();
+    if (type2 === "admin" || lname === "admin, admin" || lname.startsWith("admin,")) continue;
     const shift = iShift >= 0 ? num(cells[iShift]) : 0;
     let payable = 0;
     if (iPayables.length) for (const i of iPayables) payable += num(cells[i]);
@@ -46058,13 +46058,13 @@ var init_error = __esm({
     AnthropicError = class extends Error {
     };
     APIError = class _APIError extends AnthropicError {
-      constructor(status, error48, message2, headers, type) {
+      constructor(status, error48, message2, headers, type2) {
         super(`${_APIError.makeMessage(status, error48, message2)}`);
         this.status = status;
         this.headers = headers;
         this.requestID = headers?.get("request-id");
         this.error = error48;
-        this.type = type ?? null;
+        this.type = type2 ?? null;
       }
       static makeMessage(status, error48, message2) {
         const msg = error48?.message ? typeof error48.message === "string" ? error48.message : JSON.stringify(error48.message) : error48 ? JSON.stringify(error48) : message2;
@@ -46084,32 +46084,32 @@ var init_error = __esm({
           return new APIConnectionError({ message: message2, cause: castToError(errorResponse) });
         }
         const error48 = errorResponse;
-        const type = error48?.["error"]?.["type"];
+        const type2 = error48?.["error"]?.["type"];
         if (status === 400) {
-          return new BadRequestError(status, error48, message2, headers, type);
+          return new BadRequestError(status, error48, message2, headers, type2);
         }
         if (status === 401) {
-          return new AuthenticationError(status, error48, message2, headers, type);
+          return new AuthenticationError(status, error48, message2, headers, type2);
         }
         if (status === 403) {
-          return new PermissionDeniedError(status, error48, message2, headers, type);
+          return new PermissionDeniedError(status, error48, message2, headers, type2);
         }
         if (status === 404) {
-          return new NotFoundError(status, error48, message2, headers, type);
+          return new NotFoundError(status, error48, message2, headers, type2);
         }
         if (status === 409) {
-          return new ConflictError(status, error48, message2, headers, type);
+          return new ConflictError(status, error48, message2, headers, type2);
         }
         if (status === 422) {
-          return new UnprocessableEntityError(status, error48, message2, headers, type);
+          return new UnprocessableEntityError(status, error48, message2, headers, type2);
         }
         if (status === 429) {
-          return new RateLimitError(status, error48, message2, headers, type);
+          return new RateLimitError(status, error48, message2, headers, type2);
         }
         if (status >= 500) {
-          return new InternalServerError(status, error48, message2, headers, type);
+          return new InternalServerError(status, error48, message2, headers, type2);
         }
-        return new _APIError(status, error48, message2, headers, type);
+        return new _APIError(status, error48, message2, headers, type2);
       }
     };
     APIUserAbortError = class extends APIError {
@@ -47990,8 +47990,8 @@ var init_streaming = __esm({
               }
               if (sse2.event === "error") {
                 const body = safeJSON(sse2.data) ?? sse2.data;
-                const type = body?.error?.type;
-                throw new APIError(void 0, body, void 0, response.headers, type);
+                const type2 = body?.error?.type;
+                throw new APIError(void 0, body, void 0, response.headers, type2);
               }
             }
             done = true;
@@ -48616,9 +48616,9 @@ async function toFile(value, name2, options) {
   }
   const parts = await getBytes(value);
   if (!options?.type) {
-    const type = parts.find((part) => typeof part === "object" && "type" in part && part.type);
-    if (typeof type === "string") {
-      options = { ...options, type };
+    const type2 = parts.find((part) => typeof part === "object" && "type" in part && part.type);
+    if (typeof type2 === "string") {
+      options = { ...options, type: type2 };
     }
   }
   return makeFile(parts, name2, options);
@@ -51205,10 +51205,10 @@ async function setupSkills(ctx) {
     return async () => {
     };
   const log = loggerFor(client);
-  const session = await client.beta.sessions.retrieve(sessionId);
+  const session2 = await client.beta.sessions.retrieve(sessionId);
   const skillsRoot = path4.resolve(ctx.workdir, "skills");
   const created = [];
-  for (const skill of session.agent.skills) {
+  for (const skill of session2.agent.skills) {
     try {
       const versionId = await resolveSkillVersion(client, skill.skill_id, skill.version);
       const version4 = await client.beta.skills.versions.retrieve(versionId, { skill_id: skill.skill_id });
@@ -51276,8 +51276,8 @@ function assertSafeMemberNames(names) {
 }
 function assertNoSpecialMembers(verboseListing) {
   for (const line of verboseListing.split("\n")) {
-    const type = line.trimStart()[0];
-    if (type === "l" || type === "h" || type === "b" || type === "c" || type === "p" || type === "s") {
+    const type2 = line.trimStart()[0];
+    if (type2 === "l" || type2 === "h" || type2 === "b" || type2 === "c" || type2 === "p" || type2 === "s") {
       throw new AnthropicError("refusing to extract archive with symlink/hardlink/device member");
     }
   }
@@ -51404,7 +51404,7 @@ function scrubbedShellEnv() {
   return env2;
 }
 function betaBashTool(ctx) {
-  let session;
+  let session2;
   let tail = Promise.resolve();
   return betaTool({
     name: "bash",
@@ -51427,17 +51427,17 @@ function betaBashTool(ctx) {
       }
       try {
         if (restart) {
-          session?.close();
-          session = void 0;
+          session2?.close();
+          session2 = void 0;
         }
         if (!command) {
           if (restart)
             return "bash session restarted";
           throw new ToolError("bash: command is required");
         }
-        session ?? (session = new BashSession(ctx.workdir, ctx.env));
+        session2 ?? (session2 = new BashSession(ctx.workdir, ctx.env));
         try {
-          const { output, exitCode } = await session.exec(command, {
+          const { output, exitCode } = await session2.exec(command, {
             timeoutMs: timeout_ms ?? BASH_DEFAULT_TIMEOUT_MS,
             signal: context?.signal
           });
@@ -51447,8 +51447,8 @@ function betaBashTool(ctx) {
         } catch (e) {
           if (e instanceof ToolError)
             throw e;
-          session.close();
-          session = void 0;
+          session2.close();
+          session2 = void 0;
           throw new ToolError(`bash: ${e instanceof Error ? e.message : String(e)}`);
         }
       } finally {
@@ -51456,8 +51456,8 @@ function betaBashTool(ctx) {
       }
     },
     close: () => {
-      session?.close();
-      session = void 0;
+      session2?.close();
+      session2 = void 0;
     }
   });
 }
@@ -58255,10 +58255,10 @@ async function ensureCalendarSchema() {
       ["createdAt", "integer"],
       ["updatedAt", "integer"]
     ];
-    for (const [name2, type] of cols) {
+    for (const [name2, type2] of cols) {
       if (have.has(name2)) continue;
       try {
-        await db.run(sql.raw(`ALTER TABLE calendar_events ADD COLUMN "${name2}" ${type}`));
+        await db.run(sql.raw(`ALTER TABLE calendar_events ADD COLUMN "${name2}" ${type2}`));
         console.log(`[calendar] added column: ${name2}`);
       } catch (e) {
         console.error(`[calendar] add column ${name2} failed:`, e instanceof Error ? e.message : e);
@@ -61349,7 +61349,7 @@ function bankBreakdownFromAccounts(rows) {
   const bankAccounts = [];
   for (const a of rows) {
     if (a.active === false) continue;
-    const type = (a.accountType || "").toLowerCase();
+    const type2 = (a.accountType || "").toLowerCase();
     const bal = Number(a.currentBalance) || 0;
     const cur = (a.currencyRef || "").toLowerCase();
     const name2 = a.name || "(unnamed)";
@@ -61359,11 +61359,11 @@ function bankBreakdownFromAccounts(rows) {
         uncategorizedCount++;
       }
     }
-    if (type === "bank") {
+    if (type2 === "bank") {
       if (cur === USD) cashUsd += bal;
       else cashCad += bal;
       bankAccounts.push({ name: name2, balance: bal, currency: cur === USD ? "USD" : "CAD", type: "Bank", staleDays: null });
-    } else if (type === "credit card" || type === "creditcard") {
+    } else if (type2 === "credit card" || type2 === "creditcard") {
       creditCardOwed += Math.abs(bal);
       bankAccounts.push({ name: name2, balance: bal, currency: cur === USD ? "USD" : "CAD", type: "Credit Card", staleDays: null });
     }
@@ -61757,10 +61757,10 @@ async function ensureConnectorsSchema() {
       ["createdAt", "integer"],
       ["updatedAt", "integer"]
     ];
-    for (const [name2, type] of cols) {
+    for (const [name2, type2] of cols) {
       if (have.has(name2)) continue;
       try {
-        await db.run(sql.raw(`ALTER TABLE connected_accounts ADD COLUMN "${name2}" ${type}`));
+        await db.run(sql.raw(`ALTER TABLE connected_accounts ADD COLUMN "${name2}" ${type2}`));
       } catch (e) {
         console.error(`[connectors] add column ${name2} failed:`, e instanceof Error ? e.message : e);
       }
@@ -62853,6 +62853,129 @@ var init_seed_payroll_employees = __esm({
   }
 });
 
+// api/browser-agent.ts
+var browser_agent_exports = {};
+__export(browser_agent_exports, {
+  BROWSER_ENABLED: () => BROWSER_ENABLED,
+  click: () => click,
+  ensureSession: () => ensureSession,
+  goto: () => goto,
+  pressKey: () => pressKey,
+  screenshot: () => screenshot,
+  sessionInfo: () => sessionInfo,
+  stopSession: () => stopSession,
+  type: () => type
+});
+function touch(s, status) {
+  s.lastActivity = Date.now();
+  if (status) s.status = status;
+  if (s.idleTimer) clearTimeout(s.idleTimer);
+  s.idleTimer = setTimeout(() => {
+    void stopSession("idle timeout");
+  }, IDLE_MS);
+}
+async function launch() {
+  const puppeteer = (await import("puppeteer-core")).default;
+  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium-browser";
+  const browser = await puppeteer.launch({
+    executablePath,
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      `--window-size=${VIEWPORT.width},${VIEWPORT.height}`
+    ]
+  });
+  const page = await browser.newPage();
+  await page.setViewport(VIEWPORT);
+  const s = { browser, page, startedAt: Date.now(), lastActivity: Date.now(), status: "Ready." };
+  s.lifeTimer = setTimeout(() => {
+    void stopSession("max lifetime reached");
+  }, MAX_LIFETIME_MS);
+  touch(s, "Ready.");
+  return s;
+}
+async function ensureSession() {
+  if (!BROWSER_ENABLED) throw new Error("Browser agent is disabled (set FIGGY_BROWSER_AGENT=on).");
+  if (session) return session;
+  if (!launching) {
+    launching = launch().then((s) => {
+      session = s;
+      launching = null;
+      return s;
+    }).catch((e) => {
+      launching = null;
+      throw e;
+    });
+  }
+  return launching;
+}
+function sessionInfo() {
+  if (!session) return { running: false, enabled: BROWSER_ENABLED };
+  return {
+    running: true,
+    enabled: BROWSER_ENABLED,
+    status: session.status,
+    url: session.page.url(),
+    startedAt: session.startedAt,
+    ageMs: Date.now() - session.startedAt
+  };
+}
+async function goto(url2) {
+  const s = await ensureSession();
+  const target = /^https?:\/\//i.test(url2) ? url2 : `https://${url2}`;
+  touch(s, `Opening ${target}`);
+  await s.page.goto(target, { waitUntil: "domcontentloaded", timeout: 3e4 }).catch(() => {
+  });
+  touch(s, `At ${s.page.url()}`);
+  return { url: s.page.url() };
+}
+async function screenshot() {
+  const s = await ensureSession();
+  touch(s);
+  return s.page.screenshot({ type: "png" });
+}
+async function click(x, y) {
+  const s = await ensureSession();
+  touch(s, `Click (${Math.round(x)}, ${Math.round(y)})`);
+  await s.page.mouse.click(x, y);
+}
+async function type(text2) {
+  const s = await ensureSession();
+  touch(s, `Type ${text2.length} chars`);
+  await s.page.keyboard.type(text2, { delay: 15 });
+}
+async function pressKey(key10) {
+  const s = await ensureSession();
+  touch(s, `Key ${key10}`);
+  await s.page.keyboard.press(key10);
+}
+async function stopSession(reason = "stopped") {
+  const s = session;
+  session = null;
+  if (!s) return;
+  if (s.idleTimer) clearTimeout(s.idleTimer);
+  if (s.lifeTimer) clearTimeout(s.lifeTimer);
+  try {
+    await s.browser.close();
+  } catch {
+  }
+  console.log(`[figs-browser] session closed (${reason})`);
+}
+var BROWSER_ENABLED, IDLE_MS, MAX_LIFETIME_MS, VIEWPORT, session, launching;
+var init_browser_agent = __esm({
+  "api/browser-agent.ts"() {
+    BROWSER_ENABLED = process.env.FIGGY_BROWSER_AGENT === "on";
+    IDLE_MS = 10 * 60 * 1e3;
+    MAX_LIFETIME_MS = 60 * 60 * 1e3;
+    VIEWPORT = { width: 1280, height: 800 };
+    session = null;
+    launching = null;
+  }
+});
+
 // node_modules/@hono/node-server/dist/index.mjs
 var dist_exports = {};
 __export(dist_exports, {
@@ -63822,10 +63945,10 @@ async function ensureClientsColumns() {
     console.error("[schema] table_info(clients) failed:", e instanceof Error ? e.message : e);
     return { added };
   }
-  for (const [col, type] of COLUMNS2) {
+  for (const [col, type2] of COLUMNS2) {
     if (have.has(col)) continue;
     try {
-      await db.run(sql.raw(`ALTER TABLE clients ADD COLUMN "${col}" ${type}`));
+      await db.run(sql.raw(`ALTER TABLE clients ADD COLUMN "${col}" ${type2}`));
       added.push(col);
     } catch (e) {
       console.error("[schema] add clients column", col, "failed:", e instanceof Error ? e.message : e);
@@ -63933,12 +64056,12 @@ async function ensurePayrollTables() {
       t4Box44UnionDues REAL, t4Box46Charitable REAL, contractUrl TEXT,
       notes TEXT, createdAt INTEGER, updatedAt INTEGER
     )`));
-    const addCol = async (table, col, type) => {
+    const addCol = async (table, col, type2) => {
       try {
         const res = await db.run(sql.raw(`PRAGMA table_info(${table})`));
         const have = /* @__PURE__ */ new Set();
         for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
-        if (!have.has(col)) await db.run(sql.raw(`ALTER TABLE ${table} ADD COLUMN "${col}" ${type}`));
+        if (!have.has(col)) await db.run(sql.raw(`ALTER TABLE ${table} ADD COLUMN "${col}" ${type2}`));
       } catch (e) {
         console.error(`[schema] add ${table}.${col} failed:`, e instanceof Error ? e.message : e);
       }
@@ -64025,12 +64148,12 @@ async function ensureIntercoTables() {
       createdBy INTEGER,
       createdAt INTEGER
     )`));
-    const addCol = async (table, col, type) => {
+    const addCol = async (table, col, type2) => {
       try {
         const res = await db.run(sql.raw(`PRAGMA table_info(${table})`));
         const have = /* @__PURE__ */ new Set();
         for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
-        if (!have.has(col)) await db.run(sql.raw(`ALTER TABLE ${table} ADD COLUMN "${col}" ${type}`));
+        if (!have.has(col)) await db.run(sql.raw(`ALTER TABLE ${table} ADD COLUMN "${col}" ${type2}`));
       } catch (e) {
         console.error(`[schema] add ${table}.${col} failed:`, e instanceof Error ? e.message : e);
       }
@@ -64167,10 +64290,10 @@ async function ensureOnboardingColumns() {
     ["monthlySalesReceipt", "integer DEFAULT 0"],
     ["salesReceiptSource", "text"]
   ];
-  for (const [col, type] of adds) {
+  for (const [col, type2] of adds) {
     if (have.has(col)) continue;
     try {
-      await db.run(sql.raw(`ALTER TABLE client_onboarding ADD COLUMN "${col}" ${type}`));
+      await db.run(sql.raw(`ALTER TABLE client_onboarding ADD COLUMN "${col}" ${type2}`));
       console.log("[schema] client_onboarding: added", col);
     } catch (e) {
       console.error("[schema] add client_onboarding column", col, "failed:", e instanceof Error ? e.message : e);
@@ -64467,10 +64590,10 @@ async function ensureChatSchema() {
     const have = /* @__PURE__ */ new Set();
     for (const r of info?.rows ?? info ?? []) have.add(String(r.name ?? r[1] ?? ""));
     const want = [["agent", "text"], ["clientId", "integer"], ["createdAt", "integer"]];
-    for (const [col, type] of want) {
+    for (const [col, type2] of want) {
       if (!have.has(col)) {
         try {
-          await db.run(sql.raw(`ALTER TABLE chat_messages ADD COLUMN "${col}" ${type}`));
+          await db.run(sql.raw(`ALTER TABLE chat_messages ADD COLUMN "${col}" ${type2}`));
         } catch {
         }
       }
@@ -64525,10 +64648,10 @@ async function ensureCashflowSchema() {
       ["payrollShortfall", "real"],
       ["createdAt", "integer"]
     ];
-    for (const [name2, type] of cols) {
+    for (const [name2, type2] of cols) {
       if (have.has(name2)) continue;
       try {
-        await db.run(sql.raw(`ALTER TABLE client_cash_snapshots ADD COLUMN "${name2}" ${type}`));
+        await db.run(sql.raw(`ALTER TABLE client_cash_snapshots ADD COLUMN "${name2}" ${type2}`));
         console.log(`[cashflow] added column: ${name2}`);
       } catch (e) {
         console.error(`[cashflow] add column ${name2} failed:`, e instanceof Error ? e.message : e);
@@ -64574,10 +64697,10 @@ async function ensureRateHistorySchema() {
       ["source", "text"],
       ["createdAt", "integer"]
     ];
-    for (const [name2, type] of cols) {
+    for (const [name2, type2] of cols) {
       if (have.has(name2)) continue;
       try {
-        await db.run(sql.raw(`ALTER TABLE employee_rate_history ADD COLUMN "${name2}" ${type}`));
+        await db.run(sql.raw(`ALTER TABLE employee_rate_history ADD COLUMN "${name2}" ${type2}`));
         console.log(`[rate-history] added column: ${name2}`);
       } catch (e) {
         console.error(`[rate-history] add column ${name2} failed:`, e instanceof Error ? e.message : e);
@@ -64612,10 +64735,10 @@ async function ensureEmployeeYtdColumns() {
       ["ytdAsOf", "integer"],
       ["ytdSource", "text"]
     ];
-    for (const [name2, type] of cols) {
+    for (const [name2, type2] of cols) {
       if (have.has(name2)) continue;
       try {
-        await db.run(sql.raw(`ALTER TABLE employees ADD COLUMN "${name2}" ${type}`));
+        await db.run(sql.raw(`ALTER TABLE employees ADD COLUMN "${name2}" ${type2}`));
         console.log(`[employee-ytd] added column: ${name2}`);
       } catch (e) {
         console.error(`[employee-ytd] add column ${name2} failed:`, e instanceof Error ? e.message : e);
@@ -68835,13 +68958,13 @@ var jsonContentTypeHandler = {
       code: "BAD_REQUEST",
       message: `Cannot mix procedure types in call: ${Array.from(types).join(", ")}`
     });
-    const type = (_types$values$next$va = types.values().next().value) !== null && _types$values$next$va !== void 0 ? _types$values$next$va : "unknown";
+    const type2 = (_types$values$next$va = types.values().next().value) !== null && _types$values$next$va !== void 0 ? _types$values$next$va : "unknown";
     const connectionParamsStr = opts.searchParams.get("connectionParams");
     const info = {
       isBatchCall,
       accept: getAcceptHeader(req.headers),
       calls,
-      type,
+      type: type2,
       connectionParams: connectionParamsStr === null ? null : parseConnectionParamsFromString(connectionParamsStr),
       signal: req.signal,
       url: opts.url
@@ -70191,14 +70314,14 @@ async function resolveResponse(opts) {
               const error$1 = getTRPCErrorFromUnknown(errorOpts.error);
               const input = call === null || call === void 0 ? void 0 : call.result();
               const path7 = call === null || call === void 0 ? void 0 : call.path;
-              const type = (_call$procedure$_def$2 = call === null || call === void 0 || (_call$procedure3 = call.procedure) === null || _call$procedure3 === void 0 ? void 0 : _call$procedure3._def.type) !== null && _call$procedure$_def$2 !== void 0 ? _call$procedure$_def$2 : "unknown";
+              const type2 = (_call$procedure$_def$2 = call === null || call === void 0 || (_call$procedure3 = call.procedure) === null || _call$procedure3 === void 0 ? void 0 : _call$procedure3._def.type) !== null && _call$procedure$_def$2 !== void 0 ? _call$procedure$_def$2 : "unknown";
               (_opts$onError2 = opts.onError) === null || _opts$onError2 === void 0 || _opts$onError2.call(opts, {
                 error: error$1,
                 path: path7,
                 input,
                 ctx: ctxManager.valueOrUndefined(),
                 req: opts.req,
-                type
+                type: type2
               });
               const shape = getErrorShape({
                 config: config2,
@@ -70206,7 +70329,7 @@ async function resolveResponse(opts) {
                 error: error$1,
                 input,
                 path: path7,
-                type
+                type: type2
               });
               return shape;
             }
@@ -70296,14 +70419,14 @@ async function resolveResponse(opts) {
           const error48 = getTRPCErrorFromUnknown(errorOpts.error);
           const input = call === null || call === void 0 ? void 0 : call.result();
           const path7 = call === null || call === void 0 ? void 0 : call.path;
-          const type = (_call$procedure$_def$3 = call === null || call === void 0 || (_call$procedure4 = call.procedure) === null || _call$procedure4 === void 0 ? void 0 : _call$procedure4._def.type) !== null && _call$procedure$_def$3 !== void 0 ? _call$procedure$_def$3 : "unknown";
+          const type2 = (_call$procedure$_def$3 = call === null || call === void 0 || (_call$procedure4 = call.procedure) === null || _call$procedure4 === void 0 ? void 0 : _call$procedure4._def.type) !== null && _call$procedure$_def$3 !== void 0 ? _call$procedure$_def$3 : "unknown";
           const shape = getErrorShape({
             config: config2,
             ctx: ctxManager.valueOrUndefined(),
             error: error48,
             input,
             path: path7,
-            type
+            type: type2
           });
           return shape;
         }
@@ -76702,12 +76825,12 @@ var DIVIDEND_RATES = {
   non_eligible: { grossUp: 0.15, dtcOfGrossUp: 9 / 13 }
 };
 var round24 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
-function computeT5Boxes(actual, type) {
-  const r = DIVIDEND_RATES[type];
+function computeT5Boxes(actual, type2) {
+  const r = DIVIDEND_RATES[type2];
   const a = round24(Math.max(0, actual));
   const taxable = round24(a * (1 + r.grossUp));
   const dtc = round24((taxable - a) * r.dtcOfGrossUp);
-  return type === "eligible" ? { type, actual: a, taxable, dtc, actualBox: "24", taxableBox: "25", dtcBox: "26" } : { type, actual: a, taxable, dtc, actualBox: "10", taxableBox: "11", dtcBox: "12" };
+  return type2 === "eligible" ? { type: type2, actual: a, taxable, dtc, actualBox: "24", taxableBox: "25", dtcBox: "26" } : { type: type2, actual: a, taxable, dtc, actualBox: "10", taxableBox: "11", dtcBox: "12" };
 }
 function buildT5Slip(eligibleActual, nonEligibleActual) {
   const eligible = computeT5Boxes(eligibleActual, "eligible");
@@ -84675,6 +84798,69 @@ app.use("/api/trpc/*", async (c) => {
   });
   const isDemo = c.req.header("x-demo-mode") === "true";
   return isDemo ? dbContext.run({ demo: true }, handle) : handle();
+});
+async function requireAdmin(c) {
+  try {
+    const ctx = await createContext({ req: c.req.raw });
+    return ctx?.user?.role === "admin";
+  } catch {
+    return false;
+  }
+}
+app.get("/api/figs-browser/status", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  const { sessionInfo: sessionInfo2 } = await Promise.resolve().then(() => (init_browser_agent(), browser_agent_exports));
+  return c.json(sessionInfo2());
+});
+app.post("/api/figs-browser/start", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { ensureSession: ensureSession2 } = await Promise.resolve().then(() => (init_browser_agent(), browser_agent_exports));
+    await ensureSession2();
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.post("/api/figs-browser/goto", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { goto: goto2 } = await Promise.resolve().then(() => (init_browser_agent(), browser_agent_exports));
+    const { url: url2 } = await c.req.json();
+    return c.json(await goto2(String(url2 || "")));
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.get("/api/figs-browser/screenshot", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { screenshot: screenshot2 } = await Promise.resolve().then(() => (init_browser_agent(), browser_agent_exports));
+    const png = await screenshot2();
+    return new Response(png, { headers: { "content-type": "image/png", "cache-control": "no-store" } });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.post("/api/figs-browser/act", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { click: click2, type: type2, pressKey: pressKey2 } = await Promise.resolve().then(() => (init_browser_agent(), browser_agent_exports));
+    const body = await c.req.json();
+    if (body.action === "click") await click2(Number(body.x), Number(body.y));
+    else if (body.action === "type") await type2(String(body.text || ""));
+    else if (body.action === "key") await pressKey2(String(body.key || "Enter"));
+    else return c.json({ ok: false, error: "unknown action" }, 200);
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.post("/api/figs-browser/stop", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  const { stopSession: stopSession2 } = await Promise.resolve().then(() => (init_browser_agent(), browser_agent_exports));
+  await stopSession2("user stop");
+  return c.json({ ok: true });
 });
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 var boot_default = app;
