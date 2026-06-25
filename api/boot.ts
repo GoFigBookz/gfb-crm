@@ -402,6 +402,17 @@ app.get("/api/payroll/backfill-motioninvest", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Post the Motion Invest quarterly revenue-share bonus (net-profit based).
+//   GET /api/payroll/motioninvest-revshare
+app.get("/api/payroll/motioninvest-revshare", async (c) => {
+  try {
+    const { backfillMotionInvestRevShare } = await import("./seed-motioninvest-revshare");
+    const r = await backfillMotionInvestRevShare();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // Dedup + name-correct the Clark/Sher rosters (merge dupes, fix Last, First).
 //   GET /api/payroll/dedup-employees
 app.get("/api/payroll/dedup-employees", async (c) => {
@@ -1744,6 +1755,14 @@ async function startServer() {
       if (r?.runsAdded) console.log(`[motioninvest-backfill] +${r.runsAdded} runs`);
     } catch (e) {
       console.error("[motioninvest-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Motion Invest quarterly revenue-share bonus (net-profit based; posts due quarters).
+    try {
+      const { backfillMotionInvestRevShare } = await import("./seed-motioninvest-revshare");
+      const r = await backfillMotionInvestRevShare();
+      if (r?.runsAdded) console.log(`[mi-revshare] +${r.runsAdded} runs`);
+    } catch (e) {
+      console.error("[mi-revshare] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
     // rows, repoint their pay-run lines, fix the "Last, First" split).
