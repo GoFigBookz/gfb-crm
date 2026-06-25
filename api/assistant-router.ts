@@ -62,7 +62,7 @@ async function execGetAgenda(userId: number): Promise<string> {
   const events = evs
     .filter((e) => { const s = new Date(e.startDate); return s >= todayStart && s < todayEnd; })
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-    .map((e) => ({ title: e.title, when: e.isAllDay ? "all day" : new Date(e.startDate).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) }));
+    .map((e) => ({ title: e.title, when: e.isAllDay ? "all day" : new Date(e.startDate).toLocaleTimeString("en-CA", { timeZone: TZ, hour: "numeric", minute: "2-digit" }) }));
 
   return formatAgenda({ overdue, today, upcoming, events });
 }

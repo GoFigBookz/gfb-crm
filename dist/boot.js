@@ -79528,7 +79528,7 @@ async function execGetAgenda(userId) {
   const events = evs.filter((e) => {
     const s = new Date(e.startDate);
     return s >= todayStart && s < todayEnd;
-  }).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()).map((e) => ({ title: e.title, when: e.isAllDay ? "all day" : new Date(e.startDate).toLocaleTimeString(void 0, { hour: "numeric", minute: "2-digit" }) }));
+  }).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()).map((e) => ({ title: e.title, when: e.isAllDay ? "all day" : new Date(e.startDate).toLocaleTimeString("en-CA", { timeZone: TZ, hour: "numeric", minute: "2-digit" }) }));
   return formatAgenda({ overdue, today: today2, upcoming, events });
 }
 async function execAddPersonal(input, userId) {
