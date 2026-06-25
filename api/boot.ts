@@ -12,7 +12,7 @@ import { createOAuthCallbackHandler } from "./google/auth";
 import { Paths } from "@contracts/constants";
 
 // DB imports for inline OAuth callbacks
-import { getDb } from "./queries/connection";
+import { getDb, dbContext } from "./queries/connection";
 import { connectedAccounts, qboConnections, triageFindings, clients, calendarEvents } from "../db/schema";
 import { eq, and, sql, like } from "drizzle-orm";
 import { matchClientIdByName } from "./client-match";
@@ -1394,12 +1394,15 @@ app.post("/api/admin/figgy", async (c) => {
 // tRPC API
 // ================================================================
 app.use("/api/trpc/*", async (c) => {
-  return fetchRequestHandler({
+  const handle = () => fetchRequestHandler({
     endpoint: "/api/trpc",
     req: c.req.raw,
     router: appRouter,
     createContext,
   });
+  // Demo requests run against a SEPARATE demo.db — never the real books.
+  const isDemo = c.req.header("x-demo-mode") === "true";
+  return isDemo ? dbContext.run({ demo: true }, handle) : handle();
 });
 
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
@@ -1844,6 +1847,13 @@ async function startServer() {
       if (r?.seeded) console.log(`[jon-control-book] seeded ${r.entities} entities`);
     } catch (e) {
       console.error("[jon-control-book] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Build the separate, fully-fake demo.db for "Try Demo Mode" (never the real books).
+    try {
+      const { prepareDemoDb } = await import("./prepare-demo-db");
+      await prepareDemoDb();
+    } catch (e) {
+      console.error("[demo-db] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
     // rows, repoint their pay-run lines, fix the "Last, First" split).
