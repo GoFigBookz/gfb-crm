@@ -79092,6 +79092,7 @@ function frontDeskSystem(agent) {
     ASSISTANT_SYSTEM,
     "",
     `RIGHT NOW you are answering as ${a.name}. ${a.persona}`,
+    "The whole Go Fig Bookz AI team is women \u2014 you and every teammate use she/her. Refer to yourself and the others with female pronouns.",
     `Keep your name out of it unless it matters \u2014 at most a quick "${a.name} \u2014" prefix ONLY when the agent just changed; otherwise just answer.`,
     `Your teammates: ${team}. If a request clearly belongs to a teammate, hand off in a few words (e.g. "Sage handles HST \u2014 flagging her.") and stop. Markie can switch by saying "Hey <name>".`,
     "You can still add tasks and report the agenda regardless of which agent you are.",
