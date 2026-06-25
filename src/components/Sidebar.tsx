@@ -152,7 +152,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
             isFav(to) ? "opacity-100" : "opacity-0 group-hover/nav:opacity-100"
           )}
         >
-          <Star className={cn("h-3.5 w-3.5", isFav(to) ? "fill-amber-400 text-amber-400" : "text-slate-400")} />
+          <Star className={cn("h-3.5 w-3.5", isFav(to) ? "fill-lime-500 text-lime-500" : "text-slate-400")} />
         </button>
       )}
     </NavLink>
@@ -223,8 +223,8 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         {favItems.length > 0 && (
           <div className="mb-2">
             {!collapsed && (
-              <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-amber-400/80">
-                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> Favorites
+              <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-lime-500/80">
+                <Star className="h-3.5 w-3.5 fill-lime-500 text-lime-500" /> Favorites
               </div>
             )}
             <div className="space-y-0.5 mt-0.5">
@@ -247,11 +247,17 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         {can.senior && (
           <Section label="Admin" icon={Lock} sectionKey="admin" items={adminItems} />
         )}
-        {/* Phoenix Rising — owner-only, pinned to the bottom. */}
+        {/* Phoenix Rising — owner-only, pinned to the bottom. Rendered as a direct
+            link (NOT a collapsible Section) so it's always visible. */}
         {can.admin && (
           <>
             <div className="border-t border-slate-800 my-2 mx-1" />
-            <Section label="Personal" icon={Flame} sectionKey="phoenix" items={personalNav} />
+            {!collapsed && (
+              <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Personal</div>
+            )}
+            {personalNav.map((item) => (
+              <NavItem key={item.to} to={item.to} icon={item.icon} label={item.label} />
+            ))}
           </>
         )}
       </nav>
