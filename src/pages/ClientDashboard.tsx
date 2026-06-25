@@ -48,6 +48,12 @@ export default function ClientDashboard() {
     { enabled: !!id }
   );
 
+  // Actual pay runs (the Payroll-page data: backfilled + live runs).
+  const { data: payRunsList } = trpc.payroll.listRuns.useQuery(
+    { clientId: id },
+    { enabled: !!id }
+  );
+
   const { data: employees } = trpc.employee.list.useQuery(
     { clientId: id },
     { enabled: !!id }
@@ -916,11 +922,49 @@ export default function ClientDashboard() {
 
           <Card>
             <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2"><Wallet className="h-5 w-5 text-lime-500" /> Pay runs</span>
+                {payRunsList && payRunsList.length > 0 && (
+                  <span className="text-sm font-normal text-slate-500">
+                    {payRunsList.length} run{payRunsList.length === 1 ? "" : "s"} · {new Date().getFullYear()} gross{" "}
+                    <span className="font-semibold text-lime-700">
+                      ${payRunsList.filter((r: any) => new Date(r.payDate || r.payPeriodEnd).getFullYear() === new Date().getFullYear()).reduce((s: number, r: any) => s + (r.totalGross || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </span>
+                )}
+              </CardTitle>
+              <CardDescription>Saved pay runs for this client (from the Payroll page).</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {payRunsList && payRunsList.length > 0 ? (
+                <div className="space-y-1.5">
+                  {payRunsList.map((r: any) => (
+                    <Link key={r.id} to={`/payroll?clientId=${id}`}
+                      className="flex items-center justify-between p-2.5 rounded-lg border hover:bg-slate-50 transition-colors">
+                      <div className="text-sm">
+                        <span className="font-medium">{r.payPeriodStart ? format(new Date(r.payPeriodStart), "MMM d") : ""} – {r.payPeriodEnd ? format(new Date(r.payPeriodEnd), "MMM d, yyyy") : ""}</span>
+                        <span className="text-xs text-slate-500 ml-2">pay {r.payDate ? format(new Date(r.payDate), "MMM d") : "—"}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-lime-700">${(r.totalGross || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <Badge variant="outline" className="text-xs">{r.status}</Badge>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400 py-2">No pay runs yet. <Link to={`/payroll?clientId=${id}`} className="text-lime-700 hover:underline">Open the Payroll page</Link> to run one.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-lime-500" />
                 Payroll Timesheets
               </CardTitle>
-              <CardDescription>Hours by pay period</CardDescription>
+              <CardDescription>Hours by pay period (legacy timesheet entries)</CardDescription>
             </CardHeader>
             <CardContent>
               {timesheetPeriods && timesheetPeriods.length > 0 ? (

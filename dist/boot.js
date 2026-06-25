@@ -58276,7 +58276,18 @@ async function backfillSherPayroll() {
     for (const e of existing) empByKey.set(key2(e.firstName, e.lastName), e);
     for (const r of ROSTER2) {
       const k = key2(r.first, r.last);
-      if (empByKey.has(k)) continue;
+      const ex = empByKey.get(k);
+      if (ex) {
+        const patch = {};
+        if (ex.payType == null) patch.payType = r.payType;
+        if (r.payType === "hourly" && ex.hourlyRate == null && r.rate != null) patch.hourlyRate = r.rate;
+        if (r.payType === "salary" && ex.annualSalary == null && r.salary != null) patch.annualSalary = r.salary;
+        if (Object.keys(patch).length) {
+          patch.updatedAt = /* @__PURE__ */ new Date();
+          await db.update(employees).set(patch).where(eq(employees.id, ex.id));
+        }
+        continue;
+      }
       const [ins] = await db.insert(employees).values({
         clientId,
         firstName: r.first,
@@ -58388,7 +58399,17 @@ async function backfillOwenSoundPayroll() {
     for (const e of existing) empByKey.set(key3(e.firstName, e.lastName), e);
     for (const r of ROSTER3) {
       const k = key3(r.first, r.last);
-      if (empByKey.has(k)) continue;
+      const ex = empByKey.get(k);
+      if (ex) {
+        const patch = {};
+        if (ex.payType == null) patch.payType = "hourly";
+        if (ex.hourlyRate == null) patch.hourlyRate = r.rate;
+        if (Object.keys(patch).length) {
+          patch.updatedAt = /* @__PURE__ */ new Date();
+          await db.update(employees).set(patch).where(eq(employees.id, ex.id));
+        }
+        continue;
+      }
       const [ins] = await db.insert(employees).values({
         clientId,
         firstName: r.first,
@@ -58457,7 +58478,9 @@ var init_seed_os_backfill = __esm({
       { first: "Alexis", last: "Montgomery", rate: 20 },
       { first: "Jamie", last: "Moseley", rate: 28 },
       { first: "Brad", last: "Nickle", rate: 30 },
-      { first: "Brad", last: "Shaw", rate: 25 }
+      { first: "Brad", last: "Shaw", rate: 25 },
+      { first: "Debbie", last: "Maritin", rate: 30 },
+      { first: "Neil", last: "Korchak", rate: 20 }
     ];
     PERIODS2 = [
       { payDate: "2026-06-26", start: "2026-06-10", end: "2026-06-23", lines: {
@@ -58485,6 +58508,48 @@ var init_seed_os_backfill = __esm({
         [key3("Jamie", "Moseley")]: { hours: 103.8, gross: 3022.66 },
         [key3("Brad", "Nickle")]: { hours: 80.5, gross: 2511.6 },
         [key3("Brad", "Shaw")]: { hours: 101, gross: 2626 }
+      } },
+      // Victoria Day stat in this period; line-gross sum ties to cost−tax ($21,353.47).
+      { payDate: "2026-05-29", start: "2026-05-13", end: "2026-05-26", lines: {
+        [key3("Jammie", "Cook")]: { hours: 86, gross: 2772.64 },
+        [key3("Grace", "Dickerson")]: { hours: 84.37, gross: 1579.44 },
+        [key3("Dean", "Dickerson")]: { hours: 93, gross: 2998.32 },
+        [key3("Bruce", "Funston")]: { hours: 93.96, gross: 1954.47 },
+        [key3("Ethan", "Holt")]: { hours: 8.62, gross: 161.44 },
+        [key3("Isabella", "Holt")]: { hours: 16.83, gross: 290.59 },
+        [key3("Michael", "Kennedy")]: { hours: 106.68, gross: 2662.73 },
+        [key3("Alexis", "Montgomery")]: { hours: 44.26, gross: 920.69 },
+        [key3("Jamie", "Moseley")]: { hours: 93.93, gross: 2735.24 },
+        [key3("Brad", "Nickle")]: { hours: 102.5, gross: 3198 },
+        [key3("Brad", "Shaw")]: { hours: 80, gross: 2079.91 }
+      } },
+      { payDate: "2026-05-15", start: "2026-04-29", end: "2026-05-12", lines: {
+        [key3("Jammie", "Cook")]: { hours: 74.03, gross: 2386.73 },
+        [key3("Grace", "Dickerson")]: { hours: 85.53, gross: 1601.12 },
+        [key3("Dean", "Dickerson")]: { hours: 95, gross: 3062.8 },
+        [key3("Bruce", "Funston")]: { hours: 85.63, gross: 1781.1 },
+        [key3("Ethan", "Holt")]: { hours: 8, gross: 149.76 },
+        [key3("Isabella", "Holt")]: { hours: 8, gross: 138.11 },
+        [key3("Michael", "Kennedy")]: { hours: 85.63, gross: 2137.32 },
+        [key3("Debbie", "Maritin")]: { hours: 48.5, gross: 1513.2 },
+        [key3("Alexis", "Montgomery")]: { hours: 50, gross: 1040 },
+        [key3("Jamie", "Moseley")]: { hours: 104.08, gross: 3030.81 },
+        [key3("Brad", "Nickle")]: { hours: 94, gross: 2932.8 },
+        [key3("Brad", "Shaw")]: { hours: 19.55, gross: 508.3 }
+      } },
+      { payDate: "2026-05-01", start: "2026-04-15", end: "2026-04-28", lines: {
+        [key3("Jammie", "Cook")]: { hours: 101.3, gross: 3265.91 },
+        [key3("Grace", "Dickerson")]: { hours: 37, gross: 692.64 },
+        [key3("Dean", "Dickerson")]: { hours: 75, gross: 2418 },
+        [key3("Bruce", "Funston")]: { hours: 16, gross: 332.8 },
+        [key3("Ethan", "Holt")]: { hours: 4, gross: 74.88 },
+        [key3("Isabella", "Holt")]: { hours: 8, gross: 138.11 },
+        [key3("Michael", "Kennedy")]: { hours: 82.93, gross: 2069.93 },
+        [key3("Neil", "Korchak")]: { hours: 22, gross: 457.6 },
+        [key3("Debbie", "Maritin")]: { hours: 64, gross: 1996.8 },
+        [key3("Alexis", "Montgomery")]: { hours: 32, gross: 665.6 },
+        [key3("Jamie", "Moseley")]: { hours: 91.03, gross: 2650.79 },
+        [key3("Brad", "Nickle")]: { hours: 87.5, gross: 2730 }
       } }
     ];
   }

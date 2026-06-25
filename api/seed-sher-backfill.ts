@@ -64,7 +64,16 @@ export async function backfillSherPayroll(): Promise<{ client: number | null; ru
     for (const e of existing) empByKey.set(key(e.firstName, e.lastName), e);
     for (const r of ROSTER) {
       const k = key(r.first, r.last);
-      if (empByKey.has(k)) continue;
+      const ex = empByKey.get(k);
+      if (ex) {
+        // Fill blank rate / pay type from the sheet (never clobber an edited value).
+        const patch: Record<string, any> = {};
+        if (ex.payType == null) patch.payType = r.payType;
+        if (r.payType === "hourly" && (ex.hourlyRate == null) && r.rate != null) patch.hourlyRate = r.rate;
+        if (r.payType === "salary" && (ex.annualSalary == null) && r.salary != null) patch.annualSalary = r.salary;
+        if (Object.keys(patch).length) { patch.updatedAt = new Date(); await db.update(employees).set(patch).where(eq(employees.id, ex.id)); }
+        continue;
+      }
       const [ins] = await db.insert(employees).values({
         clientId, firstName: r.first, lastName: r.last, payType: r.payType,
         hourlyRate: r.payType === "hourly" ? r.rate ?? null : null,
