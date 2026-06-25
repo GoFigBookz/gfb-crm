@@ -75,6 +75,23 @@ function FigsAtWorkInner(p: any) {
   const loadCreds = async () => { const r = await api("credentials"); setCreds(r?.credentials || []); };
   useEffect(() => { loadCreds(); }, []);
 
+  // ── Stage 3 brain: give Figs a goal, watch her work, approve risky steps. ──
+  const [goal, setGoal] = useState("");
+  const [brain, setBrain] = useState<any>(null);
+  const [brainBusy, setBrainBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    const loop = async () => { const s = await api("brain/status"); if (alive) setBrain(s); };
+    loop();
+    const id = setInterval(loop, 1500);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  const startGoal = async () => { if (!goal.trim()) return; setBrainBusy(true); await api("brain/start", { goal }); setBrainBusy(false); };
+  const approve = async () => { setBrainBusy(true); await api("brain/approve", {}); setBrainBusy(false); };
+  const deny = async () => { setBrainBusy(true); await api("brain/deny", {}); setBrainBusy(false); };
+  const stopBrain = async () => { await api("brain/stop", {}); };
+  const continueBrain = async () => { await api("brain/continue", {}); };
+
   const saveCred = async () => {
     if (!form.username || !form.password) return;
     setCredBusy(true);
@@ -156,6 +173,47 @@ function FigsAtWorkInner(p: any) {
                 <Button size="sm" onClick={saveCred} disabled={credBusy || !form.username || !form.password}>Save (encrypted)</Button>
                 <Button size="sm" variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Give Figs a task (Stage 3 brain) */}
+      <Card className="border-lime-200">
+        <CardContent className="p-3 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <Bot className="h-4 w-4 text-lime-600" /> Give Figs a task
+            {brain?.active && <span className="text-xs font-normal text-slate-400">· {brain.status}{brain.steps ? ` · step ${brain.steps}` : ""}</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+              placeholder="e.g. Log into Hubdoc and publish the pending Alderson receipts"
+              onKeyDown={(e) => { if (e.key === "Enter") startGoal(); }}
+              disabled={disabled}
+            />
+            <Button onClick={startGoal} disabled={brainBusy || disabled || !goal.trim()}>Start</Button>
+            {brain?.active && <Button variant="outline" onClick={stopBrain} className="text-red-600 border-red-300">Stop</Button>}
+          </div>
+
+          {/* Approval gate — Figs pauses before anything that changes data */}
+          {brain?.status === "awaiting_approval" && brain?.pending && (
+            <div className="rounded border border-amber-300 bg-amber-50 p-3 space-y-2">
+              <p className="text-sm font-medium text-amber-900">⏸ Figs wants to: {brain.pending.summary}</p>
+              {brain.pending.reason && <p className="text-xs text-amber-800">Why: {brain.pending.reason}</p>}
+              <div className="flex gap-2">
+                <Button size="sm" className="bg-lime-600" onClick={approve} disabled={brainBusy}>Approve</Button>
+                <Button size="sm" variant="outline" onClick={deny} disabled={brainBusy}>Deny</Button>
+              </div>
+            </div>
+          )}
+          {brain?.status === "done" && <p className="text-xs text-lime-700">Figs finished this task. Give her the next one, or <button className="underline" onClick={continueBrain}>keep going</button>.</p>}
+
+          {/* Live activity log */}
+          {brain?.log?.length > 0 && (
+            <div className="max-h-40 overflow-y-auto rounded bg-slate-50 border p-2 text-xs text-slate-600 font-mono space-y-0.5">
+              {brain.log.map((l: any, i: number) => <div key={i}>{l.text}</div>)}
             </div>
           )}
         </CardContent>
