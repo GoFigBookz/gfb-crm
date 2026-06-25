@@ -31,12 +31,14 @@ const ROSTER: Emp[] = [
   { first: "Brad", last: "Shaw", rate: 25.0 },
   { first: "Debbie", last: "Maritin", rate: 30.0 },
   { first: "Neil", last: "Korchak", rate: 20.0 },
+  { first: "Adam", last: "Holt", rate: 0 }, // owner salary ($60k/yr); +$5k bonus in the 4 winter periods
 ];
 
 type Period = { payDate: string; start: string; end: string; lines: Record<string, { hours: number; gross: number }> };
 // Verified: each period's line-gross sum ties to the sheet's Totals row.
 const PERIODS: Period[] = [
   { payDate: "2026-06-26", start: "2026-06-10", end: "2026-06-23", lines: {
+      [key("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
       [key("Jammie", "Cook")]: { hours: 80.0, gross: 2579.20 },
       [key("Grace", "Dickerson")]: { hours: 80.0, gross: 1497.60 },
       [key("Dean", "Dickerson")]: { hours: 96.5, gross: 3111.16 },
@@ -51,6 +53,7 @@ const PERIODS: Period[] = [
       [key("Brad", "Shaw")]: { hours: 39.25, gross: 1020.50 },
   } },
   { payDate: "2026-06-12", start: "2026-05-27", end: "2026-06-09", lines: {
+      [key("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
       [key("Jammie", "Cook")]: { hours: 80.78, gross: 2604.35 },
       [key("Grace", "Dickerson")]: { hours: 80.78, gross: 1512.20 },
       [key("Dean", "Dickerson")]: { hours: 79.5, gross: 2563.08 },
@@ -64,6 +67,7 @@ const PERIODS: Period[] = [
   } },
   // Victoria Day stat in this period; line-gross sum ties to cost−tax ($21,353.47).
   { payDate: "2026-05-29", start: "2026-05-13", end: "2026-05-26", lines: {
+      [key("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
       [key("Jammie", "Cook")]: { hours: 86.0, gross: 2772.64 },
       [key("Grace", "Dickerson")]: { hours: 84.37, gross: 1579.44 },
       [key("Dean", "Dickerson")]: { hours: 93.0, gross: 2998.32 },
@@ -77,6 +81,7 @@ const PERIODS: Period[] = [
       [key("Brad", "Shaw")]: { hours: 80.0, gross: 2079.91 },
   } },
   { payDate: "2026-05-15", start: "2026-04-29", end: "2026-05-12", lines: {
+      [key("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
       [key("Jammie", "Cook")]: { hours: 74.03, gross: 2386.73 },
       [key("Grace", "Dickerson")]: { hours: 85.53, gross: 1601.12 },
       [key("Dean", "Dickerson")]: { hours: 95.0, gross: 3062.80 },
@@ -91,6 +96,7 @@ const PERIODS: Period[] = [
       [key("Brad", "Shaw")]: { hours: 19.55, gross: 508.30 },
   } },
   { payDate: "2026-05-01", start: "2026-04-15", end: "2026-04-28", lines: {
+      [key("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
       [key("Jammie", "Cook")]: { hours: 101.3, gross: 3265.91 },
       [key("Grace", "Dickerson")]: { hours: 37.0, gross: 692.64 },
       [key("Dean", "Dickerson")]: { hours: 75.0, gross: 2418.00 },
@@ -106,6 +112,7 @@ const PERIODS: Period[] = [
   } },
   // Early-season skeleton crew; each Total Pay reconciles to reg+stat+vacation per row.
   { payDate: "2026-04-17", start: "2026-04-01", end: "2026-04-14", lines: {
+      [key("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
       [key("Ethan", "Holt")]: { hours: 10.94, gross: 204.72 },
       [key("Isabella", "Holt")]: { hours: 9.01, gross: 215.60 },
       [key("Michael", "Kennedy")]: { hours: 64.55, gross: 1611.12 },
@@ -114,32 +121,38 @@ const PERIODS: Period[] = [
       [key("Alexis", "Montgomery")]: { hours: 33.04, gross: 687.23 },
       [key("Jamie", "Moseley")]: { hours: 77.36, gross: 2011.31 },
   } },
-  // Winter skeleton crew (staff wages only — owner Adam Holt salary excluded, same
-  // basis as the summer periods). Each row reconciles to reg+stat+vacation.
+  // Winter skeleton crew. Each staff row reconciles to reg+stat+vacation; owner Adam
+  // Holt's salary draw ($2,307.69/period, +$5k bonus this stretch → $7,307.69) included.
   { payDate: "2026-04-03", start: "2026-03-18", end: "2026-03-31", lines: {
+      [key("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
       [key("Isabella", "Holt")]: { hours: 8.0, gross: 191.36 },
       [key("Debbie", "Maritin")]: { hours: 64.18, gross: 2002.42 },
       [key("Jamie", "Moseley")]: { hours: 47.15, gross: 1225.90 },
   } },
   { payDate: "2026-03-20", start: "2026-03-04", end: "2026-03-17", lines: {
+      [key("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
       [key("Isabella", "Holt")]: { hours: 10.0, gross: 239.20 },
       [key("Debbie", "Maritin")]: { hours: 64.0, gross: 1996.80 },
       [key("Jamie", "Moseley")]: { hours: 73.0, gross: 1898.00 },
   } },
   { payDate: "2026-03-06", start: "2026-02-18", end: "2026-03-03", lines: {
+      [key("Adam", "Holt")]: { hours: 0, gross: 7307.69 },
       [key("Isabella", "Holt")]: { hours: 9.0, gross: 215.28 },
       [key("Debbie", "Maritin")]: { hours: 69.0, gross: 1650.48 },
       [key("Jamie", "Moseley")]: { hours: 16.0, gross: 416.00 },
   } },
   { payDate: "2026-02-20", start: "2026-02-04", end: "2026-02-17", lines: {
+      [key("Adam", "Holt")]: { hours: 0, gross: 7307.69 },
       [key("Isabella", "Holt")]: { hours: 12.83, gross: 306.79 },
       [key("Debbie", "Maritin")]: { hours: 42.30, gross: 1011.91 },
   } },
   { payDate: "2026-02-06", start: "2026-01-21", end: "2026-02-02", lines: {
+      [key("Adam", "Holt")]: { hours: 0, gross: 7307.69 },
       [key("Isabella", "Holt")]: { hours: 22.0, gross: 526.24 },
       [key("Debbie", "Maritin")]: { hours: 27.0, gross: 645.84 },
   } },
   { payDate: "2026-01-23", start: "2026-01-07", end: "2026-01-20", lines: {
+      [key("Adam", "Holt")]: { hours: 0, gross: 7307.69 },
       [key("Debbie", "Maritin")]: { hours: 18.0, gross: 430.56 },
   } },
 ];
@@ -155,45 +168,55 @@ export async function backfillOwenSoundPayroll(): Promise<{ client: number | nul
     const existing = (await db.select().from(employees).where(eq(employees.clientId, clientId))) as any[];
     const empByKey = new Map<string, any>();
     for (const e of existing) empByKey.set(key(e.firstName, e.lastName), e);
+    const isAdam = (r: Emp) => r.first === "Adam" && r.last === "Holt"; // owner = salaried
     for (const r of ROSTER) {
       const k = key(r.first, r.last);
       const ex = empByKey.get(k);
       if (ex) {
         const patch: Record<string, any> = {};
-        if (ex.payType == null) patch.payType = "hourly";
-        if (ex.hourlyRate == null) patch.hourlyRate = r.rate;
+        if (ex.payType == null) patch.payType = isAdam(r) ? "salary" : "hourly";
+        if (isAdam(r)) { if (ex.annualSalary == null) patch.annualSalary = 60000; }
+        else if (ex.hourlyRate == null) patch.hourlyRate = r.rate;
         if (Object.keys(patch).length) { patch.updatedAt = new Date(); await db.update(employees).set(patch).where(eq(employees.id, ex.id)); }
         continue;
       }
       const [ins] = await db.insert(employees).values({
-        clientId, firstName: r.first, lastName: r.last, payType: "hourly",
-        hourlyRate: r.rate, isActive: true, createdAt: new Date(), updatedAt: new Date(),
+        clientId, firstName: r.first, lastName: r.last,
+        payType: isAdam(r) ? "salary" : "hourly",
+        hourlyRate: isAdam(r) ? null : r.rate,
+        annualSalary: isAdam(r) ? 60000 : null,
+        isActive: true, createdAt: new Date(), updatedAt: new Date(),
       } as any).returning();
       if (ins) empByKey.set(k, ins);
     }
 
     const allRuns = (await db.select().from(payRuns).where(eq(payRuns.clientId, clientId))) as any[];
-    let runsAdded = 0;
+    let runsAdded = 0, linesAdded = 0;
     for (const p of PERIODS) {
-      if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
-      let totalGross = 0;
-      const [run] = await db.insert(payRuns).values({
-        clientId, payPeriodStart: d(p.start), payPeriodEnd: d(p.end), payDate: d(p.payDate),
-        frequency: "biweekly", status: "review", hoursSource: "manual",
-        notes: "Backfill from Google payroll sheet", createdAt: new Date(), updatedAt: new Date(),
-      } as any).returning();
-      if (!run) continue;
+      // Find or create the run (self-healing: existing runs get any missing lines).
+      let run = allRuns.find((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate);
+      if (!run) {
+        [run] = await db.insert(payRuns).values({
+          clientId, payPeriodStart: d(p.start), payPeriodEnd: d(p.end), payDate: d(p.payDate),
+          frequency: "biweekly", status: "review", hoursSource: "manual",
+          notes: "Backfill from Google payroll sheet", createdAt: new Date(), updatedAt: new Date(),
+        } as any).returning();
+        if (!run) continue;
+        allRuns.push(run);
+        runsAdded++;
+      }
+      const have = new Set(((await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run.id))) as any[]).map((l) => l.employeeId));
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
-        if (!emp) continue;
-        const gross = round2(v.gross);
-        totalGross += gross;
-        await db.insert(payRunLines).values({ payRunId: run.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross } as any);
+        if (!emp || have.has(emp.id)) continue;
+        await db.insert(payRunLines).values({ payRunId: run.id, employeeId: emp.id, regularHours: v.hours, grossPay: round2(v.gross) } as any);
+        linesAdded++;
       }
-      await db.update(payRuns).set({ totalGross: round2(totalGross), updatedAt: new Date() } as any).where(eq(payRuns.id, run.id));
-      runsAdded++;
+      const lines = (await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run.id))) as any[];
+      const tg = round2(lines.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
+      await db.update(payRuns).set({ totalGross: tg, updatedAt: new Date() } as any).where(eq(payRuns.id, run.id));
     }
-    if (runsAdded) console.log(`[os-backfill] added ${runsAdded} run(s)`);
+    if (runsAdded || linesAdded) console.log(`[os-backfill] added ${runsAdded} run(s), ${linesAdded} line(s)`);
     return { client: clientId, runsAdded, skipped: "" };
   } catch (err) {
     console.error("[os-backfill] failed:", err instanceof Error ? err.message : err);
