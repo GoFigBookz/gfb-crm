@@ -171,15 +171,23 @@ export const agentWebhookRouter = createRouter({
         })
         .where(eq(triageFindings.id, input.id));
       // Approve teaches the brain: confirm a vendorMemory rule from the card.
+      let posting: any = undefined;
       if (input.action === "approve") {
         try {
           await applyAccountOverride(db, [input.id], input);
           await learnFromApprovals([input.id]);
         } catch { /* learning is best-effort — never block the approve */ }
+        // REVIEW-GATED POST: approving a postable finding posts it to QBO — but
+        // only when the master flag is on, the realm is enabled, and the
+        // connection can write. Fully defensive; never blocks the approve.
+        try {
+          const { postFindingToQBO } = await import("./qbo-poster");
+          posting = await postFindingToQBO(input.id);
+        } catch (e) { posting = { posted: false, error: e instanceof Error ? e.message : String(e) }; }
       }
       // Any review note (approve OR dismiss) teaches the general learning loop.
       await captureReviewLearning(db, [input.id], input.action, input.notes);
-      return { success: true };
+      return { success: true, posting };
     }),
 
   // Staff: Batch review — approve/dismiss many findings in one go
