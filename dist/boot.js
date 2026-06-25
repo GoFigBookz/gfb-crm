@@ -22736,6 +22736,10 @@ var init_schema = __esm({
       qboCustomerId: text("qboCustomerId"),
       // Multi-QBO firm mapping: which QBO firm this client belongs to
       qboConnectionId: integer2("qboConnectionId"),
+      // QBO company/realm ID, denormalized onto the client file so it's visible on
+      // the client master + never "lost" — kept in sync from the live connection
+      // (qbo_connections.realmId) at boot by ensure-client-realm-sync.
+      qboRealmId: text("qboRealmId"),
       // Firm mapping columns
       industry: text("industry").default("other"),
       // "CA" (default) or "US" — drives US-geared intake (EIN/state/sales tax) and
@@ -38902,6 +38906,519 @@ var init_month_end_core = __esm({
   }
 });
 
+// api/ensure-client-realm-sync.ts
+var ensure_client_realm_sync_exports = {};
+__export(ensure_client_realm_sync_exports, {
+  ensureClientRealmSync: () => ensureClientRealmSync
+});
+async function columnExists(db, table, column) {
+  const info = await db.all(sql.raw(`PRAGMA table_info(${table})`));
+  return info.some((c) => c.name === column);
+}
+async function ensureClientRealmSync() {
+  try {
+    const db = getDb();
+    if (!await columnExists(db, "clients", "qboRealmId")) {
+      await db.run(sql.raw(`ALTER TABLE clients ADD COLUMN qboRealmId text`));
+      console.log("[realm-sync] added clients.qboRealmId column");
+    }
+    const conns = await db.all(
+      sql.raw(
+        `SELECT id, realmId, clientId FROM qbo_connections WHERE isActive = 1 AND clientId IS NOT NULL`
+      )
+    );
+    const byClient = /* @__PURE__ */ new Map();
+    for (const c of conns) {
+      const cid = Number(c.clientId);
+      if (!cid || !c.realmId) continue;
+      const list = byClient.get(cid) || [];
+      list.push({ id: Number(c.id), realmId: String(c.realmId) });
+      byClient.set(cid, list);
+    }
+    let linked = 0;
+    const ambiguous = [];
+    for (const [clientId, list] of byClient) {
+      if (list.length > 1) {
+        const realms = new Set(list.map((l) => l.realmId));
+        if (realms.size > 1) {
+          ambiguous.push(clientId);
+          continue;
+        }
+      }
+      const { id: connId, realmId } = list[0];
+      const res = await db.run(
+        sql.raw(
+          `UPDATE clients
+             SET qboRealmId = '${realmId}',
+                 qboConnectionId = COALESCE(qboConnectionId, ${connId})
+           WHERE id = ${clientId}
+             AND (qboRealmId IS NULL OR qboRealmId <> '${realmId}' OR qboConnectionId IS NULL)`
+        )
+      );
+      if (res?.rowsAffected) linked += 1;
+    }
+    const unmappedRows = await db.all(
+      sql.raw(
+        `SELECT COUNT(*) AS n FROM clients
+          WHERE status = 'active' AND (qboRealmId IS NULL OR qboRealmId = '')
+            AND clientType <> 'wholesale'`
+      )
+    );
+    const unmapped = Number(unmappedRows?.[0]?.n || 0);
+    if (linked || ambiguous.length) {
+      console.log(
+        `[realm-sync] linked ${linked} client(s) to their QBO realm; ${ambiguous.length} ambiguous; ${unmapped} active client(s) still unmapped`
+      );
+    }
+    return { linked, ambiguous, unmapped };
+  } catch (e) {
+    console.error("[realm-sync] failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_client_realm_sync = __esm({
+  "api/ensure-client-realm-sync.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/master-sheet-sync.ts
+var master_sheet_sync_exports = {};
+__export(master_sheet_sync_exports, {
+  CANONICAL_MASTER_SHEET_ID: () => CANONICAL_MASTER_SHEET_ID,
+  DEFAULT_MASTER_HEADER: () => DEFAULT_MASTER_HEADER,
+  MASTER_FIELDS: () => MASTER_FIELDS,
+  PLATFORM_HEADERS: () => PLATFORM_HEADERS,
+  SELF_PROVISION_HEADERS: () => SELF_PROVISION_HEADERS,
+  colLetter: () => colLetter,
+  isLeadStage: () => isLeadStage,
+  pushAllClientsToMaster: () => pushAllClientsToMaster,
+  readMasterRange: () => readMasterRange,
+  resolveColumns: () => resolveColumns,
+  syncClientToMaster: () => syncClientToMaster,
+  syncLeadToMaster: () => syncLeadToMaster,
+  upsertClientToMaster: () => upsertClientToMaster,
+  upsertLeadToMaster: () => upsertLeadToMaster
+});
+function cadenceIn(v) {
+  const s = v.toLowerCase();
+  if (!s) return null;
+  if (s.includes("month")) return "monthly";
+  if (s.includes("quart") || s.includes("qrtly")) return "quarterly";
+  if (s.includes("annual") || s.includes("year")) return "annual";
+  return null;
+}
+function payInF(v) {
+  const s = v.toLowerCase().replace(/\s+/g, "-");
+  if (!s) return null;
+  if (s.includes("bi-week")) return "bi-weekly";
+  if (s.includes("week")) return "weekly";
+  if (s.includes("semi")) return "semi-monthly";
+  if (s.includes("month")) return "monthly";
+  if (s.includes("self")) return "self";
+  return null;
+}
+function remitIn(v) {
+  const s = v.toLowerCase();
+  if (!s) return null;
+  if (s.includes("threshold") || s.includes("acceler")) return "accelerated";
+  if (s.includes("quart")) return "quarterly";
+  if (s.includes("regular")) return "regular";
+  return null;
+}
+function statusInF(v) {
+  const s = v.toLowerCase().trim();
+  return ["active", "inactive", "prospect", "lead"].includes(s) ? s : null;
+}
+function resolveColumns(header2) {
+  const map2 = /* @__PURE__ */ new Map();
+  for (let i = 0; i < header2.length; i++) {
+    const h = norm2(header2[i]);
+    if (!h) continue;
+    for (const f of MASTER_FIELDS) {
+      if (map2.has(f.key)) continue;
+      if (f.match(h)) {
+        map2.set(f.key, i);
+        break;
+      }
+    }
+  }
+  return map2;
+}
+function colLetter(n) {
+  let s = "";
+  let x = n;
+  while (x > 0) {
+    const m = (x - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    x = Math.floor((x - 1) / 26);
+  }
+  return s || "A";
+}
+async function readMasterRange(rangeA1) {
+  try {
+    const read = await sheetsApi2(`spreadsheets/${CANONICAL_MASTER_SHEET_ID}/values/${encodeURIComponent(rangeA1)}`, "GET");
+    return Array.isArray(read?.values) ? read.values : [];
+  } catch {
+    return [];
+  }
+}
+async function sheetsApi2(url2, method, body) {
+  if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return null;
+  let rawUrl = url2;
+  try {
+    const d10 = decodeURIComponent(url2);
+    if (d10) rawUrl = d10;
+  } catch {
+  }
+  const res = await fetch(SYNC_WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: rawUrl, method, body: body == null ? "" : typeof body === "string" ? body : JSON.stringify(body) })
+  });
+  if (!res.ok) throw new Error(`sheets proxy ${method} ${url2} \u2192 ${res.status} ${await res.text()}`);
+  const data = await res.json().catch(() => ({}));
+  return data?.outputs?.tool_output?.body ?? data?.tool_output?.body ?? data?.body ?? data;
+}
+function isLeadStage(c) {
+  const s = String(c.status ?? "").toLowerCase();
+  if (s === "lead" || s === "prospect") return true;
+  const w = String(c.workflowStatus ?? "").toLowerCase();
+  const LEAD_STAGES = ["new_lead", "discovery_call", "discovery", "proposal_sent", "proposal", "quote_sent", "quoted", "negotiation", "lead", "onboarding_sent"];
+  return LEAD_STAGES.includes(w);
+}
+async function upsertClientToMaster(c) {
+  if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return false;
+  if (!c.name && !c.company && !c.taxId) return false;
+  if (isLeadStage(c)) {
+    try {
+      syncLeadToMaster(c);
+    } catch {
+    }
+    return false;
+  }
+  const sid = CANONICAL_MASTER_SHEET_ID;
+  const range = `'${MASTER_TAB}'!A:AZ`;
+  try {
+    let rows = await readMasterRange(`${MASTER_TAB}!A:AZ`);
+    if (!rows.length || !(rows[0] || []).some((x) => String(x ?? "").trim())) {
+      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!A1`)}?valueInputOption=RAW`, "PUT", { values: [DEFAULT_MASTER_HEADER] });
+      rows = [DEFAULT_MASTER_HEADER.slice()];
+    }
+    let header2 = rows[0] || [];
+    const haveHeaders = new Set(header2.map((h) => norm2(h)));
+    const missing = SELF_PROVISION_HEADERS.filter((h) => !haveHeaders.has(norm2(h)));
+    if (missing.length) {
+      try {
+        const targetWidth = header2.length + missing.length;
+        const meta3 = await sheetsApi2(`spreadsheets/${sid}?fields=sheets(properties(title,sheetId,gridProperties(columnCount)))`, "GET");
+        const props = (meta3?.sheets || []).map((s) => s?.properties).find((p) => p?.title === MASTER_TAB);
+        const colCount = props?.gridProperties?.columnCount ?? 26;
+        if (props?.sheetId != null && colCount < targetWidth) {
+          await sheetsApi2(`spreadsheets/${sid}:batchUpdate`, "POST", {
+            requests: [{ appendDimension: { sheetId: props.sheetId, dimension: "COLUMNS", length: targetWidth - colCount } }]
+          });
+        }
+        const startCol = colLetter(header2.length + 1);
+        const newHeader = [...header2, ...missing];
+        const endCol = colLetter(newHeader.length);
+        await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!${startCol}1:${endCol}1`)}?valueInputOption=RAW`, "PUT", { values: [missing] });
+        header2 = newHeader;
+      } catch (e) {
+        console.error("[master-sync] platform-column provision failed (continuing with row write):", e instanceof Error ? e.message : e);
+      }
+    }
+    if (c.id) {
+      try {
+        const onbRows = await getDb().select().from(clientOnboarding).where(eq(clientOnboarding.clientId, c.id)).orderBy(clientOnboarding.id);
+        const o = onbRows[onbRows.length - 1];
+        if (o) {
+          c = {
+            ...c,
+            usesStripe: !!o.usesStripe,
+            usesSquare: !!o.usesSquare,
+            usesJobber: !!o.usesJobber,
+            usesTouchBistro: !!o.usesTouchBistro,
+            usesPayPal: !!o.usesPayPal,
+            usesWise: !!o.usesWise,
+            usesShopify: !!o.usesShopify
+          };
+        }
+      } catch {
+      }
+    }
+    const width = Math.max(header2.length, DEFAULT_MASTER_HEADER.length);
+    const cols = resolveColumns(header2);
+    const bnCol = cols.get("craBn");
+    const nameCol = cols.get("name") ?? 0;
+    const bn = (c.taxId || "").trim();
+    const nameKey = norm2(c.name || c.company);
+    let matchIdx = -1;
+    if (bn && bnCol != null) for (let i = 1; i < rows.length; i++) {
+      if (norm2((rows[i] || [])[bnCol]) === norm2(bn)) {
+        matchIdx = i;
+        break;
+      }
+    }
+    if (matchIdx < 0 && nameKey) for (let i = 1; i < rows.length; i++) {
+      if (norm2((rows[i] || [])[nameCol]) === nameKey) {
+        matchIdx = i;
+        break;
+      }
+    }
+    const existing = matchIdx >= 0 ? rows[matchIdx] || [] : [];
+    const out = [];
+    for (let k = 0; k < width; k++) out[k] = existing[k] ?? "";
+    for (const f of MASTER_FIELDS) {
+      const ci = cols.get(f.key);
+      if (ci == null) continue;
+      const v = f.toSheet(c);
+      if (f.soft) out[ci] = v ?? (existing[ci] ?? "");
+      else out[ci] = v ?? (matchIdx >= 0 ? existing[ci] ?? "" : "");
+    }
+    const last = colLetter(width);
+    if (matchIdx >= 0) {
+      const sheetRow = matchIdx + 1;
+      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!A${sheetRow}:${last}${sheetRow}`)}?valueInputOption=RAW`, "PUT", { values: [out] });
+    } else {
+      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, "POST", { values: [out] });
+    }
+    return true;
+  } catch (e) {
+    console.error("[master-sync] upsert failed for", c.name || c.company || c.taxId, ":", e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+function syncClientToMaster(c) {
+  upsertClientToMaster(c).catch(() => {
+  });
+}
+async function pushAllClientsToMaster() {
+  if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return { pushed: 0, failed: 0, total: 0 };
+  const rows = await getDb().select().from(clients);
+  const targets = rows.filter((c) => !isLeadStage(c));
+  let pushed = 0, failed = 0;
+  for (const c of targets) {
+    try {
+      const ok = await upsertClientToMaster(c);
+      if (ok) pushed += 1;
+      else failed += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+  console.log(`[master-sync] pushed ${pushed}/${targets.length} clients to master (incl. realm IDs); ${failed} failed`);
+  return { pushed, failed, total: targets.length };
+}
+function leadValue(c, key10) {
+  switch (key10) {
+    case "dateReceived": {
+      const d10 = c.createdAt ? new Date(c.createdAt) : null;
+      return d10 && !isNaN(+d10) ? d10.toISOString().slice(0, 10) : "";
+    }
+    case "leadName":
+      return c.contactName || c.name || "";
+    case "businessName":
+      return c.company || c.name || "";
+    case "email":
+      return c.email || "";
+    case "phone":
+      return c.phone || "";
+    case "website":
+      return c.website || "";
+    case "message":
+      return c.painPoints || c.expectations || "";
+    case "source":
+      return c.leadSourceDetail || c.leadSource || "";
+    case "status":
+      return c.workflowStatus || "new_lead";
+    case "estValue":
+      return c.estimatedMonthlyValue != null ? String(c.estimatedMonthlyValue) : "";
+    case "assignedTo":
+      return c.assignedTo || "";
+    case "nextAction":
+      return c.nextAction || "";
+    case "notes":
+      return c.notes || "";
+    case "crmId":
+      return c.id != null ? String(c.id) : "";
+    default:
+      return "";
+  }
+}
+async function upsertLeadToMaster(c) {
+  if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return false;
+  if (!c.id && !c.email && !c.name) return false;
+  const sid = CANONICAL_MASTER_SHEET_ID;
+  const range = `'${LEADS_TAB}'!A:${leadLastCol}`;
+  try {
+    const read = await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(range)}`, "GET");
+    const rows = Array.isArray(read?.values) ? read.values : [];
+    const id = c.id != null ? String(c.id) : "";
+    const email3 = (c.email || "").trim();
+    let matchIdx = -1;
+    for (let i = 1; i < rows.length; i++) {
+      if (id && norm2((rows[i] || [])[13]) === norm2(id)) {
+        matchIdx = i;
+        break;
+      }
+    }
+    if (matchIdx < 0 && email3) for (let i = 1; i < rows.length; i++) {
+      if (norm2((rows[i] || [])[3]) === norm2(email3)) {
+        matchIdx = i;
+        break;
+      }
+    }
+    const out = [];
+    for (let k = 0; k < LEAD_N; k++) out[k] = leadValue(c, LEAD_COLS[k]);
+    if (matchIdx >= 0) {
+      const sheetRow = matchIdx + 1;
+      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${LEADS_TAB}'!A${sheetRow}:${leadLastCol}${sheetRow}`)}?valueInputOption=RAW`, "PUT", { values: [out] });
+    } else {
+      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, "POST", { values: [out] });
+    }
+    return true;
+  } catch (e) {
+    console.error("[master-sync] lead upsert failed for", c.name || c.email || c.id, ":", e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+function syncLeadToMaster(c) {
+  upsertLeadToMaster(c).catch(() => {
+  });
+}
+var CANONICAL_MASTER_SHEET_ID, MASTER_TAB, LEADS_TAB, SYNC_WEBHOOK, norm2, cap, titleCadence, titlePay, titleRemit, boolToSheet, boolFromSheet, MASTER_FIELDS, PLATFORM_HEADERS, SELF_PROVISION_HEADERS, DEFAULT_MASTER_HEADER, LEAD_COLS, LEAD_N, leadLastCol;
+var init_master_sheet_sync = __esm({
+  "api/master-sheet-sync.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    CANONICAL_MASTER_SHEET_ID = process.env.FIGGY_MASTER_SHEET_ID || "1pcAw-WSQXXnVn-0L-TQ2FIExkHQ0Olf4dzz47t0gTUk";
+    MASTER_TAB = "Client Master";
+    LEADS_TAB = "Leads";
+    SYNC_WEBHOOK = process.env.FIGGY_SHEET_SYNC_WEBHOOK || "https://hook.us2.make.com/d4h33m0na6ulrlm9nkv9dyyfa8hv1bcs";
+    norm2 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+    titleCadence = { annual: "Annual", quarterly: "Quarterly", monthly: "Monthly" };
+    titlePay = { weekly: "Weekly", "bi-weekly": "Bi-Weekly", "semi-monthly": "Semi-Monthly", monthly: "Monthly", self: "Self" };
+    titleRemit = { regular: "Regular", quarterly: "Quarterly", accelerated: "Threshold 1" };
+    boolToSheet = (v) => v ? "TRUE" : "FALSE";
+    boolFromSheet = (raw2) => /^(true|t|yes|y|1|x|✓|checked)$/i.test(String(raw2).trim());
+    MASTER_FIELDS = [
+      { key: "name", match: (h) => h.includes("legal name") || h.includes("client") && h.includes("name"), toSheet: (c) => c.name || c.company || null, soft: false, fromSheet: (r) => ({ name: r }) },
+      { key: "status", match: (h) => h === "status", toSheet: (c) => cap(c.status) || null, soft: false, fromSheet: (r) => {
+        const s = statusInF(r);
+        return s ? { status: s } : null;
+      } },
+      { key: "industry", match: (h) => h.includes("industry"), toSheet: (c) => c.industry && c.industry !== "other" ? c.industry : null, soft: true, fromSheet: (r) => ({ industry: r }) },
+      { key: "bio", match: (h) => h.includes("bio") || h.includes("description"), toSheet: (c) => c.bio || null, soft: true, fromSheet: (r) => ({ bio: r }) },
+      { key: "craBn", match: (h) => h.includes("business") || h === "cra bn" || h.includes("cra") && h.includes("bn"), toSheet: (c) => c.taxId || null, soft: true, fromSheet: (r) => ({ taxId: r }) },
+      { key: "registryNo", match: (h) => h.includes("registry"), toSheet: (c) => c.registryNumber || null, soft: true, fromSheet: (r) => ({ registryNumber: r }) },
+      { key: "incorpDate", match: (h) => h.includes("incorpor"), toSheet: (c) => c.incorporationDate || null, soft: true, fromSheet: (r) => ({ incorporationDate: r }) },
+      { key: "corpType", match: (h) => h.includes("corp type") || h.includes("corp") && h.includes("type"), toSheet: (c) => c.corpType || null, soft: true, fromSheet: (r) => ({ corpType: r }) },
+      { key: "govtStatus", match: (h) => h.includes("govt") || h.includes("government"), toSheet: (c) => c.governmentStatus || null, soft: true, fromSheet: (r) => ({ governmentStatus: r }) },
+      { key: "address", match: (h) => h.includes("address") || h.includes("registered office"), toSheet: (c) => c.address || null, soft: true, fromSheet: (r) => ({ address: r }) },
+      { key: "phone", match: (h) => h.includes("phone"), toSheet: (c) => c.phone || null, soft: true, fromSheet: (r) => ({ phone: r }) },
+      { key: "triageEmail", match: (h) => h.includes("triage"), toSheet: (c) => c.figgyEmail || null, soft: false, fromSheet: (r) => ({ figgyEmail: r }) },
+      { key: "email", match: (h) => h === "email" || h.includes("email") && !h.includes("triage"), toSheet: (c) => c.email || null, soft: true, fromSheet: (r) => ({ email: r }) },
+      { key: "website", match: (h) => h.includes("website") || h.includes("web site"), toSheet: (c) => c.website ? c.website.toLowerCase() : null, soft: true, fromSheet: (r) => ({ website: r.toLowerCase() }) },
+      { key: "owner", match: (h) => h.includes("owner") || h === "contact", toSheet: (c) => c.contactName || null, soft: true, fromSheet: (r) => ({ contactName: r }) },
+      { key: "yeMonth", match: (h) => h.includes("year end") || h.includes("ye month") || h.includes("fiscal"), toSheet: (c) => c.yearEndMonth || null, soft: false, fromSheet: (r) => ({ yearEndMonth: r }) },
+      { key: "hstCadence", match: (h) => h.includes("hst cadence") || h.includes("hst") && h.includes("cadence"), toSheet: (c) => c.hstPeriod ? titleCadence[c.hstPeriod] ?? cap(c.hstPeriod) : null, soft: false, fromSheet: (r) => {
+        const p = cadenceIn(r);
+        return p ? { hstPeriod: p, hasHST: true } : null;
+      } },
+      { key: "nextHstDue", match: (h) => h.includes("next hst") || h.includes("hst") && h.includes("due"), toSheet: (c) => c.hstNextDue || null, soft: false, fromSheet: (r) => ({ hstNextDue: r }) },
+      { key: "hstNumber", match: (h) => h === "hst" || h.includes("hst") && (h.includes("number") || h === "hst"), toSheet: (c) => c.hstNumber || null, soft: true, fromSheet: (r) => ({ hstNumber: r }) },
+      { key: "payrollPeriod", match: (h) => h === "payroll" || h.includes("payroll period") || h.includes("payroll freq"), toSheet: (c) => c.payrollFrequency ? titlePay[c.payrollFrequency] ?? cap(c.payrollFrequency) : null, soft: false, fromSheet: (r) => {
+        const p = payInF(r);
+        return p ? { payrollFrequency: p, hasPayroll: true } : null;
+      } },
+      { key: "craRemitter", match: (h) => h.includes("remitter"), toSheet: (c) => c.payrollRemitterFreq ? titleRemit[c.payrollRemitterFreq] ?? cap(c.payrollRemitterFreq) : null, soft: false, fromSheet: (r) => {
+        const p = remitIn(r);
+        return p ? { payrollRemitterFreq: p } : null;
+      } },
+      { key: "payrollRp", match: (h) => h.includes("payroll rp") || h.includes("payroll") && h.includes("rp"), toSheet: (c) => c.payrollRpNumber || null, soft: true, fromSheet: (r) => ({ payrollRpNumber: r }) },
+      { key: "wsibNo", match: (h) => h.includes("wsib"), toSheet: (c) => c.wsibAccountNumber || null, soft: true, fromSheet: (r) => ({ wsibAccountNumber: r, hasWSIB: true }) },
+      { key: "companyKey", match: (h) => h.includes("company key") || h.includes("service canada"), toSheet: (c) => c.companyKey || null, soft: true, fromSheet: (r) => ({ companyKey: r }) },
+      { key: "craRepId", match: (h) => h.includes("repid") || h.includes("rep id") || h.includes("cra") && h.includes("rep"), toSheet: (c) => c.craRepId || "YY7F3GN", soft: false, fromSheet: (r) => ({ craRepId: r }) },
+      // QBO company/realm ID — the realm column Markie lost. Soft (only writes when we
+      // have one, so a manual realm entry is never wiped); inbound updates the file too.
+      { key: "qboRealm", match: (h) => h.includes("realm") || h.includes("qbo") && h.includes("id") || h.includes("quickbooks") && h.includes("id"), toSheet: (c) => c.qboRealmId || null, soft: true, fromSheet: (r) => ({ qboRealmId: r }) },
+      // Sales/payment platform checkbox columns (each its own TRUE/FALSE column).
+      // `onb: true` → inbound applies these to client_onboarding, not clients.
+      { key: "useStripe", match: (h) => h === "stripe", toSheet: (c) => boolToSheet(c.usesStripe), soft: false, onb: true, fromSheet: (r) => ({ usesStripe: boolFromSheet(r) }) },
+      { key: "useSquare", match: (h) => h === "square", toSheet: (c) => boolToSheet(c.usesSquare), soft: false, onb: true, fromSheet: (r) => ({ usesSquare: boolFromSheet(r) }) },
+      { key: "useJobber", match: (h) => h === "jobber", toSheet: (c) => boolToSheet(c.usesJobber), soft: false, onb: true, fromSheet: (r) => ({ usesJobber: boolFromSheet(r) }) },
+      { key: "useTouchBistro", match: (h) => h.includes("touchbistro") || h.includes("touch bistro"), toSheet: (c) => boolToSheet(c.usesTouchBistro), soft: false, onb: true, fromSheet: (r) => ({ usesTouchBistro: boolFromSheet(r) }) },
+      { key: "usePayPal", match: (h) => h.includes("paypal") || h.includes("pay pal"), toSheet: (c) => boolToSheet(c.usesPayPal), soft: false, onb: true, fromSheet: (r) => ({ usesPayPal: boolFromSheet(r) }) },
+      { key: "useWise", match: (h) => h === "wise", toSheet: (c) => boolToSheet(c.usesWise), soft: false, onb: true, fromSheet: (r) => ({ usesWise: boolFromSheet(r) }) },
+      { key: "useShopify", match: (h) => h === "shopify", toSheet: (c) => boolToSheet(c.usesShopify), soft: false, onb: true, fromSheet: (r) => ({ usesShopify: boolFromSheet(r) }) },
+      // Inter-company journals (client-level checkbox column).
+      { key: "interco", match: (h) => h.includes("inter") && (h.includes("co") || h.includes("journal")), toSheet: (c) => boolToSheet(c.hasIntercoJournals), soft: false, fromSheet: (r) => ({ hasIntercoJournals: boolFromSheet(r) }) }
+    ];
+    PLATFORM_HEADERS = ["Stripe", "Square", "Shopify", "Jobber", "TouchBistro", "PayPal", "Wise", "Inter-Co Journals"];
+    SELF_PROVISION_HEADERS = ["QBO Realm ID", ...PLATFORM_HEADERS];
+    DEFAULT_MASTER_HEADER = [
+      "Client / Legal Name",
+      "Status",
+      "Industry",
+      "Bio / Description",
+      "CRA Business #",
+      "Registry #",
+      "Incorporation Date",
+      "Corp Type",
+      "Govt Status",
+      "Address",
+      "Phone",
+      "Email",
+      "Website",
+      "Owner / Contact",
+      "Figgy Triage Email",
+      "Year-End Month",
+      "Close Period",
+      "HST Cadence",
+      "Next HST Due",
+      "HST #",
+      "Payroll",
+      "CRA Remitter",
+      "Payroll RP #",
+      "WSIB #",
+      "# Employees",
+      "POS / Apps",
+      "Company Key",
+      "CRA RepID",
+      "QBO Realm ID",
+      "Stripe",
+      "Square",
+      "Shopify",
+      "Jobber",
+      "TouchBistro",
+      "PayPal",
+      "Wise",
+      "Inter-Co Journals"
+    ];
+    LEAD_COLS = [
+      "dateReceived",
+      "leadName",
+      "businessName",
+      "email",
+      "phone",
+      "website",
+      "message",
+      "source",
+      "status",
+      "estValue",
+      "assignedTo",
+      "nextAction",
+      "notes",
+      "crmId"
+    ];
+    LEAD_N = LEAD_COLS.length;
+    leadLastCol = "N";
+  }
+});
+
 // api/link-drive-folders.ts
 var link_drive_folders_exports = {};
 __export(link_drive_folders_exports, {
@@ -38916,7 +39433,7 @@ async function linkDriveFolders() {
   const unmatched = [];
   const longNums = (s) => String(s ?? "").match(/\d{6,}/g) || [];
   const findFolder = (c) => {
-    const direct = NAME_TO_FOLDER[norm2(c.name)] ?? NAME_TO_FOLDER[norm2(c.company)];
+    const direct = NAME_TO_FOLDER[norm3(c.name)] ?? NAME_TO_FOLDER[norm3(c.company)];
     if (direct) return direct;
     const clientNums = /* @__PURE__ */ new Set([...longNums(c.name), ...longNums(c.company)]);
     if (clientNums.size) {
@@ -38947,7 +39464,7 @@ async function linkDriveFolders() {
   if (unmatched.length) console.log(`[drive-link] no folder mapping for: ${unmatched.join(", ")}`);
   return { linked, alreadySet, unmatched };
 }
-var GFB_CLIENTS_PARENT_FOLDER_ID, GFB_INACTIVE_FOLDER_ID, folderUrl, norm2, NAME_TO_FOLDER;
+var GFB_CLIENTS_PARENT_FOLDER_ID, GFB_INACTIVE_FOLDER_ID, folderUrl, norm3, NAME_TO_FOLDER;
 var init_link_drive_folders = __esm({
   "api/link-drive-folders.ts"() {
     init_connection();
@@ -38956,7 +39473,7 @@ var init_link_drive_folders = __esm({
     GFB_CLIENTS_PARENT_FOLDER_ID = "1OdxTvo0DiWnDL0e9g2ii6eG5ysBke_0G";
     GFB_INACTIVE_FOLDER_ID = "1GW6V_LAwGiqpM6KRtelZOS5k5jTJmvdg";
     folderUrl = (id) => `https://drive.google.com/drive/folders/${id}`;
-    norm2 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    norm3 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
     NAME_TO_FOLDER = {
       "originality ai inc": "1aaqB12rJ5Ou4kX_tWF24JFq7OjEXHL2o",
       "clark pools and spas collingwood inc": "10qXdEt4KVgW2w3s5VOIph1chSFPUErtH",
@@ -39312,10 +39829,10 @@ function endOfMonth2(d10) {
   return new Date(d10.getFullYear(), d10.getMonth() + 1, 0);
 }
 function matchClient(text2, clients3) {
-  const n = norm3(text2);
+  const n = norm4(text2);
   let best = null;
   for (const c of clients3) {
-    const cn = norm3(c.name);
+    const cn = norm4(c.name);
     if (!cn) continue;
     const idx = n.indexOf(cn);
     if (idx >= 0 && (!best || cn.length > best.len)) best = { client: c, idx, len: cn.length };
@@ -39343,10 +39860,10 @@ function parseTaskCommand(raw2, clients3, now = /* @__PURE__ */ new Date()) {
     matchedClient: !!c.client
   };
 }
-var norm3, WEEKDAYS, MONTHS2;
+var norm4, WEEKDAYS, MONTHS2;
 var init_task_command_core = __esm({
   "api/task-command-core.ts"() {
-    norm3 = (s) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    norm4 = (s) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
     WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     MONTHS2 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
   }
@@ -40890,419 +41407,6 @@ var init_qbo_vendor_brain = __esm({
         reenrich: external_exports.boolean().optional()
       }).optional()).mutation(async ({ input }) => runEnrichment(input ?? void 0))
     });
-  }
-});
-
-// api/master-sheet-sync.ts
-var master_sheet_sync_exports = {};
-__export(master_sheet_sync_exports, {
-  CANONICAL_MASTER_SHEET_ID: () => CANONICAL_MASTER_SHEET_ID,
-  DEFAULT_MASTER_HEADER: () => DEFAULT_MASTER_HEADER,
-  MASTER_FIELDS: () => MASTER_FIELDS,
-  PLATFORM_HEADERS: () => PLATFORM_HEADERS,
-  colLetter: () => colLetter,
-  isLeadStage: () => isLeadStage,
-  readMasterRange: () => readMasterRange,
-  resolveColumns: () => resolveColumns,
-  syncClientToMaster: () => syncClientToMaster,
-  syncLeadToMaster: () => syncLeadToMaster,
-  upsertClientToMaster: () => upsertClientToMaster,
-  upsertLeadToMaster: () => upsertLeadToMaster
-});
-function cadenceIn(v) {
-  const s = v.toLowerCase();
-  if (!s) return null;
-  if (s.includes("month")) return "monthly";
-  if (s.includes("quart") || s.includes("qrtly")) return "quarterly";
-  if (s.includes("annual") || s.includes("year")) return "annual";
-  return null;
-}
-function payInF(v) {
-  const s = v.toLowerCase().replace(/\s+/g, "-");
-  if (!s) return null;
-  if (s.includes("bi-week")) return "bi-weekly";
-  if (s.includes("week")) return "weekly";
-  if (s.includes("semi")) return "semi-monthly";
-  if (s.includes("month")) return "monthly";
-  if (s.includes("self")) return "self";
-  return null;
-}
-function remitIn(v) {
-  const s = v.toLowerCase();
-  if (!s) return null;
-  if (s.includes("threshold") || s.includes("acceler")) return "accelerated";
-  if (s.includes("quart")) return "quarterly";
-  if (s.includes("regular")) return "regular";
-  return null;
-}
-function statusInF(v) {
-  const s = v.toLowerCase().trim();
-  return ["active", "inactive", "prospect", "lead"].includes(s) ? s : null;
-}
-function resolveColumns(header2) {
-  const map2 = /* @__PURE__ */ new Map();
-  for (let i = 0; i < header2.length; i++) {
-    const h = norm4(header2[i]);
-    if (!h) continue;
-    for (const f of MASTER_FIELDS) {
-      if (map2.has(f.key)) continue;
-      if (f.match(h)) {
-        map2.set(f.key, i);
-        break;
-      }
-    }
-  }
-  return map2;
-}
-function colLetter(n) {
-  let s = "";
-  let x = n;
-  while (x > 0) {
-    const m = (x - 1) % 26;
-    s = String.fromCharCode(65 + m) + s;
-    x = Math.floor((x - 1) / 26);
-  }
-  return s || "A";
-}
-async function readMasterRange(rangeA1) {
-  try {
-    const read = await sheetsApi2(`spreadsheets/${CANONICAL_MASTER_SHEET_ID}/values/${encodeURIComponent(rangeA1)}`, "GET");
-    return Array.isArray(read?.values) ? read.values : [];
-  } catch {
-    return [];
-  }
-}
-async function sheetsApi2(url2, method, body) {
-  if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return null;
-  let rawUrl = url2;
-  try {
-    const d10 = decodeURIComponent(url2);
-    if (d10) rawUrl = d10;
-  } catch {
-  }
-  const res = await fetch(SYNC_WEBHOOK, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: rawUrl, method, body: body == null ? "" : typeof body === "string" ? body : JSON.stringify(body) })
-  });
-  if (!res.ok) throw new Error(`sheets proxy ${method} ${url2} \u2192 ${res.status} ${await res.text()}`);
-  const data = await res.json().catch(() => ({}));
-  return data?.outputs?.tool_output?.body ?? data?.tool_output?.body ?? data?.body ?? data;
-}
-function isLeadStage(c) {
-  const s = String(c.status ?? "").toLowerCase();
-  if (s === "lead" || s === "prospect") return true;
-  const w = String(c.workflowStatus ?? "").toLowerCase();
-  const LEAD_STAGES = ["new_lead", "discovery_call", "discovery", "proposal_sent", "proposal", "quote_sent", "quoted", "negotiation", "lead", "onboarding_sent"];
-  return LEAD_STAGES.includes(w);
-}
-async function upsertClientToMaster(c) {
-  if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return false;
-  if (!c.name && !c.company && !c.taxId) return false;
-  if (isLeadStage(c)) {
-    try {
-      syncLeadToMaster(c);
-    } catch {
-    }
-    return false;
-  }
-  const sid = CANONICAL_MASTER_SHEET_ID;
-  const range = `'${MASTER_TAB}'!A:AZ`;
-  try {
-    let rows = await readMasterRange(`${MASTER_TAB}!A:AZ`);
-    if (!rows.length || !(rows[0] || []).some((x) => String(x ?? "").trim())) {
-      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!A1`)}?valueInputOption=RAW`, "PUT", { values: [DEFAULT_MASTER_HEADER] });
-      rows = [DEFAULT_MASTER_HEADER.slice()];
-    }
-    let header2 = rows[0] || [];
-    const haveHeaders = new Set(header2.map((h) => norm4(h)));
-    const missing = PLATFORM_HEADERS.filter((h) => !haveHeaders.has(norm4(h)));
-    if (missing.length) {
-      try {
-        const targetWidth = header2.length + missing.length;
-        const meta3 = await sheetsApi2(`spreadsheets/${sid}?fields=sheets(properties(title,sheetId,gridProperties(columnCount)))`, "GET");
-        const props = (meta3?.sheets || []).map((s) => s?.properties).find((p) => p?.title === MASTER_TAB);
-        const colCount = props?.gridProperties?.columnCount ?? 26;
-        if (props?.sheetId != null && colCount < targetWidth) {
-          await sheetsApi2(`spreadsheets/${sid}:batchUpdate`, "POST", {
-            requests: [{ appendDimension: { sheetId: props.sheetId, dimension: "COLUMNS", length: targetWidth - colCount } }]
-          });
-        }
-        const startCol = colLetter(header2.length + 1);
-        const newHeader = [...header2, ...missing];
-        const endCol = colLetter(newHeader.length);
-        await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!${startCol}1:${endCol}1`)}?valueInputOption=RAW`, "PUT", { values: [missing] });
-        header2 = newHeader;
-      } catch (e) {
-        console.error("[master-sync] platform-column provision failed (continuing with row write):", e instanceof Error ? e.message : e);
-      }
-    }
-    if (c.id) {
-      try {
-        const onbRows = await getDb().select().from(clientOnboarding).where(eq(clientOnboarding.clientId, c.id)).orderBy(clientOnboarding.id);
-        const o = onbRows[onbRows.length - 1];
-        if (o) {
-          c = {
-            ...c,
-            usesStripe: !!o.usesStripe,
-            usesSquare: !!o.usesSquare,
-            usesJobber: !!o.usesJobber,
-            usesTouchBistro: !!o.usesTouchBistro,
-            usesPayPal: !!o.usesPayPal,
-            usesWise: !!o.usesWise,
-            usesShopify: !!o.usesShopify
-          };
-        }
-      } catch {
-      }
-    }
-    const width = Math.max(header2.length, DEFAULT_MASTER_HEADER.length);
-    const cols = resolveColumns(header2);
-    const bnCol = cols.get("craBn");
-    const nameCol = cols.get("name") ?? 0;
-    const bn = (c.taxId || "").trim();
-    const nameKey = norm4(c.name || c.company);
-    let matchIdx = -1;
-    if (bn && bnCol != null) for (let i = 1; i < rows.length; i++) {
-      if (norm4((rows[i] || [])[bnCol]) === norm4(bn)) {
-        matchIdx = i;
-        break;
-      }
-    }
-    if (matchIdx < 0 && nameKey) for (let i = 1; i < rows.length; i++) {
-      if (norm4((rows[i] || [])[nameCol]) === nameKey) {
-        matchIdx = i;
-        break;
-      }
-    }
-    const existing = matchIdx >= 0 ? rows[matchIdx] || [] : [];
-    const out = [];
-    for (let k = 0; k < width; k++) out[k] = existing[k] ?? "";
-    for (const f of MASTER_FIELDS) {
-      const ci = cols.get(f.key);
-      if (ci == null) continue;
-      const v = f.toSheet(c);
-      if (f.soft) out[ci] = v ?? (existing[ci] ?? "");
-      else out[ci] = v ?? (matchIdx >= 0 ? existing[ci] ?? "" : "");
-    }
-    const last = colLetter(width);
-    if (matchIdx >= 0) {
-      const sheetRow = matchIdx + 1;
-      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${MASTER_TAB}'!A${sheetRow}:${last}${sheetRow}`)}?valueInputOption=RAW`, "PUT", { values: [out] });
-    } else {
-      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, "POST", { values: [out] });
-    }
-    return true;
-  } catch (e) {
-    console.error("[master-sync] upsert failed for", c.name || c.company || c.taxId, ":", e instanceof Error ? e.message : e);
-    return false;
-  }
-}
-function syncClientToMaster(c) {
-  upsertClientToMaster(c).catch(() => {
-  });
-}
-function leadValue(c, key10) {
-  switch (key10) {
-    case "dateReceived": {
-      const d10 = c.createdAt ? new Date(c.createdAt) : null;
-      return d10 && !isNaN(+d10) ? d10.toISOString().slice(0, 10) : "";
-    }
-    case "leadName":
-      return c.contactName || c.name || "";
-    case "businessName":
-      return c.company || c.name || "";
-    case "email":
-      return c.email || "";
-    case "phone":
-      return c.phone || "";
-    case "website":
-      return c.website || "";
-    case "message":
-      return c.painPoints || c.expectations || "";
-    case "source":
-      return c.leadSourceDetail || c.leadSource || "";
-    case "status":
-      return c.workflowStatus || "new_lead";
-    case "estValue":
-      return c.estimatedMonthlyValue != null ? String(c.estimatedMonthlyValue) : "";
-    case "assignedTo":
-      return c.assignedTo || "";
-    case "nextAction":
-      return c.nextAction || "";
-    case "notes":
-      return c.notes || "";
-    case "crmId":
-      return c.id != null ? String(c.id) : "";
-    default:
-      return "";
-  }
-}
-async function upsertLeadToMaster(c) {
-  if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return false;
-  if (!c.id && !c.email && !c.name) return false;
-  const sid = CANONICAL_MASTER_SHEET_ID;
-  const range = `'${LEADS_TAB}'!A:${leadLastCol}`;
-  try {
-    const read = await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(range)}`, "GET");
-    const rows = Array.isArray(read?.values) ? read.values : [];
-    const id = c.id != null ? String(c.id) : "";
-    const email3 = (c.email || "").trim();
-    let matchIdx = -1;
-    for (let i = 1; i < rows.length; i++) {
-      if (id && norm4((rows[i] || [])[13]) === norm4(id)) {
-        matchIdx = i;
-        break;
-      }
-    }
-    if (matchIdx < 0 && email3) for (let i = 1; i < rows.length; i++) {
-      if (norm4((rows[i] || [])[3]) === norm4(email3)) {
-        matchIdx = i;
-        break;
-      }
-    }
-    const out = [];
-    for (let k = 0; k < LEAD_N; k++) out[k] = leadValue(c, LEAD_COLS[k]);
-    if (matchIdx >= 0) {
-      const sheetRow = matchIdx + 1;
-      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(`'${LEADS_TAB}'!A${sheetRow}:${leadLastCol}${sheetRow}`)}?valueInputOption=RAW`, "PUT", { values: [out] });
-    } else {
-      await sheetsApi2(`spreadsheets/${sid}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, "POST", { values: [out] });
-    }
-    return true;
-  } catch (e) {
-    console.error("[master-sync] lead upsert failed for", c.name || c.email || c.id, ":", e instanceof Error ? e.message : e);
-    return false;
-  }
-}
-function syncLeadToMaster(c) {
-  upsertLeadToMaster(c).catch(() => {
-  });
-}
-var CANONICAL_MASTER_SHEET_ID, MASTER_TAB, LEADS_TAB, SYNC_WEBHOOK, norm4, cap, titleCadence, titlePay, titleRemit, boolToSheet, boolFromSheet, MASTER_FIELDS, PLATFORM_HEADERS, DEFAULT_MASTER_HEADER, LEAD_COLS, LEAD_N, leadLastCol;
-var init_master_sheet_sync = __esm({
-  "api/master-sheet-sync.ts"() {
-    init_connection();
-    init_schema();
-    init_drizzle_orm();
-    CANONICAL_MASTER_SHEET_ID = process.env.FIGGY_MASTER_SHEET_ID || "1pcAw-WSQXXnVn-0L-TQ2FIExkHQ0Olf4dzz47t0gTUk";
-    MASTER_TAB = "Client Master";
-    LEADS_TAB = "Leads";
-    SYNC_WEBHOOK = process.env.FIGGY_SHEET_SYNC_WEBHOOK || "https://hook.us2.make.com/d4h33m0na6ulrlm9nkv9dyyfa8hv1bcs";
-    norm4 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
-    titleCadence = { annual: "Annual", quarterly: "Quarterly", monthly: "Monthly" };
-    titlePay = { weekly: "Weekly", "bi-weekly": "Bi-Weekly", "semi-monthly": "Semi-Monthly", monthly: "Monthly", self: "Self" };
-    titleRemit = { regular: "Regular", quarterly: "Quarterly", accelerated: "Threshold 1" };
-    boolToSheet = (v) => v ? "TRUE" : "FALSE";
-    boolFromSheet = (raw2) => /^(true|t|yes|y|1|x|✓|checked)$/i.test(String(raw2).trim());
-    MASTER_FIELDS = [
-      { key: "name", match: (h) => h.includes("legal name") || h.includes("client") && h.includes("name"), toSheet: (c) => c.name || c.company || null, soft: false, fromSheet: (r) => ({ name: r }) },
-      { key: "status", match: (h) => h === "status", toSheet: (c) => cap(c.status) || null, soft: false, fromSheet: (r) => {
-        const s = statusInF(r);
-        return s ? { status: s } : null;
-      } },
-      { key: "industry", match: (h) => h.includes("industry"), toSheet: (c) => c.industry && c.industry !== "other" ? c.industry : null, soft: true, fromSheet: (r) => ({ industry: r }) },
-      { key: "bio", match: (h) => h.includes("bio") || h.includes("description"), toSheet: (c) => c.bio || null, soft: true, fromSheet: (r) => ({ bio: r }) },
-      { key: "craBn", match: (h) => h.includes("business") || h === "cra bn" || h.includes("cra") && h.includes("bn"), toSheet: (c) => c.taxId || null, soft: true, fromSheet: (r) => ({ taxId: r }) },
-      { key: "registryNo", match: (h) => h.includes("registry"), toSheet: (c) => c.registryNumber || null, soft: true, fromSheet: (r) => ({ registryNumber: r }) },
-      { key: "incorpDate", match: (h) => h.includes("incorpor"), toSheet: (c) => c.incorporationDate || null, soft: true, fromSheet: (r) => ({ incorporationDate: r }) },
-      { key: "corpType", match: (h) => h.includes("corp type") || h.includes("corp") && h.includes("type"), toSheet: (c) => c.corpType || null, soft: true, fromSheet: (r) => ({ corpType: r }) },
-      { key: "govtStatus", match: (h) => h.includes("govt") || h.includes("government"), toSheet: (c) => c.governmentStatus || null, soft: true, fromSheet: (r) => ({ governmentStatus: r }) },
-      { key: "address", match: (h) => h.includes("address") || h.includes("registered office"), toSheet: (c) => c.address || null, soft: true, fromSheet: (r) => ({ address: r }) },
-      { key: "phone", match: (h) => h.includes("phone"), toSheet: (c) => c.phone || null, soft: true, fromSheet: (r) => ({ phone: r }) },
-      { key: "triageEmail", match: (h) => h.includes("triage"), toSheet: (c) => c.figgyEmail || null, soft: false, fromSheet: (r) => ({ figgyEmail: r }) },
-      { key: "email", match: (h) => h === "email" || h.includes("email") && !h.includes("triage"), toSheet: (c) => c.email || null, soft: true, fromSheet: (r) => ({ email: r }) },
-      { key: "website", match: (h) => h.includes("website") || h.includes("web site"), toSheet: (c) => c.website ? c.website.toLowerCase() : null, soft: true, fromSheet: (r) => ({ website: r.toLowerCase() }) },
-      { key: "owner", match: (h) => h.includes("owner") || h === "contact", toSheet: (c) => c.contactName || null, soft: true, fromSheet: (r) => ({ contactName: r }) },
-      { key: "yeMonth", match: (h) => h.includes("year end") || h.includes("ye month") || h.includes("fiscal"), toSheet: (c) => c.yearEndMonth || null, soft: false, fromSheet: (r) => ({ yearEndMonth: r }) },
-      { key: "hstCadence", match: (h) => h.includes("hst cadence") || h.includes("hst") && h.includes("cadence"), toSheet: (c) => c.hstPeriod ? titleCadence[c.hstPeriod] ?? cap(c.hstPeriod) : null, soft: false, fromSheet: (r) => {
-        const p = cadenceIn(r);
-        return p ? { hstPeriod: p, hasHST: true } : null;
-      } },
-      { key: "nextHstDue", match: (h) => h.includes("next hst") || h.includes("hst") && h.includes("due"), toSheet: (c) => c.hstNextDue || null, soft: false, fromSheet: (r) => ({ hstNextDue: r }) },
-      { key: "hstNumber", match: (h) => h === "hst" || h.includes("hst") && (h.includes("number") || h === "hst"), toSheet: (c) => c.hstNumber || null, soft: true, fromSheet: (r) => ({ hstNumber: r }) },
-      { key: "payrollPeriod", match: (h) => h === "payroll" || h.includes("payroll period") || h.includes("payroll freq"), toSheet: (c) => c.payrollFrequency ? titlePay[c.payrollFrequency] ?? cap(c.payrollFrequency) : null, soft: false, fromSheet: (r) => {
-        const p = payInF(r);
-        return p ? { payrollFrequency: p, hasPayroll: true } : null;
-      } },
-      { key: "craRemitter", match: (h) => h.includes("remitter"), toSheet: (c) => c.payrollRemitterFreq ? titleRemit[c.payrollRemitterFreq] ?? cap(c.payrollRemitterFreq) : null, soft: false, fromSheet: (r) => {
-        const p = remitIn(r);
-        return p ? { payrollRemitterFreq: p } : null;
-      } },
-      { key: "payrollRp", match: (h) => h.includes("payroll rp") || h.includes("payroll") && h.includes("rp"), toSheet: (c) => c.payrollRpNumber || null, soft: true, fromSheet: (r) => ({ payrollRpNumber: r }) },
-      { key: "wsibNo", match: (h) => h.includes("wsib"), toSheet: (c) => c.wsibAccountNumber || null, soft: true, fromSheet: (r) => ({ wsibAccountNumber: r, hasWSIB: true }) },
-      { key: "companyKey", match: (h) => h.includes("company key") || h.includes("service canada"), toSheet: (c) => c.companyKey || null, soft: true, fromSheet: (r) => ({ companyKey: r }) },
-      { key: "craRepId", match: (h) => h.includes("repid") || h.includes("rep id") || h.includes("cra") && h.includes("rep"), toSheet: (c) => c.craRepId || "YY7F3GN", soft: false, fromSheet: (r) => ({ craRepId: r }) },
-      // Sales/payment platform checkbox columns (each its own TRUE/FALSE column).
-      // `onb: true` → inbound applies these to client_onboarding, not clients.
-      { key: "useStripe", match: (h) => h === "stripe", toSheet: (c) => boolToSheet(c.usesStripe), soft: false, onb: true, fromSheet: (r) => ({ usesStripe: boolFromSheet(r) }) },
-      { key: "useSquare", match: (h) => h === "square", toSheet: (c) => boolToSheet(c.usesSquare), soft: false, onb: true, fromSheet: (r) => ({ usesSquare: boolFromSheet(r) }) },
-      { key: "useJobber", match: (h) => h === "jobber", toSheet: (c) => boolToSheet(c.usesJobber), soft: false, onb: true, fromSheet: (r) => ({ usesJobber: boolFromSheet(r) }) },
-      { key: "useTouchBistro", match: (h) => h.includes("touchbistro") || h.includes("touch bistro"), toSheet: (c) => boolToSheet(c.usesTouchBistro), soft: false, onb: true, fromSheet: (r) => ({ usesTouchBistro: boolFromSheet(r) }) },
-      { key: "usePayPal", match: (h) => h.includes("paypal") || h.includes("pay pal"), toSheet: (c) => boolToSheet(c.usesPayPal), soft: false, onb: true, fromSheet: (r) => ({ usesPayPal: boolFromSheet(r) }) },
-      { key: "useWise", match: (h) => h === "wise", toSheet: (c) => boolToSheet(c.usesWise), soft: false, onb: true, fromSheet: (r) => ({ usesWise: boolFromSheet(r) }) },
-      { key: "useShopify", match: (h) => h === "shopify", toSheet: (c) => boolToSheet(c.usesShopify), soft: false, onb: true, fromSheet: (r) => ({ usesShopify: boolFromSheet(r) }) },
-      // Inter-company journals (client-level checkbox column).
-      { key: "interco", match: (h) => h.includes("inter") && (h.includes("co") || h.includes("journal")), toSheet: (c) => boolToSheet(c.hasIntercoJournals), soft: false, fromSheet: (r) => ({ hasIntercoJournals: boolFromSheet(r) }) }
-    ];
-    PLATFORM_HEADERS = ["Stripe", "Square", "Shopify", "Jobber", "TouchBistro", "PayPal", "Wise", "Inter-Co Journals"];
-    DEFAULT_MASTER_HEADER = [
-      "Client / Legal Name",
-      "Status",
-      "Industry",
-      "Bio / Description",
-      "CRA Business #",
-      "Registry #",
-      "Incorporation Date",
-      "Corp Type",
-      "Govt Status",
-      "Address",
-      "Phone",
-      "Email",
-      "Website",
-      "Owner / Contact",
-      "Figgy Triage Email",
-      "Year-End Month",
-      "Close Period",
-      "HST Cadence",
-      "Next HST Due",
-      "HST #",
-      "Payroll",
-      "CRA Remitter",
-      "Payroll RP #",
-      "WSIB #",
-      "# Employees",
-      "POS / Apps",
-      "Company Key",
-      "CRA RepID",
-      "Stripe",
-      "Square",
-      "Shopify",
-      "Jobber",
-      "TouchBistro",
-      "PayPal",
-      "Wise",
-      "Inter-Co Journals"
-    ];
-    LEAD_COLS = [
-      "dateReceived",
-      "leadName",
-      "businessName",
-      "email",
-      "phone",
-      "website",
-      "message",
-      "source",
-      "status",
-      "estValue",
-      "assignedTo",
-      "nextAction",
-      "notes",
-      "crmId"
-    ];
-    LEAD_N = LEAD_COLS.length;
-    leadLastCol = "N";
   }
 });
 
@@ -73252,6 +73356,63 @@ var clientRouter = createRouter({
     const leads = rows.filter((c) => c.status === "lead" || c.status === "prospect").length;
     return { active, inactive, leads, total: active + inactive, allRows: rows.length };
   }),
+  // QBO REALM-ID MAP — every client with its QuickBooks realm/company ID, pulled
+  // from the live connection. Rebuilds Markie's "client master" realm column that
+  // went missing. Flags clients connected-but-unmapped and mapped-but-disconnected.
+  realmMap: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const allowed = await restrictedClientIds(ctx);
+    const clientRows = await db.select().from(clients);
+    const conns = await db.select().from(qboConnections);
+    const connByClient = /* @__PURE__ */ new Map();
+    for (const cn of conns) {
+      if (cn.clientId == null) continue;
+      const list = connByClient.get(cn.clientId) || [];
+      list.push(cn);
+      connByClient.set(cn.clientId, list);
+    }
+    const rows = clientRows.filter((c) => allowed === null || allowed.includes(c.id)).filter((c) => c.status !== "lead" && c.status !== "prospect").map((c) => {
+      const live = (connByClient.get(c.id) || []).filter((cn) => cn.isActive);
+      const liveRealms = Array.from(new Set(live.map((cn) => cn.realmId)));
+      return {
+        clientId: c.id,
+        name: c.company || c.name,
+        status: c.status,
+        clientType: c.clientType,
+        storedRealmId: c.qboRealmId || null,
+        liveRealmId: liveRealms[0] || null,
+        connectionCount: live.length,
+        ambiguous: liveRealms.length > 1,
+        // healthy = stored matches a live connection; missing = no realm anywhere
+        state: liveRealms.length > 1 ? "ambiguous" : c.qboRealmId && liveRealms[0] && c.qboRealmId === liveRealms[0] ? "ok" : liveRealms[0] && !c.qboRealmId ? "needs_sync" : c.qboRealmId && !liveRealms[0] ? "disconnected" : "unmapped"
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+    return {
+      rows,
+      summary: {
+        total: rows.length,
+        mapped: rows.filter((r) => r.storedRealmId).length,
+        unmapped: rows.filter((r) => r.state === "unmapped").length,
+        needsSync: rows.filter((r) => r.state === "needs_sync").length,
+        ambiguous: rows.filter((r) => r.ambiguous).length
+      }
+    };
+  }),
+  // Re-run the realm-ID sync on demand (same as boot): write each client's live
+  // connection realmId onto their file, THEN push every client (incl. realm IDs)
+  // to the canonical Google Client Master sheet. Admin/staff only.
+  resyncRealms: authedQuery.mutation(async () => {
+    const { ensureClientRealmSync: ensureClientRealmSync2 } = await Promise.resolve().then(() => (init_ensure_client_realm_sync(), ensure_client_realm_sync_exports));
+    const sync = await ensureClientRealmSync2() || { linked: 0, ambiguous: [], unmapped: 0 };
+    let sheet = { pushed: 0, failed: 0, total: 0 };
+    try {
+      const { pushAllClientsToMaster: pushAllClientsToMaster2 } = await Promise.resolve().then(() => (init_master_sheet_sync(), master_sheet_sync_exports));
+      sheet = await pushAllClientsToMaster2();
+    } catch (e) {
+      console.error("[realm-sync] master-sheet push failed:", e instanceof Error ? e.message : e);
+    }
+    return { ...sync, sheet };
+  }),
   // Get single client
   get: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {
     const allowed = await restrictedClientIds(ctx);
@@ -85334,6 +85495,8 @@ async function startServer() {
   await ensureOAuthColumns2();
   const { relinkFindings: relinkFindings2 } = await Promise.resolve().then(() => (init_relink_findings(), relink_findings_exports));
   await relinkFindings2();
+  const { ensureClientRealmSync: ensureClientRealmSync2 } = await Promise.resolve().then(() => (init_ensure_client_realm_sync(), ensure_client_realm_sync_exports));
+  await ensureClientRealmSync2();
   const { startAllSchedulers: startAllSchedulers2 } = await Promise.resolve().then(() => (init_all_sync_scheduler(), all_sync_scheduler_exports));
   startAllSchedulers2();
   setTimeout(() => {

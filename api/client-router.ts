@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { clients, satisfactionScores, tasks, clientTaskRules } from "../db/schema";
+import { clients, satisfactionScores, tasks, clientTaskRules, qboConnections } from "../db/schema";
 import { eq, and, like, desc, ne, inArray, sql } from "drizzle-orm";
 import { restrictedClientIds } from "./rbac";
 import { syncInsert, syncUpdate } from "./sync-hooks";
@@ -102,6 +102,78 @@ export const clientRouter = createRouter({
     const inactive = rows.filter((c) => c.status === "inactive").length;
     const leads = rows.filter((c) => c.status === "lead" || c.status === "prospect").length;
     return { active, inactive, leads, total: active + inactive, allRows: rows.length };
+  }),
+
+  // QBO REALM-ID MAP — every client with its QuickBooks realm/company ID, pulled
+  // from the live connection. Rebuilds Markie's "client master" realm column that
+  // went missing. Flags clients connected-but-unmapped and mapped-but-disconnected.
+  realmMap: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const allowed = await restrictedClientIds(ctx);
+    const clientRows = (await db.select().from(clients)) as any[];
+    const conns = (await db.select().from(qboConnections)) as any[];
+    const connByClient = new Map<number, any[]>();
+    for (const cn of conns) {
+      if (cn.clientId == null) continue;
+      const list = connByClient.get(cn.clientId) || [];
+      list.push(cn);
+      connByClient.set(cn.clientId, list);
+    }
+    const rows = clientRows
+      .filter((c) => allowed === null || allowed.includes(c.id))
+      .filter((c) => c.status !== "lead" && c.status !== "prospect")
+      .map((c) => {
+        const live = (connByClient.get(c.id) || []).filter((cn) => cn.isActive);
+        const liveRealms = Array.from(new Set(live.map((cn) => cn.realmId)));
+        return {
+          clientId: c.id,
+          name: c.company || c.name,
+          status: c.status,
+          clientType: c.clientType,
+          storedRealmId: c.qboRealmId || null,
+          liveRealmId: liveRealms[0] || null,
+          connectionCount: live.length,
+          ambiguous: liveRealms.length > 1,
+          // healthy = stored matches a live connection; missing = no realm anywhere
+          state:
+            liveRealms.length > 1
+              ? "ambiguous"
+              : c.qboRealmId && liveRealms[0] && c.qboRealmId === liveRealms[0]
+              ? "ok"
+              : liveRealms[0] && !c.qboRealmId
+              ? "needs_sync"
+              : c.qboRealmId && !liveRealms[0]
+              ? "disconnected"
+              : "unmapped",
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return {
+      rows,
+      summary: {
+        total: rows.length,
+        mapped: rows.filter((r) => r.storedRealmId).length,
+        unmapped: rows.filter((r) => r.state === "unmapped").length,
+        needsSync: rows.filter((r) => r.state === "needs_sync").length,
+        ambiguous: rows.filter((r) => r.ambiguous).length,
+      },
+    };
+  }),
+
+  // Re-run the realm-ID sync on demand (same as boot): write each client's live
+  // connection realmId onto their file, THEN push every client (incl. realm IDs)
+  // to the canonical Google Client Master sheet. Admin/staff only.
+  resyncRealms: authedQuery.mutation(async () => {
+    const { ensureClientRealmSync } = await import("./ensure-client-realm-sync");
+    const sync = (await ensureClientRealmSync()) || { linked: 0, ambiguous: [], unmapped: 0 };
+    let sheet = { pushed: 0, failed: 0, total: 0 };
+    try {
+      const { pushAllClientsToMaster } = await import("./master-sheet-sync");
+      sheet = await pushAllClientsToMaster();
+    } catch (e) {
+      console.error("[realm-sync] master-sheet push failed:", e instanceof Error ? e.message : e);
+    }
+    return { ...sync, sheet };
   }),
 
   // Get single client
