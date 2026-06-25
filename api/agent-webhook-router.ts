@@ -1,6 +1,6 @@
 /**
  * AGENT WEBHOOK ROUTER
- * External AI agents (Figgy Jr, Figs, Blue, etc.) POST findings here.
+ * External AI agents (Figs, Blue, etc.) POST findings here.
  * Auth: X-Agent-Token header
  */
 import { z } from "zod";

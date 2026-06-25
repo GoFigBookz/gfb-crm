@@ -6,7 +6,7 @@
  *   1. Markie builds form in Make.com
  *   2. Make.com "HTTP" module POSTs to: https://figgy.gofig.ca/api/make-webhook
  *   3. We store the raw submission
- *   4. Figgy Jr dashboard displays it
+ *   4. Figs / Triage dashboard displays it
  */
 
 import { Hono } from "hono";
