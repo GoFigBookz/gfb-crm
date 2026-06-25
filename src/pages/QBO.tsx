@@ -3,7 +3,7 @@ import {
   Receipt, Link, Trash2, RefreshCw, Users, FileText,
   DollarSign, Landmark, Clock, CheckCircle, AlertCircle,
   ArrowUpRight, ArrowDownRight,
-  Wifi, WifiOff, BarChart3
+  Wifi, WifiOff, BarChart3, KeyRound, Copy, Check
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -274,6 +274,10 @@ export default function QBO() {
             </CardContent>
           </Card>
 
+          {/* Client ↔ QBO Realm ID master — rebuilds the realm column that went
+              missing; pulled live from each client's connection. */}
+          <RealmIdCard />
+
           {/* Data Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-5">
@@ -475,5 +479,99 @@ export default function QBO() {
         </>
       )}
     </div>
+  );
+}
+
+/** Client ↔ QuickBooks realm-ID master. Re-derived from each client's live
+ *  connection so the realm column can never silently go missing again. Copy a
+ *  single realm or the whole list (paste straight into Markie's master sheet). */
+function RealmIdCard() {
+  const utils = trpc.useUtils();
+  const { data } = trpc.crmClient.realmMap.useQuery();
+  const resync = trpc.crmClient.resyncRealms.useMutation({
+    onSuccess: () => { utils.crmClient.realmMap.invalidate(); },
+  });
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copy = (text: string, key: string) => {
+    navigator.clipboard?.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500);
+  };
+
+  if (!data) return null;
+  const rows = data.rows;
+  const s = data.summary;
+
+  const stateBadge = (state: string) => {
+    switch (state) {
+      case "ok": return <Badge className="bg-lime-100 text-lime-700">Synced</Badge>;
+      case "needs_sync": return <Badge className="bg-amber-100 text-amber-700">Needs sync</Badge>;
+      case "disconnected": return <Badge className="bg-orange-100 text-orange-700">Disconnected</Badge>;
+      case "ambiguous": return <Badge className="bg-red-100 text-red-700">Ambiguous</Badge>;
+      default: return <Badge className="bg-slate-100 text-slate-600">No realm</Badge>;
+    }
+  };
+
+  const tsv = rows
+    .map((r) => `${r.name}\t${r.storedRealmId || r.liveRealmId || ""}`)
+    .join("\n");
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <KeyRound className="h-4 w-4 text-lime-600" /> Client ↔ QuickBooks Realm IDs
+            </CardTitle>
+            <CardDescription>
+              {s.mapped}/{s.total} mapped
+              {s.needsSync ? ` · ${s.needsSync} need sync` : ""}
+              {s.unmapped ? ` · ${s.unmapped} missing` : ""}
+              {s.ambiguous ? ` · ${s.ambiguous} ambiguous` : ""}
+            </CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => copy(tsv, "__all__")}>
+              {copied === "__all__" ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
+              Copy all
+            </Button>
+            <Button size="sm" onClick={() => resync.mutate()} disabled={resync.isPending}>
+              <RefreshCw className={cn("h-4 w-4 mr-1", resync.isPending && "animate-spin")} /> Re-sync from QBO
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="divide-y">
+          {rows.map((r) => {
+            const realm = r.storedRealmId || r.liveRealmId;
+            return (
+              <div key={r.clientId} className="flex items-center justify-between py-2 gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm text-slate-900 truncate">{r.name}</p>
+                  <p className="text-xs text-slate-500">{r.clientType || ""}{r.status !== "active" ? ` · ${r.status}` : ""}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {realm ? (
+                    <code className="text-xs bg-slate-100 px-2 py-1 rounded font-mono">{realm}</code>
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">—</span>
+                  )}
+                  {stateBadge(r.state)}
+                  {realm && (
+                    <button onClick={() => copy(realm, String(r.clientId))} className="p-1 rounded hover:bg-slate-100" title="Copy realm ID">
+                      {copied === String(r.clientId) ? <Check className="h-3.5 w-3.5 text-lime-600" /> : <Copy className="h-3.5 w-3.5 text-slate-400" />}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {rows.length === 0 && <p className="text-sm text-slate-500 py-4">No clients to map yet.</p>}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

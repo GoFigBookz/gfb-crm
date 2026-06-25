@@ -349,6 +349,10 @@ export const clients = sqliteTable("clients", {
   qboCustomerId: text("qboCustomerId"),
   // Multi-QBO firm mapping: which QBO firm this client belongs to
   qboConnectionId: integer("qboConnectionId"),
+  // QBO company/realm ID, denormalized onto the client file so it's visible on
+  // the client master + never "lost" — kept in sync from the live connection
+  // (qbo_connections.realmId) at boot by ensure-client-realm-sync.
+  qboRealmId: text("qboRealmId"),
   // Firm mapping columns
   industry: text("industry").default("other"),
   // "CA" (default) or "US" — drives US-geared intake (EIN/state/sales tax) and

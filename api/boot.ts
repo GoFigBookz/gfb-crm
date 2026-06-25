@@ -2007,6 +2007,11 @@ async function startServer() {
   const { relinkFindings } = await import("./relink-findings");
   await relinkFindings();
 
+  // Re-derive each client's QBO realm ID from its live connection onto the
+  // client file (so the realm ID is always visible on the master + never lost).
+  const { ensureClientRealmSync } = await import("./ensure-client-realm-sync");
+  await ensureClientRealmSync();
+
   // Start QBO + GOOGLE auto-sync schedulers. The Google one (every 30 min +
   // once on boot) pulls Calendar/Tasks/Gmail FROM Google into the CRM — the
   // inbound half of two-way sync. The outbound half (CRM → Google) is pushed

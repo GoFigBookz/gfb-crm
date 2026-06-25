@@ -22736,6 +22736,10 @@ var init_schema = __esm({
       qboCustomerId: text("qboCustomerId"),
       // Multi-QBO firm mapping: which QBO firm this client belongs to
       qboConnectionId: integer2("qboConnectionId"),
+      // QBO company/realm ID, denormalized onto the client file so it's visible on
+      // the client master + never "lost" — kept in sync from the live connection
+      // (qbo_connections.realmId) at boot by ensure-client-realm-sync.
+      qboRealmId: text("qboRealmId"),
       // Firm mapping columns
       industry: text("industry").default("other"),
       // "CA" (default) or "US" — drives US-geared intake (EIN/state/sales tax) and
@@ -38899,6 +38903,82 @@ var init_month_end_core = __esm({
       const rank = { green: 0, yellow: 1, red: 2 };
       return rank[a] >= rank[b] ? a : b;
     };
+  }
+});
+
+// api/ensure-client-realm-sync.ts
+var ensure_client_realm_sync_exports = {};
+__export(ensure_client_realm_sync_exports, {
+  ensureClientRealmSync: () => ensureClientRealmSync
+});
+async function columnExists(db, table, column) {
+  const info = await db.all(sql.raw(`PRAGMA table_info(${table})`));
+  return info.some((c) => c.name === column);
+}
+async function ensureClientRealmSync() {
+  try {
+    const db = getDb();
+    if (!await columnExists(db, "clients", "qboRealmId")) {
+      await db.run(sql.raw(`ALTER TABLE clients ADD COLUMN qboRealmId text`));
+      console.log("[realm-sync] added clients.qboRealmId column");
+    }
+    const conns = await db.all(
+      sql.raw(
+        `SELECT id, realmId, clientId FROM qbo_connections WHERE isActive = 1 AND clientId IS NOT NULL`
+      )
+    );
+    const byClient = /* @__PURE__ */ new Map();
+    for (const c of conns) {
+      const cid = Number(c.clientId);
+      if (!cid || !c.realmId) continue;
+      const list = byClient.get(cid) || [];
+      list.push({ id: Number(c.id), realmId: String(c.realmId) });
+      byClient.set(cid, list);
+    }
+    let linked = 0;
+    const ambiguous = [];
+    for (const [clientId, list] of byClient) {
+      if (list.length > 1) {
+        const realms = new Set(list.map((l) => l.realmId));
+        if (realms.size > 1) {
+          ambiguous.push(clientId);
+          continue;
+        }
+      }
+      const { id: connId, realmId } = list[0];
+      const res = await db.run(
+        sql.raw(
+          `UPDATE clients
+             SET qboRealmId = '${realmId}',
+                 qboConnectionId = COALESCE(qboConnectionId, ${connId})
+           WHERE id = ${clientId}
+             AND (qboRealmId IS NULL OR qboRealmId <> '${realmId}' OR qboConnectionId IS NULL)`
+        )
+      );
+      if (res?.rowsAffected) linked += 1;
+    }
+    const unmappedRows = await db.all(
+      sql.raw(
+        `SELECT COUNT(*) AS n FROM clients
+          WHERE status = 'active' AND (qboRealmId IS NULL OR qboRealmId = '')
+            AND clientType <> 'wholesale'`
+      )
+    );
+    const unmapped = Number(unmappedRows?.[0]?.n || 0);
+    if (linked || ambiguous.length) {
+      console.log(
+        `[realm-sync] linked ${linked} client(s) to their QBO realm; ${ambiguous.length} ambiguous; ${unmapped} active client(s) still unmapped`
+      );
+    }
+    return { linked, ambiguous, unmapped };
+  } catch (e) {
+    console.error("[realm-sync] failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_client_realm_sync = __esm({
+  "api/ensure-client-realm-sync.ts"() {
+    init_connection();
+    init_drizzle_orm();
   }
 });
 
@@ -73252,6 +73332,55 @@ var clientRouter = createRouter({
     const leads = rows.filter((c) => c.status === "lead" || c.status === "prospect").length;
     return { active, inactive, leads, total: active + inactive, allRows: rows.length };
   }),
+  // QBO REALM-ID MAP — every client with its QuickBooks realm/company ID, pulled
+  // from the live connection. Rebuilds Markie's "client master" realm column that
+  // went missing. Flags clients connected-but-unmapped and mapped-but-disconnected.
+  realmMap: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const allowed = await restrictedClientIds(ctx);
+    const clientRows = await db.select().from(clients);
+    const conns = await db.select().from(qboConnections);
+    const connByClient = /* @__PURE__ */ new Map();
+    for (const cn of conns) {
+      if (cn.clientId == null) continue;
+      const list = connByClient.get(cn.clientId) || [];
+      list.push(cn);
+      connByClient.set(cn.clientId, list);
+    }
+    const rows = clientRows.filter((c) => allowed === null || allowed.includes(c.id)).filter((c) => c.status !== "lead" && c.status !== "prospect").map((c) => {
+      const live = (connByClient.get(c.id) || []).filter((cn) => cn.isActive);
+      const liveRealms = Array.from(new Set(live.map((cn) => cn.realmId)));
+      return {
+        clientId: c.id,
+        name: c.company || c.name,
+        status: c.status,
+        clientType: c.clientType,
+        storedRealmId: c.qboRealmId || null,
+        liveRealmId: liveRealms[0] || null,
+        connectionCount: live.length,
+        ambiguous: liveRealms.length > 1,
+        // healthy = stored matches a live connection; missing = no realm anywhere
+        state: liveRealms.length > 1 ? "ambiguous" : c.qboRealmId && liveRealms[0] && c.qboRealmId === liveRealms[0] ? "ok" : liveRealms[0] && !c.qboRealmId ? "needs_sync" : c.qboRealmId && !liveRealms[0] ? "disconnected" : "unmapped"
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+    return {
+      rows,
+      summary: {
+        total: rows.length,
+        mapped: rows.filter((r) => r.storedRealmId).length,
+        unmapped: rows.filter((r) => r.state === "unmapped").length,
+        needsSync: rows.filter((r) => r.state === "needs_sync").length,
+        ambiguous: rows.filter((r) => r.ambiguous).length
+      }
+    };
+  }),
+  // Re-run the realm-ID sync on demand (same as boot): write each client's live
+  // connection realmId onto their file. Admin/staff only.
+  resyncRealms: authedQuery.mutation(async () => {
+    const { ensureClientRealmSync: ensureClientRealmSync2 } = await Promise.resolve().then(() => (init_ensure_client_realm_sync(), ensure_client_realm_sync_exports));
+    const res = await ensureClientRealmSync2();
+    return res || { linked: 0, ambiguous: [], unmapped: 0 };
+  }),
   // Get single client
   get: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {
     const allowed = await restrictedClientIds(ctx);
@@ -85334,6 +85463,8 @@ async function startServer() {
   await ensureOAuthColumns2();
   const { relinkFindings: relinkFindings2 } = await Promise.resolve().then(() => (init_relink_findings(), relink_findings_exports));
   await relinkFindings2();
+  const { ensureClientRealmSync: ensureClientRealmSync2 } = await Promise.resolve().then(() => (init_ensure_client_realm_sync(), ensure_client_realm_sync_exports));
+  await ensureClientRealmSync2();
   const { startAllSchedulers: startAllSchedulers2 } = await Promise.resolve().then(() => (init_all_sync_scheduler(), all_sync_scheduler_exports));
   startAllSchedulers2();
   setTimeout(() => {
