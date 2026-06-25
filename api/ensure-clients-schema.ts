@@ -93,6 +93,10 @@ export async function ensureTaskColumns(): Promise<void> {
     try { await db.run(sql.raw(`ALTER TABLE tasks ADD COLUMN "stage" text DEFAULT 'todo'`)); console.log("[schema] tasks: added stage"); }
     catch (e) { console.error("[schema] add tasks.stage failed:", e instanceof Error ? e.message : e); }
   }
+  if (!have.has("startDate")) {
+    try { await db.run(sql.raw(`ALTER TABLE tasks ADD COLUMN "startDate" integer`)); console.log("[schema] tasks: added startDate"); }
+    catch (e) { console.error("[schema] add tasks.startDate failed:", e instanceof Error ? e.message : e); }
+  }
 }
 
 /** Create the payroll tables (pay_runs, pay_run_lines) if the live DB lacks

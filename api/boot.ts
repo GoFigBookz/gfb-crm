@@ -435,6 +435,18 @@ app.get("/api/firm/seed", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Re-date every compliance task (start + due) per the canonical rules and clean
+// up junk (inactive-client tasks, auto-paid payroll, dupes).
+//   GET /api/tasks/reschedule
+app.get("/api/tasks/reschedule", async (c) => {
+  try {
+    const { rescheduleAndCleanupTasks } = await import("./reschedule-tasks");
+    const r = await rescheduleAndCleanupTasks();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // Pull Markie's personal records into his private Phoenix hub.
 //   GET /api/phoenix/seed
 app.get("/api/phoenix/seed", async (c) => {
@@ -1877,6 +1889,14 @@ async function startServer() {
       if (r?.seeded) console.log(`[phoenix-personal] seeded ${r.count} entries`);
     } catch (e) {
       console.error("[phoenix-personal] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Re-date compliance tasks (start + due) + clean up junk (inactive clients,
+    // auto-paid payroll, dupes). Idempotent.
+    try {
+      const { rescheduleAndCleanupTasks } = await import("./reschedule-tasks");
+      await rescheduleAndCleanupTasks();
+    } catch (e) {
+      console.error("[reschedule] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
     // rows, repoint their pay-run lines, fix the "Last, First" split).

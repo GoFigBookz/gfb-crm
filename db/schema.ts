@@ -630,6 +630,9 @@ export const tasks = sqliteTable("tasks", {
   clientId: integer("clientId"),
   title: text("title").notNull(),
   description: text("description"),
+  // When work should START (e.g. HST: 5th of the month after quarter-end) vs the
+  // DUE date (a week before the statutory deadline). Both drive the calendar.
+  startDate: integer("startDate", { mode: "timestamp" }),
   dueDate: integer("dueDate", { mode: "timestamp" }),
   completed: integer("completed", { mode: "boolean" }).default(false).notNull(),
   completedAt: integer("completedAt", { mode: "timestamp" }),
