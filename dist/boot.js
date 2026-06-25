@@ -61733,6 +61733,7 @@ async function ensureConnectorsSchema() {
     const res = await db.run(sql`PRAGMA table_info(connected_accounts)`);
     for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
     const cols = [
+      ["clientId", "integer"],
       ["providerAccountId", "text"],
       ["accountLabel", "text DEFAULT 'Primary' NOT NULL"],
       ["accountEmail", "text"],
