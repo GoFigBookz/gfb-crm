@@ -23001,6 +23001,9 @@ var init_schema = __esm({
       clientId: integer2("clientId"),
       title: text("title").notNull(),
       description: text("description"),
+      // When work should START (e.g. HST: 5th of the month after quarter-end) vs the
+      // DUE date (a week before the statutory deadline). Both drive the calendar.
+      startDate: integer2("startDate", { mode: "timestamp" }),
       dueDate: integer2("dueDate", { mode: "timestamp" }),
       completed: integer2("completed", { mode: "boolean" }).default(false).notNull(),
       completedAt: integer2("completedAt", { mode: "timestamp" }),
@@ -60167,6 +60170,276 @@ var init_seed_firm_client = __esm({
   }
 });
 
+// api/task-date-rules.ts
+function lastDayOfMonth(year2, month1to12) {
+  return new Date(year2, month1to12, 0).getDate();
+}
+function at(year2, month1to12, day2) {
+  const d10 = Math.min(day2, lastDayOfMonth(year2, month1to12));
+  return new Date(year2, month1to12 - 1, d10, 12, 0, 0);
+}
+function yearEndCloseDueDate(yearEndMonth, periodYear) {
+  let m = yearEndMonth + 1;
+  let y = periodYear;
+  if (m > 12) {
+    m = 1;
+    y = periodYear + 1;
+  }
+  return at(y, m, 30);
+}
+function hstQuarterlyDueDate(quarterEndMonth, periodYear) {
+  let m = quarterEndMonth + 1;
+  let y = periodYear;
+  if (m > 12) {
+    m = 1;
+    y = periodYear + 1;
+  }
+  return at(y, m, 15);
+}
+function quarterEndForMonth(month1to12) {
+  return [3, 6, 9, 12].filter((q) => q <= month1to12).pop() ?? 12;
+}
+function t4DueDate(filingYear) {
+  return at(filingYear, 1, 20);
+}
+function hstQuarterlySchedule(quarterEndMonth, periodYear) {
+  let m = quarterEndMonth + 1, y = periodYear;
+  if (m > 12) {
+    m = 1;
+    y += 1;
+  }
+  const deadline = at(y, m, lastDayOfMonth(y, m));
+  return { start: at(y, m, 5), due: addDays2(deadline, -7), deadline };
+}
+function hstMonthlySchedule(periodMonth, periodYear) {
+  let m = periodMonth + 1, y = periodYear;
+  if (m > 12) {
+    m = 1;
+    y += 1;
+  }
+  const deadline = at(y, m, lastDayOfMonth(y, m));
+  return { start: at(y, m, 5), due: addDays2(deadline, -7), deadline };
+}
+function hstAnnualSchedule(yearEndMonth, periodYear) {
+  let m = yearEndMonth + 3, y = periodYear;
+  while (m > 12) {
+    m -= 12;
+    y += 1;
+  }
+  const deadline = at(y, m, lastDayOfMonth(y, m));
+  return { start: at(y, m, 5), due: addDays2(deadline, -7), deadline };
+}
+function t4Schedule(filingYear) {
+  return { start: at(filingYear, 1, 15), due: at(filingYear, 2, 15), deadline: at(filingYear, 2, 28) };
+}
+function yearEndSchedule(yearEndMonth, periodYear) {
+  let m = yearEndMonth + 1, y = periodYear;
+  if (m > 12) {
+    m = 1;
+    y += 1;
+  }
+  return { start: at(y, m, 1), due: at(y, m, 30), deadline: at(y, m, lastDayOfMonth(y, m)) };
+}
+function taskSchedule(ruleType, currentDue, opts) {
+  const ref = currentDue ?? /* @__PURE__ */ new Date();
+  const rt = (ruleType || "").toLowerCase();
+  const nearest = (fn) => {
+    const cands = [ref.getFullYear() - 1, ref.getFullYear(), ref.getFullYear() + 1].map(fn);
+    return cands.reduce((best, s) => Math.abs(s.due.getTime() - ref.getTime()) < Math.abs(best.due.getTime() - ref.getTime()) ? s : best);
+  };
+  if (rt.includes("t4")) return nearest(t4Schedule);
+  if (rt.includes("year_end") || rt.includes("yearend") || rt.includes("year-end")) {
+    if (!opts.yearEndMonth) return null;
+    return nearest((y) => yearEndSchedule(opts.yearEndMonth, y));
+  }
+  if (rt.includes("wsib")) {
+    const qEnd = quarterEndForMonth(ref.getMonth() + 1);
+    return nearest((y) => hstQuarterlySchedule(qEnd, y));
+  }
+  if (rt.includes("hst") || rt.includes("gst")) {
+    const period = (opts.hstPeriod || "quarterly").toLowerCase();
+    if (period === "monthly") return nearest((y) => hstMonthlySchedule(ref.getMonth() + 1, y));
+    if (period === "annual") {
+      if (!opts.yearEndMonth) return null;
+      return nearest((y) => hstAnnualSchedule(opts.yearEndMonth, y));
+    }
+    const qEnd = quarterEndForMonth(ref.getMonth() + 1);
+    return nearest((y) => hstQuarterlySchedule(qEnd, y));
+  }
+  return null;
+}
+function correctedDueDate(ruleType, currentDue, yearEndMonth) {
+  const ref = currentDue ?? /* @__PURE__ */ new Date();
+  const rt = (ruleType || "").toLowerCase();
+  const nearest = (fn) => {
+    const cands = [ref.getFullYear() - 1, ref.getFullYear(), ref.getFullYear() + 1].map(fn);
+    return cands.reduce((best, d10) => Math.abs(d10.getTime() - ref.getTime()) < Math.abs(best.getTime() - ref.getTime()) ? d10 : best);
+  };
+  if (rt.includes("year_end") || rt.includes("yearend")) {
+    if (!yearEndMonth) return null;
+    return nearest((y) => yearEndCloseDueDate(yearEndMonth, y));
+  }
+  if (rt.includes("t4")) {
+    return nearest((y) => t4DueDate(y));
+  }
+  if (rt.includes("hst") && rt.includes("quarter")) {
+    const qEnd = quarterEndForMonth(ref.getMonth() + 1);
+    return nearest((y) => hstQuarterlyDueDate(qEnd, y));
+  }
+  return null;
+}
+var DAY_MS2, addDays2;
+var init_task_date_rules = __esm({
+  "api/task-date-rules.ts"() {
+    DAY_MS2 = 864e5;
+    addDays2 = (d10, n) => new Date(d10.getTime() + n * DAY_MS2);
+  }
+});
+
+// api/dedupe-tasks.ts
+var dedupe_tasks_exports = {};
+__export(dedupe_tasks_exports, {
+  dedupeTasks: () => dedupeTasks
+});
+async function dedupeTasks() {
+  const db = getDb();
+  let rulesRemoved = 0, tasksRemoved = 0;
+  const allRules = await db.select().from(clientTaskRules);
+  const ruleGroups = /* @__PURE__ */ new Map();
+  for (const r of allRules) {
+    const key10 = `${r.clientId}::${r.ruleType ?? r.title}`;
+    if (!ruleGroups.has(key10)) ruleGroups.set(key10, []);
+    ruleGroups.get(key10).push(r);
+  }
+  for (const group of ruleGroups.values()) {
+    if (group.length < 2) continue;
+    group.sort((a, b) => a.id - b.id);
+    const keep3 = group[0];
+    const dropIds = group.slice(1).map((r) => r.id);
+    await db.update(tasks).set({ ruleId: keep3.id }).where(inArray(tasks.ruleId, dropIds));
+    await db.delete(clientTaskRules).where(inArray(clientTaskRules.id, dropIds));
+    rulesRemoved += dropIds.length;
+  }
+  const allTasks = await db.select().from(tasks);
+  const taskGroups = /* @__PURE__ */ new Map();
+  for (const t2 of allTasks) {
+    const key10 = `${t2.clientId}::${(t2.title ?? "").trim().toLowerCase()}::${dayKey(t2.dueDate)}`;
+    if (!taskGroups.has(key10)) taskGroups.set(key10, []);
+    taskGroups.get(key10).push(t2);
+  }
+  for (const group of taskGroups.values()) {
+    if (group.length < 2) continue;
+    group.sort((a, b) => {
+      const ac = a.completed ? 0 : 1, bc = b.completed ? 0 : 1;
+      return ac !== bc ? ac - bc : a.id - b.id;
+    });
+    const dropIds = group.slice(1).map((t2) => t2.id);
+    await db.delete(tasks).where(inArray(tasks.id, dropIds));
+    tasksRemoved += dropIds.length;
+  }
+  if (rulesRemoved || tasksRemoved) console.log(`[dedupe-tasks] removed ${rulesRemoved} dup rules, ${tasksRemoved} dup tasks`);
+  return { rulesRemoved, tasksRemoved };
+}
+var dayKey;
+var init_dedupe_tasks = __esm({
+  "api/dedupe-tasks.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    dayKey = (d10) => {
+      if (!d10) return "none";
+      const t2 = d10 instanceof Date ? d10 : new Date(d10);
+      return Number.isNaN(t2.getTime()) ? "none" : t2.toISOString().slice(0, 10);
+    };
+  }
+});
+
+// api/reschedule-tasks.ts
+var reschedule_tasks_exports = {};
+__export(reschedule_tasks_exports, {
+  rescheduleAndCleanupTasks: () => rescheduleAndCleanupTasks
+});
+function detectRule(title, category) {
+  const t2 = `${title} ${category}`.toLowerCase();
+  if (/\bt4\b|\bt4a\b/.test(t2)) return "t4";
+  if (/year[\s-]?end/.test(t2)) return "year_end";
+  if (/\bwsib\b/.test(t2)) return "wsib";
+  if (/\bhst\b|\bgst\b/.test(t2)) return "hst";
+  return null;
+}
+async function rescheduleAndCleanupTasks() {
+  const db = getDb();
+  const stats = { rescheduled: 0, deletedInactive: 0, deletedAutoPayroll: 0, deduped: 0 };
+  try {
+    const allTasks = await db.select().from(tasks);
+    const allClients = await db.select().from(clients);
+    const byId = new Map(allClients.map((c) => [c.id, c]));
+    for (const t2 of allTasks) {
+      if (t2.completed || t2.status === "completed") continue;
+      const c = t2.clientId != null ? byId.get(t2.clientId) : null;
+      const title = String(t2.title || "");
+      const category = String(t2.category || "");
+      const dead = c && (c.status === "inactive" || c.workflowStatus === "churned");
+      if (dead) {
+        await db.delete(tasks).where(eq(tasks.id, t2.id));
+        stats.deletedInactive++;
+        continue;
+      }
+      const isPayroll = /payroll/i.test(title) || category.toLowerCase() === "payroll";
+      if (isPayroll && c && (c.payrollExternal || c.payrollHoursSource === "qbo_autopay")) {
+        await db.delete(tasks).where(eq(tasks.id, t2.id));
+        stats.deletedAutoPayroll++;
+        continue;
+      }
+      const rule = detectRule(title, category);
+      if (rule) {
+        const sched = taskSchedule(rule, t2.dueDate ? new Date(t2.dueDate) : null, {
+          yearEndMonth: c?.yearEndMonth ? MONTHS4[c.yearEndMonth] ?? null : null,
+          hstPeriod: c?.hstPeriod ?? null
+        });
+        if (sched) {
+          await db.update(tasks).set({ startDate: sched.start, dueDate: sched.due, updatedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
+          stats.rescheduled++;
+        }
+      }
+    }
+    try {
+      const { dedupeTasks: dedupeTasks2 } = await Promise.resolve().then(() => (init_dedupe_tasks(), dedupe_tasks_exports));
+      const r = await dedupeTasks2();
+      stats.deduped = r?.tasksRemoved ?? 0;
+    } catch {
+    }
+    console.log(`[reschedule] re-dated ${stats.rescheduled}, removed ${stats.deletedInactive} inactive-client + ${stats.deletedAutoPayroll} auto-payroll, deduped ${stats.deduped}`);
+    return stats;
+  } catch (e) {
+    console.error("[reschedule] failed:", e instanceof Error ? e.message : e);
+    return stats;
+  }
+}
+var MONTHS4;
+var init_reschedule_tasks = __esm({
+  "api/reschedule-tasks.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_task_date_rules();
+    MONTHS4 = {
+      Jan: 1,
+      Feb: 2,
+      Mar: 3,
+      Apr: 4,
+      May: 5,
+      Jun: 6,
+      Jul: 7,
+      Aug: 8,
+      Sep: 9,
+      Oct: 10,
+      Nov: 11,
+      Dec: 12
+    };
+  }
+});
+
 // api/ensure-life-schema.ts
 var ensure_life_schema_exports = {};
 __export(ensure_life_schema_exports, {
@@ -61617,7 +61890,7 @@ __export(import_client_master_exports, {
 });
 function onboardingFromRow(clientId, r) {
   const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(r.ye);
-  const fiscalYearEnd = m ? `${MONTHS4[Number(m[1]) - 1]} ${Number(m[2])}` : null;
+  const fiscalYearEnd = m ? `${MONTHS5[Number(m[1]) - 1]} ${Number(m[2])}` : null;
   return {
     clientId,
     userId: 1,
@@ -61791,7 +62064,7 @@ async function importClientMaster() {
     claimed.add(clientId);
     const payFreq = payMap[r.pay.toLowerCase()] ?? null;
     const hstPeriod = hstMap[r.hst.toLowerCase()] ?? null;
-    const yearEndMonth = /^\d{4}-(\d{2})-\d{2}$/.test(r.ye) ? MONTHS4[Number(r.ye.slice(5, 7)) - 1] : null;
+    const yearEndMonth = /^\d{4}-(\d{2})-\d{2}$/.test(r.ye) ? MONTHS5[Number(r.ye.slice(5, 7)) - 1] : null;
     const patch = {
       name: reorderNumberedName(prettyName(r.name)),
       // clean casing + operating-name-first
@@ -61848,7 +62121,7 @@ async function importClientMaster() {
   }
   return report;
 }
-var F, D, ROWS, MONTHS4, payMap, hstMap, hstFreqForTasks, payFreqForTasks, NAME_OVERRIDES, SMALL_WORDS, norm22, asRows2;
+var F, D, ROWS, MONTHS5, payMap, hstMap, hstFreqForTasks, payFreqForTasks, NAME_OVERRIDES, SMALL_WORDS, norm22, asRows2;
 var init_import_client_master = __esm({
   "api/import-client-master.ts"() {
     init_connection();
@@ -61893,7 +62166,7 @@ var init_import_client_master = __esm({
       { name: "FLEMING ADVISORY INC. (fka Kaavio)", bn: "736845488", pay: "", hst: "Annually", wsib: "", ye: "2025-12-31", folder: F + "1ynQJzY3sffTICdqU8cWoenW5ZhRxz_o3", doc: D + "1jv_rIscsDekjSLqsWHpw-iD4J4A_hed-VTf8QkJ6ktQ" },
       { name: "UNIVERSAL DRYWALL (USA)", bn: "", pay: "", hst: "", wsib: "", ye: "", folder: F + "1y1Tg7_k8u3d3NTJs2C-dYNIjdj83UokB", doc: D + "1wGoGDChnBCusbDYoHC1ZsKfqc42JtHFqPr0N3gJuvYQ" }
     ];
-    MONTHS4 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    MONTHS5 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     payMap = { weekly: "weekly", "bi-weekly": "bi-weekly", "semi-monthly": "semi-monthly", monthly: "monthly" };
     hstMap = { annually: "annual", quarterly: "quarterly", monthly: "monthly" };
     hstFreqForTasks = { annually: "annually", quarterly: "quarterly", monthly: "monthly" };
@@ -61915,64 +62188,6 @@ var init_import_client_master = __esm({
     SMALL_WORDS = /* @__PURE__ */ new Set(["and", "by", "of", "the", "for", "to"]);
     norm22 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
     asRows2 = (res) => [...res?.rows ?? res ?? []];
-  }
-});
-
-// api/dedupe-tasks.ts
-var dedupe_tasks_exports = {};
-__export(dedupe_tasks_exports, {
-  dedupeTasks: () => dedupeTasks
-});
-async function dedupeTasks() {
-  const db = getDb();
-  let rulesRemoved = 0, tasksRemoved = 0;
-  const allRules = await db.select().from(clientTaskRules);
-  const ruleGroups = /* @__PURE__ */ new Map();
-  for (const r of allRules) {
-    const key10 = `${r.clientId}::${r.ruleType ?? r.title}`;
-    if (!ruleGroups.has(key10)) ruleGroups.set(key10, []);
-    ruleGroups.get(key10).push(r);
-  }
-  for (const group of ruleGroups.values()) {
-    if (group.length < 2) continue;
-    group.sort((a, b) => a.id - b.id);
-    const keep3 = group[0];
-    const dropIds = group.slice(1).map((r) => r.id);
-    await db.update(tasks).set({ ruleId: keep3.id }).where(inArray(tasks.ruleId, dropIds));
-    await db.delete(clientTaskRules).where(inArray(clientTaskRules.id, dropIds));
-    rulesRemoved += dropIds.length;
-  }
-  const allTasks = await db.select().from(tasks);
-  const taskGroups = /* @__PURE__ */ new Map();
-  for (const t2 of allTasks) {
-    const key10 = `${t2.clientId}::${(t2.title ?? "").trim().toLowerCase()}::${dayKey(t2.dueDate)}`;
-    if (!taskGroups.has(key10)) taskGroups.set(key10, []);
-    taskGroups.get(key10).push(t2);
-  }
-  for (const group of taskGroups.values()) {
-    if (group.length < 2) continue;
-    group.sort((a, b) => {
-      const ac = a.completed ? 0 : 1, bc = b.completed ? 0 : 1;
-      return ac !== bc ? ac - bc : a.id - b.id;
-    });
-    const dropIds = group.slice(1).map((t2) => t2.id);
-    await db.delete(tasks).where(inArray(tasks.id, dropIds));
-    tasksRemoved += dropIds.length;
-  }
-  if (rulesRemoved || tasksRemoved) console.log(`[dedupe-tasks] removed ${rulesRemoved} dup rules, ${tasksRemoved} dup tasks`);
-  return { rulesRemoved, tasksRemoved };
-}
-var dayKey;
-var init_dedupe_tasks = __esm({
-  "api/dedupe-tasks.ts"() {
-    init_connection();
-    init_schema();
-    init_drizzle_orm();
-    dayKey = (d10) => {
-      if (!d10) return "none";
-      const t2 = d10 instanceof Date ? d10 : new Date(d10);
-      return Number.isNaN(t2.getTime()) ? "none" : t2.toISOString().slice(0, 10);
-    };
   }
 });
 
@@ -63317,6 +63532,14 @@ async function ensureTaskColumns() {
       console.error("[schema] add tasks.stage failed:", e instanceof Error ? e.message : e);
     }
   }
+  if (!have.has("startDate")) {
+    try {
+      await db.run(sql.raw(`ALTER TABLE tasks ADD COLUMN "startDate" integer`));
+      console.log("[schema] tasks: added startDate");
+    } catch (e) {
+      console.error("[schema] add tasks.startDate failed:", e instanceof Error ? e.message : e);
+    }
+  }
 }
 async function ensurePayrollTables() {
   const db = getDb();
@@ -64371,7 +64594,7 @@ __export(seed_hst_dates_exports, {
 function dueDateFromMonthYear(s) {
   const m = /([A-Za-z]{3})[A-Za-z]*\s+(\d{4})/.exec((s || "").trim());
   if (!m) return null;
-  const mo = MONTHS5[m[1].toLowerCase()];
+  const mo = MONTHS6[m[1].toLowerCase()];
   const yr = Number(m[2]);
   if (!mo || !yr) return null;
   const last = new Date(Date.UTC(yr, mo, 0)).getUTCDate();
@@ -64435,14 +64658,14 @@ async function seedHstDates() {
   }
   return report;
 }
-var MONTHS5, ROWS2;
+var MONTHS6, ROWS2;
 var init_seed_hst_dates = __esm({
   "api/seed-hst-dates.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     init_task_generator();
-    MONTHS5 = {
+    MONTHS6 = {
       jan: 1,
       feb: 2,
       mar: 3,
@@ -64782,63 +65005,6 @@ var init_seed_tax_rate_reviews = __esm({
   }
 });
 
-// api/task-date-rules.ts
-function lastDayOfMonth(year2, month1to12) {
-  return new Date(year2, month1to12, 0).getDate();
-}
-function at(year2, month1to12, day2) {
-  const d10 = Math.min(day2, lastDayOfMonth(year2, month1to12));
-  return new Date(year2, month1to12 - 1, d10, 12, 0, 0);
-}
-function yearEndCloseDueDate(yearEndMonth, periodYear) {
-  let m = yearEndMonth + 1;
-  let y = periodYear;
-  if (m > 12) {
-    m = 1;
-    y = periodYear + 1;
-  }
-  return at(y, m, 30);
-}
-function hstQuarterlyDueDate(quarterEndMonth, periodYear) {
-  let m = quarterEndMonth + 1;
-  let y = periodYear;
-  if (m > 12) {
-    m = 1;
-    y = periodYear + 1;
-  }
-  return at(y, m, 15);
-}
-function quarterEndForMonth(month1to12) {
-  return [3, 6, 9, 12].filter((q) => q <= month1to12).pop() ?? 12;
-}
-function t4DueDate(filingYear) {
-  return at(filingYear, 1, 20);
-}
-function correctedDueDate(ruleType, currentDue, yearEndMonth) {
-  const ref = currentDue ?? /* @__PURE__ */ new Date();
-  const rt = (ruleType || "").toLowerCase();
-  const nearest = (fn) => {
-    const cands = [ref.getFullYear() - 1, ref.getFullYear(), ref.getFullYear() + 1].map(fn);
-    return cands.reduce((best, d10) => Math.abs(d10.getTime() - ref.getTime()) < Math.abs(best.getTime() - ref.getTime()) ? d10 : best);
-  };
-  if (rt.includes("year_end") || rt.includes("yearend")) {
-    if (!yearEndMonth) return null;
-    return nearest((y) => yearEndCloseDueDate(yearEndMonth, y));
-  }
-  if (rt.includes("t4")) {
-    return nearest((y) => t4DueDate(y));
-  }
-  if (rt.includes("hst") && rt.includes("quarter")) {
-    const qEnd = quarterEndForMonth(ref.getMonth() + 1);
-    return nearest((y) => hstQuarterlyDueDate(qEnd, y));
-  }
-  return null;
-}
-var init_task_date_rules = __esm({
-  "api/task-date-rules.ts"() {
-  }
-});
-
 // api/reconcile-overnight.ts
 var reconcile_overnight_exports = {};
 __export(reconcile_overnight_exports, {
@@ -64846,7 +65012,7 @@ __export(reconcile_overnight_exports, {
 });
 function monthToNum(m) {
   if (!m) return null;
-  const i = MONTHS6.indexOf(String(m).slice(0, 3).toLowerCase());
+  const i = MONTHS7.indexOf(String(m).slice(0, 3).toLowerCase());
   return i < 0 ? null : i + 1;
 }
 function sameDay(a, b) {
@@ -64935,14 +65101,14 @@ async function reconcileOvernight() {
   }
   return out;
 }
-var MONTHS6;
+var MONTHS7;
 var init_reconcile_overnight = __esm({
   "api/reconcile-overnight.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     init_task_date_rules();
-    MONTHS6 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    MONTHS7 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
   }
 });
 
@@ -82864,6 +83030,15 @@ app.get("/api/firm/seed", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+app.get("/api/tasks/reschedule", async (c) => {
+  try {
+    const { rescheduleAndCleanupTasks: rescheduleAndCleanupTasks2 } = await Promise.resolve().then(() => (init_reschedule_tasks(), reschedule_tasks_exports));
+    const r = await rescheduleAndCleanupTasks2();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 app.get("/api/phoenix/seed", async (c) => {
   try {
     const { ensureLifeSchema: ensureLifeSchema2 } = await Promise.resolve().then(() => (init_ensure_life_schema(), ensure_life_schema_exports));
@@ -84258,6 +84433,12 @@ async function startServer() {
       if (r?.seeded) console.log(`[phoenix-personal] seeded ${r.count} entries`);
     } catch (e) {
       console.error("[phoenix-personal] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { rescheduleAndCleanupTasks: rescheduleAndCleanupTasks2 } = await Promise.resolve().then(() => (init_reschedule_tasks(), reschedule_tasks_exports));
+      await rescheduleAndCleanupTasks2();
+    } catch (e) {
+      console.error("[reschedule] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { dedupEmployees: dedupEmployees2 } = await Promise.resolve().then(() => (init_seed_employee_dedup(), seed_employee_dedup_exports));
