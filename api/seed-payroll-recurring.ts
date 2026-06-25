@@ -34,6 +34,7 @@ import { getDb } from "./queries/connection";
 import { users, clients, tasks, calendarEvents } from "../db/schema";
 import { eq, and, gte } from "drizzle-orm";
 import { ontarioStatHolidays } from "./stat-holidays";
+import { computeReminderRuns } from "./payroll-reminder-core";
 
 const OWNER_EMAIL = "markie.antle@gmail.com";
 const TZ = "America/Toronto";
@@ -61,33 +62,12 @@ function wallToUtc(dateStr: string, timeStr: string): Date {
 }
 
 const ymdInTz = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
-const weekdayInTz = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short" }).format(d);
-
-/** Whole days between two YYYY-MM-DD strings (calendar-day math, TZ-independent). */
-function daysBetween(aISO: string, bISO: string): number {
-  const a = Date.UTC(+aISO.slice(0, 4), +aISO.slice(5, 7) - 1, +aISO.slice(8, 10));
-  const b = Date.UTC(+bISO.slice(0, 4), +bISO.slice(5, 7) - 1, +bISO.slice(8, 10));
-  return Math.round((a - b) / 86400000);
-}
 
 /** Set of Ontario stat-holiday YYYY-MM-DD strings spanning the years we touch. */
 function statSet(years: number[]): Set<string> {
   const s = new Set<string>();
   for (const y of years) for (const h of ontarioStatHolidays(y)) s.add(h.date);
   return s;
-}
-
-/** The latest business day on/before dateStr that isn't a weekend or stat holiday. */
-function priorBusinessDay(dateStr: string, holidays: Set<string>): string {
-  let cur = dateStr;
-  for (let i = 0; i < 14; i++) {
-    const d = new Date(`${cur}T12:00:00Z`);
-    const wd = d.getUTCDay(); // 0=Sun..6=Sat (noon-UTC date is stable)
-    if (wd !== 0 && wd !== 6 && !holidays.has(cur)) return cur;
-    d.setUTCDate(d.getUTCDate() - 1);
-    cur = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-  }
-  return cur;
 }
 
 export async function ensurePayrollReminders(): Promise<{ tasksAdded: number; eventsAdded: number; tasksRemoved: number; skipped: string } | void> {
@@ -117,25 +97,19 @@ export async function ensurePayrollReminders(): Promise<{ tasksAdded: number; ev
     const base = new Date(`${todayStr}T12:00:00Z`); // noon UTC → stable calendar day in TZ
     const holidays = statSet([base.getUTCFullYear(), base.getUTCFullYear() + 1]);
 
-    // --- Build the CORRECT schedule for the rolling window first (set of {clientId|date}). ---
+    // --- Build the CORRECT schedule for the rolling window (pure, tested core). ---
     // A "correct" date is the payroll Wednesday, shifted earlier off a stat holiday.
-    const scheduled = new Map<string, { client: any; dateStr: string; statShift: boolean }[]>(); // dateStr -> entries
+    const runs = computeReminderRuns(todayStr, BIWEEKLY_ANCHOR, holidays, WINDOW_DAYS);
+    const scheduled = new Map<string, { client: any; dateStr: string; statShift: boolean }[]>(); // runDate -> entries
     const correctKeys = new Set<string>(); // `${clientId}|${runDate}`
-    for (let i = 0; i <= WINDOW_DAYS; i++) {
-      const d = new Date(base.getTime() + i * 86400000);
-      if (weekdayInTz(d) !== "Wed") continue;
-      const wedStr = ymdInTz(d);
-      const isBiweekly = daysBetween(wedStr, BIWEEKLY_ANCHOR) % 14 === 0;
-      const dueClients: any[] = [...WEEKLY, ...(isBiweekly ? BIWEEKLY : [])];
+    for (const run of runs) {
+      const dueClients: any[] = [...WEEKLY, ...(run.isBiweekly ? BIWEEKLY : [])];
       if (!dueClients.length) continue;
-      // Stat-holiday shift: if the Wednesday is a stat holiday, run the prior business day.
-      const statShift = holidays.has(wedStr);
-      const runDate = statShift ? priorBusinessDay(wedStr, holidays) : wedStr;
       for (const c of dueClients) {
-        correctKeys.add(`${c.id}|${runDate}`);
-        const arr = scheduled.get(runDate) || [];
-        arr.push({ client: c, dateStr: runDate, statShift });
-        scheduled.set(runDate, arr);
+        correctKeys.add(`${c.id}|${run.runISO}`);
+        const arr = scheduled.get(run.runISO) || [];
+        arr.push({ client: c, dateStr: run.runISO, statShift: run.statShifted });
+        scheduled.set(run.runISO, arr);
       }
     }
 

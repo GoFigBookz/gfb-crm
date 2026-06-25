@@ -16,25 +16,10 @@ import {
 import { cn } from "@/lib/utils";
 import { TaskDetailDialog } from "@/components/TaskDetailDialog";
 import { TimezoneBanner } from "@/components/TimezoneBanner";
-import { awayInfo, eventTimeLabel } from "@/lib/timezone";
+import { awayInfo, eventTimeLabel, placementDate } from "@/lib/timezone";
 
 type ViewType = "day" | "week" | "month" | "year" | "list" | "gantt";
 const VIEWS: ViewType[] = ["day", "week", "month", "year", "list", "gantt"];
-
-/**
- * Which calendar DAY an item belongs on. The off-by-a-day bug: all-day events and
- * date-only values (Google all-day events, Google Tasks) are stored at UTC midnight.
- * Rendering `new Date(utcMidnight)` in Ontario (UTC-4/-5) lands on the PREVIOUS
- * evening → the item shows a day early. So for any all-day / exact-UTC-midnight
- * value we rebuild the date at LOCAL noon of its UTC calendar day; real timed
- * values (8am payroll block, a 2pm meeting) pass through unchanged.
- */
-function placementDate(value: any, isAllDay?: boolean): Date {
-  const d = new Date(value);
-  const midnightUTC = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
-  if (isAllDay || midnightUTC) return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
-  return d;
-}
 
 export default function CalendarPage() {
   const navigate = useNavigate();
