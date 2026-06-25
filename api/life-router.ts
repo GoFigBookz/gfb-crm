@@ -26,7 +26,7 @@ export const LIFE_SECTIONS = [
   { key: "travel", title: "Travel", blurb: "Trips, itineraries, documents", money: false,
     types: ["trip", "flight", "stay", "document", "note"] },
   { key: "health", title: "Health", blurb: "Appointments, metrics, meds", money: false,
-    types: ["appointment", "metric", "medication", "provider", "note"] },
+    types: ["appointment", "metric", "medication", "provider", "routine", "profile", "document", "note"] },
   { key: "growth", title: "Growth", blurb: "Goals, habits, journal", money: false,
     types: ["goal", "habit", "journal", "note"] },
 ] as const;

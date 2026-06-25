@@ -81627,7 +81627,7 @@ var LIFE_SECTIONS = [
     title: "Health",
     blurb: "Appointments, metrics, meds",
     money: false,
-    types: ["appointment", "metric", "medication", "provider", "note"]
+    types: ["appointment", "metric", "medication", "provider", "routine", "profile", "document", "note"]
   },
   {
     key: "growth",
