@@ -175,8 +175,9 @@ export async function readMasterRange(rangeA1: string): Promise<string[][]> {
   } catch { return []; }
 }
 
-/** POST {url, method, body} to the committed Sheets webhook proxy. */
-async function sheetsApi(url: string, method: "GET" | "POST" | "PUT", body?: unknown): Promise<any> {
+/** POST {url, method, body} to the committed Sheets webhook proxy. Exported so
+ *  other reports (e.g. the bank/CC accounts export) can write to the workbook. */
+export async function sheetsApi(url: string, method: "GET" | "POST" | "PUT", body?: unknown): Promise<any> {
   // Re-enabled 2026-06-22 with the double-encode FIXED. Root cause: callers
   // pre-encode the range (encodeURIComponent) AND the Make scenario's google-sheets
   // "Make an API Call" module encodes {{1.url}} again → Sheets received a literal
