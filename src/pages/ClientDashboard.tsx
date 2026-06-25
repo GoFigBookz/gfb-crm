@@ -958,6 +958,7 @@ export default function ClientDashboard() {
             </CardContent>
           </Card>
 
+          {timesheetPeriods && timesheetPeriods.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1007,7 +1008,7 @@ export default function ClientDashboard() {
                             const total = (entry.regularHours || 0) + (entry.overtimeHours || 0) + (entry.vacationHours || 0) + (entry.sickHours || 0) + (entry.statHolidayHours || 0);
                             return (
                               <div key={entry.id} className="grid grid-cols-6 gap-2 py-2 border-b last:border-0 text-sm">
-                                <span>{emp ? `${emp.firstName} ${emp.lastName}` : `Emp #${entry.employeeId}`}</span>
+                                <span>{emp ? (emp.lastName ? `${emp.lastName}, ${emp.firstName}` : emp.firstName) : `Emp #${entry.employeeId}`}</span>
                                 <span className="text-right">{(entry.regularHours || 0).toFixed(1)}</span>
                                 <span className="text-right">{(entry.overtimeHours || 0).toFixed(1)}</span>
                                 <span className="text-right">{(entry.vacationHours || 0).toFixed(1)}</span>
@@ -1029,6 +1030,7 @@ export default function ClientDashboard() {
               )}
             </CardContent>
           </Card>
+          )}
         </TabsContent>
 
         {/* COMPLIANCE TAB */}
@@ -2756,6 +2758,7 @@ function EmployeesCard({ clientId }: { clientId: number }) {
   const [form, setForm] = useState<any>(blank);
   const [editId, setEditId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const inv = () => utils.employee.list.invalidate({ clientId });
   const create = trpc.employee.create.useMutation({ onSuccess: () => { inv(); close(); }, onError: (e) => alert(e.message) });
   const update = trpc.employee.update.useMutation({ onSuccess: () => { inv(); close(); }, onError: (e) => alert(e.message) });
@@ -2775,12 +2778,22 @@ function EmployeesCard({ clientId }: { clientId: number }) {
     if (editId) update.mutate({ id: editId, ...payload }); else create.mutate({ clientId, ...payload });
   }
   const money = (n: any) => n == null || n === "" ? "—" : `$${Number(n).toLocaleString()}`;
+  const fullName = (e: any) => e.lastName ? `${e.lastName}, ${e.firstName}` : e.firstName;
+  const count = emps?.length ?? 0;
+  const sortedEmps = (emps ? [...emps] : []).sort((a: any, b: any) =>
+    (a.lastName || a.firstName || "").localeCompare(b.lastName || b.firstName || "") ||
+    (a.firstName || "").localeCompare(b.firstName || ""));
   return (
     <Card>
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2 text-base"><Briefcase className="h-5 w-5 text-lime-500" /> Employees</CardTitle>
+        <button type="button" onClick={() => setExpanded((v) => !v)} className="flex items-center gap-2 text-base font-semibold hover:text-lime-600 transition-colors">
+          {count > 0 && (expanded ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />)}
+          <Briefcase className="h-5 w-5 text-lime-500" /> Employees
+          {count > 0 && <span className="text-xs font-normal text-slate-400">({count})</span>}
+        </button>
         <Button size="sm" variant="outline" onClick={startAdd}><Plus className="h-3.5 w-3.5 mr-1" /> Add employee</Button>
       </CardHeader>
+      {expanded && (
       <CardContent>
         {(!emps || emps.length === 0) ? (
           <p className="text-sm text-slate-400 py-2">No employees yet — add the people on this client's payroll.</p>
@@ -2793,9 +2806,9 @@ function EmployeesCard({ clientId }: { clientId: number }) {
                 <th className="text-center px-2">WSIB</th><th className="text-left px-2">Jobber name</th><th></th>
               </tr></thead>
               <tbody>
-                {emps.map((e: any) => (
+                {sortedEmps.map((e: any) => (
                   <tr key={e.id} className="border-b last:border-0">
-                    <td className="py-1.5 pr-2 font-medium">{e.firstName} {e.lastName}</td>
+                    <td className="py-1.5 pr-2 font-medium">{fullName(e)}</td>
                     <td className="px-2 text-slate-500">{e.position || "—"}</td>
                     <td className="px-2 text-right">{e.payType === "hourly" ? `${money(e.hourlyRate)}/hr` : money(e.annualSalary)}</td>
                     <td className="px-2 text-right">{money(e.ytdGrossOpening)}</td>
@@ -2803,7 +2816,7 @@ function EmployeesCard({ clientId }: { clientId: number }) {
                     <td className="px-2 text-slate-500">{e.jobberName || "—"}</td>
                     <td className="px-2 text-right whitespace-nowrap">
                       <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => startEdit(e)}><Edit className="h-3.5 w-3.5" /></Button>
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600" onClick={() => { if (confirm(`Remove ${e.firstName} ${e.lastName}?`)) del.mutate({ id: e.id }); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600" onClick={() => { if (confirm(`Remove ${fullName(e)}?`)) del.mutate({ id: e.id }); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </td>
                   </tr>
                 ))}
@@ -2813,6 +2826,7 @@ function EmployeesCard({ clientId }: { clientId: number }) {
         )}
         <p className="text-[11px] text-slate-400 mt-2">YTD gross will pull from QuickBooks Payroll once connected (also feeds the Originality CRA-comparison check).</p>
       </CardContent>
+      )}
       <Dialog open={open} onOpenChange={(v) => { if (!v) close(); }}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{editId ? "Edit employee" : "Add employee"}</DialogTitle></DialogHeader>

@@ -336,6 +336,17 @@ app.get("/api/payroll/backfill-os", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Dedup + name-correct the Clark/Sher rosters (merge dupes, fix Last, First).
+//   GET /api/payroll/dedup-employees
+app.get("/api/payroll/dedup-employees", async (c) => {
+  try {
+    const { dedupEmployees } = await import("./seed-employee-dedup");
+    const r = await dedupEmployees();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // a RAW ProfitAndLoss sample for the first client-bound connection so the report
 // parser can be hardened against the real shape. Read-only against QBO.
 //   GET /api/qbo/sync-now[?raw=1]
@@ -1619,6 +1630,15 @@ async function startServer() {
       if (r?.runsAdded) console.log(`[os-backfill] +${r.runsAdded} runs`);
     } catch (e) {
       console.error("[os-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
+    // rows, repoint their pay-run lines, fix the "Last, First" split).
+    try {
+      const { dedupEmployees } = await import("./seed-employee-dedup");
+      const r = await dedupEmployees();
+      if (r && (r.merged || r.renamed)) console.log(`[emp-dedup] merged ${r.merged}, renamed ${r.renamed}`);
+    } catch (e) {
+      console.error("[emp-dedup] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Seed the TouchBistro restaurant rosters + rates (Sher-E-Punjab, Auld Spot).
     try {
