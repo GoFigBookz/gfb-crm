@@ -22613,6 +22613,10 @@ var init_schema = __esm({
       accountType: text("accountType"),
       accountSubType: text("accountSubType"),
       classification: text("classification"),
+      acctNum: text("acctNum"),
+      // QBO account number = the GL number
+      last4: text("last4"),
+      // last-4 of the bank/CC, extracted from name or set by Markie
       currentBalance: real("currentBalance").default(0),
       currencyRef: text("currencyRef"),
       active: integer2("active", { mode: "boolean" }).default(true),
@@ -39042,6 +39046,7 @@ __export(master_sheet_sync_exports, {
   pushAllClientsToMaster: () => pushAllClientsToMaster,
   readMasterRange: () => readMasterRange,
   resolveColumns: () => resolveColumns,
+  sheetsApi: () => sheetsApi2,
   syncClientToMaster: () => syncClientToMaster,
   syncLeadToMaster: () => syncLeadToMaster,
   upsertClientToMaster: () => upsertClientToMaster,
@@ -39875,10 +39880,10 @@ function endOfWeek(d10) {
 function endOfMonth2(d10) {
   return new Date(d10.getFullYear(), d10.getMonth() + 1, 0);
 }
-function matchClient(text2, clients4) {
+function matchClient(text2, clients5) {
   const n = norm4(text2);
   let best = null;
-  for (const c of clients4) {
+  for (const c of clients5) {
     const cn = norm4(c.name);
     if (!cn) continue;
     const idx = n.indexOf(cn);
@@ -39889,9 +39894,9 @@ function matchClient(text2, clients4) {
   const cleaned = text2.replace(re, "").replace(/\s{2,}/g, " ").replace(/^[\s:,-]+|[\s:,-]+$/g, "").trim();
   return { text: cleaned, client: best.client };
 }
-function parseTaskCommand(raw2, clients4, now = /* @__PURE__ */ new Date()) {
+function parseTaskCommand(raw2, clients5, now = /* @__PURE__ */ new Date()) {
   let text2 = stripLeadVerb(raw2);
-  const c = matchClient(text2, clients4);
+  const c = matchClient(text2, clients5);
   text2 = c.text;
   const d10 = extractDueDate(text2, now);
   text2 = d10.text;
@@ -40310,6 +40315,94 @@ var init_qbo_oauth = __esm({
   }
 });
 
+// api/qbo-accounts-report.ts
+var qbo_accounts_report_exports = {};
+__export(qbo_accounts_report_exports, {
+  runAccountsReport: () => runAccountsReport,
+  syncAllClientAccounts: () => syncAllClientAccounts,
+  writeBankCcReportToSheet: () => writeBankCcReportToSheet
+});
+async function ensureAccountColumns(db) {
+  const info = await db.all(sql.raw(`PRAGMA table_info(qbo_accounts)`));
+  const have = new Set(info.map((c) => c.name));
+  if (!have.has("acctNum")) await db.run(sql.raw(`ALTER TABLE qbo_accounts ADD COLUMN acctNum text`));
+  if (!have.has("last4")) await db.run(sql.raw(`ALTER TABLE qbo_accounts ADD COLUMN last4 text`));
+}
+async function syncAllClientAccounts() {
+  const db = getDb();
+  await ensureAccountColumns(db);
+  const conns = await db.select().from(qboConnections).where(eq(qboConnections.isActive, true));
+  let synced = 0, failed = 0;
+  const errors = [];
+  const clientIds = /* @__PURE__ */ new Set();
+  for (const conn of conns) {
+    if (conn.clientId == null) continue;
+    clientIds.add(conn.clientId);
+    try {
+      const r = await doSyncAccounts(conn.id);
+      synced += r.recordsSynced || 0;
+    } catch (e) {
+      failed += 1;
+      if (errors.length < 20) errors.push(`${conn.companyName || conn.realmId}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return { synced, failed, clients: clientIds.size, errors };
+}
+async function writeBankCcReportToSheet() {
+  try {
+    const db = getDb();
+    const rows = await db.all(sql.raw(
+      `SELECT c.company AS company, c.name AS name, a.name AS acctName, a.accountType AS type,
+              a.accountSubType AS subType, a.acctNum AS gl, a.last4 AS last4, a.qboAccountId AS qboId,
+              a.currentBalance AS bal
+         FROM qbo_accounts a
+         JOIN qbo_connections q ON q.id = a.connectionId
+         LEFT JOIN clients c ON c.id = q.clientId
+        WHERE a.accountType IN ('Bank','Credit Card') AND (a.active IS NULL OR a.active = 1)
+        ORDER BY COALESCE(c.company, c.name), a.accountType, a.name`
+    ));
+    const header2 = ["Client", "Account Name", "Type", "Last 4", "GL #", "QBO Acct ID", "Balance"];
+    const values = [header2, ...rows.map((r) => [
+      r.company || r.name || "\u2014",
+      r.acctName || "",
+      r.type || "",
+      r.last4 || "",
+      r.gl || "",
+      String(r.qboId || ""),
+      r.bal != null ? String(r.bal) : ""
+    ])];
+    await sheetsApi2(
+      `spreadsheets/${CANONICAL_MASTER_SHEET_ID}:batchUpdate`,
+      "POST",
+      { requests: [{ addSheet: { properties: { title: TAB } } }] }
+    ).catch(() => {
+    });
+    await sheetsApi2(`spreadsheets/${CANONICAL_MASTER_SHEET_ID}/values/${encodeURIComponent(`'${TAB}'!A1:G2000`)}:clear`, "POST", {}).catch(() => {
+    });
+    await sheetsApi2(`spreadsheets/${CANONICAL_MASTER_SHEET_ID}/values/${encodeURIComponent(`'${TAB}'!A1`)}?valueInputOption=RAW`, "PUT", { values });
+    return { rows: rows.length };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+}
+async function runAccountsReport() {
+  const sync = await syncAllClientAccounts();
+  const sheet = await writeBankCcReportToSheet();
+  console.log(`[accounts-report] synced ${sync.synced} accounts across ${sync.clients} client(s); ${sync.failed} failed; sheet:`, JSON.stringify(sheet));
+  return { sync, sheet };
+}
+var TAB;
+var init_qbo_accounts_report = __esm({
+  "api/qbo-accounts-report.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_qbo_router();
+    init_master_sheet_sync();
+    TAB = "Bank & CC Accounts";
+  }
+});
+
 // api/qbo-router.ts
 var qbo_router_exports = {};
 __export(qbo_router_exports, {
@@ -40514,13 +40607,18 @@ async function doSyncAccounts(connectionId) {
   const accounts = data.QueryResponse?.Account || [];
   for (const a of accounts) {
     const existing = await db.select().from(qboAccounts).where(and(eq(qboAccounts.connectionId, connectionId), eq(qboAccounts.qboAccountId, String(a.Id))));
+    const nm = a.Name || "";
+    const digitRuns = nm.match(/\d{3,7}/g);
+    const last4 = digitRuns && digitRuns.length ? digitRuns[digitRuns.length - 1] : existing[0]?.last4 || null;
     const row = {
       connectionId,
       qboAccountId: String(a.Id),
-      name: a.Name || null,
+      name: nm || null,
       accountType: a.AccountType || null,
       accountSubType: a.AccountSubType || null,
       classification: a.Classification || null,
+      acctNum: a.AcctNum || null,
+      last4,
       currentBalance: a.CurrentBalance || 0,
       currencyRef: a.CurrencyRef?.value || null,
       active: a.Active !== false,
@@ -40618,6 +40716,25 @@ var init_qbo_router = __esm({
       syncInvoices: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => doSyncInvoices(input.connectionId)),
       syncPayments: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => doSyncPayments(input.connectionId)),
       syncAccounts: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => doSyncAccounts(input.connectionId)),
+      // One-shot: pull the chart of accounts for EVERY connected client and write
+      // the bank/CC report to the master workbook. (Markie: all clients, not half.)
+      syncAllAccountsReport: publicQuery.mutation(async () => {
+        const { runAccountsReport: runAccountsReport2 } = await Promise.resolve().then(() => (init_qbo_accounts_report(), qbo_accounts_report_exports));
+        return runAccountsReport2();
+      }),
+      // Bank/CC accounts for one client (for the client-card dropdown), from qbo_accounts.
+      accountsForClient: publicQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        const db = getDb();
+        const rows = await db.run(sql.raw(
+          `SELECT a.name AS name, a.accountType AS type, a.acctNum AS gl, a.last4 AS last4,
+                a.qboAccountId AS qboId, a.currentBalance AS bal
+           FROM qbo_accounts a JOIN qbo_connections q ON q.id = a.connectionId
+          WHERE q.clientId = ${Number(input.clientId)} AND a.accountType IN ('Bank','Credit Card')
+            AND (a.active IS NULL OR a.active = 1)
+          ORDER BY a.accountType, a.name`
+        ));
+        return rows?.rows ?? rows ?? [];
+      }),
       // --- Sync All ---
       syncAll: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => {
         const r1 = await doSyncCustomers(input.connectionId);
@@ -72158,7 +72275,7 @@ var googleTasksRouter = createRouter({
   ).mutation(async ({ ctx, input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
     const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq3, and: and7, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    const { eq: eq3, and: and8, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const db = getDb2();
     const token2 = await getGoogleToken(ctx.user.id, ctx.db);
     if (!token2) {
@@ -72167,7 +72284,7 @@ var googleTasksRouter = createRouter({
         message: "No Google account connected. Connect Google in Integrations."
       });
     }
-    const where = input.clientId ? and7(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and7(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
+    const where = input.clientId ? and8(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and8(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
     const crmTasks = await db.select().from(tasks5).where(where);
     const results = [];
     for (const task of crmTasks.slice(0, 50)) {
@@ -84788,7 +84905,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.124";
+var BUILD_TAG = "2026-06-25.125";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -85683,7 +85800,7 @@ app.post("/api/admin/import-clients", async (c) => {
       return c.json({ error: "Invalid token" }, 401);
     }
     const db = getDb();
-    const { clients: clients4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { clients: clients5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const { ensureComplianceForClient: ensureComplianceForClient2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
     const CLIENTS_DATA2 = [
@@ -85711,12 +85828,12 @@ app.post("/api/admin/import-clients", async (c) => {
     const results = { imported: 0, skipped: 0, tasksCreated: 0, errors: [] };
     for (const clientData of CLIENTS_DATA2) {
       try {
-        const existing = await db.select().from(clients4).where(eq3(clients4.name, clientData.name)).limit(1);
+        const existing = await db.select().from(clients5).where(eq3(clients5.name, clientData.name)).limit(1);
         if (existing.length > 0) {
           results.skipped++;
           continue;
         }
-        const [client] = await db.insert(clients4).values({
+        const [client] = await db.insert(clients5).values({
           ...clientData,
           userId: 1,
           createdAt: /* @__PURE__ */ new Date(),
@@ -85805,9 +85922,9 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "clients") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, qboConnections: qboConnections2, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5, qboConnections: qboConnections2, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const db = getDb2();
-      const cs = await db.select().from(clients4);
+      const cs = await db.select().from(clients5);
       const conns = await db.select().from(qboConnections2);
       const ruleRows = await db.select().from(clientTaskRules4);
       const byClient = /* @__PURE__ */ new Map();
@@ -85890,10 +86007,10 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients5).where(eq3(clients5.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       return c.json({ success: true, op, client: {
@@ -85918,12 +86035,12 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients5).where(eq3(clients5.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       const scope = buildScopeForClient2(cl, onb);
@@ -85935,14 +86052,14 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
       const { renderQuoteHtml: renderQuoteHtml2 } = await Promise.resolve().then(() => (init_quote_doc(), quote_doc_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients5).where(eq3(clients5.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
@@ -85959,13 +86076,13 @@ app.post("/api/admin/figgy", async (c) => {
         documentType: "custom",
         clientEmail: cl.email || null
       });
-      await db.update(clients4).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: /* @__PURE__ */ new Date(), workflowStatus: "quote_sent" }).where(eq3(clients4.id, cl.id));
+      await db.update(clients5).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: /* @__PURE__ */ new Date(), workflowStatus: "quote_sent" }).where(eq3(clients5.id, cl.id));
       return c.json({ success: true, op, clientName: cl.name, recurringMonthly: quote.recurringMonthly, nearestPackage: quote.nearestPackage, ...res });
     }
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { clients: clients5, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq3, and: and8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -85975,15 +86092,15 @@ app.post("/api/admin/figgy", async (c) => {
       const steps = [];
       const TESTNAME = "E2E Test Co Inc.";
       try {
-        const prev = await db.select().from(clients4).where(eq3(clients4.name, TESTNAME));
+        const prev = await db.select().from(clients5).where(eq3(clients5.name, TESTNAME));
         for (const p of prev) {
           await db.delete(tasks5).where(eq3(tasks5.clientId, p.id));
           await db.delete(clientTaskRules4).where(eq3(clientTaskRules4.clientId, p.id));
           await db.delete(signatureDocuments2).where(eq3(signatureDocuments2.clientId, p.id));
           await db.delete(clientOnboarding2).where(eq3(clientOnboarding2.clientId, p.id));
-          await db.delete(clients4).where(eq3(clients4.id, p.id));
+          await db.delete(clients5).where(eq3(clients5.id, p.id));
         }
-        const [cl] = await db.insert(clients4).values({
+        const [cl] = await db.insert(clients5).values({
           userId: 1,
           name: TESTNAME,
           company: TESTNAME,
@@ -86078,9 +86195,9 @@ app.post("/api/admin/figgy", async (c) => {
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq3(signatureDocuments2.id, docId));
         }
-        const signedCount = (await db.select().from(signatureDocuments2).where(and7(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
+        const signedCount = (await db.select().from(signatureDocuments2).where(and8(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
         steps.push(`signed ${signedCount}/2 documents`);
-        await db.update(clients4).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients4.id, cl.id));
+        await db.update(clients5).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients5.id, cl.id));
         const res = await createClientTaskRules2({
           clientId: cl.id,
           userId: 1,
@@ -86117,14 +86234,14 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
       const { renderEngagementHtml: renderEngagementHtml2 } = await Promise.resolve().then(() => (init_quote_doc(), quote_doc_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients5).where(eq3(clients5.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
@@ -86456,11 +86573,11 @@ async function startServer() {
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { reorderNumberedName: reorderNumberedName2 } = await Promise.resolve().then(() => (init_client_name(), client_name_exports));
       const db = getDb2();
-      const rows = await db.select().from(clients4);
+      const rows = await db.select().from(clients5);
       for (const cl of rows) {
         const patch = {};
         const newName = reorderNumberedName2(cl.name);
@@ -86469,7 +86586,7 @@ async function startServer() {
         if (newCompany && newCompany !== cl.company) patch.company = newCompany;
         if (Object.keys(patch).length) {
           try {
-            await db.update(clients4).set(patch).where(eq3(clients4.id, cl.id));
+            await db.update(clients5).set(patch).where(eq3(clients5.id, cl.id));
           } catch {
           }
         }
@@ -86479,31 +86596,31 @@ async function startServer() {
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and7, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { clients: clients5, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq3, and: and8, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
-      const matches = await db.select().from(clients4).where(like3(clients4.name, "%Doc King%"));
+      const matches = await db.select().from(clients5).where(like3(clients5.name, "%Doc King%"));
       for (const cl of matches) {
         if (cl.clientType !== "wholesale") {
-          await db.update(clients4).set({ clientType: "wholesale" }).where(eq3(clients4.id, cl.id));
+          await db.update(clients5).set({ clientType: "wholesale" }).where(eq3(clients5.id, cl.id));
         }
         await db.update(clientTaskRules4).set({ active: false }).where(eq3(clientTaskRules4.clientId, cl.id));
-        await db.delete(tasks5).where(and7(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
+        await db.delete(tasks5).where(and8(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
       }
     } catch (e) {
       console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and7, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { clients: clients5, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq3, and: and8, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
-        const matches = await db.select().from(clients4).where(like3(clients4.name, nameLike));
+        const matches = await db.select().from(clients5).where(like3(clients5.name, nameLike));
         for (const cl of matches) {
           const patch = {};
           for (const [k, v] of Object.entries(flags)) if (!cl[k]) patch[k] = v;
-          if (Object.keys(patch).length) await db.update(clients4).set(patch).where(eq3(clients4.id, cl.id));
+          if (Object.keys(patch).length) await db.update(clients5).set(patch).where(eq3(clients5.id, cl.id));
         }
         return matches;
       };
@@ -86516,11 +86633,11 @@ async function startServer() {
         const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
         const marker = await db.select().from(appSettings2).where(eq3(appSettings2.key, "fix_sharebonus_originality_only_v1")).limit(1);
         if (!marker[0]) {
-          const all = await db.select().from(clients4);
+          const all = await db.select().from(clients5);
           for (const cl of all) {
             if (/originality/i.test(cl.name || "")) continue;
             if (cl.payrollBonuses || cl.payrollRevenueShare) {
-              await db.update(clients4).set({ payrollBonuses: 0, payrollRevenueShare: 0 }).where(eq3(clients4.id, cl.id));
+              await db.update(clients5).set({ payrollBonuses: 0, payrollRevenueShare: 0 }).where(eq3(clients5.id, cl.id));
             }
           }
           await db.insert(appSettings2).values({ key: "fix_sharebonus_originality_only_v1", value: (/* @__PURE__ */ new Date()).toISOString() });
@@ -86547,7 +86664,7 @@ async function startServer() {
       };
       for (const cl of orig) {
         for (const [last, ytd] of Object.entries(origYtd)) {
-          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and7(eq3(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
+          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and8(eq3(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
         }
       }
     } catch (e) {

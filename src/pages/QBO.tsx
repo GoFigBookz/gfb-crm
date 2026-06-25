@@ -44,6 +44,7 @@ export default function QBO() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [syncing, setSyncing] = useState<string | null>(null);
+  const acctReport = trpc.qbo.syncAllAccountsReport.useMutation();
 
   const handleSync = async (type: string, fn: () => Promise<unknown>) => {
     setSyncing(type);
@@ -74,6 +75,13 @@ export default function QBO() {
           <p className="text-slate-500">Sync customers, invoices, payments & chart of accounts from QBO</p>
         </div>
         <div className="flex gap-3">
+          <Button variant="outline" disabled={acctReport.isPending}
+            onClick={() => acctReport.mutate(undefined, {
+              onSuccess: (r: any) => alert(`Pulled accounts for ${r?.sync?.clients ?? 0} client(s) (${r?.sync?.synced ?? 0} accounts). Bank/CC report: ${r?.sheet?.rows ?? 0} rows written to the 'Bank & CC Accounts' tab.${r?.sync?.failed ? `\n${r.sync.failed} connection(s) failed.` : ""}`),
+              onError: (e: any) => alert(`Couldn't pull accounts: ${e?.message || e}`),
+            })}>
+            <RefreshCw className={cn("h-4 w-4 mr-2", acctReport.isPending && "animate-spin")} /> {acctReport.isPending ? "Pulling all accounts…" : "Pull all bank/GL accounts → report"}
+          </Button>
           <Button onClick={() => setIsAddOpen(true)}>
             <Link className="h-4 w-4 mr-2" /> Connect QBO
           </Button>

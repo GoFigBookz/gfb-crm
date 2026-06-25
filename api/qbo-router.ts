@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, clients } from "../db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { qboRequestViaMake } from "./qbo-make-bridge";
 import { accessTokenFor, refreshNativeToken, ensureValidNativeToken, buildAuthorizeUrl, exchangeAndPersist } from "./qbo-oauth";
 
@@ -248,13 +248,20 @@ export async function doSyncAccounts(connectionId: number) {
   for (const a of accounts) {
     const existing = await db.select().from(qboAccounts)
       .where(and(eq(qboAccounts.connectionId, connectionId), eq(qboAccounts.qboAccountId, String(a.Id))));
+    const nm = (a.Name as string) || "";
+    // last-4 = the last run of 3-7 digits in the name (e.g. "Visa 6249", "*0488",
+    // "CC 1130 - …"); keeps the existing last4 if the name has none.
+    const digitRuns = nm.match(/\d{3,7}/g);
+    const last4 = digitRuns && digitRuns.length ? digitRuns[digitRuns.length - 1] : (existing[0]?.last4 || null);
     const row = {
       connectionId: connectionId,
       qboAccountId: String(a.Id),
-      name: (a.Name as string) || null,
+      name: nm || null,
       accountType: (a.AccountType as string) || null,
       accountSubType: (a.AccountSubType as string) || null,
       classification: (a.Classification as string) || null,
+      acctNum: (a.AcctNum as string) || null,
+      last4,
       currentBalance: (a.CurrentBalance as number) || 0,
       currencyRef: (a.CurrencyRef as Record<string, string>)?.value || null,
       active: (a.Active as boolean) !== false,
@@ -384,6 +391,29 @@ export const qboRouter = createRouter({
   syncAccounts: publicQuery
     .input(z.object({ connectionId: z.number() }))
     .mutation(async ({ input }) => doSyncAccounts(input.connectionId)),
+
+  // One-shot: pull the chart of accounts for EVERY connected client and write
+  // the bank/CC report to the master workbook. (Markie: all clients, not half.)
+  syncAllAccountsReport: publicQuery.mutation(async () => {
+    const { runAccountsReport } = await import("./qbo-accounts-report");
+    return runAccountsReport();
+  }),
+
+  // Bank/CC accounts for one client (for the client-card dropdown), from qbo_accounts.
+  accountsForClient: publicQuery
+    .input(z.object({ clientId: z.number() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const rows = (await db.run(sql.raw(
+        `SELECT a.name AS name, a.accountType AS type, a.acctNum AS gl, a.last4 AS last4,
+                a.qboAccountId AS qboId, a.currentBalance AS bal
+           FROM qbo_accounts a JOIN qbo_connections q ON q.id = a.connectionId
+          WHERE q.clientId = ${Number(input.clientId)} AND a.accountType IN ('Bank','Credit Card')
+            AND (a.active IS NULL OR a.active = 1)
+          ORDER BY a.accountType, a.name`,
+      ))) as any;
+      return (rows?.rows ?? rows ?? []) as any[];
+    }),
 
   // --- Sync All ---
 

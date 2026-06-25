@@ -213,6 +213,8 @@ export const qboAccounts = sqliteTable("qbo_accounts", {
   accountType: text("accountType"),
   accountSubType: text("accountSubType"),
   classification: text("classification"),
+  acctNum: text("acctNum"),       // QBO account number = the GL number
+  last4: text("last4"),           // last-4 of the bank/CC, extracted from name or set by Markie
   currentBalance: real("currentBalance").default(0),
   currencyRef: text("currencyRef"),
   active: integer("active", { mode: "boolean" }).default(true),

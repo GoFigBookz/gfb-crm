@@ -97,6 +97,7 @@ export default function ClientDashboard() {
   const updateClient = trpc.crmClient.update.useMutation({
     onSuccess: () => utils.crmClient.get.invalidate({ id }),
   });
+  const bankAccounts = trpc.qbo.accountsForClient.useQuery({ clientId: id });
   const deleteClient = trpc.crmClient.delete.useMutation({
     onSuccess: () => { utils.crmClient.list.invalidate(); navigate("/clients"); },
   });
@@ -404,6 +405,24 @@ export default function ClientDashboard() {
                   placeholder="e.g. closes on the 5th; emails Visa + chequing statements monthly; HST picked up in Q2…"
                   onBlur={(e) => { if (e.target.value !== (c.workflowNotes || "")) updateClient.mutate({ id, workflowNotes: e.target.value } as any); }} />
               </div>
+              {/* Bank & credit-card accounts from QBO (name · last-4 · GL #). */}
+              {Array.isArray(bankAccounts.data) && bankAccounts.data.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide mb-1">Bank & credit-card accounts (from QuickBooks)</p>
+                  <div className="divide-y border rounded-md">
+                    {bankAccounts.data.map((a: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between px-2 py-1.5 text-sm">
+                        <span className="text-slate-800 truncate">{a.name}</span>
+                        <span className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-[10px] uppercase text-slate-400">{a.type === "Credit Card" ? "CC" : "Bank"}</span>
+                          {a.last4 && <span className="text-xs text-slate-500">••{a.last4}</span>}
+                          {a.gl && <code className="text-[11px] bg-slate-100 px-1 rounded">GL {a.gl}</code>}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         );
