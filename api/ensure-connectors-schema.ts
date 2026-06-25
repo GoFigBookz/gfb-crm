@@ -27,6 +27,7 @@ export async function ensureConnectorsSchema(): Promise<void> {
     const res: any = await db.run(sql`PRAGMA table_info(connected_accounts)`);
     for (const r of (res?.rows ?? res ?? [])) have.add(String((r as any).name ?? (r as any)[1] ?? ""));
     const cols: [string, string][] = [
+      ["clientId", "integer"],
       ["providerAccountId", "text"],
       ["accountLabel", "text DEFAULT 'Primary' NOT NULL"],
       ["accountEmail", "text"],
