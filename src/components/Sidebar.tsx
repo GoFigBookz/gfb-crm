@@ -204,12 +204,12 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
       collapsed ? "w-16" : "w-56"
     )}>
       {/* Logo */}
-      <div className="flex items-center justify-between h-16 px-3 border-b border-slate-800 flex-shrink-0">
+      <div className="flex items-center justify-between min-h-[5rem] py-2 px-3 border-b border-slate-800 flex-shrink-0">
         {!collapsed && (
-          <img src="/figgy-logo.svg" alt="Figgy" className="h-9 w-auto object-contain" />
+          <img src="/figgy-logo.svg" alt="Figgy" className="h-16 w-auto object-contain" />
         )}
         {collapsed && (
-          <img src="/figgy-mark.svg" alt="Figgy" className="h-8 w-auto object-contain mx-auto" />
+          <img src="/figgy-mark.svg" alt="Figgy" className="h-10 w-auto object-contain mx-auto" />
         )}
         <button onClick={onToggle} className="p-1 rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0">
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
