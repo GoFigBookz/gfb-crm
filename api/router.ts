@@ -48,6 +48,7 @@ import { connectorRouter } from "./connector-router";
 import { restoreRouter } from "./restore-router";
 import { bulkImportRouter } from "./bulk-import-router";
 import { intercoRouter } from "./interco-router";
+import { groupRouter } from "./group-router";
 import { dashboardRouter } from "./dashboard-router";
 import { calculatorRouter } from "./calculator-router";
 import { bankConverterRouter } from "./bank-converter-router";
@@ -116,6 +117,7 @@ export const appRouter = createRouter({
   bulkImport: bulkImportRouter,
   restore: restoreRouter,
   interco: intercoRouter,
+  group: groupRouter,
   dashboard: dashboardRouter,
   calculator: calculatorRouter,
   bankConverter: bankConverterRouter,

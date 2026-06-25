@@ -73,6 +73,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/payroll", icon: Wallet, label: "Payroll" },
     { to: "/employees", icon: Briefcase, label: "Employees" },
     { to: "/interco", icon: ArrowRightLeft, label: "Inter-Company" },
+    { to: "/groups", icon: Building2, label: "Company Groups" },
   ];
 
   // Comms — inbound/outbound to clients.

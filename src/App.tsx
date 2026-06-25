@@ -30,6 +30,7 @@ import BankedHoursShare from "./pages/BankedHoursShare";
 import ClientRequest from "./pages/ClientRequest";
 import Messages from "./pages/Messages";
 import Interco from "./pages/Interco";
+import Groups from "./pages/Groups";
 import EngagementLetters from "./pages/EngagementLetters";
 import BankConverter from "./pages/BankConverter";
 import PdfSplitter from "./pages/PdfSplitter";
@@ -107,6 +108,7 @@ function AppRoutes() {
         <Route path="/employees" element={<Employees />} />
         <Route path="/payroll" element={<Payroll />} />
         <Route path="/interco" element={<Interco />} />
+        <Route path="/groups" element={<Groups />} />
         <Route path="/engagement" element={<EngagementLetters />} />
         <Route path="/bank-converter" element={<BankConverter />} />
         <Route path="/pdf-splitter" element={<PdfSplitter />} />
