@@ -263,6 +263,22 @@ export const ASSISTANT_TOOLS = [
     },
   },
   {
+    name: "add_life_item",
+    description: "Add an entry to Markie's private 'My Life' hub — his personal life-OS that Liv keeps (walled off from all client work). Use for durable life records he wants to keep in a section: finances/accounts/assets, travel (trips, documents like passport), health (appointments, meds, metrics), or growth (goals, habits, journal). For a one-off reminder/errand use add_personal instead; use this when it belongs in a life section.",
+    input_schema: {
+      type: "object",
+      properties: {
+        section: { type: "string", enum: ["finance", "travel", "health", "growth"], description: "Which life section." },
+        title: { type: "string", description: "The item, e.g. \"Passport\" or \"RBC chequing\"." },
+        type: { type: "string", description: "Optional sub-type, e.g. asset, liability, trip, document, appointment, metric, goal, habit, journal." },
+        amount: { type: "number", description: "Finance only — dollar value; NEGATIVE for something owed (a liability)." },
+        date: { type: "string", description: "Optional date YYYY-MM-DD (e.g. passport expiry, appointment)." },
+        notes: { type: "string", description: "Optional extra detail." },
+      },
+      required: ["section", "title"],
+    },
+  },
+  {
     name: "remember_personal",
     description: "Save a durable FACT about Markie's personal life to his PRIVATE knowledge base (Liv only — walled off from clients and every other agent). Use when he tells you something about his life to keep: family/people, important dates, health, home, vehicles, accounts/memberships, personal finances, preferences, travel, goals. One fact per call. This is how you learn his life so you can help proactively. NEVER use the firm-wide `remember` tool for personal facts.",
     input_schema: {

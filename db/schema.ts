@@ -2069,3 +2069,27 @@ export const groupBookShareLinks = sqliteTable("group_book_share_links", {
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   revokedAt: integer("revokedAt", { mode: "timestamp" }),
 });
+
+// ========== MY LIFE HUB (private, Liv-hosted; walled off from all client data) ==========
+// Markie's personal life-OS: one flexible table powers every section (Finance,
+// Travel, Health, Growth, + more later). NO clientId by design — personal data
+// NEVER mixes with client/firm data. Always scoped to userId.
+export const lifeEntries = sqliteTable("life_entries", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("userId").notNull(),
+  section: text("section").notNull(),           // finance | travel | health | growth | …
+  type: text("type"),                           // asset | liability | trip | appointment | metric | goal | journal | note …
+  title: text("title").notNull(),
+  subtitle: text("subtitle"),
+  amount: real("amount"),                        // finance: signed (+ asset, − liability)
+  currency: text("currency").default("CAD"),
+  date: integer("date", { mode: "timestamp" }),  // dated items (appointments, trips) — can surface on the calendar
+  status: text("status"),
+  notes: text("notes"),
+  meta: text("meta"),                            // JSON for section-specific fields
+  pinned: integer("pinned", { mode: "boolean" }).default(false),
+  archived: integer("archived", { mode: "boolean" }).default(false),
+  sortOrder: integer("sortOrder").default(0),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

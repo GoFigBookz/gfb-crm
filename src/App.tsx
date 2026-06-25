@@ -39,6 +39,7 @@ import Assistant from "./pages/Assistant";
 import SystemHealth from "./pages/SystemHealth";
 import CashWatch from "./pages/CashWatch";
 import Personal from "./pages/Personal";
+import MyLife from "./pages/MyLife";
 import TaxDeadlines from "./pages/TaxDeadlines";
 import YearEndChecklist from "./pages/YearEndChecklist";
 import Templates from "./pages/Templates";
@@ -118,6 +119,7 @@ function AppRoutes() {
         <Route path="/system-health" element={<SystemHealth />} />
         <Route path="/cash-watch" element={<CashWatch />} />
         <Route path="/personal" element={<Personal />} />
+        <Route path="/my-life" element={<MyLife />} />
         <Route path="/tax-deadlines" element={<TaxDeadlines />} />
         <Route path="/year-end" element={<YearEndChecklist />} />
         <Route path="/templates" element={<Templates />} />

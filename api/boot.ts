@@ -1434,6 +1434,8 @@ async function startServer() {
     await ensureRbacSchema();
     const { ensurePersonalSchema } = await import("./ensure-personal-schema");
     await ensurePersonalSchema();
+    const { ensureLifeSchema } = await import("./ensure-life-schema");
+    await ensureLifeSchema();
     const { ensureLearningSchema } = await import("./ensure-learning-schema");
     await ensureLearningSchema();
     const { ensureAuditSchema } = await import("./ensure-audit-schema");

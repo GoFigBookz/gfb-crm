@@ -7,7 +7,7 @@ import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { tasks, calendarEvents, clients, personalItems, triageFindings, connectedAccounts, agentLearnings, chatMessages } from "../db/schema";
+import { tasks, calendarEvents, clients, personalItems, triageFindings, connectedAccounts, agentLearnings, chatMessages, lifeEntries } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { getValidGoogleAccessToken } from "./google-token";
 import { buildRawMessage, extractEmail } from "./email-core";
@@ -15,7 +15,7 @@ import { selectRelevant, formatLessonsBlock } from "./learning-core";
 import { recordAudit } from "./agent-audit";
 
 // Tools that DO something (vs read-only) — these get written to the audit trail.
-const ACTION_TOOLS = new Set(["add_task", "add_personal", "schedule_event", "complete_task", "draft_email", "remember", "remember_personal"]);
+const ACTION_TOOLS = new Set(["add_task", "add_personal", "add_life_item", "schedule_event", "complete_task", "draft_email", "remember", "remember_personal"]);
 
 const TZ = "America/Toronto";
 import { parseTaskCommand } from "./task-command-core";
@@ -77,6 +77,23 @@ async function execAddPersonal(input: any, userId: number): Promise<string> {
   await db.insert(personalItems).values({ userId, kind, title, dueDate, priority: "medium", done: false } as any);
   const when = dueDate ? ` (due ${dueDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })})` : "";
   return `Added to your personal space: "${title}"${when}.`;
+}
+
+async function execAddLifeItem(input: any, userId: number): Promise<string> {
+  const db = getDb();
+  const sections = ["finance", "travel", "health", "growth"];
+  const section = sections.includes(input?.section) ? input.section : null;
+  const title = String(input?.title ?? "").trim();
+  if (!section || !title) return "I need a section (finance/travel/health/growth) and a title to add that to your life hub.";
+  let date: Date | null = null;
+  if (input?.date && /^\d{4}-\d{2}-\d{2}$/.test(input.date)) date = new Date(input.date + "T12:00:00");
+  const amount = typeof input?.amount === "number" ? input.amount : null;
+  await db.insert(lifeEntries).values({
+    userId, section, type: input?.type ? String(input.type).slice(0, 40) : null,
+    title, amount, date, notes: input?.notes ? String(input.notes).slice(0, 5000) : null,
+    createdAt: new Date(), updatedAt: new Date(),
+  } as any);
+  return `Added to your ${section} section: "${title}"${amount != null ? ` (${amount.toLocaleString("en-CA", { style: "currency", currency: "CAD" })})` : ""}.`;
 }
 
 async function execRemember(input: any, userId: number, activeAgent: string): Promise<string> {
@@ -283,6 +300,7 @@ async function runTool(name: string, input: any, userId: number, activeAgent: st
     if (name === "add_task") return await execAddTask(String(input?.text ?? ""), userId);
     if (name === "get_agenda") return await execGetAgenda(userId);
     if (name === "add_personal") return await execAddPersonal(input, userId);
+    if (name === "add_life_item") return await execAddLifeItem(input, userId);
     if (name === "schedule_event") return await execScheduleEvent(input, userId);
     if (name === "complete_task") return await execCompleteTask(input, userId);
     if (name === "draft_email") return await execDraftEmail(input, userId);
