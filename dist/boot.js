@@ -59930,6 +59930,7 @@ __export(seed_company_groups_exports, {
 async function seedCompanyGroups() {
   const db = getDb();
   try {
+    await db.update(clients).set({ groupName: "Jon Gillham", updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.groupName, "John Gillham"));
     const cs = await db.select().from(clients);
     let tagged = 0;
     const groups = {};
@@ -59959,7 +59960,7 @@ var init_seed_company_groups = __esm({
     init_drizzle_orm();
     GROUPS = [
       {
-        group: "John Gillham",
+        group: "Jon Gillham",
         match: [
           /2303851/i,
           /\badbank\b/i,

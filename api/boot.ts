@@ -413,7 +413,7 @@ app.get("/api/payroll/motioninvest-revshare", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
-// Tag related entities into company groups (e.g. John Gillham's portfolio).
+// Tag related entities into company groups (e.g. Jon Gillham's portfolio).
 //   GET /api/groups/seed
 app.get("/api/groups/seed", async (c) => {
   try {
@@ -1775,7 +1775,7 @@ async function startServer() {
     } catch (e) {
       console.error("[mi-revshare] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
-    // Tag related entities into company groups (John Gillham's portfolio, etc.).
+    // Tag related entities into company groups (Jon Gillham's portfolio, etc.).
     try {
       const { seedCompanyGroups } = await import("./seed-company-groups");
       const r = await seedCompanyGroups();
