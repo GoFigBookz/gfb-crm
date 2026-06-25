@@ -1,34 +1,37 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 150" role="img" aria-label="Figgy">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 150" role="img" aria-label="Figgy">
   <defs>
-    <linearGradient id="ink" x1="20" y1="20" x2="340" y2="140" gradientUnits="userSpaceOnUse">
+    <linearGradient id="ink" x1="20" y1="20" x2="360" y2="140" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#8bc53f"/><stop offset="0.55" stop-color="#6fae2e"/><stop offset="1" stop-color="#4d7c0f"/>
     </linearGradient>
-    <linearGradient id="swoosh" x1="0" y1="0" x2="360" y2="0" gradientUnits="userSpaceOnUse">
+    <linearGradient id="swoosh" x1="0" y1="0" x2="380" y2="0" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#8bc53f"/><stop offset="1" stop-color="#5e9e22"/>
     </linearGradient>
   </defs>
 
-  <!-- SIGNATURE SWOOSH under the word (Go Fig Bookz brand). -->
-  <path d="M8 130 C 70 152, 150 142, 224 118 C 286 98, 330 98, 354 108"
-        fill="none" stroke="url(#swoosh)" stroke-width="6.5" stroke-linecap="round"/>
+  <!-- SIGNATURE SWOOSH under the word. -->
+  <path d="M10 132 C 80 152, 160 144, 236 120 C 298 100, 342 100, 368 110"
+        fill="none" stroke="url(#swoosh)" stroke-width="6" stroke-linecap="round"/>
 
-  <!-- The 'iggy' part of the word. -->
-  <g font-family="'Allura','Great Vibes','Alex Brush','Snell Roundhand','Apple Chancery','Segoe Script','Brush Script MT',cursive"
-     fill="url(#ink)">
-    <text x="118" y="110" font-size="94" letter-spacing="-1">iggy</text>
+  <!-- Whole word 'Figgy' as flowing script PATHS (font-independent → always cursive). -->
+  <g fill="none" stroke="url(#ink)" stroke-linecap="round" stroke-linejoin="round">
+    <!-- F: big cursive capital — flourish sweeps over the word, into the stem -->
+    <path d="M318 30 C 248 8, 150 8, 98 32 C 88 62, 100 96, 82 130" stroke-width="15"/>
+    <path d="M56 82 C 82 73, 110 73, 134 82" stroke-width="11"/>
+    <!-- i -->
+    <path d="M150 66 C 151 80, 150 92, 150 102" stroke-width="13"/>
+    <!-- g (1): closed round bowl + a clear hanging descender loop below the baseline -->
+    <path d="M198 98 C 178 104, 166 88, 175 73 C 184 60, 205 63, 207 80" stroke-width="12"/>
+    <path d="M207 82 C 210 110, 212 134, 192 142 C 177 148, 166 139, 174 131" stroke-width="12"/>
+    <!-- g (2) -->
+    <path d="M246 98 C 226 104, 214 88, 223 73 C 232 60, 253 63, 255 80" stroke-width="12"/>
+    <path d="M255 82 C 258 110, 260 134, 240 142 C 225 148, 214 139, 222 131" stroke-width="12"/>
+    <!-- y: two strokes meeting + a long descender curling below baseline -->
+    <path d="M270 72 C 276 92, 284 102, 294 104" stroke-width="12"/>
+    <path d="M308 72 C 302 100, 295 126, 275 140 C 263 147, 254 139, 261 132" stroke-width="12"/>
   </g>
 
-  <!-- BIG 'F' — larger than the rest of the word, as an oversized initial. -->
-  <text x="6" y="124" font-size="152"
-        font-family="'Allura','Great Vibes','Alex Brush','Snell Roundhand','Apple Chancery','Segoe Script','Brush Script MT',cursive"
-        fill="url(#ink)">F</text>
-
-  <!-- The F's flourish flowing OVER the word — further across this time. -->
-  <path d="M72 36 C 140 4, 235 8, 300 34" fill="none" stroke="url(#ink)"
-        stroke-width="7.5" stroke-linecap="round"/>
-
   <!-- The dot of the 'i' IS Figs (the mascot tittle), above the i-stem. -->
-  <g transform="translate(122 30) scale(0.32)">
+  <g transform="translate(132 22) scale(0.32)">
     <path d="M50.0 22.0 L54.6 25.7 L60.2 23.6 L63.5 28.5 L69.4 28.3 L71.0 34.0 L76.7 35.6 L76.5 41.5 L81.4 44.8 L79.3 50.4 L83.0 55.0 L79.3 59.6 L81.4 65.2 L76.5 68.5 L76.7 74.4 L71.0 76.0 L69.4 81.7 L63.5 81.5 L60.2 86.4 L54.6 84.3 L50.0 88.0 L45.4 84.3 L39.8 86.4 L36.5 81.5 L30.6 81.7 L29.0 76.0 L23.3 74.4 L23.5 68.5 L18.6 65.2 L20.7 59.6 L17.0 55.0 L20.7 50.4 L18.6 44.8 L23.5 41.5 L23.3 35.6 L29.0 34.0 L30.6 28.3 L36.5 28.5 L39.8 23.6 L45.4 25.7 Z" fill="#a3e635" stroke="#4d7c0f" stroke-width="3.4" stroke-linejoin="round"/>
     <circle cx="30" cy="64" r="5" fill="#65a30d" opacity="0.45"/><circle cx="70" cy="64" r="5" fill="#65a30d" opacity="0.45"/>
     <ellipse cx="37" cy="53" rx="10" ry="12" fill="#fff" stroke="#1e293b" stroke-width="1.8"/>

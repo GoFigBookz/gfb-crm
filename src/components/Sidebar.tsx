@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router";
+import { FiggyLogo } from "./FiggyLogo";
 import {
   LayoutDashboard, Users, CheckSquare, Mail, CalendarDays,
   FolderOpen, Receipt, Settings, ChevronLeft, ChevronRight,
@@ -207,7 +208,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
       {/* Logo */}
       <div className="flex items-center justify-between min-h-[5rem] py-2 px-3 border-b border-slate-800 flex-shrink-0">
         {!collapsed && (
-          <img src="/figgy-logo.svg" alt="Figgy" className="h-16 w-auto object-contain" />
+          <FiggyLogo className="h-16 w-auto" />
         )}
         {collapsed && (
           <img src="/figgy-mark.svg" alt="Figgy" className="h-10 w-auto object-contain mx-auto" />
