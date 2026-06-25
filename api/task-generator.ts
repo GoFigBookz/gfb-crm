@@ -102,24 +102,12 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
   const isUS = (data.country || "CA") === "US";
   const stLabel = isUS ? "Sales Tax" : "HST/GST";
 
-  // === BOOKKEEPING / RECONCILIATION (cadence = scope) ===
-  const bkFreq = data.bookkeepingFrequency || "monthly";
-  if (bkFreq !== "none") {
-    const bkLabel = bkFreq === "quarterly" ? "Quarterly" : bkFreq === "annual" ? "Annual" : "Monthly";
-    const bkEnum: any = bkFreq === "quarterly" ? "quarterly" : bkFreq === "annual" ? "yearly" : "monthly";
-    rules.push({
-      ruleType: "bookkeeping_reconcile",
-      title: `${bkLabel} Bookkeeping — Reconcile All Statements`,
-      description: "Reconcile all bank accounts, credit cards, and loan statements for the period. Categorize all transactions and review uncleared items.",
-      category: "Reconciliation",
-      priority: "high",
-      frequency: bkEnum,
-      dueDayOfMonth: 15,
-      daysBeforeDue: 5,
-      fiscalYearEndMonth: fy?.month,
-      fiscalYearEndDay: fy?.day,
-    });
-  }
+  // === BOOKKEEPING / RECONCILIATION ===
+  // Markie 2026-06-25: NO standalone monthly "reconcile all statements" task and NO
+  // "Bank & Credit Card Reconciliation" task. Reconciliation now lives entirely in
+  // the Month-End Close checklist (Bank statements reconciled / Credit card statements
+  // reconciled / Bank rec = Balance Sheet) — so it stays off the calendar as clutter.
+  // The Month-End Close board + per-client checklist is the single home for the close.
 
   // === SALES ENTRY ===
   // Receipt-based platforms (cash already collected) -> monthly Sales Receipt in QBO.
@@ -437,23 +425,8 @@ export function buildTaskRules(data: OnboardingData): TaskRuleConfig[] {
   }
 
   // === BANK RECONCILIATION ===
-  const bankCount = data.bankAccountCount || 1;
-  const ccCount = data.creditCardCount || 0;
-  const totalAccounts = bankCount + ccCount;
-  if (totalAccounts > 0) {
-    rules.push({
-      ruleType: "bank_reconcile",
-      title: "Bank & Credit Card Reconciliation",
-      description: `Reconcile all ${bankCount} bank account(s) and ${ccCount} credit card(s). Match transactions, clear items, and review uncleared transactions.`,
-      category: "Banking",
-      priority: "high",
-      frequency: "monthly",
-      dueDayOfMonth: 10,
-      daysBeforeDue: 0,
-      fiscalYearEndMonth: fy?.month,
-      fiscalYearEndDay: fy?.day,
-    });
-  }
+  // Intentionally removed (Markie 2026-06-25). Bank + credit-card reconciliation is a
+  // Month-End Close checklist item, not a standalone recurring calendar task.
 
   return rules;
 }

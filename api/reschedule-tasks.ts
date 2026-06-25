@@ -34,10 +34,10 @@ function detectRule(title: string, category: string): string | null {
 }
 
 export async function rescheduleAndCleanupTasks(): Promise<{
-  rescheduled: number; deletedInactive: number; deletedAutoPayroll: number; deduped: number;
+  rescheduled: number; deletedInactive: number; deletedAutoPayroll: number; deletedReconcile: number; deduped: number;
 }> {
   const db = getDb();
-  const stats = { rescheduled: 0, deletedInactive: 0, deletedAutoPayroll: 0, deduped: 0 };
+  const stats = { rescheduled: 0, deletedInactive: 0, deletedAutoPayroll: 0, deletedReconcile: 0, deduped: 0 };
   try {
     const allTasks = (await db.select().from(tasks)) as any[];
     const allClients = (await db.select().from(clients)) as any[];
@@ -66,6 +66,17 @@ export async function rescheduleAndCleanupTasks(): Promise<{
         continue;
       }
 
+      // 2.5) Standalone reconciliation tasks → gone (Markie 2026-06-25). Bank/CC +
+      //     monthly "reconcile all statements" now live ONLY in the Month-End Close
+      //     checklist. Categories "Banking" / "Reconciliation" are used by no other
+      //     rule, so this is precise.
+      const cl = category.toLowerCase();
+      if (cl === "banking" || cl === "reconciliation") {
+        await db.delete(tasks).where(eq(tasks.id, t.id));
+        stats.deletedReconcile++;
+        continue;
+      }
+
       // 3) Apply the start + due schedule for compliance tasks.
       const rule = detectRule(title, category);
       if (rule) {
@@ -87,7 +98,7 @@ export async function rescheduleAndCleanupTasks(): Promise<{
       stats.deduped = r?.tasksRemoved ?? 0;
     } catch { /* best-effort */ }
 
-    console.log(`[reschedule] re-dated ${stats.rescheduled}, removed ${stats.deletedInactive} inactive-client + ${stats.deletedAutoPayroll} auto-payroll, deduped ${stats.deduped}`);
+    console.log(`[reschedule] re-dated ${stats.rescheduled}, removed ${stats.deletedInactive} inactive-client + ${stats.deletedAutoPayroll} auto-payroll + ${stats.deletedReconcile} standalone-reconcile, deduped ${stats.deduped}`);
     return stats;
   } catch (e) {
     console.error("[reschedule] failed:", e instanceof Error ? e.message : e);
