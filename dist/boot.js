@@ -60767,6 +60767,143 @@ var init_seed_phoenix_personal = __esm({
   }
 });
 
+// api/seed-phoenix-personal-v2.ts
+var seed_phoenix_personal_v2_exports = {};
+__export(seed_phoenix_personal_v2_exports, {
+  seedPhoenixPersonalV2: () => seedPhoenixPersonalV2
+});
+async function seedPhoenixPersonalV2() {
+  const db = getDb();
+  try {
+    const us = await db.select().from(users);
+    if (!us.length) return { seeded: false };
+    const owner = us.find((u) => /markie@gofig\.ca|markie\.antle@gmail/i.test(u.email || "")) || us.filter((u) => u.role === "admin").sort((a, b) => a.id - b.id)[0] || us[0];
+    const existing = await db.select().from(lifeEntries).where(eq(lifeEntries.userId, owner.id));
+    if (existing.some((e) => safeMeta3(e.meta).seed === SENTINEL2)) return { seeded: false };
+    const meta3 = JSON.stringify({ seed: SENTINEL2 });
+    for (const e of ENTRIES2) {
+      await db.insert(lifeEntries).values({
+        userId: owner.id,
+        section: e.section,
+        type: e.type,
+        title: e.title,
+        subtitle: e.subtitle ?? null,
+        date: e.date ? /* @__PURE__ */ new Date(e.date + "T12:00:00") : null,
+        notes: e.notes ?? null,
+        meta: meta3,
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      });
+    }
+    console.log(`[phoenix-personal-v2] seeded ${ENTRIES2.length} entries for ${owner.email}`);
+    return { seeded: true, count: ENTRIES2.length };
+  } catch (err) {
+    console.error("[phoenix-personal-v2] failed:", err instanceof Error ? err.message : err);
+  }
+}
+var SENTINEL2, drive2, safeMeta3, ENTRIES2;
+var init_seed_phoenix_personal_v2 = __esm({
+  "api/seed-phoenix-personal-v2.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    SENTINEL2 = "phoenix-personal-v2";
+    drive2 = (id) => `https://drive.google.com/file/d/${id}/view`;
+    safeMeta3 = (s) => {
+      try {
+        return s ? JSON.parse(s) : {};
+      } catch {
+        return {};
+      }
+    };
+    ENTRIES2 = [
+      // ---- Health profile ----
+      {
+        section: "health",
+        type: "profile",
+        title: "Health profile \u2014 Markeitha (Markie) Antle",
+        subtitle: "DOB Dec 22, 1968 \xB7 age 57 \xB7 Toronto, ON",
+        notes: "Managed with Sage. Conditions: Type 2 Diabetes, severe inflammation, neuropathy, joint pain, limited mobility, high blood pressure (monitoring), chronic fatigue, brain fog."
+      },
+      // ---- Full May-14-2026 lab panel (Dynacare #6659346251, Dr. Lass) ----
+      {
+        section: "health",
+        type: "metric",
+        title: "Lipid panel \u2014 May 14, 2026",
+        date: "2026-05-14",
+        subtitle: "All normal except triglycerides",
+        notes: "Total cholesterol 4.61 (ref <5.20) \u2713 \xB7 LDL 2.19 (<3.50) \u2713 \xB7 HDL 1.61 (\u22651.30) \u2713 \xB7 Non-HDL 3.00 (<4.20) \u2713 \xB7 Triglycerides 2.12 HIGH (<1.70) \u26A0 \xB7 Chol/HDL ratio 2.9."
+      },
+      {
+        section: "health",
+        type: "metric",
+        title: "Kidney & electrolytes \u2014 May 14, 2026",
+        date: "2026-05-14",
+        subtitle: "Normal \u2014 good kidney function",
+        notes: "Creatinine 68 \xB5mol/L (50\u2013100) \u2713 \xB7 eGFR 90 mL/min (\u226560) \u2713 \xB7 Sodium 139 (136\u2013146) \u2713 \xB7 Potassium 4.1 (3.7\u20135.4) \u2713. Monitor eGFR + urine ACR annually (diabetes protocol)."
+      },
+      // ---- Dr. Lass appointment + questions ----
+      {
+        section: "health",
+        type: "appointment",
+        title: "Dr. Elliot Lass \u2014 follow-up",
+        date: "2026-05-28",
+        subtitle: "Wilson Medical Group, North York \xB7 3:00 PM",
+        notes: "Questions: (1) Triglycerides 2.12 \u2014 diet only or more frequent monitoring? (2) HbA1c 5.5% \u2014 current plan sufficient to maintain? (3) Annual kidney check schedule (eGFR + urine ACR)? (4) Any med adjustments given HbA1c improvement? (5) Berberine OK to add?"
+      },
+      // ---- Daily protocol / routines ----
+      {
+        section: "health",
+        type: "routine",
+        title: "Daily health protocol",
+        notes: "7:00 wake + 10-min bed exercises \xB7 7:30 protein+fiber breakfast \xB7 8:00 AM supplements \xB7 10:00 chair yoga (15m) \xB7 12:30 lunch (Diabetes Plate) \xB7 3:00 4-7-8 breathing \xB7 6:00 dinner (lean protein + veg) \xB7 8:00 PM magnesium \xB7 9:30 relaxation + stretches."
+      },
+      {
+        section: "health",
+        type: "routine",
+        title: "Exercise protocol (mobility-friendly)",
+        notes: "Morning bed routine (non-negotiable): ankle circles, heel slides, knee-to-chest, arm reaches, pelvic tilts. Chair yoga 3\xD7/wk: mountain, shoulder rolls, cat-cow, forward bend, seated twist, knee lifts. Seated strength as tolerated: marches, leg extensions, thigh squeezes, heel raises, arm circles. Gentle\u2013moderate; progress over perfection."
+      },
+      {
+        section: "health",
+        type: "note",
+        title: "Anti-inflammatory diabetes nutrition",
+        notes: "Diabetes Plate every meal: \xBD non-starchy veg, \xBC lean protein, \xBC high-fiber carbs. Favor: fatty fish, leafy greens, berries, walnuts/flax/chia, legumes, olive oil, turmeric/ginger/cinnamon. For triglycerides: more omega-3 (salmon 3\xD7/wk), less refined carbs/sugar, more fiber, 8+ glasses water. Avoid: processed foods, added sugar, white bread/rice/pasta, fried foods, excess red meat."
+      },
+      {
+        section: "health",
+        type: "note",
+        title: "Metrics to track (Sage)",
+        notes: "Daily: weight, fasting glucose (4\u20137 mmol/L), BP, energy (1\u201310), pain (1\u201310), water (8), mood, sleep. Weekly: waist, body fat %, steps. Quarterly labs: HbA1c (<7.0%, now 5.5% \u2713), lipids (esp. triglycerides <1.70), kidney (eGFR + urine ACR)."
+      },
+      {
+        section: "health",
+        type: "document",
+        title: "Previous blood work PDFs (2019\u20132022)",
+        notes: `Jul 2022 Dynacare ${drive2("1mydX9OJB8M2iAns6zF0MFVnnjo68fuA-")} \xB7 multi-year 2019\u20132022 ${drive2("1KfNtOXhVr8SWkG89Rs7Tb1a6m6KS6TxA")} \xB7 Mar 2021 weight-loss labs ${drive2("1CaTLNz6iMvk1av2StfAAQiUDHk0WXjsZ")}`
+      },
+      // ---- Finance: debt settlement specifics ----
+      {
+        section: "finance",
+        type: "note",
+        title: "Freedom Mobile debt \u2014 settlement offer (DCA)",
+        date: "2026-05-06",
+        subtitle: "Account DF849224 \xB7 $250 balance",
+        notes: "Sent registered mail May 6 2026 to Debt Control Agency Inc. (3115 Harvester Rd #201, Burlington L7N 3N8). Offer: lump sum as FULL & FINAL settlement, contingent on: (1) accepted as 'paid in full', (2) all collection/interest/legal activity ceases, (3) TransUnion + Equifax updated to $0 / 'Paid in Full' within 30 days, in writing on letterhead before payment. FOLLOW-UP: confirm written acceptance received before paying."
+      },
+      // ---- Travel: campervan trip details ----
+      {
+        section: "travel",
+        type: "trip",
+        title: "Karma Campervans \u2014 Ontario road trip",
+        date: "2025-08-30",
+        subtitle: "Aug 30 \u2013 Sep 2, 2025 \xB7 Toronto (Bolton) \xB7 #U-YYZ-8573",
+        notes: "Pickup 14124 Highway 50, Bolton L7E 3E2, Sat Aug 30 12:00 PM; drop-off Tue Sep 2 by 11:59 PM. 2-seat queen-bed campervan, 1 traveller, 3 nights, 200km/night. Total CAD $1,004.46. No staff on site \u2014 email/phone only. Security deposit $1,000\u2013$5,000 charged 3\u20137 days before."
+      }
+    ];
+  }
+});
+
 // api/ensure-group-book-schema.ts
 var ensure_group_book_schema_exports = {};
 __export(ensure_group_book_schema_exports, {
@@ -83561,7 +83698,9 @@ app.get("/api/phoenix/seed", async (c) => {
     await ensureLifeSchema2();
     const { seedPhoenixPersonal: seedPhoenixPersonal2 } = await Promise.resolve().then(() => (init_seed_phoenix_personal(), seed_phoenix_personal_exports));
     const r = await seedPhoenixPersonal2();
-    return c.json({ ok: true, ...r });
+    const { seedPhoenixPersonalV2: seedPhoenixPersonalV22 } = await Promise.resolve().then(() => (init_seed_phoenix_personal_v2(), seed_phoenix_personal_v2_exports));
+    const r26 = await seedPhoenixPersonalV22();
+    return c.json({ ok: true, v1: r, v2: r26 });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
@@ -84958,6 +85097,9 @@ async function startServer() {
       const { seedPhoenixPersonal: seedPhoenixPersonal2 } = await Promise.resolve().then(() => (init_seed_phoenix_personal(), seed_phoenix_personal_exports));
       const r = await seedPhoenixPersonal2();
       if (r?.seeded) console.log(`[phoenix-personal] seeded ${r.count} entries`);
+      const { seedPhoenixPersonalV2: seedPhoenixPersonalV22 } = await Promise.resolve().then(() => (init_seed_phoenix_personal_v2(), seed_phoenix_personal_v2_exports));
+      const r26 = await seedPhoenixPersonalV22();
+      if (r26?.seeded) console.log(`[phoenix-personal-v2] seeded ${r26.count} entries`);
     } catch (e) {
       console.error("[phoenix-personal] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
