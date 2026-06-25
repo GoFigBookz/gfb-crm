@@ -12,8 +12,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 const agentTypes = [
-  { value: "bookkeeper", label: "Fig — Junior Bookkeeper", description: "Day-to-day books: categorizes & posts transactions, reconciles, captures receipts, preps HST/payroll. Keeps books clean & current." },
-  { value: "senior_bookkeeper", label: "Sage — Senior Bookkeeper", description: "Reviews Fig's work; owns compliance prep — HST returns, WSIB/EHT, and payroll runs to review-ready." },
+  { value: "bookkeeper", label: "Figs — Bookkeeper", description: "Day-to-day books: categorizes & posts transactions, reconciles, captures receipts, preps HST/payroll. Keeps books clean & current." },
+  { value: "senior_bookkeeper", label: "Sage — Senior Bookkeeper", description: "Reviews Figs' work; owns compliance prep — HST returns, WSIB/EHT, and payroll runs to review-ready." },
   { value: "auditor", label: "Wren — Controller / Auditor", description: "Assurance layer: month-end tie-outs, variance checks, CRA-style HST audit, signed workpaper before financials go out." },
   { value: "qa", label: "Jinx — QA / IT Watchdog", description: "Checks the app actually works — DB, data, integrations, config, core flows — and reports health so you don't live in Claude." },
   { value: "controller", label: "Controller", description: "Reviews the books for accuracy — month-end close, reconciliation integrity, variances, catches errors/dupes/miscodes." },
