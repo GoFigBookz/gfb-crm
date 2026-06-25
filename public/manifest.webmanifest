@@ -1,7 +1,7 @@
 {
-  "name": "Go Fig Bookz",
-  "short_name": "Figs",
-  "description": "Go Fig Bookz CRM — talk to your AI team (Fig, Sage, Wren, Liv, Tess, Jade, Skye, Jinx).",
+  "name": "Figgy",
+  "short_name": "Figgy",
+  "description": "Figgy — your books and business, run with your AI team. Ask Figs anytime.",
   "start_url": "/assistant",
   "scope": "/",
   "display": "standalone",
