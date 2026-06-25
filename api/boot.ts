@@ -325,7 +325,6 @@ app.get("/api/payroll/backfill-sher", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
-<<<<<<< HEAD
 // Backfill Clark Owen Sound pay runs from the Google sheet.
 //   GET /api/payroll/backfill-os
 app.get("/api/payroll/backfill-os", async (c) => {
@@ -337,8 +336,6 @@ app.get("/api/payroll/backfill-os", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
-=======
->>>>>>> origin/main
 // a RAW ProfitAndLoss sample for the first client-bound connection so the report
 // parser can be hardened against the real shape. Read-only against QBO.
 //   GET /api/qbo/sync-now[?raw=1]
@@ -1615,7 +1612,6 @@ async function startServer() {
     } catch (e) {
       console.error("[sher-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
-<<<<<<< HEAD
     // Year backfill — Clark Owen Sound pay runs from the Google sheet (per-employee).
     try {
       const { backfillOwenSoundPayroll } = await import("./seed-os-backfill");
@@ -1624,8 +1620,6 @@ async function startServer() {
     } catch (e) {
       console.error("[os-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
-=======
->>>>>>> origin/main
     // Seed the TouchBistro restaurant rosters + rates (Sher-E-Punjab, Auld Spot).
     try {
       const { seedTouchbistroPayroll } = await import("./seed-touchbistro-payroll");
