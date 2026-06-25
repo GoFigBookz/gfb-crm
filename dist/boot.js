@@ -23,9 +23,9 @@ var __export = (target, all) => {
 };
 var __copyProps = (to, from, except2, desc8) => {
   if (from && typeof from === "object" || typeof from === "function") {
-    for (let key5 of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key5) && key5 !== except2)
-        __defProp(to, key5, { get: () => from[key5], enumerable: !(desc8 = __getOwnPropDesc(from, key5)) || desc8.enumerable });
+    for (let key6 of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key6) && key6 !== except2)
+        __defProp(to, key6, { get: () => from[key6], enumerable: !(desc8 = __getOwnPropDesc(from, key6)) || desc8.enumerable });
   }
   return to;
 };
@@ -41,9 +41,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 // node_modules/@trpc/server/dist/codes-DagpWZLc.mjs
 function mergeWithoutOverrides(obj1, ...objs) {
   const newObj = Object.assign(emptyObject(), obj1);
-  for (const overrides of objs) for (const key5 in overrides) {
-    if (key5 in newObj && newObj[key5] !== overrides[key5]) throw new Error(`Duplicate key ${key5}`);
-    newObj[key5] = overrides[key5];
+  for (const overrides of objs) for (const key6 in overrides) {
+    if (key6 in newObj && newObj[key6] !== overrides[key6]) throw new Error(`Duplicate key ${key6}`);
+    newObj[key6] = overrides[key6];
   }
   return newObj;
 }
@@ -139,9 +139,9 @@ function createInnerProxy(callback, path7, memo2) {
   var _memo$cacheKey;
   const cacheKey2 = path7.join(".");
   (_memo$cacheKey = memo2[cacheKey2]) !== null && _memo$cacheKey !== void 0 || (memo2[cacheKey2] = new Proxy(noop, {
-    get(_obj, key5) {
-      if (typeof key5 !== "string" || key5 === "then") return void 0;
-      return createInnerProxy(callback, [...path7, key5], memo2);
+    get(_obj, key6) {
+      if (typeof key6 !== "string" || key6 === "then") return void 0;
+      return createInnerProxy(callback, [...path7, key6], memo2);
     },
     apply(_1, _2, args) {
       const lastOfPath = path7[path7.length - 1];
@@ -215,11 +215,11 @@ var init_getErrorShape_vC8mUXJD = __esm({
       return mod || (0, cb[__getOwnPropNames2(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
     };
     __copyProps2 = (to, from, except2, desc8) => {
-      if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames2(from), i = 0, n = keys.length, key5; i < n; i++) {
-        key5 = keys[i];
-        if (!__hasOwnProp2.call(to, key5) && key5 !== except2) __defProp2(to, key5, {
-          get: ((k) => from[k]).bind(null, key5),
-          enumerable: !(desc8 = __getOwnPropDesc2(from, key5)) || desc8.enumerable
+      if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames2(from), i = 0, n = keys.length, key6; i < n; i++) {
+        key6 = keys[i];
+        if (!__hasOwnProp2.call(to, key6) && key6 !== except2) __defProp2(to, key6, {
+          get: ((k) => from[k]).bind(null, key6),
+          enumerable: !(desc8 = __getOwnPropDesc2(from, key6)) || desc8.enumerable
         });
       }
       return to;
@@ -413,28 +413,28 @@ function createRouterFactory(config2) {
     }
     function step(from, path7 = []) {
       const aggregate = emptyObject();
-      for (const [key5, item] of Object.entries(from !== null && from !== void 0 ? from : {})) {
+      for (const [key6, item] of Object.entries(from !== null && from !== void 0 ? from : {})) {
         if (isLazy(item)) {
-          lazy$1[[...path7, key5].join(".")] = createLazyLoader({
+          lazy$1[[...path7, key6].join(".")] = createLazyLoader({
             path: path7,
             ref: item,
-            key: key5,
+            key: key6,
             aggregate
           });
           continue;
         }
         if (isRouter(item)) {
-          aggregate[key5] = step(item._def.record, [...path7, key5]);
+          aggregate[key6] = step(item._def.record, [...path7, key6]);
           continue;
         }
         if (!isProcedure(item)) {
-          aggregate[key5] = step(item, [...path7, key5]);
+          aggregate[key6] = step(item, [...path7, key6]);
           continue;
         }
-        const newPath = [...path7, key5].join(".");
+        const newPath = [...path7, key6].join(".");
         if (procedures[newPath]) throw new Error(`Duplicate key: ${newPath}`);
         procedures[newPath] = item;
-        aggregate[key5] = item;
+        aggregate[key6] = item;
       }
       return aggregate;
     }
@@ -460,9 +460,9 @@ async function getProcedureAtPath(router, path7) {
   const { _def } = router;
   let procedure = _def.procedures[path7];
   while (!procedure) {
-    const key5 = Object.keys(_def.lazy).find((key$1) => path7.startsWith(key$1));
-    if (!key5) return null;
-    const lazyRouter = _def.lazy[key5];
+    const key6 = Object.keys(_def.lazy).find((key$1) => path7.startsWith(key$1));
+    if (!key6) return null;
+    const lazyRouter = _def.lazy[key6];
     await lazyRouter.load();
     procedure = _def.procedures[path7];
   }
@@ -806,9 +806,9 @@ function floatSafeRemainder(val, step) {
   const stepInt = Number.parseInt(step.toFixed(decCount).replace(".", ""));
   return valInt % stepInt / 10 ** decCount;
 }
-function defineLazy(object3, key5, getter) {
+function defineLazy(object3, key6, getter) {
   let value = void 0;
-  Object.defineProperty(object3, key5, {
+  Object.defineProperty(object3, key6, {
     get() {
       if (value === EVALUATING) {
         return void 0;
@@ -820,7 +820,7 @@ function defineLazy(object3, key5, getter) {
       return value;
     },
     set(v) {
-      Object.defineProperty(object3, key5, {
+      Object.defineProperty(object3, key6, {
         value: v
         // configurable: true,
       });
@@ -853,11 +853,11 @@ function cloneDef(schema) {
 function getElementAtPath(obj, path7) {
   if (!path7)
     return obj;
-  return path7.reduce((acc, key5) => acc?.[key5], obj);
+  return path7.reduce((acc, key6) => acc?.[key6], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
-  const promises = keys.map((key5) => promisesObj[key5]);
+  const promises = keys.map((key6) => promisesObj[key6]);
   return Promise.all(promises).then((results) => {
     const resolvedObj = {};
     for (let i = 0; i < keys.length; i++) {
@@ -908,8 +908,8 @@ function shallowClone(o) {
 }
 function numKeys(data) {
   let keyCount = 0;
-  for (const key5 in data) {
-    if (Object.prototype.hasOwnProperty.call(data, key5)) {
+  for (const key6 in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key6)) {
       keyCount++;
     }
   }
@@ -995,13 +995,13 @@ function pick(schema, mask) {
   const def = mergeDefs(schema._zod.def, {
     get shape() {
       const newShape = {};
-      for (const key5 in mask) {
-        if (!(key5 in currDef.shape)) {
-          throw new Error(`Unrecognized key: "${key5}"`);
+      for (const key6 in mask) {
+        if (!(key6 in currDef.shape)) {
+          throw new Error(`Unrecognized key: "${key6}"`);
         }
-        if (!mask[key5])
+        if (!mask[key6])
           continue;
-        newShape[key5] = currDef.shape[key5];
+        newShape[key6] = currDef.shape[key6];
       }
       assignProp(this, "shape", newShape);
       return newShape;
@@ -1020,13 +1020,13 @@ function omit(schema, mask) {
   const def = mergeDefs(schema._zod.def, {
     get shape() {
       const newShape = { ...schema._zod.def.shape };
-      for (const key5 in mask) {
-        if (!(key5 in currDef.shape)) {
-          throw new Error(`Unrecognized key: "${key5}"`);
+      for (const key6 in mask) {
+        if (!(key6 in currDef.shape)) {
+          throw new Error(`Unrecognized key: "${key6}"`);
         }
-        if (!mask[key5])
+        if (!mask[key6])
           continue;
-        delete newShape[key5];
+        delete newShape[key6];
       }
       assignProp(this, "shape", newShape);
       return newShape;
@@ -1043,8 +1043,8 @@ function extend(schema, shape) {
   const hasChecks = checks && checks.length > 0;
   if (hasChecks) {
     const existingShape = schema._zod.def.shape;
-    for (const key5 in shape) {
-      if (Object.getOwnPropertyDescriptor(existingShape, key5) !== void 0) {
+    for (const key6 in shape) {
+      if (Object.getOwnPropertyDescriptor(existingShape, key6) !== void 0) {
         throw new Error("Cannot overwrite keys on object schemas containing refinements. Use `.safeExtend()` instead.");
       }
     }
@@ -1098,23 +1098,23 @@ function partial(Class2, schema, mask) {
       const oldShape = schema._zod.def.shape;
       const shape = { ...oldShape };
       if (mask) {
-        for (const key5 in mask) {
-          if (!(key5 in oldShape)) {
-            throw new Error(`Unrecognized key: "${key5}"`);
+        for (const key6 in mask) {
+          if (!(key6 in oldShape)) {
+            throw new Error(`Unrecognized key: "${key6}"`);
           }
-          if (!mask[key5])
+          if (!mask[key6])
             continue;
-          shape[key5] = Class2 ? new Class2({
+          shape[key6] = Class2 ? new Class2({
             type: "optional",
-            innerType: oldShape[key5]
-          }) : oldShape[key5];
+            innerType: oldShape[key6]
+          }) : oldShape[key6];
         }
       } else {
-        for (const key5 in oldShape) {
-          shape[key5] = Class2 ? new Class2({
+        for (const key6 in oldShape) {
+          shape[key6] = Class2 ? new Class2({
             type: "optional",
-            innerType: oldShape[key5]
-          }) : oldShape[key5];
+            innerType: oldShape[key6]
+          }) : oldShape[key6];
         }
       }
       assignProp(this, "shape", shape);
@@ -1130,22 +1130,22 @@ function required(Class2, schema, mask) {
       const oldShape = schema._zod.def.shape;
       const shape = { ...oldShape };
       if (mask) {
-        for (const key5 in mask) {
-          if (!(key5 in shape)) {
-            throw new Error(`Unrecognized key: "${key5}"`);
+        for (const key6 in mask) {
+          if (!(key6 in shape)) {
+            throw new Error(`Unrecognized key: "${key6}"`);
           }
-          if (!mask[key5])
+          if (!mask[key6])
             continue;
-          shape[key5] = new Class2({
+          shape[key6] = new Class2({
             type: "nonoptional",
-            innerType: oldShape[key5]
+            innerType: oldShape[key6]
           });
         }
       } else {
-        for (const key5 in oldShape) {
-          shape[key5] = new Class2({
+        for (const key6 in oldShape) {
+          shape[key6] = new Class2({
             type: "nonoptional",
-            innerType: oldShape[key5]
+            innerType: oldShape[key6]
           });
         }
       }
@@ -2419,19 +2419,19 @@ function handleArrayResult(result, final, index) {
   }
   final.value[index] = result.value;
 }
-function handlePropertyResult(result, final, key5, input, isOptionalOut) {
+function handlePropertyResult(result, final, key6, input, isOptionalOut) {
   if (result.issues.length) {
-    if (isOptionalOut && !(key5 in input)) {
+    if (isOptionalOut && !(key6 in input)) {
       return;
     }
-    final.issues.push(...prefixIssues(key5, result.issues));
+    final.issues.push(...prefixIssues(key6, result.issues));
   }
   if (result.value === void 0) {
-    if (key5 in input) {
-      final.value[key5] = void 0;
+    if (key6 in input) {
+      final.value[key6] = void 0;
     }
   } else {
-    final.value[key5] = result.value;
+    final.value[key6] = result.value;
   }
 }
 function normalizeDef(def) {
@@ -2456,18 +2456,18 @@ function handleCatchall(proms, input, payload, ctx, def, inst) {
   const _catchall = def.catchall._zod;
   const t2 = _catchall.def.type;
   const isOptionalOut = _catchall.optout === "optional";
-  for (const key5 in input) {
-    if (keySet.has(key5))
+  for (const key6 in input) {
+    if (keySet.has(key6))
       continue;
     if (t2 === "never") {
-      unrecognized.push(key5);
+      unrecognized.push(key6);
       continue;
     }
-    const r = _catchall.run({ value: input[key5], issues: [] }, ctx);
+    const r = _catchall.run({ value: input[key6], issues: [] }, ctx);
     if (r instanceof Promise) {
-      proms.push(r.then((r3) => handlePropertyResult(r3, payload, key5, input, isOptionalOut)));
+      proms.push(r.then((r3) => handlePropertyResult(r3, payload, key6, input, isOptionalOut)));
     } else {
-      handlePropertyResult(r, payload, key5, input, isOptionalOut);
+      handlePropertyResult(r, payload, key6, input, isOptionalOut);
     }
   }
   if (unrecognized.length) {
@@ -2537,17 +2537,17 @@ function mergeValues(a, b) {
   }
   if (isPlainObject2(a) && isPlainObject2(b)) {
     const bKeys = Object.keys(b);
-    const sharedKeys = Object.keys(a).filter((key5) => bKeys.indexOf(key5) !== -1);
+    const sharedKeys = Object.keys(a).filter((key6) => bKeys.indexOf(key6) !== -1);
     const newObj = { ...a, ...b };
-    for (const key5 of sharedKeys) {
-      const sharedValue = mergeValues(a[key5], b[key5]);
+    for (const key6 of sharedKeys) {
+      const sharedValue = mergeValues(a[key6], b[key6]);
       if (!sharedValue.valid) {
         return {
           valid: false,
-          mergeErrorPath: [key5, ...sharedValue.mergeErrorPath]
+          mergeErrorPath: [key6, ...sharedValue.mergeErrorPath]
         };
       }
-      newObj[key5] = sharedValue.data;
+      newObj[key6] = sharedValue.data;
     }
     return { valid: true, data: newObj };
   }
@@ -2617,10 +2617,10 @@ function handleTupleResult(result, final, index) {
   }
   final.value[index] = result.value;
 }
-function handleMapResult(keyResult, valueResult, final, key5, input, inst, ctx) {
+function handleMapResult(keyResult, valueResult, final, key6, input, inst, ctx) {
   if (keyResult.issues.length) {
-    if (propertyKeyTypes.has(typeof key5)) {
-      final.issues.push(...prefixIssues(key5, keyResult.issues));
+    if (propertyKeyTypes.has(typeof key6)) {
+      final.issues.push(...prefixIssues(key6, keyResult.issues));
     } else {
       final.issues.push({
         code: "invalid_key",
@@ -2632,15 +2632,15 @@ function handleMapResult(keyResult, valueResult, final, key5, input, inst, ctx) 
     }
   }
   if (valueResult.issues.length) {
-    if (propertyKeyTypes.has(typeof key5)) {
-      final.issues.push(...prefixIssues(key5, valueResult.issues));
+    if (propertyKeyTypes.has(typeof key6)) {
+      final.issues.push(...prefixIssues(key6, valueResult.issues));
     } else {
       final.issues.push({
         origin: "map",
         code: "invalid_element",
         input,
         inst,
-        key: key5,
+        key: key6,
         issues: valueResult.issues.map((iss) => finalizeIssue(iss, ctx, config()))
       });
     }
@@ -3357,12 +3357,12 @@ var init_schemas = __esm({
       defineLazy(inst._zod, "propValues", () => {
         const shape = def.shape;
         const propValues = {};
-        for (const key5 in shape) {
-          const field = shape[key5]._zod;
+        for (const key6 in shape) {
+          const field = shape[key6]._zod;
           if (field.values) {
-            propValues[key5] ?? (propValues[key5] = /* @__PURE__ */ new Set());
+            propValues[key6] ?? (propValues[key6] = /* @__PURE__ */ new Set());
             for (const v of field.values)
-              propValues[key5].add(v);
+              propValues[key6].add(v);
           }
         }
         return propValues;
@@ -3385,14 +3385,14 @@ var init_schemas = __esm({
         payload.value = {};
         const proms = [];
         const shape = value.shape;
-        for (const key5 of value.keys) {
-          const el = shape[key5];
+        for (const key6 of value.keys) {
+          const el = shape[key6];
           const isOptionalOut = el._zod.optout === "optional";
-          const r = el._zod.run({ value: input[key5], issues: [] }, ctx);
+          const r = el._zod.run({ value: input[key6], issues: [] }, ctx);
           if (r instanceof Promise) {
-            proms.push(r.then((r3) => handlePropertyResult(r3, payload, key5, input, isOptionalOut)));
+            proms.push(r.then((r3) => handlePropertyResult(r3, payload, key6, input, isOptionalOut)));
           } else {
-            handlePropertyResult(r, payload, key5, input, isOptionalOut);
+            handlePropertyResult(r, payload, key6, input, isOptionalOut);
           }
         }
         if (!catchall) {
@@ -3408,23 +3408,23 @@ var init_schemas = __esm({
       const generateFastpass = (shape) => {
         const doc = new Doc(["shape", "payload", "ctx"]);
         const normalized = _normalized.value;
-        const parseStr = (key5) => {
-          const k = esc(key5);
+        const parseStr = (key6) => {
+          const k = esc(key6);
           return `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
         };
         doc.write(`const input = payload.value;`);
         const ids = /* @__PURE__ */ Object.create(null);
         let counter = 0;
-        for (const key5 of normalized.keys) {
-          ids[key5] = `key_${counter++}`;
+        for (const key6 of normalized.keys) {
+          ids[key6] = `key_${counter++}`;
         }
         doc.write(`const newResult = {};`);
-        for (const key5 of normalized.keys) {
-          const id = ids[key5];
-          const k = esc(key5);
-          const schema = shape[key5];
+        for (const key6 of normalized.keys) {
+          const id = ids[key6];
+          const k = esc(key6);
+          const schema = shape[key6];
           const isOptionalOut = schema?._zod?.optout === "optional";
-          doc.write(`const ${id} = ${parseStr(key5)};`);
+          doc.write(`const ${id} = ${parseStr(key6)};`);
           if (isOptionalOut) {
             doc.write(`
         if (${id}.issues.length) {
@@ -3743,30 +3743,30 @@ var init_schemas = __esm({
         if (values) {
           payload.value = {};
           const recordKeys = /* @__PURE__ */ new Set();
-          for (const key5 of values) {
-            if (typeof key5 === "string" || typeof key5 === "number" || typeof key5 === "symbol") {
-              recordKeys.add(typeof key5 === "number" ? key5.toString() : key5);
-              const result = def.valueType._zod.run({ value: input[key5], issues: [] }, ctx);
+          for (const key6 of values) {
+            if (typeof key6 === "string" || typeof key6 === "number" || typeof key6 === "symbol") {
+              recordKeys.add(typeof key6 === "number" ? key6.toString() : key6);
+              const result = def.valueType._zod.run({ value: input[key6], issues: [] }, ctx);
               if (result instanceof Promise) {
                 proms.push(result.then((result2) => {
                   if (result2.issues.length) {
-                    payload.issues.push(...prefixIssues(key5, result2.issues));
+                    payload.issues.push(...prefixIssues(key6, result2.issues));
                   }
-                  payload.value[key5] = result2.value;
+                  payload.value[key6] = result2.value;
                 }));
               } else {
                 if (result.issues.length) {
-                  payload.issues.push(...prefixIssues(key5, result.issues));
+                  payload.issues.push(...prefixIssues(key6, result.issues));
                 }
-                payload.value[key5] = result.value;
+                payload.value[key6] = result.value;
               }
             }
           }
           let unrecognized;
-          for (const key5 in input) {
-            if (!recordKeys.has(key5)) {
+          for (const key6 in input) {
+            if (!recordKeys.has(key6)) {
               unrecognized = unrecognized ?? [];
-              unrecognized.push(key5);
+              unrecognized.push(key6);
             }
           }
           if (unrecognized && unrecognized.length > 0) {
@@ -3779,16 +3779,16 @@ var init_schemas = __esm({
           }
         } else {
           payload.value = {};
-          for (const key5 of Reflect.ownKeys(input)) {
-            if (key5 === "__proto__")
+          for (const key6 of Reflect.ownKeys(input)) {
+            if (key6 === "__proto__")
               continue;
-            let keyResult = def.keyType._zod.run({ value: key5, issues: [] }, ctx);
+            let keyResult = def.keyType._zod.run({ value: key6, issues: [] }, ctx);
             if (keyResult instanceof Promise) {
               throw new Error("Async schemas not supported in object keys currently");
             }
-            const checkNumericKey = typeof key5 === "string" && number.test(key5) && keyResult.issues.length && keyResult.issues.some((iss) => iss.code === "invalid_type" && iss.expected === "number");
+            const checkNumericKey = typeof key6 === "string" && number.test(key6) && keyResult.issues.length && keyResult.issues.some((iss) => iss.code === "invalid_type" && iss.expected === "number");
             if (checkNumericKey) {
-              const retryResult = def.keyType._zod.run({ value: Number(key5), issues: [] }, ctx);
+              const retryResult = def.keyType._zod.run({ value: Number(key6), issues: [] }, ctx);
               if (retryResult instanceof Promise) {
                 throw new Error("Async schemas not supported in object keys currently");
               }
@@ -3798,30 +3798,30 @@ var init_schemas = __esm({
             }
             if (keyResult.issues.length) {
               if (def.mode === "loose") {
-                payload.value[key5] = input[key5];
+                payload.value[key6] = input[key6];
               } else {
                 payload.issues.push({
                   code: "invalid_key",
                   origin: "record",
                   issues: keyResult.issues.map((iss) => finalizeIssue(iss, ctx, config())),
-                  input: key5,
-                  path: [key5],
+                  input: key6,
+                  path: [key6],
                   inst
                 });
               }
               continue;
             }
-            const result = def.valueType._zod.run({ value: input[key5], issues: [] }, ctx);
+            const result = def.valueType._zod.run({ value: input[key6], issues: [] }, ctx);
             if (result instanceof Promise) {
               proms.push(result.then((result2) => {
                 if (result2.issues.length) {
-                  payload.issues.push(...prefixIssues(key5, result2.issues));
+                  payload.issues.push(...prefixIssues(key6, result2.issues));
                 }
                 payload.value[keyResult.value] = result2.value;
               }));
             } else {
               if (result.issues.length) {
-                payload.issues.push(...prefixIssues(key5, result.issues));
+                payload.issues.push(...prefixIssues(key6, result.issues));
               }
               payload.value[keyResult.value] = result.value;
             }
@@ -3848,15 +3848,15 @@ var init_schemas = __esm({
         }
         const proms = [];
         payload.value = /* @__PURE__ */ new Map();
-        for (const [key5, value] of input) {
-          const keyResult = def.keyType._zod.run({ value: key5, issues: [] }, ctx);
+        for (const [key6, value] of input) {
+          const keyResult = def.keyType._zod.run({ value: key6, issues: [] }, ctx);
           const valueResult = def.valueType._zod.run({ value, issues: [] }, ctx);
           if (keyResult instanceof Promise || valueResult instanceof Promise) {
             proms.push(Promise.all([keyResult, valueResult]).then(([keyResult2, valueResult2]) => {
-              handleMapResult(keyResult2, valueResult2, payload, key5, input, inst, ctx);
+              handleMapResult(keyResult2, valueResult2, payload, key6, input, inst, ctx);
             }));
           } else {
-            handleMapResult(keyResult, valueResult, payload, key5, input, inst, ctx);
+            handleMapResult(keyResult, valueResult, payload, key6, input, inst, ctx);
           }
         }
         if (proms.length)
@@ -11220,13 +11220,13 @@ function _promise(Class2, innerType) {
 }
 // @__NO_SIDE_EFFECTS__
 function _custom(Class2, fn, _params) {
-  const norm16 = normalizeParams(_params);
-  norm16.abort ?? (norm16.abort = true);
+  const norm17 = normalizeParams(_params);
+  norm17.abort ?? (norm17.abort = true);
   const schema = new Class2({
     type: "custom",
     check: "custom",
     fn,
-    ...norm16
+    ...norm17
   });
   return schema;
 }
@@ -11502,8 +11502,8 @@ function extractDefs(ctx, schema) {
     if (defId)
       seen.defId = defId;
     const schema2 = seen.schema;
-    for (const key5 in schema2) {
-      delete schema2[key5];
+    for (const key6 in schema2) {
+      delete schema2[key6];
     }
     schema2.$ref = ref;
   };
@@ -11572,20 +11572,20 @@ function finalize(ctx, schema) {
       Object.assign(schema2, _cached);
       const isParentRef = zodSchema._zod.parent === ref;
       if (isParentRef) {
-        for (const key5 in schema2) {
-          if (key5 === "$ref" || key5 === "allOf")
+        for (const key6 in schema2) {
+          if (key6 === "$ref" || key6 === "allOf")
             continue;
-          if (!(key5 in _cached)) {
-            delete schema2[key5];
+          if (!(key6 in _cached)) {
+            delete schema2[key6];
           }
         }
       }
       if (refSchema.$ref) {
-        for (const key5 in schema2) {
-          if (key5 === "$ref" || key5 === "allOf")
+        for (const key6 in schema2) {
+          if (key6 === "$ref" || key6 === "allOf")
             continue;
-          if (key5 in refSeen.def && JSON.stringify(schema2[key5]) === JSON.stringify(refSeen.def[key5])) {
-            delete schema2[key5];
+          if (key6 in refSeen.def && JSON.stringify(schema2[key6]) === JSON.stringify(refSeen.def[key6])) {
+            delete schema2[key6];
           }
         }
       }
@@ -11597,11 +11597,11 @@ function finalize(ctx, schema) {
       if (parentSeen?.schema.$ref) {
         schema2.$ref = parentSeen.schema.$ref;
         if (parentSeen.def) {
-          for (const key5 in schema2) {
-            if (key5 === "$ref" || key5 === "allOf")
+          for (const key6 in schema2) {
+            if (key6 === "$ref" || key6 === "allOf")
               continue;
-            if (key5 in parentSeen.def && JSON.stringify(schema2[key5]) === JSON.stringify(parentSeen.def[key5])) {
-              delete schema2[key5];
+            if (key6 in parentSeen.def && JSON.stringify(schema2[key6]) === JSON.stringify(parentSeen.def[key6])) {
+              delete schema2[key6];
             }
           }
         }
@@ -11695,8 +11695,8 @@ function isTransforming(_schema, _ctx) {
     return isTransforming(def.in, ctx) || isTransforming(def.out, ctx);
   }
   if (def.type === "object") {
-    for (const key5 in def.shape) {
-      if (isTransforming(def.shape[key5], ctx))
+    for (const key6 in def.shape) {
+      if (isTransforming(def.shape[key6], ctx))
         return true;
     }
     return false;
@@ -11757,9 +11757,9 @@ function toJSONSchema(input, params) {
     };
     ctx2.external = external;
     for (const entry of registry2._idmap.entries()) {
-      const [key5, schema] = entry;
+      const [key6, schema] = entry;
       extractDefs(ctx2, schema);
-      schemas[key5] = finalize(ctx2, schema);
+      schemas[key6] = finalize(ctx2, schema);
     }
     if (Object.keys(defs).length > 0) {
       const defsSegment = ctx2.target === "draft-2020-12" ? "$defs" : "definitions";
@@ -12038,15 +12038,15 @@ var init_json_schema_processors = __esm({
       json2.type = "object";
       json2.properties = {};
       const shape = def.shape;
-      for (const key5 in shape) {
-        json2.properties[key5] = process2(shape[key5], ctx, {
+      for (const key6 in shape) {
+        json2.properties[key6] = process2(shape[key6], ctx, {
           ...params,
-          path: [...params.path, "properties", key5]
+          path: [...params.path, "properties", key6]
         });
       }
       const allKeys = new Set(Object.keys(shape));
-      const requiredKeys = new Set([...allKeys].filter((key5) => {
-        const v = def.shape[key5]._zod;
+      const requiredKeys = new Set([...allKeys].filter((key6) => {
+        const v = def.shape[key6]._zod;
         if (ctx.io === "input") {
           return v.optin === void 0;
         } else {
@@ -14154,11 +14154,11 @@ function resolveRef(ref, ctx) {
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
   if (path7[0] === defsKey) {
-    const key5 = path7[1];
-    if (!key5 || !ctx.defs[key5]) {
+    const key6 = path7[1];
+    if (!key6 || !ctx.defs[key6]) {
       throw new Error(`Reference not found: ${ref}`);
     }
-    return ctx.defs[key5];
+    return ctx.defs[key6];
   }
   throw new Error(`Reference not found: ${ref}`);
 }
@@ -14344,9 +14344,9 @@ function convertBaseSchema(schema, ctx) {
       const shape = {};
       const properties = schema.properties || {};
       const requiredSet = new Set(schema.required || []);
-      for (const [key5, propSchema] of Object.entries(properties)) {
+      for (const [key6, propSchema] of Object.entries(properties)) {
         const propZodSchema = convertSchema(propSchema, ctx);
-        shape[key5] = requiredSet.has(key5) ? propZodSchema : propZodSchema.optional();
+        shape[key6] = requiredSet.has(key6) ? propZodSchema : propZodSchema.optional();
       }
       if (schema.propertyNames) {
         const keySchema = convertSchema(schema.propertyNames, ctx);
@@ -14490,20 +14490,20 @@ function convertSchema(schema, ctx) {
   }
   const extraMeta = {};
   const coreMetadataKeys = ["$id", "id", "$comment", "$anchor", "$vocabulary", "$dynamicRef", "$dynamicAnchor"];
-  for (const key5 of coreMetadataKeys) {
-    if (key5 in schema) {
-      extraMeta[key5] = schema[key5];
+  for (const key6 of coreMetadataKeys) {
+    if (key6 in schema) {
+      extraMeta[key6] = schema[key6];
     }
   }
   const contentMetadataKeys = ["contentEncoding", "contentMediaType", "contentSchema"];
-  for (const key5 of contentMetadataKeys) {
-    if (key5 in schema) {
-      extraMeta[key5] = schema[key5];
+  for (const key6 of contentMetadataKeys) {
+    if (key6 in schema) {
+      extraMeta[key6] = schema[key6];
     }
   }
-  for (const key5 of Object.keys(schema)) {
-    if (!RECOGNIZED_KEYS.has(key5)) {
-      extraMeta[key5] = schema[key5];
+  for (const key6 of Object.keys(schema)) {
+    if (!RECOGNIZED_KEYS.has(key6)) {
+      extraMeta[key6] = schema[key6];
     }
   }
   if (Object.keys(extraMeta).length > 0) {
@@ -15261,12 +15261,12 @@ var init_double_indexed_kv = __esm({
         this.keyToValue = /* @__PURE__ */ new Map();
         this.valueToKey = /* @__PURE__ */ new Map();
       }
-      set(key5, value) {
-        this.keyToValue.set(key5, value);
-        this.valueToKey.set(value, key5);
+      set(key6, value) {
+        this.keyToValue.set(key6, value);
+        this.valueToKey.set(value, key6);
       }
-      getByKey(key5) {
-        return this.keyToValue.get(key5);
+      getByKey(key6) {
+        return this.keyToValue.get(key6);
       }
       getByValue(value) {
         return this.valueToKey.get(value);
@@ -15344,9 +15344,9 @@ function valuesOfObj(record2) {
     return Object.values(record2);
   }
   const values = [];
-  for (const key5 in record2) {
-    if (record2.hasOwnProperty(key5)) {
-      values.push(record2[key5]);
+  for (const key6 in record2) {
+    if (record2.hasOwnProperty(key6)) {
+      values.push(record2[key6]);
     }
   }
   return values;
@@ -15366,7 +15366,7 @@ function find(record2, predicate) {
   return void 0;
 }
 function forEach(record2, run2) {
-  Object.entries(record2).forEach(([key5, value]) => run2(value, key5));
+  Object.entries(record2).forEach(([key6, value]) => run2(value, key6));
 }
 function includes(arr, value) {
   return arr.indexOf(value) !== -1;
@@ -15447,7 +15447,7 @@ var init_is2 = __esm({
 var escapeKey, stringifyPath, parsePath;
 var init_pathstringifier = __esm({
   "node_modules/superjson/dist/pathstringifier.js"() {
-    escapeKey = (key5) => key5.replace(/\\/g, "\\\\").replace(/\./g, "\\.");
+    escapeKey = (key6) => key6.replace(/\\/g, "\\\\").replace(/\./g, "\\.");
     stringifyPath = (path7) => path7.map(String).map(escapeKey).join(".");
     parsePath = (string5, legacyPaths) => {
       const result = [];
@@ -15723,11 +15723,11 @@ var init_accessDeep = __esm({
     getDeep = (object3, path7) => {
       validatePath(path7);
       for (let i = 0; i < path7.length; i++) {
-        const key5 = path7[i];
+        const key6 = path7[i];
         if (isSet(object3)) {
-          object3 = getNthKey(object3, +key5);
+          object3 = getNthKey(object3, +key6);
         } else if (isMap(object3)) {
-          const row = +key5;
+          const row = +key6;
           const type = +path7[++i] === 0 ? "key" : "value";
           const keyOfRow = getNthKey(object3, row);
           switch (type) {
@@ -15739,7 +15739,7 @@ var init_accessDeep = __esm({
               break;
           }
         } else {
-          object3 = object3[key5];
+          object3 = object3[key6];
         }
       }
       return object3;
@@ -15751,21 +15751,21 @@ var init_accessDeep = __esm({
       }
       let parent = object3;
       for (let i = 0; i < path7.length - 1; i++) {
-        const key5 = path7[i];
+        const key6 = path7[i];
         if (isArray(parent)) {
-          const index = +key5;
+          const index = +key6;
           parent = parent[index];
         } else if (isPlainObject3(parent)) {
-          parent = parent[key5];
+          parent = parent[key6];
         } else if (isSet(parent)) {
-          const row = +key5;
+          const row = +key6;
           parent = getNthKey(parent, row);
         } else if (isMap(parent)) {
           const isEnd = i === path7.length - 2;
           if (isEnd) {
             break;
           }
-          const row = +key5;
+          const row = +key6;
           const type = +path7[++i] === 0 ? "key" : "value";
           const keyOfRow = getNthKey(parent, row);
           switch (type) {
@@ -15823,18 +15823,18 @@ function traverse(tree, walker2, version4, origin = []) {
   }
   const legacyPaths = enableLegacyPaths(version4);
   if (!isArray(tree)) {
-    forEach(tree, (subtree, key5) => traverse(subtree, walker2, version4, [
+    forEach(tree, (subtree, key6) => traverse(subtree, walker2, version4, [
       ...origin,
-      ...parsePath(key5, legacyPaths)
+      ...parsePath(key6, legacyPaths)
     ]));
     return;
   }
   const [nodeValue, children] = tree;
   if (children) {
-    forEach(children, (child, key5) => {
+    forEach(children, (child, key6) => {
       traverse(child, walker2, version4, [
         ...origin,
-        ...parsePath(key5, legacyPaths)
+        ...parsePath(key6, legacyPaths)
       ]);
     });
   }
@@ -15955,8 +15955,8 @@ var init_plainer = __esm({
         if (isArray(recursiveResult.annotations)) {
           innerAnnotations[escapeKey(index)] = recursiveResult.annotations;
         } else if (isPlainObject3(recursiveResult.annotations)) {
-          forEach(recursiveResult.annotations, (tree, key5) => {
-            innerAnnotations[escapeKey(index) + "." + key5] = tree;
+          forEach(recursiveResult.annotations, (tree, key6) => {
+            innerAnnotations[escapeKey(index) + "." + key6] = tree;
           });
         }
       });
@@ -16016,12 +16016,12 @@ var init_dist2 = __esm({
 });
 
 // node_modules/copy-anything/dist/index.js
-function assignProp2(carry, key5, newVal, originalObject, includeNonenumerable) {
-  const propType = {}.propertyIsEnumerable.call(originalObject, key5) ? "enumerable" : "nonenumerable";
+function assignProp2(carry, key6, newVal, originalObject, includeNonenumerable) {
+  const propType = {}.propertyIsEnumerable.call(originalObject, key6) ? "enumerable" : "nonenumerable";
   if (propType === "enumerable")
-    carry[key5] = newVal;
+    carry[key6] = newVal;
   if (includeNonenumerable && propType === "nonenumerable") {
-    Object.defineProperty(carry, key5, {
+    Object.defineProperty(carry, key6, {
       value: newVal,
       enumerable: false,
       writable: true,
@@ -16038,15 +16038,15 @@ function copy(target, options = {}) {
   }
   const props = Object.getOwnPropertyNames(target);
   const symbols = Object.getOwnPropertySymbols(target);
-  return [...props, ...symbols].reduce((carry, key5) => {
-    if (key5 === "__proto__")
+  return [...props, ...symbols].reduce((carry, key6) => {
+    if (key6 === "__proto__")
       return carry;
-    if (isArray2(options.props) && !options.props.includes(key5)) {
+    if (isArray2(options.props) && !options.props.includes(key6)) {
       return carry;
     }
-    const val = target[key5];
+    const val = target[key6];
     const newVal = copy(val, options);
-    assignProp2(carry, key5, newVal, target, options.nonenumerable);
+    assignProp2(carry, key6, newVal, target, options.nonenumerable);
     return carry;
   }, {});
 }
@@ -17541,9 +17541,9 @@ var init_alias = __esm({
             return columns;
           }
           const proxiedColumns = {};
-          Object.keys(columns).map((key5) => {
-            proxiedColumns[key5] = new Proxy(
-              columns[key5],
+          Object.keys(columns).map((key6) => {
+            proxiedColumns[key6] = new Proxy(
+              columns[key6],
               new ColumnAliasProxyHandler(new Proxy(target, this))
             );
           });
@@ -17676,19 +17676,19 @@ function haveSameKeys(left, right) {
   if (leftKeys.length !== rightKeys.length) {
     return false;
   }
-  for (const [index, key5] of leftKeys.entries()) {
-    if (key5 !== rightKeys[index]) {
+  for (const [index, key6] of leftKeys.entries()) {
+    if (key6 !== rightKeys[index]) {
       return false;
     }
   }
   return true;
 }
 function mapUpdateSet(table, values) {
-  const entries = Object.entries(values).filter(([, value]) => value !== void 0).map(([key5, value]) => {
+  const entries = Object.entries(values).filter(([, value]) => value !== void 0).map(([key6, value]) => {
     if (is(value, SQL) || is(value, Column)) {
-      return [key5, value];
+      return [key6, value];
     } else {
-      return [key5, new Param(value, table[Table.Symbol.Columns][key5])];
+      return [key6, new Param(value, table[Table.Symbol.Columns][key6])];
     }
   });
   if (entries.length === 0) {
@@ -18854,11 +18854,11 @@ var init_casing = __esm({
         if (!column.keyAsName) return column.name;
         const schema = column.table[Table.Symbol.Schema] ?? "public";
         const tableName = column.table[Table.Symbol.OriginalName];
-        const key5 = `${schema}.${tableName}.${column.name}`;
-        if (!this.cache[key5]) {
+        const key6 = `${schema}.${tableName}.${column.name}`;
+        if (!this.cache[key6]) {
           this.cacheTable(column.table);
         }
-        return this.cache[key5];
+        return this.cache[key6];
       }
       cacheTable(table) {
         const schema = table[Table.Symbol.Schema] ?? "public";
@@ -19193,13 +19193,13 @@ function extractTablesRelationalConfig(schema, configHelpers) {
   const tableNamesMap = {};
   const relationsBuffer = {};
   const tablesConfig = {};
-  for (const [key5, value] of Object.entries(schema)) {
+  for (const [key6, value] of Object.entries(schema)) {
     if (is(value, Table)) {
       const dbName = getTableUniqueName(value);
       const bufferedRelations = relationsBuffer[dbName];
-      tableNamesMap[dbName] = key5;
-      tablesConfig[key5] = {
-        tsName: key5,
+      tableNamesMap[dbName] = key6;
+      tablesConfig[key6] = {
+        tsName: key6,
         dbName: value[Table.Symbol.Name],
         schema: value[Table.Symbol.Schema],
         columns: value[Table.Symbol.Columns],
@@ -19210,14 +19210,14 @@ function extractTablesRelationalConfig(schema, configHelpers) {
         value[Table.Symbol.Columns]
       )) {
         if (column.primary) {
-          tablesConfig[key5].primaryKey.push(column);
+          tablesConfig[key6].primaryKey.push(column);
         }
       }
       const extraConfig = value[Table.Symbol.ExtraConfigBuilder]?.(value[Table.Symbol.ExtraConfigColumns]);
       if (extraConfig) {
         for (const configEntry of Object.values(extraConfig)) {
           if (is(configEntry, PrimaryKeyBuilder2)) {
-            tablesConfig[key5].primaryKey.push(...configEntry.columns);
+            tablesConfig[key6].primaryKey.push(...configEntry.columns);
           }
         }
       }
@@ -19253,9 +19253,9 @@ function relations(table, relations2) {
   return new Relations(
     table,
     (helpers) => Object.fromEntries(
-      Object.entries(relations2(helpers)).map(([key5, value]) => [
-        key5,
-        value.withFieldName(key5)
+      Object.entries(relations2(helpers)).map(([key6, value]) => [
+        key6,
+        value.withFieldName(key6)
       ])
     )
   );
@@ -19959,9 +19959,9 @@ var init_dialect = __esm({
         const joins = [];
         if (config2 === true) {
           const selectionEntries = Object.entries(tableConfig.columns);
-          selection = selectionEntries.map(([key5, value]) => ({
+          selection = selectionEntries.map(([key6, value]) => ({
             dbKey: value.name,
-            tsKey: key5,
+            tsKey: key6,
             field: aliasedTableColumn(value, tableAlias),
             relationTableTsKey: void 0,
             isJson: false,
@@ -19969,8 +19969,8 @@ var init_dialect = __esm({
           }));
         } else {
           const aliasedColumns = Object.fromEntries(
-            Object.entries(tableConfig.columns).map(([key5, value]) => [
-              key5,
+            Object.entries(tableConfig.columns).map(([key6, value]) => [
+              key6,
               aliasedTableColumn(value, tableAlias)
             ])
           );
@@ -19995,7 +19995,7 @@ var init_dialect = __esm({
             }
             if (selectedColumns.length > 0) {
               selectedColumns = isIncludeMode ? selectedColumns.filter((c) => config2.columns?.[c] === true) : Object.keys(tableConfig.columns).filter(
-                (key5) => !selectedColumns.includes(key5)
+                (key6) => !selectedColumns.includes(key6)
               );
             }
           } else {
@@ -20321,7 +20321,7 @@ var init_select2 = __esm({
           fields = this.fields;
         } else if (is(source, Subquery)) {
           fields = Object.fromEntries(
-            Object.keys(source._.selectedFields).map((key5) => [key5, source[key5]])
+            Object.keys(source._.selectedFields).map((key6) => [key6, source[key6]])
           );
         } else if (is(source, SQLiteViewBase)) {
           fields = source[ViewBaseConfig].selectedFields;
@@ -20416,7 +20416,7 @@ var init_select2 = __esm({
               }
               case "right": {
                 this.joinsNotNullableMap = Object.fromEntries(
-                  Object.entries(this.joinsNotNullableMap).map(([key5]) => [key5, false])
+                  Object.entries(this.joinsNotNullableMap).map(([key6]) => [key6, false])
                 );
                 this.joinsNotNullableMap[tableName] = true;
                 break;
@@ -20428,7 +20428,7 @@ var init_select2 = __esm({
               }
               case "full": {
                 this.joinsNotNullableMap = Object.fromEntries(
-                  Object.entries(this.joinsNotNullableMap).map(([key5]) => [key5, false])
+                  Object.entries(this.joinsNotNullableMap).map(([key6]) => [key6, false])
                 );
                 this.joinsNotNullableMap[tableName] = false;
                 break;
@@ -24681,18 +24681,18 @@ function parseQuery(text2) {
     if (sequence === "") {
       continue;
     }
-    let key5;
+    let key6;
     let value;
     const splitIdx = sequence.indexOf("=");
     if (splitIdx < 0) {
-      key5 = sequence;
+      key6 = sequence;
       value = "";
     } else {
-      key5 = sequence.substring(0, splitIdx);
+      key6 = sequence.substring(0, splitIdx);
       value = sequence.substring(splitIdx + 1);
     }
     pairs.push({
-      key: percentDecode(key5.replaceAll("+", " ")),
+      key: percentDecode(key6.replaceAll("+", " ")),
       value: percentDecode(value.replaceAll("+", " "))
     });
   }
@@ -25000,7 +25000,7 @@ function expandConfig(config2, preferHttp) {
     queryParamsDef = {
       cache: {
         values: ["shared", "private"],
-        update: (key5, value) => connectionQueryParams.push(`${key5}=${value}`)
+        update: (key6, value) => connectionQueryParams.push(`${key6}=${value}`)
       }
     };
   } else {
@@ -25014,16 +25014,16 @@ function expandConfig(config2, preferHttp) {
       }
     };
   }
-  for (const { key: key5, value } of uri.query?.pairs ?? []) {
-    if (!Object.hasOwn(queryParamsDef, key5)) {
-      throw new LibsqlError(`Unsupported URL query parameter ${JSON.stringify(key5)}`, "URL_PARAM_NOT_SUPPORTED");
+  for (const { key: key6, value } of uri.query?.pairs ?? []) {
+    if (!Object.hasOwn(queryParamsDef, key6)) {
+      throw new LibsqlError(`Unsupported URL query parameter ${JSON.stringify(key6)}`, "URL_PARAM_NOT_SUPPORTED");
     }
-    const queryParamDef = queryParamsDef[key5];
+    const queryParamDef = queryParamsDef[key6];
     if (queryParamDef.values !== void 0 && !queryParamDef.values.includes(value)) {
-      throw new LibsqlError(`Unknown value for the "${key5}" query argument: ${JSON.stringify(value)}. Supported values are: [${queryParamDef.values.map((x) => '"' + x + '"').join(", ")}]`, "URL_INVALID");
+      throw new LibsqlError(`Unknown value for the "${key6}" query argument: ${JSON.stringify(value)}. Supported values are: [${queryParamDef.values.map((x) => '"' + x + '"').join(", ")}]`, "URL_INVALID");
     }
     if (queryParamDef.update !== void 0) {
-      queryParamDef?.update(key5, value);
+      queryParamDef?.update(key6, value);
     }
   }
   const connectionQueryParamsString = connectionQueryParams.length === 0 ? "" : `?${connectionQueryParams.join("&")}`;
@@ -26666,44 +26666,44 @@ var require_permessage_deflate = __commonJS({
        */
       normalizeParams(configurations) {
         configurations.forEach((params) => {
-          Object.keys(params).forEach((key5) => {
-            let value = params[key5];
+          Object.keys(params).forEach((key6) => {
+            let value = params[key6];
             if (value.length > 1) {
-              throw new Error(`Parameter "${key5}" must have only a single value`);
+              throw new Error(`Parameter "${key6}" must have only a single value`);
             }
             value = value[0];
-            if (key5 === "client_max_window_bits") {
+            if (key6 === "client_max_window_bits") {
               if (value !== true) {
                 const num3 = +value;
                 if (!Number.isInteger(num3) || num3 < 8 || num3 > 15) {
                   throw new TypeError(
-                    `Invalid value for parameter "${key5}": ${value}`
+                    `Invalid value for parameter "${key6}": ${value}`
                   );
                 }
                 value = num3;
               } else if (!this._isServer) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key5}": ${value}`
+                  `Invalid value for parameter "${key6}": ${value}`
                 );
               }
-            } else if (key5 === "server_max_window_bits") {
+            } else if (key6 === "server_max_window_bits") {
               const num3 = +value;
               if (!Number.isInteger(num3) || num3 < 8 || num3 > 15) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key5}": ${value}`
+                  `Invalid value for parameter "${key6}": ${value}`
                 );
               }
               value = num3;
-            } else if (key5 === "client_no_context_takeover" || key5 === "server_no_context_takeover") {
+            } else if (key6 === "client_no_context_takeover" || key6 === "server_no_context_takeover") {
               if (value !== true) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key5}": ${value}`
+                  `Invalid value for parameter "${key6}": ${value}`
                 );
               }
             } else {
-              throw new Error(`Unknown parameter "${key5}"`);
+              throw new Error(`Unknown parameter "${key6}"`);
             }
-            params[key5] = value;
+            params[key6] = value;
           });
         });
         return configurations;
@@ -26751,8 +26751,8 @@ var require_permessage_deflate = __commonJS({
       _decompress(data, fin, callback) {
         const endpoint = this._isServer ? "client" : "server";
         if (!this._inflate) {
-          const key5 = `${endpoint}_max_window_bits`;
-          const windowBits = typeof this.params[key5] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key5];
+          const key6 = `${endpoint}_max_window_bits`;
+          const windowBits = typeof this.params[key6] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key6];
           this._inflate = zlib.createInflateRaw({
             ...this._options.zlibInflateOptions,
             windowBits
@@ -26802,8 +26802,8 @@ var require_permessage_deflate = __commonJS({
       _compress(data, fin, callback) {
         const endpoint = this._isServer ? "server" : "client";
         if (!this._deflate) {
-          const key5 = `${endpoint}_max_window_bits`;
-          const windowBits = typeof this.params[key5] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key5];
+          const key6 = `${endpoint}_max_window_bits`;
+          const windowBits = typeof this.params[key6] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key6];
           this._deflate = zlib.createDeflateRaw({
             ...this._options.zlibDeflateOptions,
             windowBits
@@ -29066,7 +29066,7 @@ var require_websocket = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key5 = randomBytes(16).toString("base64");
+      const key6 = randomBytes(16).toString("base64");
       const request = isSecure ? https.request : http.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -29077,7 +29077,7 @@ var require_websocket = __commonJS({
       opts.headers = {
         ...opts.headers,
         "Sec-WebSocket-Version": opts.protocolVersion,
-        "Sec-WebSocket-Key": key5,
+        "Sec-WebSocket-Key": key6,
         Connection: "Upgrade",
         Upgrade: "websocket"
       };
@@ -29128,8 +29128,8 @@ var require_websocket = __commonJS({
           const headers = options && options.headers;
           options = { ...options, headers: {} };
           if (headers) {
-            for (const [key6, value] of Object.entries(headers)) {
-              options.headers[key6.toLowerCase()] = value;
+            for (const [key7, value] of Object.entries(headers)) {
+              options.headers[key7.toLowerCase()] = value;
             }
           }
         } else if (websocket.listenerCount("redirect") === 0) {
@@ -29196,7 +29196,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash("sha1").update(key5 + GUID).digest("base64");
+        const digest = createHash("sha1").update(key6 + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -29756,7 +29756,7 @@ var require_websocket_server = __commonJS({
        */
       handleUpgrade(req, socket, head, cb) {
         socket.on("error", socketOnError);
-        const key5 = req.headers["sec-websocket-key"];
+        const key6 = req.headers["sec-websocket-key"];
         const upgrade = req.headers.upgrade;
         const version4 = +req.headers["sec-websocket-version"];
         if (req.method !== "GET") {
@@ -29769,7 +29769,7 @@ var require_websocket_server = __commonJS({
           abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
           return;
         }
-        if (key5 === void 0 || !keyRegex.test(key5)) {
+        if (key6 === void 0 || !keyRegex.test(key6)) {
           const message2 = "Missing or invalid Sec-WebSocket-Key header";
           abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
           return;
@@ -29829,7 +29829,7 @@ var require_websocket_server = __commonJS({
               }
               this.completeUpgrade(
                 extensions,
-                key5,
+                key6,
                 protocols,
                 req,
                 socket,
@@ -29841,7 +29841,7 @@ var require_websocket_server = __commonJS({
           }
           if (!this.options.verifyClient(info)) return abortHandshake(socket, 401);
         }
-        this.completeUpgrade(extensions, key5, protocols, req, socket, head, cb);
+        this.completeUpgrade(extensions, key6, protocols, req, socket, head, cb);
       }
       /**
        * Upgrade the connection to WebSocket.
@@ -29856,7 +29856,7 @@ var require_websocket_server = __commonJS({
        * @throws {Error} If called more than once with the same socket
        * @private
        */
-      completeUpgrade(extensions, key5, protocols, req, socket, head, cb) {
+      completeUpgrade(extensions, key6, protocols, req, socket, head, cb) {
         if (!socket.readable || !socket.writable) return socket.destroy();
         if (socket[kWebSocket]) {
           throw new Error(
@@ -29864,7 +29864,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash("sha1").update(key5 + GUID).digest("base64");
+        const digest = createHash("sha1").update(key6 + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -30238,9 +30238,9 @@ function readProtobufMessage(data, def) {
   const fieldReader = new FieldReader(msgReader);
   let value = def.default();
   while (!msgReader.eof()) {
-    const key5 = msgReader.varint();
-    const tag2 = key5 >> 3;
-    const wireType = key5 & 7;
+    const key6 = msgReader.varint();
+    const tag2 = key6 >> 3;
+    const wireType = key6 & 7;
     fieldReader.setup(wireType);
     const tagFun = def[tag2];
     if (tagFun !== void 0) {
@@ -32015,12 +32015,12 @@ var init_protobuf_decode = __esm({
         return { stepResults: /* @__PURE__ */ new Map(), stepErrors: /* @__PURE__ */ new Map() };
       },
       1(r, msg) {
-        const [key5, value] = r.message(BatchResultStepResult);
-        msg.stepResults.set(key5, value);
+        const [key6, value] = r.message(BatchResultStepResult);
+        msg.stepResults.set(key6, value);
       },
       2(r, msg) {
-        const [key5, value] = r.message(BatchResultStepError);
-        msg.stepErrors.set(key5, value);
+        const [key6, value] = r.message(BatchResultStepError);
+        msg.stepErrors.set(key6, value);
       }
     };
     BatchResultStepResult = {
@@ -33697,8 +33697,8 @@ function stmtToHrana(stmt) {
     if (Array.isArray(args)) {
       hranaStmt.bindIndexes(args);
     } else {
-      for (const [key5, value] of Object.entries(args)) {
-        hranaStmt.bindName(key5, value);
+      for (const [key6, value] of Object.entries(args)) {
+        hranaStmt.bindName(key6, value);
       }
     }
   }
@@ -33968,16 +33968,16 @@ var init_sql_cache = __esm({
       constructor() {
         this.#cache = /* @__PURE__ */ new Map();
       }
-      get(key5) {
-        const value = this.#cache.get(key5);
+      get(key6) {
+        const value = this.#cache.get(key6);
         if (value !== void 0) {
-          this.#cache.delete(key5);
-          this.#cache.set(key5, value);
+          this.#cache.delete(key6);
+          this.#cache.set(key6, value);
         }
         return value;
       }
-      set(key5, value) {
-        this.#cache.set(key5, value);
+      set(key6, value) {
+        this.#cache.set(key6, value);
       }
       peekLru() {
         for (const entry of this.#cache.entries()) {
@@ -33985,8 +33985,8 @@ var init_sql_cache = __esm({
         }
         return void 0;
       }
-      delete(key5) {
-        this.#cache.delete(key5);
+      delete(key6) {
+        this.#cache.delete(key6);
       }
       get size() {
         return this.#cache.size;
@@ -34626,9 +34626,9 @@ var init_core3 = __esm({
 
 // node_modules/drizzle-orm/libsql/session.js
 function normalizeRow(obj) {
-  return Object.keys(obj).reduce((acc, key5) => {
-    if (Object.prototype.propertyIsEnumerable.call(obj, key5)) {
-      acc[key5] = obj[key5];
+  return Object.keys(obj).reduce((acc, key6) => {
+    if (Object.prototype.propertyIsEnumerable.call(obj, key6)) {
+      acc[key6] = obj[key6];
     }
     return acc;
   }, {});
@@ -35463,7 +35463,7 @@ var require_bcrypt = __commonJS({
           }
         };
         utfx2.decodeUTF8 = function(src, dst) {
-          var a, b, c, d4, fail = function(b2) {
+          var a, b, c, d5, fail = function(b2) {
             b2 = b2.slice(0, b2.indexOf(null));
             var err = Error(b2.toString());
             err.name = "TruncatedError";
@@ -35478,7 +35478,7 @@ var require_bcrypt = __commonJS({
             else if ((a & 240) === 224)
               ((b = src()) === null || (c = src()) === null) && fail([a, b, c]), dst((a & 15) << 12 | (b & 63) << 6 | c & 63);
             else if ((a & 248) === 240)
-              ((b = src()) === null || (c = src()) === null || (d4 = src()) === null) && fail([a, b, c, d4]), dst((a & 7) << 18 | (b & 63) << 12 | (c & 63) << 6 | d4 & 63);
+              ((b = src()) === null || (c = src()) === null || (d5 = src()) === null) && fail([a, b, c, d5]), dst((a & 7) << 18 | (b & 63) << 12 | (c & 63) << 6 | d5 & 63);
             else throw RangeError("Illegal starting byte: " + a);
           }
         };
@@ -36696,19 +36696,19 @@ var require_bcrypt = __commonJS({
           word = word << 8 | data[offp] & 255, offp = (offp + 1) % data.length;
         return { key: word, offp };
       }
-      function _key(key5, P, S) {
+      function _key(key6, P, S) {
         var offset = 0, lr = [0, 0], plen = P.length, slen = S.length, sw;
         for (var i = 0; i < plen; i++)
-          sw = _streamtoword(key5, offset), offset = sw.offp, P[i] = P[i] ^ sw.key;
+          sw = _streamtoword(key6, offset), offset = sw.offp, P[i] = P[i] ^ sw.key;
         for (i = 0; i < plen; i += 2)
           lr = _encipher(lr, 0, P, S), P[i] = lr[0], P[i + 1] = lr[1];
         for (i = 0; i < slen; i += 2)
           lr = _encipher(lr, 0, P, S), S[i] = lr[0], S[i + 1] = lr[1];
       }
-      function _ekskey(data, key5, P, S) {
+      function _ekskey(data, key6, P, S) {
         var offp = 0, lr = [0, 0], plen = P.length, slen = S.length, sw;
         for (var i = 0; i < plen; i++)
-          sw = _streamtoword(key5, offp), offp = sw.offp, P[i] = P[i] ^ sw.key;
+          sw = _streamtoword(key6, offp), offp = sw.offp, P[i] = P[i] ^ sw.key;
         offp = 0;
         for (i = 0; i < plen; i += 2)
           sw = _streamtoword(data, offp), offp = sw.offp, lr[0] ^= sw.key, sw = _streamtoword(data, offp), offp = sw.offp, lr[1] ^= sw.key, lr = _encipher(lr, 0, P, S), P[i] = lr[0], P[i + 1] = lr[1];
@@ -36902,7 +36902,7 @@ var require_main = __commonJS({
       lines = lines.replace(/\r\n?/mg, "\n");
       let match2;
       while ((match2 = LINE.exec(lines)) != null) {
-        const key5 = match2[1];
+        const key6 = match2[1];
         let value = match2[2] || "";
         value = value.trim();
         const maybeQuote = value[0];
@@ -36911,7 +36911,7 @@ var require_main = __commonJS({
           value = value.replace(/\\n/g, "\n");
           value = value.replace(/\\r/g, "\r");
         }
-        obj[key5] = value;
+        obj[key6] = value;
       }
       return obj;
     }
@@ -36930,8 +36930,8 @@ var require_main = __commonJS({
       let decrypted;
       for (let i = 0; i < length; i++) {
         try {
-          const key5 = keys[i].trim();
-          const attrs = _instructions(result, key5);
+          const key6 = keys[i].trim();
+          const attrs = _instructions(result, key6);
           decrypted = DotenvModule.decrypt(attrs.ciphertext, attrs.key);
           break;
         } catch (error48) {
@@ -36972,8 +36972,8 @@ var require_main = __commonJS({
         }
         throw error48;
       }
-      const key5 = uri.password;
-      if (!key5) {
+      const key6 = uri.password;
+      if (!key6) {
         const err = new Error("INVALID_DOTENV_KEY: Missing key part");
         err.code = "INVALID_DOTENV_KEY";
         throw err;
@@ -36991,7 +36991,7 @@ var require_main = __commonJS({
         err.code = "NOT_FOUND_DOTENV_ENVIRONMENT";
         throw err;
       }
-      return { ciphertext, key: key5 };
+      return { ciphertext, key: key6 };
     }
     function _vaultPath(options) {
       let possibleVaultPath = null;
@@ -37107,13 +37107,13 @@ var require_main = __commonJS({
       return DotenvModule._configVault(options);
     }
     function decrypt(encrypted, keyStr) {
-      const key5 = Buffer.from(keyStr.slice(-64), "hex");
+      const key6 = Buffer.from(keyStr.slice(-64), "hex");
       let ciphertext = Buffer.from(encrypted, "base64");
       const nonce = ciphertext.subarray(0, 12);
       const authTag = ciphertext.subarray(-16);
       ciphertext = ciphertext.subarray(12, -16);
       try {
-        const aesgcm = crypto10.createDecipheriv("aes-256-gcm", key5, nonce);
+        const aesgcm = crypto10.createDecipheriv("aes-256-gcm", key6, nonce);
         aesgcm.setAuthTag(authTag);
         return `${aesgcm.update(ciphertext)}${aesgcm.final()}`;
       } catch (error48) {
@@ -37142,22 +37142,22 @@ var require_main = __commonJS({
         err.code = "OBJECT_REQUIRED";
         throw err;
       }
-      for (const key5 of Object.keys(parsed)) {
-        if (Object.prototype.hasOwnProperty.call(processEnv, key5)) {
+      for (const key6 of Object.keys(parsed)) {
+        if (Object.prototype.hasOwnProperty.call(processEnv, key6)) {
           if (override === true) {
-            processEnv[key5] = parsed[key5];
-            populated[key5] = parsed[key5];
+            processEnv[key6] = parsed[key6];
+            populated[key6] = parsed[key6];
           }
           if (debug) {
             if (override === true) {
-              _debug(`"${key5}" is already defined and WAS overwritten`);
+              _debug(`"${key6}" is already defined and WAS overwritten`);
             } else {
-              _debug(`"${key5}" is already defined and was NOT overwritten`);
+              _debug(`"${key6}" is already defined and was NOT overwritten`);
             }
           }
         } else {
-          processEnv[key5] = parsed[key5];
-          populated[key5] = parsed[key5];
+          processEnv[key6] = parsed[key6];
+          populated[key6] = parsed[key6];
         }
       }
       return populated;
@@ -37269,9 +37269,9 @@ var require_dist2 = __commonJS({
           index = str.lastIndexOf(";", eqIdx - 1) + 1;
           continue;
         }
-        const key5 = valueSlice(str, index, eqIdx);
-        if (obj[key5] === void 0) {
-          obj[key5] = dec(valueSlice(str, eqIdx + 1, endIdx));
+        const key6 = valueSlice(str, index, eqIdx);
+        if (obj[key6] === void 0) {
+          obj[key6] = dec(valueSlice(str, eqIdx + 1, endIdx));
         }
         index = endIdx + 1;
       } while (index < len);
@@ -38621,17 +38621,17 @@ function isRelevantForPeriod(c, asOf = /* @__PURE__ */ new Date()) {
 function daysBetween(a, b) {
   return Math.round((a.getTime() - b.getTime()) / DAY);
 }
-function addMonths(d4, n) {
-  const r = new Date(Date.UTC(d4.getUTCFullYear(), d4.getUTCMonth() + n, 1));
+function addMonths(d5, n) {
+  const r = new Date(Date.UTC(d5.getUTCFullYear(), d5.getUTCMonth() + n, 1));
   const lastDay = new Date(Date.UTC(r.getUTCFullYear(), r.getUTCMonth() + 1, 0)).getUTCDate();
-  r.setUTCDate(Math.min(d4.getUTCDate(), lastDay));
+  r.setUTCDate(Math.min(d5.getUTCDate(), lastDay));
   return r;
 }
 function endOfMonth(year2, monthIdx0) {
   return new Date(Date.UTC(year2, monthIdx0 + 1, 0));
 }
-function ymd(d4) {
-  return d4.toISOString().slice(0, 10);
+function ymd(d5) {
+  return d5.toISOString().slice(0, 10);
 }
 function computeHstStatus(opts) {
   const { hasHST, asOf } = opts;
@@ -38788,8 +38788,8 @@ async function linkDriveFolders() {
     if (direct) return direct;
     const clientNums = /* @__PURE__ */ new Set([...longNums(c.name), ...longNums(c.company)]);
     if (clientNums.size) {
-      for (const [key5, id] of Object.entries(NAME_TO_FOLDER)) {
-        if (longNums(key5).some((n) => clientNums.has(n))) return id;
+      for (const [key6, id] of Object.entries(NAME_TO_FOLDER)) {
+        if (longNums(key6).some((n) => clientNums.has(n))) return id;
       }
     }
     return null;
@@ -39055,7 +39055,7 @@ async function pushEventToGoogle(eventId) {
       location: ev.location || void 0
     };
     if (ev.isAllDay) {
-      const ymd2 = (d4) => new Date(d4).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+      const ymd2 = (d5) => new Date(d5).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
       const startYmd = ymd2(ev.startDate);
       const endD = new Date(new Date(ev.endDate || ev.startDate).getTime() + 864e5);
       payload.start = { date: startYmd };
@@ -39123,9 +39123,9 @@ function extractPriority(text2) {
   return { text: out.replace(/\s+/g, " ").trim(), priority };
 }
 function extractDueDate(text2, now = /* @__PURE__ */ new Date()) {
-  const at2 = (d4) => {
-    d4.setHours(17, 0, 0, 0);
-    return d4;
+  const at2 = (d5) => {
+    d5.setHours(17, 0, 0, 0);
+    return d5;
   };
   const lower = text2.toLowerCase();
   const rel = [
@@ -39149,8 +39149,8 @@ function extractDueDate(text2, now = /* @__PURE__ */ new Date()) {
   const wd = lower.match(/\b(?:by |on |next )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
   if (wd) {
     const target = WEEKDAYS.indexOf(wd[1]);
-    const d4 = new Date(now);
-    let delta = (target - d4.getDay() + 7) % 7;
+    const d5 = new Date(now);
+    let delta = (target - d5.getDay() + 7) % 7;
     if (delta === 0) delta = 7;
     return { text: stripMatch(text2, /\b(?:by |on |next )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i), dueDate: at2(addDays(now, delta)) };
   }
@@ -39168,16 +39168,16 @@ function extractDueDate(text2, now = /* @__PURE__ */ new Date()) {
 function stripMatch(text2, re) {
   return text2.replace(re, "").replace(/\s{2,}/g, " ").replace(/\s+([:,.;])/g, "$1").trim().replace(/^[\s:,-]+|[\s:,-]+$/g, "").trim();
 }
-function addDays(d4, n) {
-  const x = new Date(d4);
+function addDays(d5, n) {
+  const x = new Date(d5);
   x.setDate(x.getDate() + n);
   return x;
 }
-function endOfWeek(d4) {
-  return addDays(d4, (5 - d4.getDay() + 7) % 7 || 0);
+function endOfWeek(d5) {
+  return addDays(d5, (5 - d5.getDay() + 7) % 7 || 0);
 }
-function endOfMonth2(d4) {
-  return new Date(d4.getFullYear(), d4.getMonth() + 1, 0);
+function endOfMonth2(d5) {
+  return new Date(d5.getFullYear(), d5.getMonth() + 1, 0);
 }
 function matchClient(text2, clients3) {
   const n = norm3(text2);
@@ -39197,8 +39197,8 @@ function parseTaskCommand(raw2, clients3, now = /* @__PURE__ */ new Date()) {
   let text2 = stripLeadVerb(raw2);
   const c = matchClient(text2, clients3);
   text2 = c.text;
-  const d4 = extractDueDate(text2, now);
-  text2 = d4.text;
+  const d5 = extractDueDate(text2, now);
+  text2 = d5.text;
   const p = extractPriority(text2);
   text2 = p.text;
   const title = text2.replace(/\s+/g, " ").trim() || raw2.trim();
@@ -39206,7 +39206,7 @@ function parseTaskCommand(raw2, clients3, now = /* @__PURE__ */ new Date()) {
     title,
     clientId: c.client?.id,
     clientName: c.client?.name,
-    dueDate: d4.dueDate,
+    dueDate: d5.dueDate,
     priority: p.priority,
     matchedClient: !!c.client
   };
@@ -39309,13 +39309,13 @@ function deriveKey(purpose) {
 function encryptSecret(plain) {
   if (plain == null || plain === "") return null;
   if (plain.startsWith(ENC_PREFIX)) return plain;
-  const key5 = deriveKey("token");
-  if (!key5) {
+  const key6 = deriveKey("token");
+  if (!key6) {
     warnNoKeyOnce();
     return plain;
   }
   const iv = crypto2.randomBytes(12);
-  const cipher = crypto2.createCipheriv("aes-256-gcm", key5, iv);
+  const cipher = crypto2.createCipheriv("aes-256-gcm", key6, iv);
   const ct = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
   const tag2 = cipher.getAuthTag();
   return `${ENC_PREFIX}${iv.toString("base64")}:${tag2.toString("base64")}:${ct.toString("base64")}`;
@@ -39323,8 +39323,8 @@ function encryptSecret(plain) {
 function decryptSecret(stored) {
   if (stored == null || stored === "") return stored ?? null;
   if (!stored.startsWith(ENC_PREFIX)) return stored;
-  const key5 = deriveKey("token");
-  if (!key5) {
+  const key6 = deriveKey("token");
+  if (!key6) {
     warnNoKeyOnce();
     return null;
   }
@@ -39333,7 +39333,7 @@ function decryptSecret(stored) {
     const iv = Buffer.from(ivB64, "base64");
     const tag2 = Buffer.from(tagB64, "base64");
     const ct = Buffer.from(ctB64, "base64");
-    const decipher = crypto2.createDecipheriv("aes-256-gcm", key5, iv);
+    const decipher = crypto2.createDecipheriv("aes-256-gcm", key6, iv);
     decipher.setAuthTag(tag2);
     return Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8");
   } catch (e) {
@@ -39349,24 +39349,24 @@ function signState(payload) {
     ts: Date.now()
   };
   const body = Buffer.from(JSON.stringify(state)).toString("base64url");
-  const key5 = deriveKey("state");
-  if (!key5) {
+  const key6 = deriveKey("state");
+  if (!key6) {
     warnNoKeyOnce();
     return body;
   }
-  const sig = crypto2.createHmac("sha256", key5).update(body).digest("base64url");
+  const sig = crypto2.createHmac("sha256", key6).update(body).digest("base64url");
   return `${body}.${sig}`;
 }
 function verifyState(raw2) {
   if (!raw2) return null;
-  const key5 = deriveKey("state");
+  const key6 = deriveKey("state");
   let body = raw2;
-  if (key5) {
+  if (key6) {
     const dot = raw2.lastIndexOf(".");
     if (dot < 0) return null;
     body = raw2.slice(0, dot);
     const sig = raw2.slice(dot + 1);
-    const expected = crypto2.createHmac("sha256", key5).update(body).digest("base64url");
+    const expected = crypto2.createHmac("sha256", key6).update(body).digest("base64url");
     if (sig.length !== expected.length || !crypto2.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   } else {
     warnNoKeyOnce();
@@ -40302,8 +40302,8 @@ function decideDedup(candidate, existing, amountTolerance = 0.01, dateToleranceD
   const inv = normalizeInvoiceNumber(candidate.invoiceNumber);
   if (inv) {
     const hit = existing.find((e) => {
-      const d4 = normalizeInvoiceNumber(e.docNumber);
-      return d4 !== "" && d4 === inv;
+      const d5 = normalizeInvoiceNumber(e.docNumber);
+      return d5 !== "" && d5 === inv;
     });
     if (hit) return { isDuplicate: true, reason: "invoice_match", matchedTxnId: hit.txnId, matchedDocNumber: hit.docNumber };
   }
@@ -40819,8 +40819,8 @@ async function sheetsApi2(url2, method, body) {
   if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return null;
   let rawUrl = url2;
   try {
-    const d4 = decodeURIComponent(url2);
-    if (d4) rawUrl = d4;
+    const d5 = decodeURIComponent(url2);
+    if (d5) rawUrl = d5;
   } catch {
   }
   const res = await fetch(SYNC_WEBHOOK, {
@@ -40945,11 +40945,11 @@ function syncClientToMaster(c) {
   upsertClientToMaster(c).catch(() => {
   });
 }
-function leadValue(c, key5) {
-  switch (key5) {
+function leadValue(c, key6) {
+  switch (key6) {
     case "dateReceived": {
-      const d4 = c.createdAt ? new Date(c.createdAt) : null;
-      return d4 && !isNaN(+d4) ? d4.toISOString().slice(0, 10) : "";
+      const d5 = c.createdAt ? new Date(c.createdAt) : null;
+      return d5 && !isNaN(+d5) ? d5.toISOString().slice(0, 10) : "";
     }
     case "leadName":
       return c.contactName || c.name || "";
@@ -42300,8 +42300,8 @@ __export(stat_holidays_exports, {
 });
 function easterSunday(year2) {
   const a = year2 % 19, b = Math.floor(year2 / 100), c = year2 % 100;
-  const d4 = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d4 - g + 15) % 30;
+  const d5 = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d5 - g + 15) % 30;
   const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
   const m = Math.floor((a + 11 * h + 22 * l) / 451);
   const month = Math.floor((h + l - 7 * m + 114) / 31);
@@ -42314,15 +42314,15 @@ function nthWeekday(year2, month, weekday, n) {
   return new Date(year2, month, 1 + offset + (n - 1) * 7);
 }
 function victoriaDay(year2) {
-  const d4 = new Date(year2, 4, 25);
-  while (d4.getDay() !== 1) d4.setDate(d4.getDate() - 1);
-  return d4;
+  const d5 = new Date(year2, 4, 25);
+  while (d5.getDay() !== 1) d5.setDate(d5.getDate() - 1);
+  return d5;
 }
-function observed(d4) {
-  const wd = d4.getDay();
-  if (wd === 6) return new Date(d4.getFullYear(), d4.getMonth(), d4.getDate() + 2);
-  if (wd === 0) return new Date(d4.getFullYear(), d4.getMonth(), d4.getDate() + 1);
-  return d4;
+function observed(d5) {
+  const wd = d5.getDay();
+  if (wd === 6) return new Date(d5.getFullYear(), d5.getMonth(), d5.getDate() + 2);
+  if (wd === 0) return new Date(d5.getFullYear(), d5.getMonth(), d5.getDate() + 1);
+  return d5;
 }
 function ontarioStatHolidays(year2) {
   const easter = easterSunday(year2);
@@ -42352,14 +42352,14 @@ function statHolidaysInRange(startISO, endISO) {
 }
 function statHolidaysObservedInRange(startISO, endISO) {
   return statHolidaysInRange(startISO, endISO).map((h) => {
-    const [y, m, d4] = h.date.split("-").map(Number);
-    return { date: iso(observed(new Date(y, m - 1, d4))), name: h.name };
+    const [y, m, d5] = h.date.split("-").map(Number);
+    return { date: iso(observed(new Date(y, m - 1, d5))), name: h.name };
   });
 }
 var iso;
 var init_stat_holidays = __esm({
   "api/stat-holidays.ts"() {
-    iso = (d4) => `${d4.getFullYear()}-${String(d4.getMonth() + 1).padStart(2, "0")}-${String(d4.getDate()).padStart(2, "0")}`;
+    iso = (d5) => `${d5.getFullYear()}-${String(d5.getMonth() + 1).padStart(2, "0")}-${String(d5.getDate()).padStart(2, "0")}`;
   }
 });
 
@@ -42390,9 +42390,9 @@ async function ensureAppSettings() {
     console.error("[jobber] ensure app_settings failed:", e instanceof Error ? e.message : e);
   }
 }
-async function getCred(key5, envVal) {
+async function getCred(key6, envVal) {
   try {
-    const rows = await getDb().select().from(appSettings).where(eq(appSettings.key, key5)).limit(1);
+    const rows = await getDb().select().from(appSettings).where(eq(appSettings.key, key6)).limit(1);
     const stored = rows[0]?.value;
     if (stored) return decryptSecret(stored) || null;
   } catch {
@@ -42720,8 +42720,8 @@ async function readWorkbookText(userId, sheetId) {
       headers: { Authorization: `Bearer ${token2}` }
     });
     if (!r.ok) continue;
-    const d4 = await r.json();
-    const rows = d4.values || [];
+    const d5 = await r.json();
+    const rows = d5.values || [];
     out += `
 ### TAB: ${t2}
 ` + rows.map((row) => row.join("	")).join("\n");
@@ -42852,8 +42852,8 @@ async function readEmployeeRosterFromWorkbook(userId, clientName) {
   const lastTab = titles[titles.length - 1];
   const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(lastTab)}`, { headers: { Authorization: `Bearer ${token2}` } });
   if (!r.ok) throw new Error(`Couldn't read the "${lastTab}" tab (${r.status}).`);
-  const d4 = await r.json();
-  const rows = d4.values || [];
+  const d5 = await r.json();
+  const rows = d5.values || [];
   const text2 = (`### TAB: ${lastTab}
 ` + rows.map((row) => row.join("	")).join("\n")).slice(0, 6e4);
   const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
@@ -43324,14 +43324,14 @@ async function pullT4FromQbo(_clientId, _year) {
 function periodsElapsedBeforeRun(run2) {
   const start = new Date(run2.payPeriodStart);
   const m = start.getMonth();
-  const d4 = start.getDate();
+  const d5 = start.getDate();
   switch (normalizeFrequency(run2?.frequency)) {
     case "weekly":
       return Math.max(0, Math.floor((start.getTime() - new Date(start.getFullYear(), 0, 1).getTime()) / (7 * 864e5)));
     case "biweekly":
       return Math.max(0, Math.floor((start.getTime() - new Date(start.getFullYear(), 0, 1).getTime()) / (14 * 864e5)));
     case "semi_monthly":
-      return m * 2 + (d4 > 15 ? 1 : 0);
+      return m * 2 + (d5 > 15 ? 1 : 0);
     default:
       return m;
   }
@@ -43426,17 +43426,17 @@ async function recomputeRunTotals(runId) {
 async function applyImportedHours(db, runId, clientId, hours) {
   const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
   const rosterExists = emps.length > 0;
-  const norm16 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  const norm17 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
   const byAlias = /* @__PURE__ */ new Map(), byFull = /* @__PURE__ */ new Map(), byFirst = /* @__PURE__ */ new Map();
   const byLast = /* @__PURE__ */ new Map();
   const byJobberId = /* @__PURE__ */ new Map();
   for (const e of emps) {
     if (e.jobberUserId) byJobberId.set(String(e.jobberUserId), e);
-    if (e.jobberName) byAlias.set(norm16(e.jobberName), e);
-    byFull.set(norm16(`${e.firstName} ${e.lastName}`), e);
-    byFull.set(norm16(`${e.lastName}, ${e.firstName}`), e);
-    if (!byFirst.has(norm16(e.firstName))) byFirst.set(norm16(e.firstName), e);
-    const ln = norm16(e.lastName);
+    if (e.jobberName) byAlias.set(norm17(e.jobberName), e);
+    byFull.set(norm17(`${e.firstName} ${e.lastName}`), e);
+    byFull.set(norm17(`${e.lastName}, ${e.firstName}`), e);
+    if (!byFirst.has(norm17(e.firstName))) byFirst.set(norm17(e.firstName), e);
+    const ln = norm17(e.lastName);
     if (ln) byLast.set(ln, byLast.has(ln) ? "AMBIG" : e);
   }
   const parseName = (label) => {
@@ -43450,17 +43450,17 @@ async function applyImportedHours(db, runId, clientId, hours) {
     return { first: t2[0] || "", last: t2.slice(1).join(" ") };
   };
   const matchEmp = (label) => {
-    const n = norm16(label);
+    const n = norm17(label);
     let m = byAlias.get(n) || byFull.get(n);
     if (m) return m;
     const { first, last } = parseName(label);
-    m = byFull.get(norm16(`${first} ${last}`)) || byFull.get(norm16(`${last}, ${first}`));
+    m = byFull.get(norm17(`${first} ${last}`)) || byFull.get(norm17(`${last}, ${first}`));
     if (m) return m;
     if (last) {
-      const bl = byLast.get(norm16(last));
+      const bl = byLast.get(norm17(last));
       if (bl && bl !== "AMBIG") return bl;
     }
-    return byFirst.get(norm16(first)) || byFirst.get(norm16(n.split(/[ ,]/)[0])) || null;
+    return byFirst.get(norm17(first)) || byFirst.get(norm17(n.split(/[ ,]/)[0])) || null;
   };
   const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
   const lineByEmp = new Map(lines.map((l) => [l.employeeId, l]));
@@ -43490,10 +43490,10 @@ async function applyImportedHours(db, runId, clientId, hours) {
       }).returning();
       emp = ins;
       created.push(`${ins.firstName} ${ins.lastName}`.trim());
-      byFull.set(norm16(h.userName), ins);
-      byFull.set(norm16(`${ins.firstName} ${ins.lastName}`), ins);
-      byFull.set(norm16(`${ins.lastName}, ${ins.firstName}`), ins);
-      if (ins.firstName && !byFirst.has(norm16(ins.firstName))) byFirst.set(norm16(ins.firstName), ins);
+      byFull.set(norm17(h.userName), ins);
+      byFull.set(norm17(`${ins.firstName} ${ins.lastName}`), ins);
+      byFull.set(norm17(`${ins.lastName}, ${ins.firstName}`), ins);
+      if (ins.firstName && !byFirst.has(norm17(ins.firstName))) byFirst.set(norm17(ins.firstName), ins);
     }
     const note = longShiftNote2(h.maxShiftHours ?? 0);
     if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
@@ -43550,9 +43550,9 @@ var init_payroll_router = __esm({
         const eligibleIds = new Set(emps.filter((e) => e.wsibEligible !== false).map((e) => e.id));
         const runs = await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId));
         const inQuarter = runs.filter((r) => {
-          const d4 = r.payDate || r.payPeriodEnd;
-          if (!d4) return false;
-          const dt = new Date(d4);
+          const d5 = r.payDate || r.payPeriodEnd;
+          if (!d5) return false;
+          const dt = new Date(d5);
           return dt.getUTCFullYear() === year2 && dt.getUTCMonth() >= qStartMonth && dt.getUTCMonth() < qStartMonth + 3;
         });
         const runIds = new Set(inQuarter.map((r) => r.id));
@@ -43633,8 +43633,8 @@ var init_payroll_router = __esm({
         const byClient = /* @__PURE__ */ new Map();
         let totalGross = 0, totalNet = 0, totalRuns = 0;
         for (const r of runs) {
-          const d4 = new Date(r.payDate || r.payPeriodEnd);
-          if (d4.getFullYear() !== year2) continue;
+          const d5 = new Date(r.payDate || r.payPeriodEnd);
+          if (d5.getFullYear() !== year2) continue;
           if (allowed !== null && !allowed.includes(r.clientId)) continue;
           const cur = byClient.get(r.clientId) || { clientId: r.clientId, name: nameById.get(r.clientId) || `#${r.clientId}`, runs: 0, gross: 0, net: 0 };
           cur.runs++;
@@ -43858,9 +43858,9 @@ var init_payroll_router = __esm({
         }
         const { recordRateChange: recordRateChange2 } = await Promise.resolve().then(() => (init_employee_router(), employee_router_exports));
         const existing = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
-        const norm16 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+        const norm17 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
         const byName = /* @__PURE__ */ new Map();
-        for (const e of existing) byName.set(norm16(`${e.firstName} ${e.lastName}`), e);
+        for (const e of existing) byName.set(norm17(`${e.firstName} ${e.lastName}`), e);
         const parseName = (label) => {
           const s = (label || "").trim();
           if (s.includes(",")) {
@@ -43875,7 +43875,7 @@ var init_payroll_router = __esm({
           const { first, last } = parseName(row.name);
           if (!first && !last) continue;
           const eff = row.effectiveDate ? /* @__PURE__ */ new Date(row.effectiveDate + "T12:00:00") : /* @__PURE__ */ new Date();
-          const hit = byName.get(norm16(`${first} ${last}`)) || byName.get(norm16(row.name));
+          const hit = byName.get(norm17(`${first} ${last}`)) || byName.get(norm17(row.name));
           if (hit) {
             const changed = row.hourlyRate != null && row.hourlyRate !== hit.hourlyRate || row.annualSalary != null && row.annualSalary !== hit.annualSalary;
             if (changed) {
@@ -43887,7 +43887,7 @@ var init_payroll_router = __esm({
             const [ins] = await db.insert(employees).values({ clientId: input.clientId, firstName: first || row.name, lastName: last || "", payType: row.payType ?? "hourly", hourlyRate: row.hourlyRate ?? null, annualSalary: row.annualSalary ?? null, isActive: true }).returning();
             await recordRateChange2(db, { employeeId: ins.id, clientId: input.clientId, payType: ins.payType, hourlyRate: ins.hourlyRate, annualSalary: ins.annualSalary, effectiveDate: eff, note: "Starting rate (roster sheet)", source: "roster_sheet" });
             created.push(`${first} ${last}`.trim());
-            byName.set(norm16(`${first} ${last}`), ins);
+            byName.set(norm17(`${first} ${last}`), ins);
           }
         }
         return { ok: true, created, updated, total: roster.length };
@@ -44306,15 +44306,15 @@ __export(message_router_exports, {
   normalizePhone: () => normalizePhone
 });
 function normalizePhone(raw2) {
-  const d4 = (raw2 || "").replace(/\D/g, "");
-  return d4.length > 10 ? d4.slice(-10) : d4;
+  const d5 = (raw2 || "").replace(/\D/g, "");
+  return d5.length > 10 ? d5.slice(-10) : d5;
 }
 async function matchClientByPhone(phone) {
   const db = getDb();
-  const norm16 = normalizePhone(phone);
-  if (!norm16) return null;
+  const norm17 = normalizePhone(phone);
+  if (!norm17) return null;
   const all = await db.select().from(clients);
-  const hit = all.find((c) => normalizePhone(c.phone || "") === norm16);
+  const hit = all.find((c) => normalizePhone(c.phone || "") === norm17);
   return hit ? { id: hit.id, name: hit.name } : null;
 }
 async function ingestInboundSms(from, body, externalId) {
@@ -45072,8 +45072,8 @@ async function createAndSendDoc(opts) {
 async function nextQuoteNumber(db) {
   const rows = await db.select().from(signatureDocuments);
   let max2 = 999;
-  for (const d4 of rows) {
-    const m = /Q-(\d+)/.exec(String(d4.title || ""));
+  for (const d5 of rows) {
+    const m = /Q-(\d+)/.exec(String(d5.title || ""));
     if (m) max2 = Math.max(max2, Number(m[1]));
   }
   return `Q-${max2 + 1}`;
@@ -45249,15 +45249,15 @@ var init_quote_router = __esm({
       documents: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
         const rows = await db.select().from(signatureDocuments).where(eq(signatureDocuments.clientId, input.clientId)).orderBy(desc(signatureDocuments.id));
-        return rows.map((d4) => ({
-          id: d4.id,
-          title: d4.title,
-          documentType: d4.documentType,
-          status: d4.status,
-          portalUrl: d4.portalToken ? `/portal/${d4.portalToken}?tab=signatures` : null,
-          sentAt: d4.sentAt,
-          signedAt: d4.signedAt,
-          signedBy: d4.signedBy
+        return rows.map((d5) => ({
+          id: d5.id,
+          title: d5.title,
+          documentType: d5.documentType,
+          status: d5.status,
+          portalUrl: d5.portalToken ? `/portal/${d5.portalToken}?tab=signatures` : null,
+          sentAt: d5.sentAt,
+          signedAt: d5.signedAt,
+          signedBy: d5.signedBy
         }));
       }),
       // Generate a branded, signable quote and send it to the client portal.
@@ -45529,9 +45529,9 @@ async function capturePracticeSnapshot() {
     let tasksOverdue = 0, tasksUpcoming = 0;
     for (const t2 of openTasks) {
       if (!t2.dueDate) continue;
-      const d4 = new Date(t2.dueDate);
-      if (d4 < startToday) tasksOverdue++;
-      else if (d4 < weekAhead) tasksUpcoming++;
+      const d5 = new Date(t2.dueDate);
+      if (d5 < startToday) tasksOverdue++;
+      else if (d5 < weekAhead) tasksUpcoming++;
     }
     const allInvoices = await db.select().from(invoices);
     const invoiceOutstanding = allInvoices.filter((i) => i.status === "sent" || i.status === "overdue").reduce((s, i) => s + (i.amount || 0), 0);
@@ -45623,11 +45623,11 @@ async function ensureTaxRatesTable() {
     console.error("[tax-fetch] ensure table failed:", e instanceof Error ? e.message : e);
   }
 }
-async function put(key5, value, label, year2, source) {
+async function put(key6, value, label, year2, source) {
   const db = getDb();
-  const existing = await db.select().from(taxRates).where(eq(taxRates.key, key5)).limit(1);
-  const row = { key: key5, value, label, effectiveYear: year2, source, updatedAt: /* @__PURE__ */ new Date() };
-  if (existing[0]) await db.update(taxRates).set(row).where(eq(taxRates.key, key5));
+  const existing = await db.select().from(taxRates).where(eq(taxRates.key, key6)).limit(1);
+  const row = { key: key6, value, label, effectiveYear: year2, source, updatedAt: /* @__PURE__ */ new Date() };
+  if (existing[0]) await db.update(taxRates).set(row).where(eq(taxRates.key, key6));
   else await db.insert(taxRates).values(row);
 }
 async function getTaxRateMap() {
@@ -45680,11 +45680,11 @@ Use decimals for rates (13% = 0.13). Use 0 only if you genuinely cannot verify a
     const yr = Number(p.year) || year2;
     const src = `web_search ${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}`;
     const changed = [];
-    const apply = async (key5, val, label) => {
+    const apply = async (key6, val, label) => {
       const n = Number(val);
       if (!isFinite(n) || n <= 0) return;
-      if (before[key5] == null || Math.abs(before[key5] - n) > 1e-9) changed.push(`${label}: ${before[key5] ?? "\u2014"} \u2192 ${n}`);
-      await put(key5, n, label, yr, src);
+      if (before[key6] == null || Math.abs(before[key6] - n) > 1e-9) changed.push(`${label}: ${before[key6] ?? "\u2014"} \u2192 ${n}`);
+      await put(key6, n, label, yr, src);
     };
     if (p.ca_hst && typeof p.ca_hst === "object") {
       for (const prov of PROVINCES) await apply(`ca.hst.${prov}`, p.ca_hst[prov], `${prov} GST/HST`);
@@ -45960,8 +45960,8 @@ function isEmptyObj(obj) {
     return false;
   return true;
 }
-function hasOwn(obj, key5) {
-  return Object.prototype.hasOwnProperty.call(obj, key5);
+function hasOwn(obj, key6) {
+  return Object.prototype.hasOwnProperty.call(obj, key6);
 }
 var startsWithSchemeRegexp, isAbsoluteURL, isArray3, isReadonlyArray, validatePositiveInteger, safeJSON;
 var init_values = __esm({
@@ -46045,13 +46045,13 @@ function getBrowserInfo() {
     { key: "firefox", pattern: /Firefox(?:\W+(\d+)\.(\d+)(?:\.(\d+))?)?/ },
     { key: "safari", pattern: /(?:Version\W+(\d+)\.(\d+)(?:\.(\d+))?)?(?:\W+Mobile\S*)?\W+Safari/ }
   ];
-  for (const { key: key5, pattern } of browserPatterns) {
+  for (const { key: key6, pattern } of browserPatterns) {
     const match2 = pattern.exec(navigator.userAgent);
     if (match2) {
       const major = match2[1] || 0;
       const minor = match2[2] || 0;
       const patch = match2[3] || 0;
-      return { browser: key5, version: `${major}.${minor}.${patch}` };
+      return { browser: key6, version: `${major}.${minor}.${patch}` };
     }
   }
   return null;
@@ -46286,7 +46286,7 @@ var init_utils3 = __esm({
   "node_modules/@anthropic-ai/sdk/internal/qs/utils.mjs"() {
     init_formats();
     init_values();
-    has = (obj, key5) => (has = Object.hasOwn ?? Function.prototype.call.bind(Object.prototype.hasOwnProperty), has(obj, key5));
+    has = (obj, key6) => (has = Object.hasOwn ?? Function.prototype.call.bind(Object.prototype.hasOwnProperty), has(obj, key6));
     hex_table = /* @__PURE__ */ (() => {
       const array3 = [];
       for (let i = 0; i < 256; ++i) {
@@ -46426,15 +46426,15 @@ function inner_stringify(object3, prefix, generateArrayPrefix, commaRoundTrip, a
     return adjusted_prefix + "[]";
   }
   for (let j = 0; j < obj_keys.length; ++j) {
-    const key5 = obj_keys[j];
+    const key6 = obj_keys[j];
     const value = (
       // @ts-ignore
-      typeof key5 === "object" && typeof key5.value !== "undefined" ? key5.value : obj[key5]
+      typeof key6 === "object" && typeof key6.value !== "undefined" ? key6.value : obj[key6]
     );
     if (skipNulls && value === null) {
       continue;
     }
-    const encoded_key = allowDots && encodeDotInKeys ? key5.replace(/\./g, "%2E") : key5;
+    const encoded_key = allowDots && encodeDotInKeys ? key6.replace(/\./g, "%2E") : key6;
     const key_prefix = isArray3(obj) ? typeof generateArrayPrefix === "function" ? generateArrayPrefix(adjusted_prefix, encoded_key) : adjusted_prefix : adjusted_prefix + (allowDots ? "." + encoded_key : "[" + encoded_key + "]");
     sideChannel.set(object3, step);
     const valueSideChannel = /* @__PURE__ */ new WeakMap();
@@ -46551,13 +46551,13 @@ function stringify2(object3, opts = {}) {
   }
   const sideChannel = /* @__PURE__ */ new WeakMap();
   for (let i = 0; i < obj_keys.length; ++i) {
-    const key5 = obj_keys[i];
-    if (options.skipNulls && obj[key5] === null) {
+    const key6 = obj_keys[i];
+    if (options.skipNulls && obj[key6] === null) {
       continue;
     }
     push_to_array(keys, inner_stringify(
-      obj[key5],
-      key5,
+      obj[key6],
+      key6,
       // @ts-expect-error
       generateArrayPrefix,
       commaRoundTrip,
@@ -46599,8 +46599,8 @@ var init_stringify = __esm({
         return String(prefix) + "[]";
       },
       comma: "comma",
-      indices(prefix, key5) {
-        return String(prefix) + "[" + key5 + "]";
+      indices(prefix, key6) {
+        return String(prefix) + "[" + key6 + "]";
       },
       repeat(prefix) {
         return String(prefix);
@@ -48351,33 +48351,33 @@ var init_uploads = __esm({
         throw new TypeError("The provided fetch function does not support file uploads with the current global FormData class.");
       }
       const form = new FormData();
-      await Promise.all(Object.entries(body || {}).map(([key5, value]) => addFormValue(form, key5, value, stripFilenames)));
+      await Promise.all(Object.entries(body || {}).map(([key6, value]) => addFormValue(form, key6, value, stripFilenames)));
       return form;
     };
     isNamedBlob = (value) => value instanceof Blob && "name" in value;
-    addFormValue = async (form, key5, value, stripFilenames) => {
+    addFormValue = async (form, key6, value, stripFilenames) => {
       if (value === void 0)
         return;
       if (value == null) {
-        throw new TypeError(`Received null for "${key5}"; to pass null in FormData, you must use the string 'null'`);
+        throw new TypeError(`Received null for "${key6}"; to pass null in FormData, you must use the string 'null'`);
       }
       if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-        form.append(key5, String(value));
+        form.append(key6, String(value));
       } else if (value instanceof Response) {
         let options = {};
         const contentType = value.headers.get("Content-Type");
         if (contentType) {
           options = { type: contentType };
         }
-        form.append(key5, makeFile([await value.blob()], getName(value, stripFilenames), options));
+        form.append(key6, makeFile([await value.blob()], getName(value, stripFilenames), options));
       } else if (isAsyncIterable2(value)) {
-        form.append(key5, makeFile([await new Response(ReadableStreamFrom(value)).blob()], getName(value, stripFilenames)));
+        form.append(key6, makeFile([await new Response(ReadableStreamFrom(value)).blob()], getName(value, stripFilenames)));
       } else if (isNamedBlob(value)) {
-        form.append(key5, makeFile([value], getName(value, stripFilenames), { type: value.type }));
+        form.append(key6, makeFile([value], getName(value, stripFilenames), { type: value.type }));
       } else if (Array.isArray(value)) {
-        await Promise.all(value.map((entry) => addFormValue(form, key5 + "[]", entry, stripFilenames)));
+        await Promise.all(value.map((entry) => addFormValue(form, key6 + "[]", entry, stripFilenames)));
       } else if (typeof value === "object") {
-        await Promise.all(Object.entries(value).map(([name2, prop]) => addFormValue(form, `${key5}[${name2}]`, prop, stripFilenames)));
+        await Promise.all(Object.entries(value).map(([name2, prop]) => addFormValue(form, `${key6}[${name2}]`, prop, stripFilenames)));
       } else {
         throw new TypeError(`Invalid value given to form, expected a string, number, boolean, object, Array, File or Blob but got ${value} instead`);
       }
@@ -49237,20 +49237,20 @@ var require_base64 = __commonJS({
   "node_modules/@stablelib/base64/lib/base64.js"(exports) {
     "use strict";
     var __extends = exports && exports.__extends || /* @__PURE__ */ (function() {
-      var extendStatics = function(d4, b) {
-        extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d5, b2) {
-          d5.__proto__ = b2;
-        } || function(d5, b2) {
-          for (var p in b2) if (b2.hasOwnProperty(p)) d5[p] = b2[p];
+      var extendStatics = function(d5, b) {
+        extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d6, b2) {
+          d6.__proto__ = b2;
+        } || function(d6, b2) {
+          for (var p in b2) if (b2.hasOwnProperty(p)) d6[p] = b2[p];
         };
-        return extendStatics(d4, b);
+        return extendStatics(d5, b);
       };
-      return function(d4, b) {
-        extendStatics(d4, b);
+      return function(d5, b) {
+        extendStatics(d5, b);
         function __() {
-          this.constructor = d4;
+          this.constructor = d5;
         }
-        d4.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+        d5.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
       };
     })();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -49536,12 +49536,12 @@ var require_sha256 = __commonJS({
         3329325298
       ]);
       function hashBlocks(w, v, p, pos2, len) {
-        var a, b, c, d4, e, f, g, h, u, i, j, t1, t2;
+        var a, b, c, d5, e, f, g, h, u, i, j, t1, t2;
         while (len >= 64) {
           a = v[0];
           b = v[1];
           c = v[2];
-          d4 = v[3];
+          d5 = v[3];
           e = v[4];
           f = v[5];
           g = v[6];
@@ -49563,8 +49563,8 @@ var require_sha256 = __commonJS({
             h = g;
             g = f;
             f = e;
-            e = d4 + t1 | 0;
-            d4 = c;
+            e = d5 + t1 | 0;
+            d5 = c;
             c = b;
             b = a;
             a = t1 + t2 | 0;
@@ -49572,7 +49572,7 @@ var require_sha256 = __commonJS({
           v[0] += a;
           v[1] += b;
           v[2] += c;
-          v[3] += d4;
+          v[3] += d5;
           v[4] += e;
           v[5] += f;
           v[6] += g;
@@ -49703,17 +49703,17 @@ var require_sha256 = __commonJS({
       var HMAC = (
         /** @class */
         (function() {
-          function HMAC2(key5) {
+          function HMAC2(key6) {
             this.inner = new Hash();
             this.outer = new Hash();
             this.blockSize = this.inner.blockSize;
             this.digestLength = this.inner.digestLength;
             var pad = new Uint8Array(this.blockSize);
-            if (key5.length > this.blockSize) {
-              new Hash().update(key5).finish(pad).clean();
+            if (key6.length > this.blockSize) {
+              new Hash().update(key6).finish(pad).clean();
             } else {
-              for (var i = 0; i < key5.length; i++) {
-                pad[i] = key5[i];
+              for (var i = 0; i < key6.length; i++) {
+                pad[i] = key6[i];
               }
             }
             for (var i = 0; i < pad.length; i++) {
@@ -49774,8 +49774,8 @@ var require_sha256 = __commonJS({
       }
       exports2.hash = hash3;
       exports2["default"] = hash3;
-      function hmac(key5, data) {
-        var h = new HMAC(key5).update(data);
+      function hmac(key6, data) {
+        var h = new HMAC(key6).update(data);
         var digest = h.digest();
         h.clean();
         return digest;
@@ -49798,7 +49798,7 @@ var require_sha256 = __commonJS({
         counter[0]++;
       }
       var hkdfSalt = new Uint8Array(exports2.digestLength);
-      function hkdf(key5, salt, info, length) {
+      function hkdf(key6, salt, info, length) {
         if (salt === void 0) {
           salt = hkdfSalt;
         }
@@ -49806,7 +49806,7 @@ var require_sha256 = __commonJS({
           length = 32;
         }
         var counter = new Uint8Array([1]);
-        var okm = hmac(salt, key5);
+        var okm = hmac(salt, key6);
         var hmac_ = new HMAC(okm);
         var buffer = new Uint8Array(hmac_.digestLength);
         var bufpos = buffer.length;
@@ -49918,8 +49918,8 @@ var require_dist3 = __commonJS({
       }
       verify(payload, headers_) {
         const headers = {};
-        for (const key5 of Object.keys(headers_)) {
-          headers[key5.toLowerCase()] = headers_[key5];
+        for (const key6 of Object.keys(headers_)) {
+          headers[key6.toLowerCase()] = headers_[key6];
         }
         const msgId = headers["webhook-id"];
         const msgSignature = headers["webhook-signature"];
@@ -49983,9 +49983,9 @@ var init_webhooks = __esm({
     init_resource();
     import_standardwebhooks = __toESM(require_dist3(), 1);
     Webhooks = class extends APIResource {
-      unwrap(body, { headers, key: key5 }) {
+      unwrap(body, { headers, key: key6 }) {
         if (headers !== void 0) {
-          const keyStr = key5 === void 0 ? this._client.webhookKey : key5;
+          const keyStr = key6 === void 0 ? this._client.webhookKey : key6;
           if (keyStr === null)
             throw new Error("Webhook key must not be null in order to unwrap");
           const wh = new import_standardwebhooks.Webhook(keyStr);
@@ -51187,10 +51187,10 @@ function resolvePath(ctx, p) {
 }
 function scrubbedShellEnv() {
   const env2 = {};
-  for (const [key5, value] of Object.entries(process.env)) {
-    if (key5.startsWith("ANTHROPIC_"))
+  for (const [key6, value] of Object.entries(process.env)) {
+    if (key6.startsWith("ANTHROPIC_"))
       continue;
-    env2[key5] = value;
+    env2[key6] = value;
   }
   return env2;
 }
@@ -51412,7 +51412,7 @@ function betaGlobTool(ctx) {
         for await (const entry of fsGlob(pat, {
           cwd: root,
           withFileTypes: true,
-          exclude: (d4) => d4.name === ".git" || d4.name === "node_modules"
+          exclude: (d5) => d5.name === ".git" || d5.name === "node_modules"
         })) {
           if (!entry.isFile())
             continue;
@@ -51464,17 +51464,17 @@ function runRipgrep(rg, pattern, searchPath, signal) {
     let out = "";
     let errOut = "";
     let truncated = false;
-    proc.stdout.on("data", (d4) => {
+    proc.stdout.on("data", (d5) => {
       if (truncated)
         return;
-      out += d4;
+      out += d5;
       if (out.length > GREP_OUTPUT_LIMIT) {
         truncated = true;
         out = out.slice(0, GREP_OUTPUT_LIMIT);
         proc.kill("SIGKILL");
       }
     });
-    proc.stderr.on("data", (d4) => errOut += d4);
+    proc.stderr.on("data", (d5) => errOut += d5);
     proc.on("close", (code) => {
       if (signal?.aborted)
         return reject(new ToolError("grep: aborted"));
@@ -51581,8 +51581,8 @@ async function walk(root, rel, fn, signal) {
 }
 async function findRg() {
   const dirs = (process.env["PATH"] ?? "").split(path5.delimiter);
-  for (const d4 of dirs) {
-    const candidate = path5.join(d4, "rg");
+  for (const d5 of dirs) {
+    const candidate = path5.join(d5, "rg");
     try {
       await fs3.access(candidate, fssync2.constants.X_OK);
       return candidate;
@@ -51630,8 +51630,8 @@ var init_node3 = __esm({
         }), "f");
         __classPrivateFieldGet(this, _BashSession_proc, "f").stdout.setEncoding("utf8");
         __classPrivateFieldGet(this, _BashSession_proc, "f").stderr.setEncoding("utf8");
-        __classPrivateFieldGet(this, _BashSession_proc, "f").stdout.on("data", (d4) => __classPrivateFieldGet(this, _BashSession_instances, "m", _BashSession_append).call(this, d4));
-        __classPrivateFieldGet(this, _BashSession_proc, "f").stderr.on("data", (d4) => __classPrivateFieldGet(this, _BashSession_instances, "m", _BashSession_append).call(this, d4));
+        __classPrivateFieldGet(this, _BashSession_proc, "f").stdout.on("data", (d5) => __classPrivateFieldGet(this, _BashSession_instances, "m", _BashSession_append).call(this, d5));
+        __classPrivateFieldGet(this, _BashSession_proc, "f").stderr.on("data", (d5) => __classPrivateFieldGet(this, _BashSession_instances, "m", _BashSession_append).call(this, d5));
         __classPrivateFieldGet(this, _BashSession_proc, "f").once("close", () => {
           __classPrivateFieldSet(this, _BashSession_closed, true, "f");
           const w = __classPrivateFieldGet(this, _BashSession_waiting, "f");
@@ -51718,8 +51718,8 @@ ${out}`;
         __classPrivateFieldGet(this, _BashSession_proc, "f").unref();
       }
     };
-    _BashSession_proc = /* @__PURE__ */ new WeakMap(), _BashSession_buf = /* @__PURE__ */ new WeakMap(), _BashSession_truncated = /* @__PURE__ */ new WeakMap(), _BashSession_closed = /* @__PURE__ */ new WeakMap(), _BashSession_waiting = /* @__PURE__ */ new WeakMap(), _BashSession_instances = /* @__PURE__ */ new WeakSet(), _BashSession_append = function _BashSession_append2(d4) {
-      __classPrivateFieldSet(this, _BashSession_buf, __classPrivateFieldGet(this, _BashSession_buf, "f") + d4, "f");
+    _BashSession_proc = /* @__PURE__ */ new WeakMap(), _BashSession_buf = /* @__PURE__ */ new WeakMap(), _BashSession_truncated = /* @__PURE__ */ new WeakMap(), _BashSession_closed = /* @__PURE__ */ new WeakMap(), _BashSession_waiting = /* @__PURE__ */ new WeakMap(), _BashSession_instances = /* @__PURE__ */ new WeakSet(), _BashSession_append = function _BashSession_append2(d5) {
+      __classPrivateFieldSet(this, _BashSession_buf, __classPrivateFieldGet(this, _BashSession_buf, "f") + d5, "f");
       if (__classPrivateFieldGet(this, _BashSession_buf, "f").length > BASH_OUTPUT_LIMIT) {
         __classPrivateFieldSet(this, _BashSession_buf, __classPrivateFieldGet(this, _BashSession_buf, "f").slice(__classPrivateFieldGet(this, _BashSession_buf, "f").length - BASH_OUTPUT_LIMIT), "f");
         __classPrivateFieldSet(this, _BashSession_truncated, true, "f");
@@ -53310,9 +53310,9 @@ var init_parser = __esm({
 // node_modules/@anthropic-ai/sdk/internal/message-stream-utils.mjs
 function withLazyInput(prev, jsonBuf) {
   const next = {};
-  for (const key5 of Object.keys(prev)) {
-    if (key5 !== "input")
-      next[key5] = prev[key5];
+  for (const key6 of Object.keys(prev)) {
+    if (key6 !== "input")
+      next[key6] = prev[key6];
   }
   Object.defineProperty(next, JSON_BUF_PROPERTY, { value: jsonBuf, enumerable: false, writable: true });
   let input;
@@ -57551,9 +57551,9 @@ function normalizeCategory(c) {
   if (/(home|house|address|utility|maintenance)/.test(s)) return "home";
   return "misc";
 }
-function ms2(d4) {
-  if (d4 == null) return 0;
-  const t2 = d4 instanceof Date ? d4.getTime() : Number(d4);
+function ms2(d5) {
+  if (d5 == null) return 0;
+  const t2 = d5 instanceof Date ? d5.getTime() : Number(d5);
   return Number.isFinite(t2) ? t2 : 0;
 }
 function selectPersonalFacts(all, limit2 = 40) {
@@ -57770,9 +57770,9 @@ var init_qa_core = __esm({
 });
 
 // api/scorecard-core.ts
-function toMs(d4) {
-  if (d4 == null) return null;
-  const t2 = d4 instanceof Date ? d4.getTime() : Number(d4);
+function toMs(d5) {
+  if (d5 == null) return null;
+  const t2 = d5 instanceof Date ? d5.getTime() : Number(d5);
   return Number.isFinite(t2) ? t2 : null;
 }
 function normConf(c) {
@@ -57811,8 +57811,8 @@ function scoreAgents(rows, now = Date.now()) {
     });
     const rate = (xs) => {
       const a = xs.filter((i) => i.status === "approved").length;
-      const d4 = xs.filter((i) => i.status === "dismissed").length;
-      return a + d4 ? a / (a + d4) * 100 : null;
+      const d5 = xs.filter((i) => i.status === "dismissed").length;
+      return a + d5 ? a / (a + d5) * 100 : null;
     };
     const rRecent = rate(recent), rPrior = rate(prior);
     let trend = "n/a";
@@ -58189,10 +58189,10 @@ async function ensurePayrollReminders() {
     let tasksAdded = 0, eventsAdded = 0;
     const { pushEventToGoogle: pushEventToGoogle2 } = await Promise.resolve().then(() => (init_google_push(), google_push_exports));
     for (let i = 0; i <= WINDOW_DAYS; i++) {
-      const d4 = new Date(base.getTime() + i * 864e5);
-      if (weekdayInTz(d4) !== "Wed") continue;
-      const dateStr = ymdInTz(d4);
-      const dayDiff = Math.round((d4.getTime() - base.getTime()) / 864e5);
+      const d5 = new Date(base.getTime() + i * 864e5);
+      if (weekdayInTz(d5) !== "Wed") continue;
+      const dateStr = ymdInTz(d5);
+      const dayDiff = Math.round((d5.getTime() - base.getTime()) / 864e5);
       const isBiweekly = dayDiff % 14 === 0;
       const due = [...WEEKLY, ...isBiweekly ? BIWEEKLY : []];
       if (!due.length) continue;
@@ -58254,8 +58254,8 @@ var init_seed_payroll_recurring = __esm({
     WINDOW_DAYS = 56;
     BLOCK_START = "08:00:00";
     BLOCK_END = "12:00:00";
-    ymdInTz = (d4) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ2, year: "numeric", month: "2-digit", day: "2-digit" }).format(d4);
-    weekdayInTz = (d4) => new Intl.DateTimeFormat("en-US", { timeZone: TZ2, weekday: "short" }).format(d4);
+    ymdInTz = (d5) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ2, year: "numeric", month: "2-digit", day: "2-digit" }).format(d5);
+    weekdayInTz = (d5) => new Intl.DateTimeFormat("en-US", { timeZone: TZ2, weekday: "short" }).format(d5);
   }
 });
 
@@ -58940,6 +58940,321 @@ var init_seed_collingwood_backfill = __esm({
   }
 });
 
+// api/seed-auld-backfill.ts
+var seed_auld_backfill_exports = {};
+__export(seed_auld_backfill_exports, {
+  backfillAuldPayroll: () => backfillAuldPayroll
+});
+async function backfillAuldPayroll() {
+  const db = getDb();
+  try {
+    const cs = await db.select().from(clients);
+    const client = cs.find((c) => /auld/i.test(c.name || ""));
+    if (!client) return { client: null, runsAdded: 0, skipped: "Auld Spot client not found" };
+    const clientId = client.id;
+    const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
+    const empByKey = /* @__PURE__ */ new Map();
+    for (const e of existing) empByKey.set(key5(e.firstName, e.lastName), e);
+    for (const r of ROSTER5) {
+      const k = key5(r.first, r.last);
+      const ex = empByKey.get(k);
+      if (ex) {
+        const patch = {};
+        if (ex.payType == null) patch.payType = "hourly";
+        if (ex.hourlyRate == null && r.rate != null) patch.hourlyRate = r.rate;
+        if (Object.keys(patch).length) {
+          patch.updatedAt = /* @__PURE__ */ new Date();
+          await db.update(employees).set(patch).where(eq(employees.id, ex.id));
+        }
+        continue;
+      }
+      const [ins] = await db.insert(employees).values({
+        clientId,
+        firstName: r.first,
+        lastName: r.last,
+        payType: "hourly",
+        hourlyRate: r.rate,
+        isActive: true,
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).returning();
+      if (ins) empByKey.set(k, ins);
+    }
+    const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
+    let runsAdded = 0;
+    for (const p of PERIODS4) {
+      if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
+      let totalGross = 0;
+      const [run2] = await db.insert(payRuns).values({
+        clientId,
+        payPeriodStart: d4(p.start),
+        payPeriodEnd: d4(p.end),
+        payDate: d4(p.payDate),
+        frequency: "biweekly",
+        status: "review",
+        hoursSource: "manual",
+        notes: "Backfill from Google payroll sheet",
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).returning();
+      if (!run2) continue;
+      for (const [k, v] of Object.entries(p.lines)) {
+        const emp = empByKey.get(k);
+        if (!emp) continue;
+        const gross = round211(v.gross);
+        totalGross += gross;
+        await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
+      }
+      await db.update(payRuns).set({ totalGross: round211(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      runsAdded++;
+    }
+    if (runsAdded) console.log(`[auld-backfill] added ${runsAdded} run(s)`);
+    return { client: clientId, runsAdded, skipped: "" };
+  } catch (err) {
+    console.error("[auld-backfill] failed:", err instanceof Error ? err.message : err);
+  }
+}
+var round211, norm12, key5, d4, ROSTER5, PERIODS4;
+var init_seed_auld_backfill = __esm({
+  "api/seed-auld-backfill.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    round211 = (n) => Math.round(n * 100) / 100;
+    norm12 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key5 = (first, last) => `${norm12(last)}|${norm12(first)}`;
+    d4 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
+    ROSTER5 = [
+      { first: "James", last: "Allard", rate: 20 },
+      { first: "Bhima", last: "Bhattarai", rate: 17.6 },
+      { first: "Heather", last: "Capstick", rate: 18 },
+      { first: "Maddy", last: "Cooper", rate: 17.6 },
+      { first: "Eric", last: "Cressos", rate: 18 },
+      { first: "Kimberly", last: "Daly", rate: 17.6 },
+      { first: "Karma", last: "Dozang", rate: 20 },
+      { first: "Paige", last: "Ferlatte", rate: 17.6 },
+      { first: "Charlotte", last: "Fowler", rate: 17.6 },
+      { first: "Breanna", last: "Fox", rate: 18 },
+      { first: "Lee Anne", last: "Hrabi", rate: 17.6 },
+      { first: "Robert", last: "Jacobson", rate: 30 },
+      { first: "Bonnie", last: "Malone", rate: 17.6 },
+      { first: "Amal", last: "Ragh", rate: 21 },
+      { first: "Bryah", last: "Risdon", rate: 17.6 },
+      { first: "Lauren", last: "Temple", rate: 17.6 },
+      { first: "Jayvi Tri", last: "Tsan", rate: 20 },
+      { first: "Leah", last: "Young", rate: 17.6 }
+    ];
+    PERIODS4 = [
+      { payDate: "2026-06-26", start: "2026-06-10", end: "2026-06-23", lines: {
+        [key5("James", "Allard")]: { hours: 76.27, gross: 1586.42 },
+        [key5("Bhima", "Bhattarai")]: { hours: 74.58, gross: 1365.11 },
+        [key5("Heather", "Capstick")]: { hours: 70.78, gross: 1325 },
+        [key5("Eric", "Cressos")]: { hours: 56.87, gross: 1064.61 },
+        [key5("Karma", "Dozang")]: { hours: 26.65, gross: 554.32 },
+        [key5("Paige", "Ferlatte")]: { hours: 52.16, gross: 954.74 },
+        [key5("Breanna", "Fox")]: { hours: 85.22, gross: 1595.32 },
+        [key5("Lee Anne", "Hrabi")]: { hours: 63.91, gross: 1169.81 },
+        [key5("Robert", "Jacobson")]: { hours: 93.37, gross: 2913.14 },
+        [key5("Bonnie", "Malone")]: { hours: 55.82, gross: 1021.73 },
+        [key5("Amal", "Ragh")]: { hours: 89.44, gross: 1953.37 },
+        [key5("Bryah", "Risdon")]: { hours: 52.71, gross: 964.8 },
+        [key5("Lauren", "Temple")]: { hours: 14.71, gross: 269.25 },
+        [key5("Jayvi Tri", "Tsan")]: { hours: 42.68, gross: 887.74 }
+      } },
+      { payDate: "2026-06-12", start: "2026-05-27", end: "2026-06-09", lines: {
+        [key5("James", "Allard")]: { hours: 76.84, gross: 1598.27 },
+        [key5("Bhima", "Bhattarai")]: { hours: 69.6, gross: 1273.96 },
+        [key5("Heather", "Capstick")]: { hours: 49.09, gross: 918.96 },
+        [key5("Eric", "Cressos")]: { hours: 62.78, gross: 1175.24 },
+        [key5("Karma", "Dozang")]: { hours: 28.94, gross: 601.95 },
+        [key5("Paige", "Ferlatte")]: { hours: 48.67, gross: 890.86 },
+        [key5("Breanna", "Fox")]: { hours: 84.96, gross: 1590.45 },
+        [key5("Lee Anne", "Hrabi")]: { hours: 45.88, gross: 839.79 },
+        [key5("Robert", "Jacobson")]: { hours: 85.52, gross: 2668.22 },
+        [key5("Bonnie", "Malone")]: { hours: 80.87, gross: 1480.24 },
+        [key5("Amal", "Ragh")]: { hours: 69.36, gross: 1514.82 },
+        [key5("Bryah", "Risdon")]: { hours: 61.35, gross: 1122.95 },
+        [key5("Jayvi Tri", "Tsan")]: { hours: 36.14, gross: 751.71 }
+      } },
+      { payDate: "2026-05-29", start: "2026-05-13", end: "2026-05-26", lines: {
+        [key5("James", "Allard")]: { hours: 85.75, gross: 1850.37 },
+        [key5("Bhima", "Bhattarai")]: { hours: 80.85, gross: 1529.82 },
+        [key5("Heather", "Capstick")]: { hours: 63.84, gross: 1195.13 },
+        [key5("Maddy", "Cooper")]: { hours: 18.38, gross: 336.42 },
+        [key5("Eric", "Cressos")]: { hours: 52.15, gross: 976.2 },
+        [key5("Karma", "Dozang")]: { hours: 26.37, gross: 548.48 },
+        [key5("Paige", "Ferlatte")]: { hours: 57.62, gross: 1054.67 },
+        [key5("Breanna", "Fox")]: { hours: 80.86, gross: 1586.91 },
+        [key5("Lee Anne", "Hrabi")]: { hours: 69.09, gross: 1329.41 },
+        [key5("Robert", "Jacobson")]: { hours: 112.84, gross: 3638.23 },
+        [key5("Bonnie", "Malone")]: { hours: 82.19, gross: 1588.17 },
+        [key5("Amal", "Ragh")]: { hours: 89.98, gross: 2064.64 },
+        [key5("Bryah", "Risdon")]: { hours: 44.55, gross: 815.51 },
+        [key5("Jayvi Tri", "Tsan")]: { hours: 52.99, gross: 1176.65 }
+      } },
+      { payDate: "2026-05-15", start: "2026-04-29", end: "2026-05-12", lines: {
+        [key5("James", "Allard")]: { hours: 84.92, gross: 1766.34 },
+        [key5("Bhima", "Bhattarai")]: { hours: 74.98, gross: 1372.43 },
+        [key5("Heather", "Capstick")]: { hours: 46.35, gross: 867.67 },
+        [key5("Maddy", "Cooper")]: { hours: 35.88, gross: 656.75 },
+        [key5("Eric", "Cressos")]: { hours: 57.94, gross: 1084.64 },
+        [key5("Kimberly", "Daly")]: { hours: 30.1, gross: 550.95 },
+        [key5("Karma", "Dozang")]: { hours: 19.14, gross: 398.11 },
+        [key5("Paige", "Ferlatte")]: { hours: 47.63, gross: 871.82 },
+        [key5("Breanna", "Fox")]: { hours: 68.09, gross: 1274.64 },
+        [key5("Lee Anne", "Hrabi")]: { hours: 53.17, gross: 973.22 },
+        [key5("Robert", "Jacobson")]: { hours: 86.4, gross: 2695.68 },
+        [key5("Bonnie", "Malone")]: { hours: 65.68, gross: 1202.21 },
+        [key5("Amal", "Ragh")]: { hours: 84.93, gross: 1854.87 },
+        [key5("Bryah", "Risdon")]: { hours: 33.3, gross: 609.52 },
+        [key5("Jayvi Tri", "Tsan")]: { hours: 33.92, gross: 705.54 }
+      } },
+      { payDate: "2026-05-01", start: "2026-04-15", end: "2026-04-28", lines: {
+        [key5("James", "Allard")]: { hours: 63.24, gross: 1315.39 },
+        [key5("Bhima", "Bhattarai")]: { hours: 68.16, gross: 1247.6 },
+        [key5("Heather", "Capstick")]: { hours: 47.38, gross: 886.95 },
+        [key5("Maddy", "Cooper")]: { hours: 23.54, gross: 430.88 },
+        [key5("Eric", "Cressos")]: { hours: 43.92, gross: 822.18 },
+        [key5("Kimberly", "Daly")]: { hours: 36.62, gross: 670.29 },
+        [key5("Karma", "Dozang")]: { hours: 27.58, gross: 573.66 },
+        [key5("Paige", "Ferlatte")]: { hours: 47.63, gross: 871.82 },
+        [key5("Breanna", "Fox")]: { hours: 59.23, gross: 1108.79 },
+        [key5("Lee Anne", "Hrabi")]: { hours: 56.34, gross: 1031.25 },
+        [key5("Robert", "Jacobson")]: { hours: 88.08, gross: 2748.1 },
+        [key5("Bonnie", "Malone")]: { hours: 63.1, gross: 1154.98 },
+        [key5("Amal", "Ragh")]: { hours: 96.49, gross: 2107.34 },
+        [key5("Bryah", "Risdon")]: { hours: 31.39, gross: 574.56 },
+        [key5("Jayvi Tri", "Tsan")]: { hours: 40.77, gross: 848.02 }
+      } },
+      { payDate: "2026-04-17", start: "2026-04-01", end: "2026-04-14", lines: {
+        [key5("James", "Allard")]: { hours: 96.18, gross: 2095.36 },
+        [key5("Bhima", "Bhattarai")]: { hours: 76.03, gross: 1460.79 },
+        [key5("Heather", "Capstick")]: { hours: 72.21, gross: 1426.81 },
+        [key5("Eric", "Cressos")]: { hours: 50.35, gross: 942.52 },
+        [key5("Kimberly", "Daly")]: { hours: 36.7, gross: 701.55 },
+        [key5("Karma", "Dozang")]: { hours: 13.04, gross: 271.26 },
+        [key5("Paige", "Ferlatte")]: { hours: 52.79, gross: 966.26 },
+        [key5("Breanna", "Fox")]: { hours: 82.55, gross: 1615.57 },
+        [key5("Lee Anne", "Hrabi")]: { hours: 47.56, gross: 929.72 },
+        [key5("Robert", "Jacobson")]: { hours: 104.34, gross: 3392.22 },
+        [key5("Bonnie", "Malone")]: { hours: 77.93, gross: 1483.38 },
+        [key5("Amal", "Ragh")]: { hours: 86.43, gross: 1981 },
+        [key5("Bryah", "Risdon")]: { hours: 53.95, gross: 987.58 },
+        [key5("Jayvi Tri", "Tsan")]: { hours: 56.25, gross: 1169.9 }
+      } },
+      { payDate: "2026-04-03", start: "2026-03-18", end: "2026-03-31", lines: {
+        [key5("James", "Allard")]: { hours: 63.76, gross: 1326.21 },
+        [key5("Bhima", "Bhattarai")]: { hours: 66.67, gross: 1220.33 },
+        [key5("Heather", "Capstick")]: { hours: 65.86, gross: 1232.9 },
+        [key5("Eric", "Cressos")]: { hours: 58.56, gross: 1096.24 },
+        [key5("Kimberly", "Daly")]: { hours: 74.33, gross: 1360.54 },
+        [key5("Karma", "Dozang")]: { hours: 25.05, gross: 521.04 },
+        [key5("Paige", "Ferlatte")]: { hours: 42.87, gross: 784.69 },
+        [key5("Breanna", "Fox")]: { hours: 63.62, gross: 1190.97 },
+        [key5("Lee Anne", "Hrabi")]: { hours: 23.83, gross: 436.18 },
+        [key5("Robert", "Jacobson")]: { hours: 92.08, gross: 2872.9 },
+        [key5("Bonnie", "Malone")]: { hours: 56, gross: 1025.02 },
+        [key5("Amal", "Ragh")]: { hours: 73.17, gross: 1598.03 },
+        [key5("Bryah", "Risdon")]: { hours: 16.04, gross: 293.6 },
+        [key5("Jayvi Tri", "Tsan")]: { hours: 41.72, gross: 867.78 }
+      } },
+      { payDate: "2026-03-20", start: "2026-03-04", end: "2026-03-17", lines: {
+        [key5("James", "Allard")]: { hours: 66.59, gross: 1385.07 },
+        [key5("Bhima", "Bhattarai")]: { hours: 67.19, gross: 1229.85 },
+        [key5("Heather", "Capstick")]: { hours: 68.55, gross: 1283.26 },
+        [key5("Eric", "Cressos")]: { hours: 65.03, gross: 1217.36 },
+        [key5("Kimberly", "Daly")]: { hours: 30.83, gross: 564.31 },
+        [key5("Karma", "Dozang")]: { hours: 24.89, gross: 517.71 },
+        [key5("Paige", "Ferlatte")]: { hours: 29.55, gross: 540.88 },
+        [key5("Breanna", "Fox")]: { hours: 81.65, gross: 1528.49 },
+        [key5("Lee Anne", "Hrabi")]: { hours: 86.61, gross: 1585.31 },
+        [key5("Robert", "Jacobson")]: { hours: 108.82, gross: 3395.18 },
+        [key5("Bonnie", "Malone")]: { hours: 66.55, gross: 1218.13 },
+        [key5("Amal", "Ragh")]: { hours: 89.43, gross: 1953.15 },
+        [key5("Bryah", "Risdon")]: { hours: 23.77, gross: 435.09 },
+        [key5("Jayvi Tri", "Tsan")]: { hours: 40.86, gross: 849.89 }
+      } },
+      { payDate: "2026-03-06", start: "2026-02-18", end: "2026-03-03", lines: {
+        [key5("James", "Allard")]: { hours: 83.57, gross: 1738.26 },
+        [key5("Bhima", "Bhattarai")]: { hours: 67.75, gross: 1240.1 },
+        [key5("Heather", "Capstick")]: { hours: 73.82, gross: 1381.91 },
+        [key5("Eric", "Cressos")]: { hours: 37.63, gross: 704.43 },
+        [key5("Kimberly", "Daly")]: { hours: 66.34, gross: 1214.29 },
+        [key5("Karma", "Dozang")]: { hours: 7.64, gross: 158.91 },
+        [key5("Paige", "Ferlatte")]: { hours: 62.56, gross: 1145.1 },
+        [key5("Breanna", "Fox")]: { hours: 28.19, gross: 527.72 },
+        [key5("Lee Anne", "Hrabi")]: { hours: 61.82, gross: 1131.55 },
+        [key5("Robert", "Jacobson")]: { hours: 97.35, gross: 3037.32 },
+        [key5("Bonnie", "Malone")]: { hours: 53.76, gross: 984.02 },
+        [key5("Amal", "Ragh")]: { hours: 87.49, gross: 1910.78 },
+        [key5("Bryah", "Risdon")]: { hours: 47.85, gross: 875.85 },
+        [key5("Jayvi Tri", "Tsan")]: { hours: 52.89, gross: 1100.11 }
+      } },
+      { payDate: "2026-02-20", start: "2026-02-04", end: "2026-02-17", lines: {
+        [key5("James", "Allard")]: { hours: 88.77, gross: 1915.78 },
+        [key5("Bhima", "Bhattarai")]: { hours: 81.02, gross: 1542.29 },
+        [key5("Heather", "Capstick")]: { hours: 70.54, gross: 1320.54 },
+        [key5("Eric", "Cressos")]: { hours: 41.74, gross: 781.31 },
+        [key5("Kimberly", "Daly")]: { hours: 55.61, gross: 1017.87 },
+        [key5("Paige", "Ferlatte")]: { hours: 53.55, gross: 980.11 },
+        [key5("Breanna", "Fox")]: { hours: 78.55, gross: 1541.16 },
+        [key5("Lee Anne", "Hrabi")]: { hours: 68.9, gross: 1344.46 },
+        [key5("Robert", "Jacobson")]: { hours: 113.39, gross: 3631.84 },
+        [key5("Bonnie", "Malone")]: { hours: 61.54, gross: 1200.2 },
+        [key5("Amal", "Ragh")]: { hours: 92.13, gross: 2111.04 },
+        [key5("Bryah", "Risdon")]: { hours: 15.71, gross: 287.58 },
+        [key5("Jayvi Tri", "Tsan")]: { hours: 45.1, gross: 938.09 }
+      } },
+      { payDate: "2026-02-06", start: "2026-01-21", end: "2026-02-03", lines: {
+        [key5("James", "Allard")]: { hours: 64.16, gross: 1334.53 },
+        [key5("Bhima", "Bhattarai")]: { hours: 66.95, gross: 1225.45 },
+        [key5("Heather", "Capstick")]: { hours: 62.38, gross: 1167.75 },
+        [key5("Eric", "Cressos")]: { hours: 50.08, gross: 937.5 },
+        [key5("Kimberly", "Daly")]: { hours: 41.49, gross: 759.43 },
+        [key5("Paige", "Ferlatte")]: { hours: 28.56, gross: 522.76 },
+        [key5("Breanna", "Fox")]: { hours: 62.38, gross: 1167.75 },
+        [key5("Lee Anne", "Hrabi")]: { hours: 65.19, gross: 1193.24 },
+        [key5("Robert", "Jacobson")]: { hours: 87.22, gross: 2721.26 },
+        [key5("Bonnie", "Malone")]: { hours: 63.77, gross: 1167.25 },
+        [key5("Amal", "Ragh")]: { hours: 85.51, gross: 1867.54 },
+        [key5("Bryah", "Risdon")]: { hours: 37.06, gross: 678.35 },
+        [key5("Jayvi Tri", "Tsan")]: { hours: 45.72, gross: 950.98 }
+      } },
+      { payDate: "2026-01-23", start: "2026-01-07", end: "2026-01-20", lines: {
+        [key5("James", "Allard")]: { hours: 69.78, gross: 1451.42 },
+        [key5("Bhima", "Bhattarai")]: { hours: 67.84, gross: 1241.74 },
+        [key5("Heather", "Capstick")]: { hours: 59.58, gross: 1115.34 },
+        [key5("Eric", "Cressos")]: { hours: 51.78, gross: 969.32 },
+        [key5("Kimberly", "Daly")]: { hours: 51.76, gross: 947.42 },
+        [key5("Paige", "Ferlatte")]: { hours: 32.71, gross: 598.72 },
+        [key5("Breanna", "Fox")]: { hours: 62.46, gross: 1169.25 },
+        [key5("Lee Anne", "Hrabi")]: { hours: 60.52, gross: 1107.76 },
+        [key5("Robert", "Jacobson")]: { hours: 77.15, gross: 2407.08 },
+        [key5("Bonnie", "Malone")]: { hours: 60.66, gross: 1110.32 },
+        [key5("Amal", "Ragh")]: { hours: 82.96, gross: 1811.85 },
+        [key5("Bryah", "Risdon")]: { hours: 33.54, gross: 613.92 },
+        [key5("Jayvi Tri", "Tsan")]: { hours: 47.56, gross: 989.25 }
+      } },
+      { payDate: "2026-01-08", start: "2025-12-24", end: "2026-01-06", lines: {
+        [key5("James", "Allard")]: { hours: 100.55, gross: 2195.27 },
+        [key5("Bhima", "Bhattarai")]: { hours: 60.46, gross: 1171.04 },
+        [key5("Heather", "Capstick")]: { hours: 42.22, gross: 866.78 },
+        [key5("Eric", "Cressos")]: { hours: 48.75, gross: 912.58 },
+        [key5("Kimberly", "Daly")]: { hours: 38.71, gross: 708.63 },
+        [key5("Paige", "Ferlatte")]: { hours: 48.47, gross: 887.24 },
+        [key5("Charlotte", "Fowler")]: { hours: 26.91, gross: 572.51 },
+        [key5("Breanna", "Fox")]: { hours: 50, gross: 935.96 },
+        [key5("Lee Anne", "Hrabi")]: { hours: 84.28, gross: 1608.29 },
+        [key5("Robert", "Jacobson")]: { hours: 24.22, gross: 755.72 },
+        [key5("Bonnie", "Malone")]: { hours: 51.73, gross: 946.83 },
+        [key5("Amal", "Ragh")]: { hours: 113.85, gross: 2600.22 },
+        [key5("Bryah", "Risdon")]: { hours: 20.37, gross: 427.94 },
+        [key5("Jayvi Tri", "Tsan")]: { hours: 49.73, gross: 1034.29 }
+      } }
+    ];
+  }
+});
+
 // api/seed-employee-dedup.ts
 var seed_employee_dedup_exports = {};
 __export(seed_employee_dedup_exports, {
@@ -59022,14 +59337,14 @@ async function dedupEmployees() {
     console.error("[emp-dedup] failed:", err instanceof Error ? err.message : err);
   }
 }
-var norm12, idKey, OS_NAMES, CW_NAMES, SHER_NAMES, completeness;
+var norm13, idKey, OS_NAMES, CW_NAMES, SHER_NAMES, completeness;
 var init_seed_employee_dedup = __esm({
   "api/seed-employee-dedup.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    norm12 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    idKey = (first, last) => (norm12(first) + norm12(last)).split("").sort().join("");
+    norm13 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    idKey = (first, last) => (norm13(first) + norm13(last)).split("").sort().join("");
     OS_NAMES = [
       { first: "Jammie", last: "Cook" },
       { first: "Grace", last: "Dickerson" },
@@ -59143,30 +59458,30 @@ function estimateUpcomingPayroll(employees2, freq) {
 function nextPayrollDate(freq, from) {
   const ppy = periodsPerYear2(freq);
   if (ppy === 0) return null;
-  const d4 = new Date(from.getFullYear(), from.getMonth(), from.getDate(), 12, 0, 0);
+  const d5 = new Date(from.getFullYear(), from.getMonth(), from.getDate(), 12, 0, 0);
   switch ((freq || "").toLowerCase()) {
     case "weekly":
-      d4.setDate(d4.getDate() + 7);
+      d5.setDate(d5.getDate() + 7);
       break;
     case "bi-weekly":
     case "biweekly":
-      d4.setDate(d4.getDate() + 14);
+      d5.setDate(d5.getDate() + 14);
       break;
     case "semi-monthly":
     case "semi_monthly":
-      d4.setDate(
-        d4.getDate() <= 15 ? 15 : 0
+      d5.setDate(
+        d5.getDate() <= 15 ? 15 : 0
         /* last day rollover */
       );
-      if (d4.getDate() === 0) {
-        d4.setMonth(d4.getMonth() + 1, 0);
+      if (d5.getDate() === 0) {
+        d5.setMonth(d5.getMonth() + 1, 0);
       }
       break;
     case "monthly":
-      d4.setMonth(d4.getMonth() + 1, 1);
+      d5.setMonth(d5.getMonth() + 1, 1);
       break;
   }
-  return d4;
+  return d5;
 }
 function staleFeedFromTransactionList(report, now, thresholdDays = 10) {
   const empty = { perAccount: {}, maxStaleDays: null, staleAccounts: [] };
@@ -59199,7 +59514,7 @@ function staleFeedFromTransactionList(report, now, thresholdDays = 10) {
     let maxStaleDays = null;
     if (Object.keys(perAccount).length) maxStaleDays = Math.max(...Object.values(perAccount));
     else if (lastOverall) maxStaleDays = Math.floor((now.getTime() - lastOverall) / dayMs);
-    const staleAccounts = Object.entries(perAccount).filter(([, d4]) => d4 >= thresholdDays).map(([a]) => a);
+    const staleAccounts = Object.entries(perAccount).filter(([, d5]) => d5 >= thresholdDays).map(([a]) => a);
     return { perAccount, maxStaleDays, staleAccounts };
   } catch {
     return empty;
@@ -59222,8 +59537,8 @@ __export(qbo_snapshot_exports, {
   runQboSync: () => runQboSync,
   syncConnection: () => syncConnection
 });
-function isoDate(d4) {
-  return `${d4.getFullYear()}-${String(d4.getMonth() + 1).padStart(2, "0")}-${String(d4.getDate()).padStart(2, "0")}`;
+function isoDate(d5) {
+  return `${d5.getFullYear()}-${String(d5.getMonth() + 1).padStart(2, "0")}-${String(d5.getDate()).padStart(2, "0")}`;
 }
 function sameCalendarDay(a, b) {
   if (!a) return false;
@@ -59307,8 +59622,8 @@ async function captureCashSnapshot(connection) {
     const report = await qboRequest(connection, `/reports/TransactionList?start_date=${start}&end_date=${end}&columns=tx_date,account_name,subt_nat_amount`);
     stale = staleFeedFromTransactionList(report, now);
     for (const ba of bank.bankAccounts) {
-      const d4 = stale.perAccount[ba.name];
-      if (d4 != null) ba.staleDays = d4;
+      const d5 = stale.perAccount[ba.name];
+      if (d5 != null) ba.staleDays = d5;
     }
   } catch (e) {
     console.error(`[cashflow] TransactionList (conn ${connection.id}):`, e instanceof Error ? e.message : e);
@@ -59821,14 +60136,14 @@ async function dedupeClients(confirm) {
   const groups = /* @__PURE__ */ new Map();
   for (const r of clientRows) {
     const id = Number(r.id ?? r[0]);
-    const key5 = `${norm13(r.name ?? r[1])}|${norm13(r.company ?? r[2])}`;
-    if (!groups.has(key5)) groups.set(key5, []);
-    groups.get(key5).push(id);
+    const key6 = `${norm14(r.name ?? r[1])}|${norm14(r.company ?? r[2])}`;
+    if (!groups.has(key6)) groups.set(key6, []);
+    groups.get(key6).push(id);
   }
   const mapping = [];
   for (const ids of groups.values()) {
     ids.sort((a, b) => a - b);
-    for (const d4 of ids.slice(1)) mapping.push({ dupe: d4, canonical: ids[0] });
+    for (const d5 of ids.slice(1)) mapping.push({ dupe: d5, canonical: ids[0] });
   }
   const dupeIds = mapping.map((m) => m.dupe);
   const tableNames = asRows(await db.run(sql`SELECT name FROM sqlite_master WHERE type='table'`)).map((t2) => String(t2.name ?? t2[0]));
@@ -59901,12 +60216,12 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm13, asRows, num2;
+var norm14, asRows, num2;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
-    norm13 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    norm14 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
     num2 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
@@ -60101,9 +60416,9 @@ async function importClientMaster() {
       const dupes = candidates.filter((c) => c.id !== canonical.id).map((c) => c.id);
       if (dupes.length) {
         for (const t2 of refTables) {
-          for (const d4 of dupes) {
+          for (const d5 of dupes) {
             try {
-              await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${canonical.id} WHERE "clientId" = ${d4}`));
+              await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${canonical.id} WHERE "clientId" = ${d5}`));
             } catch {
             }
           }
@@ -60258,9 +60573,9 @@ async function dedupeTasks() {
   const allRules = await db.select().from(clientTaskRules);
   const ruleGroups = /* @__PURE__ */ new Map();
   for (const r of allRules) {
-    const key5 = `${r.clientId}::${r.ruleType ?? r.title}`;
-    if (!ruleGroups.has(key5)) ruleGroups.set(key5, []);
-    ruleGroups.get(key5).push(r);
+    const key6 = `${r.clientId}::${r.ruleType ?? r.title}`;
+    if (!ruleGroups.has(key6)) ruleGroups.set(key6, []);
+    ruleGroups.get(key6).push(r);
   }
   for (const group of ruleGroups.values()) {
     if (group.length < 2) continue;
@@ -60274,9 +60589,9 @@ async function dedupeTasks() {
   const allTasks = await db.select().from(tasks);
   const taskGroups = /* @__PURE__ */ new Map();
   for (const t2 of allTasks) {
-    const key5 = `${t2.clientId}::${(t2.title ?? "").trim().toLowerCase()}::${dayKey(t2.dueDate)}`;
-    if (!taskGroups.has(key5)) taskGroups.set(key5, []);
-    taskGroups.get(key5).push(t2);
+    const key6 = `${t2.clientId}::${(t2.title ?? "").trim().toLowerCase()}::${dayKey(t2.dueDate)}`;
+    if (!taskGroups.has(key6)) taskGroups.set(key6, []);
+    taskGroups.get(key6).push(t2);
   }
   for (const group of taskGroups.values()) {
     if (group.length < 2) continue;
@@ -60297,9 +60612,9 @@ var init_dedupe_tasks = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
-    dayKey = (d4) => {
-      if (!d4) return "none";
-      const t2 = d4 instanceof Date ? d4 : new Date(d4);
+    dayKey = (d5) => {
+      if (!d5) return "none";
+      const t2 = d5 instanceof Date ? d5 : new Date(d5);
       return Number.isNaN(t2.getTime()) ? "none" : t2.toISOString().slice(0, 10);
     };
   }
@@ -60570,9 +60885,9 @@ async function seedPayrollEmployees() {
       result.skipped += roster.employees.length;
       continue;
     }
-    const have = new Set(current.map((e) => `${norm14(e.firstName)} ${norm14(e.lastName)}`.trim()));
+    const have = new Set(current.map((e) => `${norm15(e.firstName)} ${norm15(e.lastName)}`.trim()));
     for (const emp of roster.employees) {
-      if (roster.merge && have.has(`${norm14(emp.firstName)} ${norm14(emp.lastName || "")}`.trim())) {
+      if (roster.merge && have.has(`${norm15(emp.firstName)} ${norm15(emp.lastName || "")}`.trim())) {
         result.skipped++;
         continue;
       }
@@ -60596,7 +60911,7 @@ async function seedPayrollEmployees() {
   for (const mv of PAYROLL_EMPLOYEE_MOVES) {
     const to = findClient(clientsNow, mv.toMatch);
     if (!to) continue;
-    const matches = (await db.select().from(employees)).filter((e) => norm14(e.firstName) === norm14(mv.firstName) && norm14(e.lastName) === norm14(mv.lastName));
+    const matches = (await db.select().from(employees)).filter((e) => norm15(e.firstName) === norm15(mv.firstName) && norm15(e.lastName) === norm15(mv.lastName));
     for (const e of matches) {
       if (e.clientId === to.id) continue;
       const from = findClient(clientsNow, mv.fromMatch);
@@ -60621,7 +60936,7 @@ async function seedPayrollEmployees() {
     for (const link of PAYROLL_CONTRACT_LINKS) {
       const client = findClient(clientsNow, link.clientMatch);
       if (!client) continue;
-      const emp = all.find((e) => e.clientId === client.id && norm14(e.firstName) === norm14(link.firstName) && (!link.lastName || norm14(e.lastName) === norm14(link.lastName)));
+      const emp = all.find((e) => e.clientId === client.id && norm15(e.firstName) === norm15(link.firstName) && (!link.lastName || norm15(e.lastName) === norm15(link.lastName)));
       if (emp && !emp.contractUrl) {
         await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
         contracts++;
@@ -60632,7 +60947,7 @@ async function seedPayrollEmployees() {
     console.log(`[seed] payroll employees: +${result.added} -${result.removed} moved ${moved} salary-filled ${filled} contracts ${contracts}`);
   return { ...result, moved, filled, contracts };
 }
-var PAYROLL_EMPLOYEE_MOVES, norm14, findClient;
+var PAYROLL_EMPLOYEE_MOVES, norm15, findClient;
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
@@ -60643,8 +60958,8 @@ var init_seed_payroll_employees = __esm({
     PAYROLL_EMPLOYEE_MOVES = [
       { firstName: "Stacey", lastName: "Gillham", fromMatch: "2303851", toMatch: "originality", note: "Moved to Originality as of the 15th" }
     ];
-    norm14 = (s) => (s || "").toLowerCase().trim();
-    findClient = (all, match2) => all.find((c) => norm14(c.name).includes(norm14(match2)));
+    norm15 = (s) => (s || "").toLowerCase().trim();
+    findClient = (all, match2) => all.find((c) => norm15(c.name).includes(norm15(match2)));
   }
 });
 
@@ -60738,10 +61053,10 @@ var init_dist5 = __esm({
       const headerRecord = [];
       const rawHeaders = incoming.rawHeaders;
       for (let i = 0; i < rawHeaders.length; i += 2) {
-        const { [i]: key5, [i + 1]: value } = rawHeaders;
-        if (key5.charCodeAt(0) !== /*:*/
+        const { [i]: key6, [i + 1]: value } = rawHeaders;
+        if (key6.charCodeAt(0) !== /*:*/
         58) {
-          headerRecord.push([key5, value]);
+          headerRecord.push([key6, value]);
         }
       }
       return new Headers(headerRecord);
@@ -61086,8 +61401,8 @@ var init_dist5 = __esm({
         hasContentLength = headerObj.has("content-length");
         header2 = buildOutgoingHttpHeaders(headerObj);
       } else {
-        for (const key5 in header2) {
-          if (key5.length === 14 && key5.toLowerCase() === "content-length") {
+        for (const key6 in header2) {
+          if (key6.length === 14 && key6.toLowerCase() === "content-length") {
             hasContentLength = true;
             break;
           }
@@ -62782,10 +63097,10 @@ __export(seed_client_websites_exports, {
 function domainFromEmail(email3) {
   const m = /@([^@\s>]+)$/.exec((email3 || "").trim().toLowerCase());
   if (!m) return null;
-  const d4 = m[1].replace(/[.,;]+$/, "");
-  if (!d4.includes(".") || /\s/.test(d4)) return null;
-  if (SKIP_DOMAINS.has(d4)) return null;
-  return d4;
+  const d5 = m[1].replace(/[.,;]+$/, "");
+  if (!d5.includes(".") || /\s/.test(d5)) return null;
+  if (SKIP_DOMAINS.has(d5)) return null;
+  return d5;
 }
 async function seedClientWebsites() {
   const db = getDb();
@@ -62794,9 +63109,9 @@ async function seedClientWebsites() {
     const all = await db.select({ id: clients.id, email: clients.email, website: clients.website }).from(clients);
     for (const c of all) {
       if (c.website && String(c.website).trim()) continue;
-      const d4 = domainFromEmail(c.email || "");
-      if (!d4) continue;
-      await db.update(clients).set({ website: d4, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+      const d5 = domainFromEmail(c.email || "");
+      if (!d5) continue;
+      await db.update(clients).set({ website: d5, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
       filled++;
     }
     if (filled) console.log(`[seed] client websites: ${filled} filled from email domains`);
@@ -62859,8 +63174,8 @@ async function seedGovRegistry() {
     return report;
   }
   for (const g of GOV) {
-    let c = g.bn ? all.find((x) => norm15(x.taxId) === norm15(g.bn)) : void 0;
-    if (!c && g.nameKey) c = all.find((x) => norm15(x.name).includes(norm15(g.nameKey)) || norm15(x.company).includes(norm15(g.nameKey)));
+    let c = g.bn ? all.find((x) => norm16(x.taxId) === norm16(g.bn)) : void 0;
+    if (!c && g.nameKey) c = all.find((x) => norm16(x.name).includes(norm16(g.nameKey)) || norm16(x.company).includes(norm16(g.nameKey)));
     if (!c) continue;
     report.matched++;
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
@@ -62879,7 +63194,7 @@ async function seedGovRegistry() {
   }
   return report;
 }
-var GOV, norm15;
+var GOV, norm16;
 var init_seed_gov_registry = __esm({
   "api/seed-gov-registry.ts"() {
     init_connection();
@@ -62921,7 +63236,7 @@ var init_seed_gov_registry = __esm({
       { bn: "809545346", industry: "Healthcare/Wellness", bio: "Healthcare business in the osteopathic / wellness field, providing therapeutic services and alternative health treatments." },
       { nameKey: "universal drywall", industry: "Construction/Drywall", bio: "Drywall and construction services company providing interior framing, drywall installation and exterior finishes. USA (Florida) entity." }
     ];
-    norm15 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm16 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   }
 });
 
@@ -63072,8 +63387,8 @@ function lastDayOfMonth(year2, month1to12) {
   return new Date(year2, month1to12, 0).getDate();
 }
 function at(year2, month1to12, day2) {
-  const d4 = Math.min(day2, lastDayOfMonth(year2, month1to12));
-  return new Date(year2, month1to12 - 1, d4, 12, 0, 0);
+  const d5 = Math.min(day2, lastDayOfMonth(year2, month1to12));
+  return new Date(year2, month1to12 - 1, d5, 12, 0, 0);
 }
 function yearEndCloseDueDate(yearEndMonth, periodYear) {
   let m = yearEndMonth + 1;
@@ -63104,7 +63419,7 @@ function correctedDueDate(ruleType, currentDue, yearEndMonth) {
   const rt = (ruleType || "").toLowerCase();
   const nearest = (fn) => {
     const cands = [ref.getFullYear() - 1, ref.getFullYear(), ref.getFullYear() + 1].map(fn);
-    return cands.reduce((best, d4) => Math.abs(d4.getTime() - ref.getTime()) < Math.abs(best.getTime() - ref.getTime()) ? d4 : best);
+    return cands.reduce((best, d5) => Math.abs(d5.getTime() - ref.getTime()) < Math.abs(best.getTime() - ref.getTime()) ? d5 : best);
   };
   if (rt.includes("year_end") || rt.includes("yearend")) {
     if (!yearEndMonth) return null;
@@ -63693,8 +64008,8 @@ async function syncCalendar(accessToken, userId, accountId) {
         const gDate = (part) => {
           if (part?.dateTime) return new Date(part.dateTime);
           if (!part?.date) return null;
-          const [y, m, d4] = String(part.date).split("-").map(Number);
-          return new Date(y, m - 1, d4, 12, 0, 0);
+          const [y, m, d5] = String(part.date).split("-").map(Number);
+          return new Date(y, m - 1, d5, 12, 0, 0);
         };
         const allDay = !event.start?.dateTime;
         const startDate = gDate(event.start) || /* @__PURE__ */ new Date();
@@ -63980,47 +64295,47 @@ async function parseFormData(request, options) {
 }
 function convertFormDataToBodyData(formData, options) {
   const form = /* @__PURE__ */ Object.create(null);
-  formData.forEach((value, key5) => {
-    const shouldParseAllValues = options.all || key5.endsWith("[]");
+  formData.forEach((value, key6) => {
+    const shouldParseAllValues = options.all || key6.endsWith("[]");
     if (!shouldParseAllValues) {
-      form[key5] = value;
+      form[key6] = value;
     } else {
-      handleParsingAllValues(form, key5, value);
+      handleParsingAllValues(form, key6, value);
     }
   });
   if (options.dot) {
-    Object.entries(form).forEach(([key5, value]) => {
-      const shouldParseDotValues = key5.includes(".");
+    Object.entries(form).forEach(([key6, value]) => {
+      const shouldParseDotValues = key6.includes(".");
       if (shouldParseDotValues) {
-        handleParsingNestedValues(form, key5, value);
-        delete form[key5];
+        handleParsingNestedValues(form, key6, value);
+        delete form[key6];
       }
     });
   }
   return form;
 }
-var handleParsingAllValues = (form, key5, value) => {
-  if (form[key5] !== void 0) {
-    if (Array.isArray(form[key5])) {
+var handleParsingAllValues = (form, key6, value) => {
+  if (form[key6] !== void 0) {
+    if (Array.isArray(form[key6])) {
       ;
-      form[key5].push(value);
+      form[key6].push(value);
     } else {
-      form[key5] = [form[key5], value];
+      form[key6] = [form[key6], value];
     }
   } else {
-    if (!key5.endsWith("[]")) {
-      form[key5] = value;
+    if (!key6.endsWith("[]")) {
+      form[key6] = value;
     } else {
-      form[key5] = [value];
+      form[key6] = [value];
     }
   }
 };
-var handleParsingNestedValues = (form, key5, value) => {
-  if (/(?:^|\.)__proto__\./.test(key5)) {
+var handleParsingNestedValues = (form, key6, value) => {
+  if (/(?:^|\.)__proto__\./.test(key6)) {
     return;
   }
   let nestedForm = form;
-  const keys = key5.split(".");
+  const keys = key6.split(".");
   keys.forEach((key22, index) => {
     if (index === keys.length - 1) {
       nestedForm[key22] = value;
@@ -64164,26 +64479,26 @@ var _decodeURI = (value) => {
   }
   return value.indexOf("%") !== -1 ? tryDecode(value, decodeURIComponent_) : value;
 };
-var _getQueryParam = (url2, key5, multiple) => {
+var _getQueryParam = (url2, key6, multiple) => {
   let encoded;
-  if (!multiple && key5 && !/[%+]/.test(key5)) {
+  if (!multiple && key6 && !/[%+]/.test(key6)) {
     let keyIndex2 = url2.indexOf("?", 8);
     if (keyIndex2 === -1) {
       return void 0;
     }
-    if (!url2.startsWith(key5, keyIndex2 + 1)) {
-      keyIndex2 = url2.indexOf(`&${key5}`, keyIndex2 + 1);
+    if (!url2.startsWith(key6, keyIndex2 + 1)) {
+      keyIndex2 = url2.indexOf(`&${key6}`, keyIndex2 + 1);
     }
     while (keyIndex2 !== -1) {
-      const trailingKeyCode = url2.charCodeAt(keyIndex2 + key5.length + 1);
+      const trailingKeyCode = url2.charCodeAt(keyIndex2 + key6.length + 1);
       if (trailingKeyCode === 61) {
-        const valueIndex = keyIndex2 + key5.length + 2;
+        const valueIndex = keyIndex2 + key6.length + 2;
         const endIndex = url2.indexOf("&", valueIndex);
         return _decodeURI(url2.slice(valueIndex, endIndex === -1 ? void 0 : endIndex));
       } else if (trailingKeyCode == 38 || isNaN(trailingKeyCode)) {
         return "";
       }
-      keyIndex2 = url2.indexOf(`&${key5}`, keyIndex2 + 1);
+      keyIndex2 = url2.indexOf(`&${key6}`, keyIndex2 + 1);
     }
     encoded = /[%+]/.test(url2);
     if (!encoded) {
@@ -64229,11 +64544,11 @@ var _getQueryParam = (url2, key5, multiple) => {
       results[name2] ??= value;
     }
   }
-  return key5 ? results[key5] : results;
+  return key6 ? results[key6] : results;
 };
 var getQueryParam = _getQueryParam;
-var getQueryParams = (url2, key5) => {
-  return _getQueryParam(url2, key5, true);
+var getQueryParams = (url2, key6) => {
+  return _getQueryParam(url2, key6, true);
 };
 var decodeURIComponent_ = decodeURIComponent;
 
@@ -64279,21 +64594,21 @@ var HonoRequest = class {
     this.#matchResult = matchResult;
     this.#validatedData = {};
   }
-  param(key5) {
-    return key5 ? this.#getDecodedParam(key5) : this.#getAllDecodedParams();
+  param(key6) {
+    return key6 ? this.#getDecodedParam(key6) : this.#getAllDecodedParams();
   }
-  #getDecodedParam(key5) {
-    const paramKey = this.#matchResult[0][this.routeIndex][1][key5];
+  #getDecodedParam(key6) {
+    const paramKey = this.#matchResult[0][this.routeIndex][1][key6];
     const param2 = this.#getParamValue(paramKey);
     return param2 && /\%/.test(param2) ? tryDecodeURIComponent(param2) : param2;
   }
   #getAllDecodedParams() {
     const decoded = {};
     const keys = Object.keys(this.#matchResult[0][this.routeIndex][1]);
-    for (const key5 of keys) {
-      const value = this.#getParamValue(this.#matchResult[0][this.routeIndex][1][key5]);
+    for (const key6 of keys) {
+      const value = this.#getParamValue(this.#matchResult[0][this.routeIndex][1][key6]);
       if (value !== void 0) {
-        decoded[key5] = /\%/.test(value) ? tryDecodeURIComponent(value) : value;
+        decoded[key6] = /\%/.test(value) ? tryDecodeURIComponent(value) : value;
       }
     }
     return decoded;
@@ -64301,28 +64616,28 @@ var HonoRequest = class {
   #getParamValue(paramKey) {
     return this.#matchResult[1] ? this.#matchResult[1][paramKey] : paramKey;
   }
-  query(key5) {
-    return getQueryParam(this.url, key5);
+  query(key6) {
+    return getQueryParam(this.url, key6);
   }
-  queries(key5) {
-    return getQueryParams(this.url, key5);
+  queries(key6) {
+    return getQueryParams(this.url, key6);
   }
   header(name2) {
     if (name2) {
       return this.raw.headers.get(name2) ?? void 0;
     }
     const headerData = {};
-    this.raw.headers.forEach((value, key5) => {
-      headerData[key5] = value;
+    this.raw.headers.forEach((value, key6) => {
+      headerData[key6] = value;
     });
     return headerData;
   }
   async parseBody(options) {
     return parseBody(this, options);
   }
-  #cachedBody = (key5) => {
+  #cachedBody = (key6) => {
     const { bodyCache, raw: raw2 } = this;
-    const cachedBody = bodyCache[key5];
+    const cachedBody = bodyCache[key6];
     if (cachedBody) {
       return cachedBody;
     }
@@ -64332,10 +64647,10 @@ var HonoRequest = class {
         if (anyCachedKey === "json") {
           body = JSON.stringify(body);
         }
-        return new Response(body)[key5]();
+        return new Response(body)[key6]();
       });
     }
-    return bodyCache[key5] = raw2[key5]();
+    return bodyCache[key6] = raw2[key6]();
   };
   /**
    * `.json()` can parse Request body of type `application/json`
@@ -64782,9 +65097,9 @@ var Context = class {
    * })
    * ```
    */
-  set = (key5, value) => {
+  set = (key6, value) => {
     this.#var ??= /* @__PURE__ */ new Map();
-    this.#var.set(key5, value);
+    this.#var.set(key6, value);
   };
   /**
    * `.get()` can use the value specified by the key.
@@ -64799,8 +65114,8 @@ var Context = class {
    * })
    * ```
    */
-  get = (key5) => {
-    return this.#var ? this.#var.get(key5) : void 0;
+  get = (key6) => {
+    return this.#var ? this.#var.get(key6) : void 0;
   };
   /**
    * `.var` can access the value of a variable.
@@ -64823,11 +65138,11 @@ var Context = class {
     const responseHeaders = this.#res ? new Headers(this.#res.headers) : this.#preparedHeaders ?? new Headers();
     if (typeof arg === "object" && "headers" in arg) {
       const argHeaders = arg.headers instanceof Headers ? arg.headers : new Headers(arg.headers);
-      for (const [key5, value] of argHeaders) {
-        if (key5.toLowerCase() === "set-cookie") {
-          responseHeaders.append(key5, value);
+      for (const [key6, value] of argHeaders) {
+        if (key6.toLowerCase() === "set-cookie") {
+          responseHeaders.append(key6, value);
         } else {
-          responseHeaders.set(key5, value);
+          responseHeaders.set(key6, value);
         }
       }
     }
@@ -65567,8 +65882,8 @@ function buildMatcherFromPreprocessedRoutes(routes) {
       const paramIndexMap = /* @__PURE__ */ Object.create(null);
       paramCount -= 1;
       for (; paramCount >= 0; paramCount--) {
-        const [key5, value] = paramAssoc[paramCount];
-        paramIndexMap[key5] = value;
+        const [key6, value] = paramAssoc[paramCount];
+        paramIndexMap[key6] = value;
       }
       return [h, paramIndexMap];
     });
@@ -65788,20 +66103,20 @@ var Node2 = class _Node2 {
       const p = parts[i];
       const nextP = parts[i + 1];
       const pattern = getPattern(p, nextP);
-      const key5 = Array.isArray(pattern) ? pattern[0] : p;
-      if (key5 in curNode.#children) {
-        curNode = curNode.#children[key5];
+      const key6 = Array.isArray(pattern) ? pattern[0] : p;
+      if (key6 in curNode.#children) {
+        curNode = curNode.#children[key6];
         if (pattern) {
           possibleKeys.push(pattern[1]);
         }
         continue;
       }
-      curNode.#children[key5] = new _Node2();
+      curNode.#children[key6] = new _Node2();
       if (pattern) {
         curNode.#patterns.push(pattern);
         possibleKeys.push(pattern[1]);
       }
-      curNode = curNode.#children[key5];
+      curNode = curNode.#children[key6];
     }
     curNode.#methods.push({
       [method]: {
@@ -65822,9 +66137,9 @@ var Node2 = class _Node2 {
         handlerSets.push(handlerSet);
         if (nodeParams !== emptyParams || params && params !== emptyParams) {
           for (let i2 = 0, len2 = handlerSet.possibleKeys.length; i2 < len2; i2++) {
-            const key5 = handlerSet.possibleKeys[i2];
+            const key6 = handlerSet.possibleKeys[i2];
             const processed = processedSet[handlerSet.score];
-            handlerSet.params[key5] = params?.[key5] && !processed ? params[key5] : nodeParams[key5] ?? params?.[key5];
+            handlerSet.params[key6] = params?.[key6] && !processed ? params[key6] : nodeParams[key6] ?? params?.[key6];
             processedSet[handlerSet.score] = true;
           }
         }
@@ -65870,11 +66185,11 @@ var Node2 = class _Node2 {
             }
             continue;
           }
-          const [key5, name2, matcher] = pattern;
+          const [key6, name2, matcher] = pattern;
           if (!part && !(matcher instanceof RegExp)) {
             continue;
           }
-          const child = node.#children[key5];
+          const child = node.#children[key6];
           if (matcher instanceof RegExp) {
             if (partOffsets === null) {
               partOffsets = new Array(len);
@@ -66064,8 +66379,8 @@ var cors = (options) => {
     }
   })(opts.allowMethods);
   return async function cors2(c, next) {
-    function set2(key5, value) {
-      c.res.headers.set(key5, value);
+    function set2(key6, value) {
+      c.res.headers.set(key6, value);
     }
     const allowOrigin = await findAllowOrigin(c.req.header("origin") || "", c);
     if (allowOrigin) {
@@ -66197,7 +66512,7 @@ function parseConnectionParamsFromUnknown(parsed) {
     if (parsed === null) return null;
     if (!isObject(parsed)) throw new Error("Expected object");
     const nonStringValues = Object.entries(parsed).filter(([_key, value]) => typeof value !== "string");
-    if (nonStringValues.length > 0) throw new Error(`Expected connectionParams to be string values. Got ${nonStringValues.map(([key5, value]) => `${key5}: ${typeof value}`).join(", ")}`);
+    if (nonStringValues.length > 0) throw new Error(`Expected connectionParams to be string values. Got ${nonStringValues.map(([key6, value]) => `${key6}: ${typeof value}`).join(", ")}`);
     return parsed;
   } catch (cause) {
     throw new TRPCError({
@@ -66693,7 +67008,7 @@ var require_usingCtx = __commonJS2({ "../../node_modules/.pnpm/@oxc-project+runt
       e,
       u: using.bind(null, false),
       a: using.bind(null, true),
-      d: function d4() {
+      d: function d5() {
         var o, t2 = this.e, s = 0;
         function next() {
           for (; o = n.pop(); ) try {
@@ -66718,8 +67033,8 @@ var require_usingCtx = __commonJS2({ "../../node_modules/.pnpm/@oxc-project+runt
   module.exports = _usingCtx, module.exports.__esModule = true, module.exports["default"] = module.exports;
 } });
 var require_OverloadYield = __commonJS2({ "../../node_modules/.pnpm/@oxc-project+runtime@0.72.2/node_modules/@oxc-project/runtime/src/helpers/OverloadYield.js"(exports, module) {
-  function _OverloadYield(e, d4) {
-    this.v = e, this.k = d4;
+  function _OverloadYield(e, d5) {
+    this.v = e, this.k = d5;
   }
   module.exports = _OverloadYield, module.exports.__esModule = true, module.exports["default"] = module.exports;
 } });
@@ -67232,19 +67547,19 @@ function _createBatchStreamProducer() {
       if (!isPlainObject(value)) return [[value]];
       const newObj = emptyObject();
       const asyncValues = [];
-      for (const [key5, item] of Object.entries(value)) {
-        const transformed = encodeAsync3(item, [...path7, key5]);
+      for (const [key6, item] of Object.entries(value)) {
+        const transformed = encodeAsync3(item, [...path7, key6]);
         if (!transformed) {
-          newObj[key5] = item;
+          newObj[key6] = item;
           continue;
         }
-        newObj[key5] = placeholder2;
-        asyncValues.push([key5, ...transformed]);
+        newObj[key6] = placeholder2;
+        asyncValues.push([key6, ...transformed]);
       }
       return [[newObj], ...asyncValues];
     }
     const newHead = emptyObject();
-    for (const [key5, item] of Object.entries(data)) newHead[key5] = encode7(item, [key5]);
+    for (const [key6, item] of Object.entries(data)) newHead[key6] = encode7(item, [key6]);
     yield newHead;
     let iterable = mergedIterables;
     if (opts.pingMs) iterable = withPing(mergedIterables, opts.pingMs);
@@ -67465,10 +67780,10 @@ function initResponse(initOpts) {
     })) === null || _info$calls$find === void 0 || (_info$calls$find = _info$calls$find.procedure) === null || _info$calls$find === void 0 ? void 0 : _info$calls$find._def.type) !== null && _info$calls$find$proc !== void 0 ? _info$calls$find$proc : "unknown"
   })) !== null && _responseMeta !== void 0 ? _responseMeta : {};
   if (meta3.headers) {
-    if (meta3.headers instanceof Headers) for (const [key5, value] of meta3.headers.entries()) headers.append(key5, value);
+    if (meta3.headers instanceof Headers) for (const [key6, value] of meta3.headers.entries()) headers.append(key6, value);
     else
-      for (const [key5, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) headers.append(key5, v);
-      else if (typeof value === "string") headers.set(key5, value);
+      for (const [key6, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) headers.append(key6, v);
+      else if (typeof value === "string") headers.set(key6, value);
   }
   if (meta3.status) status = meta3.status;
   return { status };
@@ -67698,7 +68013,7 @@ async function resolveResponse(opts) {
               return shape;
             }
           }));
-          for (const [key5, value] of Object.entries(sseHeaders)) headers.set(key5, value);
+          for (const [key6, value] of Object.entries(sseHeaders)) headers.set(key6, value);
           const headResponse$1 = initResponse({
             ctx: ctxManager.valueOrUndefined(),
             info,
@@ -67895,10 +68210,10 @@ async function fetchRequestHandler(opts) {
       var _opts$responseMeta;
       const meta3 = (_opts$responseMeta = opts.responseMeta) === null || _opts$responseMeta === void 0 ? void 0 : _opts$responseMeta.call(opts, data);
       if (meta3 === null || meta3 === void 0 ? void 0 : meta3.headers) {
-        if (meta3.headers instanceof Headers) for (const [key5, value] of meta3.headers.entries()) resHeaders.append(key5, value);
+        if (meta3.headers instanceof Headers) for (const [key6, value] of meta3.headers.entries()) resHeaders.append(key6, value);
         else
-          for (const [key5, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) resHeaders.append(key5, v);
-          else if (typeof value === "string") resHeaders.set(key5, value);
+          for (const [key6, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) resHeaders.append(key6, v);
+          else if (typeof value === "string") resHeaders.set(key6, value);
       }
       return {
         headers: resHeaders,
@@ -68036,13 +68351,13 @@ var voiceRouter = createRouter({
     const overdue = openTasks.filter((t2) => t2.dueDate && new Date(t2.dueDate) < today2);
     const dueToday = openTasks.filter((t2) => {
       if (!t2.dueDate) return false;
-      const d4 = new Date(t2.dueDate);
-      return d4 >= today2 && d4 < tomorrow;
+      const d5 = new Date(t2.dueDate);
+      return d5 >= today2 && d5 < tomorrow;
     });
     const upcoming = openTasks.filter((t2) => {
       if (!t2.dueDate) return false;
-      const d4 = new Date(t2.dueDate);
-      return d4 >= tomorrow && d4 <= nextWeek;
+      const d5 = new Date(t2.dueDate);
+      return d5 >= tomorrow && d5 <= nextWeek;
     });
     const highPriority = openTasks.filter((t2) => t2.priority === "high");
     let speech = `Good morning. `;
@@ -68510,8 +68825,8 @@ var googleSyncRouter = createRouter({
       const gDate = (part) => {
         if (part?.dateTime) return new Date(part.dateTime);
         if (!part?.date) return null;
-        const [y, m, d4] = String(part.date).split("-").map(Number);
-        return new Date(y, m - 1, d4, 12, 0, 0);
+        const [y, m, d5] = String(part.date).split("-").map(Number);
+        return new Date(y, m - 1, d5, 12, 0, 0);
       };
       const allDay = !event.start?.dateTime;
       const start = gDate(event.start) || /* @__PURE__ */ new Date();
@@ -69088,20 +69403,20 @@ function getNamedCurve(alg) {
       throw new Error("unreachable");
   }
 }
-function checkUsage(key5, usage) {
-  if (usage && !key5.usages.includes(usage)) {
+function checkUsage(key6, usage) {
+  if (usage && !key6.usages.includes(usage)) {
     throw new TypeError(`CryptoKey does not support this operation, its usages must include ${usage}.`);
   }
 }
-function checkSigCryptoKey(key5, alg, usage) {
+function checkSigCryptoKey(key6, alg, usage) {
   switch (alg) {
     case "HS256":
     case "HS384":
     case "HS512": {
-      if (!isAlgorithm(key5.algorithm, "HMAC"))
+      if (!isAlgorithm(key6.algorithm, "HMAC"))
         throw unusable("HMAC");
       const expected = parseInt(alg.slice(2), 10);
-      const actual = getHashLength(key5.algorithm.hash);
+      const actual = getHashLength(key6.algorithm.hash);
       if (actual !== expected)
         throw unusable(`SHA-${expected}`, "algorithm.hash");
       break;
@@ -69109,10 +69424,10 @@ function checkSigCryptoKey(key5, alg, usage) {
     case "RS256":
     case "RS384":
     case "RS512": {
-      if (!isAlgorithm(key5.algorithm, "RSASSA-PKCS1-v1_5"))
+      if (!isAlgorithm(key6.algorithm, "RSASSA-PKCS1-v1_5"))
         throw unusable("RSASSA-PKCS1-v1_5");
       const expected = parseInt(alg.slice(2), 10);
-      const actual = getHashLength(key5.algorithm.hash);
+      const actual = getHashLength(key6.algorithm.hash);
       if (actual !== expected)
         throw unusable(`SHA-${expected}`, "algorithm.hash");
       break;
@@ -69120,34 +69435,34 @@ function checkSigCryptoKey(key5, alg, usage) {
     case "PS256":
     case "PS384":
     case "PS512": {
-      if (!isAlgorithm(key5.algorithm, "RSA-PSS"))
+      if (!isAlgorithm(key6.algorithm, "RSA-PSS"))
         throw unusable("RSA-PSS");
       const expected = parseInt(alg.slice(2), 10);
-      const actual = getHashLength(key5.algorithm.hash);
+      const actual = getHashLength(key6.algorithm.hash);
       if (actual !== expected)
         throw unusable(`SHA-${expected}`, "algorithm.hash");
       break;
     }
     case "Ed25519":
     case "EdDSA": {
-      if (!isAlgorithm(key5.algorithm, "Ed25519"))
+      if (!isAlgorithm(key6.algorithm, "Ed25519"))
         throw unusable("Ed25519");
       break;
     }
     case "ML-DSA-44":
     case "ML-DSA-65":
     case "ML-DSA-87": {
-      if (!isAlgorithm(key5.algorithm, alg))
+      if (!isAlgorithm(key6.algorithm, alg))
         throw unusable(alg);
       break;
     }
     case "ES256":
     case "ES384":
     case "ES512": {
-      if (!isAlgorithm(key5.algorithm, "ECDSA"))
+      if (!isAlgorithm(key6.algorithm, "ECDSA"))
         throw unusable("ECDSA");
       const expected = getNamedCurve(alg);
-      const actual = key5.algorithm.namedCurve;
+      const actual = key6.algorithm.namedCurve;
       if (actual !== expected)
         throw unusable(expected, "algorithm.namedCurve");
       break;
@@ -69155,7 +69470,7 @@ function checkSigCryptoKey(key5, alg, usage) {
     default:
       throw new TypeError("CryptoKey does not support this operation");
   }
-  checkUsage(key5, usage);
+  checkUsage(key6, usage);
 }
 
 // node_modules/jose/dist/webapi/lib/invalid_key_input.js
@@ -69184,17 +69499,17 @@ var invalidKeyInput = (actual, ...types) => message("Key must be ", actual, ...t
 var withAlg = (alg, actual, ...types) => message(`Key for the ${alg} algorithm must be `, actual, ...types);
 
 // node_modules/jose/dist/webapi/lib/is_key_like.js
-var isCryptoKey = (key5) => {
-  if (key5?.[Symbol.toStringTag] === "CryptoKey")
+var isCryptoKey = (key6) => {
+  if (key6?.[Symbol.toStringTag] === "CryptoKey")
     return true;
   try {
-    return key5 instanceof CryptoKey;
+    return key6 instanceof CryptoKey;
   } catch {
     return false;
   }
 };
-var isKeyObject = (key5) => key5?.[Symbol.toStringTag] === "KeyObject";
-var isKeyLike = (key5) => isCryptoKey(key5) || isKeyObject(key5);
+var isKeyObject = (key6) => key6?.[Symbol.toStringTag] === "KeyObject";
+var isKeyLike = (key6) => isCryptoKey(key6) || isKeyObject(key6);
 
 // node_modules/jose/dist/webapi/lib/is_disjoint.js
 function isDisjoint(...headers) {
@@ -69236,9 +69551,9 @@ function isObject3(input) {
 }
 
 // node_modules/jose/dist/webapi/lib/check_key_length.js
-function checkKeyLength(alg, key5) {
+function checkKeyLength(alg, key6) {
   if (alg.startsWith("RS") || alg.startsWith("PS")) {
-    const { modulusLength } = key5.algorithm;
+    const { modulusLength } = key6.algorithm;
     if (typeof modulusLength !== "number" || modulusLength < 2048) {
       throw new TypeError(`${alg} requires key modulusLength to be 2048 bits or larger`);
     }
@@ -69398,24 +69713,24 @@ function validateAlgorithms(option, algorithms) {
 }
 
 // node_modules/jose/dist/webapi/lib/is_jwk.js
-var isJWK = (key5) => isObject3(key5) && typeof key5.kty === "string";
-var isPrivateJWK = (key5) => key5.kty !== "oct" && (key5.kty === "AKP" && typeof key5.priv === "string" || typeof key5.d === "string");
-var isPublicJWK = (key5) => key5.kty !== "oct" && key5.d === void 0 && key5.priv === void 0;
-var isSecretJWK = (key5) => key5.kty === "oct" && typeof key5.k === "string";
+var isJWK = (key6) => isObject3(key6) && typeof key6.kty === "string";
+var isPrivateJWK = (key6) => key6.kty !== "oct" && (key6.kty === "AKP" && typeof key6.priv === "string" || typeof key6.d === "string");
+var isPublicJWK = (key6) => key6.kty !== "oct" && key6.d === void 0 && key6.priv === void 0;
+var isSecretJWK = (key6) => key6.kty === "oct" && typeof key6.k === "string";
 
 // node_modules/jose/dist/webapi/lib/normalize_key.js
 var cache;
-var handleJWK = async (key5, jwk, alg, freeze = false) => {
+var handleJWK = async (key6, jwk, alg, freeze = false) => {
   cache ||= /* @__PURE__ */ new WeakMap();
-  let cached2 = cache.get(key5);
+  let cached2 = cache.get(key6);
   if (cached2?.[alg]) {
     return cached2[alg];
   }
   const cryptoKey = await jwkToKey({ ...jwk, alg });
   if (freeze)
-    Object.freeze(key5);
+    Object.freeze(key6);
   if (!cached2) {
-    cache.set(key5, { [alg]: cryptoKey });
+    cache.set(key6, { [alg]: cryptoKey });
   } else {
     cached2[alg] = cryptoKey;
   }
@@ -69542,42 +69857,42 @@ var handleKeyObject = (keyObject, alg) => {
   }
   return cryptoKey;
 };
-async function normalizeKey(key5, alg) {
-  if (key5 instanceof Uint8Array) {
-    return key5;
+async function normalizeKey(key6, alg) {
+  if (key6 instanceof Uint8Array) {
+    return key6;
   }
-  if (isCryptoKey(key5)) {
-    return key5;
+  if (isCryptoKey(key6)) {
+    return key6;
   }
-  if (isKeyObject(key5)) {
-    if (key5.type === "secret") {
-      return key5.export();
+  if (isKeyObject(key6)) {
+    if (key6.type === "secret") {
+      return key6.export();
     }
-    if ("toCryptoKey" in key5 && typeof key5.toCryptoKey === "function") {
+    if ("toCryptoKey" in key6 && typeof key6.toCryptoKey === "function") {
       try {
-        return handleKeyObject(key5, alg);
+        return handleKeyObject(key6, alg);
       } catch (err) {
         if (err instanceof TypeError) {
           throw err;
         }
       }
     }
-    let jwk = key5.export({ format: "jwk" });
-    return handleJWK(key5, jwk, alg);
+    let jwk = key6.export({ format: "jwk" });
+    return handleJWK(key6, jwk, alg);
   }
-  if (isJWK(key5)) {
-    if (key5.k) {
-      return decode4(key5.k);
+  if (isJWK(key6)) {
+    if (key6.k) {
+      return decode4(key6.k);
     }
-    return handleJWK(key5, key5, alg, true);
+    return handleJWK(key6, key6, alg, true);
   }
   throw new Error("unreachable");
 }
 
 // node_modules/jose/dist/webapi/lib/check_key_type.js
-var tag = (key5) => key5?.[Symbol.toStringTag];
-var jwkMatchesOp = (alg, key5, usage) => {
-  if (key5.use !== void 0) {
+var tag = (key6) => key6?.[Symbol.toStringTag];
+var jwkMatchesOp = (alg, key6, usage) => {
+  if (key6.use !== void 0) {
     let expected;
     switch (usage) {
       case "sign":
@@ -69589,14 +69904,14 @@ var jwkMatchesOp = (alg, key5, usage) => {
         expected = "enc";
         break;
     }
-    if (key5.use !== expected) {
+    if (key6.use !== expected) {
       throw new TypeError(`Invalid key for this operation, its "use" must be "${expected}" when present`);
     }
   }
-  if (key5.alg !== void 0 && key5.alg !== alg) {
+  if (key6.alg !== void 0 && key6.alg !== alg) {
     throw new TypeError(`Invalid key for this operation, its "alg" must be "${alg}" when present`);
   }
-  if (Array.isArray(key5.key_ops)) {
+  if (Array.isArray(key6.key_ops)) {
     let expectedKeyOp;
     switch (true) {
       case (usage === "sign" || usage === "verify"):
@@ -69621,76 +69936,76 @@ var jwkMatchesOp = (alg, key5, usage) => {
         expectedKeyOp = alg.startsWith("RSA") ? "unwrapKey" : "deriveBits";
         break;
     }
-    if (expectedKeyOp && key5.key_ops?.includes?.(expectedKeyOp) === false) {
+    if (expectedKeyOp && key6.key_ops?.includes?.(expectedKeyOp) === false) {
       throw new TypeError(`Invalid key for this operation, its "key_ops" must include "${expectedKeyOp}" when present`);
     }
   }
   return true;
 };
-var symmetricTypeCheck = (alg, key5, usage) => {
-  if (key5 instanceof Uint8Array)
+var symmetricTypeCheck = (alg, key6, usage) => {
+  if (key6 instanceof Uint8Array)
     return;
-  if (isJWK(key5)) {
-    if (isSecretJWK(key5) && jwkMatchesOp(alg, key5, usage))
+  if (isJWK(key6)) {
+    if (isSecretJWK(key6) && jwkMatchesOp(alg, key6, usage))
       return;
     throw new TypeError(`JSON Web Key for symmetric algorithms must have JWK "kty" (Key Type) equal to "oct" and the JWK "k" (Key Value) present`);
   }
-  if (!isKeyLike(key5)) {
-    throw new TypeError(withAlg(alg, key5, "CryptoKey", "KeyObject", "JSON Web Key", "Uint8Array"));
+  if (!isKeyLike(key6)) {
+    throw new TypeError(withAlg(alg, key6, "CryptoKey", "KeyObject", "JSON Web Key", "Uint8Array"));
   }
-  if (key5.type !== "secret") {
-    throw new TypeError(`${tag(key5)} instances for symmetric algorithms must be of type "secret"`);
+  if (key6.type !== "secret") {
+    throw new TypeError(`${tag(key6)} instances for symmetric algorithms must be of type "secret"`);
   }
 };
-var asymmetricTypeCheck = (alg, key5, usage) => {
-  if (isJWK(key5)) {
+var asymmetricTypeCheck = (alg, key6, usage) => {
+  if (isJWK(key6)) {
     switch (usage) {
       case "decrypt":
       case "sign":
-        if (isPrivateJWK(key5) && jwkMatchesOp(alg, key5, usage))
+        if (isPrivateJWK(key6) && jwkMatchesOp(alg, key6, usage))
           return;
         throw new TypeError(`JSON Web Key for this operation must be a private JWK`);
       case "encrypt":
       case "verify":
-        if (isPublicJWK(key5) && jwkMatchesOp(alg, key5, usage))
+        if (isPublicJWK(key6) && jwkMatchesOp(alg, key6, usage))
           return;
         throw new TypeError(`JSON Web Key for this operation must be a public JWK`);
     }
   }
-  if (!isKeyLike(key5)) {
-    throw new TypeError(withAlg(alg, key5, "CryptoKey", "KeyObject", "JSON Web Key"));
+  if (!isKeyLike(key6)) {
+    throw new TypeError(withAlg(alg, key6, "CryptoKey", "KeyObject", "JSON Web Key"));
   }
-  if (key5.type === "secret") {
-    throw new TypeError(`${tag(key5)} instances for asymmetric algorithms must not be of type "secret"`);
+  if (key6.type === "secret") {
+    throw new TypeError(`${tag(key6)} instances for asymmetric algorithms must not be of type "secret"`);
   }
-  if (key5.type === "public") {
+  if (key6.type === "public") {
     switch (usage) {
       case "sign":
-        throw new TypeError(`${tag(key5)} instances for asymmetric algorithm signing must be of type "private"`);
+        throw new TypeError(`${tag(key6)} instances for asymmetric algorithm signing must be of type "private"`);
       case "decrypt":
-        throw new TypeError(`${tag(key5)} instances for asymmetric algorithm decryption must be of type "private"`);
+        throw new TypeError(`${tag(key6)} instances for asymmetric algorithm decryption must be of type "private"`);
     }
   }
-  if (key5.type === "private") {
+  if (key6.type === "private") {
     switch (usage) {
       case "verify":
-        throw new TypeError(`${tag(key5)} instances for asymmetric algorithm verifying must be of type "public"`);
+        throw new TypeError(`${tag(key6)} instances for asymmetric algorithm verifying must be of type "public"`);
       case "encrypt":
-        throw new TypeError(`${tag(key5)} instances for asymmetric algorithm encryption must be of type "public"`);
+        throw new TypeError(`${tag(key6)} instances for asymmetric algorithm encryption must be of type "public"`);
     }
   }
 };
-function checkKeyType(alg, key5, usage) {
+function checkKeyType(alg, key6, usage) {
   switch (alg.substring(0, 2)) {
     case "A1":
     case "A2":
     case "di":
     case "HS":
     case "PB":
-      symmetricTypeCheck(alg, key5, usage);
+      symmetricTypeCheck(alg, key6, usage);
       break;
     default:
-      asymmetricTypeCheck(alg, key5, usage);
+      asymmetricTypeCheck(alg, key6, usage);
   }
 }
 
@@ -69727,20 +70042,20 @@ function subtleAlgorithm(alg, algorithm) {
 }
 
 // node_modules/jose/dist/webapi/lib/get_sign_verify_key.js
-async function getSigKey(alg, key5, usage) {
-  if (key5 instanceof Uint8Array) {
+async function getSigKey(alg, key6, usage) {
+  if (key6 instanceof Uint8Array) {
     if (!alg.startsWith("HS")) {
-      throw new TypeError(invalidKeyInput(key5, "CryptoKey", "KeyObject", "JSON Web Key"));
+      throw new TypeError(invalidKeyInput(key6, "CryptoKey", "KeyObject", "JSON Web Key"));
     }
-    return crypto.subtle.importKey("raw", key5, { hash: `SHA-${alg.slice(-3)}`, name: "HMAC" }, false, [usage]);
+    return crypto.subtle.importKey("raw", key6, { hash: `SHA-${alg.slice(-3)}`, name: "HMAC" }, false, [usage]);
   }
-  checkSigCryptoKey(key5, alg, usage);
-  return key5;
+  checkSigCryptoKey(key6, alg, usage);
+  return key6;
 }
 
 // node_modules/jose/dist/webapi/lib/verify.js
-async function verify(alg, key5, signature, data) {
-  const cryptoKey = await getSigKey(alg, key5, "verify");
+async function verify(alg, key6, signature, data) {
+  const cryptoKey = await getSigKey(alg, key6, "verify");
   checkKeyLength(alg, cryptoKey);
   const algorithm = subtleAlgorithm(alg, cryptoKey.algorithm);
   try {
@@ -69751,7 +70066,7 @@ async function verify(alg, key5, signature, data) {
 }
 
 // node_modules/jose/dist/webapi/jws/flattened/verify.js
-async function flattenedVerify(jws, key5, options) {
+async function flattenedVerify(jws, key6, options) {
   if (!isObject3(jws)) {
     throw new JWSInvalid("Flattened JWS must be an object");
   }
@@ -69810,11 +70125,11 @@ async function flattenedVerify(jws, key5, options) {
     throw new JWSInvalid("JWS Payload must be a string or an Uint8Array instance");
   }
   let resolvedKey = false;
-  if (typeof key5 === "function") {
-    key5 = await key5(parsedProt, jws);
+  if (typeof key6 === "function") {
+    key6 = await key6(parsedProt, jws);
     resolvedKey = true;
   }
-  checkKeyType(alg, key5, "verify");
+  checkKeyType(alg, key6, "verify");
   const data = concat(jws.protected !== void 0 ? encode4(jws.protected) : new Uint8Array(), encode4("."), typeof jws.payload === "string" ? b64 ? encode4(jws.payload) : encoder.encode(jws.payload) : jws.payload);
   let signature;
   try {
@@ -69822,7 +70137,7 @@ async function flattenedVerify(jws, key5, options) {
   } catch {
     throw new JWSInvalid("Failed to base64url decode the signature");
   }
-  const k = await normalizeKey(key5, alg);
+  const k = await normalizeKey(key6, alg);
   const verified = await verify(alg, k, signature, data);
   if (!verified) {
     throw new JWSSignatureVerificationFailed();
@@ -69853,7 +70168,7 @@ async function flattenedVerify(jws, key5, options) {
 }
 
 // node_modules/jose/dist/webapi/jws/compact/verify.js
-async function compactVerify(jws, key5, options) {
+async function compactVerify(jws, key6, options) {
   if (jws instanceof Uint8Array) {
     jws = decoder.decode(jws);
   }
@@ -69864,9 +70179,9 @@ async function compactVerify(jws, key5, options) {
   if (length !== 3) {
     throw new JWSInvalid("Invalid Compact JWS");
   }
-  const verified = await flattenedVerify({ payload, protected: protectedHeader, signature }, key5, options);
+  const verified = await flattenedVerify({ payload, protected: protectedHeader, signature }, key6, options);
   const result = { payload: verified.payload, protectedHeader: verified.protectedHeader };
-  if (typeof key5 === "function") {
+  if (typeof key6 === "function") {
     return { ...result, key: verified.key };
   }
   return result;
@@ -70098,22 +70413,22 @@ var JWTClaimsBuilder = class {
 };
 
 // node_modules/jose/dist/webapi/jwt/verify.js
-async function jwtVerify(jwt2, key5, options) {
-  const verified = await compactVerify(jwt2, key5, options);
+async function jwtVerify(jwt2, key6, options) {
+  const verified = await compactVerify(jwt2, key6, options);
   if (verified.protectedHeader.crit?.includes("b64") && verified.protectedHeader.b64 === false) {
     throw new JWTInvalid("JWTs MUST NOT use unencoded payload");
   }
   const payload = validateClaimsSet(verified.protectedHeader, verified.payload, options);
   const result = { payload, protectedHeader: verified.protectedHeader };
-  if (typeof key5 === "function") {
+  if (typeof key6 === "function") {
     return { ...result, key: verified.key };
   }
   return result;
 }
 
 // node_modules/jose/dist/webapi/lib/sign.js
-async function sign(alg, key5, data) {
-  const cryptoKey = await getSigKey(alg, key5, "sign");
+async function sign(alg, key6, data) {
+  const cryptoKey = await getSigKey(alg, key6, "sign");
   checkKeyLength(alg, cryptoKey);
   const signature = await crypto.subtle.sign(subtleAlgorithm(alg, cryptoKey.algorithm), cryptoKey, data);
   return new Uint8Array(signature);
@@ -70144,7 +70459,7 @@ var FlattenedSign = class {
     this.#unprotectedHeader = unprotectedHeader;
     return this;
   }
-  async sign(key5, options) {
+  async sign(key6, options) {
     if (!this.#protectedHeader && !this.#unprotectedHeader) {
       throw new JWSInvalid("either setProtectedHeader or setUnprotectedHeader must be called before #sign()");
     }
@@ -70167,7 +70482,7 @@ var FlattenedSign = class {
     if (typeof alg !== "string" || !alg) {
       throw new JWSInvalid('JWS "alg" (Algorithm) Header Parameter missing or invalid');
     }
-    checkKeyType(alg, key5, "sign");
+    checkKeyType(alg, key6, "sign");
     let payloadS;
     let payloadB;
     if (b64) {
@@ -70187,7 +70502,7 @@ var FlattenedSign = class {
       protectedHeaderBytes = new Uint8Array();
     }
     const data = concat(protectedHeaderBytes, encode4("."), payloadB);
-    const k = await normalizeKey(key5, alg);
+    const k = await normalizeKey(key6, alg);
     const signature = await sign(alg, k, data);
     const jws = {
       signature: encode5(signature),
@@ -70213,8 +70528,8 @@ var CompactSign = class {
     this.#flattened.setProtectedHeader(protectedHeader);
     return this;
   }
-  async sign(key5, options) {
-    const jws = await this.#flattened.sign(key5, options);
+  async sign(key6, options) {
+    const jws = await this.#flattened.sign(key6, options);
     if (jws.payload === void 0) {
       throw new TypeError("use the flattened module for creating JWS with b64: false");
     }
@@ -70261,13 +70576,13 @@ var SignJWT = class {
     this.#protectedHeader = protectedHeader;
     return this;
   }
-  async sign(key5, options) {
+  async sign(key6, options) {
     const sig = new CompactSign(this.#jwt.data());
     sig.setProtectedHeader(this.#protectedHeader);
     if (Array.isArray(this.#protectedHeader?.crit) && this.#protectedHeader.crit.includes("b64") && this.#protectedHeader.b64 === false) {
       throw new JWTInvalid("JWTs MUST NOT use unencoded payload");
     }
-    return sig.sign(key5, options);
+    return sig.sign(key6, options);
   }
 };
 
@@ -71044,8 +71359,8 @@ var WORKFLOW_TEMPLATES = [
     "Issue ROE (if needed)"
   ] }
 ];
-function getWorkflowTemplate(key5) {
-  return WORKFLOW_TEMPLATES.find((t2) => t2.key === key5);
+function getWorkflowTemplate(key6) {
+  return WORKFLOW_TEMPLATES.find((t2) => t2.key === key6);
 }
 
 // api/task-router.ts
@@ -73561,12 +73876,12 @@ var clientDashboardRouter = createRouter({
     const rows = await db.select().from(timesheets).where(eq(timesheets.clientId, input.clientId)).orderBy(desc(timesheets.payPeriodEnd));
     const periods = /* @__PURE__ */ new Map();
     for (const row of rows) {
-      const key5 = `${row.payPeriodStart?.toISOString()}-${row.payPeriodEnd?.toISOString()}`;
-      if (!periods.has(key5)) periods.set(key5, []);
-      periods.get(key5).push(row);
+      const key6 = `${row.payPeriodStart?.toISOString()}-${row.payPeriodEnd?.toISOString()}`;
+      if (!periods.has(key6)) periods.set(key6, []);
+      periods.get(key6).push(row);
     }
-    return Array.from(periods.entries()).map(([key5, entries]) => ({
-      periodKey: key5,
+    return Array.from(periods.entries()).map(([key6, entries]) => ({
+      periodKey: key6,
       payPeriodStart: entries[0].payPeriodStart,
       payPeriodEnd: entries[0].payPeriodEnd,
       entries,
@@ -74236,12 +74551,12 @@ var dividendRouter = createRouter({
     const inYear = rows.filter((r) => (r.taxYear ?? new Date(r.paymentDate).getFullYear()) === year2);
     const byRecipient = /* @__PURE__ */ new Map();
     for (const r of inYear) {
-      const key5 = (r.recipient || "(unnamed)").trim();
-      const agg = byRecipient.get(key5) || { eligible: 0, nonEligible: 0, hasSin: false };
+      const key6 = (r.recipient || "(unnamed)").trim();
+      const agg = byRecipient.get(key6) || { eligible: 0, nonEligible: 0, hasSin: false };
       if (r.dividendType === "eligible") agg.eligible += r.amount || 0;
       else agg.nonEligible += r.amount || 0;
       if (r.recipientSin) agg.hasSin = true;
-      byRecipient.set(key5, agg);
+      byRecipient.set(key6, agg);
     }
     const payer = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
     const slips = Array.from(byRecipient.entries()).map(([recipient, a]) => ({
@@ -74316,11 +74631,11 @@ var taxSlipRouter = createRouter({
     const inYear = rows.filter((r) => (r.taxYear ?? new Date(r.createdAt).getFullYear()) === year2);
     const byRecipient = /* @__PURE__ */ new Map();
     for (const r of inYear) {
-      const key5 = (r.recipient || "(unnamed)").trim();
-      const agg = byRecipient.get(key5) || { amount: 0, hasId: false };
+      const key6 = (r.recipient || "(unnamed)").trim();
+      const agg = byRecipient.get(key6) || { amount: 0, hasId: false };
       agg.amount += r.amount || 0;
       if (r.recipientId) agg.hasId = true;
-      byRecipient.set(key5, agg);
+      byRecipient.set(key6, agg);
     }
     const payer = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
     const slips = Array.from(byRecipient.entries()).map(([recipient, a]) => ({ recipient, amount: Math.round((a.amount + Number.EPSILON) * 100) / 100, hasId: a.hasId })).sort((x, y) => x.recipient.localeCompare(y.recipient));
@@ -75197,7 +75512,7 @@ var expirationRouter = createRouter({
       )
     );
     const clientIds = [.../* @__PURE__ */ new Set([
-      ...sigDocs.map((d4) => d4.clientId),
+      ...sigDocs.map((d5) => d5.clientId),
       ...letters.map((l) => l.clientId)
     ])];
     const clientMap = {};
@@ -75205,16 +75520,16 @@ var expirationRouter = createRouter({
       const rows = await db.select().from(clients).where(eq(clients.id, cid)).limit(1);
       if (rows[0]) clientMap[cid] = rows[0].name;
     }
-    const sigResults = sigDocs.map((d4) => ({
-      id: d4.id,
+    const sigResults = sigDocs.map((d5) => ({
+      id: d5.id,
       type: "signature",
-      title: d4.title,
-      clientId: d4.clientId,
-      clientName: clientMap[d4.clientId] || "Unknown",
-      documentType: d4.documentType,
-      status: d4.status,
-      expiresAt: d4.expiresAt,
-      daysRemaining: d4.expiresAt ? Math.ceil((new Date(d4.expiresAt).getTime() - now.getTime()) / (1e3 * 60 * 60 * 24)) : 0
+      title: d5.title,
+      clientId: d5.clientId,
+      clientName: clientMap[d5.clientId] || "Unknown",
+      documentType: d5.documentType,
+      status: d5.status,
+      expiresAt: d5.expiresAt,
+      daysRemaining: d5.expiresAt ? Math.ceil((new Date(d5.expiresAt).getTime() - now.getTime()) / (1e3 * 60 * 60 * 24)) : 0
     }));
     const letterResults = letters.map((l) => ({
       id: l.id,
@@ -75232,8 +75547,8 @@ var expirationRouter = createRouter({
     );
     return {
       total: allDocs.length,
-      critical: allDocs.filter((d4) => d4.daysRemaining <= 7).length,
-      warning: allDocs.filter((d4) => d4.daysRemaining > 7 && d4.daysRemaining <= 14).length,
+      critical: allDocs.filter((d5) => d5.daysRemaining <= 7).length,
+      warning: allDocs.filter((d5) => d5.daysRemaining > 7 && d5.daysRemaining <= 14).length,
       items: allDocs
     };
   })
@@ -77300,8 +77615,8 @@ async function fetchBocFxRates() {
     const date5 = String(obs.d ?? "");
     if (!isFresh(date5)) return null;
     const rates = { CAD: 1 };
-    for (const [key5, val] of Object.entries(obs)) {
-      const m = /^FX([A-Z]{3})CAD$/.exec(key5);
+    for (const [key6, val] of Object.entries(obs)) {
+      const m = /^FX([A-Z]{3})CAD$/.exec(key6);
       const v = Number(val?.v);
       if (m && Number.isFinite(v) && v > 0) rates[m[1]] = v;
     }
@@ -77526,14 +77841,14 @@ var pdfSplitterRouter = createRouter({
       if (!parsed || !Array.isArray(parsed.documents)) {
         return { ok: false, error: "Couldn't detect document boundaries. Try a clearer scan." };
       }
-      const docs = parsed.documents.map((d4) => ({
-        startPage: Math.max(1, parseInt(String(d4?.startPage)) || 1),
-        endPage: Math.max(1, parseInt(String(d4?.endPage)) || 1),
-        type: String(d4?.type ?? "other").trim() || "other",
-        folder: String(d4?.folder ?? "").trim().replace(/[\\/:*?"<>|]+/g, ""),
-        date: String(d4?.date ?? "").trim(),
-        name: String(d4?.name ?? "").trim() || "Document"
-      })).filter((d4) => d4.endPage >= d4.startPage).sort((a, b) => a.startPage - b.startPage);
+      const docs = parsed.documents.map((d5) => ({
+        startPage: Math.max(1, parseInt(String(d5?.startPage)) || 1),
+        endPage: Math.max(1, parseInt(String(d5?.endPage)) || 1),
+        type: String(d5?.type ?? "other").trim() || "other",
+        folder: String(d5?.folder ?? "").trim().replace(/[\\/:*?"<>|]+/g, ""),
+        date: String(d5?.date ?? "").trim(),
+        name: String(d5?.name ?? "").trim() || "Document"
+      })).filter((d5) => d5.endPage >= d5.startPage).sort((a, b) => a.startPage - b.startPage);
       return { ok: true, documents: docs };
     } catch (e) {
       const msg = e instanceof Error && e.name === "AbortError" ? "Timed out reading the PDF (120s). Scan a smaller batch." : e instanceof Error ? e.message : String(e);
@@ -77554,9 +77869,9 @@ init_drizzle_orm();
 init_google_token();
 
 // api/learning-core.ts
-function ms(d4) {
-  if (d4 == null) return 0;
-  const t2 = d4 instanceof Date ? d4.getTime() : Number(d4);
+function ms(d5) {
+  if (d5 == null) return 0;
+  const t2 = d5 instanceof Date ? d5.getTime() : Number(d5);
   return Number.isFinite(t2) ? t2 : 0;
 }
 function selectRelevant(all, agent, limit2 = 15) {
@@ -77868,9 +78183,9 @@ var TOPIC_RULES = [
 ];
 function detectAgent(message2, current) {
   const m = (message2 || "").toLowerCase().trimStart();
-  for (const key5 of Object.keys(AGENT_ROSTER)) {
-    const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${key5}\\b`);
-    if (re.test(m)) return key5;
+  for (const key6 of Object.keys(AGENT_ROSTER)) {
+    const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${key6}\\b`);
+    if (re.test(m)) return key6;
   }
   for (const rule of TOPIC_RULES) {
     if (rule.re.test(m)) return rule.agent;
@@ -78079,9 +78394,9 @@ async function execGetAgenda(userId) {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(todayStart.getTime() + 864e5);
   const open3 = await db.select().from(tasks).where(eq(tasks.completed, false));
-  const dstr = (d4) => {
+  const dstr = (d5) => {
     try {
-      return new Date(d4).toLocaleDateString(void 0, { month: "short", day: "numeric" });
+      return new Date(d5).toLocaleDateString(void 0, { month: "short", day: "numeric" });
     } catch {
       return "";
     }
@@ -78089,10 +78404,10 @@ async function execGetAgenda(userId) {
   const overdue = [], today2 = [], upcoming = [];
   for (const t2 of open3) {
     if (!t2.dueDate) continue;
-    const d4 = new Date(t2.dueDate);
-    const item = { title: t2.title, client: t2.clientId ? nameById.get(t2.clientId) : null, due: dstr(d4) };
-    if (d4 < todayStart) overdue.push(item);
-    else if (d4 < todayEnd) today2.push({ ...item, due: null });
+    const d5 = new Date(t2.dueDate);
+    const item = { title: t2.title, client: t2.clientId ? nameById.get(t2.clientId) : null, due: dstr(d5) };
+    if (d5 < todayStart) overdue.push(item);
+    else if (d5 < todayEnd) today2.push({ ...item, due: null });
     else upcoming.push(item);
   }
   overdue.sort((a, b) => a.due.localeCompare(b.due));
@@ -78743,8 +79058,8 @@ function validateForPosting(je, accountMap) {
   if (!je) return { ok: false, errors: ["Nothing to post for this period."] };
   if (!je.balanced) errors.push(`Journal entry is out of balance (debits ${je.totalDebit} \u2260 credits ${je.totalCredit}).`);
   const keysUsed = new Set(je.lines.map((l) => l.accountKey));
-  for (const key5 of keysUsed) {
-    if (!accountMap[key5]) errors.push(`No QBO account mapped for "${key5}". Set the account mapping before posting.`);
+  for (const key6 of keysUsed) {
+    if (!accountMap[key6]) errors.push(`No QBO account mapped for "${key6}". Set the account mapping before posting.`);
   }
   for (const l of je.lines) {
     if (l.debit < 0 || l.credit < 0) errors.push(`Negative amount on a ${l.accountKey} line \u2014 corrections must be re-entered as a positive reversing period.`);
@@ -78998,10 +79313,10 @@ var revRecRouter = createRouter({
     const rows = await db.select().from(rrAccountMap).where(eq(rrAccountMap.clientId, input.clientId));
     const byKey = {};
     for (const r of rows) byKey[r.accountKey] = r;
-    return ACCOUNT_KEYS.map((key5) => ({
-      accountKey: key5,
-      qboAccountId: byKey[key5]?.qboAccountId ?? null,
-      qboAccountName: byKey[key5]?.qboAccountName ?? null
+    return ACCOUNT_KEYS.map((key6) => ({
+      accountKey: key6,
+      qboAccountId: byKey[key6]?.qboAccountId ?? null,
+      qboAccountName: byKey[key6]?.qboAccountName ?? null
     }));
   }),
   accountMapSet: authedQuery.input(external_exports.object({
@@ -79136,8 +79451,8 @@ init_drizzle_orm();
 function round26(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
-function toTime(d4) {
-  const t2 = new Date(d4).getTime();
+function toTime(d5) {
+  const t2 = new Date(d5).getTime();
   return Number.isFinite(t2) ? t2 : 0;
 }
 function buildLedger(entries) {
@@ -79186,17 +79501,17 @@ function parseOpeningBalances(text2) {
 
 // api/banked-hours-router.ts
 function matchEmployee(name2, emps) {
-  const norm16 = (s) => (s || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
-  const target = norm16(name2);
+  const norm17 = (s) => (s || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
+  const target = norm17(name2);
   if (!target) return null;
   for (const e of emps) {
-    const full = norm16(`${e.firstName} ${e.lastName}`);
-    const rev = norm16(`${e.lastName} ${e.firstName}`);
+    const full = norm17(`${e.firstName} ${e.lastName}`);
+    const rev = norm17(`${e.lastName} ${e.firstName}`);
     if (target === full || target === rev) return e;
   }
   for (const e of emps) {
-    const ln = norm16(e.lastName);
-    const fi = norm16(e.firstName).charAt(0);
+    const ln = norm17(e.lastName);
+    const fi = norm17(e.firstName).charAt(0);
     if (ln && target.includes(ln) && (!fi || target.includes(fi))) return e;
   }
   return null;
@@ -79647,9 +79962,9 @@ var _serialize = (name2, value, opt = {}) => {
       throw new Error("__Host- Cookie must not have Domain attributes");
     }
   }
-  for (const key5 of ["domain", "path"]) {
-    if (opt[key5] && /[;\r\n]/.test(opt[key5])) {
-      throw new Error(`${key5} must not contain ";", "\\r", or "\\n"`);
+  for (const key6 of ["domain", "path"]) {
+    if (opt[key6] && /[;\r\n]/.test(opt[key6])) {
+      throw new Error(`${key6} must not contain ";", "\\r", or "\\n"`);
     }
   }
   if (opt && typeof opt.maxAge === "number" && opt.maxAge >= 0) {
@@ -80025,8 +80340,8 @@ app.get("/api/oauth/google/debug", async (c) => {
       const gDate = (part) => {
         if (part?.dateTime) return new Date(part.dateTime);
         if (!part?.date) return null;
-        const [y, m, d4] = String(part.date).split("-").map(Number);
-        return new Date(y, m - 1, d4, 12, 0, 0);
+        const [y, m, d5] = String(part.date).split("-").map(Number);
+        return new Date(y, m - 1, d5, 12, 0, 0);
       };
       let inserted = 0, skipped = 0;
       const errors = [];
@@ -80186,6 +80501,15 @@ app.get("/api/payroll/backfill-cw", async (c) => {
   try {
     const { backfillCollingwoodPayroll: backfillCollingwoodPayroll2 } = await Promise.resolve().then(() => (init_seed_collingwood_backfill(), seed_collingwood_backfill_exports));
     const r = await backfillCollingwoodPayroll2();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.get("/api/payroll/backfill-auld", async (c) => {
+  try {
+    const { backfillAuldPayroll: backfillAuldPayroll2 } = await Promise.resolve().then(() => (init_seed_auld_backfill(), seed_auld_backfill_exports));
+    const r = await backfillAuldPayroll2();
     return c.json({ ok: true, ...r });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
@@ -80839,10 +81163,10 @@ app.post("/api/admin/figgy", async (c) => {
       let i = 0;
       const updated = [];
       for (const t2 of open3) {
-        const d4 = /* @__PURE__ */ new Date();
-        d4.setHours(9, 0, 0, 0);
-        d4.setDate(d4.getDate() + i % 10 + 1);
-        await db.update(tasks5).set({ dueDate: d4 }).where(eq3(tasks5.id, t2.id));
+        const d5 = /* @__PURE__ */ new Date();
+        d5.setHours(9, 0, 0, 0);
+        d5.setDate(d5.getDate() + i % 10 + 1);
+        await db.update(tasks5).set({ dueDate: d5 }).where(eq3(tasks5.id, t2.id));
         updated.push(t2.id);
         i++;
       }
@@ -81322,8 +81646,8 @@ async function startServer() {
   if (process.env.FIGGY_SKIP_CLIENT_SEED !== "on") {
     try {
       const { dedupeClients: dedupeClients2 } = await Promise.resolve().then(() => (init_dedupe_clients(), dedupe_clients_exports));
-      const d4 = await dedupeClients2(true);
-      console.log(`[dedupe] clients: ${d4.totalClients} -> ${d4.keep} kept, ${d4.deleted} removed`);
+      const d5 = await dedupeClients2(true);
+      console.log(`[dedupe] clients: ${d5.totalClients} -> ${d5.keep} kept, ${d5.deleted} removed`);
     } catch (e) {
       console.error("[dedupe] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
@@ -81377,8 +81701,8 @@ async function startServer() {
     }
     try {
       const { seedDockKingFlowthrough: seedDockKingFlowthrough2 } = await Promise.resolve().then(() => (init_seed_dock_king_flowthrough(), seed_dock_king_flowthrough_exports));
-      const d4 = await seedDockKingFlowthrough2();
-      if (d4.matched) console.log(`[seed] Dock King flow-through: ${d4.updated} set wholesale, ${d4.tasksPaused} tasks/rules paused (${d4.matched} matched)`);
+      const d5 = await seedDockKingFlowthrough2();
+      if (d5.matched) console.log(`[seed] Dock King flow-through: ${d5.updated} set wholesale, ${d5.tasksPaused} tasks/rules paused (${d5.matched} matched)`);
     } catch (e) {
       console.error("[seed] seedDockKingFlowthrough failed (non-fatal):", e instanceof Error ? e.message : e);
     }
@@ -81465,6 +81789,13 @@ async function startServer() {
       if (r?.runsAdded) console.log(`[cw-backfill] +${r.runsAdded} runs`);
     } catch (e) {
       console.error("[cw-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { backfillAuldPayroll: backfillAuldPayroll2 } = await Promise.resolve().then(() => (init_seed_auld_backfill(), seed_auld_backfill_exports));
+      const r = await backfillAuldPayroll2();
+      if (r?.runsAdded) console.log(`[auld-backfill] +${r.runsAdded} runs`);
+    } catch (e) {
+      console.error("[auld-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { dedupEmployees: dedupEmployees2 } = await Promise.resolve().then(() => (init_seed_employee_dedup(), seed_employee_dedup_exports));
