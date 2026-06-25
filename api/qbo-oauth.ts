@@ -68,7 +68,7 @@ function secretMaterial(): string | null {
  * persist it in app_settings, then reuse it on every boot. Call at startup before
  * any token is read/written. Returns the source for logging.
  */
-export async function ensureTokenKey(): Promise<"env" | "generated" | "persisted"> {
+export async function ensureTokenKey(): Promise<"env" | "generated" | "persisted" | "failed"> {
   if (process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET) return "env";
   try {
     const { getDb } = await import("./queries/connection");
@@ -85,7 +85,7 @@ export async function ensureTokenKey(): Promise<"env" | "generated" | "persisted
     return "generated";
   } catch (e) {
     console.error("[qbo-oauth] ensureTokenKey failed (tokens stay plaintext):", e instanceof Error ? e.message : e);
-    return "persisted";
+    return "failed";
   }
 }
 let warnedNoKey = false;

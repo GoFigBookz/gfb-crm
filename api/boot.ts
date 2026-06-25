@@ -1494,6 +1494,8 @@ async function startServer() {
     await ensureRevRecSchema();
     const { ensureBankedHoursSchema } = await import("./ensure-banked-hours-schema");
     await ensureBankedHoursSchema();
+    const { ensureLoanSchema } = await import("./ensure-loan-schema");
+    await ensureLoanSchema();
     // Repair legacy date rows stored in MILLISECONDS in a seconds column (they
     // render as year ~58000). Anything above year-2100-in-seconds is really ms → ÷1000.
     try {

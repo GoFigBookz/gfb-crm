@@ -22365,6 +22365,9 @@ __export(schema_exports, {
   invoices: () => invoices,
   jobberConnections: () => jobberConnections,
   lifeEntries: () => lifeEntries,
+  loanAccounts: () => loanAccounts,
+  loanEntries: () => loanEntries,
+  loanShareLinks: () => loanShareLinks,
   makeIntake: () => makeIntake,
   makeSubmissions: () => makeSubmissions,
   missingItems: () => missingItems,
@@ -22408,7 +22411,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks, lifeEntries;
+var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, loanAccounts, loanEntries, loanShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks, lifeEntries;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -24244,6 +24247,47 @@ var init_schema = __esm({
       token: text("token").notNull(),
       label: text("label"),
       allowEdit: integer2("allowEdit", { mode: "boolean" }).default(true).notNull(),
+      active: integer2("active", { mode: "boolean" }).default(true).notNull(),
+      createdBy: integer2("createdBy"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      revokedAt: integer2("revokedAt", { mode: "timestamp" })
+    });
+    loanAccounts = sqliteTable("loan_accounts", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      name: text("name").notNull(),
+      // e.g. "Conor — shareholder loan"
+      counterparty: text("counterparty"),
+      // the other party (person / entity)
+      annualRatePct: real("annualRatePct"),
+      // interest rate, if any
+      status: text("status", { enum: ["active", "settled", "archived"] }).default("active").notNull(),
+      note: text("note"),
+      createdBy: integer2("createdBy"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    loanEntries = sqliteTable("loan_entries", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      loanId: integer2("loanId").notNull(),
+      clientId: integer2("clientId").notNull(),
+      entryDate: integer2("entryDate", { mode: "timestamp" }).notNull(),
+      amount: real("amount").notNull(),
+      // signed: + grows the loan, − repayment
+      kind: text("kind", { enum: ["opening", "advance", "repayment", "interest", "adjust"] }).default("advance").notNull(),
+      note: text("note"),
+      source: text("source").default("manual"),
+      // manual | client | import | qbo
+      enteredBy: text("enteredBy"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    loanShareLinks = sqliteTable("loan_share_links", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      token: text("token").notNull(),
+      label: text("label"),
+      allowEdit: integer2("allowEdit", { mode: "boolean" }).default(false).notNull(),
       active: integer2("active", { mode: "boolean" }).default(true).notNull(),
       createdBy: integer2("createdBy"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
@@ -39403,7 +39447,7 @@ async function ensureTokenKey() {
     return "generated";
   } catch (e) {
     console.error("[qbo-oauth] ensureTokenKey failed (tokens stay plaintext):", e instanceof Error ? e.message : e);
-    return "persisted";
+    return "failed";
   }
 }
 function warnNoKeyOnce() {
@@ -58244,7 +58288,7 @@ async function seedCollingwoodRunHours() {
       const k = key(e.firstName, e.lastName);
       const patch = {};
       if ((e.payType || "") === "salary") {
-        const g = round27((e.annualSalary || 0) / PERIODS_PER_YEAR);
+        const g = round28((e.annualSalary || 0) / PERIODS_PER_YEAR);
         if (g > 0 && (l.grossPay ?? 0) === 0) patch.grossPay = g;
       } else if (k in HOURS) {
         const target = HOURS[k];
@@ -58254,7 +58298,7 @@ async function seedCollingwoodRunHours() {
           filled++;
         }
         const rate = e.hourlyRate ?? 0;
-        const g = round27(reg * rate);
+        const g = round28(reg * rate);
         if (g !== (l.grossPay ?? 0)) patch.grossPay = g;
       }
       const entitled = !PHONE_EXEMPT_LAST2.includes(norm8(e.lastName));
@@ -58269,7 +58313,7 @@ async function seedCollingwoodRunHours() {
       }
     }
     const fresh = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, draft.id));
-    const totalGross = round27(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
+    const totalGross = round28(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
     await db.update(payRuns).set({ totalGross, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, draft.id));
     if (filled || phoneSet) console.log(`[seed-collingwood-run] run ${draft.id}: filled ${filled} hours, set ${phoneSet} phone`);
     return { run: draft.id, filled, phoneSet, skipped: "" };
@@ -58277,7 +58321,7 @@ async function seedCollingwoodRunHours() {
     console.error("[seed-collingwood-run] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID2, PHONE, round27, norm8, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
+var CLIENT_ID2, PHONE, round28, norm8, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
 var init_seed_collingwood_run_hours = __esm({
   "api/seed-collingwood-run-hours.ts"() {
     init_connection();
@@ -58285,7 +58329,7 @@ var init_seed_collingwood_run_hours = __esm({
     init_drizzle_orm();
     CLIENT_ID2 = 7;
     PHONE = 23.08;
-    round27 = (n) => Math.round(n * 100) / 100;
+    round28 = (n) => Math.round(n * 100) / 100;
     norm8 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key = (first, last) => `${norm8(last)}|${norm8(first)}`;
     HOURS = {
@@ -58562,7 +58606,7 @@ async function backfillSherPayroll() {
         const emp = empByKey.get(k);
         if (!emp) continue;
         const ln = p.lines[k];
-        const gross = round28(ln?.gross ?? 0);
+        const gross = round29(ln?.gross ?? 0);
         totalGross += gross;
         await db.insert(payRunLines).values({
           payRunId: run2.id,
@@ -58571,7 +58615,7 @@ async function backfillSherPayroll() {
           grossPay: gross
         });
       }
-      await db.update(payRuns).set({ totalGross: round28(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round29(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[sher-backfill] added ${runsAdded} run(s)`);
@@ -58580,13 +58624,13 @@ async function backfillSherPayroll() {
     console.error("[sher-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round28, norm9, key2, d, ROSTER2, PERIODS;
+var round29, norm9, key2, d, ROSTER2, PERIODS;
 var init_seed_sher_backfill = __esm({
   "api/seed-sher-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round28 = (n) => Math.round(n * 100) / 100;
+    round29 = (n) => Math.round(n * 100) / 100;
     norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key2 = (first, last) => `${norm9(last)}|${norm9(first)}`;
     d = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -58771,11 +58815,11 @@ async function backfillOwenSoundPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp || have.has(emp.id)) continue;
-        await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: round29(v.gross) });
+        await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: round210(v.gross) });
         linesAdded++;
       }
       const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run2.id));
-      const tg = round29(lines.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
+      const tg = round210(lines.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
       await db.update(payRuns).set({ totalGross: tg, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
     }
     if (runsAdded || linesAdded) console.log(`[os-backfill] added ${runsAdded} run(s), ${linesAdded} line(s)`);
@@ -58784,13 +58828,13 @@ async function backfillOwenSoundPayroll() {
     console.error("[os-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round29, norm10, key3, d2, ROSTER3, PERIODS2;
+var round210, norm10, key3, d2, ROSTER3, PERIODS2;
 var init_seed_os_backfill = __esm({
   "api/seed-os-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round29 = (n) => Math.round(n * 100) / 100;
+    round210 = (n) => Math.round(n * 100) / 100;
     norm10 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key3 = (first, last) => `${norm10(last)}|${norm10(first)}`;
     d2 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -58998,11 +59042,11 @@ async function backfillCollingwoodPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round210(v.gross);
+        const gross = round211(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round210(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round211(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[cw-backfill] added ${runsAdded} run(s)`);
@@ -59011,14 +59055,14 @@ async function backfillCollingwoodPayroll() {
     console.error("[cw-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID3, round210, norm11, key4, d3, ROSTER4, PERIODS3;
+var CLIENT_ID3, round211, norm11, key4, d3, ROSTER4, PERIODS3;
 var init_seed_collingwood_backfill = __esm({
   "api/seed-collingwood-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     CLIENT_ID3 = 7;
-    round210 = (n) => Math.round(n * 100) / 100;
+    round211 = (n) => Math.round(n * 100) / 100;
     norm11 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key4 = (first, last) => `${norm11(last)}|${norm11(first)}`;
     d3 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -59259,11 +59303,11 @@ async function backfillAuldPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round211(v.gross);
+        const gross = round212(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round211(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round212(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[auld-backfill] added ${runsAdded} run(s)`);
@@ -59272,13 +59316,13 @@ async function backfillAuldPayroll() {
     console.error("[auld-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round211, norm12, key5, d4, ROSTER5, PERIODS4;
+var round212, norm12, key5, d4, ROSTER5, PERIODS4;
 var init_seed_auld_backfill = __esm({
   "api/seed-auld-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round211 = (n) => Math.round(n * 100) / 100;
+    round212 = (n) => Math.round(n * 100) / 100;
     norm12 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key5 = (first, last) => `${norm12(last)}|${norm12(first)}`;
     d4 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -59565,11 +59609,11 @@ async function backfillOriginalityPayroll() {
         for (const [k, v] of Object.entries(p.lines)) {
           const emp = empByKey.get(k);
           if (!emp) continue;
-          const gross = round212(v.gross);
+          const gross = round213(v.gross);
           totalGross += gross;
           await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
         }
-        await db.update(payRuns).set({ totalGross: round212(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+        await db.update(payRuns).set({ totalGross: round213(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
         runsAdded++;
       }
     };
@@ -59581,13 +59625,13 @@ async function backfillOriginalityPayroll() {
     console.error("[og-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round212, norm13, key6, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
+var round213, norm13, key6, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
 var init_seed_originality_backfill = __esm({
   "api/seed-originality-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round212 = (n) => Math.round(n * 100) / 100;
+    round213 = (n) => Math.round(n * 100) / 100;
     norm13 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key6 = (first, last) => `${norm13(last)}|${norm13(first)}`;
     d5 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -59815,7 +59859,7 @@ async function backfill2303851Payroll() {
     let runsAdded = 0;
     for (const p of PERIODS5) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
-      const gross = round213(p.gross);
+      const gross = round214(p.gross);
       const [run2] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d6(p.start),
@@ -59839,19 +59883,19 @@ async function backfill2303851Payroll() {
     console.error("[2303851-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round213, norm14, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
+var round214, norm14, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
 var init_seed_2303851_backfill = __esm({
   "api/seed-2303851-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round213 = (n) => Math.round(n * 100) / 100;
+    round214 = (n) => Math.round(n * 100) / 100;
     norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key7 = (first, last) => `${norm14(last)}|${norm14(first)}`;
     d6 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     EMP = { first: "Stacey", last: "Gillham" };
     MONTHLY = 8333.33;
-    HALF = round213(MONTHLY / 2);
+    HALF = round214(MONTHLY / 2);
     PERIODS5 = [
       { payDate: "2026-01-31", start: "2026-01-01", end: "2026-01-31", gross: MONTHLY },
       { payDate: "2026-02-28", start: "2026-02-01", end: "2026-02-28", gross: MONTHLY },
@@ -59918,8 +59962,8 @@ async function backfillFractalPayroll() {
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       if (!run2) continue;
-      await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: 0, grossPay: round214(MONTHLY2) });
-      await db.update(payRuns).set({ totalGross: round214(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: 0, grossPay: round215(MONTHLY2) });
+      await db.update(payRuns).set({ totalGross: round215(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[fractal-backfill] added ${runsAdded} run(s)`);
@@ -59928,13 +59972,13 @@ async function backfillFractalPayroll() {
     console.error("[fractal-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round214, norm15, d7, MONTHLY2, PERIODS6;
+var round215, norm15, d7, MONTHLY2, PERIODS6;
 var init_seed_fractal_backfill = __esm({
   "api/seed-fractal-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round214 = (n) => Math.round(n * 100) / 100;
+    round215 = (n) => Math.round(n * 100) / 100;
     norm15 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     d7 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     MONTHLY2 = 4500;
@@ -60010,11 +60054,11 @@ async function backfillMotionInvestPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round215(v.gross);
+        const gross = round216(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round215(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round216(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[motioninvest-backfill] added ${runsAdded} run(s)`);
@@ -60023,13 +60067,13 @@ async function backfillMotionInvestPayroll() {
     console.error("[motioninvest-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round215, norm16, key8, d8, ROSTER7, PERIODS7;
+var round216, norm16, key8, d8, ROSTER7, PERIODS7;
 var init_seed_motioninvest_backfill = __esm({
   "api/seed-motioninvest-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round215 = (n) => Math.round(n * 100) / 100;
+    round216 = (n) => Math.round(n * 100) / 100;
     norm16 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key8 = (first, last) => `${norm16(last)}|${norm16(first)}`;
     d8 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -60093,16 +60137,16 @@ async function backfillMotionInvestRevShare() {
     let cumNet = 0;
     const paidByKey = /* @__PURE__ */ new Map();
     for (const q of QUARTERS) {
-      cumNet = round216(cumNet + q.netProfit);
+      cumNet = round217(cumNet + q.netProfit);
       const note = `Revenue share bonus (${q.label})`;
       const due = d9(q.payDate) <= now;
       const exists2 = allRuns.some((r) => (r.notes || "") === note);
       const lines = [];
       for (const s of SHARERS) {
         const k = key9(s.first, s.last);
-        const earned = round216(cumNet * s.pct);
+        const earned = round217(cumNet * s.pct);
         const prior = paidByKey.get(k) || 0;
-        const payout = round216(Math.max(0, earned - prior));
+        const payout = round217(Math.max(0, earned - prior));
         paidByKey.set(k, prior + payout);
         const emp = empByKey.get(k);
         if (emp && payout > 0) lines.push({ emp, amount: payout });
@@ -60126,7 +60170,7 @@ async function backfillMotionInvestRevShare() {
         totalGross += ln.amount;
         await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: ln.emp.id, regularHours: 0, grossPay: ln.amount });
       }
-      await db.update(payRuns).set({ totalGross: round216(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[mi-revshare] added ${runsAdded} quarterly run(s)`);
@@ -60135,13 +60179,13 @@ async function backfillMotionInvestRevShare() {
     console.error("[mi-revshare] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round216, norm17, key9, d9, SHARERS, QUARTERS;
+var round217, norm17, key9, d9, SHARERS, QUARTERS;
 var init_seed_motioninvest_revshare = __esm({
   "api/seed-motioninvest-revshare.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round216 = (n) => Math.round(n * 100) / 100;
+    round217 = (n) => Math.round(n * 100) / 100;
     norm17 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key9 = (first, last) => `${norm17(last)}|${norm17(first)}`;
     d9 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -60525,7 +60569,7 @@ async function rescheduleAndCleanupTasks() {
       }
       if (!t2.dueDate) {
         const base = t2.startDate ? new Date(t2.startDate) : new Date(Date.now() + 7 * 864e5);
-        const due = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12, 0, 0);
+        const due = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), 12, 0, 0));
         await db.update(tasks).set({ dueDate: due, updatedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
         stats.scheduled++;
       }
@@ -64619,6 +64663,75 @@ async function ensureBankedHoursSchema() {
 }
 var init_ensure_banked_hours_schema = __esm({
   "api/ensure-banked-hours-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/ensure-loan-schema.ts
+var ensure_loan_schema_exports = {};
+__export(ensure_loan_schema_exports, {
+  ensureLoanSchema: () => ensureLoanSchema
+});
+async function ensureLoanSchema() {
+  const db = getDb();
+  const statements = [
+    {
+      name: "loan_accounts",
+      sql: `CREATE TABLE IF NOT EXISTS loan_accounts (
+        id integer PRIMARY KEY AUTOINCREMENT,
+        clientId integer NOT NULL,
+        name text NOT NULL,
+        counterparty text,
+        annualRatePct real,
+        status text DEFAULT 'active' NOT NULL,
+        note text,
+        createdBy integer,
+        createdAt integer,
+        updatedAt integer
+      )`
+    },
+    {
+      name: "loan_entries",
+      sql: `CREATE TABLE IF NOT EXISTS loan_entries (
+        id integer PRIMARY KEY AUTOINCREMENT,
+        loanId integer NOT NULL,
+        clientId integer NOT NULL,
+        entryDate integer NOT NULL,
+        amount real NOT NULL,
+        kind text DEFAULT 'advance' NOT NULL,
+        note text,
+        source text DEFAULT 'manual',
+        enteredBy text,
+        createdAt integer,
+        updatedAt integer
+      )`
+    },
+    {
+      name: "loan_share_links",
+      sql: `CREATE TABLE IF NOT EXISTS loan_share_links (
+        id integer PRIMARY KEY AUTOINCREMENT,
+        clientId integer NOT NULL,
+        token text NOT NULL,
+        label text,
+        allowEdit integer DEFAULT 0 NOT NULL,
+        active integer DEFAULT 1 NOT NULL,
+        createdBy integer,
+        createdAt integer,
+        revokedAt integer
+      )`
+    }
+  ];
+  for (const s of statements) {
+    try {
+      await db.run(sql.raw(s.sql));
+    } catch (e) {
+      console.error(`[loan-tracker] ensure ${s.name} failed:`, e instanceof Error ? e.message : e);
+    }
+  }
+}
+var init_ensure_loan_schema = __esm({
+  "api/ensure-loan-schema.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -70511,7 +70624,7 @@ var googleTasksRouter = createRouter({
   ).mutation(async ({ ctx, input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
     const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq3, and: and6, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    const { eq: eq3, and: and7, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const db = getDb2();
     const token2 = await getGoogleToken(ctx.user.id, ctx.db);
     if (!token2) {
@@ -70520,7 +70633,7 @@ var googleTasksRouter = createRouter({
         message: "No Google account connected. Connect Google in Integrations."
       });
     }
-    const where = input.clientId ? and6(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and6(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
+    const where = input.clientId ? and7(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and7(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
     const crmTasks = await db.select().from(tasks5).where(where);
     const results = [];
     for (const task of crmTasks.slice(0, 50)) {
@@ -82318,6 +82431,217 @@ var bankedHoursRouter = createRouter({
   })
 });
 
+// api/loan-tracker-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_schema();
+init_drizzle_orm();
+
+// api/loan-tracker-core.ts
+function round27(n) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+function toTime2(d10) {
+  const t2 = new Date(d10).getTime();
+  return Number.isFinite(t2) ? t2 : 0;
+}
+function buildLoanLedger(entries) {
+  const sorted = [...entries].sort((a, b) => {
+    const t2 = toTime2(a.entryDate) - toTime2(b.entryDate);
+    return t2 !== 0 ? t2 : (a.id ?? 0) - (b.id ?? 0);
+  });
+  let bal = 0;
+  return sorted.map((e) => {
+    bal = round27(bal + (e.amount || 0));
+    return { ...e, runningBalance: bal };
+  });
+}
+function summarizeLoan(entries) {
+  let totalAdvanced = 0, totalRepaid = 0, totalInterest = 0, balance = 0;
+  let last = 0;
+  for (const e of entries) {
+    const amt = e.amount || 0;
+    balance += amt;
+    if (e.kind === "interest") totalInterest += amt;
+    if (amt > 0) totalAdvanced += amt;
+    else if (amt < 0) totalRepaid += -amt;
+    const t2 = toTime2(e.entryDate);
+    if (t2 > last) last = t2;
+  }
+  balance = round27(balance);
+  const direction = balance > 0 ? "owed_to_lender" : balance < 0 ? "owed_to_borrower" : "settled";
+  return {
+    balance,
+    totalAdvanced: round27(totalAdvanced),
+    totalRepaid: round27(totalRepaid),
+    totalInterest: round27(totalInterest),
+    entryCount: entries.length,
+    lastActivity: last ? new Date(last).toISOString() : null,
+    direction
+  };
+}
+function validateLoanEntry(e) {
+  if (!Number.isFinite(e.amount)) return "Amount must be a number.";
+  if (e.amount === 0 && e.kind !== "adjust") return "Amount can't be zero.";
+  if (e.kind === "repayment" && e.amount > 0) return "A repayment should be negative (it reduces the balance owed).";
+  if (e.kind === "advance" && e.amount < 0) return "An advance should be positive (it increases the balance owed).";
+  if (e.kind === "interest" && e.amount < 0) return "Interest should be positive.";
+  return null;
+}
+
+// api/loan-tracker-router.ts
+var KIND = external_exports.enum(["opening", "advance", "repayment", "interest", "adjust"]);
+function signedAmount(kind, amount) {
+  const a = Math.abs(amount);
+  if (kind === "repayment") return -a;
+  if (kind === "advance" || kind === "interest") return a;
+  return amount;
+}
+async function loansForClient(clientId) {
+  const db = getDb();
+  const accounts = await db.select().from(loanAccounts).where(eq(loanAccounts.clientId, clientId)).orderBy(desc(loanAccounts.createdAt));
+  const allEntries = await db.select().from(loanEntries).where(eq(loanEntries.clientId, clientId));
+  const byLoan = /* @__PURE__ */ new Map();
+  for (const e of allEntries) {
+    if (!byLoan.has(e.loanId)) byLoan.set(e.loanId, []);
+    byLoan.get(e.loanId).push(e);
+  }
+  const loans = accounts.map((a) => {
+    const entries = byLoan.get(a.id) ?? [];
+    const s = summarizeLoan(entries.map((x) => ({ entryDate: x.entryDate, amount: x.amount, kind: x.kind })));
+    return { ...a, summary: s };
+  });
+  const netOwed = Math.round(loans.reduce((sum3, l) => sum3 + l.summary.balance, 0) * 100) / 100;
+  return { loans, netOwed };
+}
+var loanTrackerRouter = createRouter({
+  // All loans for a client, each with its summary.
+  list: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => loansForClient(input.clientId)),
+  // One loan's full ledger (newest first for display; balance computed oldest→newest).
+  ledger: staffQuery.input(external_exports.object({ loanId: external_exports.number() })).query(async ({ input }) => {
+    const db = getDb();
+    const loan = (await db.select().from(loanAccounts).where(eq(loanAccounts.id, input.loanId)).limit(1))[0];
+    if (!loan) return null;
+    const rows = await db.select().from(loanEntries).where(eq(loanEntries.loanId, input.loanId));
+    const led = buildLoanLedger(rows.map((r) => ({ ...r, entryDate: r.entryDate })));
+    const s = summarizeLoan(rows.map((r) => ({ entryDate: r.entryDate, amount: r.amount, kind: r.kind })));
+    return { loan, summary: s, ledger: led.reverse() };
+  }),
+  createLoan: staffQuery.input(external_exports.object({
+    clientId: external_exports.number(),
+    name: external_exports.string().min(1).max(160),
+    counterparty: external_exports.string().max(160).nullable().optional(),
+    annualRatePct: external_exports.number().min(0).max(100).nullable().optional(),
+    note: external_exports.string().max(1e3).nullable().optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const [row] = await db.insert(loanAccounts).values({
+      clientId: input.clientId,
+      name: input.name,
+      counterparty: input.counterparty ?? null,
+      annualRatePct: input.annualRatePct ?? null,
+      note: input.note ?? null,
+      status: "active",
+      createdBy: ctx.user.id
+    }).returning();
+    return { ok: true, id: row?.id };
+  }),
+  updateLoan: staffQuery.input(external_exports.object({
+    id: external_exports.number(),
+    name: external_exports.string().min(1).max(160).optional(),
+    counterparty: external_exports.string().max(160).nullable().optional(),
+    annualRatePct: external_exports.number().min(0).max(100).nullable().optional(),
+    status: external_exports.enum(["active", "settled", "archived"]).optional(),
+    note: external_exports.string().max(1e3).nullable().optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const { id, ...rest } = input;
+    await db.update(loanAccounts).set({ ...rest, updatedAt: /* @__PURE__ */ new Date() }).where(eq(loanAccounts.id, id));
+    return { ok: true };
+  }),
+  deleteLoan: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.delete(loanEntries).where(eq(loanEntries.loanId, input.id));
+    await db.delete(loanAccounts).where(eq(loanAccounts.id, input.id));
+    return { ok: true };
+  }),
+  addEntry: staffQuery.input(external_exports.object({
+    loanId: external_exports.number(),
+    entryDate: external_exports.date().optional(),
+    amount: external_exports.number(),
+    kind: KIND,
+    note: external_exports.string().max(500).nullable().optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const loan = (await db.select().from(loanAccounts).where(eq(loanAccounts.id, input.loanId)).limit(1))[0];
+    if (!loan) throw new Error("Loan not found.");
+    const amount = signedAmount(input.kind, input.amount);
+    const warn = validateLoanEntry({ amount, kind: input.kind });
+    if (warn) throw new Error(warn);
+    await db.insert(loanEntries).values({
+      loanId: input.loanId,
+      clientId: loan.clientId,
+      entryDate: input.entryDate ?? /* @__PURE__ */ new Date(),
+      amount,
+      kind: input.kind,
+      note: input.note ?? null,
+      source: "manual",
+      enteredBy: ctx.user.email ?? String(ctx.user.id)
+    });
+    return { ok: true };
+  }),
+  updateEntry: staffQuery.input(external_exports.object({
+    id: external_exports.number(),
+    entryDate: external_exports.date().optional(),
+    amount: external_exports.number().optional(),
+    kind: KIND.optional(),
+    note: external_exports.string().max(500).nullable().optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const existing = (await db.select().from(loanEntries).where(eq(loanEntries.id, input.id)).limit(1))[0];
+    if (!existing) throw new Error("Entry not found.");
+    const kind = input.kind ?? existing.kind;
+    const patch = { updatedAt: /* @__PURE__ */ new Date() };
+    if (input.entryDate) patch.entryDate = input.entryDate;
+    if (input.kind) patch.kind = input.kind;
+    if (input.note !== void 0) patch.note = input.note;
+    if (input.amount != null) patch.amount = signedAmount(kind, input.amount);
+    await db.update(loanEntries).set(patch).where(eq(loanEntries.id, input.id));
+    return { ok: true };
+  }),
+  deleteEntry: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.delete(loanEntries).where(eq(loanEntries.id, input.id));
+    return { ok: true };
+  }),
+  // ===== SHARE LINKS (read-only by default) =====
+  shareList: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+    const db = getDb();
+    return db.select().from(loanShareLinks).where(eq(loanShareLinks.clientId, input.clientId)).orderBy(desc(loanShareLinks.createdAt));
+  }),
+  shareCreate: staffQuery.input(external_exports.object({ clientId: external_exports.number(), label: external_exports.string().max(120).optional() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const token2 = `ln_${crypto.randomUUID().replace(/-/g, "")}`;
+    await db.insert(loanShareLinks).values({ clientId: input.clientId, token: token2, label: input.label ?? null, allowEdit: false, active: true, createdBy: ctx.user.id });
+    return { ok: true, token: token2 };
+  }),
+  shareRevoke: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.update(loanShareLinks).set({ active: false, revokedAt: /* @__PURE__ */ new Date() }).where(eq(loanShareLinks.id, input.id));
+    return { ok: true };
+  }),
+  // ===== PUBLIC (token-gated read-only) =====
+  publicView: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
+    const db = getDb();
+    const link = (await db.select().from(loanShareLinks).where(eq(loanShareLinks.token, input.token)).limit(1))[0];
+    if (!link || !link.active) return null;
+    const client = (await db.select().from(clients).where(eq(clients.id, link.clientId)).limit(1))[0];
+    const data = await loansForClient(link.clientId);
+    return { clientName: client?.name ?? "Loans", label: link.label ?? null, generatedAt: (/* @__PURE__ */ new Date()).toISOString(), ...data };
+  })
+});
+
 // api/public-router.ts
 init_zod();
 init_middleware();
@@ -82581,7 +82905,8 @@ var appRouter = createRouter({
   learning: learningRouter,
   chat: chatRouter,
   revRec: revRecRouter,
-  bankedHours: bankedHoursRouter
+  bankedHours: bankedHoursRouter,
+  loanTracker: loanTrackerRouter
 });
 
 // node_modules/hono/dist/utils/cookie.js
@@ -83998,7 +84323,7 @@ app.post("/api/admin/figgy", async (c) => {
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and6 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -84111,7 +84436,7 @@ app.post("/api/admin/figgy", async (c) => {
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq3(signatureDocuments2.id, docId));
         }
-        const signedCount = (await db.select().from(signatureDocuments2).where(and6(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
+        const signedCount = (await db.select().from(signatureDocuments2).where(and7(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
         steps.push(`signed ${signedCount}/2 documents`);
         await db.update(clients3).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients3.id, cl.id));
         const res = await createClientTaskRules2({
@@ -84259,6 +84584,8 @@ async function startServer() {
     await ensureRevRecSchema2();
     const { ensureBankedHoursSchema: ensureBankedHoursSchema2 } = await Promise.resolve().then(() => (init_ensure_banked_hours_schema(), ensure_banked_hours_schema_exports));
     await ensureBankedHoursSchema2();
+    const { ensureLoanSchema: ensureLoanSchema2 } = await Promise.resolve().then(() => (init_ensure_loan_schema(), ensure_loan_schema_exports));
+    await ensureLoanSchema2();
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
@@ -84305,7 +84632,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and6, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and7, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const matches = await db.select().from(clients3).where(like3(clients3.name, "%Doc King%"));
       for (const cl of matches) {
@@ -84313,7 +84640,7 @@ async function startServer() {
           await db.update(clients3).set({ clientType: "wholesale" }).where(eq3(clients3.id, cl.id));
         }
         await db.update(clientTaskRules4).set({ active: false }).where(eq3(clientTaskRules4.clientId, cl.id));
-        await db.delete(tasks5).where(and6(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
+        await db.delete(tasks5).where(and7(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
       }
     } catch (e) {
       console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e);
@@ -84321,7 +84648,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients3, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and6, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and7, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
         const matches = await db.select().from(clients3).where(like3(clients3.name, nameLike));
@@ -84372,7 +84699,7 @@ async function startServer() {
       };
       for (const cl of orig) {
         for (const [last, ytd] of Object.entries(origYtd)) {
-          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and6(eq3(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
+          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and7(eq3(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
         }
       }
     } catch (e) {
