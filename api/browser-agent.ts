@@ -16,6 +16,30 @@
  */
 export const BROWSER_ENABLED = process.env.FIGGY_BROWSER_AGENT === "on";
 
+/** Browser agent can be enabled by the env flag OR an in-app toggle (so Markie
+ *  never has to touch Railway). Reads app_settings.figs_browser_enabled. */
+export async function isBrowserEnabled(): Promise<boolean> {
+  if (BROWSER_ENABLED) return true;
+  try {
+    const { getDb } = await import("./queries/connection");
+    const { appSettings } = await import("../db/schema");
+    const { eq } = await import("drizzle-orm");
+    const row = await getDb().select().from(appSettings).where(eq(appSettings.key, "figs_browser_enabled")).limit(1);
+    return (row[0] as any)?.value === "on";
+  } catch { return false; }
+}
+
+/** Flip the in-app toggle (persisted in app_settings). */
+export async function setBrowserEnabled(on: boolean): Promise<void> {
+  const { getDb } = await import("./queries/connection");
+  const { appSettings } = await import("../db/schema");
+  const { eq } = await import("drizzle-orm");
+  const db = getDb();
+  const existing = await db.select().from(appSettings).where(eq(appSettings.key, "figs_browser_enabled")).limit(1);
+  if (existing[0]) await db.update(appSettings).set({ value: on ? "on" : "off" }).where(eq(appSettings.key, "figs_browser_enabled"));
+  else await db.insert(appSettings).values({ key: "figs_browser_enabled", value: on ? "on" : "off" });
+}
+
 const IDLE_MS = 10 * 60 * 1000;       // auto-close after 10 min idle
 const MAX_LIFETIME_MS = 60 * 60 * 1000; // hard cap: 1h per session
 const VIEWPORT = { width: 1280, height: 800 };
@@ -64,7 +88,7 @@ async function launch(): Promise<Session> {
 
 /** Get the running session, launching one if needed. Throws if the feature is off. */
 export async function ensureSession(): Promise<Session> {
-  if (!BROWSER_ENABLED) throw new Error("Browser agent is disabled (set FIGGY_BROWSER_AGENT=on).");
+  if (!(await isBrowserEnabled())) throw new Error("Browser agent is disabled (turn it on with the switch on Figs at Work).");
   if (session) return session;
   if (!launching) {
     launching = launch().then((s) => { session = s; launching = null; return s; })
@@ -73,11 +97,12 @@ export async function ensureSession(): Promise<Session> {
   return launching;
 }
 
-export function sessionInfo() {
-  if (!session) return { running: false, enabled: BROWSER_ENABLED };
+export async function sessionInfo() {
+  const enabled = await isBrowserEnabled();
+  if (!session) return { running: false, enabled };
   return {
     running: true,
-    enabled: BROWSER_ENABLED,
+    enabled,
     status: session.status,
     url: session.page.url(),
     startedAt: session.startedAt,

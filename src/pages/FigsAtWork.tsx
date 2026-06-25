@@ -43,6 +43,7 @@ export default function FigsAtWork() {
     return () => { alive = false; clearInterval(id); };
   }, []);
 
+  const enableAgent = async (on: boolean) => { setBusy(true); await api("enable", { on }); const s = await api("status"); setInfo(s); setBusy(false); };
   const start = async () => { setBusy(true); await api("start", {}); setBusy(false); };
   const stop = async () => { setBusy(true); await api("stop", {}); setBusy(false); };
   const go = async () => { setBusy(true); await api("goto", { url }); setBusy(false); };
@@ -60,16 +61,22 @@ export default function FigsAtWork() {
   const disabled = info && info.enabled === false;
   const running = !!info?.running;
 
-  return <FigsAtWorkInner {...{ info, url, setUrl, typeText, setTypeText, tick, setTick, busy, imgRef, start, stop, go, onImgClick, sendType, enter, disabled, running }} />;
+  return <FigsAtWorkInner {...{ info, url, setUrl, typeText, setTypeText, tick, setTick, busy, imgRef, start, stop, go, onImgClick, sendType, enter, disabled, running, enableAgent }} />;
 }
 
 /** Split out so the login vault can share the same state without a giant single
  *  component. (Kept in one file for simplicity.) */
 function FigsAtWorkInner(p: any) {
-  const { info, url, setUrl, typeText, setTypeText, tick, busy, imgRef, start, stop, go, onImgClick, sendType, enter, disabled, running, setTick } = p;
+  const { info, url, setUrl, typeText, setTypeText, tick, busy, imgRef, start, stop, go, onImgClick, sendType, enter, disabled, running, setTick, enableAgent } = p;
   const [creds, setCreds] = useState<any[]>([]);
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ provider: "hubdoc", label: "Hubdoc — Figs", loginUrl: "https://app.hubdoc.com/login", username: "", password: "" });
+  const PRESETS: Record<string, { label: string; loginUrl: string }> = {
+    quickbooks: { label: "QuickBooks — Figs", loginUrl: "https://qbo.intuit.com/" },
+    hubdoc: { label: "Hubdoc — Figs", loginUrl: "https://app.hubdoc.com/login" },
+    other: { label: "", loginUrl: "" },
+  };
+  const [form, setForm] = useState({ provider: "quickbooks", label: "QuickBooks — Figs", loginUrl: "https://qbo.intuit.com/", username: "", password: "" });
+  const pickProvider = (provider: string) => { const pr = PRESETS[provider] || PRESETS.other; setForm({ ...form, provider, label: pr.label, loginUrl: pr.loginUrl }); };
   const [credBusy, setCredBusy] = useState(false);
 
   const loadCreds = async () => { const r = await api("credentials"); setCreds(r?.credentials || []); };
@@ -114,13 +121,17 @@ function FigsAtWorkInner(p: any) {
         </div>
       </div>
 
-      {disabled && (
-        <Card className="border-amber-300 bg-amber-50">
-          <CardContent className="p-3 text-sm text-amber-800 flex items-center gap-2">
-            <Lock className="h-4 w-4" /> The browser agent is off. Set <code className="bg-amber-100 px-1 rounded">FIGGY_BROWSER_AGENT=on</code> in Railway to turn it on.
-          </CardContent>
-        </Card>
-      )}
+      <Card className={disabled ? "border-amber-300 bg-amber-50" : "border-lime-300 bg-lime-50"}>
+        <CardContent className="p-3 text-sm flex items-center justify-between gap-2">
+          <span className={`flex items-center gap-2 ${disabled ? "text-amber-800" : "text-lime-800"}`}>
+            <Lock className="h-4 w-4" />
+            {disabled ? "Figs' browser is OFF — turn it on to let her work." : "Figs' browser is ON."}
+          </span>
+          <Button size="sm" variant={disabled ? "default" : "outline"} disabled={busy} onClick={() => enableAgent(disabled)}>
+            {disabled ? "Turn on" : "Turn off"}
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="flex flex-wrap items-center gap-2">
         {!running ? (
@@ -165,7 +176,16 @@ function FigsAtWorkInner(p: any) {
           </div>
           {showAdd && (
             <div className="grid gap-2 sm:grid-cols-2 border-t pt-2">
-              <Input placeholder="Label (e.g. Hubdoc — Figs)" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
+              <select
+                className="border rounded px-2 py-2 text-sm bg-white"
+                value={form.provider}
+                onChange={(e) => pickProvider(e.target.value)}
+              >
+                <option value="quickbooks">QuickBooks (for reconciling)</option>
+                <option value="hubdoc">Hubdoc</option>
+                <option value="other">Other</option>
+              </select>
+              <Input placeholder="Label (e.g. QuickBooks — Figs)" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
               <Input placeholder="Login URL (e.g. app.hubdoc.com/login)" value={form.loginUrl} onChange={(e) => setForm({ ...form, loginUrl: e.target.value })} />
               <Input placeholder="Username / email" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoComplete="off" />
               <Input placeholder="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" />

@@ -88,8 +88,19 @@ THE MORNING WORKFLOW (Markie's routine — follow it in order for a client):
  5. RECONCILE each account (bank + every credit card), then ATTACH the bank
     statement to the reconciliation report. (Reconcile is a state change →
     request_approval; it's UI-only, which is why you do it here in the browser.)
+    RECONCILE PROCEDURE (Markie's exact steps):
+      a. Prep the feed first: Transactions > Bank transactions; in "For Review" add/match/categorize EVERY transaction for the statement period.
+      b. Settings (gear, top-right) > Tools > Reconcile.
+      c. Pick the EXACT account. Verify the BEGINNING balance matches the statement — if not, STOP and Ask Markie. Enter the Ending Balance + Ending Date from the statement, then Start reconciling (or drag-drop the PDF to auto-fill).
+      d. Check off matching transactions (bank-feed matches are usually pre-checked); compare the statement line by line.
+      e. Get the "Difference" to $0.00, then request_approval to click "Finish now". NEVER force-finish a non-zero difference — STOP and Ask Markie.
 NOT every client is on QuickBooks' bank feed — some send MANUAL statements that
 get keyed in. Check the client's workflow before assuming a live feed.
+
+NEVER USE "FIGGY CLEARING" (non-negotiable): never reconcile it, never post to it,
+never select it as the account for any transaction. Same for any control/clearing
+account (A/P, A/R, Undeposited Funds, equity). If something wants Figgy Clearing,
+STOP and Ask Markie.
 
 You will be given a goal. Pursue it step by step, narrating briefly what you see and intend.`;
 
