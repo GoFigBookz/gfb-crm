@@ -1482,6 +1482,50 @@ app.post("/api/figs-browser/stop", async (c) => {
   return c.json({ ok: true });
 });
 
+// ── Figs' login vault (Stage 2) — admin only; secrets encrypted at rest. ──
+app.get("/api/figs-browser/credentials", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { listCredentials } = await import("./browser-credentials");
+    return c.json({ ok: true, credentials: await listCredentials() });
+  } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e), credentials: [] }, 200); }
+});
+app.post("/api/figs-browser/credentials", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { saveCredential } = await import("./browser-credentials");
+    const b = await c.req.json();
+    if (!b?.username || !b?.password || !b?.provider) return c.json({ ok: false, error: "provider, username, password required" }, 200);
+    const res = await saveCredential({
+      provider: String(b.provider), label: b.label ?? null, clientId: b.clientId ?? null,
+      loginUrl: b.loginUrl ?? null, username: String(b.username), password: String(b.password),
+    });
+    return c.json({ ok: true, ...res });
+  } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.post("/api/figs-browser/credentials/delete", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { deleteCredential } = await import("./browser-credentials");
+    const b = await c.req.json();
+    await deleteCredential(Number(b?.id));
+    return c.json({ ok: true });
+  } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.post("/api/figs-browser/login", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { getDecryptedCredential, markCredentialUsed } = await import("./browser-credentials");
+    const { loginWithCredential } = await import("./browser-agent");
+    const b = await c.req.json();
+    const cred = await getDecryptedCredential(Number(b?.id));
+    if (!cred) return c.json({ ok: false, error: "credential not found" }, 200);
+    const res = await loginWithCredential(cred);
+    await markCredentialUsed(Number(b?.id));
+    return c.json({ ok: true, ...res });
+  } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
 export default app;

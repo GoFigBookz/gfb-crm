@@ -118,6 +118,60 @@ export async function pressKey(key: string): Promise<void> {
   await s.page.keyboard.press(key as any);
 }
 
+/**
+ * Sign in to a site using one of Figs' saved credentials. Best-effort form fill:
+ * navigates to the login URL, types the username + password into the first
+ * matching fields, submits. Hubdoc uses a standard email/password form, so the
+ * generic selectors below cover it; a site with an odd form can be finished by
+ * hand on the live view. Signing in is not a state-changing post (golden rule),
+ * so this runs without a per-click approval — Publish/post still pause for Markie.
+ */
+export async function loginWithCredential(cred: {
+  loginUrl: string | null;
+  username: string;
+  password: string;
+  provider?: string;
+}): Promise<{ url: string; filled: boolean }> {
+  const s = await ensureSession();
+  const url = cred.loginUrl || (cred.provider === "hubdoc" ? "https://app.hubdoc.com/login" : "");
+  if (url) {
+    touch(s, `Opening sign-in: ${url}`);
+    await s.page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+  }
+  touch(s, "Signing in…");
+  let filled = false;
+  try {
+    // Username/email field — try the common selectors in order.
+    const userSel = [
+      'input[type="email"]',
+      'input[name="email"]',
+      'input[name="username"]',
+      'input[id*="email" i]',
+      'input[autocomplete="username"]',
+    ].join(",");
+    const passSel = [
+      'input[type="password"]',
+      'input[name="password"]',
+      'input[autocomplete="current-password"]',
+    ].join(",");
+    const userEl = await s.page.$(userSel);
+    if (userEl) { await userEl.click({ clickCount: 3 }).catch(() => {}); await userEl.type(cred.username, { delay: 15 }); filled = true; }
+    const passEl = await s.page.$(passSel);
+    if (passEl) { await passEl.click({ clickCount: 3 }).catch(() => {}); await passEl.type(cred.password, { delay: 15 }); filled = true; }
+    if (passEl) {
+      // Submit: Enter in the password field, or click a submit button.
+      await s.page.keyboard.press("Enter").catch(() => {});
+      await s.page
+        .waitForNavigation({ waitUntil: "domcontentloaded", timeout: 15000 })
+        .catch(() => {});
+    }
+  } catch (e) {
+    console.error("[figs-browser] login fill failed:", e instanceof Error ? e.message : e);
+  }
+  touch(s, filled ? `Signed in attempt at ${s.page.url()}` : `Login form not found at ${s.page.url()}`);
+  return { url: s.page.url(), filled };
+}
+
 export async function stopSession(reason = "stopped"): Promise<void> {
   const s = session;
   session = null;

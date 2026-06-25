@@ -26,11 +26,18 @@ browser crash can't take down the CRM.
   measuring.
 - **Milestone:** Markie opens Figs at Work, tells her "go to hubdoc.com", watches it load.
 
-### Stage 2 — Logins (she signs in herself)
-- Per-provider, per-Figs credentials (Hubdoc first), encrypted at rest (reuse the
-  qbo-oauth AES envelope / FIGGY_TOKEN_KEY). Markie pastes her Hubdoc login once.
-- Login routine + persisted browser storage state so she stays signed in.
+### Stage 2 — Logins (she signs in herself) ✅ BUILT (2026-06-25)
+- `api/browser-credentials.ts`: per-provider vault (Hubdoc first), encrypted at rest
+  with the SAME AES-256-GCM envelope as the QBO tokens (`encryptSecret`/`decryptSecret`,
+  FIGGY_TOKEN_KEY). Lazy self-creating table (`browser_credentials`) so it can't touch
+  boot. List view masks the username + never returns the password.
+- `loginWithCredential()` in browser-agent: navigates to the login URL, fills the
+  email/password fields (generic selectors cover Hubdoc), submits. Signing in isn't a
+  state-changing post, so no per-click approval (Publish/post still pause).
+- Routes (admin-gated): `/api/figs-browser/credentials` (GET/POST), `/credentials/delete`,
+  `/login`. UI: "Her logins" card on Figs at Work — add (paste once), Sign in, delete.
 - Her OWN Hubdoc login (not Markie's) so every action is attributable to her.
+- TODO next: persist browser storageState across sessions so she stays signed in.
 
 ### Stage 3 — The brain (human-in-the-loop computer use)
 - Anthropic computer-use loop: model gets the screenshot, returns the next action; we
