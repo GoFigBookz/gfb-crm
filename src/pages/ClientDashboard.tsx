@@ -348,6 +348,52 @@ export default function ClientDashboard() {
         );
       })()}
 
+      {/* BOOKKEEPING WORKFLOW — how Figs processes this client (Markie 2026-06-25). */}
+      {(() => {
+        const c: any = client;
+        return (
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Briefcase className="h-4 w-4 text-lime-600" /> Bookkeeping Workflow</CardTitle></CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
+                <div>
+                  <p className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide mb-1">Bank / CC transactions</p>
+                  <select
+                    className="w-full border rounded-md px-2 py-1.5 text-sm bg-white"
+                    value={c.bankSource || ""}
+                    disabled={updateClient.isPending}
+                    onChange={(e) => updateClient.mutate({ id, bankSource: (e.target.value || undefined) as any } as any)}>
+                    <option value="">— not set —</option>
+                    <option value="bank_feed">QBO bank feed (connected)</option>
+                    <option value="manual">Manual statements (client sends)</option>
+                  </select>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide mb-1">Receipts via Hubdoc</p>
+                  <label className="flex items-center gap-2 text-sm text-slate-700 mt-1.5">
+                    <input type="checkbox" checked={!!c.usesHubdoc} disabled={updateClient.isPending}
+                      onChange={(e) => updateClient.mutate({ id, usesHubdoc: e.target.checked } as any)} />
+                    Uses Hubdoc
+                  </label>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide mb-1">QBO connection</p>
+                  <p className="text-[13px] font-medium text-slate-800 mt-1.5">{c.qboRealmId ? "Connected ✓" : "Not connected"}</p>
+                </div>
+              </div>
+              <div className="mt-3">
+                <p className="text-[10px] uppercase font-semibold text-slate-400 tracking-wide mb-1">Workflow notes</p>
+                <textarea
+                  className="w-full border rounded-md px-2 py-1.5 text-sm" rows={2}
+                  defaultValue={c.workflowNotes || ""}
+                  placeholder="e.g. closes on the 5th; emails Visa + chequing statements monthly; HST picked up in Q2…"
+                  onBlur={(e) => { if (e.target.value !== (c.workflowNotes || "")) updateClient.mutate({ id, workflowNotes: e.target.value } as any); }} />
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* TASKS — progress + overdue + open, one combined card near the top. */}
       {(() => {
         const today = new Date(); today.setHours(0, 0, 0, 0);

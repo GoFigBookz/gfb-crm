@@ -346,6 +346,10 @@ export const clientRouter = createRouter({
       payrollCraComparison: z.boolean().optional(),
       payrollHoursSource: z.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
       hasIntercoJournals: z.boolean().optional(),
+      // Bookkeeping workflow (how Figs processes this client)
+      usesHubdoc: z.boolean().optional(),
+      bankSource: z.enum(["bank_feed", "manual"]).optional(),
+      workflowNotes: z.string().optional(),
       monthlySalesReceipt: z.boolean().optional(),
       salesReceiptSource: z.string().optional(),
       groupName: z.string().optional(),

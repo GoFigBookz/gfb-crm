@@ -22740,6 +22740,14 @@ var init_schema = __esm({
       // the client master + never "lost" — kept in sync from the live connection
       // (qbo_connections.realmId) at boot by ensure-client-realm-sync.
       qboRealmId: text("qboRealmId"),
+      // BOOKKEEPING WORKFLOW (Markie 2026-06-25) — how Figs processes this client.
+      // usesHubdoc: receipts flow through Hubdoc (Figs posts them in the browser).
+      // bankSource: how bank/CC transactions arrive — "bank_feed" (live in QBO) or
+      //   "manual" (client emails statements; we key them in). null = unknown/not set.
+      // workflowNotes: anything client-specific about their close routine.
+      usesHubdoc: integer2("usesHubdoc", { mode: "boolean" }).default(false),
+      bankSource: text("bankSource", { enum: ["bank_feed", "manual"] }),
+      workflowNotes: text("workflowNotes"),
       // Firm mapping columns
       industry: text("industry").default("other"),
       // "CA" (default) or "US" — drives US-geared intake (EIN/state/sales tax) and
@@ -64196,6 +64204,23 @@ ABSOLUTE RULES:
 - If you are unsure, or something looks wrong, call request_approval and explain \u2014 do not guess on anything that changes data.
 - When the goal is fully complete, call task_done with a short summary.
 
+THE MORNING WORKFLOW (Markie's routine \u2014 follow it in order for a client):
+ 1. HUBDOC: open the client in Hubdoc and process the receipts \u2014 review each doc,
+    set the coding, and Publish it (Publish PUSHES it into QuickBooks, so it is a
+    state change \u2192 request_approval first). Anything you're unsure of (vendor,
+    account, \u226480% confident), DON'T publish it \u2014 flag it to Ask Markie and move on.
+ 2. Come back and finish the rest of the postings you were confident on.
+ 3. QUICKBOOKS: go into QBO and MATCH the published/posted transactions in the
+    bank feed.
+ 4. MONTH-END: if there are prior-month transactions still unposted, post them
+    through the bank feed (bank AND credit-card) so the month can be closed.
+    (Posting from the feed changes data \u2192 request_approval.)
+ 5. RECONCILE each account (bank + every credit card), then ATTACH the bank
+    statement to the reconciliation report. (Reconcile is a state change \u2192
+    request_approval; it's UI-only, which is why you do it here in the browser.)
+NOT every client is on QuickBooks' bank feed \u2014 some send MANUAL statements that
+get keyed in. Check the client's workflow before assuming a live feed.
+
 You will be given a goal. Pursue it step by step, narrating briefly what you see and intend.`;
   }
 });
@@ -65594,6 +65619,9 @@ var init_ensure_clients_schema = __esm({
       ["qboCustomerId", "text"],
       ["qboConnectionId", "integer"],
       ["qboRealmId", "text"],
+      ["usesHubdoc", "integer DEFAULT 0"],
+      ["bankSource", "text"],
+      ["workflowNotes", "text"],
       ["industry", "text DEFAULT 'other'"],
       ["country", "text DEFAULT 'CA'"],
       ["province", "text DEFAULT 'ON'"],
@@ -74673,6 +74701,10 @@ var clientRouter = createRouter({
     payrollCraComparison: external_exports.boolean().optional(),
     payrollHoursSource: external_exports.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
     hasIntercoJournals: external_exports.boolean().optional(),
+    // Bookkeeping workflow (how Figs processes this client)
+    usesHubdoc: external_exports.boolean().optional(),
+    bankSource: external_exports.enum(["bank_feed", "manual"]).optional(),
+    workflowNotes: external_exports.string().optional(),
     monthlySalesReceipt: external_exports.boolean().optional(),
     salesReceiptSource: external_exports.string().optional(),
     groupName: external_exports.string().optional(),
@@ -84746,7 +84778,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.122";
+var BUILD_TAG = "2026-06-25.123";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

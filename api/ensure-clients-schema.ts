@@ -46,6 +46,7 @@ const COLUMNS: Array<[string, string]> = [
   ["assignedTo", "text"], ["oneDriveFolderId", "text"],
   ["payrollRpNumber", "text"], ["driveFolderUrl", "text"], ["clientInfoDocUrl", "text"], ["nextPayday", "text"],
   ["qboCustomerId", "text"], ["qboConnectionId", "integer"], ["qboRealmId", "text"],
+  ["usesHubdoc", "integer DEFAULT 0"], ["bankSource", "text"], ["workflowNotes", "text"],
   ["industry", "text DEFAULT 'other'"], ["country", "text DEFAULT 'CA'"], ["province", "text DEFAULT 'ON'"], ["qboAccountType", "text DEFAULT 'ca_clients'"],
   ["figgyEmail", "text"], ["contactName", "text"], ["craRacDone", "integer DEFAULT 0"], ["groupName", "text"],
   ["isFirm", "integer DEFAULT 0"],
