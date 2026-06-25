@@ -58550,6 +58550,16 @@ var init_seed_os_backfill = __esm({
         [key3("Alexis", "Montgomery")]: { hours: 32, gross: 665.6 },
         [key3("Jamie", "Moseley")]: { hours: 91.03, gross: 2650.79 },
         [key3("Brad", "Nickle")]: { hours: 87.5, gross: 2730 }
+      } },
+      // Early-season skeleton crew; each Total Pay reconciles to reg+stat+vacation per row.
+      { payDate: "2026-04-17", start: "2026-04-01", end: "2026-04-14", lines: {
+        [key3("Ethan", "Holt")]: { hours: 10.94, gross: 204.72 },
+        [key3("Isabella", "Holt")]: { hours: 9.01, gross: 215.6 },
+        [key3("Michael", "Kennedy")]: { hours: 64.55, gross: 1611.12 },
+        [key3("Neil", "Korchak")]: { hours: 7, gross: 145.6 },
+        [key3("Debbie", "Maritin")]: { hours: 50.91, gross: 1588.35 },
+        [key3("Alexis", "Montgomery")]: { hours: 33.04, gross: 687.23 },
+        [key3("Jamie", "Moseley")]: { hours: 77.36, gross: 2011.31 }
       } }
     ];
   }

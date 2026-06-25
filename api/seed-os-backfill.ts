@@ -104,6 +104,16 @@ const PERIODS: Period[] = [
       [key("Jamie", "Moseley")]: { hours: 91.03, gross: 2650.79 },
       [key("Brad", "Nickle")]: { hours: 87.5, gross: 2730.00 },
   } },
+  // Early-season skeleton crew; each Total Pay reconciles to reg+stat+vacation per row.
+  { payDate: "2026-04-17", start: "2026-04-01", end: "2026-04-14", lines: {
+      [key("Ethan", "Holt")]: { hours: 10.94, gross: 204.72 },
+      [key("Isabella", "Holt")]: { hours: 9.01, gross: 215.60 },
+      [key("Michael", "Kennedy")]: { hours: 64.55, gross: 1611.12 },
+      [key("Neil", "Korchak")]: { hours: 7.0, gross: 145.60 },
+      [key("Debbie", "Maritin")]: { hours: 50.91, gross: 1588.35 },
+      [key("Alexis", "Montgomery")]: { hours: 33.04, gross: 687.23 },
+      [key("Jamie", "Moseley")]: { hours: 77.36, gross: 2011.31 },
+  } },
 ];
 
 export async function backfillOwenSoundPayroll(): Promise<{ client: number | null; runsAdded: number; skipped: string } | void> {
