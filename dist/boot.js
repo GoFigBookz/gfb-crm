@@ -39857,10 +39857,10 @@ function endOfWeek(d10) {
 function endOfMonth2(d10) {
   return new Date(d10.getFullYear(), d10.getMonth() + 1, 0);
 }
-function matchClient(text2, clients3) {
+function matchClient(text2, clients4) {
   const n = norm4(text2);
   let best = null;
-  for (const c of clients3) {
+  for (const c of clients4) {
     const cn = norm4(c.name);
     if (!cn) continue;
     const idx = n.indexOf(cn);
@@ -39871,9 +39871,9 @@ function matchClient(text2, clients3) {
   const cleaned = text2.replace(re, "").replace(/\s{2,}/g, " ").replace(/^[\s:,-]+|[\s:,-]+$/g, "").trim();
   return { text: cleaned, client: best.client };
 }
-function parseTaskCommand(raw2, clients3, now = /* @__PURE__ */ new Date()) {
+function parseTaskCommand(raw2, clients4, now = /* @__PURE__ */ new Date()) {
   let text2 = stripLeadVerb(raw2);
-  const c = matchClient(text2, clients3);
+  const c = matchClient(text2, clients4);
   text2 = c.text;
   const d10 = extractDueDate(text2, now);
   text2 = d10.text;
@@ -45847,6 +45847,145 @@ var init_vendor_learning = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+  }
+});
+
+// api/qbo-poster.ts
+var qbo_poster_exports = {};
+__export(qbo_poster_exports, {
+  POST_ENABLED_REALMS: () => POST_ENABLED_REALMS,
+  billInputFromSourceData: () => billInputFromSourceData,
+  buildBillPayload: () => buildBillPayload,
+  postFindingToQBO: () => postFindingToQBO,
+  postingMasterEnabled: () => postingMasterEnabled,
+  validatePostable: () => validatePostable
+});
+function postingMasterEnabled() {
+  return process.env.FIGGY_QBO_POST === "on";
+}
+function buildBillPayload(input) {
+  const Line = input.lines.map((l) => {
+    const detail = { AccountRef: { value: String(l.accountId) } };
+    if (l.taxCodeId) detail.TaxCodeRef = { value: String(l.taxCodeId) };
+    return {
+      DetailType: "AccountBasedExpenseLineDetail",
+      Amount: round25(l.amount),
+      ...l.description ? { Description: String(l.description).slice(0, 1e3) } : {},
+      AccountBasedExpenseLineDetail: detail
+    };
+  });
+  const payload = {
+    VendorRef: { value: String(input.vendorId) },
+    Line
+  };
+  if (input.txnDate) payload.TxnDate = input.txnDate;
+  if (input.docNumber) payload.DocNumber = String(input.docNumber).slice(0, 21);
+  if (input.privateNote) payload.PrivateNote = String(input.privateNote).slice(0, 4e3);
+  return payload;
+}
+function round25(n) {
+  return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+function validatePostable(input) {
+  if (!input) return { ok: false, reason: "no input" };
+  if (!input.vendorId) return { ok: false, reason: "no resolved QBO vendor (vendorId) on the finding" };
+  if (!input.lines || input.lines.length === 0) return { ok: false, reason: "no posting lines" };
+  for (const l of input.lines) {
+    if (!l.accountId) return { ok: false, reason: "a line has no QBO account (accountId)" };
+    if (!(Number(l.amount) > 0)) return { ok: false, reason: "a line amount is not > 0" };
+  }
+  return { ok: true };
+}
+function billInputFromSourceData(sourceData) {
+  let meta3;
+  try {
+    meta3 = JSON.parse(sourceData || "{}");
+  } catch {
+    return null;
+  }
+  if (!meta3 || typeof meta3 !== "object") return null;
+  const vendorId = meta3.vendorId || meta3.qboVendorId || meta3.resolvedVendorId;
+  if (!vendorId) return null;
+  const txnDate = meta3.txnDate || meta3.date || null;
+  const docNumber = meta3.invoiceNumber || meta3.docNumber || null;
+  let lines = [];
+  if (Array.isArray(meta3.lines) && meta3.lines.length) {
+    lines = meta3.lines.map((l) => ({
+      accountId: l.accountId || l.suggestedAccountId,
+      amount: Number(l.amount ?? l.subtotal ?? l.total),
+      taxCodeId: l.taxCodeId || l.suggestedTaxCode || l.taxCode || null,
+      description: l.description || null
+    }));
+  } else {
+    const accountId = meta3.suggestedAccountId || meta3.accountId;
+    const amount = Number(meta3.subtotal ?? meta3.amount ?? meta3.total);
+    if (accountId && Number.isFinite(amount)) {
+      lines = [{
+        accountId,
+        amount,
+        taxCodeId: meta3.suggestedTaxCode || meta3.taxCode || meta3.hstCode || null,
+        description: meta3.description || meta3.vendor || null
+      }];
+    }
+  }
+  if (!lines.length) return null;
+  return { vendorId, txnDate, docNumber, lines, privateNote: meta3.rationale || null };
+}
+async function connForClient(clientId) {
+  const db = getDb();
+  const rows = await db.select().from(qboConnections).where(and(eq(qboConnections.clientId, clientId), eq(qboConnections.isActive, true)));
+  if (rows.length === 0) return { error: "no active QBO connection for this client" };
+  if (rows.length > 1) return { error: "ambiguous QBO connections for this client" };
+  return rows[0];
+}
+async function postFindingToQBO(findingId) {
+  try {
+    if (!postingMasterEnabled()) return { posted: false, skipped: "posting disabled (FIGGY_QBO_POST off)" };
+    const db = getDb();
+    const f = (await db.select().from(triageFindings).where(eq(triageFindings.id, findingId)).limit(1))[0];
+    if (!f) return { posted: false, error: "finding not found" };
+    if (!f.clientId) return { posted: false, skipped: "finding has no client" };
+    const conn = await connForClient(f.clientId);
+    if ("error" in conn) return { posted: false, skipped: conn.error };
+    const realmId = String(conn.realmId);
+    if (!POST_ENABLED_REALMS.has(realmId)) return { posted: false, skipped: `realm ${realmId} not enabled for posting` };
+    if (conn.transport !== "native") return { posted: false, skipped: "connection is read-only (Make bridge) \u2014 needs native OAuth to write" };
+    const input = billInputFromSourceData(f.sourceData);
+    const valid = validatePostable(input);
+    if (!valid.ok) return { posted: false, skipped: valid.reason };
+    const live = await ensureValidToken(conn);
+    const payload = buildBillPayload(input);
+    const res = await qboRequest(live, "/bill", "POST", payload);
+    const billId = res?.Bill?.Id ? String(res.Bill.Id) : "";
+    if (!billId) return { posted: false, error: "QBO did not return a Bill Id" };
+    let meta3 = {};
+    try {
+      meta3 = JSON.parse(f.sourceData || "{}");
+    } catch {
+    }
+    meta3.qboBillId = billId;
+    meta3.postedAt = (/* @__PURE__ */ new Date()).toISOString();
+    await db.update(triageFindings).set({ sourceData: JSON.stringify(meta3) }).where(eq(triageFindings.id, findingId));
+    return { posted: true, billId, realmId };
+  } catch (e) {
+    return { posted: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+var POST_ENABLED_REALMS;
+var init_qbo_poster = __esm({
+  "api/qbo-poster.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_qbo_router();
+    POST_ENABLED_REALMS = /* @__PURE__ */ new Set([
+      "9341454721167426",
+      // Alderson Developments Ltd
+      "193514344934582",
+      // Ovita Construction Ltd
+      "193514710535449"
+      // Ovita Holdings Inc
+    ]);
   }
 });
 
@@ -58431,7 +58570,7 @@ async function seedCollingwoodRunHours() {
       const k = key(e.firstName, e.lastName);
       const patch = {};
       if ((e.payType || "") === "salary") {
-        const g = round28((e.annualSalary || 0) / PERIODS_PER_YEAR);
+        const g = round29((e.annualSalary || 0) / PERIODS_PER_YEAR);
         if (g > 0 && (l.grossPay ?? 0) === 0) patch.grossPay = g;
       } else if (k in HOURS) {
         const target = HOURS[k];
@@ -58441,7 +58580,7 @@ async function seedCollingwoodRunHours() {
           filled++;
         }
         const rate = e.hourlyRate ?? 0;
-        const g = round28(reg * rate);
+        const g = round29(reg * rate);
         if (g !== (l.grossPay ?? 0)) patch.grossPay = g;
       }
       const entitled = !PHONE_EXEMPT_LAST2.includes(norm8(e.lastName));
@@ -58456,7 +58595,7 @@ async function seedCollingwoodRunHours() {
       }
     }
     const fresh = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, draft.id));
-    const totalGross = round28(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
+    const totalGross = round29(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
     await db.update(payRuns).set({ totalGross, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, draft.id));
     if (filled || phoneSet) console.log(`[seed-collingwood-run] run ${draft.id}: filled ${filled} hours, set ${phoneSet} phone`);
     return { run: draft.id, filled, phoneSet, skipped: "" };
@@ -58464,7 +58603,7 @@ async function seedCollingwoodRunHours() {
     console.error("[seed-collingwood-run] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID2, PHONE, round28, norm8, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
+var CLIENT_ID2, PHONE, round29, norm8, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
 var init_seed_collingwood_run_hours = __esm({
   "api/seed-collingwood-run-hours.ts"() {
     init_connection();
@@ -58472,7 +58611,7 @@ var init_seed_collingwood_run_hours = __esm({
     init_drizzle_orm();
     CLIENT_ID2 = 7;
     PHONE = 23.08;
-    round28 = (n) => Math.round(n * 100) / 100;
+    round29 = (n) => Math.round(n * 100) / 100;
     norm8 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key = (first, last) => `${norm8(last)}|${norm8(first)}`;
     HOURS = {
@@ -58749,7 +58888,7 @@ async function backfillSherPayroll() {
         const emp = empByKey.get(k);
         if (!emp) continue;
         const ln = p.lines[k];
-        const gross = round29(ln?.gross ?? 0);
+        const gross = round210(ln?.gross ?? 0);
         totalGross += gross;
         await db.insert(payRunLines).values({
           payRunId: run2.id,
@@ -58758,7 +58897,7 @@ async function backfillSherPayroll() {
           grossPay: gross
         });
       }
-      await db.update(payRuns).set({ totalGross: round29(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round210(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[sher-backfill] added ${runsAdded} run(s)`);
@@ -58767,13 +58906,13 @@ async function backfillSherPayroll() {
     console.error("[sher-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round29, norm9, key2, d, ROSTER2, PERIODS;
+var round210, norm9, key2, d, ROSTER2, PERIODS;
 var init_seed_sher_backfill = __esm({
   "api/seed-sher-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round29 = (n) => Math.round(n * 100) / 100;
+    round210 = (n) => Math.round(n * 100) / 100;
     norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key2 = (first, last) => `${norm9(last)}|${norm9(first)}`;
     d = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -58958,11 +59097,11 @@ async function backfillOwenSoundPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp || have.has(emp.id)) continue;
-        await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: round210(v.gross) });
+        await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: round211(v.gross) });
         linesAdded++;
       }
       const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run2.id));
-      const tg = round210(lines.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
+      const tg = round211(lines.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
       await db.update(payRuns).set({ totalGross: tg, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
     }
     if (runsAdded || linesAdded) console.log(`[os-backfill] added ${runsAdded} run(s), ${linesAdded} line(s)`);
@@ -58971,13 +59110,13 @@ async function backfillOwenSoundPayroll() {
     console.error("[os-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round210, norm10, key3, d2, ROSTER3, PERIODS2;
+var round211, norm10, key3, d2, ROSTER3, PERIODS2;
 var init_seed_os_backfill = __esm({
   "api/seed-os-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round210 = (n) => Math.round(n * 100) / 100;
+    round211 = (n) => Math.round(n * 100) / 100;
     norm10 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key3 = (first, last) => `${norm10(last)}|${norm10(first)}`;
     d2 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -59185,11 +59324,11 @@ async function backfillCollingwoodPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round211(v.gross);
+        const gross = round212(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round211(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round212(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[cw-backfill] added ${runsAdded} run(s)`);
@@ -59198,14 +59337,14 @@ async function backfillCollingwoodPayroll() {
     console.error("[cw-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID3, round211, norm11, key4, d3, ROSTER4, PERIODS3;
+var CLIENT_ID3, round212, norm11, key4, d3, ROSTER4, PERIODS3;
 var init_seed_collingwood_backfill = __esm({
   "api/seed-collingwood-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     CLIENT_ID3 = 7;
-    round211 = (n) => Math.round(n * 100) / 100;
+    round212 = (n) => Math.round(n * 100) / 100;
     norm11 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key4 = (first, last) => `${norm11(last)}|${norm11(first)}`;
     d3 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -59446,11 +59585,11 @@ async function backfillAuldPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round212(v.gross);
+        const gross = round213(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round212(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round213(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[auld-backfill] added ${runsAdded} run(s)`);
@@ -59459,13 +59598,13 @@ async function backfillAuldPayroll() {
     console.error("[auld-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round212, norm12, key5, d4, ROSTER5, PERIODS4;
+var round213, norm12, key5, d4, ROSTER5, PERIODS4;
 var init_seed_auld_backfill = __esm({
   "api/seed-auld-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round212 = (n) => Math.round(n * 100) / 100;
+    round213 = (n) => Math.round(n * 100) / 100;
     norm12 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key5 = (first, last) => `${norm12(last)}|${norm12(first)}`;
     d4 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -59752,11 +59891,11 @@ async function backfillOriginalityPayroll() {
         for (const [k, v] of Object.entries(p.lines)) {
           const emp = empByKey.get(k);
           if (!emp) continue;
-          const gross = round213(v.gross);
+          const gross = round214(v.gross);
           totalGross += gross;
           await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
         }
-        await db.update(payRuns).set({ totalGross: round213(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+        await db.update(payRuns).set({ totalGross: round214(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
         runsAdded++;
       }
     };
@@ -59768,13 +59907,13 @@ async function backfillOriginalityPayroll() {
     console.error("[og-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round213, norm13, key6, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
+var round214, norm13, key6, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
 var init_seed_originality_backfill = __esm({
   "api/seed-originality-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round213 = (n) => Math.round(n * 100) / 100;
+    round214 = (n) => Math.round(n * 100) / 100;
     norm13 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key6 = (first, last) => `${norm13(last)}|${norm13(first)}`;
     d5 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -60002,7 +60141,7 @@ async function backfill2303851Payroll() {
     let runsAdded = 0;
     for (const p of PERIODS5) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
-      const gross = round214(p.gross);
+      const gross = round215(p.gross);
       const [run2] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d6(p.start),
@@ -60026,19 +60165,19 @@ async function backfill2303851Payroll() {
     console.error("[2303851-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round214, norm14, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
+var round215, norm14, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
 var init_seed_2303851_backfill = __esm({
   "api/seed-2303851-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round214 = (n) => Math.round(n * 100) / 100;
+    round215 = (n) => Math.round(n * 100) / 100;
     norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key7 = (first, last) => `${norm14(last)}|${norm14(first)}`;
     d6 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     EMP = { first: "Stacey", last: "Gillham" };
     MONTHLY = 8333.33;
-    HALF = round214(MONTHLY / 2);
+    HALF = round215(MONTHLY / 2);
     PERIODS5 = [
       { payDate: "2026-01-31", start: "2026-01-01", end: "2026-01-31", gross: MONTHLY },
       { payDate: "2026-02-28", start: "2026-02-01", end: "2026-02-28", gross: MONTHLY },
@@ -60105,8 +60244,8 @@ async function backfillFractalPayroll() {
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       if (!run2) continue;
-      await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: 0, grossPay: round215(MONTHLY2) });
-      await db.update(payRuns).set({ totalGross: round215(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: 0, grossPay: round216(MONTHLY2) });
+      await db.update(payRuns).set({ totalGross: round216(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[fractal-backfill] added ${runsAdded} run(s)`);
@@ -60115,13 +60254,13 @@ async function backfillFractalPayroll() {
     console.error("[fractal-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round215, norm15, d7, MONTHLY2, PERIODS6;
+var round216, norm15, d7, MONTHLY2, PERIODS6;
 var init_seed_fractal_backfill = __esm({
   "api/seed-fractal-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round215 = (n) => Math.round(n * 100) / 100;
+    round216 = (n) => Math.round(n * 100) / 100;
     norm15 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     d7 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     MONTHLY2 = 4500;
@@ -60197,11 +60336,11 @@ async function backfillMotionInvestPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round216(v.gross);
+        const gross = round217(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round216(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[motioninvest-backfill] added ${runsAdded} run(s)`);
@@ -60210,13 +60349,13 @@ async function backfillMotionInvestPayroll() {
     console.error("[motioninvest-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round216, norm16, key8, d8, ROSTER7, PERIODS7;
+var round217, norm16, key8, d8, ROSTER7, PERIODS7;
 var init_seed_motioninvest_backfill = __esm({
   "api/seed-motioninvest-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round216 = (n) => Math.round(n * 100) / 100;
+    round217 = (n) => Math.round(n * 100) / 100;
     norm16 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key8 = (first, last) => `${norm16(last)}|${norm16(first)}`;
     d8 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -60280,16 +60419,16 @@ async function backfillMotionInvestRevShare() {
     let cumNet = 0;
     const paidByKey = /* @__PURE__ */ new Map();
     for (const q of QUARTERS) {
-      cumNet = round217(cumNet + q.netProfit);
+      cumNet = round218(cumNet + q.netProfit);
       const note = `Revenue share bonus (${q.label})`;
       const due = d9(q.payDate) <= now;
       const exists2 = allRuns.some((r) => (r.notes || "") === note);
       const lines = [];
       for (const s of SHARERS) {
         const k = key9(s.first, s.last);
-        const earned = round217(cumNet * s.pct);
+        const earned = round218(cumNet * s.pct);
         const prior = paidByKey.get(k) || 0;
-        const payout = round217(Math.max(0, earned - prior));
+        const payout = round218(Math.max(0, earned - prior));
         paidByKey.set(k, prior + payout);
         const emp = empByKey.get(k);
         if (emp && payout > 0) lines.push({ emp, amount: payout });
@@ -60313,7 +60452,7 @@ async function backfillMotionInvestRevShare() {
         totalGross += ln.amount;
         await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: ln.emp.id, regularHours: 0, grossPay: ln.amount });
       }
-      await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      await db.update(payRuns).set({ totalGross: round218(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[mi-revshare] added ${runsAdded} quarterly run(s)`);
@@ -60322,13 +60461,13 @@ async function backfillMotionInvestRevShare() {
     console.error("[mi-revshare] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round217, norm17, key9, d9, SHARERS, QUARTERS;
+var round218, norm17, key9, d9, SHARERS, QUARTERS;
 var init_seed_motioninvest_revshare = __esm({
   "api/seed-motioninvest-revshare.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round217 = (n) => Math.round(n * 100) / 100;
+    round218 = (n) => Math.round(n * 100) / 100;
     norm17 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key9 = (first, last) => `${norm17(last)}|${norm17(first)}`;
     d9 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -78461,15 +78600,22 @@ var agentWebhookRouter = createRouter({
       reviewedNotes: input.notes,
       reviewedAt: /* @__PURE__ */ new Date()
     }).where(eq(triageFindings.id, input.id));
+    let posting = void 0;
     if (input.action === "approve") {
       try {
         await applyAccountOverride(db, [input.id], input);
         await learnFromApprovals([input.id]);
       } catch {
       }
+      try {
+        const { postFindingToQBO: postFindingToQBO2 } = await Promise.resolve().then(() => (init_qbo_poster(), qbo_poster_exports));
+        posting = await postFindingToQBO2(input.id);
+      } catch (e) {
+        posting = { posted: false, error: e instanceof Error ? e.message : String(e) };
+      }
     }
     await captureReviewLearning(db, [input.id], input.action, input.notes);
-    return { success: true };
+    return { success: true, posting };
   }),
   // Staff: Batch review — approve/dismiss many findings in one go
   reviewFindings: staffQuery.input(external_exports.object({
@@ -82325,7 +82471,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/revrec-core.ts
-function round25(n) {
+function round26(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function clampPct(p) {
@@ -82343,10 +82489,10 @@ function buildProjectSchedule(project, progress) {
   for (const r of rows) {
     const pct = clampPct(r.pctComplete);
     const invoiced = r.invoicedToDate == null ? priorInvoiced : r.invoicedToDate;
-    const earned = round25(cv * pct);
-    const revenueThisPeriod = round25(cv * (pct - priorPct));
-    const contractAsset = round25(Math.max(earned - invoiced, 0));
-    const deferredRevenue = round25(Math.max(invoiced - earned, 0));
+    const earned = round26(cv * pct);
+    const revenueThisPeriod = round26(cv * (pct - priorPct));
+    const contractAsset = round26(Math.max(earned - invoiced, 0));
+    const deferredRevenue = round26(Math.max(invoiced - earned, 0));
     out.push({
       periodKey: r.periodKey,
       pctComplete: pct,
@@ -82354,7 +82500,7 @@ function buildProjectSchedule(project, progress) {
       contractValue: cv,
       earnedToDate: earned,
       revenueThisPeriod,
-      invoicedToDate: round25(invoiced),
+      invoicedToDate: round26(invoiced),
       contractAsset,
       deferredRevenue
     });
@@ -82402,8 +82548,8 @@ function period_customerJobOf(_period) {
   return null;
 }
 function sealJe(kind, date5, periodKey, lines) {
-  const totalDebit = round25(lines.reduce((s, l) => s + l.debit, 0));
-  const totalCredit = round25(lines.reduce((s, l) => s + l.credit, 0));
+  const totalDebit = round26(lines.reduce((s, l) => s + l.debit, 0));
+  const totalCredit = round26(lines.reduce((s, l) => s + l.credit, 0));
   return { kind, date: date5, periodKey, lines, totalDebit, totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 5e-3 };
 }
 function tagJeWithJob(je, customerJob) {
@@ -82426,7 +82572,7 @@ function validateForPosting(je, accountMap) {
 function rollupProject(project, schedule) {
   const last = latestPeriod(schedule);
   const cv = project.contractValue || 0;
-  const earned = last?.earnedToDate ?? round25(cv * clampPct(project.openingPct ?? 0));
+  const earned = last?.earnedToDate ?? round26(cv * clampPct(project.openingPct ?? 0));
   const invoiced = last?.invoicedToDate ?? (project.openingInvoiced ?? 0);
   return {
     projectId: project.projectId,
@@ -82435,10 +82581,10 @@ function rollupProject(project, schedule) {
     contractValue: cv,
     pctComplete: last?.pctComplete ?? clampPct(project.openingPct ?? 0),
     earnedToDate: earned,
-    invoicedToDate: round25(invoiced),
-    contractAsset: last?.contractAsset ?? round25(Math.max(earned - invoiced, 0)),
-    deferredRevenue: last?.deferredRevenue ?? round25(Math.max(invoiced - earned, 0)),
-    remainingToEarn: round25(cv - earned)
+    invoicedToDate: round26(invoiced),
+    contractAsset: last?.contractAsset ?? round26(Math.max(earned - invoiced, 0)),
+    deferredRevenue: last?.deferredRevenue ?? round26(Math.max(invoiced - earned, 0)),
+    remainingToEarn: round26(cv - earned)
   };
 }
 function buildRevenueCalendar(months, perProject) {
@@ -82447,10 +82593,10 @@ function buildRevenueCalendar(months, perProject) {
       const hit = p.schedule.find((s) => s.periodKey === m);
       return hit ? hit.revenueThisPeriod : 0;
     });
-    return { projectId: p.projectId, name: p.name, byMonth, total: round25(byMonth.reduce((s, v) => s + v, 0)) };
+    return { projectId: p.projectId, name: p.name, byMonth, total: round26(byMonth.reduce((s, v) => s + v, 0)) };
   });
-  const totalsByMonth = months.map((_, i) => round25(rows.reduce((s, r) => s + r.byMonth[i], 0)));
-  const grandTotal = round25(totalsByMonth.reduce((s, v) => s + v, 0));
+  const totalsByMonth = months.map((_, i) => round26(rows.reduce((s, r) => s + r.byMonth[i], 0)));
+  const grandTotal = round26(totalsByMonth.reduce((s, v) => s + v, 0));
   return { months, rows, totalsByMonth, grandTotal };
 }
 function fiscalYearMonths(firstMonthKey) {
@@ -82805,7 +82951,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/banked-hours-core.ts
-function round26(n) {
+function round27(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function toTime(d10) {
@@ -82819,7 +82965,7 @@ function buildLedger(entries) {
   });
   let bal = 0;
   return sorted.map((e) => {
-    bal = round26(bal + (e.hours || 0));
+    bal = round27(bal + (e.hours || 0));
     return { ...e, runningBalance: bal };
   });
 }
@@ -82834,9 +82980,9 @@ function summarize(entries) {
     last = Math.max(last, toTime(e.entryDate));
   }
   return {
-    balance: round26(totalBanked - totalTaken),
-    totalBanked: round26(totalBanked),
-    totalTaken: round26(totalTaken),
+    balance: round27(totalBanked - totalTaken),
+    totalBanked: round27(totalBanked),
+    totalTaken: round27(totalTaken),
     entryCount: entries.length,
     lastActivity: last ? new Date(last).toISOString() : null
   };
@@ -83044,7 +83190,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/loan-tracker-core.ts
-function round27(n) {
+function round28(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function toTime2(d10) {
@@ -83058,7 +83204,7 @@ function buildLoanLedger(entries) {
   });
   let bal = 0;
   return sorted.map((e) => {
-    bal = round27(bal + (e.amount || 0));
+    bal = round28(bal + (e.amount || 0));
     return { ...e, runningBalance: bal };
   });
 }
@@ -83074,13 +83220,13 @@ function summarizeLoan(entries) {
     const t2 = toTime2(e.entryDate);
     if (t2 > last) last = t2;
   }
-  balance = round27(balance);
+  balance = round28(balance);
   const direction = balance > 0 ? "owed_to_lender" : balance < 0 ? "owed_to_borrower" : "settled";
   return {
     balance,
-    totalAdvanced: round27(totalAdvanced),
-    totalRepaid: round27(totalRepaid),
-    totalInterest: round27(totalInterest),
+    totalAdvanced: round28(totalAdvanced),
+    totalRepaid: round28(totalRepaid),
+    totalInterest: round28(totalInterest),
     entryCount: entries.length,
     lastActivity: last ? new Date(last).toISOString() : null,
     direction
@@ -83793,7 +83939,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.117";
+var BUILD_TAG = "2026-06-25.118";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -84648,7 +84794,7 @@ app.post("/api/admin/import-clients", async (c) => {
       return c.json({ error: "Invalid token" }, 401);
     }
     const db = getDb();
-    const { clients: clients3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { clients: clients4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const { ensureComplianceForClient: ensureComplianceForClient2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
     const CLIENTS_DATA2 = [
@@ -84676,12 +84822,12 @@ app.post("/api/admin/import-clients", async (c) => {
     const results = { imported: 0, skipped: 0, tasksCreated: 0, errors: [] };
     for (const clientData of CLIENTS_DATA2) {
       try {
-        const existing = await db.select().from(clients3).where(eq3(clients3.name, clientData.name)).limit(1);
+        const existing = await db.select().from(clients4).where(eq3(clients4.name, clientData.name)).limit(1);
         if (existing.length > 0) {
           results.skipped++;
           continue;
         }
-        const [client] = await db.insert(clients3).values({
+        const [client] = await db.insert(clients4).values({
           ...clientData,
           userId: 1,
           createdAt: /* @__PURE__ */ new Date(),
@@ -84770,9 +84916,9 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "clients") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, qboConnections: qboConnections2, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients4, qboConnections: qboConnections2, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const db = getDb2();
-      const cs = await db.select().from(clients3);
+      const cs = await db.select().from(clients4);
       const conns = await db.select().from(qboConnections2);
       const ruleRows = await db.select().from(clientTaskRules4);
       const byClient = /* @__PURE__ */ new Map();
@@ -84855,10 +85001,10 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       return c.json({ success: true, op, client: {
@@ -84883,12 +85029,12 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       const scope = buildScopeForClient2(cl, onb);
@@ -84900,14 +85046,14 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
       const { renderQuoteHtml: renderQuoteHtml2 } = await Promise.resolve().then(() => (init_quote_doc(), quote_doc_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
@@ -84924,12 +85070,12 @@ app.post("/api/admin/figgy", async (c) => {
         documentType: "custom",
         clientEmail: cl.email || null
       });
-      await db.update(clients3).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: /* @__PURE__ */ new Date(), workflowStatus: "quote_sent" }).where(eq3(clients3.id, cl.id));
+      await db.update(clients4).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: /* @__PURE__ */ new Date(), workflowStatus: "quote_sent" }).where(eq3(clients4.id, cl.id));
       return c.json({ success: true, op, clientName: cl.name, recurringMonthly: quote.recurringMonthly, nearestPackage: quote.nearestPackage, ...res });
     }
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients4, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, and: and7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
@@ -84940,15 +85086,15 @@ app.post("/api/admin/figgy", async (c) => {
       const steps = [];
       const TESTNAME = "E2E Test Co Inc.";
       try {
-        const prev = await db.select().from(clients3).where(eq3(clients3.name, TESTNAME));
+        const prev = await db.select().from(clients4).where(eq3(clients4.name, TESTNAME));
         for (const p of prev) {
           await db.delete(tasks5).where(eq3(tasks5.clientId, p.id));
           await db.delete(clientTaskRules4).where(eq3(clientTaskRules4.clientId, p.id));
           await db.delete(signatureDocuments2).where(eq3(signatureDocuments2.clientId, p.id));
           await db.delete(clientOnboarding2).where(eq3(clientOnboarding2.clientId, p.id));
-          await db.delete(clients3).where(eq3(clients3.id, p.id));
+          await db.delete(clients4).where(eq3(clients4.id, p.id));
         }
-        const [cl] = await db.insert(clients3).values({
+        const [cl] = await db.insert(clients4).values({
           userId: 1,
           name: TESTNAME,
           company: TESTNAME,
@@ -85045,7 +85191,7 @@ app.post("/api/admin/figgy", async (c) => {
         }
         const signedCount = (await db.select().from(signatureDocuments2).where(and7(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
         steps.push(`signed ${signedCount}/2 documents`);
-        await db.update(clients3).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients3.id, cl.id));
+        await db.update(clients4).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients4.id, cl.id));
         const res = await createClientTaskRules2({
           clientId: cl.id,
           userId: 1,
@@ -85082,14 +85228,14 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
       const { renderEngagementHtml: renderEngagementHtml2 } = await Promise.resolve().then(() => (init_quote_doc(), quote_doc_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients3).where(eq3(clients3.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
@@ -85332,11 +85478,11 @@ async function startServer() {
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { reorderNumberedName: reorderNumberedName2 } = await Promise.resolve().then(() => (init_client_name(), client_name_exports));
       const db = getDb2();
-      const rows = await db.select().from(clients3);
+      const rows = await db.select().from(clients4);
       for (const cl of rows) {
         const patch = {};
         const newName = reorderNumberedName2(cl.name);
@@ -85345,7 +85491,7 @@ async function startServer() {
         if (newCompany && newCompany !== cl.company) patch.company = newCompany;
         if (Object.keys(patch).length) {
           try {
-            await db.update(clients3).set(patch).where(eq3(clients3.id, cl.id));
+            await db.update(clients4).set(patch).where(eq3(clients4.id, cl.id));
           } catch {
           }
         }
@@ -85355,13 +85501,13 @@ async function startServer() {
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients4, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, and: and7, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
-      const matches = await db.select().from(clients3).where(like3(clients3.name, "%Doc King%"));
+      const matches = await db.select().from(clients4).where(like3(clients4.name, "%Doc King%"));
       for (const cl of matches) {
         if (cl.clientType !== "wholesale") {
-          await db.update(clients3).set({ clientType: "wholesale" }).where(eq3(clients3.id, cl.id));
+          await db.update(clients4).set({ clientType: "wholesale" }).where(eq3(clients4.id, cl.id));
         }
         await db.update(clientTaskRules4).set({ active: false }).where(eq3(clientTaskRules4.clientId, cl.id));
         await db.delete(tasks5).where(and7(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
@@ -85371,15 +85517,15 @@ async function startServer() {
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients3, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients4, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq3, and: and7, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
-        const matches = await db.select().from(clients3).where(like3(clients3.name, nameLike));
+        const matches = await db.select().from(clients4).where(like3(clients4.name, nameLike));
         for (const cl of matches) {
           const patch = {};
           for (const [k, v] of Object.entries(flags)) if (!cl[k]) patch[k] = v;
-          if (Object.keys(patch).length) await db.update(clients3).set(patch).where(eq3(clients3.id, cl.id));
+          if (Object.keys(patch).length) await db.update(clients4).set(patch).where(eq3(clients4.id, cl.id));
         }
         return matches;
       };
@@ -85392,11 +85538,11 @@ async function startServer() {
         const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
         const marker = await db.select().from(appSettings2).where(eq3(appSettings2.key, "fix_sharebonus_originality_only_v1")).limit(1);
         if (!marker[0]) {
-          const all = await db.select().from(clients3);
+          const all = await db.select().from(clients4);
           for (const cl of all) {
             if (/originality/i.test(cl.name || "")) continue;
             if (cl.payrollBonuses || cl.payrollRevenueShare) {
-              await db.update(clients3).set({ payrollBonuses: 0, payrollRevenueShare: 0 }).where(eq3(clients3.id, cl.id));
+              await db.update(clients4).set({ payrollBonuses: 0, payrollRevenueShare: 0 }).where(eq3(clients4.id, cl.id));
             }
           }
           await db.insert(appSettings2).values({ key: "fix_sharebonus_originality_only_v1", value: (/* @__PURE__ */ new Date()).toISOString() });
