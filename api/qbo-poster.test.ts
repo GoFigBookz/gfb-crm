@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { buildBillPayload, validatePostable, billInputFromSourceData, POST_ENABLED_REALMS, buildJournalEntryPayload, validateJournalEntry } from "./qbo-poster";
+import { describe, it, expect, afterEach } from "vitest";
+import { buildBillPayload, validatePostable, billInputFromSourceData, isRealmPostEnabled, PILOT_REALMS, buildJournalEntryPayload, validateJournalEntry } from "./qbo-poster";
 
 describe("buildBillPayload", () => {
   it("builds a valid QBO Bill with vendor, line account, tax code, date, doc#", () => {
@@ -115,13 +115,21 @@ describe("buildJournalEntryPayload + validateJournalEntry", () => {
   });
 });
 
-describe("POST_ENABLED_REALMS", () => {
-  it("includes Alderson, Ovita Construction, Ovita Holdings", () => {
-    expect(POST_ENABLED_REALMS.has("9341454721167426")).toBe(true); // Alderson
-    expect(POST_ENABLED_REALMS.has("193514344934582")).toBe(true);  // Ovita Construction
-    expect(POST_ENABLED_REALMS.has("193514710535449")).toBe(true);  // Ovita Holdings
+describe("isRealmPostEnabled (firm-wide by default)", () => {
+  const saved = process.env.FIGGY_POST_REALMS;
+  afterEach(() => { if (saved === undefined) delete process.env.FIGGY_POST_REALMS; else process.env.FIGGY_POST_REALMS = saved; });
+
+  it("allows ALL clients when FIGGY_POST_REALMS is unset", () => {
+    delete process.env.FIGGY_POST_REALMS;
+    expect(isRealmPostEnabled("9341456017349963")).toBe(true); // Clark OS
+    expect(isRealmPostEnabled("123145963468664")).toBe(true);  // West York
   });
-  it("excludes a random realm", () => {
-    expect(POST_ENABLED_REALMS.has("9341456017349963")).toBe(false); // Clark OS — not enabled
+  it("restricts to the list when FIGGY_POST_REALMS is set", () => {
+    process.env.FIGGY_POST_REALMS = "9341454721167426, 193514344934582";
+    expect(isRealmPostEnabled("9341454721167426")).toBe(true);  // Alderson — listed
+    expect(isRealmPostEnabled("9341456017349963")).toBe(false); // Clark OS — not listed
+  });
+  it("keeps the pilot set for reference", () => {
+    expect(PILOT_REALMS.has("9341454721167426")).toBe(true);
   });
 });
