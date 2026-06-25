@@ -455,7 +455,9 @@ app.get("/api/phoenix/seed", async (c) => {
     await ensureLifeSchema();
     const { seedPhoenixPersonal } = await import("./seed-phoenix-personal");
     const r = await seedPhoenixPersonal();
-    return c.json({ ok: true, ...r });
+    const { seedPhoenixPersonalV2 } = await import("./seed-phoenix-personal-v2");
+    const r2 = await seedPhoenixPersonalV2();
+    return c.json({ ok: true, v1: r, v2: r2 });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
@@ -1900,6 +1902,9 @@ async function startServer() {
       const { seedPhoenixPersonal } = await import("./seed-phoenix-personal");
       const r = await seedPhoenixPersonal();
       if (r?.seeded) console.log(`[phoenix-personal] seeded ${r.count} entries`);
+      const { seedPhoenixPersonalV2 } = await import("./seed-phoenix-personal-v2");
+      const r2 = await seedPhoenixPersonalV2();
+      if (r2?.seeded) console.log(`[phoenix-personal-v2] seeded ${r2.count} entries`);
     } catch (e) {
       console.error("[phoenix-personal] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
