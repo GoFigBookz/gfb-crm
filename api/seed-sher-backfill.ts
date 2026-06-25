@@ -7,8 +7,9 @@
  * Runs are created at status "review" (a backfill to eyeball, not a live draft).
  * Idempotent: skips a period whose pay run already exists for this client.
  *
- * Periods are added here as Markie sends snapshots of the older tabs (the raw sheet
- * read scrambles columns for older months, so screenshots are the accurate source).
+ * FULL YEAR (Jan 08 → Jun 26 2026): pulled from the live Google workbook via clean
+ * per-tab CSV (XLSX export → unzip → parse). Each period's per-employee Total Pay
+ * sum ties to that tab's Totals row to the penny.
  */
 import { getDb } from "./queries/connection";
 import { clients, employees, payRuns, payRunLines } from "../db/schema";
@@ -47,6 +48,90 @@ const PERIODS: Period[] = [
       [key("Rohit", "Dhimal")]: { hours: 90.92, gross: 1796.58 },
       [key("Suraj", "Limbu")]: { hours: 88.32, gross: 1653.35 },
       [key("Deepak", "Vasisth")]: { hours: 76.68, gross: 1403.55 },
+  } },
+  { payDate: "2026-05-29", start: "2026-05-13", end: "2026-05-26", lines: {
+      [key("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+      [key("Akash", "Dahal")]: { hours: 60.83, gross: 994.82 },
+      [key("Rohit", "Dhimal")]: { hours: 111.6, gross: 2047.14 },
+      [key("Suraj", "Limbu")]: { hours: 89.52, gross: 1526.05 },
+      [key("Deepak", "Vasisth")]: { hours: 101.31, gross: 1854.38 },
+  } },
+  { payDate: "2026-05-15", start: "2026-04-29", end: "2026-05-12", lines: {
+      [key("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+      [key("Akash", "Dahal")]: { hours: 63.47, gross: 1161.75 },
+      [key("Rohit", "Dhimal")]: { hours: 103.35, gross: 2042.20 },
+      [key("Dhiren", "Gurung")]: { hours: 9.86, gross: 184.58 },
+      [key("Suraj", "Limbu")]: { hours: 82.18, gross: 1538.41 },
+      [key("Deepak", "Vasisth")]: { hours: 92.6, gross: 1694.95 },
+  } },
+  { payDate: "2026-05-01", start: "2026-04-15", end: "2026-04-28", lines: {
+      [key("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+      [key("Akash", "Dahal")]: { hours: 61.16, gross: 1119.47 },
+      [key("Rohit", "Dhimal")]: { hours: 103.84, gross: 2051.88 },
+      [key("Dhiren", "Gurung")]: { hours: 19.4, gross: 363.17 },
+      [key("Suraj", "Limbu")]: { hours: 80.86, gross: 1513.70 },
+      [key("Deepak", "Vasisth")]: { hours: 91.73, gross: 1679.03 },
+  } },
+  { payDate: "2026-04-17", start: "2026-04-01", end: "2026-04-14", lines: {
+      [key("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+      [key("Akash", "Dahal")]: { hours: 57.15, gross: 927.46 },
+      [key("Rohit", "Dhimal")]: { hours: 118.88, gross: 2190.99 },
+      [key("Dhiren", "Gurung")]: { hours: 20.34, gross: 347.63 },
+      [key("Suraj", "Limbu")]: { hours: 96, gross: 1647.36 },
+      [key("Deepak", "Vasisth")]: { hours: 108.03, gross: 1977.38 },
+  } },
+  { payDate: "2026-04-03", start: "2026-03-18", end: "2026-03-31", lines: {
+      [key("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+      [key("Akash", "Dahal")]: { hours: 51.37, gross: 918.91 },
+      [key("Rohit", "Dhimal")]: { hours: 95.33, gross: 1705.26 },
+      [key("Dhiren", "Gurung")]: { hours: 18.66, gross: 333.79 },
+      [key("Suraj", "Limbu")]: { hours: 74.47, gross: 1332.12 },
+      [key("Deepak", "Vasisth")]: { hours: 87.82, gross: 1570.92 },
+  } },
+  { payDate: "2026-03-20", start: "2026-03-04", end: "2026-03-17", lines: {
+      [key("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+      [key("Akash", "Dahal")]: { hours: 58.31, gross: 1043.05 },
+      [key("Rohit", "Dhimal")]: { hours: 103.5, gross: 1851.41 },
+      [key("Dhiren", "Gurung")]: { hours: 20.26, gross: 362.41 },
+      [key("Suraj", "Limbu")]: { hours: 79.2, gross: 1416.73 },
+      [key("Deepak", "Vasisth")]: { hours: 95.86, gross: 1714.74 },
+  } },
+  { payDate: "2026-03-06", start: "2026-02-18", end: "2026-03-03", lines: {
+      [key("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+      [key("Akash", "Dahal")]: { hours: 66.31, gross: 1186.15 },
+      [key("Rohit", "Dhimal")]: { hours: 100.59, gross: 1799.35 },
+      [key("Dhiren", "Gurung")]: { hours: 13.8, gross: 246.85 },
+      [key("Suraj", "Limbu")]: { hours: 81.95, gross: 1465.92 },
+      [key("Deepak", "Vasisth")]: { hours: 86.53, gross: 1547.85 },
+  } },
+  { payDate: "2026-02-20", start: "2026-02-04", end: "2026-02-17", lines: {
+      [key("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+      [key("Akash", "Dahal")]: { hours: 66.97, gross: 1077.75 },
+      [key("Rohit", "Dhimal")]: { hours: 114.73, gross: 1844.07 },
+      [key("Dhiren", "Gurung")]: { hours: 20.2, gross: 361.34 },
+      [key("Suraj", "Limbu")]: { hours: 90.52, gross: 1463.60 },
+      [key("Deepak", "Vasisth")]: { hours: 101.1, gross: 1808.44 },
+  } },
+  { payDate: "2026-02-06", start: "2026-01-21", end: "2026-02-03", lines: {
+      [key("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+      [key("Akash", "Dahal")]: { hours: 66.01, gross: 1180.79 },
+      [key("Rohit", "Dhimal")]: { hours: 100.37, gross: 1795.42 },
+      [key("Suraj", "Limbu")]: { hours: 80.58, gross: 1508.46 },
+      [key("Deepak", "Vasisth")]: { hours: 78.19, gross: 1398.66 },
+  } },
+  { payDate: "2026-01-23", start: "2026-01-07", end: "2026-01-20", lines: {
+      [key("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+      [key("Akash", "Dahal")]: { hours: 60.34, gross: 1079.36 },
+      [key("Rohit", "Dhimal")]: { hours: 102.23, gross: 1828.69 },
+      [key("Suraj", "Limbu")]: { hours: 79.36, gross: 1485.62 },
+      [key("Deepak", "Vasisth")]: { hours: 85.46, gross: 1528.71 },
+  } },
+  { payDate: "2026-01-08", start: "2025-12-24", end: "2026-01-06", lines: {
+      [key("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+      [key("Akash", "Dahal")]: { hours: 75.72, gross: 981.51 },
+      [key("Rohit", "Dhimal")]: { hours: 116.16, gross: 1490.25 },
+      [key("Suraj", "Limbu")]: { hours: 96.22, gross: 1341.29 },
+      [key("Deepak", "Vasisth")]: { hours: 106.72, gross: 1908.98 },
   } },
 ];
 
