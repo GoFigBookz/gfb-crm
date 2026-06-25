@@ -114,6 +114,34 @@ const PERIODS: Period[] = [
       [key("Alexis", "Montgomery")]: { hours: 33.04, gross: 687.23 },
       [key("Jamie", "Moseley")]: { hours: 77.36, gross: 2011.31 },
   } },
+  // Winter skeleton crew (staff wages only — owner Adam Holt salary excluded, same
+  // basis as the summer periods). Each row reconciles to reg+stat+vacation.
+  { payDate: "2026-04-03", start: "2026-03-18", end: "2026-03-31", lines: {
+      [key("Isabella", "Holt")]: { hours: 8.0, gross: 191.36 },
+      [key("Debbie", "Maritin")]: { hours: 64.18, gross: 2002.42 },
+      [key("Jamie", "Moseley")]: { hours: 47.15, gross: 1225.90 },
+  } },
+  { payDate: "2026-03-20", start: "2026-03-04", end: "2026-03-17", lines: {
+      [key("Isabella", "Holt")]: { hours: 10.0, gross: 239.20 },
+      [key("Debbie", "Maritin")]: { hours: 64.0, gross: 1996.80 },
+      [key("Jamie", "Moseley")]: { hours: 73.0, gross: 1898.00 },
+  } },
+  { payDate: "2026-03-06", start: "2026-02-18", end: "2026-03-03", lines: {
+      [key("Isabella", "Holt")]: { hours: 9.0, gross: 215.28 },
+      [key("Debbie", "Maritin")]: { hours: 69.0, gross: 1650.48 },
+      [key("Jamie", "Moseley")]: { hours: 16.0, gross: 416.00 },
+  } },
+  { payDate: "2026-02-20", start: "2026-02-04", end: "2026-02-17", lines: {
+      [key("Isabella", "Holt")]: { hours: 12.83, gross: 306.79 },
+      [key("Debbie", "Maritin")]: { hours: 42.30, gross: 1011.91 },
+  } },
+  { payDate: "2026-02-06", start: "2026-01-21", end: "2026-02-02", lines: {
+      [key("Isabella", "Holt")]: { hours: 22.0, gross: 526.24 },
+      [key("Debbie", "Maritin")]: { hours: 27.0, gross: 645.84 },
+  } },
+  { payDate: "2026-01-23", start: "2026-01-07", end: "2026-01-20", lines: {
+      [key("Debbie", "Maritin")]: { hours: 18.0, gross: 430.56 },
+  } },
 ];
 
 export async function backfillOwenSoundPayroll(): Promise<{ client: number | null; runsAdded: number; skipped: string } | void> {
