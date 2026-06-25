@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Bot, Plus, Play, Trash2, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Bot, Plus, Play, Trash2, Clock, CheckCircle, AlertCircle, Settings2, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { MeetTheTeam } from "@/components/MeetTheTeam";
 
 import { trpc } from "@/providers/trpc";
 import { format } from "date-fns";
@@ -36,13 +37,33 @@ export default function AIAgents() {
   const createRun = trpc.aiAgent.createRun.useMutation({ onSuccess: () => utils.aiAgent.listRuns.invalidate() });
 
   const [newAgent, setNewAgent] = useState({ name: "", agentType: "custom" as const, description: "", systemPrompt: "", webhookUrl: "" });
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   return (
     <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Your AI Team</h1>
+        <p className="text-slate-500">The crew that runs the books and your day — tap any teammate to chat with her on Ask Figs.</p>
+      </div>
+
+      {/* The team — character cards */}
+      <MeetTheTeam />
+
+      {/* Advanced: automation config + run history (the technical bits) */}
+      <button
+        onClick={() => setShowAdvanced((s) => !s)}
+        className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-700"
+      >
+        {showAdvanced ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        <Settings2 className="h-4 w-4" /> Automation &amp; run history (advanced)
+      </button>
+
+      {showAdvanced && (
+      <div className="space-y-6 border-l-2 border-slate-100 pl-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">AI Agents</h1>
-          <p className="text-slate-500">Configure AI agents to automate your bookkeeping workflow</p>
+          <h2 className="text-lg font-bold text-slate-900">Agent configs</h2>
+          <p className="text-sm text-slate-500">Backend automation profiles + webhook runs. You usually don't need this.</p>
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> New Agent</Button></DialogTrigger>
@@ -128,6 +149,8 @@ export default function AIAgents() {
             </div>
           </CardContent>
         </Card>
+      )}
+      </div>
       )}
     </div>
   );

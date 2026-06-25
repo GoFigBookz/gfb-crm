@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { MeetTheTeam } from "@/components/MeetTheTeam";
+import { Bot } from "lucide-react";
 import {
   Users,
   CheckSquare,
@@ -190,6 +192,18 @@ export default function StaffWorkload() {
             </CardContent>
           </Card>
         ))}
+        {(!workload || workload.length === 0) && (
+          <p className="lg:col-span-2 text-sm text-slate-400 text-center py-6">No human staff to show yet.</p>
+        )}
+      </div>
+
+      {/* AI team — the always-on crew working alongside staff */}
+      <div className="pt-2">
+        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1">
+          <Bot className="h-5 w-5 text-lime-500" /> AI Team
+        </h2>
+        <p className="text-sm text-slate-500 mb-3">Your always-on crew — each carries her own slice of the work, 24/7, no capacity limit.</p>
+        <MeetTheTeam />
       </div>
     </div>
   );
