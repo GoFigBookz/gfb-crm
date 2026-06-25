@@ -15,20 +15,20 @@
   <!-- The 'iggy' part of the word. -->
   <g font-family="'Allura','Great Vibes','Alex Brush','Snell Roundhand','Apple Chancery','Segoe Script','Brush Script MT',cursive"
      fill="url(#ink)">
-    <text x="108" y="110" font-size="94" letter-spacing="-1">iggy</text>
+    <text x="118" y="110" font-size="94" letter-spacing="-1">iggy</text>
   </g>
 
   <!-- BIG 'F' — larger than the rest of the word, as an oversized initial. -->
-  <text x="8" y="120" font-size="132"
+  <text x="6" y="124" font-size="152"
         font-family="'Allura','Great Vibes','Alex Brush','Snell Roundhand','Apple Chancery','Segoe Script','Brush Script MT',cursive"
         fill="url(#ink)">F</text>
 
-  <!-- The F's flourish flowing a bit OVER the word (just the first part, not all). -->
-  <path d="M64 40 C 118 14, 176 18, 210 38" fill="none" stroke="url(#ink)"
-        stroke-width="7" stroke-linecap="round"/>
+  <!-- The F's flourish flowing OVER the word — further across this time. -->
+  <path d="M72 36 C 140 4, 235 8, 300 34" fill="none" stroke="url(#ink)"
+        stroke-width="7.5" stroke-linecap="round"/>
 
   <!-- The dot of the 'i' IS Figs (the mascot tittle), above the i-stem. -->
-  <g transform="translate(112 30) scale(0.32)">
+  <g transform="translate(122 30) scale(0.32)">
     <path d="M50.0 22.0 L54.6 25.7 L60.2 23.6 L63.5 28.5 L69.4 28.3 L71.0 34.0 L76.7 35.6 L76.5 41.5 L81.4 44.8 L79.3 50.4 L83.0 55.0 L79.3 59.6 L81.4 65.2 L76.5 68.5 L76.7 74.4 L71.0 76.0 L69.4 81.7 L63.5 81.5 L60.2 86.4 L54.6 84.3 L50.0 88.0 L45.4 84.3 L39.8 86.4 L36.5 81.5 L30.6 81.7 L29.0 76.0 L23.3 74.4 L23.5 68.5 L18.6 65.2 L20.7 59.6 L17.0 55.0 L20.7 50.4 L18.6 44.8 L23.5 41.5 L23.3 35.6 L29.0 34.0 L30.6 28.3 L36.5 28.5 L39.8 23.6 L45.4 25.7 Z" fill="#a3e635" stroke="#4d7c0f" stroke-width="3.4" stroke-linejoin="round"/>
     <circle cx="30" cy="64" r="5" fill="#65a30d" opacity="0.45"/><circle cx="70" cy="64" r="5" fill="#65a30d" opacity="0.45"/>
     <ellipse cx="37" cy="53" rx="10" ry="12" fill="#fff" stroke="#1e293b" stroke-width="1.8"/>
