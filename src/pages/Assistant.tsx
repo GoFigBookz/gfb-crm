@@ -4,20 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/providers/trpc";
 import { cleanTranscript } from "@/lib/dedupe-speech";
+import { TEAM } from "@/lib/team";
+import { MeetTheTeam } from "@/components/MeetTheTeam";
+import { Users } from "lucide-react";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type AgentKey = "fig" | "sage" | "wren" | "liv" | "jinx" | "tess" | "jade" | "skye";
 
-const ROSTER: { key: AgentKey; name: string; role: string }[] = [
-  { key: "liv", name: "Liv", role: "executive assistant (front desk)" },
-  { key: "fig", name: "Fig", role: "junior bookkeeper" },
-  { key: "sage", name: "Sage", role: "senior bookkeeper" },
-  { key: "wren", name: "Wren", role: "controller / auditor" },
-  { key: "tess", name: "Tess", role: "tax specialist" },
-  { key: "jade", name: "Jade", role: "fractional CFO" },
-  { key: "skye", name: "Skye", role: "social / marketing" },
-  { key: "jinx", name: "Jinx", role: "QA / IT watchdog" },
-];
+// One source of truth: the team roster (Liv first — she's the front desk).
+const ROSTER: { key: AgentKey; name: string; role: string }[] = ["liv", "fig", "sage", "wren", "tess", "jade", "skye", "jinx"]
+  .map((k) => { const m = TEAM.find((t) => t.key === k)!; return { key: m.key as AgentKey, name: m.name, role: m.role }; });
 
 const SUGGESTIONS = [
   "What's on my plate today?",
@@ -35,6 +31,7 @@ export default function Assistant() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [agent, setAgent] = useState<AgentKey>("liv");
+  const [showTeam, setShowTeam] = useState(false);
   const [convId, setConvId] = useState<string>(() => localStorage.getItem("figgyConvId") || newConvId());
   const [showSave, setShowSave] = useState(false);
   const [locStatus, setLocStatus] = useState<"unknown" | "on" | "off">("unknown");
@@ -312,7 +309,7 @@ export default function Assistant() {
           </div>
           {fileToClient.isSuccess && <span className="text-xs text-emerald-600">Saved ✓</span>}
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {ROSTER.map((r) => (
             <button
               key={r.key}
@@ -323,7 +320,18 @@ export default function Assistant() {
               {r.name}
             </button>
           ))}
+          <button
+            onClick={() => setShowTeam((s) => !s)}
+            className={`text-xs px-2.5 py-1 rounded-full border flex items-center gap-1 transition-colors ${showTeam ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-500 hover:bg-slate-50"}`}
+          >
+            <Users className="h-3 w-3" /> Meet the team
+          </button>
         </div>
+        {showTeam && (
+          <div className="pt-1">
+            <MeetTheTeam activeKey={agent} onPick={(k) => { setAgent(k as AgentKey); setShowTeam(false); }} />
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto py-4 space-y-3">
