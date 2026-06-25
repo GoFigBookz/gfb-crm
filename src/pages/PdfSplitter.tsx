@@ -231,7 +231,7 @@ export default function PdfSplitter() {
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <FileStack className="h-6 w-6 text-lime-500" /> PDF Splitter
         </h1>
-        <p className="text-slate-500">Scan a stack of documents into one PDF — Figgy finds each document, names it, and gives you clean separate files.</p>
+        <p className="text-slate-500">Scan a stack of documents into one PDF — Figs finds each document, names it, and gives you clean separate files.</p>
       </div>
 
       {/* Mode chooser */}
@@ -262,7 +262,7 @@ export default function PdfSplitter() {
             <>
               <div className="h-12 w-12 mx-auto mb-4 rounded-full border-4 border-lime-200 border-t-lime-500 animate-spin" />
               <p className="text-lg font-medium text-slate-700 mb-2">{progress || "Reading your scan…"}</p>
-              <p className="text-sm text-slate-500">Figgy is finding where each document starts and ends. Large scans are read in parts automatically — this can take a couple of minutes.</p>
+              <p className="text-sm text-slate-500">Figs is finding where each document starts and ends. Large scans are read in parts automatically — this can take a couple of minutes.</p>
             </>
           ) : (
             <>

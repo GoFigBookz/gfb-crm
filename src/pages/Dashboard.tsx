@@ -170,13 +170,13 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Right column — Figgy review + Today + Deadlines */}
+        {/* Right column — Figs review + Today + Deadlines */}
         <div className="space-y-4">
-          {/* Figgy review queue */}
+          {/* Figs review queue */}
           <Card className="border-l-4 border-l-purple-500">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2"><Shield className="h-5 w-5 text-purple-500" /> Figgy — needs review</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><Shield className="h-5 w-5 text-purple-500" /> Figs — needs review</CardTitle>
                 <Button size="sm" variant="ghost" className="h-7" onClick={() => navigate("/triage")}>{findings.length} <ChevronRight className="h-4 w-4" /></Button>
               </div>
             </CardHeader>
@@ -190,7 +190,7 @@ export default function Dashboard() {
                       <span className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", f.severity === "critical" ? "bg-red-500" : f.severity === "warning" ? "bg-amber-400" : "bg-blue-400")} />
                       <div className="min-w-0">
                         <p className="text-sm text-slate-700 truncate">{f.title}</p>
-                        <p className="text-xs text-slate-400 truncate">{f.agentName || "Figgy Jr"}</p>
+                        <p className="text-xs text-slate-400 truncate">{f.agentName || "Figs"}</p>
                       </div>
                     </button>
                   ))}

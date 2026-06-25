@@ -52,7 +52,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/month-end-close", icon: Gauge, label: "Month-End Close" },
     { to: "/cash-watch", icon: Wallet, label: "Cash Watch" },
-    { to: "/triage", icon: ShieldCheck, label: "Figgy Jr" },
+    { to: "/triage", icon: ShieldCheck, label: "Figs" },
     { to: "/tasks", icon: CheckSquare, label: "Tasks" },
     { to: "/calendar", icon: CalendarDays, label: "Calendar" },
   ];
@@ -78,7 +78,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
 
   // Comms — inbound/outbound to clients.
   const commsItems = [
-    { to: "/assistant", icon: Bot, label: "Ask Figgy" },
+    { to: "/assistant", icon: Bot, label: "Ask Figs" },
     { to: "/emails", icon: Mail, label: "Emails" },
     { to: "/messages", icon: MessageSquare, label: "Messages" },
     { to: "/quick-add", icon: Plus, label: "Quick Add" },

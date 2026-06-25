@@ -321,7 +321,7 @@ export default function Onboarding() {
                   <Checkbox checked={intake.monthlySalesReceipt} onCheckedChange={v => setIntake({...intake, monthlySalesReceipt: !!v})} />
                   <span className="text-sm text-slate-700">
                     <span className="font-medium">Monthly sales receipt (total sales)</span> — we enter ONE monthly sales receipt in QBO for total sales, not per-invoice.
-                    <span className="block text-xs text-slate-500">Figgy will pull the monthly total from the source below and create the QBO sales receipt.</span>
+                    <span className="block text-xs text-slate-500">Figs will pull the monthly total from the source below and create the QBO sales receipt.</span>
                   </span>
                 </label>
                 {intake.monthlySalesReceipt && (

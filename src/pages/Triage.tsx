@@ -14,7 +14,7 @@ const severityConfig: Record<string, { icon: any; color: string; border: string;
 };
 
 // Account Brain triage (traffic-light) — green = strong history (one-click-ready),
-// yellow = worth a look, red = no basis (Figgy won't guess). Driven by the Brain's
+// yellow = worth a look, red = no basis (Figs won't guess). Driven by the Brain's
 // confidence + triage in sourceData; falls back to the stored confidence column.
 const triageConfig: Record<"green" | "yellow" | "red", { dot: string; text: string; label: string }> = {
   green: { dot: "bg-lime-500", text: "text-lime-700", label: "Strong history" },
@@ -109,7 +109,7 @@ export default function Triage() {
       if (b.noVendor) why.push(`${b.noVendor} missing a vendor name`);
       if (b.already) why.push(`${b.already} already done`);
       if (b.error) why.push(`${b.error} had errors`);
-      const parts = [`Figgy coded ${res.enriched} of ${res.scanned}`];
+      const parts = [`Figs coded ${res.enriched} of ${res.scanned}`];
       if (why.length) parts.push(`skipped: ${why.join(", ")}`);
       if (res.errors?.length) parts.push(`details: ${res.errors.join("; ")}`);
       setEnrichMsg(parts.join(" · "));
@@ -136,7 +136,7 @@ export default function Triage() {
     const who = client?.name || "there";
     const what = meta.vendor || f.title || "a document";
     const why = meta.reason || f.description || "we need a bit more detail to record it";
-    setAskText(`Hi ${who},\n\nFiggy flagged ${what} that we can't record yet: ${why}\n\nCould you send the invoice/receipt, or confirm the details? Thanks!\n\n— Go Fig Bookz`);
+    setAskText(`Hi ${who},\n\nFigs flagged ${what} that we can't record yet: ${why}\n\nCould you send the invoice/receipt, or confirm the details? Thanks!\n\n— Go Fig Bookz`);
   };
 
   const sendAsk = (f: any, meta: any) => {
@@ -159,10 +159,10 @@ export default function Triage() {
           <ChevronLeft className="h-4 w-4 mr-1" />Dashboard
         </Button>
         <Shield className="h-6 w-6 text-purple-500" />
-        <h1 className="text-2xl font-bold text-slate-800">Figgy Jr</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Figs</h1>
       </div>
       <p className="text-sm text-slate-500 -mt-2">
-        Receipts &amp; documents Figgy Jr processed. Edit anything wrong, add a note to teach Figgy, then approve, dismiss, or ask the client for missing info.
+        Receipts &amp; documents Figs processed. Edit anything wrong, add a note to teach Figs, then approve, dismiss, or ask the client for missing info.
       </p>
 
       <div className="flex gap-2 flex-wrap items-center">
@@ -174,7 +174,7 @@ export default function Triage() {
         <div className="ml-auto flex items-center gap-2">
           {enrichMsg && <span className="text-xs text-slate-500 max-w-md truncate" title={enrichMsg}>{enrichMsg}</span>}
           <Button size="sm" className="bg-purple-600 hover:bg-purple-700" disabled={enrich.isPending} onClick={() => { setEnrichMsg(""); enrich.mutate({ status: tab }); }}>
-            {enrich.isPending ? "Coding…" : "✨ Get Figgy's suggestions"}
+            {enrich.isPending ? "Coding…" : "✨ Get Figs' suggestions"}
           </Button>
         </div>
       </div>
@@ -266,12 +266,12 @@ export default function Triage() {
                           <Badge variant={cfg.badge} className="text-xs">{f.severity}</Badge>
                           {f.agentName && <Badge variant="outline" className="text-xs">{f.agentName}</Badge>}
                           {coding ? (
-                            <span className={cn("inline-flex items-center gap-1.5 text-xs font-semibold rounded-full border px-2 py-0.5", triageConfig[coding.color].text)} title="Figgy's confidence (from this vendor's QuickBooks history)">
+                            <span className={cn("inline-flex items-center gap-1.5 text-xs font-semibold rounded-full border px-2 py-0.5", triageConfig[coding.color].text)} title="Figs' confidence (from this vendor's QuickBooks history)">
                               <span className={cn("h-3 w-3 rounded-full", triageConfig[coding.color].dot)} />
                               {coding.confidence != null ? `${coding.confidence}% · ` : ""}{triageConfig[coding.color].label}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 text-xs rounded-full border px-2 py-0.5 text-slate-400" title="Tap ✨ Get Figgy's suggestions to code this">
+                            <span className="inline-flex items-center gap-1.5 text-xs rounded-full border px-2 py-0.5 text-slate-400" title="Tap ✨ Get Figs' suggestions to code this">
                               <span className="h-3 w-3 rounded-full bg-slate-300" />
                               not coded yet
                             </span>
@@ -285,16 +285,16 @@ export default function Triage() {
                             {meta.hst && <span><span className="text-slate-400">HST:</span> {meta.hst}</span>}
                           </div>
                         )}
-                        {/* Figgy's REAL account (from the locked QBO chart, based on history) —
+                        {/* Figs' REAL account (from the locked QBO chart, based on history) —
                             never the intake AI's free-text guess. */}
                         {meta.suggestedAccount ? (
                           <p className="text-sm font-medium text-purple-700 mb-0.5">
-                            Figgy suggests: {meta.suggestedAccount}
+                            Figs suggests: {meta.suggestedAccount}
                             {meta.suggestedTaxCode ? <span className="text-purple-400 font-normal"> · tax code {meta.suggestedTaxCode}</span> : null}
                           </p>
                         ) : (
                           <p className="text-xs text-slate-400 italic mb-0.5">
-                            No account suggested yet — tap ✨ Get Figgy&apos;s suggestions
+                            No account suggested yet — tap ✨ Get Figs&apos; suggestions
                             {meta.category ? <span> · (intake&apos;s rough guess was &ldquo;{meta.category}&rdquo; — not a QBO account)</span> : null}
                           </p>
                         )}
@@ -354,7 +354,7 @@ export default function Triage() {
 
                     {tab === "new" && !asking && (
                       <div className="mt-2 flex items-center gap-1.5">
-                        <input type="text" className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300" placeholder="Add a note for Figgy (optional) — type or tap 🎤 to dictate — saved when you Approve/Dismiss" value={notes[f.id] || ""} onChange={(e) => setNotes((n) => ({ ...n, [f.id]: e.target.value }))} />
+                        <input type="text" className="flex-1 text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-300" placeholder="Add a note for Figs (optional) — type or tap 🎤 to dictate — saved when you Approve/Dismiss" value={notes[f.id] || ""} onChange={(e) => setNotes((n) => ({ ...n, [f.id]: e.target.value }))} />
                         <MicButton onText={(t) => setNotes((n) => ({ ...n, [f.id]: ((n[f.id] || "") + " " + t).trim() }))} />
                       </div>
                     )}
