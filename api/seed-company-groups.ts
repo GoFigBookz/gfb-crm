@@ -26,6 +26,16 @@ const GROUPS: { group: string; match: RegExp[] }[] = [
       /listing\s*eagle/i,
     ],
   },
+  {
+    // Rocco's group — Alderson + the two Ovita entities (interco between them).
+    group: "Rocco",
+    match: [/alderson/i, /ovita/i],
+  },
+  {
+    // Universal/Unimax — US + Canada drywall/construction with cross-border interco.
+    group: "Universal",
+    match: [/unimax/i, /universal\s*drywall/i, /universal\s*construction/i],
+  },
 ];
 
 export async function seedCompanyGroups(): Promise<{ tagged: number; groups: Record<string, string[]> } | void> {

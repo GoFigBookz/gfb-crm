@@ -74,7 +74,7 @@ export const intercoRouter = createRouter({
     const cs = await db.select().from(clients);
     return (cs as any[])
       .filter((c) => c.status !== "churned")
-      .map((c) => ({ id: c.id, name: c.name, clientType: c.clientType }))
+      .map((c) => ({ id: c.id, name: c.name, clientType: c.clientType, groupName: (c.groupName || "").trim() || null }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }),
 
@@ -172,6 +172,27 @@ export const intercoRouter = createRouter({
       if (!p.sourcePosted) throw new Error("Readiness gate is not green — confirm all source txns are posted in QBO first.");
       await db.update(intercoPeriods).set({ status: "posted", postedJeRef: input.postedJeRef ?? p.postedJeRef, updatedAt: new Date() })
         .where(eq(intercoPeriods.id, input.id));
+      return { success: true };
+    }),
+
+  // Step 3: confirm the interco due-to/due-from ACCOUNT itself is reconciled (it nets
+  // to zero against the counterparty). Gated on the JE being posted (step 2). This is
+  // the back-and-forth close-out between the two entities' interco accounts.
+  setReconciled: staffQuery
+    .input(z.object({ id: z.number(), reconciled: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const [p] = await db.select().from(intercoPeriods).where(eq(intercoPeriods.id, input.id));
+      if (!p) throw new Error("Period not found");
+      if (input.reconciled && p.status !== "posted" && p.status !== "reconciled")
+        throw new Error("Post the interco JE (step 2) before reconciling the interco account (step 3).");
+      await db.update(intercoPeriods).set({
+        intercoReconciled: input.reconciled,
+        intercoReconciledBy: input.reconciled ? ctx.user.id : null,
+        intercoReconciledAt: input.reconciled ? new Date() : null,
+        status: input.reconciled ? "reconciled" : "posted",
+        updatedAt: new Date(),
+      }).where(eq(intercoPeriods.id, input.id));
       return { success: true };
     }),
 

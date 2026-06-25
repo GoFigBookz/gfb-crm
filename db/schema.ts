@@ -1646,8 +1646,12 @@ export const intercoPeriods = sqliteTable("interco_periods", {
   sourcePostedAt: integer("sourcePostedAt", { mode: "timestamp" }),
   intercoAccount: text("intercoAccount"),           // due-to/from GL, e.g. "1310 Interco:2303851 Ontario"
   offsetAccount: text("offsetAccount"),             // contra GL (bank/clearing/expense) — locked chart
-  status: text("status", { enum: ["open", "ready", "posted"] }).default("open").notNull(),
+  status: text("status", { enum: ["open", "ready", "posted", "reconciled"] }).default("open").notNull(),
   postedJeRef: text("postedJeRef"),                 // QBO JE number once posted (recorded by hand)
+  // Step 3 gate: the interco due-to/due-from account itself reconciled (nets across entities).
+  intercoReconciled: integer("intercoReconciled", { mode: "boolean" }).default(false),
+  intercoReconciledBy: integer("intercoReconciledBy"),
+  intercoReconciledAt: integer("intercoReconciledAt", { mode: "timestamp" }),
   notes: text("notes"),
   createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),

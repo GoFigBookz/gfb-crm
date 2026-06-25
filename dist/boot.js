@@ -23918,9 +23918,13 @@ var init_schema = __esm({
       // due-to/from GL, e.g. "1310 Interco:2303851 Ontario"
       offsetAccount: text("offsetAccount"),
       // contra GL (bank/clearing/expense) — locked chart
-      status: text("status", { enum: ["open", "ready", "posted"] }).default("open").notNull(),
+      status: text("status", { enum: ["open", "ready", "posted", "reconciled"] }).default("open").notNull(),
       postedJeRef: text("postedJeRef"),
       // QBO JE number once posted (recorded by hand)
+      // Step 3 gate: the interco due-to/due-from account itself reconciled (nets across entities).
+      intercoReconciled: integer2("intercoReconciled", { mode: "boolean" }).default(false),
+      intercoReconciledBy: integer2("intercoReconciledBy"),
+      intercoReconciledAt: integer2("intercoReconciledAt", { mode: "timestamp" }),
       notes: text("notes"),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
@@ -59973,6 +59977,16 @@ var init_seed_company_groups = __esm({
           /marketing\s*strategy\s*ventures/i,
           /listing\s*eagle/i
         ]
+      },
+      {
+        // Rocco's group — Alderson + the two Ovita entities (interco between them).
+        group: "Rocco",
+        match: [/alderson/i, /ovita/i]
+      },
+      {
+        // Universal/Unimax — US + Canada drywall/construction with cross-border interco.
+        group: "Universal",
+        match: [/unimax/i, /universal\s*drywall/i, /universal\s*construction/i]
       }
     ];
   }
@@ -62832,6 +62846,19 @@ async function ensureIntercoTables() {
       createdBy INTEGER,
       createdAt INTEGER
     )`));
+    const addCol = async (table, col, type) => {
+      try {
+        const res = await db.run(sql.raw(`PRAGMA table_info(${table})`));
+        const have = /* @__PURE__ */ new Set();
+        for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
+        if (!have.has(col)) await db.run(sql.raw(`ALTER TABLE ${table} ADD COLUMN "${col}" ${type}`));
+      } catch (e) {
+        console.error(`[schema] add ${table}.${col} failed:`, e instanceof Error ? e.message : e);
+      }
+    };
+    await addCol("interco_periods", "intercoReconciled", "integer DEFAULT 0");
+    await addCol("interco_periods", "intercoReconciledBy", "integer");
+    await addCol("interco_periods", "intercoReconciledAt", "integer");
     console.log("[schema] interco tables ensured");
   } catch (e) {
     console.error("[schema] ensureIntercoTables failed:", e instanceof Error ? e.message : e);
@@ -78168,7 +78195,7 @@ var intercoRouter = createRouter({
   clients: staffQuery.query(async () => {
     const db = getDb();
     const cs = await db.select().from(clients);
-    return cs.filter((c) => c.status !== "churned").map((c) => ({ id: c.id, name: c.name, clientType: c.clientType })).sort((a, b) => a.name.localeCompare(b.name));
+    return cs.filter((c) => c.status !== "churned").map((c) => ({ id: c.id, name: c.name, clientType: c.clientType, groupName: (c.groupName || "").trim() || null })).sort((a, b) => a.name.localeCompare(b.name));
   }),
   // All periods (newest first), with payer name + a quick entry total.
   listPeriods: staffQuery.query(async () => {
@@ -78251,6 +78278,24 @@ var intercoRouter = createRouter({
     if (!p) throw new Error("Period not found");
     if (!p.sourcePosted) throw new Error("Readiness gate is not green \u2014 confirm all source txns are posted in QBO first.");
     await db.update(intercoPeriods).set({ status: "posted", postedJeRef: input.postedJeRef ?? p.postedJeRef, updatedAt: /* @__PURE__ */ new Date() }).where(eq(intercoPeriods.id, input.id));
+    return { success: true };
+  }),
+  // Step 3: confirm the interco due-to/due-from ACCOUNT itself is reconciled (it nets
+  // to zero against the counterparty). Gated on the JE being posted (step 2). This is
+  // the back-and-forth close-out between the two entities' interco accounts.
+  setReconciled: staffQuery.input(external_exports.object({ id: external_exports.number(), reconciled: external_exports.boolean() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const [p] = await db.select().from(intercoPeriods).where(eq(intercoPeriods.id, input.id));
+    if (!p) throw new Error("Period not found");
+    if (input.reconciled && p.status !== "posted" && p.status !== "reconciled")
+      throw new Error("Post the interco JE (step 2) before reconciling the interco account (step 3).");
+    await db.update(intercoPeriods).set({
+      intercoReconciled: input.reconciled,
+      intercoReconciledBy: input.reconciled ? ctx.user.id : null,
+      intercoReconciledAt: input.reconciled ? /* @__PURE__ */ new Date() : null,
+      status: input.reconciled ? "reconciled" : "posted",
+      updatedAt: /* @__PURE__ */ new Date()
+    }).where(eq(intercoPeriods.id, input.id));
     return { success: true };
   }),
   addEntry: staffQuery.input(external_exports.object({

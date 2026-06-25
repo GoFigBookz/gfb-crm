@@ -264,6 +264,18 @@ export async function ensureIntercoTables(): Promise<void> {
       createdBy INTEGER,
       createdAt INTEGER
     )`));
+    // Step 3 (interco-account reconciled) columns — added after the table first shipped.
+    const addCol = async (table: string, col: string, type: string) => {
+      try {
+        const res: any = await db.run(sql.raw(`PRAGMA table_info(${table})`));
+        const have = new Set<string>();
+        for (const r of (res?.rows ?? res ?? [])) have.add(String((r as any).name ?? (r as any)[1] ?? ""));
+        if (!have.has(col)) await db.run(sql.raw(`ALTER TABLE ${table} ADD COLUMN "${col}" ${type}`));
+      } catch (e) { console.error(`[schema] add ${table}.${col} failed:`, e instanceof Error ? e.message : e); }
+    };
+    await addCol("interco_periods", "intercoReconciled", "integer DEFAULT 0");
+    await addCol("interco_periods", "intercoReconciledBy", "integer");
+    await addCol("interco_periods", "intercoReconciledAt", "integer");
     console.log("[schema] interco tables ensured");
   } catch (e) {
     console.error("[schema] ensureIntercoTables failed:", e instanceof Error ? e.message : e);

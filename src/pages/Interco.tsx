@@ -24,6 +24,8 @@ export default function Interco() {
   const upsert = trpc.interco.upsertPeriod.useMutation({ onSuccess: refresh });
   const setReadiness = trpc.interco.setReadiness.useMutation({ onSuccess: refresh, onError: (e) => alert(e.message) });
   const markPosted = trpc.interco.markPosted.useMutation({ onSuccess: refresh, onError: (e) => alert(e.message) });
+  const setReconciled = trpc.interco.setReconciled.useMutation({ onSuccess: refresh, onError: (e) => alert(e.message) });
+  const [group, setGroup] = useState<string>("");
   const addEntry = trpc.interco.addEntry.useMutation({ onSuccess: refresh, onError: (e) => alert(e.message) });
   const delEntry = trpc.interco.deleteEntry.useMutation({ onSuccess: refresh });
 
@@ -45,14 +47,21 @@ export default function Interco() {
       `TOTAL\t${money(je.totalDebit)}\t${money(je.totalCredit)}\t`].join("\n");
   }, [je, period, payerId, clients, detail]);
 
-  const payers = clients ?? [];
-  const counterparties = (clients ?? []).filter((c) => c.id !== payerId);
+  const groupNames = Array.from(new Set((clients ?? []).map((c: any) => c.groupName).filter(Boolean))).sort() as string[];
+  const inGroup = (c: any) => !group || c.groupName === group;
+  const payers = (clients ?? []).filter(inGroup);
+  const counterparties = (clients ?? []).filter((c) => c.id !== payerId && inGroup(c));
+
+  // 3-step pipeline state for the selected period.
+  const step1 = !!p?.sourcePosted;
+  const step2 = p?.status === "posted" || p?.status === "reconciled";
+  const step3 = !!p?.intercoReconciled;
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2"><ArrowLeftRight className="h-6 w-6 text-lime-600" /> Inter-Company</h1>
-        <p className="text-slate-500">Monthly bill-backs between related entities (e.g. 2303851 fronts Motion Invest / Seahorse payroll) → a reviewed draft settlement JE.</p>
+        <p className="text-slate-500">Three-step close per entity/month: <b>1)</b> source company reconciled (bank/CC) → <b>2)</b> interco JE to the company that incurred the cost → <b>3)</b> the interco account reconciled (nets to zero across both). Runs back and forth between all the entities that carry an interco account.</p>
       </div>
 
       <Card className="border-amber-200 bg-amber-50">
@@ -65,6 +74,15 @@ export default function Interco() {
       {/* Period picker */}
       <Card>
         <CardContent className="py-4 flex flex-wrap items-end gap-3">
+          {groupNames.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-slate-500 block mb-1">Group</label>
+              <select className="border rounded-md px-3 py-2 text-sm min-w-[160px]" value={group} onChange={(e) => { setGroup(e.target.value); setPayerId(null); }}>
+                <option value="">All entities</option>
+                {groupNames.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className="text-xs font-medium text-slate-500 block mb-1">Paying entity (fronts the costs)</label>
             <select className="border rounded-md px-3 py-2 text-sm min-w-[220px]" value={payerId ?? ""} onChange={(e) => setPayerId(e.target.value ? Number(e.target.value) : null)}>
@@ -85,22 +103,34 @@ export default function Interco() {
 
       {payerId && (
         <>
-          {/* Readiness gate */}
+          {/* 3-step pipeline */}
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2">Readiness gate</CardTitle></CardHeader>
+            <CardContent className="py-4 flex items-center gap-2 text-sm overflow-x-auto">
+              <Step n={1} done={step1} active={!step1} label="Source reconciled" hint="bank / credit cards" />
+              <span className="text-slate-300">→</span>
+              <Step n={2} done={step2} active={step1 && !step2} label="Interco JE posted" hint="bill the company that incurred it" />
+              <span className="text-slate-300">→</span>
+              <Step n={3} done={step3} active={step2 && !step3} label="Interco account reconciled" hint="nets to zero both sides" />
+            </CardContent>
+          </Card>
+
+          {/* Step 1 — source reconciled */}
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2">Step 1 · Source company reconciled</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" className="h-4 w-4"
                   checked={!!p?.sourcePosted}
                   onChange={(e) => { if (p?.id) setReadiness.mutate({ id: p.id, sourcePosted: e.target.checked }); else upsert.mutate({ period, payerClientId: payerId }, { onSuccess: () => refresh() }); }}
                   disabled={!p?.id} />
-                <span>All source transactions + Visa statements for this month are <b>posted in QBO</b>.</span>
+                <span>{clients?.find((c) => c.id === payerId)?.name ?? "This entity"}'s bank + credit‑card statements for this month are <b>reconciled</b> (all source transactions posted).</span>
               </label>
               {!p?.id && <p className="text-xs text-slate-400">Add an entry (or save accounts) to create this period, then the gate unlocks.</p>}
               <div className="flex items-center gap-2">
-                {p?.status === "posted" ? <Badge className="bg-slate-600">Posted{p.postedJeRef ? ` · JE ${p.postedJeRef}` : ""}</Badge>
-                  : p?.sourcePosted ? <Badge className="bg-emerald-600">Ready to post</Badge>
-                  : <Badge variant="outline">Open — gate not confirmed</Badge>}
+                {p?.status === "reconciled" ? <Badge className="bg-emerald-700">Reconciled · closed</Badge>
+                  : p?.status === "posted" ? <Badge className="bg-slate-600">JE posted{p.postedJeRef ? ` · JE ${p.postedJeRef}` : ""}</Badge>
+                  : p?.sourcePosted ? <Badge className="bg-emerald-600">Ready for JE</Badge>
+                  : <Badge variant="outline">Open — source not reconciled</Badge>}
               </div>
             </CardContent>
           </Card>
@@ -192,12 +222,12 @@ export default function Interco() {
           {je && je.lines.length > 0 && (
             <Card>
               <CardHeader className="pb-2 flex-row items-center justify-between">
-                <CardTitle className="text-base">Draft settlement JE</CardTitle>
+                <CardTitle className="text-base">Step 2 · Draft settlement JE</CardTitle>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(jeText)}><Copy className="h-4 w-4 mr-1" /> Copy</Button>
-                  <Button size="sm" disabled={!p?.sourcePosted || p?.status === "posted"}
+                  <Button size="sm" disabled={!step1 || step2}
                     onClick={() => { const ref = prompt("QBO JE number (optional):") ?? undefined; if (p?.id) markPosted.mutate({ id: p.id, postedJeRef: ref }); }}>
-                    <CheckCircle2 className="h-4 w-4 mr-1" /> Mark posted
+                    <CheckCircle2 className="h-4 w-4 mr-1" /> Mark JE posted
                   </Button>
                 </div>
               </CardHeader>
@@ -220,6 +250,22 @@ export default function Interco() {
               </CardContent>
             </Card>
           )}
+
+          {/* Step 3 — interco account reconciled */}
+          {step2 && (
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base">Step 3 · Interco account reconciled</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" className="h-4 w-4" checked={step3}
+                    onChange={(e) => { if (p?.id) setReconciled.mutate({ id: p.id, reconciled: e.target.checked }); }} />
+                  <span>The interco due‑to/due‑from account{p?.intercoAccount ? ` (${p.intercoAccount})` : ""} is <b>reconciled</b> — it nets to zero against the counterparty's interco account.</span>
+                </label>
+                <p className="text-[11px] text-slate-400">This is the back‑and‑forth close‑out: both entities' interco accounts should agree and offset. Mark it once they tie out.</p>
+                {step3 && <Badge className="bg-emerald-700">Reconciled · {period} closed</Badge>}
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
 
@@ -237,7 +283,7 @@ export default function Interco() {
                     <td>{row.payerName}</td>
                     <td className="text-right tabular-nums">{money(row.total)}</td>
                     <td>{row.entryCount}</td>
-                    <td>{row.status === "posted" ? <Badge className="bg-slate-600">Posted</Badge> : row.sourcePosted ? <Badge className="bg-emerald-600">Ready</Badge> : <Badge variant="outline">Open</Badge>}</td>
+                    <td>{row.status === "reconciled" ? <Badge className="bg-emerald-700">Reconciled</Badge> : row.status === "posted" ? <Badge className="bg-slate-600">JE posted</Badge> : row.sourcePosted ? <Badge className="bg-emerald-600">Ready</Badge> : <Badge variant="outline">Open</Badge>}</td>
                     <td className="text-right"><Button variant="ghost" size="sm" onClick={() => { setPayerId(row.payerClientId); setPeriod(row.period); }}>Open</Button></td>
                   </tr>
                 ))}
@@ -246,6 +292,18 @@ export default function Interco() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+function Step({ n, done, active, label, hint }: { n: number; done: boolean; active: boolean; label: string; hint: string }) {
+  return (
+    <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg whitespace-nowrap ${done ? "bg-emerald-50 text-emerald-800" : active ? "bg-lime-50 text-lime-800 ring-1 ring-lime-300" : "bg-slate-50 text-slate-400"}`}>
+      <span className={`flex items-center justify-center h-5 w-5 rounded-full text-xs font-bold ${done ? "bg-emerald-600 text-white" : active ? "bg-lime-500 text-white" : "bg-slate-300 text-white"}`}>{done ? "✓" : n}</span>
+      <div className="leading-tight">
+        <div className="text-sm font-medium">{label}</div>
+        <div className="text-[10px] opacity-70">{hint}</div>
+      </div>
     </div>
   );
 }
