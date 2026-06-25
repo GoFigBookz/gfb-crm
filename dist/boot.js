@@ -43770,6 +43770,38 @@ var init_payroll_router = __esm({
         const clientsArr = [...byClient.values()].sort((a, b) => b.gross - a.gross);
         return { year: year2, clients: clientsArr, totalGross, totalNet, totalRuns };
       }),
+      // The NEXT payroll run due-date per payroll client — the number Markie actually
+      // needs (the old "gross payroll = $1.5M" headline "means nothing"). Source of
+      // truth = the recurring Payroll-category reminder tasks (always-Wednesday, stat-
+      // shifted), so this matches the calendar exactly. One row per client: soonest
+      // upcoming due date, plus whether it was moved off a stat holiday.
+      upcomingRuns: staffQuery.query(async ({ ctx }) => {
+        const db = getDb();
+        const { restrictedClientIds: restrictedClientIds2 } = await Promise.resolve().then(() => (init_rbac(), rbac_exports));
+        const allowed = await restrictedClientIds2(ctx);
+        const cs = await db.select().from(clients);
+        const nameById = new Map(cs.map((c) => [c.id, c.name]));
+        const since = new Date(Date.now() - 12 * 36e5);
+        const ts = await db.select().from(tasks).where(and(eq(tasks.category, "Payroll"), gte(tasks.dueDate, since)));
+        const byClient = /* @__PURE__ */ new Map();
+        for (const t2 of ts) {
+          if (!t2.clientId) continue;
+          if (t2.status === "completed" || t2.completed) continue;
+          if (allowed !== null && !allowed.includes(t2.clientId)) continue;
+          const due = t2.dueDate ? new Date(t2.dueDate) : null;
+          if (!due) continue;
+          const cur = byClient.get(t2.clientId);
+          if (!cur || due < cur.dueDate) {
+            byClient.set(t2.clientId, {
+              clientId: t2.clientId,
+              name: nameById.get(t2.clientId) || `#${t2.clientId}`,
+              dueDate: due,
+              statShifted: /stat holiday/i.test(t2.description || "")
+            });
+          }
+        }
+        return [...byClient.values()].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime()).map((r) => ({ ...r, dueDate: r.dueDate.toISOString() }));
+      }),
       // Pay runs for a client, newest period first.
       listRuns: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
@@ -45540,6 +45572,26 @@ __export(vendor_learning_exports, {
 });
 async function ensureVendorMemoryColumns() {
   const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS vendor_memory (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      connectionId integer NOT NULL,
+      clientId integer,
+      qboVendorId text NOT NULL,
+      vendorName text,
+      preferredAccountId text,
+      preferredAccountName text,
+      preferredTaxCode text,
+      sampleCount integer DEFAULT 0,
+      confirmedByHuman integer DEFAULT 0,
+      confirmedAt integer,
+      lastValidatedAt integer,
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[learn] create vendor_memory failed:", e instanceof Error ? e.message : e);
+  }
   const have = /* @__PURE__ */ new Set();
   try {
     const res = await db.run(sql`PRAGMA table_info(vendor_memory)`);
@@ -58286,11 +58338,32 @@ function wallToUtc(dateStr, timeStr) {
   const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
   return new Date(guess.getTime() - (asUTC - guess.getTime()));
 }
+function daysBetween2(aISO, bISO) {
+  const a = Date.UTC(+aISO.slice(0, 4), +aISO.slice(5, 7) - 1, +aISO.slice(8, 10));
+  const b = Date.UTC(+bISO.slice(0, 4), +bISO.slice(5, 7) - 1, +bISO.slice(8, 10));
+  return Math.round((a - b) / 864e5);
+}
+function statSet(years) {
+  const s = /* @__PURE__ */ new Set();
+  for (const y of years) for (const h of ontarioStatHolidays(y)) s.add(h.date);
+  return s;
+}
+function priorBusinessDay(dateStr, holidays) {
+  let cur = dateStr;
+  for (let i = 0; i < 14; i++) {
+    const d10 = /* @__PURE__ */ new Date(`${cur}T12:00:00Z`);
+    const wd = d10.getUTCDay();
+    if (wd !== 0 && wd !== 6 && !holidays.has(cur)) return cur;
+    d10.setUTCDate(d10.getUTCDate() - 1);
+    cur = `${d10.getUTCFullYear()}-${String(d10.getUTCMonth() + 1).padStart(2, "0")}-${String(d10.getUTCDate()).padStart(2, "0")}`;
+  }
+  return cur;
+}
 async function ensurePayrollReminders() {
   const db = getDb();
   try {
     const owner = (await db.select().from(users).where(eq(users.email, OWNER_EMAIL)).limit(1))[0] || (await db.select().from(users).limit(1))[0];
-    if (!owner) return { tasksAdded: 0, eventsAdded: 0, skipped: "no user" };
+    if (!owner) return { tasksAdded: 0, eventsAdded: 0, tasksRemoved: 0, skipped: "no user" };
     const userId = owner.id;
     const cs = await db.select().from(clients);
     const find2 = (pred) => cs.find((c) => pred((c.name || "").toLowerCase()));
@@ -58301,38 +58374,64 @@ async function ensurePayrollReminders() {
     const westYork = find2((n) => /west\s*york/.test(n));
     const BIWEEKLY = [clarkCw, clarkOs, auldSpot, sherPunjab].filter(Boolean);
     const WEEKLY = [westYork].filter(Boolean);
+    const ALL_PAYROLL_IDS = new Set([...BIWEEKLY, ...WEEKLY].map((c) => c.id));
     const todayStr = ymdInTz(/* @__PURE__ */ new Date());
     const base = /* @__PURE__ */ new Date(`${todayStr}T12:00:00Z`);
-    const sinceCutoff = new Date(base.getTime() - 2 * 864e5);
-    const existingTasks = await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.category, "Payroll"), gte(tasks.dueDate, sinceCutoff)));
-    const haveTask = new Set(existingTasks.map((t2) => `${t2.clientId}|${ymdInTz(new Date(t2.dueDate))}`));
-    const existingEvents = await db.select().from(calendarEvents).where(and(eq(calendarEvents.userId, userId), gte(calendarEvents.startDate, sinceCutoff)));
-    const haveEvent = new Set(existingEvents.filter((e) => /^Payroll run/.test(e.title || "")).map((e) => ymdInTz(new Date(e.startDate))));
-    let tasksAdded = 0, eventsAdded = 0;
-    const { pushEventToGoogle: pushEventToGoogle2 } = await Promise.resolve().then(() => (init_google_push(), google_push_exports));
+    const holidays = statSet([base.getUTCFullYear(), base.getUTCFullYear() + 1]);
+    const scheduled = /* @__PURE__ */ new Map();
+    const correctKeys = /* @__PURE__ */ new Set();
     for (let i = 0; i <= WINDOW_DAYS; i++) {
       const d10 = new Date(base.getTime() + i * 864e5);
       if (weekdayInTz(d10) !== "Wed") continue;
-      const dateStr = ymdInTz(d10);
-      const dayDiff = Math.round((d10.getTime() - base.getTime()) / 864e5);
-      const isBiweekly = dayDiff % 14 === 0;
-      const due = [...WEEKLY, ...isBiweekly ? BIWEEKLY : []];
-      if (!due.length) continue;
-      if (!haveEvent.has(dateStr)) {
-        const names = due.map((c) => c.name).join(", ");
+      const wedStr = ymdInTz(d10);
+      const isBiweekly = daysBetween2(wedStr, BIWEEKLY_ANCHOR) % 14 === 0;
+      const dueClients = [...WEEKLY, ...isBiweekly ? BIWEEKLY : []];
+      if (!dueClients.length) continue;
+      const statShift = holidays.has(wedStr);
+      const runDate = statShift ? priorBusinessDay(wedStr, holidays) : wedStr;
+      for (const c of dueClients) {
+        correctKeys.add(`${c.id}|${runDate}`);
+        const arr = scheduled.get(runDate) || [];
+        arr.push({ client: c, dateStr: runDate, statShift });
+        scheduled.set(runDate, arr);
+      }
+    }
+    let tasksRemoved = 0;
+    const since = new Date(base.getTime() - 2 * 864e5);
+    const allPayrollTasks = await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.category, "Payroll"), gte(tasks.dueDate, since)));
+    for (const t2 of allPayrollTasks) {
+      if (!t2.clientId || !ALL_PAYROLL_IDS.has(t2.clientId)) continue;
+      if (t2.status === "completed" || t2.completed) continue;
+      const due = t2.dueDate ? ymdInTz(new Date(t2.dueDate)) : "";
+      if (!correctKeys.has(`${t2.clientId}|${due}`)) {
+        await db.delete(tasks).where(eq(tasks.id, t2.id));
+        tasksRemoved++;
+      }
+    }
+    const existingTasks = await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.category, "Payroll"), gte(tasks.dueDate, since)));
+    const haveTask = new Set(existingTasks.map((t2) => `${t2.clientId}|${ymdInTz(new Date(t2.dueDate))}`));
+    const existingEvents = await db.select().from(calendarEvents).where(and(eq(calendarEvents.userId, userId), gte(calendarEvents.startDate, since)));
+    const haveEvent = new Set(existingEvents.filter((e) => /^Payroll run/.test(e.title || "")).map((e) => ymdInTz(new Date(e.startDate))));
+    let tasksAdded = 0, eventsAdded = 0;
+    const { pushEventToGoogle: pushEventToGoogle2 } = await Promise.resolve().then(() => (init_google_push(), google_push_exports));
+    for (const [runDate, entries] of [...scheduled.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      const statShift = entries.some((e) => e.statShift);
+      const statNote = statShift ? " \u26A0 moved earlier \u2014 the usual Wednesday is a stat holiday (banks closed); run it this day." : "";
+      if (!haveEvent.has(runDate)) {
+        const names = entries.map((e) => e.client.name).join(", ");
         const [ev] = await db.insert(calendarEvents).values({
           userId,
           title: "Payroll run",
-          description: `Run payroll: ${names}`,
-          startDate: wallToUtc(dateStr, BLOCK_START),
-          endDate: wallToUtc(dateStr, BLOCK_END),
+          description: `Run payroll: ${names}.${statNote}`,
+          startDate: wallToUtc(runDate, BLOCK_START),
+          endDate: wallToUtc(runDate, BLOCK_END),
           isAllDay: false,
           color: "#16a34a",
           status: "confirmed",
           isRecurring: true
         }).returning();
         eventsAdded++;
-        haveEvent.add(dateStr);
+        haveEvent.add(runDate);
         if (ev?.id) {
           try {
             await pushEventToGoogle2(ev.id);
@@ -58340,15 +58439,15 @@ async function ensurePayrollReminders() {
           }
         }
       }
-      const dueAt = wallToUtc(dateStr, BLOCK_END);
-      for (const c of due) {
-        const k = `${c.id}|${dateStr}`;
+      const dueAt = wallToUtc(runDate, BLOCK_END);
+      for (const e of entries) {
+        const k = `${e.client.id}|${runDate}`;
         if (haveTask.has(k)) continue;
         await db.insert(tasks).values({
           userId,
-          clientId: c.id,
-          title: `Run payroll \u2014 ${c.name}`,
-          description: "Recurring payroll run.",
+          clientId: e.client.id,
+          title: `Run payroll \u2014 ${e.client.name}`,
+          description: `Recurring payroll run.${statNote}`,
           dueDate: dueAt,
           priority: "high",
           status: "pending",
@@ -58359,23 +58458,25 @@ async function ensurePayrollReminders() {
         haveTask.add(k);
       }
     }
-    if (tasksAdded || eventsAdded) console.log(`[payroll-reminders] +${tasksAdded} tasks, +${eventsAdded} calendar blocks`);
-    return { tasksAdded, eventsAdded, skipped: "" };
+    if (tasksAdded || eventsAdded || tasksRemoved) console.log(`[payroll-reminders] +${tasksAdded} tasks, +${eventsAdded} calendar blocks, -${tasksRemoved} stray tasks`);
+    return { tasksAdded, eventsAdded, tasksRemoved, skipped: "" };
   } catch (err) {
     console.error("[payroll-reminders] failed:", err instanceof Error ? err.message : err);
   }
 }
-var OWNER_EMAIL, TZ2, WINDOW_DAYS, BLOCK_START, BLOCK_END, ymdInTz, weekdayInTz;
+var OWNER_EMAIL, TZ2, WINDOW_DAYS, BLOCK_START, BLOCK_END, BIWEEKLY_ANCHOR, ymdInTz, weekdayInTz;
 var init_seed_payroll_recurring = __esm({
   "api/seed-payroll-recurring.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
+    init_stat_holidays();
     OWNER_EMAIL = "markie.antle@gmail.com";
     TZ2 = "America/Toronto";
     WINDOW_DAYS = 56;
     BLOCK_START = "08:00:00";
     BLOCK_END = "12:00:00";
+    BIWEEKLY_ANCHOR = "2026-06-24";
     ymdInTz = (d10) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ2, year: "numeric", month: "2-digit", day: "2-digit" }).format(d10);
     weekdayInTz = (d10) => new Intl.DateTimeFormat("en-US", { timeZone: TZ2, weekday: "short" }).format(d10);
   }
@@ -84321,7 +84422,7 @@ async function startServer() {
     try {
       const { ensurePayrollReminders: ensurePayrollReminders2 } = await Promise.resolve().then(() => (init_seed_payroll_recurring(), seed_payroll_recurring_exports));
       const r = await ensurePayrollReminders2();
-      if (r) console.log(`[payroll-reminders] +${r.tasksAdded} tasks, +${r.eventsAdded} blocks${r.skipped ? " | skipped: " + r.skipped : ""}`);
+      if (r) console.log(`[payroll-reminders] +${r.tasksAdded} tasks, +${r.eventsAdded} blocks, -${r.tasksRemoved ?? 0} stray${r.skipped ? " | skipped: " + r.skipped : ""}`);
     } catch (e) {
       console.error("[payroll-reminders] failed (non-fatal):", e instanceof Error ? e.message : e);
     }

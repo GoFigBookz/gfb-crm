@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createRouter, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { payRuns, payRunLines, employees, clients } from "../db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { payRuns, payRunLines, employees, clients, tasks } from "../db/schema";
+import { eq, desc, and, gte } from "drizzle-orm";
 import { estimateFromGross, estimateFromNet, salaryPerPeriod, round2, periodsPerYear, normalizeFrequency } from "./payroll-core";
 import { reconcileWithholding, annualIncomeTax, TAX_2026 } from "./payroll-tax-core";
 import { computeCraLine, CRA_2026 } from "./payroll-cra-core";
@@ -395,6 +395,42 @@ export const payrollRouter = createRouter({
       const clientsArr = [...byClient.values()].sort((a, b) => b.gross - a.gross);
       return { year, clients: clientsArr, totalGross, totalNet, totalRuns };
     }),
+
+  // The NEXT payroll run due-date per payroll client — the number Markie actually
+  // needs (the old "gross payroll = $1.5M" headline "means nothing"). Source of
+  // truth = the recurring Payroll-category reminder tasks (always-Wednesday, stat-
+  // shifted), so this matches the calendar exactly. One row per client: soonest
+  // upcoming due date, plus whether it was moved off a stat holiday.
+  upcomingRuns: staffQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const { restrictedClientIds } = await import("./rbac");
+    const allowed = await restrictedClientIds(ctx);
+    const cs = (await db.select().from(clients)) as any[];
+    const nameById = new Map(cs.map((c) => [c.id, c.name]));
+    const since = new Date(Date.now() - 12 * 3600000); // include today's run
+    const ts = (await db.select().from(tasks)
+      .where(and(eq(tasks.category, "Payroll"), gte(tasks.dueDate, since)))) as any[];
+    const byClient = new Map<number, any>();
+    for (const t of ts) {
+      if (!t.clientId) continue;
+      if (t.status === "completed" || t.completed) continue;
+      if (allowed !== null && !allowed.includes(t.clientId)) continue;
+      const due = t.dueDate ? new Date(t.dueDate) : null;
+      if (!due) continue;
+      const cur = byClient.get(t.clientId);
+      if (!cur || due < cur.dueDate) {
+        byClient.set(t.clientId, {
+          clientId: t.clientId,
+          name: nameById.get(t.clientId) || `#${t.clientId}`,
+          dueDate: due,
+          statShifted: /stat holiday/i.test(t.description || ""),
+        });
+      }
+    }
+    return [...byClient.values()]
+      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+      .map((r) => ({ ...r, dueDate: r.dueDate.toISOString() }));
+  }),
 
   // Pay runs for a client, newest period first.
   listRuns: staffQuery

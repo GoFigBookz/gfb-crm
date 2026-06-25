@@ -28,6 +28,27 @@ import { and, eq, sql } from "drizzle-orm";
  *  is nullable-only, so we PRAGMA-check then add — mirrors bridge-bootstrap). */
 export async function ensureVendorMemoryColumns(): Promise<void> {
   const db = getDb();
+  // CREATE the table if missing — a live DB that predates vendor memory has no
+  // vendor_memory table at all, so the brain's coding memory never persisted
+  // between sessions. (The ALTERs below only add NEWER columns to an existing table.)
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS vendor_memory (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      connectionId integer NOT NULL,
+      clientId integer,
+      qboVendorId text NOT NULL,
+      vendorName text,
+      preferredAccountId text,
+      preferredAccountName text,
+      preferredTaxCode text,
+      sampleCount integer DEFAULT 0,
+      confirmedByHuman integer DEFAULT 0,
+      confirmedAt integer,
+      lastValidatedAt integer,
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) { console.error("[learn] create vendor_memory failed:", e instanceof Error ? e.message : e); }
   const have = new Set<string>();
   try {
     const res: any = await db.run(sql`PRAGMA table_info(vendor_memory)`);

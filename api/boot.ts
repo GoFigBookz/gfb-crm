@@ -1759,7 +1759,7 @@ async function startServer() {
     try {
       const { ensurePayrollReminders } = await import("./seed-payroll-recurring");
       const r = await ensurePayrollReminders();
-      if (r) console.log(`[payroll-reminders] +${r.tasksAdded} tasks, +${r.eventsAdded} blocks${r.skipped ? " | skipped: " + r.skipped : ""}`);
+      if (r) console.log(`[payroll-reminders] +${r.tasksAdded} tasks, +${r.eventsAdded} blocks, -${r.tasksRemoved ?? 0} stray${r.skipped ? " | skipped: " + r.skipped : ""}`);
     } catch (e) {
       console.error("[payroll-reminders] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
