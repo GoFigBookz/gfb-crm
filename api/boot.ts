@@ -358,7 +358,6 @@ app.get("/api/payroll/backfill-auld", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
-<<<<<<< HEAD
 // Backfill Originality.AI pay runs (regular + revenue-share) from the Google sheet.
 //   GET /api/payroll/backfill-originality
 app.get("/api/payroll/backfill-originality", async (c) => {
@@ -370,8 +369,6 @@ app.get("/api/payroll/backfill-originality", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
-=======
->>>>>>> origin/main
 // Dedup + name-correct the Clark/Sher rosters (merge dupes, fix Last, First).
 //   GET /api/payroll/dedup-employees
 app.get("/api/payroll/dedup-employees", async (c) => {
@@ -1683,7 +1680,6 @@ async function startServer() {
     } catch (e) {
       console.error("[auld-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
-<<<<<<< HEAD
     // Year backfill — Originality.AI regular + revenue-share runs from the Google sheet.
     try {
       const { backfillOriginalityPayroll } = await import("./seed-originality-backfill");
@@ -1692,8 +1688,6 @@ async function startServer() {
     } catch (e) {
       console.error("[og-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
-=======
->>>>>>> origin/main
     // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
     // rows, repoint their pay-run lines, fix the "Last, First" split).
     try {
