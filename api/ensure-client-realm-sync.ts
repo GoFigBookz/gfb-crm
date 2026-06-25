@@ -29,6 +29,7 @@ async function columnExists(db: any, table: string, column: string): Promise<boo
 
 export async function ensureClientRealmSync(): Promise<{
   linked: number;
+  autoLinked: number;
   ambiguous: number[];
   unmapped: number;
 } | void> {
@@ -39,6 +40,34 @@ export async function ensureClientRealmSync(): Promise<{
     if (!(await columnExists(db, "clients", "qboRealmId"))) {
       await db.run(sql.raw(`ALTER TABLE clients ADD COLUMN qboRealmId text`));
       console.log("[realm-sync] added clients.qboRealmId column");
+    }
+
+    // 1b) AUTO-LINK unbound connections to their client by an EXACT name match.
+    // Connections made via OAuth carry the real QBO companyName; bind one to the
+    // client whose name/company matches exactly (normalized). Exact + UNIQUE only
+    // — never a fuzzy guess, so per-client isolation can't be crossed. Ambiguous
+    // or no-match connections are left unbound for a human to map.
+    const norm = (s: any) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const unbound = (await db.all(
+      sql.raw(`SELECT id, realmId, companyName FROM qbo_connections WHERE isActive = 1 AND clientId IS NULL AND companyName IS NOT NULL AND companyName <> ''`),
+    )) as any[];
+    let autoLinked = 0;
+    if (unbound.length) {
+      const clientRows = (await db.all(sql.raw(`SELECT id, name, company FROM clients`))) as any[];
+      // Build a normalized-name → [clientId] index (both name and company).
+      const idx = new Map<string, Set<number>>();
+      const add = (key: string, id: number) => { if (!key) return; const s = idx.get(key) || new Set<number>(); s.add(id); idx.set(key, s); };
+      for (const c of clientRows) { add(norm(c.name), Number(c.id)); add(norm(c.company), Number(c.id)); }
+      for (const cn of unbound) {
+        const key = norm(cn.companyName);
+        const matches = idx.get(key);
+        if (matches && matches.size === 1) {
+          const clientId = [...matches][0];
+          await db.run(sql.raw(`UPDATE qbo_connections SET clientId = ${clientId} WHERE id = ${Number(cn.id)}`));
+          autoLinked += 1;
+        }
+      }
+      if (autoLinked) console.log(`[realm-sync] auto-linked ${autoLinked} QBO connection(s) to clients by exact name match`);
     }
 
     // 2) Pull active connections that are bound to a client.
@@ -93,12 +122,12 @@ export async function ensureClientRealmSync(): Promise<{
     )) as any[];
     const unmapped = Number(unmappedRows?.[0]?.n || 0);
 
-    if (linked || ambiguous.length) {
+    if (linked || autoLinked || ambiguous.length) {
       console.log(
-        `[realm-sync] linked ${linked} client(s) to their QBO realm; ${ambiguous.length} ambiguous; ${unmapped} active client(s) still unmapped`,
+        `[realm-sync] auto-linked ${autoLinked} connection(s); wrote realm onto ${linked} client(s); ${ambiguous.length} ambiguous; ${unmapped} active client(s) still unmapped`,
       );
     }
-    return { linked, ambiguous, unmapped };
+    return { linked, autoLinked, ambiguous, unmapped };
   } catch (e) {
     console.error("[realm-sync] failed:", e instanceof Error ? e.message : e);
   }

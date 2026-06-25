@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-25.116";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-25.117";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -2053,8 +2053,19 @@ async function startServer() {
 
   // Re-derive each client's QBO realm ID from its live connection onto the
   // client file (so the realm ID is always visible on the master + never lost).
+  // When new links happen, also push the clients to the Google Client Master
+  // sheet so the realm column lands there too (only when something changed, so
+  // we don't hammer the Sheets proxy every boot).
   const { ensureClientRealmSync } = await import("./ensure-client-realm-sync");
-  await ensureClientRealmSync();
+  const realmSync = await ensureClientRealmSync();
+  if (realmSync && (realmSync.linked || realmSync.autoLinked)) {
+    try {
+      const { pushAllClientsToMaster } = await import("./master-sheet-sync");
+      await pushAllClientsToMaster();
+    } catch (e) {
+      console.error("[realm-sync] master-sheet push failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+  }
 
   // Start QBO + GOOGLE auto-sync schedulers. The Google one (every 30 min +
   // once on boot) pulls Calendar/Tasks/Gmail FROM Google into the CRM — the

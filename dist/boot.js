@@ -38922,6 +38922,35 @@ async function ensureClientRealmSync() {
       await db.run(sql.raw(`ALTER TABLE clients ADD COLUMN qboRealmId text`));
       console.log("[realm-sync] added clients.qboRealmId column");
     }
+    const norm23 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const unbound = await db.all(
+      sql.raw(`SELECT id, realmId, companyName FROM qbo_connections WHERE isActive = 1 AND clientId IS NULL AND companyName IS NOT NULL AND companyName <> ''`)
+    );
+    let autoLinked = 0;
+    if (unbound.length) {
+      const clientRows = await db.all(sql.raw(`SELECT id, name, company FROM clients`));
+      const idx = /* @__PURE__ */ new Map();
+      const add = (key10, id) => {
+        if (!key10) return;
+        const s = idx.get(key10) || /* @__PURE__ */ new Set();
+        s.add(id);
+        idx.set(key10, s);
+      };
+      for (const c of clientRows) {
+        add(norm23(c.name), Number(c.id));
+        add(norm23(c.company), Number(c.id));
+      }
+      for (const cn of unbound) {
+        const key10 = norm23(cn.companyName);
+        const matches = idx.get(key10);
+        if (matches && matches.size === 1) {
+          const clientId = [...matches][0];
+          await db.run(sql.raw(`UPDATE qbo_connections SET clientId = ${clientId} WHERE id = ${Number(cn.id)}`));
+          autoLinked += 1;
+        }
+      }
+      if (autoLinked) console.log(`[realm-sync] auto-linked ${autoLinked} QBO connection(s) to clients by exact name match`);
+    }
     const conns = await db.all(
       sql.raw(
         `SELECT id, realmId, clientId FROM qbo_connections WHERE isActive = 1 AND clientId IS NOT NULL`
@@ -38965,12 +38994,12 @@ async function ensureClientRealmSync() {
       )
     );
     const unmapped = Number(unmappedRows?.[0]?.n || 0);
-    if (linked || ambiguous.length) {
+    if (linked || autoLinked || ambiguous.length) {
       console.log(
-        `[realm-sync] linked ${linked} client(s) to their QBO realm; ${ambiguous.length} ambiguous; ${unmapped} active client(s) still unmapped`
+        `[realm-sync] auto-linked ${autoLinked} connection(s); wrote realm onto ${linked} client(s); ${ambiguous.length} ambiguous; ${unmapped} active client(s) still unmapped`
       );
     }
-    return { linked, ambiguous, unmapped };
+    return { linked, autoLinked, ambiguous, unmapped };
   } catch (e) {
     console.error("[realm-sync] failed:", e instanceof Error ? e.message : e);
   }
@@ -83764,7 +83793,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.116";
+var BUILD_TAG = "2026-06-25.117";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -85696,7 +85725,15 @@ async function startServer() {
   const { relinkFindings: relinkFindings2 } = await Promise.resolve().then(() => (init_relink_findings(), relink_findings_exports));
   await relinkFindings2();
   const { ensureClientRealmSync: ensureClientRealmSync2 } = await Promise.resolve().then(() => (init_ensure_client_realm_sync(), ensure_client_realm_sync_exports));
-  await ensureClientRealmSync2();
+  const realmSync = await ensureClientRealmSync2();
+  if (realmSync && (realmSync.linked || realmSync.autoLinked)) {
+    try {
+      const { pushAllClientsToMaster: pushAllClientsToMaster2 } = await Promise.resolve().then(() => (init_master_sheet_sync(), master_sheet_sync_exports));
+      await pushAllClientsToMaster2();
+    } catch (e) {
+      console.error("[realm-sync] master-sheet push failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+  }
   const { startAllSchedulers: startAllSchedulers2 } = await Promise.resolve().then(() => (init_all_sync_scheduler(), all_sync_scheduler_exports));
   startAllSchedulers2();
   setTimeout(() => {
