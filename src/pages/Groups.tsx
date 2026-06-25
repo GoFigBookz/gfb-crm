@@ -110,6 +110,37 @@ export default function Groups() {
           )}
         </CardContent>
       </Card>
+
+      {/* Suggested settlement transfers */}
+      {roll?.settlement && roll.settlement.transfers.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base"><ArrowRightLeft className="h-5 w-5 text-lime-500" /> Suggested settlement transfers</CardTitle>
+            <CardDescription>The fewest payments that clear the interco balances across the group. Suggestions only — nothing posts.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1.5">
+              {roll.settlement.transfers.map((tr, i) => (
+                <div key={i} className="flex items-center justify-between p-2.5 rounded-lg border bg-slate-50">
+                  <div className="text-sm flex items-center gap-2">
+                    <span className="font-medium">{tr.from}</span>
+                    <span className="text-slate-400">pays</span>
+                    <span className="font-medium">{tr.to}</span>
+                    {tr.capped && <Badge variant="outline" className="text-[10px] text-amber-600">cash-capped</Badge>}
+                  </div>
+                  <span className="text-sm font-semibold text-lime-700">{money(tr.amount)}</span>
+                </div>
+              ))}
+            </div>
+            {roll.settlement.residual.length > 0 && (
+              <p className="text-[11px] text-amber-600 mt-2">After these transfers, still outstanding: {roll.settlement.residual.map((r) => `${r.name} ${money(r.net)}`).join(", ")}.</p>
+            )}
+            {!roll.settlement.balanced && (
+              <p className="text-[11px] text-amber-600 mt-1">Note: group interco doesn't net to zero, so settlements won't fully clear until the bill-backs are reconciled.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
       <p className="text-xs text-slate-400">Phase 1: consolidated totals. Next: interco reconciliation + suggested settlement transfers, the family-benefit tracker, and a share link.</p>
     </div>
   );

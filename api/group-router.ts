@@ -3,6 +3,7 @@ import { createRouter, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { clients, employees, payRuns, tasks, intercoEntries } from "../db/schema";
 import { eq } from "drizzle-orm";
+import { suggestSettlements } from "./settlement-core";
 
 /**
  * COMPANY GROUPS — consolidated rollup across a set of related entities (e.g. all of
@@ -90,6 +91,11 @@ export const groupRouter = createRouter({
         intercoNetCheck: r2(companies.reduce((s, c) => s + c.intercoNet, 0)),
       };
 
-      return { groupName: input.groupName, year, companies, totals };
+      // Suggested settlement transfers to clear the interco balances (fewest payments).
+      const settlement = suggestSettlements(
+        companies.filter((c) => Math.abs(c.intercoNet) > 0.005).map((c) => ({ id: c.id, name: c.name, net: c.intercoNet })),
+      );
+
+      return { groupName: input.groupName, year, companies, totals, settlement };
     }),
 });
