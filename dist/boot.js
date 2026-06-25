@@ -24837,6 +24837,7 @@ var init_base64 = __esm({
       if (!b64re.test(asc2))
         throw new TypeError("malformed base64.");
       asc2 += "==".slice(2 - (asc2.length & 3));
+<<<<<<< HEAD
       let u24, r1, r25;
       let binArray = [];
       for (let i = 0; i < asc2.length; ) {
@@ -24844,6 +24845,15 @@ var init_base64 = __esm({
         if (r1 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255));
         } else if (r25 === 64) {
+=======
+      let u24, r1, r24;
+      let binArray = [];
+      for (let i = 0; i < asc2.length; ) {
+        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r24 = b64tab[asc2.charAt(i++)]);
+        if (r1 === 64) {
+          binArray.push(_fromCC(u24 >> 16 & 255));
+        } else if (r24 === 64) {
+>>>>>>> origin/main
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255));
         } else {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255, u24 & 255));
@@ -36829,7 +36839,11 @@ var require_bcrypt = __commonJS({
           } else
             throw err;
         }
+<<<<<<< HEAD
         var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r25 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r25, real_salt = salt.substring(offset + 3, offset + 25);
+=======
+        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r24 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r24, real_salt = salt.substring(offset + 3, offset + 25);
+>>>>>>> origin/main
         s += minor >= "a" ? "\0" : "";
         var passwordb = stringToBytes(s), saltb = base64_decode(real_salt, BCRYPT_SALT_LEN);
         function finish(bytes) {
@@ -39908,10 +39922,17 @@ var init_qbo_router = __esm({
       // --- Sync All ---
       syncAll: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => {
         const r1 = await doSyncCustomers(input.connectionId);
+<<<<<<< HEAD
         const r25 = await doSyncInvoices(input.connectionId);
         const r3 = await doSyncPayments(input.connectionId);
         const r4 = await doSyncAccounts(input.connectionId);
         return { success: true, customers: r1, invoices: r25, payments: r3, accounts: r4 };
+=======
+        const r24 = await doSyncInvoices(input.connectionId);
+        const r3 = await doSyncPayments(input.connectionId);
+        const r4 = await doSyncAccounts(input.connectionId);
+        return { success: true, customers: r1, invoices: r24, payments: r3, accounts: r4 };
+>>>>>>> origin/main
       }),
       // --- Data Retrieval ---
       getCustomers: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
@@ -64163,8 +64184,13 @@ async function seedDockKingFlowthrough() {
       report.updated++;
     }
     const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, c.id)).returning();
+<<<<<<< HEAD
     const r25 = await db.delete(tasks).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
     report.tasksPaused += (r1?.length || 0) + (r25?.length || 0);
+=======
+    const r24 = await db.delete(tasks).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
+    report.tasksPaused += (r1?.length || 0) + (r24?.length || 0);
+>>>>>>> origin/main
   }
   return report;
 }
@@ -78550,6 +78576,7 @@ var groupRouter = createRouter({
       // absolute sum of positives flags how much is still moving between entities.
       intercoOutstanding: r23(companies.filter((c) => c.intercoNet > 0).reduce((s, c) => s + c.intercoNet, 0)),
       intercoNetCheck: r23(companies.reduce((s, c) => s + c.intercoNet, 0))
+<<<<<<< HEAD
     };
     const settlement = suggestSettlements(
       companies.filter((c) => Math.abs(c.intercoNet) > 5e-3).map((c) => ({ id: c.id, name: c.name, net: c.intercoNet }))
@@ -78668,6 +78695,13 @@ var practiceHealthRouter = createRouter({
       topClients,
       billing
     };
+=======
+    };
+    const settlement = suggestSettlements(
+      companies.filter((c) => Math.abs(c.intercoNet) > 5e-3).map((c) => ({ id: c.id, name: c.name, net: c.intercoNet }))
+    );
+    return { groupName: input.groupName, year: year2, companies, totals, settlement };
+>>>>>>> origin/main
   })
 });
 
