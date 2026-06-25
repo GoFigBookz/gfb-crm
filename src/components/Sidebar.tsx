@@ -52,7 +52,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/month-end-close", icon: Gauge, label: "Month-End Close" },
     { to: "/cash-watch", icon: Wallet, label: "Cash Watch" },
-    { to: "/triage", icon: ShieldCheck, label: "Figs" },
+    { to: "/triage", icon: ShieldCheck, label: "Ask Markie" },
     { to: "/tasks", icon: CheckSquare, label: "Tasks" },
     { to: "/calendar", icon: CalendarDays, label: "Calendar" },
   ];
