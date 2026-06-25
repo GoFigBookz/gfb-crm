@@ -391,6 +391,17 @@ app.get("/api/payroll/backfill-fractal", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Backfill Motion Invest Inc (Van Boxmeer + Gunn) from the Google sheet.
+//   GET /api/payroll/backfill-motioninvest
+app.get("/api/payroll/backfill-motioninvest", async (c) => {
+  try {
+    const { backfillMotionInvestPayroll } = await import("./seed-motioninvest-backfill");
+    const r = await backfillMotionInvestPayroll();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // Dedup + name-correct the Clark/Sher rosters (merge dupes, fix Last, First).
 //   GET /api/payroll/dedup-employees
 app.get("/api/payroll/dedup-employees", async (c) => {
@@ -1725,6 +1736,14 @@ async function startServer() {
       if (r?.runsAdded) console.log(`[fractal-backfill] +${r.runsAdded} runs`);
     } catch (e) {
       console.error("[fractal-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Year backfill — Motion Invest Inc (Van Boxmeer + Gunn, Jan–Apr).
+    try {
+      const { backfillMotionInvestPayroll } = await import("./seed-motioninvest-backfill");
+      const r = await backfillMotionInvestPayroll();
+      if (r?.runsAdded) console.log(`[motioninvest-backfill] +${r.runsAdded} runs`);
+    } catch (e) {
+      console.error("[motioninvest-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
     // rows, repoint their pay-run lines, fix the "Last, First" split).
