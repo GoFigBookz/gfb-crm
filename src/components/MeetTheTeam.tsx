@@ -1,7 +1,4 @@
-import { Sprout, Leaf, ShieldCheck, Sparkles, Gauge, Receipt, TrendingUp, Bot } from "lucide-react";
 import { TEAM, type TeamMember } from "@/lib/team";
-
-const ICONS: Record<string, any> = { Sprout, Leaf, ShieldCheck, Sparkles, Gauge, Receipt, TrendingUp, Bot };
 
 /** Meet the team — a fun, character-rich breakout of the AI crew and who does what.
  *  onPick lets the chat screen jump straight to talking to that teammate. */
@@ -16,15 +13,16 @@ export function MeetTheTeam({ onPick, activeKey }: { onPick?: (key: string) => v
 }
 
 function TeamCard({ m, active, onPick }: { m: TeamMember; active?: boolean; onPick?: (key: string) => void }) {
-  const Icon = ICONS[m.icon] || Bot;
   return (
     <button
       onClick={() => onPick?.(m.key)}
       className={`text-left p-3 rounded-xl border bg-white hover:shadow-sm transition-all ${active ? "border-lime-400 ring-1 ring-lime-300" : "border-slate-200"} ${onPick ? "cursor-pointer" : "cursor-default"}`}
     >
       <div className="flex items-start gap-3">
-        <div className={`h-11 w-11 shrink-0 rounded-full bg-gradient-to-br ${m.theme} flex items-center justify-center text-white shadow-sm`}>
-          <Icon className="h-5 w-5" />
+        <div className={`h-14 w-14 shrink-0 rounded-full bg-gradient-to-br ${m.theme} p-[3px] shadow-sm`}>
+          <div className="h-full w-full rounded-full bg-white flex items-center justify-center overflow-hidden">
+            <img src={`/agents/${m.key}.svg`} alt={m.name} className="h-[52px] w-[52px]" />
+          </div>
         </div>
         <div className="min-w-0">
           <div className="flex items-baseline gap-2">
