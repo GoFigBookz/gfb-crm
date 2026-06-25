@@ -369,6 +369,17 @@ app.get("/api/payroll/backfill-originality", async (c) => {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
 });
+// Backfill 2303851 Ontario Inc (Stacey Gillham salary) from the Google sheet.
+//   GET /api/payroll/backfill-2303851
+app.get("/api/payroll/backfill-2303851", async (c) => {
+  try {
+    const { backfill2303851Payroll } = await import("./seed-2303851-backfill");
+    const r = await backfill2303851Payroll();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 // Dedup + name-correct the Clark/Sher rosters (merge dupes, fix Last, First).
 //   GET /api/payroll/dedup-employees
 app.get("/api/payroll/dedup-employees", async (c) => {
@@ -1687,6 +1698,14 @@ async function startServer() {
       if (r?.runsAdded) console.log(`[og-backfill] +${r.runsAdded} runs`);
     } catch (e) {
       console.error("[og-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    // Year backfill — 2303851 Ontario Inc (Stacey Gillham salary, Jan–Jun half).
+    try {
+      const { backfill2303851Payroll } = await import("./seed-2303851-backfill");
+      const r = await backfill2303851Payroll();
+      if (r?.runsAdded) console.log(`[2303851-backfill] +${r.runsAdded} runs`);
+    } catch (e) {
+      console.error("[2303851-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     // Dedup + name-correct Clark OS / Collingwood / Sher rosters (merge swapped/dupe
     // rows, repoint their pay-run lines, fix the "Last, First" split).

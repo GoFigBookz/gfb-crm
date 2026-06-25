@@ -23,9 +23,9 @@ var __export = (target, all) => {
 };
 var __copyProps = (to, from, except2, desc8) => {
   if (from && typeof from === "object" || typeof from === "function") {
-    for (let key7 of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key7) && key7 !== except2)
-        __defProp(to, key7, { get: () => from[key7], enumerable: !(desc8 = __getOwnPropDesc(from, key7)) || desc8.enumerable });
+    for (let key8 of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key8) && key8 !== except2)
+        __defProp(to, key8, { get: () => from[key8], enumerable: !(desc8 = __getOwnPropDesc(from, key8)) || desc8.enumerable });
   }
   return to;
 };
@@ -41,9 +41,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 // node_modules/@trpc/server/dist/codes-DagpWZLc.mjs
 function mergeWithoutOverrides(obj1, ...objs) {
   const newObj = Object.assign(emptyObject(), obj1);
-  for (const overrides of objs) for (const key7 in overrides) {
-    if (key7 in newObj && newObj[key7] !== overrides[key7]) throw new Error(`Duplicate key ${key7}`);
-    newObj[key7] = overrides[key7];
+  for (const overrides of objs) for (const key8 in overrides) {
+    if (key8 in newObj && newObj[key8] !== overrides[key8]) throw new Error(`Duplicate key ${key8}`);
+    newObj[key8] = overrides[key8];
   }
   return newObj;
 }
@@ -139,9 +139,9 @@ function createInnerProxy(callback, path7, memo2) {
   var _memo$cacheKey;
   const cacheKey2 = path7.join(".");
   (_memo$cacheKey = memo2[cacheKey2]) !== null && _memo$cacheKey !== void 0 || (memo2[cacheKey2] = new Proxy(noop, {
-    get(_obj, key7) {
-      if (typeof key7 !== "string" || key7 === "then") return void 0;
-      return createInnerProxy(callback, [...path7, key7], memo2);
+    get(_obj, key8) {
+      if (typeof key8 !== "string" || key8 === "then") return void 0;
+      return createInnerProxy(callback, [...path7, key8], memo2);
     },
     apply(_1, _2, args) {
       const lastOfPath = path7[path7.length - 1];
@@ -215,11 +215,11 @@ var init_getErrorShape_vC8mUXJD = __esm({
       return mod || (0, cb[__getOwnPropNames2(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
     };
     __copyProps2 = (to, from, except2, desc8) => {
-      if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames2(from), i = 0, n = keys.length, key7; i < n; i++) {
-        key7 = keys[i];
-        if (!__hasOwnProp2.call(to, key7) && key7 !== except2) __defProp2(to, key7, {
-          get: ((k) => from[k]).bind(null, key7),
-          enumerable: !(desc8 = __getOwnPropDesc2(from, key7)) || desc8.enumerable
+      if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames2(from), i = 0, n = keys.length, key8; i < n; i++) {
+        key8 = keys[i];
+        if (!__hasOwnProp2.call(to, key8) && key8 !== except2) __defProp2(to, key8, {
+          get: ((k) => from[k]).bind(null, key8),
+          enumerable: !(desc8 = __getOwnPropDesc2(from, key8)) || desc8.enumerable
         });
       }
       return to;
@@ -413,28 +413,28 @@ function createRouterFactory(config2) {
     }
     function step(from, path7 = []) {
       const aggregate = emptyObject();
-      for (const [key7, item] of Object.entries(from !== null && from !== void 0 ? from : {})) {
+      for (const [key8, item] of Object.entries(from !== null && from !== void 0 ? from : {})) {
         if (isLazy(item)) {
-          lazy$1[[...path7, key7].join(".")] = createLazyLoader({
+          lazy$1[[...path7, key8].join(".")] = createLazyLoader({
             path: path7,
             ref: item,
-            key: key7,
+            key: key8,
             aggregate
           });
           continue;
         }
         if (isRouter(item)) {
-          aggregate[key7] = step(item._def.record, [...path7, key7]);
+          aggregate[key8] = step(item._def.record, [...path7, key8]);
           continue;
         }
         if (!isProcedure(item)) {
-          aggregate[key7] = step(item, [...path7, key7]);
+          aggregate[key8] = step(item, [...path7, key8]);
           continue;
         }
-        const newPath = [...path7, key7].join(".");
+        const newPath = [...path7, key8].join(".");
         if (procedures[newPath]) throw new Error(`Duplicate key: ${newPath}`);
         procedures[newPath] = item;
-        aggregate[key7] = item;
+        aggregate[key8] = item;
       }
       return aggregate;
     }
@@ -460,9 +460,9 @@ async function getProcedureAtPath(router, path7) {
   const { _def } = router;
   let procedure = _def.procedures[path7];
   while (!procedure) {
-    const key7 = Object.keys(_def.lazy).find((key$1) => path7.startsWith(key$1));
-    if (!key7) return null;
-    const lazyRouter = _def.lazy[key7];
+    const key8 = Object.keys(_def.lazy).find((key$1) => path7.startsWith(key$1));
+    if (!key8) return null;
+    const lazyRouter = _def.lazy[key8];
     await lazyRouter.load();
     procedure = _def.procedures[path7];
   }
@@ -806,9 +806,9 @@ function floatSafeRemainder(val, step) {
   const stepInt = Number.parseInt(step.toFixed(decCount).replace(".", ""));
   return valInt % stepInt / 10 ** decCount;
 }
-function defineLazy(object3, key7, getter) {
+function defineLazy(object3, key8, getter) {
   let value = void 0;
-  Object.defineProperty(object3, key7, {
+  Object.defineProperty(object3, key8, {
     get() {
       if (value === EVALUATING) {
         return void 0;
@@ -820,7 +820,7 @@ function defineLazy(object3, key7, getter) {
       return value;
     },
     set(v) {
-      Object.defineProperty(object3, key7, {
+      Object.defineProperty(object3, key8, {
         value: v
         // configurable: true,
       });
@@ -853,11 +853,11 @@ function cloneDef(schema) {
 function getElementAtPath(obj, path7) {
   if (!path7)
     return obj;
-  return path7.reduce((acc, key7) => acc?.[key7], obj);
+  return path7.reduce((acc, key8) => acc?.[key8], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
-  const promises = keys.map((key7) => promisesObj[key7]);
+  const promises = keys.map((key8) => promisesObj[key8]);
   return Promise.all(promises).then((results) => {
     const resolvedObj = {};
     for (let i = 0; i < keys.length; i++) {
@@ -908,8 +908,8 @@ function shallowClone(o) {
 }
 function numKeys(data) {
   let keyCount = 0;
-  for (const key7 in data) {
-    if (Object.prototype.hasOwnProperty.call(data, key7)) {
+  for (const key8 in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key8)) {
       keyCount++;
     }
   }
@@ -995,13 +995,13 @@ function pick(schema, mask) {
   const def = mergeDefs(schema._zod.def, {
     get shape() {
       const newShape = {};
-      for (const key7 in mask) {
-        if (!(key7 in currDef.shape)) {
-          throw new Error(`Unrecognized key: "${key7}"`);
+      for (const key8 in mask) {
+        if (!(key8 in currDef.shape)) {
+          throw new Error(`Unrecognized key: "${key8}"`);
         }
-        if (!mask[key7])
+        if (!mask[key8])
           continue;
-        newShape[key7] = currDef.shape[key7];
+        newShape[key8] = currDef.shape[key8];
       }
       assignProp(this, "shape", newShape);
       return newShape;
@@ -1020,13 +1020,13 @@ function omit(schema, mask) {
   const def = mergeDefs(schema._zod.def, {
     get shape() {
       const newShape = { ...schema._zod.def.shape };
-      for (const key7 in mask) {
-        if (!(key7 in currDef.shape)) {
-          throw new Error(`Unrecognized key: "${key7}"`);
+      for (const key8 in mask) {
+        if (!(key8 in currDef.shape)) {
+          throw new Error(`Unrecognized key: "${key8}"`);
         }
-        if (!mask[key7])
+        if (!mask[key8])
           continue;
-        delete newShape[key7];
+        delete newShape[key8];
       }
       assignProp(this, "shape", newShape);
       return newShape;
@@ -1043,8 +1043,8 @@ function extend(schema, shape) {
   const hasChecks = checks && checks.length > 0;
   if (hasChecks) {
     const existingShape = schema._zod.def.shape;
-    for (const key7 in shape) {
-      if (Object.getOwnPropertyDescriptor(existingShape, key7) !== void 0) {
+    for (const key8 in shape) {
+      if (Object.getOwnPropertyDescriptor(existingShape, key8) !== void 0) {
         throw new Error("Cannot overwrite keys on object schemas containing refinements. Use `.safeExtend()` instead.");
       }
     }
@@ -1098,23 +1098,23 @@ function partial(Class2, schema, mask) {
       const oldShape = schema._zod.def.shape;
       const shape = { ...oldShape };
       if (mask) {
-        for (const key7 in mask) {
-          if (!(key7 in oldShape)) {
-            throw new Error(`Unrecognized key: "${key7}"`);
+        for (const key8 in mask) {
+          if (!(key8 in oldShape)) {
+            throw new Error(`Unrecognized key: "${key8}"`);
           }
-          if (!mask[key7])
+          if (!mask[key8])
             continue;
-          shape[key7] = Class2 ? new Class2({
+          shape[key8] = Class2 ? new Class2({
             type: "optional",
-            innerType: oldShape[key7]
-          }) : oldShape[key7];
+            innerType: oldShape[key8]
+          }) : oldShape[key8];
         }
       } else {
-        for (const key7 in oldShape) {
-          shape[key7] = Class2 ? new Class2({
+        for (const key8 in oldShape) {
+          shape[key8] = Class2 ? new Class2({
             type: "optional",
-            innerType: oldShape[key7]
-          }) : oldShape[key7];
+            innerType: oldShape[key8]
+          }) : oldShape[key8];
         }
       }
       assignProp(this, "shape", shape);
@@ -1130,22 +1130,22 @@ function required(Class2, schema, mask) {
       const oldShape = schema._zod.def.shape;
       const shape = { ...oldShape };
       if (mask) {
-        for (const key7 in mask) {
-          if (!(key7 in shape)) {
-            throw new Error(`Unrecognized key: "${key7}"`);
+        for (const key8 in mask) {
+          if (!(key8 in shape)) {
+            throw new Error(`Unrecognized key: "${key8}"`);
           }
-          if (!mask[key7])
+          if (!mask[key8])
             continue;
-          shape[key7] = new Class2({
+          shape[key8] = new Class2({
             type: "nonoptional",
-            innerType: oldShape[key7]
+            innerType: oldShape[key8]
           });
         }
       } else {
-        for (const key7 in oldShape) {
-          shape[key7] = new Class2({
+        for (const key8 in oldShape) {
+          shape[key8] = new Class2({
             type: "nonoptional",
-            innerType: oldShape[key7]
+            innerType: oldShape[key8]
           });
         }
       }
@@ -2419,19 +2419,19 @@ function handleArrayResult(result, final, index) {
   }
   final.value[index] = result.value;
 }
-function handlePropertyResult(result, final, key7, input, isOptionalOut) {
+function handlePropertyResult(result, final, key8, input, isOptionalOut) {
   if (result.issues.length) {
-    if (isOptionalOut && !(key7 in input)) {
+    if (isOptionalOut && !(key8 in input)) {
       return;
     }
-    final.issues.push(...prefixIssues(key7, result.issues));
+    final.issues.push(...prefixIssues(key8, result.issues));
   }
   if (result.value === void 0) {
-    if (key7 in input) {
-      final.value[key7] = void 0;
+    if (key8 in input) {
+      final.value[key8] = void 0;
     }
   } else {
-    final.value[key7] = result.value;
+    final.value[key8] = result.value;
   }
 }
 function normalizeDef(def) {
@@ -2456,18 +2456,18 @@ function handleCatchall(proms, input, payload, ctx, def, inst) {
   const _catchall = def.catchall._zod;
   const t2 = _catchall.def.type;
   const isOptionalOut = _catchall.optout === "optional";
-  for (const key7 in input) {
-    if (keySet.has(key7))
+  for (const key8 in input) {
+    if (keySet.has(key8))
       continue;
     if (t2 === "never") {
-      unrecognized.push(key7);
+      unrecognized.push(key8);
       continue;
     }
-    const r = _catchall.run({ value: input[key7], issues: [] }, ctx);
+    const r = _catchall.run({ value: input[key8], issues: [] }, ctx);
     if (r instanceof Promise) {
-      proms.push(r.then((r3) => handlePropertyResult(r3, payload, key7, input, isOptionalOut)));
+      proms.push(r.then((r3) => handlePropertyResult(r3, payload, key8, input, isOptionalOut)));
     } else {
-      handlePropertyResult(r, payload, key7, input, isOptionalOut);
+      handlePropertyResult(r, payload, key8, input, isOptionalOut);
     }
   }
   if (unrecognized.length) {
@@ -2537,17 +2537,17 @@ function mergeValues(a, b) {
   }
   if (isPlainObject2(a) && isPlainObject2(b)) {
     const bKeys = Object.keys(b);
-    const sharedKeys = Object.keys(a).filter((key7) => bKeys.indexOf(key7) !== -1);
+    const sharedKeys = Object.keys(a).filter((key8) => bKeys.indexOf(key8) !== -1);
     const newObj = { ...a, ...b };
-    for (const key7 of sharedKeys) {
-      const sharedValue = mergeValues(a[key7], b[key7]);
+    for (const key8 of sharedKeys) {
+      const sharedValue = mergeValues(a[key8], b[key8]);
       if (!sharedValue.valid) {
         return {
           valid: false,
-          mergeErrorPath: [key7, ...sharedValue.mergeErrorPath]
+          mergeErrorPath: [key8, ...sharedValue.mergeErrorPath]
         };
       }
-      newObj[key7] = sharedValue.data;
+      newObj[key8] = sharedValue.data;
     }
     return { valid: true, data: newObj };
   }
@@ -2617,10 +2617,10 @@ function handleTupleResult(result, final, index) {
   }
   final.value[index] = result.value;
 }
-function handleMapResult(keyResult, valueResult, final, key7, input, inst, ctx) {
+function handleMapResult(keyResult, valueResult, final, key8, input, inst, ctx) {
   if (keyResult.issues.length) {
-    if (propertyKeyTypes.has(typeof key7)) {
-      final.issues.push(...prefixIssues(key7, keyResult.issues));
+    if (propertyKeyTypes.has(typeof key8)) {
+      final.issues.push(...prefixIssues(key8, keyResult.issues));
     } else {
       final.issues.push({
         code: "invalid_key",
@@ -2632,15 +2632,15 @@ function handleMapResult(keyResult, valueResult, final, key7, input, inst, ctx) 
     }
   }
   if (valueResult.issues.length) {
-    if (propertyKeyTypes.has(typeof key7)) {
-      final.issues.push(...prefixIssues(key7, valueResult.issues));
+    if (propertyKeyTypes.has(typeof key8)) {
+      final.issues.push(...prefixIssues(key8, valueResult.issues));
     } else {
       final.issues.push({
         origin: "map",
         code: "invalid_element",
         input,
         inst,
-        key: key7,
+        key: key8,
         issues: valueResult.issues.map((iss) => finalizeIssue(iss, ctx, config()))
       });
     }
@@ -3357,12 +3357,12 @@ var init_schemas = __esm({
       defineLazy(inst._zod, "propValues", () => {
         const shape = def.shape;
         const propValues = {};
-        for (const key7 in shape) {
-          const field = shape[key7]._zod;
+        for (const key8 in shape) {
+          const field = shape[key8]._zod;
           if (field.values) {
-            propValues[key7] ?? (propValues[key7] = /* @__PURE__ */ new Set());
+            propValues[key8] ?? (propValues[key8] = /* @__PURE__ */ new Set());
             for (const v of field.values)
-              propValues[key7].add(v);
+              propValues[key8].add(v);
           }
         }
         return propValues;
@@ -3385,14 +3385,14 @@ var init_schemas = __esm({
         payload.value = {};
         const proms = [];
         const shape = value.shape;
-        for (const key7 of value.keys) {
-          const el = shape[key7];
+        for (const key8 of value.keys) {
+          const el = shape[key8];
           const isOptionalOut = el._zod.optout === "optional";
-          const r = el._zod.run({ value: input[key7], issues: [] }, ctx);
+          const r = el._zod.run({ value: input[key8], issues: [] }, ctx);
           if (r instanceof Promise) {
-            proms.push(r.then((r3) => handlePropertyResult(r3, payload, key7, input, isOptionalOut)));
+            proms.push(r.then((r3) => handlePropertyResult(r3, payload, key8, input, isOptionalOut)));
           } else {
-            handlePropertyResult(r, payload, key7, input, isOptionalOut);
+            handlePropertyResult(r, payload, key8, input, isOptionalOut);
           }
         }
         if (!catchall) {
@@ -3408,23 +3408,23 @@ var init_schemas = __esm({
       const generateFastpass = (shape) => {
         const doc = new Doc(["shape", "payload", "ctx"]);
         const normalized = _normalized.value;
-        const parseStr = (key7) => {
-          const k = esc(key7);
+        const parseStr = (key8) => {
+          const k = esc(key8);
           return `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
         };
         doc.write(`const input = payload.value;`);
         const ids = /* @__PURE__ */ Object.create(null);
         let counter = 0;
-        for (const key7 of normalized.keys) {
-          ids[key7] = `key_${counter++}`;
+        for (const key8 of normalized.keys) {
+          ids[key8] = `key_${counter++}`;
         }
         doc.write(`const newResult = {};`);
-        for (const key7 of normalized.keys) {
-          const id = ids[key7];
-          const k = esc(key7);
-          const schema = shape[key7];
+        for (const key8 of normalized.keys) {
+          const id = ids[key8];
+          const k = esc(key8);
+          const schema = shape[key8];
           const isOptionalOut = schema?._zod?.optout === "optional";
-          doc.write(`const ${id} = ${parseStr(key7)};`);
+          doc.write(`const ${id} = ${parseStr(key8)};`);
           if (isOptionalOut) {
             doc.write(`
         if (${id}.issues.length) {
@@ -3743,30 +3743,30 @@ var init_schemas = __esm({
         if (values) {
           payload.value = {};
           const recordKeys = /* @__PURE__ */ new Set();
-          for (const key7 of values) {
-            if (typeof key7 === "string" || typeof key7 === "number" || typeof key7 === "symbol") {
-              recordKeys.add(typeof key7 === "number" ? key7.toString() : key7);
-              const result = def.valueType._zod.run({ value: input[key7], issues: [] }, ctx);
+          for (const key8 of values) {
+            if (typeof key8 === "string" || typeof key8 === "number" || typeof key8 === "symbol") {
+              recordKeys.add(typeof key8 === "number" ? key8.toString() : key8);
+              const result = def.valueType._zod.run({ value: input[key8], issues: [] }, ctx);
               if (result instanceof Promise) {
                 proms.push(result.then((result2) => {
                   if (result2.issues.length) {
-                    payload.issues.push(...prefixIssues(key7, result2.issues));
+                    payload.issues.push(...prefixIssues(key8, result2.issues));
                   }
-                  payload.value[key7] = result2.value;
+                  payload.value[key8] = result2.value;
                 }));
               } else {
                 if (result.issues.length) {
-                  payload.issues.push(...prefixIssues(key7, result.issues));
+                  payload.issues.push(...prefixIssues(key8, result.issues));
                 }
-                payload.value[key7] = result.value;
+                payload.value[key8] = result.value;
               }
             }
           }
           let unrecognized;
-          for (const key7 in input) {
-            if (!recordKeys.has(key7)) {
+          for (const key8 in input) {
+            if (!recordKeys.has(key8)) {
               unrecognized = unrecognized ?? [];
-              unrecognized.push(key7);
+              unrecognized.push(key8);
             }
           }
           if (unrecognized && unrecognized.length > 0) {
@@ -3779,16 +3779,16 @@ var init_schemas = __esm({
           }
         } else {
           payload.value = {};
-          for (const key7 of Reflect.ownKeys(input)) {
-            if (key7 === "__proto__")
+          for (const key8 of Reflect.ownKeys(input)) {
+            if (key8 === "__proto__")
               continue;
-            let keyResult = def.keyType._zod.run({ value: key7, issues: [] }, ctx);
+            let keyResult = def.keyType._zod.run({ value: key8, issues: [] }, ctx);
             if (keyResult instanceof Promise) {
               throw new Error("Async schemas not supported in object keys currently");
             }
-            const checkNumericKey = typeof key7 === "string" && number.test(key7) && keyResult.issues.length && keyResult.issues.some((iss) => iss.code === "invalid_type" && iss.expected === "number");
+            const checkNumericKey = typeof key8 === "string" && number.test(key8) && keyResult.issues.length && keyResult.issues.some((iss) => iss.code === "invalid_type" && iss.expected === "number");
             if (checkNumericKey) {
-              const retryResult = def.keyType._zod.run({ value: Number(key7), issues: [] }, ctx);
+              const retryResult = def.keyType._zod.run({ value: Number(key8), issues: [] }, ctx);
               if (retryResult instanceof Promise) {
                 throw new Error("Async schemas not supported in object keys currently");
               }
@@ -3798,30 +3798,30 @@ var init_schemas = __esm({
             }
             if (keyResult.issues.length) {
               if (def.mode === "loose") {
-                payload.value[key7] = input[key7];
+                payload.value[key8] = input[key8];
               } else {
                 payload.issues.push({
                   code: "invalid_key",
                   origin: "record",
                   issues: keyResult.issues.map((iss) => finalizeIssue(iss, ctx, config())),
-                  input: key7,
-                  path: [key7],
+                  input: key8,
+                  path: [key8],
                   inst
                 });
               }
               continue;
             }
-            const result = def.valueType._zod.run({ value: input[key7], issues: [] }, ctx);
+            const result = def.valueType._zod.run({ value: input[key8], issues: [] }, ctx);
             if (result instanceof Promise) {
               proms.push(result.then((result2) => {
                 if (result2.issues.length) {
-                  payload.issues.push(...prefixIssues(key7, result2.issues));
+                  payload.issues.push(...prefixIssues(key8, result2.issues));
                 }
                 payload.value[keyResult.value] = result2.value;
               }));
             } else {
               if (result.issues.length) {
-                payload.issues.push(...prefixIssues(key7, result.issues));
+                payload.issues.push(...prefixIssues(key8, result.issues));
               }
               payload.value[keyResult.value] = result.value;
             }
@@ -3848,15 +3848,15 @@ var init_schemas = __esm({
         }
         const proms = [];
         payload.value = /* @__PURE__ */ new Map();
-        for (const [key7, value] of input) {
-          const keyResult = def.keyType._zod.run({ value: key7, issues: [] }, ctx);
+        for (const [key8, value] of input) {
+          const keyResult = def.keyType._zod.run({ value: key8, issues: [] }, ctx);
           const valueResult = def.valueType._zod.run({ value, issues: [] }, ctx);
           if (keyResult instanceof Promise || valueResult instanceof Promise) {
             proms.push(Promise.all([keyResult, valueResult]).then(([keyResult2, valueResult2]) => {
-              handleMapResult(keyResult2, valueResult2, payload, key7, input, inst, ctx);
+              handleMapResult(keyResult2, valueResult2, payload, key8, input, inst, ctx);
             }));
           } else {
-            handleMapResult(keyResult, valueResult, payload, key7, input, inst, ctx);
+            handleMapResult(keyResult, valueResult, payload, key8, input, inst, ctx);
           }
         }
         if (proms.length)
@@ -11220,13 +11220,13 @@ function _promise(Class2, innerType) {
 }
 // @__NO_SIDE_EFFECTS__
 function _custom(Class2, fn, _params) {
-  const norm18 = normalizeParams(_params);
-  norm18.abort ?? (norm18.abort = true);
+  const norm19 = normalizeParams(_params);
+  norm19.abort ?? (norm19.abort = true);
   const schema = new Class2({
     type: "custom",
     check: "custom",
     fn,
-    ...norm18
+    ...norm19
   });
   return schema;
 }
@@ -11502,8 +11502,8 @@ function extractDefs(ctx, schema) {
     if (defId)
       seen.defId = defId;
     const schema2 = seen.schema;
-    for (const key7 in schema2) {
-      delete schema2[key7];
+    for (const key8 in schema2) {
+      delete schema2[key8];
     }
     schema2.$ref = ref;
   };
@@ -11572,20 +11572,20 @@ function finalize(ctx, schema) {
       Object.assign(schema2, _cached);
       const isParentRef = zodSchema._zod.parent === ref;
       if (isParentRef) {
-        for (const key7 in schema2) {
-          if (key7 === "$ref" || key7 === "allOf")
+        for (const key8 in schema2) {
+          if (key8 === "$ref" || key8 === "allOf")
             continue;
-          if (!(key7 in _cached)) {
-            delete schema2[key7];
+          if (!(key8 in _cached)) {
+            delete schema2[key8];
           }
         }
       }
       if (refSchema.$ref) {
-        for (const key7 in schema2) {
-          if (key7 === "$ref" || key7 === "allOf")
+        for (const key8 in schema2) {
+          if (key8 === "$ref" || key8 === "allOf")
             continue;
-          if (key7 in refSeen.def && JSON.stringify(schema2[key7]) === JSON.stringify(refSeen.def[key7])) {
-            delete schema2[key7];
+          if (key8 in refSeen.def && JSON.stringify(schema2[key8]) === JSON.stringify(refSeen.def[key8])) {
+            delete schema2[key8];
           }
         }
       }
@@ -11597,11 +11597,11 @@ function finalize(ctx, schema) {
       if (parentSeen?.schema.$ref) {
         schema2.$ref = parentSeen.schema.$ref;
         if (parentSeen.def) {
-          for (const key7 in schema2) {
-            if (key7 === "$ref" || key7 === "allOf")
+          for (const key8 in schema2) {
+            if (key8 === "$ref" || key8 === "allOf")
               continue;
-            if (key7 in parentSeen.def && JSON.stringify(schema2[key7]) === JSON.stringify(parentSeen.def[key7])) {
-              delete schema2[key7];
+            if (key8 in parentSeen.def && JSON.stringify(schema2[key8]) === JSON.stringify(parentSeen.def[key8])) {
+              delete schema2[key8];
             }
           }
         }
@@ -11695,8 +11695,8 @@ function isTransforming(_schema, _ctx) {
     return isTransforming(def.in, ctx) || isTransforming(def.out, ctx);
   }
   if (def.type === "object") {
-    for (const key7 in def.shape) {
-      if (isTransforming(def.shape[key7], ctx))
+    for (const key8 in def.shape) {
+      if (isTransforming(def.shape[key8], ctx))
         return true;
     }
     return false;
@@ -11757,9 +11757,9 @@ function toJSONSchema(input, params) {
     };
     ctx2.external = external;
     for (const entry of registry2._idmap.entries()) {
-      const [key7, schema] = entry;
+      const [key8, schema] = entry;
       extractDefs(ctx2, schema);
-      schemas[key7] = finalize(ctx2, schema);
+      schemas[key8] = finalize(ctx2, schema);
     }
     if (Object.keys(defs).length > 0) {
       const defsSegment = ctx2.target === "draft-2020-12" ? "$defs" : "definitions";
@@ -12038,15 +12038,15 @@ var init_json_schema_processors = __esm({
       json2.type = "object";
       json2.properties = {};
       const shape = def.shape;
-      for (const key7 in shape) {
-        json2.properties[key7] = process2(shape[key7], ctx, {
+      for (const key8 in shape) {
+        json2.properties[key8] = process2(shape[key8], ctx, {
           ...params,
-          path: [...params.path, "properties", key7]
+          path: [...params.path, "properties", key8]
         });
       }
       const allKeys = new Set(Object.keys(shape));
-      const requiredKeys = new Set([...allKeys].filter((key7) => {
-        const v = def.shape[key7]._zod;
+      const requiredKeys = new Set([...allKeys].filter((key8) => {
+        const v = def.shape[key8]._zod;
         if (ctx.io === "input") {
           return v.optin === void 0;
         } else {
@@ -14154,11 +14154,11 @@ function resolveRef(ref, ctx) {
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
   if (path7[0] === defsKey) {
-    const key7 = path7[1];
-    if (!key7 || !ctx.defs[key7]) {
+    const key8 = path7[1];
+    if (!key8 || !ctx.defs[key8]) {
       throw new Error(`Reference not found: ${ref}`);
     }
-    return ctx.defs[key7];
+    return ctx.defs[key8];
   }
   throw new Error(`Reference not found: ${ref}`);
 }
@@ -14344,9 +14344,9 @@ function convertBaseSchema(schema, ctx) {
       const shape = {};
       const properties = schema.properties || {};
       const requiredSet = new Set(schema.required || []);
-      for (const [key7, propSchema] of Object.entries(properties)) {
+      for (const [key8, propSchema] of Object.entries(properties)) {
         const propZodSchema = convertSchema(propSchema, ctx);
-        shape[key7] = requiredSet.has(key7) ? propZodSchema : propZodSchema.optional();
+        shape[key8] = requiredSet.has(key8) ? propZodSchema : propZodSchema.optional();
       }
       if (schema.propertyNames) {
         const keySchema = convertSchema(schema.propertyNames, ctx);
@@ -14490,20 +14490,20 @@ function convertSchema(schema, ctx) {
   }
   const extraMeta = {};
   const coreMetadataKeys = ["$id", "id", "$comment", "$anchor", "$vocabulary", "$dynamicRef", "$dynamicAnchor"];
-  for (const key7 of coreMetadataKeys) {
-    if (key7 in schema) {
-      extraMeta[key7] = schema[key7];
+  for (const key8 of coreMetadataKeys) {
+    if (key8 in schema) {
+      extraMeta[key8] = schema[key8];
     }
   }
   const contentMetadataKeys = ["contentEncoding", "contentMediaType", "contentSchema"];
-  for (const key7 of contentMetadataKeys) {
-    if (key7 in schema) {
-      extraMeta[key7] = schema[key7];
+  for (const key8 of contentMetadataKeys) {
+    if (key8 in schema) {
+      extraMeta[key8] = schema[key8];
     }
   }
-  for (const key7 of Object.keys(schema)) {
-    if (!RECOGNIZED_KEYS.has(key7)) {
-      extraMeta[key7] = schema[key7];
+  for (const key8 of Object.keys(schema)) {
+    if (!RECOGNIZED_KEYS.has(key8)) {
+      extraMeta[key8] = schema[key8];
     }
   }
   if (Object.keys(extraMeta).length > 0) {
@@ -15261,12 +15261,12 @@ var init_double_indexed_kv = __esm({
         this.keyToValue = /* @__PURE__ */ new Map();
         this.valueToKey = /* @__PURE__ */ new Map();
       }
-      set(key7, value) {
-        this.keyToValue.set(key7, value);
-        this.valueToKey.set(value, key7);
+      set(key8, value) {
+        this.keyToValue.set(key8, value);
+        this.valueToKey.set(value, key8);
       }
-      getByKey(key7) {
-        return this.keyToValue.get(key7);
+      getByKey(key8) {
+        return this.keyToValue.get(key8);
       }
       getByValue(value) {
         return this.valueToKey.get(value);
@@ -15344,9 +15344,9 @@ function valuesOfObj(record2) {
     return Object.values(record2);
   }
   const values = [];
-  for (const key7 in record2) {
-    if (record2.hasOwnProperty(key7)) {
-      values.push(record2[key7]);
+  for (const key8 in record2) {
+    if (record2.hasOwnProperty(key8)) {
+      values.push(record2[key8]);
     }
   }
   return values;
@@ -15366,7 +15366,7 @@ function find(record2, predicate) {
   return void 0;
 }
 function forEach(record2, run2) {
-  Object.entries(record2).forEach(([key7, value]) => run2(value, key7));
+  Object.entries(record2).forEach(([key8, value]) => run2(value, key8));
 }
 function includes(arr, value) {
   return arr.indexOf(value) !== -1;
@@ -15447,7 +15447,7 @@ var init_is2 = __esm({
 var escapeKey, stringifyPath, parsePath;
 var init_pathstringifier = __esm({
   "node_modules/superjson/dist/pathstringifier.js"() {
-    escapeKey = (key7) => key7.replace(/\\/g, "\\\\").replace(/\./g, "\\.");
+    escapeKey = (key8) => key8.replace(/\\/g, "\\\\").replace(/\./g, "\\.");
     stringifyPath = (path7) => path7.map(String).map(escapeKey).join(".");
     parsePath = (string5, legacyPaths) => {
       const result = [];
@@ -15723,11 +15723,11 @@ var init_accessDeep = __esm({
     getDeep = (object3, path7) => {
       validatePath(path7);
       for (let i = 0; i < path7.length; i++) {
-        const key7 = path7[i];
+        const key8 = path7[i];
         if (isSet(object3)) {
-          object3 = getNthKey(object3, +key7);
+          object3 = getNthKey(object3, +key8);
         } else if (isMap(object3)) {
-          const row = +key7;
+          const row = +key8;
           const type = +path7[++i] === 0 ? "key" : "value";
           const keyOfRow = getNthKey(object3, row);
           switch (type) {
@@ -15739,7 +15739,7 @@ var init_accessDeep = __esm({
               break;
           }
         } else {
-          object3 = object3[key7];
+          object3 = object3[key8];
         }
       }
       return object3;
@@ -15751,21 +15751,21 @@ var init_accessDeep = __esm({
       }
       let parent = object3;
       for (let i = 0; i < path7.length - 1; i++) {
-        const key7 = path7[i];
+        const key8 = path7[i];
         if (isArray(parent)) {
-          const index = +key7;
+          const index = +key8;
           parent = parent[index];
         } else if (isPlainObject3(parent)) {
-          parent = parent[key7];
+          parent = parent[key8];
         } else if (isSet(parent)) {
-          const row = +key7;
+          const row = +key8;
           parent = getNthKey(parent, row);
         } else if (isMap(parent)) {
           const isEnd = i === path7.length - 2;
           if (isEnd) {
             break;
           }
-          const row = +key7;
+          const row = +key8;
           const type = +path7[++i] === 0 ? "key" : "value";
           const keyOfRow = getNthKey(parent, row);
           switch (type) {
@@ -15823,18 +15823,18 @@ function traverse(tree, walker2, version4, origin = []) {
   }
   const legacyPaths = enableLegacyPaths(version4);
   if (!isArray(tree)) {
-    forEach(tree, (subtree, key7) => traverse(subtree, walker2, version4, [
+    forEach(tree, (subtree, key8) => traverse(subtree, walker2, version4, [
       ...origin,
-      ...parsePath(key7, legacyPaths)
+      ...parsePath(key8, legacyPaths)
     ]));
     return;
   }
   const [nodeValue, children] = tree;
   if (children) {
-    forEach(children, (child, key7) => {
+    forEach(children, (child, key8) => {
       traverse(child, walker2, version4, [
         ...origin,
-        ...parsePath(key7, legacyPaths)
+        ...parsePath(key8, legacyPaths)
       ]);
     });
   }
@@ -15955,8 +15955,8 @@ var init_plainer = __esm({
         if (isArray(recursiveResult.annotations)) {
           innerAnnotations[escapeKey(index)] = recursiveResult.annotations;
         } else if (isPlainObject3(recursiveResult.annotations)) {
-          forEach(recursiveResult.annotations, (tree, key7) => {
-            innerAnnotations[escapeKey(index) + "." + key7] = tree;
+          forEach(recursiveResult.annotations, (tree, key8) => {
+            innerAnnotations[escapeKey(index) + "." + key8] = tree;
           });
         }
       });
@@ -16016,12 +16016,12 @@ var init_dist2 = __esm({
 });
 
 // node_modules/copy-anything/dist/index.js
-function assignProp2(carry, key7, newVal, originalObject, includeNonenumerable) {
-  const propType = {}.propertyIsEnumerable.call(originalObject, key7) ? "enumerable" : "nonenumerable";
+function assignProp2(carry, key8, newVal, originalObject, includeNonenumerable) {
+  const propType = {}.propertyIsEnumerable.call(originalObject, key8) ? "enumerable" : "nonenumerable";
   if (propType === "enumerable")
-    carry[key7] = newVal;
+    carry[key8] = newVal;
   if (includeNonenumerable && propType === "nonenumerable") {
-    Object.defineProperty(carry, key7, {
+    Object.defineProperty(carry, key8, {
       value: newVal,
       enumerable: false,
       writable: true,
@@ -16038,15 +16038,15 @@ function copy(target, options = {}) {
   }
   const props = Object.getOwnPropertyNames(target);
   const symbols = Object.getOwnPropertySymbols(target);
-  return [...props, ...symbols].reduce((carry, key7) => {
-    if (key7 === "__proto__")
+  return [...props, ...symbols].reduce((carry, key8) => {
+    if (key8 === "__proto__")
       return carry;
-    if (isArray2(options.props) && !options.props.includes(key7)) {
+    if (isArray2(options.props) && !options.props.includes(key8)) {
       return carry;
     }
-    const val = target[key7];
+    const val = target[key8];
     const newVal = copy(val, options);
-    assignProp2(carry, key7, newVal, target, options.nonenumerable);
+    assignProp2(carry, key8, newVal, target, options.nonenumerable);
     return carry;
   }, {});
 }
@@ -17541,9 +17541,9 @@ var init_alias = __esm({
             return columns;
           }
           const proxiedColumns = {};
-          Object.keys(columns).map((key7) => {
-            proxiedColumns[key7] = new Proxy(
-              columns[key7],
+          Object.keys(columns).map((key8) => {
+            proxiedColumns[key8] = new Proxy(
+              columns[key8],
               new ColumnAliasProxyHandler(new Proxy(target, this))
             );
           });
@@ -17676,19 +17676,19 @@ function haveSameKeys(left, right) {
   if (leftKeys.length !== rightKeys.length) {
     return false;
   }
-  for (const [index, key7] of leftKeys.entries()) {
-    if (key7 !== rightKeys[index]) {
+  for (const [index, key8] of leftKeys.entries()) {
+    if (key8 !== rightKeys[index]) {
       return false;
     }
   }
   return true;
 }
 function mapUpdateSet(table, values) {
-  const entries = Object.entries(values).filter(([, value]) => value !== void 0).map(([key7, value]) => {
+  const entries = Object.entries(values).filter(([, value]) => value !== void 0).map(([key8, value]) => {
     if (is(value, SQL) || is(value, Column)) {
-      return [key7, value];
+      return [key8, value];
     } else {
-      return [key7, new Param(value, table[Table.Symbol.Columns][key7])];
+      return [key8, new Param(value, table[Table.Symbol.Columns][key8])];
     }
   });
   if (entries.length === 0) {
@@ -18854,11 +18854,11 @@ var init_casing = __esm({
         if (!column.keyAsName) return column.name;
         const schema = column.table[Table.Symbol.Schema] ?? "public";
         const tableName = column.table[Table.Symbol.OriginalName];
-        const key7 = `${schema}.${tableName}.${column.name}`;
-        if (!this.cache[key7]) {
+        const key8 = `${schema}.${tableName}.${column.name}`;
+        if (!this.cache[key8]) {
           this.cacheTable(column.table);
         }
-        return this.cache[key7];
+        return this.cache[key8];
       }
       cacheTable(table) {
         const schema = table[Table.Symbol.Schema] ?? "public";
@@ -19193,13 +19193,13 @@ function extractTablesRelationalConfig(schema, configHelpers) {
   const tableNamesMap = {};
   const relationsBuffer = {};
   const tablesConfig = {};
-  for (const [key7, value] of Object.entries(schema)) {
+  for (const [key8, value] of Object.entries(schema)) {
     if (is(value, Table)) {
       const dbName = getTableUniqueName(value);
       const bufferedRelations = relationsBuffer[dbName];
-      tableNamesMap[dbName] = key7;
-      tablesConfig[key7] = {
-        tsName: key7,
+      tableNamesMap[dbName] = key8;
+      tablesConfig[key8] = {
+        tsName: key8,
         dbName: value[Table.Symbol.Name],
         schema: value[Table.Symbol.Schema],
         columns: value[Table.Symbol.Columns],
@@ -19210,14 +19210,14 @@ function extractTablesRelationalConfig(schema, configHelpers) {
         value[Table.Symbol.Columns]
       )) {
         if (column.primary) {
-          tablesConfig[key7].primaryKey.push(column);
+          tablesConfig[key8].primaryKey.push(column);
         }
       }
       const extraConfig = value[Table.Symbol.ExtraConfigBuilder]?.(value[Table.Symbol.ExtraConfigColumns]);
       if (extraConfig) {
         for (const configEntry of Object.values(extraConfig)) {
           if (is(configEntry, PrimaryKeyBuilder2)) {
-            tablesConfig[key7].primaryKey.push(...configEntry.columns);
+            tablesConfig[key8].primaryKey.push(...configEntry.columns);
           }
         }
       }
@@ -19253,9 +19253,9 @@ function relations(table, relations2) {
   return new Relations(
     table,
     (helpers) => Object.fromEntries(
-      Object.entries(relations2(helpers)).map(([key7, value]) => [
-        key7,
-        value.withFieldName(key7)
+      Object.entries(relations2(helpers)).map(([key8, value]) => [
+        key8,
+        value.withFieldName(key8)
       ])
     )
   );
@@ -19959,9 +19959,9 @@ var init_dialect = __esm({
         const joins = [];
         if (config2 === true) {
           const selectionEntries = Object.entries(tableConfig.columns);
-          selection = selectionEntries.map(([key7, value]) => ({
+          selection = selectionEntries.map(([key8, value]) => ({
             dbKey: value.name,
-            tsKey: key7,
+            tsKey: key8,
             field: aliasedTableColumn(value, tableAlias),
             relationTableTsKey: void 0,
             isJson: false,
@@ -19969,8 +19969,8 @@ var init_dialect = __esm({
           }));
         } else {
           const aliasedColumns = Object.fromEntries(
-            Object.entries(tableConfig.columns).map(([key7, value]) => [
-              key7,
+            Object.entries(tableConfig.columns).map(([key8, value]) => [
+              key8,
               aliasedTableColumn(value, tableAlias)
             ])
           );
@@ -19995,7 +19995,7 @@ var init_dialect = __esm({
             }
             if (selectedColumns.length > 0) {
               selectedColumns = isIncludeMode ? selectedColumns.filter((c) => config2.columns?.[c] === true) : Object.keys(tableConfig.columns).filter(
-                (key7) => !selectedColumns.includes(key7)
+                (key8) => !selectedColumns.includes(key8)
               );
             }
           } else {
@@ -20321,7 +20321,7 @@ var init_select2 = __esm({
           fields = this.fields;
         } else if (is(source, Subquery)) {
           fields = Object.fromEntries(
-            Object.keys(source._.selectedFields).map((key7) => [key7, source[key7]])
+            Object.keys(source._.selectedFields).map((key8) => [key8, source[key8]])
           );
         } else if (is(source, SQLiteViewBase)) {
           fields = source[ViewBaseConfig].selectedFields;
@@ -20416,7 +20416,7 @@ var init_select2 = __esm({
               }
               case "right": {
                 this.joinsNotNullableMap = Object.fromEntries(
-                  Object.entries(this.joinsNotNullableMap).map(([key7]) => [key7, false])
+                  Object.entries(this.joinsNotNullableMap).map(([key8]) => [key8, false])
                 );
                 this.joinsNotNullableMap[tableName] = true;
                 break;
@@ -20428,7 +20428,7 @@ var init_select2 = __esm({
               }
               case "full": {
                 this.joinsNotNullableMap = Object.fromEntries(
-                  Object.entries(this.joinsNotNullableMap).map(([key7]) => [key7, false])
+                  Object.entries(this.joinsNotNullableMap).map(([key8]) => [key8, false])
                 );
                 this.joinsNotNullableMap[tableName] = false;
                 break;
@@ -24681,18 +24681,18 @@ function parseQuery(text2) {
     if (sequence === "") {
       continue;
     }
-    let key7;
+    let key8;
     let value;
     const splitIdx = sequence.indexOf("=");
     if (splitIdx < 0) {
-      key7 = sequence;
+      key8 = sequence;
       value = "";
     } else {
-      key7 = sequence.substring(0, splitIdx);
+      key8 = sequence.substring(0, splitIdx);
       value = sequence.substring(splitIdx + 1);
     }
     pairs.push({
-      key: percentDecode(key7.replaceAll("+", " ")),
+      key: percentDecode(key8.replaceAll("+", " ")),
       value: percentDecode(value.replaceAll("+", " "))
     });
   }
@@ -25000,7 +25000,7 @@ function expandConfig(config2, preferHttp) {
     queryParamsDef = {
       cache: {
         values: ["shared", "private"],
-        update: (key7, value) => connectionQueryParams.push(`${key7}=${value}`)
+        update: (key8, value) => connectionQueryParams.push(`${key8}=${value}`)
       }
     };
   } else {
@@ -25014,16 +25014,16 @@ function expandConfig(config2, preferHttp) {
       }
     };
   }
-  for (const { key: key7, value } of uri.query?.pairs ?? []) {
-    if (!Object.hasOwn(queryParamsDef, key7)) {
-      throw new LibsqlError(`Unsupported URL query parameter ${JSON.stringify(key7)}`, "URL_PARAM_NOT_SUPPORTED");
+  for (const { key: key8, value } of uri.query?.pairs ?? []) {
+    if (!Object.hasOwn(queryParamsDef, key8)) {
+      throw new LibsqlError(`Unsupported URL query parameter ${JSON.stringify(key8)}`, "URL_PARAM_NOT_SUPPORTED");
     }
-    const queryParamDef = queryParamsDef[key7];
+    const queryParamDef = queryParamsDef[key8];
     if (queryParamDef.values !== void 0 && !queryParamDef.values.includes(value)) {
-      throw new LibsqlError(`Unknown value for the "${key7}" query argument: ${JSON.stringify(value)}. Supported values are: [${queryParamDef.values.map((x) => '"' + x + '"').join(", ")}]`, "URL_INVALID");
+      throw new LibsqlError(`Unknown value for the "${key8}" query argument: ${JSON.stringify(value)}. Supported values are: [${queryParamDef.values.map((x) => '"' + x + '"').join(", ")}]`, "URL_INVALID");
     }
     if (queryParamDef.update !== void 0) {
-      queryParamDef?.update(key7, value);
+      queryParamDef?.update(key8, value);
     }
   }
   const connectionQueryParamsString = connectionQueryParams.length === 0 ? "" : `?${connectionQueryParams.join("&")}`;
@@ -26666,44 +26666,44 @@ var require_permessage_deflate = __commonJS({
        */
       normalizeParams(configurations) {
         configurations.forEach((params) => {
-          Object.keys(params).forEach((key7) => {
-            let value = params[key7];
+          Object.keys(params).forEach((key8) => {
+            let value = params[key8];
             if (value.length > 1) {
-              throw new Error(`Parameter "${key7}" must have only a single value`);
+              throw new Error(`Parameter "${key8}" must have only a single value`);
             }
             value = value[0];
-            if (key7 === "client_max_window_bits") {
+            if (key8 === "client_max_window_bits") {
               if (value !== true) {
                 const num3 = +value;
                 if (!Number.isInteger(num3) || num3 < 8 || num3 > 15) {
                   throw new TypeError(
-                    `Invalid value for parameter "${key7}": ${value}`
+                    `Invalid value for parameter "${key8}": ${value}`
                   );
                 }
                 value = num3;
               } else if (!this._isServer) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key7}": ${value}`
+                  `Invalid value for parameter "${key8}": ${value}`
                 );
               }
-            } else if (key7 === "server_max_window_bits") {
+            } else if (key8 === "server_max_window_bits") {
               const num3 = +value;
               if (!Number.isInteger(num3) || num3 < 8 || num3 > 15) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key7}": ${value}`
+                  `Invalid value for parameter "${key8}": ${value}`
                 );
               }
               value = num3;
-            } else if (key7 === "client_no_context_takeover" || key7 === "server_no_context_takeover") {
+            } else if (key8 === "client_no_context_takeover" || key8 === "server_no_context_takeover") {
               if (value !== true) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key7}": ${value}`
+                  `Invalid value for parameter "${key8}": ${value}`
                 );
               }
             } else {
-              throw new Error(`Unknown parameter "${key7}"`);
+              throw new Error(`Unknown parameter "${key8}"`);
             }
-            params[key7] = value;
+            params[key8] = value;
           });
         });
         return configurations;
@@ -26751,8 +26751,8 @@ var require_permessage_deflate = __commonJS({
       _decompress(data, fin, callback) {
         const endpoint = this._isServer ? "client" : "server";
         if (!this._inflate) {
-          const key7 = `${endpoint}_max_window_bits`;
-          const windowBits = typeof this.params[key7] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key7];
+          const key8 = `${endpoint}_max_window_bits`;
+          const windowBits = typeof this.params[key8] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key8];
           this._inflate = zlib.createInflateRaw({
             ...this._options.zlibInflateOptions,
             windowBits
@@ -26802,8 +26802,8 @@ var require_permessage_deflate = __commonJS({
       _compress(data, fin, callback) {
         const endpoint = this._isServer ? "server" : "client";
         if (!this._deflate) {
-          const key7 = `${endpoint}_max_window_bits`;
-          const windowBits = typeof this.params[key7] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key7];
+          const key8 = `${endpoint}_max_window_bits`;
+          const windowBits = typeof this.params[key8] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key8];
           this._deflate = zlib.createDeflateRaw({
             ...this._options.zlibDeflateOptions,
             windowBits
@@ -29066,7 +29066,7 @@ var require_websocket = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key7 = randomBytes(16).toString("base64");
+      const key8 = randomBytes(16).toString("base64");
       const request = isSecure ? https.request : http.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -29077,7 +29077,7 @@ var require_websocket = __commonJS({
       opts.headers = {
         ...opts.headers,
         "Sec-WebSocket-Version": opts.protocolVersion,
-        "Sec-WebSocket-Key": key7,
+        "Sec-WebSocket-Key": key8,
         Connection: "Upgrade",
         Upgrade: "websocket"
       };
@@ -29128,8 +29128,8 @@ var require_websocket = __commonJS({
           const headers = options && options.headers;
           options = { ...options, headers: {} };
           if (headers) {
-            for (const [key8, value] of Object.entries(headers)) {
-              options.headers[key8.toLowerCase()] = value;
+            for (const [key9, value] of Object.entries(headers)) {
+              options.headers[key9.toLowerCase()] = value;
             }
           }
         } else if (websocket.listenerCount("redirect") === 0) {
@@ -29196,7 +29196,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash("sha1").update(key7 + GUID).digest("base64");
+        const digest = createHash("sha1").update(key8 + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -29756,7 +29756,7 @@ var require_websocket_server = __commonJS({
        */
       handleUpgrade(req, socket, head, cb) {
         socket.on("error", socketOnError);
-        const key7 = req.headers["sec-websocket-key"];
+        const key8 = req.headers["sec-websocket-key"];
         const upgrade = req.headers.upgrade;
         const version4 = +req.headers["sec-websocket-version"];
         if (req.method !== "GET") {
@@ -29769,7 +29769,7 @@ var require_websocket_server = __commonJS({
           abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
           return;
         }
-        if (key7 === void 0 || !keyRegex.test(key7)) {
+        if (key8 === void 0 || !keyRegex.test(key8)) {
           const message2 = "Missing or invalid Sec-WebSocket-Key header";
           abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
           return;
@@ -29829,7 +29829,7 @@ var require_websocket_server = __commonJS({
               }
               this.completeUpgrade(
                 extensions,
-                key7,
+                key8,
                 protocols,
                 req,
                 socket,
@@ -29841,7 +29841,7 @@ var require_websocket_server = __commonJS({
           }
           if (!this.options.verifyClient(info)) return abortHandshake(socket, 401);
         }
-        this.completeUpgrade(extensions, key7, protocols, req, socket, head, cb);
+        this.completeUpgrade(extensions, key8, protocols, req, socket, head, cb);
       }
       /**
        * Upgrade the connection to WebSocket.
@@ -29856,7 +29856,7 @@ var require_websocket_server = __commonJS({
        * @throws {Error} If called more than once with the same socket
        * @private
        */
-      completeUpgrade(extensions, key7, protocols, req, socket, head, cb) {
+      completeUpgrade(extensions, key8, protocols, req, socket, head, cb) {
         if (!socket.readable || !socket.writable) return socket.destroy();
         if (socket[kWebSocket]) {
           throw new Error(
@@ -29864,7 +29864,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash("sha1").update(key7 + GUID).digest("base64");
+        const digest = createHash("sha1").update(key8 + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -30238,9 +30238,9 @@ function readProtobufMessage(data, def) {
   const fieldReader = new FieldReader(msgReader);
   let value = def.default();
   while (!msgReader.eof()) {
-    const key7 = msgReader.varint();
-    const tag2 = key7 >> 3;
-    const wireType = key7 & 7;
+    const key8 = msgReader.varint();
+    const tag2 = key8 >> 3;
+    const wireType = key8 & 7;
     fieldReader.setup(wireType);
     const tagFun = def[tag2];
     if (tagFun !== void 0) {
@@ -32015,12 +32015,12 @@ var init_protobuf_decode = __esm({
         return { stepResults: /* @__PURE__ */ new Map(), stepErrors: /* @__PURE__ */ new Map() };
       },
       1(r, msg) {
-        const [key7, value] = r.message(BatchResultStepResult);
-        msg.stepResults.set(key7, value);
+        const [key8, value] = r.message(BatchResultStepResult);
+        msg.stepResults.set(key8, value);
       },
       2(r, msg) {
-        const [key7, value] = r.message(BatchResultStepError);
-        msg.stepErrors.set(key7, value);
+        const [key8, value] = r.message(BatchResultStepError);
+        msg.stepErrors.set(key8, value);
       }
     };
     BatchResultStepResult = {
@@ -33697,8 +33697,8 @@ function stmtToHrana(stmt) {
     if (Array.isArray(args)) {
       hranaStmt.bindIndexes(args);
     } else {
-      for (const [key7, value] of Object.entries(args)) {
-        hranaStmt.bindName(key7, value);
+      for (const [key8, value] of Object.entries(args)) {
+        hranaStmt.bindName(key8, value);
       }
     }
   }
@@ -33968,16 +33968,16 @@ var init_sql_cache = __esm({
       constructor() {
         this.#cache = /* @__PURE__ */ new Map();
       }
-      get(key7) {
-        const value = this.#cache.get(key7);
+      get(key8) {
+        const value = this.#cache.get(key8);
         if (value !== void 0) {
-          this.#cache.delete(key7);
-          this.#cache.set(key7, value);
+          this.#cache.delete(key8);
+          this.#cache.set(key8, value);
         }
         return value;
       }
-      set(key7, value) {
-        this.#cache.set(key7, value);
+      set(key8, value) {
+        this.#cache.set(key8, value);
       }
       peekLru() {
         for (const entry of this.#cache.entries()) {
@@ -33985,8 +33985,8 @@ var init_sql_cache = __esm({
         }
         return void 0;
       }
-      delete(key7) {
-        this.#cache.delete(key7);
+      delete(key8) {
+        this.#cache.delete(key8);
       }
       get size() {
         return this.#cache.size;
@@ -34626,9 +34626,9 @@ var init_core3 = __esm({
 
 // node_modules/drizzle-orm/libsql/session.js
 function normalizeRow(obj) {
-  return Object.keys(obj).reduce((acc, key7) => {
-    if (Object.prototype.propertyIsEnumerable.call(obj, key7)) {
-      acc[key7] = obj[key7];
+  return Object.keys(obj).reduce((acc, key8) => {
+    if (Object.prototype.propertyIsEnumerable.call(obj, key8)) {
+      acc[key8] = obj[key8];
     }
     return acc;
   }, {});
@@ -35463,7 +35463,7 @@ var require_bcrypt = __commonJS({
           }
         };
         utfx2.decodeUTF8 = function(src, dst) {
-          var a, b, c, d6, fail = function(b2) {
+          var a, b, c, d7, fail = function(b2) {
             b2 = b2.slice(0, b2.indexOf(null));
             var err = Error(b2.toString());
             err.name = "TruncatedError";
@@ -35478,7 +35478,7 @@ var require_bcrypt = __commonJS({
             else if ((a & 240) === 224)
               ((b = src()) === null || (c = src()) === null) && fail([a, b, c]), dst((a & 15) << 12 | (b & 63) << 6 | c & 63);
             else if ((a & 248) === 240)
-              ((b = src()) === null || (c = src()) === null || (d6 = src()) === null) && fail([a, b, c, d6]), dst((a & 7) << 18 | (b & 63) << 12 | (c & 63) << 6 | d6 & 63);
+              ((b = src()) === null || (c = src()) === null || (d7 = src()) === null) && fail([a, b, c, d7]), dst((a & 7) << 18 | (b & 63) << 12 | (c & 63) << 6 | d7 & 63);
             else throw RangeError("Illegal starting byte: " + a);
           }
         };
@@ -36696,19 +36696,19 @@ var require_bcrypt = __commonJS({
           word = word << 8 | data[offp] & 255, offp = (offp + 1) % data.length;
         return { key: word, offp };
       }
-      function _key(key7, P, S) {
+      function _key(key8, P, S) {
         var offset = 0, lr = [0, 0], plen = P.length, slen = S.length, sw;
         for (var i = 0; i < plen; i++)
-          sw = _streamtoword(key7, offset), offset = sw.offp, P[i] = P[i] ^ sw.key;
+          sw = _streamtoword(key8, offset), offset = sw.offp, P[i] = P[i] ^ sw.key;
         for (i = 0; i < plen; i += 2)
           lr = _encipher(lr, 0, P, S), P[i] = lr[0], P[i + 1] = lr[1];
         for (i = 0; i < slen; i += 2)
           lr = _encipher(lr, 0, P, S), S[i] = lr[0], S[i + 1] = lr[1];
       }
-      function _ekskey(data, key7, P, S) {
+      function _ekskey(data, key8, P, S) {
         var offp = 0, lr = [0, 0], plen = P.length, slen = S.length, sw;
         for (var i = 0; i < plen; i++)
-          sw = _streamtoword(key7, offp), offp = sw.offp, P[i] = P[i] ^ sw.key;
+          sw = _streamtoword(key8, offp), offp = sw.offp, P[i] = P[i] ^ sw.key;
         offp = 0;
         for (i = 0; i < plen; i += 2)
           sw = _streamtoword(data, offp), offp = sw.offp, lr[0] ^= sw.key, sw = _streamtoword(data, offp), offp = sw.offp, lr[1] ^= sw.key, lr = _encipher(lr, 0, P, S), P[i] = lr[0], P[i + 1] = lr[1];
@@ -36902,7 +36902,7 @@ var require_main = __commonJS({
       lines = lines.replace(/\r\n?/mg, "\n");
       let match2;
       while ((match2 = LINE.exec(lines)) != null) {
-        const key7 = match2[1];
+        const key8 = match2[1];
         let value = match2[2] || "";
         value = value.trim();
         const maybeQuote = value[0];
@@ -36911,7 +36911,7 @@ var require_main = __commonJS({
           value = value.replace(/\\n/g, "\n");
           value = value.replace(/\\r/g, "\r");
         }
-        obj[key7] = value;
+        obj[key8] = value;
       }
       return obj;
     }
@@ -36930,8 +36930,8 @@ var require_main = __commonJS({
       let decrypted;
       for (let i = 0; i < length; i++) {
         try {
-          const key7 = keys[i].trim();
-          const attrs = _instructions(result, key7);
+          const key8 = keys[i].trim();
+          const attrs = _instructions(result, key8);
           decrypted = DotenvModule.decrypt(attrs.ciphertext, attrs.key);
           break;
         } catch (error48) {
@@ -36972,8 +36972,8 @@ var require_main = __commonJS({
         }
         throw error48;
       }
-      const key7 = uri.password;
-      if (!key7) {
+      const key8 = uri.password;
+      if (!key8) {
         const err = new Error("INVALID_DOTENV_KEY: Missing key part");
         err.code = "INVALID_DOTENV_KEY";
         throw err;
@@ -36991,7 +36991,7 @@ var require_main = __commonJS({
         err.code = "NOT_FOUND_DOTENV_ENVIRONMENT";
         throw err;
       }
-      return { ciphertext, key: key7 };
+      return { ciphertext, key: key8 };
     }
     function _vaultPath(options) {
       let possibleVaultPath = null;
@@ -37107,13 +37107,13 @@ var require_main = __commonJS({
       return DotenvModule._configVault(options);
     }
     function decrypt(encrypted, keyStr) {
-      const key7 = Buffer.from(keyStr.slice(-64), "hex");
+      const key8 = Buffer.from(keyStr.slice(-64), "hex");
       let ciphertext = Buffer.from(encrypted, "base64");
       const nonce = ciphertext.subarray(0, 12);
       const authTag = ciphertext.subarray(-16);
       ciphertext = ciphertext.subarray(12, -16);
       try {
-        const aesgcm = crypto10.createDecipheriv("aes-256-gcm", key7, nonce);
+        const aesgcm = crypto10.createDecipheriv("aes-256-gcm", key8, nonce);
         aesgcm.setAuthTag(authTag);
         return `${aesgcm.update(ciphertext)}${aesgcm.final()}`;
       } catch (error48) {
@@ -37142,22 +37142,22 @@ var require_main = __commonJS({
         err.code = "OBJECT_REQUIRED";
         throw err;
       }
-      for (const key7 of Object.keys(parsed)) {
-        if (Object.prototype.hasOwnProperty.call(processEnv, key7)) {
+      for (const key8 of Object.keys(parsed)) {
+        if (Object.prototype.hasOwnProperty.call(processEnv, key8)) {
           if (override === true) {
-            processEnv[key7] = parsed[key7];
-            populated[key7] = parsed[key7];
+            processEnv[key8] = parsed[key8];
+            populated[key8] = parsed[key8];
           }
           if (debug) {
             if (override === true) {
-              _debug(`"${key7}" is already defined and WAS overwritten`);
+              _debug(`"${key8}" is already defined and WAS overwritten`);
             } else {
-              _debug(`"${key7}" is already defined and was NOT overwritten`);
+              _debug(`"${key8}" is already defined and was NOT overwritten`);
             }
           }
         } else {
-          processEnv[key7] = parsed[key7];
-          populated[key7] = parsed[key7];
+          processEnv[key8] = parsed[key8];
+          populated[key8] = parsed[key8];
         }
       }
       return populated;
@@ -37269,9 +37269,9 @@ var require_dist2 = __commonJS({
           index = str.lastIndexOf(";", eqIdx - 1) + 1;
           continue;
         }
-        const key7 = valueSlice(str, index, eqIdx);
-        if (obj[key7] === void 0) {
-          obj[key7] = dec(valueSlice(str, eqIdx + 1, endIdx));
+        const key8 = valueSlice(str, index, eqIdx);
+        if (obj[key8] === void 0) {
+          obj[key8] = dec(valueSlice(str, eqIdx + 1, endIdx));
         }
         index = endIdx + 1;
       } while (index < len);
@@ -38621,17 +38621,17 @@ function isRelevantForPeriod(c, asOf = /* @__PURE__ */ new Date()) {
 function daysBetween(a, b) {
   return Math.round((a.getTime() - b.getTime()) / DAY);
 }
-function addMonths(d6, n) {
-  const r = new Date(Date.UTC(d6.getUTCFullYear(), d6.getUTCMonth() + n, 1));
+function addMonths(d7, n) {
+  const r = new Date(Date.UTC(d7.getUTCFullYear(), d7.getUTCMonth() + n, 1));
   const lastDay = new Date(Date.UTC(r.getUTCFullYear(), r.getUTCMonth() + 1, 0)).getUTCDate();
-  r.setUTCDate(Math.min(d6.getUTCDate(), lastDay));
+  r.setUTCDate(Math.min(d7.getUTCDate(), lastDay));
   return r;
 }
 function endOfMonth(year2, monthIdx0) {
   return new Date(Date.UTC(year2, monthIdx0 + 1, 0));
 }
-function ymd(d6) {
-  return d6.toISOString().slice(0, 10);
+function ymd(d7) {
+  return d7.toISOString().slice(0, 10);
 }
 function computeHstStatus(opts) {
   const { hasHST, asOf } = opts;
@@ -38788,8 +38788,8 @@ async function linkDriveFolders() {
     if (direct) return direct;
     const clientNums = /* @__PURE__ */ new Set([...longNums(c.name), ...longNums(c.company)]);
     if (clientNums.size) {
-      for (const [key7, id] of Object.entries(NAME_TO_FOLDER)) {
-        if (longNums(key7).some((n) => clientNums.has(n))) return id;
+      for (const [key8, id] of Object.entries(NAME_TO_FOLDER)) {
+        if (longNums(key8).some((n) => clientNums.has(n))) return id;
       }
     }
     return null;
@@ -39055,7 +39055,7 @@ async function pushEventToGoogle(eventId) {
       location: ev.location || void 0
     };
     if (ev.isAllDay) {
-      const ymd2 = (d6) => new Date(d6).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+      const ymd2 = (d7) => new Date(d7).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
       const startYmd = ymd2(ev.startDate);
       const endD = new Date(new Date(ev.endDate || ev.startDate).getTime() + 864e5);
       payload.start = { date: startYmd };
@@ -39123,9 +39123,9 @@ function extractPriority(text2) {
   return { text: out.replace(/\s+/g, " ").trim(), priority };
 }
 function extractDueDate(text2, now = /* @__PURE__ */ new Date()) {
-  const at2 = (d6) => {
-    d6.setHours(17, 0, 0, 0);
-    return d6;
+  const at2 = (d7) => {
+    d7.setHours(17, 0, 0, 0);
+    return d7;
   };
   const lower = text2.toLowerCase();
   const rel = [
@@ -39149,8 +39149,8 @@ function extractDueDate(text2, now = /* @__PURE__ */ new Date()) {
   const wd = lower.match(/\b(?:by |on |next )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
   if (wd) {
     const target = WEEKDAYS.indexOf(wd[1]);
-    const d6 = new Date(now);
-    let delta = (target - d6.getDay() + 7) % 7;
+    const d7 = new Date(now);
+    let delta = (target - d7.getDay() + 7) % 7;
     if (delta === 0) delta = 7;
     return { text: stripMatch(text2, /\b(?:by |on |next )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i), dueDate: at2(addDays(now, delta)) };
   }
@@ -39168,16 +39168,16 @@ function extractDueDate(text2, now = /* @__PURE__ */ new Date()) {
 function stripMatch(text2, re) {
   return text2.replace(re, "").replace(/\s{2,}/g, " ").replace(/\s+([:,.;])/g, "$1").trim().replace(/^[\s:,-]+|[\s:,-]+$/g, "").trim();
 }
-function addDays(d6, n) {
-  const x = new Date(d6);
+function addDays(d7, n) {
+  const x = new Date(d7);
   x.setDate(x.getDate() + n);
   return x;
 }
-function endOfWeek(d6) {
-  return addDays(d6, (5 - d6.getDay() + 7) % 7 || 0);
+function endOfWeek(d7) {
+  return addDays(d7, (5 - d7.getDay() + 7) % 7 || 0);
 }
-function endOfMonth2(d6) {
-  return new Date(d6.getFullYear(), d6.getMonth() + 1, 0);
+function endOfMonth2(d7) {
+  return new Date(d7.getFullYear(), d7.getMonth() + 1, 0);
 }
 function matchClient(text2, clients3) {
   const n = norm3(text2);
@@ -39197,8 +39197,8 @@ function parseTaskCommand(raw2, clients3, now = /* @__PURE__ */ new Date()) {
   let text2 = stripLeadVerb(raw2);
   const c = matchClient(text2, clients3);
   text2 = c.text;
-  const d6 = extractDueDate(text2, now);
-  text2 = d6.text;
+  const d7 = extractDueDate(text2, now);
+  text2 = d7.text;
   const p = extractPriority(text2);
   text2 = p.text;
   const title = text2.replace(/\s+/g, " ").trim() || raw2.trim();
@@ -39206,7 +39206,7 @@ function parseTaskCommand(raw2, clients3, now = /* @__PURE__ */ new Date()) {
     title,
     clientId: c.client?.id,
     clientName: c.client?.name,
-    dueDate: d6.dueDate,
+    dueDate: d7.dueDate,
     priority: p.priority,
     matchedClient: !!c.client
   };
@@ -39309,13 +39309,13 @@ function deriveKey(purpose) {
 function encryptSecret(plain) {
   if (plain == null || plain === "") return null;
   if (plain.startsWith(ENC_PREFIX)) return plain;
-  const key7 = deriveKey("token");
-  if (!key7) {
+  const key8 = deriveKey("token");
+  if (!key8) {
     warnNoKeyOnce();
     return plain;
   }
   const iv = crypto2.randomBytes(12);
-  const cipher = crypto2.createCipheriv("aes-256-gcm", key7, iv);
+  const cipher = crypto2.createCipheriv("aes-256-gcm", key8, iv);
   const ct = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
   const tag2 = cipher.getAuthTag();
   return `${ENC_PREFIX}${iv.toString("base64")}:${tag2.toString("base64")}:${ct.toString("base64")}`;
@@ -39323,8 +39323,8 @@ function encryptSecret(plain) {
 function decryptSecret(stored) {
   if (stored == null || stored === "") return stored ?? null;
   if (!stored.startsWith(ENC_PREFIX)) return stored;
-  const key7 = deriveKey("token");
-  if (!key7) {
+  const key8 = deriveKey("token");
+  if (!key8) {
     warnNoKeyOnce();
     return null;
   }
@@ -39333,7 +39333,7 @@ function decryptSecret(stored) {
     const iv = Buffer.from(ivB64, "base64");
     const tag2 = Buffer.from(tagB64, "base64");
     const ct = Buffer.from(ctB64, "base64");
-    const decipher = crypto2.createDecipheriv("aes-256-gcm", key7, iv);
+    const decipher = crypto2.createDecipheriv("aes-256-gcm", key8, iv);
     decipher.setAuthTag(tag2);
     return Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8");
   } catch (e) {
@@ -39349,24 +39349,24 @@ function signState(payload) {
     ts: Date.now()
   };
   const body = Buffer.from(JSON.stringify(state)).toString("base64url");
-  const key7 = deriveKey("state");
-  if (!key7) {
+  const key8 = deriveKey("state");
+  if (!key8) {
     warnNoKeyOnce();
     return body;
   }
-  const sig = crypto2.createHmac("sha256", key7).update(body).digest("base64url");
+  const sig = crypto2.createHmac("sha256", key8).update(body).digest("base64url");
   return `${body}.${sig}`;
 }
 function verifyState(raw2) {
   if (!raw2) return null;
-  const key7 = deriveKey("state");
+  const key8 = deriveKey("state");
   let body = raw2;
-  if (key7) {
+  if (key8) {
     const dot = raw2.lastIndexOf(".");
     if (dot < 0) return null;
     body = raw2.slice(0, dot);
     const sig = raw2.slice(dot + 1);
-    const expected = crypto2.createHmac("sha256", key7).update(body).digest("base64url");
+    const expected = crypto2.createHmac("sha256", key8).update(body).digest("base64url");
     if (sig.length !== expected.length || !crypto2.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   } else {
     warnNoKeyOnce();
@@ -40302,8 +40302,8 @@ function decideDedup(candidate, existing, amountTolerance = 0.01, dateToleranceD
   const inv = normalizeInvoiceNumber(candidate.invoiceNumber);
   if (inv) {
     const hit = existing.find((e) => {
-      const d6 = normalizeInvoiceNumber(e.docNumber);
-      return d6 !== "" && d6 === inv;
+      const d7 = normalizeInvoiceNumber(e.docNumber);
+      return d7 !== "" && d7 === inv;
     });
     if (hit) return { isDuplicate: true, reason: "invoice_match", matchedTxnId: hit.txnId, matchedDocNumber: hit.docNumber };
   }
@@ -40819,8 +40819,8 @@ async function sheetsApi2(url2, method, body) {
   if (process.env.FIGGY_SHEET_SYNC_DISABLE === "on") return null;
   let rawUrl = url2;
   try {
-    const d6 = decodeURIComponent(url2);
-    if (d6) rawUrl = d6;
+    const d7 = decodeURIComponent(url2);
+    if (d7) rawUrl = d7;
   } catch {
   }
   const res = await fetch(SYNC_WEBHOOK, {
@@ -40945,11 +40945,11 @@ function syncClientToMaster(c) {
   upsertClientToMaster(c).catch(() => {
   });
 }
-function leadValue(c, key7) {
-  switch (key7) {
+function leadValue(c, key8) {
+  switch (key8) {
     case "dateReceived": {
-      const d6 = c.createdAt ? new Date(c.createdAt) : null;
-      return d6 && !isNaN(+d6) ? d6.toISOString().slice(0, 10) : "";
+      const d7 = c.createdAt ? new Date(c.createdAt) : null;
+      return d7 && !isNaN(+d7) ? d7.toISOString().slice(0, 10) : "";
     }
     case "leadName":
       return c.contactName || c.name || "";
@@ -42300,8 +42300,8 @@ __export(stat_holidays_exports, {
 });
 function easterSunday(year2) {
   const a = year2 % 19, b = Math.floor(year2 / 100), c = year2 % 100;
-  const d6 = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d6 - g + 15) % 30;
+  const d7 = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d7 - g + 15) % 30;
   const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
   const m = Math.floor((a + 11 * h + 22 * l) / 451);
   const month = Math.floor((h + l - 7 * m + 114) / 31);
@@ -42314,15 +42314,15 @@ function nthWeekday(year2, month, weekday, n) {
   return new Date(year2, month, 1 + offset + (n - 1) * 7);
 }
 function victoriaDay(year2) {
-  const d6 = new Date(year2, 4, 25);
-  while (d6.getDay() !== 1) d6.setDate(d6.getDate() - 1);
-  return d6;
+  const d7 = new Date(year2, 4, 25);
+  while (d7.getDay() !== 1) d7.setDate(d7.getDate() - 1);
+  return d7;
 }
-function observed(d6) {
-  const wd = d6.getDay();
-  if (wd === 6) return new Date(d6.getFullYear(), d6.getMonth(), d6.getDate() + 2);
-  if (wd === 0) return new Date(d6.getFullYear(), d6.getMonth(), d6.getDate() + 1);
-  return d6;
+function observed(d7) {
+  const wd = d7.getDay();
+  if (wd === 6) return new Date(d7.getFullYear(), d7.getMonth(), d7.getDate() + 2);
+  if (wd === 0) return new Date(d7.getFullYear(), d7.getMonth(), d7.getDate() + 1);
+  return d7;
 }
 function ontarioStatHolidays(year2) {
   const easter = easterSunday(year2);
@@ -42352,14 +42352,14 @@ function statHolidaysInRange(startISO, endISO) {
 }
 function statHolidaysObservedInRange(startISO, endISO) {
   return statHolidaysInRange(startISO, endISO).map((h) => {
-    const [y, m, d6] = h.date.split("-").map(Number);
-    return { date: iso(observed(new Date(y, m - 1, d6))), name: h.name };
+    const [y, m, d7] = h.date.split("-").map(Number);
+    return { date: iso(observed(new Date(y, m - 1, d7))), name: h.name };
   });
 }
 var iso;
 var init_stat_holidays = __esm({
   "api/stat-holidays.ts"() {
-    iso = (d6) => `${d6.getFullYear()}-${String(d6.getMonth() + 1).padStart(2, "0")}-${String(d6.getDate()).padStart(2, "0")}`;
+    iso = (d7) => `${d7.getFullYear()}-${String(d7.getMonth() + 1).padStart(2, "0")}-${String(d7.getDate()).padStart(2, "0")}`;
   }
 });
 
@@ -42390,9 +42390,9 @@ async function ensureAppSettings() {
     console.error("[jobber] ensure app_settings failed:", e instanceof Error ? e.message : e);
   }
 }
-async function getCred(key7, envVal) {
+async function getCred(key8, envVal) {
   try {
-    const rows = await getDb().select().from(appSettings).where(eq(appSettings.key, key7)).limit(1);
+    const rows = await getDb().select().from(appSettings).where(eq(appSettings.key, key8)).limit(1);
     const stored = rows[0]?.value;
     if (stored) return decryptSecret(stored) || null;
   } catch {
@@ -42720,8 +42720,8 @@ async function readWorkbookText(userId, sheetId) {
       headers: { Authorization: `Bearer ${token2}` }
     });
     if (!r.ok) continue;
-    const d6 = await r.json();
-    const rows = d6.values || [];
+    const d7 = await r.json();
+    const rows = d7.values || [];
     out += `
 ### TAB: ${t2}
 ` + rows.map((row) => row.join("	")).join("\n");
@@ -42852,8 +42852,8 @@ async function readEmployeeRosterFromWorkbook(userId, clientName) {
   const lastTab = titles[titles.length - 1];
   const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(lastTab)}`, { headers: { Authorization: `Bearer ${token2}` } });
   if (!r.ok) throw new Error(`Couldn't read the "${lastTab}" tab (${r.status}).`);
-  const d6 = await r.json();
-  const rows = d6.values || [];
+  const d7 = await r.json();
+  const rows = d7.values || [];
   const text2 = (`### TAB: ${lastTab}
 ` + rows.map((row) => row.join("	")).join("\n")).slice(0, 6e4);
   const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
@@ -43324,14 +43324,14 @@ async function pullT4FromQbo(_clientId, _year) {
 function periodsElapsedBeforeRun(run2) {
   const start = new Date(run2.payPeriodStart);
   const m = start.getMonth();
-  const d6 = start.getDate();
+  const d7 = start.getDate();
   switch (normalizeFrequency(run2?.frequency)) {
     case "weekly":
       return Math.max(0, Math.floor((start.getTime() - new Date(start.getFullYear(), 0, 1).getTime()) / (7 * 864e5)));
     case "biweekly":
       return Math.max(0, Math.floor((start.getTime() - new Date(start.getFullYear(), 0, 1).getTime()) / (14 * 864e5)));
     case "semi_monthly":
-      return m * 2 + (d6 > 15 ? 1 : 0);
+      return m * 2 + (d7 > 15 ? 1 : 0);
     default:
       return m;
   }
@@ -43426,17 +43426,17 @@ async function recomputeRunTotals(runId) {
 async function applyImportedHours(db, runId, clientId, hours) {
   const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
   const rosterExists = emps.length > 0;
-  const norm18 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  const norm19 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
   const byAlias = /* @__PURE__ */ new Map(), byFull = /* @__PURE__ */ new Map(), byFirst = /* @__PURE__ */ new Map();
   const byLast = /* @__PURE__ */ new Map();
   const byJobberId = /* @__PURE__ */ new Map();
   for (const e of emps) {
     if (e.jobberUserId) byJobberId.set(String(e.jobberUserId), e);
-    if (e.jobberName) byAlias.set(norm18(e.jobberName), e);
-    byFull.set(norm18(`${e.firstName} ${e.lastName}`), e);
-    byFull.set(norm18(`${e.lastName}, ${e.firstName}`), e);
-    if (!byFirst.has(norm18(e.firstName))) byFirst.set(norm18(e.firstName), e);
-    const ln = norm18(e.lastName);
+    if (e.jobberName) byAlias.set(norm19(e.jobberName), e);
+    byFull.set(norm19(`${e.firstName} ${e.lastName}`), e);
+    byFull.set(norm19(`${e.lastName}, ${e.firstName}`), e);
+    if (!byFirst.has(norm19(e.firstName))) byFirst.set(norm19(e.firstName), e);
+    const ln = norm19(e.lastName);
     if (ln) byLast.set(ln, byLast.has(ln) ? "AMBIG" : e);
   }
   const parseName = (label) => {
@@ -43450,17 +43450,17 @@ async function applyImportedHours(db, runId, clientId, hours) {
     return { first: t2[0] || "", last: t2.slice(1).join(" ") };
   };
   const matchEmp = (label) => {
-    const n = norm18(label);
+    const n = norm19(label);
     let m = byAlias.get(n) || byFull.get(n);
     if (m) return m;
     const { first, last } = parseName(label);
-    m = byFull.get(norm18(`${first} ${last}`)) || byFull.get(norm18(`${last}, ${first}`));
+    m = byFull.get(norm19(`${first} ${last}`)) || byFull.get(norm19(`${last}, ${first}`));
     if (m) return m;
     if (last) {
-      const bl = byLast.get(norm18(last));
+      const bl = byLast.get(norm19(last));
       if (bl && bl !== "AMBIG") return bl;
     }
-    return byFirst.get(norm18(first)) || byFirst.get(norm18(n.split(/[ ,]/)[0])) || null;
+    return byFirst.get(norm19(first)) || byFirst.get(norm19(n.split(/[ ,]/)[0])) || null;
   };
   const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
   const lineByEmp = new Map(lines.map((l) => [l.employeeId, l]));
@@ -43490,10 +43490,10 @@ async function applyImportedHours(db, runId, clientId, hours) {
       }).returning();
       emp = ins;
       created.push(`${ins.firstName} ${ins.lastName}`.trim());
-      byFull.set(norm18(h.userName), ins);
-      byFull.set(norm18(`${ins.firstName} ${ins.lastName}`), ins);
-      byFull.set(norm18(`${ins.lastName}, ${ins.firstName}`), ins);
-      if (ins.firstName && !byFirst.has(norm18(ins.firstName))) byFirst.set(norm18(ins.firstName), ins);
+      byFull.set(norm19(h.userName), ins);
+      byFull.set(norm19(`${ins.firstName} ${ins.lastName}`), ins);
+      byFull.set(norm19(`${ins.lastName}, ${ins.firstName}`), ins);
+      if (ins.firstName && !byFirst.has(norm19(ins.firstName))) byFirst.set(norm19(ins.firstName), ins);
     }
     const note = longShiftNote2(h.maxShiftHours ?? 0);
     if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
@@ -43550,9 +43550,9 @@ var init_payroll_router = __esm({
         const eligibleIds = new Set(emps.filter((e) => e.wsibEligible !== false).map((e) => e.id));
         const runs = await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId));
         const inQuarter = runs.filter((r) => {
-          const d6 = r.payDate || r.payPeriodEnd;
-          if (!d6) return false;
-          const dt = new Date(d6);
+          const d7 = r.payDate || r.payPeriodEnd;
+          if (!d7) return false;
+          const dt = new Date(d7);
           return dt.getUTCFullYear() === year2 && dt.getUTCMonth() >= qStartMonth && dt.getUTCMonth() < qStartMonth + 3;
         });
         const runIds = new Set(inQuarter.map((r) => r.id));
@@ -43633,8 +43633,8 @@ var init_payroll_router = __esm({
         const byClient = /* @__PURE__ */ new Map();
         let totalGross = 0, totalNet = 0, totalRuns = 0;
         for (const r of runs) {
-          const d6 = new Date(r.payDate || r.payPeriodEnd);
-          if (d6.getFullYear() !== year2) continue;
+          const d7 = new Date(r.payDate || r.payPeriodEnd);
+          if (d7.getFullYear() !== year2) continue;
           if (allowed !== null && !allowed.includes(r.clientId)) continue;
           const cur = byClient.get(r.clientId) || { clientId: r.clientId, name: nameById.get(r.clientId) || `#${r.clientId}`, runs: 0, gross: 0, net: 0 };
           cur.runs++;
@@ -43858,9 +43858,9 @@ var init_payroll_router = __esm({
         }
         const { recordRateChange: recordRateChange2 } = await Promise.resolve().then(() => (init_employee_router(), employee_router_exports));
         const existing = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
-        const norm18 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+        const norm19 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
         const byName = /* @__PURE__ */ new Map();
-        for (const e of existing) byName.set(norm18(`${e.firstName} ${e.lastName}`), e);
+        for (const e of existing) byName.set(norm19(`${e.firstName} ${e.lastName}`), e);
         const parseName = (label) => {
           const s = (label || "").trim();
           if (s.includes(",")) {
@@ -43875,7 +43875,7 @@ var init_payroll_router = __esm({
           const { first, last } = parseName(row.name);
           if (!first && !last) continue;
           const eff = row.effectiveDate ? /* @__PURE__ */ new Date(row.effectiveDate + "T12:00:00") : /* @__PURE__ */ new Date();
-          const hit = byName.get(norm18(`${first} ${last}`)) || byName.get(norm18(row.name));
+          const hit = byName.get(norm19(`${first} ${last}`)) || byName.get(norm19(row.name));
           if (hit) {
             const changed = row.hourlyRate != null && row.hourlyRate !== hit.hourlyRate || row.annualSalary != null && row.annualSalary !== hit.annualSalary;
             if (changed) {
@@ -43887,7 +43887,7 @@ var init_payroll_router = __esm({
             const [ins] = await db.insert(employees).values({ clientId: input.clientId, firstName: first || row.name, lastName: last || "", payType: row.payType ?? "hourly", hourlyRate: row.hourlyRate ?? null, annualSalary: row.annualSalary ?? null, isActive: true }).returning();
             await recordRateChange2(db, { employeeId: ins.id, clientId: input.clientId, payType: ins.payType, hourlyRate: ins.hourlyRate, annualSalary: ins.annualSalary, effectiveDate: eff, note: "Starting rate (roster sheet)", source: "roster_sheet" });
             created.push(`${first} ${last}`.trim());
-            byName.set(norm18(`${first} ${last}`), ins);
+            byName.set(norm19(`${first} ${last}`), ins);
           }
         }
         return { ok: true, created, updated, total: roster.length };
@@ -44306,15 +44306,15 @@ __export(message_router_exports, {
   normalizePhone: () => normalizePhone
 });
 function normalizePhone(raw2) {
-  const d6 = (raw2 || "").replace(/\D/g, "");
-  return d6.length > 10 ? d6.slice(-10) : d6;
+  const d7 = (raw2 || "").replace(/\D/g, "");
+  return d7.length > 10 ? d7.slice(-10) : d7;
 }
 async function matchClientByPhone(phone) {
   const db = getDb();
-  const norm18 = normalizePhone(phone);
-  if (!norm18) return null;
+  const norm19 = normalizePhone(phone);
+  if (!norm19) return null;
   const all = await db.select().from(clients);
-  const hit = all.find((c) => normalizePhone(c.phone || "") === norm18);
+  const hit = all.find((c) => normalizePhone(c.phone || "") === norm19);
   return hit ? { id: hit.id, name: hit.name } : null;
 }
 async function ingestInboundSms(from, body, externalId) {
@@ -45072,8 +45072,8 @@ async function createAndSendDoc(opts) {
 async function nextQuoteNumber(db) {
   const rows = await db.select().from(signatureDocuments);
   let max2 = 999;
-  for (const d6 of rows) {
-    const m = /Q-(\d+)/.exec(String(d6.title || ""));
+  for (const d7 of rows) {
+    const m = /Q-(\d+)/.exec(String(d7.title || ""));
     if (m) max2 = Math.max(max2, Number(m[1]));
   }
   return `Q-${max2 + 1}`;
@@ -45249,15 +45249,15 @@ var init_quote_router = __esm({
       documents: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
         const rows = await db.select().from(signatureDocuments).where(eq(signatureDocuments.clientId, input.clientId)).orderBy(desc(signatureDocuments.id));
-        return rows.map((d6) => ({
-          id: d6.id,
-          title: d6.title,
-          documentType: d6.documentType,
-          status: d6.status,
-          portalUrl: d6.portalToken ? `/portal/${d6.portalToken}?tab=signatures` : null,
-          sentAt: d6.sentAt,
-          signedAt: d6.signedAt,
-          signedBy: d6.signedBy
+        return rows.map((d7) => ({
+          id: d7.id,
+          title: d7.title,
+          documentType: d7.documentType,
+          status: d7.status,
+          portalUrl: d7.portalToken ? `/portal/${d7.portalToken}?tab=signatures` : null,
+          sentAt: d7.sentAt,
+          signedAt: d7.signedAt,
+          signedBy: d7.signedBy
         }));
       }),
       // Generate a branded, signable quote and send it to the client portal.
@@ -45529,9 +45529,9 @@ async function capturePracticeSnapshot() {
     let tasksOverdue = 0, tasksUpcoming = 0;
     for (const t2 of openTasks) {
       if (!t2.dueDate) continue;
-      const d6 = new Date(t2.dueDate);
-      if (d6 < startToday) tasksOverdue++;
-      else if (d6 < weekAhead) tasksUpcoming++;
+      const d7 = new Date(t2.dueDate);
+      if (d7 < startToday) tasksOverdue++;
+      else if (d7 < weekAhead) tasksUpcoming++;
     }
     const allInvoices = await db.select().from(invoices);
     const invoiceOutstanding = allInvoices.filter((i) => i.status === "sent" || i.status === "overdue").reduce((s, i) => s + (i.amount || 0), 0);
@@ -45623,11 +45623,11 @@ async function ensureTaxRatesTable() {
     console.error("[tax-fetch] ensure table failed:", e instanceof Error ? e.message : e);
   }
 }
-async function put(key7, value, label, year2, source) {
+async function put(key8, value, label, year2, source) {
   const db = getDb();
-  const existing = await db.select().from(taxRates).where(eq(taxRates.key, key7)).limit(1);
-  const row = { key: key7, value, label, effectiveYear: year2, source, updatedAt: /* @__PURE__ */ new Date() };
-  if (existing[0]) await db.update(taxRates).set(row).where(eq(taxRates.key, key7));
+  const existing = await db.select().from(taxRates).where(eq(taxRates.key, key8)).limit(1);
+  const row = { key: key8, value, label, effectiveYear: year2, source, updatedAt: /* @__PURE__ */ new Date() };
+  if (existing[0]) await db.update(taxRates).set(row).where(eq(taxRates.key, key8));
   else await db.insert(taxRates).values(row);
 }
 async function getTaxRateMap() {
@@ -45680,11 +45680,11 @@ Use decimals for rates (13% = 0.13). Use 0 only if you genuinely cannot verify a
     const yr = Number(p.year) || year2;
     const src = `web_search ${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}`;
     const changed = [];
-    const apply = async (key7, val, label) => {
+    const apply = async (key8, val, label) => {
       const n = Number(val);
       if (!isFinite(n) || n <= 0) return;
-      if (before[key7] == null || Math.abs(before[key7] - n) > 1e-9) changed.push(`${label}: ${before[key7] ?? "\u2014"} \u2192 ${n}`);
-      await put(key7, n, label, yr, src);
+      if (before[key8] == null || Math.abs(before[key8] - n) > 1e-9) changed.push(`${label}: ${before[key8] ?? "\u2014"} \u2192 ${n}`);
+      await put(key8, n, label, yr, src);
     };
     if (p.ca_hst && typeof p.ca_hst === "object") {
       for (const prov of PROVINCES) await apply(`ca.hst.${prov}`, p.ca_hst[prov], `${prov} GST/HST`);
@@ -45960,8 +45960,8 @@ function isEmptyObj(obj) {
     return false;
   return true;
 }
-function hasOwn(obj, key7) {
-  return Object.prototype.hasOwnProperty.call(obj, key7);
+function hasOwn(obj, key8) {
+  return Object.prototype.hasOwnProperty.call(obj, key8);
 }
 var startsWithSchemeRegexp, isAbsoluteURL, isArray3, isReadonlyArray, validatePositiveInteger, safeJSON;
 var init_values = __esm({
@@ -46045,13 +46045,13 @@ function getBrowserInfo() {
     { key: "firefox", pattern: /Firefox(?:\W+(\d+)\.(\d+)(?:\.(\d+))?)?/ },
     { key: "safari", pattern: /(?:Version\W+(\d+)\.(\d+)(?:\.(\d+))?)?(?:\W+Mobile\S*)?\W+Safari/ }
   ];
-  for (const { key: key7, pattern } of browserPatterns) {
+  for (const { key: key8, pattern } of browserPatterns) {
     const match2 = pattern.exec(navigator.userAgent);
     if (match2) {
       const major = match2[1] || 0;
       const minor = match2[2] || 0;
       const patch = match2[3] || 0;
-      return { browser: key7, version: `${major}.${minor}.${patch}` };
+      return { browser: key8, version: `${major}.${minor}.${patch}` };
     }
   }
   return null;
@@ -46286,7 +46286,7 @@ var init_utils3 = __esm({
   "node_modules/@anthropic-ai/sdk/internal/qs/utils.mjs"() {
     init_formats();
     init_values();
-    has = (obj, key7) => (has = Object.hasOwn ?? Function.prototype.call.bind(Object.prototype.hasOwnProperty), has(obj, key7));
+    has = (obj, key8) => (has = Object.hasOwn ?? Function.prototype.call.bind(Object.prototype.hasOwnProperty), has(obj, key8));
     hex_table = /* @__PURE__ */ (() => {
       const array3 = [];
       for (let i = 0; i < 256; ++i) {
@@ -46426,15 +46426,15 @@ function inner_stringify(object3, prefix, generateArrayPrefix, commaRoundTrip, a
     return adjusted_prefix + "[]";
   }
   for (let j = 0; j < obj_keys.length; ++j) {
-    const key7 = obj_keys[j];
+    const key8 = obj_keys[j];
     const value = (
       // @ts-ignore
-      typeof key7 === "object" && typeof key7.value !== "undefined" ? key7.value : obj[key7]
+      typeof key8 === "object" && typeof key8.value !== "undefined" ? key8.value : obj[key8]
     );
     if (skipNulls && value === null) {
       continue;
     }
-    const encoded_key = allowDots && encodeDotInKeys ? key7.replace(/\./g, "%2E") : key7;
+    const encoded_key = allowDots && encodeDotInKeys ? key8.replace(/\./g, "%2E") : key8;
     const key_prefix = isArray3(obj) ? typeof generateArrayPrefix === "function" ? generateArrayPrefix(adjusted_prefix, encoded_key) : adjusted_prefix : adjusted_prefix + (allowDots ? "." + encoded_key : "[" + encoded_key + "]");
     sideChannel.set(object3, step);
     const valueSideChannel = /* @__PURE__ */ new WeakMap();
@@ -46551,13 +46551,13 @@ function stringify2(object3, opts = {}) {
   }
   const sideChannel = /* @__PURE__ */ new WeakMap();
   for (let i = 0; i < obj_keys.length; ++i) {
-    const key7 = obj_keys[i];
-    if (options.skipNulls && obj[key7] === null) {
+    const key8 = obj_keys[i];
+    if (options.skipNulls && obj[key8] === null) {
       continue;
     }
     push_to_array(keys, inner_stringify(
-      obj[key7],
-      key7,
+      obj[key8],
+      key8,
       // @ts-expect-error
       generateArrayPrefix,
       commaRoundTrip,
@@ -46599,8 +46599,8 @@ var init_stringify = __esm({
         return String(prefix) + "[]";
       },
       comma: "comma",
-      indices(prefix, key7) {
-        return String(prefix) + "[" + key7 + "]";
+      indices(prefix, key8) {
+        return String(prefix) + "[" + key8 + "]";
       },
       repeat(prefix) {
         return String(prefix);
@@ -48351,33 +48351,33 @@ var init_uploads = __esm({
         throw new TypeError("The provided fetch function does not support file uploads with the current global FormData class.");
       }
       const form = new FormData();
-      await Promise.all(Object.entries(body || {}).map(([key7, value]) => addFormValue(form, key7, value, stripFilenames)));
+      await Promise.all(Object.entries(body || {}).map(([key8, value]) => addFormValue(form, key8, value, stripFilenames)));
       return form;
     };
     isNamedBlob = (value) => value instanceof Blob && "name" in value;
-    addFormValue = async (form, key7, value, stripFilenames) => {
+    addFormValue = async (form, key8, value, stripFilenames) => {
       if (value === void 0)
         return;
       if (value == null) {
-        throw new TypeError(`Received null for "${key7}"; to pass null in FormData, you must use the string 'null'`);
+        throw new TypeError(`Received null for "${key8}"; to pass null in FormData, you must use the string 'null'`);
       }
       if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-        form.append(key7, String(value));
+        form.append(key8, String(value));
       } else if (value instanceof Response) {
         let options = {};
         const contentType = value.headers.get("Content-Type");
         if (contentType) {
           options = { type: contentType };
         }
-        form.append(key7, makeFile([await value.blob()], getName(value, stripFilenames), options));
+        form.append(key8, makeFile([await value.blob()], getName(value, stripFilenames), options));
       } else if (isAsyncIterable2(value)) {
-        form.append(key7, makeFile([await new Response(ReadableStreamFrom(value)).blob()], getName(value, stripFilenames)));
+        form.append(key8, makeFile([await new Response(ReadableStreamFrom(value)).blob()], getName(value, stripFilenames)));
       } else if (isNamedBlob(value)) {
-        form.append(key7, makeFile([value], getName(value, stripFilenames), { type: value.type }));
+        form.append(key8, makeFile([value], getName(value, stripFilenames), { type: value.type }));
       } else if (Array.isArray(value)) {
-        await Promise.all(value.map((entry) => addFormValue(form, key7 + "[]", entry, stripFilenames)));
+        await Promise.all(value.map((entry) => addFormValue(form, key8 + "[]", entry, stripFilenames)));
       } else if (typeof value === "object") {
-        await Promise.all(Object.entries(value).map(([name2, prop]) => addFormValue(form, `${key7}[${name2}]`, prop, stripFilenames)));
+        await Promise.all(Object.entries(value).map(([name2, prop]) => addFormValue(form, `${key8}[${name2}]`, prop, stripFilenames)));
       } else {
         throw new TypeError(`Invalid value given to form, expected a string, number, boolean, object, Array, File or Blob but got ${value} instead`);
       }
@@ -49237,20 +49237,20 @@ var require_base64 = __commonJS({
   "node_modules/@stablelib/base64/lib/base64.js"(exports) {
     "use strict";
     var __extends = exports && exports.__extends || /* @__PURE__ */ (function() {
-      var extendStatics = function(d6, b) {
-        extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d7, b2) {
-          d7.__proto__ = b2;
-        } || function(d7, b2) {
-          for (var p in b2) if (b2.hasOwnProperty(p)) d7[p] = b2[p];
+      var extendStatics = function(d7, b) {
+        extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d8, b2) {
+          d8.__proto__ = b2;
+        } || function(d8, b2) {
+          for (var p in b2) if (b2.hasOwnProperty(p)) d8[p] = b2[p];
         };
-        return extendStatics(d6, b);
+        return extendStatics(d7, b);
       };
-      return function(d6, b) {
-        extendStatics(d6, b);
+      return function(d7, b) {
+        extendStatics(d7, b);
         function __() {
-          this.constructor = d6;
+          this.constructor = d7;
         }
-        d6.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+        d7.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
       };
     })();
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -49536,12 +49536,12 @@ var require_sha256 = __commonJS({
         3329325298
       ]);
       function hashBlocks(w, v, p, pos2, len) {
-        var a, b, c, d6, e, f, g, h, u, i, j, t1, t2;
+        var a, b, c, d7, e, f, g, h, u, i, j, t1, t2;
         while (len >= 64) {
           a = v[0];
           b = v[1];
           c = v[2];
-          d6 = v[3];
+          d7 = v[3];
           e = v[4];
           f = v[5];
           g = v[6];
@@ -49563,8 +49563,8 @@ var require_sha256 = __commonJS({
             h = g;
             g = f;
             f = e;
-            e = d6 + t1 | 0;
-            d6 = c;
+            e = d7 + t1 | 0;
+            d7 = c;
             c = b;
             b = a;
             a = t1 + t2 | 0;
@@ -49572,7 +49572,7 @@ var require_sha256 = __commonJS({
           v[0] += a;
           v[1] += b;
           v[2] += c;
-          v[3] += d6;
+          v[3] += d7;
           v[4] += e;
           v[5] += f;
           v[6] += g;
@@ -49703,17 +49703,17 @@ var require_sha256 = __commonJS({
       var HMAC = (
         /** @class */
         (function() {
-          function HMAC2(key7) {
+          function HMAC2(key8) {
             this.inner = new Hash();
             this.outer = new Hash();
             this.blockSize = this.inner.blockSize;
             this.digestLength = this.inner.digestLength;
             var pad = new Uint8Array(this.blockSize);
-            if (key7.length > this.blockSize) {
-              new Hash().update(key7).finish(pad).clean();
+            if (key8.length > this.blockSize) {
+              new Hash().update(key8).finish(pad).clean();
             } else {
-              for (var i = 0; i < key7.length; i++) {
-                pad[i] = key7[i];
+              for (var i = 0; i < key8.length; i++) {
+                pad[i] = key8[i];
               }
             }
             for (var i = 0; i < pad.length; i++) {
@@ -49774,8 +49774,8 @@ var require_sha256 = __commonJS({
       }
       exports2.hash = hash3;
       exports2["default"] = hash3;
-      function hmac(key7, data) {
-        var h = new HMAC(key7).update(data);
+      function hmac(key8, data) {
+        var h = new HMAC(key8).update(data);
         var digest = h.digest();
         h.clean();
         return digest;
@@ -49798,7 +49798,7 @@ var require_sha256 = __commonJS({
         counter[0]++;
       }
       var hkdfSalt = new Uint8Array(exports2.digestLength);
-      function hkdf(key7, salt, info, length) {
+      function hkdf(key8, salt, info, length) {
         if (salt === void 0) {
           salt = hkdfSalt;
         }
@@ -49806,7 +49806,7 @@ var require_sha256 = __commonJS({
           length = 32;
         }
         var counter = new Uint8Array([1]);
-        var okm = hmac(salt, key7);
+        var okm = hmac(salt, key8);
         var hmac_ = new HMAC(okm);
         var buffer = new Uint8Array(hmac_.digestLength);
         var bufpos = buffer.length;
@@ -49918,8 +49918,8 @@ var require_dist3 = __commonJS({
       }
       verify(payload, headers_) {
         const headers = {};
-        for (const key7 of Object.keys(headers_)) {
-          headers[key7.toLowerCase()] = headers_[key7];
+        for (const key8 of Object.keys(headers_)) {
+          headers[key8.toLowerCase()] = headers_[key8];
         }
         const msgId = headers["webhook-id"];
         const msgSignature = headers["webhook-signature"];
@@ -49983,9 +49983,9 @@ var init_webhooks = __esm({
     init_resource();
     import_standardwebhooks = __toESM(require_dist3(), 1);
     Webhooks = class extends APIResource {
-      unwrap(body, { headers, key: key7 }) {
+      unwrap(body, { headers, key: key8 }) {
         if (headers !== void 0) {
-          const keyStr = key7 === void 0 ? this._client.webhookKey : key7;
+          const keyStr = key8 === void 0 ? this._client.webhookKey : key8;
           if (keyStr === null)
             throw new Error("Webhook key must not be null in order to unwrap");
           const wh = new import_standardwebhooks.Webhook(keyStr);
@@ -51187,10 +51187,10 @@ function resolvePath(ctx, p) {
 }
 function scrubbedShellEnv() {
   const env2 = {};
-  for (const [key7, value] of Object.entries(process.env)) {
-    if (key7.startsWith("ANTHROPIC_"))
+  for (const [key8, value] of Object.entries(process.env)) {
+    if (key8.startsWith("ANTHROPIC_"))
       continue;
-    env2[key7] = value;
+    env2[key8] = value;
   }
   return env2;
 }
@@ -51412,7 +51412,7 @@ function betaGlobTool(ctx) {
         for await (const entry of fsGlob(pat, {
           cwd: root,
           withFileTypes: true,
-          exclude: (d6) => d6.name === ".git" || d6.name === "node_modules"
+          exclude: (d7) => d7.name === ".git" || d7.name === "node_modules"
         })) {
           if (!entry.isFile())
             continue;
@@ -51464,17 +51464,17 @@ function runRipgrep(rg, pattern, searchPath, signal) {
     let out = "";
     let errOut = "";
     let truncated = false;
-    proc.stdout.on("data", (d6) => {
+    proc.stdout.on("data", (d7) => {
       if (truncated)
         return;
-      out += d6;
+      out += d7;
       if (out.length > GREP_OUTPUT_LIMIT) {
         truncated = true;
         out = out.slice(0, GREP_OUTPUT_LIMIT);
         proc.kill("SIGKILL");
       }
     });
-    proc.stderr.on("data", (d6) => errOut += d6);
+    proc.stderr.on("data", (d7) => errOut += d7);
     proc.on("close", (code) => {
       if (signal?.aborted)
         return reject(new ToolError("grep: aborted"));
@@ -51581,8 +51581,8 @@ async function walk(root, rel, fn, signal) {
 }
 async function findRg() {
   const dirs = (process.env["PATH"] ?? "").split(path5.delimiter);
-  for (const d6 of dirs) {
-    const candidate = path5.join(d6, "rg");
+  for (const d7 of dirs) {
+    const candidate = path5.join(d7, "rg");
     try {
       await fs3.access(candidate, fssync2.constants.X_OK);
       return candidate;
@@ -51630,8 +51630,8 @@ var init_node3 = __esm({
         }), "f");
         __classPrivateFieldGet(this, _BashSession_proc, "f").stdout.setEncoding("utf8");
         __classPrivateFieldGet(this, _BashSession_proc, "f").stderr.setEncoding("utf8");
-        __classPrivateFieldGet(this, _BashSession_proc, "f").stdout.on("data", (d6) => __classPrivateFieldGet(this, _BashSession_instances, "m", _BashSession_append).call(this, d6));
-        __classPrivateFieldGet(this, _BashSession_proc, "f").stderr.on("data", (d6) => __classPrivateFieldGet(this, _BashSession_instances, "m", _BashSession_append).call(this, d6));
+        __classPrivateFieldGet(this, _BashSession_proc, "f").stdout.on("data", (d7) => __classPrivateFieldGet(this, _BashSession_instances, "m", _BashSession_append).call(this, d7));
+        __classPrivateFieldGet(this, _BashSession_proc, "f").stderr.on("data", (d7) => __classPrivateFieldGet(this, _BashSession_instances, "m", _BashSession_append).call(this, d7));
         __classPrivateFieldGet(this, _BashSession_proc, "f").once("close", () => {
           __classPrivateFieldSet(this, _BashSession_closed, true, "f");
           const w = __classPrivateFieldGet(this, _BashSession_waiting, "f");
@@ -51718,8 +51718,8 @@ ${out}`;
         __classPrivateFieldGet(this, _BashSession_proc, "f").unref();
       }
     };
-    _BashSession_proc = /* @__PURE__ */ new WeakMap(), _BashSession_buf = /* @__PURE__ */ new WeakMap(), _BashSession_truncated = /* @__PURE__ */ new WeakMap(), _BashSession_closed = /* @__PURE__ */ new WeakMap(), _BashSession_waiting = /* @__PURE__ */ new WeakMap(), _BashSession_instances = /* @__PURE__ */ new WeakSet(), _BashSession_append = function _BashSession_append2(d6) {
-      __classPrivateFieldSet(this, _BashSession_buf, __classPrivateFieldGet(this, _BashSession_buf, "f") + d6, "f");
+    _BashSession_proc = /* @__PURE__ */ new WeakMap(), _BashSession_buf = /* @__PURE__ */ new WeakMap(), _BashSession_truncated = /* @__PURE__ */ new WeakMap(), _BashSession_closed = /* @__PURE__ */ new WeakMap(), _BashSession_waiting = /* @__PURE__ */ new WeakMap(), _BashSession_instances = /* @__PURE__ */ new WeakSet(), _BashSession_append = function _BashSession_append2(d7) {
+      __classPrivateFieldSet(this, _BashSession_buf, __classPrivateFieldGet(this, _BashSession_buf, "f") + d7, "f");
       if (__classPrivateFieldGet(this, _BashSession_buf, "f").length > BASH_OUTPUT_LIMIT) {
         __classPrivateFieldSet(this, _BashSession_buf, __classPrivateFieldGet(this, _BashSession_buf, "f").slice(__classPrivateFieldGet(this, _BashSession_buf, "f").length - BASH_OUTPUT_LIMIT), "f");
         __classPrivateFieldSet(this, _BashSession_truncated, true, "f");
@@ -53310,9 +53310,9 @@ var init_parser = __esm({
 // node_modules/@anthropic-ai/sdk/internal/message-stream-utils.mjs
 function withLazyInput(prev, jsonBuf) {
   const next = {};
-  for (const key7 of Object.keys(prev)) {
-    if (key7 !== "input")
-      next[key7] = prev[key7];
+  for (const key8 of Object.keys(prev)) {
+    if (key8 !== "input")
+      next[key8] = prev[key8];
   }
   Object.defineProperty(next, JSON_BUF_PROPERTY, { value: jsonBuf, enumerable: false, writable: true });
   let input;
@@ -57551,9 +57551,9 @@ function normalizeCategory(c) {
   if (/(home|house|address|utility|maintenance)/.test(s)) return "home";
   return "misc";
 }
-function ms2(d6) {
-  if (d6 == null) return 0;
-  const t2 = d6 instanceof Date ? d6.getTime() : Number(d6);
+function ms2(d7) {
+  if (d7 == null) return 0;
+  const t2 = d7 instanceof Date ? d7.getTime() : Number(d7);
   return Number.isFinite(t2) ? t2 : 0;
 }
 function selectPersonalFacts(all, limit2 = 40) {
@@ -57770,9 +57770,9 @@ var init_qa_core = __esm({
 });
 
 // api/scorecard-core.ts
-function toMs(d6) {
-  if (d6 == null) return null;
-  const t2 = d6 instanceof Date ? d6.getTime() : Number(d6);
+function toMs(d7) {
+  if (d7 == null) return null;
+  const t2 = d7 instanceof Date ? d7.getTime() : Number(d7);
   return Number.isFinite(t2) ? t2 : null;
 }
 function normConf(c) {
@@ -57811,8 +57811,8 @@ function scoreAgents(rows, now = Date.now()) {
     });
     const rate = (xs) => {
       const a = xs.filter((i) => i.status === "approved").length;
-      const d6 = xs.filter((i) => i.status === "dismissed").length;
-      return a + d6 ? a / (a + d6) * 100 : null;
+      const d7 = xs.filter((i) => i.status === "dismissed").length;
+      return a + d7 ? a / (a + d7) * 100 : null;
     };
     const rRecent = rate(recent), rPrior = rate(prior);
     let trend = "n/a";
@@ -58189,10 +58189,10 @@ async function ensurePayrollReminders() {
     let tasksAdded = 0, eventsAdded = 0;
     const { pushEventToGoogle: pushEventToGoogle2 } = await Promise.resolve().then(() => (init_google_push(), google_push_exports));
     for (let i = 0; i <= WINDOW_DAYS; i++) {
-      const d6 = new Date(base.getTime() + i * 864e5);
-      if (weekdayInTz(d6) !== "Wed") continue;
-      const dateStr = ymdInTz(d6);
-      const dayDiff = Math.round((d6.getTime() - base.getTime()) / 864e5);
+      const d7 = new Date(base.getTime() + i * 864e5);
+      if (weekdayInTz(d7) !== "Wed") continue;
+      const dateStr = ymdInTz(d7);
+      const dayDiff = Math.round((d7.getTime() - base.getTime()) / 864e5);
       const isBiweekly = dayDiff % 14 === 0;
       const due = [...WEEKLY, ...isBiweekly ? BIWEEKLY : []];
       if (!due.length) continue;
@@ -58254,8 +58254,8 @@ var init_seed_payroll_recurring = __esm({
     WINDOW_DAYS = 56;
     BLOCK_START = "08:00:00";
     BLOCK_END = "12:00:00";
-    ymdInTz = (d6) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ2, year: "numeric", month: "2-digit", day: "2-digit" }).format(d6);
-    weekdayInTz = (d6) => new Intl.DateTimeFormat("en-US", { timeZone: TZ2, weekday: "short" }).format(d6);
+    ymdInTz = (d7) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ2, year: "numeric", month: "2-digit", day: "2-digit" }).format(d7);
+    weekdayInTz = (d7) => new Intl.DateTimeFormat("en-US", { timeZone: TZ2, weekday: "short" }).format(d7);
   }
 });
 
@@ -59523,6 +59523,88 @@ var init_seed_originality_backfill = __esm({
   }
 });
 
+// api/seed-2303851-backfill.ts
+var seed_2303851_backfill_exports = {};
+__export(seed_2303851_backfill_exports, {
+  backfill2303851Payroll: () => backfill2303851Payroll
+});
+async function backfill2303851Payroll() {
+  const db = getDb();
+  try {
+    const cs = await db.select().from(clients);
+    const client = cs.find((c) => /2303851/.test(c.name || ""));
+    if (!client) return { client: null, runsAdded: 0, skipped: "2303851 client not found" };
+    const clientId = client.id;
+    const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
+    let emp = existing.find((e) => key7(e.firstName, e.lastName) === key7(EMP.first, EMP.last));
+    if (!emp) {
+      const [ins] = await db.insert(employees).values({
+        clientId,
+        firstName: EMP.first,
+        lastName: EMP.last,
+        payType: "salary",
+        annualSalary: 1e5,
+        isActive: true,
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).returning();
+      emp = ins;
+    } else if (emp.annualSalary == null) {
+      await db.update(employees).set({ payType: emp.payType ?? "salary", annualSalary: 1e5, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
+    }
+    if (!emp) return { client: clientId, runsAdded: 0, skipped: "could not create employee" };
+    const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
+    let runsAdded = 0;
+    for (const p of PERIODS5) {
+      if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
+      const gross = round213(p.gross);
+      const [run2] = await db.insert(payRuns).values({
+        clientId,
+        payPeriodStart: d6(p.start),
+        payPeriodEnd: d6(p.end),
+        payDate: d6(p.payDate),
+        frequency: "monthly",
+        status: "review",
+        hoursSource: "manual",
+        notes: "Backfill from Google payroll sheet",
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).returning();
+      if (!run2) continue;
+      await db.insert(payRunLines).values({ payRunId: run2.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
+      await db.update(payRuns).set({ totalGross: gross, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run2.id));
+      runsAdded++;
+    }
+    if (runsAdded) console.log(`[2303851-backfill] added ${runsAdded} run(s)`);
+    return { client: clientId, runsAdded, skipped: "" };
+  } catch (err) {
+    console.error("[2303851-backfill] failed:", err instanceof Error ? err.message : err);
+  }
+}
+var round213, norm14, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
+var init_seed_2303851_backfill = __esm({
+  "api/seed-2303851-backfill.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    round213 = (n) => Math.round(n * 100) / 100;
+    norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key7 = (first, last) => `${norm14(last)}|${norm14(first)}`;
+    d6 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
+    EMP = { first: "Stacey", last: "Gillham" };
+    MONTHLY = 8333.33;
+    HALF = round213(MONTHLY / 2);
+    PERIODS5 = [
+      { payDate: "2026-01-31", start: "2026-01-01", end: "2026-01-31", gross: MONTHLY },
+      { payDate: "2026-02-28", start: "2026-02-01", end: "2026-02-28", gross: MONTHLY },
+      { payDate: "2026-03-31", start: "2026-03-01", end: "2026-03-31", gross: MONTHLY },
+      { payDate: "2026-04-30", start: "2026-04-01", end: "2026-04-30", gross: MONTHLY },
+      { payDate: "2026-05-31", start: "2026-05-01", end: "2026-05-31", gross: MONTHLY },
+      { payDate: "2026-06-15", start: "2026-06-01", end: "2026-06-15", gross: HALF }
+    ];
+  }
+});
+
 // api/seed-employee-dedup.ts
 var seed_employee_dedup_exports = {};
 __export(seed_employee_dedup_exports, {
@@ -59605,14 +59687,14 @@ async function dedupEmployees() {
     console.error("[emp-dedup] failed:", err instanceof Error ? err.message : err);
   }
 }
-var norm14, idKey, OS_NAMES, CW_NAMES, SHER_NAMES, completeness;
+var norm15, idKey, OS_NAMES, CW_NAMES, SHER_NAMES, completeness;
 var init_seed_employee_dedup = __esm({
   "api/seed-employee-dedup.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    idKey = (first, last) => (norm14(first) + norm14(last)).split("").sort().join("");
+    norm15 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    idKey = (first, last) => (norm15(first) + norm15(last)).split("").sort().join("");
     OS_NAMES = [
       { first: "Jammie", last: "Cook" },
       { first: "Grace", last: "Dickerson" },
@@ -59726,30 +59808,30 @@ function estimateUpcomingPayroll(employees2, freq) {
 function nextPayrollDate(freq, from) {
   const ppy = periodsPerYear2(freq);
   if (ppy === 0) return null;
-  const d6 = new Date(from.getFullYear(), from.getMonth(), from.getDate(), 12, 0, 0);
+  const d7 = new Date(from.getFullYear(), from.getMonth(), from.getDate(), 12, 0, 0);
   switch ((freq || "").toLowerCase()) {
     case "weekly":
-      d6.setDate(d6.getDate() + 7);
+      d7.setDate(d7.getDate() + 7);
       break;
     case "bi-weekly":
     case "biweekly":
-      d6.setDate(d6.getDate() + 14);
+      d7.setDate(d7.getDate() + 14);
       break;
     case "semi-monthly":
     case "semi_monthly":
-      d6.setDate(
-        d6.getDate() <= 15 ? 15 : 0
+      d7.setDate(
+        d7.getDate() <= 15 ? 15 : 0
         /* last day rollover */
       );
-      if (d6.getDate() === 0) {
-        d6.setMonth(d6.getMonth() + 1, 0);
+      if (d7.getDate() === 0) {
+        d7.setMonth(d7.getMonth() + 1, 0);
       }
       break;
     case "monthly":
-      d6.setMonth(d6.getMonth() + 1, 1);
+      d7.setMonth(d7.getMonth() + 1, 1);
       break;
   }
-  return d6;
+  return d7;
 }
 function staleFeedFromTransactionList(report, now, thresholdDays = 10) {
   const empty = { perAccount: {}, maxStaleDays: null, staleAccounts: [] };
@@ -59782,7 +59864,7 @@ function staleFeedFromTransactionList(report, now, thresholdDays = 10) {
     let maxStaleDays = null;
     if (Object.keys(perAccount).length) maxStaleDays = Math.max(...Object.values(perAccount));
     else if (lastOverall) maxStaleDays = Math.floor((now.getTime() - lastOverall) / dayMs);
-    const staleAccounts = Object.entries(perAccount).filter(([, d6]) => d6 >= thresholdDays).map(([a]) => a);
+    const staleAccounts = Object.entries(perAccount).filter(([, d7]) => d7 >= thresholdDays).map(([a]) => a);
     return { perAccount, maxStaleDays, staleAccounts };
   } catch {
     return empty;
@@ -59805,8 +59887,8 @@ __export(qbo_snapshot_exports, {
   runQboSync: () => runQboSync,
   syncConnection: () => syncConnection
 });
-function isoDate(d6) {
-  return `${d6.getFullYear()}-${String(d6.getMonth() + 1).padStart(2, "0")}-${String(d6.getDate()).padStart(2, "0")}`;
+function isoDate(d7) {
+  return `${d7.getFullYear()}-${String(d7.getMonth() + 1).padStart(2, "0")}-${String(d7.getDate()).padStart(2, "0")}`;
 }
 function sameCalendarDay(a, b) {
   if (!a) return false;
@@ -59890,8 +59972,8 @@ async function captureCashSnapshot(connection) {
     const report = await qboRequest(connection, `/reports/TransactionList?start_date=${start}&end_date=${end}&columns=tx_date,account_name,subt_nat_amount`);
     stale = staleFeedFromTransactionList(report, now);
     for (const ba of bank.bankAccounts) {
-      const d6 = stale.perAccount[ba.name];
-      if (d6 != null) ba.staleDays = d6;
+      const d7 = stale.perAccount[ba.name];
+      if (d7 != null) ba.staleDays = d7;
     }
   } catch (e) {
     console.error(`[cashflow] TransactionList (conn ${connection.id}):`, e instanceof Error ? e.message : e);
@@ -60404,14 +60486,14 @@ async function dedupeClients(confirm) {
   const groups = /* @__PURE__ */ new Map();
   for (const r of clientRows) {
     const id = Number(r.id ?? r[0]);
-    const key7 = `${norm15(r.name ?? r[1])}|${norm15(r.company ?? r[2])}`;
-    if (!groups.has(key7)) groups.set(key7, []);
-    groups.get(key7).push(id);
+    const key8 = `${norm16(r.name ?? r[1])}|${norm16(r.company ?? r[2])}`;
+    if (!groups.has(key8)) groups.set(key8, []);
+    groups.get(key8).push(id);
   }
   const mapping = [];
   for (const ids of groups.values()) {
     ids.sort((a, b) => a - b);
-    for (const d6 of ids.slice(1)) mapping.push({ dupe: d6, canonical: ids[0] });
+    for (const d7 of ids.slice(1)) mapping.push({ dupe: d7, canonical: ids[0] });
   }
   const dupeIds = mapping.map((m) => m.dupe);
   const tableNames = asRows(await db.run(sql`SELECT name FROM sqlite_master WHERE type='table'`)).map((t2) => String(t2.name ?? t2[0]));
@@ -60484,12 +60566,12 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm15, asRows, num2;
+var norm16, asRows, num2;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
-    norm15 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    norm16 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
     num2 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
@@ -60684,9 +60766,9 @@ async function importClientMaster() {
       const dupes = candidates.filter((c) => c.id !== canonical.id).map((c) => c.id);
       if (dupes.length) {
         for (const t2 of refTables) {
-          for (const d6 of dupes) {
+          for (const d7 of dupes) {
             try {
-              await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${canonical.id} WHERE "clientId" = ${d6}`));
+              await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${canonical.id} WHERE "clientId" = ${d7}`));
             } catch {
             }
           }
@@ -60841,9 +60923,9 @@ async function dedupeTasks() {
   const allRules = await db.select().from(clientTaskRules);
   const ruleGroups = /* @__PURE__ */ new Map();
   for (const r of allRules) {
-    const key7 = `${r.clientId}::${r.ruleType ?? r.title}`;
-    if (!ruleGroups.has(key7)) ruleGroups.set(key7, []);
-    ruleGroups.get(key7).push(r);
+    const key8 = `${r.clientId}::${r.ruleType ?? r.title}`;
+    if (!ruleGroups.has(key8)) ruleGroups.set(key8, []);
+    ruleGroups.get(key8).push(r);
   }
   for (const group of ruleGroups.values()) {
     if (group.length < 2) continue;
@@ -60857,9 +60939,9 @@ async function dedupeTasks() {
   const allTasks = await db.select().from(tasks);
   const taskGroups = /* @__PURE__ */ new Map();
   for (const t2 of allTasks) {
-    const key7 = `${t2.clientId}::${(t2.title ?? "").trim().toLowerCase()}::${dayKey(t2.dueDate)}`;
-    if (!taskGroups.has(key7)) taskGroups.set(key7, []);
-    taskGroups.get(key7).push(t2);
+    const key8 = `${t2.clientId}::${(t2.title ?? "").trim().toLowerCase()}::${dayKey(t2.dueDate)}`;
+    if (!taskGroups.has(key8)) taskGroups.set(key8, []);
+    taskGroups.get(key8).push(t2);
   }
   for (const group of taskGroups.values()) {
     if (group.length < 2) continue;
@@ -60880,9 +60962,9 @@ var init_dedupe_tasks = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
-    dayKey = (d6) => {
-      if (!d6) return "none";
-      const t2 = d6 instanceof Date ? d6 : new Date(d6);
+    dayKey = (d7) => {
+      if (!d7) return "none";
+      const t2 = d7 instanceof Date ? d7 : new Date(d7);
       return Number.isNaN(t2.getTime()) ? "none" : t2.toISOString().slice(0, 10);
     };
   }
@@ -61153,9 +61235,9 @@ async function seedPayrollEmployees() {
       result.skipped += roster.employees.length;
       continue;
     }
-    const have = new Set(current.map((e) => `${norm16(e.firstName)} ${norm16(e.lastName)}`.trim()));
+    const have = new Set(current.map((e) => `${norm17(e.firstName)} ${norm17(e.lastName)}`.trim()));
     for (const emp of roster.employees) {
-      if (roster.merge && have.has(`${norm16(emp.firstName)} ${norm16(emp.lastName || "")}`.trim())) {
+      if (roster.merge && have.has(`${norm17(emp.firstName)} ${norm17(emp.lastName || "")}`.trim())) {
         result.skipped++;
         continue;
       }
@@ -61179,7 +61261,7 @@ async function seedPayrollEmployees() {
   for (const mv of PAYROLL_EMPLOYEE_MOVES) {
     const to = findClient(clientsNow, mv.toMatch);
     if (!to) continue;
-    const matches = (await db.select().from(employees)).filter((e) => norm16(e.firstName) === norm16(mv.firstName) && norm16(e.lastName) === norm16(mv.lastName));
+    const matches = (await db.select().from(employees)).filter((e) => norm17(e.firstName) === norm17(mv.firstName) && norm17(e.lastName) === norm17(mv.lastName));
     for (const e of matches) {
       if (e.clientId === to.id) continue;
       const from = findClient(clientsNow, mv.fromMatch);
@@ -61204,7 +61286,7 @@ async function seedPayrollEmployees() {
     for (const link of PAYROLL_CONTRACT_LINKS) {
       const client = findClient(clientsNow, link.clientMatch);
       if (!client) continue;
-      const emp = all.find((e) => e.clientId === client.id && norm16(e.firstName) === norm16(link.firstName) && (!link.lastName || norm16(e.lastName) === norm16(link.lastName)));
+      const emp = all.find((e) => e.clientId === client.id && norm17(e.firstName) === norm17(link.firstName) && (!link.lastName || norm17(e.lastName) === norm17(link.lastName)));
       if (emp && !emp.contractUrl) {
         await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
         contracts++;
@@ -61215,7 +61297,7 @@ async function seedPayrollEmployees() {
     console.log(`[seed] payroll employees: +${result.added} -${result.removed} moved ${moved} salary-filled ${filled} contracts ${contracts}`);
   return { ...result, moved, filled, contracts };
 }
-var PAYROLL_EMPLOYEE_MOVES, norm16, findClient;
+var PAYROLL_EMPLOYEE_MOVES, norm17, findClient;
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
@@ -61226,8 +61308,8 @@ var init_seed_payroll_employees = __esm({
     PAYROLL_EMPLOYEE_MOVES = [
       { firstName: "Stacey", lastName: "Gillham", fromMatch: "2303851", toMatch: "originality", note: "Moved to Originality as of the 15th" }
     ];
-    norm16 = (s) => (s || "").toLowerCase().trim();
-    findClient = (all, match2) => all.find((c) => norm16(c.name).includes(norm16(match2)));
+    norm17 = (s) => (s || "").toLowerCase().trim();
+    findClient = (all, match2) => all.find((c) => norm17(c.name).includes(norm17(match2)));
   }
 });
 
@@ -61321,10 +61403,10 @@ var init_dist5 = __esm({
       const headerRecord = [];
       const rawHeaders = incoming.rawHeaders;
       for (let i = 0; i < rawHeaders.length; i += 2) {
-        const { [i]: key7, [i + 1]: value } = rawHeaders;
-        if (key7.charCodeAt(0) !== /*:*/
+        const { [i]: key8, [i + 1]: value } = rawHeaders;
+        if (key8.charCodeAt(0) !== /*:*/
         58) {
-          headerRecord.push([key7, value]);
+          headerRecord.push([key8, value]);
         }
       }
       return new Headers(headerRecord);
@@ -61669,8 +61751,8 @@ var init_dist5 = __esm({
         hasContentLength = headerObj.has("content-length");
         header2 = buildOutgoingHttpHeaders(headerObj);
       } else {
-        for (const key7 in header2) {
-          if (key7.length === 14 && key7.toLowerCase() === "content-length") {
+        for (const key8 in header2) {
+          if (key8.length === 14 && key8.toLowerCase() === "content-length") {
             hasContentLength = true;
             break;
           }
@@ -63365,10 +63447,10 @@ __export(seed_client_websites_exports, {
 function domainFromEmail(email3) {
   const m = /@([^@\s>]+)$/.exec((email3 || "").trim().toLowerCase());
   if (!m) return null;
-  const d6 = m[1].replace(/[.,;]+$/, "");
-  if (!d6.includes(".") || /\s/.test(d6)) return null;
-  if (SKIP_DOMAINS.has(d6)) return null;
-  return d6;
+  const d7 = m[1].replace(/[.,;]+$/, "");
+  if (!d7.includes(".") || /\s/.test(d7)) return null;
+  if (SKIP_DOMAINS.has(d7)) return null;
+  return d7;
 }
 async function seedClientWebsites() {
   const db = getDb();
@@ -63377,9 +63459,9 @@ async function seedClientWebsites() {
     const all = await db.select({ id: clients.id, email: clients.email, website: clients.website }).from(clients);
     for (const c of all) {
       if (c.website && String(c.website).trim()) continue;
-      const d6 = domainFromEmail(c.email || "");
-      if (!d6) continue;
-      await db.update(clients).set({ website: d6, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+      const d7 = domainFromEmail(c.email || "");
+      if (!d7) continue;
+      await db.update(clients).set({ website: d7, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
       filled++;
     }
     if (filled) console.log(`[seed] client websites: ${filled} filled from email domains`);
@@ -63442,8 +63524,8 @@ async function seedGovRegistry() {
     return report;
   }
   for (const g of GOV) {
-    let c = g.bn ? all.find((x) => norm17(x.taxId) === norm17(g.bn)) : void 0;
-    if (!c && g.nameKey) c = all.find((x) => norm17(x.name).includes(norm17(g.nameKey)) || norm17(x.company).includes(norm17(g.nameKey)));
+    let c = g.bn ? all.find((x) => norm18(x.taxId) === norm18(g.bn)) : void 0;
+    if (!c && g.nameKey) c = all.find((x) => norm18(x.name).includes(norm18(g.nameKey)) || norm18(x.company).includes(norm18(g.nameKey)));
     if (!c) continue;
     report.matched++;
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
@@ -63462,7 +63544,7 @@ async function seedGovRegistry() {
   }
   return report;
 }
-var GOV, norm17;
+var GOV, norm18;
 var init_seed_gov_registry = __esm({
   "api/seed-gov-registry.ts"() {
     init_connection();
@@ -63504,7 +63586,7 @@ var init_seed_gov_registry = __esm({
       { bn: "809545346", industry: "Healthcare/Wellness", bio: "Healthcare business in the osteopathic / wellness field, providing therapeutic services and alternative health treatments." },
       { nameKey: "universal drywall", industry: "Construction/Drywall", bio: "Drywall and construction services company providing interior framing, drywall installation and exterior finishes. USA (Florida) entity." }
     ];
-    norm17 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm18 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   }
 });
 
@@ -63655,8 +63737,8 @@ function lastDayOfMonth(year2, month1to12) {
   return new Date(year2, month1to12, 0).getDate();
 }
 function at(year2, month1to12, day2) {
-  const d6 = Math.min(day2, lastDayOfMonth(year2, month1to12));
-  return new Date(year2, month1to12 - 1, d6, 12, 0, 0);
+  const d7 = Math.min(day2, lastDayOfMonth(year2, month1to12));
+  return new Date(year2, month1to12 - 1, d7, 12, 0, 0);
 }
 function yearEndCloseDueDate(yearEndMonth, periodYear) {
   let m = yearEndMonth + 1;
@@ -63687,7 +63769,7 @@ function correctedDueDate(ruleType, currentDue, yearEndMonth) {
   const rt = (ruleType || "").toLowerCase();
   const nearest = (fn) => {
     const cands = [ref.getFullYear() - 1, ref.getFullYear(), ref.getFullYear() + 1].map(fn);
-    return cands.reduce((best, d6) => Math.abs(d6.getTime() - ref.getTime()) < Math.abs(best.getTime() - ref.getTime()) ? d6 : best);
+    return cands.reduce((best, d7) => Math.abs(d7.getTime() - ref.getTime()) < Math.abs(best.getTime() - ref.getTime()) ? d7 : best);
   };
   if (rt.includes("year_end") || rt.includes("yearend")) {
     if (!yearEndMonth) return null;
@@ -64276,8 +64358,8 @@ async function syncCalendar(accessToken, userId, accountId) {
         const gDate = (part) => {
           if (part?.dateTime) return new Date(part.dateTime);
           if (!part?.date) return null;
-          const [y, m, d6] = String(part.date).split("-").map(Number);
-          return new Date(y, m - 1, d6, 12, 0, 0);
+          const [y, m, d7] = String(part.date).split("-").map(Number);
+          return new Date(y, m - 1, d7, 12, 0, 0);
         };
         const allDay = !event.start?.dateTime;
         const startDate = gDate(event.start) || /* @__PURE__ */ new Date();
@@ -64563,47 +64645,47 @@ async function parseFormData(request, options) {
 }
 function convertFormDataToBodyData(formData, options) {
   const form = /* @__PURE__ */ Object.create(null);
-  formData.forEach((value, key7) => {
-    const shouldParseAllValues = options.all || key7.endsWith("[]");
+  formData.forEach((value, key8) => {
+    const shouldParseAllValues = options.all || key8.endsWith("[]");
     if (!shouldParseAllValues) {
-      form[key7] = value;
+      form[key8] = value;
     } else {
-      handleParsingAllValues(form, key7, value);
+      handleParsingAllValues(form, key8, value);
     }
   });
   if (options.dot) {
-    Object.entries(form).forEach(([key7, value]) => {
-      const shouldParseDotValues = key7.includes(".");
+    Object.entries(form).forEach(([key8, value]) => {
+      const shouldParseDotValues = key8.includes(".");
       if (shouldParseDotValues) {
-        handleParsingNestedValues(form, key7, value);
-        delete form[key7];
+        handleParsingNestedValues(form, key8, value);
+        delete form[key8];
       }
     });
   }
   return form;
 }
-var handleParsingAllValues = (form, key7, value) => {
-  if (form[key7] !== void 0) {
-    if (Array.isArray(form[key7])) {
+var handleParsingAllValues = (form, key8, value) => {
+  if (form[key8] !== void 0) {
+    if (Array.isArray(form[key8])) {
       ;
-      form[key7].push(value);
+      form[key8].push(value);
     } else {
-      form[key7] = [form[key7], value];
+      form[key8] = [form[key8], value];
     }
   } else {
-    if (!key7.endsWith("[]")) {
-      form[key7] = value;
+    if (!key8.endsWith("[]")) {
+      form[key8] = value;
     } else {
-      form[key7] = [value];
+      form[key8] = [value];
     }
   }
 };
-var handleParsingNestedValues = (form, key7, value) => {
-  if (/(?:^|\.)__proto__\./.test(key7)) {
+var handleParsingNestedValues = (form, key8, value) => {
+  if (/(?:^|\.)__proto__\./.test(key8)) {
     return;
   }
   let nestedForm = form;
-  const keys = key7.split(".");
+  const keys = key8.split(".");
   keys.forEach((key22, index) => {
     if (index === keys.length - 1) {
       nestedForm[key22] = value;
@@ -64747,26 +64829,26 @@ var _decodeURI = (value) => {
   }
   return value.indexOf("%") !== -1 ? tryDecode(value, decodeURIComponent_) : value;
 };
-var _getQueryParam = (url2, key7, multiple) => {
+var _getQueryParam = (url2, key8, multiple) => {
   let encoded;
-  if (!multiple && key7 && !/[%+]/.test(key7)) {
+  if (!multiple && key8 && !/[%+]/.test(key8)) {
     let keyIndex2 = url2.indexOf("?", 8);
     if (keyIndex2 === -1) {
       return void 0;
     }
-    if (!url2.startsWith(key7, keyIndex2 + 1)) {
-      keyIndex2 = url2.indexOf(`&${key7}`, keyIndex2 + 1);
+    if (!url2.startsWith(key8, keyIndex2 + 1)) {
+      keyIndex2 = url2.indexOf(`&${key8}`, keyIndex2 + 1);
     }
     while (keyIndex2 !== -1) {
-      const trailingKeyCode = url2.charCodeAt(keyIndex2 + key7.length + 1);
+      const trailingKeyCode = url2.charCodeAt(keyIndex2 + key8.length + 1);
       if (trailingKeyCode === 61) {
-        const valueIndex = keyIndex2 + key7.length + 2;
+        const valueIndex = keyIndex2 + key8.length + 2;
         const endIndex = url2.indexOf("&", valueIndex);
         return _decodeURI(url2.slice(valueIndex, endIndex === -1 ? void 0 : endIndex));
       } else if (trailingKeyCode == 38 || isNaN(trailingKeyCode)) {
         return "";
       }
-      keyIndex2 = url2.indexOf(`&${key7}`, keyIndex2 + 1);
+      keyIndex2 = url2.indexOf(`&${key8}`, keyIndex2 + 1);
     }
     encoded = /[%+]/.test(url2);
     if (!encoded) {
@@ -64812,11 +64894,11 @@ var _getQueryParam = (url2, key7, multiple) => {
       results[name2] ??= value;
     }
   }
-  return key7 ? results[key7] : results;
+  return key8 ? results[key8] : results;
 };
 var getQueryParam = _getQueryParam;
-var getQueryParams = (url2, key7) => {
-  return _getQueryParam(url2, key7, true);
+var getQueryParams = (url2, key8) => {
+  return _getQueryParam(url2, key8, true);
 };
 var decodeURIComponent_ = decodeURIComponent;
 
@@ -64862,21 +64944,21 @@ var HonoRequest = class {
     this.#matchResult = matchResult;
     this.#validatedData = {};
   }
-  param(key7) {
-    return key7 ? this.#getDecodedParam(key7) : this.#getAllDecodedParams();
+  param(key8) {
+    return key8 ? this.#getDecodedParam(key8) : this.#getAllDecodedParams();
   }
-  #getDecodedParam(key7) {
-    const paramKey = this.#matchResult[0][this.routeIndex][1][key7];
+  #getDecodedParam(key8) {
+    const paramKey = this.#matchResult[0][this.routeIndex][1][key8];
     const param2 = this.#getParamValue(paramKey);
     return param2 && /\%/.test(param2) ? tryDecodeURIComponent(param2) : param2;
   }
   #getAllDecodedParams() {
     const decoded = {};
     const keys = Object.keys(this.#matchResult[0][this.routeIndex][1]);
-    for (const key7 of keys) {
-      const value = this.#getParamValue(this.#matchResult[0][this.routeIndex][1][key7]);
+    for (const key8 of keys) {
+      const value = this.#getParamValue(this.#matchResult[0][this.routeIndex][1][key8]);
       if (value !== void 0) {
-        decoded[key7] = /\%/.test(value) ? tryDecodeURIComponent(value) : value;
+        decoded[key8] = /\%/.test(value) ? tryDecodeURIComponent(value) : value;
       }
     }
     return decoded;
@@ -64884,28 +64966,28 @@ var HonoRequest = class {
   #getParamValue(paramKey) {
     return this.#matchResult[1] ? this.#matchResult[1][paramKey] : paramKey;
   }
-  query(key7) {
-    return getQueryParam(this.url, key7);
+  query(key8) {
+    return getQueryParam(this.url, key8);
   }
-  queries(key7) {
-    return getQueryParams(this.url, key7);
+  queries(key8) {
+    return getQueryParams(this.url, key8);
   }
   header(name2) {
     if (name2) {
       return this.raw.headers.get(name2) ?? void 0;
     }
     const headerData = {};
-    this.raw.headers.forEach((value, key7) => {
-      headerData[key7] = value;
+    this.raw.headers.forEach((value, key8) => {
+      headerData[key8] = value;
     });
     return headerData;
   }
   async parseBody(options) {
     return parseBody(this, options);
   }
-  #cachedBody = (key7) => {
+  #cachedBody = (key8) => {
     const { bodyCache, raw: raw2 } = this;
-    const cachedBody = bodyCache[key7];
+    const cachedBody = bodyCache[key8];
     if (cachedBody) {
       return cachedBody;
     }
@@ -64915,10 +64997,10 @@ var HonoRequest = class {
         if (anyCachedKey === "json") {
           body = JSON.stringify(body);
         }
-        return new Response(body)[key7]();
+        return new Response(body)[key8]();
       });
     }
-    return bodyCache[key7] = raw2[key7]();
+    return bodyCache[key8] = raw2[key8]();
   };
   /**
    * `.json()` can parse Request body of type `application/json`
@@ -65365,9 +65447,9 @@ var Context = class {
    * })
    * ```
    */
-  set = (key7, value) => {
+  set = (key8, value) => {
     this.#var ??= /* @__PURE__ */ new Map();
-    this.#var.set(key7, value);
+    this.#var.set(key8, value);
   };
   /**
    * `.get()` can use the value specified by the key.
@@ -65382,8 +65464,8 @@ var Context = class {
    * })
    * ```
    */
-  get = (key7) => {
-    return this.#var ? this.#var.get(key7) : void 0;
+  get = (key8) => {
+    return this.#var ? this.#var.get(key8) : void 0;
   };
   /**
    * `.var` can access the value of a variable.
@@ -65406,11 +65488,11 @@ var Context = class {
     const responseHeaders = this.#res ? new Headers(this.#res.headers) : this.#preparedHeaders ?? new Headers();
     if (typeof arg === "object" && "headers" in arg) {
       const argHeaders = arg.headers instanceof Headers ? arg.headers : new Headers(arg.headers);
-      for (const [key7, value] of argHeaders) {
-        if (key7.toLowerCase() === "set-cookie") {
-          responseHeaders.append(key7, value);
+      for (const [key8, value] of argHeaders) {
+        if (key8.toLowerCase() === "set-cookie") {
+          responseHeaders.append(key8, value);
         } else {
-          responseHeaders.set(key7, value);
+          responseHeaders.set(key8, value);
         }
       }
     }
@@ -66150,8 +66232,8 @@ function buildMatcherFromPreprocessedRoutes(routes) {
       const paramIndexMap = /* @__PURE__ */ Object.create(null);
       paramCount -= 1;
       for (; paramCount >= 0; paramCount--) {
-        const [key7, value] = paramAssoc[paramCount];
-        paramIndexMap[key7] = value;
+        const [key8, value] = paramAssoc[paramCount];
+        paramIndexMap[key8] = value;
       }
       return [h, paramIndexMap];
     });
@@ -66371,20 +66453,20 @@ var Node2 = class _Node2 {
       const p = parts[i];
       const nextP = parts[i + 1];
       const pattern = getPattern(p, nextP);
-      const key7 = Array.isArray(pattern) ? pattern[0] : p;
-      if (key7 in curNode.#children) {
-        curNode = curNode.#children[key7];
+      const key8 = Array.isArray(pattern) ? pattern[0] : p;
+      if (key8 in curNode.#children) {
+        curNode = curNode.#children[key8];
         if (pattern) {
           possibleKeys.push(pattern[1]);
         }
         continue;
       }
-      curNode.#children[key7] = new _Node2();
+      curNode.#children[key8] = new _Node2();
       if (pattern) {
         curNode.#patterns.push(pattern);
         possibleKeys.push(pattern[1]);
       }
-      curNode = curNode.#children[key7];
+      curNode = curNode.#children[key8];
     }
     curNode.#methods.push({
       [method]: {
@@ -66405,9 +66487,9 @@ var Node2 = class _Node2 {
         handlerSets.push(handlerSet);
         if (nodeParams !== emptyParams || params && params !== emptyParams) {
           for (let i2 = 0, len2 = handlerSet.possibleKeys.length; i2 < len2; i2++) {
-            const key7 = handlerSet.possibleKeys[i2];
+            const key8 = handlerSet.possibleKeys[i2];
             const processed = processedSet[handlerSet.score];
-            handlerSet.params[key7] = params?.[key7] && !processed ? params[key7] : nodeParams[key7] ?? params?.[key7];
+            handlerSet.params[key8] = params?.[key8] && !processed ? params[key8] : nodeParams[key8] ?? params?.[key8];
             processedSet[handlerSet.score] = true;
           }
         }
@@ -66453,11 +66535,11 @@ var Node2 = class _Node2 {
             }
             continue;
           }
-          const [key7, name2, matcher] = pattern;
+          const [key8, name2, matcher] = pattern;
           if (!part && !(matcher instanceof RegExp)) {
             continue;
           }
-          const child = node.#children[key7];
+          const child = node.#children[key8];
           if (matcher instanceof RegExp) {
             if (partOffsets === null) {
               partOffsets = new Array(len);
@@ -66647,8 +66729,8 @@ var cors = (options) => {
     }
   })(opts.allowMethods);
   return async function cors2(c, next) {
-    function set2(key7, value) {
-      c.res.headers.set(key7, value);
+    function set2(key8, value) {
+      c.res.headers.set(key8, value);
     }
     const allowOrigin = await findAllowOrigin(c.req.header("origin") || "", c);
     if (allowOrigin) {
@@ -66780,7 +66862,7 @@ function parseConnectionParamsFromUnknown(parsed) {
     if (parsed === null) return null;
     if (!isObject(parsed)) throw new Error("Expected object");
     const nonStringValues = Object.entries(parsed).filter(([_key, value]) => typeof value !== "string");
-    if (nonStringValues.length > 0) throw new Error(`Expected connectionParams to be string values. Got ${nonStringValues.map(([key7, value]) => `${key7}: ${typeof value}`).join(", ")}`);
+    if (nonStringValues.length > 0) throw new Error(`Expected connectionParams to be string values. Got ${nonStringValues.map(([key8, value]) => `${key8}: ${typeof value}`).join(", ")}`);
     return parsed;
   } catch (cause) {
     throw new TRPCError({
@@ -67276,7 +67358,7 @@ var require_usingCtx = __commonJS2({ "../../node_modules/.pnpm/@oxc-project+runt
       e,
       u: using.bind(null, false),
       a: using.bind(null, true),
-      d: function d6() {
+      d: function d7() {
         var o, t2 = this.e, s = 0;
         function next() {
           for (; o = n.pop(); ) try {
@@ -67301,8 +67383,8 @@ var require_usingCtx = __commonJS2({ "../../node_modules/.pnpm/@oxc-project+runt
   module.exports = _usingCtx, module.exports.__esModule = true, module.exports["default"] = module.exports;
 } });
 var require_OverloadYield = __commonJS2({ "../../node_modules/.pnpm/@oxc-project+runtime@0.72.2/node_modules/@oxc-project/runtime/src/helpers/OverloadYield.js"(exports, module) {
-  function _OverloadYield(e, d6) {
-    this.v = e, this.k = d6;
+  function _OverloadYield(e, d7) {
+    this.v = e, this.k = d7;
   }
   module.exports = _OverloadYield, module.exports.__esModule = true, module.exports["default"] = module.exports;
 } });
@@ -67815,19 +67897,19 @@ function _createBatchStreamProducer() {
       if (!isPlainObject(value)) return [[value]];
       const newObj = emptyObject();
       const asyncValues = [];
-      for (const [key7, item] of Object.entries(value)) {
-        const transformed = encodeAsync3(item, [...path7, key7]);
+      for (const [key8, item] of Object.entries(value)) {
+        const transformed = encodeAsync3(item, [...path7, key8]);
         if (!transformed) {
-          newObj[key7] = item;
+          newObj[key8] = item;
           continue;
         }
-        newObj[key7] = placeholder2;
-        asyncValues.push([key7, ...transformed]);
+        newObj[key8] = placeholder2;
+        asyncValues.push([key8, ...transformed]);
       }
       return [[newObj], ...asyncValues];
     }
     const newHead = emptyObject();
-    for (const [key7, item] of Object.entries(data)) newHead[key7] = encode7(item, [key7]);
+    for (const [key8, item] of Object.entries(data)) newHead[key8] = encode7(item, [key8]);
     yield newHead;
     let iterable = mergedIterables;
     if (opts.pingMs) iterable = withPing(mergedIterables, opts.pingMs);
@@ -68048,10 +68130,10 @@ function initResponse(initOpts) {
     })) === null || _info$calls$find === void 0 || (_info$calls$find = _info$calls$find.procedure) === null || _info$calls$find === void 0 ? void 0 : _info$calls$find._def.type) !== null && _info$calls$find$proc !== void 0 ? _info$calls$find$proc : "unknown"
   })) !== null && _responseMeta !== void 0 ? _responseMeta : {};
   if (meta3.headers) {
-    if (meta3.headers instanceof Headers) for (const [key7, value] of meta3.headers.entries()) headers.append(key7, value);
+    if (meta3.headers instanceof Headers) for (const [key8, value] of meta3.headers.entries()) headers.append(key8, value);
     else
-      for (const [key7, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) headers.append(key7, v);
-      else if (typeof value === "string") headers.set(key7, value);
+      for (const [key8, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) headers.append(key8, v);
+      else if (typeof value === "string") headers.set(key8, value);
   }
   if (meta3.status) status = meta3.status;
   return { status };
@@ -68281,7 +68363,7 @@ async function resolveResponse(opts) {
               return shape;
             }
           }));
-          for (const [key7, value] of Object.entries(sseHeaders)) headers.set(key7, value);
+          for (const [key8, value] of Object.entries(sseHeaders)) headers.set(key8, value);
           const headResponse$1 = initResponse({
             ctx: ctxManager.valueOrUndefined(),
             info,
@@ -68478,10 +68560,10 @@ async function fetchRequestHandler(opts) {
       var _opts$responseMeta;
       const meta3 = (_opts$responseMeta = opts.responseMeta) === null || _opts$responseMeta === void 0 ? void 0 : _opts$responseMeta.call(opts, data);
       if (meta3 === null || meta3 === void 0 ? void 0 : meta3.headers) {
-        if (meta3.headers instanceof Headers) for (const [key7, value] of meta3.headers.entries()) resHeaders.append(key7, value);
+        if (meta3.headers instanceof Headers) for (const [key8, value] of meta3.headers.entries()) resHeaders.append(key8, value);
         else
-          for (const [key7, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) resHeaders.append(key7, v);
-          else if (typeof value === "string") resHeaders.set(key7, value);
+          for (const [key8, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) resHeaders.append(key8, v);
+          else if (typeof value === "string") resHeaders.set(key8, value);
       }
       return {
         headers: resHeaders,
@@ -68619,13 +68701,13 @@ var voiceRouter = createRouter({
     const overdue = openTasks.filter((t2) => t2.dueDate && new Date(t2.dueDate) < today2);
     const dueToday = openTasks.filter((t2) => {
       if (!t2.dueDate) return false;
-      const d6 = new Date(t2.dueDate);
-      return d6 >= today2 && d6 < tomorrow;
+      const d7 = new Date(t2.dueDate);
+      return d7 >= today2 && d7 < tomorrow;
     });
     const upcoming = openTasks.filter((t2) => {
       if (!t2.dueDate) return false;
-      const d6 = new Date(t2.dueDate);
-      return d6 >= tomorrow && d6 <= nextWeek;
+      const d7 = new Date(t2.dueDate);
+      return d7 >= tomorrow && d7 <= nextWeek;
     });
     const highPriority = openTasks.filter((t2) => t2.priority === "high");
     let speech = `Good morning. `;
@@ -69093,8 +69175,8 @@ var googleSyncRouter = createRouter({
       const gDate = (part) => {
         if (part?.dateTime) return new Date(part.dateTime);
         if (!part?.date) return null;
-        const [y, m, d6] = String(part.date).split("-").map(Number);
-        return new Date(y, m - 1, d6, 12, 0, 0);
+        const [y, m, d7] = String(part.date).split("-").map(Number);
+        return new Date(y, m - 1, d7, 12, 0, 0);
       };
       const allDay = !event.start?.dateTime;
       const start = gDate(event.start) || /* @__PURE__ */ new Date();
@@ -69671,20 +69753,20 @@ function getNamedCurve(alg) {
       throw new Error("unreachable");
   }
 }
-function checkUsage(key7, usage) {
-  if (usage && !key7.usages.includes(usage)) {
+function checkUsage(key8, usage) {
+  if (usage && !key8.usages.includes(usage)) {
     throw new TypeError(`CryptoKey does not support this operation, its usages must include ${usage}.`);
   }
 }
-function checkSigCryptoKey(key7, alg, usage) {
+function checkSigCryptoKey(key8, alg, usage) {
   switch (alg) {
     case "HS256":
     case "HS384":
     case "HS512": {
-      if (!isAlgorithm(key7.algorithm, "HMAC"))
+      if (!isAlgorithm(key8.algorithm, "HMAC"))
         throw unusable("HMAC");
       const expected = parseInt(alg.slice(2), 10);
-      const actual = getHashLength(key7.algorithm.hash);
+      const actual = getHashLength(key8.algorithm.hash);
       if (actual !== expected)
         throw unusable(`SHA-${expected}`, "algorithm.hash");
       break;
@@ -69692,10 +69774,10 @@ function checkSigCryptoKey(key7, alg, usage) {
     case "RS256":
     case "RS384":
     case "RS512": {
-      if (!isAlgorithm(key7.algorithm, "RSASSA-PKCS1-v1_5"))
+      if (!isAlgorithm(key8.algorithm, "RSASSA-PKCS1-v1_5"))
         throw unusable("RSASSA-PKCS1-v1_5");
       const expected = parseInt(alg.slice(2), 10);
-      const actual = getHashLength(key7.algorithm.hash);
+      const actual = getHashLength(key8.algorithm.hash);
       if (actual !== expected)
         throw unusable(`SHA-${expected}`, "algorithm.hash");
       break;
@@ -69703,34 +69785,34 @@ function checkSigCryptoKey(key7, alg, usage) {
     case "PS256":
     case "PS384":
     case "PS512": {
-      if (!isAlgorithm(key7.algorithm, "RSA-PSS"))
+      if (!isAlgorithm(key8.algorithm, "RSA-PSS"))
         throw unusable("RSA-PSS");
       const expected = parseInt(alg.slice(2), 10);
-      const actual = getHashLength(key7.algorithm.hash);
+      const actual = getHashLength(key8.algorithm.hash);
       if (actual !== expected)
         throw unusable(`SHA-${expected}`, "algorithm.hash");
       break;
     }
     case "Ed25519":
     case "EdDSA": {
-      if (!isAlgorithm(key7.algorithm, "Ed25519"))
+      if (!isAlgorithm(key8.algorithm, "Ed25519"))
         throw unusable("Ed25519");
       break;
     }
     case "ML-DSA-44":
     case "ML-DSA-65":
     case "ML-DSA-87": {
-      if (!isAlgorithm(key7.algorithm, alg))
+      if (!isAlgorithm(key8.algorithm, alg))
         throw unusable(alg);
       break;
     }
     case "ES256":
     case "ES384":
     case "ES512": {
-      if (!isAlgorithm(key7.algorithm, "ECDSA"))
+      if (!isAlgorithm(key8.algorithm, "ECDSA"))
         throw unusable("ECDSA");
       const expected = getNamedCurve(alg);
-      const actual = key7.algorithm.namedCurve;
+      const actual = key8.algorithm.namedCurve;
       if (actual !== expected)
         throw unusable(expected, "algorithm.namedCurve");
       break;
@@ -69738,7 +69820,7 @@ function checkSigCryptoKey(key7, alg, usage) {
     default:
       throw new TypeError("CryptoKey does not support this operation");
   }
-  checkUsage(key7, usage);
+  checkUsage(key8, usage);
 }
 
 // node_modules/jose/dist/webapi/lib/invalid_key_input.js
@@ -69767,17 +69849,17 @@ var invalidKeyInput = (actual, ...types) => message("Key must be ", actual, ...t
 var withAlg = (alg, actual, ...types) => message(`Key for the ${alg} algorithm must be `, actual, ...types);
 
 // node_modules/jose/dist/webapi/lib/is_key_like.js
-var isCryptoKey = (key7) => {
-  if (key7?.[Symbol.toStringTag] === "CryptoKey")
+var isCryptoKey = (key8) => {
+  if (key8?.[Symbol.toStringTag] === "CryptoKey")
     return true;
   try {
-    return key7 instanceof CryptoKey;
+    return key8 instanceof CryptoKey;
   } catch {
     return false;
   }
 };
-var isKeyObject = (key7) => key7?.[Symbol.toStringTag] === "KeyObject";
-var isKeyLike = (key7) => isCryptoKey(key7) || isKeyObject(key7);
+var isKeyObject = (key8) => key8?.[Symbol.toStringTag] === "KeyObject";
+var isKeyLike = (key8) => isCryptoKey(key8) || isKeyObject(key8);
 
 // node_modules/jose/dist/webapi/lib/is_disjoint.js
 function isDisjoint(...headers) {
@@ -69819,9 +69901,9 @@ function isObject3(input) {
 }
 
 // node_modules/jose/dist/webapi/lib/check_key_length.js
-function checkKeyLength(alg, key7) {
+function checkKeyLength(alg, key8) {
   if (alg.startsWith("RS") || alg.startsWith("PS")) {
-    const { modulusLength } = key7.algorithm;
+    const { modulusLength } = key8.algorithm;
     if (typeof modulusLength !== "number" || modulusLength < 2048) {
       throw new TypeError(`${alg} requires key modulusLength to be 2048 bits or larger`);
     }
@@ -69981,24 +70063,24 @@ function validateAlgorithms(option, algorithms) {
 }
 
 // node_modules/jose/dist/webapi/lib/is_jwk.js
-var isJWK = (key7) => isObject3(key7) && typeof key7.kty === "string";
-var isPrivateJWK = (key7) => key7.kty !== "oct" && (key7.kty === "AKP" && typeof key7.priv === "string" || typeof key7.d === "string");
-var isPublicJWK = (key7) => key7.kty !== "oct" && key7.d === void 0 && key7.priv === void 0;
-var isSecretJWK = (key7) => key7.kty === "oct" && typeof key7.k === "string";
+var isJWK = (key8) => isObject3(key8) && typeof key8.kty === "string";
+var isPrivateJWK = (key8) => key8.kty !== "oct" && (key8.kty === "AKP" && typeof key8.priv === "string" || typeof key8.d === "string");
+var isPublicJWK = (key8) => key8.kty !== "oct" && key8.d === void 0 && key8.priv === void 0;
+var isSecretJWK = (key8) => key8.kty === "oct" && typeof key8.k === "string";
 
 // node_modules/jose/dist/webapi/lib/normalize_key.js
 var cache;
-var handleJWK = async (key7, jwk, alg, freeze = false) => {
+var handleJWK = async (key8, jwk, alg, freeze = false) => {
   cache ||= /* @__PURE__ */ new WeakMap();
-  let cached2 = cache.get(key7);
+  let cached2 = cache.get(key8);
   if (cached2?.[alg]) {
     return cached2[alg];
   }
   const cryptoKey = await jwkToKey({ ...jwk, alg });
   if (freeze)
-    Object.freeze(key7);
+    Object.freeze(key8);
   if (!cached2) {
-    cache.set(key7, { [alg]: cryptoKey });
+    cache.set(key8, { [alg]: cryptoKey });
   } else {
     cached2[alg] = cryptoKey;
   }
@@ -70125,42 +70207,42 @@ var handleKeyObject = (keyObject, alg) => {
   }
   return cryptoKey;
 };
-async function normalizeKey(key7, alg) {
-  if (key7 instanceof Uint8Array) {
-    return key7;
+async function normalizeKey(key8, alg) {
+  if (key8 instanceof Uint8Array) {
+    return key8;
   }
-  if (isCryptoKey(key7)) {
-    return key7;
+  if (isCryptoKey(key8)) {
+    return key8;
   }
-  if (isKeyObject(key7)) {
-    if (key7.type === "secret") {
-      return key7.export();
+  if (isKeyObject(key8)) {
+    if (key8.type === "secret") {
+      return key8.export();
     }
-    if ("toCryptoKey" in key7 && typeof key7.toCryptoKey === "function") {
+    if ("toCryptoKey" in key8 && typeof key8.toCryptoKey === "function") {
       try {
-        return handleKeyObject(key7, alg);
+        return handleKeyObject(key8, alg);
       } catch (err) {
         if (err instanceof TypeError) {
           throw err;
         }
       }
     }
-    let jwk = key7.export({ format: "jwk" });
-    return handleJWK(key7, jwk, alg);
+    let jwk = key8.export({ format: "jwk" });
+    return handleJWK(key8, jwk, alg);
   }
-  if (isJWK(key7)) {
-    if (key7.k) {
-      return decode4(key7.k);
+  if (isJWK(key8)) {
+    if (key8.k) {
+      return decode4(key8.k);
     }
-    return handleJWK(key7, key7, alg, true);
+    return handleJWK(key8, key8, alg, true);
   }
   throw new Error("unreachable");
 }
 
 // node_modules/jose/dist/webapi/lib/check_key_type.js
-var tag = (key7) => key7?.[Symbol.toStringTag];
-var jwkMatchesOp = (alg, key7, usage) => {
-  if (key7.use !== void 0) {
+var tag = (key8) => key8?.[Symbol.toStringTag];
+var jwkMatchesOp = (alg, key8, usage) => {
+  if (key8.use !== void 0) {
     let expected;
     switch (usage) {
       case "sign":
@@ -70172,14 +70254,14 @@ var jwkMatchesOp = (alg, key7, usage) => {
         expected = "enc";
         break;
     }
-    if (key7.use !== expected) {
+    if (key8.use !== expected) {
       throw new TypeError(`Invalid key for this operation, its "use" must be "${expected}" when present`);
     }
   }
-  if (key7.alg !== void 0 && key7.alg !== alg) {
+  if (key8.alg !== void 0 && key8.alg !== alg) {
     throw new TypeError(`Invalid key for this operation, its "alg" must be "${alg}" when present`);
   }
-  if (Array.isArray(key7.key_ops)) {
+  if (Array.isArray(key8.key_ops)) {
     let expectedKeyOp;
     switch (true) {
       case (usage === "sign" || usage === "verify"):
@@ -70204,76 +70286,76 @@ var jwkMatchesOp = (alg, key7, usage) => {
         expectedKeyOp = alg.startsWith("RSA") ? "unwrapKey" : "deriveBits";
         break;
     }
-    if (expectedKeyOp && key7.key_ops?.includes?.(expectedKeyOp) === false) {
+    if (expectedKeyOp && key8.key_ops?.includes?.(expectedKeyOp) === false) {
       throw new TypeError(`Invalid key for this operation, its "key_ops" must include "${expectedKeyOp}" when present`);
     }
   }
   return true;
 };
-var symmetricTypeCheck = (alg, key7, usage) => {
-  if (key7 instanceof Uint8Array)
+var symmetricTypeCheck = (alg, key8, usage) => {
+  if (key8 instanceof Uint8Array)
     return;
-  if (isJWK(key7)) {
-    if (isSecretJWK(key7) && jwkMatchesOp(alg, key7, usage))
+  if (isJWK(key8)) {
+    if (isSecretJWK(key8) && jwkMatchesOp(alg, key8, usage))
       return;
     throw new TypeError(`JSON Web Key for symmetric algorithms must have JWK "kty" (Key Type) equal to "oct" and the JWK "k" (Key Value) present`);
   }
-  if (!isKeyLike(key7)) {
-    throw new TypeError(withAlg(alg, key7, "CryptoKey", "KeyObject", "JSON Web Key", "Uint8Array"));
+  if (!isKeyLike(key8)) {
+    throw new TypeError(withAlg(alg, key8, "CryptoKey", "KeyObject", "JSON Web Key", "Uint8Array"));
   }
-  if (key7.type !== "secret") {
-    throw new TypeError(`${tag(key7)} instances for symmetric algorithms must be of type "secret"`);
+  if (key8.type !== "secret") {
+    throw new TypeError(`${tag(key8)} instances for symmetric algorithms must be of type "secret"`);
   }
 };
-var asymmetricTypeCheck = (alg, key7, usage) => {
-  if (isJWK(key7)) {
+var asymmetricTypeCheck = (alg, key8, usage) => {
+  if (isJWK(key8)) {
     switch (usage) {
       case "decrypt":
       case "sign":
-        if (isPrivateJWK(key7) && jwkMatchesOp(alg, key7, usage))
+        if (isPrivateJWK(key8) && jwkMatchesOp(alg, key8, usage))
           return;
         throw new TypeError(`JSON Web Key for this operation must be a private JWK`);
       case "encrypt":
       case "verify":
-        if (isPublicJWK(key7) && jwkMatchesOp(alg, key7, usage))
+        if (isPublicJWK(key8) && jwkMatchesOp(alg, key8, usage))
           return;
         throw new TypeError(`JSON Web Key for this operation must be a public JWK`);
     }
   }
-  if (!isKeyLike(key7)) {
-    throw new TypeError(withAlg(alg, key7, "CryptoKey", "KeyObject", "JSON Web Key"));
+  if (!isKeyLike(key8)) {
+    throw new TypeError(withAlg(alg, key8, "CryptoKey", "KeyObject", "JSON Web Key"));
   }
-  if (key7.type === "secret") {
-    throw new TypeError(`${tag(key7)} instances for asymmetric algorithms must not be of type "secret"`);
+  if (key8.type === "secret") {
+    throw new TypeError(`${tag(key8)} instances for asymmetric algorithms must not be of type "secret"`);
   }
-  if (key7.type === "public") {
+  if (key8.type === "public") {
     switch (usage) {
       case "sign":
-        throw new TypeError(`${tag(key7)} instances for asymmetric algorithm signing must be of type "private"`);
+        throw new TypeError(`${tag(key8)} instances for asymmetric algorithm signing must be of type "private"`);
       case "decrypt":
-        throw new TypeError(`${tag(key7)} instances for asymmetric algorithm decryption must be of type "private"`);
+        throw new TypeError(`${tag(key8)} instances for asymmetric algorithm decryption must be of type "private"`);
     }
   }
-  if (key7.type === "private") {
+  if (key8.type === "private") {
     switch (usage) {
       case "verify":
-        throw new TypeError(`${tag(key7)} instances for asymmetric algorithm verifying must be of type "public"`);
+        throw new TypeError(`${tag(key8)} instances for asymmetric algorithm verifying must be of type "public"`);
       case "encrypt":
-        throw new TypeError(`${tag(key7)} instances for asymmetric algorithm encryption must be of type "public"`);
+        throw new TypeError(`${tag(key8)} instances for asymmetric algorithm encryption must be of type "public"`);
     }
   }
 };
-function checkKeyType(alg, key7, usage) {
+function checkKeyType(alg, key8, usage) {
   switch (alg.substring(0, 2)) {
     case "A1":
     case "A2":
     case "di":
     case "HS":
     case "PB":
-      symmetricTypeCheck(alg, key7, usage);
+      symmetricTypeCheck(alg, key8, usage);
       break;
     default:
-      asymmetricTypeCheck(alg, key7, usage);
+      asymmetricTypeCheck(alg, key8, usage);
   }
 }
 
@@ -70310,20 +70392,20 @@ function subtleAlgorithm(alg, algorithm) {
 }
 
 // node_modules/jose/dist/webapi/lib/get_sign_verify_key.js
-async function getSigKey(alg, key7, usage) {
-  if (key7 instanceof Uint8Array) {
+async function getSigKey(alg, key8, usage) {
+  if (key8 instanceof Uint8Array) {
     if (!alg.startsWith("HS")) {
-      throw new TypeError(invalidKeyInput(key7, "CryptoKey", "KeyObject", "JSON Web Key"));
+      throw new TypeError(invalidKeyInput(key8, "CryptoKey", "KeyObject", "JSON Web Key"));
     }
-    return crypto.subtle.importKey("raw", key7, { hash: `SHA-${alg.slice(-3)}`, name: "HMAC" }, false, [usage]);
+    return crypto.subtle.importKey("raw", key8, { hash: `SHA-${alg.slice(-3)}`, name: "HMAC" }, false, [usage]);
   }
-  checkSigCryptoKey(key7, alg, usage);
-  return key7;
+  checkSigCryptoKey(key8, alg, usage);
+  return key8;
 }
 
 // node_modules/jose/dist/webapi/lib/verify.js
-async function verify(alg, key7, signature, data) {
-  const cryptoKey = await getSigKey(alg, key7, "verify");
+async function verify(alg, key8, signature, data) {
+  const cryptoKey = await getSigKey(alg, key8, "verify");
   checkKeyLength(alg, cryptoKey);
   const algorithm = subtleAlgorithm(alg, cryptoKey.algorithm);
   try {
@@ -70334,7 +70416,7 @@ async function verify(alg, key7, signature, data) {
 }
 
 // node_modules/jose/dist/webapi/jws/flattened/verify.js
-async function flattenedVerify(jws, key7, options) {
+async function flattenedVerify(jws, key8, options) {
   if (!isObject3(jws)) {
     throw new JWSInvalid("Flattened JWS must be an object");
   }
@@ -70393,11 +70475,11 @@ async function flattenedVerify(jws, key7, options) {
     throw new JWSInvalid("JWS Payload must be a string or an Uint8Array instance");
   }
   let resolvedKey = false;
-  if (typeof key7 === "function") {
-    key7 = await key7(parsedProt, jws);
+  if (typeof key8 === "function") {
+    key8 = await key8(parsedProt, jws);
     resolvedKey = true;
   }
-  checkKeyType(alg, key7, "verify");
+  checkKeyType(alg, key8, "verify");
   const data = concat(jws.protected !== void 0 ? encode4(jws.protected) : new Uint8Array(), encode4("."), typeof jws.payload === "string" ? b64 ? encode4(jws.payload) : encoder.encode(jws.payload) : jws.payload);
   let signature;
   try {
@@ -70405,7 +70487,7 @@ async function flattenedVerify(jws, key7, options) {
   } catch {
     throw new JWSInvalid("Failed to base64url decode the signature");
   }
-  const k = await normalizeKey(key7, alg);
+  const k = await normalizeKey(key8, alg);
   const verified = await verify(alg, k, signature, data);
   if (!verified) {
     throw new JWSSignatureVerificationFailed();
@@ -70436,7 +70518,7 @@ async function flattenedVerify(jws, key7, options) {
 }
 
 // node_modules/jose/dist/webapi/jws/compact/verify.js
-async function compactVerify(jws, key7, options) {
+async function compactVerify(jws, key8, options) {
   if (jws instanceof Uint8Array) {
     jws = decoder.decode(jws);
   }
@@ -70447,9 +70529,9 @@ async function compactVerify(jws, key7, options) {
   if (length !== 3) {
     throw new JWSInvalid("Invalid Compact JWS");
   }
-  const verified = await flattenedVerify({ payload, protected: protectedHeader, signature }, key7, options);
+  const verified = await flattenedVerify({ payload, protected: protectedHeader, signature }, key8, options);
   const result = { payload: verified.payload, protectedHeader: verified.protectedHeader };
-  if (typeof key7 === "function") {
+  if (typeof key8 === "function") {
     return { ...result, key: verified.key };
   }
   return result;
@@ -70681,22 +70763,22 @@ var JWTClaimsBuilder = class {
 };
 
 // node_modules/jose/dist/webapi/jwt/verify.js
-async function jwtVerify(jwt2, key7, options) {
-  const verified = await compactVerify(jwt2, key7, options);
+async function jwtVerify(jwt2, key8, options) {
+  const verified = await compactVerify(jwt2, key8, options);
   if (verified.protectedHeader.crit?.includes("b64") && verified.protectedHeader.b64 === false) {
     throw new JWTInvalid("JWTs MUST NOT use unencoded payload");
   }
   const payload = validateClaimsSet(verified.protectedHeader, verified.payload, options);
   const result = { payload, protectedHeader: verified.protectedHeader };
-  if (typeof key7 === "function") {
+  if (typeof key8 === "function") {
     return { ...result, key: verified.key };
   }
   return result;
 }
 
 // node_modules/jose/dist/webapi/lib/sign.js
-async function sign(alg, key7, data) {
-  const cryptoKey = await getSigKey(alg, key7, "sign");
+async function sign(alg, key8, data) {
+  const cryptoKey = await getSigKey(alg, key8, "sign");
   checkKeyLength(alg, cryptoKey);
   const signature = await crypto.subtle.sign(subtleAlgorithm(alg, cryptoKey.algorithm), cryptoKey, data);
   return new Uint8Array(signature);
@@ -70727,7 +70809,7 @@ var FlattenedSign = class {
     this.#unprotectedHeader = unprotectedHeader;
     return this;
   }
-  async sign(key7, options) {
+  async sign(key8, options) {
     if (!this.#protectedHeader && !this.#unprotectedHeader) {
       throw new JWSInvalid("either setProtectedHeader or setUnprotectedHeader must be called before #sign()");
     }
@@ -70750,7 +70832,7 @@ var FlattenedSign = class {
     if (typeof alg !== "string" || !alg) {
       throw new JWSInvalid('JWS "alg" (Algorithm) Header Parameter missing or invalid');
     }
-    checkKeyType(alg, key7, "sign");
+    checkKeyType(alg, key8, "sign");
     let payloadS;
     let payloadB;
     if (b64) {
@@ -70770,7 +70852,7 @@ var FlattenedSign = class {
       protectedHeaderBytes = new Uint8Array();
     }
     const data = concat(protectedHeaderBytes, encode4("."), payloadB);
-    const k = await normalizeKey(key7, alg);
+    const k = await normalizeKey(key8, alg);
     const signature = await sign(alg, k, data);
     const jws = {
       signature: encode5(signature),
@@ -70796,8 +70878,8 @@ var CompactSign = class {
     this.#flattened.setProtectedHeader(protectedHeader);
     return this;
   }
-  async sign(key7, options) {
-    const jws = await this.#flattened.sign(key7, options);
+  async sign(key8, options) {
+    const jws = await this.#flattened.sign(key8, options);
     if (jws.payload === void 0) {
       throw new TypeError("use the flattened module for creating JWS with b64: false");
     }
@@ -70844,13 +70926,13 @@ var SignJWT = class {
     this.#protectedHeader = protectedHeader;
     return this;
   }
-  async sign(key7, options) {
+  async sign(key8, options) {
     const sig = new CompactSign(this.#jwt.data());
     sig.setProtectedHeader(this.#protectedHeader);
     if (Array.isArray(this.#protectedHeader?.crit) && this.#protectedHeader.crit.includes("b64") && this.#protectedHeader.b64 === false) {
       throw new JWTInvalid("JWTs MUST NOT use unencoded payload");
     }
-    return sig.sign(key7, options);
+    return sig.sign(key8, options);
   }
 };
 
@@ -71627,8 +71709,8 @@ var WORKFLOW_TEMPLATES = [
     "Issue ROE (if needed)"
   ] }
 ];
-function getWorkflowTemplate(key7) {
-  return WORKFLOW_TEMPLATES.find((t2) => t2.key === key7);
+function getWorkflowTemplate(key8) {
+  return WORKFLOW_TEMPLATES.find((t2) => t2.key === key8);
 }
 
 // api/task-router.ts
@@ -74144,12 +74226,12 @@ var clientDashboardRouter = createRouter({
     const rows = await db.select().from(timesheets).where(eq(timesheets.clientId, input.clientId)).orderBy(desc(timesheets.payPeriodEnd));
     const periods = /* @__PURE__ */ new Map();
     for (const row of rows) {
-      const key7 = `${row.payPeriodStart?.toISOString()}-${row.payPeriodEnd?.toISOString()}`;
-      if (!periods.has(key7)) periods.set(key7, []);
-      periods.get(key7).push(row);
+      const key8 = `${row.payPeriodStart?.toISOString()}-${row.payPeriodEnd?.toISOString()}`;
+      if (!periods.has(key8)) periods.set(key8, []);
+      periods.get(key8).push(row);
     }
-    return Array.from(periods.entries()).map(([key7, entries]) => ({
-      periodKey: key7,
+    return Array.from(periods.entries()).map(([key8, entries]) => ({
+      periodKey: key8,
       payPeriodStart: entries[0].payPeriodStart,
       payPeriodEnd: entries[0].payPeriodEnd,
       entries,
@@ -74819,12 +74901,12 @@ var dividendRouter = createRouter({
     const inYear = rows.filter((r) => (r.taxYear ?? new Date(r.paymentDate).getFullYear()) === year2);
     const byRecipient = /* @__PURE__ */ new Map();
     for (const r of inYear) {
-      const key7 = (r.recipient || "(unnamed)").trim();
-      const agg = byRecipient.get(key7) || { eligible: 0, nonEligible: 0, hasSin: false };
+      const key8 = (r.recipient || "(unnamed)").trim();
+      const agg = byRecipient.get(key8) || { eligible: 0, nonEligible: 0, hasSin: false };
       if (r.dividendType === "eligible") agg.eligible += r.amount || 0;
       else agg.nonEligible += r.amount || 0;
       if (r.recipientSin) agg.hasSin = true;
-      byRecipient.set(key7, agg);
+      byRecipient.set(key8, agg);
     }
     const payer = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
     const slips = Array.from(byRecipient.entries()).map(([recipient, a]) => ({
@@ -74899,11 +74981,11 @@ var taxSlipRouter = createRouter({
     const inYear = rows.filter((r) => (r.taxYear ?? new Date(r.createdAt).getFullYear()) === year2);
     const byRecipient = /* @__PURE__ */ new Map();
     for (const r of inYear) {
-      const key7 = (r.recipient || "(unnamed)").trim();
-      const agg = byRecipient.get(key7) || { amount: 0, hasId: false };
+      const key8 = (r.recipient || "(unnamed)").trim();
+      const agg = byRecipient.get(key8) || { amount: 0, hasId: false };
       agg.amount += r.amount || 0;
       if (r.recipientId) agg.hasId = true;
-      byRecipient.set(key7, agg);
+      byRecipient.set(key8, agg);
     }
     const payer = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
     const slips = Array.from(byRecipient.entries()).map(([recipient, a]) => ({ recipient, amount: Math.round((a.amount + Number.EPSILON) * 100) / 100, hasId: a.hasId })).sort((x, y) => x.recipient.localeCompare(y.recipient));
@@ -75780,7 +75862,7 @@ var expirationRouter = createRouter({
       )
     );
     const clientIds = [.../* @__PURE__ */ new Set([
-      ...sigDocs.map((d6) => d6.clientId),
+      ...sigDocs.map((d7) => d7.clientId),
       ...letters.map((l) => l.clientId)
     ])];
     const clientMap = {};
@@ -75788,16 +75870,16 @@ var expirationRouter = createRouter({
       const rows = await db.select().from(clients).where(eq(clients.id, cid)).limit(1);
       if (rows[0]) clientMap[cid] = rows[0].name;
     }
-    const sigResults = sigDocs.map((d6) => ({
-      id: d6.id,
+    const sigResults = sigDocs.map((d7) => ({
+      id: d7.id,
       type: "signature",
-      title: d6.title,
-      clientId: d6.clientId,
-      clientName: clientMap[d6.clientId] || "Unknown",
-      documentType: d6.documentType,
-      status: d6.status,
-      expiresAt: d6.expiresAt,
-      daysRemaining: d6.expiresAt ? Math.ceil((new Date(d6.expiresAt).getTime() - now.getTime()) / (1e3 * 60 * 60 * 24)) : 0
+      title: d7.title,
+      clientId: d7.clientId,
+      clientName: clientMap[d7.clientId] || "Unknown",
+      documentType: d7.documentType,
+      status: d7.status,
+      expiresAt: d7.expiresAt,
+      daysRemaining: d7.expiresAt ? Math.ceil((new Date(d7.expiresAt).getTime() - now.getTime()) / (1e3 * 60 * 60 * 24)) : 0
     }));
     const letterResults = letters.map((l) => ({
       id: l.id,
@@ -75815,8 +75897,8 @@ var expirationRouter = createRouter({
     );
     return {
       total: allDocs.length,
-      critical: allDocs.filter((d6) => d6.daysRemaining <= 7).length,
-      warning: allDocs.filter((d6) => d6.daysRemaining > 7 && d6.daysRemaining <= 14).length,
+      critical: allDocs.filter((d7) => d7.daysRemaining <= 7).length,
+      warning: allDocs.filter((d7) => d7.daysRemaining > 7 && d7.daysRemaining <= 14).length,
       items: allDocs
     };
   })
@@ -77883,8 +77965,8 @@ async function fetchBocFxRates() {
     const date5 = String(obs.d ?? "");
     if (!isFresh(date5)) return null;
     const rates = { CAD: 1 };
-    for (const [key7, val] of Object.entries(obs)) {
-      const m = /^FX([A-Z]{3})CAD$/.exec(key7);
+    for (const [key8, val] of Object.entries(obs)) {
+      const m = /^FX([A-Z]{3})CAD$/.exec(key8);
       const v = Number(val?.v);
       if (m && Number.isFinite(v) && v > 0) rates[m[1]] = v;
     }
@@ -78109,14 +78191,14 @@ var pdfSplitterRouter = createRouter({
       if (!parsed || !Array.isArray(parsed.documents)) {
         return { ok: false, error: "Couldn't detect document boundaries. Try a clearer scan." };
       }
-      const docs = parsed.documents.map((d6) => ({
-        startPage: Math.max(1, parseInt(String(d6?.startPage)) || 1),
-        endPage: Math.max(1, parseInt(String(d6?.endPage)) || 1),
-        type: String(d6?.type ?? "other").trim() || "other",
-        folder: String(d6?.folder ?? "").trim().replace(/[\\/:*?"<>|]+/g, ""),
-        date: String(d6?.date ?? "").trim(),
-        name: String(d6?.name ?? "").trim() || "Document"
-      })).filter((d6) => d6.endPage >= d6.startPage).sort((a, b) => a.startPage - b.startPage);
+      const docs = parsed.documents.map((d7) => ({
+        startPage: Math.max(1, parseInt(String(d7?.startPage)) || 1),
+        endPage: Math.max(1, parseInt(String(d7?.endPage)) || 1),
+        type: String(d7?.type ?? "other").trim() || "other",
+        folder: String(d7?.folder ?? "").trim().replace(/[\\/:*?"<>|]+/g, ""),
+        date: String(d7?.date ?? "").trim(),
+        name: String(d7?.name ?? "").trim() || "Document"
+      })).filter((d7) => d7.endPage >= d7.startPage).sort((a, b) => a.startPage - b.startPage);
       return { ok: true, documents: docs };
     } catch (e) {
       const msg = e instanceof Error && e.name === "AbortError" ? "Timed out reading the PDF (120s). Scan a smaller batch." : e instanceof Error ? e.message : String(e);
@@ -78137,9 +78219,9 @@ init_drizzle_orm();
 init_google_token();
 
 // api/learning-core.ts
-function ms(d6) {
-  if (d6 == null) return 0;
-  const t2 = d6 instanceof Date ? d6.getTime() : Number(d6);
+function ms(d7) {
+  if (d7 == null) return 0;
+  const t2 = d7 instanceof Date ? d7.getTime() : Number(d7);
   return Number.isFinite(t2) ? t2 : 0;
 }
 function selectRelevant(all, agent, limit2 = 15) {
@@ -78451,9 +78533,9 @@ var TOPIC_RULES = [
 ];
 function detectAgent(message2, current) {
   const m = (message2 || "").toLowerCase().trimStart();
-  for (const key7 of Object.keys(AGENT_ROSTER)) {
-    const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${key7}\\b`);
-    if (re.test(m)) return key7;
+  for (const key8 of Object.keys(AGENT_ROSTER)) {
+    const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${key8}\\b`);
+    if (re.test(m)) return key8;
   }
   for (const rule of TOPIC_RULES) {
     if (rule.re.test(m)) return rule.agent;
@@ -78662,9 +78744,9 @@ async function execGetAgenda(userId) {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(todayStart.getTime() + 864e5);
   const open3 = await db.select().from(tasks).where(eq(tasks.completed, false));
-  const dstr = (d6) => {
+  const dstr = (d7) => {
     try {
-      return new Date(d6).toLocaleDateString(void 0, { month: "short", day: "numeric" });
+      return new Date(d7).toLocaleDateString(void 0, { month: "short", day: "numeric" });
     } catch {
       return "";
     }
@@ -78672,10 +78754,10 @@ async function execGetAgenda(userId) {
   const overdue = [], today2 = [], upcoming = [];
   for (const t2 of open3) {
     if (!t2.dueDate) continue;
-    const d6 = new Date(t2.dueDate);
-    const item = { title: t2.title, client: t2.clientId ? nameById.get(t2.clientId) : null, due: dstr(d6) };
-    if (d6 < todayStart) overdue.push(item);
-    else if (d6 < todayEnd) today2.push({ ...item, due: null });
+    const d7 = new Date(t2.dueDate);
+    const item = { title: t2.title, client: t2.clientId ? nameById.get(t2.clientId) : null, due: dstr(d7) };
+    if (d7 < todayStart) overdue.push(item);
+    else if (d7 < todayEnd) today2.push({ ...item, due: null });
     else upcoming.push(item);
   }
   overdue.sort((a, b) => a.due.localeCompare(b.due));
@@ -79326,8 +79408,8 @@ function validateForPosting(je, accountMap) {
   if (!je) return { ok: false, errors: ["Nothing to post for this period."] };
   if (!je.balanced) errors.push(`Journal entry is out of balance (debits ${je.totalDebit} \u2260 credits ${je.totalCredit}).`);
   const keysUsed = new Set(je.lines.map((l) => l.accountKey));
-  for (const key7 of keysUsed) {
-    if (!accountMap[key7]) errors.push(`No QBO account mapped for "${key7}". Set the account mapping before posting.`);
+  for (const key8 of keysUsed) {
+    if (!accountMap[key8]) errors.push(`No QBO account mapped for "${key8}". Set the account mapping before posting.`);
   }
   for (const l of je.lines) {
     if (l.debit < 0 || l.credit < 0) errors.push(`Negative amount on a ${l.accountKey} line \u2014 corrections must be re-entered as a positive reversing period.`);
@@ -79581,10 +79663,10 @@ var revRecRouter = createRouter({
     const rows = await db.select().from(rrAccountMap).where(eq(rrAccountMap.clientId, input.clientId));
     const byKey = {};
     for (const r of rows) byKey[r.accountKey] = r;
-    return ACCOUNT_KEYS.map((key7) => ({
-      accountKey: key7,
-      qboAccountId: byKey[key7]?.qboAccountId ?? null,
-      qboAccountName: byKey[key7]?.qboAccountName ?? null
+    return ACCOUNT_KEYS.map((key8) => ({
+      accountKey: key8,
+      qboAccountId: byKey[key8]?.qboAccountId ?? null,
+      qboAccountName: byKey[key8]?.qboAccountName ?? null
     }));
   }),
   accountMapSet: authedQuery.input(external_exports.object({
@@ -79719,8 +79801,8 @@ init_drizzle_orm();
 function round26(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
-function toTime(d6) {
-  const t2 = new Date(d6).getTime();
+function toTime(d7) {
+  const t2 = new Date(d7).getTime();
   return Number.isFinite(t2) ? t2 : 0;
 }
 function buildLedger(entries) {
@@ -79769,17 +79851,17 @@ function parseOpeningBalances(text2) {
 
 // api/banked-hours-router.ts
 function matchEmployee(name2, emps) {
-  const norm18 = (s) => (s || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
-  const target = norm18(name2);
+  const norm19 = (s) => (s || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
+  const target = norm19(name2);
   if (!target) return null;
   for (const e of emps) {
-    const full = norm18(`${e.firstName} ${e.lastName}`);
-    const rev = norm18(`${e.lastName} ${e.firstName}`);
+    const full = norm19(`${e.firstName} ${e.lastName}`);
+    const rev = norm19(`${e.lastName} ${e.firstName}`);
     if (target === full || target === rev) return e;
   }
   for (const e of emps) {
-    const ln = norm18(e.lastName);
-    const fi = norm18(e.firstName).charAt(0);
+    const ln = norm19(e.lastName);
+    const fi = norm19(e.firstName).charAt(0);
     if (ln && target.includes(ln) && (!fi || target.includes(fi))) return e;
   }
   return null;
@@ -80230,9 +80312,9 @@ var _serialize = (name2, value, opt = {}) => {
       throw new Error("__Host- Cookie must not have Domain attributes");
     }
   }
-  for (const key7 of ["domain", "path"]) {
-    if (opt[key7] && /[;\r\n]/.test(opt[key7])) {
-      throw new Error(`${key7} must not contain ";", "\\r", or "\\n"`);
+  for (const key8 of ["domain", "path"]) {
+    if (opt[key8] && /[;\r\n]/.test(opt[key8])) {
+      throw new Error(`${key8} must not contain ";", "\\r", or "\\n"`);
     }
   }
   if (opt && typeof opt.maxAge === "number" && opt.maxAge >= 0) {
@@ -80608,8 +80690,8 @@ app.get("/api/oauth/google/debug", async (c) => {
       const gDate = (part) => {
         if (part?.dateTime) return new Date(part.dateTime);
         if (!part?.date) return null;
-        const [y, m, d6] = String(part.date).split("-").map(Number);
-        return new Date(y, m - 1, d6, 12, 0, 0);
+        const [y, m, d7] = String(part.date).split("-").map(Number);
+        return new Date(y, m - 1, d7, 12, 0, 0);
       };
       let inserted = 0, skipped = 0;
       const errors = [];
@@ -80787,6 +80869,15 @@ app.get("/api/payroll/backfill-originality", async (c) => {
   try {
     const { backfillOriginalityPayroll: backfillOriginalityPayroll2 } = await Promise.resolve().then(() => (init_seed_originality_backfill(), seed_originality_backfill_exports));
     const r = await backfillOriginalityPayroll2();
+    return c.json({ ok: true, ...r });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.get("/api/payroll/backfill-2303851", async (c) => {
+  try {
+    const { backfill2303851Payroll: backfill2303851Payroll2 } = await Promise.resolve().then(() => (init_seed_2303851_backfill(), seed_2303851_backfill_exports));
+    const r = await backfill2303851Payroll2();
     return c.json({ ok: true, ...r });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
@@ -81440,10 +81531,10 @@ app.post("/api/admin/figgy", async (c) => {
       let i = 0;
       const updated = [];
       for (const t2 of open3) {
-        const d6 = /* @__PURE__ */ new Date();
-        d6.setHours(9, 0, 0, 0);
-        d6.setDate(d6.getDate() + i % 10 + 1);
-        await db.update(tasks5).set({ dueDate: d6 }).where(eq3(tasks5.id, t2.id));
+        const d7 = /* @__PURE__ */ new Date();
+        d7.setHours(9, 0, 0, 0);
+        d7.setDate(d7.getDate() + i % 10 + 1);
+        await db.update(tasks5).set({ dueDate: d7 }).where(eq3(tasks5.id, t2.id));
         updated.push(t2.id);
         i++;
       }
@@ -81923,8 +82014,8 @@ async function startServer() {
   if (process.env.FIGGY_SKIP_CLIENT_SEED !== "on") {
     try {
       const { dedupeClients: dedupeClients2 } = await Promise.resolve().then(() => (init_dedupe_clients(), dedupe_clients_exports));
-      const d6 = await dedupeClients2(true);
-      console.log(`[dedupe] clients: ${d6.totalClients} -> ${d6.keep} kept, ${d6.deleted} removed`);
+      const d7 = await dedupeClients2(true);
+      console.log(`[dedupe] clients: ${d7.totalClients} -> ${d7.keep} kept, ${d7.deleted} removed`);
     } catch (e) {
       console.error("[dedupe] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
@@ -81978,8 +82069,8 @@ async function startServer() {
     }
     try {
       const { seedDockKingFlowthrough: seedDockKingFlowthrough2 } = await Promise.resolve().then(() => (init_seed_dock_king_flowthrough(), seed_dock_king_flowthrough_exports));
-      const d6 = await seedDockKingFlowthrough2();
-      if (d6.matched) console.log(`[seed] Dock King flow-through: ${d6.updated} set wholesale, ${d6.tasksPaused} tasks/rules paused (${d6.matched} matched)`);
+      const d7 = await seedDockKingFlowthrough2();
+      if (d7.matched) console.log(`[seed] Dock King flow-through: ${d7.updated} set wholesale, ${d7.tasksPaused} tasks/rules paused (${d7.matched} matched)`);
     } catch (e) {
       console.error("[seed] seedDockKingFlowthrough failed (non-fatal):", e instanceof Error ? e.message : e);
     }
@@ -82080,6 +82171,13 @@ async function startServer() {
       if (r?.runsAdded) console.log(`[og-backfill] +${r.runsAdded} runs`);
     } catch (e) {
       console.error("[og-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
+    try {
+      const { backfill2303851Payroll: backfill2303851Payroll2 } = await Promise.resolve().then(() => (init_seed_2303851_backfill(), seed_2303851_backfill_exports));
+      const r = await backfill2303851Payroll2();
+      if (r?.runsAdded) console.log(`[2303851-backfill] +${r.runsAdded} runs`);
+    } catch (e) {
+      console.error("[2303851-backfill] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { dedupEmployees: dedupEmployees2 } = await Promise.resolve().then(() => (init_seed_employee_dedup(), seed_employee_dedup_exports));
