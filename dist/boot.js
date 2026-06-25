@@ -62964,6 +62964,7 @@ __export(browser_agent_exports, {
   click: () => click,
   ensureSession: () => ensureSession,
   goto: () => goto,
+  loginWithCredential: () => loginWithCredential,
   pressKey: () => pressKey,
   screenshot: () => screenshot,
   sessionInfo: () => sessionInfo,
@@ -63056,6 +63057,55 @@ async function pressKey(key10) {
   touch(s, `Key ${key10}`);
   await s.page.keyboard.press(key10);
 }
+async function loginWithCredential(cred) {
+  const s = await ensureSession();
+  const url2 = cred.loginUrl || (cred.provider === "hubdoc" ? "https://app.hubdoc.com/login" : "");
+  if (url2) {
+    touch(s, `Opening sign-in: ${url2}`);
+    await s.page.goto(url2, { waitUntil: "domcontentloaded", timeout: 3e4 }).catch(() => {
+    });
+  }
+  touch(s, "Signing in\u2026");
+  let filled = false;
+  try {
+    const userSel = [
+      'input[type="email"]',
+      'input[name="email"]',
+      'input[name="username"]',
+      'input[id*="email" i]',
+      'input[autocomplete="username"]'
+    ].join(",");
+    const passSel = [
+      'input[type="password"]',
+      'input[name="password"]',
+      'input[autocomplete="current-password"]'
+    ].join(",");
+    const userEl = await s.page.$(userSel);
+    if (userEl) {
+      await userEl.click({ clickCount: 3 }).catch(() => {
+      });
+      await userEl.type(cred.username, { delay: 15 });
+      filled = true;
+    }
+    const passEl = await s.page.$(passSel);
+    if (passEl) {
+      await passEl.click({ clickCount: 3 }).catch(() => {
+      });
+      await passEl.type(cred.password, { delay: 15 });
+      filled = true;
+    }
+    if (passEl) {
+      await s.page.keyboard.press("Enter").catch(() => {
+      });
+      await s.page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 15e3 }).catch(() => {
+      });
+    }
+  } catch (e) {
+    console.error("[figs-browser] login fill failed:", e instanceof Error ? e.message : e);
+  }
+  touch(s, filled ? `Signed in attempt at ${s.page.url()}` : `Login form not found at ${s.page.url()}`);
+  return { url: s.page.url(), filled };
+}
 async function stopSession(reason = "stopped") {
   const s = session;
   session = null;
@@ -63077,6 +63127,101 @@ var init_browser_agent = __esm({
     VIEWPORT = { width: 1280, height: 800 };
     session = null;
     launching = null;
+  }
+});
+
+// api/browser-credentials.ts
+var browser_credentials_exports = {};
+__export(browser_credentials_exports, {
+  deleteCredential: () => deleteCredential,
+  getDecryptedCredential: () => getDecryptedCredential,
+  listCredentials: () => listCredentials,
+  markCredentialUsed: () => markCredentialUsed,
+  saveCredential: () => saveCredential
+});
+async function ensureTable3() {
+  if (ensured) return;
+  const db = getDb();
+  await db.run(
+    sql.raw(`CREATE TABLE IF NOT EXISTS browser_credentials (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      provider TEXT NOT NULL,
+      label TEXT,
+      clientId INTEGER,
+      loginUrl TEXT,
+      username TEXT,
+      password TEXT,
+      lastUsedAt INTEGER,
+      createdAt INTEGER,
+      updatedAt INTEGER
+    )`)
+  );
+  ensured = true;
+}
+function maskUser(u) {
+  if (!u) return "";
+  const [name2, domain2] = u.split("@");
+  if (!domain2) return u.length <= 2 ? u : u.slice(0, 2) + "\u2022\u2022\u2022";
+  return `${name2.slice(0, 2)}\u2022\u2022\u2022@${domain2}`;
+}
+async function listCredentials() {
+  await ensureTable3();
+  const rows = await getDb().all(
+    sql.raw(`SELECT id, provider, label, clientId, loginUrl, username, password, lastUsedAt FROM browser_credentials ORDER BY provider, id`)
+  );
+  return rows.map((r) => ({
+    id: Number(r.id),
+    provider: String(r.provider),
+    label: r.label ?? null,
+    clientId: r.clientId != null ? Number(r.clientId) : null,
+    loginUrl: r.loginUrl ?? null,
+    usernameMasked: maskUser(decryptSecret(r.username)),
+    hasPassword: !!r.password,
+    lastUsedAt: r.lastUsedAt != null ? Number(r.lastUsedAt) : null
+  }));
+}
+async function saveCredential(input) {
+  await ensureTable3();
+  const db = getDb();
+  const now = Date.now();
+  const enc = {
+    username: encryptSecret(input.username),
+    password: encryptSecret(input.password)
+  };
+  const res = await db.run(
+    sql`INSERT INTO browser_credentials (provider, label, clientId, loginUrl, username, password, createdAt, updatedAt)
+        VALUES (${input.provider}, ${input.label ?? null}, ${input.clientId ?? null}, ${input.loginUrl ?? null}, ${enc.username}, ${enc.password}, ${now}, ${now})`
+  );
+  return { id: Number(res?.lastInsertRowid ?? 0) };
+}
+async function deleteCredential(id) {
+  await ensureTable3();
+  await getDb().run(sql`DELETE FROM browser_credentials WHERE id = ${id}`);
+}
+async function getDecryptedCredential(id) {
+  await ensureTable3();
+  const rows = await getDb().all(
+    sql.raw(`SELECT provider, loginUrl, username, password FROM browser_credentials WHERE id = ${Number(id)} LIMIT 1`)
+  );
+  const r = rows[0];
+  if (!r) return null;
+  const username = decryptSecret(r.username) || "";
+  const password = decryptSecret(r.password) || "";
+  return { provider: String(r.provider), loginUrl: r.loginUrl ?? null, username, password };
+}
+async function markCredentialUsed(id) {
+  try {
+    await getDb().run(sql`UPDATE browser_credentials SET lastUsedAt = ${Date.now()} WHERE id = ${id}`);
+  } catch {
+  }
+}
+var ensured;
+var init_browser_credentials = __esm({
+  "api/browser-credentials.ts"() {
+    init_connection();
+    init_drizzle_orm();
+    init_qbo_oauth();
+    ensured = false;
   }
 });
 
@@ -64473,6 +64618,7 @@ var init_ensure_clients_schema = __esm({
       ["nextPayday", "text"],
       ["qboCustomerId", "text"],
       ["qboConnectionId", "integer"],
+      ["qboRealmId", "text"],
       ["industry", "text DEFAULT 'other'"],
       ["country", "text DEFAULT 'CA'"],
       ["province", "text DEFAULT 'ON'"],
@@ -83618,7 +83764,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-24.114";
+var BUILD_TAG = "2026-06-25.115";
 app.get("/api/version", (c) => {
   let indexAsset = null;
   let assetExists = false;
@@ -85023,10 +85169,64 @@ app.post("/api/figs-browser/stop", async (c) => {
   await stopSession2("user stop");
   return c.json({ ok: true });
 });
+app.get("/api/figs-browser/credentials", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { listCredentials: listCredentials2 } = await Promise.resolve().then(() => (init_browser_credentials(), browser_credentials_exports));
+    return c.json({ ok: true, credentials: await listCredentials2() });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e), credentials: [] }, 200);
+  }
+});
+app.post("/api/figs-browser/credentials", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { saveCredential: saveCredential2 } = await Promise.resolve().then(() => (init_browser_credentials(), browser_credentials_exports));
+    const b = await c.req.json();
+    if (!b?.username || !b?.password || !b?.provider) return c.json({ ok: false, error: "provider, username, password required" }, 200);
+    const res = await saveCredential2({
+      provider: String(b.provider),
+      label: b.label ?? null,
+      clientId: b.clientId ?? null,
+      loginUrl: b.loginUrl ?? null,
+      username: String(b.username),
+      password: String(b.password)
+    });
+    return c.json({ ok: true, ...res });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.post("/api/figs-browser/credentials/delete", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { deleteCredential: deleteCredential2 } = await Promise.resolve().then(() => (init_browser_credentials(), browser_credentials_exports));
+    const b = await c.req.json();
+    await deleteCredential2(Number(b?.id));
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+app.post("/api/figs-browser/login", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { getDecryptedCredential: getDecryptedCredential2, markCredentialUsed: markCredentialUsed2 } = await Promise.resolve().then(() => (init_browser_credentials(), browser_credentials_exports));
+    const { loginWithCredential: loginWithCredential2 } = await Promise.resolve().then(() => (init_browser_agent(), browser_agent_exports));
+    const b = await c.req.json();
+    const cred = await getDecryptedCredential2(Number(b?.id));
+    if (!cred) return c.json({ ok: false, error: "credential not found" }, 200);
+    const res = await loginWithCredential2(cred);
+    await markCredentialUsed2(Number(b?.id));
+    return c.json({ ok: true, ...res });
+  } catch (e) {
+    return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 var boot_default = app;
 async function startServer() {
-  console.log("[BOOT] gfb-crm starting \u2014 build 2026-06-19c (clients-fix: schema+dedupe+casing)");
+  console.log(`[BOOT] gfb-crm starting \u2014 build ${BUILD_TAG} (realm-id column early-guard fix)`);
   const { serve: serve2 } = await Promise.resolve().then(() => (init_dist5(), dist_exports));
   const { serveStaticFiles: serveStaticFiles2 } = await Promise.resolve().then(() => (init_vite(), vite_exports));
   serveStaticFiles2(app);

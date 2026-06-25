@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bot, Play, Square, Globe, MousePointerClick, Lock } from "lucide-react";
+import { Bot, Play, Square, Globe, MousePointerClick, Lock, KeyRound, LogIn, Trash2, Plus } from "lucide-react";
 
 const VW = 1280, VH = 800; // server viewport — clicks map back to this
 
@@ -60,6 +60,33 @@ export default function FigsAtWork() {
   const disabled = info && info.enabled === false;
   const running = !!info?.running;
 
+  return <FigsAtWorkInner {...{ info, url, setUrl, typeText, setTypeText, tick, setTick, busy, imgRef, start, stop, go, onImgClick, sendType, enter, disabled, running }} />;
+}
+
+/** Split out so the login vault can share the same state without a giant single
+ *  component. (Kept in one file for simplicity.) */
+function FigsAtWorkInner(p: any) {
+  const { info, url, setUrl, typeText, setTypeText, tick, busy, imgRef, start, stop, go, onImgClick, sendType, enter, disabled, running, setTick } = p;
+  const [creds, setCreds] = useState<any[]>([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ provider: "hubdoc", label: "Hubdoc — Figs", loginUrl: "https://app.hubdoc.com/login", username: "", password: "" });
+  const [credBusy, setCredBusy] = useState(false);
+
+  const loadCreds = async () => { const r = await api("credentials"); setCreds(r?.credentials || []); };
+  useEffect(() => { loadCreds(); }, []);
+
+  const saveCred = async () => {
+    if (!form.username || !form.password) return;
+    setCredBusy(true);
+    await api("credentials", form);
+    setForm({ provider: "hubdoc", label: "", loginUrl: "", username: "", password: "" });
+    setShowAdd(false);
+    await loadCreds();
+    setCredBusy(false);
+  };
+  const delCred = async (id: number) => { await api("credentials/delete", { id }); await loadCreds(); };
+  const signIn = async (id: number) => { setCredBusy(true); await api("login", { id }); setTick((t: number) => t + 1); setCredBusy(false); };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -92,6 +119,47 @@ export default function FigsAtWork() {
       </div>
 
       {info?.status && <p className="text-xs text-slate-500">Figs: <span className="font-medium text-slate-700">{info.status}</span>{info.url ? ` · ${info.url}` : ""}</p>}
+
+      {/* Her logins (Stage 2) — saved encrypted; one click signs her in. */}
+      <Card>
+        <CardContent className="p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <KeyRound className="h-4 w-4 text-lime-600" /> Her logins
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setShowAdd((v) => !v)}><Plus className="h-3.5 w-3.5 mr-1" /> Add login</Button>
+          </div>
+          {creds.length === 0 && !showAdd && (
+            <p className="text-xs text-slate-400">No logins saved. Add her Hubdoc login so she can sign in herself (stored encrypted — the password is never shown again).</p>
+          )}
+          <div className="space-y-1">
+            {creds.map((cr) => (
+              <div key={cr.id} className="flex items-center justify-between text-sm border rounded px-2 py-1.5">
+                <div className="min-w-0">
+                  <span className="font-medium text-slate-800">{cr.label || cr.provider}</span>
+                  <span className="text-xs text-slate-400 ml-2">{cr.usernameMasked}</span>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <Button size="sm" variant="outline" disabled={!running || credBusy || disabled} onClick={() => signIn(cr.id)}><LogIn className="h-3.5 w-3.5 mr-1" /> Sign in</Button>
+                  <button className="p-1 rounded hover:bg-slate-100" onClick={() => delCred(cr.id)} title="Delete login"><Trash2 className="h-3.5 w-3.5 text-slate-400" /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {showAdd && (
+            <div className="grid gap-2 sm:grid-cols-2 border-t pt-2">
+              <Input placeholder="Label (e.g. Hubdoc — Figs)" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
+              <Input placeholder="Login URL (e.g. app.hubdoc.com/login)" value={form.loginUrl} onChange={(e) => setForm({ ...form, loginUrl: e.target.value })} />
+              <Input placeholder="Username / email" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoComplete="off" />
+              <Input placeholder="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" />
+              <div className="sm:col-span-2 flex gap-2">
+                <Button size="sm" onClick={saveCred} disabled={credBusy || !form.username || !form.password}>Save (encrypted)</Button>
+                <Button size="sm" variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Live frame */}
       <Card>

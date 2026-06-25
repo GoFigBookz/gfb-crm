@@ -487,7 +487,7 @@ export default function QBO() {
  *  single realm or the whole list (paste straight into Markie's master sheet). */
 function RealmIdCard() {
   const utils = trpc.useUtils();
-  const { data } = trpc.crmClient.realmMap.useQuery();
+  const { data, isLoading, error } = trpc.crmClient.realmMap.useQuery();
   const resync = trpc.crmClient.resyncRealms.useMutation({
     onSuccess: () => { utils.crmClient.realmMap.invalidate(); },
   });
@@ -499,7 +499,26 @@ function RealmIdCard() {
     setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500);
   };
 
-  if (!data) return null;
+  // Never silently vanish: show the card even while loading / on error / empty.
+  if (isLoading || error || !data) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <KeyRound className="h-4 w-4 text-lime-600" /> Client ↔ QuickBooks Realm IDs
+          </CardTitle>
+          <CardDescription>
+            {isLoading ? "Loading realm IDs…" : error ? `Couldn't load realm IDs: ${error.message}` : "No data yet."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button size="sm" onClick={() => resync.mutate()} disabled={resync.isPending}>
+            <RefreshCw className={cn("h-4 w-4 mr-1", resync.isPending && "animate-spin")} /> Re-sync from QBO
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
   const rows = data.rows;
   const s = data.summary;
 

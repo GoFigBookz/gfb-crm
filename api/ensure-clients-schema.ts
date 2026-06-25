@@ -45,7 +45,7 @@ const COLUMNS: Array<[string, string]> = [
   ["engagementSentAt", "integer"], ["engagementSignedAt", "integer"], ["engagementLetterUrl", "text"],
   ["assignedTo", "text"], ["oneDriveFolderId", "text"],
   ["payrollRpNumber", "text"], ["driveFolderUrl", "text"], ["clientInfoDocUrl", "text"], ["nextPayday", "text"],
-  ["qboCustomerId", "text"], ["qboConnectionId", "integer"],
+  ["qboCustomerId", "text"], ["qboConnectionId", "integer"], ["qboRealmId", "text"],
   ["industry", "text DEFAULT 'other'"], ["country", "text DEFAULT 'CA'"], ["province", "text DEFAULT 'ON'"], ["qboAccountType", "text DEFAULT 'ca_clients'"],
   ["figgyEmail", "text"], ["contactName", "text"], ["craRacDone", "integer DEFAULT 0"], ["groupName", "text"],
   ["isFirm", "integer DEFAULT 0"],

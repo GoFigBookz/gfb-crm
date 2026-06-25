@@ -20,3 +20,4 @@ ALTER TABLE clients ADD COLUMN transactionsPerMonth integer DEFAULT 0;
 ALTER TABLE clients ADD COLUMN engagementSentAt integer;
 ALTER TABLE clients ADD COLUMN engagementSignedAt integer;
 ALTER TABLE clients ADD COLUMN engagementLetterUrl text;
+ALTER TABLE clients ADD COLUMN qboRealmId text;

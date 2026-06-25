@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-24.114";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-25.115";  // bump each deploy so prod vs source is unambiguous
 app.get("/api/version", (c) => {
   // Report what the RUNNING server actually has on disk so we can tell a
   // deploy-content mismatch apart from an edge/browser cache problem.
@@ -1482,12 +1482,56 @@ app.post("/api/figs-browser/stop", async (c) => {
   return c.json({ ok: true });
 });
 
+// ── Figs' login vault (Stage 2) — admin only; secrets encrypted at rest. ──
+app.get("/api/figs-browser/credentials", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { listCredentials } = await import("./browser-credentials");
+    return c.json({ ok: true, credentials: await listCredentials() });
+  } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e), credentials: [] }, 200); }
+});
+app.post("/api/figs-browser/credentials", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { saveCredential } = await import("./browser-credentials");
+    const b = await c.req.json();
+    if (!b?.username || !b?.password || !b?.provider) return c.json({ ok: false, error: "provider, username, password required" }, 200);
+    const res = await saveCredential({
+      provider: String(b.provider), label: b.label ?? null, clientId: b.clientId ?? null,
+      loginUrl: b.loginUrl ?? null, username: String(b.username), password: String(b.password),
+    });
+    return c.json({ ok: true, ...res });
+  } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.post("/api/figs-browser/credentials/delete", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { deleteCredential } = await import("./browser-credentials");
+    const b = await c.req.json();
+    await deleteCredential(Number(b?.id));
+    return c.json({ ok: true });
+  } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+app.post("/api/figs-browser/login", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try {
+    const { getDecryptedCredential, markCredentialUsed } = await import("./browser-credentials");
+    const { loginWithCredential } = await import("./browser-agent");
+    const b = await c.req.json();
+    const cred = await getDecryptedCredential(Number(b?.id));
+    if (!cred) return c.json({ ok: false, error: "credential not found" }, 200);
+    const res = await loginWithCredential(cred);
+    await markCredentialUsed(Number(b?.id));
+    return c.json({ ok: true, ...res });
+  } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
+});
+
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
 export default app;
 
 async function startServer() {
-  console.log("[BOOT] gfb-crm starting — build 2026-06-19c (clients-fix: schema+dedupe+casing)");
+  console.log(`[BOOT] gfb-crm starting — build ${BUILD_TAG} (realm-id column early-guard fix)`);
   const { serve } = await import("@hono/node-server");
   const { serveStaticFiles } = await import("./lib/vite");
   serveStaticFiles(app);
