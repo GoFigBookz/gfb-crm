@@ -39370,6 +39370,7 @@ __export(qbo_oauth_exports, {
   decryptSecret: () => decryptSecret,
   encryptSecret: () => encryptSecret,
   ensureOAuthColumns: () => ensureOAuthColumns,
+  ensureTokenKey: () => ensureTokenKey,
   ensureValidNativeToken: () => ensureValidNativeToken,
   exchangeAndPersist: () => exchangeAndPersist,
   getOAuthCredentials: () => getOAuthCredentials,
@@ -39380,7 +39381,30 @@ __export(qbo_oauth_exports, {
 });
 import crypto2 from "node:crypto";
 function secretMaterial() {
-  return process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET || null;
+  return process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET || autoKey || null;
+}
+async function ensureTokenKey() {
+  if (process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET) return "env";
+  try {
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+    const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    const db = getDb2();
+    const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    await db.run(sql4`CREATE TABLE IF NOT EXISTS app_settings (key text PRIMARY KEY, value text, updatedAt integer)`);
+    const KEY = "figgy_token_key";
+    const existing = (await db.select().from(appSettings2).where(eq3(appSettings2.key, KEY)).limit(1))[0];
+    if (existing?.value) {
+      autoKey = existing.value;
+      return "persisted";
+    }
+    autoKey = crypto2.randomBytes(32).toString("hex");
+    await db.insert(appSettings2).values({ key: KEY, value: autoKey, updatedAt: /* @__PURE__ */ new Date() });
+    return "generated";
+  } catch (e) {
+    console.error("[qbo-oauth] ensureTokenKey failed (tokens stay plaintext):", e instanceof Error ? e.message : e);
+    return "persisted";
+  }
 }
 function warnNoKeyOnce() {
   if (warnedNoKey) return;
@@ -39651,7 +39675,7 @@ async function ensureOAuthColumns() {
     }
   }
 }
-var QBO_BASE_URLS, TOKEN_URL, AUTHORIZE_URL, QBO_SCOPE, warnedNoKey, ENC_PREFIX, STATE_TTL_MS, ReconnectRequiredError;
+var QBO_BASE_URLS, TOKEN_URL, AUTHORIZE_URL, QBO_SCOPE, autoKey, warnedNoKey, ENC_PREFIX, STATE_TTL_MS, ReconnectRequiredError;
 var init_qbo_oauth = __esm({
   "api/qbo-oauth.ts"() {
     init_connection();
@@ -39664,6 +39688,7 @@ var init_qbo_oauth = __esm({
     TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
     AUTHORIZE_URL = "https://appcenter.intuit.com/connect/oauth2";
     QBO_SCOPE = "com.intuit.quickbooks.accounting";
+    autoKey = null;
     warnedNoKey = false;
     ENC_PREFIX = "enc:v1:";
     STATE_TTL_MS = 15 * 60 * 1e3;
@@ -84179,6 +84204,13 @@ async function startServer() {
     await ensureRbacSchema2();
     const { ensureOwnerAdmin: ensureOwnerAdmin2 } = await Promise.resolve().then(() => (init_ensure_owner_admin(), ensure_owner_admin_exports));
     await ensureOwnerAdmin2();
+    try {
+      const { ensureTokenKey: ensureTokenKey2 } = await Promise.resolve().then(() => (init_qbo_oauth(), qbo_oauth_exports));
+      const src = await ensureTokenKey2();
+      if (src !== "env") console.log(`[qbo-oauth] token key ready (${src})`);
+    } catch (e) {
+      console.error("[qbo-oauth] ensureTokenKey boot failed:", e instanceof Error ? e.message : e);
+    }
     const { ensurePersonalSchema: ensurePersonalSchema2 } = await Promise.resolve().then(() => (init_ensure_personal_schema(), ensure_personal_schema_exports));
     await ensurePersonalSchema2();
     const { ensureLifeSchema: ensureLifeSchema2 } = await Promise.resolve().then(() => (init_ensure_life_schema(), ensure_life_schema_exports));

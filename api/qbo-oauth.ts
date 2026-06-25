@@ -53,8 +53,40 @@ type Env = "sandbox" | "production";
 // --------------------------------------------------------------------------
 // Key material
 // --------------------------------------------------------------------------
+// Auto-generated, DB-persisted key — set once at boot by ensureTokenKey() when no
+// env key is configured, so encryption is ZERO-TOUCH (Markie never has to set
+// FIGGY_TOKEN_KEY). It's stable across restarts because it's persisted, so tokens
+// encrypted with it stay decryptable. An explicit env key always wins.
+let autoKey: string | null = null;
 function secretMaterial(): string | null {
-  return process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET || null;
+  return process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET || autoKey || null;
+}
+
+/**
+ * Ensure a token-encryption key exists WITHOUT requiring an env var. If neither
+ * FIGGY_TOKEN_KEY nor APP_SECRET is set, generate a strong random key once and
+ * persist it in app_settings, then reuse it on every boot. Call at startup before
+ * any token is read/written. Returns the source for logging.
+ */
+export async function ensureTokenKey(): Promise<"env" | "generated" | "persisted"> {
+  if (process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET) return "env";
+  try {
+    const { getDb } = await import("./queries/connection");
+    const { appSettings } = await import("../db/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+    const { sql } = await import("drizzle-orm");
+    await db.run(sql`CREATE TABLE IF NOT EXISTS app_settings (key text PRIMARY KEY, value text, updatedAt integer)`);
+    const KEY = "figgy_token_key";
+    const existing = (await db.select().from(appSettings).where(eq(appSettings.key, KEY)).limit(1))[0] as any;
+    if (existing?.value) { autoKey = existing.value; return "persisted"; }
+    autoKey = crypto.randomBytes(32).toString("hex");
+    await db.insert(appSettings).values({ key: KEY, value: autoKey, updatedAt: new Date() } as any);
+    return "generated";
+  } catch (e) {
+    console.error("[qbo-oauth] ensureTokenKey failed (tokens stay plaintext):", e instanceof Error ? e.message : e);
+    return "persisted";
+  }
 }
 let warnedNoKey = false;
 function warnNoKeyOnce() {
