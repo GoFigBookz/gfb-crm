@@ -374,8 +374,10 @@ export const assistantRouter = createRouter({
       // the user shares). Current tool versions for Sonnet 4.6. Off only if disabled.
       const webOff = process.env.FIGGY_WEB_SEARCH === "off";
       const serverTools: any[] = webOff ? [] : [
-        { type: "web_search_20260209", name: "web_search", max_uses: 4 },
-        { type: "web_fetch_20260209", name: "web_fetch", max_uses: 5 },
+        // Kept lean so a turn finishes well within the gateway timeout (each search
+        // round-trip adds seconds). Raise via env if needed.
+        { type: "web_search_20260209", name: "web_search", max_uses: 2 },
+        { type: "web_fetch_20260209", name: "web_fetch", max_uses: 2 },
       ];
 
       // Build the user turn — with an image/PDF block when something's attached
@@ -411,7 +413,9 @@ export const assistantRouter = createRouter({
 
       // Official Anthropic SDK — built-in retries/backoff for 429/5xx, typed errors,
       // a robust transport. We drive the tool loop ourselves (custom audit + actions).
-      const client = new Anthropic({ apiKey, maxRetries: 3 });
+      // maxRetries kept low + a per-request timeout so a flaky call can't stack
+      // long backoffs past our reply deadline. The deadline below is the backstop.
+      const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 20_000 });
       let dropServerTools = false; // set if a server-tool combo is rejected, then retry without them
 
       // Run the tool_use blocks from a response, append results, return how many ran.
@@ -431,7 +435,7 @@ export const assistantRouter = createRouter({
       };
 
       const runLoop = async (): Promise<{ reply: string; actions: string[]; agent: AgentKey }> => {
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 5; i++) {
         const tools = [...ASSISTANT_TOOLS, ...(dropServerTools ? [] : serverTools)];
         let data: any;
         try {
@@ -481,23 +485,28 @@ export const assistantRouter = createRouter({
         return { reply: "Sorry — I got stuck in a loop. Try rephrasing.", actions, agent };
       };
 
-      // Always emit a small JSON reply quickly: a hung tool/Anthropic call or a slow
-      // multi-tool turn would otherwise run past the gateway timeout, so the proxy
-      // returns a non-tRPC page and the client shows "Unable to transform response
-      // from server". A deadline + outer catch guarantee a clean reply instead.
-      const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 110_000);
+      // Always emit a small JSON reply BEFORE the platform's request timeout. If a
+      // turn runs long (hung tool/Anthropic call, multi-search), the gateway kills
+      // the request and returns a non-tRPC page → the client shows "Unable to
+      // transform response from server". So we cap well under that timeout (~24s)
+      // and reply with a graceful "still working" instead. (Genuinely long agent
+      // work needs streaming/background — a follow-up; this keeps chat reliable.)
+      const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 24_000);
       let deadlineTimer: any;
       const deadline = new Promise<{ reply: string; actions: string[]; agent: AgentKey }>((resolve) => {
         deadlineTimer = setTimeout(() => resolve({
-          reply: "That one's taking me a while — let's break it into smaller steps. What's the first piece you want done?",
+          reply: "That's taking me longer than a quick reply — give me the first concrete step and I'll knock it out, or ask me to keep going.",
           actions, agent,
         }), DEADLINE_MS);
       });
-      try {
-        return await Promise.race([runLoop(), deadline]);
-      } catch (err: any) {
-        console.error("[assistant] fatal", { name: err?.name, message: err?.message });
+      // .catch on runLoop so a rejection AFTER the deadline already won can't become
+      // an unhandled rejection, and a rejection that wins still yields a clean reply.
+      const guarded = runLoop().catch((err: any) => {
+        console.error("[assistant] loop error", { name: err?.name, message: err?.message });
         return { reply: "Something glitched on my end just now — give it another go? If it keeps happening, tell me and I'll dig in.", actions, agent };
+      });
+      try {
+        return await Promise.race([guarded, deadline]);
       } finally {
         clearTimeout(deadlineTimer);
       }
