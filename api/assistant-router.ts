@@ -434,13 +434,14 @@ export const assistantRouter = createRouter({
       } catch { /* table may not exist yet — skip */ }
       const system = [frontDeskSystem(agent), nowLine, locLine, lessonsBlock].filter(Boolean).join("\n");
       // Server-side web tools: SEARCH (find things) + FETCH (open a specific URL
-      // the user shares). Current tool versions for Sonnet 4.6. Off only if disabled.
-      const webOff = process.env.FIGGY_WEB_SEARCH === "off";
-      const serverTools: any[] = webOff ? [] : [
-        // Kept lean so a turn finishes well within the gateway timeout (each search
-        // round-trip adds seconds). Raise via env if needed.
-        { type: "web_search_20260209", name: "web_search", max_uses: 2 },
-        { type: "web_fetch_20260209", name: "web_fetch", max_uses: 2 },
+      // the user shares). DEFAULT OFF for reliability — each web round-trip adds
+      // several seconds and is the main cause of a turn overrunning the gateway and
+      // returning the un-parseable "Unable to transform" page. Flip on per need with
+      // FIGGY_WEB_SEARCH=on once the chat is proven stable.
+      const webOn = process.env.FIGGY_WEB_SEARCH === "on";
+      const serverTools: any[] = !webOn ? [] : [
+        { type: "web_search_20260209", name: "web_search", max_uses: 1 },
+        { type: "web_fetch_20260209", name: "web_fetch", max_uses: 1 },
       ];
 
       // Build the user turn — with an image/PDF block when something's attached
@@ -478,7 +479,7 @@ export const assistantRouter = createRouter({
       // a robust transport. We drive the tool loop ourselves (custom audit + actions).
       // maxRetries kept low + a per-request timeout so a flaky call can't stack
       // long backoffs past our reply deadline. The deadline below is the backstop.
-      const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 20_000 });
+      const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 12_000 });
       let dropServerTools = false; // set if a server-tool combo is rejected, then retry without them
 
       // Run the tool_use blocks from a response, append results, return how many ran.
@@ -554,7 +555,7 @@ export const assistantRouter = createRouter({
       // transform response from server". So we cap well under that timeout (~24s)
       // and reply with a graceful "still working" instead. (Genuinely long agent
       // work needs streaming/background — a follow-up; this keeps chat reliable.)
-      const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 24_000);
+      const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 14_000);
       let deadlineTimer: any;
       const deadline = new Promise<{ reply: string; actions: string[]; agent: AgentKey }>((resolve) => {
         deadlineTimer = setTimeout(() => resolve({

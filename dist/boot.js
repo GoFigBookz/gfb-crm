@@ -81354,12 +81354,10 @@ var assistantRouter = createRouter({
     } catch {
     }
     const system = [frontDeskSystem(agent), nowLine, locLine, lessonsBlock].filter(Boolean).join("\n");
-    const webOff = process.env.FIGGY_WEB_SEARCH === "off";
-    const serverTools = webOff ? [] : [
-      // Kept lean so a turn finishes well within the gateway timeout (each search
-      // round-trip adds seconds). Raise via env if needed.
-      { type: "web_search_20260209", name: "web_search", max_uses: 2 },
-      { type: "web_fetch_20260209", name: "web_fetch", max_uses: 2 }
+    const webOn = process.env.FIGGY_WEB_SEARCH === "on";
+    const serverTools = !webOn ? [] : [
+      { type: "web_search_20260209", name: "web_search", max_uses: 1 },
+      { type: "web_fetch_20260209", name: "web_fetch", max_uses: 1 }
     ];
     let userContent = input.message;
     if (input.attachment?.data && input.attachment?.mediaType) {
@@ -81385,7 +81383,7 @@ var assistantRouter = createRouter({
       } catch {
       }
     };
-    const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 2e4 });
+    const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 12e3 });
     let dropServerTools = false;
     const handleToolUses = async (content) => {
       const toolUses = (content || []).filter((b) => b.type === "tool_use");
@@ -81443,7 +81441,7 @@ var assistantRouter = createRouter({
       }
       return { reply: "Sorry \u2014 I got stuck in a loop. Try rephrasing.", actions, agent };
     };
-    const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 24e3);
+    const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 14e3);
     let deadlineTimer;
     const deadline = new Promise((resolve4) => {
       deadlineTimer = setTimeout(() => resolve4({
