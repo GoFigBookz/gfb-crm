@@ -80668,8 +80668,10 @@ var assistantRouter = createRouter({
     const system = [frontDeskSystem(agent), nowLine, locLine, lessonsBlock].filter(Boolean).join("\n");
     const webOff = process.env.FIGGY_WEB_SEARCH === "off";
     const serverTools = webOff ? [] : [
-      { type: "web_search_20260209", name: "web_search", max_uses: 4 },
-      { type: "web_fetch_20260209", name: "web_fetch", max_uses: 5 }
+      // Kept lean so a turn finishes well within the gateway timeout (each search
+      // round-trip adds seconds). Raise via env if needed.
+      { type: "web_search_20260209", name: "web_search", max_uses: 2 },
+      { type: "web_fetch_20260209", name: "web_fetch", max_uses: 2 }
     ];
     let userContent = input.message;
     if (input.attachment?.data && input.attachment?.mediaType) {
@@ -80695,7 +80697,7 @@ var assistantRouter = createRouter({
       } catch {
       }
     };
-    const client = new Anthropic({ apiKey, maxRetries: 3 });
+    const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 2e4 });
     let dropServerTools = false;
     const handleToolUses = async (content) => {
       const toolUses = (content || []).filter((b) => b.type === "tool_use");
@@ -80712,7 +80714,7 @@ var assistantRouter = createRouter({
       return toolUses.length;
     };
     const runLoop = async () => {
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 5; i++) {
         const tools = [...ASSISTANT_TOOLS, ...dropServerTools ? [] : serverTools];
         let data;
         try {
@@ -80753,20 +80755,21 @@ var assistantRouter = createRouter({
       }
       return { reply: "Sorry \u2014 I got stuck in a loop. Try rephrasing.", actions, agent };
     };
-    const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 11e4);
+    const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 24e3);
     let deadlineTimer;
     const deadline = new Promise((resolve4) => {
       deadlineTimer = setTimeout(() => resolve4({
-        reply: "That one's taking me a while \u2014 let's break it into smaller steps. What's the first piece you want done?",
+        reply: "That's taking me longer than a quick reply \u2014 give me the first concrete step and I'll knock it out, or ask me to keep going.",
         actions,
         agent
       }), DEADLINE_MS);
     });
-    try {
-      return await Promise.race([runLoop(), deadline]);
-    } catch (err) {
-      console.error("[assistant] fatal", { name: err?.name, message: err?.message });
+    const guarded = runLoop().catch((err) => {
+      console.error("[assistant] loop error", { name: err?.name, message: err?.message });
       return { reply: "Something glitched on my end just now \u2014 give it another go? If it keeps happening, tell me and I'll dig in.", actions, agent };
+    });
+    try {
+      return await Promise.race([guarded, deadline]);
     } finally {
       clearTimeout(deadlineTimer);
     }
