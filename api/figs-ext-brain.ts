@@ -115,7 +115,7 @@ async function callClaude(s: Session): Promise<any> {
     max_tokens: 1024,
     system: SYSTEM,
     tools: tools(),
-    tool_choice: { type: "any" },
+    tool_choice: { type: "any", disable_parallel_tool_use: true },
     messages: s.messages,
   });
 }
