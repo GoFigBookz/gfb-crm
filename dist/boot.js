@@ -64466,7 +64466,7 @@ async function callClaude3(s) {
     max_tokens: 1024,
     system: SYSTEM4,
     tools: tools2(),
-    tool_choice: { type: "any" },
+    tool_choice: { type: "any", disable_parallel_tool_use: true },
     messages: s.messages
   });
 }
@@ -85151,7 +85151,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.128";
+var BUILD_TAG = "2026-06-25.129";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
