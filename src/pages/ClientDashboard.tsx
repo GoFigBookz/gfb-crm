@@ -1435,6 +1435,21 @@ function WsibRemittanceCard({ clientId, driveFolderUrl }: { clientId: number; dr
  * Reconciliation lives HERE now, not as standalone calendar tasks. Uses the same
  * monthlyClose router as the standalone page, so progress is shared.
  */
+/** QuickBooks Online deep-link to a month-end work area. Once Markie is signed
+ *  into the accountant QBO with this company active, these open the exact screen
+ *  (Bank rec, Banking feed, Reports, Chart of accounts). realmId is carried so the
+ *  link targets the right company where QBO honours it. */
+const QBO_AREAS: { key: string; label: string; path: string }[] = [
+  { key: "reconcile", label: "Reconcile", path: "reconcile" },
+  { key: "banking", label: "Banking feed", path: "banking" },
+  { key: "reports", label: "Reports", path: "reports" },
+  { key: "coa", label: "Chart of accounts", path: "chartofaccounts" },
+];
+function qboUrl(path: string, realmId?: string | null) {
+  const base = `https://app.qbo.intuit.com/app/${path}`;
+  return realmId ? `${base}?cid=${encodeURIComponent(realmId)}` : base;
+}
+
 function ClientCloseChecklist({ clientId }: { clientId: number }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -1442,6 +1457,8 @@ function ClientCloseChecklist({ clientId }: { clientId: number }) {
   const utils = trpc.useUtils();
   const { data: items } = trpc.monthlyClose.getChecklistDefinition.useQuery();
   const { data: checklist } = trpc.monthlyClose.getOrCreate.useQuery({ clientId, year, month }, { enabled: clientId > 0 });
+  const { data: qbo } = trpc.qbo.connectionForClient.useQuery({ clientId }, { enabled: clientId > 0 });
+  const realmId = qbo?.connection?.realmId ?? null;
   const toggle = trpc.monthlyClose.toggleItem.useMutation({
     onSuccess: () => utils.monthlyClose.getOrCreate.invalidate({ clientId, year, month }),
   });
@@ -1470,6 +1487,18 @@ function ClientCloseChecklist({ clientId }: { clientId: number }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
+        {/* Open the matching screen in QuickBooks (bank rec, banking feed, etc.). */}
+        <div className="flex items-center gap-1.5 flex-wrap pb-1">
+          <span className="text-[11px] text-slate-400 mr-0.5 inline-flex items-center gap-1"><ExternalLink className="h-3 w-3" /> Open in QuickBooks:</span>
+          {QBO_AREAS.map((a) => (
+            <a key={a.key} href={qboUrl(a.path, realmId)} target="_blank" rel="noopener noreferrer"
+              className="text-[11px] px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              title={realmId ? `Opens ${a.label} for this company in QuickBooks` : "Opens QuickBooks — sign into the accountant view with this company active"}>
+              {a.label}
+            </a>
+          ))}
+          {!realmId && <span className="text-[10px] text-slate-400">(no QBO connection yet — opens your active company)</span>}
+        </div>
         <Progress value={pct} className="h-2 mb-1" />
         {(items || []).map((item: any) => {
           const checked = (checklist as any)?.[item.field] === true || (checklist as any)?.[item.field] === 1;

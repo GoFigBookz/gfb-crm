@@ -1461,6 +1461,13 @@ async function startServer() {
     // way to self-promote (changing your own role needs admin).
     const { ensureOwnerAdmin } = await import("./ensure-owner-admin");
     await ensureOwnerAdmin();
+    // Zero-touch token-encryption key: if no FIGGY_TOKEN_KEY/APP_SECRET env is set,
+    // generate + persist one so QBO tokens are encrypted without manual config.
+    try {
+      const { ensureTokenKey } = await import("./qbo-oauth");
+      const src = await ensureTokenKey();
+      if (src !== "env") console.log(`[qbo-oauth] token key ready (${src})`);
+    } catch (e) { console.error("[qbo-oauth] ensureTokenKey boot failed:", e instanceof Error ? e.message : e); }
     const { ensurePersonalSchema } = await import("./ensure-personal-schema");
     await ensurePersonalSchema();
     const { ensureLifeSchema } = await import("./ensure-life-schema");
