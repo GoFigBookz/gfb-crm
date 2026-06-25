@@ -1,29 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="Figgy">
-  <defs>
-    <linearGradient id="figBody" x1="10" y1="12" x2="40" y2="46" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#a3e635"/>
-      <stop offset="0.55" stop-color="#65a30d"/>
-      <stop offset="1" stop-color="#3f6212"/>
-    </linearGradient>
-    <linearGradient id="figLeaf" x1="20" y1="2" x2="34" y2="16" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#bef264"/>
-      <stop offset="1" stop-color="#4d7c0f"/>
-    </linearGradient>
-  </defs>
-  <!-- fig body -->
-  <path d="M24 45.5C13.8 45.5 7.5 37.7 8.6 28.8 9.6 20.6 15.7 15.5 24 15.5s14.4 5.1 15.4 13.3C40.5 37.7 34.2 45.5 24 45.5Z" fill="url(#figBody)"/>
-  <!-- highlight -->
-  <path d="M17 22.5c-2.6 1.9-4 5-4.2 8.4-.1 1.6 1.9 2 2.6.6 1-2.1 2.4-4.3 4.5-5.9 1.4-1.1.4-4.2-2.9-3.1Z" fill="#ffffff" opacity="0.28"/>
-  <!-- stem -->
-  <path d="M24 16.5c-.3-3.2.2-5.8 1.7-8" stroke="#4d7c0f" stroke-width="2.4" stroke-linecap="round"/>
-  <!-- leaf -->
-  <path d="M25.5 9.2c2.8-4.1 7.3-5.4 11.3-4.9.7.1 1 .9.6 1.5-2.2 3.6-5.8 6.2-10.6 6-1.4-.1-2.1-1.5-1.3-2.6Z" fill="url(#figLeaf)"/>
-  <!-- seeds -->
-  <g fill="#fde68a" opacity="0.9">
-    <circle cx="21" cy="33" r="1.5"/>
-    <circle cx="27" cy="31.5" r="1.5"/>
-    <circle cx="24.5" cy="37" r="1.5"/>
-    <circle cx="29.5" cy="36" r="1.3"/>
-    <circle cx="19" cy="38" r="1.3"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Figgy">
+<path d="M30 29.259999999999998 l-7 -16 l16 6 Z" fill="#a3e635" stroke="#4d7c0f" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M70 29.259999999999998 l7 -16 l-16 6 Z" fill="#a3e635" stroke="#4d7c0f" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M50.0 22.0 L54.6 25.7 L60.2 23.6 L63.5 28.5 L69.4 28.3 L71.0 34.0 L76.7 35.6 L76.5 41.5 L81.4 44.8 L79.3 50.4 L83.0 55.0 L79.3 59.6 L81.4 65.2 L76.5 68.5 L76.7 74.4 L71.0 76.0 L69.4 81.7 L63.5 81.5 L60.2 86.4 L54.6 84.3 L50.0 88.0 L45.4 84.3 L39.8 86.4 L36.5 81.5 L30.6 81.7 L29.0 76.0 L23.3 74.4 L23.5 68.5 L18.6 65.2 L20.7 59.6 L17.0 55.0 L20.7 50.4 L18.6 44.8 L23.5 41.5 L23.3 35.6 L29.0 34.0 L30.6 28.3 L36.5 28.5 L39.8 23.6 L45.4 25.7 Z" fill="#a3e635" stroke="#4d7c0f" stroke-width="2.5" stroke-linejoin="round"/>
+  <circle cx="30" cy="64" r="5" fill="#65a30d" opacity="0.45"/><circle cx="70" cy="64" r="5" fill="#65a30d" opacity="0.45"/>
+  <g><ellipse cx="37" cy="53" rx="10" ry="12" fill="#fff" stroke="#1e293b" stroke-width="1.3"/>
+  <ellipse cx="63" cy="53" rx="10" ry="12" fill="#fff" stroke="#1e293b" stroke-width="1.3"/>
+  <circle cx="38.5" cy="55.5" r="5.2" fill="#1e293b"/><circle cx="64.5" cy="55.5" r="5.2" fill="#1e293b"/>
+  <circle cx="40.3" cy="53.7" r="1.8" fill="#fff"/><circle cx="66.3" cy="53.7" r="1.8" fill="#fff"/></g>
+  <path d="M42 70 q8 9 16 0" stroke="#1e293b" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M50 26 q-2 -12 6 -18" stroke="#4d7c0f" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M56 8 q11 -3 16 4 q-5 9 -16 6 q-4 -4 0 -10Z" fill="#84cc16" stroke="#4d7c0f" stroke-width="2" stroke-linejoin="round"/>
 </svg>

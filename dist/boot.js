@@ -63870,6 +63870,18 @@ async function ensureChatSchema() {
       clientId integer,
       createdAt integer
     )`);
+    const info = await db.run(sql.raw("PRAGMA table_info(chat_messages)"));
+    const have = /* @__PURE__ */ new Set();
+    for (const r of info?.rows ?? info ?? []) have.add(String(r.name ?? r[1] ?? ""));
+    const want = [["agent", "text"], ["clientId", "integer"], ["createdAt", "integer"]];
+    for (const [col, type] of want) {
+      if (!have.has(col)) {
+        try {
+          await db.run(sql.raw(`ALTER TABLE chat_messages ADD COLUMN "${col}" ${type}`));
+        } catch {
+        }
+      }
+    }
   } catch (e) {
     console.error("[chat] ensure chat_messages failed:", e instanceof Error ? e.message : e);
   }
