@@ -83,6 +83,10 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/messages", icon: MessageSquare, label: "Messages" },
     { to: "/quick-add", icon: Plus, label: "Quick Add" },
     { to: "/personal", icon: Lock, label: "Personal" },
+  ];
+  // Phoenix Rising — Markie's PRIVATE life hub. Owner-only: no other user sees it.
+  // Sits at the very bottom of the nav (still favoritable).
+  const personalNav = [
     { to: "/my-life", icon: Flame, label: "Phoenix Rising" },
   ];
 
@@ -117,7 +121,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
   ];
 
   // Flat registry so a favorited path resolves back to its icon + label.
-  const allItems = [...workItems, ...payrollItems, ...clientItems, ...commsItems, ...toolItems, ...insightItems, ...adminItems];
+  const allItems = [...workItems, ...payrollItems, ...clientItems, ...commsItems, ...toolItems, ...insightItems, ...adminItems, ...personalNav];
   const itemByPath = new Map(allItems.map((i) => [i.to, i]));
   const favItems = favorites.map((to) => itemByPath.get(to)).filter(Boolean) as { to: string; icon: any; label: string }[];
 
@@ -242,6 +246,13 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         )}
         {can.senior && (
           <Section label="Admin" icon={Lock} sectionKey="admin" items={adminItems} />
+        )}
+        {/* Phoenix Rising — owner-only, pinned to the bottom. */}
+        {can.admin && (
+          <>
+            <div className="border-t border-slate-800 my-2 mx-1" />
+            <Section label="Personal" icon={Flame} sectionKey="phoenix" items={personalNav} />
+          </>
         )}
       </nav>
 
