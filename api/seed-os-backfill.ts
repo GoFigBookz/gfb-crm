@@ -29,6 +29,8 @@ const ROSTER: Emp[] = [
   { first: "Jamie", last: "Moseley", rate: 28.0 },
   { first: "Brad", last: "Nickle", rate: 30.0 },
   { first: "Brad", last: "Shaw", rate: 25.0 },
+  { first: "Debbie", last: "Maritin", rate: 30.0 },
+  { first: "Neil", last: "Korchak", rate: 20.0 },
 ];
 
 type Period = { payDate: string; start: string; end: string; lines: Record<string, { hours: number; gross: number }> };
@@ -60,6 +62,48 @@ const PERIODS: Period[] = [
       [key("Brad", "Nickle")]: { hours: 80.5, gross: 2511.60 },
       [key("Brad", "Shaw")]: { hours: 101.0, gross: 2626.00 },
   } },
+  // Victoria Day stat in this period; line-gross sum ties to cost−tax ($21,353.47).
+  { payDate: "2026-05-29", start: "2026-05-13", end: "2026-05-26", lines: {
+      [key("Jammie", "Cook")]: { hours: 86.0, gross: 2772.64 },
+      [key("Grace", "Dickerson")]: { hours: 84.37, gross: 1579.44 },
+      [key("Dean", "Dickerson")]: { hours: 93.0, gross: 2998.32 },
+      [key("Bruce", "Funston")]: { hours: 93.96, gross: 1954.47 },
+      [key("Ethan", "Holt")]: { hours: 8.62, gross: 161.44 },
+      [key("Isabella", "Holt")]: { hours: 16.83, gross: 290.59 },
+      [key("Michael", "Kennedy")]: { hours: 106.68, gross: 2662.73 },
+      [key("Alexis", "Montgomery")]: { hours: 44.26, gross: 920.69 },
+      [key("Jamie", "Moseley")]: { hours: 93.93, gross: 2735.24 },
+      [key("Brad", "Nickle")]: { hours: 102.5, gross: 3198.00 },
+      [key("Brad", "Shaw")]: { hours: 80.0, gross: 2079.91 },
+  } },
+  { payDate: "2026-05-15", start: "2026-04-29", end: "2026-05-12", lines: {
+      [key("Jammie", "Cook")]: { hours: 74.03, gross: 2386.73 },
+      [key("Grace", "Dickerson")]: { hours: 85.53, gross: 1601.12 },
+      [key("Dean", "Dickerson")]: { hours: 95.0, gross: 3062.80 },
+      [key("Bruce", "Funston")]: { hours: 85.63, gross: 1781.10 },
+      [key("Ethan", "Holt")]: { hours: 8.0, gross: 149.76 },
+      [key("Isabella", "Holt")]: { hours: 8.0, gross: 138.11 },
+      [key("Michael", "Kennedy")]: { hours: 85.63, gross: 2137.32 },
+      [key("Debbie", "Maritin")]: { hours: 48.5, gross: 1513.20 },
+      [key("Alexis", "Montgomery")]: { hours: 50.0, gross: 1040.00 },
+      [key("Jamie", "Moseley")]: { hours: 104.08, gross: 3030.81 },
+      [key("Brad", "Nickle")]: { hours: 94.0, gross: 2932.80 },
+      [key("Brad", "Shaw")]: { hours: 19.55, gross: 508.30 },
+  } },
+  { payDate: "2026-05-01", start: "2026-04-15", end: "2026-04-28", lines: {
+      [key("Jammie", "Cook")]: { hours: 101.3, gross: 3265.91 },
+      [key("Grace", "Dickerson")]: { hours: 37.0, gross: 692.64 },
+      [key("Dean", "Dickerson")]: { hours: 75.0, gross: 2418.00 },
+      [key("Bruce", "Funston")]: { hours: 16.0, gross: 332.80 },
+      [key("Ethan", "Holt")]: { hours: 4.0, gross: 74.88 },
+      [key("Isabella", "Holt")]: { hours: 8.0, gross: 138.11 },
+      [key("Michael", "Kennedy")]: { hours: 82.93, gross: 2069.93 },
+      [key("Neil", "Korchak")]: { hours: 22.0, gross: 457.60 },
+      [key("Debbie", "Maritin")]: { hours: 64.0, gross: 1996.80 },
+      [key("Alexis", "Montgomery")]: { hours: 32.0, gross: 665.60 },
+      [key("Jamie", "Moseley")]: { hours: 91.03, gross: 2650.79 },
+      [key("Brad", "Nickle")]: { hours: 87.5, gross: 2730.00 },
+  } },
 ];
 
 export async function backfillOwenSoundPayroll(): Promise<{ client: number | null; runsAdded: number; skipped: string } | void> {
@@ -75,7 +119,14 @@ export async function backfillOwenSoundPayroll(): Promise<{ client: number | nul
     for (const e of existing) empByKey.set(key(e.firstName, e.lastName), e);
     for (const r of ROSTER) {
       const k = key(r.first, r.last);
-      if (empByKey.has(k)) continue;
+      const ex = empByKey.get(k);
+      if (ex) {
+        const patch: Record<string, any> = {};
+        if (ex.payType == null) patch.payType = "hourly";
+        if (ex.hourlyRate == null) patch.hourlyRate = r.rate;
+        if (Object.keys(patch).length) { patch.updatedAt = new Date(); await db.update(employees).set(patch).where(eq(employees.id, ex.id)); }
+        continue;
+      }
       const [ins] = await db.insert(employees).values({
         clientId, firstName: r.first, lastName: r.last, payType: "hourly",
         hourlyRate: r.rate, isActive: true, createdAt: new Date(), updatedAt: new Date(),
