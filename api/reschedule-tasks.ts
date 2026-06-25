@@ -96,7 +96,10 @@ export async function rescheduleAndCleanupTasks(): Promise<{
       //    else one week out. Dated at LOCAL noon so it can't drift a day in Ontario.
       if (!t.dueDate) {
         const base = t.startDate ? new Date(t.startDate) : new Date(Date.now() + 7 * 86400000);
-        const due = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12, 0, 0);
+        // Store at 12:00 UTC of the base's calendar day — deterministic regardless of
+        // the server's timezone (Railway runs UTC), and 12:00Z = 8am Ontario, so it
+        // never drifts to the prior day on the calendar grid.
+        const due = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), 12, 0, 0));
         await db.update(tasks).set({ dueDate: due, updatedAt: new Date() } as any).where(eq(tasks.id, t.id));
         stats.scheduled++;
       }

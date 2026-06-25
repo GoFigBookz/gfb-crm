@@ -20,6 +20,7 @@ import { format, isPast, isToday } from "date-fns";
 import { TaskDetailDialog } from "@/components/TaskDetailDialog";
 import { STANDARD_TASK_TITLES } from "@/lib/task-options";
 import { RevRecTab } from "@/components/RevRecTab";
+import { LoanTrackerTab } from "@/components/LoanTrackerTab";
 
 export default function ClientDashboard() {
   const { clientId } = useParams<{ clientId: string }>();
@@ -465,6 +466,7 @@ export default function ClientDashboard() {
           {!wholesale && client.hasPayroll && <TabsTrigger value="payroll">Payroll</TabsTrigger>}
           {!wholesale && <TabsTrigger value="compliance">Compliance</TabsTrigger>}
           {!wholesale && <TabsTrigger value="revrec">Rev Rec</TabsTrigger>}
+          {!wholesale && <TabsTrigger value="loans">Loans</TabsTrigger>}
           {!wholesale && <TabsTrigger value="time">Time</TabsTrigger>}
         </TabsList>
 
@@ -1041,6 +1043,10 @@ export default function ClientDashboard() {
         {/* REVENUE RECOGNITION (WIP) TAB */}
         <TabsContent value="revrec">
           <RevRecTab clientId={id} />
+        </TabsContent>
+
+        <TabsContent value="loans">
+          <LoanTrackerTab clientId={id} />
         </TabsContent>
 
         {/* TIME & HOURS TAB */}

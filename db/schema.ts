@@ -2010,6 +2010,50 @@ export const bankedHourShareLinks = sqliteTable("banked_hour_share_links", {
   revokedAt: integer("revokedAt", { mode: "timestamp" }),
 });
 
+// ========== LOAN TRACKER (shareholder / inter-company / third-party loans) ==========
+// One ledger per loan account; the running balance owed is the signed sum of entries.
+// Replaces Markie's manual loan sheets (Conor Loan, Adbank-Clark Loan, numbered-co
+// shareholder loans). Scoped by clientId.
+export const loanAccounts = sqliteTable("loan_accounts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  name: text("name").notNull(),               // e.g. "Conor — shareholder loan"
+  counterparty: text("counterparty"),         // the other party (person / entity)
+  annualRatePct: real("annualRatePct"),       // interest rate, if any
+  status: text("status", { enum: ["active", "settled", "archived"] }).default("active").notNull(),
+  note: text("note"),
+  createdBy: integer("createdBy"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+export const loanEntries = sqliteTable("loan_entries", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  loanId: integer("loanId").notNull(),
+  clientId: integer("clientId").notNull(),
+  entryDate: integer("entryDate", { mode: "timestamp" }).notNull(),
+  amount: real("amount").notNull(),           // signed: + grows the loan, − repayment
+  kind: text("kind", { enum: ["opening", "advance", "repayment", "interest", "adjust"] }).default("advance").notNull(),
+  note: text("note"),
+  source: text("source").default("manual"),   // manual | client | import | qbo
+  enteredBy: text("enteredBy"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Read(+write) client share links for a client's loan ledger(s). Revocable by token.
+export const loanShareLinks = sqliteTable("loan_share_links", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  token: text("token").notNull(),
+  label: text("label"),
+  allowEdit: integer("allowEdit", { mode: "boolean" }).default(false).notNull(),
+  active: integer("active", { mode: "boolean" }).default(true).notNull(),
+  createdBy: integer("createdBy"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  revokedAt: integer("revokedAt", { mode: "timestamp" }),
+});
+
 // ========== GROUP CONTROL BOOK (e.g. Jon Gillham's "Business Entity Management") ==========
 // Recreates the high-value parts of a multi-company owner's control book inside the
 // CRM, scoped by groupName (matches clients.groupName). Read surface for the group
