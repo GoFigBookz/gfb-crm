@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-25.125";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-25.126";  // bump each deploy so prod vs source is unambiguous
 
 // CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
 // secret into a hosting dashboard very often drags a trailing space or newline,
@@ -1489,7 +1489,17 @@ async function requireAdmin(c: any): Promise<boolean> {
 app.get("/api/figs-browser/status", async (c) => {
   if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
   const { sessionInfo } = await import("./browser-agent");
-  return c.json(sessionInfo());
+  return c.json(await sessionInfo());
+});
+// In-app on/off switch for Figs' browser (so Markie never has to touch Railway).
+app.post("/api/figs-browser/enable", async (c) => {
+  if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);
+  try {
+    const b = await c.req.json().catch(() => ({}));
+    const { setBrowserEnabled, isBrowserEnabled } = await import("./browser-agent");
+    await setBrowserEnabled(!!b?.on);
+    return c.json({ ok: true, enabled: await isBrowserEnabled() });
+  } catch (e) { return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200); }
 });
 app.post("/api/figs-browser/start", async (c) => {
   if (!(await requireAdmin(c))) return c.json({ error: "forbidden" }, 403);

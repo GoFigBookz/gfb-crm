@@ -51,6 +51,15 @@ on it. ACTION FOR US: when we pull reports (we use TransactionList / Transaction
 ByVendor for vendor coding), validate parsing against the modernized response shape;
 field names/structure can shift, so don't hard-assume column order — read by name.
 
+BANK / CREDIT-CARD RECONCILIATION (Markie's exact procedure — UI-only, no API; Figs does this in the browser):
+ 1. PREP THE BANK FEED FIRST. Transactions > Bank transactions (Banking). In the "For Review" tab, add/match/categorize EVERY downloaded transaction for the statement period before starting.
+ 2. OPEN RECONCILE. Settings (gear, top-right) > under Tools > Reconcile.
+ 3. ENTER STATEMENT INFO. Pick the EXACT account from the dropdown. Verify the BEGINNING balance in QBO matches the statement's beginning balance — if it doesn't, STOP and flag (an unresolved issue or a previously deleted/modified transaction from a past reconciliation). Enter the Ending Balance and Ending Date exactly as on the statement, then "Start reconciling". (QBO also has an AI experience: drag-and-drop the PDF statement to auto-fill ending balance/date and highlight mismatches.)
+ 4. CHECK OFF MATCHES. Bank-feed-matched transactions are usually pre-checked. Compare the statement line by line and check off any remaining items that match.
+ 5. FINALIZE. Get the "Difference" in the top-right to $0.00. Only when it's exactly zero, click "Finish now". If it won't hit $0.00, STOP and flag — never force-finish a non-zero reconciliation.
+
+NEVER USE "FIGGY CLEARING" (Markie, NON-NEGOTIABLE): the "Figgy Clearing" account is an internal staging account — NEVER reconcile it, never post spend/income to it, never pick it as the account for any transaction. Same for any other control/clearing account (A/P, A/R, Undeposited Funds, equity). If a workflow seems to want Figgy Clearing, STOP and flag.
+
 GOLDEN RULES (always): nothing posts to QBO without Markie's review; verify every change against LIVE QBO before reporting done; per-client isolation (each call's realmId is fixed); the Sanity Guard stays on.`.trim();
 
 /** Short pointer for agents who don't post to the books. */
