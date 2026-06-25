@@ -2057,3 +2057,15 @@ export const groupFamilyBenefit = sqliteTable("group_family_benefit", {
   allocation: text("allocation"),           // which company/companies pay it
   comment: text("comment"),
 });
+
+// Read-only public share link for a group's Control Book (owner views without login).
+export const groupBookShareLinks = sqliteTable("group_book_share_links", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  groupName: text("groupName").notNull(),
+  token: text("token").notNull(),
+  label: text("label"),
+  active: integer("active", { mode: "boolean" }).default(true).notNull(),
+  createdBy: integer("createdBy"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  revokedAt: integer("revokedAt", { mode: "timestamp" }),
+});
