@@ -21,6 +21,21 @@ import { awayInfo, eventTimeLabel } from "@/lib/timezone";
 type ViewType = "day" | "week" | "month" | "year" | "list" | "gantt";
 const VIEWS: ViewType[] = ["day", "week", "month", "year", "list", "gantt"];
 
+/**
+ * Which calendar DAY an item belongs on. The off-by-a-day bug: all-day events and
+ * date-only values (Google all-day events, Google Tasks) are stored at UTC midnight.
+ * Rendering `new Date(utcMidnight)` in Ontario (UTC-4/-5) lands on the PREVIOUS
+ * evening → the item shows a day early. So for any all-day / exact-UTC-midnight
+ * value we rebuild the date at LOCAL noon of its UTC calendar day; real timed
+ * values (8am payroll block, a 2pm meeting) pass through unchanged.
+ */
+function placementDate(value: any, isAllDay?: boolean): Date {
+  const d = new Date(value);
+  const midnightUTC = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+  if (isAllDay || midnightUTC) return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
+  return d;
+}
+
 export default function CalendarPage() {
   const navigate = useNavigate();
   const utils = trpc.useUtils();
@@ -91,6 +106,7 @@ export default function CalendarPage() {
 
   // Task interactions on the calendar: click to edit, drag to reschedule.
   const [openTask, setOpenTask] = useState<any | null>(null);
+  const [openEvent, setOpenEvent] = useState<any | null>(null);   // event drill-down dialog
   const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
   const [draggingEvent, setDraggingEvent] = useState<any | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
@@ -129,11 +145,11 @@ export default function CalendarPage() {
   const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
   const items: Item[] = [
     ...((events || []).map((e: any) => ({
-      id: `e${e.id}`, title: e.title, date: new Date(e.startDate), end: e.endDate ? new Date(e.endDate) : new Date(e.startDate),
+      id: `e${e.id}`, title: e.title, date: placementDate(e.startDate, e.isAllDay), end: placementDate(e.endDate ?? e.startDate, e.isAllDay),
       kind: "event" as const, clientId: e.clientId, color: e.color === "purple" ? "purple" : "lime", overdue: false, daysLate: 0, raw: e,
     }))),
     ...((allTasks || []).filter((t: any) => t.dueDate && !t.completed).map((t: any) => {
-      const d = new Date(t.dueDate);
+      const d = placementDate(t.dueDate);
       const isOverdue = d < startToday;
       const placement = isOverdue ? new Date() : d;   // overdue rolls onto today (display only)
       const daysLate = isOverdue ? differenceInCalendarDays(startToday, d) : 0;
@@ -143,9 +159,9 @@ export default function CalendarPage() {
     // "Begin work" markers: a task with a start date also appears (lighter, ▶) on
     // its start day, so the calendar shows when to START as well as when it's due.
     ...((allTasks || []).filter((t: any) => t.startDate && t.dueDate && !t.completed).map((t: any) => {
-      const s = new Date(t.startDate);
+      const s = placementDate(t.startDate);
       return { id: `ts${t.id}`, title: t.title, date: s, end: s, kind: "task" as const, clientId: t.clientId,
-        color: "blue", overdue: false, daysLate: 0, dueDate: new Date(t.dueDate), start: true, raw: t };
+        color: "blue", overdue: false, daysLate: 0, dueDate: placementDate(t.dueDate), start: true, raw: t };
     })),
   ];
   const overdueCount = items.filter((it) => it.kind === "task" && it.overdue).length;
@@ -182,6 +198,7 @@ export default function CalendarPage() {
         ev.stopPropagation();
         if (it.kind === "task") setOpenTask(it.raw);
         else if (it.raw.title?.includes("Discovery Call") && it.raw.clientId) navigate(`/discovery?clientId=${it.raw.clientId}`);
+        else setOpenEvent(it.raw);
       }}
       title={it.start ? `Start: ${it.title}` : it.title}
     >
@@ -362,7 +379,7 @@ export default function CalendarPage() {
             {itemsForDay(currentDate).length === 0
               ? <p className="text-slate-400 py-8 text-center">Nothing scheduled or due this day.</p>
               : itemsForDay(currentDate).map(it => (
-                <div key={it.id} onClick={() => { if (it.kind === "task") setOpenTask(it.raw); }} className={cn("flex items-center gap-3 p-3 border rounded-lg", it.kind === "task" && "cursor-pointer hover:bg-slate-50")}>
+                <div key={it.id} onClick={() => { if (it.kind === "task") setOpenTask(it.raw); else setOpenEvent(it.raw); }} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
                   <span className={cn("w-2 h-2 rounded-full shrink-0", it.kind === "task" ? (it.overdue ? "bg-red-500" : "bg-amber-500") : "bg-lime-500")} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{it.title}</p>
@@ -410,7 +427,7 @@ export default function CalendarPage() {
                   <div className="text-xs font-semibold text-slate-500 mb-1">{format(new Date(k), "EEEE, MMM d")}</div>
                   <div className="space-y-1">
                     {its.map(it => (
-                      <div key={it.id} onClick={() => { if (it.kind === "task") setOpenTask(it.raw); }} className={cn("flex items-center gap-3 p-2 border rounded-lg", it.kind === "task" && "cursor-pointer hover:bg-slate-50")}>
+                      <div key={it.id} onClick={() => { if (it.kind === "task") setOpenTask(it.raw); else setOpenEvent(it.raw); }} className="flex items-center gap-3 p-2 border rounded-lg cursor-pointer hover:bg-slate-50">
                         <span className={cn("w-2 h-2 rounded-full shrink-0", it.kind === "task" ? (it.overdue ? "bg-red-500" : "bg-amber-500") : "bg-lime-500")} />
                         <span className="flex-1 text-sm truncate">{it.title}</span>
                         {it.clientId && clientName(it.clientId) && <Link to={`/client/${it.clientId}`} onClick={(e) => e.stopPropagation()} className="text-xs text-lime-700 hover:underline shrink-0">{clientName(it.clientId)}</Link>}
@@ -463,6 +480,51 @@ export default function CalendarPage() {
       </CardContent></Card>
 
       {openTask && <TaskDetailDialog task={openTask} onClose={() => setOpenTask(null)} />}
+      {openEvent && (
+        <EventDetailDialog
+          event={openEvent}
+          clientName={openEvent.clientId ? clientName(openEvent.clientId) : null}
+          onClose={() => setOpenEvent(null)}
+          onDeleted={() => { setOpenEvent(null); utils.calendar.list.invalidate(); }}
+        />
+      )}
     </div>
+  );
+}
+
+/** Read-only-ish drill-down for a calendar EVENT (clicking one used to do nothing).
+ *  Shows when/where/who + description + meeting link, with Delete. */
+function EventDetailDialog({ event, clientName, onClose, onDeleted }: {
+  event: any; clientName: string | null; onClose: () => void; onDeleted: () => void;
+}) {
+  const allDay = !!event.isAllDay;
+  const start = placementDate(event.startDate, allDay);
+  const end = event.endDate ? placementDate(event.endDate, allDay) : start;
+  const when = allDay
+    ? format(start, "EEEE, MMMM d, yyyy") + " · all day"
+    : `${format(start, "EEEE, MMMM d, yyyy")} · ${format(start, "h:mm a")}${end > start ? `–${format(end, "h:mm a")}` : ""}`;
+  const del = trpc.calendar.delete.useMutation({ onSuccess: onDeleted, onError: (e) => alert(`Could not delete: ${e.message}`) });
+  let attendees: any[] = [];
+  try { attendees = Array.isArray(event.attendees) ? event.attendees : JSON.parse(event.attendees || "[]"); } catch { attendees = []; }
+  return (
+    <Dialog open onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><CalIcon className="h-4 w-4 text-lime-600" /> {event.title || "Event"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2 text-sm">
+          <p className="text-slate-700">{when}</p>
+          {event.location && <p className="text-slate-600">📍 {event.location}</p>}
+          {clientName && <p className="text-slate-600 flex items-center gap-1"><Building2 className="h-3.5 w-3.5" /> {clientName}</p>}
+          {event.meetingLink && <a href={event.meetingLink} target="_blank" rel="noreferrer" className="text-lime-700 hover:underline inline-block">Join meeting link →</a>}
+          {attendees.length > 0 && <p className="text-slate-500 text-xs">Guests: {attendees.map((a: any) => a.email || a.name).filter(Boolean).join(", ")}</p>}
+          {event.description && <p className="text-slate-600 whitespace-pre-wrap border-t pt-2">{event.description}</p>}
+          <div className="flex justify-between items-center pt-3 border-t">
+            <Button variant="ghost" className="text-red-500 hover:text-red-600" onClick={() => { if (confirm(`Delete "${event.title}"?`)) del.mutate({ id: event.id }); }}>Delete</Button>
+            {event.clientId && <Link to={`/client/${event.clientId}`} onClick={onClose} className="text-sm text-lime-700 hover:underline">Open client →</Link>}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

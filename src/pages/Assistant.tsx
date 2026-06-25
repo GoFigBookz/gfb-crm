@@ -49,6 +49,8 @@ export default function Assistant() {
   const silenceRef = useRef<any>(null);   // hands-free auto-send timer
   const wakeLockRef = useRef<any>(null);
   const ask = trpc.assistant.ask.useMutation();
+  const healthQ = trpc.assistant.health.useQuery(undefined, { refetchOnWindowFocus: false, staleTime: 60_000 });
+  const agentsOffline = healthQ.data && !healthQ.data.keyConfigured;
   const utils = trpc.useUtils();
   const active = ROSTER.find((r) => r.key === agent)!;
   useEffect(() => { handsFreeRef.current = handsFree; }, [handsFree]);
@@ -263,6 +265,15 @@ export default function Assistant() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-2rem)] max-w-2xl mx-auto">
+      {agentsOffline && (
+        <div className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p className="font-semibold">The agents are offline.</p>
+          <p className="text-xs mt-0.5">
+            The whole team runs on one key — <code className="bg-amber-100 px-1 rounded">ANTHROPIC_API_KEY</code> isn't set on the server, so Fig, Sage, Liv and the rest can't reply yet.
+            Add it in Railway → your service → Variables, then redeploy. (Get the key at console.anthropic.com → API Keys.)
+          </p>
+        </div>
+      )}
       <div className="pb-3 border-b space-y-2">
         <div className="flex items-center gap-2">
           <div className="w-9 h-9 rounded-full bg-lime-500 flex items-center justify-center text-white"><Bot className="h-5 w-5" /></div>

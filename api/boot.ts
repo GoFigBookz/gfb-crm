@@ -1457,6 +1457,10 @@ async function startServer() {
     await ensureGroupBookTables();
     const { ensureRbacSchema } = await import("./ensure-rbac-schema");
     await ensureRbacSchema();
+    // Owner (Markie) is always admin — he was stuck as senior_bookkeeper with no
+    // way to self-promote (changing your own role needs admin).
+    const { ensureOwnerAdmin } = await import("./ensure-owner-admin");
+    await ensureOwnerAdmin();
     const { ensurePersonalSchema } = await import("./ensure-personal-schema");
     await ensurePersonalSchema();
     const { ensureLifeSchema } = await import("./ensure-life-schema");

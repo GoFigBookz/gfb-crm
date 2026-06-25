@@ -34,10 +34,10 @@ function detectRule(title: string, category: string): string | null {
 }
 
 export async function rescheduleAndCleanupTasks(): Promise<{
-  rescheduled: number; deletedInactive: number; deletedAutoPayroll: number; deletedReconcile: number; deduped: number;
+  rescheduled: number; deletedInactive: number; deletedAutoPayroll: number; deletedReconcile: number; scheduled: number; deduped: number;
 }> {
   const db = getDb();
-  const stats = { rescheduled: 0, deletedInactive: 0, deletedAutoPayroll: 0, deletedReconcile: 0, deduped: 0 };
+  const stats = { rescheduled: 0, deletedInactive: 0, deletedAutoPayroll: 0, deletedReconcile: 0, scheduled: 0, deduped: 0 };
   try {
     const allTasks = (await db.select().from(tasks)) as any[];
     const allClients = (await db.select().from(clients)) as any[];
@@ -87,7 +87,18 @@ export async function rescheduleAndCleanupTasks(): Promise<{
         if (sched) {
           await db.update(tasks).set({ startDate: sched.start, dueDate: sched.due, updatedAt: new Date() } as any).where(eq(tasks.id, t.id));
           stats.rescheduled++;
+          continue;
         }
+      }
+
+      // 4) NOTHING UNSCHEDULED (Markie 2026-06-25). Every open task must land on the
+      //    calendar — if it still has no due date, give it one: its start date if set,
+      //    else one week out. Dated at LOCAL noon so it can't drift a day in Ontario.
+      if (!t.dueDate) {
+        const base = t.startDate ? new Date(t.startDate) : new Date(Date.now() + 7 * 86400000);
+        const due = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12, 0, 0);
+        await db.update(tasks).set({ dueDate: due, updatedAt: new Date() } as any).where(eq(tasks.id, t.id));
+        stats.scheduled++;
       }
     }
 
@@ -98,7 +109,7 @@ export async function rescheduleAndCleanupTasks(): Promise<{
       stats.deduped = r?.tasksRemoved ?? 0;
     } catch { /* best-effort */ }
 
-    console.log(`[reschedule] re-dated ${stats.rescheduled}, removed ${stats.deletedInactive} inactive-client + ${stats.deletedAutoPayroll} auto-payroll + ${stats.deletedReconcile} standalone-reconcile, deduped ${stats.deduped}`);
+    console.log(`[reschedule] re-dated ${stats.rescheduled}, scheduled ${stats.scheduled} undated, removed ${stats.deletedInactive} inactive-client + ${stats.deletedAutoPayroll} auto-payroll + ${stats.deletedReconcile} standalone-reconcile, deduped ${stats.deduped}`);
     return stats;
   } catch (e) {
     console.error("[reschedule] failed:", e instanceof Error ? e.message : e);

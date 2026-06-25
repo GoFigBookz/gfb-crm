@@ -60436,7 +60436,7 @@ function detectRule(title, category) {
 }
 async function rescheduleAndCleanupTasks() {
   const db = getDb();
-  const stats = { rescheduled: 0, deletedInactive: 0, deletedAutoPayroll: 0, deletedReconcile: 0, deduped: 0 };
+  const stats = { rescheduled: 0, deletedInactive: 0, deletedAutoPayroll: 0, deletedReconcile: 0, scheduled: 0, deduped: 0 };
   try {
     const allTasks = await db.select().from(tasks);
     const allClients = await db.select().from(clients);
@@ -60473,7 +60473,14 @@ async function rescheduleAndCleanupTasks() {
         if (sched) {
           await db.update(tasks).set({ startDate: sched.start, dueDate: sched.due, updatedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
           stats.rescheduled++;
+          continue;
         }
+      }
+      if (!t2.dueDate) {
+        const base = t2.startDate ? new Date(t2.startDate) : new Date(Date.now() + 7 * 864e5);
+        const due = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12, 0, 0);
+        await db.update(tasks).set({ dueDate: due, updatedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
+        stats.scheduled++;
       }
     }
     try {
@@ -60482,7 +60489,7 @@ async function rescheduleAndCleanupTasks() {
       stats.deduped = r?.tasksRemoved ?? 0;
     } catch {
     }
-    console.log(`[reschedule] re-dated ${stats.rescheduled}, removed ${stats.deletedInactive} inactive-client + ${stats.deletedAutoPayroll} auto-payroll + ${stats.deletedReconcile} standalone-reconcile, deduped ${stats.deduped}`);
+    console.log(`[reschedule] re-dated ${stats.rescheduled}, scheduled ${stats.scheduled} undated, removed ${stats.deletedInactive} inactive-client + ${stats.deletedAutoPayroll} auto-payroll + ${stats.deletedReconcile} standalone-reconcile, deduped ${stats.deduped}`);
     return stats;
   } catch (e) {
     console.error("[reschedule] failed:", e instanceof Error ? e.message : e);
@@ -64057,6 +64064,39 @@ var init_ensure_rbac_schema = __esm({
   "api/ensure-rbac-schema.ts"() {
     init_connection();
     init_drizzle_orm();
+  }
+});
+
+// api/ensure-owner-admin.ts
+var ensure_owner_admin_exports = {};
+__export(ensure_owner_admin_exports, {
+  ensureOwnerAdmin: () => ensureOwnerAdmin
+});
+async function ensureOwnerAdmin() {
+  try {
+    const db = getDb();
+    const promoted = [];
+    const all = await db.select().from(users);
+    for (const u of all) {
+      const email3 = String(u.email || "").toLowerCase();
+      if (!OWNER_EMAILS.includes(email3)) continue;
+      if (u.role === "admin") continue;
+      await db.update(users).set({ role: "admin", updatedAt: /* @__PURE__ */ new Date() }).where(eq(users.id, u.id));
+      promoted.push(u.email);
+    }
+    if (promoted.length) console.log(`[owner-admin] promoted to admin: ${promoted.join(", ")}`);
+    return { promoted };
+  } catch (e) {
+    console.error("[owner-admin] failed:", e instanceof Error ? e.message : e);
+  }
+}
+var OWNER_EMAILS;
+var init_ensure_owner_admin = __esm({
+  "api/ensure-owner-admin.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    OWNER_EMAILS = ["markie@gofig.ca", "markie.antle@gmail.com"];
   }
 });
 
@@ -80978,6 +81018,17 @@ async function runTool(name2, input, userId, activeAgent) {
   }
 }
 var assistantRouter = createRouter({
+  // Is the agent brain actually online? The whole team runs on ANTHROPIC_API_KEY;
+  // when it's not set every agent can only reply "needs the key", which reads like
+  // "the agents don't work". This lets the UI show a clear setup banner instead.
+  health: authedQuery.query(() => {
+    const keyConfigured = !!process.env.ANTHROPIC_API_KEY;
+    return {
+      keyConfigured,
+      model: process.env.FIGGY_ASSISTANT_MODEL || "claude-sonnet-4-6",
+      webSearch: process.env.FIGGY_WEB_SEARCH !== "off"
+    };
+  }),
   ask: authedQuery.input(external_exports.object({
     message: external_exports.string().min(1).max(8e3),
     history: external_exports.array(external_exports.object({ role: external_exports.enum(["user", "assistant"]), content: external_exports.string() })).max(20).optional(),
@@ -84126,6 +84177,8 @@ async function startServer() {
     await ensureGroupBookTables2();
     const { ensureRbacSchema: ensureRbacSchema2 } = await Promise.resolve().then(() => (init_ensure_rbac_schema(), ensure_rbac_schema_exports));
     await ensureRbacSchema2();
+    const { ensureOwnerAdmin: ensureOwnerAdmin2 } = await Promise.resolve().then(() => (init_ensure_owner_admin(), ensure_owner_admin_exports));
+    await ensureOwnerAdmin2();
     const { ensurePersonalSchema: ensurePersonalSchema2 } = await Promise.resolve().then(() => (init_ensure_personal_schema(), ensure_personal_schema_exports));
     await ensurePersonalSchema2();
     const { ensureLifeSchema: ensureLifeSchema2 } = await Promise.resolve().then(() => (init_ensure_life_schema(), ensure_life_schema_exports));
