@@ -58307,6 +58307,49 @@ var init_seed_collingwood_run_hours = __esm({
   }
 });
 
+// api/payroll-reminder-core.ts
+function utcNoon(iso2) {
+  return new Date(Date.UTC(+iso2.slice(0, 4), +iso2.slice(5, 7) - 1, +iso2.slice(8, 10), 12, 0, 0));
+}
+function toISO(d10) {
+  return `${d10.getUTCFullYear()}-${String(d10.getUTCMonth() + 1).padStart(2, "0")}-${String(d10.getUTCDate()).padStart(2, "0")}`;
+}
+function daysBetween2(aISO, bISO) {
+  return Math.round((utcNoon(aISO).getTime() - utcNoon(bISO).getTime()) / 864e5);
+}
+function weekdayOf(iso2) {
+  return utcNoon(iso2).getUTCDay();
+}
+function priorBusinessDay(iso2, holidays) {
+  let cur = iso2;
+  for (let i = 0; i < 14; i++) {
+    const wd = weekdayOf(cur);
+    if (wd !== 0 && wd !== 6 && !holidays.has(cur)) return cur;
+    const d10 = utcNoon(cur);
+    d10.setUTCDate(d10.getUTCDate() - 1);
+    cur = toISO(d10);
+  }
+  return cur;
+}
+function computeReminderRuns(todayISO, anchorISO, holidays, windowDays = 56) {
+  const out = [];
+  const base = utcNoon(todayISO);
+  for (let i = 0; i <= windowDays; i++) {
+    const d10 = new Date(base.getTime() + i * 864e5);
+    if (d10.getUTCDay() !== 3) continue;
+    const wedISO = toISO(d10);
+    const isBiweekly = (daysBetween2(wedISO, anchorISO) % 14 + 14) % 14 === 0;
+    const statShifted = holidays.has(wedISO);
+    const runISO = statShifted ? priorBusinessDay(wedISO, holidays) : wedISO;
+    out.push({ wedISO, runISO, isBiweekly, statShifted });
+  }
+  return out;
+}
+var init_payroll_reminder_core = __esm({
+  "api/payroll-reminder-core.ts"() {
+  }
+});
+
 // api/seed-payroll-recurring.ts
 var seed_payroll_recurring_exports = {};
 __export(seed_payroll_recurring_exports, {
@@ -58329,26 +58372,10 @@ function wallToUtc(dateStr, timeStr) {
   const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
   return new Date(guess.getTime() - (asUTC - guess.getTime()));
 }
-function daysBetween2(aISO, bISO) {
-  const a = Date.UTC(+aISO.slice(0, 4), +aISO.slice(5, 7) - 1, +aISO.slice(8, 10));
-  const b = Date.UTC(+bISO.slice(0, 4), +bISO.slice(5, 7) - 1, +bISO.slice(8, 10));
-  return Math.round((a - b) / 864e5);
-}
 function statSet(years) {
   const s = /* @__PURE__ */ new Set();
   for (const y of years) for (const h of ontarioStatHolidays(y)) s.add(h.date);
   return s;
-}
-function priorBusinessDay(dateStr, holidays) {
-  let cur = dateStr;
-  for (let i = 0; i < 14; i++) {
-    const d10 = /* @__PURE__ */ new Date(`${cur}T12:00:00Z`);
-    const wd = d10.getUTCDay();
-    if (wd !== 0 && wd !== 6 && !holidays.has(cur)) return cur;
-    d10.setUTCDate(d10.getUTCDate() - 1);
-    cur = `${d10.getUTCFullYear()}-${String(d10.getUTCMonth() + 1).padStart(2, "0")}-${String(d10.getUTCDate()).padStart(2, "0")}`;
-  }
-  return cur;
 }
 async function ensurePayrollReminders() {
   const db = getDb();
@@ -58369,22 +58396,17 @@ async function ensurePayrollReminders() {
     const todayStr = ymdInTz(/* @__PURE__ */ new Date());
     const base = /* @__PURE__ */ new Date(`${todayStr}T12:00:00Z`);
     const holidays = statSet([base.getUTCFullYear(), base.getUTCFullYear() + 1]);
+    const runs = computeReminderRuns(todayStr, BIWEEKLY_ANCHOR, holidays, WINDOW_DAYS);
     const scheduled = /* @__PURE__ */ new Map();
     const correctKeys = /* @__PURE__ */ new Set();
-    for (let i = 0; i <= WINDOW_DAYS; i++) {
-      const d10 = new Date(base.getTime() + i * 864e5);
-      if (weekdayInTz(d10) !== "Wed") continue;
-      const wedStr = ymdInTz(d10);
-      const isBiweekly = daysBetween2(wedStr, BIWEEKLY_ANCHOR) % 14 === 0;
-      const dueClients = [...WEEKLY, ...isBiweekly ? BIWEEKLY : []];
+    for (const run2 of runs) {
+      const dueClients = [...WEEKLY, ...run2.isBiweekly ? BIWEEKLY : []];
       if (!dueClients.length) continue;
-      const statShift = holidays.has(wedStr);
-      const runDate = statShift ? priorBusinessDay(wedStr, holidays) : wedStr;
       for (const c of dueClients) {
-        correctKeys.add(`${c.id}|${runDate}`);
-        const arr = scheduled.get(runDate) || [];
-        arr.push({ client: c, dateStr: runDate, statShift });
-        scheduled.set(runDate, arr);
+        correctKeys.add(`${c.id}|${run2.runISO}`);
+        const arr = scheduled.get(run2.runISO) || [];
+        arr.push({ client: c, dateStr: run2.runISO, statShift: run2.statShifted });
+        scheduled.set(run2.runISO, arr);
       }
     }
     let tasksRemoved = 0;
@@ -58455,13 +58477,14 @@ async function ensurePayrollReminders() {
     console.error("[payroll-reminders] failed:", err instanceof Error ? err.message : err);
   }
 }
-var OWNER_EMAIL, TZ2, WINDOW_DAYS, BLOCK_START, BLOCK_END, BIWEEKLY_ANCHOR, ymdInTz, weekdayInTz;
+var OWNER_EMAIL, TZ2, WINDOW_DAYS, BLOCK_START, BLOCK_END, BIWEEKLY_ANCHOR, ymdInTz;
 var init_seed_payroll_recurring = __esm({
   "api/seed-payroll-recurring.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     init_stat_holidays();
+    init_payroll_reminder_core();
     OWNER_EMAIL = "markie.antle@gmail.com";
     TZ2 = "America/Toronto";
     WINDOW_DAYS = 56;
@@ -58469,7 +58492,6 @@ var init_seed_payroll_recurring = __esm({
     BLOCK_END = "12:00:00";
     BIWEEKLY_ANCHOR = "2026-06-24";
     ymdInTz = (d10) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ2, year: "numeric", month: "2-digit", day: "2-digit" }).format(d10);
-    weekdayInTz = (d10) => new Intl.DateTimeFormat("en-US", { timeZone: TZ2, weekday: "short" }).format(d10);
   }
 });
 

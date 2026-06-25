@@ -102,3 +102,18 @@ export function eventTimeLabel(date: Date, info?: AwayInfo): string {
   if (!a.away) return et;
   return `${et} ${a.businessAbbrev} (${timeInZone(date, a.deviceTz)} local)`;
 }
+
+/**
+ * Which calendar DAY a calendar item belongs on — the off-by-a-day fix. All-day
+ * events and date-only values (Google all-day events, Google Tasks) are stored at
+ * UTC midnight; rendering `new Date(utcMidnight)` in Ontario (UTC-4/-5) lands on
+ * the PREVIOUS evening, so the item shows a day early. For any all-day / exact-
+ * UTC-midnight value we rebuild the date at LOCAL noon of its UTC calendar day;
+ * real timed values (an 8am block, a 2pm meeting) pass through unchanged.
+ */
+export function placementDate(value: Date | string | number, isAllDay?: boolean): Date {
+  const d = new Date(value);
+  const midnightUTC = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+  if (isAllDay || midnightUTC) return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
+  return d;
+}
