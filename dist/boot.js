@@ -57970,7 +57970,7 @@ var init_qa_core = __esm({
       { name: "ANTHROPIC_API_KEY", why: "AI features (Liv drafts, chatbot, bank converter, PDF splitter, web classify)" }
     ];
     OPTIONAL_ENV = [
-      { name: "FIGGY_TOKEN_KEY", why: "QBO token encryption at rest (native OAuth)" },
+      { name: "FIGGY_TOKEN_KEY", why: "QBO token encryption at rest \u2014 set via FIGGY_TOKEN_KEY, APP_SECRET, or the auto-generated key" },
       { name: "QBO_CLIENT_ID", why: "QBO native OAuth (production app)" },
       { name: "QBO_CLIENT_SECRET", why: "QBO native OAuth (production app)" },
       { name: "FIGGY_MAKE_API_TOKEN", why: "Make scenario-run bridge (Drive folders, backlog suggest)" }
@@ -58098,6 +58098,16 @@ async function gatherFacts() {
   }
   const env2 = {};
   for (const name2 of TRACKED_ENV) env2[name2] = !!process.env[name2];
+  let tokenKeyReady = !!(process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET);
+  if (!tokenKeyReady && dbReachable) {
+    try {
+      const r = await db.run(sql.raw(`SELECT value FROM app_settings WHERE key = 'figgy_token_key' LIMIT 1`));
+      const row = (r?.rows ?? r ?? [])[0];
+      tokenKeyReady = !!(row && (row.value ?? row[0]));
+    } catch {
+    }
+  }
+  env2["FIGGY_TOKEN_KEY"] = tokenKeyReady;
   let qbo;
   try {
     const res = await db.run(

@@ -64,6 +64,20 @@ async function gatherFacts(): Promise<QaFacts> {
   const env: Record<string, boolean> = {};
   for (const name of TRACKED_ENV) env[name] = !!process.env[name];
 
+  // QBO token encryption is "configured" if ANY key source is available — the
+  // FIGGY_TOKEN_KEY env, APP_SECRET, OR the auto-generated key persisted in
+  // app_settings (zero-touch). Report the real capability, not just one env name,
+  // so Jinx stops crying wolf when it's actually working (hasTokenKey: true).
+  let tokenKeyReady = !!(process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET);
+  if (!tokenKeyReady && dbReachable) {
+    try {
+      const r: any = await db.run(sql.raw(`SELECT value FROM app_settings WHERE key = 'figgy_token_key' LIMIT 1`));
+      const row = (r?.rows ?? r ?? [])[0];
+      tokenKeyReady = !!(row && (row.value ?? row[0]));
+    } catch { /* app_settings may not exist yet — leave as-is */ }
+  }
+  env["FIGGY_TOKEN_KEY"] = tokenKeyReady;
+
   // QBO connection health.
   let qbo: QaFacts["qbo"];
   try {
