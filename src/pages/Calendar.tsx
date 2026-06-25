@@ -15,6 +15,8 @@ import {
 } from "date-fns";
 import { cn } from "@/lib/utils";
 import { TaskDetailDialog } from "@/components/TaskDetailDialog";
+import { TimezoneBanner } from "@/components/TimezoneBanner";
+import { awayInfo, eventTimeLabel } from "@/lib/timezone";
 
 type ViewType = "day" | "week" | "month" | "year" | "list" | "gantt";
 const VIEWS: ViewType[] = ["day", "week", "month", "year", "list", "gantt"];
@@ -156,6 +158,9 @@ export default function CalendarPage() {
     setCurrentDate((dir === 1 ? f[0] : f[1])(currentDate, 1));
   };
 
+  // Timezone context: Ontario is canonical; flag + translate only when away.
+  const tz = awayInfo();
+
   const ItemPill = ({ it }: { it: Item }) => (
     <div
       draggable
@@ -240,6 +245,8 @@ export default function CalendarPage() {
           </Dialog>
         </div>
       </div>
+
+      <TimezoneBanner />
 
       {/* Legend */}
       <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
@@ -351,7 +358,7 @@ export default function CalendarPage() {
                   <span className={cn("w-2 h-2 rounded-full shrink-0", it.kind === "task" ? (it.overdue ? "bg-red-500" : "bg-amber-500") : "bg-lime-500")} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{it.title}</p>
-                    <p className="text-xs text-slate-500">{it.kind === "event" ? format(it.date, "h:mm a") : it.overdue ? `Due ${format(it.dueDate!, "MMM d")} · ${it.daysLate}d late` : "Task due"}{it.clientId && clientName(it.clientId) ? ` · ${clientName(it.clientId)}` : ""}</p>
+                    <p className="text-xs text-slate-500">{it.kind === "event" ? eventTimeLabel(it.date, tz) : it.overdue ? `Due ${format(it.dueDate!, "MMM d")} · ${it.daysLate}d late` : "Task due"}{it.clientId && clientName(it.clientId) ? ` · ${clientName(it.clientId)}` : ""}</p>
                   </div>
                   {it.clientId && <Link to={`/client/${it.clientId}`} onClick={(e) => e.stopPropagation()} className="text-xs text-lime-700 hover:underline shrink-0"><Building2 className="h-3.5 w-3.5" /></Link>}
                 </div>
@@ -399,7 +406,7 @@ export default function CalendarPage() {
                         <span className={cn("w-2 h-2 rounded-full shrink-0", it.kind === "task" ? (it.overdue ? "bg-red-500" : "bg-amber-500") : "bg-lime-500")} />
                         <span className="flex-1 text-sm truncate">{it.title}</span>
                         {it.clientId && clientName(it.clientId) && <Link to={`/client/${it.clientId}`} onClick={(e) => e.stopPropagation()} className="text-xs text-lime-700 hover:underline shrink-0">{clientName(it.clientId)}</Link>}
-                        <span className={cn("text-xs shrink-0", it.overdue ? "text-red-600 font-medium" : "text-slate-400")}>{it.kind === "task" ? (it.overdue ? `${it.daysLate}d late` : "due") : format(it.date, "h:mm a")}</span>
+                        <span className={cn("text-xs shrink-0", it.overdue ? "text-red-600 font-medium" : "text-slate-400")}>{it.kind === "task" ? (it.overdue ? `${it.daysLate}d late` : "due") : eventTimeLabel(it.date, tz)}</span>
                       </div>
                     ))}
                   </div>
