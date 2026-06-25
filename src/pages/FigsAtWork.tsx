@@ -64,6 +64,42 @@ export default function FigsAtWork() {
   return <FigsAtWorkInner {...{ info, url, setUrl, typeText, setTypeText, tick, setTick, busy, imgRef, start, stop, go, onImgClick, sendType, enter, disabled, running, enableAgent }} />;
 }
 
+/** The recommended path: Figs runs in Markie's REAL Chrome via the extension, so
+ *  she never logs in (no CAPTCHA, no 2FA, no watching). This card hands him the
+ *  token + how to load it. */
+function ExtensionCard() {
+  const [token, setToken] = useState<string>("");
+  const [copied, setCopied] = useState(false);
+  const getToken = async () => {
+    const r = await fetch("/api/figs-ext/token", { credentials: "include" });
+    const j = await r.json().catch(() => ({}));
+    if (j?.token) setToken(j.token);
+  };
+  const copy = async () => { if (token) { try { await navigator.clipboard.writeText(token); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ } } };
+  return (
+    <Card className="border-lime-300">
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          <Globe className="h-4 w-4 text-lime-600" /> Figs in your own Chrome (recommended)
+        </div>
+        <p className="text-xs text-slate-500">
+          Best way: you log into QuickBooks yourself (you pass the picture-check), and Figs works inside your tab — no CAPTCHA, no re-login, no watching. Load the <code className="bg-slate-100 px-1 rounded">extension/</code> folder once via <b>chrome://extensions → Developer mode → Load unpacked</b>, then paste this token into its Settings.
+        </p>
+        <div className="flex items-center gap-2">
+          {!token ? (
+            <Button size="sm" variant="outline" onClick={getToken}>Show my access token</Button>
+          ) : (
+            <>
+              <code className="text-xs bg-slate-100 px-2 py-1 rounded flex-1 truncate">{token}</code>
+              <Button size="sm" variant="outline" onClick={copy}>{copied ? "Copied ✓" : "Copy"}</Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 /** Split out so the login vault can share the same state without a giant single
  *  component. (Kept in one file for simplicity.) */
 function FigsAtWorkInner(p: any) {
@@ -147,6 +183,9 @@ function FigsAtWorkInner(p: any) {
       </div>
 
       {info?.status && <p className="text-xs text-slate-500">Figs: <span className="font-medium text-slate-700">{info.status}</span>{info.url ? ` · ${info.url}` : ""}</p>}
+
+      {/* Chrome extension — Figs works in YOUR logged-in browser (no CAPTCHA, no re-login). */}
+      <ExtensionCard />
 
       {/* Her logins (Stage 2) — saved encrypted; one click signs her in. */}
       <Card>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body { width: 340px; font-family: -apple-system, system-ui, sans-serif; margin: 0; color: #1e293b; }
+    header { background: #65a30d; color: #fff; padding: 10px 12px; display: flex; align-items: center; gap: 8px; }
+    header img { width: 22px; height: 22px; border-radius: 5px; }
+    header b { font-size: 15px; }
+    .body { padding: 12px; }
+    textarea { width: 100%; box-sizing: border-box; height: 64px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; font: inherit; resize: vertical; }
+    button { font: inherit; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+    .go { background: #65a30d; color: #fff; }
+    .stop { background: #fee2e2; color: #b91c1c; }
+    .ok { background: #65a30d; color: #fff; }
+    .no { background: #fef3c7; color: #92400e; }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
+    .muted { color: #64748b; font-size: 12px; }
+    .pending { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 8px; margin-top: 10px; }
+    .log { margin-top: 10px; max-height: 150px; overflow:auto; background: #f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px; font: 11px ui-monospace, monospace; color:#475569; white-space: pre-wrap; }
+    .settings { margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+    .settings input { width: 100%; box-sizing: border-box; border:1px solid #cbd5e1; border-radius:6px; padding:6px; font: inherit; margin-top:4px; }
+    summary { cursor: pointer; font-size: 12px; color:#64748b; }
+    .status { font-size: 12px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header><img src="icons/icon-48.png" /><b>Figs at Work</b></header>
+  <div class="body">
+    <div class="muted" style="margin-bottom:6px">Open the client in QuickBooks (already logged in), then tell Figs what to do.</div>
+    <textarea id="goal" placeholder="e.g. Reconcile Alderson's TD CAD Chequing. Ending balance $X, ending date June 30. Prep the feed, check off matches, get to $0.00, then ask me before Finish."></textarea>
+    <div class="row">
+      <button class="go" id="start">▶ Start</button>
+      <button class="stop" id="stop">■ Stop</button>
+      <span class="status" id="status"></span>
+    </div>
+
+    <div id="pendingBox" class="pending" style="display:none">
+      <div id="pendingSummary" style="font-weight:600"></div>
+      <div id="pendingReason" class="muted"></div>
+      <div class="row">
+        <button class="ok" id="approve">Approve</button>
+        <button class="no" id="deny">Deny</button>
+      </div>
+    </div>
+
+    <div class="log" id="log"></div>
+
+    <details class="settings">
+      <summary>Settings (set once)</summary>
+      <label class="muted">Figgy server</label>
+      <input id="apiBase" placeholder="https://figgy.gofig.ca" />
+      <label class="muted">Access token (from Figs at Work page)</label>
+      <input id="token" placeholder="fxt_…" />
+      <div class="row"><button class="go" id="save">Save</button></div>
+    </details>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

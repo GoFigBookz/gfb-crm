@@ -49530,10 +49530,10 @@ var init_deployments = __esm({
 function wasCreatedByStainlessHelper(value) {
   return typeof value === "object" && value !== null && SDK_HELPER_SYMBOL in value;
 }
-function collectStainlessHelpers(tools2, messages) {
+function collectStainlessHelpers(tools3, messages) {
   const helpers = /* @__PURE__ */ new Set();
-  if (tools2) {
-    for (const tool of tools2) {
+  if (tools3) {
+    for (const tool of tools3) {
       if (wasCreatedByStainlessHelper(tool)) {
         helpers.add(tool[SDK_HELPER_SYMBOL]);
       }
@@ -49555,8 +49555,8 @@ function collectStainlessHelpers(tools2, messages) {
   }
   return Array.from(helpers);
 }
-function stainlessHelperHeader(tools2, messages) {
-  const helpers = collectStainlessHelpers(tools2, messages);
+function stainlessHelperHeader(tools3, messages) {
+  const helpers = collectStainlessHelpers(tools3, messages);
   if (helpers.length === 0)
     return {};
   return { "x-stainless-helper": helpers.join(", ") };
@@ -50988,8 +50988,8 @@ var init_poller = __esm({
           throw new AnthropicError("Cannot iterate over a consumed WorkPoller");
         }
         __classPrivateFieldSet(this, _WorkPoller_consumed, true, "f");
-        const log2 = loggerFor(this.client);
-        log2.info("poller starting", {
+        const log3 = loggerFor(this.client);
+        log3.info("poller starting", {
           component: "work-poller",
           environment_id: this.environmentId
         });
@@ -51007,11 +51007,11 @@ var init_poller = __esm({
               if (__classPrivateFieldGet(this, _WorkPoller_controller, "f").signal.aborted)
                 return;
               if (isFatal4xx(e)) {
-                log2.error("poll failed permanently, stopping poller", { error: String(e) });
+                log3.error("poll failed permanently, stopping poller", { error: String(e) });
                 throw e;
               }
               const wait = applyJitter(backoff2(attempt));
-              log2.warn("poll failed, backing off", { error: String(e), backoff_ms: wait });
+              log3.warn("poll failed, backing off", { error: String(e), backoff_ms: wait });
               attempt++;
               await sleep(wait, __classPrivateFieldGet(this, _WorkPoller_controller, "f").signal);
               continue;
@@ -51023,7 +51023,7 @@ var init_poller = __esm({
               await sleep(jitter(1e3, 3e3), __classPrivateFieldGet(this, _WorkPoller_controller, "f").signal);
               continue;
             }
-            log2.info("claimed work", {
+            log3.info("claimed work", {
               component: "work-poller",
               environment_id: this.environmentId,
               work_id: work.id,
@@ -51032,7 +51032,7 @@ var init_poller = __esm({
             try {
               await __classPrivateFieldGet(this, _WorkPoller_runnerClient, "f").beta.environments.work.ack(work.id, { environment_id: work.environment_id }, { headers: buildHeaders([__classPrivateFieldGet(this, _WorkPoller_requestOpts, "f")?.headers]), signal: __classPrivateFieldGet(this, _WorkPoller_controller, "f").signal });
             } catch (e) {
-              log2.error("ack failed", { work_id: work.id, error: String(e) });
+              log3.error("ack failed", { work_id: work.id, error: String(e) });
               continue;
             }
             try {
@@ -51043,7 +51043,7 @@ var init_poller = __esm({
                   await __classPrivateFieldGet(this, _WorkPoller_runnerClient, "f").beta.environments.work.stop(work.id, { environment_id: work.environment_id }, { headers: buildHeaders([__classPrivateFieldGet(this, _WorkPoller_requestOpts, "f")?.headers]) });
                 } catch (e) {
                   if (!isStatus(e, 409))
-                    log2.warn("stop failed", { work_id: work.id, error: String(e) });
+                    log3.warn("stop failed", { work_id: work.id, error: String(e) });
                 }
               }
             }
@@ -51677,7 +51677,7 @@ async function setupSkills(ctx) {
   if (!client || !sessionId)
     return async () => {
     };
-  const log2 = loggerFor(client);
+  const log3 = loggerFor(client);
   const session2 = await client.beta.sessions.retrieve(sessionId);
   const skillsRoot = path4.resolve(ctx.workdir, "skills");
   const created = [];
@@ -51690,7 +51690,7 @@ async function setupSkills(ctx) {
         dirname4 = skill.skill_id;
       const dest = path4.resolve(skillsRoot, dirname4);
       if (dest !== skillsRoot && !dest.startsWith(skillsRoot + path4.sep)) {
-        log2.warn("skill name escapes the skills dir; skipping", {
+        log3.warn("skill name escapes the skills dir; skipping", {
           component: "agent-tool-context",
           name: version4.name
         });
@@ -51701,14 +51701,14 @@ async function setupSkills(ctx) {
       await fs2.mkdir(dest, { recursive: true, mode: DIR_CREATE_MODE });
       created.push(dest);
       await extractSkillArchive(resp, dest);
-      log2.info("downloaded skill", {
+      log3.info("downloaded skill", {
         component: "agent-tool-context",
         skill_id: skill.skill_id,
         version: versionId,
         dest
       });
     } catch (e) {
-      log2.warn("failed to download skill", {
+      log3.warn("failed to download skill", {
         component: "agent-tool-context",
         skill_id: skill.skill_id,
         error: String(e)
@@ -51718,7 +51718,7 @@ async function setupSkills(ctx) {
   return async () => {
     for (const dest of created) {
       await fs2.rm(dest, { recursive: true, force: true }).catch((e) => {
-        log2.warn("failed to clean up skill", { component: "agent-tool-context", dest, error: String(e) });
+        log3.warn("failed to clean up skill", { component: "agent-tool-context", dest, error: String(e) });
       });
     }
   };
@@ -52418,7 +52418,7 @@ ${out}`;
 });
 
 // node_modules/@anthropic-ai/sdk/lib/environments/worker.mjs
-async function forceStop(client, work, log2, requestOptions) {
+async function forceStop(client, work, log3, requestOptions) {
   try {
     await client.beta.environments.work.stop(
       work.id,
@@ -52430,7 +52430,7 @@ async function forceStop(client, work, log2, requestOptions) {
     );
   } catch (e) {
     if (!isStatus(e, 409)) {
-      log2.error("force-stop on exit failed", { work_id: work.id, error: String(e) });
+      log3.error("force-stop on exit failed", { work_id: work.id, error: String(e) });
     }
   }
 }
@@ -52577,7 +52577,7 @@ var init_worker = __esm({
      * Non-session work items are ignored.
      */
     async function _EnvironmentWorker_handleItem2(work, environmentKey, externalSignal) {
-      const log2 = loggerFor(this.client);
+      const log3 = loggerFor(this.client);
       const sessionClient = copyClientForHelper(this.client, {
         authToken: environmentKey,
         helper: "environments-worker"
@@ -52596,20 +52596,20 @@ var init_worker = __esm({
       try {
         cleanupSkills = await agentToolset.setupSkills(ctx);
       } catch (e) {
-        log2.warn("skill setup failed", { session_id: sessionId, work_id: work.id, error: String(e) });
+        log3.warn("skill setup failed", { session_id: sessionId, work_id: work.id, error: String(e) });
       }
-      const tools2 = typeof this.tools === "function" ? this.tools(ctx) : this.tools ?? agentToolset.betaAgentToolset20260401(ctx);
+      const tools3 = typeof this.tools === "function" ? this.tools(ctx) : this.tools ?? agentToolset.betaAgentToolset20260401(ctx);
       const ctrl = new AbortController();
       const detachExternal = linkAbort(externalSignal, ctrl);
-      const heartbeatPromise = heartbeatLoop(sessionClient, work, ctrl, log2, this.requestOptions).catch((e) => {
+      const heartbeatPromise = heartbeatLoop(sessionClient, work, ctrl, log3, this.requestOptions).catch((e) => {
         if (!ctrl.signal.aborted)
-          log2.error("heartbeat loop failed", { work_id: work.id, error: String(e) });
+          log3.error("heartbeat loop failed", { work_id: work.id, error: String(e) });
         ctrl.abort();
       });
       try {
         const runner = new SessionToolRunner(sessionId, {
           client: sessionClient,
-          tools: tools2,
+          tools: tools3,
           ...this.maxIdleMs !== void 0 ? { maxIdleMs: this.maxIdleMs } : {},
           ...this.requestOptions !== void 0 ? { requestOptions: this.requestOptions } : {},
           signal: ctrl.signal
@@ -52621,9 +52621,9 @@ var init_worker = __esm({
         detachExternal();
         await heartbeatPromise;
         await cleanupSkills().catch((e) => {
-          log2.warn("skill cleanup failed", { session_id: sessionId, work_id: work.id, error: String(e) });
+          log3.warn("skill cleanup failed", { session_id: sessionId, work_id: work.id, error: String(e) });
         });
-        await forceStop(sessionClient, work, log2, this.requestOptions);
+        await forceStop(sessionClient, work, log3, this.requestOptions);
       }
     };
   }
@@ -64384,6 +64384,211 @@ account (A/P, A/R, Undeposited Funds, equity). If something wants Figgy Clearing
 STOP and Ask Markie.
 
 You will be given a goal. Pursue it step by step, narrating briefly what you see and intend.`;
+  }
+});
+
+// api/figs-ext-brain.ts
+var figs_ext_brain_exports = {};
+__export(figs_ext_brain_exports, {
+  extApprove: () => extApprove,
+  extDeny: () => extDeny,
+  extStart: () => extStart,
+  extStatus: () => extStatus,
+  extStep: () => extStep,
+  extStop: () => extStop
+});
+function newId() {
+  seq += 1;
+  return `fx_${seq}_${sessions.size}`;
+}
+function tools2(vw, vh) {
+  return [
+    { type: "computer_20250124", name: "computer", display_width_px: vw, display_height_px: vh, display_number: 1 },
+    {
+      name: "request_approval",
+      description: "Call BEFORE any state-changing action (publish/post/save/submit/send/delete/reconcile/lock/approve). Pauses for Markie's approval in the extension.",
+      input_schema: {
+        type: "object",
+        properties: {
+          summary: { type: "string", description: "The exact action you want to take, e.g. 'Click Finish now to lock the TD CAD Chequing reconciliation at $0.00 difference'." },
+          reason: { type: "string", description: "Why this is correct (account, balance, date, difference)." }
+        },
+        required: ["summary", "reason"]
+      }
+    },
+    { name: "task_done", description: "Call when the goal is fully complete.", input_schema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] } }
+  ];
+}
+function toExtAction(input) {
+  const a = input?.action;
+  const [x, y] = Array.isArray(input?.coordinate) ? input.coordinate : [void 0, void 0];
+  switch (a) {
+    case "screenshot":
+      return { kind: "screenshot" };
+    case "mouse_move":
+      return { kind: "move", x, y };
+    case "left_click":
+      return { kind: "click", x, y };
+    case "double_click":
+      return { kind: "double_click", x, y };
+    case "right_click":
+      return { kind: "right_click", x, y };
+    case "left_click_drag":
+      return { kind: "drag", x, y };
+    case "type":
+      return { kind: "type", text: String(input.text || "") };
+    case "key":
+      return { kind: "key", key: String(input.text || input.key || "Enter") };
+    case "scroll":
+      return { kind: "scroll", direction: input.scroll_direction || "down", amount: Number(input.scroll_amount || 3) };
+    case "wait":
+      return { kind: "wait", ms: Math.min(3e3, Number(input.duration || 1) * 1e3) };
+    case "cursor_position":
+      return { kind: "screenshot" };
+    default:
+      return { kind: "screenshot" };
+  }
+}
+async function callClaude3(s) {
+  const key10 = process.env.ANTHROPIC_API_KEY;
+  if (!key10) throw new Error("ANTHROPIC_API_KEY not set \u2014 Figs' brain needs it.");
+  const { default: Anthropic2 } = await Promise.resolve().then(() => (init_sdk(), sdk_exports));
+  const client = new Anthropic2({ apiKey: key10 });
+  return client.beta.messages.create({
+    model: MODEL2,
+    max_tokens: 1024,
+    system: SYSTEM4,
+    tools: tools2(s.vw, s.vh),
+    messages: s.messages,
+    betas: ["computer-use-2025-01-24"]
+  });
+}
+function log2(s, text2) {
+  s.log.push({ at: Date.now(), text: text2 });
+  if (s.log.length > 200) s.log.shift();
+}
+async function turn(s) {
+  if (s.steps >= MAX_STEPS2) {
+    s.status = "done";
+    log2(s, "Reached the step limit \u2014 pausing.");
+    return { sessionId: idOf(s), done: true, summary: "step limit", log: s.log.slice(-30) };
+  }
+  s.status = "running";
+  const resp = await callClaude3(s);
+  s.messages.push({ role: "assistant", content: resp.content });
+  s.steps += 1;
+  const blocks = resp.content || [];
+  const texts = blocks.filter((b) => b.type === "text").map((b) => b.text).join(" ").trim();
+  if (texts) log2(s, `Figs: ${texts.slice(0, 200)}`);
+  const toolUses = blocks.filter((b) => b.type === "tool_use");
+  if (toolUses.length === 0) {
+    s.status = "done";
+    log2(s, "Figs stopped (no further action).");
+    return { sessionId: idOf(s), done: true, summary: texts || "done", log: s.log.slice(-30) };
+  }
+  const done = toolUses.find((t2) => t2.name === "task_done");
+  if (done) {
+    s.status = "done";
+    s.lastSummary = String(done.input?.summary || "");
+    log2(s, `\u2705 Done: ${s.lastSummary}`);
+    return { sessionId: idOf(s), done: true, summary: s.lastSummary, log: s.log.slice(-30) };
+  }
+  const approval = toolUses.find((t2) => t2.name === "request_approval");
+  if (approval) {
+    s.status = "awaiting_approval";
+    s.pending = { id: approval.id, summary: String(approval.input?.summary || "do something"), reason: String(approval.input?.reason || "") };
+    log2(s, `\u23F8 Needs your OK: ${s.pending.summary}`);
+    return { sessionId: idOf(s), pending: s.pending, log: s.log.slice(-30) };
+  }
+  const computer = toolUses.filter((t2) => t2.name === "computer");
+  s.computerIds = computer.map((t2) => t2.id);
+  const actions = computer.map((t2) => toExtAction(t2.input)).filter(Boolean);
+  for (const a of actions) log2(s, `\u2022 ${a.kind}${a.x != null ? ` (${a.x},${a.y})` : ""}${a.text ? ` "${String(a.text).slice(0, 30)}"` : ""}`);
+  return { sessionId: idOf(s), actions, log: s.log.slice(-30) };
+}
+function idOf(s) {
+  for (const [k, v] of sessions) if (v === s) return k;
+  return "";
+}
+function extStart(goal) {
+  const id = newId();
+  sessions.set(id, { goal, messages: [], status: "running", pending: null, steps: 0, vw: 1280, vh: 800, computerIds: [], log: [{ at: Date.now(), text: `Goal: ${goal}` }] });
+  return { sessionId: id };
+}
+async function extStep(sessionId, shotB64, vw, vh) {
+  const s = sessions.get(sessionId);
+  if (!s) throw new Error("Unknown session \u2014 start a task first.");
+  s.vw = Math.max(320, Math.round(vw || s.vw));
+  s.vh = Math.max(240, Math.round(vh || s.vh));
+  const image = { type: "image", source: { type: "base64", media_type: "image/png", data: shotB64 } };
+  if (s.messages.length === 0) {
+    s.messages.push({ role: "user", content: [
+      { type: "text", text: `GOAL: ${s.goal}
+
+This is Markie's current browser tab (he is already logged in). Begin, one careful step at a time. Call request_approval before anything that changes the books.` },
+      image
+    ] });
+  } else if (s.computerIds.length > 0) {
+    s.messages.push({ role: "user", content: s.computerIds.map((id) => ({ type: "tool_result", tool_use_id: id, content: [image] })) });
+    s.computerIds = [];
+  } else {
+    s.messages.push({ role: "user", content: [{ type: "text", text: "Current screen:" }, image] });
+  }
+  return turn(s);
+}
+async function extApprove(sessionId) {
+  const s = sessions.get(sessionId);
+  if (!s) throw new Error("Unknown session.");
+  if (s.status !== "awaiting_approval" || !s.pending) throw new Error("Nothing to approve.");
+  s.messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: s.pending.id, content: "APPROVED by Markie. Proceed with exactly that action now, then continue." }] });
+  log2(s, "\u2714 Approved \u2014 proceeding.");
+  s.pending = null;
+  return turn(s);
+}
+async function extDeny(sessionId, note) {
+  const s = sessions.get(sessionId);
+  if (!s) throw new Error("Unknown session.");
+  if (s.status !== "awaiting_approval" || !s.pending) throw new Error("Nothing to deny.");
+  s.messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: s.pending.id, content: `DENIED by Markie${note ? `: ${note}` : ""}. Do NOT do that. Try a safe alternative or call task_done.`, is_error: true }] });
+  log2(s, `\u2717 Denied${note ? `: ${note}` : ""}`);
+  s.pending = null;
+  return turn(s);
+}
+function extStop(sessionId) {
+  sessions.delete(sessionId);
+  return { ok: true };
+}
+function extStatus(sessionId) {
+  const s = sessions.get(sessionId);
+  if (!s) return { active: false };
+  return { active: true, goal: s.goal, status: s.status, steps: s.steps, pending: s.pending, log: s.log.slice(-30) };
+}
+var MODEL2, MAX_STEPS2, SYSTEM4, sessions, seq;
+var init_figs_ext_brain = __esm({
+  "api/figs-ext-brain.ts"() {
+    MODEL2 = process.env.FIGGY_BROWSER_MODEL || "claude-sonnet-4-6";
+    MAX_STEPS2 = 80;
+    SYSTEM4 = `You are Figs, a meticulous junior bookkeeper working inside Markie's OWN web browser for a Canadian bookkeeping firm. Markie is already logged into QuickBooks Online and Hubdoc \u2014 you act inside his authenticated session. You NEVER log in, never touch a login or password page, never solve a CAPTCHA; if you land on a login/verification screen, STOP and ask Markie to sign in.
+
+ABSOLUTE RULES:
+- You may freely NAVIGATE and READ: move, click links/tabs/menus, scroll, open a document, type into a SEARCH/filter box, screenshot.
+- You must NEVER perform a STATE-CHANGING action on your own. Before clicking anything that posts, publishes, saves, submits, sends, deletes, reconciles, locks, approves, or otherwise changes the books, call request_approval with exactly what you want to do and why, then STOP. Markie approves in the extension; only then does it run.
+- Work one careful step at a time. After each action, look at the new screenshot before the next step.
+- If unsure or something looks wrong, call request_approval and explain \u2014 never guess on anything that changes data.
+- When the goal is fully complete, call task_done with a short summary.
+
+RECONCILE PROCEDURE (Markie's exact steps \u2014 UI-only, which is why you do it here):
+  a. Prep the feed first: Transactions > Bank transactions; in "For Review" add/match/categorize EVERY transaction for the statement period.
+  b. Settings (gear, top-right) > Tools > Reconcile.
+  c. Pick the EXACT account. Verify the BEGINNING balance matches the statement \u2014 if it doesn't, STOP and request_approval (unresolved prior issue). Enter the Ending Balance + Ending Date from the statement, then Start reconciling (or drag-drop the PDF to auto-fill).
+  d. Check off matching transactions (bank-feed matches are usually pre-checked); compare the statement line by line.
+  e. Get the "Difference" to $0.00, then request_approval to click "Finish now". NEVER force-finish a non-zero difference \u2014 STOP and ask Markie.
+
+NEVER USE "FIGGY CLEARING" (non-negotiable): never reconcile it, never post to it, never select it for any transaction. Same for any control/clearing account (A/P, A/R, Undeposited Funds, equity). If something wants Figgy Clearing, STOP and ask Markie.
+
+Anything you're unsure of (vendor, account, \u226480% confident) \u2014 DON'T do it; flag it for Markie's review and move on.`;
+    sessions = /* @__PURE__ */ new Map();
+    seq = 0;
   }
 });
 
@@ -83026,10 +83231,10 @@ var assistantRouter = createRouter({
     };
     const runLoop = async () => {
       for (let i = 0; i < 5; i++) {
-        const tools2 = [...ASSISTANT_TOOLS, ...dropServerTools ? [] : serverTools];
+        const tools3 = [...ASSISTANT_TOOLS, ...dropServerTools ? [] : serverTools];
         let data;
         try {
-          data = await client.messages.create({ model, max_tokens: 1024, system, messages, tools: tools2 });
+          data = await client.messages.create({ model, max_tokens: 1024, system, messages, tools: tools3 });
         } catch (err) {
           if (err instanceof Anthropic.BadRequestError && !dropServerTools && /tool|web_search|web_fetch/i.test(err.message || "")) {
             dropServerTools = true;
@@ -84949,7 +85154,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-25.126";
+var BUILD_TAG = "2026-06-25.127";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -86546,6 +86751,80 @@ app.post("/api/figs-browser/brain/stop", async (c) => {
     return c.json({ ok: true });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
+  }
+});
+async function getExtToken(create = false) {
+  const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
+  const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+  const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+  const db = getDb2();
+  const row = await db.select().from(appSettings2).where(eq3(appSettings2.key, "figs_ext_token")).limit(1);
+  if (row[0]?.value) return row[0].value;
+  if (!create) return "";
+  const tok = "fxt_" + (await import("crypto")).randomBytes(24).toString("hex");
+  await db.insert(appSettings2).values({ key: "figs_ext_token", value: tok });
+  return tok;
+}
+async function requireExtToken(c) {
+  const tok = c.req.header("x-figs-token") || "";
+  if (!tok) return false;
+  const real2 = await getExtToken(false);
+  return !!real2 && tok === real2;
+}
+var extCors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type,x-figs-token", "Access-Control-Allow-Methods": "POST,GET,OPTIONS" };
+app.options("/api/figs-ext/*", (c) => new Response(null, { status: 204, headers: extCors }));
+app.get("/api/figs-ext/token", async (c) => {
+  if (!await requireAdmin(c)) return c.json({ error: "forbidden" }, 403);
+  return c.json({ token: await getExtToken(true) });
+});
+app.post("/api/figs-ext/start", async (c) => {
+  if (!await requireExtToken(c)) return c.json({ error: "bad token" }, 401, extCors);
+  try {
+    const b = await c.req.json();
+    const { extStart: extStart2 } = await Promise.resolve().then(() => (init_figs_ext_brain(), figs_ext_brain_exports));
+    return c.json(extStart2(String(b?.goal || "")), 200, extCors);
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 200, extCors);
+  }
+});
+app.post("/api/figs-ext/step", async (c) => {
+  if (!await requireExtToken(c)) return c.json({ error: "bad token" }, 401, extCors);
+  try {
+    const b = await c.req.json();
+    const { extStep: extStep2 } = await Promise.resolve().then(() => (init_figs_ext_brain(), figs_ext_brain_exports));
+    return c.json(await extStep2(String(b?.sessionId), String(b?.shot || ""), Number(b?.vw), Number(b?.vh)), 200, extCors);
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 200, extCors);
+  }
+});
+app.post("/api/figs-ext/approve", async (c) => {
+  if (!await requireExtToken(c)) return c.json({ error: "bad token" }, 401, extCors);
+  try {
+    const b = await c.req.json();
+    const { extApprove: extApprove2 } = await Promise.resolve().then(() => (init_figs_ext_brain(), figs_ext_brain_exports));
+    return c.json(await extApprove2(String(b?.sessionId)), 200, extCors);
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 200, extCors);
+  }
+});
+app.post("/api/figs-ext/deny", async (c) => {
+  if (!await requireExtToken(c)) return c.json({ error: "bad token" }, 401, extCors);
+  try {
+    const b = await c.req.json();
+    const { extDeny: extDeny2 } = await Promise.resolve().then(() => (init_figs_ext_brain(), figs_ext_brain_exports));
+    return c.json(await extDeny2(String(b?.sessionId), b?.note), 200, extCors);
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 200, extCors);
+  }
+});
+app.post("/api/figs-ext/stop", async (c) => {
+  if (!await requireExtToken(c)) return c.json({ error: "bad token" }, 401, extCors);
+  try {
+    const b = await c.req.json();
+    const { extStop: extStop2 } = await Promise.resolve().then(() => (init_figs_ext_brain(), figs_ext_brain_exports));
+    return c.json(extStop2(String(b?.sessionId)), 200, extCors);
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 200, extCors);
   }
 });
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
