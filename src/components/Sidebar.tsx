@@ -63,7 +63,6 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/leads", icon: Target, label: "Leads" },
     { to: "/clients", icon: Users, label: "Clients" },
     { to: "/onboarding", icon: UserPlus, label: "New Client Intake" },
-    { to: "/intake", icon: Inbox, label: "Document Intake" },
     { to: "/invoices", icon: Receipt, label: "Invoices" },
     { to: "/files", icon: FolderOpen, label: "Files" },
     { to: "/engagement", icon: FileSpreadsheet, label: "Engagement Letters" },
