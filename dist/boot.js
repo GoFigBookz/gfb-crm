@@ -23,9 +23,9 @@ var __export = (target, all) => {
 };
 var __copyProps = (to, from, except2, desc7) => {
   if (from && typeof from === "object" || typeof from === "function") {
-    for (let key10 of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key10) && key10 !== except2)
-        __defProp(to, key10, { get: () => from[key10], enumerable: !(desc7 = __getOwnPropDesc(from, key10)) || desc7.enumerable });
+    for (let key11 of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key11) && key11 !== except2)
+        __defProp(to, key11, { get: () => from[key11], enumerable: !(desc7 = __getOwnPropDesc(from, key11)) || desc7.enumerable });
   }
   return to;
 };
@@ -41,9 +41,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 // node_modules/@trpc/server/dist/codes-DagpWZLc.mjs
 function mergeWithoutOverrides(obj1, ...objs) {
   const newObj = Object.assign(emptyObject(), obj1);
-  for (const overrides of objs) for (const key10 in overrides) {
-    if (key10 in newObj && newObj[key10] !== overrides[key10]) throw new Error(`Duplicate key ${key10}`);
-    newObj[key10] = overrides[key10];
+  for (const overrides of objs) for (const key11 in overrides) {
+    if (key11 in newObj && newObj[key11] !== overrides[key11]) throw new Error(`Duplicate key ${key11}`);
+    newObj[key11] = overrides[key11];
   }
   return newObj;
 }
@@ -139,9 +139,9 @@ function createInnerProxy(callback, path7, memo2) {
   var _memo$cacheKey;
   const cacheKey2 = path7.join(".");
   (_memo$cacheKey = memo2[cacheKey2]) !== null && _memo$cacheKey !== void 0 || (memo2[cacheKey2] = new Proxy(noop, {
-    get(_obj, key10) {
-      if (typeof key10 !== "string" || key10 === "then") return void 0;
-      return createInnerProxy(callback, [...path7, key10], memo2);
+    get(_obj, key11) {
+      if (typeof key11 !== "string" || key11 === "then") return void 0;
+      return createInnerProxy(callback, [...path7, key11], memo2);
     },
     apply(_1, _2, args) {
       const lastOfPath = path7[path7.length - 1];
@@ -169,8 +169,8 @@ function getStatusCodeFromKey(code) {
   return (_JSONRPC2_TO_HTTP_COD = JSONRPC2_TO_HTTP_CODE[code]) !== null && _JSONRPC2_TO_HTTP_COD !== void 0 ? _JSONRPC2_TO_HTTP_COD : 500;
 }
 function getHTTPStatusCode(json2) {
-  const arr3 = Array.isArray(json2) ? json2 : [json2];
-  const httpStatuses = new Set(arr3.map((res) => {
+  const arr4 = Array.isArray(json2) ? json2 : [json2];
+  const httpStatuses = new Set(arr4.map((res) => {
     if ("error" in res && isObject(res.error.data)) {
       var _res$error$data;
       if (typeof ((_res$error$data = res.error.data) === null || _res$error$data === void 0 ? void 0 : _res$error$data["httpStatus"]) === "number") return res.error.data["httpStatus"];
@@ -215,11 +215,11 @@ var init_getErrorShape_vC8mUXJD = __esm({
       return mod || (0, cb[__getOwnPropNames2(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
     };
     __copyProps2 = (to, from, except2, desc7) => {
-      if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames2(from), i = 0, n = keys.length, key10; i < n; i++) {
-        key10 = keys[i];
-        if (!__hasOwnProp2.call(to, key10) && key10 !== except2) __defProp2(to, key10, {
-          get: ((k) => from[k]).bind(null, key10),
-          enumerable: !(desc7 = __getOwnPropDesc2(from, key10)) || desc7.enumerable
+      if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames2(from), i = 0, n = keys.length, key11; i < n; i++) {
+        key11 = keys[i];
+        if (!__hasOwnProp2.call(to, key11) && key11 !== except2) __defProp2(to, key11, {
+          get: ((k) => from[k]).bind(null, key11),
+          enumerable: !(desc7 = __getOwnPropDesc2(from, key11)) || desc7.enumerable
         });
       }
       return to;
@@ -413,28 +413,28 @@ function createRouterFactory(config2) {
     }
     function step(from, path7 = []) {
       const aggregate = emptyObject();
-      for (const [key10, item] of Object.entries(from !== null && from !== void 0 ? from : {})) {
+      for (const [key11, item] of Object.entries(from !== null && from !== void 0 ? from : {})) {
         if (isLazy(item)) {
-          lazy$1[[...path7, key10].join(".")] = createLazyLoader({
+          lazy$1[[...path7, key11].join(".")] = createLazyLoader({
             path: path7,
             ref: item,
-            key: key10,
+            key: key11,
             aggregate
           });
           continue;
         }
         if (isRouter(item)) {
-          aggregate[key10] = step(item._def.record, [...path7, key10]);
+          aggregate[key11] = step(item._def.record, [...path7, key11]);
           continue;
         }
         if (!isProcedure(item)) {
-          aggregate[key10] = step(item, [...path7, key10]);
+          aggregate[key11] = step(item, [...path7, key11]);
           continue;
         }
-        const newPath = [...path7, key10].join(".");
+        const newPath = [...path7, key11].join(".");
         if (procedures[newPath]) throw new Error(`Duplicate key: ${newPath}`);
         procedures[newPath] = item;
-        aggregate[key10] = item;
+        aggregate[key11] = item;
       }
       return aggregate;
     }
@@ -460,9 +460,9 @@ async function getProcedureAtPath(router, path7) {
   const { _def } = router;
   let procedure = _def.procedures[path7];
   while (!procedure) {
-    const key10 = Object.keys(_def.lazy).find((key$1) => path7.startsWith(key$1));
-    if (!key10) return null;
-    const lazyRouter = _def.lazy[key10];
+    const key11 = Object.keys(_def.lazy).find((key$1) => path7.startsWith(key$1));
+    if (!key11) return null;
+    const lazyRouter = _def.lazy[key11];
     await lazyRouter.load();
     procedure = _def.procedures[path7];
   }
@@ -806,9 +806,9 @@ function floatSafeRemainder(val, step) {
   const stepInt = Number.parseInt(step.toFixed(decCount).replace(".", ""));
   return valInt % stepInt / 10 ** decCount;
 }
-function defineLazy(object3, key10, getter) {
+function defineLazy(object3, key11, getter) {
   let value = void 0;
-  Object.defineProperty(object3, key10, {
+  Object.defineProperty(object3, key11, {
     get() {
       if (value === EVALUATING) {
         return void 0;
@@ -820,7 +820,7 @@ function defineLazy(object3, key10, getter) {
       return value;
     },
     set(v) {
-      Object.defineProperty(object3, key10, {
+      Object.defineProperty(object3, key11, {
         value: v
         // configurable: true,
       });
@@ -853,11 +853,11 @@ function cloneDef(schema) {
 function getElementAtPath(obj, path7) {
   if (!path7)
     return obj;
-  return path7.reduce((acc, key10) => acc?.[key10], obj);
+  return path7.reduce((acc, key11) => acc?.[key11], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
-  const promises = keys.map((key10) => promisesObj[key10]);
+  const promises = keys.map((key11) => promisesObj[key11]);
   return Promise.all(promises).then((results) => {
     const resolvedObj = {};
     for (let i = 0; i < keys.length; i++) {
@@ -908,8 +908,8 @@ function shallowClone(o) {
 }
 function numKeys(data) {
   let keyCount = 0;
-  for (const key10 in data) {
-    if (Object.prototype.hasOwnProperty.call(data, key10)) {
+  for (const key11 in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key11)) {
       keyCount++;
     }
   }
@@ -995,13 +995,13 @@ function pick(schema, mask) {
   const def = mergeDefs(schema._zod.def, {
     get shape() {
       const newShape = {};
-      for (const key10 in mask) {
-        if (!(key10 in currDef.shape)) {
-          throw new Error(`Unrecognized key: "${key10}"`);
+      for (const key11 in mask) {
+        if (!(key11 in currDef.shape)) {
+          throw new Error(`Unrecognized key: "${key11}"`);
         }
-        if (!mask[key10])
+        if (!mask[key11])
           continue;
-        newShape[key10] = currDef.shape[key10];
+        newShape[key11] = currDef.shape[key11];
       }
       assignProp(this, "shape", newShape);
       return newShape;
@@ -1020,13 +1020,13 @@ function omit(schema, mask) {
   const def = mergeDefs(schema._zod.def, {
     get shape() {
       const newShape = { ...schema._zod.def.shape };
-      for (const key10 in mask) {
-        if (!(key10 in currDef.shape)) {
-          throw new Error(`Unrecognized key: "${key10}"`);
+      for (const key11 in mask) {
+        if (!(key11 in currDef.shape)) {
+          throw new Error(`Unrecognized key: "${key11}"`);
         }
-        if (!mask[key10])
+        if (!mask[key11])
           continue;
-        delete newShape[key10];
+        delete newShape[key11];
       }
       assignProp(this, "shape", newShape);
       return newShape;
@@ -1043,8 +1043,8 @@ function extend(schema, shape) {
   const hasChecks = checks && checks.length > 0;
   if (hasChecks) {
     const existingShape = schema._zod.def.shape;
-    for (const key10 in shape) {
-      if (Object.getOwnPropertyDescriptor(existingShape, key10) !== void 0) {
+    for (const key11 in shape) {
+      if (Object.getOwnPropertyDescriptor(existingShape, key11) !== void 0) {
         throw new Error("Cannot overwrite keys on object schemas containing refinements. Use `.safeExtend()` instead.");
       }
     }
@@ -1098,23 +1098,23 @@ function partial(Class2, schema, mask) {
       const oldShape = schema._zod.def.shape;
       const shape = { ...oldShape };
       if (mask) {
-        for (const key10 in mask) {
-          if (!(key10 in oldShape)) {
-            throw new Error(`Unrecognized key: "${key10}"`);
+        for (const key11 in mask) {
+          if (!(key11 in oldShape)) {
+            throw new Error(`Unrecognized key: "${key11}"`);
           }
-          if (!mask[key10])
+          if (!mask[key11])
             continue;
-          shape[key10] = Class2 ? new Class2({
+          shape[key11] = Class2 ? new Class2({
             type: "optional",
-            innerType: oldShape[key10]
-          }) : oldShape[key10];
+            innerType: oldShape[key11]
+          }) : oldShape[key11];
         }
       } else {
-        for (const key10 in oldShape) {
-          shape[key10] = Class2 ? new Class2({
+        for (const key11 in oldShape) {
+          shape[key11] = Class2 ? new Class2({
             type: "optional",
-            innerType: oldShape[key10]
-          }) : oldShape[key10];
+            innerType: oldShape[key11]
+          }) : oldShape[key11];
         }
       }
       assignProp(this, "shape", shape);
@@ -1130,22 +1130,22 @@ function required(Class2, schema, mask) {
       const oldShape = schema._zod.def.shape;
       const shape = { ...oldShape };
       if (mask) {
-        for (const key10 in mask) {
-          if (!(key10 in shape)) {
-            throw new Error(`Unrecognized key: "${key10}"`);
+        for (const key11 in mask) {
+          if (!(key11 in shape)) {
+            throw new Error(`Unrecognized key: "${key11}"`);
           }
-          if (!mask[key10])
+          if (!mask[key11])
             continue;
-          shape[key10] = new Class2({
+          shape[key11] = new Class2({
             type: "nonoptional",
-            innerType: oldShape[key10]
+            innerType: oldShape[key11]
           });
         }
       } else {
-        for (const key10 in oldShape) {
-          shape[key10] = new Class2({
+        for (const key11 in oldShape) {
+          shape[key11] = new Class2({
             type: "nonoptional",
-            innerType: oldShape[key10]
+            innerType: oldShape[key11]
           });
         }
       }
@@ -2419,19 +2419,19 @@ function handleArrayResult(result, final, index) {
   }
   final.value[index] = result.value;
 }
-function handlePropertyResult(result, final, key10, input, isOptionalOut) {
+function handlePropertyResult(result, final, key11, input, isOptionalOut) {
   if (result.issues.length) {
-    if (isOptionalOut && !(key10 in input)) {
+    if (isOptionalOut && !(key11 in input)) {
       return;
     }
-    final.issues.push(...prefixIssues(key10, result.issues));
+    final.issues.push(...prefixIssues(key11, result.issues));
   }
   if (result.value === void 0) {
-    if (key10 in input) {
-      final.value[key10] = void 0;
+    if (key11 in input) {
+      final.value[key11] = void 0;
     }
   } else {
-    final.value[key10] = result.value;
+    final.value[key11] = result.value;
   }
 }
 function normalizeDef(def) {
@@ -2456,18 +2456,18 @@ function handleCatchall(proms, input, payload, ctx, def, inst) {
   const _catchall = def.catchall._zod;
   const t2 = _catchall.def.type;
   const isOptionalOut = _catchall.optout === "optional";
-  for (const key10 in input) {
-    if (keySet.has(key10))
+  for (const key11 in input) {
+    if (keySet.has(key11))
       continue;
     if (t2 === "never") {
-      unrecognized.push(key10);
+      unrecognized.push(key11);
       continue;
     }
-    const r = _catchall.run({ value: input[key10], issues: [] }, ctx);
+    const r = _catchall.run({ value: input[key11], issues: [] }, ctx);
     if (r instanceof Promise) {
-      proms.push(r.then((r3) => handlePropertyResult(r3, payload, key10, input, isOptionalOut)));
+      proms.push(r.then((r3) => handlePropertyResult(r3, payload, key11, input, isOptionalOut)));
     } else {
-      handlePropertyResult(r, payload, key10, input, isOptionalOut);
+      handlePropertyResult(r, payload, key11, input, isOptionalOut);
     }
   }
   if (unrecognized.length) {
@@ -2537,17 +2537,17 @@ function mergeValues(a, b) {
   }
   if (isPlainObject2(a) && isPlainObject2(b)) {
     const bKeys = Object.keys(b);
-    const sharedKeys = Object.keys(a).filter((key10) => bKeys.indexOf(key10) !== -1);
+    const sharedKeys = Object.keys(a).filter((key11) => bKeys.indexOf(key11) !== -1);
     const newObj = { ...a, ...b };
-    for (const key10 of sharedKeys) {
-      const sharedValue = mergeValues(a[key10], b[key10]);
+    for (const key11 of sharedKeys) {
+      const sharedValue = mergeValues(a[key11], b[key11]);
       if (!sharedValue.valid) {
         return {
           valid: false,
-          mergeErrorPath: [key10, ...sharedValue.mergeErrorPath]
+          mergeErrorPath: [key11, ...sharedValue.mergeErrorPath]
         };
       }
-      newObj[key10] = sharedValue.data;
+      newObj[key11] = sharedValue.data;
     }
     return { valid: true, data: newObj };
   }
@@ -2617,10 +2617,10 @@ function handleTupleResult(result, final, index) {
   }
   final.value[index] = result.value;
 }
-function handleMapResult(keyResult, valueResult, final, key10, input, inst, ctx) {
+function handleMapResult(keyResult, valueResult, final, key11, input, inst, ctx) {
   if (keyResult.issues.length) {
-    if (propertyKeyTypes.has(typeof key10)) {
-      final.issues.push(...prefixIssues(key10, keyResult.issues));
+    if (propertyKeyTypes.has(typeof key11)) {
+      final.issues.push(...prefixIssues(key11, keyResult.issues));
     } else {
       final.issues.push({
         code: "invalid_key",
@@ -2632,15 +2632,15 @@ function handleMapResult(keyResult, valueResult, final, key10, input, inst, ctx)
     }
   }
   if (valueResult.issues.length) {
-    if (propertyKeyTypes.has(typeof key10)) {
-      final.issues.push(...prefixIssues(key10, valueResult.issues));
+    if (propertyKeyTypes.has(typeof key11)) {
+      final.issues.push(...prefixIssues(key11, valueResult.issues));
     } else {
       final.issues.push({
         origin: "map",
         code: "invalid_element",
         input,
         inst,
-        key: key10,
+        key: key11,
         issues: valueResult.issues.map((iss) => finalizeIssue(iss, ctx, config()))
       });
     }
@@ -3357,12 +3357,12 @@ var init_schemas = __esm({
       defineLazy(inst._zod, "propValues", () => {
         const shape = def.shape;
         const propValues = {};
-        for (const key10 in shape) {
-          const field = shape[key10]._zod;
+        for (const key11 in shape) {
+          const field = shape[key11]._zod;
           if (field.values) {
-            propValues[key10] ?? (propValues[key10] = /* @__PURE__ */ new Set());
+            propValues[key11] ?? (propValues[key11] = /* @__PURE__ */ new Set());
             for (const v of field.values)
-              propValues[key10].add(v);
+              propValues[key11].add(v);
           }
         }
         return propValues;
@@ -3385,14 +3385,14 @@ var init_schemas = __esm({
         payload.value = {};
         const proms = [];
         const shape = value.shape;
-        for (const key10 of value.keys) {
-          const el = shape[key10];
+        for (const key11 of value.keys) {
+          const el = shape[key11];
           const isOptionalOut = el._zod.optout === "optional";
-          const r = el._zod.run({ value: input[key10], issues: [] }, ctx);
+          const r = el._zod.run({ value: input[key11], issues: [] }, ctx);
           if (r instanceof Promise) {
-            proms.push(r.then((r3) => handlePropertyResult(r3, payload, key10, input, isOptionalOut)));
+            proms.push(r.then((r3) => handlePropertyResult(r3, payload, key11, input, isOptionalOut)));
           } else {
-            handlePropertyResult(r, payload, key10, input, isOptionalOut);
+            handlePropertyResult(r, payload, key11, input, isOptionalOut);
           }
         }
         if (!catchall) {
@@ -3408,23 +3408,23 @@ var init_schemas = __esm({
       const generateFastpass = (shape) => {
         const doc = new Doc(["shape", "payload", "ctx"]);
         const normalized = _normalized.value;
-        const parseStr = (key10) => {
-          const k = esc(key10);
+        const parseStr = (key11) => {
+          const k = esc(key11);
           return `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
         };
         doc.write(`const input = payload.value;`);
         const ids = /* @__PURE__ */ Object.create(null);
         let counter = 0;
-        for (const key10 of normalized.keys) {
-          ids[key10] = `key_${counter++}`;
+        for (const key11 of normalized.keys) {
+          ids[key11] = `key_${counter++}`;
         }
         doc.write(`const newResult = {};`);
-        for (const key10 of normalized.keys) {
-          const id = ids[key10];
-          const k = esc(key10);
-          const schema = shape[key10];
+        for (const key11 of normalized.keys) {
+          const id = ids[key11];
+          const k = esc(key11);
+          const schema = shape[key11];
           const isOptionalOut = schema?._zod?.optout === "optional";
-          doc.write(`const ${id} = ${parseStr(key10)};`);
+          doc.write(`const ${id} = ${parseStr(key11)};`);
           if (isOptionalOut) {
             doc.write(`
         if (${id}.issues.length) {
@@ -3743,30 +3743,30 @@ var init_schemas = __esm({
         if (values) {
           payload.value = {};
           const recordKeys = /* @__PURE__ */ new Set();
-          for (const key10 of values) {
-            if (typeof key10 === "string" || typeof key10 === "number" || typeof key10 === "symbol") {
-              recordKeys.add(typeof key10 === "number" ? key10.toString() : key10);
-              const result = def.valueType._zod.run({ value: input[key10], issues: [] }, ctx);
+          for (const key11 of values) {
+            if (typeof key11 === "string" || typeof key11 === "number" || typeof key11 === "symbol") {
+              recordKeys.add(typeof key11 === "number" ? key11.toString() : key11);
+              const result = def.valueType._zod.run({ value: input[key11], issues: [] }, ctx);
               if (result instanceof Promise) {
                 proms.push(result.then((result2) => {
                   if (result2.issues.length) {
-                    payload.issues.push(...prefixIssues(key10, result2.issues));
+                    payload.issues.push(...prefixIssues(key11, result2.issues));
                   }
-                  payload.value[key10] = result2.value;
+                  payload.value[key11] = result2.value;
                 }));
               } else {
                 if (result.issues.length) {
-                  payload.issues.push(...prefixIssues(key10, result.issues));
+                  payload.issues.push(...prefixIssues(key11, result.issues));
                 }
-                payload.value[key10] = result.value;
+                payload.value[key11] = result.value;
               }
             }
           }
           let unrecognized;
-          for (const key10 in input) {
-            if (!recordKeys.has(key10)) {
+          for (const key11 in input) {
+            if (!recordKeys.has(key11)) {
               unrecognized = unrecognized ?? [];
-              unrecognized.push(key10);
+              unrecognized.push(key11);
             }
           }
           if (unrecognized && unrecognized.length > 0) {
@@ -3779,16 +3779,16 @@ var init_schemas = __esm({
           }
         } else {
           payload.value = {};
-          for (const key10 of Reflect.ownKeys(input)) {
-            if (key10 === "__proto__")
+          for (const key11 of Reflect.ownKeys(input)) {
+            if (key11 === "__proto__")
               continue;
-            let keyResult = def.keyType._zod.run({ value: key10, issues: [] }, ctx);
+            let keyResult = def.keyType._zod.run({ value: key11, issues: [] }, ctx);
             if (keyResult instanceof Promise) {
               throw new Error("Async schemas not supported in object keys currently");
             }
-            const checkNumericKey = typeof key10 === "string" && number.test(key10) && keyResult.issues.length && keyResult.issues.some((iss) => iss.code === "invalid_type" && iss.expected === "number");
+            const checkNumericKey = typeof key11 === "string" && number.test(key11) && keyResult.issues.length && keyResult.issues.some((iss) => iss.code === "invalid_type" && iss.expected === "number");
             if (checkNumericKey) {
-              const retryResult = def.keyType._zod.run({ value: Number(key10), issues: [] }, ctx);
+              const retryResult = def.keyType._zod.run({ value: Number(key11), issues: [] }, ctx);
               if (retryResult instanceof Promise) {
                 throw new Error("Async schemas not supported in object keys currently");
               }
@@ -3798,30 +3798,30 @@ var init_schemas = __esm({
             }
             if (keyResult.issues.length) {
               if (def.mode === "loose") {
-                payload.value[key10] = input[key10];
+                payload.value[key11] = input[key11];
               } else {
                 payload.issues.push({
                   code: "invalid_key",
                   origin: "record",
                   issues: keyResult.issues.map((iss) => finalizeIssue(iss, ctx, config())),
-                  input: key10,
-                  path: [key10],
+                  input: key11,
+                  path: [key11],
                   inst
                 });
               }
               continue;
             }
-            const result = def.valueType._zod.run({ value: input[key10], issues: [] }, ctx);
+            const result = def.valueType._zod.run({ value: input[key11], issues: [] }, ctx);
             if (result instanceof Promise) {
               proms.push(result.then((result2) => {
                 if (result2.issues.length) {
-                  payload.issues.push(...prefixIssues(key10, result2.issues));
+                  payload.issues.push(...prefixIssues(key11, result2.issues));
                 }
                 payload.value[keyResult.value] = result2.value;
               }));
             } else {
               if (result.issues.length) {
-                payload.issues.push(...prefixIssues(key10, result.issues));
+                payload.issues.push(...prefixIssues(key11, result.issues));
               }
               payload.value[keyResult.value] = result.value;
             }
@@ -3848,15 +3848,15 @@ var init_schemas = __esm({
         }
         const proms = [];
         payload.value = /* @__PURE__ */ new Map();
-        for (const [key10, value] of input) {
-          const keyResult = def.keyType._zod.run({ value: key10, issues: [] }, ctx);
+        for (const [key11, value] of input) {
+          const keyResult = def.keyType._zod.run({ value: key11, issues: [] }, ctx);
           const valueResult = def.valueType._zod.run({ value, issues: [] }, ctx);
           if (keyResult instanceof Promise || valueResult instanceof Promise) {
             proms.push(Promise.all([keyResult, valueResult]).then(([keyResult2, valueResult2]) => {
-              handleMapResult(keyResult2, valueResult2, payload, key10, input, inst, ctx);
+              handleMapResult(keyResult2, valueResult2, payload, key11, input, inst, ctx);
             }));
           } else {
-            handleMapResult(keyResult, valueResult, payload, key10, input, inst, ctx);
+            handleMapResult(keyResult, valueResult, payload, key11, input, inst, ctx);
           }
         }
         if (proms.length)
@@ -11502,8 +11502,8 @@ function extractDefs(ctx, schema) {
     if (defId)
       seen.defId = defId;
     const schema2 = seen.schema;
-    for (const key10 in schema2) {
-      delete schema2[key10];
+    for (const key11 in schema2) {
+      delete schema2[key11];
     }
     schema2.$ref = ref2;
   };
@@ -11572,20 +11572,20 @@ function finalize(ctx, schema) {
       Object.assign(schema2, _cached);
       const isParentRef = zodSchema._zod.parent === ref2;
       if (isParentRef) {
-        for (const key10 in schema2) {
-          if (key10 === "$ref" || key10 === "allOf")
+        for (const key11 in schema2) {
+          if (key11 === "$ref" || key11 === "allOf")
             continue;
-          if (!(key10 in _cached)) {
-            delete schema2[key10];
+          if (!(key11 in _cached)) {
+            delete schema2[key11];
           }
         }
       }
       if (refSchema.$ref) {
-        for (const key10 in schema2) {
-          if (key10 === "$ref" || key10 === "allOf")
+        for (const key11 in schema2) {
+          if (key11 === "$ref" || key11 === "allOf")
             continue;
-          if (key10 in refSeen.def && JSON.stringify(schema2[key10]) === JSON.stringify(refSeen.def[key10])) {
-            delete schema2[key10];
+          if (key11 in refSeen.def && JSON.stringify(schema2[key11]) === JSON.stringify(refSeen.def[key11])) {
+            delete schema2[key11];
           }
         }
       }
@@ -11597,11 +11597,11 @@ function finalize(ctx, schema) {
       if (parentSeen?.schema.$ref) {
         schema2.$ref = parentSeen.schema.$ref;
         if (parentSeen.def) {
-          for (const key10 in schema2) {
-            if (key10 === "$ref" || key10 === "allOf")
+          for (const key11 in schema2) {
+            if (key11 === "$ref" || key11 === "allOf")
               continue;
-            if (key10 in parentSeen.def && JSON.stringify(schema2[key10]) === JSON.stringify(parentSeen.def[key10])) {
-              delete schema2[key10];
+            if (key11 in parentSeen.def && JSON.stringify(schema2[key11]) === JSON.stringify(parentSeen.def[key11])) {
+              delete schema2[key11];
             }
           }
         }
@@ -11695,8 +11695,8 @@ function isTransforming(_schema, _ctx) {
     return isTransforming(def.in, ctx) || isTransforming(def.out, ctx);
   }
   if (def.type === "object") {
-    for (const key10 in def.shape) {
-      if (isTransforming(def.shape[key10], ctx))
+    for (const key11 in def.shape) {
+      if (isTransforming(def.shape[key11], ctx))
         return true;
     }
     return false;
@@ -11757,9 +11757,9 @@ function toJSONSchema(input, params) {
     };
     ctx2.external = external;
     for (const entry of registry2._idmap.entries()) {
-      const [key10, schema] = entry;
+      const [key11, schema] = entry;
       extractDefs(ctx2, schema);
-      schemas[key10] = finalize(ctx2, schema);
+      schemas[key11] = finalize(ctx2, schema);
     }
     if (Object.keys(defs).length > 0) {
       const defsSegment = ctx2.target === "draft-2020-12" ? "$defs" : "definitions";
@@ -12038,15 +12038,15 @@ var init_json_schema_processors = __esm({
       json2.type = "object";
       json2.properties = {};
       const shape = def.shape;
-      for (const key10 in shape) {
-        json2.properties[key10] = process2(shape[key10], ctx, {
+      for (const key11 in shape) {
+        json2.properties[key11] = process2(shape[key11], ctx, {
           ...params,
-          path: [...params.path, "properties", key10]
+          path: [...params.path, "properties", key11]
         });
       }
       const allKeys = new Set(Object.keys(shape));
-      const requiredKeys = new Set([...allKeys].filter((key10) => {
-        const v = def.shape[key10]._zod;
+      const requiredKeys = new Set([...allKeys].filter((key11) => {
+        const v = def.shape[key11]._zod;
         if (ctx.io === "input") {
           return v.optin === void 0;
         } else {
@@ -14154,11 +14154,11 @@ function resolveRef(ref2, ctx) {
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
   if (path7[0] === defsKey) {
-    const key10 = path7[1];
-    if (!key10 || !ctx.defs[key10]) {
+    const key11 = path7[1];
+    if (!key11 || !ctx.defs[key11]) {
       throw new Error(`Reference not found: ${ref2}`);
     }
-    return ctx.defs[key10];
+    return ctx.defs[key11];
   }
   throw new Error(`Reference not found: ${ref2}`);
 }
@@ -14344,9 +14344,9 @@ function convertBaseSchema(schema, ctx) {
       const shape = {};
       const properties = schema.properties || {};
       const requiredSet = new Set(schema.required || []);
-      for (const [key10, propSchema] of Object.entries(properties)) {
+      for (const [key11, propSchema] of Object.entries(properties)) {
         const propZodSchema = convertSchema(propSchema, ctx);
-        shape[key10] = requiredSet.has(key10) ? propZodSchema : propZodSchema.optional();
+        shape[key11] = requiredSet.has(key11) ? propZodSchema : propZodSchema.optional();
       }
       if (schema.propertyNames) {
         const keySchema = convertSchema(schema.propertyNames, ctx);
@@ -14490,20 +14490,20 @@ function convertSchema(schema, ctx) {
   }
   const extraMeta = {};
   const coreMetadataKeys = ["$id", "id", "$comment", "$anchor", "$vocabulary", "$dynamicRef", "$dynamicAnchor"];
-  for (const key10 of coreMetadataKeys) {
-    if (key10 in schema) {
-      extraMeta[key10] = schema[key10];
+  for (const key11 of coreMetadataKeys) {
+    if (key11 in schema) {
+      extraMeta[key11] = schema[key11];
     }
   }
   const contentMetadataKeys = ["contentEncoding", "contentMediaType", "contentSchema"];
-  for (const key10 of contentMetadataKeys) {
-    if (key10 in schema) {
-      extraMeta[key10] = schema[key10];
+  for (const key11 of contentMetadataKeys) {
+    if (key11 in schema) {
+      extraMeta[key11] = schema[key11];
     }
   }
-  for (const key10 of Object.keys(schema)) {
-    if (!RECOGNIZED_KEYS.has(key10)) {
-      extraMeta[key10] = schema[key10];
+  for (const key11 of Object.keys(schema)) {
+    if (!RECOGNIZED_KEYS.has(key11)) {
+      extraMeta[key11] = schema[key11];
     }
   }
   if (Object.keys(extraMeta).length > 0) {
@@ -15261,12 +15261,12 @@ var init_double_indexed_kv = __esm({
         this.keyToValue = /* @__PURE__ */ new Map();
         this.valueToKey = /* @__PURE__ */ new Map();
       }
-      set(key10, value) {
-        this.keyToValue.set(key10, value);
-        this.valueToKey.set(value, key10);
+      set(key11, value) {
+        this.keyToValue.set(key11, value);
+        this.valueToKey.set(value, key11);
       }
-      getByKey(key10) {
-        return this.keyToValue.get(key10);
+      getByKey(key11) {
+        return this.keyToValue.get(key11);
       }
       getByValue(value) {
         return this.valueToKey.get(value);
@@ -15344,9 +15344,9 @@ function valuesOfObj(record2) {
     return Object.values(record2);
   }
   const values = [];
-  for (const key10 in record2) {
-    if (record2.hasOwnProperty(key10)) {
-      values.push(record2[key10]);
+  for (const key11 in record2) {
+    if (record2.hasOwnProperty(key11)) {
+      values.push(record2[key11]);
     }
   }
   return values;
@@ -15366,10 +15366,10 @@ function find(record2, predicate) {
   return void 0;
 }
 function forEach(record2, run3) {
-  Object.entries(record2).forEach(([key10, value]) => run3(value, key10));
+  Object.entries(record2).forEach(([key11, value]) => run3(value, key11));
 }
-function includes(arr3, value) {
-  return arr3.indexOf(value) !== -1;
+function includes(arr4, value) {
+  return arr4.indexOf(value) !== -1;
 }
 function findArr(record2, predicate) {
   for (let i = 0; i < record2.length; i++) {
@@ -15447,7 +15447,7 @@ var init_is2 = __esm({
 var escapeKey, stringifyPath, parsePath;
 var init_pathstringifier = __esm({
   "node_modules/superjson/dist/pathstringifier.js"() {
-    escapeKey = (key10) => key10.replace(/\\/g, "\\\\").replace(/\./g, "\\.");
+    escapeKey = (key11) => key11.replace(/\\/g, "\\\\").replace(/\./g, "\\.");
     stringifyPath = (path7) => path7.map(String).map(escapeKey).join(".");
     parsePath = (string5, legacyPaths) => {
       const result = [];
@@ -15723,11 +15723,11 @@ var init_accessDeep = __esm({
     getDeep = (object3, path7) => {
       validatePath(path7);
       for (let i = 0; i < path7.length; i++) {
-        const key10 = path7[i];
+        const key11 = path7[i];
         if (isSet(object3)) {
-          object3 = getNthKey(object3, +key10);
+          object3 = getNthKey(object3, +key11);
         } else if (isMap(object3)) {
-          const row = +key10;
+          const row = +key11;
           const type2 = +path7[++i] === 0 ? "key" : "value";
           const keyOfRow = getNthKey(object3, row);
           switch (type2) {
@@ -15739,7 +15739,7 @@ var init_accessDeep = __esm({
               break;
           }
         } else {
-          object3 = object3[key10];
+          object3 = object3[key11];
         }
       }
       return object3;
@@ -15751,21 +15751,21 @@ var init_accessDeep = __esm({
       }
       let parent = object3;
       for (let i = 0; i < path7.length - 1; i++) {
-        const key10 = path7[i];
+        const key11 = path7[i];
         if (isArray(parent)) {
-          const index = +key10;
+          const index = +key11;
           parent = parent[index];
         } else if (isPlainObject3(parent)) {
-          parent = parent[key10];
+          parent = parent[key11];
         } else if (isSet(parent)) {
-          const row = +key10;
+          const row = +key11;
           parent = getNthKey(parent, row);
         } else if (isMap(parent)) {
           const isEnd = i === path7.length - 2;
           if (isEnd) {
             break;
           }
-          const row = +key10;
+          const row = +key11;
           const type2 = +path7[++i] === 0 ? "key" : "value";
           const keyOfRow = getNthKey(parent, row);
           switch (type2) {
@@ -15823,18 +15823,18 @@ function traverse(tree, walker2, version4, origin = []) {
   }
   const legacyPaths = enableLegacyPaths(version4);
   if (!isArray(tree)) {
-    forEach(tree, (subtree, key10) => traverse(subtree, walker2, version4, [
+    forEach(tree, (subtree, key11) => traverse(subtree, walker2, version4, [
       ...origin,
-      ...parsePath(key10, legacyPaths)
+      ...parsePath(key11, legacyPaths)
     ]));
     return;
   }
   const [nodeValue, children] = tree;
   if (children) {
-    forEach(children, (child, key10) => {
+    forEach(children, (child, key11) => {
       traverse(child, walker2, version4, [
         ...origin,
-        ...parsePath(key10, legacyPaths)
+        ...parsePath(key11, legacyPaths)
       ]);
     });
   }
@@ -15955,8 +15955,8 @@ var init_plainer = __esm({
         if (isArray(recursiveResult.annotations)) {
           innerAnnotations[escapeKey(index)] = recursiveResult.annotations;
         } else if (isPlainObject3(recursiveResult.annotations)) {
-          forEach(recursiveResult.annotations, (tree, key10) => {
-            innerAnnotations[escapeKey(index) + "." + key10] = tree;
+          forEach(recursiveResult.annotations, (tree, key11) => {
+            innerAnnotations[escapeKey(index) + "." + key11] = tree;
           });
         }
       });
@@ -16016,12 +16016,12 @@ var init_dist2 = __esm({
 });
 
 // node_modules/copy-anything/dist/index.js
-function assignProp2(carry, key10, newVal, originalObject, includeNonenumerable) {
-  const propType = {}.propertyIsEnumerable.call(originalObject, key10) ? "enumerable" : "nonenumerable";
+function assignProp2(carry, key11, newVal, originalObject, includeNonenumerable) {
+  const propType = {}.propertyIsEnumerable.call(originalObject, key11) ? "enumerable" : "nonenumerable";
   if (propType === "enumerable")
-    carry[key10] = newVal;
+    carry[key11] = newVal;
   if (includeNonenumerable && propType === "nonenumerable") {
-    Object.defineProperty(carry, key10, {
+    Object.defineProperty(carry, key11, {
       value: newVal,
       enumerable: false,
       writable: true,
@@ -16038,15 +16038,15 @@ function copy(target, options = {}) {
   }
   const props = Object.getOwnPropertyNames(target);
   const symbols = Object.getOwnPropertySymbols(target);
-  return [...props, ...symbols].reduce((carry, key10) => {
-    if (key10 === "__proto__")
+  return [...props, ...symbols].reduce((carry, key11) => {
+    if (key11 === "__proto__")
       return carry;
-    if (isArray2(options.props) && !options.props.includes(key10)) {
+    if (isArray2(options.props) && !options.props.includes(key11)) {
       return carry;
     }
-    const val = target[key10];
+    const val = target[key11];
     const newVal = copy(val, options);
-    assignProp2(carry, key10, newVal, target, options.nonenumerable);
+    assignProp2(carry, key11, newVal, target, options.nonenumerable);
     return carry;
   }, {});
 }
@@ -17541,9 +17541,9 @@ var init_alias = __esm({
             return columns;
           }
           const proxiedColumns = {};
-          Object.keys(columns).map((key10) => {
-            proxiedColumns[key10] = new Proxy(
-              columns[key10],
+          Object.keys(columns).map((key11) => {
+            proxiedColumns[key11] = new Proxy(
+              columns[key11],
               new ColumnAliasProxyHandler(new Proxy(target, this))
             );
           });
@@ -17676,19 +17676,19 @@ function haveSameKeys(left, right) {
   if (leftKeys.length !== rightKeys.length) {
     return false;
   }
-  for (const [index, key10] of leftKeys.entries()) {
-    if (key10 !== rightKeys[index]) {
+  for (const [index, key11] of leftKeys.entries()) {
+    if (key11 !== rightKeys[index]) {
       return false;
     }
   }
   return true;
 }
 function mapUpdateSet(table, values) {
-  const entries = Object.entries(values).filter(([, value]) => value !== void 0).map(([key10, value]) => {
+  const entries = Object.entries(values).filter(([, value]) => value !== void 0).map(([key11, value]) => {
     if (is(value, SQL) || is(value, Column)) {
-      return [key10, value];
+      return [key11, value];
     } else {
-      return [key10, new Param(value, table[Table.Symbol.Columns][key10])];
+      return [key11, new Param(value, table[Table.Symbol.Columns][key11])];
     }
   });
   if (entries.length === 0) {
@@ -18854,11 +18854,11 @@ var init_casing = __esm({
         if (!column.keyAsName) return column.name;
         const schema = column.table[Table.Symbol.Schema] ?? "public";
         const tableName = column.table[Table.Symbol.OriginalName];
-        const key10 = `${schema}.${tableName}.${column.name}`;
-        if (!this.cache[key10]) {
+        const key11 = `${schema}.${tableName}.${column.name}`;
+        if (!this.cache[key11]) {
           this.cacheTable(column.table);
         }
-        return this.cache[key10];
+        return this.cache[key11];
       }
       cacheTable(table) {
         const schema = table[Table.Symbol.Schema] ?? "public";
@@ -19193,13 +19193,13 @@ function extractTablesRelationalConfig(schema, configHelpers) {
   const tableNamesMap = {};
   const relationsBuffer = {};
   const tablesConfig = {};
-  for (const [key10, value] of Object.entries(schema)) {
+  for (const [key11, value] of Object.entries(schema)) {
     if (is(value, Table)) {
       const dbName = getTableUniqueName(value);
       const bufferedRelations = relationsBuffer[dbName];
-      tableNamesMap[dbName] = key10;
-      tablesConfig[key10] = {
-        tsName: key10,
+      tableNamesMap[dbName] = key11;
+      tablesConfig[key11] = {
+        tsName: key11,
         dbName: value[Table.Symbol.Name],
         schema: value[Table.Symbol.Schema],
         columns: value[Table.Symbol.Columns],
@@ -19210,14 +19210,14 @@ function extractTablesRelationalConfig(schema, configHelpers) {
         value[Table.Symbol.Columns]
       )) {
         if (column.primary) {
-          tablesConfig[key10].primaryKey.push(column);
+          tablesConfig[key11].primaryKey.push(column);
         }
       }
       const extraConfig = value[Table.Symbol.ExtraConfigBuilder]?.(value[Table.Symbol.ExtraConfigColumns]);
       if (extraConfig) {
         for (const configEntry of Object.values(extraConfig)) {
           if (is(configEntry, PrimaryKeyBuilder2)) {
-            tablesConfig[key10].primaryKey.push(...configEntry.columns);
+            tablesConfig[key11].primaryKey.push(...configEntry.columns);
           }
         }
       }
@@ -19253,9 +19253,9 @@ function relations(table, relations2) {
   return new Relations(
     table,
     (helpers) => Object.fromEntries(
-      Object.entries(relations2(helpers)).map(([key10, value]) => [
-        key10,
-        value.withFieldName(key10)
+      Object.entries(relations2(helpers)).map(([key11, value]) => [
+        key11,
+        value.withFieldName(key11)
       ])
     )
   );
@@ -19959,9 +19959,9 @@ var init_dialect = __esm({
         const joins = [];
         if (config2 === true) {
           const selectionEntries = Object.entries(tableConfig.columns);
-          selection = selectionEntries.map(([key10, value]) => ({
+          selection = selectionEntries.map(([key11, value]) => ({
             dbKey: value.name,
-            tsKey: key10,
+            tsKey: key11,
             field: aliasedTableColumn(value, tableAlias),
             relationTableTsKey: void 0,
             isJson: false,
@@ -19969,8 +19969,8 @@ var init_dialect = __esm({
           }));
         } else {
           const aliasedColumns = Object.fromEntries(
-            Object.entries(tableConfig.columns).map(([key10, value]) => [
-              key10,
+            Object.entries(tableConfig.columns).map(([key11, value]) => [
+              key11,
               aliasedTableColumn(value, tableAlias)
             ])
           );
@@ -19995,7 +19995,7 @@ var init_dialect = __esm({
             }
             if (selectedColumns.length > 0) {
               selectedColumns = isIncludeMode ? selectedColumns.filter((c) => config2.columns?.[c] === true) : Object.keys(tableConfig.columns).filter(
-                (key10) => !selectedColumns.includes(key10)
+                (key11) => !selectedColumns.includes(key11)
               );
             }
           } else {
@@ -20321,7 +20321,7 @@ var init_select2 = __esm({
           fields = this.fields;
         } else if (is(source, Subquery)) {
           fields = Object.fromEntries(
-            Object.keys(source._.selectedFields).map((key10) => [key10, source[key10]])
+            Object.keys(source._.selectedFields).map((key11) => [key11, source[key11]])
           );
         } else if (is(source, SQLiteViewBase)) {
           fields = source[ViewBaseConfig].selectedFields;
@@ -20416,7 +20416,7 @@ var init_select2 = __esm({
               }
               case "right": {
                 this.joinsNotNullableMap = Object.fromEntries(
-                  Object.entries(this.joinsNotNullableMap).map(([key10]) => [key10, false])
+                  Object.entries(this.joinsNotNullableMap).map(([key11]) => [key11, false])
                 );
                 this.joinsNotNullableMap[tableName] = true;
                 break;
@@ -20428,7 +20428,7 @@ var init_select2 = __esm({
               }
               case "full": {
                 this.joinsNotNullableMap = Object.fromEntries(
-                  Object.entries(this.joinsNotNullableMap).map(([key10]) => [key10, false])
+                  Object.entries(this.joinsNotNullableMap).map(([key11]) => [key11, false])
                 );
                 this.joinsNotNullableMap[tableName] = false;
                 break;
@@ -24847,18 +24847,18 @@ function parseQuery(text2) {
     if (sequence === "") {
       continue;
     }
-    let key10;
+    let key11;
     let value;
     const splitIdx = sequence.indexOf("=");
     if (splitIdx < 0) {
-      key10 = sequence;
+      key11 = sequence;
       value = "";
     } else {
-      key10 = sequence.substring(0, splitIdx);
+      key11 = sequence.substring(0, splitIdx);
       value = sequence.substring(splitIdx + 1);
     }
     pairs.push({
-      key: percentDecode(key10.replaceAll("+", " ")),
+      key: percentDecode(key11.replaceAll("+", " ")),
       value: percentDecode(value.replaceAll("+", " "))
     });
   }
@@ -25166,7 +25166,7 @@ function expandConfig(config2, preferHttp) {
     queryParamsDef = {
       cache: {
         values: ["shared", "private"],
-        update: (key10, value) => connectionQueryParams.push(`${key10}=${value}`)
+        update: (key11, value) => connectionQueryParams.push(`${key11}=${value}`)
       }
     };
   } else {
@@ -25180,16 +25180,16 @@ function expandConfig(config2, preferHttp) {
       }
     };
   }
-  for (const { key: key10, value } of uri.query?.pairs ?? []) {
-    if (!Object.hasOwn(queryParamsDef, key10)) {
-      throw new LibsqlError(`Unsupported URL query parameter ${JSON.stringify(key10)}`, "URL_PARAM_NOT_SUPPORTED");
+  for (const { key: key11, value } of uri.query?.pairs ?? []) {
+    if (!Object.hasOwn(queryParamsDef, key11)) {
+      throw new LibsqlError(`Unsupported URL query parameter ${JSON.stringify(key11)}`, "URL_PARAM_NOT_SUPPORTED");
     }
-    const queryParamDef = queryParamsDef[key10];
+    const queryParamDef = queryParamsDef[key11];
     if (queryParamDef.values !== void 0 && !queryParamDef.values.includes(value)) {
-      throw new LibsqlError(`Unknown value for the "${key10}" query argument: ${JSON.stringify(value)}. Supported values are: [${queryParamDef.values.map((x) => '"' + x + '"').join(", ")}]`, "URL_INVALID");
+      throw new LibsqlError(`Unknown value for the "${key11}" query argument: ${JSON.stringify(value)}. Supported values are: [${queryParamDef.values.map((x) => '"' + x + '"').join(", ")}]`, "URL_INVALID");
     }
     if (queryParamDef.update !== void 0) {
-      queryParamDef?.update(key10, value);
+      queryParamDef?.update(key11, value);
     }
   }
   const connectionQueryParamsString = connectionQueryParams.length === 0 ? "" : `?${connectionQueryParams.join("&")}`;
@@ -26832,44 +26832,44 @@ var require_permessage_deflate = __commonJS({
        */
       normalizeParams(configurations) {
         configurations.forEach((params) => {
-          Object.keys(params).forEach((key10) => {
-            let value = params[key10];
+          Object.keys(params).forEach((key11) => {
+            let value = params[key11];
             if (value.length > 1) {
-              throw new Error(`Parameter "${key10}" must have only a single value`);
+              throw new Error(`Parameter "${key11}" must have only a single value`);
             }
             value = value[0];
-            if (key10 === "client_max_window_bits") {
+            if (key11 === "client_max_window_bits") {
               if (value !== true) {
-                const num5 = +value;
-                if (!Number.isInteger(num5) || num5 < 8 || num5 > 15) {
+                const num6 = +value;
+                if (!Number.isInteger(num6) || num6 < 8 || num6 > 15) {
                   throw new TypeError(
-                    `Invalid value for parameter "${key10}": ${value}`
+                    `Invalid value for parameter "${key11}": ${value}`
                   );
                 }
-                value = num5;
+                value = num6;
               } else if (!this._isServer) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key10}": ${value}`
+                  `Invalid value for parameter "${key11}": ${value}`
                 );
               }
-            } else if (key10 === "server_max_window_bits") {
-              const num5 = +value;
-              if (!Number.isInteger(num5) || num5 < 8 || num5 > 15) {
+            } else if (key11 === "server_max_window_bits") {
+              const num6 = +value;
+              if (!Number.isInteger(num6) || num6 < 8 || num6 > 15) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key10}": ${value}`
+                  `Invalid value for parameter "${key11}": ${value}`
                 );
               }
-              value = num5;
-            } else if (key10 === "client_no_context_takeover" || key10 === "server_no_context_takeover") {
+              value = num6;
+            } else if (key11 === "client_no_context_takeover" || key11 === "server_no_context_takeover") {
               if (value !== true) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key10}": ${value}`
+                  `Invalid value for parameter "${key11}": ${value}`
                 );
               }
             } else {
-              throw new Error(`Unknown parameter "${key10}"`);
+              throw new Error(`Unknown parameter "${key11}"`);
             }
-            params[key10] = value;
+            params[key11] = value;
           });
         });
         return configurations;
@@ -26917,8 +26917,8 @@ var require_permessage_deflate = __commonJS({
       _decompress(data, fin, callback) {
         const endpoint = this._isServer ? "client" : "server";
         if (!this._inflate) {
-          const key10 = `${endpoint}_max_window_bits`;
-          const windowBits = typeof this.params[key10] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key10];
+          const key11 = `${endpoint}_max_window_bits`;
+          const windowBits = typeof this.params[key11] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key11];
           this._inflate = zlib.createInflateRaw({
             ...this._options.zlibInflateOptions,
             windowBits
@@ -26968,8 +26968,8 @@ var require_permessage_deflate = __commonJS({
       _compress(data, fin, callback) {
         const endpoint = this._isServer ? "server" : "client";
         if (!this._deflate) {
-          const key10 = `${endpoint}_max_window_bits`;
-          const windowBits = typeof this.params[key10] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key10];
+          const key11 = `${endpoint}_max_window_bits`;
+          const windowBits = typeof this.params[key11] !== "number" ? zlib.Z_DEFAULT_WINDOWBITS : this.params[key11];
           this._deflate = zlib.createDeflateRaw({
             ...this._options.zlibDeflateOptions,
             windowBits
@@ -27554,8 +27554,8 @@ var require_receiver = __commonJS({
           return;
         }
         const buf = this.consume(8);
-        const num5 = buf.readUInt32BE(0);
-        if (num5 > Math.pow(2, 53 - 32) - 1) {
+        const num6 = buf.readUInt32BE(0);
+        if (num6 > Math.pow(2, 53 - 32) - 1) {
           const error48 = this.createError(
             RangeError,
             "Unsupported WebSocket frame: payload length > 2^53 - 1",
@@ -27566,7 +27566,7 @@ var require_receiver = __commonJS({
           cb(error48);
           return;
         }
-        this._payloadLength = num5 * Math.pow(2, 32) + buf.readUInt32BE(4);
+        this._payloadLength = num6 * Math.pow(2, 32) + buf.readUInt32BE(4);
         this.haveLength(cb);
       }
       /**
@@ -29232,7 +29232,7 @@ var require_websocket = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key10 = randomBytes(16).toString("base64");
+      const key11 = randomBytes(16).toString("base64");
       const request = isSecure ? https.request : http.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -29243,7 +29243,7 @@ var require_websocket = __commonJS({
       opts.headers = {
         ...opts.headers,
         "Sec-WebSocket-Version": opts.protocolVersion,
-        "Sec-WebSocket-Key": key10,
+        "Sec-WebSocket-Key": key11,
         Connection: "Upgrade",
         Upgrade: "websocket"
       };
@@ -29294,8 +29294,8 @@ var require_websocket = __commonJS({
           const headers = options && options.headers;
           options = { ...options, headers: {} };
           if (headers) {
-            for (const [key11, value] of Object.entries(headers)) {
-              options.headers[key11.toLowerCase()] = value;
+            for (const [key12, value] of Object.entries(headers)) {
+              options.headers[key12.toLowerCase()] = value;
             }
           }
         } else if (websocket.listenerCount("redirect") === 0) {
@@ -29362,7 +29362,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest = createHash("sha1").update(key10 + GUID).digest("base64");
+        const digest = createHash("sha1").update(key11 + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -29922,7 +29922,7 @@ var require_websocket_server = __commonJS({
        */
       handleUpgrade(req, socket, head, cb) {
         socket.on("error", socketOnError);
-        const key10 = req.headers["sec-websocket-key"];
+        const key11 = req.headers["sec-websocket-key"];
         const upgrade = req.headers.upgrade;
         const version4 = +req.headers["sec-websocket-version"];
         if (req.method !== "GET") {
@@ -29935,7 +29935,7 @@ var require_websocket_server = __commonJS({
           abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
           return;
         }
-        if (key10 === void 0 || !keyRegex.test(key10)) {
+        if (key11 === void 0 || !keyRegex.test(key11)) {
           const message2 = "Missing or invalid Sec-WebSocket-Key header";
           abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
           return;
@@ -29995,7 +29995,7 @@ var require_websocket_server = __commonJS({
               }
               this.completeUpgrade(
                 extensions,
-                key10,
+                key11,
                 protocols,
                 req,
                 socket,
@@ -30007,7 +30007,7 @@ var require_websocket_server = __commonJS({
           }
           if (!this.options.verifyClient(info)) return abortHandshake(socket, 401);
         }
-        this.completeUpgrade(extensions, key10, protocols, req, socket, head, cb);
+        this.completeUpgrade(extensions, key11, protocols, req, socket, head, cb);
       }
       /**
        * Upgrade the connection to WebSocket.
@@ -30022,7 +30022,7 @@ var require_websocket_server = __commonJS({
        * @throws {Error} If called more than once with the same socket
        * @private
        */
-      completeUpgrade(extensions, key10, protocols, req, socket, head, cb) {
+      completeUpgrade(extensions, key11, protocols, req, socket, head, cb) {
         if (!socket.readable || !socket.writable) return socket.destroy();
         if (socket[kWebSocket]) {
           throw new Error(
@@ -30030,7 +30030,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest = createHash("sha1").update(key10 + GUID).digest("base64");
+        const digest = createHash("sha1").update(key11 + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -30404,9 +30404,9 @@ function readProtobufMessage(data, def) {
   const fieldReader = new FieldReader(msgReader);
   let value = def.default();
   while (!msgReader.eof()) {
-    const key10 = msgReader.varint();
-    const tag2 = key10 >> 3;
-    const wireType = key10 & 7;
+    const key11 = msgReader.varint();
+    const tag2 = key11 >> 3;
+    const wireType = key11 & 7;
     fieldReader.setup(wireType);
     const tagFun = def[tag2];
     if (tagFun !== void 0) {
@@ -30752,11 +30752,11 @@ function valueFromProto(value, intMode) {
     return value;
   } else if (typeof value === "bigint") {
     if (intMode === "number") {
-      const num5 = Number(value);
-      if (!Number.isSafeInteger(num5)) {
+      const num6 = Number(value);
+      if (!Number.isSafeInteger(num6)) {
         throw new RangeError("Received integer which is too large to be safely represented as a JavaScript number");
       }
-      return num5;
+      return num6;
     } else if (intMode === "bigint") {
       return value;
     } else if (intMode === "string") {
@@ -32181,12 +32181,12 @@ var init_protobuf_decode = __esm({
         return { stepResults: /* @__PURE__ */ new Map(), stepErrors: /* @__PURE__ */ new Map() };
       },
       1(r, msg) {
-        const [key10, value] = r.message(BatchResultStepResult);
-        msg.stepResults.set(key10, value);
+        const [key11, value] = r.message(BatchResultStepResult);
+        msg.stepResults.set(key11, value);
       },
       2(r, msg) {
-        const [key10, value] = r.message(BatchResultStepError);
-        msg.stepErrors.set(key10, value);
+        const [key11, value] = r.message(BatchResultStepError);
+        msg.stepErrors.set(key11, value);
       }
     };
     BatchResultStepResult = {
@@ -33863,8 +33863,8 @@ function stmtToHrana(stmt) {
     if (Array.isArray(args)) {
       hranaStmt.bindIndexes(args);
     } else {
-      for (const [key10, value] of Object.entries(args)) {
-        hranaStmt.bindName(key10, value);
+      for (const [key11, value] of Object.entries(args)) {
+        hranaStmt.bindName(key11, value);
       }
     }
   }
@@ -34134,16 +34134,16 @@ var init_sql_cache = __esm({
       constructor() {
         this.#cache = /* @__PURE__ */ new Map();
       }
-      get(key10) {
-        const value = this.#cache.get(key10);
+      get(key11) {
+        const value = this.#cache.get(key11);
         if (value !== void 0) {
-          this.#cache.delete(key10);
-          this.#cache.set(key10, value);
+          this.#cache.delete(key11);
+          this.#cache.set(key11, value);
         }
         return value;
       }
-      set(key10, value) {
-        this.#cache.set(key10, value);
+      set(key11, value) {
+        this.#cache.set(key11, value);
       }
       peekLru() {
         for (const entry of this.#cache.entries()) {
@@ -34151,8 +34151,8 @@ var init_sql_cache = __esm({
         }
         return void 0;
       }
-      delete(key10) {
-        this.#cache.delete(key10);
+      delete(key11) {
+        this.#cache.delete(key11);
       }
       get size() {
         return this.#cache.size;
@@ -34792,9 +34792,9 @@ var init_core3 = __esm({
 
 // node_modules/drizzle-orm/libsql/session.js
 function normalizeRow(obj) {
-  return Object.keys(obj).reduce((acc, key10) => {
-    if (Object.prototype.propertyIsEnumerable.call(obj, key10)) {
-      acc[key10] = obj[key10];
+  return Object.keys(obj).reduce((acc, key11) => {
+    if (Object.prototype.propertyIsEnumerable.call(obj, key11)) {
+      acc[key11] = obj[key11];
     }
     return acc;
   }, {});
@@ -37002,19 +37002,19 @@ var require_bcrypt = __commonJS({
           word = word << 8 | data[offp] & 255, offp = (offp + 1) % data.length;
         return { key: word, offp };
       }
-      function _key(key10, P, S) {
+      function _key(key11, P, S) {
         var offset = 0, lr = [0, 0], plen = P.length, slen = S.length, sw;
         for (var i = 0; i < plen; i++)
-          sw = _streamtoword(key10, offset), offset = sw.offp, P[i] = P[i] ^ sw.key;
+          sw = _streamtoword(key11, offset), offset = sw.offp, P[i] = P[i] ^ sw.key;
         for (i = 0; i < plen; i += 2)
           lr = _encipher(lr, 0, P, S), P[i] = lr[0], P[i + 1] = lr[1];
         for (i = 0; i < slen; i += 2)
           lr = _encipher(lr, 0, P, S), S[i] = lr[0], S[i + 1] = lr[1];
       }
-      function _ekskey(data, key10, P, S) {
+      function _ekskey(data, key11, P, S) {
         var offp = 0, lr = [0, 0], plen = P.length, slen = S.length, sw;
         for (var i = 0; i < plen; i++)
-          sw = _streamtoword(key10, offp), offp = sw.offp, P[i] = P[i] ^ sw.key;
+          sw = _streamtoword(key11, offp), offp = sw.offp, P[i] = P[i] ^ sw.key;
         offp = 0;
         for (i = 0; i < plen; i += 2)
           sw = _streamtoword(data, offp), offp = sw.offp, lr[0] ^= sw.key, sw = _streamtoword(data, offp), offp = sw.offp, lr[1] ^= sw.key, lr = _encipher(lr, 0, P, S), P[i] = lr[0], P[i + 1] = lr[1];
@@ -37208,7 +37208,7 @@ var require_main = __commonJS({
       lines2 = lines2.replace(/\r\n?/mg, "\n");
       let match2;
       while ((match2 = LINE.exec(lines2)) != null) {
-        const key10 = match2[1];
+        const key11 = match2[1];
         let value = match2[2] || "";
         value = value.trim();
         const maybeQuote = value[0];
@@ -37217,7 +37217,7 @@ var require_main = __commonJS({
           value = value.replace(/\\n/g, "\n");
           value = value.replace(/\\r/g, "\r");
         }
-        obj[key10] = value;
+        obj[key11] = value;
       }
       return obj;
     }
@@ -37236,8 +37236,8 @@ var require_main = __commonJS({
       let decrypted;
       for (let i = 0; i < length; i++) {
         try {
-          const key10 = keys[i].trim();
-          const attrs = _instructions(result, key10);
+          const key11 = keys[i].trim();
+          const attrs = _instructions(result, key11);
           decrypted = DotenvModule.decrypt(attrs.ciphertext, attrs.key);
           break;
         } catch (error48) {
@@ -37278,8 +37278,8 @@ var require_main = __commonJS({
         }
         throw error48;
       }
-      const key10 = uri.password;
-      if (!key10) {
+      const key11 = uri.password;
+      if (!key11) {
         const err = new Error("INVALID_DOTENV_KEY: Missing key part");
         err.code = "INVALID_DOTENV_KEY";
         throw err;
@@ -37297,7 +37297,7 @@ var require_main = __commonJS({
         err.code = "NOT_FOUND_DOTENV_ENVIRONMENT";
         throw err;
       }
-      return { ciphertext, key: key10 };
+      return { ciphertext, key: key11 };
     }
     function _vaultPath(options) {
       let possibleVaultPath = null;
@@ -37413,13 +37413,13 @@ var require_main = __commonJS({
       return DotenvModule._configVault(options);
     }
     function decrypt(encrypted, keyStr) {
-      const key10 = Buffer.from(keyStr.slice(-64), "hex");
+      const key11 = Buffer.from(keyStr.slice(-64), "hex");
       let ciphertext = Buffer.from(encrypted, "base64");
       const nonce = ciphertext.subarray(0, 12);
       const authTag = ciphertext.subarray(-16);
       ciphertext = ciphertext.subarray(12, -16);
       try {
-        const aesgcm = crypto11.createDecipheriv("aes-256-gcm", key10, nonce);
+        const aesgcm = crypto11.createDecipheriv("aes-256-gcm", key11, nonce);
         aesgcm.setAuthTag(authTag);
         return `${aesgcm.update(ciphertext)}${aesgcm.final()}`;
       } catch (error48) {
@@ -37448,22 +37448,22 @@ var require_main = __commonJS({
         err.code = "OBJECT_REQUIRED";
         throw err;
       }
-      for (const key10 of Object.keys(parsed)) {
-        if (Object.prototype.hasOwnProperty.call(processEnv, key10)) {
+      for (const key11 of Object.keys(parsed)) {
+        if (Object.prototype.hasOwnProperty.call(processEnv, key11)) {
           if (override === true) {
-            processEnv[key10] = parsed[key10];
-            populated[key10] = parsed[key10];
+            processEnv[key11] = parsed[key11];
+            populated[key11] = parsed[key11];
           }
           if (debug) {
             if (override === true) {
-              _debug(`"${key10}" is already defined and WAS overwritten`);
+              _debug(`"${key11}" is already defined and WAS overwritten`);
             } else {
-              _debug(`"${key10}" is already defined and was NOT overwritten`);
+              _debug(`"${key11}" is already defined and was NOT overwritten`);
             }
           }
         } else {
-          processEnv[key10] = parsed[key10];
-          populated[key10] = parsed[key10];
+          processEnv[key11] = parsed[key11];
+          populated[key11] = parsed[key11];
         }
       }
       return populated;
@@ -37575,9 +37575,9 @@ var require_dist2 = __commonJS({
           index = str.lastIndexOf(";", eqIdx - 1) + 1;
           continue;
         }
-        const key10 = valueSlice(str, index, eqIdx);
-        if (obj[key10] === void 0) {
-          obj[key10] = dec(valueSlice(str, eqIdx + 1, endIdx));
+        const key11 = valueSlice(str, index, eqIdx);
+        if (obj[key11] === void 0) {
+          obj[key11] = dec(valueSlice(str, eqIdx + 1, endIdx));
         }
         index = endIdx + 1;
       } while (index < len);
@@ -39066,19 +39066,19 @@ async function ensureClientRealmSync() {
     if (unbound.length) {
       const clientRows = await db.all(sql.raw(`SELECT id, name, company FROM clients`));
       const idx = /* @__PURE__ */ new Map();
-      const add = (key10, id) => {
-        if (!key10) return;
-        const s = idx.get(key10) || /* @__PURE__ */ new Set();
+      const add = (key11, id) => {
+        if (!key11) return;
+        const s = idx.get(key11) || /* @__PURE__ */ new Set();
         s.add(id);
-        idx.set(key10, s);
+        idx.set(key11, s);
       };
       for (const c of clientRows) {
         add(norm24(c.name), Number(c.id));
         add(norm24(c.company), Number(c.id));
       }
       for (const cn of unbound) {
-        const key10 = norm24(cn.companyName);
-        const matches = idx.get(key10);
+        const key11 = norm24(cn.companyName);
+        const matches = idx.get(key11);
         if (matches && matches.size === 1) {
           const clientId = [...matches][0];
           await db.run(sql.raw(`UPDATE qbo_connections SET clientId = ${clientId} WHERE id = ${Number(cn.id)}`));
@@ -39386,8 +39386,8 @@ async function pushAllClientsToMaster() {
   console.log(`[master-sync] pushed ${pushed}/${targets.length} clients to master (incl. realm IDs); ${failed} failed`);
   return { pushed, failed, total: targets.length };
 }
-function leadValue(c, key10) {
-  switch (key10) {
+function leadValue(c, key11) {
+  switch (key11) {
     case "dateReceived": {
       const d10 = c.createdAt ? new Date(c.createdAt) : null;
       return d10 && !isNaN(+d10) ? d10.toISOString().slice(0, 10) : "";
@@ -39613,8 +39613,8 @@ async function linkDriveFolders() {
     if (direct) return direct;
     const clientNums = /* @__PURE__ */ new Set([...longNums(c.name), ...longNums(c.company)]);
     if (clientNums.size) {
-      for (const [key10, id] of Object.entries(NAME_TO_FOLDER)) {
-        if (longNums(key10).some((n) => clientNums.has(n))) return id;
+      for (const [key11, id] of Object.entries(NAME_TO_FOLDER)) {
+        if (longNums(key11).some((n) => clientNums.has(n))) return id;
       }
     }
     return null;
@@ -40105,13 +40105,13 @@ function deriveKey(purpose) {
 function encryptSecret(plain) {
   if (plain == null || plain === "") return null;
   if (plain.startsWith(ENC_PREFIX)) return plain;
-  const key10 = deriveKey("token");
-  if (!key10) {
+  const key11 = deriveKey("token");
+  if (!key11) {
     warnNoKeyOnce();
     return plain;
   }
   const iv = crypto2.randomBytes(12);
-  const cipher = crypto2.createCipheriv("aes-256-gcm", key10, iv);
+  const cipher = crypto2.createCipheriv("aes-256-gcm", key11, iv);
   const ct = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
   const tag2 = cipher.getAuthTag();
   return `${ENC_PREFIX}${iv.toString("base64")}:${tag2.toString("base64")}:${ct.toString("base64")}`;
@@ -40119,8 +40119,8 @@ function encryptSecret(plain) {
 function decryptSecret(stored) {
   if (stored == null || stored === "") return stored ?? null;
   if (!stored.startsWith(ENC_PREFIX)) return stored;
-  const key10 = deriveKey("token");
-  if (!key10) {
+  const key11 = deriveKey("token");
+  if (!key11) {
     warnNoKeyOnce();
     return null;
   }
@@ -40129,7 +40129,7 @@ function decryptSecret(stored) {
     const iv = Buffer.from(ivB64, "base64");
     const tag2 = Buffer.from(tagB64, "base64");
     const ct = Buffer.from(ctB64, "base64");
-    const decipher = crypto2.createDecipheriv("aes-256-gcm", key10, iv);
+    const decipher = crypto2.createDecipheriv("aes-256-gcm", key11, iv);
     decipher.setAuthTag(tag2);
     return Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8");
   } catch (e) {
@@ -40145,24 +40145,24 @@ function signState(payload) {
     ts: Date.now()
   };
   const body = Buffer.from(JSON.stringify(state)).toString("base64url");
-  const key10 = deriveKey("state");
-  if (!key10) {
+  const key11 = deriveKey("state");
+  if (!key11) {
     warnNoKeyOnce();
     return body;
   }
-  const sig = crypto2.createHmac("sha256", key10).update(body).digest("base64url");
+  const sig = crypto2.createHmac("sha256", key11).update(body).digest("base64url");
   return `${body}.${sig}`;
 }
 function verifyState(raw2) {
   if (!raw2) return null;
-  const key10 = deriveKey("state");
+  const key11 = deriveKey("state");
   let body = raw2;
-  if (key10) {
+  if (key11) {
     const dot = raw2.lastIndexOf(".");
     if (dot < 0) return null;
     body = raw2.slice(0, dot);
     const sig = raw2.slice(dot + 1);
-    const expected = crypto2.createHmac("sha256", key10).update(body).digest("base64url");
+    const expected = crypto2.createHmac("sha256", key11).update(body).digest("base64url");
     if (sig.length !== expected.length || !crypto2.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   } else {
     warnNoKeyOnce();
@@ -42933,7 +42933,7 @@ function statHolidaysInRange(startISO, endISO) {
   const years = /* @__PURE__ */ new Set([Number(startISO.slice(0, 4)), Number(endISO.slice(0, 4))]);
   const all = [];
   for (const y of years) if (Number.isFinite(y)) all.push(...ontarioStatHolidays(y));
-  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr3) => idx === 0 || h.date !== arr3[idx - 1].date);
+  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr4) => idx === 0 || h.date !== arr4[idx - 1].date);
 }
 function statHolidaysObservedInRange(startISO, endISO) {
   return statHolidaysInRange(startISO, endISO).map((h) => {
@@ -42975,9 +42975,9 @@ async function ensureAppSettings() {
     console.error("[jobber] ensure app_settings failed:", e instanceof Error ? e.message : e);
   }
 }
-async function getCred(key10, envVal) {
+async function getCred(key11, envVal) {
   try {
-    const rows = await getDb().select().from(appSettings).where(eq(appSettings.key, key10)).limit(1);
+    const rows = await getDb().select().from(appSettings).where(eq(appSettings.key, key11)).limit(1);
     const stored = rows[0]?.value;
     if (stored) return decryptSecret(stored) || null;
   } catch {
@@ -45728,7 +45728,7 @@ function clientAppsList(onb) {
   return a;
 }
 function buildScopeForClient(client, onb) {
-  const num5 = (...vals) => {
+  const num6 = (...vals) => {
     for (const v of vals) {
       const n = Number(v);
       if (Number.isFinite(n) && n > 0) return n;
@@ -45738,14 +45738,14 @@ function buildScopeForClient(client, onb) {
   const bool = (...vals) => vals.some((v) => v === true || v === 1);
   const salesPlatformCount = onb ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro, onb.usesPayPal].filter((v) => v === true || v === 1).length : 0;
   return {
-    avgMonthlyTransactions: num5(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
+    avgMonthlyTransactions: num6(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
     bookkeepingFrequency: onb?.bookkeepingFrequency ?? "monthly",
-    bankAccountCount: num5(onb?.bankAccountCount) || 1,
-    creditCardCount: num5(onb?.creditCardCount),
+    bankAccountCount: num6(onb?.bankAccountCount) || 1,
+    creditCardCount: num6(onb?.creditCardCount),
     hasHST: bool(client?.hasHST, onb?.hstGstFrequency && onb.hstGstFrequency !== "none"),
     hstPeriod: normalizeHstPeriod(client?.hstPeriod, onb?.hstGstFrequency),
     hasPayroll: bool(client?.hasPayroll, onb?.hasEmployees, onb?.payrollFrequency && onb.payrollFrequency !== "none"),
-    employeeCount: num5(onb?.employeeCount),
+    employeeCount: num6(onb?.employeeCount),
     payrollFrequency: normalizePayrollFreq(onb?.payrollFrequency, client?.payrollFrequency),
     payrollRemitterFreq: client?.payrollRemitterFreq ?? "regular",
     hasWSIB: bool(client?.hasWSIB, onb?.wsibRequired),
@@ -45758,7 +45758,7 @@ function buildScopeForClient(client, onb) {
     invoicingByUs: onb?.invoicingResponsibility === "we_invoice",
     billPayByUs: onb?.billPayResponsibility === "we_pay",
     hasJobCosting: bool(onb?.hasJobCosting),
-    monthsBehind: num5(onb?.monthsBehind),
+    monthsBehind: num6(onb?.monthsBehind),
     qboSoftwareTier: onb?.qboSoftwareTier ?? "none",
     qboSoftwareWholesale: bool(onb?.qboSoftwareWholesale),
     qboPayrollWholesale: bool(onb?.qboPayrollWholesale)
@@ -46664,8 +46664,8 @@ var init_interco_recharge_router = __esm({
         const db = getDb();
         let cpId = input.counterpartyClientId ?? 0;
         if (!cpId && input.counterpartyName) {
-          const key10 = `%${input.counterpartyName.split(/\s+/)[0].toLowerCase()}%`;
-          const rows = await db.all(sql`SELECT id, name FROM clients WHERE lower(name) LIKE ${key10} OR lower(company) LIKE ${key10} ORDER BY id ASC LIMIT 1`);
+          const key11 = `%${input.counterpartyName.split(/\s+/)[0].toLowerCase()}%`;
+          const rows = await db.all(sql`SELECT id, name FROM clients WHERE lower(name) LIKE ${key11} OR lower(company) LIKE ${key11} ORDER BY id ASC LIMIT 1`);
           cpId = rows[0]?.id ?? 0;
         }
         if (!cpId) return { ok: false, error: "counterparty_not_found" };
@@ -46845,11 +46845,11 @@ async function ensureTaxRatesTable() {
     console.error("[tax-fetch] ensure table failed:", e instanceof Error ? e.message : e);
   }
 }
-async function put(key10, value, label, year2, source) {
+async function put(key11, value, label, year2, source) {
   const db = getDb();
-  const existing = await db.select().from(taxRates).where(eq(taxRates.key, key10)).limit(1);
-  const row = { key: key10, value, label, effectiveYear: year2, source, updatedAt: /* @__PURE__ */ new Date() };
-  if (existing[0]) await db.update(taxRates).set(row).where(eq(taxRates.key, key10));
+  const existing = await db.select().from(taxRates).where(eq(taxRates.key, key11)).limit(1);
+  const row = { key: key11, value, label, effectiveYear: year2, source, updatedAt: /* @__PURE__ */ new Date() };
+  if (existing[0]) await db.update(taxRates).set(row).where(eq(taxRates.key, key11));
   else await db.insert(taxRates).values(row);
 }
 async function getTaxRateMap() {
@@ -46902,11 +46902,11 @@ Use decimals for rates (13% = 0.13). Use 0 only if you genuinely cannot verify a
     const yr = Number(p.year) || year2;
     const src = `web_search ${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}`;
     const changed = [];
-    const apply = async (key10, val, label) => {
+    const apply = async (key11, val, label) => {
       const n = Number(val);
       if (!isFinite(n) || n <= 0) return;
-      if (before[key10] == null || Math.abs(before[key10] - n) > 1e-9) changed.push(`${label}: ${before[key10] ?? "\u2014"} \u2192 ${n}`);
-      await put(key10, n, label, yr, src);
+      if (before[key11] == null || Math.abs(before[key11] - n) > 1e-9) changed.push(`${label}: ${before[key11] ?? "\u2014"} \u2192 ${n}`);
+      await put(key11, n, label, yr, src);
     };
     if (p.ca_hst && typeof p.ca_hst === "object") {
       for (const prov of PROVINCES) await apply(`ca.hst.${prov}`, p.ca_hst[prov], `${prov} GST/HST`);
@@ -47182,8 +47182,8 @@ function isEmptyObj(obj) {
     return false;
   return true;
 }
-function hasOwn(obj, key10) {
-  return Object.prototype.hasOwnProperty.call(obj, key10);
+function hasOwn(obj, key11) {
+  return Object.prototype.hasOwnProperty.call(obj, key11);
 }
 var startsWithSchemeRegexp, isAbsoluteURL, isArray3, isReadonlyArray, validatePositiveInteger, safeJSON;
 var init_values = __esm({
@@ -47267,13 +47267,13 @@ function getBrowserInfo() {
     { key: "firefox", pattern: /Firefox(?:\W+(\d+)\.(\d+)(?:\.(\d+))?)?/ },
     { key: "safari", pattern: /(?:Version\W+(\d+)\.(\d+)(?:\.(\d+))?)?(?:\W+Mobile\S*)?\W+Safari/ }
   ];
-  for (const { key: key10, pattern } of browserPatterns) {
+  for (const { key: key11, pattern } of browserPatterns) {
     const match2 = pattern.exec(navigator.userAgent);
     if (match2) {
       const major = match2[1] || 0;
       const minor = match2[2] || 0;
       const patch = match2[3] || 0;
-      return { browser: key10, version: `${major}.${minor}.${patch}` };
+      return { browser: key11, version: `${major}.${minor}.${patch}` };
     }
   }
   return null;
@@ -47510,7 +47510,7 @@ var init_utils3 = __esm({
   "node_modules/@anthropic-ai/sdk/internal/qs/utils.mjs"() {
     init_formats();
     init_values();
-    has = (obj, key10) => (has = Object.hasOwn ?? Function.prototype.call.bind(Object.prototype.hasOwnProperty), has(obj, key10));
+    has = (obj, key11) => (has = Object.hasOwn ?? Function.prototype.call.bind(Object.prototype.hasOwnProperty), has(obj, key11));
     hex_table = /* @__PURE__ */ (() => {
       const array3 = [];
       for (let i = 0; i < 256; ++i) {
@@ -47537,7 +47537,7 @@ var init_utils3 = __esm({
       let out = "";
       for (let j = 0; j < string5.length; j += limit) {
         const segment = string5.length >= limit ? string5.slice(j, j + limit) : string5;
-        const arr3 = [];
+        const arr4 = [];
         for (let i = 0; i < segment.length; ++i) {
           let c = segment.charCodeAt(i);
           if (c === 45 || // -
@@ -47548,26 +47548,26 @@ var init_utils3 = __esm({
           c >= 65 && c <= 90 || // a-z
           c >= 97 && c <= 122 || // A-Z
           format === RFC1738 && (c === 40 || c === 41)) {
-            arr3[arr3.length] = segment.charAt(i);
+            arr4[arr4.length] = segment.charAt(i);
             continue;
           }
           if (c < 128) {
-            arr3[arr3.length] = hex_table[c];
+            arr4[arr4.length] = hex_table[c];
             continue;
           }
           if (c < 2048) {
-            arr3[arr3.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
+            arr4[arr4.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
             continue;
           }
           if (c < 55296 || c >= 57344) {
-            arr3[arr3.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+            arr4[arr4.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
             continue;
           }
           i += 1;
           c = 65536 + ((c & 1023) << 10 | segment.charCodeAt(i) & 1023);
-          arr3[arr3.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+          arr4[arr4.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
         }
-        out += arr3.join("");
+        out += arr4.join("");
       }
       return out;
     };
@@ -47650,15 +47650,15 @@ function inner_stringify(object3, prefix, generateArrayPrefix, commaRoundTrip, a
     return adjusted_prefix + "[]";
   }
   for (let j = 0; j < obj_keys.length; ++j) {
-    const key10 = obj_keys[j];
+    const key11 = obj_keys[j];
     const value = (
       // @ts-ignore
-      typeof key10 === "object" && typeof key10.value !== "undefined" ? key10.value : obj[key10]
+      typeof key11 === "object" && typeof key11.value !== "undefined" ? key11.value : obj[key11]
     );
     if (skipNulls && value === null) {
       continue;
     }
-    const encoded_key = allowDots && encodeDotInKeys ? key10.replace(/\./g, "%2E") : key10;
+    const encoded_key = allowDots && encodeDotInKeys ? key11.replace(/\./g, "%2E") : key11;
     const key_prefix = isArray3(obj) ? typeof generateArrayPrefix === "function" ? generateArrayPrefix(adjusted_prefix, encoded_key) : adjusted_prefix : adjusted_prefix + (allowDots ? "." + encoded_key : "[" + encoded_key + "]");
     sideChannel.set(object3, step);
     const valueSideChannel = /* @__PURE__ */ new WeakMap();
@@ -47775,13 +47775,13 @@ function stringify2(object3, opts = {}) {
   }
   const sideChannel = /* @__PURE__ */ new WeakMap();
   for (let i = 0; i < obj_keys.length; ++i) {
-    const key10 = obj_keys[i];
-    if (options.skipNulls && obj[key10] === null) {
+    const key11 = obj_keys[i];
+    if (options.skipNulls && obj[key11] === null) {
       continue;
     }
     push_to_array(keys, inner_stringify(
-      obj[key10],
-      key10,
+      obj[key11],
+      key11,
       // @ts-expect-error
       generateArrayPrefix,
       commaRoundTrip,
@@ -47823,15 +47823,15 @@ var init_stringify = __esm({
         return String(prefix) + "[]";
       },
       comma: "comma",
-      indices(prefix, key10) {
-        return String(prefix) + "[" + key10 + "]";
+      indices(prefix, key11) {
+        return String(prefix) + "[" + key11 + "]";
       },
       repeat(prefix) {
         return String(prefix);
       }
     };
-    push_to_array = function(arr3, value_or_array) {
-      Array.prototype.push.apply(arr3, isArray3(value_or_array) ? value_or_array : [value_or_array]);
+    push_to_array = function(arr4, value_or_array) {
+      Array.prototype.push.apply(arr4, isArray3(value_or_array) ? value_or_array : [value_or_array]);
     };
     defaults = {
       addQueryPrefix: false,
@@ -49575,33 +49575,33 @@ var init_uploads = __esm({
         throw new TypeError("The provided fetch function does not support file uploads with the current global FormData class.");
       }
       const form = new FormData();
-      await Promise.all(Object.entries(body || {}).map(([key10, value]) => addFormValue(form, key10, value, stripFilenames)));
+      await Promise.all(Object.entries(body || {}).map(([key11, value]) => addFormValue(form, key11, value, stripFilenames)));
       return form;
     };
     isNamedBlob = (value) => value instanceof Blob && "name" in value;
-    addFormValue = async (form, key10, value, stripFilenames) => {
+    addFormValue = async (form, key11, value, stripFilenames) => {
       if (value === void 0)
         return;
       if (value == null) {
-        throw new TypeError(`Received null for "${key10}"; to pass null in FormData, you must use the string 'null'`);
+        throw new TypeError(`Received null for "${key11}"; to pass null in FormData, you must use the string 'null'`);
       }
       if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-        form.append(key10, String(value));
+        form.append(key11, String(value));
       } else if (value instanceof Response) {
         let options = {};
         const contentType = value.headers.get("Content-Type");
         if (contentType) {
           options = { type: contentType };
         }
-        form.append(key10, makeFile([await value.blob()], getName(value, stripFilenames), options));
+        form.append(key11, makeFile([await value.blob()], getName(value, stripFilenames), options));
       } else if (isAsyncIterable2(value)) {
-        form.append(key10, makeFile([await new Response(ReadableStreamFrom(value)).blob()], getName(value, stripFilenames)));
+        form.append(key11, makeFile([await new Response(ReadableStreamFrom(value)).blob()], getName(value, stripFilenames)));
       } else if (isNamedBlob(value)) {
-        form.append(key10, makeFile([value], getName(value, stripFilenames), { type: value.type }));
+        form.append(key11, makeFile([value], getName(value, stripFilenames), { type: value.type }));
       } else if (Array.isArray(value)) {
-        await Promise.all(value.map((entry) => addFormValue(form, key10 + "[]", entry, stripFilenames)));
+        await Promise.all(value.map((entry) => addFormValue(form, key11 + "[]", entry, stripFilenames)));
       } else if (typeof value === "object") {
-        await Promise.all(Object.entries(value).map(([name2, prop]) => addFormValue(form, `${key10}[${name2}]`, prop, stripFilenames)));
+        await Promise.all(Object.entries(value).map(([name2, prop]) => addFormValue(form, `${key11}[${name2}]`, prop, stripFilenames)));
       } else {
         throw new TypeError(`Invalid value given to form, expected a string, number, boolean, object, Array, File or Blob but got ${value} instead`);
       }
@@ -50927,17 +50927,17 @@ var require_sha256 = __commonJS({
       var HMAC = (
         /** @class */
         (function() {
-          function HMAC2(key10) {
+          function HMAC2(key11) {
             this.inner = new Hash();
             this.outer = new Hash();
             this.blockSize = this.inner.blockSize;
             this.digestLength = this.inner.digestLength;
             var pad = new Uint8Array(this.blockSize);
-            if (key10.length > this.blockSize) {
-              new Hash().update(key10).finish(pad).clean();
+            if (key11.length > this.blockSize) {
+              new Hash().update(key11).finish(pad).clean();
             } else {
-              for (var i = 0; i < key10.length; i++) {
-                pad[i] = key10[i];
+              for (var i = 0; i < key11.length; i++) {
+                pad[i] = key11[i];
               }
             }
             for (var i = 0; i < pad.length; i++) {
@@ -50998,20 +50998,20 @@ var require_sha256 = __commonJS({
       }
       exports2.hash = hash3;
       exports2["default"] = hash3;
-      function hmac(key10, data) {
-        var h = new HMAC(key10).update(data);
+      function hmac(key11, data) {
+        var h = new HMAC(key11).update(data);
         var digest = h.digest();
         h.clean();
         return digest;
       }
       exports2.hmac = hmac;
       function fillBuffer(buffer, hmac2, info, counter) {
-        var num5 = counter[0];
-        if (num5 === 0) {
+        var num6 = counter[0];
+        if (num6 === 0) {
           throw new Error("hkdf: cannot expand more");
         }
         hmac2.reset();
-        if (num5 > 1) {
+        if (num6 > 1) {
           hmac2.update(buffer);
         }
         if (info) {
@@ -51022,7 +51022,7 @@ var require_sha256 = __commonJS({
         counter[0]++;
       }
       var hkdfSalt = new Uint8Array(exports2.digestLength);
-      function hkdf(key10, salt, info, length) {
+      function hkdf(key11, salt, info, length) {
         if (salt === void 0) {
           salt = hkdfSalt;
         }
@@ -51030,7 +51030,7 @@ var require_sha256 = __commonJS({
           length = 32;
         }
         var counter = new Uint8Array([1]);
-        var okm = hmac(salt, key10);
+        var okm = hmac(salt, key11);
         var hmac_ = new HMAC(okm);
         var buffer = new Uint8Array(hmac_.digestLength);
         var bufpos = buffer.length;
@@ -51142,8 +51142,8 @@ var require_dist3 = __commonJS({
       }
       verify(payload, headers_) {
         const headers = {};
-        for (const key10 of Object.keys(headers_)) {
-          headers[key10.toLowerCase()] = headers_[key10];
+        for (const key11 of Object.keys(headers_)) {
+          headers[key11.toLowerCase()] = headers_[key11];
         }
         const msgId = headers["webhook-id"];
         const msgSignature = headers["webhook-signature"];
@@ -51207,9 +51207,9 @@ var init_webhooks = __esm({
     init_resource();
     import_standardwebhooks = __toESM(require_dist3(), 1);
     Webhooks = class extends APIResource {
-      unwrap(body, { headers, key: key10 }) {
+      unwrap(body, { headers, key: key11 }) {
         if (headers !== void 0) {
-          const keyStr = key10 === void 0 ? this._client.webhookKey : key10;
+          const keyStr = key11 === void 0 ? this._client.webhookKey : key11;
           if (keyStr === null)
             throw new Error("Webhook key must not be null in order to unwrap");
           const wh = new import_standardwebhooks.Webhook(keyStr);
@@ -52411,10 +52411,10 @@ function resolvePath(ctx, p) {
 }
 function scrubbedShellEnv() {
   const env2 = {};
-  for (const [key10, value] of Object.entries(process.env)) {
-    if (key10.startsWith("ANTHROPIC_"))
+  for (const [key11, value] of Object.entries(process.env)) {
+    if (key11.startsWith("ANTHROPIC_"))
       continue;
-    env2[key10] = value;
+    env2[key11] = value;
   }
   return env2;
 }
@@ -54534,9 +54534,9 @@ var init_parser = __esm({
 // node_modules/@anthropic-ai/sdk/internal/message-stream-utils.mjs
 function withLazyInput(prev, jsonBuf) {
   const next = {};
-  for (const key10 of Object.keys(prev)) {
-    if (key10 !== "input")
-      next[key10] = prev[key10];
+  for (const key11 of Object.keys(prev)) {
+    if (key11 !== "input")
+      next[key11] = prev[key11];
   }
   Object.defineProperty(next, JSON_BUF_PROPERTY, { value: jsonBuf, enumerable: false, writable: true });
   let input;
@@ -59247,9 +59247,9 @@ function formatCitations(matches) {
   const seen = /* @__PURE__ */ new Set();
   const out = [];
   for (const m of matches) {
-    const key10 = `${m.record.layer}:${m.record.label}`;
-    if (seen.has(key10)) continue;
-    seen.add(key10);
+    const key11 = `${m.record.layer}:${m.record.label}`;
+    if (seen.has(key11)) continue;
+    seen.add(key11);
     out.push({ label: m.record.label, layer: m.record.layer });
   }
   return out;
@@ -60331,9 +60331,9 @@ function parseScanFindings(text2) {
   } catch {
     return [];
   }
-  const arr3 = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
+  const arr4 = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
   const out = [];
-  for (const f of arr3) {
+  for (const f of arr4) {
     const subjectName = String(f?.subjectName || f?.name || "").trim();
     const claim = String(f?.claim || "").trim();
     if (!subjectName || !claim) continue;
@@ -60622,10 +60622,10 @@ async function seedCollingwoodRunHours() {
     for (const l of lines2) {
       const e = empById.get(l.employeeId);
       if (!e) continue;
-      const k = key(e.firstName, e.lastName);
+      const k = key2(e.firstName, e.lastName);
       const patch = {};
       if ((e.payType || "") === "salary") {
-        const g = round212((e.annualSalary || 0) / PERIODS_PER_YEAR);
+        const g = round213((e.annualSalary || 0) / PERIODS_PER_YEAR);
         if (g > 0 && (l.grossPay ?? 0) === 0) patch.grossPay = g;
       } else if (k in HOURS) {
         const target = HOURS[k];
@@ -60635,7 +60635,7 @@ async function seedCollingwoodRunHours() {
           filled++;
         }
         const rate = e.hourlyRate ?? 0;
-        const g = round212(reg * rate);
+        const g = round213(reg * rate);
         if (g !== (l.grossPay ?? 0)) patch.grossPay = g;
       }
       const entitled = !PHONE_EXEMPT_LAST2.includes(norm9(e.lastName));
@@ -60650,7 +60650,7 @@ async function seedCollingwoodRunHours() {
       }
     }
     const fresh = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, draft.id));
-    const totalGross = round212(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
+    const totalGross = round213(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
     await db.update(payRuns).set({ totalGross, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, draft.id));
     if (filled || phoneSet) console.log(`[seed-collingwood-run] run ${draft.id}: filled ${filled} hours, set ${phoneSet} phone`);
     return { run: draft.id, filled, phoneSet, skipped: "" };
@@ -60658,7 +60658,7 @@ async function seedCollingwoodRunHours() {
     console.error("[seed-collingwood-run] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID2, PHONE, round212, norm9, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
+var CLIENT_ID2, PHONE, round213, norm9, key2, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
 var init_seed_collingwood_run_hours = __esm({
   "api/seed-collingwood-run-hours.ts"() {
     init_connection();
@@ -60666,22 +60666,22 @@ var init_seed_collingwood_run_hours = __esm({
     init_drizzle_orm();
     CLIENT_ID2 = 7;
     PHONE = 23.08;
-    round212 = (n) => Math.round(n * 100) / 100;
+    round213 = (n) => Math.round(n * 100) / 100;
     norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key = (first, last) => `${norm9(last)}|${norm9(first)}`;
+    key2 = (first, last) => `${norm9(last)}|${norm9(first)}`;
     HOURS = {
-      [key("Matteo", "Companion")]: 64.63,
-      [key("Logan", "Greig")]: 0,
-      [key("Chris", "Haight")]: 90.43,
-      [key("Corey", "Hawton")]: 84.78,
-      [key("Justin", "Koutsomichos")]: 101.62,
-      [key("Dave", "Lally")]: 84.85,
-      [key("Aidan", "MacDonald")]: 54.67,
-      [key("Justin", "Pool")]: 38.06,
-      [key("Adrian", "Robbeson")]: 97,
-      [key("Chris", "Thompson")]: 66.78,
-      [key("Lisa", "Venditti")]: 93.8,
-      [key("Alan", "Weaver")]: 56
+      [key2("Matteo", "Companion")]: 64.63,
+      [key2("Logan", "Greig")]: 0,
+      [key2("Chris", "Haight")]: 90.43,
+      [key2("Corey", "Hawton")]: 84.78,
+      [key2("Justin", "Koutsomichos")]: 101.62,
+      [key2("Dave", "Lally")]: 84.85,
+      [key2("Aidan", "MacDonald")]: 54.67,
+      [key2("Justin", "Pool")]: 38.06,
+      [key2("Adrian", "Robbeson")]: 97,
+      [key2("Chris", "Thompson")]: 66.78,
+      [key2("Lisa", "Venditti")]: 93.8,
+      [key2("Alan", "Weaver")]: 56
     };
     PHONE_EXEMPT_LAST2 = ["companion", "lally"];
     PERIODS_PER_YEAR = 26;
@@ -60785,9 +60785,9 @@ async function ensurePayrollReminders() {
       if (!dueClients.length) continue;
       for (const c of dueClients) {
         correctKeys.add(`${c.id}|${run3.runISO}`);
-        const arr3 = scheduled.get(run3.runISO) || [];
-        arr3.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
-        scheduled.set(run3.runISO, arr3);
+        const arr4 = scheduled.get(run3.runISO) || [];
+        arr4.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
+        scheduled.set(run3.runISO, arr4);
       }
     }
     let tasksRemoved = 0;
@@ -60890,9 +60890,9 @@ async function backfillSherPayroll() {
     const clientId = client.id;
     const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
-    for (const e of existing) empByKey.set(key2(e.firstName, e.lastName), e);
+    for (const e of existing) empByKey.set(key3(e.firstName, e.lastName), e);
     for (const r of ROSTER2) {
-      const k = key2(r.first, r.last);
+      const k = key3(r.first, r.last);
       const ex = empByKey.get(k);
       if (ex) {
         const patch = {};
@@ -60939,11 +60939,11 @@ async function backfillSherPayroll() {
       }).returning();
       if (!run3) continue;
       for (const r of ROSTER2) {
-        const k = key2(r.first, r.last);
+        const k = key3(r.first, r.last);
         const emp = empByKey.get(k);
         if (!emp) continue;
         const ln = p.lines[k];
-        const gross = round213(ln?.gross ?? 0);
+        const gross = round214(ln?.gross ?? 0);
         totalGross += gross;
         await db.insert(payRunLines).values({
           payRunId: run3.id,
@@ -60952,7 +60952,7 @@ async function backfillSherPayroll() {
           grossPay: gross
         });
       }
-      await db.update(payRuns).set({ totalGross: round213(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round214(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[sher-backfill] added ${runsAdded} run(s)`);
@@ -60961,15 +60961,15 @@ async function backfillSherPayroll() {
     console.error("[sher-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round213, norm10, key2, d, ROSTER2, PERIODS;
+var round214, norm10, key3, d, ROSTER2, PERIODS;
 var init_seed_sher_backfill = __esm({
   "api/seed-sher-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round213 = (n) => Math.round(n * 100) / 100;
+    round214 = (n) => Math.round(n * 100) / 100;
     norm10 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key2 = (first, last) => `${norm10(last)}|${norm10(first)}`;
+    key3 = (first, last) => `${norm10(last)}|${norm10(first)}`;
     d = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER2 = [
       { first: "Surya", last: "Bhattrai", payType: "salary", salary: 7e4 },
@@ -60982,102 +60982,102 @@ var init_seed_sher_backfill = __esm({
     ];
     PERIODS = [
       { payDate: "2026-06-26", start: "2026-06-10", end: "2026-06-23", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 77.02, gross: 1409.77 },
-        [key2("Rohit", "Dhimal")]: { hours: 102.74, gross: 2030.14 },
-        [key2("Suraj", "Limbu")]: { hours: 79.99, gross: 1497.41 },
-        [key2("Deepak", "Vasisth")]: { hours: 63.92, gross: 1169.99 }
+        [key3("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key3("Akash", "Dahal")]: { hours: 77.02, gross: 1409.77 },
+        [key3("Rohit", "Dhimal")]: { hours: 102.74, gross: 2030.14 },
+        [key3("Suraj", "Limbu")]: { hours: 79.99, gross: 1497.41 },
+        [key3("Deepak", "Vasisth")]: { hours: 63.92, gross: 1169.99 }
       } },
       { payDate: "2026-06-12", start: "2026-05-27", end: "2026-06-09", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 71.26, gross: 1304.34 },
-        [key2("Rohit", "Dhimal")]: { hours: 90.92, gross: 1796.58 },
-        [key2("Suraj", "Limbu")]: { hours: 88.32, gross: 1653.35 },
-        [key2("Deepak", "Vasisth")]: { hours: 76.68, gross: 1403.55 }
+        [key3("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key3("Akash", "Dahal")]: { hours: 71.26, gross: 1304.34 },
+        [key3("Rohit", "Dhimal")]: { hours: 90.92, gross: 1796.58 },
+        [key3("Suraj", "Limbu")]: { hours: 88.32, gross: 1653.35 },
+        [key3("Deepak", "Vasisth")]: { hours: 76.68, gross: 1403.55 }
       } },
       { payDate: "2026-05-29", start: "2026-05-13", end: "2026-05-26", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 60.83, gross: 994.82 },
-        [key2("Rohit", "Dhimal")]: { hours: 111.6, gross: 2047.14 },
-        [key2("Suraj", "Limbu")]: { hours: 89.52, gross: 1526.05 },
-        [key2("Deepak", "Vasisth")]: { hours: 101.31, gross: 1854.38 }
+        [key3("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key3("Akash", "Dahal")]: { hours: 60.83, gross: 994.82 },
+        [key3("Rohit", "Dhimal")]: { hours: 111.6, gross: 2047.14 },
+        [key3("Suraj", "Limbu")]: { hours: 89.52, gross: 1526.05 },
+        [key3("Deepak", "Vasisth")]: { hours: 101.31, gross: 1854.38 }
       } },
       { payDate: "2026-05-15", start: "2026-04-29", end: "2026-05-12", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 63.47, gross: 1161.75 },
-        [key2("Rohit", "Dhimal")]: { hours: 103.35, gross: 2042.2 },
-        [key2("Dhiren", "Gurung")]: { hours: 9.86, gross: 184.58 },
-        [key2("Suraj", "Limbu")]: { hours: 82.18, gross: 1538.41 },
-        [key2("Deepak", "Vasisth")]: { hours: 92.6, gross: 1694.95 }
+        [key3("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key3("Akash", "Dahal")]: { hours: 63.47, gross: 1161.75 },
+        [key3("Rohit", "Dhimal")]: { hours: 103.35, gross: 2042.2 },
+        [key3("Dhiren", "Gurung")]: { hours: 9.86, gross: 184.58 },
+        [key3("Suraj", "Limbu")]: { hours: 82.18, gross: 1538.41 },
+        [key3("Deepak", "Vasisth")]: { hours: 92.6, gross: 1694.95 }
       } },
       { payDate: "2026-05-01", start: "2026-04-15", end: "2026-04-28", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 61.16, gross: 1119.47 },
-        [key2("Rohit", "Dhimal")]: { hours: 103.84, gross: 2051.88 },
-        [key2("Dhiren", "Gurung")]: { hours: 19.4, gross: 363.17 },
-        [key2("Suraj", "Limbu")]: { hours: 80.86, gross: 1513.7 },
-        [key2("Deepak", "Vasisth")]: { hours: 91.73, gross: 1679.03 }
+        [key3("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key3("Akash", "Dahal")]: { hours: 61.16, gross: 1119.47 },
+        [key3("Rohit", "Dhimal")]: { hours: 103.84, gross: 2051.88 },
+        [key3("Dhiren", "Gurung")]: { hours: 19.4, gross: 363.17 },
+        [key3("Suraj", "Limbu")]: { hours: 80.86, gross: 1513.7 },
+        [key3("Deepak", "Vasisth")]: { hours: 91.73, gross: 1679.03 }
       } },
       { payDate: "2026-04-17", start: "2026-04-01", end: "2026-04-14", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 57.15, gross: 927.46 },
-        [key2("Rohit", "Dhimal")]: { hours: 118.88, gross: 2190.99 },
-        [key2("Dhiren", "Gurung")]: { hours: 20.34, gross: 347.63 },
-        [key2("Suraj", "Limbu")]: { hours: 96, gross: 1647.36 },
-        [key2("Deepak", "Vasisth")]: { hours: 108.03, gross: 1977.38 }
+        [key3("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key3("Akash", "Dahal")]: { hours: 57.15, gross: 927.46 },
+        [key3("Rohit", "Dhimal")]: { hours: 118.88, gross: 2190.99 },
+        [key3("Dhiren", "Gurung")]: { hours: 20.34, gross: 347.63 },
+        [key3("Suraj", "Limbu")]: { hours: 96, gross: 1647.36 },
+        [key3("Deepak", "Vasisth")]: { hours: 108.03, gross: 1977.38 }
       } },
       { payDate: "2026-04-03", start: "2026-03-18", end: "2026-03-31", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 51.37, gross: 918.91 },
-        [key2("Rohit", "Dhimal")]: { hours: 95.33, gross: 1705.26 },
-        [key2("Dhiren", "Gurung")]: { hours: 18.66, gross: 333.79 },
-        [key2("Suraj", "Limbu")]: { hours: 74.47, gross: 1332.12 },
-        [key2("Deepak", "Vasisth")]: { hours: 87.82, gross: 1570.92 }
+        [key3("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key3("Akash", "Dahal")]: { hours: 51.37, gross: 918.91 },
+        [key3("Rohit", "Dhimal")]: { hours: 95.33, gross: 1705.26 },
+        [key3("Dhiren", "Gurung")]: { hours: 18.66, gross: 333.79 },
+        [key3("Suraj", "Limbu")]: { hours: 74.47, gross: 1332.12 },
+        [key3("Deepak", "Vasisth")]: { hours: 87.82, gross: 1570.92 }
       } },
       { payDate: "2026-03-20", start: "2026-03-04", end: "2026-03-17", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 58.31, gross: 1043.05 },
-        [key2("Rohit", "Dhimal")]: { hours: 103.5, gross: 1851.41 },
-        [key2("Dhiren", "Gurung")]: { hours: 20.26, gross: 362.41 },
-        [key2("Suraj", "Limbu")]: { hours: 79.2, gross: 1416.73 },
-        [key2("Deepak", "Vasisth")]: { hours: 95.86, gross: 1714.74 }
+        [key3("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key3("Akash", "Dahal")]: { hours: 58.31, gross: 1043.05 },
+        [key3("Rohit", "Dhimal")]: { hours: 103.5, gross: 1851.41 },
+        [key3("Dhiren", "Gurung")]: { hours: 20.26, gross: 362.41 },
+        [key3("Suraj", "Limbu")]: { hours: 79.2, gross: 1416.73 },
+        [key3("Deepak", "Vasisth")]: { hours: 95.86, gross: 1714.74 }
       } },
       { payDate: "2026-03-06", start: "2026-02-18", end: "2026-03-03", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 66.31, gross: 1186.15 },
-        [key2("Rohit", "Dhimal")]: { hours: 100.59, gross: 1799.35 },
-        [key2("Dhiren", "Gurung")]: { hours: 13.8, gross: 246.85 },
-        [key2("Suraj", "Limbu")]: { hours: 81.95, gross: 1465.92 },
-        [key2("Deepak", "Vasisth")]: { hours: 86.53, gross: 1547.85 }
+        [key3("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key3("Akash", "Dahal")]: { hours: 66.31, gross: 1186.15 },
+        [key3("Rohit", "Dhimal")]: { hours: 100.59, gross: 1799.35 },
+        [key3("Dhiren", "Gurung")]: { hours: 13.8, gross: 246.85 },
+        [key3("Suraj", "Limbu")]: { hours: 81.95, gross: 1465.92 },
+        [key3("Deepak", "Vasisth")]: { hours: 86.53, gross: 1547.85 }
       } },
       { payDate: "2026-02-20", start: "2026-02-04", end: "2026-02-17", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 66.97, gross: 1077.75 },
-        [key2("Rohit", "Dhimal")]: { hours: 114.73, gross: 1844.07 },
-        [key2("Dhiren", "Gurung")]: { hours: 20.2, gross: 361.34 },
-        [key2("Suraj", "Limbu")]: { hours: 90.52, gross: 1463.6 },
-        [key2("Deepak", "Vasisth")]: { hours: 101.1, gross: 1808.44 }
+        [key3("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key3("Akash", "Dahal")]: { hours: 66.97, gross: 1077.75 },
+        [key3("Rohit", "Dhimal")]: { hours: 114.73, gross: 1844.07 },
+        [key3("Dhiren", "Gurung")]: { hours: 20.2, gross: 361.34 },
+        [key3("Suraj", "Limbu")]: { hours: 90.52, gross: 1463.6 },
+        [key3("Deepak", "Vasisth")]: { hours: 101.1, gross: 1808.44 }
       } },
       { payDate: "2026-02-06", start: "2026-01-21", end: "2026-02-03", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 66.01, gross: 1180.79 },
-        [key2("Rohit", "Dhimal")]: { hours: 100.37, gross: 1795.42 },
-        [key2("Suraj", "Limbu")]: { hours: 80.58, gross: 1508.46 },
-        [key2("Deepak", "Vasisth")]: { hours: 78.19, gross: 1398.66 }
+        [key3("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key3("Akash", "Dahal")]: { hours: 66.01, gross: 1180.79 },
+        [key3("Rohit", "Dhimal")]: { hours: 100.37, gross: 1795.42 },
+        [key3("Suraj", "Limbu")]: { hours: 80.58, gross: 1508.46 },
+        [key3("Deepak", "Vasisth")]: { hours: 78.19, gross: 1398.66 }
       } },
       { payDate: "2026-01-23", start: "2026-01-07", end: "2026-01-20", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 60.34, gross: 1079.36 },
-        [key2("Rohit", "Dhimal")]: { hours: 102.23, gross: 1828.69 },
-        [key2("Suraj", "Limbu")]: { hours: 79.36, gross: 1485.62 },
-        [key2("Deepak", "Vasisth")]: { hours: 85.46, gross: 1528.71 }
+        [key3("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key3("Akash", "Dahal")]: { hours: 60.34, gross: 1079.36 },
+        [key3("Rohit", "Dhimal")]: { hours: 102.23, gross: 1828.69 },
+        [key3("Suraj", "Limbu")]: { hours: 79.36, gross: 1485.62 },
+        [key3("Deepak", "Vasisth")]: { hours: 85.46, gross: 1528.71 }
       } },
       { payDate: "2026-01-08", start: "2025-12-24", end: "2026-01-06", lines: {
-        [key2("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
-        [key2("Akash", "Dahal")]: { hours: 75.72, gross: 981.51 },
-        [key2("Rohit", "Dhimal")]: { hours: 116.16, gross: 1490.25 },
-        [key2("Suraj", "Limbu")]: { hours: 96.22, gross: 1341.29 },
-        [key2("Deepak", "Vasisth")]: { hours: 106.72, gross: 1908.98 }
+        [key3("Surya", "Bhattrai")]: { hours: 0, gross: 2692.31 },
+        [key3("Akash", "Dahal")]: { hours: 75.72, gross: 981.51 },
+        [key3("Rohit", "Dhimal")]: { hours: 116.16, gross: 1490.25 },
+        [key3("Suraj", "Limbu")]: { hours: 96.22, gross: 1341.29 },
+        [key3("Deepak", "Vasisth")]: { hours: 106.72, gross: 1908.98 }
       } }
     ];
   }
@@ -61097,10 +61097,10 @@ async function backfillOwenSoundPayroll() {
     const clientId = client.id;
     const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
-    for (const e of existing) empByKey.set(key3(e.firstName, e.lastName), e);
+    for (const e of existing) empByKey.set(key4(e.firstName, e.lastName), e);
     const isAdam = (r) => r.first === "Adam" && r.last === "Holt";
     for (const r of ROSTER3) {
-      const k = key3(r.first, r.last);
+      const k = key4(r.first, r.last);
       const ex = empByKey.get(k);
       if (ex) {
         const patch = {};
@@ -61152,11 +61152,11 @@ async function backfillOwenSoundPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp || have.has(emp.id)) continue;
-        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: round214(v.gross) });
+        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: round215(v.gross) });
         linesAdded++;
       }
       const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run3.id));
-      const tg = round214(lines2.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
+      const tg = round215(lines2.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
       await db.update(payRuns).set({ totalGross: tg, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
     }
     if (runsAdded || linesAdded) console.log(`[os-backfill] added ${runsAdded} run(s), ${linesAdded} line(s)`);
@@ -61165,15 +61165,15 @@ async function backfillOwenSoundPayroll() {
     console.error("[os-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round214, norm11, key3, d2, ROSTER3, PERIODS2;
+var round215, norm11, key4, d2, ROSTER3, PERIODS2;
 var init_seed_os_backfill = __esm({
   "api/seed-os-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round214 = (n) => Math.round(n * 100) / 100;
+    round215 = (n) => Math.round(n * 100) / 100;
     norm11 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key3 = (first, last) => `${norm11(last)}|${norm11(first)}`;
+    key4 = (first, last) => `${norm11(last)}|${norm11(first)}`;
     d2 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER3 = [
       { first: "Jammie", last: "Cook", rate: 31 },
@@ -61195,122 +61195,122 @@ var init_seed_os_backfill = __esm({
     ];
     PERIODS2 = [
       { payDate: "2026-06-26", start: "2026-06-10", end: "2026-06-23", lines: {
-        [key3("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
-        [key3("Jammie", "Cook")]: { hours: 80, gross: 2579.2 },
-        [key3("Grace", "Dickerson")]: { hours: 80, gross: 1497.6 },
-        [key3("Dean", "Dickerson")]: { hours: 96.5, gross: 3111.16 },
-        [key3("Bruce", "Funston")]: { hours: 71.25, gross: 1482 },
-        [key3("Ethan", "Holt")]: { hours: 23, gross: 430.56 },
-        [key3("Isabella", "Holt")]: { hours: 15, gross: 258.96 },
-        [key3("Chris", "Kennedy")]: { hours: 90, gross: 1872 },
-        [key3("Michael", "Kennedy")]: { hours: 102.92, gross: 2568.88 },
-        [key3("Alexis", "Montgomery")]: { hours: 50, gross: 1040 },
-        [key3("Jamie", "Moseley")]: { hours: 100.83, gross: 2936.17 },
-        [key3("Brad", "Nickle")]: { hours: 96.5, gross: 3010.8 },
-        [key3("Brad", "Shaw")]: { hours: 39.25, gross: 1020.5 }
+        [key4("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
+        [key4("Jammie", "Cook")]: { hours: 80, gross: 2579.2 },
+        [key4("Grace", "Dickerson")]: { hours: 80, gross: 1497.6 },
+        [key4("Dean", "Dickerson")]: { hours: 96.5, gross: 3111.16 },
+        [key4("Bruce", "Funston")]: { hours: 71.25, gross: 1482 },
+        [key4("Ethan", "Holt")]: { hours: 23, gross: 430.56 },
+        [key4("Isabella", "Holt")]: { hours: 15, gross: 258.96 },
+        [key4("Chris", "Kennedy")]: { hours: 90, gross: 1872 },
+        [key4("Michael", "Kennedy")]: { hours: 102.92, gross: 2568.88 },
+        [key4("Alexis", "Montgomery")]: { hours: 50, gross: 1040 },
+        [key4("Jamie", "Moseley")]: { hours: 100.83, gross: 2936.17 },
+        [key4("Brad", "Nickle")]: { hours: 96.5, gross: 3010.8 },
+        [key4("Brad", "Shaw")]: { hours: 39.25, gross: 1020.5 }
       } },
       { payDate: "2026-06-12", start: "2026-05-27", end: "2026-06-09", lines: {
-        [key3("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
-        [key3("Jammie", "Cook")]: { hours: 80.78, gross: 2604.35 },
-        [key3("Grace", "Dickerson")]: { hours: 80.78, gross: 1512.2 },
-        [key3("Dean", "Dickerson")]: { hours: 79.5, gross: 2563.08 },
-        [key3("Bruce", "Funston")]: { hours: 101.35, gross: 2108.08 },
-        [key3("Chris", "Kennedy")]: { hours: 101, gross: 2100.8 },
-        [key3("Michael", "Kennedy")]: { hours: 101, gross: 2520.96 },
-        [key3("Alexis", "Montgomery")]: { hours: 50, gross: 1040 },
-        [key3("Jamie", "Moseley")]: { hours: 103.8, gross: 3022.66 },
-        [key3("Brad", "Nickle")]: { hours: 80.5, gross: 2511.6 },
-        [key3("Brad", "Shaw")]: { hours: 101, gross: 2626 }
+        [key4("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
+        [key4("Jammie", "Cook")]: { hours: 80.78, gross: 2604.35 },
+        [key4("Grace", "Dickerson")]: { hours: 80.78, gross: 1512.2 },
+        [key4("Dean", "Dickerson")]: { hours: 79.5, gross: 2563.08 },
+        [key4("Bruce", "Funston")]: { hours: 101.35, gross: 2108.08 },
+        [key4("Chris", "Kennedy")]: { hours: 101, gross: 2100.8 },
+        [key4("Michael", "Kennedy")]: { hours: 101, gross: 2520.96 },
+        [key4("Alexis", "Montgomery")]: { hours: 50, gross: 1040 },
+        [key4("Jamie", "Moseley")]: { hours: 103.8, gross: 3022.66 },
+        [key4("Brad", "Nickle")]: { hours: 80.5, gross: 2511.6 },
+        [key4("Brad", "Shaw")]: { hours: 101, gross: 2626 }
       } },
       // Victoria Day stat in this period; line-gross sum ties to cost−tax ($21,353.47).
       { payDate: "2026-05-29", start: "2026-05-13", end: "2026-05-26", lines: {
-        [key3("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
-        [key3("Jammie", "Cook")]: { hours: 86, gross: 2772.64 },
-        [key3("Grace", "Dickerson")]: { hours: 84.37, gross: 1579.44 },
-        [key3("Dean", "Dickerson")]: { hours: 93, gross: 2998.32 },
-        [key3("Bruce", "Funston")]: { hours: 93.96, gross: 1954.47 },
-        [key3("Ethan", "Holt")]: { hours: 8.62, gross: 161.44 },
-        [key3("Isabella", "Holt")]: { hours: 16.83, gross: 290.59 },
-        [key3("Michael", "Kennedy")]: { hours: 106.68, gross: 2662.73 },
-        [key3("Alexis", "Montgomery")]: { hours: 44.26, gross: 920.69 },
-        [key3("Jamie", "Moseley")]: { hours: 93.93, gross: 2735.24 },
-        [key3("Brad", "Nickle")]: { hours: 102.5, gross: 3198 },
-        [key3("Brad", "Shaw")]: { hours: 80, gross: 2079.91 }
+        [key4("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
+        [key4("Jammie", "Cook")]: { hours: 86, gross: 2772.64 },
+        [key4("Grace", "Dickerson")]: { hours: 84.37, gross: 1579.44 },
+        [key4("Dean", "Dickerson")]: { hours: 93, gross: 2998.32 },
+        [key4("Bruce", "Funston")]: { hours: 93.96, gross: 1954.47 },
+        [key4("Ethan", "Holt")]: { hours: 8.62, gross: 161.44 },
+        [key4("Isabella", "Holt")]: { hours: 16.83, gross: 290.59 },
+        [key4("Michael", "Kennedy")]: { hours: 106.68, gross: 2662.73 },
+        [key4("Alexis", "Montgomery")]: { hours: 44.26, gross: 920.69 },
+        [key4("Jamie", "Moseley")]: { hours: 93.93, gross: 2735.24 },
+        [key4("Brad", "Nickle")]: { hours: 102.5, gross: 3198 },
+        [key4("Brad", "Shaw")]: { hours: 80, gross: 2079.91 }
       } },
       { payDate: "2026-05-15", start: "2026-04-29", end: "2026-05-12", lines: {
-        [key3("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
-        [key3("Jammie", "Cook")]: { hours: 74.03, gross: 2386.73 },
-        [key3("Grace", "Dickerson")]: { hours: 85.53, gross: 1601.12 },
-        [key3("Dean", "Dickerson")]: { hours: 95, gross: 3062.8 },
-        [key3("Bruce", "Funston")]: { hours: 85.63, gross: 1781.1 },
-        [key3("Ethan", "Holt")]: { hours: 8, gross: 149.76 },
-        [key3("Isabella", "Holt")]: { hours: 8, gross: 138.11 },
-        [key3("Michael", "Kennedy")]: { hours: 85.63, gross: 2137.32 },
-        [key3("Debbie", "Maritin")]: { hours: 48.5, gross: 1513.2 },
-        [key3("Alexis", "Montgomery")]: { hours: 50, gross: 1040 },
-        [key3("Jamie", "Moseley")]: { hours: 104.08, gross: 3030.81 },
-        [key3("Brad", "Nickle")]: { hours: 94, gross: 2932.8 },
-        [key3("Brad", "Shaw")]: { hours: 19.55, gross: 508.3 }
+        [key4("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
+        [key4("Jammie", "Cook")]: { hours: 74.03, gross: 2386.73 },
+        [key4("Grace", "Dickerson")]: { hours: 85.53, gross: 1601.12 },
+        [key4("Dean", "Dickerson")]: { hours: 95, gross: 3062.8 },
+        [key4("Bruce", "Funston")]: { hours: 85.63, gross: 1781.1 },
+        [key4("Ethan", "Holt")]: { hours: 8, gross: 149.76 },
+        [key4("Isabella", "Holt")]: { hours: 8, gross: 138.11 },
+        [key4("Michael", "Kennedy")]: { hours: 85.63, gross: 2137.32 },
+        [key4("Debbie", "Maritin")]: { hours: 48.5, gross: 1513.2 },
+        [key4("Alexis", "Montgomery")]: { hours: 50, gross: 1040 },
+        [key4("Jamie", "Moseley")]: { hours: 104.08, gross: 3030.81 },
+        [key4("Brad", "Nickle")]: { hours: 94, gross: 2932.8 },
+        [key4("Brad", "Shaw")]: { hours: 19.55, gross: 508.3 }
       } },
       { payDate: "2026-05-01", start: "2026-04-15", end: "2026-04-28", lines: {
-        [key3("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
-        [key3("Jammie", "Cook")]: { hours: 101.3, gross: 3265.91 },
-        [key3("Grace", "Dickerson")]: { hours: 37, gross: 692.64 },
-        [key3("Dean", "Dickerson")]: { hours: 75, gross: 2418 },
-        [key3("Bruce", "Funston")]: { hours: 16, gross: 332.8 },
-        [key3("Ethan", "Holt")]: { hours: 4, gross: 74.88 },
-        [key3("Isabella", "Holt")]: { hours: 8, gross: 138.11 },
-        [key3("Michael", "Kennedy")]: { hours: 82.93, gross: 2069.93 },
-        [key3("Neil", "Korchak")]: { hours: 22, gross: 457.6 },
-        [key3("Debbie", "Maritin")]: { hours: 64, gross: 1996.8 },
-        [key3("Alexis", "Montgomery")]: { hours: 32, gross: 665.6 },
-        [key3("Jamie", "Moseley")]: { hours: 91.03, gross: 2650.79 },
-        [key3("Brad", "Nickle")]: { hours: 87.5, gross: 2730 }
+        [key4("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
+        [key4("Jammie", "Cook")]: { hours: 101.3, gross: 3265.91 },
+        [key4("Grace", "Dickerson")]: { hours: 37, gross: 692.64 },
+        [key4("Dean", "Dickerson")]: { hours: 75, gross: 2418 },
+        [key4("Bruce", "Funston")]: { hours: 16, gross: 332.8 },
+        [key4("Ethan", "Holt")]: { hours: 4, gross: 74.88 },
+        [key4("Isabella", "Holt")]: { hours: 8, gross: 138.11 },
+        [key4("Michael", "Kennedy")]: { hours: 82.93, gross: 2069.93 },
+        [key4("Neil", "Korchak")]: { hours: 22, gross: 457.6 },
+        [key4("Debbie", "Maritin")]: { hours: 64, gross: 1996.8 },
+        [key4("Alexis", "Montgomery")]: { hours: 32, gross: 665.6 },
+        [key4("Jamie", "Moseley")]: { hours: 91.03, gross: 2650.79 },
+        [key4("Brad", "Nickle")]: { hours: 87.5, gross: 2730 }
       } },
       // Early-season skeleton crew; each Total Pay reconciles to reg+stat+vacation per row.
       { payDate: "2026-04-17", start: "2026-04-01", end: "2026-04-14", lines: {
-        [key3("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
-        [key3("Ethan", "Holt")]: { hours: 10.94, gross: 204.72 },
-        [key3("Isabella", "Holt")]: { hours: 9.01, gross: 215.6 },
-        [key3("Michael", "Kennedy")]: { hours: 64.55, gross: 1611.12 },
-        [key3("Neil", "Korchak")]: { hours: 7, gross: 145.6 },
-        [key3("Debbie", "Maritin")]: { hours: 50.91, gross: 1588.35 },
-        [key3("Alexis", "Montgomery")]: { hours: 33.04, gross: 687.23 },
-        [key3("Jamie", "Moseley")]: { hours: 77.36, gross: 2011.31 }
+        [key4("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
+        [key4("Ethan", "Holt")]: { hours: 10.94, gross: 204.72 },
+        [key4("Isabella", "Holt")]: { hours: 9.01, gross: 215.6 },
+        [key4("Michael", "Kennedy")]: { hours: 64.55, gross: 1611.12 },
+        [key4("Neil", "Korchak")]: { hours: 7, gross: 145.6 },
+        [key4("Debbie", "Maritin")]: { hours: 50.91, gross: 1588.35 },
+        [key4("Alexis", "Montgomery")]: { hours: 33.04, gross: 687.23 },
+        [key4("Jamie", "Moseley")]: { hours: 77.36, gross: 2011.31 }
       } },
       // Winter skeleton crew. Each staff row reconciles to reg+stat+vacation; owner Adam
       // Holt's salary draw ($2,307.69/period, +$5k bonus this stretch → $7,307.69) included.
       { payDate: "2026-04-03", start: "2026-03-18", end: "2026-03-31", lines: {
-        [key3("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
-        [key3("Isabella", "Holt")]: { hours: 8, gross: 191.36 },
-        [key3("Debbie", "Maritin")]: { hours: 64.18, gross: 2002.42 },
-        [key3("Jamie", "Moseley")]: { hours: 47.15, gross: 1225.9 }
+        [key4("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
+        [key4("Isabella", "Holt")]: { hours: 8, gross: 191.36 },
+        [key4("Debbie", "Maritin")]: { hours: 64.18, gross: 2002.42 },
+        [key4("Jamie", "Moseley")]: { hours: 47.15, gross: 1225.9 }
       } },
       { payDate: "2026-03-20", start: "2026-03-04", end: "2026-03-17", lines: {
-        [key3("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
-        [key3("Isabella", "Holt")]: { hours: 10, gross: 239.2 },
-        [key3("Debbie", "Maritin")]: { hours: 64, gross: 1996.8 },
-        [key3("Jamie", "Moseley")]: { hours: 73, gross: 1898 }
+        [key4("Adam", "Holt")]: { hours: 0, gross: 2307.69 },
+        [key4("Isabella", "Holt")]: { hours: 10, gross: 239.2 },
+        [key4("Debbie", "Maritin")]: { hours: 64, gross: 1996.8 },
+        [key4("Jamie", "Moseley")]: { hours: 73, gross: 1898 }
       } },
       { payDate: "2026-03-06", start: "2026-02-18", end: "2026-03-03", lines: {
-        [key3("Adam", "Holt")]: { hours: 0, gross: 7307.69 },
-        [key3("Isabella", "Holt")]: { hours: 9, gross: 215.28 },
-        [key3("Debbie", "Maritin")]: { hours: 69, gross: 1650.48 },
-        [key3("Jamie", "Moseley")]: { hours: 16, gross: 416 }
+        [key4("Adam", "Holt")]: { hours: 0, gross: 7307.69 },
+        [key4("Isabella", "Holt")]: { hours: 9, gross: 215.28 },
+        [key4("Debbie", "Maritin")]: { hours: 69, gross: 1650.48 },
+        [key4("Jamie", "Moseley")]: { hours: 16, gross: 416 }
       } },
       { payDate: "2026-02-20", start: "2026-02-04", end: "2026-02-17", lines: {
-        [key3("Adam", "Holt")]: { hours: 0, gross: 7307.69 },
-        [key3("Isabella", "Holt")]: { hours: 12.83, gross: 306.79 },
-        [key3("Debbie", "Maritin")]: { hours: 42.3, gross: 1011.91 }
+        [key4("Adam", "Holt")]: { hours: 0, gross: 7307.69 },
+        [key4("Isabella", "Holt")]: { hours: 12.83, gross: 306.79 },
+        [key4("Debbie", "Maritin")]: { hours: 42.3, gross: 1011.91 }
       } },
       { payDate: "2026-02-06", start: "2026-01-21", end: "2026-02-02", lines: {
-        [key3("Adam", "Holt")]: { hours: 0, gross: 7307.69 },
-        [key3("Isabella", "Holt")]: { hours: 22, gross: 526.24 },
-        [key3("Debbie", "Maritin")]: { hours: 27, gross: 645.84 }
+        [key4("Adam", "Holt")]: { hours: 0, gross: 7307.69 },
+        [key4("Isabella", "Holt")]: { hours: 22, gross: 526.24 },
+        [key4("Debbie", "Maritin")]: { hours: 27, gross: 645.84 }
       } },
       { payDate: "2026-01-23", start: "2026-01-07", end: "2026-01-20", lines: {
-        [key3("Adam", "Holt")]: { hours: 0, gross: 7307.69 },
-        [key3("Debbie", "Maritin")]: { hours: 18, gross: 430.56 }
+        [key4("Adam", "Holt")]: { hours: 0, gross: 7307.69 },
+        [key4("Debbie", "Maritin")]: { hours: 18, gross: 430.56 }
       } }
     ];
   }
@@ -61330,9 +61330,9 @@ async function backfillCollingwoodPayroll() {
     const clientId = client.id;
     const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
-    for (const e of existing) empByKey.set(key4(e.firstName, e.lastName), e);
+    for (const e of existing) empByKey.set(key5(e.firstName, e.lastName), e);
     for (const r of ROSTER4) {
-      const k = key4(r.first, r.last);
+      const k = key5(r.first, r.last);
       const ex = empByKey.get(k);
       if (ex) {
         const patch = {};
@@ -61379,11 +61379,11 @@ async function backfillCollingwoodPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round215(v.gross);
+        const gross = round216(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round215(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round216(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[cw-backfill] added ${runsAdded} run(s)`);
@@ -61392,16 +61392,16 @@ async function backfillCollingwoodPayroll() {
     console.error("[cw-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID3, round215, norm12, key4, d3, ROSTER4, PERIODS3;
+var CLIENT_ID3, round216, norm12, key5, d3, ROSTER4, PERIODS3;
 var init_seed_collingwood_backfill = __esm({
   "api/seed-collingwood-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     CLIENT_ID3 = 7;
-    round215 = (n) => Math.round(n * 100) / 100;
+    round216 = (n) => Math.round(n * 100) / 100;
     norm12 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key4 = (first, last) => `${norm12(last)}|${norm12(first)}`;
+    key5 = (first, last) => `${norm12(last)}|${norm12(first)}`;
     d3 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER4 = [
       { first: "Chris", last: "Hawton", payType: "salary", salary: 6e4 },
@@ -61421,159 +61421,159 @@ var init_seed_collingwood_backfill = __esm({
     ];
     PERIODS3 = [
       { payDate: "2026-06-26", start: "2026-06-10", end: "2026-06-23", lines: {
-        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
-        [key4("Brendan", "Essex")]: { hours: 0, gross: 3100 },
-        [key4("Matteo", "Companion")]: { hours: 88.78, gross: 1598.04 },
-        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Haight")]: { hours: 90.67, gross: 1742.17 },
-        [key4("Corey", "Hawton")]: { hours: 90.63, gross: 2424.78 },
-        [key4("Justin", "Koutsomichos")]: { hours: 83.83, gross: 1951.17 },
-        [key4("Dave", "Lally")]: { hours: 67.15, gross: 1611.6 },
-        [key4("Aidan", "MacDonald")]: { hours: 92.98, gross: 1975.58 },
-        [key4("Justin", "Pool")]: { hours: 0, gross: 0 },
-        [key4("Adrian", "Robbeson")]: { hours: 92.37, gross: 2239.96 },
-        [key4("Chris", "Thompson")]: { hours: 37.98, gross: 934.6 },
-        [key4("Lisa", "Venditti")]: { hours: 86.45, gross: 2184.33 },
-        [key4("Alan", "Weaver")]: { hours: 73.5, gross: 2595.58 }
+        [key5("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key5("Brendan", "Essex")]: { hours: 0, gross: 3100 },
+        [key5("Matteo", "Companion")]: { hours: 88.78, gross: 1598.04 },
+        [key5("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Haight")]: { hours: 90.67, gross: 1742.17 },
+        [key5("Corey", "Hawton")]: { hours: 90.63, gross: 2424.78 },
+        [key5("Justin", "Koutsomichos")]: { hours: 83.83, gross: 1951.17 },
+        [key5("Dave", "Lally")]: { hours: 67.15, gross: 1611.6 },
+        [key5("Aidan", "MacDonald")]: { hours: 92.98, gross: 1975.58 },
+        [key5("Justin", "Pool")]: { hours: 0, gross: 0 },
+        [key5("Adrian", "Robbeson")]: { hours: 92.37, gross: 2239.96 },
+        [key5("Chris", "Thompson")]: { hours: 37.98, gross: 934.6 },
+        [key5("Lisa", "Venditti")]: { hours: 86.45, gross: 2184.33 },
+        [key5("Alan", "Weaver")]: { hours: 73.5, gross: 2595.58 }
       } },
       { payDate: "2026-06-12", start: "2026-05-27", end: "2026-06-09", lines: {
-        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
-        [key4("Brendan", "Essex")]: { hours: 0, gross: 3100 },
-        [key4("Matteo", "Companion")]: { hours: 64.63, gross: 1163.34 },
-        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Haight")]: { hours: 90.43, gross: 2464.69 },
-        [key4("Corey", "Hawton")]: { hours: 84.78, gross: 2269.75 },
-        [key4("Justin", "Koutsomichos")]: { hours: 101.62, gross: 2360.34 },
-        [key4("Dave", "Lally")]: { hours: 84.85, gross: 2036.4 },
-        [key4("Aidan", "MacDonald")]: { hours: 54.67, gross: 1171.07 },
-        [key4("Justin", "Pool")]: { hours: 38.06, gross: 837.32 },
-        [key4("Adrian", "Robbeson")]: { hours: 97, gross: 2351.08 },
-        [key4("Chris", "Thompson")]: { hours: 66.78, gross: 1625.8 },
-        [key4("Lisa", "Venditti")]: { hours: 93.8, gross: 2368.08 },
-        [key4("Alan", "Weaver")]: { hours: 56, gross: 1983.08 }
+        [key5("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key5("Brendan", "Essex")]: { hours: 0, gross: 3100 },
+        [key5("Matteo", "Companion")]: { hours: 64.63, gross: 1163.34 },
+        [key5("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Haight")]: { hours: 90.43, gross: 2464.69 },
+        [key5("Corey", "Hawton")]: { hours: 84.78, gross: 2269.75 },
+        [key5("Justin", "Koutsomichos")]: { hours: 101.62, gross: 2360.34 },
+        [key5("Dave", "Lally")]: { hours: 84.85, gross: 2036.4 },
+        [key5("Aidan", "MacDonald")]: { hours: 54.67, gross: 1171.07 },
+        [key5("Justin", "Pool")]: { hours: 38.06, gross: 837.32 },
+        [key5("Adrian", "Robbeson")]: { hours: 97, gross: 2351.08 },
+        [key5("Chris", "Thompson")]: { hours: 66.78, gross: 1625.8 },
+        [key5("Lisa", "Venditti")]: { hours: 93.8, gross: 2368.08 },
+        [key5("Alan", "Weaver")]: { hours: 56, gross: 1983.08 }
       } },
       // Victoria Day stat in this period (stat pay folded into each Total Pay).
       { payDate: "2026-05-29", start: "2026-05-13", end: "2026-05-26", lines: {
-        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
-        [key4("Brendan", "Essex")]: { hours: 0, gross: 3100 },
-        [key4("Matteo", "Companion")]: { hours: 88.95, gross: 1601.1 },
-        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Haight")]: { hours: 87.78, gross: 2393.14 },
-        [key4("Corey", "Hawton")]: { hours: 96.9, gross: 2590.93 },
-        [key4("Justin", "Koutsomichos")]: { hours: 76.68, gross: 1786.72 },
-        [key4("Dave", "Lally")]: { hours: 87.95, gross: 2110.8 },
-        [key4("Justin", "Pool")]: { hours: 23.13, gross: 508.86 },
-        [key4("Adrian", "Robbeson")]: { hours: 94.72, gross: 2296.36 },
-        [key4("Chris", "Thompson")]: { hours: 62.27, gross: 1517.5 },
-        [key4("Lisa", "Venditti")]: { hours: 89.23, gross: 2253.83 },
-        [key4("Alan", "Weaver")]: { hours: 71.5, gross: 2525.58 }
+        [key5("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key5("Brendan", "Essex")]: { hours: 0, gross: 3100 },
+        [key5("Matteo", "Companion")]: { hours: 88.95, gross: 1601.1 },
+        [key5("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Haight")]: { hours: 87.78, gross: 2393.14 },
+        [key5("Corey", "Hawton")]: { hours: 96.9, gross: 2590.93 },
+        [key5("Justin", "Koutsomichos")]: { hours: 76.68, gross: 1786.72 },
+        [key5("Dave", "Lally")]: { hours: 87.95, gross: 2110.8 },
+        [key5("Justin", "Pool")]: { hours: 23.13, gross: 508.86 },
+        [key5("Adrian", "Robbeson")]: { hours: 94.72, gross: 2296.36 },
+        [key5("Chris", "Thompson")]: { hours: 62.27, gross: 1517.5 },
+        [key5("Lisa", "Venditti")]: { hours: 89.23, gross: 2253.83 },
+        [key5("Alan", "Weaver")]: { hours: 71.5, gross: 2525.58 }
       } },
       { payDate: "2026-05-15", start: "2026-04-29", end: "2026-05-12", lines: {
-        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
-        [key4("Brendan", "Essex")]: { hours: 0, gross: 3100 },
-        [key4("Matteo", "Companion")]: { hours: 99.85, gross: 1797.3 },
-        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Haight")]: { hours: 72.95, gross: 1587.73 },
-        [key4("Corey", "Hawton")]: { hours: 101.19, gross: 2704.62 },
-        [key4("Justin", "Koutsomichos")]: { hours: 88.15, gross: 2050.53 },
-        [key4("Dave", "Lally")]: { hours: 90.02, gross: 2160.48 },
-        [key4("Adrian", "Robbeson")]: { hours: 126.92, gross: 2697.16 },
-        [key4("Chris", "Thompson")]: { hours: 58.73, gross: 1432.6 },
-        [key4("Lisa", "Venditti")]: { hours: 88.28, gross: 2230.08 },
-        [key4("Alan", "Weaver")]: { hours: 68, gross: 2403.08 }
+        [key5("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key5("Brendan", "Essex")]: { hours: 0, gross: 3100 },
+        [key5("Matteo", "Companion")]: { hours: 99.85, gross: 1797.3 },
+        [key5("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Haight")]: { hours: 72.95, gross: 1587.73 },
+        [key5("Corey", "Hawton")]: { hours: 101.19, gross: 2704.62 },
+        [key5("Justin", "Koutsomichos")]: { hours: 88.15, gross: 2050.53 },
+        [key5("Dave", "Lally")]: { hours: 90.02, gross: 2160.48 },
+        [key5("Adrian", "Robbeson")]: { hours: 126.92, gross: 2697.16 },
+        [key5("Chris", "Thompson")]: { hours: 58.73, gross: 1432.6 },
+        [key5("Lisa", "Venditti")]: { hours: 88.28, gross: 2230.08 },
+        [key5("Alan", "Weaver")]: { hours: 68, gross: 2403.08 }
       } },
       // Earlier 2026 periods (Jan 23 → May 01) — each ties to the sheet cost−tax to the penny.
       { payDate: "2026-05-01", start: "2026-04-15", end: "2026-04-28", lines: {
-        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
-        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
-        [key4("Matteo", "Companion")]: { hours: 83.73, gross: 1507.14 },
-        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
-        [key4("Corey", "Hawton")]: { hours: 79.78, gross: 2077.42 },
-        [key4("Justin", "Koutsomichos")]: { hours: 87.25, gross: 2006.75 },
-        [key4("Dave", "Lally")]: { hours: 96.23, gross: 2309.52 },
-        [key4("Adrian", "Robbeson")]: { hours: 90.07, gross: 2094.69 },
-        [key4("Chris", "Thompson")]: { hours: 37.07, gross: 912.76 },
-        [key4("Lisa", "Venditti")]: { hours: 45.35, gross: 1156.83 }
+        [key5("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key5("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key5("Matteo", "Companion")]: { hours: 83.73, gross: 1507.14 },
+        [key5("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key5("Corey", "Hawton")]: { hours: 79.78, gross: 2077.42 },
+        [key5("Justin", "Koutsomichos")]: { hours: 87.25, gross: 2006.75 },
+        [key5("Dave", "Lally")]: { hours: 96.23, gross: 2309.52 },
+        [key5("Adrian", "Robbeson")]: { hours: 90.07, gross: 2094.69 },
+        [key5("Chris", "Thompson")]: { hours: 37.07, gross: 912.76 },
+        [key5("Lisa", "Venditti")]: { hours: 45.35, gross: 1156.83 }
       } },
       { payDate: "2026-04-17", start: "2026-04-01", end: "2026-04-14", lines: {
-        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
-        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
-        [key4("Matteo", "Companion")]: { hours: 13.58, gross: 244.44 },
-        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
-        [key4("Corey", "Hawton")]: { hours: 53.15, gross: 1391.69 },
-        [key4("Justin", "Koutsomichos")]: { hours: 30, gross: 690 },
-        [key4("Dave", "Lally")]: { hours: 21.55, gross: 517.2 },
-        [key4("Adrian", "Robbeson")]: { hours: 16.22, gross: 396.14 },
-        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
-        [key4("Lisa", "Venditti")]: { hours: 37.51, gross: 960.91 }
+        [key5("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key5("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key5("Matteo", "Companion")]: { hours: 13.58, gross: 244.44 },
+        [key5("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key5("Corey", "Hawton")]: { hours: 53.15, gross: 1391.69 },
+        [key5("Justin", "Koutsomichos")]: { hours: 30, gross: 690 },
+        [key5("Dave", "Lally")]: { hours: 21.55, gross: 517.2 },
+        [key5("Adrian", "Robbeson")]: { hours: 16.22, gross: 396.14 },
+        [key5("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key5("Lisa", "Venditti")]: { hours: 37.51, gross: 960.91 }
       } },
       { payDate: "2026-04-03", start: "2026-03-18", end: "2026-03-31", lines: {
-        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
-        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
-        [key4("Matteo", "Companion")]: { hours: 0, gross: 0 },
-        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
-        [key4("Corey", "Hawton")]: { hours: 70.28, gross: 1905.18 },
-        [key4("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
-        [key4("Lisa", "Venditti")]: { hours: 68.27, gross: 1798.1 }
+        [key5("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key5("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key5("Matteo", "Companion")]: { hours: 0, gross: 0 },
+        [key5("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key5("Corey", "Hawton")]: { hours: 70.28, gross: 1905.18 },
+        [key5("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key5("Lisa", "Venditti")]: { hours: 68.27, gross: 1798.1 }
       } },
       { payDate: "2026-03-20", start: "2026-03-04", end: "2026-03-17", lines: {
-        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
-        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
-        [key4("Matteo", "Companion")]: { hours: 0, gross: 0 },
-        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
-        [key4("Corey", "Hawton")]: { hours: 92.75, gross: 2506.93 },
-        [key4("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
-        [key4("Lisa", "Venditti")]: { hours: 77.78, gross: 2045.36 }
+        [key5("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key5("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key5("Matteo", "Companion")]: { hours: 0, gross: 0 },
+        [key5("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key5("Corey", "Hawton")]: { hours: 92.75, gross: 2506.93 },
+        [key5("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key5("Lisa", "Venditti")]: { hours: 77.78, gross: 2045.36 }
       } },
       { payDate: "2026-03-06", start: "2026-02-18", end: "2026-03-03", lines: {
-        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
-        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
-        [key4("Matteo", "Companion")]: { hours: 0, gross: 0 },
-        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
-        [key4("Corey", "Hawton")]: { hours: 91.48, gross: 2472.91 },
-        [key4("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
-        [key4("Lisa", "Venditti")]: { hours: 79.71, gross: 2095.62 }
+        [key5("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key5("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key5("Matteo", "Companion")]: { hours: 0, gross: 0 },
+        [key5("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key5("Corey", "Hawton")]: { hours: 91.48, gross: 2472.91 },
+        [key5("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key5("Lisa", "Venditti")]: { hours: 79.71, gross: 2095.62 }
       } },
       { payDate: "2026-02-20", start: "2026-02-04", end: "2026-02-17", lines: {
-        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
-        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
-        [key4("Matteo", "Companion")]: { hours: 0, gross: 0 },
-        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
-        [key4("Corey", "Hawton")]: { hours: 89.17, gross: 2411.05 },
-        [key4("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
-        [key4("Lisa", "Venditti")]: { hours: 79.18, gross: 2081.84 }
+        [key5("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key5("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key5("Matteo", "Companion")]: { hours: 0, gross: 0 },
+        [key5("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key5("Corey", "Hawton")]: { hours: 89.17, gross: 2411.05 },
+        [key5("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key5("Lisa", "Venditti")]: { hours: 79.18, gross: 2081.84 }
       } },
       { payDate: "2026-02-06", start: "2026-01-21", end: "2026-02-03", lines: {
-        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
-        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
-        [key4("Matteo", "Companion")]: { hours: 0, gross: 0 },
-        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
-        [key4("Corey", "Hawton")]: { hours: 85.13, gross: 2302.86 },
-        [key4("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
-        [key4("Lisa", "Venditti")]: { hours: 75.33, gross: 1981.66 }
+        [key5("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key5("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key5("Matteo", "Companion")]: { hours: 0, gross: 0 },
+        [key5("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key5("Corey", "Hawton")]: { hours: 85.13, gross: 2302.86 },
+        [key5("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key5("Lisa", "Venditti")]: { hours: 75.33, gross: 1981.66 }
       } },
       { payDate: "2026-01-23", start: "2026-01-07", end: "2026-01-20", lines: {
-        [key4("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
-        [key4("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
-        [key4("Matteo", "Companion")]: { hours: 0, gross: 0 },
-        [key4("Logan", "Greig")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Haight")]: { hours: 0, gross: 23.08 },
-        [key4("Corey", "Hawton")]: { hours: 87.65, gross: 2370.35 },
-        [key4("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
-        [key4("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
-        [key4("Lisa", "Venditti")]: { hours: 69.33, gross: 1825.66 }
+        [key5("Chris", "Hawton")]: { hours: 0, gross: 2330.77 },
+        [key5("Brendan", "Essex")]: { hours: 0, gross: 2330.77 },
+        [key5("Matteo", "Companion")]: { hours: 0, gross: 0 },
+        [key5("Logan", "Greig")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Haight")]: { hours: 0, gross: 23.08 },
+        [key5("Corey", "Hawton")]: { hours: 87.65, gross: 2370.35 },
+        [key5("Adrian", "Robbeson")]: { hours: 0, gross: 23.08 },
+        [key5("Chris", "Thompson")]: { hours: 0, gross: 23.08 },
+        [key5("Lisa", "Venditti")]: { hours: 69.33, gross: 1825.66 }
       } }
     ];
   }
@@ -61593,9 +61593,9 @@ async function backfillAuldPayroll() {
     const clientId = client.id;
     const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
-    for (const e of existing) empByKey.set(key5(e.firstName, e.lastName), e);
+    for (const e of existing) empByKey.set(key6(e.firstName, e.lastName), e);
     for (const r of ROSTER5) {
-      const k = key5(r.first, r.last);
+      const k = key6(r.first, r.last);
       const ex = empByKey.get(k);
       if (ex) {
         const patch = {};
@@ -61640,11 +61640,11 @@ async function backfillAuldPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round216(v.gross);
+        const gross = round217(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round216(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[auld-backfill] added ${runsAdded} run(s)`);
@@ -61653,15 +61653,15 @@ async function backfillAuldPayroll() {
     console.error("[auld-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round216, norm13, key5, d4, ROSTER5, PERIODS4;
+var round217, norm13, key6, d4, ROSTER5, PERIODS4;
 var init_seed_auld_backfill = __esm({
   "api/seed-auld-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round216 = (n) => Math.round(n * 100) / 100;
+    round217 = (n) => Math.round(n * 100) / 100;
     norm13 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key5 = (first, last) => `${norm13(last)}|${norm13(first)}`;
+    key6 = (first, last) => `${norm13(last)}|${norm13(first)}`;
     d4 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER5 = [
       { first: "James", last: "Allard", rate: 20 },
@@ -61685,210 +61685,210 @@ var init_seed_auld_backfill = __esm({
     ];
     PERIODS4 = [
       { payDate: "2026-06-26", start: "2026-06-10", end: "2026-06-23", lines: {
-        [key5("James", "Allard")]: { hours: 76.27, gross: 1586.42 },
-        [key5("Bhima", "Bhattarai")]: { hours: 74.58, gross: 1365.11 },
-        [key5("Heather", "Capstick")]: { hours: 70.78, gross: 1325 },
-        [key5("Eric", "Cressos")]: { hours: 56.87, gross: 1064.61 },
-        [key5("Karma", "Dozang")]: { hours: 26.65, gross: 554.32 },
-        [key5("Paige", "Ferlatte")]: { hours: 52.16, gross: 954.74 },
-        [key5("Breanna", "Fox")]: { hours: 85.22, gross: 1595.32 },
-        [key5("Lee Anne", "Hrabi")]: { hours: 63.91, gross: 1169.81 },
-        [key5("Robert", "Jacobson")]: { hours: 93.37, gross: 2913.14 },
-        [key5("Bonnie", "Malone")]: { hours: 55.82, gross: 1021.73 },
-        [key5("Amal", "Ragh")]: { hours: 89.44, gross: 1953.37 },
-        [key5("Bryah", "Risdon")]: { hours: 52.71, gross: 964.8 },
-        [key5("Lauren", "Temple")]: { hours: 14.71, gross: 269.25 },
-        [key5("Jayvi Tri", "Tsan")]: { hours: 42.68, gross: 887.74 }
+        [key6("James", "Allard")]: { hours: 76.27, gross: 1586.42 },
+        [key6("Bhima", "Bhattarai")]: { hours: 74.58, gross: 1365.11 },
+        [key6("Heather", "Capstick")]: { hours: 70.78, gross: 1325 },
+        [key6("Eric", "Cressos")]: { hours: 56.87, gross: 1064.61 },
+        [key6("Karma", "Dozang")]: { hours: 26.65, gross: 554.32 },
+        [key6("Paige", "Ferlatte")]: { hours: 52.16, gross: 954.74 },
+        [key6("Breanna", "Fox")]: { hours: 85.22, gross: 1595.32 },
+        [key6("Lee Anne", "Hrabi")]: { hours: 63.91, gross: 1169.81 },
+        [key6("Robert", "Jacobson")]: { hours: 93.37, gross: 2913.14 },
+        [key6("Bonnie", "Malone")]: { hours: 55.82, gross: 1021.73 },
+        [key6("Amal", "Ragh")]: { hours: 89.44, gross: 1953.37 },
+        [key6("Bryah", "Risdon")]: { hours: 52.71, gross: 964.8 },
+        [key6("Lauren", "Temple")]: { hours: 14.71, gross: 269.25 },
+        [key6("Jayvi Tri", "Tsan")]: { hours: 42.68, gross: 887.74 }
       } },
       { payDate: "2026-06-12", start: "2026-05-27", end: "2026-06-09", lines: {
-        [key5("James", "Allard")]: { hours: 76.84, gross: 1598.27 },
-        [key5("Bhima", "Bhattarai")]: { hours: 69.6, gross: 1273.96 },
-        [key5("Heather", "Capstick")]: { hours: 49.09, gross: 918.96 },
-        [key5("Eric", "Cressos")]: { hours: 62.78, gross: 1175.24 },
-        [key5("Karma", "Dozang")]: { hours: 28.94, gross: 601.95 },
-        [key5("Paige", "Ferlatte")]: { hours: 48.67, gross: 890.86 },
-        [key5("Breanna", "Fox")]: { hours: 84.96, gross: 1590.45 },
-        [key5("Lee Anne", "Hrabi")]: { hours: 45.88, gross: 839.79 },
-        [key5("Robert", "Jacobson")]: { hours: 85.52, gross: 2668.22 },
-        [key5("Bonnie", "Malone")]: { hours: 80.87, gross: 1480.24 },
-        [key5("Amal", "Ragh")]: { hours: 69.36, gross: 1514.82 },
-        [key5("Bryah", "Risdon")]: { hours: 61.35, gross: 1122.95 },
-        [key5("Jayvi Tri", "Tsan")]: { hours: 36.14, gross: 751.71 }
+        [key6("James", "Allard")]: { hours: 76.84, gross: 1598.27 },
+        [key6("Bhima", "Bhattarai")]: { hours: 69.6, gross: 1273.96 },
+        [key6("Heather", "Capstick")]: { hours: 49.09, gross: 918.96 },
+        [key6("Eric", "Cressos")]: { hours: 62.78, gross: 1175.24 },
+        [key6("Karma", "Dozang")]: { hours: 28.94, gross: 601.95 },
+        [key6("Paige", "Ferlatte")]: { hours: 48.67, gross: 890.86 },
+        [key6("Breanna", "Fox")]: { hours: 84.96, gross: 1590.45 },
+        [key6("Lee Anne", "Hrabi")]: { hours: 45.88, gross: 839.79 },
+        [key6("Robert", "Jacobson")]: { hours: 85.52, gross: 2668.22 },
+        [key6("Bonnie", "Malone")]: { hours: 80.87, gross: 1480.24 },
+        [key6("Amal", "Ragh")]: { hours: 69.36, gross: 1514.82 },
+        [key6("Bryah", "Risdon")]: { hours: 61.35, gross: 1122.95 },
+        [key6("Jayvi Tri", "Tsan")]: { hours: 36.14, gross: 751.71 }
       } },
       { payDate: "2026-05-29", start: "2026-05-13", end: "2026-05-26", lines: {
-        [key5("James", "Allard")]: { hours: 85.75, gross: 1850.37 },
-        [key5("Bhima", "Bhattarai")]: { hours: 80.85, gross: 1529.82 },
-        [key5("Heather", "Capstick")]: { hours: 63.84, gross: 1195.13 },
-        [key5("Maddy", "Cooper")]: { hours: 18.38, gross: 336.42 },
-        [key5("Eric", "Cressos")]: { hours: 52.15, gross: 976.2 },
-        [key5("Karma", "Dozang")]: { hours: 26.37, gross: 548.48 },
-        [key5("Paige", "Ferlatte")]: { hours: 57.62, gross: 1054.67 },
-        [key5("Breanna", "Fox")]: { hours: 80.86, gross: 1586.91 },
-        [key5("Lee Anne", "Hrabi")]: { hours: 69.09, gross: 1329.41 },
-        [key5("Robert", "Jacobson")]: { hours: 112.84, gross: 3638.23 },
-        [key5("Bonnie", "Malone")]: { hours: 82.19, gross: 1588.17 },
-        [key5("Amal", "Ragh")]: { hours: 89.98, gross: 2064.64 },
-        [key5("Bryah", "Risdon")]: { hours: 44.55, gross: 815.51 },
-        [key5("Jayvi Tri", "Tsan")]: { hours: 52.99, gross: 1176.65 }
+        [key6("James", "Allard")]: { hours: 85.75, gross: 1850.37 },
+        [key6("Bhima", "Bhattarai")]: { hours: 80.85, gross: 1529.82 },
+        [key6("Heather", "Capstick")]: { hours: 63.84, gross: 1195.13 },
+        [key6("Maddy", "Cooper")]: { hours: 18.38, gross: 336.42 },
+        [key6("Eric", "Cressos")]: { hours: 52.15, gross: 976.2 },
+        [key6("Karma", "Dozang")]: { hours: 26.37, gross: 548.48 },
+        [key6("Paige", "Ferlatte")]: { hours: 57.62, gross: 1054.67 },
+        [key6("Breanna", "Fox")]: { hours: 80.86, gross: 1586.91 },
+        [key6("Lee Anne", "Hrabi")]: { hours: 69.09, gross: 1329.41 },
+        [key6("Robert", "Jacobson")]: { hours: 112.84, gross: 3638.23 },
+        [key6("Bonnie", "Malone")]: { hours: 82.19, gross: 1588.17 },
+        [key6("Amal", "Ragh")]: { hours: 89.98, gross: 2064.64 },
+        [key6("Bryah", "Risdon")]: { hours: 44.55, gross: 815.51 },
+        [key6("Jayvi Tri", "Tsan")]: { hours: 52.99, gross: 1176.65 }
       } },
       { payDate: "2026-05-15", start: "2026-04-29", end: "2026-05-12", lines: {
-        [key5("James", "Allard")]: { hours: 84.92, gross: 1766.34 },
-        [key5("Bhima", "Bhattarai")]: { hours: 74.98, gross: 1372.43 },
-        [key5("Heather", "Capstick")]: { hours: 46.35, gross: 867.67 },
-        [key5("Maddy", "Cooper")]: { hours: 35.88, gross: 656.75 },
-        [key5("Eric", "Cressos")]: { hours: 57.94, gross: 1084.64 },
-        [key5("Kimberly", "Daly")]: { hours: 30.1, gross: 550.95 },
-        [key5("Karma", "Dozang")]: { hours: 19.14, gross: 398.11 },
-        [key5("Paige", "Ferlatte")]: { hours: 47.63, gross: 871.82 },
-        [key5("Breanna", "Fox")]: { hours: 68.09, gross: 1274.64 },
-        [key5("Lee Anne", "Hrabi")]: { hours: 53.17, gross: 973.22 },
-        [key5("Robert", "Jacobson")]: { hours: 86.4, gross: 2695.68 },
-        [key5("Bonnie", "Malone")]: { hours: 65.68, gross: 1202.21 },
-        [key5("Amal", "Ragh")]: { hours: 84.93, gross: 1854.87 },
-        [key5("Bryah", "Risdon")]: { hours: 33.3, gross: 609.52 },
-        [key5("Jayvi Tri", "Tsan")]: { hours: 33.92, gross: 705.54 }
+        [key6("James", "Allard")]: { hours: 84.92, gross: 1766.34 },
+        [key6("Bhima", "Bhattarai")]: { hours: 74.98, gross: 1372.43 },
+        [key6("Heather", "Capstick")]: { hours: 46.35, gross: 867.67 },
+        [key6("Maddy", "Cooper")]: { hours: 35.88, gross: 656.75 },
+        [key6("Eric", "Cressos")]: { hours: 57.94, gross: 1084.64 },
+        [key6("Kimberly", "Daly")]: { hours: 30.1, gross: 550.95 },
+        [key6("Karma", "Dozang")]: { hours: 19.14, gross: 398.11 },
+        [key6("Paige", "Ferlatte")]: { hours: 47.63, gross: 871.82 },
+        [key6("Breanna", "Fox")]: { hours: 68.09, gross: 1274.64 },
+        [key6("Lee Anne", "Hrabi")]: { hours: 53.17, gross: 973.22 },
+        [key6("Robert", "Jacobson")]: { hours: 86.4, gross: 2695.68 },
+        [key6("Bonnie", "Malone")]: { hours: 65.68, gross: 1202.21 },
+        [key6("Amal", "Ragh")]: { hours: 84.93, gross: 1854.87 },
+        [key6("Bryah", "Risdon")]: { hours: 33.3, gross: 609.52 },
+        [key6("Jayvi Tri", "Tsan")]: { hours: 33.92, gross: 705.54 }
       } },
       { payDate: "2026-05-01", start: "2026-04-15", end: "2026-04-28", lines: {
-        [key5("James", "Allard")]: { hours: 63.24, gross: 1315.39 },
-        [key5("Bhima", "Bhattarai")]: { hours: 68.16, gross: 1247.6 },
-        [key5("Heather", "Capstick")]: { hours: 47.38, gross: 886.95 },
-        [key5("Maddy", "Cooper")]: { hours: 23.54, gross: 430.88 },
-        [key5("Eric", "Cressos")]: { hours: 43.92, gross: 822.18 },
-        [key5("Kimberly", "Daly")]: { hours: 36.62, gross: 670.29 },
-        [key5("Karma", "Dozang")]: { hours: 27.58, gross: 573.66 },
-        [key5("Paige", "Ferlatte")]: { hours: 47.63, gross: 871.82 },
-        [key5("Breanna", "Fox")]: { hours: 59.23, gross: 1108.79 },
-        [key5("Lee Anne", "Hrabi")]: { hours: 56.34, gross: 1031.25 },
-        [key5("Robert", "Jacobson")]: { hours: 88.08, gross: 2748.1 },
-        [key5("Bonnie", "Malone")]: { hours: 63.1, gross: 1154.98 },
-        [key5("Amal", "Ragh")]: { hours: 96.49, gross: 2107.34 },
-        [key5("Bryah", "Risdon")]: { hours: 31.39, gross: 574.56 },
-        [key5("Jayvi Tri", "Tsan")]: { hours: 40.77, gross: 848.02 }
+        [key6("James", "Allard")]: { hours: 63.24, gross: 1315.39 },
+        [key6("Bhima", "Bhattarai")]: { hours: 68.16, gross: 1247.6 },
+        [key6("Heather", "Capstick")]: { hours: 47.38, gross: 886.95 },
+        [key6("Maddy", "Cooper")]: { hours: 23.54, gross: 430.88 },
+        [key6("Eric", "Cressos")]: { hours: 43.92, gross: 822.18 },
+        [key6("Kimberly", "Daly")]: { hours: 36.62, gross: 670.29 },
+        [key6("Karma", "Dozang")]: { hours: 27.58, gross: 573.66 },
+        [key6("Paige", "Ferlatte")]: { hours: 47.63, gross: 871.82 },
+        [key6("Breanna", "Fox")]: { hours: 59.23, gross: 1108.79 },
+        [key6("Lee Anne", "Hrabi")]: { hours: 56.34, gross: 1031.25 },
+        [key6("Robert", "Jacobson")]: { hours: 88.08, gross: 2748.1 },
+        [key6("Bonnie", "Malone")]: { hours: 63.1, gross: 1154.98 },
+        [key6("Amal", "Ragh")]: { hours: 96.49, gross: 2107.34 },
+        [key6("Bryah", "Risdon")]: { hours: 31.39, gross: 574.56 },
+        [key6("Jayvi Tri", "Tsan")]: { hours: 40.77, gross: 848.02 }
       } },
       { payDate: "2026-04-17", start: "2026-04-01", end: "2026-04-14", lines: {
-        [key5("James", "Allard")]: { hours: 96.18, gross: 2095.36 },
-        [key5("Bhima", "Bhattarai")]: { hours: 76.03, gross: 1460.79 },
-        [key5("Heather", "Capstick")]: { hours: 72.21, gross: 1426.81 },
-        [key5("Eric", "Cressos")]: { hours: 50.35, gross: 942.52 },
-        [key5("Kimberly", "Daly")]: { hours: 36.7, gross: 701.55 },
-        [key5("Karma", "Dozang")]: { hours: 13.04, gross: 271.26 },
-        [key5("Paige", "Ferlatte")]: { hours: 52.79, gross: 966.26 },
-        [key5("Breanna", "Fox")]: { hours: 82.55, gross: 1615.57 },
-        [key5("Lee Anne", "Hrabi")]: { hours: 47.56, gross: 929.72 },
-        [key5("Robert", "Jacobson")]: { hours: 104.34, gross: 3392.22 },
-        [key5("Bonnie", "Malone")]: { hours: 77.93, gross: 1483.38 },
-        [key5("Amal", "Ragh")]: { hours: 86.43, gross: 1981 },
-        [key5("Bryah", "Risdon")]: { hours: 53.95, gross: 987.58 },
-        [key5("Jayvi Tri", "Tsan")]: { hours: 56.25, gross: 1169.9 }
+        [key6("James", "Allard")]: { hours: 96.18, gross: 2095.36 },
+        [key6("Bhima", "Bhattarai")]: { hours: 76.03, gross: 1460.79 },
+        [key6("Heather", "Capstick")]: { hours: 72.21, gross: 1426.81 },
+        [key6("Eric", "Cressos")]: { hours: 50.35, gross: 942.52 },
+        [key6("Kimberly", "Daly")]: { hours: 36.7, gross: 701.55 },
+        [key6("Karma", "Dozang")]: { hours: 13.04, gross: 271.26 },
+        [key6("Paige", "Ferlatte")]: { hours: 52.79, gross: 966.26 },
+        [key6("Breanna", "Fox")]: { hours: 82.55, gross: 1615.57 },
+        [key6("Lee Anne", "Hrabi")]: { hours: 47.56, gross: 929.72 },
+        [key6("Robert", "Jacobson")]: { hours: 104.34, gross: 3392.22 },
+        [key6("Bonnie", "Malone")]: { hours: 77.93, gross: 1483.38 },
+        [key6("Amal", "Ragh")]: { hours: 86.43, gross: 1981 },
+        [key6("Bryah", "Risdon")]: { hours: 53.95, gross: 987.58 },
+        [key6("Jayvi Tri", "Tsan")]: { hours: 56.25, gross: 1169.9 }
       } },
       { payDate: "2026-04-03", start: "2026-03-18", end: "2026-03-31", lines: {
-        [key5("James", "Allard")]: { hours: 63.76, gross: 1326.21 },
-        [key5("Bhima", "Bhattarai")]: { hours: 66.67, gross: 1220.33 },
-        [key5("Heather", "Capstick")]: { hours: 65.86, gross: 1232.9 },
-        [key5("Eric", "Cressos")]: { hours: 58.56, gross: 1096.24 },
-        [key5("Kimberly", "Daly")]: { hours: 74.33, gross: 1360.54 },
-        [key5("Karma", "Dozang")]: { hours: 25.05, gross: 521.04 },
-        [key5("Paige", "Ferlatte")]: { hours: 42.87, gross: 784.69 },
-        [key5("Breanna", "Fox")]: { hours: 63.62, gross: 1190.97 },
-        [key5("Lee Anne", "Hrabi")]: { hours: 23.83, gross: 436.18 },
-        [key5("Robert", "Jacobson")]: { hours: 92.08, gross: 2872.9 },
-        [key5("Bonnie", "Malone")]: { hours: 56, gross: 1025.02 },
-        [key5("Amal", "Ragh")]: { hours: 73.17, gross: 1598.03 },
-        [key5("Bryah", "Risdon")]: { hours: 16.04, gross: 293.6 },
-        [key5("Jayvi Tri", "Tsan")]: { hours: 41.72, gross: 867.78 }
+        [key6("James", "Allard")]: { hours: 63.76, gross: 1326.21 },
+        [key6("Bhima", "Bhattarai")]: { hours: 66.67, gross: 1220.33 },
+        [key6("Heather", "Capstick")]: { hours: 65.86, gross: 1232.9 },
+        [key6("Eric", "Cressos")]: { hours: 58.56, gross: 1096.24 },
+        [key6("Kimberly", "Daly")]: { hours: 74.33, gross: 1360.54 },
+        [key6("Karma", "Dozang")]: { hours: 25.05, gross: 521.04 },
+        [key6("Paige", "Ferlatte")]: { hours: 42.87, gross: 784.69 },
+        [key6("Breanna", "Fox")]: { hours: 63.62, gross: 1190.97 },
+        [key6("Lee Anne", "Hrabi")]: { hours: 23.83, gross: 436.18 },
+        [key6("Robert", "Jacobson")]: { hours: 92.08, gross: 2872.9 },
+        [key6("Bonnie", "Malone")]: { hours: 56, gross: 1025.02 },
+        [key6("Amal", "Ragh")]: { hours: 73.17, gross: 1598.03 },
+        [key6("Bryah", "Risdon")]: { hours: 16.04, gross: 293.6 },
+        [key6("Jayvi Tri", "Tsan")]: { hours: 41.72, gross: 867.78 }
       } },
       { payDate: "2026-03-20", start: "2026-03-04", end: "2026-03-17", lines: {
-        [key5("James", "Allard")]: { hours: 66.59, gross: 1385.07 },
-        [key5("Bhima", "Bhattarai")]: { hours: 67.19, gross: 1229.85 },
-        [key5("Heather", "Capstick")]: { hours: 68.55, gross: 1283.26 },
-        [key5("Eric", "Cressos")]: { hours: 65.03, gross: 1217.36 },
-        [key5("Kimberly", "Daly")]: { hours: 30.83, gross: 564.31 },
-        [key5("Karma", "Dozang")]: { hours: 24.89, gross: 517.71 },
-        [key5("Paige", "Ferlatte")]: { hours: 29.55, gross: 540.88 },
-        [key5("Breanna", "Fox")]: { hours: 81.65, gross: 1528.49 },
-        [key5("Lee Anne", "Hrabi")]: { hours: 86.61, gross: 1585.31 },
-        [key5("Robert", "Jacobson")]: { hours: 108.82, gross: 3395.18 },
-        [key5("Bonnie", "Malone")]: { hours: 66.55, gross: 1218.13 },
-        [key5("Amal", "Ragh")]: { hours: 89.43, gross: 1953.15 },
-        [key5("Bryah", "Risdon")]: { hours: 23.77, gross: 435.09 },
-        [key5("Jayvi Tri", "Tsan")]: { hours: 40.86, gross: 849.89 }
+        [key6("James", "Allard")]: { hours: 66.59, gross: 1385.07 },
+        [key6("Bhima", "Bhattarai")]: { hours: 67.19, gross: 1229.85 },
+        [key6("Heather", "Capstick")]: { hours: 68.55, gross: 1283.26 },
+        [key6("Eric", "Cressos")]: { hours: 65.03, gross: 1217.36 },
+        [key6("Kimberly", "Daly")]: { hours: 30.83, gross: 564.31 },
+        [key6("Karma", "Dozang")]: { hours: 24.89, gross: 517.71 },
+        [key6("Paige", "Ferlatte")]: { hours: 29.55, gross: 540.88 },
+        [key6("Breanna", "Fox")]: { hours: 81.65, gross: 1528.49 },
+        [key6("Lee Anne", "Hrabi")]: { hours: 86.61, gross: 1585.31 },
+        [key6("Robert", "Jacobson")]: { hours: 108.82, gross: 3395.18 },
+        [key6("Bonnie", "Malone")]: { hours: 66.55, gross: 1218.13 },
+        [key6("Amal", "Ragh")]: { hours: 89.43, gross: 1953.15 },
+        [key6("Bryah", "Risdon")]: { hours: 23.77, gross: 435.09 },
+        [key6("Jayvi Tri", "Tsan")]: { hours: 40.86, gross: 849.89 }
       } },
       { payDate: "2026-03-06", start: "2026-02-18", end: "2026-03-03", lines: {
-        [key5("James", "Allard")]: { hours: 83.57, gross: 1738.26 },
-        [key5("Bhima", "Bhattarai")]: { hours: 67.75, gross: 1240.1 },
-        [key5("Heather", "Capstick")]: { hours: 73.82, gross: 1381.91 },
-        [key5("Eric", "Cressos")]: { hours: 37.63, gross: 704.43 },
-        [key5("Kimberly", "Daly")]: { hours: 66.34, gross: 1214.29 },
-        [key5("Karma", "Dozang")]: { hours: 7.64, gross: 158.91 },
-        [key5("Paige", "Ferlatte")]: { hours: 62.56, gross: 1145.1 },
-        [key5("Breanna", "Fox")]: { hours: 28.19, gross: 527.72 },
-        [key5("Lee Anne", "Hrabi")]: { hours: 61.82, gross: 1131.55 },
-        [key5("Robert", "Jacobson")]: { hours: 97.35, gross: 3037.32 },
-        [key5("Bonnie", "Malone")]: { hours: 53.76, gross: 984.02 },
-        [key5("Amal", "Ragh")]: { hours: 87.49, gross: 1910.78 },
-        [key5("Bryah", "Risdon")]: { hours: 47.85, gross: 875.85 },
-        [key5("Jayvi Tri", "Tsan")]: { hours: 52.89, gross: 1100.11 }
+        [key6("James", "Allard")]: { hours: 83.57, gross: 1738.26 },
+        [key6("Bhima", "Bhattarai")]: { hours: 67.75, gross: 1240.1 },
+        [key6("Heather", "Capstick")]: { hours: 73.82, gross: 1381.91 },
+        [key6("Eric", "Cressos")]: { hours: 37.63, gross: 704.43 },
+        [key6("Kimberly", "Daly")]: { hours: 66.34, gross: 1214.29 },
+        [key6("Karma", "Dozang")]: { hours: 7.64, gross: 158.91 },
+        [key6("Paige", "Ferlatte")]: { hours: 62.56, gross: 1145.1 },
+        [key6("Breanna", "Fox")]: { hours: 28.19, gross: 527.72 },
+        [key6("Lee Anne", "Hrabi")]: { hours: 61.82, gross: 1131.55 },
+        [key6("Robert", "Jacobson")]: { hours: 97.35, gross: 3037.32 },
+        [key6("Bonnie", "Malone")]: { hours: 53.76, gross: 984.02 },
+        [key6("Amal", "Ragh")]: { hours: 87.49, gross: 1910.78 },
+        [key6("Bryah", "Risdon")]: { hours: 47.85, gross: 875.85 },
+        [key6("Jayvi Tri", "Tsan")]: { hours: 52.89, gross: 1100.11 }
       } },
       { payDate: "2026-02-20", start: "2026-02-04", end: "2026-02-17", lines: {
-        [key5("James", "Allard")]: { hours: 88.77, gross: 1915.78 },
-        [key5("Bhima", "Bhattarai")]: { hours: 81.02, gross: 1542.29 },
-        [key5("Heather", "Capstick")]: { hours: 70.54, gross: 1320.54 },
-        [key5("Eric", "Cressos")]: { hours: 41.74, gross: 781.31 },
-        [key5("Kimberly", "Daly")]: { hours: 55.61, gross: 1017.87 },
-        [key5("Paige", "Ferlatte")]: { hours: 53.55, gross: 980.11 },
-        [key5("Breanna", "Fox")]: { hours: 78.55, gross: 1541.16 },
-        [key5("Lee Anne", "Hrabi")]: { hours: 68.9, gross: 1344.46 },
-        [key5("Robert", "Jacobson")]: { hours: 113.39, gross: 3631.84 },
-        [key5("Bonnie", "Malone")]: { hours: 61.54, gross: 1200.2 },
-        [key5("Amal", "Ragh")]: { hours: 92.13, gross: 2111.04 },
-        [key5("Bryah", "Risdon")]: { hours: 15.71, gross: 287.58 },
-        [key5("Jayvi Tri", "Tsan")]: { hours: 45.1, gross: 938.09 }
+        [key6("James", "Allard")]: { hours: 88.77, gross: 1915.78 },
+        [key6("Bhima", "Bhattarai")]: { hours: 81.02, gross: 1542.29 },
+        [key6("Heather", "Capstick")]: { hours: 70.54, gross: 1320.54 },
+        [key6("Eric", "Cressos")]: { hours: 41.74, gross: 781.31 },
+        [key6("Kimberly", "Daly")]: { hours: 55.61, gross: 1017.87 },
+        [key6("Paige", "Ferlatte")]: { hours: 53.55, gross: 980.11 },
+        [key6("Breanna", "Fox")]: { hours: 78.55, gross: 1541.16 },
+        [key6("Lee Anne", "Hrabi")]: { hours: 68.9, gross: 1344.46 },
+        [key6("Robert", "Jacobson")]: { hours: 113.39, gross: 3631.84 },
+        [key6("Bonnie", "Malone")]: { hours: 61.54, gross: 1200.2 },
+        [key6("Amal", "Ragh")]: { hours: 92.13, gross: 2111.04 },
+        [key6("Bryah", "Risdon")]: { hours: 15.71, gross: 287.58 },
+        [key6("Jayvi Tri", "Tsan")]: { hours: 45.1, gross: 938.09 }
       } },
       { payDate: "2026-02-06", start: "2026-01-21", end: "2026-02-03", lines: {
-        [key5("James", "Allard")]: { hours: 64.16, gross: 1334.53 },
-        [key5("Bhima", "Bhattarai")]: { hours: 66.95, gross: 1225.45 },
-        [key5("Heather", "Capstick")]: { hours: 62.38, gross: 1167.75 },
-        [key5("Eric", "Cressos")]: { hours: 50.08, gross: 937.5 },
-        [key5("Kimberly", "Daly")]: { hours: 41.49, gross: 759.43 },
-        [key5("Paige", "Ferlatte")]: { hours: 28.56, gross: 522.76 },
-        [key5("Breanna", "Fox")]: { hours: 62.38, gross: 1167.75 },
-        [key5("Lee Anne", "Hrabi")]: { hours: 65.19, gross: 1193.24 },
-        [key5("Robert", "Jacobson")]: { hours: 87.22, gross: 2721.26 },
-        [key5("Bonnie", "Malone")]: { hours: 63.77, gross: 1167.25 },
-        [key5("Amal", "Ragh")]: { hours: 85.51, gross: 1867.54 },
-        [key5("Bryah", "Risdon")]: { hours: 37.06, gross: 678.35 },
-        [key5("Jayvi Tri", "Tsan")]: { hours: 45.72, gross: 950.98 }
+        [key6("James", "Allard")]: { hours: 64.16, gross: 1334.53 },
+        [key6("Bhima", "Bhattarai")]: { hours: 66.95, gross: 1225.45 },
+        [key6("Heather", "Capstick")]: { hours: 62.38, gross: 1167.75 },
+        [key6("Eric", "Cressos")]: { hours: 50.08, gross: 937.5 },
+        [key6("Kimberly", "Daly")]: { hours: 41.49, gross: 759.43 },
+        [key6("Paige", "Ferlatte")]: { hours: 28.56, gross: 522.76 },
+        [key6("Breanna", "Fox")]: { hours: 62.38, gross: 1167.75 },
+        [key6("Lee Anne", "Hrabi")]: { hours: 65.19, gross: 1193.24 },
+        [key6("Robert", "Jacobson")]: { hours: 87.22, gross: 2721.26 },
+        [key6("Bonnie", "Malone")]: { hours: 63.77, gross: 1167.25 },
+        [key6("Amal", "Ragh")]: { hours: 85.51, gross: 1867.54 },
+        [key6("Bryah", "Risdon")]: { hours: 37.06, gross: 678.35 },
+        [key6("Jayvi Tri", "Tsan")]: { hours: 45.72, gross: 950.98 }
       } },
       { payDate: "2026-01-23", start: "2026-01-07", end: "2026-01-20", lines: {
-        [key5("James", "Allard")]: { hours: 69.78, gross: 1451.42 },
-        [key5("Bhima", "Bhattarai")]: { hours: 67.84, gross: 1241.74 },
-        [key5("Heather", "Capstick")]: { hours: 59.58, gross: 1115.34 },
-        [key5("Eric", "Cressos")]: { hours: 51.78, gross: 969.32 },
-        [key5("Kimberly", "Daly")]: { hours: 51.76, gross: 947.42 },
-        [key5("Paige", "Ferlatte")]: { hours: 32.71, gross: 598.72 },
-        [key5("Breanna", "Fox")]: { hours: 62.46, gross: 1169.25 },
-        [key5("Lee Anne", "Hrabi")]: { hours: 60.52, gross: 1107.76 },
-        [key5("Robert", "Jacobson")]: { hours: 77.15, gross: 2407.08 },
-        [key5("Bonnie", "Malone")]: { hours: 60.66, gross: 1110.32 },
-        [key5("Amal", "Ragh")]: { hours: 82.96, gross: 1811.85 },
-        [key5("Bryah", "Risdon")]: { hours: 33.54, gross: 613.92 },
-        [key5("Jayvi Tri", "Tsan")]: { hours: 47.56, gross: 989.25 }
+        [key6("James", "Allard")]: { hours: 69.78, gross: 1451.42 },
+        [key6("Bhima", "Bhattarai")]: { hours: 67.84, gross: 1241.74 },
+        [key6("Heather", "Capstick")]: { hours: 59.58, gross: 1115.34 },
+        [key6("Eric", "Cressos")]: { hours: 51.78, gross: 969.32 },
+        [key6("Kimberly", "Daly")]: { hours: 51.76, gross: 947.42 },
+        [key6("Paige", "Ferlatte")]: { hours: 32.71, gross: 598.72 },
+        [key6("Breanna", "Fox")]: { hours: 62.46, gross: 1169.25 },
+        [key6("Lee Anne", "Hrabi")]: { hours: 60.52, gross: 1107.76 },
+        [key6("Robert", "Jacobson")]: { hours: 77.15, gross: 2407.08 },
+        [key6("Bonnie", "Malone")]: { hours: 60.66, gross: 1110.32 },
+        [key6("Amal", "Ragh")]: { hours: 82.96, gross: 1811.85 },
+        [key6("Bryah", "Risdon")]: { hours: 33.54, gross: 613.92 },
+        [key6("Jayvi Tri", "Tsan")]: { hours: 47.56, gross: 989.25 }
       } },
       { payDate: "2026-01-08", start: "2025-12-24", end: "2026-01-06", lines: {
-        [key5("James", "Allard")]: { hours: 100.55, gross: 2195.27 },
-        [key5("Bhima", "Bhattarai")]: { hours: 60.46, gross: 1171.04 },
-        [key5("Heather", "Capstick")]: { hours: 42.22, gross: 866.78 },
-        [key5("Eric", "Cressos")]: { hours: 48.75, gross: 912.58 },
-        [key5("Kimberly", "Daly")]: { hours: 38.71, gross: 708.63 },
-        [key5("Paige", "Ferlatte")]: { hours: 48.47, gross: 887.24 },
-        [key5("Charlotte", "Fowler")]: { hours: 26.91, gross: 572.51 },
-        [key5("Breanna", "Fox")]: { hours: 50, gross: 935.96 },
-        [key5("Lee Anne", "Hrabi")]: { hours: 84.28, gross: 1608.29 },
-        [key5("Robert", "Jacobson")]: { hours: 24.22, gross: 755.72 },
-        [key5("Bonnie", "Malone")]: { hours: 51.73, gross: 946.83 },
-        [key5("Amal", "Ragh")]: { hours: 113.85, gross: 2600.22 },
-        [key5("Bryah", "Risdon")]: { hours: 20.37, gross: 427.94 },
-        [key5("Jayvi Tri", "Tsan")]: { hours: 49.73, gross: 1034.29 }
+        [key6("James", "Allard")]: { hours: 100.55, gross: 2195.27 },
+        [key6("Bhima", "Bhattarai")]: { hours: 60.46, gross: 1171.04 },
+        [key6("Heather", "Capstick")]: { hours: 42.22, gross: 866.78 },
+        [key6("Eric", "Cressos")]: { hours: 48.75, gross: 912.58 },
+        [key6("Kimberly", "Daly")]: { hours: 38.71, gross: 708.63 },
+        [key6("Paige", "Ferlatte")]: { hours: 48.47, gross: 887.24 },
+        [key6("Charlotte", "Fowler")]: { hours: 26.91, gross: 572.51 },
+        [key6("Breanna", "Fox")]: { hours: 50, gross: 935.96 },
+        [key6("Lee Anne", "Hrabi")]: { hours: 84.28, gross: 1608.29 },
+        [key6("Robert", "Jacobson")]: { hours: 24.22, gross: 755.72 },
+        [key6("Bonnie", "Malone")]: { hours: 51.73, gross: 946.83 },
+        [key6("Amal", "Ragh")]: { hours: 113.85, gross: 2600.22 },
+        [key6("Bryah", "Risdon")]: { hours: 20.37, gross: 427.94 },
+        [key6("Jayvi Tri", "Tsan")]: { hours: 49.73, gross: 1034.29 }
       } }
     ];
   }
@@ -61908,9 +61908,9 @@ async function backfillOriginalityPayroll() {
     const clientId = client.id;
     const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
-    for (const e of existing) empByKey.set(key6(e.firstName, e.lastName), e);
+    for (const e of existing) empByKey.set(key7(e.firstName, e.lastName), e);
     for (const r of ROSTER6) {
-      const k = key6(r.first, r.last);
+      const k = key7(r.first, r.last);
       if (empByKey.get(k)) continue;
       const [ins] = await db.insert(employees).values({
         clientId,
@@ -61946,11 +61946,11 @@ async function backfillOriginalityPayroll() {
         for (const [k, v] of Object.entries(p.lines)) {
           const emp = empByKey.get(k);
           if (!emp) continue;
-          const gross = round217(v.gross);
+          const gross = round218(v.gross);
           totalGross += gross;
           await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
         }
-        await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+        await db.update(payRuns).set({ totalGross: round218(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
         runsAdded++;
       }
     };
@@ -61962,15 +61962,15 @@ async function backfillOriginalityPayroll() {
     console.error("[og-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round217, norm14, key6, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
+var round218, norm14, key7, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
 var init_seed_originality_backfill = __esm({
   "api/seed-originality-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round217 = (n) => Math.round(n * 100) / 100;
+    round218 = (n) => Math.round(n * 100) / 100;
     norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key6 = (first, last) => `${norm14(last)}|${norm14(first)}`;
+    key7 = (first, last) => `${norm14(last)}|${norm14(first)}`;
     d5 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     BASE_NOTE = "Backfill from Google payroll sheet";
     SHARE_NOTE = "Revenue share bonus (backfill)";
@@ -61997,166 +61997,166 @@ var init_seed_originality_backfill = __esm({
     ];
     BASE_PERIODS = [
       { payDate: "2026-01-31", start: "2026-01-01", end: "2026-01-31", lines: {
-        [key6("Nathan", "Andrade Meira")]: { hours: 0, gross: 6833.33 },
-        [key6("Narcis", "Bejtic")]: { hours: 0, gross: 8268.75 },
-        [key6("Arnav", "Bhagawati")]: { hours: 0, gross: 6562.5 },
-        [key6("Thomas", "Bongiorno")]: { hours: 0, gross: 7612.5 },
-        [key6("Sarah", "Empey")]: { hours: 0, gross: 4375 },
-        [key6("Michael", "Fraiman")]: { hours: 0, gross: 2587.2 },
-        [key6("Jon", "Gillham")]: { hours: 0, gross: 31275.4 },
-        [key6("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 9642.54 },
-        [key6("Motiejus", "Lapp")]: { hours: 0, gross: 5640 },
-        [key6("Kristin", "Laroque")]: { hours: 0, gross: 3416.67 },
-        [key6("Janay", "Ma")]: { hours: 0, gross: 6142.5 },
-        [key6("Joshua", "Moshood")]: { hours: 0, gross: 7e3 },
-        [key6("Liam", "Mc Nally")]: { hours: 0, gross: 6431.25 },
-        [key6("Urvish", "Patel")]: { hours: 0, gross: 4291.67 },
-        [key6("Jessica", "Sawyer")]: { hours: 0, gross: 1171.5 },
-        [key6("Trinh", "Tran")]: { hours: 0, gross: 9528.75 },
-        [key6("Connor", "Watt")]: { hours: 0, gross: 7525 }
+        [key7("Nathan", "Andrade Meira")]: { hours: 0, gross: 6833.33 },
+        [key7("Narcis", "Bejtic")]: { hours: 0, gross: 8268.75 },
+        [key7("Arnav", "Bhagawati")]: { hours: 0, gross: 6562.5 },
+        [key7("Thomas", "Bongiorno")]: { hours: 0, gross: 7612.5 },
+        [key7("Sarah", "Empey")]: { hours: 0, gross: 4375 },
+        [key7("Michael", "Fraiman")]: { hours: 0, gross: 2587.2 },
+        [key7("Jon", "Gillham")]: { hours: 0, gross: 31275.4 },
+        [key7("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 9642.54 },
+        [key7("Motiejus", "Lapp")]: { hours: 0, gross: 5640 },
+        [key7("Kristin", "Laroque")]: { hours: 0, gross: 3416.67 },
+        [key7("Janay", "Ma")]: { hours: 0, gross: 6142.5 },
+        [key7("Joshua", "Moshood")]: { hours: 0, gross: 7e3 },
+        [key7("Liam", "Mc Nally")]: { hours: 0, gross: 6431.25 },
+        [key7("Urvish", "Patel")]: { hours: 0, gross: 4291.67 },
+        [key7("Jessica", "Sawyer")]: { hours: 0, gross: 1171.5 },
+        [key7("Trinh", "Tran")]: { hours: 0, gross: 9528.75 },
+        [key7("Connor", "Watt")]: { hours: 0, gross: 7525 }
       } },
       { payDate: "2026-02-28", start: "2026-02-01", end: "2026-02-28", lines: {
-        [key6("Nathan", "Andrade Meira")]: { hours: 0, gross: 6833.33 },
-        [key6("Narcis", "Bejtic")]: { hours: 0, gross: 8268.75 },
-        [key6("Arnav", "Bhagawati")]: { hours: 0, gross: 6562.5 },
-        [key6("Thomas", "Bongiorno")]: { hours: 0, gross: 7612.5 },
-        [key6("Sarah", "Empey")]: { hours: 0, gross: 4375 },
-        [key6("Michael", "Fraiman")]: { hours: 0, gross: 1174.2 },
-        [key6("Jon", "Gillham")]: { hours: 0, gross: 43453.8 },
-        [key6("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 9575.19 },
-        [key6("Motiejus", "Lapp")]: { hours: 0, gross: 4954.17 },
-        [key6("Kristin", "Laroque")]: { hours: 0, gross: 3416.67 },
-        [key6("Janay", "Ma")]: { hours: 0, gross: 6142.5 },
-        [key6("Joshua", "Moshood")]: { hours: 0, gross: 7e3 },
-        [key6("Liam", "Mc Nally")]: { hours: 0, gross: 6431.25 },
-        [key6("Urvish", "Patel")]: { hours: 0, gross: 4291.67 },
-        [key6("Jessica", "Sawyer")]: { hours: 0, gross: 926.1 },
-        [key6("Trinh", "Tran")]: { hours: 0, gross: 9528.75 },
-        [key6("Connor", "Watt")]: { hours: 0, gross: 7525 },
-        [key6("Kayla", "Zhu")]: { hours: 0, gross: 29.4 }
+        [key7("Nathan", "Andrade Meira")]: { hours: 0, gross: 6833.33 },
+        [key7("Narcis", "Bejtic")]: { hours: 0, gross: 8268.75 },
+        [key7("Arnav", "Bhagawati")]: { hours: 0, gross: 6562.5 },
+        [key7("Thomas", "Bongiorno")]: { hours: 0, gross: 7612.5 },
+        [key7("Sarah", "Empey")]: { hours: 0, gross: 4375 },
+        [key7("Michael", "Fraiman")]: { hours: 0, gross: 1174.2 },
+        [key7("Jon", "Gillham")]: { hours: 0, gross: 43453.8 },
+        [key7("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 9575.19 },
+        [key7("Motiejus", "Lapp")]: { hours: 0, gross: 4954.17 },
+        [key7("Kristin", "Laroque")]: { hours: 0, gross: 3416.67 },
+        [key7("Janay", "Ma")]: { hours: 0, gross: 6142.5 },
+        [key7("Joshua", "Moshood")]: { hours: 0, gross: 7e3 },
+        [key7("Liam", "Mc Nally")]: { hours: 0, gross: 6431.25 },
+        [key7("Urvish", "Patel")]: { hours: 0, gross: 4291.67 },
+        [key7("Jessica", "Sawyer")]: { hours: 0, gross: 926.1 },
+        [key7("Trinh", "Tran")]: { hours: 0, gross: 9528.75 },
+        [key7("Connor", "Watt")]: { hours: 0, gross: 7525 },
+        [key7("Kayla", "Zhu")]: { hours: 0, gross: 29.4 }
       } },
       { payDate: "2026-03-31", start: "2026-03-01", end: "2026-03-31", lines: {
-        [key6("Nathan", "Andrade Meira")]: { hours: 0, gross: 6833.33 },
-        [key6("Narcis", "Bejtic")]: { hours: 0, gross: 8268.75 },
-        [key6("Arnav", "Bhagawati")]: { hours: 0, gross: 6562.5 },
-        [key6("Thomas", "Bongiorno")]: { hours: 0, gross: 7612.5 },
-        [key6("Sarah", "Empey")]: { hours: 0, gross: 4375 },
-        [key6("Michael", "Fraiman")]: { hours: 0, gross: 620.1 },
-        [key6("Jon", "Gillham")]: { hours: 0, gross: 43478.5 },
-        [key6("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 9859.67 },
-        [key6("Motiejus", "Lapp")]: { hours: 0, gross: 1354.17 },
-        [key6("Kristin", "Laroque")]: { hours: 0, gross: 3416.67 },
-        [key6("Janay", "Ma")]: { hours: 0, gross: 6142.5 },
-        [key6("Joshua", "Moshood")]: { hours: 0, gross: 7e3 },
-        [key6("Liam", "Mc Nally")]: { hours: 0, gross: 6431.25 },
-        [key6("Urvish", "Patel")]: { hours: 0, gross: 4291.67 },
-        [key6("Jessica", "Sawyer")]: { hours: 0, gross: 1251.6 },
-        [key6("Ghazale", "Shafie")]: { hours: 0, gross: 9500 },
-        [key6("Trinh", "Tran")]: { hours: 0, gross: 9528.75 },
-        [key6("Connor", "Watt")]: { hours: 0, gross: 7525 },
-        [key6("Kayla", "Zhu")]: { hours: 0, gross: 1635.9 }
+        [key7("Nathan", "Andrade Meira")]: { hours: 0, gross: 6833.33 },
+        [key7("Narcis", "Bejtic")]: { hours: 0, gross: 8268.75 },
+        [key7("Arnav", "Bhagawati")]: { hours: 0, gross: 6562.5 },
+        [key7("Thomas", "Bongiorno")]: { hours: 0, gross: 7612.5 },
+        [key7("Sarah", "Empey")]: { hours: 0, gross: 4375 },
+        [key7("Michael", "Fraiman")]: { hours: 0, gross: 620.1 },
+        [key7("Jon", "Gillham")]: { hours: 0, gross: 43478.5 },
+        [key7("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 9859.67 },
+        [key7("Motiejus", "Lapp")]: { hours: 0, gross: 1354.17 },
+        [key7("Kristin", "Laroque")]: { hours: 0, gross: 3416.67 },
+        [key7("Janay", "Ma")]: { hours: 0, gross: 6142.5 },
+        [key7("Joshua", "Moshood")]: { hours: 0, gross: 7e3 },
+        [key7("Liam", "Mc Nally")]: { hours: 0, gross: 6431.25 },
+        [key7("Urvish", "Patel")]: { hours: 0, gross: 4291.67 },
+        [key7("Jessica", "Sawyer")]: { hours: 0, gross: 1251.6 },
+        [key7("Ghazale", "Shafie")]: { hours: 0, gross: 9500 },
+        [key7("Trinh", "Tran")]: { hours: 0, gross: 9528.75 },
+        [key7("Connor", "Watt")]: { hours: 0, gross: 7525 },
+        [key7("Kayla", "Zhu")]: { hours: 0, gross: 1635.9 }
       } },
       { payDate: "2026-04-30", start: "2026-04-01", end: "2026-04-30", lines: {
-        [key6("Nathan", "Andrade Meira")]: { hours: 0, gross: 6833.33 },
-        [key6("Narcis", "Bejtic")]: { hours: 0, gross: 8268.75 },
-        [key6("Arnav", "Bhagawati")]: { hours: 0, gross: 6562.5 },
-        [key6("Thomas", "Bongiorno")]: { hours: 0, gross: 7612.5 },
-        [key6("Sarah", "Empey")]: { hours: 0, gross: 4375 },
-        [key6("Michael", "Fraiman")]: { hours: 0, gross: 1199.27 },
-        [key6("Jon", "Gillham")]: { hours: 0, gross: 44326.1 },
-        [key6("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 10337.8 },
-        [key6("Motiejus", "Lapp")]: { hours: 0, gross: 1354.17 },
-        [key6("Kristin", "Laroque")]: { hours: 0, gross: 3416.67 },
-        [key6("Janay", "Ma")]: { hours: 0, gross: 6142.5 },
-        [key6("Joshua", "Moshood")]: { hours: 0, gross: 7e3 },
-        [key6("Liam", "Mc Nally")]: { hours: 0, gross: 6431.25 },
-        [key6("Urvish", "Patel")]: { hours: 0, gross: 4291.67 },
-        [key6("Jessica", "Sawyer")]: { hours: 0, gross: 979.8 },
-        [key6("Ghazale", "Shafie")]: { hours: 0, gross: 7500 },
-        [key6("Trinh", "Tran")]: { hours: 0, gross: 9528.75 },
-        [key6("Connor", "Watt")]: { hours: 0, gross: 7525 },
-        [key6("Kayla", "Zhu")]: { hours: 0, gross: 2330.3 }
+        [key7("Nathan", "Andrade Meira")]: { hours: 0, gross: 6833.33 },
+        [key7("Narcis", "Bejtic")]: { hours: 0, gross: 8268.75 },
+        [key7("Arnav", "Bhagawati")]: { hours: 0, gross: 6562.5 },
+        [key7("Thomas", "Bongiorno")]: { hours: 0, gross: 7612.5 },
+        [key7("Sarah", "Empey")]: { hours: 0, gross: 4375 },
+        [key7("Michael", "Fraiman")]: { hours: 0, gross: 1199.27 },
+        [key7("Jon", "Gillham")]: { hours: 0, gross: 44326.1 },
+        [key7("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 10337.8 },
+        [key7("Motiejus", "Lapp")]: { hours: 0, gross: 1354.17 },
+        [key7("Kristin", "Laroque")]: { hours: 0, gross: 3416.67 },
+        [key7("Janay", "Ma")]: { hours: 0, gross: 6142.5 },
+        [key7("Joshua", "Moshood")]: { hours: 0, gross: 7e3 },
+        [key7("Liam", "Mc Nally")]: { hours: 0, gross: 6431.25 },
+        [key7("Urvish", "Patel")]: { hours: 0, gross: 4291.67 },
+        [key7("Jessica", "Sawyer")]: { hours: 0, gross: 979.8 },
+        [key7("Ghazale", "Shafie")]: { hours: 0, gross: 7500 },
+        [key7("Trinh", "Tran")]: { hours: 0, gross: 9528.75 },
+        [key7("Connor", "Watt")]: { hours: 0, gross: 7525 },
+        [key7("Kayla", "Zhu")]: { hours: 0, gross: 2330.3 }
       } },
       { payDate: "2026-05-31", start: "2026-05-01", end: "2026-05-31", lines: {
-        [key6("Nathan", "Andrade Meira")]: { hours: 0, gross: 6833.33 },
-        [key6("Narcis", "Bejtic")]: { hours: 0, gross: 8268.75 },
-        [key6("Arnav", "Bhagawati")]: { hours: 0, gross: 6562.5 },
-        [key6("Thomas", "Bongiorno")]: { hours: 0, gross: 7612.5 },
-        [key6("Sarah", "Empey")]: { hours: 0, gross: 4375 },
-        [key6("Michael", "Fraiman")]: { hours: 0, gross: 1660.97 },
-        [key6("Jon", "Gillham")]: { hours: 0, gross: 31603 },
-        [key6("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 10494 },
-        [key6("Motiejus", "Lapp")]: { hours: 0, gross: 1354.17 },
-        [key6("Kristin", "Laroque")]: { hours: 0, gross: 3416.67 },
-        [key6("Janay", "Ma")]: { hours: 0, gross: 6142.5 },
-        [key6("Joshua", "Moshood")]: { hours: 0, gross: 7e3 },
-        [key6("Liam", "Mc Nally")]: { hours: 0, gross: 6431.25 },
-        [key6("Urvish", "Patel")]: { hours: 0, gross: 396.07 },
-        [key6("Jessica", "Sawyer")]: { hours: 0, gross: 1062.6 },
-        [key6("Ghazale", "Shafie")]: { hours: 0, gross: 7500 },
-        [key6("Trinh", "Tran")]: { hours: 0, gross: 9528.75 },
-        [key6("Connor", "Watt")]: { hours: 0, gross: 7525 },
-        [key6("Kayla", "Zhu")]: { hours: 0, gross: 280 }
+        [key7("Nathan", "Andrade Meira")]: { hours: 0, gross: 6833.33 },
+        [key7("Narcis", "Bejtic")]: { hours: 0, gross: 8268.75 },
+        [key7("Arnav", "Bhagawati")]: { hours: 0, gross: 6562.5 },
+        [key7("Thomas", "Bongiorno")]: { hours: 0, gross: 7612.5 },
+        [key7("Sarah", "Empey")]: { hours: 0, gross: 4375 },
+        [key7("Michael", "Fraiman")]: { hours: 0, gross: 1660.97 },
+        [key7("Jon", "Gillham")]: { hours: 0, gross: 31603 },
+        [key7("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 10494 },
+        [key7("Motiejus", "Lapp")]: { hours: 0, gross: 1354.17 },
+        [key7("Kristin", "Laroque")]: { hours: 0, gross: 3416.67 },
+        [key7("Janay", "Ma")]: { hours: 0, gross: 6142.5 },
+        [key7("Joshua", "Moshood")]: { hours: 0, gross: 7e3 },
+        [key7("Liam", "Mc Nally")]: { hours: 0, gross: 6431.25 },
+        [key7("Urvish", "Patel")]: { hours: 0, gross: 396.07 },
+        [key7("Jessica", "Sawyer")]: { hours: 0, gross: 1062.6 },
+        [key7("Ghazale", "Shafie")]: { hours: 0, gross: 7500 },
+        [key7("Trinh", "Tran")]: { hours: 0, gross: 9528.75 },
+        [key7("Connor", "Watt")]: { hours: 0, gross: 7525 },
+        [key7("Kayla", "Zhu")]: { hours: 0, gross: 280 }
       } }
     ];
     SHARE_PERIODS = [
       { payDate: "2026-01-31", start: "2026-01-01", end: "2026-01-31", lines: {
-        [key6("Narcis", "Bejtic")]: { hours: 0, gross: 3195.68 },
-        [key6("Arnav", "Bhagawati")]: { hours: 0, gross: 2536.25 },
-        [key6("Thomas", "Bongiorno")]: { hours: 0, gross: 3043.5 },
-        [key6("Sarah", "Empey")]: { hours: 0, gross: 1690.83 },
-        [key6("Jon", "Gillham")]: { hours: 0, gross: 5275.4 },
-        [key6("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 2975.87 },
-        [key6("Liam", "Mc Nally")]: { hours: 0, gross: 2485.53 },
-        [key6("Trinh", "Tran")]: { hours: 0, gross: 3682.64 },
-        [key6("Connor", "Watt")]: { hours: 0, gross: 2840.6 }
+        [key7("Narcis", "Bejtic")]: { hours: 0, gross: 3195.68 },
+        [key7("Arnav", "Bhagawati")]: { hours: 0, gross: 2536.25 },
+        [key7("Thomas", "Bongiorno")]: { hours: 0, gross: 3043.5 },
+        [key7("Sarah", "Empey")]: { hours: 0, gross: 1690.83 },
+        [key7("Jon", "Gillham")]: { hours: 0, gross: 5275.4 },
+        [key7("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 2975.87 },
+        [key7("Liam", "Mc Nally")]: { hours: 0, gross: 2485.53 },
+        [key7("Trinh", "Tran")]: { hours: 0, gross: 3682.64 },
+        [key7("Connor", "Watt")]: { hours: 0, gross: 2840.6 }
       } },
       { payDate: "2026-02-28", start: "2026-02-01", end: "2026-02-28", lines: {
-        [key6("Narcis", "Bejtic")]: { hours: 0, gross: 2832.87 },
-        [key6("Arnav", "Bhagawati")]: { hours: 0, gross: 2248.31 },
-        [key6("Thomas", "Bongiorno")]: { hours: 0, gross: 2608.04 },
-        [key6("Sarah", "Empey")]: { hours: 0, gross: 1498.88 },
-        [key6("Jon", "Gillham")]: { hours: 0, gross: 4453.8 },
-        [key6("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 2241.86 },
-        [key6("Liam", "Mc Nally")]: { hours: 0, gross: 2203.35 },
-        [key6("Trinh", "Tran")]: { hours: 0, gross: 3264.55 },
-        [key6("Connor", "Watt")]: { hours: 0, gross: 2578.07 }
+        [key7("Narcis", "Bejtic")]: { hours: 0, gross: 2832.87 },
+        [key7("Arnav", "Bhagawati")]: { hours: 0, gross: 2248.31 },
+        [key7("Thomas", "Bongiorno")]: { hours: 0, gross: 2608.04 },
+        [key7("Sarah", "Empey")]: { hours: 0, gross: 1498.88 },
+        [key7("Jon", "Gillham")]: { hours: 0, gross: 4453.8 },
+        [key7("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 2241.86 },
+        [key7("Liam", "Mc Nally")]: { hours: 0, gross: 2203.35 },
+        [key7("Trinh", "Tran")]: { hours: 0, gross: 3264.55 },
+        [key7("Connor", "Watt")]: { hours: 0, gross: 2578.07 }
       } },
       { payDate: "2026-03-31", start: "2026-03-01", end: "2026-03-31", lines: {
-        [key6("Narcis", "Bejtic")]: { hours: 0, gross: 2848.58 },
-        [key6("Arnav", "Bhagawati")]: { hours: 0, gross: 2260.78 },
-        [key6("Thomas", "Bongiorno")]: { hours: 0, gross: 2622.51 },
-        [key6("Sarah", "Empey")]: { hours: 0, gross: 1507.19 },
-        [key6("Jon", "Gillham")]: { hours: 0, gross: 4478.5 },
-        [key6("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 2526.33 },
-        [key6("Liam", "Mc Nally")]: { hours: 0, gross: 2215.57 },
-        [key6("Ghazale", "Shafie")]: { hours: 0, gross: 1291.88 },
-        [key6("Trinh", "Tran")]: { hours: 0, gross: 3282.65 },
-        [key6("Connor", "Watt")]: { hours: 0, gross: 2592.36 }
+        [key7("Narcis", "Bejtic")]: { hours: 0, gross: 2848.58 },
+        [key7("Arnav", "Bhagawati")]: { hours: 0, gross: 2260.78 },
+        [key7("Thomas", "Bongiorno")]: { hours: 0, gross: 2622.51 },
+        [key7("Sarah", "Empey")]: { hours: 0, gross: 1507.19 },
+        [key7("Jon", "Gillham")]: { hours: 0, gross: 4478.5 },
+        [key7("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 2526.33 },
+        [key7("Liam", "Mc Nally")]: { hours: 0, gross: 2215.57 },
+        [key7("Ghazale", "Shafie")]: { hours: 0, gross: 1291.88 },
+        [key7("Trinh", "Tran")]: { hours: 0, gross: 3282.65 },
+        [key7("Connor", "Watt")]: { hours: 0, gross: 2592.36 }
       } },
       { payDate: "2026-04-30", start: "2026-04-01", end: "2026-04-30", lines: {
-        [key6("Narcis", "Bejtic")]: { hours: 0, gross: 3387.71 },
-        [key6("Arnav", "Bhagawati")]: { hours: 0, gross: 2688.66 },
-        [key6("Thomas", "Bongiorno")]: { hours: 0, gross: 3118.84 },
-        [key6("Sarah", "Empey")]: { hours: 0, gross: 1792.44 },
-        [key6("Jon", "Gillham")]: { hours: 0, gross: 5326.1 },
-        [key6("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 3004.47 },
-        [key6("Liam", "Mc Nally")]: { hours: 0, gross: 2634.88 },
-        [key6("Ghazale", "Shafie")]: { hours: 0, gross: 3072.75 },
-        [key6("Trinh", "Tran")]: { hours: 0, gross: 3903.93 },
-        [key6("Connor", "Watt")]: { hours: 0, gross: 3082.99 }
+        [key7("Narcis", "Bejtic")]: { hours: 0, gross: 3387.71 },
+        [key7("Arnav", "Bhagawati")]: { hours: 0, gross: 2688.66 },
+        [key7("Thomas", "Bongiorno")]: { hours: 0, gross: 3118.84 },
+        [key7("Sarah", "Empey")]: { hours: 0, gross: 1792.44 },
+        [key7("Jon", "Gillham")]: { hours: 0, gross: 5326.1 },
+        [key7("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 3004.47 },
+        [key7("Liam", "Mc Nally")]: { hours: 0, gross: 2634.88 },
+        [key7("Ghazale", "Shafie")]: { hours: 0, gross: 3072.75 },
+        [key7("Trinh", "Tran")]: { hours: 0, gross: 3903.93 },
+        [key7("Connor", "Watt")]: { hours: 0, gross: 3082.99 }
       } },
       { payDate: "2026-05-31", start: "2026-05-01", end: "2026-05-31", lines: {
-        [key6("Narcis", "Bejtic")]: { hours: 0, gross: 3563.83 },
-        [key6("Arnav", "Bhagawati")]: { hours: 0, gross: 2828.44 },
-        [key6("Thomas", "Bongiorno")]: { hours: 0, gross: 3280.99 },
-        [key6("Sarah", "Empey")]: { hours: 0, gross: 1885.63 },
-        [key6("Jon", "Gillham")]: { hours: 0, gross: 5603 },
-        [key6("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 3160.67 },
-        [key6("Liam", "Mc Nally")]: { hours: 0, gross: 2771.87 },
-        [key6("Ghazale", "Shafie")]: { hours: 0, gross: 3232.5 },
-        [key6("Trinh", "Tran")]: { hours: 0, gross: 4106.89 },
-        [key6("Connor", "Watt")]: { hours: 0, gross: 3243.28 }
+        [key7("Narcis", "Bejtic")]: { hours: 0, gross: 3563.83 },
+        [key7("Arnav", "Bhagawati")]: { hours: 0, gross: 2828.44 },
+        [key7("Thomas", "Bongiorno")]: { hours: 0, gross: 3280.99 },
+        [key7("Sarah", "Empey")]: { hours: 0, gross: 1885.63 },
+        [key7("Jon", "Gillham")]: { hours: 0, gross: 5603 },
+        [key7("Maddie", "Lambert-Taylor")]: { hours: 0, gross: 3160.67 },
+        [key7("Liam", "Mc Nally")]: { hours: 0, gross: 2771.87 },
+        [key7("Ghazale", "Shafie")]: { hours: 0, gross: 3232.5 },
+        [key7("Trinh", "Tran")]: { hours: 0, gross: 4106.89 },
+        [key7("Connor", "Watt")]: { hours: 0, gross: 3243.28 }
       } }
     ];
   }
@@ -62175,7 +62175,7 @@ async function backfill2303851Payroll() {
     if (!client) return { client: null, runsAdded: 0, skipped: "2303851 client not found" };
     const clientId = client.id;
     const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
-    let emp = existing.find((e) => key7(e.firstName, e.lastName) === key7(EMP.first, EMP.last));
+    let emp = existing.find((e) => key8(e.firstName, e.lastName) === key8(EMP.first, EMP.last));
     if (!emp) {
       const [ins] = await db.insert(employees).values({
         clientId,
@@ -62196,7 +62196,7 @@ async function backfill2303851Payroll() {
     let runsAdded = 0;
     for (const p of PERIODS5) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
-      const gross = round218(p.gross);
+      const gross = round219(p.gross);
       const [run3] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d6(p.start),
@@ -62220,19 +62220,19 @@ async function backfill2303851Payroll() {
     console.error("[2303851-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round218, norm15, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
+var round219, norm15, key8, d6, EMP, MONTHLY, HALF, PERIODS5;
 var init_seed_2303851_backfill = __esm({
   "api/seed-2303851-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round218 = (n) => Math.round(n * 100) / 100;
+    round219 = (n) => Math.round(n * 100) / 100;
     norm15 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key7 = (first, last) => `${norm15(last)}|${norm15(first)}`;
+    key8 = (first, last) => `${norm15(last)}|${norm15(first)}`;
     d6 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     EMP = { first: "Stacey", last: "Gillham" };
     MONTHLY = 8333.33;
-    HALF = round218(MONTHLY / 2);
+    HALF = round219(MONTHLY / 2);
     PERIODS5 = [
       { payDate: "2026-01-31", start: "2026-01-01", end: "2026-01-31", gross: MONTHLY },
       { payDate: "2026-02-28", start: "2026-02-01", end: "2026-02-28", gross: MONTHLY },
@@ -62299,8 +62299,8 @@ async function backfillFractalPayroll() {
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       if (!run3) continue;
-      await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: round219(MONTHLY2) });
-      await db.update(payRuns).set({ totalGross: round219(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: round220(MONTHLY2) });
+      await db.update(payRuns).set({ totalGross: round220(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[fractal-backfill] added ${runsAdded} run(s)`);
@@ -62309,13 +62309,13 @@ async function backfillFractalPayroll() {
     console.error("[fractal-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round219, norm16, d7, MONTHLY2, PERIODS6;
+var round220, norm16, d7, MONTHLY2, PERIODS6;
 var init_seed_fractal_backfill = __esm({
   "api/seed-fractal-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round219 = (n) => Math.round(n * 100) / 100;
+    round220 = (n) => Math.round(n * 100) / 100;
     norm16 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     d7 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     MONTHLY2 = 4500;
@@ -62344,9 +62344,9 @@ async function backfillMotionInvestPayroll() {
     const clientId = client.id;
     const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
-    for (const e of existing) empByKey.set(key8(e.firstName, e.lastName), e);
+    for (const e of existing) empByKey.set(key9(e.firstName, e.lastName), e);
     for (const r of ROSTER7) {
-      const k = key8(r.first, r.last);
+      const k = key9(r.first, r.last);
       const ex = empByKey.get(k);
       if (ex) {
         const patch = {};
@@ -62391,11 +62391,11 @@ async function backfillMotionInvestPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round220(v.gross);
+        const gross = round221(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round220(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round221(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[motioninvest-backfill] added ${runsAdded} run(s)`);
@@ -62404,15 +62404,15 @@ async function backfillMotionInvestPayroll() {
     console.error("[motioninvest-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round220, norm17, key8, d8, ROSTER7, PERIODS7;
+var round221, norm17, key9, d8, ROSTER7, PERIODS7;
 var init_seed_motioninvest_backfill = __esm({
   "api/seed-motioninvest-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round220 = (n) => Math.round(n * 100) / 100;
+    round221 = (n) => Math.round(n * 100) / 100;
     norm17 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key8 = (first, last) => `${norm17(last)}|${norm17(first)}`;
+    key9 = (first, last) => `${norm17(last)}|${norm17(first)}`;
     d8 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER7 = [
       { first: "Kelley", last: "Van Boxmeer", payType: "salary", salary: 75e3 },
@@ -62420,20 +62420,20 @@ var init_seed_motioninvest_backfill = __esm({
     ];
     PERIODS7 = [
       { payDate: "2026-01-31", start: "2026-01-01", end: "2026-01-31", lines: {
-        [key8("Ryan", "Gunn")]: { gross: 4320 },
-        [key8("Kelley", "Van Boxmeer")]: { gross: 6250 }
+        [key9("Ryan", "Gunn")]: { gross: 4320 },
+        [key9("Kelley", "Van Boxmeer")]: { gross: 6250 }
       } },
       { payDate: "2026-02-28", start: "2026-02-01", end: "2026-02-28", lines: {
-        [key8("Ryan", "Gunn")]: { gross: 3888 },
-        [key8("Kelley", "Van Boxmeer")]: { gross: 6250 }
+        [key9("Ryan", "Gunn")]: { gross: 3888 },
+        [key9("Kelley", "Van Boxmeer")]: { gross: 6250 }
       } },
       { payDate: "2026-03-31", start: "2026-03-01", end: "2026-03-31", lines: {
-        [key8("Ryan", "Gunn")]: { gross: 4428 },
-        [key8("Kelley", "Van Boxmeer")]: { gross: 6250 }
+        [key9("Ryan", "Gunn")]: { gross: 4428 },
+        [key9("Kelley", "Van Boxmeer")]: { gross: 6250 }
       } },
       { payDate: "2026-04-30", start: "2026-04-01", end: "2026-04-30", lines: {
-        [key8("Ryan", "Gunn")]: { gross: 4296 },
-        [key8("Kelley", "Van Boxmeer")]: { gross: 6250 }
+        [key9("Ryan", "Gunn")]: { gross: 4296 },
+        [key9("Kelley", "Van Boxmeer")]: { gross: 6250 }
       } }
     ];
   }
@@ -62453,9 +62453,9 @@ async function backfillMotionInvestRevShare() {
     const clientId = client.id;
     const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
-    for (const e of existing) empByKey.set(key9(e.firstName, e.lastName), e);
+    for (const e of existing) empByKey.set(key10(e.firstName, e.lastName), e);
     for (const s of SHARERS) {
-      const k = key9(s.first, s.last);
+      const k = key10(s.first, s.last);
       if (empByKey.get(k)) continue;
       const [ins] = await db.insert(employees).values({
         clientId,
@@ -62474,16 +62474,16 @@ async function backfillMotionInvestRevShare() {
     let cumNet = 0;
     const paidByKey = /* @__PURE__ */ new Map();
     for (const q2 of QUARTERS) {
-      cumNet = round221(cumNet + q2.netProfit);
+      cumNet = round222(cumNet + q2.netProfit);
       const note = `Revenue share bonus (${q2.label})`;
       const due = d9(q2.payDate) <= now;
       const exists2 = allRuns.some((r) => (r.notes || "") === note);
       const lines2 = [];
       for (const s of SHARERS) {
-        const k = key9(s.first, s.last);
-        const earned = round221(cumNet * s.pct);
+        const k = key10(s.first, s.last);
+        const earned = round222(cumNet * s.pct);
         const prior = paidByKey.get(k) || 0;
-        const payout = round221(Math.max(0, earned - prior));
+        const payout = round222(Math.max(0, earned - prior));
         paidByKey.set(k, prior + payout);
         const emp = empByKey.get(k);
         if (emp && payout > 0) lines2.push({ emp, amount: payout });
@@ -62507,7 +62507,7 @@ async function backfillMotionInvestRevShare() {
         totalGross += ln.amount;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: ln.emp.id, regularHours: 0, grossPay: ln.amount });
       }
-      await db.update(payRuns).set({ totalGross: round221(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round222(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[mi-revshare] added ${runsAdded} quarterly run(s)`);
@@ -62516,15 +62516,15 @@ async function backfillMotionInvestRevShare() {
     console.error("[mi-revshare] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round221, norm18, key9, d9, SHARERS, QUARTERS;
+var round222, norm18, key10, d9, SHARERS, QUARTERS;
 var init_seed_motioninvest_revshare = __esm({
   "api/seed-motioninvest-revshare.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round221 = (n) => Math.round(n * 100) / 100;
+    round222 = (n) => Math.round(n * 100) / 100;
     norm18 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key9 = (first, last) => `${norm18(last)}|${norm18(first)}`;
+    key10 = (first, last) => `${norm18(last)}|${norm18(first)}`;
     d9 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     SHARERS = [
       { first: "Kelley", last: "Van Boxmeer", pct: 0.1 },
@@ -62802,9 +62802,9 @@ async function dedupeTasks() {
   const allRules = await db.select().from(clientTaskRules);
   const ruleGroups = /* @__PURE__ */ new Map();
   for (const r of allRules) {
-    const key10 = `${r.clientId}::${r.ruleType ?? r.title}`;
-    if (!ruleGroups.has(key10)) ruleGroups.set(key10, []);
-    ruleGroups.get(key10).push(r);
+    const key11 = `${r.clientId}::${r.ruleType ?? r.title}`;
+    if (!ruleGroups.has(key11)) ruleGroups.set(key11, []);
+    ruleGroups.get(key11).push(r);
   }
   for (const group of ruleGroups.values()) {
     if (group.length < 2) continue;
@@ -62818,9 +62818,9 @@ async function dedupeTasks() {
   const allTasks = await db.select().from(tasks);
   const taskGroups = /* @__PURE__ */ new Map();
   for (const t2 of allTasks) {
-    const key10 = `${t2.clientId}::${(t2.title ?? "").trim().toLowerCase()}::${dayKey(t2.dueDate)}`;
-    if (!taskGroups.has(key10)) taskGroups.set(key10, []);
-    taskGroups.get(key10).push(t2);
+    const key11 = `${t2.clientId}::${(t2.title ?? "").trim().toLowerCase()}::${dayKey(t2.dueDate)}`;
+    if (!taskGroups.has(key11)) taskGroups.set(key11, []);
+    taskGroups.get(key11).push(t2);
   }
   for (const group of taskGroups.values()) {
     if (group.length < 2) continue;
@@ -64681,9 +64681,9 @@ async function dedupClient(clientId, names) {
   const groups = /* @__PURE__ */ new Map();
   for (const e of emps) {
     const k = idKey(e.firstName || "", e.lastName || "");
-    const arr3 = groups.get(k) || [];
-    arr3.push(e);
-    groups.set(k, arr3);
+    const arr4 = groups.get(k) || [];
+    arr4.push(e);
+    groups.set(k, arr4);
   }
   let merged = 0, renamed = 0;
   for (const [k, group] of groups) {
@@ -65542,9 +65542,9 @@ async function dedupeClients(confirm) {
   const groups = /* @__PURE__ */ new Map();
   for (const r of clientRows) {
     const id = Number(r.id ?? r[0]);
-    const key10 = `${norm20(r.name ?? r[1])}|${norm20(r.company ?? r[2])}`;
-    if (!groups.has(key10)) groups.set(key10, []);
-    groups.get(key10).push(id);
+    const key11 = `${norm20(r.name ?? r[1])}|${norm20(r.company ?? r[2])}`;
+    if (!groups.has(key11)) groups.set(key11, []);
+    groups.get(key11).push(id);
   }
   const mapping = [];
   for (const ids of groups.values()) {
@@ -65590,7 +65590,7 @@ async function dedupeClients(confirm) {
     let cnt = 0;
     for (const m of mapping) {
       try {
-        cnt += num4(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
+        cnt += num5(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
       } catch {
         held.add(m.dupe);
       }
@@ -65612,7 +65612,7 @@ async function dedupeClients(confirm) {
         const cols = asRows(await db.run(sql.raw(`PRAGMA table_info("${t2}")`))).map((c) => String(c.name ?? c[1])).filter((name2) => !["id", "createdAt", "updatedAt"].includes(name2));
         if (cols.length === 0) continue;
         const grp = cols.map((c) => `"${c}"`).join(",");
-        const n = num4(await db.run(sql.raw(
+        const n = num5(await db.run(sql.raw(
           `DELETE FROM "${t2}" WHERE "clientId" IN (${inList}) AND id NOT IN (SELECT MIN(id) FROM "${t2}" WHERE "clientId" IN (${inList}) GROUP BY ${grp})`
         )));
         if (n) report.dedupedRecords[t2] = n;
@@ -65622,14 +65622,14 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm20, asRows, num4;
+var norm20, asRows, num5;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
     norm20 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
-    num4 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
+    num5 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
 });
 
@@ -66430,10 +66430,10 @@ async function type(text2) {
   touch(s, `Type ${text2.length} chars`);
   await s.page.keyboard.type(text2, { delay: 15 });
 }
-async function pressKey(key10) {
+async function pressKey(key11) {
   const s = await ensureSession();
-  touch(s, `Key ${key10}`);
-  await s.page.keyboard.press(key10);
+  touch(s, `Key ${key11}`);
+  await s.page.keyboard.press(key11);
 }
 async function loginWithCredential(cred) {
   const s = await ensureSession();
@@ -66709,10 +66709,10 @@ function mapKey(k) {
   return m[k] || k;
 }
 async function callClaude2() {
-  const key10 = process.env.ANTHROPIC_API_KEY;
-  if (!key10) throw new Error("ANTHROPIC_API_KEY not set \u2014 the browser brain needs it.");
+  const key11 = process.env.ANTHROPIC_API_KEY;
+  if (!key11) throw new Error("ANTHROPIC_API_KEY not set \u2014 the browser brain needs it.");
   const { default: Anthropic2 } = await Promise.resolve().then(() => (init_sdk(), sdk_exports));
-  const client = new Anthropic2({ apiKey: key10 });
+  const client = new Anthropic2({ apiKey: key11 });
   return client.beta.messages.create(
     {
       model: MODEL,
@@ -66935,10 +66935,10 @@ ${(pageText || "").slice(0, 2500)}` });
   return content;
 }
 async function callClaude3(s) {
-  const key10 = process.env.ANTHROPIC_API_KEY;
-  if (!key10) throw new Error("ANTHROPIC_API_KEY not set \u2014 Figs' brain needs it.");
+  const key11 = process.env.ANTHROPIC_API_KEY;
+  if (!key11) throw new Error("ANTHROPIC_API_KEY not set \u2014 Figs' brain needs it.");
   const { default: Anthropic2 } = await Promise.resolve().then(() => (init_sdk(), sdk_exports));
-  const client = new Anthropic2({ apiKey: key10 });
+  const client = new Anthropic2({ apiKey: key11 });
   return client.messages.create({
     model: MODEL2,
     max_tokens: 1024,
@@ -67158,10 +67158,10 @@ var init_dist5 = __esm({
       const headerRecord = [];
       const rawHeaders = incoming.rawHeaders;
       for (let i = 0; i < rawHeaders.length; i += 2) {
-        const { [i]: key10, [i + 1]: value } = rawHeaders;
-        if (key10.charCodeAt(0) !== /*:*/
+        const { [i]: key11, [i + 1]: value } = rawHeaders;
+        if (key11.charCodeAt(0) !== /*:*/
         58) {
-          headerRecord.push([key10, value]);
+          headerRecord.push([key11, value]);
         }
       }
       return new Headers(headerRecord);
@@ -67506,8 +67506,8 @@ var init_dist5 = __esm({
         hasContentLength = headerObj.has("content-length");
         header2 = buildOutgoingHttpHeaders(headerObj);
       } else {
-        for (const key10 in header2) {
-          if (key10.length === 14 && key10.toLowerCase() === "content-length") {
+        for (const key11 in header2) {
+          if (key11.length === 14 && key11.toLowerCase() === "content-length") {
             hasContentLength = true;
             break;
           }
@@ -70759,47 +70759,47 @@ async function parseFormData(request, options) {
 }
 function convertFormDataToBodyData(formData, options) {
   const form = /* @__PURE__ */ Object.create(null);
-  formData.forEach((value, key10) => {
-    const shouldParseAllValues = options.all || key10.endsWith("[]");
+  formData.forEach((value, key11) => {
+    const shouldParseAllValues = options.all || key11.endsWith("[]");
     if (!shouldParseAllValues) {
-      form[key10] = value;
+      form[key11] = value;
     } else {
-      handleParsingAllValues(form, key10, value);
+      handleParsingAllValues(form, key11, value);
     }
   });
   if (options.dot) {
-    Object.entries(form).forEach(([key10, value]) => {
-      const shouldParseDotValues = key10.includes(".");
+    Object.entries(form).forEach(([key11, value]) => {
+      const shouldParseDotValues = key11.includes(".");
       if (shouldParseDotValues) {
-        handleParsingNestedValues(form, key10, value);
-        delete form[key10];
+        handleParsingNestedValues(form, key11, value);
+        delete form[key11];
       }
     });
   }
   return form;
 }
-var handleParsingAllValues = (form, key10, value) => {
-  if (form[key10] !== void 0) {
-    if (Array.isArray(form[key10])) {
+var handleParsingAllValues = (form, key11, value) => {
+  if (form[key11] !== void 0) {
+    if (Array.isArray(form[key11])) {
       ;
-      form[key10].push(value);
+      form[key11].push(value);
     } else {
-      form[key10] = [form[key10], value];
+      form[key11] = [form[key11], value];
     }
   } else {
-    if (!key10.endsWith("[]")) {
-      form[key10] = value;
+    if (!key11.endsWith("[]")) {
+      form[key11] = value;
     } else {
-      form[key10] = [value];
+      form[key11] = [value];
     }
   }
 };
-var handleParsingNestedValues = (form, key10, value) => {
-  if (/(?:^|\.)__proto__\./.test(key10)) {
+var handleParsingNestedValues = (form, key11, value) => {
+  if (/(?:^|\.)__proto__\./.test(key11)) {
     return;
   }
   let nestedForm = form;
-  const keys = key10.split(".");
+  const keys = key11.split(".");
   keys.forEach((key22, index) => {
     if (index === keys.length - 1) {
       nestedForm[key22] = value;
@@ -70943,26 +70943,26 @@ var _decodeURI = (value) => {
   }
   return value.indexOf("%") !== -1 ? tryDecode(value, decodeURIComponent_) : value;
 };
-var _getQueryParam = (url2, key10, multiple) => {
+var _getQueryParam = (url2, key11, multiple) => {
   let encoded;
-  if (!multiple && key10 && !/[%+]/.test(key10)) {
+  if (!multiple && key11 && !/[%+]/.test(key11)) {
     let keyIndex2 = url2.indexOf("?", 8);
     if (keyIndex2 === -1) {
       return void 0;
     }
-    if (!url2.startsWith(key10, keyIndex2 + 1)) {
-      keyIndex2 = url2.indexOf(`&${key10}`, keyIndex2 + 1);
+    if (!url2.startsWith(key11, keyIndex2 + 1)) {
+      keyIndex2 = url2.indexOf(`&${key11}`, keyIndex2 + 1);
     }
     while (keyIndex2 !== -1) {
-      const trailingKeyCode = url2.charCodeAt(keyIndex2 + key10.length + 1);
+      const trailingKeyCode = url2.charCodeAt(keyIndex2 + key11.length + 1);
       if (trailingKeyCode === 61) {
-        const valueIndex = keyIndex2 + key10.length + 2;
+        const valueIndex = keyIndex2 + key11.length + 2;
         const endIndex = url2.indexOf("&", valueIndex);
         return _decodeURI(url2.slice(valueIndex, endIndex === -1 ? void 0 : endIndex));
       } else if (trailingKeyCode == 38 || isNaN(trailingKeyCode)) {
         return "";
       }
-      keyIndex2 = url2.indexOf(`&${key10}`, keyIndex2 + 1);
+      keyIndex2 = url2.indexOf(`&${key11}`, keyIndex2 + 1);
     }
     encoded = /[%+]/.test(url2);
     if (!encoded) {
@@ -71008,11 +71008,11 @@ var _getQueryParam = (url2, key10, multiple) => {
       results[name2] ??= value;
     }
   }
-  return key10 ? results[key10] : results;
+  return key11 ? results[key11] : results;
 };
 var getQueryParam = _getQueryParam;
-var getQueryParams = (url2, key10) => {
-  return _getQueryParam(url2, key10, true);
+var getQueryParams = (url2, key11) => {
+  return _getQueryParam(url2, key11, true);
 };
 var decodeURIComponent_ = decodeURIComponent;
 
@@ -71058,21 +71058,21 @@ var HonoRequest = class {
     this.#matchResult = matchResult;
     this.#validatedData = {};
   }
-  param(key10) {
-    return key10 ? this.#getDecodedParam(key10) : this.#getAllDecodedParams();
+  param(key11) {
+    return key11 ? this.#getDecodedParam(key11) : this.#getAllDecodedParams();
   }
-  #getDecodedParam(key10) {
-    const paramKey = this.#matchResult[0][this.routeIndex][1][key10];
+  #getDecodedParam(key11) {
+    const paramKey = this.#matchResult[0][this.routeIndex][1][key11];
     const param2 = this.#getParamValue(paramKey);
     return param2 && /\%/.test(param2) ? tryDecodeURIComponent(param2) : param2;
   }
   #getAllDecodedParams() {
     const decoded = {};
     const keys = Object.keys(this.#matchResult[0][this.routeIndex][1]);
-    for (const key10 of keys) {
-      const value = this.#getParamValue(this.#matchResult[0][this.routeIndex][1][key10]);
+    for (const key11 of keys) {
+      const value = this.#getParamValue(this.#matchResult[0][this.routeIndex][1][key11]);
       if (value !== void 0) {
-        decoded[key10] = /\%/.test(value) ? tryDecodeURIComponent(value) : value;
+        decoded[key11] = /\%/.test(value) ? tryDecodeURIComponent(value) : value;
       }
     }
     return decoded;
@@ -71080,28 +71080,28 @@ var HonoRequest = class {
   #getParamValue(paramKey) {
     return this.#matchResult[1] ? this.#matchResult[1][paramKey] : paramKey;
   }
-  query(key10) {
-    return getQueryParam(this.url, key10);
+  query(key11) {
+    return getQueryParam(this.url, key11);
   }
-  queries(key10) {
-    return getQueryParams(this.url, key10);
+  queries(key11) {
+    return getQueryParams(this.url, key11);
   }
   header(name2) {
     if (name2) {
       return this.raw.headers.get(name2) ?? void 0;
     }
     const headerData = {};
-    this.raw.headers.forEach((value, key10) => {
-      headerData[key10] = value;
+    this.raw.headers.forEach((value, key11) => {
+      headerData[key11] = value;
     });
     return headerData;
   }
   async parseBody(options) {
     return parseBody(this, options);
   }
-  #cachedBody = (key10) => {
+  #cachedBody = (key11) => {
     const { bodyCache, raw: raw2 } = this;
-    const cachedBody = bodyCache[key10];
+    const cachedBody = bodyCache[key11];
     if (cachedBody) {
       return cachedBody;
     }
@@ -71111,10 +71111,10 @@ var HonoRequest = class {
         if (anyCachedKey === "json") {
           body = JSON.stringify(body);
         }
-        return new Response(body)[key10]();
+        return new Response(body)[key11]();
       });
     }
-    return bodyCache[key10] = raw2[key10]();
+    return bodyCache[key11] = raw2[key11]();
   };
   /**
    * `.json()` can parse Request body of type `application/json`
@@ -71561,9 +71561,9 @@ var Context = class {
    * })
    * ```
    */
-  set = (key10, value) => {
+  set = (key11, value) => {
     this.#var ??= /* @__PURE__ */ new Map();
-    this.#var.set(key10, value);
+    this.#var.set(key11, value);
   };
   /**
    * `.get()` can use the value specified by the key.
@@ -71578,8 +71578,8 @@ var Context = class {
    * })
    * ```
    */
-  get = (key10) => {
-    return this.#var ? this.#var.get(key10) : void 0;
+  get = (key11) => {
+    return this.#var ? this.#var.get(key11) : void 0;
   };
   /**
    * `.var` can access the value of a variable.
@@ -71602,11 +71602,11 @@ var Context = class {
     const responseHeaders = this.#res ? new Headers(this.#res.headers) : this.#preparedHeaders ?? new Headers();
     if (typeof arg === "object" && "headers" in arg) {
       const argHeaders = arg.headers instanceof Headers ? arg.headers : new Headers(arg.headers);
-      for (const [key10, value] of argHeaders) {
-        if (key10.toLowerCase() === "set-cookie") {
-          responseHeaders.append(key10, value);
+      for (const [key11, value] of argHeaders) {
+        if (key11.toLowerCase() === "set-cookie") {
+          responseHeaders.append(key11, value);
         } else {
-          responseHeaders.set(key10, value);
+          responseHeaders.set(key11, value);
         }
       }
     }
@@ -72346,8 +72346,8 @@ function buildMatcherFromPreprocessedRoutes(routes) {
       const paramIndexMap = /* @__PURE__ */ Object.create(null);
       paramCount -= 1;
       for (; paramCount >= 0; paramCount--) {
-        const [key10, value] = paramAssoc[paramCount];
-        paramIndexMap[key10] = value;
+        const [key11, value] = paramAssoc[paramCount];
+        paramIndexMap[key11] = value;
       }
       return [h, paramIndexMap];
     });
@@ -72567,20 +72567,20 @@ var Node2 = class _Node2 {
       const p = parts[i];
       const nextP = parts[i + 1];
       const pattern = getPattern(p, nextP);
-      const key10 = Array.isArray(pattern) ? pattern[0] : p;
-      if (key10 in curNode.#children) {
-        curNode = curNode.#children[key10];
+      const key11 = Array.isArray(pattern) ? pattern[0] : p;
+      if (key11 in curNode.#children) {
+        curNode = curNode.#children[key11];
         if (pattern) {
           possibleKeys.push(pattern[1]);
         }
         continue;
       }
-      curNode.#children[key10] = new _Node2();
+      curNode.#children[key11] = new _Node2();
       if (pattern) {
         curNode.#patterns.push(pattern);
         possibleKeys.push(pattern[1]);
       }
-      curNode = curNode.#children[key10];
+      curNode = curNode.#children[key11];
     }
     curNode.#methods.push({
       [method]: {
@@ -72601,9 +72601,9 @@ var Node2 = class _Node2 {
         handlerSets.push(handlerSet);
         if (nodeParams !== emptyParams || params && params !== emptyParams) {
           for (let i2 = 0, len2 = handlerSet.possibleKeys.length; i2 < len2; i2++) {
-            const key10 = handlerSet.possibleKeys[i2];
+            const key11 = handlerSet.possibleKeys[i2];
             const processed = processedSet[handlerSet.score];
-            handlerSet.params[key10] = params?.[key10] && !processed ? params[key10] : nodeParams[key10] ?? params?.[key10];
+            handlerSet.params[key11] = params?.[key11] && !processed ? params[key11] : nodeParams[key11] ?? params?.[key11];
             processedSet[handlerSet.score] = true;
           }
         }
@@ -72649,11 +72649,11 @@ var Node2 = class _Node2 {
             }
             continue;
           }
-          const [key10, name2, matcher] = pattern;
+          const [key11, name2, matcher] = pattern;
           if (!part && !(matcher instanceof RegExp)) {
             continue;
           }
-          const child = node.#children[key10];
+          const child = node.#children[key11];
           if (matcher instanceof RegExp) {
             if (partOffsets === null) {
               partOffsets = new Array(len);
@@ -72843,8 +72843,8 @@ var cors = (options) => {
     }
   })(opts.allowMethods);
   return async function cors2(c, next) {
-    function set2(key10, value) {
-      c.res.headers.set(key10, value);
+    function set2(key11, value) {
+      c.res.headers.set(key11, value);
     }
     const allowOrigin = await findAllowOrigin(c.req.header("origin") || "", c);
     if (allowOrigin) {
@@ -72976,7 +72976,7 @@ function parseConnectionParamsFromUnknown(parsed) {
     if (parsed === null) return null;
     if (!isObject(parsed)) throw new Error("Expected object");
     const nonStringValues = Object.entries(parsed).filter(([_key, value]) => typeof value !== "string");
-    if (nonStringValues.length > 0) throw new Error(`Expected connectionParams to be string values. Got ${nonStringValues.map(([key10, value]) => `${key10}: ${typeof value}`).join(", ")}`);
+    if (nonStringValues.length > 0) throw new Error(`Expected connectionParams to be string values. Got ${nonStringValues.map(([key11, value]) => `${key11}: ${typeof value}`).join(", ")}`);
     return parsed;
   } catch (cause) {
     throw new TRPCError({
@@ -73391,16 +73391,16 @@ function withResolvers() {
     reject
   };
 }
-function listWithMember(arr3, member) {
-  return [...arr3, member];
+function listWithMember(arr4, member) {
+  return [...arr4, member];
 }
-function listWithoutIndex(arr3, index) {
-  return [...arr3.slice(0, index), ...arr3.slice(index + 1)];
+function listWithoutIndex(arr4, index) {
+  return [...arr4.slice(0, index), ...arr4.slice(index + 1)];
 }
-function listWithoutMember(arr3, member) {
-  const index = arr3.indexOf(member);
-  if (index !== -1) return listWithoutIndex(arr3, index);
-  return arr3;
+function listWithoutMember(arr4, member) {
+  const index = arr4.indexOf(member);
+  if (index !== -1) return listWithoutIndex(arr4, index);
+  return arr4;
 }
 var _Symbol;
 var _Symbol$dispose;
@@ -74011,19 +74011,19 @@ function _createBatchStreamProducer() {
       if (!isPlainObject(value)) return [[value]];
       const newObj = emptyObject();
       const asyncValues = [];
-      for (const [key10, item] of Object.entries(value)) {
-        const transformed = encodeAsync3(item, [...path7, key10]);
+      for (const [key11, item] of Object.entries(value)) {
+        const transformed = encodeAsync3(item, [...path7, key11]);
         if (!transformed) {
-          newObj[key10] = item;
+          newObj[key11] = item;
           continue;
         }
-        newObj[key10] = placeholder2;
-        asyncValues.push([key10, ...transformed]);
+        newObj[key11] = placeholder2;
+        asyncValues.push([key11, ...transformed]);
       }
       return [[newObj], ...asyncValues];
     }
     const newHead = emptyObject();
-    for (const [key10, item] of Object.entries(data)) newHead[key10] = encode7(item, [key10]);
+    for (const [key11, item] of Object.entries(data)) newHead[key11] = encode7(item, [key11]);
     yield newHead;
     let iterable = mergedIterables;
     if (opts.pingMs) iterable = withPing(mergedIterables, opts.pingMs);
@@ -74244,10 +74244,10 @@ function initResponse(initOpts) {
     })) === null || _info$calls$find === void 0 || (_info$calls$find = _info$calls$find.procedure) === null || _info$calls$find === void 0 ? void 0 : _info$calls$find._def.type) !== null && _info$calls$find$proc !== void 0 ? _info$calls$find$proc : "unknown"
   })) !== null && _responseMeta !== void 0 ? _responseMeta : {};
   if (meta3.headers) {
-    if (meta3.headers instanceof Headers) for (const [key10, value] of meta3.headers.entries()) headers.append(key10, value);
+    if (meta3.headers instanceof Headers) for (const [key11, value] of meta3.headers.entries()) headers.append(key11, value);
     else
-      for (const [key10, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) headers.append(key10, v);
-      else if (typeof value === "string") headers.set(key10, value);
+      for (const [key11, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) headers.append(key11, v);
+      else if (typeof value === "string") headers.set(key11, value);
   }
   if (meta3.status) status = meta3.status;
   return { status };
@@ -74477,7 +74477,7 @@ async function resolveResponse(opts) {
               return shape;
             }
           }));
-          for (const [key10, value] of Object.entries(sseHeaders)) headers.set(key10, value);
+          for (const [key11, value] of Object.entries(sseHeaders)) headers.set(key11, value);
           const headResponse$1 = initResponse({
             ctx: ctxManager.valueOrUndefined(),
             info,
@@ -74674,10 +74674,10 @@ async function fetchRequestHandler(opts) {
       var _opts$responseMeta;
       const meta3 = (_opts$responseMeta = opts.responseMeta) === null || _opts$responseMeta === void 0 ? void 0 : _opts$responseMeta.call(opts, data);
       if (meta3 === null || meta3 === void 0 ? void 0 : meta3.headers) {
-        if (meta3.headers instanceof Headers) for (const [key10, value] of meta3.headers.entries()) resHeaders.append(key10, value);
+        if (meta3.headers instanceof Headers) for (const [key11, value] of meta3.headers.entries()) resHeaders.append(key11, value);
         else
-          for (const [key10, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) resHeaders.append(key10, v);
-          else if (typeof value === "string") resHeaders.set(key10, value);
+          for (const [key11, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) resHeaders.append(key11, v);
+          else if (typeof value === "string") resHeaders.set(key11, value);
       }
       return {
         headers: resHeaders,
@@ -75682,11 +75682,11 @@ function encodeBase64(input) {
     return input.toBase64();
   }
   const CHUNK_SIZE = 32768;
-  const arr3 = [];
+  const arr4 = [];
   for (let i = 0; i < input.length; i += CHUNK_SIZE) {
-    arr3.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
+    arr4.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
   }
-  return btoa(arr3.join(""));
+  return btoa(arr4.join(""));
 }
 function decodeBase64(encoded) {
   if (Uint8Array.fromBase64) {
@@ -75807,20 +75807,20 @@ function getNamedCurve(alg) {
       throw new Error("unreachable");
   }
 }
-function checkUsage(key10, usage) {
-  if (usage && !key10.usages.includes(usage)) {
+function checkUsage(key11, usage) {
+  if (usage && !key11.usages.includes(usage)) {
     throw new TypeError(`CryptoKey does not support this operation, its usages must include ${usage}.`);
   }
 }
-function checkSigCryptoKey(key10, alg, usage) {
+function checkSigCryptoKey(key11, alg, usage) {
   switch (alg) {
     case "HS256":
     case "HS384":
     case "HS512": {
-      if (!isAlgorithm(key10.algorithm, "HMAC"))
+      if (!isAlgorithm(key11.algorithm, "HMAC"))
         throw unusable("HMAC");
       const expected = parseInt(alg.slice(2), 10);
-      const actual = getHashLength(key10.algorithm.hash);
+      const actual = getHashLength(key11.algorithm.hash);
       if (actual !== expected)
         throw unusable(`SHA-${expected}`, "algorithm.hash");
       break;
@@ -75828,10 +75828,10 @@ function checkSigCryptoKey(key10, alg, usage) {
     case "RS256":
     case "RS384":
     case "RS512": {
-      if (!isAlgorithm(key10.algorithm, "RSASSA-PKCS1-v1_5"))
+      if (!isAlgorithm(key11.algorithm, "RSASSA-PKCS1-v1_5"))
         throw unusable("RSASSA-PKCS1-v1_5");
       const expected = parseInt(alg.slice(2), 10);
-      const actual = getHashLength(key10.algorithm.hash);
+      const actual = getHashLength(key11.algorithm.hash);
       if (actual !== expected)
         throw unusable(`SHA-${expected}`, "algorithm.hash");
       break;
@@ -75839,34 +75839,34 @@ function checkSigCryptoKey(key10, alg, usage) {
     case "PS256":
     case "PS384":
     case "PS512": {
-      if (!isAlgorithm(key10.algorithm, "RSA-PSS"))
+      if (!isAlgorithm(key11.algorithm, "RSA-PSS"))
         throw unusable("RSA-PSS");
       const expected = parseInt(alg.slice(2), 10);
-      const actual = getHashLength(key10.algorithm.hash);
+      const actual = getHashLength(key11.algorithm.hash);
       if (actual !== expected)
         throw unusable(`SHA-${expected}`, "algorithm.hash");
       break;
     }
     case "Ed25519":
     case "EdDSA": {
-      if (!isAlgorithm(key10.algorithm, "Ed25519"))
+      if (!isAlgorithm(key11.algorithm, "Ed25519"))
         throw unusable("Ed25519");
       break;
     }
     case "ML-DSA-44":
     case "ML-DSA-65":
     case "ML-DSA-87": {
-      if (!isAlgorithm(key10.algorithm, alg))
+      if (!isAlgorithm(key11.algorithm, alg))
         throw unusable(alg);
       break;
     }
     case "ES256":
     case "ES384":
     case "ES512": {
-      if (!isAlgorithm(key10.algorithm, "ECDSA"))
+      if (!isAlgorithm(key11.algorithm, "ECDSA"))
         throw unusable("ECDSA");
       const expected = getNamedCurve(alg);
-      const actual = key10.algorithm.namedCurve;
+      const actual = key11.algorithm.namedCurve;
       if (actual !== expected)
         throw unusable(expected, "algorithm.namedCurve");
       break;
@@ -75874,7 +75874,7 @@ function checkSigCryptoKey(key10, alg, usage) {
     default:
       throw new TypeError("CryptoKey does not support this operation");
   }
-  checkUsage(key10, usage);
+  checkUsage(key11, usage);
 }
 
 // node_modules/jose/dist/webapi/lib/invalid_key_input.js
@@ -75903,17 +75903,17 @@ var invalidKeyInput = (actual, ...types) => message("Key must be ", actual, ...t
 var withAlg = (alg, actual, ...types) => message(`Key for the ${alg} algorithm must be `, actual, ...types);
 
 // node_modules/jose/dist/webapi/lib/is_key_like.js
-var isCryptoKey = (key10) => {
-  if (key10?.[Symbol.toStringTag] === "CryptoKey")
+var isCryptoKey = (key11) => {
+  if (key11?.[Symbol.toStringTag] === "CryptoKey")
     return true;
   try {
-    return key10 instanceof CryptoKey;
+    return key11 instanceof CryptoKey;
   } catch {
     return false;
   }
 };
-var isKeyObject = (key10) => key10?.[Symbol.toStringTag] === "KeyObject";
-var isKeyLike = (key10) => isCryptoKey(key10) || isKeyObject(key10);
+var isKeyObject = (key11) => key11?.[Symbol.toStringTag] === "KeyObject";
+var isKeyLike = (key11) => isCryptoKey(key11) || isKeyObject(key11);
 
 // node_modules/jose/dist/webapi/lib/is_disjoint.js
 function isDisjoint(...headers) {
@@ -75955,9 +75955,9 @@ function isObject3(input) {
 }
 
 // node_modules/jose/dist/webapi/lib/check_key_length.js
-function checkKeyLength(alg, key10) {
+function checkKeyLength(alg, key11) {
   if (alg.startsWith("RS") || alg.startsWith("PS")) {
-    const { modulusLength } = key10.algorithm;
+    const { modulusLength } = key11.algorithm;
     if (typeof modulusLength !== "number" || modulusLength < 2048) {
       throw new TypeError(`${alg} requires key modulusLength to be 2048 bits or larger`);
     }
@@ -76117,24 +76117,24 @@ function validateAlgorithms(option, algorithms) {
 }
 
 // node_modules/jose/dist/webapi/lib/is_jwk.js
-var isJWK = (key10) => isObject3(key10) && typeof key10.kty === "string";
-var isPrivateJWK = (key10) => key10.kty !== "oct" && (key10.kty === "AKP" && typeof key10.priv === "string" || typeof key10.d === "string");
-var isPublicJWK = (key10) => key10.kty !== "oct" && key10.d === void 0 && key10.priv === void 0;
-var isSecretJWK = (key10) => key10.kty === "oct" && typeof key10.k === "string";
+var isJWK = (key11) => isObject3(key11) && typeof key11.kty === "string";
+var isPrivateJWK = (key11) => key11.kty !== "oct" && (key11.kty === "AKP" && typeof key11.priv === "string" || typeof key11.d === "string");
+var isPublicJWK = (key11) => key11.kty !== "oct" && key11.d === void 0 && key11.priv === void 0;
+var isSecretJWK = (key11) => key11.kty === "oct" && typeof key11.k === "string";
 
 // node_modules/jose/dist/webapi/lib/normalize_key.js
 var cache;
-var handleJWK = async (key10, jwk, alg, freeze = false) => {
+var handleJWK = async (key11, jwk, alg, freeze = false) => {
   cache ||= /* @__PURE__ */ new WeakMap();
-  let cached2 = cache.get(key10);
+  let cached2 = cache.get(key11);
   if (cached2?.[alg]) {
     return cached2[alg];
   }
   const cryptoKey = await jwkToKey({ ...jwk, alg });
   if (freeze)
-    Object.freeze(key10);
+    Object.freeze(key11);
   if (!cached2) {
-    cache.set(key10, { [alg]: cryptoKey });
+    cache.set(key11, { [alg]: cryptoKey });
   } else {
     cached2[alg] = cryptoKey;
   }
@@ -76261,42 +76261,42 @@ var handleKeyObject = (keyObject, alg) => {
   }
   return cryptoKey;
 };
-async function normalizeKey(key10, alg) {
-  if (key10 instanceof Uint8Array) {
-    return key10;
+async function normalizeKey(key11, alg) {
+  if (key11 instanceof Uint8Array) {
+    return key11;
   }
-  if (isCryptoKey(key10)) {
-    return key10;
+  if (isCryptoKey(key11)) {
+    return key11;
   }
-  if (isKeyObject(key10)) {
-    if (key10.type === "secret") {
-      return key10.export();
+  if (isKeyObject(key11)) {
+    if (key11.type === "secret") {
+      return key11.export();
     }
-    if ("toCryptoKey" in key10 && typeof key10.toCryptoKey === "function") {
+    if ("toCryptoKey" in key11 && typeof key11.toCryptoKey === "function") {
       try {
-        return handleKeyObject(key10, alg);
+        return handleKeyObject(key11, alg);
       } catch (err) {
         if (err instanceof TypeError) {
           throw err;
         }
       }
     }
-    let jwk = key10.export({ format: "jwk" });
-    return handleJWK(key10, jwk, alg);
+    let jwk = key11.export({ format: "jwk" });
+    return handleJWK(key11, jwk, alg);
   }
-  if (isJWK(key10)) {
-    if (key10.k) {
-      return decode4(key10.k);
+  if (isJWK(key11)) {
+    if (key11.k) {
+      return decode4(key11.k);
     }
-    return handleJWK(key10, key10, alg, true);
+    return handleJWK(key11, key11, alg, true);
   }
   throw new Error("unreachable");
 }
 
 // node_modules/jose/dist/webapi/lib/check_key_type.js
-var tag = (key10) => key10?.[Symbol.toStringTag];
-var jwkMatchesOp = (alg, key10, usage) => {
-  if (key10.use !== void 0) {
+var tag = (key11) => key11?.[Symbol.toStringTag];
+var jwkMatchesOp = (alg, key11, usage) => {
+  if (key11.use !== void 0) {
     let expected;
     switch (usage) {
       case "sign":
@@ -76308,14 +76308,14 @@ var jwkMatchesOp = (alg, key10, usage) => {
         expected = "enc";
         break;
     }
-    if (key10.use !== expected) {
+    if (key11.use !== expected) {
       throw new TypeError(`Invalid key for this operation, its "use" must be "${expected}" when present`);
     }
   }
-  if (key10.alg !== void 0 && key10.alg !== alg) {
+  if (key11.alg !== void 0 && key11.alg !== alg) {
     throw new TypeError(`Invalid key for this operation, its "alg" must be "${alg}" when present`);
   }
-  if (Array.isArray(key10.key_ops)) {
+  if (Array.isArray(key11.key_ops)) {
     let expectedKeyOp;
     switch (true) {
       case (usage === "sign" || usage === "verify"):
@@ -76340,76 +76340,76 @@ var jwkMatchesOp = (alg, key10, usage) => {
         expectedKeyOp = alg.startsWith("RSA") ? "unwrapKey" : "deriveBits";
         break;
     }
-    if (expectedKeyOp && key10.key_ops?.includes?.(expectedKeyOp) === false) {
+    if (expectedKeyOp && key11.key_ops?.includes?.(expectedKeyOp) === false) {
       throw new TypeError(`Invalid key for this operation, its "key_ops" must include "${expectedKeyOp}" when present`);
     }
   }
   return true;
 };
-var symmetricTypeCheck = (alg, key10, usage) => {
-  if (key10 instanceof Uint8Array)
+var symmetricTypeCheck = (alg, key11, usage) => {
+  if (key11 instanceof Uint8Array)
     return;
-  if (isJWK(key10)) {
-    if (isSecretJWK(key10) && jwkMatchesOp(alg, key10, usage))
+  if (isJWK(key11)) {
+    if (isSecretJWK(key11) && jwkMatchesOp(alg, key11, usage))
       return;
     throw new TypeError(`JSON Web Key for symmetric algorithms must have JWK "kty" (Key Type) equal to "oct" and the JWK "k" (Key Value) present`);
   }
-  if (!isKeyLike(key10)) {
-    throw new TypeError(withAlg(alg, key10, "CryptoKey", "KeyObject", "JSON Web Key", "Uint8Array"));
+  if (!isKeyLike(key11)) {
+    throw new TypeError(withAlg(alg, key11, "CryptoKey", "KeyObject", "JSON Web Key", "Uint8Array"));
   }
-  if (key10.type !== "secret") {
-    throw new TypeError(`${tag(key10)} instances for symmetric algorithms must be of type "secret"`);
+  if (key11.type !== "secret") {
+    throw new TypeError(`${tag(key11)} instances for symmetric algorithms must be of type "secret"`);
   }
 };
-var asymmetricTypeCheck = (alg, key10, usage) => {
-  if (isJWK(key10)) {
+var asymmetricTypeCheck = (alg, key11, usage) => {
+  if (isJWK(key11)) {
     switch (usage) {
       case "decrypt":
       case "sign":
-        if (isPrivateJWK(key10) && jwkMatchesOp(alg, key10, usage))
+        if (isPrivateJWK(key11) && jwkMatchesOp(alg, key11, usage))
           return;
         throw new TypeError(`JSON Web Key for this operation must be a private JWK`);
       case "encrypt":
       case "verify":
-        if (isPublicJWK(key10) && jwkMatchesOp(alg, key10, usage))
+        if (isPublicJWK(key11) && jwkMatchesOp(alg, key11, usage))
           return;
         throw new TypeError(`JSON Web Key for this operation must be a public JWK`);
     }
   }
-  if (!isKeyLike(key10)) {
-    throw new TypeError(withAlg(alg, key10, "CryptoKey", "KeyObject", "JSON Web Key"));
+  if (!isKeyLike(key11)) {
+    throw new TypeError(withAlg(alg, key11, "CryptoKey", "KeyObject", "JSON Web Key"));
   }
-  if (key10.type === "secret") {
-    throw new TypeError(`${tag(key10)} instances for asymmetric algorithms must not be of type "secret"`);
+  if (key11.type === "secret") {
+    throw new TypeError(`${tag(key11)} instances for asymmetric algorithms must not be of type "secret"`);
   }
-  if (key10.type === "public") {
+  if (key11.type === "public") {
     switch (usage) {
       case "sign":
-        throw new TypeError(`${tag(key10)} instances for asymmetric algorithm signing must be of type "private"`);
+        throw new TypeError(`${tag(key11)} instances for asymmetric algorithm signing must be of type "private"`);
       case "decrypt":
-        throw new TypeError(`${tag(key10)} instances for asymmetric algorithm decryption must be of type "private"`);
+        throw new TypeError(`${tag(key11)} instances for asymmetric algorithm decryption must be of type "private"`);
     }
   }
-  if (key10.type === "private") {
+  if (key11.type === "private") {
     switch (usage) {
       case "verify":
-        throw new TypeError(`${tag(key10)} instances for asymmetric algorithm verifying must be of type "public"`);
+        throw new TypeError(`${tag(key11)} instances for asymmetric algorithm verifying must be of type "public"`);
       case "encrypt":
-        throw new TypeError(`${tag(key10)} instances for asymmetric algorithm encryption must be of type "public"`);
+        throw new TypeError(`${tag(key11)} instances for asymmetric algorithm encryption must be of type "public"`);
     }
   }
 };
-function checkKeyType(alg, key10, usage) {
+function checkKeyType(alg, key11, usage) {
   switch (alg.substring(0, 2)) {
     case "A1":
     case "A2":
     case "di":
     case "HS":
     case "PB":
-      symmetricTypeCheck(alg, key10, usage);
+      symmetricTypeCheck(alg, key11, usage);
       break;
     default:
-      asymmetricTypeCheck(alg, key10, usage);
+      asymmetricTypeCheck(alg, key11, usage);
   }
 }
 
@@ -76446,20 +76446,20 @@ function subtleAlgorithm(alg, algorithm) {
 }
 
 // node_modules/jose/dist/webapi/lib/get_sign_verify_key.js
-async function getSigKey(alg, key10, usage) {
-  if (key10 instanceof Uint8Array) {
+async function getSigKey(alg, key11, usage) {
+  if (key11 instanceof Uint8Array) {
     if (!alg.startsWith("HS")) {
-      throw new TypeError(invalidKeyInput(key10, "CryptoKey", "KeyObject", "JSON Web Key"));
+      throw new TypeError(invalidKeyInput(key11, "CryptoKey", "KeyObject", "JSON Web Key"));
     }
-    return crypto.subtle.importKey("raw", key10, { hash: `SHA-${alg.slice(-3)}`, name: "HMAC" }, false, [usage]);
+    return crypto.subtle.importKey("raw", key11, { hash: `SHA-${alg.slice(-3)}`, name: "HMAC" }, false, [usage]);
   }
-  checkSigCryptoKey(key10, alg, usage);
-  return key10;
+  checkSigCryptoKey(key11, alg, usage);
+  return key11;
 }
 
 // node_modules/jose/dist/webapi/lib/verify.js
-async function verify(alg, key10, signature, data) {
-  const cryptoKey = await getSigKey(alg, key10, "verify");
+async function verify(alg, key11, signature, data) {
+  const cryptoKey = await getSigKey(alg, key11, "verify");
   checkKeyLength(alg, cryptoKey);
   const algorithm = subtleAlgorithm(alg, cryptoKey.algorithm);
   try {
@@ -76470,7 +76470,7 @@ async function verify(alg, key10, signature, data) {
 }
 
 // node_modules/jose/dist/webapi/jws/flattened/verify.js
-async function flattenedVerify(jws, key10, options) {
+async function flattenedVerify(jws, key11, options) {
   if (!isObject3(jws)) {
     throw new JWSInvalid("Flattened JWS must be an object");
   }
@@ -76529,11 +76529,11 @@ async function flattenedVerify(jws, key10, options) {
     throw new JWSInvalid("JWS Payload must be a string or an Uint8Array instance");
   }
   let resolvedKey = false;
-  if (typeof key10 === "function") {
-    key10 = await key10(parsedProt, jws);
+  if (typeof key11 === "function") {
+    key11 = await key11(parsedProt, jws);
     resolvedKey = true;
   }
-  checkKeyType(alg, key10, "verify");
+  checkKeyType(alg, key11, "verify");
   const data = concat(jws.protected !== void 0 ? encode4(jws.protected) : new Uint8Array(), encode4("."), typeof jws.payload === "string" ? b64 ? encode4(jws.payload) : encoder.encode(jws.payload) : jws.payload);
   let signature;
   try {
@@ -76541,7 +76541,7 @@ async function flattenedVerify(jws, key10, options) {
   } catch {
     throw new JWSInvalid("Failed to base64url decode the signature");
   }
-  const k = await normalizeKey(key10, alg);
+  const k = await normalizeKey(key11, alg);
   const verified = await verify(alg, k, signature, data);
   if (!verified) {
     throw new JWSSignatureVerificationFailed();
@@ -76572,7 +76572,7 @@ async function flattenedVerify(jws, key10, options) {
 }
 
 // node_modules/jose/dist/webapi/jws/compact/verify.js
-async function compactVerify(jws, key10, options) {
+async function compactVerify(jws, key11, options) {
   if (jws instanceof Uint8Array) {
     jws = decoder.decode(jws);
   }
@@ -76583,9 +76583,9 @@ async function compactVerify(jws, key10, options) {
   if (length !== 3) {
     throw new JWSInvalid("Invalid Compact JWS");
   }
-  const verified = await flattenedVerify({ payload, protected: protectedHeader, signature }, key10, options);
+  const verified = await flattenedVerify({ payload, protected: protectedHeader, signature }, key11, options);
   const result = { payload: verified.payload, protectedHeader: verified.protectedHeader };
-  if (typeof key10 === "function") {
+  if (typeof key11 === "function") {
     return { ...result, key: verified.key };
   }
   return result;
@@ -76817,22 +76817,22 @@ var JWTClaimsBuilder = class {
 };
 
 // node_modules/jose/dist/webapi/jwt/verify.js
-async function jwtVerify(jwt2, key10, options) {
-  const verified = await compactVerify(jwt2, key10, options);
+async function jwtVerify(jwt2, key11, options) {
+  const verified = await compactVerify(jwt2, key11, options);
   if (verified.protectedHeader.crit?.includes("b64") && verified.protectedHeader.b64 === false) {
     throw new JWTInvalid("JWTs MUST NOT use unencoded payload");
   }
   const payload = validateClaimsSet(verified.protectedHeader, verified.payload, options);
   const result = { payload, protectedHeader: verified.protectedHeader };
-  if (typeof key10 === "function") {
+  if (typeof key11 === "function") {
     return { ...result, key: verified.key };
   }
   return result;
 }
 
 // node_modules/jose/dist/webapi/lib/sign.js
-async function sign(alg, key10, data) {
-  const cryptoKey = await getSigKey(alg, key10, "sign");
+async function sign(alg, key11, data) {
+  const cryptoKey = await getSigKey(alg, key11, "sign");
   checkKeyLength(alg, cryptoKey);
   const signature = await crypto.subtle.sign(subtleAlgorithm(alg, cryptoKey.algorithm), cryptoKey, data);
   return new Uint8Array(signature);
@@ -76863,7 +76863,7 @@ var FlattenedSign = class {
     this.#unprotectedHeader = unprotectedHeader;
     return this;
   }
-  async sign(key10, options) {
+  async sign(key11, options) {
     if (!this.#protectedHeader && !this.#unprotectedHeader) {
       throw new JWSInvalid("either setProtectedHeader or setUnprotectedHeader must be called before #sign()");
     }
@@ -76886,7 +76886,7 @@ var FlattenedSign = class {
     if (typeof alg !== "string" || !alg) {
       throw new JWSInvalid('JWS "alg" (Algorithm) Header Parameter missing or invalid');
     }
-    checkKeyType(alg, key10, "sign");
+    checkKeyType(alg, key11, "sign");
     let payloadS;
     let payloadB;
     if (b64) {
@@ -76906,7 +76906,7 @@ var FlattenedSign = class {
       protectedHeaderBytes = new Uint8Array();
     }
     const data = concat(protectedHeaderBytes, encode4("."), payloadB);
-    const k = await normalizeKey(key10, alg);
+    const k = await normalizeKey(key11, alg);
     const signature = await sign(alg, k, data);
     const jws = {
       signature: encode5(signature),
@@ -76932,8 +76932,8 @@ var CompactSign = class {
     this.#flattened.setProtectedHeader(protectedHeader);
     return this;
   }
-  async sign(key10, options) {
-    const jws = await this.#flattened.sign(key10, options);
+  async sign(key11, options) {
+    const jws = await this.#flattened.sign(key11, options);
     if (jws.payload === void 0) {
       throw new TypeError("use the flattened module for creating JWS with b64: false");
     }
@@ -76980,13 +76980,13 @@ var SignJWT = class {
     this.#protectedHeader = protectedHeader;
     return this;
   }
-  async sign(key10, options) {
+  async sign(key11, options) {
     const sig = new CompactSign(this.#jwt.data());
     sig.setProtectedHeader(this.#protectedHeader);
     if (Array.isArray(this.#protectedHeader?.crit) && this.#protectedHeader.crit.includes("b64") && this.#protectedHeader.b64 === false) {
       throw new JWTInvalid("JWTs MUST NOT use unencoded payload");
     }
-    return sig.sign(key10, options);
+    return sig.sign(key11, options);
   }
 };
 
@@ -77843,8 +77843,8 @@ var WORKFLOW_TEMPLATES = [
     "Issue ROE (if needed)"
   ] }
 ];
-function getWorkflowTemplate(key10) {
-  return WORKFLOW_TEMPLATES.find((t2) => t2.key === key10);
+function getWorkflowTemplate(key11) {
+  return WORKFLOW_TEMPLATES.find((t2) => t2.key === key11);
 }
 
 // api/task-router.ts
@@ -80371,12 +80371,12 @@ var clientDashboardRouter = createRouter({
     const rows = await db.select().from(timesheets).where(eq(timesheets.clientId, input.clientId)).orderBy(desc(timesheets.payPeriodEnd));
     const periods = /* @__PURE__ */ new Map();
     for (const row of rows) {
-      const key10 = `${row.payPeriodStart?.toISOString()}-${row.payPeriodEnd?.toISOString()}`;
-      if (!periods.has(key10)) periods.set(key10, []);
-      periods.get(key10).push(row);
+      const key11 = `${row.payPeriodStart?.toISOString()}-${row.payPeriodEnd?.toISOString()}`;
+      if (!periods.has(key11)) periods.set(key11, []);
+      periods.get(key11).push(row);
     }
-    return Array.from(periods.entries()).map(([key10, entries]) => ({
-      periodKey: key10,
+    return Array.from(periods.entries()).map(([key11, entries]) => ({
+      periodKey: key11,
       payPeriodStart: entries[0].payPeriodStart,
       payPeriodEnd: entries[0].payPeriodEnd,
       entries,
@@ -81046,12 +81046,12 @@ var dividendRouter = createRouter({
     const inYear = rows.filter((r) => (r.taxYear ?? new Date(r.paymentDate).getFullYear()) === year2);
     const byRecipient = /* @__PURE__ */ new Map();
     for (const r of inYear) {
-      const key10 = (r.recipient || "(unnamed)").trim();
-      const agg = byRecipient.get(key10) || { eligible: 0, nonEligible: 0, hasSin: false };
+      const key11 = (r.recipient || "(unnamed)").trim();
+      const agg = byRecipient.get(key11) || { eligible: 0, nonEligible: 0, hasSin: false };
       if (r.dividendType === "eligible") agg.eligible += r.amount || 0;
       else agg.nonEligible += r.amount || 0;
       if (r.recipientSin) agg.hasSin = true;
-      byRecipient.set(key10, agg);
+      byRecipient.set(key11, agg);
     }
     const payer = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
     const slips = Array.from(byRecipient.entries()).map(([recipient, a]) => ({
@@ -81126,11 +81126,11 @@ var taxSlipRouter = createRouter({
     const inYear = rows.filter((r) => (r.taxYear ?? new Date(r.createdAt).getFullYear()) === year2);
     const byRecipient = /* @__PURE__ */ new Map();
     for (const r of inYear) {
-      const key10 = (r.recipient || "(unnamed)").trim();
-      const agg = byRecipient.get(key10) || { amount: 0, hasId: false };
+      const key11 = (r.recipient || "(unnamed)").trim();
+      const agg = byRecipient.get(key11) || { amount: 0, hasId: false };
       agg.amount += r.amount || 0;
       if (r.recipientId) agg.hasId = true;
-      byRecipient.set(key10, agg);
+      byRecipient.set(key11, agg);
     }
     const payer = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
     const slips = Array.from(byRecipient.entries()).map(([recipient, a]) => ({ recipient, amount: Math.round((a.amount + Number.EPSILON) * 100) / 100, hasId: a.hasId })).sort((x, y) => x.recipient.localeCompare(y.recipient));
@@ -84099,6 +84099,133 @@ var intercoRouter = createRouter({
 // api/router.ts
 init_interco_recharge_router();
 
+// api/cleanup-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_drizzle_orm();
+init_qbo_router();
+init_qbo_vendor_brain();
+
+// api/payment-source-core.ts
+function round28(n) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+var normVendor = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+var key = (p) => `${normVendor(p.vendor)}|${round28(Math.abs(p.amount))}`;
+function findCrossAccountDuplicates(payments) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const p of payments) {
+    if (!p || !Number.isFinite(p.amount) || round28(Math.abs(p.amount)) === 0) continue;
+    const k = key(p);
+    (groups.get(k) ?? groups.set(k, []).get(k)).push(p);
+  }
+  const duplicates = [];
+  for (const items of groups.values()) {
+    const accounts = Array.from(new Set(items.map((i) => i.account).filter(Boolean)));
+    const entities = Array.from(new Set(items.map((i) => i.entity).filter(Boolean)));
+    if (accounts.length >= 2 || entities.length >= 2) {
+      duplicates.push({
+        vendor: items[0].vendor,
+        amount: round28(Math.abs(items[0].amount)),
+        accounts,
+        entities,
+        items: items.slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""))
+      });
+    }
+  }
+  duplicates.sort((a, b) => b.amount - a.amount);
+  const byAcc = /* @__PURE__ */ new Map();
+  for (const p of payments) {
+    const a = p.account || "(none)";
+    const e = byAcc.get(a) ?? { count: 0, total: 0 };
+    e.count++;
+    e.total = round28(e.total + Math.abs(p.amount || 0));
+    byAcc.set(a, e);
+  }
+  const byAccount = Array.from(byAcc.entries()).map(([account, v]) => ({ account, ...v })).sort((a, b) => b.total - a.total);
+  const flaggedAmount = round28(duplicates.reduce((s, d10) => s + d10.amount, 0));
+  return {
+    duplicates,
+    byAccount,
+    summary: { payments: payments.length, flaggedGroups: duplicates.length, flaggedAmount }
+  };
+}
+
+// api/cleanup-router.ts
+var num3 = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+var arr2 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+async function pullPayments(conn, entityName, start, end) {
+  const range = `TxnDate >= '${start}' AND TxnDate <= '${end}'`;
+  const payments = [];
+  const q2 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
+  try {
+    for (const e of arr2(await q2(`SELECT * FROM Purchase WHERE ${range} MAXRESULTS 1000`), "Purchase")) {
+      payments.push({
+        vendor: e.EntityRef?.name || e.VendorRef?.name || "(no payee)",
+        amount: num3(e.TotalAmt),
+        date: String(e.TxnDate || "").slice(0, 10),
+        account: e.AccountRef?.name || "(no account)",
+        // the SOURCE (bank / credit card)
+        entity: entityName,
+        paymentType: e.PaymentType,
+        ref: e.DocNumber ? `Purchase ${e.DocNumber}` : `Purchase ${e.Id}`
+      });
+    }
+    for (const e of arr2(await q2(`SELECT * FROM BillPayment WHERE ${range} MAXRESULTS 1000`), "BillPayment")) {
+      const acct = e.CheckPayment?.BankAccountRef?.name || e.CreditCardPayment?.CCAccountRef?.name || "(no account)";
+      payments.push({
+        vendor: e.VendorRef?.name || "(no payee)",
+        amount: num3(e.TotalAmt),
+        date: String(e.TxnDate || "").slice(0, 10),
+        account: acct,
+        entity: entityName,
+        paymentType: e.PayType,
+        ref: e.DocNumber ? `BillPayment ${e.DocNumber}` : `BillPayment ${e.Id}`
+      });
+    }
+    return { payments };
+  } catch (e2) {
+    const msg = e2 instanceof Error ? e2.message : String(e2);
+    return { payments, error: /async ack|non-JSON|Make bridge/i.test(msg) ? "bridge_not_returning_data" : msg };
+  }
+}
+var cleanupRouter = createRouter({
+  /** The clients in a named group (or all active) — for the multi-select. */
+  groupClients: staffQuery.input(external_exports.object({ groupName: external_exports.string().optional() }).optional()).query(async ({ input }) => {
+    const db = getDb();
+    const rows = input?.groupName ? await db.all(sql`SELECT id, name, groupName FROM clients WHERE groupName = ${input.groupName} ORDER BY name`) : await db.all(sql`SELECT id, name, groupName FROM clients WHERE status='active' ORDER BY name`);
+    return rows;
+  }),
+  /** Scan a set of entities for cross-account / cross-entity payment duplicates. */
+  paymentSourceScan: staffQuery.input(external_exports.object({
+    clientIds: external_exports.array(external_exports.number()).min(1),
+    startDate: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    endDate: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const all = [];
+    const perEntity = [];
+    for (const clientId of input.clientIds) {
+      const row = await db.all(sql`SELECT name FROM clients WHERE id=${clientId} LIMIT 1`);
+      const name2 = row[0]?.name || `Client ${clientId}`;
+      const cr = await getConnectionForClient(clientId);
+      if ("error" in cr) {
+        perEntity.push({ clientId, name: name2, pulled: 0, error: cr.error });
+        continue;
+      }
+      const { payments, error: error48 } = await pullPayments(cr.conn, name2, input.startDate, input.endDate);
+      all.push(...payments);
+      perEntity.push({ clientId, name: name2, pulled: payments.length, error: error48 });
+    }
+    const result = findCrossAccountDuplicates(all);
+    return { ok: true, result, perEntity, period: { start: input.startDate, end: input.endDate } };
+  })
+});
+
 // api/group-router.ts
 init_zod();
 init_middleware();
@@ -84486,8 +84613,8 @@ async function fetchBocFxRates() {
     const date5 = String(obs.d ?? "");
     if (!isFresh(date5)) return null;
     const rates = { CAD: 1 };
-    for (const [key10, val] of Object.entries(obs)) {
-      const m = /^FX([A-Z]{3})CAD$/.exec(key10);
+    for (const [key11, val] of Object.entries(obs)) {
+      const m = /^FX([A-Z]{3})CAD$/.exec(key11);
       const v = Number(val?.v);
       if (m && Number.isFinite(v) && v > 0) rates[m[1]] = v;
     }
@@ -85094,11 +85221,11 @@ var TOPIC_RULES = [
 ];
 function detectAgent(message2, current) {
   const m = (message2 || "").toLowerCase().trimStart();
-  for (const key10 of Object.keys(AGENT_ROSTER)) {
-    const names = Array.from(/* @__PURE__ */ new Set([key10, AGENT_ROSTER[key10].name.toLowerCase()]));
+  for (const key11 of Object.keys(AGENT_ROSTER)) {
+    const names = Array.from(/* @__PURE__ */ new Set([key11, AGENT_ROSTER[key11].name.toLowerCase()]));
     for (const n of names) {
       const re = new RegExp(`^(hey|hi|hello|yo|ok|okay|ask|tell|get)?[ ,]*${n}\\b`);
-      if (re.test(m)) return key10;
+      if (re.test(m)) return key11;
     }
   }
   for (const rule of TOPIC_RULES) {
@@ -86084,22 +86211,22 @@ var LINE_LABELS = {
   line106: "Line 106 \u2014 Input tax credits",
   line109: "Line 109 \u2014 Net tax"
 };
-function round28(n) {
+function round29(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function sumLines(rows) {
   return rows.reduce(
     (acc, r) => ({
-      line101: round28(acc.line101 + (r.line101 || 0)),
-      line103: round28(acc.line103 + (r.line103 || 0)),
-      line106: round28(acc.line106 + (r.line106 || 0)),
-      line109: round28(acc.line109 + (r.line109 || 0))
+      line101: round29(acc.line101 + (r.line101 || 0)),
+      line103: round29(acc.line103 + (r.line103 || 0)),
+      line106: round29(acc.line106 + (r.line106 || 0)),
+      line109: round29(acc.line109 + (r.line109 || 0))
     }),
     { line101: 0, line103: 0, line106: 0, line109: 0 }
   );
 }
 function netTaxDrift(lines2) {
-  return round28(lines2.line109 - (lines2.line103 - lines2.line106));
+  return round29(lines2.line109 - (lines2.line103 - lines2.line106));
 }
 var DEFAULTS = {
   dollarTolerance: 2,
@@ -86108,11 +86235,11 @@ var DEFAULTS = {
 };
 function compareLines(filed, book, cfg) {
   return LINE_KEYS.map((line) => {
-    const f = round28(filed[line] || 0);
-    const b = round28(book[line] || 0);
-    const variance = round28(b - f);
+    const f = round29(filed[line] || 0);
+    const b = round29(book[line] || 0);
+    const variance = round29(b - f);
     const denom = Math.max(Math.abs(f), Math.abs(b), 1);
-    const variancePct = round28(Math.abs(variance) / denom * 100);
+    const variancePct = round29(Math.abs(variance) / denom * 100);
     const withinTolerance = Math.abs(variance) <= cfg.dollarTolerance || variancePct <= cfg.pctTolerance;
     return { line, label: LINE_LABELS[line], filed: f, book: b, variance, variancePct, withinTolerance };
   });
@@ -86140,7 +86267,7 @@ function auditHstYear(args) {
   const netTaxConsistent = Math.abs(filedDrift) <= cfg.dollarTolerance;
   if (!netTaxConsistent) {
     notes.push(
-      `Filed net tax (line 109 = $${filedAnnual.line109.toLocaleString()}) doesn't equal collected \u2212 ITCs ($${round28(filedAnnual.line103 - filedAnnual.line106).toLocaleString()}). Off by $${filedDrift.toLocaleString()}.`
+      `Filed net tax (line 109 = $${filedAnnual.line109.toLocaleString()}) doesn't equal collected \u2212 ITCs ($${round29(filedAnnual.line103 - filedAnnual.line106).toLocaleString()}). Off by $${filedDrift.toLocaleString()}.`
     );
   }
   let verdict;
@@ -87219,7 +87346,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/revrec-core.ts
-function round29(n) {
+function round210(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function clampPct(p) {
@@ -87237,10 +87364,10 @@ function buildProjectSchedule(project, progress) {
   for (const r of rows) {
     const pct = clampPct(r.pctComplete);
     const invoiced = r.invoicedToDate == null ? priorInvoiced : r.invoicedToDate;
-    const earned = round29(cv * pct);
-    const revenueThisPeriod = round29(cv * (pct - priorPct));
-    const contractAsset = round29(Math.max(earned - invoiced, 0));
-    const deferredRevenue = round29(Math.max(invoiced - earned, 0));
+    const earned = round210(cv * pct);
+    const revenueThisPeriod = round210(cv * (pct - priorPct));
+    const contractAsset = round210(Math.max(earned - invoiced, 0));
+    const deferredRevenue = round210(Math.max(invoiced - earned, 0));
     out.push({
       periodKey: r.periodKey,
       pctComplete: pct,
@@ -87248,7 +87375,7 @@ function buildProjectSchedule(project, progress) {
       contractValue: cv,
       earnedToDate: earned,
       revenueThisPeriod,
-      invoicedToDate: round29(invoiced),
+      invoicedToDate: round210(invoiced),
       contractAsset,
       deferredRevenue
     });
@@ -87296,8 +87423,8 @@ function period_customerJobOf(_period) {
   return null;
 }
 function sealJe(kind, date5, periodKey2, lines2) {
-  const totalDebit = round29(lines2.reduce((s, l) => s + l.debit, 0));
-  const totalCredit = round29(lines2.reduce((s, l) => s + l.credit, 0));
+  const totalDebit = round210(lines2.reduce((s, l) => s + l.debit, 0));
+  const totalCredit = round210(lines2.reduce((s, l) => s + l.credit, 0));
   return { kind, date: date5, periodKey: periodKey2, lines: lines2, totalDebit, totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 5e-3 };
 }
 function tagJeWithJob(je, customerJob) {
@@ -87309,8 +87436,8 @@ function validateForPosting(je, accountMap) {
   if (!je) return { ok: false, errors: ["Nothing to post for this period."] };
   if (!je.balanced) errors.push(`Journal entry is out of balance (debits ${je.totalDebit} \u2260 credits ${je.totalCredit}).`);
   const keysUsed = new Set(je.lines.map((l) => l.accountKey));
-  for (const key10 of keysUsed) {
-    if (!accountMap[key10]) errors.push(`No QBO account mapped for "${key10}". Set the account mapping before posting.`);
+  for (const key11 of keysUsed) {
+    if (!accountMap[key11]) errors.push(`No QBO account mapped for "${key11}". Set the account mapping before posting.`);
   }
   for (const l of je.lines) {
     if (l.debit < 0 || l.credit < 0) errors.push(`Negative amount on a ${l.accountKey} line \u2014 corrections must be re-entered as a positive reversing period.`);
@@ -87320,7 +87447,7 @@ function validateForPosting(je, accountMap) {
 function rollupProject(project, schedule) {
   const last = latestPeriod(schedule);
   const cv = project.contractValue || 0;
-  const earned = last?.earnedToDate ?? round29(cv * clampPct(project.openingPct ?? 0));
+  const earned = last?.earnedToDate ?? round210(cv * clampPct(project.openingPct ?? 0));
   const invoiced = last?.invoicedToDate ?? (project.openingInvoiced ?? 0);
   return {
     projectId: project.projectId,
@@ -87329,10 +87456,10 @@ function rollupProject(project, schedule) {
     contractValue: cv,
     pctComplete: last?.pctComplete ?? clampPct(project.openingPct ?? 0),
     earnedToDate: earned,
-    invoicedToDate: round29(invoiced),
-    contractAsset: last?.contractAsset ?? round29(Math.max(earned - invoiced, 0)),
-    deferredRevenue: last?.deferredRevenue ?? round29(Math.max(invoiced - earned, 0)),
-    remainingToEarn: round29(cv - earned)
+    invoicedToDate: round210(invoiced),
+    contractAsset: last?.contractAsset ?? round210(Math.max(earned - invoiced, 0)),
+    deferredRevenue: last?.deferredRevenue ?? round210(Math.max(invoiced - earned, 0)),
+    remainingToEarn: round210(cv - earned)
   };
 }
 function buildRevenueCalendar(months, perProject) {
@@ -87341,10 +87468,10 @@ function buildRevenueCalendar(months, perProject) {
       const hit = p.schedule.find((s) => s.periodKey === m);
       return hit ? hit.revenueThisPeriod : 0;
     });
-    return { projectId: p.projectId, name: p.name, byMonth, total: round29(byMonth.reduce((s, v) => s + v, 0)) };
+    return { projectId: p.projectId, name: p.name, byMonth, total: round210(byMonth.reduce((s, v) => s + v, 0)) };
   });
-  const totalsByMonth = months.map((_, i) => round29(rows.reduce((s, r) => s + r.byMonth[i], 0)));
-  const grandTotal = round29(totalsByMonth.reduce((s, v) => s + v, 0));
+  const totalsByMonth = months.map((_, i) => round210(rows.reduce((s, r) => s + r.byMonth[i], 0)));
+  const grandTotal = round210(totalsByMonth.reduce((s, v) => s + v, 0));
   return { months, rows, totalsByMonth, grandTotal };
 }
 function fiscalYearMonths(firstMonthKey) {
@@ -87564,10 +87691,10 @@ var revRecRouter = createRouter({
     const rows = await db.select().from(rrAccountMap).where(eq(rrAccountMap.clientId, input.clientId));
     const byKey = {};
     for (const r of rows) byKey[r.accountKey] = r;
-    return ACCOUNT_KEYS.map((key10) => ({
-      accountKey: key10,
-      qboAccountId: byKey[key10]?.qboAccountId ?? null,
-      qboAccountName: byKey[key10]?.qboAccountName ?? null
+    return ACCOUNT_KEYS.map((key11) => ({
+      accountKey: key11,
+      qboAccountId: byKey[key11]?.qboAccountId ?? null,
+      qboAccountName: byKey[key11]?.qboAccountName ?? null
     }));
   }),
   accountMapSet: authedQuery.input(external_exports.object({
@@ -87699,7 +87826,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/banked-hours-core.ts
-function round210(n) {
+function round211(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function toTime(d10) {
@@ -87713,7 +87840,7 @@ function buildLedger(entries) {
   });
   let bal = 0;
   return sorted.map((e) => {
-    bal = round210(bal + (e.hours || 0));
+    bal = round211(bal + (e.hours || 0));
     return { ...e, runningBalance: bal };
   });
 }
@@ -87728,9 +87855,9 @@ function summarize(entries) {
     last = Math.max(last, toTime(e.entryDate));
   }
   return {
-    balance: round210(totalBanked - totalTaken),
-    totalBanked: round210(totalBanked),
-    totalTaken: round210(totalTaken),
+    balance: round211(totalBanked - totalTaken),
+    totalBanked: round211(totalBanked),
+    totalTaken: round211(totalTaken),
     entryCount: entries.length,
     lastActivity: last ? new Date(last).toISOString() : null
   };
@@ -88280,8 +88407,8 @@ function runHstReview(input) {
 
 // api/hst-review-router.ts
 var q = (conn, sql4) => qboRequest(conn, `/query?query=${encodeURIComponent(sql4)}`);
-var arr2 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
-var num3 = (v) => {
+var arr3 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+var num4 = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
@@ -88293,7 +88420,7 @@ function mapExpense(e, type2, taxName) {
     lines2.push({
       accountId: d10.AccountRef?.value,
       accountName: d10.AccountRef?.name,
-      amount: num3(l.Amount),
+      amount: num4(l.Amount),
       taxCodeId: d10.TaxCodeRef?.value ?? null,
       taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
     });
@@ -88304,8 +88431,8 @@ function mapExpense(e, type2, taxName) {
     date: String(e.TxnDate || "").slice(0, 10),
     name: e.EntityRef?.name || e.VendorRef?.name,
     docNumber: e.DocNumber,
-    total: num3(e.TotalAmt),
-    taxTotal: num3(e.TxnTaxDetail?.TotalTax),
+    total: num4(e.TotalAmt),
+    taxTotal: num4(e.TxnTaxDetail?.TotalTax),
     lines: lines2
   };
 }
@@ -88316,7 +88443,7 @@ function mapSale(e, type2, taxName) {
     if (!d10) continue;
     lines2.push({
       accountName: d10.ItemRef?.name || l.Description || "Sales",
-      amount: num3(l.Amount),
+      amount: num4(l.Amount),
       taxCodeId: d10.TaxCodeRef?.value ?? null,
       taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
     });
@@ -88327,8 +88454,8 @@ function mapSale(e, type2, taxName) {
     date: String(e.TxnDate || "").slice(0, 10),
     name: e.CustomerRef?.name,
     docNumber: e.DocNumber,
-    total: num3(e.TotalAmt),
-    taxTotal: num3(e.TxnTaxDetail?.TotalTax),
+    total: num4(e.TotalAmt),
+    taxTotal: num4(e.TxnTaxDetail?.TotalTax),
     lines: lines2
   };
 }
@@ -88347,7 +88474,7 @@ var hstReviewRouter = createRouter({
     const taxCodes = [];
     const taxById = /* @__PURE__ */ new Map();
     try {
-      for (const t2 of arr2(await q(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode")) {
+      for (const t2 of arr3(await q(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode")) {
         taxCodes.push({ id: String(t2.Id), name: t2.Name });
         taxById.set(String(t2.Id), t2.Name);
       }
@@ -88361,8 +88488,8 @@ var hstReviewRouter = createRouter({
     const taxName = (id) => id ? taxById.get(String(id)) : void 0;
     const accounts = [];
     try {
-      for (const a of arr2(await q(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
-        accounts.push({ id: String(a.Id), name: a.Name, type: a.AccountType, subType: a.AccountSubType, balance: num3(a.CurrentBalance) });
+      for (const a of arr3(await q(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
+        accounts.push({ id: String(a.Id), name: a.Name, type: a.AccountType, subType: a.AccountSubType, balance: num4(a.CurrentBalance) });
       }
     } catch (e) {
       errors.push(`Account: ${e instanceof Error ? e.message : e}`);
@@ -88370,7 +88497,7 @@ var hstReviewRouter = createRouter({
     const txns = [];
     const pull = async (entity, mapper) => {
       try {
-        for (const e of arr2(await q(conn, `SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) txns.push(mapper(e));
+        for (const e of arr3(await q(conn, `SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) txns.push(mapper(e));
       } catch (e) {
         errors.push(`${entity}: ${e instanceof Error ? e.message : e}`);
       }
@@ -88398,7 +88525,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/loan-tracker-core.ts
-function round211(n) {
+function round212(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function toTime2(d10) {
@@ -88412,7 +88539,7 @@ function buildLoanLedger(entries) {
   });
   let bal = 0;
   return sorted.map((e) => {
-    bal = round211(bal + (e.amount || 0));
+    bal = round212(bal + (e.amount || 0));
     return { ...e, runningBalance: bal };
   });
 }
@@ -88428,13 +88555,13 @@ function summarizeLoan(entries) {
     const t2 = toTime2(e.entryDate);
     if (t2 > last) last = t2;
   }
-  balance = round211(balance);
+  balance = round212(balance);
   const direction = balance > 0 ? "owed_to_lender" : balance < 0 ? "owed_to_borrower" : "settled";
   return {
     balance,
-    totalAdvanced: round211(totalAdvanced),
-    totalRepaid: round211(totalRepaid),
-    totalInterest: round211(totalInterest),
+    totalAdvanced: round212(totalAdvanced),
+    totalRepaid: round212(totalRepaid),
+    totalInterest: round212(totalInterest),
     entryCount: entries.length,
     lastActivity: last ? new Date(last).toISOString() : null,
     direction
@@ -88851,6 +88978,7 @@ var appRouter = createRouter({
   restore: restoreRouter,
   interco: intercoRouter,
   intercoRecharge: intercoRechargeRouter,
+  cleanup: cleanupRouter,
   group: groupRouter,
   practiceHealth: practiceHealthRouter,
   groupBook: groupBookRouter,
@@ -88901,9 +89029,9 @@ var _serialize = (name2, value, opt = {}) => {
       throw new Error("__Host- Cookie must not have Domain attributes");
     }
   }
-  for (const key10 of ["domain", "path"]) {
-    if (opt[key10] && /[;\r\n]/.test(opt[key10])) {
-      throw new Error(`${key10} must not contain ";", "\\r", or "\\n"`);
+  for (const key11 of ["domain", "path"]) {
+    if (opt[key11] && /[;\r\n]/.test(opt[key11])) {
+      throw new Error(`${key11} must not contain ";", "\\r", or "\\n"`);
     }
   }
   if (opt && typeof opt.maxAge === "number" && opt.maxAge >= 0) {
@@ -89159,7 +89287,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.177";
+var BUILD_TAG = "2026-06-26.178";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
