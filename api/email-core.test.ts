@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractEmail, splitAddresses, matchClientId, buildRawMessage, replyDraftSystem, taskSuggestSystem } from "./email-core";
+import { extractEmail, splitAddresses, matchClientId, buildRawMessage, replyDraftSystem, taskSuggestSystem, emailDomain, buildClientDomainMap, matchClientByDomain } from "./email-core";
 
 describe("extractEmail", () => {
   it("pulls the address out of a display-name header", () => {
@@ -28,6 +28,32 @@ describe("matchClientId", () => {
   it("returns null when nothing matches (so non-client mail is skipped)", () => {
     expect(matchClientId(["random@gmail.com"], byAddr)).toBeNull();
     expect(matchClientId([], byAddr)).toBeNull();
+  });
+});
+
+describe("emailDomain", () => {
+  it("pulls the domain, lowercased", () => {
+    expect(emailDomain("Jane@Acme.COM")).toBe("acme.com");
+    expect(emailDomain("nope")).toBe("");
+  });
+});
+
+describe("buildClientDomainMap + matchClientByDomain", () => {
+  it("maps a domain owned by exactly one client, skips generic providers", () => {
+    const byDomain = buildClientDomainMap([
+      { clientId: 5, address: "jane@acme.com" },
+      { clientId: 5, address: "billing@acme.com" }, // same client, same domain → still unambiguous
+      { clientId: 9, address: "bob@gmail.com" },    // generic → excluded
+    ]);
+    expect(matchClientByDomain(["someone@acme.com"], byDomain)).toBe(5);
+    expect(matchClientByDomain(["x@gmail.com"], byDomain)).toBeNull();
+  });
+  it("refuses to guess when two clients share a domain (ambiguous → null)", () => {
+    const byDomain = buildClientDomainMap([
+      { clientId: 5, address: "a@shared.com" },
+      { clientId: 7, address: "b@shared.com" },
+    ]);
+    expect(matchClientByDomain(["c@shared.com"], byDomain)).toBeNull();
   });
 });
 
