@@ -45074,6 +45074,182 @@ var init_message_router = __esm({
   }
 });
 
+// api/monthly-close-router.ts
+var monthly_close_router_exports = {};
+__export(monthly_close_router_exports, {
+  applicableItems: () => applicableItems,
+  markFiscalYearClosedForAll: () => markFiscalYearClosedForAll,
+  monthlyCloseRouter: () => monthlyCloseRouter,
+  seedClose2025Complete: () => seedClose2025Complete
+});
+function yearEndMonthNum(client) {
+  const i = MONTH_ABBR.indexOf(String(client?.yearEndMonth || ""));
+  if (i >= 0) return i + 1;
+  const fy = Number(client?.fiscalYearEndMonth);
+  return Number.isFinite(fy) && fy >= 1 && fy <= 12 ? fy : 12;
+}
+function applies(item, client) {
+  if (!item.needs) return true;
+  if (item.needs === "payroll") return !!(client?.hasPayroll || client?.hasEmployees);
+  if (item.needs === "hst") return !!client?.hasHST;
+  if (item.needs === "creditCard") return client?.hasCreditCard !== false;
+  return true;
+}
+function applicableItems(client) {
+  return CHECKLIST_ITEMS.filter((i) => applies(i, client));
+}
+async function loadClient(clientId) {
+  const rows = await getDb().select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  return rows[0] || {};
+}
+async function markFiscalYearClosedForAll(userId, year2) {
+  const db = getDb();
+  const all = await db.select().from(clients);
+  const eligible = all.filter((c) => c.status !== "inactive" && c.clientType !== "wholesale");
+  let periods = 0;
+  for (const client of eligible) {
+    const items = applicableItems(client);
+    const lastMonth = yearEndMonthNum(client);
+    for (let month = 1; month <= lastMonth; month++) {
+      const setData = { completionPercent: 100, completedAt: /* @__PURE__ */ new Date() };
+      for (const it of items) setData[it.field] = 1;
+      const existing = await db.select().from(monthlyCloseChecklist).where(and(eq(monthlyCloseChecklist.clientId, client.id), eq(monthlyCloseChecklist.year, year2), eq(monthlyCloseChecklist.month, month))).limit(1);
+      if (existing[0]) {
+        await db.update(monthlyCloseChecklist).set(setData).where(eq(monthlyCloseChecklist.id, existing[0].id));
+      } else {
+        await db.insert(monthlyCloseChecklist).values({ clientId: client.id, userId, year: year2, month, ...setData });
+      }
+      periods++;
+    }
+  }
+  return { clients: eligible.length, periods };
+}
+async function seedClose2025Complete() {
+  const db = getDb();
+  try {
+    const KEY = "close_seed_fy2025_done";
+    const flag = await db.select().from(appSettings).where(eq(appSettings.key, KEY)).limit(1);
+    if (flag[0]?.value === "1") return;
+    const owner = await db.select().from(clients).limit(1);
+    if (!owner.length) return;
+    const admins = await db.select().from(users).where(eq(users.role, "admin")).limit(1);
+    let uid = admins[0]?.id;
+    if (!uid) {
+      const anyUser = await db.select().from(users).limit(1);
+      uid = anyUser[0]?.id ?? 1;
+    }
+    const res = await markFiscalYearClosedForAll(uid, 2025);
+    await db.insert(appSettings).values({ key: KEY, value: "1" }).onConflictDoUpdate({ target: appSettings.key, set: { value: "1" } });
+    console.log(`[close-seed] FY2025 marked closed: ${res.clients} clients, ${res.periods} periods.`);
+  } catch (e) {
+    console.error("[close-seed] seedClose2025Complete failed:", e instanceof Error ? e.message : e);
+  }
+}
+var MONTH_ABBR, CHECKLIST_ITEMS, monthlyCloseRouter;
+var init_monthly_close_router = __esm({
+  "api/monthly-close-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    CHECKLIST_ITEMS = [
+      { field: "bankStatementsReconciled", label: "Bank statements reconciled (all accounts)" },
+      { field: "creditCardStatementsReconciled", label: "Credit card statements reconciled", needs: "creditCard" },
+      { field: "allReceiptsProcessed", label: "All receipts processed and posted" },
+      { field: "apReviewed", label: "A/P reviewed and current" },
+      { field: "arReviewed", label: "A/R reviewed and followed up" },
+      { field: "payrollJournalVerified", label: "Payroll journal verified", needs: "payroll" },
+      { field: "sourceDeductionsConfirmed", label: "Source deductions confirmed", needs: "payroll" },
+      { field: "hstGstTracked", label: "HST/GST tracked correctly", needs: "hst" },
+      { field: "ownerTransactionsSeparated", label: "Owner transactions separated" },
+      { field: "adjustingEntriesPosted", label: "Adjusting entries posted" },
+      { field: "plReviewed", label: "P&L reviewed for variances" },
+      { field: "balanceSheetReviewed", label: "Balance Sheet reviewed" },
+      { field: "bankRecMatchesBalanceSheet", label: "Bank rec = Balance Sheet" },
+      { field: "financialsUploaded", label: "Financials uploaded to portal" },
+      { field: "clientNotified", label: "Client notified" },
+      { field: "sourceDocsFiled", label: "Source docs filed in Drive" }
+    ];
+    monthlyCloseRouter = createRouter({
+      getOrCreate: staffQuery.input(external_exports.object({ clientId: external_exports.number(), year: external_exports.number(), month: external_exports.number() })).query(async ({ ctx, input }) => {
+        const db = getDb();
+        const existing = await db.select().from(monthlyCloseChecklist).where(and(eq(monthlyCloseChecklist.clientId, input.clientId), eq(monthlyCloseChecklist.year, input.year), eq(monthlyCloseChecklist.month, input.month))).limit(1);
+        if (existing[0]) return existing[0];
+        const [checklist] = await db.insert(monthlyCloseChecklist).values({
+          clientId: input.clientId,
+          userId: ctx.user.id,
+          year: input.year,
+          month: input.month,
+          completionPercent: 0
+        }).returning();
+        return checklist;
+      }),
+      /** The RELEVANT checklist items for one client. */
+      getChecklistDefinition: staffQuery.input(external_exports.object({ clientId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
+        if (!input?.clientId) return CHECKLIST_ITEMS;
+        const client = await loadClient(input.clientId);
+        return applicableItems(client);
+      }),
+      toggleItem: staffQuery.input(external_exports.object({ id: external_exports.number(), field: external_exports.string(), checked: external_exports.boolean() })).mutation(async ({ input }) => {
+        const db = getDb();
+        const { id, field, checked } = input;
+        const rows = await db.select().from(monthlyCloseChecklist).where(eq(monthlyCloseChecklist.id, id)).limit(1);
+        if (!rows[0]) throw new Error("Checklist not found");
+        const client = await loadClient(rows[0].clientId);
+        const items = applicableItems(client);
+        const updateData = { [field]: checked ? 1 : 0 };
+        let completed = 0;
+        for (const item of items) {
+          if (item.field === field) {
+            if (checked) completed++;
+          } else if (rows[0][item.field]) completed++;
+        }
+        updateData.completionPercent = items.length ? Math.round(completed / items.length * 100) : 0;
+        updateData.completedAt = items.length && completed === items.length ? /* @__PURE__ */ new Date() : null;
+        await db.update(monthlyCloseChecklist).set(updateData).where(eq(monthlyCloseChecklist.id, id));
+        return { success: true, completionPercent: updateData.completionPercent };
+      }),
+      updateNotes: staffQuery.input(external_exports.object({ id: external_exports.number(), notes: external_exports.string() })).mutation(async ({ input }) => {
+        await getDb().update(monthlyCloseChecklist).set({ notes: input.notes }).where(eq(monthlyCloseChecklist.id, input.id));
+        return { success: true };
+      }),
+      /** Mark ALL relevant items done (or clear) in one click — over the client's
+       *  applicable items only, so it never re-introduces an irrelevant step. */
+      markAll: staffQuery.input(external_exports.object({ id: external_exports.number(), done: external_exports.boolean().default(true) })).mutation(async ({ input }) => {
+        const db = getDb();
+        const rows = await db.select().from(monthlyCloseChecklist).where(eq(monthlyCloseChecklist.id, input.id)).limit(1);
+        if (!rows[0]) throw new Error("Checklist not found");
+        const client = await loadClient(rows[0].clientId);
+        const items = applicableItems(client);
+        const updateData = {};
+        for (const item of items) updateData[item.field] = input.done ? 1 : 0;
+        updateData.completionPercent = input.done ? 100 : 0;
+        updateData.completedAt = input.done ? /* @__PURE__ */ new Date() : null;
+        await db.update(monthlyCloseChecklist).set(updateData).where(eq(monthlyCloseChecklist.id, input.id));
+        return { success: true, completionPercent: updateData.completionPercent };
+      }),
+      /** Mark a whole fiscal year's closes COMPLETE for every relevant client, up to each
+       *  client's year-end month (their year-ends are filed → those months are done). */
+      markFiscalYearClosed: staffQuery.input(external_exports.object({ year: external_exports.number().int().min(2e3).max(2100) })).mutation(async ({ ctx, input }) => {
+        const res = await markFiscalYearClosedForAll(ctx.user.id, input.year);
+        return { success: true, ...res };
+      }),
+      /** Toggle whether a client has credit cards (drives the credit-card step). */
+      setHasCreditCard: staffQuery.input(external_exports.object({ clientId: external_exports.number(), value: external_exports.boolean() })).mutation(async ({ input }) => {
+        await getDb().update(clients).set({ hasCreditCard: input.value }).where(eq(clients.id, input.clientId));
+        return { success: true };
+      }),
+      /** Does this client have credit cards? (for the inline toggle default) */
+      clientFlags: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        const c = await loadClient(input.clientId);
+        return { hasCreditCard: c.hasCreditCard !== false, hasPayroll: !!c.hasPayroll || !!c.hasEmployees, hasHST: !!c.hasHST };
+      })
+    });
+  }
+});
+
 // api/month-end-router.ts
 async function countToReview(db, clientId) {
   const rows = await db.select({ n: count() }).from(triageFindings).where(and(eq(triageFindings.clientId, clientId), eq(triageFindings.status, "new")));
@@ -82383,115 +82559,8 @@ var expirationRouter = createRouter({
   })
 });
 
-// api/monthly-close-router.ts
-init_zod();
-init_middleware();
-init_connection();
-init_schema();
-init_drizzle_orm();
-var CHECKLIST_ITEMS = [
-  { field: "bankStatementsReconciled", label: "Bank statements reconciled (all accounts)" },
-  { field: "creditCardStatementsReconciled", label: "Credit card statements reconciled", needs: "creditCard" },
-  { field: "allReceiptsProcessed", label: "All receipts processed and posted" },
-  { field: "apReviewed", label: "A/P reviewed and current" },
-  { field: "arReviewed", label: "A/R reviewed and followed up" },
-  { field: "payrollJournalVerified", label: "Payroll journal verified", needs: "payroll" },
-  { field: "sourceDeductionsConfirmed", label: "Source deductions confirmed", needs: "payroll" },
-  { field: "hstGstTracked", label: "HST/GST tracked correctly", needs: "hst" },
-  { field: "ownerTransactionsSeparated", label: "Owner transactions separated" },
-  { field: "adjustingEntriesPosted", label: "Adjusting entries posted" },
-  { field: "plReviewed", label: "P&L reviewed for variances" },
-  { field: "balanceSheetReviewed", label: "Balance Sheet reviewed" },
-  { field: "bankRecMatchesBalanceSheet", label: "Bank rec = Balance Sheet" },
-  { field: "financialsUploaded", label: "Financials uploaded to portal" },
-  { field: "clientNotified", label: "Client notified" },
-  { field: "sourceDocsFiled", label: "Source docs filed in Drive" }
-];
-function applies(item, client) {
-  if (!item.needs) return true;
-  if (item.needs === "payroll") return !!(client?.hasPayroll || client?.hasEmployees);
-  if (item.needs === "hst") return !!client?.hasHST;
-  if (item.needs === "creditCard") return client?.hasCreditCard !== false;
-  return true;
-}
-function applicableItems(client) {
-  return CHECKLIST_ITEMS.filter((i) => applies(i, client));
-}
-async function loadClient(clientId) {
-  const rows = await getDb().select().from(clients).where(eq(clients.id, clientId)).limit(1);
-  return rows[0] || {};
-}
-var monthlyCloseRouter = createRouter({
-  getOrCreate: staffQuery.input(external_exports.object({ clientId: external_exports.number(), year: external_exports.number(), month: external_exports.number() })).query(async ({ ctx, input }) => {
-    const db = getDb();
-    const existing = await db.select().from(monthlyCloseChecklist).where(and(eq(monthlyCloseChecklist.clientId, input.clientId), eq(monthlyCloseChecklist.year, input.year), eq(monthlyCloseChecklist.month, input.month))).limit(1);
-    if (existing[0]) return existing[0];
-    const [checklist] = await db.insert(monthlyCloseChecklist).values({
-      clientId: input.clientId,
-      userId: ctx.user.id,
-      year: input.year,
-      month: input.month,
-      completionPercent: 0
-    }).returning();
-    return checklist;
-  }),
-  /** The RELEVANT checklist items for one client. */
-  getChecklistDefinition: staffQuery.input(external_exports.object({ clientId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
-    if (!input?.clientId) return CHECKLIST_ITEMS;
-    const client = await loadClient(input.clientId);
-    return applicableItems(client);
-  }),
-  toggleItem: staffQuery.input(external_exports.object({ id: external_exports.number(), field: external_exports.string(), checked: external_exports.boolean() })).mutation(async ({ input }) => {
-    const db = getDb();
-    const { id, field, checked } = input;
-    const rows = await db.select().from(monthlyCloseChecklist).where(eq(monthlyCloseChecklist.id, id)).limit(1);
-    if (!rows[0]) throw new Error("Checklist not found");
-    const client = await loadClient(rows[0].clientId);
-    const items = applicableItems(client);
-    const updateData = { [field]: checked ? 1 : 0 };
-    let completed = 0;
-    for (const item of items) {
-      if (item.field === field) {
-        if (checked) completed++;
-      } else if (rows[0][item.field]) completed++;
-    }
-    updateData.completionPercent = items.length ? Math.round(completed / items.length * 100) : 0;
-    updateData.completedAt = items.length && completed === items.length ? /* @__PURE__ */ new Date() : null;
-    await db.update(monthlyCloseChecklist).set(updateData).where(eq(monthlyCloseChecklist.id, id));
-    return { success: true, completionPercent: updateData.completionPercent };
-  }),
-  updateNotes: staffQuery.input(external_exports.object({ id: external_exports.number(), notes: external_exports.string() })).mutation(async ({ input }) => {
-    await getDb().update(monthlyCloseChecklist).set({ notes: input.notes }).where(eq(monthlyCloseChecklist.id, input.id));
-    return { success: true };
-  }),
-  /** Mark ALL relevant items done (or clear) in one click — over the client's
-   *  applicable items only, so it never re-introduces an irrelevant step. */
-  markAll: staffQuery.input(external_exports.object({ id: external_exports.number(), done: external_exports.boolean().default(true) })).mutation(async ({ input }) => {
-    const db = getDb();
-    const rows = await db.select().from(monthlyCloseChecklist).where(eq(monthlyCloseChecklist.id, input.id)).limit(1);
-    if (!rows[0]) throw new Error("Checklist not found");
-    const client = await loadClient(rows[0].clientId);
-    const items = applicableItems(client);
-    const updateData = {};
-    for (const item of items) updateData[item.field] = input.done ? 1 : 0;
-    updateData.completionPercent = input.done ? 100 : 0;
-    updateData.completedAt = input.done ? /* @__PURE__ */ new Date() : null;
-    await db.update(monthlyCloseChecklist).set(updateData).where(eq(monthlyCloseChecklist.id, input.id));
-    return { success: true, completionPercent: updateData.completionPercent };
-  }),
-  /** Toggle whether a client has credit cards (drives the credit-card step). */
-  setHasCreditCard: staffQuery.input(external_exports.object({ clientId: external_exports.number(), value: external_exports.boolean() })).mutation(async ({ input }) => {
-    await getDb().update(clients).set({ hasCreditCard: input.value }).where(eq(clients.id, input.clientId));
-    return { success: true };
-  }),
-  /** Does this client have credit cards? (for the inline toggle default) */
-  clientFlags: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
-    const c = await loadClient(input.clientId);
-    return { hasCreditCard: c.hasCreditCard !== false, hasPayroll: !!c.hasPayroll || !!c.hasEmployees, hasHST: !!c.hasHST };
-  })
-});
-
 // api/router.ts
+init_monthly_close_router();
 init_month_end_router();
 init_quote_router();
 
@@ -89693,7 +89762,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.187";
+var BUILD_TAG = "2026-06-26.188";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -90132,6 +90201,8 @@ app.get("/api/phoenix/seed", async (c) => {
       await seedRoccoHst2();
       const { seedAldersonRecharge: seedAldersonRecharge2 } = await Promise.resolve().then(() => (init_seed_alderson_recharge(), seed_alderson_recharge_exports));
       await seedAldersonRecharge2();
+      const { seedClose2025Complete: seedClose2025Complete2 } = await Promise.resolve().then(() => (init_monthly_close_router(), monthly_close_router_exports));
+      await seedClose2025Complete2();
       const { ensureGenealogySchema: ensureGenealogySchema2 } = await Promise.resolve().then(() => (init_ensure_genealogy_schema(), ensure_genealogy_schema_exports));
       await ensureGenealogySchema2();
       const { backfillGenealogyFields: backfillGenealogyFields2 } = await Promise.resolve().then(() => (init_genealogy_scan(), genealogy_scan_exports));
