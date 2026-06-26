@@ -47257,14 +47257,34 @@ var init_interco_recharge_router = __esm({
             zeroOut,
             postedAt: (/* @__PURE__ */ new Date()).toISOString()
           };
+          let shareToken = null;
+          let drive3 = null;
           try {
             await db.run(sql`INSERT INTO interco_recharge_log
             (payerClientId, counterpartyClientId, periodLabel, periodStart, periodEnd, subtotal, hst, total, reconciled, invoiceRef, billRef, worksheetJson, createdAt)
             VALUES (${input.payerClientId}, ${cpId}, ${periodLabel}, ${input.startDate}, ${input.endDate}, ${round26(subtotal)}, ${hst}, ${total}, 0, ${result.invoiceId}, ${result.billId}, ${JSON.stringify(worksheet)}, ${Date.now()})`);
+            const idRow = await db.all(sql`SELECT id FROM interco_recharge_log WHERE payerClientId=${input.payerClientId} AND invoiceRef=${result.invoiceId} ORDER BY id DESC LIMIT 1`);
+            const logId = idRow[0]?.id;
+            if (logId) {
+              try {
+                shareToken = `bb_${crypto.randomUUID().replace(/-/g, "")}`;
+                await db.run(sql`INSERT INTO interco_recharge_share_links (logId, payerClientId, token, active, createdBy, createdAt)
+                VALUES (${logId}, ${input.payerClientId}, ${shareToken}, 1, 0, ${Date.now()})`);
+              } catch (e) {
+                console.error("[interco-recharge] auto share-link failed:", e instanceof Error ? e.message : e);
+                shareToken = null;
+              }
+              try {
+                const { fileBillbackToDrive: fileBillbackToDrive2 } = await Promise.resolve().then(() => (init_billback_drive(), billback_drive_exports));
+                drive3 = await fileBillbackToDrive2(logId);
+              } catch (e) {
+                drive3 = { ok: false, error: "drive_threw", detail: e instanceof Error ? e.message : String(e) };
+              }
+            }
           } catch (e) {
             console.error("[interco-recharge] post log insert failed:", e instanceof Error ? e.message : e);
           }
-          return { ...result, counterpartyClientId: cpId, periodLabel };
+          return { ...result, counterpartyClientId: cpId, periodLabel, shareToken, drive: drive3 };
         }
         return result;
       }),
@@ -89991,7 +90011,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.190";
+var BUILD_TAG = "2026-06-26.191";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

@@ -370,12 +370,30 @@ export const intercoRechargeRouter = createRouter({
           invoiceId: result.invoiceId, billId: result.billId,
           zeroOut, postedAt: new Date().toISOString(),
         };
+        let shareToken: string | null = null;
+        let drive: any = null;
         try {
           await db.run(sql`INSERT INTO interco_recharge_log
             (payerClientId, counterpartyClientId, periodLabel, periodStart, periodEnd, subtotal, hst, total, reconciled, invoiceRef, billRef, worksheetJson, createdAt)
             VALUES (${input.payerClientId}, ${cpId}, ${periodLabel}, ${input.startDate}, ${input.endDate}, ${round2(subtotal)}, ${hst}, ${total}, 0, ${result.invoiceId}, ${result.billId}, ${JSON.stringify(worksheet)}, ${Date.now()})`);
+          // The new log row id (for the auto share link + auto Drive filing).
+          const idRow = (await db.all(sql`SELECT id FROM interco_recharge_log WHERE payerClientId=${input.payerClientId} AND invoiceRef=${result.invoiceId} ORDER BY id DESC LIMIT 1`)) as any[];
+          const logId = idRow[0]?.id as number | undefined;
+          if (logId) {
+            // AUTO share link (so the worksheet always has a ready link).
+            try {
+              shareToken = `bb_${crypto.randomUUID().replace(/-/g, "")}`;
+              await db.run(sql`INSERT INTO interco_recharge_share_links (logId, payerClientId, token, active, createdBy, createdAt)
+                VALUES (${logId}, ${input.payerClientId}, ${shareToken}, 1, 0, ${Date.now()})`);
+            } catch (e) { console.error("[interco-recharge] auto share-link failed:", e instanceof Error ? e.message : e); shareToken = null; }
+            // AUTO file the worksheet to BOTH clients' Drive folders (best-effort).
+            try {
+              const { fileBillbackToDrive } = await import("./billback-drive");
+              drive = await fileBillbackToDrive(logId);
+            } catch (e) { drive = { ok: false, error: "drive_threw", detail: e instanceof Error ? e.message : String(e) }; }
+          }
         } catch (e) { console.error("[interco-recharge] post log insert failed:", e instanceof Error ? e.message : e); }
-        return { ...result, counterpartyClientId: cpId, periodLabel };
+        return { ...result, counterpartyClientId: cpId, periodLabel, shareToken, drive };
       }
       return result;
     }),

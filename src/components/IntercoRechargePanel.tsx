@@ -224,6 +224,14 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
                 <div className="text-sm rounded-md p-2 bg-emerald-50 text-emerald-800">
                   ✓ Posted live — Invoice <b>#{pr.invoiceId}</b> in {payer?.name}, Bill <b>#{pr.billId}</b> in {counterparty} ({money(pr.total)}). See System Health → Recent Agent Activity for the audit entry.
                 </div>
+                {(pr as any).shareToken && (
+                  <div className="text-[11px] rounded-md p-2 bg-violet-50 text-violet-900 space-y-1">
+                    <div>Worksheet link: <a className="underline font-mono" href={`${window.location.origin}/share/billback/${(pr as any).shareToken}`} target="_blank" rel="noreferrer">{`${window.location.origin}/share/billback/${(pr as any).shareToken}`}</a></div>
+                    {(pr as any).drive && ((pr as any).drive.ok
+                      ? <div className="text-emerald-700">Auto-filed to Drive: {(pr as any).drive.filed.map((f: any) => f.clientName).join(", ")}{(pr as any).drive.skipped?.length ? ` · skipped: ${(pr as any).drive.skipped.join(", ")}` : ""}</div>
+                      : <div className="text-amber-700">Couldn't auto-file to Drive ({(pr as any).drive.error}). {(pr as any).drive.detail || ""} — use the "File to both clients' Drive folders" button below once fixed.</div>)}
+                  </div>
+                )}
                 <PostedRecords
                   payerClientId={payerId!}
                   counterpartyClientId={(pr as any).counterpartyClientId}
