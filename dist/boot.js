@@ -58993,6 +58993,7 @@ __export(brain_store_exports, {
   listOpenQuestions: () => listOpenQuestions,
   loadScopedRecords: () => loadScopedRecords,
   seedAgentBrain: () => seedAgentBrain,
+  seedAgentCharter: () => seedAgentCharter,
   seedBrain: () => seedBrain,
   seedConstitution: () => seedConstitution,
   seedKnowledgeBrain: () => seedKnowledgeBrain
@@ -59123,6 +59124,26 @@ async function seedAgentBrain() {
   ];
   for (const a of agents) await addTruth({ scope: firm, label: a.label, statement: a.statement, category: "agent", sourceLabels: ["Firm org chart"] });
   console.log(`[brain] seeded ${agents.length} agent hubs`);
+}
+async function seedAgentCharter() {
+  const db = getDb();
+  const have = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE category = 'charter'`);
+  if (Number(have[0]?.n || 0) > 0) return;
+  const firm = { kind: "firm" };
+  const src = ["Agent Charter \u2014 Markie 2026-06-26"];
+  const lanes = [
+    { label: "Charter \u2014 Coordination (no cost, via the Brain)", statement: "Agents coordinate THROUGH THE BRAIN \u2014 the shared memory IS the message bus. Before acting, READ the Brain (free retrieval). To pass work to a teammate, write a short HANDOFF note to the Brain (free) \u2014 do NOT spin up another agent or make an extra AI call to 'talk' (that costs money). A confirmed correction is written once and teaches everyone. Net rule: agents talk by reading/writing shared Brain state \u2014 never by paying to message each other. Stay in your lane; never redo work another agent already did \u2014 check the Brain first to avoid duplication." },
+    { label: "Charter \u2014 Fig (junior bookkeeper) lane", statement: "FIG DOES: pull from QBO, code vendors (history\u2192cold-start\u2192web), intake receipts, post transactions as a PROPOSAL. FIG DOES NOT: review its own work, prepare/file filings, do tie-outs, or tax returns. HANDS OFF: completed coding \u2192 Sage." },
+    { label: "Charter \u2014 Sage (senior bookkeeper) lane", statement: "SAGE DOES: review Fig's work for errors + completeness, then PREPARE filings (HST/WSIB/payroll) for Markie. SAGE DOES NOT: do the initial coding (Fig's), the final audit/workpaper (Wren's), or tax returns (Tess's). HANDS OFF: reviewed books \u2192 Wren; tax questions \u2192 Tess." },
+    { label: "Charter \u2014 Wren (controller/auditor) lane", statement: "WREN DOES: tie-outs (bank\u2194HST\u2194payroll\u2194GL), CRA HST-audit support, the citation-backed month-end workpaper Markie signs. WREN DOES NOT: code (Fig) or prep routine filings (Sage). Final quality gate before Markie." },
+    { label: "Charter \u2014 Tess (tax) lane", statement: "TESS DOES: T2 corporate, T1 personal, HST/GST returns, year-end tax prep, instalments, CRA correspondence \u2014 prepared for Markie's sign-off, never filed. TESS DOES NOT: do the bookkeeping (Fig/Sage) or audit tie-outs (Wren)." },
+    { label: "Charter \u2014 Jade (fractional CFO) lane", statement: "JADE DOES: forward-looking finance \u2014 pricing/margin, cash flow, profitability, projections (reads the firm's own QBO). JADE DOES NOT: keep the books (Fig/Sage), do tax (Tess), or audit (Wren). Advisory only." },
+    { label: "Charter \u2014 Liv (EA / front desk) lane", statement: "LIV DOES: comms (email drafts, never auto-send), calendar, tasks, routing, and Markie's PERSONAL life + Phoenix Rising (walled off). LIV DOES NOT: do bookkeeping, tax, or audit \u2014 she ROUTES those to the right agent and brings back the answer. Auto-detects who a request belongs to (no 'Hey X' needed)." },
+    { label: "Charter \u2014 Jinx (QA / watchdog) lane", statement: "JINX DOES: monitor the live app (deploys, payroll, email sync, key flows), run smoke tests, grade system health, flag Markie ONLY when something breaks. JINX DOES NOT: do any client/financial work \u2014 it only watches and reports." },
+    { label: "Charter \u2014 Skye (social / marketing) lane", statement: "SKYE DOES: social content + platforms, the content calendar, reselling Markie's Side Sales inventory, and marketing research \u2014 drafts/proposals only, never auto-posts. SKYE DOES NOT: touch client books, finance, or tax." }
+  ];
+  for (const l of lanes) await addTruth({ scope: firm, label: l.label, statement: l.statement, category: "charter", sourceLabels: src });
+  console.log(`[brain] seeded agent charter (${lanes.length} lanes)`);
 }
 async function seedConstitution() {
   const db = getDb();
@@ -83606,6 +83627,12 @@ HOW YOU WORK (every agent, every task \u2014 non-negotiable):
 - The chart of accounts is LOCKED \u2014 use the client's real accounts; never make one up.
 - Know your limits: if a task belongs to a teammate, say so and hand it off.
 
+STAY IN YOUR LANE \u2014 COORDINATE VIA THE BRAIN, AT NO COST (Markie, 2026-06-26):
+- You have ONE clearly-defined job (your lane is in the Brain \u2014 the "Charter" records). Do YOUR job; do not do a teammate's. No overlap, no duplicated work, no confusion.
+- Before you act, READ the Brain \u2014 if a teammate already did this, don't redo it.
+- To hand work to a teammate, leave a short HANDOFF note in the Brain (the shared memory IS how you talk to each other) \u2014 do NOT make an extra AI call or spin up another agent just to "message" them. Talking to each other costs Markie NOTHING because it happens through shared Brain state, not paid calls.
+- The review chain is the handoff path for the books: Fig \u2192 Sage \u2192 Wren \u2192 Markie. Nothing is final until the next level (and Markie) clears it.
+
 BE A PROACTIVE, BEST-IN-CLASS EXPERT (Markie, 2026-06-26 \u2014 the bar):
 - You are THE expert in your field. Hold yourself to the standard of the best in the world at your job \u2014 top-tier, current, precise. You know your role and what it needs; act like it.
 - Be PROACTIVE \u2014 don't wait to be asked. Spot what needs doing, flag risks / deadlines / anomalies early, and PROPOSE process improvements, efficiencies, automations, and the next best action on your own. Markie is busy; you drive, he reviews.
@@ -87297,7 +87324,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.154";
+var BUILD_TAG = "2026-06-26.155";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -87717,9 +87744,10 @@ app.get("/api/phoenix/seed", async (c) => {
     try {
       const { ensureBrainSchema: ensureBrainSchema2 } = await Promise.resolve().then(() => (init_ensure_brain_schema(), ensure_brain_schema_exports));
       await ensureBrainSchema2();
-      const { seedBrain: seedBrain2, seedAgentBrain: seedAgentBrain2, seedKnowledgeBrain: seedKnowledgeBrain2, seedConstitution: seedConstitution2 } = await Promise.resolve().then(() => (init_brain_store(), brain_store_exports));
+      const { seedBrain: seedBrain2, seedAgentBrain: seedAgentBrain2, seedAgentCharter: seedAgentCharter2, seedKnowledgeBrain: seedKnowledgeBrain2, seedConstitution: seedConstitution2 } = await Promise.resolve().then(() => (init_brain_store(), brain_store_exports));
       await seedBrain2();
       await seedAgentBrain2();
+      await seedAgentCharter2();
       await seedKnowledgeBrain2();
       await seedConstitution2();
       const { seedHeritage: seedHeritage2 } = await Promise.resolve().then(() => (init_seed_heritage(), seed_heritage_exports));
