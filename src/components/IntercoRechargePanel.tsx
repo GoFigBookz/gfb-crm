@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Receipt, Loader2, CheckCircle2, AlertTriangle, FileDown } from "lucide-react";
+import { Receipt, Loader2, CheckCircle2, AlertTriangle, FileDown, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,7 +57,7 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
 
   const preview = trpc.intercoRecharge.preview.useMutation();
   const recon = trpc.intercoRecharge.reconcileCheck.useMutation();
-  const post = trpc.intercoRecharge.post.useMutation();
+  const post = trpc.intercoRecharge.post.useMutation({ onSuccess: () => utils.intercoRecharge.log.invalidate({ payerClientId: payerId! }) });
   const record = trpc.intercoRecharge.recordPeriod.useMutation({ onSuccess: () => utils.intercoRecharge.log.invalidate({ payerClientId: payerId! }) });
   const markRec = trpc.intercoRecharge.markReconciled.useMutation({ onSuccess: () => utils.intercoRecharge.log.invalidate({ payerClientId: payerId! }) });
   const r = preview.data;
@@ -215,9 +215,20 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
               <span className="text-[11px] text-slate-400">Posting needs both companies on the DIRECT (native) connection.</span>
             </div>
             {pr && pr.ok && (
-              <div className="text-sm rounded-md p-2 bg-emerald-50 text-emerald-800">
-                ✓ Posted live — Invoice <b>#{pr.invoiceId}</b> in {payer?.name}, Bill <b>#{pr.billId}</b> in {counterparty} ({money(pr.total)}). See System Health → Recent Agent Activity for the audit entry.
-              </div>
+              <>
+                <div className="text-sm rounded-md p-2 bg-emerald-50 text-emerald-800">
+                  ✓ Posted live — Invoice <b>#{pr.invoiceId}</b> in {payer?.name}, Bill <b>#{pr.billId}</b> in {counterparty} ({money(pr.total)}). See System Health → Recent Agent Activity for the audit entry.
+                </div>
+                <PostedRecords
+                  payerClientId={payerId!}
+                  counterpartyClientId={(pr as any).counterpartyClientId}
+                  counterpartyName={counterparty}
+                  payerName={payer?.name || "Payer"}
+                  invoiceId={pr.invoiceId}
+                  billId={pr.billId}
+                  defaultOpen
+                />
+              </>
             )}
             {pr && !pr.ok && (
               <div className="text-sm rounded-md p-2 bg-amber-50 text-amber-800">
@@ -233,12 +244,24 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
             <div className="text-xs font-medium text-slate-600 mb-1">Quarterly reconcile log</div>
             <div className="divide-y text-sm">
               {(log || []).map((x: any) => (
-                <div key={x.id} className="flex items-center gap-2 py-1">
-                  <span className="text-xs text-slate-500 flex-1 truncate">{x.periodLabel} · {money(x.total)} ({money(x.hst)} HST)</span>
-                  <label className="flex items-center gap-1 text-xs cursor-pointer">
-                    <input type="checkbox" checked={!!x.reconciled} onChange={(e) => markRec.mutate({ id: x.id, reconciled: e.target.checked })} />
-                    {x.reconciled ? <span className="text-emerald-600 inline-flex items-center gap-0.5"><CheckCircle2 className="h-3 w-3" /> reconciled</span> : <span className="text-amber-600">to reconcile</span>}
-                  </label>
+                <div key={x.id} className="py-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500 flex-1 truncate">{x.periodLabel} · {money(x.total)} ({money(x.hst)} HST){x.invoiceRef ? ` · Inv #${x.invoiceRef} / Bill #${x.billRef}` : ""}</span>
+                    <label className="flex items-center gap-1 text-xs cursor-pointer">
+                      <input type="checkbox" checked={!!x.reconciled} onChange={(e) => markRec.mutate({ id: x.id, reconciled: e.target.checked })} />
+                      {x.reconciled ? <span className="text-emerald-600 inline-flex items-center gap-0.5"><CheckCircle2 className="h-3 w-3" /> reconciled</span> : <span className="text-amber-600">to reconcile</span>}
+                    </label>
+                  </div>
+                  {x.invoiceRef && x.billRef && (
+                    <PostedRecords
+                      payerClientId={payerId!}
+                      counterpartyClientId={x.counterpartyClientId}
+                      counterpartyName={counterparty}
+                      payerName={payer?.name || "Payer"}
+                      invoiceId={String(x.invoiceRef)}
+                      billId={String(x.billRef)}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -261,6 +284,93 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
         </details>
       </CardContent>
     </Card>
+  );
+}
+
+/** Expandable dropdown that re-reads the POSTED Invoice (payer) + Bill (counterparty)
+ *  live from QBO so you can see both records under the post and that they balance. */
+function PostedRecords(props: {
+  payerClientId: number; counterpartyClientId?: number; counterpartyName?: string;
+  payerName: string; invoiceId: string; billId: string; defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(!!props.defaultOpen);
+  const fetchPosted = trpc.intercoRecharge.fetchPosted.useMutation();
+  const d = fetchPosted.data;
+
+  const load = () => fetchPosted.mutate({
+    payerClientId: props.payerClientId,
+    counterpartyClientId: props.counterpartyClientId,
+    counterpartyName: props.counterpartyName,
+    invoiceId: props.invoiceId, billId: props.billId,
+  });
+
+  // Auto-load on first open.
+  useEffect(() => { if (open && !fetchPosted.data && !fetchPosted.isPending) load(); /* eslint-disable-next-line */ }, [open]);
+
+  return (
+    <div className="mt-1 rounded-md border border-slate-200 bg-slate-50/50">
+      <button type="button" className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md"
+        onClick={() => setOpen((o) => !o)}>
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "" : "-rotate-90"}`} />
+        Posted records (both companies)
+        {fetchPosted.isPending && <Loader2 className="h-3 w-3 animate-spin ml-1" />}
+        {d && d.ok && (
+          <span className={`ml-auto inline-flex items-center gap-1 text-[11px] ${d.balances ? "text-emerald-600" : "text-red-600"}`}>
+            {d.balances ? <><CheckCircle2 className="h-3 w-3" /> balances</> : <><AlertTriangle className="h-3 w-3" /> mismatch</>}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="px-2 pb-2 space-y-2">
+          {fetchPosted.isPending && <div className="text-xs text-slate-400">Reading the live records from QuickBooks…</div>}
+          {d && !d.ok && (
+            <div className="text-xs text-amber-700">
+              {d.error === "bridge_not_returning_data"
+                ? "The live QBO connection isn't returning data yet (bridge config — not the books)."
+                : `Couldn't read the records (${d.error}).`}
+              <button type="button" className="ml-2 underline text-slate-500" onClick={load}>retry</button>
+            </div>
+          )}
+          {d && d.ok && (
+            <>
+              <div className="grid sm:grid-cols-2 gap-2">
+                <PostedDocCard title={`Invoice — ${props.payerName}`} doc={d.invoice} />
+                <PostedDocCard title={`Bill — ${props.counterpartyName || "Counterparty"}`} doc={d.bill} />
+              </div>
+              <div className={`text-xs rounded-md p-1.5 text-center ${d.balances ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"}`}>
+                {d.balances
+                  ? <>✓ Balanced — both documents total {money(d.invoice.total)} (invoice = bill).</>
+                  : <>⚠ Mismatch — invoice {money(d.invoice.total)} vs bill {money(d.bill.total)}. Review before filing.</>}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PostedDocCard({ title, doc }: { title: string; doc: any }) {
+  return (
+    <div className="rounded-lg border bg-white p-2">
+      <div className="text-xs font-semibold text-slate-700 flex justify-between">
+        <span>{title}</span>
+        <span className="text-slate-400 font-normal">#{doc.docNumber} · {doc.date}</span>
+      </div>
+      <div className="text-[11px] text-slate-400 mb-1">{doc.type === "invoice" ? "Customer" : "Vendor"}: {doc.party || "—"}</div>
+      <div className="max-h-40 overflow-auto divide-y text-xs">
+        {doc.lines.map((l: any, i: number) => (
+          <div key={i} className="flex items-center gap-2 py-0.5">
+            <span className="flex-1 truncate text-slate-600">{l.description || l.account}</span>
+            <span className="font-mono text-slate-700">{money(l.amount)}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 text-xs flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-mono">{money(doc.subtotal)}</span></div>
+      <div className="text-xs flex justify-between"><span className="text-slate-500">HST</span><span className="font-mono">{money(doc.hst)}</span></div>
+      <div className="text-sm flex justify-between font-semibold"><span>Total</span><span className="font-mono">{money(doc.total)}</span></div>
+      {typeof doc.balance === "number" && <div className="text-[11px] flex justify-between text-slate-400"><span>Open balance</span><span className="font-mono">{money(doc.balance)}</span></div>}
+    </div>
   );
 }
 
