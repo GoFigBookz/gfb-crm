@@ -32,6 +32,8 @@ const COLUMNS: Array<[string, string]> = [
   ["serviceTier", "text DEFAULT 'standard'"], ["monthlyFee", "real DEFAULT 0"],
   ["onboardingSentAt", "integer"], ["onboardingCompletedAt", "integer"], ["onboardingToken", "text"],
   ["hasHST", "integer DEFAULT 0"], ["hstNumber", "text"], ["hstPeriod", "text"], ["hstNextDue", "text"],
+  ["hstFilingFrequency", "text"], ["fiscalYearEndMonth", "integer"],
+  ["hasCreditCard", "integer DEFAULT 1"],
   ["hasWSIB", "integer DEFAULT 0"], ["wsibAccountNumber", "text"], ["wsibQuarter", "text"], ["wsibRate", "real"],
   ["hasPayroll", "integer DEFAULT 0"], ["payrollExternal", "integer DEFAULT 0"], ["payrollFrequency", "text"], ["payrollRemitterFreq", "text DEFAULT 'regular'"], ["yearEndMonth", "text"],
   ["hasIntercoJournals", "integer DEFAULT 0"],

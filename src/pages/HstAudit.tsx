@@ -23,7 +23,7 @@ const empty: LineVals = { line101: "", line103: "", line106: "", line109: "" };
 const num = (v: LineVals) => ({ line101: +v.line101 || 0, line103: +v.line103 || 0, line106: +v.line106 || 0, line109: +v.line109 || 0 });
 
 export default function HstAudit() {
-  const clients = trpc.clients.list.useQuery(undefined, { staleTime: 60000 });
+  const clients = trpc.crmClient.list.useQuery(undefined, { staleTime: 60000 });
   const [clientLabel, setClientLabel] = useState("");
   const [fiscalYear, setFiscalYear] = useState("");
   const [filed, setFiled] = useState<LineVals>({ ...empty });

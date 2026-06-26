@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { trpc } from "@/providers/trpc";
 import { format } from "date-fns";
 import { TASK_CATEGORIES, ASSIGNEES, STANDARD_TASK_TITLES } from "@/lib/task-options";
-import { isHstFilingTask, defaultHstRange } from "../../api/hst-period";
+import { isHstFilingTask, fiscalHstRange, normalizeFreq } from "../../api/hst-period";
 import { ClipboardCheck, AlertCircle, AlertTriangle, Info, Loader2 } from "lucide-react";
 
 const STAGES: [string, string][] = [["todo", "To Do"], ["in_progress", "In Progress"], ["review", "Review"], ["done", "Done"]];
@@ -182,7 +182,8 @@ export function TaskDetailDialog({ task, onClose, onChanged }: {
           </div>
 
           {isHstFilingTask(title) && clientId !== "none" && (
-            <TaskHstReview clientId={Number(clientId)} dueDate={task.dueDate} onClose={onClose} />
+            <TaskHstReview clientId={Number(clientId)} dueDate={task.dueDate} onClose={onClose}
+              client={clientList?.find((c: any) => String(c.id) === clientId)} />
           )}
 
           {task.isRecurring && (
@@ -221,8 +222,9 @@ export function TaskDetailDialog({ task, onClose, onChanged }: {
 /** Embedded read-only Pre-HST review for an HST filing task: the current data
  *  issues for this client+period, right inside the task. Runs on demand (no costly
  *  fan-out); QBO does the reconcile + the return — this only checks the inputs. */
-function TaskHstReview({ clientId, dueDate, onClose }: { clientId: number; dueDate?: any; onClose?: () => void }) {
-  const def = defaultHstRange(dueDate ? new Date(dueDate) : new Date(), "quarterly");
+function TaskHstReview({ clientId, dueDate, onClose, client }: { clientId: number; dueDate?: any; onClose?: () => void; client?: any }) {
+  const freq = normalizeFreq(client?.hstFilingFrequency || client?.hstPeriod);
+  const def = fiscalHstRange(dueDate ? new Date(dueDate) : new Date(), freq, client?.fiscalYearEndMonth);
   const [start, setStart] = useState(def.start);
   const [end, setEnd] = useState(def.end);
   const run = trpc.hstReview.run.useMutation();

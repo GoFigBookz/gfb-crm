@@ -291,6 +291,9 @@ export const clients = sqliteTable("clients", {
   onboardingToken: text("onboardingToken"),
   
   // Bookkeeping service flags
+  // Drives the month-end close checklist (credit-card reconcile step). Default ON
+  // (true) so no client loses a relevant step; turn OFF for clients with no card.
+  hasCreditCard: integer("hasCreditCard", { mode: "boolean" }).default(true),
   hasHST: integer("hasHST", { mode: "boolean" }).default(false),
   hstNextDue: text("hstNextDue"),   // explicit "next HST return due by" date (YYYY-MM-DD) from Markie's HST sheet
   hstNumber: text("hstNumber"),

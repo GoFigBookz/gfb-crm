@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { computeT5Boxes } from "../../api/dividend-core";
 import { useParams, Link, useNavigate } from "react-router";
-import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet, Globe, Mail, FileSpreadsheet, Bot } from "lucide-react";
+import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, AlertTriangle, Info, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet, Globe, Mail, FileSpreadsheet, Bot, ClipboardCheck, Loader2 } from "lucide-react";
+import { fiscalHstRange, normalizeFreq } from "../../api/hst-period";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -1542,7 +1543,7 @@ function ClientCloseChecklist({ clientId }: { clientId: number }) {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1); // 1-12
   const utils = trpc.useUtils();
-  const { data: items } = trpc.monthlyClose.getChecklistDefinition.useQuery();
+  const { data: items } = trpc.monthlyClose.getChecklistDefinition.useQuery({ clientId }, { enabled: clientId > 0 });
   const { data: checklist } = trpc.monthlyClose.getOrCreate.useQuery({ clientId, year, month }, { enabled: clientId > 0 });
   const { data: qbo } = trpc.qbo.connectionForClient.useQuery({ clientId }, { enabled: clientId > 0 });
   const realmId = qbo?.connection?.realmId ?? null;
@@ -1600,6 +1601,70 @@ function ClientCloseChecklist({ clientId }: { clientId: number }) {
             </button>
           );
         })}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * PRE-HST REVIEW, embedded on the client card (Markie 2026-06-26: "move it to the
+ * client card"). Read-only accuracy sweep before filing — catches tax-code gaps,
+ * sales without HST, control-account coding, duplicates, meals ITC — and gives an
+ * implied-HST tie-out to compare to QBO's own Sales Tax report. Nothing posts.
+ * Dates default to the client's FISCAL quarter (fiscalYearEndMonth), editable.
+ */
+function ClientHstReviewCard({ clientId, client }: { clientId: number; client: any }) {
+  const freq = normalizeFreq(client?.hstFilingFrequency || client?.hstPeriod);
+  const def = fiscalHstRange(new Date(), freq, client?.fiscalYearEndMonth);
+  const [start, setStart] = useState(def.start);
+  const [end, setEnd] = useState(def.end);
+  const run = trpc.hstReview.run.useMutation();
+  const r = run.data;
+  const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+  const sevIcon = (s: string) => s === "high" ? <AlertCircle className="h-3.5 w-3.5 text-red-600" /> : s === "medium" ? <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> : <Info className="h-3.5 w-3.5 text-sky-600" />;
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-indigo-600" /> Pre-HST review <span className="text-xs font-normal text-slate-400">(read-only)</span></CardTitle>
+        <CardDescription>
+          Reconcile in QuickBooks first, then run this to catch coding issues before you file. It checks what's in the books — it can't see transactions never entered. Period defaults to this client's fiscal quarter; adjust if needed.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="flex items-end gap-2 flex-wrap">
+          <div><Label className="text-[11px] text-slate-500">From</Label><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="h-9" /></div>
+          <div><Label className="text-[11px] text-slate-500">To</Label><Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="h-9" /></div>
+          <Button size="sm" className="h-9" disabled={run.isPending} onClick={() => run.mutate({ clientId, startDate: start, endDate: end })}>
+            {run.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null} Run review
+          </Button>
+          <Link to={`/hst-review?clientId=${clientId}&start=${start}&end=${end}`} className="text-xs text-indigo-600 hover:underline inline-flex items-center gap-1 h-9 leading-9">
+            Full page <ExternalLink className="h-3 w-3" />
+          </Link>
+        </div>
+        {run.isError && <div className="text-xs text-red-600">{(run.error as any)?.message || "Failed to run."}</div>}
+        {r && !r.ok && r.error === "bridge_not_returning_data" && <div className="text-xs text-amber-700">The live QBO connection isn't returning data yet (bridge config fix needed — not the books). File from QuickBooks' Sales Tax report for now.</div>}
+        {r && !r.ok && r.error !== "bridge_not_returning_data" && <div className="text-xs text-amber-600">No usable QBO connection for this client ({r.error}).</div>}
+        {r && r.ok && (
+          <div className="space-y-1.5">
+            <div className="text-xs text-slate-600">
+              Implied net HST <b>{money(r.report.tie.net)}</b> (collected {money(r.report.tie.collected)} − ITC {money(r.report.tie.itc)}) · {r.pulled.transactions} txns.
+              <span className="text-slate-400"> Compare to QBO's Sales Tax report.</span>
+            </div>
+            {r.errors.length > 0 && <div className="text-[11px] text-amber-600">Pull warnings: {r.errors.join("; ")}</div>}
+            {r.report.findings.length === 0
+              ? <div className="text-xs text-emerald-600">No coding issues flagged for this period.</div>
+              : <div className="space-y-1">
+                  <div className="text-xs font-medium text-slate-600">{r.report.findings.length} issue(s) — {r.report.bySeverity.high} high, {r.report.bySeverity.medium} medium:</div>
+                  {r.report.findings.slice(0, 15).map((f: any, i: number) => (
+                    <div key={i} className="flex items-start gap-1.5 text-xs">
+                      {sevIcon(f.severity)}
+                      <span className="text-slate-700"><b>{f.message}</b> {f.amount != null && <span className="text-slate-400">· {money(f.amount)}</span>} <span className="text-slate-400">— {f.ref}</span></span>
+                    </div>
+                  ))}
+                  {r.report.findings.length > 15 && <div className="text-[11px] text-slate-400">…and {r.report.findings.length - 15} more — open the full page.</div>}
+                </div>}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -1704,6 +1769,10 @@ function ComplianceTab({ clientId, client, onboarding, closeStatus, tasks, onOpe
       {/* Month-end close checklist — the per-client sub-task list (reconciliation
           included), ticked off here instead of cluttering the calendar. */}
       <ClientCloseChecklist clientId={clientId} />
+
+      {/* Pre-HST accuracy review — right on the client card, defaults to the
+          client's fiscal quarter. Only for HST-registered clients. */}
+      {client.hasHST && <ClientHstReviewCard clientId={clientId} client={client} />}
 
       {/* Filing status from the live close engine */}
       <Card>

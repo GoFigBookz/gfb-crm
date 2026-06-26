@@ -21,11 +21,11 @@ var __export = (target, all) => {
   for (var name2 in all)
     __defProp(target, name2, { get: all[name2], enumerable: true });
 };
-var __copyProps = (to, from, except2, desc8) => {
+var __copyProps = (to, from, except2, desc7) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key10 of __getOwnPropNames(from))
       if (!__hasOwnProp.call(to, key10) && key10 !== except2)
-        __defProp(to, key10, { get: () => from[key10], enumerable: !(desc8 = __getOwnPropDesc(from, key10)) || desc8.enumerable });
+        __defProp(to, key10, { get: () => from[key10], enumerable: !(desc7 = __getOwnPropDesc(from, key10)) || desc7.enumerable });
   }
   return to;
 };
@@ -214,12 +214,12 @@ var init_getErrorShape_vC8mUXJD = __esm({
     __commonJS2 = (cb, mod) => function() {
       return mod || (0, cb[__getOwnPropNames2(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
     };
-    __copyProps2 = (to, from, except2, desc8) => {
+    __copyProps2 = (to, from, except2, desc7) => {
       if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames2(from), i = 0, n = keys.length, key10; i < n; i++) {
         key10 = keys[i];
         if (!__hasOwnProp2.call(to, key10) && key10 !== except2) __defProp2(to, key10, {
           get: ((k) => from[k]).bind(null, key10),
-          enumerable: !(desc8 = __getOwnPropDesc2(from, key10)) || desc8.enumerable
+          enumerable: !(desc7 = __getOwnPropDesc2(from, key10)) || desc7.enumerable
         });
       }
       return to;
@@ -3340,8 +3340,8 @@ var init_schemas = __esm({
     });
     $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
       $ZodType.init(inst, def);
-      const desc8 = Object.getOwnPropertyDescriptor(def, "shape");
-      if (!desc8?.get) {
+      const desc7 = Object.getOwnPropertyDescriptor(def, "shape");
+      if (!desc7?.get) {
         const sh = def.shape;
         Object.defineProperty(def, "shape", {
           get: () => {
@@ -22681,6 +22681,9 @@ var init_schema = __esm({
       onboardingCompletedAt: integer2("onboardingCompletedAt", { mode: "timestamp" }),
       onboardingToken: text("onboardingToken"),
       // Bookkeeping service flags
+      // Drives the month-end close checklist (credit-card reconcile step). Default ON
+      // (true) so no client loses a relevant step; turn OFF for clients with no card.
+      hasCreditCard: integer2("hasCreditCard", { mode: "boolean" }).default(true),
       hasHST: integer2("hasHST", { mode: "boolean" }).default(false),
       hstNextDue: text("hstNextDue"),
       // explicit "next HST return due by" date (YYYY-MM-DD) from Markie's HST sheet
@@ -25269,13 +25272,13 @@ var require_dist = __commonJS({
     "use strict";
     var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
-      var desc8 = Object.getOwnPropertyDescriptor(m, k);
-      if (!desc8 || ("get" in desc8 ? !m.__esModule : desc8.writable || desc8.configurable)) {
-        desc8 = { enumerable: true, get: function() {
+      var desc7 = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc7 || ("get" in desc7 ? !m.__esModule : desc7.writable || desc7.configurable)) {
+        desc7 = { enumerable: true, get: function() {
           return m[k];
         } };
       }
-      Object.defineProperty(o, k2, desc8);
+      Object.defineProperty(o, k2, desc7);
     }) : (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
@@ -63248,6 +63251,45 @@ var init_seed_alderson_recurring = __esm({
   }
 });
 
+// api/seed-rocco-hst.ts
+var seed_rocco_hst_exports = {};
+__export(seed_rocco_hst_exports, {
+  seedRoccoHst: () => seedRoccoHst
+});
+async function seedRoccoHst() {
+  const db = getDb();
+  try {
+    let touched = 0;
+    for (const pat of PATTERNS) {
+      const rows = await db.all(sql`
+        SELECT id, name FROM clients
+        WHERE lower(name) LIKE ${pat} OR lower(company) LIKE ${pat}
+      `);
+      for (const c of rows) {
+        await db.run(sql`
+          UPDATE clients
+          SET hstFilingFrequency = 'quarterly', fiscalYearEndMonth = ${YEAR_END_MONTH}
+          WHERE id = ${c.id}
+        `);
+        touched++;
+        console.log(`[rocco-hst] set ${c.name} (id ${c.id}) \u2192 quarterly, FYE month ${YEAR_END_MONTH}`);
+      }
+    }
+    if (!touched) console.warn("[rocco-hst] no Ovita/Alderson clients found \u2014 nothing to set");
+  } catch (e) {
+    console.error("[rocco-hst] seedRoccoHst failed:", e instanceof Error ? e.message : e);
+  }
+}
+var YEAR_END_MONTH, PATTERNS;
+var init_seed_rocco_hst = __esm({
+  "api/seed-rocco-hst.ts"() {
+    init_connection();
+    init_drizzle_orm();
+    YEAR_END_MONTH = 11;
+    PATTERNS = ["%ovita%", "%alderson%"];
+  }
+});
+
 // api/ensure-genealogy-schema.ts
 var ensure_genealogy_schema_exports = {};
 __export(ensure_genealogy_schema_exports, {
@@ -67953,6 +67995,9 @@ var init_ensure_clients_schema = __esm({
       ["hstNumber", "text"],
       ["hstPeriod", "text"],
       ["hstNextDue", "text"],
+      ["hstFilingFrequency", "text"],
+      ["fiscalYearEndMonth", "integer"],
+      ["hasCreditCard", "integer DEFAULT 1"],
       ["hasWSIB", "integer DEFAULT 0"],
       ["wsibAccountNumber", "text"],
       ["wsibQuarter", "text"],
@@ -69585,7 +69630,7 @@ async function markClientRunPayroll() {
     const updated = [];
     for (const c of cs) {
       if ((c.clientType || "") === "wholesale") continue;
-      if (!PATTERNS.some((p) => p.test(c.name || ""))) continue;
+      if (!PATTERNS2.some((p) => p.test(c.name || ""))) continue;
       const needsUpdate = c.payrollFrequency !== "self" || !c.payrollExternal || !c.hasPayroll;
       if (needsUpdate) {
         await db.update(clients).set({ hasPayroll: true, payrollFrequency: "self", payrollExternal: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
@@ -69605,14 +69650,14 @@ async function markClientRunPayroll() {
     console.error("[client-run-payroll] failed:", err instanceof Error ? err.message : err);
   }
 }
-var PATTERNS;
+var PATTERNS2;
 var init_seed_client_run_payroll = __esm({
   "api/seed-client-run-payroll.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     init_client_task_creator();
-    PATTERNS = [/selective\s*painting/i, /studio\s*lel/i, /aline\s*plumbing/i];
+    PATTERNS2 = [/selective\s*painting/i, /studio\s*lel/i, /aline\s*plumbing/i];
   }
 });
 
@@ -81582,13 +81627,13 @@ init_schema();
 init_drizzle_orm();
 var CHECKLIST_ITEMS = [
   { field: "bankStatementsReconciled", label: "Bank statements reconciled (all accounts)" },
-  { field: "creditCardStatementsReconciled", label: "Credit card statements reconciled" },
+  { field: "creditCardStatementsReconciled", label: "Credit card statements reconciled", needs: "creditCard" },
   { field: "allReceiptsProcessed", label: "All receipts processed and posted" },
   { field: "apReviewed", label: "A/P reviewed and current" },
   { field: "arReviewed", label: "A/R reviewed and followed up" },
-  { field: "payrollJournalVerified", label: "Payroll journal verified" },
-  { field: "sourceDeductionsConfirmed", label: "Source deductions confirmed" },
-  { field: "hstGstTracked", label: "HST/GST tracked correctly" },
+  { field: "payrollJournalVerified", label: "Payroll journal verified", needs: "payroll" },
+  { field: "sourceDeductionsConfirmed", label: "Source deductions confirmed", needs: "payroll" },
+  { field: "hstGstTracked", label: "HST/GST tracked correctly", needs: "hst" },
   { field: "ownerTransactionsSeparated", label: "Owner transactions separated" },
   { field: "adjustingEntriesPosted", label: "Adjusting entries posted" },
   { field: "plReviewed", label: "P&L reviewed for variances" },
@@ -81598,16 +81643,24 @@ var CHECKLIST_ITEMS = [
   { field: "clientNotified", label: "Client notified" },
   { field: "sourceDocsFiled", label: "Source docs filed in Drive" }
 ];
+function applies(item, client) {
+  if (!item.needs) return true;
+  if (item.needs === "payroll") return !!(client?.hasPayroll || client?.hasEmployees);
+  if (item.needs === "hst") return !!client?.hasHST;
+  if (item.needs === "creditCard") return client?.hasCreditCard !== false;
+  return true;
+}
+function applicableItems(client) {
+  return CHECKLIST_ITEMS.filter((i) => applies(i, client));
+}
+async function loadClient(clientId) {
+  const rows = await getDb().select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  return rows[0] || {};
+}
 var monthlyCloseRouter = createRouter({
   getOrCreate: staffQuery.input(external_exports.object({ clientId: external_exports.number(), year: external_exports.number(), month: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const existing = await db.select().from(monthlyCloseChecklist).where(
-      and(
-        eq(monthlyCloseChecklist.clientId, input.clientId),
-        eq(monthlyCloseChecklist.year, input.year),
-        eq(monthlyCloseChecklist.month, input.month)
-      )
-    ).limit(1);
+    const existing = await db.select().from(monthlyCloseChecklist).where(and(eq(monthlyCloseChecklist.clientId, input.clientId), eq(monthlyCloseChecklist.year, input.year), eq(monthlyCloseChecklist.month, input.month))).limit(1);
     if (existing[0]) return existing[0];
     const [checklist] = await db.insert(monthlyCloseChecklist).values({
       clientId: input.clientId,
@@ -81618,42 +81671,44 @@ var monthlyCloseRouter = createRouter({
     }).returning();
     return checklist;
   }),
-  toggleItem: staffQuery.input(
-    external_exports.object({
-      id: external_exports.number(),
-      field: external_exports.string(),
-      checked: external_exports.boolean()
-    })
-  ).mutation(async ({ input }) => {
+  /** The RELEVANT checklist items for one client. */
+  getChecklistDefinition: staffQuery.input(external_exports.object({ clientId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
+    if (!input?.clientId) return CHECKLIST_ITEMS;
+    const client = await loadClient(input.clientId);
+    return applicableItems(client);
+  }),
+  toggleItem: staffQuery.input(external_exports.object({ id: external_exports.number(), field: external_exports.string(), checked: external_exports.boolean() })).mutation(async ({ input }) => {
     const db = getDb();
     const { id, field, checked } = input;
     const rows = await db.select().from(monthlyCloseChecklist).where(eq(monthlyCloseChecklist.id, id)).limit(1);
     if (!rows[0]) throw new Error("Checklist not found");
+    const client = await loadClient(rows[0].clientId);
+    const items = applicableItems(client);
     const updateData = { [field]: checked ? 1 : 0 };
     let completed = 0;
-    for (const item of CHECKLIST_ITEMS) {
+    for (const item of items) {
       if (item.field === field) {
         if (checked) completed++;
-      } else if (rows[0][item.field]) {
-        completed++;
-      }
+      } else if (rows[0][item.field]) completed++;
     }
-    updateData.completionPercent = Math.round(completed / CHECKLIST_ITEMS.length * 100);
-    if (completed === CHECKLIST_ITEMS.length) {
-      updateData.completedAt = /* @__PURE__ */ new Date();
-    } else {
-      updateData.completedAt = null;
-    }
+    updateData.completionPercent = items.length ? Math.round(completed / items.length * 100) : 0;
+    updateData.completedAt = items.length && completed === items.length ? /* @__PURE__ */ new Date() : null;
     await db.update(monthlyCloseChecklist).set(updateData).where(eq(monthlyCloseChecklist.id, id));
     return { success: true, completionPercent: updateData.completionPercent };
   }),
   updateNotes: staffQuery.input(external_exports.object({ id: external_exports.number(), notes: external_exports.string() })).mutation(async ({ input }) => {
-    const db = getDb();
-    await db.update(monthlyCloseChecklist).set({ notes: input.notes }).where(eq(monthlyCloseChecklist.id, input.id));
+    await getDb().update(monthlyCloseChecklist).set({ notes: input.notes }).where(eq(monthlyCloseChecklist.id, input.id));
     return { success: true };
   }),
-  getChecklistDefinition: staffQuery.query(() => {
-    return CHECKLIST_ITEMS;
+  /** Toggle whether a client has credit cards (drives the credit-card step). */
+  setHasCreditCard: staffQuery.input(external_exports.object({ clientId: external_exports.number(), value: external_exports.boolean() })).mutation(async ({ input }) => {
+    await getDb().update(clients).set({ hasCreditCard: input.value }).where(eq(clients.id, input.clientId));
+    return { success: true };
+  }),
+  /** Does this client have credit cards? (for the inline toggle default) */
+  clientFlags: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+    const c = await loadClient(input.clientId);
+    return { hasCreditCard: c.hasCreditCard !== false, hasPayroll: !!c.hasPayroll || !!c.hasEmployees, hasHST: !!c.hasHST };
   })
 });
 
@@ -88670,7 +88725,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.170";
+var BUILD_TAG = "2026-06-26.171";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -89105,6 +89160,8 @@ app.get("/api/phoenix/seed", async (c) => {
       await seedRoseReselling2();
       const { seedAldersonRecurring: seedAldersonRecurring2 } = await Promise.resolve().then(() => (init_seed_alderson_recurring(), seed_alderson_recurring_exports));
       await seedAldersonRecurring2();
+      const { seedRoccoHst: seedRoccoHst2 } = await Promise.resolve().then(() => (init_seed_rocco_hst(), seed_rocco_hst_exports));
+      await seedRoccoHst2();
       const { ensureGenealogySchema: ensureGenealogySchema2 } = await Promise.resolve().then(() => (init_ensure_genealogy_schema(), ensure_genealogy_schema_exports));
       await ensureGenealogySchema2();
       const { backfillGenealogyFields: backfillGenealogyFields2 } = await Promise.resolve().then(() => (init_genealogy_scan(), genealogy_scan_exports));
@@ -89818,11 +89875,11 @@ app.post("/api/admin/figgy", async (c) => {
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       return c.json({ success: true, op, client: {
         name: cl.name,
         hasWSIB: cl.hasWSIB,
@@ -89846,13 +89903,13 @@ app.post("/api/admin/figgy", async (c) => {
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const db = getDb2();
       const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const scope = buildScopeForClient2(cl, onb);
       const quote = computeQuote2(scope);
       const comparison = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
@@ -89863,7 +89920,7 @@ app.post("/api/admin/figgy", async (c) => {
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -89871,7 +89928,7 @@ app.post("/api/admin/figgy", async (c) => {
       const db = getDb2();
       const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
       const comparison = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
       const qNum = await nextQuoteNumber2(db);
@@ -90045,7 +90102,7 @@ app.post("/api/admin/figgy", async (c) => {
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, desc: desc8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -90053,7 +90110,7 @@ app.post("/api/admin/figgy", async (c) => {
       const db = getDb2();
       const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc8(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
       const content = renderEngagementHtml2({
         firm: getFirmSettings2(),

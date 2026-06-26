@@ -20,12 +20,12 @@ export default function SatisfactionScores() {
   const utils = trpc.useUtils();
 
   // Get scores for selected client
-  const { data: scores } = trpc.client.getSatisfactionScores.useQuery(
+  const { data: scores } = trpc.crmClient.getSatisfactionScores.useQuery(
     { clientId: parseInt(selectedClient) },
     { enabled: !!selectedClient }
   );
 
-  const addScore = trpc.client.addSatisfactionScore.useMutation({
+  const addScore = trpc.crmClient.addSatisfactionScore.useMutation({
     onSuccess: () => {
       utils.client.getSatisfactionScores.invalidate();
       setScore(""); setNotes("");

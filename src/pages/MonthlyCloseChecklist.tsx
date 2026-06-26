@@ -29,7 +29,21 @@ export default function MonthlyCloseChecklist() {
     { enabled: clientId > 0 }
   );
 
-  const { data: checklistItems } = trpc.monthlyClose.getChecklistDefinition.useQuery();
+  const { data: checklistItems } = trpc.monthlyClose.getChecklistDefinition.useQuery(
+    { clientId },
+    { enabled: clientId > 0 }
+  );
+  const { data: flags } = trpc.monthlyClose.clientFlags.useQuery(
+    { clientId },
+    { enabled: clientId > 0 }
+  );
+  const setHasCreditCard = trpc.monthlyClose.setHasCreditCard.useMutation({
+    onSuccess: () => {
+      utils.monthlyClose.clientFlags.invalidate({ clientId });
+      utils.monthlyClose.getChecklistDefinition.invalidate({ clientId });
+      refetchChecklist();
+    },
+  });
 
   const toggleItem = trpc.monthlyClose.toggleItem.useMutation({
     onSuccess: () => refetchChecklist(),
@@ -72,7 +86,7 @@ export default function MonthlyCloseChecklist() {
               <Select value={selectedClient} onValueChange={setSelectedClient}>
                 <SelectTrigger><SelectValue placeholder="Select client..." /></SelectTrigger>
                 <SelectContent>
-                  {clients?.map((c) => (
+                  {[...(clients || [])].sort((a, b) => a.name.localeCompare(b.name)).map((c) => (
                     <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -148,9 +162,20 @@ export default function MonthlyCloseChecklist() {
           <Card>
             <CardHeader>
               <CardTitle>Close Procedures</CardTitle>
-              <CardDescription>Check off each item as you complete it</CardDescription>
+              <CardDescription>
+                Tailored to this client — only the steps that apply to them show here.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              {flags && (
+                <label className="flex items-center gap-2 text-xs text-slate-500 pb-1 border-b cursor-pointer">
+                  <Checkbox
+                    checked={flags.hasCreditCard}
+                    onCheckedChange={(v) => setHasCreditCard.mutate({ clientId, value: v as boolean })}
+                  />
+                  This client has credit cards (shows the credit-card reconcile step)
+                </label>
+              )}
               {checklistItems?.map((item) => {
                 const checked = (checklist as any)[item.field] === true || (checklist as any)[item.field] === 1;
                 return (
