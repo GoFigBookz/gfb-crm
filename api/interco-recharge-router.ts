@@ -22,13 +22,40 @@ import { getDb } from "./queries/connection";
 import { sql } from "drizzle-orm";
 import { qboRequest } from "./qbo-router";
 import { getConnectionForClient } from "./qbo-vendor-brain";
-import { buildRecharge, type RechargeExpense } from "./interco-recharge-core";
+import { buildRecharge, round2, type RechargeExpense } from "./interco-recharge-core";
 import { checkClearingRecon } from "./interco-recon-core";
 import { postRecharge } from "./interco-recharge-poster";
 
 const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const arr = (data: any, entity: string): any[] => (data?.QueryResponse?.[entity] ?? []) as any[];
 const normName = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/** Normalize a posted QBO Invoice or Bill into a flat, display-ready record. */
+function normalizeDoc(e: any, type: "invoice" | "bill") {
+  const lines = (e.Line ?? [])
+    .filter((l: any) => l.DetailType === "SalesItemLineDetail" || l.DetailType === "AccountBasedExpenseLineDetail")
+    .map((l: any) => {
+      const sid = l.SalesItemLineDetail, aed = l.AccountBasedExpenseLineDetail;
+      return {
+        description: l.Description || sid?.ItemRef?.name || aed?.AccountRef?.name || "",
+        account: sid?.ItemRef?.name || aed?.AccountRef?.name || "",
+        amount: num(l.Amount),
+      };
+    });
+  const subtotal = Math.round((lines.reduce((s: number, l: any) => s + l.amount, 0) + Number.EPSILON) * 100) / 100;
+  return {
+    type,
+    docNumber: e.DocNumber || String(e.Id || ""),
+    id: String(e.Id || ""),
+    date: String(e.TxnDate || "").slice(0, 10),
+    party: type === "invoice" ? (e.CustomerRef?.name || "") : (e.VendorRef?.name || ""),
+    lines,
+    subtotal,
+    hst: Math.round((num(e.TxnTaxDetail?.TotalTax) + Number.EPSILON) * 100) / 100,
+    total: Math.round((num(e.TotalAmt) + Number.EPSILON) * 100) / 100,
+    balance: Math.round((num(e.Balance) + Number.EPSILON) * 100) / 100,
+  };
+}
 
 /** Pull an account's CurrentBalance by name from a connection. Returns the balance
  *  + (on miss) the available account names so the human can correct the spelling. */
@@ -70,6 +97,7 @@ export async function ensureRechargeSchema(): Promise<void> {
     await db.run(sql`CREATE TABLE IF NOT EXISTS interco_recharge_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       payerClientId INTEGER NOT NULL,
+      counterpartyClientId INTEGER,
       periodLabel TEXT NOT NULL,
       periodStart TEXT, periodEnd TEXT,
       subtotal REAL, hst REAL, total REAL,
@@ -79,6 +107,9 @@ export async function ensureRechargeSchema(): Promise<void> {
       notes TEXT,
       createdAt INTEGER
     )`);
+    // counterpartyClientId added after first ship — so a posted period can re-fetch
+    // BOTH live QBO docs (invoice from payer, bill from counterparty). Guard existing DBs.
+    try { await db.run(sql`ALTER TABLE interco_recharge_log ADD COLUMN counterpartyClientId INTEGER`); } catch { /* exists */ }
   } catch (e) {
     console.error("[interco-recharge] ensure schema failed:", e instanceof Error ? e.message : e);
   }
@@ -283,14 +314,72 @@ export const intercoRechargeRouter = createRouter({
       // accounts so the payer's expenses + HST both net to $0. Config can turn it off.
       const zeroOut = num((cfg as any).zeroOutExpenses ?? 1) !== 0;
 
-      return await postRecharge({
+      const periodLabel = input.periodLabel || `${input.startDate} → ${input.endDate}`;
+      const result = await postRecharge({
         payerClientId: input.payerClientId, counterpartyClientId: cpId,
         payerName: input.payerName, counterpartyName,
         revenueAccount, expenseAccount,
         hstRatePct: input.hstRatePct, chargeHst: input.chargeHst,
-        subtotal, periodLabel: input.periodLabel || `${input.startDate} → ${input.endDate}`,
+        subtotal, periodLabel,
         zeroOut, expenseBreakdown: breakdown,
       });
+
+      // On a successful live post, record the period to the reconcile log WITH the QBO
+      // doc refs + counterparty id, so the panel can re-fetch both documents and show
+      // they balance. (Server-side so it's logged even if the UI closes.)
+      if (result.ok) {
+        const total = round2(result.total);
+        const hst = round2(input.chargeHst ? round2(subtotal) * ((input.hstRatePct || 0) / 100) : 0);
+        try {
+          await db.run(sql`INSERT INTO interco_recharge_log
+            (payerClientId, counterpartyClientId, periodLabel, periodStart, periodEnd, subtotal, hst, total, reconciled, invoiceRef, billRef, createdAt)
+            VALUES (${input.payerClientId}, ${cpId}, ${periodLabel}, ${input.startDate}, ${input.endDate}, ${round2(subtotal)}, ${hst}, ${total}, 0, ${result.invoiceId}, ${result.billId}, ${Date.now()})`);
+        } catch (e) { console.error("[interco-recharge] post log insert failed:", e instanceof Error ? e.message : e); }
+        return { ...result, counterpartyClientId: cpId, periodLabel };
+      }
+      return result;
+    }),
+
+  /** Re-read the POSTED Invoice (payer) + Bill (counterparty) live from QBO so the
+   *  panel can show the actual records under the post and confirm they balance. */
+  fetchPosted: staffQuery
+    .input(z.object({
+      payerClientId: z.number(),
+      counterpartyClientId: z.number().optional(),
+      counterpartyName: z.string().optional(),
+      invoiceId: z.string(),
+      billId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      let cpId = input.counterpartyClientId ?? 0;
+      if (!cpId && input.counterpartyName) {
+        const key = `%${input.counterpartyName.split(/\s+/)[0].toLowerCase()}%`;
+        const rows = (await db.all(sql`SELECT id FROM clients WHERE lower(name) LIKE ${key} OR lower(company) LIKE ${key} ORDER BY id ASC LIMIT 1`)) as any[];
+        cpId = rows[0]?.id ?? 0;
+      }
+      if (!cpId) return { ok: false as const, error: "counterparty_not_found" };
+      const payerConn = await getConnectionForClient(input.payerClientId);
+      if ("error" in payerConn) return { ok: false as const, error: `payer: ${payerConn.error}` };
+      const cpConn = await getConnectionForClient(cpId);
+      if ("error" in cpConn) return { ok: false as const, error: `counterparty: ${cpConn.error}` };
+      try {
+        const inv = arr(await qboRequest(payerConn.conn, `/query?query=${encodeURIComponent(`SELECT * FROM Invoice WHERE Id = '${input.invoiceId}'`)}`), "Invoice")[0];
+        const bill = arr(await qboRequest(cpConn.conn, `/query?query=${encodeURIComponent(`SELECT * FROM Bill WHERE Id = '${input.billId}'`)}`), "Bill")[0];
+        if (!inv) return { ok: false as const, error: `invoice ${input.invoiceId} not found in payer's books` };
+        if (!bill) return { ok: false as const, error: `bill ${input.billId} not found in counterparty's books` };
+        const invoice = normalizeDoc(inv, "invoice");
+        const billDoc = normalizeDoc(bill, "bill");
+        return {
+          ok: true as const,
+          invoice, bill: billDoc,
+          balances: round2(invoice.total) === round2(billDoc.total),
+        };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false as const, error: "bridge_not_returning_data", detail: msg };
+        return { ok: false as const, error: msg };
+      }
     }),
 
   /** INTERCO RECONCILIATION CHECK — pull both reciprocal clearing-account balances
@@ -361,7 +450,7 @@ export const intercoRechargeRouter = createRouter({
   /** Record a quarter's recharge (and whether it's been reconciled to zero). */
   recordPeriod: staffQuery
     .input(z.object({
-      payerClientId: z.number(), periodLabel: z.string(),
+      payerClientId: z.number(), counterpartyClientId: z.number().optional(), periodLabel: z.string(),
       periodStart: z.string().optional(), periodEnd: z.string().optional(),
       subtotal: z.number(), hst: z.number(), total: z.number(),
       reconciled: z.boolean().default(false),
@@ -371,8 +460,8 @@ export const intercoRechargeRouter = createRouter({
       await ensureRechargeSchema();
       const db = getDb();
       await db.run(sql`INSERT INTO interco_recharge_log
-        (payerClientId, periodLabel, periodStart, periodEnd, subtotal, hst, total, reconciled, reconciledAt, invoiceRef, billRef, notes, createdAt)
-        VALUES (${input.payerClientId}, ${input.periodLabel}, ${input.periodStart ?? null}, ${input.periodEnd ?? null},
+        (payerClientId, counterpartyClientId, periodLabel, periodStart, periodEnd, subtotal, hst, total, reconciled, reconciledAt, invoiceRef, billRef, notes, createdAt)
+        VALUES (${input.payerClientId}, ${input.counterpartyClientId ?? null}, ${input.periodLabel}, ${input.periodStart ?? null}, ${input.periodEnd ?? null},
           ${input.subtotal}, ${input.hst}, ${input.total}, ${input.reconciled ? 1 : 0},
           ${input.reconciled ? Date.now() : null}, ${input.invoiceRef ?? null}, ${input.billRef ?? null}, ${input.notes ?? null}, ${Date.now()})`);
       return { ok: true as const };

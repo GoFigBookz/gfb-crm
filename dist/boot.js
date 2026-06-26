@@ -46634,6 +46634,29 @@ var init_interco_recharge_poster = __esm({
 });
 
 // api/interco-recharge-router.ts
+function normalizeDoc(e, type2) {
+  const lines2 = (e.Line ?? []).filter((l) => l.DetailType === "SalesItemLineDetail" || l.DetailType === "AccountBasedExpenseLineDetail").map((l) => {
+    const sid = l.SalesItemLineDetail, aed = l.AccountBasedExpenseLineDetail;
+    return {
+      description: l.Description || sid?.ItemRef?.name || aed?.AccountRef?.name || "",
+      account: sid?.ItemRef?.name || aed?.AccountRef?.name || "",
+      amount: num2(l.Amount)
+    };
+  });
+  const subtotal = Math.round((lines2.reduce((s, l) => s + l.amount, 0) + Number.EPSILON) * 100) / 100;
+  return {
+    type: type2,
+    docNumber: e.DocNumber || String(e.Id || ""),
+    id: String(e.Id || ""),
+    date: String(e.TxnDate || "").slice(0, 10),
+    party: type2 === "invoice" ? e.CustomerRef?.name || "" : e.VendorRef?.name || "",
+    lines: lines2,
+    subtotal,
+    hst: Math.round((num2(e.TxnTaxDetail?.TotalTax) + Number.EPSILON) * 100) / 100,
+    total: Math.round((num2(e.TotalAmt) + Number.EPSILON) * 100) / 100,
+    balance: Math.round((num2(e.Balance) + Number.EPSILON) * 100) / 100
+  };
+}
 async function accountBalanceByName(conn, name2) {
   const data = await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`);
   const accts = arr2(data, "Account");
@@ -46674,6 +46697,7 @@ async function ensureRechargeSchema() {
     await db.run(sql`CREATE TABLE IF NOT EXISTS interco_recharge_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       payerClientId INTEGER NOT NULL,
+      counterpartyClientId INTEGER,
       periodLabel TEXT NOT NULL,
       periodStart TEXT, periodEnd TEXT,
       subtotal REAL, hst REAL, total REAL,
@@ -46683,6 +46707,10 @@ async function ensureRechargeSchema() {
       notes TEXT,
       createdAt INTEGER
     )`);
+    try {
+      await db.run(sql`ALTER TABLE interco_recharge_log ADD COLUMN counterpartyClientId INTEGER`);
+    } catch {
+    }
   } catch (e) {
     console.error("[interco-recharge] ensure schema failed:", e instanceof Error ? e.message : e);
   }
@@ -46880,7 +46908,8 @@ var init_interco_recharge_router = __esm({
         }
         if (!(subtotal > 0)) return { ok: false, error: "nothing_to_post", detail: "No expenses found for this period." };
         const zeroOut = num2(cfg.zeroOutExpenses ?? 1) !== 0;
-        return await postRecharge({
+        const periodLabel = input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`;
+        const result = await postRecharge({
           payerClientId: input.payerClientId,
           counterpartyClientId: cpId,
           payerName: input.payerName,
@@ -46890,10 +46919,63 @@ var init_interco_recharge_router = __esm({
           hstRatePct: input.hstRatePct,
           chargeHst: input.chargeHst,
           subtotal,
-          periodLabel: input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`,
+          periodLabel,
           zeroOut,
           expenseBreakdown: breakdown
         });
+        if (result.ok) {
+          const total = round26(result.total);
+          const hst = round26(input.chargeHst ? round26(subtotal) * ((input.hstRatePct || 0) / 100) : 0);
+          try {
+            await db.run(sql`INSERT INTO interco_recharge_log
+            (payerClientId, counterpartyClientId, periodLabel, periodStart, periodEnd, subtotal, hst, total, reconciled, invoiceRef, billRef, createdAt)
+            VALUES (${input.payerClientId}, ${cpId}, ${periodLabel}, ${input.startDate}, ${input.endDate}, ${round26(subtotal)}, ${hst}, ${total}, 0, ${result.invoiceId}, ${result.billId}, ${Date.now()})`);
+          } catch (e) {
+            console.error("[interco-recharge] post log insert failed:", e instanceof Error ? e.message : e);
+          }
+          return { ...result, counterpartyClientId: cpId, periodLabel };
+        }
+        return result;
+      }),
+      /** Re-read the POSTED Invoice (payer) + Bill (counterparty) live from QBO so the
+       *  panel can show the actual records under the post and confirm they balance. */
+      fetchPosted: staffQuery.input(external_exports.object({
+        payerClientId: external_exports.number(),
+        counterpartyClientId: external_exports.number().optional(),
+        counterpartyName: external_exports.string().optional(),
+        invoiceId: external_exports.string(),
+        billId: external_exports.string()
+      })).mutation(async ({ input }) => {
+        const db = getDb();
+        let cpId = input.counterpartyClientId ?? 0;
+        if (!cpId && input.counterpartyName) {
+          const key11 = `%${input.counterpartyName.split(/\s+/)[0].toLowerCase()}%`;
+          const rows = await db.all(sql`SELECT id FROM clients WHERE lower(name) LIKE ${key11} OR lower(company) LIKE ${key11} ORDER BY id ASC LIMIT 1`);
+          cpId = rows[0]?.id ?? 0;
+        }
+        if (!cpId) return { ok: false, error: "counterparty_not_found" };
+        const payerConn = await getConnectionForClient(input.payerClientId);
+        if ("error" in payerConn) return { ok: false, error: `payer: ${payerConn.error}` };
+        const cpConn = await getConnectionForClient(cpId);
+        if ("error" in cpConn) return { ok: false, error: `counterparty: ${cpConn.error}` };
+        try {
+          const inv = arr2(await qboRequest(payerConn.conn, `/query?query=${encodeURIComponent(`SELECT * FROM Invoice WHERE Id = '${input.invoiceId}'`)}`), "Invoice")[0];
+          const bill = arr2(await qboRequest(cpConn.conn, `/query?query=${encodeURIComponent(`SELECT * FROM Bill WHERE Id = '${input.billId}'`)}`), "Bill")[0];
+          if (!inv) return { ok: false, error: `invoice ${input.invoiceId} not found in payer's books` };
+          if (!bill) return { ok: false, error: `bill ${input.billId} not found in counterparty's books` };
+          const invoice = normalizeDoc(inv, "invoice");
+          const billDoc = normalizeDoc(bill, "bill");
+          return {
+            ok: true,
+            invoice,
+            bill: billDoc,
+            balances: round26(invoice.total) === round26(billDoc.total)
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false, error: "bridge_not_returning_data", detail: msg };
+          return { ok: false, error: msg };
+        }
       }),
       /** INTERCO RECONCILIATION CHECK — pull both reciprocal clearing-account balances
        *  live and confirm they offset to zero. Read-only; the auditable proof the
@@ -46952,6 +47034,7 @@ var init_interco_recharge_router = __esm({
       /** Record a quarter's recharge (and whether it's been reconciled to zero). */
       recordPeriod: staffQuery.input(external_exports.object({
         payerClientId: external_exports.number(),
+        counterpartyClientId: external_exports.number().optional(),
         periodLabel: external_exports.string(),
         periodStart: external_exports.string().optional(),
         periodEnd: external_exports.string().optional(),
@@ -46966,8 +47049,8 @@ var init_interco_recharge_router = __esm({
         await ensureRechargeSchema();
         const db = getDb();
         await db.run(sql`INSERT INTO interco_recharge_log
-        (payerClientId, periodLabel, periodStart, periodEnd, subtotal, hst, total, reconciled, reconciledAt, invoiceRef, billRef, notes, createdAt)
-        VALUES (${input.payerClientId}, ${input.periodLabel}, ${input.periodStart ?? null}, ${input.periodEnd ?? null},
+        (payerClientId, counterpartyClientId, periodLabel, periodStart, periodEnd, subtotal, hst, total, reconciled, reconciledAt, invoiceRef, billRef, notes, createdAt)
+        VALUES (${input.payerClientId}, ${input.counterpartyClientId ?? null}, ${input.periodLabel}, ${input.periodStart ?? null}, ${input.periodEnd ?? null},
           ${input.subtotal}, ${input.hst}, ${input.total}, ${input.reconciled ? 1 : 0},
           ${input.reconciled ? Date.now() : null}, ${input.invoiceRef ?? null}, ${input.billRef ?? null}, ${input.notes ?? null}, ${Date.now()})`);
         return { ok: true };
@@ -89553,7 +89636,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.185";
+var BUILD_TAG = "2026-06-26.186";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
