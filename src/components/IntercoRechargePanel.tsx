@@ -56,6 +56,7 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
   }, [cfg]);
 
   const preview = trpc.intercoRecharge.preview.useMutation();
+  const saveConfig = trpc.intercoRecharge.setConfig.useMutation({ onSuccess: () => utils.intercoRecharge.getConfig.invalidate({ payerClientId: payerId! }) });
   const recon = trpc.intercoRecharge.reconcileCheck.useMutation();
   const post = trpc.intercoRecharge.post.useMutation({ onSuccess: () => utils.intercoRecharge.log.invalidate({ payerClientId: payerId! }) });
   const record = trpc.intercoRecharge.recordPeriod.useMutation({ onSuccess: () => utils.intercoRecharge.log.invalidate({ payerClientId: payerId! }) });
@@ -136,6 +137,13 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
             <Input className="h-9" value={counterpartyClearing} onChange={(e) => setCounterpartyClearing(e.target.value)} placeholder="Alderson Development clearing account" />
           </div>
           <p className="text-[11px] text-slate-400 sm:col-span-2">The settlement payment lands as a <b>transfer</b> in each entity's clearing account (each named for the other company); reconcile <b>both</b> to zero each quarter — they mirror each other.</p>
+          <div className="sm:col-span-2 flex items-center gap-2">
+            <Button size="sm" variant="outline" className="h-8" disabled={saveConfig.isPending || !payerId}
+              onClick={() => payerId && saveConfig.mutate({ payerClientId: payerId, counterpartyName: counterparty, revenueAccount, expenseAccount, payerClearingAccount: payerClearing, counterpartyClearingAccount: counterpartyClearing, hstRatePct, chargeHst })}>
+              {saveConfig.isPending ? "Saving…" : "Save as defaults"}
+            </Button>
+            <span className="text-[11px] text-slate-400">{saveConfig.isSuccess ? "Saved — these stick for this client." : "If the fields show grey placeholders they're empty — fill them, then save so you don't retype."}</span>
+          </div>
         </div>
 
         {/* INTERCO RECONCILIATION CHECK — the FINAL step, run only AFTER the invoice +

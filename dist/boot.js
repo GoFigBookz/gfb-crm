@@ -46622,7 +46622,7 @@ function buildRecharge(input) {
   const errors = [];
   if (lines2.length === 0) errors.push("No expense lines to recharge.");
   if (lines2.some((l) => l.amount < 0)) errors.push("One or more expense lines are negative \u2014 review before recharging.");
-  if (!input.revenueAccount) errors.push("Missing payer-side revenue account.");
+  if (!input.zeroOut && !input.revenueAccount) errors.push("Missing payer-side revenue account.");
   if (!input.expenseAccount) errors.push("Missing counterparty-side expense account.");
   if (round26(invoice.total) !== round26(bill.total)) errors.push("Invoice total does not equal mirror-bill total.");
   return {
@@ -47145,6 +47145,7 @@ var init_interco_recharge_router = __esm({
         const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
         try {
           const { expenses, byAccount, excluded, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+          const zeroOut = num2(cfg.zeroOutExpenses ?? 1) !== 0;
           const draft = buildRecharge({
             periodLabel: input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`,
             payerName: input.payerName,
@@ -47153,9 +47154,9 @@ var init_interco_recharge_router = __esm({
             expenseAccount: input.expenseAccount || cfg.expenseAccount || "",
             hstRatePct: input.hstRatePct,
             chargeHst: input.chargeHst,
-            expenses
+            expenses,
+            zeroOut
           });
-          const zeroOut = num2(cfg.zeroOutExpenses ?? 1) !== 0;
           return { ok: true, draft, pulled: expenses.length, errors, byAccount, excluded, zeroOut };
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
@@ -90011,7 +90012,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.192";
+var BUILD_TAG = "2026-06-26.193";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

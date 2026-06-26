@@ -264,6 +264,7 @@ export const intercoRechargeRouter = createRouter({
       const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
       try {
         const { expenses, byAccount, excluded, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+        const zeroOut = num((cfg as any).zeroOutExpenses ?? 1) !== 0;
         const draft = buildRecharge({
           periodLabel: input.periodLabel || `${input.startDate} → ${input.endDate}`,
           payerName: input.payerName,
@@ -273,8 +274,8 @@ export const intercoRechargeRouter = createRouter({
           hstRatePct: input.hstRatePct,
           chargeHst: input.chargeHst,
           expenses,
+          zeroOut,
         });
-        const zeroOut = num((cfg as any).zeroOutExpenses ?? 1) !== 0;
         return { ok: true as const, draft, pulled: expenses.length, errors, byAccount, excluded, zeroOut };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
