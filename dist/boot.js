@@ -46946,6 +46946,38 @@ async function pullHstAccountBalance(conn) {
   const net = hst.reduce((s, a) => s + a.balance, 0);
   return { accounts: hst, net: Math.round((net + Number.EPSILON) * 100) / 100 };
 }
+function parseGlTxns(report, acctNameRe) {
+  const cols = report?.Columns?.Column ?? [];
+  const title = (c) => String(c?.ColType ?? c?.ColTitle ?? "").toLowerCase();
+  const findCol = (re) => cols.findIndex((c) => re.test(title(c)));
+  const dateIdx = Math.max(0, findCol(/date/));
+  const typeIdx = findCol(/txn_type|type/);
+  const docIdx = findCol(/doc_num|num/);
+  const nameIdx = findCol(/name|vendor|customer|payee/);
+  let amtIdx = findCol(/subt_nat_amount|nat_amount|amount/);
+  if (amtIdx < 0) amtIdx = cols.length - 2;
+  const out = [];
+  const walk2 = (row, acctName) => {
+    const header2 = row?.Header?.ColData?.[0]?.value;
+    const section = header2 || acctName;
+    const cd = row?.ColData;
+    if (Array.isArray(cd) && cd.length && acctNameRe.test(section || "")) {
+      const dv = cd[dateIdx]?.value;
+      if (dv && /\d{4}-\d{2}-\d{2}/.test(String(dv))) {
+        out.push({
+          date: String(dv).slice(0, 10),
+          type: typeIdx >= 0 ? String(cd[typeIdx]?.value || "") : "",
+          docNum: docIdx >= 0 ? String(cd[docIdx]?.value || "") : "",
+          name: nameIdx >= 0 ? String(cd[nameIdx]?.value || "") : "",
+          amount: num2(amtIdx >= 0 ? cd[amtIdx]?.value : 0)
+        });
+      }
+    }
+    for (const k of row?.Rows?.Row ?? []) walk2(k, section);
+  };
+  for (const r of report?.Rows?.Row ?? []) walk2(r, "");
+  return out;
+}
 async function accountBalanceByName(conn, name2) {
   const data = await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`);
   const accts = arr2(data, "Account");
@@ -47392,6 +47424,50 @@ var init_interco_recharge_router = __esm({
             result,
             payerAccount: payerAcct.matchedName,
             counterpartyAccount: cpAcct.matchedName
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false, error: "bridge_not_returning_data", detail: msg };
+          return { ok: false, error: msg };
+        }
+      }),
+      /** HST GAP-FINDER (read-only). Pulls the General Ledger of the HST/GST/suspense
+       *  accounts over a WIDE window so it catches exceptions (prior-period bills entered
+       *  after filing), then flags which HST transactions fall OUTSIDE the recharge window
+       *  [startDate,endDate] — i.e. what the date-range recharge is missing. Nothing posts. */
+      hstGapFinder: staffQuery.input(external_exports.object({
+        payerClientId: external_exports.number(),
+        startDate: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        endDate: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        ledgerFrom: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+      })).mutation(async ({ input }) => {
+        const cr = await getConnectionForClient(input.payerClientId);
+        if ("error" in cr) return { ok: false, error: cr.error };
+        const ledgerFrom = input.ledgerFrom || (() => {
+          const d10 = new Date(input.endDate);
+          d10.setUTCFullYear(d10.getUTCFullYear() - 2);
+          return d10.toISOString().slice(0, 10);
+        })();
+        const acctNameRe = /hst|gst|sales tax|suspense/i;
+        try {
+          const hstAcc = await pullHstAccountBalance(cr.conn);
+          const report = await qboRequest(cr.conn, `/reports/GeneralLedger?start_date=${ledgerFrom}&end_date=${input.endDate}&columns=tx_date,txn_type,doc_num,name,subt_nat_amount`);
+          const txns = parseGlTxns(report, acctNameRe);
+          const within = txns.filter((t2) => t2.date >= input.startDate && t2.date <= input.endDate);
+          const outside = txns.filter((t2) => !(t2.date >= input.startDate && t2.date <= input.endDate));
+          const sum3 = (a) => round26(a.reduce((s, t2) => s + Math.abs(num2(t2.amount)), 0));
+          return {
+            ok: true,
+            hstAccounts: hstAcc.accounts,
+            hstAccountNet: hstAcc.net,
+            ledgerFrom,
+            window: { start: input.startDate, end: input.endDate },
+            ledgerTotal: sum3(txns),
+            withinTotal: sum3(within),
+            outsideTotal: sum3(outside),
+            outside: outside.sort((a, b) => a.date.localeCompare(b.date)),
+            count: txns.length,
+            outsideCount: outside.length
           };
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
@@ -90035,7 +90111,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.196";
+var BUILD_TAG = "2026-06-26.197";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
