@@ -42,6 +42,7 @@ import SystemHealth from "./pages/SystemHealth";
 import CashWatch from "./pages/CashWatch";
 import Personal from "./pages/Personal";
 import Brain from "./pages/Brain";
+import Registers from "./pages/Registers";
 import Launchpad from "./pages/Launchpad";
 import HstAudit from "./pages/HstAudit";
 import Subscriptions from "./pages/Subscriptions";
@@ -130,6 +131,7 @@ function AppRoutes() {
         <Route path="/cash-watch" element={<CashWatch />} />
         <Route path="/personal" element={<Personal />} />
         <Route path="/brain" element={<Brain />} />
+        <Route path="/registers" element={<Registers />} />
         <Route path="/launchpad" element={<Launchpad />} />
         <Route path="/hst-audit" element={<HstAudit />} />
         <Route path="/subscriptions" element={<Subscriptions />} />

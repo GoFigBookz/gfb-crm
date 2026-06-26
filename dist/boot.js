@@ -59574,11 +59574,13 @@ async function seedAgentBrain() {
 }
 async function seedConstitution() {
   const db = getDb();
-  const have = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE category = 'constitution'`);
-  if (Number(have[0]?.n || 0) > 0) return;
+  const cur = await db.all(sql`SELECT text FROM brain_records WHERE category = 'constitution' AND label = 'FOS — Version & Amendments' LIMIT 1`);
+  if (cur[0] && String(cur[0].text || "").includes(`v${FOS_VERSION}`)) return;
+  await db.run(sql`DELETE FROM brain_records WHERE category = 'constitution'`);
   const firm = { kind: "firm" };
   const src = [`Figgy Operating System (FOS) v${FOS_VERSION} \u2014 Markie`];
   const articles = [
+    { label: "FOS \u2014 Version & Amendments", statement: "Figgy Operating System v1.1 (ratified by Markie 2026-06-26). v1.0 = foundation (Markie's authored doc). v1.1 adds three governance articles: Human Oversight Threshold, Precedence (do the work, never guess), and Cost Discipline. Amend by: document \u2192 review \u2192 bump FOS_VERSION \u2192 re-seed." },
     { label: "FOS \u2014 Purpose", statement: "The Figgy Operating System is the single source of truth for how Go Fig Bookz operates: the governing principles, standards, decision framework, quality expectations, security requirements, workflow philosophy, and continuous-improvement model. It is a living document." },
     { label: "FOS \u2014 The Figgy Promise", statement: "We are in the trust business as much as the bookkeeping business. Accuracy before speed. Security before convenience. Clarity before complexity. Every task should improve the business." },
     { label: "FOS \u2014 Core Principles", statement: "Never guess \u2014 ask when uncertain. Protect client confidentiality at all times. Automate repetitive work while preserving appropriate human oversight. Explain recommendations in plain language. Document important decisions. Leave every client, workflow, and month better than before." },
@@ -59589,6 +59591,9 @@ async function seedConstitution() {
     { label: "FOS \u2014 Security & Privacy", statement: "Least-privilege access. Protect financial documents and personal information. Review permissions regularly. Evaluate security before deploying automations. Treat client information with the same care as your own." },
     { label: "FOS \u2014 Knowledge Management", statement: "Maintain a Knowledge Base, Prompt Library, SOP Library, Client Playbooks, Decision Register, and Improvement Register. Update the operating system whenever a better method is approved." },
     { label: "FOS \u2014 Governance", statement: "The Constitution changes rarely. SOPs, prompts, and workflows evolve continuously. Every meaningful change is versioned and documented." },
+    { label: "FOS \u2014 Human Oversight Threshold", statement: "Appropriate human oversight is concrete, not a feeling. Anything that posts, files, or sends \u2014 to QuickBooks, the CRA, or a client \u2014 requires Markie's review and sign-off. Any coding, answer, or action the responsible agent is less than ~80% confident in, or that the Brain does not support, is escalated to Markie instead of acted on. An agent's autonomy is raised only when its track record (scorecard) earns it." },
+    { label: "FOS \u2014 Precedence: do the work, but never guess", statement: "When 'complete all work before requesting user effort' meets 'never guess \u2014 ask when uncertain', accuracy and oversight win. Do everything that can be done WITHOUT guessing; stop only where a human is genuinely needed \u2014 approvals, irreversible or outward-facing actions, and real uncertainty. Don't stop early on work you can do; don't push past a point that needs Markie's decision." },
+    { label: "FOS \u2014 Cost Discipline", statement: "Spend the firm's money and compute like an owner. Use the cheapest model, tool, or path that does the job correctly; prefer the existing subscription over metered API; don't run expensive automation where a simple lookup suffices. Accuracy first, then the lowest-cost way to reach it." },
     { label: "FOS \u2014 Thinking Framework", statement: "BEFORE: understand objectives, rules, approvals, and available knowledge. DURING: follow standards, identify risks and improvements. AFTER: capture lessons, update knowledge, recommend automation." },
     { label: "FOS \u2014 Implementation Roadmap", statement: "Build order: 1) Constitution (foundation), 2) Knowledge Base, 3) Client Playbooks, 4) Prompt Library, 5) SOP Library, 6) Automation, 7) Operational Intelligence." },
     { label: "FOS \u2014 Final Principle", statement: "The Operating System is the single source of truth. If a better way is discovered, document it, review it, version it, and improve the system." }
@@ -59794,7 +59799,7 @@ var init_brain_store = __esm({
     init_connection();
     init_drizzle_orm();
     init_brain_core();
-    FOS_VERSION = "1.0";
+    FOS_VERSION = "1.1";
   }
 });
 
@@ -62353,6 +62358,38 @@ async function ensureSubscriptionsSchema() {
 }
 var init_ensure_subscriptions_schema = __esm({
   "api/ensure-subscriptions-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/ensure-registers-schema.ts
+var ensure_registers_schema_exports = {};
+__export(ensure_registers_schema_exports, {
+  ensureRegistersSchema: () => ensureRegistersSchema
+});
+async function ensureRegistersSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS firm_registers (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      kind text NOT NULL,            -- 'decision' | 'improvement' | 'prompt'
+      title text NOT NULL,
+      body text,
+      tags text,                     -- comma-separated (e.g. agent name, area)
+      status text NOT NULL DEFAULT 'open',  -- improvements: open|done; others: open
+      author text,                   -- who logged it (Markie or an agent name)
+      active integer NOT NULL DEFAULT 1,
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[registers] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_registers_schema = __esm({
+  "api/ensure-registers-schema.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -84472,6 +84509,63 @@ var subscriptionsRouter = createRouter({
   })
 });
 
+// api/registers-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_drizzle_orm();
+var KIND = external_exports.enum(["decision", "improvement", "prompt"]);
+var registersRouter = createRouter({
+  /** List entries of one register kind (newest first; open improvements first). */
+  list: authedQuery.input(external_exports.object({ kind: KIND })).query(async ({ ctx, input }) => {
+    const db = getDb();
+    const rows = await db.all(sql`
+      SELECT * FROM firm_registers
+      WHERE userId = ${ctx.user.id} AND kind = ${input.kind} AND active = 1
+      ORDER BY (status = 'open') DESC, createdAt DESC`);
+    return { rows };
+  }),
+  /** Counts for each register (for the page badges). */
+  counts: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const rows = await db.all(sql`
+      SELECT kind, COUNT(*) AS n, SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) AS open
+      FROM firm_registers WHERE userId = ${ctx.user.id} AND active = 1 GROUP BY kind`);
+    const out = {};
+    for (const r of rows) out[r.kind] = { total: Number(r.n) || 0, open: Number(r.open) || 0 };
+    return out;
+  }),
+  /** Add or edit an entry. */
+  upsert: authedQuery.input(external_exports.object({
+    id: external_exports.number().optional(),
+    kind: KIND,
+    title: external_exports.string().min(1).max(200),
+    body: external_exports.string().max(8e3).optional(),
+    tags: external_exports.string().max(300).optional(),
+    author: external_exports.string().max(60).optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const now = Date.now();
+    if (input.id) {
+      await db.run(sql`UPDATE firm_registers SET title=${input.title}, body=${input.body ?? null}, tags=${input.tags ?? null}, updatedAt=${now}
+          WHERE id=${input.id} AND userId=${ctx.user.id}`);
+      return { ok: true, id: input.id };
+    }
+    await db.run(sql`INSERT INTO firm_registers (userId, kind, title, body, tags, status, author, createdAt, updatedAt)
+        VALUES (${ctx.user.id}, ${input.kind}, ${input.title}, ${input.body ?? null}, ${input.tags ?? null}, 'open', ${input.author ?? "Markie"}, ${now}, ${now})`);
+    return { ok: true };
+  }),
+  /** Toggle an improvement open ↔ done (no-op meaning on other kinds). */
+  setStatus: authedQuery.input(external_exports.object({ id: external_exports.number(), status: external_exports.enum(["open", "done"]) })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`UPDATE firm_registers SET status=${input.status}, updatedAt=${Date.now()} WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  }),
+  remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`UPDATE firm_registers SET active=0 WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  })
+});
+
 // api/jade-router.ts
 init_zod();
 init_middleware();
@@ -85643,7 +85737,7 @@ function validateLoanEntry(e) {
 }
 
 // api/loan-tracker-router.ts
-var KIND = external_exports.enum(["opening", "advance", "repayment", "interest", "adjust"]);
+var KIND2 = external_exports.enum(["opening", "advance", "repayment", "interest", "adjust"]);
 function signedAmount(kind, amount) {
   const a = Math.abs(amount);
   if (kind === "repayment") return -a;
@@ -85722,7 +85816,7 @@ var loanTrackerRouter = createRouter({
     loanId: external_exports.number(),
     entryDate: external_exports.date().optional(),
     amount: external_exports.number(),
-    kind: KIND,
+    kind: KIND2,
     note: external_exports.string().max(500).nullable().optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
@@ -85747,7 +85841,7 @@ var loanTrackerRouter = createRouter({
     id: external_exports.number(),
     entryDate: external_exports.date().optional(),
     amount: external_exports.number().optional(),
-    kind: KIND.optional(),
+    kind: KIND2.optional(),
     note: external_exports.string().max(500).nullable().optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
@@ -86057,6 +86151,7 @@ var appRouter = createRouter({
   launchpad: launchpadRouter,
   hstAudit: hstAuditRouter,
   subscriptions: subscriptionsRouter,
+  registers: registersRouter,
   jade: jadeRouter,
   marketing: marketingRouter,
   life: lifeRouter,
@@ -86346,7 +86441,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.143";
+var BUILD_TAG = "2026-06-26.144";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -86769,6 +86864,8 @@ app.get("/api/phoenix/seed", async (c) => {
       await ensureLaunchpadSchema2();
       const { ensureSubscriptionsSchema: ensureSubscriptionsSchema2 } = await Promise.resolve().then(() => (init_ensure_subscriptions_schema(), ensure_subscriptions_schema_exports));
       await ensureSubscriptionsSchema2();
+      const { ensureRegistersSchema: ensureRegistersSchema2 } = await Promise.resolve().then(() => (init_ensure_registers_schema(), ensure_registers_schema_exports));
+      await ensureRegistersSchema2();
       const { ensureMarketingSchema: ensureMarketingSchema2, seedMarketing: seedMarketing2 } = await Promise.resolve().then(() => (init_ensure_marketing_schema(), ensure_marketing_schema_exports));
       await ensureMarketingSchema2();
       await seedMarketing2();
