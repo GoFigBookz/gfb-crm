@@ -59859,327 +59859,6 @@ var init_qa_router = __esm({
   }
 });
 
-// api/genealogy-core.ts
-function clampConfidence(n) {
-  const v = Math.round(Number(n));
-  if (!Number.isFinite(v)) return 0;
-  return Math.max(0, Math.min(100, v));
-}
-function confidenceToProof(n) {
-  const c = clampConfidence(n);
-  if (c >= 95) return "proven";
-  if (c >= 70) return "likely";
-  if (c >= 40) return "clue";
-  return "wall";
-}
-function resolveProof(level, confidence) {
-  const lvl = level && PROOF_META[level] ? level : null;
-  if (lvl && (confidence == null || !Number.isFinite(Number(confidence)))) {
-    return { level: lvl, confidence: PROOF_META[lvl].defaultConfidence };
-  }
-  if (confidence != null && Number.isFinite(Number(confidence))) {
-    const c = clampConfidence(confidence);
-    return { level: lvl ?? confidenceToProof(c), confidence: c };
-  }
-  return { level: "clue", confidence: PROOF_META.clue.defaultConfidence };
-}
-function normalizeName(s) {
-  return (s || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/['’.]/g, "").replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
-}
-function generationOf(m) {
-  if (m.generation != null && Number.isFinite(Number(m.generation))) return Number(m.generation);
-  const rel = m.relation || "";
-  for (const r of REL_GENERATION) if (r.test.test(rel)) return r.gen;
-  return 99;
-}
-function generationLabel(gen) {
-  if (GENERATION_LABEL[gen]) return GENERATION_LABEL[gen];
-  if (gen >= 5 && gen <= 12) return `${gen - 2}\xD7 great-grandparents`;
-  return "Family lines";
-}
-function groupByGeneration(members) {
-  const byGen = /* @__PURE__ */ new Map();
-  for (const m of members) {
-    const g = generationOf(m);
-    if (!byGen.has(g)) byGen.set(g, []);
-    byGen.get(g).push(m);
-  }
-  return [...byGen.keys()].sort((a, b) => a - b).map((gen) => ({
-    gen,
-    label: gen === 99 ? "Family lines" : generationLabel(gen),
-    members: byGen.get(gen).slice().sort((a, b) => normalizeName(a.name).localeCompare(normalizeName(b.name)))
-  }));
-}
-function treeAccuracy(members) {
-  const scored = members.filter((m) => m.confidence != null && (m.birthDate || m.deathDate));
-  if (!scored.length) return 0;
-  const sum3 = scored.reduce((s, m) => s + clampConfidence(m.confidence), 0);
-  return Math.round(sum3 / scored.length);
-}
-function buildScanTargets(members, limit2 = 6) {
-  const named = members.filter((m) => normalizeName(m.name).split(" ").length >= 2);
-  const scored = named.map((m) => {
-    const noParents = !m.fatherId && !m.motherId;
-    const wall = m.proofLevel === "wall";
-    const gen = generationOf(m);
-    let score = gen;
-    if (wall) score += 10;
-    if (noParents) score += 6;
-    return { m, score, noParents, gen };
-  });
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, limit2).map(({ m, noParents }) => ({
-    id: m.id,
-    name: m.name || "",
-    birthDate: m.birthDate ?? null,
-    deathDate: m.deathDate ?? null,
-    birthplace: m.birthplace ?? null,
-    relation: m.relation ?? null,
-    gap: noParents ? "parents" : "details",
-    knownParents: null
-  }));
-}
-function buildScanPrompt(target, context) {
-  const system = [
-    "You are a careful, honest genealogy researcher helping build a family tree that will be passed down to a child.",
-    "ACCURACY IS EVERYTHING. Never invent people, dates, or relationships. Only report what you can support with a real, citable source (FamilySearch, WikiTree, Find A Grave, Newfoundland Grand Banks, census/parish/cemetery records, published obituaries).",
-    "For EVERY finding give an honest confidence 0-100 and a proofLevel: 'proven' (record-backed), 'likely' (strong but incomplete), 'clue' (appears in a tree/index, unproven), 'wall' (still unknown). Web/other-tree material is at most 'clue' unless you cite an actual record.",
-    "If you cannot find anything credible, return an empty findings array. Do NOT pad. A small number of well-sourced findings is far better than many guesses.",
-    'Return ONLY valid JSON: {"findings":[{"subjectName","kind","claim","proofLevel","confidence","sourceType","sourceUrl","relatedTo","birthDate","deathDate","birthplace"}]}. kind is one of new_person|new_fact|relationship|photo|source|dna.'
-  ].join(" ");
-  const ask = target.gap === "parents" ? `Find the PARENTS (and any well-sourced earlier ancestors) of this person, plus any newly-evidenced siblings or relatives.` : `Find any new, well-sourced facts, relatives, records or photos for this person.`;
-  const user = [
-    `Research target: ${target.name}.`,
-    target.birthDate ? `Born: ${target.birthDate}${target.birthplace ? `, ${target.birthplace}` : ""}.` : "",
-    target.deathDate ? `Died: ${target.deathDate}.` : "",
-    target.relation ? `Relation to the tree owner: ${target.relation}.` : "",
-    `Family surnames in this tree: ${context.surnames.join(", ")}.`,
-    `Key family places: ${context.places.join(", ")}.`,
-    ask,
-    "Return the JSON object now."
-  ].filter(Boolean).join(" ");
-  return { system, user };
-}
-function parseScanFindings(text2) {
-  if (!text2) return [];
-  let obj = null;
-  try {
-    const m = text2.match(/\{[\s\S]*\}/);
-    obj = JSON.parse(m ? m[0] : text2);
-  } catch {
-    return [];
-  }
-  const arr = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
-  const out = [];
-  for (const f of arr) {
-    const subjectName = String(f?.subjectName || f?.name || "").trim();
-    const claim = String(f?.claim || "").trim();
-    if (!subjectName || !claim) continue;
-    const { level, confidence } = resolveProof(f?.proofLevel, f?.confidence);
-    const kind = ["new_person", "new_fact", "relationship", "photo", "source", "dna"].includes(f?.kind) ? f.kind : "new_fact";
-    out.push({
-      subjectName: subjectName.slice(0, 200),
-      kind,
-      claim: claim.slice(0, 2e3),
-      proofLevel: level,
-      confidence,
-      sourceType: f?.sourceType ? String(f.sourceType).slice(0, 120) : void 0,
-      sourceUrl: f?.sourceUrl ? String(f.sourceUrl).slice(0, 500) : void 0,
-      relatedTo: f?.relatedTo ? String(f.relatedTo).slice(0, 200) : void 0,
-      birthDate: f?.birthDate ? String(f.birthDate).slice(0, 60) : void 0,
-      deathDate: f?.deathDate ? String(f.deathDate).slice(0, 60) : void 0,
-      birthplace: f?.birthplace ? String(f.birthplace).slice(0, 200) : void 0
-    });
-  }
-  return out;
-}
-function periodKey(d10) {
-  return `${d10.getUTCFullYear()}-${String(d10.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-function makeShareToken(rand = () => Math.random().toString(36).slice(2)) {
-  return `fam_${rand()}${rand()}`.replace(/[^a-z0-9_]/gi, "").slice(0, 40);
-}
-var PROOF_META, REL_GENERATION, GENERATION_LABEL;
-var init_genealogy_core = __esm({
-  "api/genealogy-core.ts"() {
-    PROOF_META = {
-      proven: { level: "proven", label: "Verified by record", emoji: "\u2705", color: "emerald", defaultConfidence: 98 },
-      likely: { level: "likely", label: "Likely \u2014 strong but incomplete", emoji: "\u{1F7E1}", color: "amber", defaultConfidence: 80 },
-      clue: { level: "clue", label: "Tree clue \u2014 needs proof", emoji: "\u{1F50D}", color: "sky", defaultConfidence: 55 },
-      wall: { level: "wall", label: "Brick wall \u2014 unproven", emoji: "\u{1F9F1}", color: "rose", defaultConfidence: 20 }
-    };
-    REL_GENERATION = [
-      { test: /\b(self|me)\b/i, gen: 0 },
-      { test: /great[-\s]*great[-\s]*grand/i, gen: 4 },
-      { test: /great[-\s]*grand/i, gen: 3 },
-      { test: /grand(father|mother|parent)/i, gen: 2 },
-      { test: /\b(father|mother|mom|dad|parent)\b/i, gen: 1 },
-      { test: /\b(sister|brother|sibling|self|spouse|child|son|daughter)\b/i, gen: 0 }
-    ];
-    GENERATION_LABEL = {
-      0: "Markie & immediate family",
-      1: "Parents",
-      2: "Grandparents",
-      3: "Great-grandparents",
-      4: "2\xD7 great-grandparents",
-      5: "3\xD7 great-grandparents",
-      6: "4\xD7 great-grandparents",
-      7: "5\xD7 great-grandparents",
-      8: "6\xD7 great-grandparents"
-    };
-  }
-});
-
-// api/genealogy-scan.ts
-var genealogy_scan_exports = {};
-__export(genealogy_scan_exports, {
-  backfillGenealogyFields: () => backfillGenealogyFields,
-  maybeRunMonthlyGenealogyScan: () => maybeRunMonthlyGenealogyScan,
-  runGenealogyScan: () => runGenealogyScan
-});
-function scanEnabled() {
-  return !!process.env.ANTHROPIC_API_KEY && process.env.FIGGY_GENEALOGY_SCAN !== "off";
-}
-async function researchTarget(target, model, apiKey, timeoutMs = 6e4) {
-  const { system, user } = buildScanPrompt(target, { surnames: FAMILY_SURNAMES, places: FAMILY_PLACES });
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1800,
-        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
-        system,
-        messages: [{ role: "user", content: user }]
-      })
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    const text2 = (data?.content ?? []).filter((b) => b?.type === "text").map((b) => String(b.text ?? "")).join("\n");
-    return parseScanFindings(text2);
-  } catch {
-    return [];
-  } finally {
-    clearTimeout(timer);
-  }
-}
-async function findingExists(userId, subjectName, claim) {
-  const rows = await getDb().all(sql`
-    SELECT 1 FROM genealogy_findings
-    WHERE userId=${userId} AND lower(subjectName)=${subjectName.toLowerCase()} AND lower(claim)=${claim.toLowerCase()} LIMIT 1`);
-  return rows.length > 0;
-}
-async function runGenealogyScan(userId, trigger, now = /* @__PURE__ */ new Date()) {
-  const db = getDb();
-  const period2 = periodKey(now);
-  if (!scanEnabled()) return { ok: false, findings: 0, reason: "scan disabled (no ANTHROPIC_API_KEY or FIGGY_GENEALOGY_SCAN=off)" };
-  if (trigger === "monthly") {
-    const existing = await db.all(sql`SELECT id FROM genealogy_scan_runs WHERE userId=${userId} AND period=${period2} AND status IN ('done','running') LIMIT 1`);
-    if (existing.length) return { ok: false, findings: 0, reason: "already scanned this month" };
-  }
-  const startedAt = now.getTime();
-  await db.run(sql`INSERT INTO genealogy_scan_runs (userId, period, status, trigger, startedAt) VALUES (${userId}, ${period2}, 'running', ${trigger}, ${startedAt})`);
-  const runRow = await db.all(sql`SELECT id FROM genealogy_scan_runs WHERE userId=${userId} AND period=${period2} ORDER BY id DESC LIMIT 1`);
-  const runId = runRow[0]?.id;
-  try {
-    const members = await db.all(sql`SELECT * FROM family_members WHERE userId=${userId}`);
-    const targets = buildScanTargets(members, 6);
-    const model = process.env.FIGGY_GENEALOGY_MODEL || "claude-sonnet-4-6";
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    let inserted = 0;
-    for (const target of targets) {
-      const findings = await researchTarget(target, model, apiKey);
-      for (const f of findings) {
-        if (!f.sourceUrl && f.proofLevel !== "clue" && f.proofLevel !== "wall") continue;
-        if (await findingExists(userId, f.subjectName, f.claim)) continue;
-        const { level, confidence } = resolveProof(f.proofLevel, f.confidence);
-        await db.run(sql`INSERT INTO genealogy_findings
-          (userId, scanRunId, subjectName, relatedTo, kind, claim, proofLevel, confidence, sourceType, sourceUrl, birthDate, deathDate, birthplace, status, createdAt)
-          VALUES (${userId}, ${runId}, ${f.subjectName}, ${f.relatedTo ?? target.name}, ${f.kind}, ${f.claim}, ${level}, ${confidence},
-                  ${f.sourceType ?? null}, ${f.sourceUrl ?? null}, ${f.birthDate ?? null}, ${f.deathDate ?? null}, ${f.birthplace ?? null}, 'new', ${Date.now()})`);
-        inserted++;
-      }
-    }
-    const summary = `Scanned ${targets.length} relative(s): ${targets.map((t2) => t2.name).join(", ")}. ${inserted} new discovery(ies) to review.`;
-    await db.run(sql`UPDATE genealogy_scan_runs SET status='done', targetsCount=${targets.length}, findingsCount=${inserted}, summary=${summary}, finishedAt=${Date.now()} WHERE id=${runId}`);
-    console.log(`[genealogy] scan ${period2} (${trigger}) for user ${userId}: ${inserted} findings`);
-    return { ok: true, findings: inserted };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    await db.run(sql`UPDATE genealogy_scan_runs SET status='error', error=${msg.slice(0, 500)}, finishedAt=${Date.now()} WHERE id=${runId}`);
-    console.error("[genealogy] scan failed:", msg);
-    return { ok: false, findings: 0, reason: msg };
-  }
-}
-async function maybeRunMonthlyGenealogyScan(now = /* @__PURE__ */ new Date()) {
-  if (now.getDate() !== 28) return;
-  if (!scanEnabled()) return;
-  try {
-    const db = getDb();
-    const owners = await db.all(sql`SELECT DISTINCT userId FROM family_members WHERE birthDate IS NOT NULL`);
-    for (const o of owners) {
-      await runGenealogyScan(o.userId, "monthly", now).catch(() => {
-      });
-    }
-  } catch (e) {
-    console.error("[genealogy] monthly tick failed:", e instanceof Error ? e.message : e);
-  }
-}
-async function backfillGenealogyFields(userId) {
-  const db = getDb();
-  try {
-    const members = await db.all(sql`SELECT id, name FROM family_members WHERE userId=${userId}`);
-    const idByName = /* @__PURE__ */ new Map();
-    for (const m of members) idByName.set(String(m.name), m.id);
-    for (const [name2, info] of Object.entries(LINEAGE)) {
-      const id = idByName.get(name2);
-      if (!id) continue;
-      const fatherId = info.father ? idByName.get(info.father) ?? null : null;
-      const motherId = info.mother ? idByName.get(info.mother) ?? null : null;
-      await db.run(sql`UPDATE family_members
-        SET generation = COALESCE(generation, ${info.gen}),
-            proofLevel = COALESCE(proofLevel, ${info.proof}),
-            confidence = COALESCE(confidence, ${info.conf}),
-            fatherId   = COALESCE(fatherId, ${fatherId}),
-            motherId   = COALESCE(motherId, ${motherId})
-        WHERE id=${id} AND userId=${userId}`);
-    }
-  } catch (e) {
-    console.error("[genealogy] backfill failed:", e instanceof Error ? e.message : e);
-  }
-}
-var FAMILY_SURNAMES, FAMILY_PLACES, LINEAGE;
-var init_genealogy_scan = __esm({
-  "api/genealogy-scan.ts"() {
-    init_connection();
-    init_drizzle_orm();
-    init_genealogy_core();
-    FAMILY_SURNAMES = ["Antle", "Walsh", "Traverse", "Fitzpatrick", "Dobbin", "Downey", "Carroll", "Murrin", "Kearley", "Bartlett"];
-    FAMILY_PLACES = ["Fleur de Lys", "Coachman's Cove", "Goose Cove", "Conche", "Griquet", "Brigus", "Bonavista Bay", "Newfoundland", "County Wexford Ireland"];
-    LINEAGE = {
-      "Joseph Mark Fitzpatrick": { gen: 1, proof: "likely", conf: 82, father: "Daniel Dorsey Fitzpatrick", mother: "Valeda Carroll" },
-      "Olivera Antle": { gen: 1, proof: "likely", conf: 82, father: "Michael T. Antle", mother: "Louise M. Walsh" },
-      "Daniel Dorsey Fitzpatrick": { gen: 2, proof: "likely", conf: 80, father: "Mark Joseph Fitzpatrick", mother: "Bridget Murrin" },
-      "Valeda Carroll": { gen: 2, proof: "likely", conf: 80, father: "John Carroll", mother: "Cecelia Bartlett" },
-      "Michael T. Antle": { gen: 2, proof: "proven", conf: 95, father: "Thomas Patrick Antle", mother: "Elizabeth Traverse" },
-      "Louise M. Walsh": { gen: 2, proof: "proven", conf: 95, father: "David Walsh", mother: "Alice Francis Traverse" },
-      "Mark Joseph Fitzpatrick": { gen: 3, proof: "likely", conf: 75 },
-      "Bridget Murrin": { gen: 3, proof: "likely", conf: 75 },
-      "John Carroll": { gen: 3, proof: "likely", conf: 72 },
-      "Cecelia Bartlett": { gen: 3, proof: "likely", conf: 72 },
-      "Thomas Patrick Antle": { gen: 3, proof: "wall", conf: 60 },
-      // person documented; PARENTAGE is the brick wall
-      "Elizabeth Traverse": { gen: 3, proof: "likely", conf: 75 },
-      "David Walsh": { gen: 3, proof: "proven", conf: 90 },
-      "Alice Francis Traverse": { gen: 3, proof: "likely", conf: 80 }
-    };
-  }
-});
-
 // api/ensure-calendar-schema.ts
 var ensure_calendar_schema_exports = {};
 __export(ensure_calendar_schema_exports, {
@@ -63050,99 +62729,6 @@ var init_seed_heritage = __esm({
       { name: "David Walsh", relation: "Great-grandfather", side: "maternal", birthDate: "14 May 1889", deathDate: "26 Dec 1969", birthplace: "Coachman's Cove, NL", notes: "Married Alice Francis Traverse 11 Sep 1911, Coachman's Cove. Parents: John Louis Walsh + Mary Frances Dobbin. The Walsh line points toward John Walsh of County Wexford, Ireland (b.1760) \u2014 a research lead, not yet proven." },
       { name: "Alice Francis Traverse", relation: "Great-grandmother", side: "maternal", birthDate: "9 Aug 1891", deathDate: "20 Mar 1965", birthplace: "Coachman's Cove, NL", notes: "Parents: John Traverse + Clara Downey. Cousin relationship to Elizabeth Traverse still to be reconstructed." }
     ];
-  }
-});
-
-// api/ensure-genealogy-schema.ts
-var ensure_genealogy_schema_exports = {};
-__export(ensure_genealogy_schema_exports, {
-  ensureGenealogySchema: () => ensureGenealogySchema
-});
-async function ensureGenealogySchema() {
-  const db = getDb();
-  const guard = async (name2, ddl) => {
-    try {
-      await db.run(ddl);
-    } catch (e) {
-      console.error(`[genealogy] ensure ${name2} failed:`, e instanceof Error ? e.message : e);
-    }
-  };
-  for (const col of [
-    "confidence integer",
-    // 0..100 honest accuracy estimate
-    "proofLevel text",
-    // proven | likely | clue | wall
-    "fatherId integer",
-    // tree link -> family_members.id
-    "motherId integer",
-    "generation integer",
-    // 0 self, 1 parents, 2 grandparents ...
-    "gender text",
-    // m | f | other (for tree layout)
-    "maidenName text",
-    "occupation text",
-    "deathPlace text",
-    "photoUrl text",
-    // direct image URL (if any)
-    "photoFileId text",
-    // Google Drive file id (pulled from Phoenix Rising)
-    "sources text",
-    // JSON array [{label,url,type}]
-    "externalLinks text",
-    // JSON {ancestry,familySearch,findAGrave}
-    "displayOrder integer"
-  ]) {
-    await guard(`family_members.${col}`, sql.raw(`ALTER TABLE family_members ADD COLUMN ${col}`));
-  }
-  await guard("genealogy_findings", sql`CREATE TABLE IF NOT EXISTS genealogy_findings (
-    id integer PRIMARY KEY AUTOINCREMENT,
-    userId integer NOT NULL,
-    scanRunId integer,
-    subjectName text NOT NULL,        -- who the finding is about
-    relatedTo text,                   -- existing person it connects to
-    suggestedMemberId integer,        -- existing family_members.id it would update
-    kind text NOT NULL,               -- new_person | new_fact | relationship | photo | source | dna
-    claim text NOT NULL,              -- the discovery, in plain English
-    proofLevel text,                  -- proven | likely | clue | wall
-    confidence integer,               -- 0..100
-    sourceType text,                  -- FamilySearch | WikiTree | Find A Grave | NGB | census | DNA ...
-    sourceUrl text,
-    birthDate text,
-    deathDate text,
-    birthplace text,
-    status text NOT NULL DEFAULT 'new', -- new | accepted | dismissed
-    createdAt integer,
-    reviewedAt integer
-  )`);
-  await guard("genealogy_scan_runs", sql`CREATE TABLE IF NOT EXISTS genealogy_scan_runs (
-    id integer PRIMARY KEY AUTOINCREMENT,
-    userId integer NOT NULL,
-    period text NOT NULL,             -- YYYY-MM (one scan per month)
-    status text NOT NULL DEFAULT 'running', -- running | done | error | skipped
-    trigger text,                     -- monthly | manual
-    targetsCount integer DEFAULT 0,
-    findingsCount integer DEFAULT 0,
-    summary text,
-    error text,
-    startedAt integer,
-    finishedAt integer
-  )`);
-  await guard("family_share_links", sql`CREATE TABLE IF NOT EXISTS family_share_links (
-    id integer PRIMARY KEY AUTOINCREMENT,
-    userId integer NOT NULL,
-    token text NOT NULL,
-    label text,
-    includePhotos integer NOT NULL DEFAULT 1,
-    active integer NOT NULL DEFAULT 1,
-    viewCount integer NOT NULL DEFAULT 0,
-    createdAt integer,
-    revokedAt integer
-  )`);
-}
-var init_ensure_genealogy_schema = __esm({
-  "api/ensure-genealogy-schema.ts"() {
-    init_connection();
-    init_drizzle_orm();
   }
 });
 
@@ -86393,14 +85979,14 @@ function buildProjectSchedule(project, progress) {
 function latestPeriod(schedule) {
   return schedule.length ? schedule[schedule.length - 1] : null;
 }
-function firstDayOfNextPeriod(periodKey2) {
-  const [y, m] = periodKey2.split("-").map((s) => parseInt(s, 10));
+function firstDayOfNextPeriod(periodKey) {
+  const [y, m] = periodKey.split("-").map((s) => parseInt(s, 10));
   const ny = m >= 12 ? y + 1 : y;
   const nm = m >= 12 ? 1 : m + 1;
   return `${ny}-${String(nm).padStart(2, "0")}-01`;
 }
-function lastDayOfPeriod(periodKey2) {
-  const [y, m] = periodKey2.split("-").map((s) => parseInt(s, 10));
+function lastDayOfPeriod(periodKey) {
+  const [y, m] = periodKey.split("-").map((s) => parseInt(s, 10));
   const day2 = new Date(Date.UTC(y, m, 0)).getUTCDate();
   return `${y}-${String(m).padStart(2, "0")}-${String(day2).padStart(2, "0")}`;
 }
@@ -86428,10 +86014,10 @@ function generateJeForPeriod(period2, opts) {
 function period_customerJobOf(_period) {
   return null;
 }
-function sealJe(kind, date5, periodKey2, lines2) {
+function sealJe(kind, date5, periodKey, lines2) {
   const totalDebit = round27(lines2.reduce((s, l) => s + l.debit, 0));
   const totalCredit = round27(lines2.reduce((s, l) => s + l.credit, 0));
-  return { kind, date: date5, periodKey: periodKey2, lines: lines2, totalDebit, totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 5e-3 };
+  return { kind, date: date5, periodKey, lines: lines2, totalDebit, totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 5e-3 };
 }
 function tagJeWithJob(je, customerJob) {
   if (!customerJob) return je;
@@ -87063,181 +86649,6 @@ var bankedHoursRouter = createRouter({
   })
 });
 
-// api/genealogy-router.ts
-init_zod();
-init_middleware();
-init_connection();
-init_drizzle_orm();
-init_genealogy_core();
-init_genealogy_scan();
-var PROOF = external_exports.enum(["proven", "likely", "clue", "wall"]);
-async function loadMembers(userId) {
-  return await getDb().all(sql`SELECT * FROM family_members WHERE userId=${userId}`);
-}
-function shapeTree(members, opts) {
-  const groups = groupByGeneration(members).map((g) => ({
-    gen: g.gen,
-    label: g.label,
-    members: g.members.map((m) => ({
-      id: m.id,
-      name: m.name,
-      relation: m.relation,
-      side: m.side,
-      birthDate: m.birthDate,
-      deathDate: m.deathDate,
-      living: !!m.living,
-      birthplace: m.birthplace,
-      deathPlace: m.deathPlace,
-      occupation: m.occupation,
-      maidenName: m.maidenName,
-      gender: m.gender,
-      notes: m.notes,
-      proofLevel: m.proofLevel || null,
-      confidence: m.confidence ?? null,
-      fatherId: m.fatherId ?? null,
-      motherId: m.motherId ?? null,
-      photoUrl: opts?.includePhotos === false ? null : m.photoUrl || null,
-      sources: m.sources || null,
-      externalLinks: m.externalLinks || null
-    }))
-  }));
-  return { groups, accuracy: treeAccuracy(members), count: members.filter((m) => m.birthDate || m.deathDate).length };
-}
-var genealogyRouter = createRouter({
-  legend: authedQuery.query(() => PROOF_META),
-  tree: authedQuery.query(async ({ ctx }) => {
-    const members = await loadMembers(ctx.user.id);
-    const pending = await getDb().all(sql`SELECT COUNT(*) AS n FROM genealogy_findings WHERE userId=${ctx.user.id} AND status='new'`);
-    const lastRun = (await getDb().all(sql`SELECT * FROM genealogy_scan_runs WHERE userId=${ctx.user.id} ORDER BY id DESC LIMIT 1`))[0] || null;
-    return { ...shapeTree(members), pendingFindings: Number(pending[0]?.n || 0), lastRun, scanEnabled: !!process.env.ANTHROPIC_API_KEY && process.env.FIGGY_GENEALOGY_SCAN !== "off" };
-  }),
-  memberUpsert: authedQuery.input(external_exports.object({
-    id: external_exports.number().optional(),
-    name: external_exports.string().min(1).max(200),
-    relation: external_exports.string().max(60).optional(),
-    side: external_exports.enum(["maternal", "paternal", "self", "spouse"]).optional(),
-    birthDate: external_exports.string().max(60).optional(),
-    deathDate: external_exports.string().max(60).optional(),
-    living: external_exports.boolean().default(true),
-    birthplace: external_exports.string().max(200).optional(),
-    deathPlace: external_exports.string().max(200).optional(),
-    occupation: external_exports.string().max(200).optional(),
-    maidenName: external_exports.string().max(120).optional(),
-    gender: external_exports.enum(["m", "f", "other"]).optional(),
-    notes: external_exports.string().max(4e3).optional(),
-    medicalNotes: external_exports.string().max(2e3).optional(),
-    proofLevel: PROOF.optional(),
-    confidence: external_exports.number().int().min(0).max(100).optional(),
-    generation: external_exports.number().int().min(0).max(20).optional(),
-    fatherId: external_exports.number().nullable().optional(),
-    motherId: external_exports.number().nullable().optional(),
-    photoUrl: external_exports.string().max(1e3).optional(),
-    sources: external_exports.string().max(4e3).optional(),
-    externalLinks: external_exports.string().max(2e3).optional()
-  })).mutation(async ({ ctx, input }) => {
-    const db = getDb();
-    const uid = ctx.user.id;
-    const now = Date.now();
-    const f = input;
-    if (f.id) {
-      await db.run(sql`UPDATE family_members SET
-          name=${f.name}, relation=${f.relation ?? null}, side=${f.side ?? null},
-          birthDate=${f.birthDate ?? null}, deathDate=${f.deathDate ?? null}, living=${f.living ? 1 : 0},
-          birthplace=${f.birthplace ?? null}, deathPlace=${f.deathPlace ?? null}, occupation=${f.occupation ?? null},
-          maidenName=${f.maidenName ?? null}, gender=${f.gender ?? null}, notes=${f.notes ?? null}, medicalNotes=${f.medicalNotes ?? null},
-          proofLevel=${f.proofLevel ?? null}, confidence=${f.confidence ?? null}, generation=${f.generation ?? null},
-          fatherId=${f.fatherId ?? null}, motherId=${f.motherId ?? null}, photoUrl=${f.photoUrl ?? null},
-          sources=${f.sources ?? null}, externalLinks=${f.externalLinks ?? null}, updatedAt=${now}
-          WHERE id=${f.id} AND userId=${uid}`);
-      return { ok: true, id: f.id };
-    }
-    await db.run(sql`INSERT INTO family_members
-        (userId, name, relation, side, birthDate, deathDate, living, birthplace, deathPlace, occupation, maidenName, gender, notes, medicalNotes, proofLevel, confidence, generation, fatherId, motherId, photoUrl, sources, externalLinks, createdAt, updatedAt)
-        VALUES (${uid}, ${f.name}, ${f.relation ?? null}, ${f.side ?? null}, ${f.birthDate ?? null}, ${f.deathDate ?? null}, ${f.living ? 1 : 0},
-        ${f.birthplace ?? null}, ${f.deathPlace ?? null}, ${f.occupation ?? null}, ${f.maidenName ?? null}, ${f.gender ?? null}, ${f.notes ?? null}, ${f.medicalNotes ?? null},
-        ${f.proofLevel ?? null}, ${f.confidence ?? null}, ${f.generation ?? null}, ${f.fatherId ?? null}, ${f.motherId ?? null}, ${f.photoUrl ?? null}, ${f.sources ?? null}, ${f.externalLinks ?? null}, ${now}, ${now})`);
-    return { ok: true };
-  }),
-  memberRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
-    await getDb().run(sql`DELETE FROM family_members WHERE id=${input.id} AND userId=${ctx.user.id}`);
-    return { ok: true };
-  }),
-  // ───────── Discovery review inbox (from the monthly scan) ─────────
-  findingsList: authedQuery.input(external_exports.object({ status: external_exports.enum(["new", "accepted", "dismissed"]).default("new") })).query(async ({ ctx, input }) => {
-    const rows = await getDb().all(sql`SELECT * FROM genealogy_findings WHERE userId=${ctx.user.id} AND status=${input.status} ORDER BY confidence DESC, id DESC`);
-    return { rows };
-  }),
-  findingDismiss: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
-    await getDb().run(sql`UPDATE genealogy_findings SET status='dismissed', reviewedAt=${Date.now()} WHERE id=${input.id} AND userId=${ctx.user.id}`);
-    return { ok: true };
-  }),
-  /** Accept a discovery: a new_person becomes a tree member; a fact appends to an
-   *  existing member. The source is always recorded so the proof trail survives. */
-  findingAccept: authedQuery.input(external_exports.object({ id: external_exports.number(), attachToMemberId: external_exports.number().optional() })).mutation(async ({ ctx, input }) => {
-    const db = getDb();
-    const uid = ctx.user.id;
-    const now = Date.now();
-    const f = (await db.all(sql`SELECT * FROM genealogy_findings WHERE id=${input.id} AND userId=${uid} LIMIT 1`))[0];
-    if (!f) throw new Error("Finding not found.");
-    const sourceLine = [f.sourceType, f.sourceUrl].filter(Boolean).join(" \u2014 ");
-    const sourcesJson = JSON.stringify([{ label: f.sourceType || "Monthly scan", url: f.sourceUrl || null, type: f.kind }]);
-    const targetId = input.attachToMemberId ?? f.suggestedMemberId;
-    if (f.kind === "new_person" && !targetId) {
-      await db.run(sql`INSERT INTO family_members
-          (userId, name, relation, birthDate, deathDate, living, birthplace, notes, proofLevel, confidence, sources, createdAt, updatedAt)
-          VALUES (${uid}, ${f.subjectName}, ${f.relatedTo ? `related to ${f.relatedTo}` : null}, ${f.birthDate ?? null}, ${f.deathDate ?? null}, 0,
-          ${f.birthplace ?? null}, ${`${f.claim}${sourceLine ? ` [${sourceLine}]` : ""}`}, ${f.proofLevel ?? "clue"}, ${f.confidence ?? null}, ${sourcesJson}, ${now}, ${now})`);
-    } else if (targetId) {
-      const m = (await db.all(sql`SELECT notes FROM family_members WHERE id=${targetId} AND userId=${uid} LIMIT 1`))[0];
-      const appended = `${m?.notes ? m.notes + "\n" : ""}\u2022 ${f.claim}${sourceLine ? ` [${sourceLine}]` : ""} (${f.confidence ?? "?"}%)`;
-      await db.run(sql`UPDATE family_members SET notes=${appended}, updatedAt=${now} WHERE id=${targetId} AND userId=${uid}`);
-    } else {
-      await db.run(sql`INSERT INTO family_members (userId, name, notes, proofLevel, confidence, sources, living, createdAt, updatedAt)
-          VALUES (${uid}, ${f.subjectName}, ${`${f.claim}${sourceLine ? ` [${sourceLine}]` : ""}`}, ${f.proofLevel ?? "clue"}, ${f.confidence ?? null}, ${sourcesJson}, 0, ${now}, ${now})`);
-    }
-    await db.run(sql`UPDATE genealogy_findings SET status='accepted', reviewedAt=${now} WHERE id=${input.id} AND userId=${uid}`);
-    return { ok: true };
-  }),
-  // ───────── Scan controls ─────────
-  scanNow: authedQuery.mutation(async ({ ctx }) => {
-    return runGenealogyScan(ctx.user.id, "manual");
-  }),
-  scanStatus: authedQuery.query(async ({ ctx }) => {
-    const runs = await getDb().all(sql`SELECT * FROM genealogy_scan_runs WHERE userId=${ctx.user.id} ORDER BY id DESC LIMIT 12`);
-    return { runs, enabled: !!process.env.ANTHROPIC_API_KEY && process.env.FIGGY_GENEALOGY_SCAN !== "off", nextRun: "28th of each month" };
-  }),
-  // ───────── Share links (read-only public family page) ─────────
-  shareList: authedQuery.query(async ({ ctx }) => {
-    const rows = await getDb().all(sql`SELECT * FROM family_share_links WHERE userId=${ctx.user.id} ORDER BY createdAt DESC`);
-    return { rows };
-  }),
-  shareCreate: authedQuery.input(external_exports.object({ label: external_exports.string().max(120).optional(), includePhotos: external_exports.boolean().default(true) })).mutation(async ({ ctx, input }) => {
-    const token2 = makeShareToken(() => crypto.randomUUID().replace(/-/g, ""));
-    await getDb().run(sql`INSERT INTO family_share_links (userId, token, label, includePhotos, active, viewCount, createdAt)
-        VALUES (${ctx.user.id}, ${token2}, ${input.label ?? null}, ${input.includePhotos ? 1 : 0}, 1, 0, ${Date.now()})`);
-    return { ok: true, token: token2 };
-  }),
-  shareRevoke: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
-    await getDb().run(sql`UPDATE family_share_links SET active=0, revokedAt=${Date.now()} WHERE id=${input.id} AND userId=${ctx.user.id}`);
-    return { ok: true };
-  }),
-  // ───────── Public (token-gated, read-only) ─────────
-  publicView: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
-    const db = getDb();
-    const link = (await db.all(sql`SELECT * FROM family_share_links WHERE token=${input.token} LIMIT 1`))[0];
-    if (!link || !link.active) return null;
-    await db.run(sql`UPDATE family_share_links SET viewCount = viewCount + 1 WHERE id=${link.id}`);
-    const members = await db.all(sql`SELECT * FROM family_members WHERE userId=${link.userId}`);
-    return {
-      title: "From Fleur de Lys to Coachman's Cove",
-      subtitle: link.label || "Our family history",
-      legend: PROOF_META,
-      generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-      ...shapeTree(members, { includePhotos: !!link.includePhotos })
-    };
-  })
-});
-
 // api/loan-tracker-router.ts
 init_zod();
 init_middleware();
@@ -87718,7 +87129,6 @@ var appRouter = createRouter({
   life: lifeRouter,
   health: healthRouter,
   phoenix: phoenixRouter,
-  genealogy: genealogyRouter,
   learning: learningRouter,
   chat: chatRouter,
   revRec: revRecRouter,
@@ -88005,7 +87415,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.158";
+var BUILD_TAG = "2026-06-26.157";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -88434,13 +87844,6 @@ app.get("/api/phoenix/seed", async (c) => {
       const { seedHeritage: seedHeritage2, seedHeritageLineage: seedHeritageLineage2 } = await Promise.resolve().then(() => (init_seed_heritage(), seed_heritage_exports));
       await seedHeritage2();
       await seedHeritageLineage2();
-      const { ensureGenealogySchema: ensureGenealogySchema2 } = await Promise.resolve().then(() => (init_ensure_genealogy_schema(), ensure_genealogy_schema_exports));
-      await ensureGenealogySchema2();
-      const { backfillGenealogyFields: backfillGenealogyFields2 } = await Promise.resolve().then(() => (init_genealogy_scan(), genealogy_scan_exports));
-      {
-        const owners = await getDb().all(sql`SELECT DISTINCT userId FROM family_members`);
-        for (const o of owners) await backfillGenealogyFields2(o.userId);
-      }
       const { ensureLaunchpadSchema: ensureLaunchpadSchema2 } = await Promise.resolve().then(() => (init_ensure_launchpad_schema(), ensure_launchpad_schema_exports));
       await ensureLaunchpadSchema2();
       const { ensureSubscriptionsSchema: ensureSubscriptionsSchema2 } = await Promise.resolve().then(() => (init_ensure_subscriptions_schema(), ensure_subscriptions_schema_exports));
@@ -89776,19 +89179,6 @@ async function startServer() {
     const { ensureLoanSchema: ensureLoanSchema2 } = await Promise.resolve().then(() => (init_ensure_loan_schema(), ensure_loan_schema_exports));
     await ensureLoanSchema2();
     try {
-      const { ensurePhoenixSchema: ensurePhoenixSchema2 } = await Promise.resolve().then(() => (init_ensure_phoenix_schema(), ensure_phoenix_schema_exports));
-      await ensurePhoenixSchema2();
-      const { ensureGenealogySchema: ensureGenealogySchema2 } = await Promise.resolve().then(() => (init_ensure_genealogy_schema(), ensure_genealogy_schema_exports));
-      await ensureGenealogySchema2();
-      const { backfillGenealogyFields: backfillGenealogyFields2 } = await Promise.resolve().then(() => (init_genealogy_scan(), genealogy_scan_exports));
-      const { getDb: _g } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { sql: _s } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
-      const owners = await _g().all(_s`SELECT DISTINCT userId FROM family_members`);
-      for (const o of owners) await backfillGenealogyFields2(o.userId);
-    } catch (e) {
-      console.error("[genealogy] startup schema/backfill failed:", e instanceof Error ? e.message : e);
-    }
-    try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
@@ -90238,15 +89628,6 @@ async function startServer() {
   }, 15e4);
   setInterval(() => {
     maybeRefreshTaxRates2().catch(() => {
-    });
-  }, 24 * 60 * 60 * 1e3);
-  const { maybeRunMonthlyGenealogyScan: maybeRunMonthlyGenealogyScan2 } = await Promise.resolve().then(() => (init_genealogy_scan(), genealogy_scan_exports));
-  setTimeout(() => {
-    maybeRunMonthlyGenealogyScan2().catch(() => {
-    });
-  }, 18e4);
-  setInterval(() => {
-    maybeRunMonthlyGenealogyScan2().catch(() => {
     });
   }, 24 * 60 * 60 * 1e3);
   const { backfillHasPayroll: backfillHasPayroll2, seedPayrollSchedules: seedPayrollSchedules2 } = await Promise.resolve().then(() => (init_payroll_router(), payroll_router_exports));
