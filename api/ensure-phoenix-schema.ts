@@ -33,7 +33,6 @@ export async function ensurePhoenixSchema(): Promise<void> {
     updatedAt integer
   )`);
 
-<<<<<<< HEAD
   await guard("side_products", sql`CREATE TABLE IF NOT EXISTS side_products (
     id integer PRIMARY KEY AUTOINCREMENT,
     userId integer NOT NULL,
@@ -63,8 +62,6 @@ export async function ensurePhoenixSchema(): Promise<void> {
     createdAt integer
   )`);
 
-=======
->>>>>>> origin/main
   await guard("estate_items", sql`CREATE TABLE IF NOT EXISTS estate_items (
     id integer PRIMARY KEY AUTOINCREMENT,
     userId integer NOT NULL,
