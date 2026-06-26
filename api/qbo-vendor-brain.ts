@@ -145,7 +145,7 @@ export async function writeBackVendorCardContact(
  * could read the wrong company's books). This is what guarantees Clark OS and
  * Clark CW (and every other client) never cross-pollinate.
  */
-async function getConnectionForClient(
+export async function getConnectionForClient(
   clientId: number,
 ): Promise<{ conn: Conn } | { error: "no_active_qbo_connection_for_client" | "ambiguous_qbo_connections_for_client" }> {
   const db = getDb();

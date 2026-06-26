@@ -73,6 +73,7 @@ import { chatRouter } from "./chat-router";
 import { revRecRouter } from "./revrec-router";
 import { bankedHoursRouter } from "./banked-hours-router";
 import { genealogyRouter } from "./genealogy-router";
+import { hstReviewRouter } from "./hst-review-router";
 import { loanTrackerRouter } from "./loan-tracker-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
@@ -144,6 +145,7 @@ export const appRouter = createRouter({
   brain: brainRouter,
   launchpad: launchpadRouter,
   hstAudit: hstAuditRouter,
+  hstReview: hstReviewRouter,
   subscriptions: subscriptionsRouter,
   registers: registersRouter,
   jade: jadeRouter,

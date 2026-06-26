@@ -169,8 +169,8 @@ function getStatusCodeFromKey(code) {
   return (_JSONRPC2_TO_HTTP_COD = JSONRPC2_TO_HTTP_CODE[code]) !== null && _JSONRPC2_TO_HTTP_COD !== void 0 ? _JSONRPC2_TO_HTTP_COD : 500;
 }
 function getHTTPStatusCode(json2) {
-  const arr = Array.isArray(json2) ? json2 : [json2];
-  const httpStatuses = new Set(arr.map((res) => {
+  const arr2 = Array.isArray(json2) ? json2 : [json2];
+  const httpStatuses = new Set(arr2.map((res) => {
     if ("error" in res && isObject(res.error.data)) {
       var _res$error$data;
       if (typeof ((_res$error$data = res.error.data) === null || _res$error$data === void 0 ? void 0 : _res$error$data["httpStatus"]) === "number") return res.error.data["httpStatus"];
@@ -11220,13 +11220,13 @@ function _promise(Class2, innerType) {
 }
 // @__NO_SIDE_EFFECTS__
 function _custom(Class2, fn, _params) {
-  const norm23 = normalizeParams(_params);
-  norm23.abort ?? (norm23.abort = true);
+  const norm24 = normalizeParams(_params);
+  norm24.abort ?? (norm24.abort = true);
   const schema = new Class2({
     type: "custom",
     check: "custom",
     fn,
-    ...norm23
+    ...norm24
   });
   return schema;
 }
@@ -11497,7 +11497,7 @@ function extractDefs(ctx, schema) {
       return;
     }
     const seen = entry[1];
-    const { ref, defId } = makeURI(entry);
+    const { ref: ref2, defId } = makeURI(entry);
     seen.def = { ...seen.schema };
     if (defId)
       seen.defId = defId;
@@ -11505,7 +11505,7 @@ function extractDefs(ctx, schema) {
     for (const key10 in schema2) {
       delete schema2[key10];
     }
-    schema2.$ref = ref;
+    schema2.$ref = ref2;
   };
   if (ctx.cycles === "throw") {
     for (const entry of ctx.seen.entries()) {
@@ -11557,11 +11557,11 @@ function finalize(ctx, schema) {
       return;
     const schema2 = seen.def ?? seen.schema;
     const _cached = { ...schema2 };
-    const ref = seen.ref;
+    const ref2 = seen.ref;
     seen.ref = null;
-    if (ref) {
-      flattenRef(ref);
-      const refSeen = ctx.seen.get(ref);
+    if (ref2) {
+      flattenRef(ref2);
+      const refSeen = ctx.seen.get(ref2);
       const refSchema = refSeen.schema;
       if (refSchema.$ref && (ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0")) {
         schema2.allOf = schema2.allOf ?? [];
@@ -11570,7 +11570,7 @@ function finalize(ctx, schema) {
         Object.assign(schema2, refSchema);
       }
       Object.assign(schema2, _cached);
-      const isParentRef = zodSchema._zod.parent === ref;
+      const isParentRef = zodSchema._zod.parent === ref2;
       if (isParentRef) {
         for (const key10 in schema2) {
           if (key10 === "$ref" || key10 === "allOf")
@@ -11591,7 +11591,7 @@ function finalize(ctx, schema) {
       }
     }
     const parent = zodSchema._zod.parent;
-    if (parent && parent !== ref) {
+    if (parent && parent !== ref2) {
       flattenRef(parent);
       const parentSeen = ctx.seen.get(parent);
       if (parentSeen?.schema.$ref) {
@@ -14144,11 +14144,11 @@ function detectVersion(schema, defaultTarget) {
   }
   return defaultTarget ?? "draft-2020-12";
 }
-function resolveRef(ref, ctx) {
-  if (!ref.startsWith("#")) {
+function resolveRef(ref2, ctx) {
+  if (!ref2.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path7 = ref.slice(1).split("/").filter(Boolean);
+  const path7 = ref2.slice(1).split("/").filter(Boolean);
   if (path7.length === 0) {
     return ctx.rootSchema;
   }
@@ -14156,11 +14156,11 @@ function resolveRef(ref, ctx) {
   if (path7[0] === defsKey) {
     const key10 = path7[1];
     if (!key10 || !ctx.defs[key10]) {
-      throw new Error(`Reference not found: ${ref}`);
+      throw new Error(`Reference not found: ${ref2}`);
     }
     return ctx.defs[key10];
   }
-  throw new Error(`Reference not found: ${ref}`);
+  throw new Error(`Reference not found: ${ref2}`);
 }
 function convertBaseSchema(schema, ctx) {
   if (schema.not !== void 0) {
@@ -15368,8 +15368,8 @@ function find(record2, predicate) {
 function forEach(record2, run3) {
   Object.entries(record2).forEach(([key10, value]) => run3(value, key10));
 }
-function includes(arr, value) {
-  return arr.indexOf(value) !== -1;
+function includes(arr2, value) {
+  return arr2.indexOf(value) !== -1;
 }
 function findArr(record2, predicate) {
   for (let i = 0; i < record2.length; i++) {
@@ -16642,8 +16642,8 @@ var init_common = __esm({
       array(size) {
         return new PgArrayBuilder(this.config.name, this, size);
       }
-      references(ref, actions = {}) {
-        this.foreignKeyConfigs.push({ ref, actions });
+      references(ref2, actions = {}) {
+        this.foreignKeyConfigs.push({ ref: ref2, actions });
         return this;
       }
       unique(name2, config2) {
@@ -16662,11 +16662,11 @@ var init_common = __esm({
       }
       /** @internal */
       buildForeignKeys(column, table) {
-        return this.foreignKeyConfigs.map(({ ref, actions }) => {
+        return this.foreignKeyConfigs.map(({ ref: ref2, actions }) => {
           return iife(
-            (ref2, actions2) => {
+            (ref22, actions2) => {
               const builder = new ForeignKeyBuilder(() => {
-                const foreignColumn = ref2();
+                const foreignColumn = ref22();
                 return { columns: [column], foreignColumns: [foreignColumn] };
               });
               if (actions2.onUpdate) {
@@ -16677,7 +16677,7 @@ var init_common = __esm({
               }
               return builder.build(table);
             },
-            ref,
+            ref2,
             actions
           );
         });
@@ -17896,8 +17896,8 @@ var init_common2 = __esm({
     SQLiteColumnBuilder = class extends ColumnBuilder {
       static [entityKind] = "SQLiteColumnBuilder";
       foreignKeyConfigs = [];
-      references(ref, actions = {}) {
-        this.foreignKeyConfigs.push({ ref, actions });
+      references(ref2, actions = {}) {
+        this.foreignKeyConfigs.push({ ref: ref2, actions });
         return this;
       }
       unique(name2) {
@@ -17915,10 +17915,10 @@ var init_common2 = __esm({
       }
       /** @internal */
       buildForeignKeys(column, table) {
-        return this.foreignKeyConfigs.map(({ ref, actions }) => {
-          return ((ref2, actions2) => {
+        return this.foreignKeyConfigs.map(({ ref: ref2, actions }) => {
+          return ((ref22, actions2) => {
             const builder = new ForeignKeyBuilder2(() => {
-              const foreignColumn = ref2();
+              const foreignColumn = ref22();
               return { columns: [column], foreignColumns: [foreignColumn] };
             });
             if (actions2.onUpdate) {
@@ -17928,7 +17928,7 @@ var init_common2 = __esm({
               builder.onDelete(actions2.onDelete);
             }
             return builder.build(table);
-          })(ref, actions);
+          })(ref2, actions);
         });
       }
     };
@@ -26837,26 +26837,26 @@ var require_permessage_deflate = __commonJS({
             value = value[0];
             if (key10 === "client_max_window_bits") {
               if (value !== true) {
-                const num3 = +value;
-                if (!Number.isInteger(num3) || num3 < 8 || num3 > 15) {
+                const num4 = +value;
+                if (!Number.isInteger(num4) || num4 < 8 || num4 > 15) {
                   throw new TypeError(
                     `Invalid value for parameter "${key10}": ${value}`
                   );
                 }
-                value = num3;
+                value = num4;
               } else if (!this._isServer) {
                 throw new TypeError(
                   `Invalid value for parameter "${key10}": ${value}`
                 );
               }
             } else if (key10 === "server_max_window_bits") {
-              const num3 = +value;
-              if (!Number.isInteger(num3) || num3 < 8 || num3 > 15) {
+              const num4 = +value;
+              if (!Number.isInteger(num4) || num4 < 8 || num4 > 15) {
                 throw new TypeError(
                   `Invalid value for parameter "${key10}": ${value}`
                 );
               }
-              value = num3;
+              value = num4;
             } else if (key10 === "client_no_context_takeover" || key10 === "server_no_context_takeover") {
               if (value !== true) {
                 throw new TypeError(
@@ -27551,8 +27551,8 @@ var require_receiver = __commonJS({
           return;
         }
         const buf = this.consume(8);
-        const num3 = buf.readUInt32BE(0);
-        if (num3 > Math.pow(2, 53 - 32) - 1) {
+        const num4 = buf.readUInt32BE(0);
+        if (num4 > Math.pow(2, 53 - 32) - 1) {
           const error48 = this.createError(
             RangeError,
             "Unsupported WebSocket frame: payload length > 2^53 - 1",
@@ -27563,7 +27563,7 @@ var require_receiver = __commonJS({
           cb(error48);
           return;
         }
-        this._payloadLength = num3 * Math.pow(2, 32) + buf.readUInt32BE(4);
+        this._payloadLength = num4 * Math.pow(2, 32) + buf.readUInt32BE(4);
         this.haveLength(cb);
       }
       /**
@@ -30749,11 +30749,11 @@ function valueFromProto(value, intMode) {
     return value;
   } else if (typeof value === "bigint") {
     if (intMode === "number") {
-      const num3 = Number(value);
-      if (!Number.isSafeInteger(num3)) {
+      const num4 = Number(value);
+      if (!Number.isSafeInteger(num4)) {
         throw new RangeError("Received integer which is too large to be safely represented as a JavaScript number");
       }
-      return num3;
+      return num4;
     } else if (intMode === "bigint") {
       return value;
     } else if (intMode === "string") {
@@ -38931,8 +38931,8 @@ function computeHstStatus(opts) {
     const qIdx = Math.floor(m / 3);
     const endIdx0 = qIdx * 3 - 1;
     periodEnd = endOfMonth(y, endIdx0);
-    const q = Math.floor(periodEnd.getUTCMonth() / 3) + 1;
-    periodLabel = `Q${q} ${periodEnd.getUTCFullYear()}`;
+    const q2 = Math.floor(periodEnd.getUTCMonth() / 3) + 1;
+    periodLabel = `Q${q2} ${periodEnd.getUTCFullYear()}`;
   } else {
     dueMonthsAfter = 3;
     const fyeMonth0 = (opts.fiscalYearEndMonth ?? 12) - 1;
@@ -39055,7 +39055,7 @@ async function ensureClientRealmSync() {
       await db.run(sql.raw(`ALTER TABLE clients ADD COLUMN qboRealmId text`));
       console.log("[realm-sync] added clients.qboRealmId column");
     }
-    const norm23 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const norm24 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
     const unbound = await db.all(
       sql.raw(`SELECT id, realmId, companyName FROM qbo_connections WHERE isActive = 1 AND clientId IS NULL AND companyName IS NOT NULL AND companyName <> ''`)
     );
@@ -39070,11 +39070,11 @@ async function ensureClientRealmSync() {
         idx.set(key10, s);
       };
       for (const c of clientRows) {
-        add(norm23(c.name), Number(c.id));
-        add(norm23(c.company), Number(c.id));
+        add(norm24(c.name), Number(c.id));
+        add(norm24(c.company), Number(c.id));
       }
       for (const cn of unbound) {
-        const key10 = norm23(cn.companyName);
+        const key10 = norm24(cn.companyName);
         const matches = idx.get(key10);
         if (matches && matches.size === 1) {
           const clientId = [...matches][0];
@@ -39741,8 +39741,8 @@ async function createDriveFolder(name2, parentId) {
 }
 async function findDriveFolder(name2, parentId) {
   const safe = name2.replace(/'/g, "\\'");
-  const q = `name = '${safe}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-  const r = await driveApi("files", "GET", { q, fields: "files(id,webViewLink)" });
+  const q2 = `name = '${safe}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  const r = await driveApi("files", "GET", { q: q2, fields: "files(id,webViewLink)" });
   const f = r?.files?.[0];
   return f?.id ? { id: String(f.id), webViewLink: String(f.webViewLink || `https://drive.google.com/drive/folders/${f.id}`) } : null;
 }
@@ -41391,6 +41391,7 @@ __export(qbo_vendor_brain_exports, {
   bridgeHealth: () => bridgeHealth,
   decideCoding: () => decideCoding,
   decideDedup: () => decideDedup,
+  getConnectionForClient: () => getConnectionForClient,
   normalizeInvoiceNumber: () => normalizeInvoiceNumber,
   normalizeVendorName: () => normalizeVendorName,
   parseBillHistory: () => parseBillHistory,
@@ -42894,7 +42895,7 @@ function statHolidaysInRange(startISO, endISO) {
   const years = /* @__PURE__ */ new Set([Number(startISO.slice(0, 4)), Number(endISO.slice(0, 4))]);
   const all = [];
   for (const y of years) if (Number.isFinite(y)) all.push(...ontarioStatHolidays(y));
-  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr) => idx === 0 || h.date !== arr[idx - 1].date);
+  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr2) => idx === 0 || h.date !== arr2[idx - 1].date);
 }
 function statHolidaysObservedInRange(startISO, endISO) {
   return statHolidaysInRange(startISO, endISO).map((h) => {
@@ -43284,10 +43285,10 @@ function driveFolderId(urlOrId) {
   return null;
 }
 async function listFolder(token2, folderId) {
-  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+  const q2 = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
   const fields = encodeURIComponent("files(id,name,mimeType,modifiedTime)");
   const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=100&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    `https://www.googleapis.com/drive/v3/files?q=${q2}&orderBy=modifiedTime desc&pageSize=100&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     { headers: { Authorization: `Bearer ${token2}` } }
   );
   if (!res.ok) throw new Error(`Couldn't open the Drive folder (${res.status}). Reconnect Google in Integrations with Drive access.`);
@@ -43972,17 +43973,17 @@ async function recomputeRunTotals(runId) {
 async function applyImportedHours(db, runId, clientId, hours) {
   const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
   const rosterExists = emps.length > 0;
-  const norm23 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  const norm24 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
   const byAlias = /* @__PURE__ */ new Map(), byFull = /* @__PURE__ */ new Map(), byFirst = /* @__PURE__ */ new Map();
   const byLast = /* @__PURE__ */ new Map();
   const byJobberId = /* @__PURE__ */ new Map();
   for (const e of emps) {
     if (e.jobberUserId) byJobberId.set(String(e.jobberUserId), e);
-    if (e.jobberName) byAlias.set(norm23(e.jobberName), e);
-    byFull.set(norm23(`${e.firstName} ${e.lastName}`), e);
-    byFull.set(norm23(`${e.lastName}, ${e.firstName}`), e);
-    if (!byFirst.has(norm23(e.firstName))) byFirst.set(norm23(e.firstName), e);
-    const ln = norm23(e.lastName);
+    if (e.jobberName) byAlias.set(norm24(e.jobberName), e);
+    byFull.set(norm24(`${e.firstName} ${e.lastName}`), e);
+    byFull.set(norm24(`${e.lastName}, ${e.firstName}`), e);
+    if (!byFirst.has(norm24(e.firstName))) byFirst.set(norm24(e.firstName), e);
+    const ln = norm24(e.lastName);
     if (ln) byLast.set(ln, byLast.has(ln) ? "AMBIG" : e);
   }
   const parseName = (label) => {
@@ -43996,17 +43997,17 @@ async function applyImportedHours(db, runId, clientId, hours) {
     return { first: t2[0] || "", last: t2.slice(1).join(" ") };
   };
   const matchEmp = (label) => {
-    const n = norm23(label);
+    const n = norm24(label);
     let m = byAlias.get(n) || byFull.get(n);
     if (m) return m;
     const { first, last } = parseName(label);
-    m = byFull.get(norm23(`${first} ${last}`)) || byFull.get(norm23(`${last}, ${first}`));
+    m = byFull.get(norm24(`${first} ${last}`)) || byFull.get(norm24(`${last}, ${first}`));
     if (m) return m;
     if (last) {
-      const bl = byLast.get(norm23(last));
+      const bl = byLast.get(norm24(last));
       if (bl && bl !== "AMBIG") return bl;
     }
-    return byFirst.get(norm23(first)) || byFirst.get(norm23(n.split(/[ ,]/)[0])) || null;
+    return byFirst.get(norm24(first)) || byFirst.get(norm24(n.split(/[ ,]/)[0])) || null;
   };
   const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
   const lineByEmp = new Map(lines2.map((l) => [l.employeeId, l]));
@@ -44036,10 +44037,10 @@ async function applyImportedHours(db, runId, clientId, hours) {
       }).returning();
       emp = ins;
       created.push(`${ins.firstName} ${ins.lastName}`.trim());
-      byFull.set(norm23(h.userName), ins);
-      byFull.set(norm23(`${ins.firstName} ${ins.lastName}`), ins);
-      byFull.set(norm23(`${ins.lastName}, ${ins.firstName}`), ins);
-      if (ins.firstName && !byFirst.has(norm23(ins.firstName))) byFirst.set(norm23(ins.firstName), ins);
+      byFull.set(norm24(h.userName), ins);
+      byFull.set(norm24(`${ins.firstName} ${ins.lastName}`), ins);
+      byFull.set(norm24(`${ins.lastName}, ${ins.firstName}`), ins);
+      if (ins.firstName && !byFirst.has(norm24(ins.firstName))) byFirst.set(norm24(ins.firstName), ins);
     }
     const note = longShiftNote2(h.maxShiftHours ?? 0);
     if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
@@ -44436,9 +44437,9 @@ var init_payroll_router = __esm({
         }
         const { recordRateChange: recordRateChange2 } = await Promise.resolve().then(() => (init_employee_router(), employee_router_exports));
         const existing = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
-        const norm23 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+        const norm24 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
         const byName = /* @__PURE__ */ new Map();
-        for (const e of existing) byName.set(norm23(`${e.firstName} ${e.lastName}`), e);
+        for (const e of existing) byName.set(norm24(`${e.firstName} ${e.lastName}`), e);
         const parseName = (label) => {
           const s = (label || "").trim();
           if (s.includes(",")) {
@@ -44453,7 +44454,7 @@ var init_payroll_router = __esm({
           const { first, last } = parseName(row.name);
           if (!first && !last) continue;
           const eff = row.effectiveDate ? /* @__PURE__ */ new Date(row.effectiveDate + "T12:00:00") : /* @__PURE__ */ new Date();
-          const hit = byName.get(norm23(`${first} ${last}`)) || byName.get(norm23(row.name));
+          const hit = byName.get(norm24(`${first} ${last}`)) || byName.get(norm24(row.name));
           if (hit) {
             const changed = row.hourlyRate != null && row.hourlyRate !== hit.hourlyRate || row.annualSalary != null && row.annualSalary !== hit.annualSalary;
             if (changed) {
@@ -44465,7 +44466,7 @@ var init_payroll_router = __esm({
             const [ins] = await db.insert(employees).values({ clientId: input.clientId, firstName: first || row.name, lastName: last || "", payType: row.payType ?? "hourly", hourlyRate: row.hourlyRate ?? null, annualSalary: row.annualSalary ?? null, isActive: true }).returning();
             await recordRateChange2(db, { employeeId: ins.id, clientId: input.clientId, payType: ins.payType, hourlyRate: ins.hourlyRate, annualSalary: ins.annualSalary, effectiveDate: eff, note: "Starting rate (roster sheet)", source: "roster_sheet" });
             created.push(`${first} ${last}`.trim());
-            byName.set(norm23(`${first} ${last}`), ins);
+            byName.set(norm24(`${first} ${last}`), ins);
           }
         }
         return { ok: true, created, updated, total: roster.length };
@@ -44889,10 +44890,10 @@ function normalizePhone(raw2) {
 }
 async function matchClientByPhone(phone) {
   const db = getDb();
-  const norm23 = normalizePhone(phone);
-  if (!norm23) return null;
+  const norm24 = normalizePhone(phone);
+  if (!norm24) return null;
   const all = await db.select().from(clients);
-  const hit = all.find((c) => normalizePhone(c.phone || "") === norm23);
+  const hit = all.find((c) => normalizePhone(c.phone || "") === norm24);
   return hit ? { id: hit.id, name: hit.name } : null;
 }
 async function ingestInboundSms(from, body, externalId) {
@@ -45689,7 +45690,7 @@ function clientAppsList(onb) {
   return a;
 }
 function buildScopeForClient(client, onb) {
-  const num3 = (...vals) => {
+  const num4 = (...vals) => {
     for (const v of vals) {
       const n = Number(v);
       if (Number.isFinite(n) && n > 0) return n;
@@ -45699,14 +45700,14 @@ function buildScopeForClient(client, onb) {
   const bool = (...vals) => vals.some((v) => v === true || v === 1);
   const salesPlatformCount = onb ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro, onb.usesPayPal].filter((v) => v === true || v === 1).length : 0;
   return {
-    avgMonthlyTransactions: num3(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
+    avgMonthlyTransactions: num4(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
     bookkeepingFrequency: onb?.bookkeepingFrequency ?? "monthly",
-    bankAccountCount: num3(onb?.bankAccountCount) || 1,
-    creditCardCount: num3(onb?.creditCardCount),
+    bankAccountCount: num4(onb?.bankAccountCount) || 1,
+    creditCardCount: num4(onb?.creditCardCount),
     hasHST: bool(client?.hasHST, onb?.hstGstFrequency && onb.hstGstFrequency !== "none"),
     hstPeriod: normalizeHstPeriod(client?.hstPeriod, onb?.hstGstFrequency),
     hasPayroll: bool(client?.hasPayroll, onb?.hasEmployees, onb?.payrollFrequency && onb.payrollFrequency !== "none"),
-    employeeCount: num3(onb?.employeeCount),
+    employeeCount: num4(onb?.employeeCount),
     payrollFrequency: normalizePayrollFreq(onb?.payrollFrequency, client?.payrollFrequency),
     payrollRemitterFreq: client?.payrollRemitterFreq ?? "regular",
     hasWSIB: bool(client?.hasWSIB, onb?.wsibRequired),
@@ -45719,7 +45720,7 @@ function buildScopeForClient(client, onb) {
     invoicingByUs: onb?.invoicingResponsibility === "we_invoice",
     billPayByUs: onb?.billPayResponsibility === "we_pay",
     hasJobCosting: bool(onb?.hasJobCosting),
-    monthsBehind: num3(onb?.monthsBehind),
+    monthsBehind: num4(onb?.monthsBehind),
     qboSoftwareTier: onb?.qboSoftwareTier ?? "none",
     qboSoftwareWholesale: bool(onb?.qboSoftwareWholesale),
     qboPayrollWholesale: bool(onb?.qboPayrollWholesale)
@@ -47176,7 +47177,7 @@ var init_utils3 = __esm({
       let out = "";
       for (let j = 0; j < string5.length; j += limit) {
         const segment = string5.length >= limit ? string5.slice(j, j + limit) : string5;
-        const arr = [];
+        const arr2 = [];
         for (let i = 0; i < segment.length; ++i) {
           let c = segment.charCodeAt(i);
           if (c === 45 || // -
@@ -47187,26 +47188,26 @@ var init_utils3 = __esm({
           c >= 65 && c <= 90 || // a-z
           c >= 97 && c <= 122 || // A-Z
           format === RFC1738 && (c === 40 || c === 41)) {
-            arr[arr.length] = segment.charAt(i);
+            arr2[arr2.length] = segment.charAt(i);
             continue;
           }
           if (c < 128) {
-            arr[arr.length] = hex_table[c];
+            arr2[arr2.length] = hex_table[c];
             continue;
           }
           if (c < 2048) {
-            arr[arr.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
+            arr2[arr2.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
             continue;
           }
           if (c < 55296 || c >= 57344) {
-            arr[arr.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+            arr2[arr2.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
             continue;
           }
           i += 1;
           c = 65536 + ((c & 1023) << 10 | segment.charCodeAt(i) & 1023);
-          arr[arr.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+          arr2[arr2.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
         }
-        out += arr.join("");
+        out += arr2.join("");
       }
       return out;
     };
@@ -47469,8 +47470,8 @@ var init_stringify = __esm({
         return String(prefix);
       }
     };
-    push_to_array = function(arr, value_or_array) {
-      Array.prototype.push.apply(arr, isArray3(value_or_array) ? value_or_array : [value_or_array]);
+    push_to_array = function(arr2, value_or_array) {
+      Array.prototype.push.apply(arr2, isArray3(value_or_array) ? value_or_array : [value_or_array]);
     };
     defaults = {
       addQueryPrefix: false,
@@ -50645,12 +50646,12 @@ var require_sha256 = __commonJS({
       }
       exports2.hmac = hmac;
       function fillBuffer(buffer, hmac2, info, counter) {
-        var num3 = counter[0];
-        if (num3 === 0) {
+        var num4 = counter[0];
+        if (num4 === 0) {
           throw new Error("hkdf: cannot expand more");
         }
         hmac2.reset();
-        if (num3 > 1) {
+        if (num4 > 1) {
           hmac2.update(buffer);
         }
         if (info) {
@@ -59059,11 +59060,11 @@ async function addTruth(input) {
 async function answerQuestion(id, answer, opts) {
   const db = getDb();
   const rows = await db.all(sql`SELECT * FROM brain_questions WHERE id = ${id} LIMIT 1`);
-  const q = rows[0];
-  if (!q) return { error: "question not found" };
-  const scope = { kind: q.scopeKind, clientId: q.clientId ?? void 0 };
-  const truth = truthFromAnswer({ id: "br_" + (await import("crypto")).randomBytes(10).toString("hex"), scope, label: opts?.label || "Confirmed by Markie", statement: answer, category: opts?.category ?? q.category ?? void 0, sourceLabels: ["Markie"], at: Date.now() });
-  const truthId = await addTruth({ scope, label: truth.label, statement: truth.text, category: truth.category, sourceLabels: truth.sourceLabels, userId: q.userId ?? void 0 });
+  const q2 = rows[0];
+  if (!q2) return { error: "question not found" };
+  const scope = { kind: q2.scopeKind, clientId: q2.clientId ?? void 0 };
+  const truth = truthFromAnswer({ id: "br_" + (await import("crypto")).randomBytes(10).toString("hex"), scope, label: opts?.label || "Confirmed by Markie", statement: answer, category: opts?.category ?? q2.category ?? void 0, sourceLabels: ["Markie"], at: Date.now() });
+  const truthId = await addTruth({ scope, label: truth.label, statement: truth.text, category: truth.category, sourceLabels: truth.sourceLabels, userId: q2.userId ?? void 0 });
   await db.run(sql`UPDATE brain_questions SET status = 'answered', answer = ${answer}, answeredAt = ${Date.now()} WHERE id = ${id}`);
   return { truthId };
 }
@@ -59153,7 +59154,8 @@ async function seedConstitution() {
   const firm = { kind: "firm" };
   const src = [`Figgy Operating System (FOS) v${FOS_VERSION} \u2014 Markie`];
   const articles = [
-    { label: "FOS \u2014 Version & Amendments", statement: "Figgy Operating System v1.2 (ratified by Markie 2026-06-26). v1.0 = foundation (Markie's authored doc). v1.1 added Human Oversight Threshold, Precedence (do the work, never guess), and Cost Discipline. v1.2 adds Roles & Review Chain and Data Handling & Retention. Amend by: document \u2192 review \u2192 bump FOS_VERSION \u2192 re-seed." },
+    { label: "FOS \u2014 Version & Amendments", statement: "Figgy Operating System v1.3 (ratified by Markie 2026-06-26). v1.0 = foundation (Markie's authored doc). v1.1 added Human Oversight Threshold, Precedence (do the work, never guess), and Cost Discipline. v1.2 adds Roles & Review Chain and Data Handling & Retention. v1.3 adds Evidence Over Agreement (EDD-0001). Amend by: document \u2192 review \u2192 bump FOS_VERSION \u2192 re-seed." },
+    { label: "FOS \u2014 Evidence Over Agreement (EDD-0001)", statement: "CONSTITUTIONAL RULE EDD-0001 (CRITICAL, all agents): every AI optimizes for Markie's long-term success, NOT for agreement. Agreement is never the objective \u2014 evidence, reasoning and thoughtful challenge are. Every agent must: challenge assumptions respectfully; explain its reasoning; present trade-offs; distinguish facts from opinions; state uncertainty clearly; recommend more research when evidence is thin; identify blind spots; prevent unnecessary complexity; protect Markie from confirmation bias. When evaluating an idea, ask: (1) Is it supported by evidence? (2) What assumptions are being made? (3) What are the risks? (4) Is there a simpler solution? (5) Does it pass the Markie Filter (freedom / async / expertise-not-hours / AI-automatable)? (6) Would I recommend this if it were my own business? If any answer is weak, SAY SO clearly. Lanes: Finn/strategy challenges strategy, architecture, priorities, business models; the builder challenges technical feasibility, complexity, scalability, security, maintainability; Liv challenges knowledge quality, documentation, duplication, consistency. The team exists to IMPROVE Markie's thinking, not validate it \u2014 respectful disagreement is a required feature. Balance (so it serves freedom, not friction): challenge when evidence or risk warrants, make the strongest case once, then commit to Markie's call and move \u2014 disagree-and-commit, never contrarian for its own sake or endless debate." },
     { label: "FOS \u2014 Purpose", statement: "The Figgy Operating System is the single source of truth for how Go Fig Bookz operates: the governing principles, standards, decision framework, quality expectations, security requirements, workflow philosophy, and continuous-improvement model. It is a living document." },
     { label: "FOS \u2014 The Figgy Promise", statement: "We are in the trust business as much as the bookkeeping business. Accuracy before speed. Security before convenience. Clarity before complexity. Every task should improve the business." },
     { label: "FOS \u2014 Core Principles", statement: "Never guess \u2014 ask when uncertain. Protect client confidentiality at all times. Automate repetitive work while preserving appropriate human oversight. Explain recommendations in plain language. Document important decisions. Leave every client, workflow, and month better than before." },
@@ -59365,8 +59367,8 @@ async function brainStats() {
   const db = getDb();
   const rec = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records`);
   const tru = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE layer='truth' AND status='approved'`);
-  const q = await db.all(sql`SELECT COUNT(*) AS n FROM brain_questions WHERE status='open'`);
-  return { records: Number(rec[0]?.n || 0), truth: Number(tru[0]?.n || 0), openQuestions: Number(q[0]?.n || 0) };
+  const q2 = await db.all(sql`SELECT COUNT(*) AS n FROM brain_questions WHERE status='open'`);
+  return { records: Number(rec[0]?.n || 0), truth: Number(tru[0]?.n || 0), openQuestions: Number(q2[0]?.n || 0) };
 }
 var FOS_VERSION;
 var init_brain_store = __esm({
@@ -59374,7 +59376,7 @@ var init_brain_store = __esm({
     init_connection();
     init_drizzle_orm();
     init_brain_core();
-    FOS_VERSION = "1.2";
+    FOS_VERSION = "1.3";
   }
 });
 
@@ -59969,9 +59971,9 @@ function parseScanFindings(text2) {
   } catch {
     return [];
   }
-  const arr = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
+  const arr2 = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
   const out = [];
-  for (const f of arr) {
+  for (const f of arr2) {
     const subjectName = String(f?.subjectName || f?.name || "").trim();
     const claim = String(f?.claim || "").trim();
     if (!subjectName || !claim) continue;
@@ -60276,7 +60278,7 @@ async function seedCollingwoodRunHours() {
         const g = round210(reg * rate);
         if (g !== (l.grossPay ?? 0)) patch.grossPay = g;
       }
-      const entitled = !PHONE_EXEMPT_LAST2.includes(norm8(e.lastName));
+      const entitled = !PHONE_EXEMPT_LAST2.includes(norm9(e.lastName));
       const targetPhone = entitled ? PHONE : 0;
       if ((l.phoneAllowance ?? 0) !== targetPhone) {
         patch.phoneAllowance = targetPhone;
@@ -60296,7 +60298,7 @@ async function seedCollingwoodRunHours() {
     console.error("[seed-collingwood-run] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID2, PHONE, round210, norm8, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
+var CLIENT_ID2, PHONE, round210, norm9, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
 var init_seed_collingwood_run_hours = __esm({
   "api/seed-collingwood-run-hours.ts"() {
     init_connection();
@@ -60305,8 +60307,8 @@ var init_seed_collingwood_run_hours = __esm({
     CLIENT_ID2 = 7;
     PHONE = 23.08;
     round210 = (n) => Math.round(n * 100) / 100;
-    norm8 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key = (first, last) => `${norm8(last)}|${norm8(first)}`;
+    norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key = (first, last) => `${norm9(last)}|${norm9(first)}`;
     HOURS = {
       [key("Matteo", "Companion")]: 64.63,
       [key("Logan", "Greig")]: 0,
@@ -60423,9 +60425,9 @@ async function ensurePayrollReminders() {
       if (!dueClients.length) continue;
       for (const c of dueClients) {
         correctKeys.add(`${c.id}|${run3.runISO}`);
-        const arr = scheduled.get(run3.runISO) || [];
-        arr.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
-        scheduled.set(run3.runISO, arr);
+        const arr2 = scheduled.get(run3.runISO) || [];
+        arr2.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
+        scheduled.set(run3.runISO, arr2);
       }
     }
     let tasksRemoved = 0;
@@ -60599,15 +60601,15 @@ async function backfillSherPayroll() {
     console.error("[sher-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round211, norm9, key2, d, ROSTER2, PERIODS;
+var round211, norm10, key2, d, ROSTER2, PERIODS;
 var init_seed_sher_backfill = __esm({
   "api/seed-sher-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     round211 = (n) => Math.round(n * 100) / 100;
-    norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key2 = (first, last) => `${norm9(last)}|${norm9(first)}`;
+    norm10 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key2 = (first, last) => `${norm10(last)}|${norm10(first)}`;
     d = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER2 = [
       { first: "Surya", last: "Bhattrai", payType: "salary", salary: 7e4 },
@@ -60803,15 +60805,15 @@ async function backfillOwenSoundPayroll() {
     console.error("[os-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round212, norm10, key3, d2, ROSTER3, PERIODS2;
+var round212, norm11, key3, d2, ROSTER3, PERIODS2;
 var init_seed_os_backfill = __esm({
   "api/seed-os-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     round212 = (n) => Math.round(n * 100) / 100;
-    norm10 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key3 = (first, last) => `${norm10(last)}|${norm10(first)}`;
+    norm11 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key3 = (first, last) => `${norm11(last)}|${norm11(first)}`;
     d2 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER3 = [
       { first: "Jammie", last: "Cook", rate: 31 },
@@ -61030,7 +61032,7 @@ async function backfillCollingwoodPayroll() {
     console.error("[cw-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID3, round213, norm11, key4, d3, ROSTER4, PERIODS3;
+var CLIENT_ID3, round213, norm12, key4, d3, ROSTER4, PERIODS3;
 var init_seed_collingwood_backfill = __esm({
   "api/seed-collingwood-backfill.ts"() {
     init_connection();
@@ -61038,8 +61040,8 @@ var init_seed_collingwood_backfill = __esm({
     init_drizzle_orm();
     CLIENT_ID3 = 7;
     round213 = (n) => Math.round(n * 100) / 100;
-    norm11 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key4 = (first, last) => `${norm11(last)}|${norm11(first)}`;
+    norm12 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key4 = (first, last) => `${norm12(last)}|${norm12(first)}`;
     d3 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER4 = [
       { first: "Chris", last: "Hawton", payType: "salary", salary: 6e4 },
@@ -61291,15 +61293,15 @@ async function backfillAuldPayroll() {
     console.error("[auld-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round214, norm12, key5, d4, ROSTER5, PERIODS4;
+var round214, norm13, key5, d4, ROSTER5, PERIODS4;
 var init_seed_auld_backfill = __esm({
   "api/seed-auld-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     round214 = (n) => Math.round(n * 100) / 100;
-    norm12 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key5 = (first, last) => `${norm12(last)}|${norm12(first)}`;
+    norm13 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key5 = (first, last) => `${norm13(last)}|${norm13(first)}`;
     d4 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER5 = [
       { first: "James", last: "Allard", rate: 20 },
@@ -61600,15 +61602,15 @@ async function backfillOriginalityPayroll() {
     console.error("[og-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round215, norm13, key6, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
+var round215, norm14, key6, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
 var init_seed_originality_backfill = __esm({
   "api/seed-originality-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     round215 = (n) => Math.round(n * 100) / 100;
-    norm13 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key6 = (first, last) => `${norm13(last)}|${norm13(first)}`;
+    norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key6 = (first, last) => `${norm14(last)}|${norm14(first)}`;
     d5 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     BASE_NOTE = "Backfill from Google payroll sheet";
     SHARE_NOTE = "Revenue share bonus (backfill)";
@@ -61858,15 +61860,15 @@ async function backfill2303851Payroll() {
     console.error("[2303851-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round216, norm14, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
+var round216, norm15, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
 var init_seed_2303851_backfill = __esm({
   "api/seed-2303851-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     round216 = (n) => Math.round(n * 100) / 100;
-    norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key7 = (first, last) => `${norm14(last)}|${norm14(first)}`;
+    norm15 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key7 = (first, last) => `${norm15(last)}|${norm15(first)}`;
     d6 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     EMP = { first: "Stacey", last: "Gillham" };
     MONTHLY = 8333.33;
@@ -61895,7 +61897,7 @@ async function backfillFractalPayroll() {
     if (!client) return { client: null, runsAdded: 0, skipped: "Fractal SaaS client not found" };
     const clientId = client.id;
     const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
-    let emp = existing.find((e) => norm15(e.firstName) === "andrew");
+    let emp = existing.find((e) => norm16(e.firstName) === "andrew");
     if (emp) {
       const patch = {};
       if (!emp.lastName) patch.lastName = "Raines";
@@ -61947,14 +61949,14 @@ async function backfillFractalPayroll() {
     console.error("[fractal-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round217, norm15, d7, MONTHLY2, PERIODS6;
+var round217, norm16, d7, MONTHLY2, PERIODS6;
 var init_seed_fractal_backfill = __esm({
   "api/seed-fractal-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     round217 = (n) => Math.round(n * 100) / 100;
-    norm15 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    norm16 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     d7 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     MONTHLY2 = 4500;
     PERIODS6 = [
@@ -62042,15 +62044,15 @@ async function backfillMotionInvestPayroll() {
     console.error("[motioninvest-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round218, norm16, key8, d8, ROSTER7, PERIODS7;
+var round218, norm17, key8, d8, ROSTER7, PERIODS7;
 var init_seed_motioninvest_backfill = __esm({
   "api/seed-motioninvest-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     round218 = (n) => Math.round(n * 100) / 100;
-    norm16 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key8 = (first, last) => `${norm16(last)}|${norm16(first)}`;
+    norm17 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key8 = (first, last) => `${norm17(last)}|${norm17(first)}`;
     d8 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER7 = [
       { first: "Kelley", last: "Van Boxmeer", payType: "salary", salary: 75e3 },
@@ -62111,10 +62113,10 @@ async function backfillMotionInvestRevShare() {
     let runsAdded = 0;
     let cumNet = 0;
     const paidByKey = /* @__PURE__ */ new Map();
-    for (const q of QUARTERS) {
-      cumNet = round219(cumNet + q.netProfit);
-      const note = `Revenue share bonus (${q.label})`;
-      const due = d9(q.payDate) <= now;
+    for (const q2 of QUARTERS) {
+      cumNet = round219(cumNet + q2.netProfit);
+      const note = `Revenue share bonus (${q2.label})`;
+      const due = d9(q2.payDate) <= now;
       const exists2 = allRuns.some((r) => (r.notes || "") === note);
       const lines2 = [];
       for (const s of SHARERS) {
@@ -62130,9 +62132,9 @@ async function backfillMotionInvestRevShare() {
       let totalGross = 0;
       const [run3] = await db.insert(payRuns).values({
         clientId,
-        payPeriodStart: d9(q.start),
-        payPeriodEnd: d9(q.end),
-        payDate: d9(q.payDate),
+        payPeriodStart: d9(q2.start),
+        payPeriodEnd: d9(q2.end),
+        payDate: d9(q2.payDate),
         frequency: "quarterly",
         status: "review",
         hoursSource: "manual",
@@ -62154,15 +62156,15 @@ async function backfillMotionInvestRevShare() {
     console.error("[mi-revshare] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round219, norm17, key9, d9, SHARERS, QUARTERS;
+var round219, norm18, key9, d9, SHARERS, QUARTERS;
 var init_seed_motioninvest_revshare = __esm({
   "api/seed-motioninvest-revshare.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     round219 = (n) => Math.round(n * 100) / 100;
-    norm17 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key9 = (first, last) => `${norm17(last)}|${norm17(first)}`;
+    norm18 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key9 = (first, last) => `${norm18(last)}|${norm18(first)}`;
     d9 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     SHARERS = [
       { first: "Kelley", last: "Van Boxmeer", pct: 0.1 },
@@ -62330,7 +62332,7 @@ function hstQuarterlyDueDate(quarterEndMonth, periodYear) {
   return at(y, m, 15);
 }
 function quarterEndForMonth(month1to12) {
-  return [3, 6, 9, 12].filter((q) => q <= month1to12).pop() ?? 12;
+  return [3, 6, 9, 12].filter((q2) => q2 <= month1to12).pop() ?? 12;
 }
 function t4DueDate(filingYear) {
   return at(filingYear, 1, 20);
@@ -62374,11 +62376,11 @@ function yearEndSchedule(yearEndMonth, periodYear) {
   return { start: at(y, m, 1), due: at(y, m, 30), deadline: at(y, m, lastDayOfMonth(y, m)) };
 }
 function taskSchedule(ruleType, currentDue, opts) {
-  const ref = currentDue ?? /* @__PURE__ */ new Date();
+  const ref2 = currentDue ?? /* @__PURE__ */ new Date();
   const rt = (ruleType || "").toLowerCase();
   const nearest = (fn) => {
-    const cands = [ref.getFullYear() - 1, ref.getFullYear(), ref.getFullYear() + 1].map(fn);
-    return cands.reduce((best, s) => Math.abs(s.due.getTime() - ref.getTime()) < Math.abs(best.due.getTime() - ref.getTime()) ? s : best);
+    const cands = [ref2.getFullYear() - 1, ref2.getFullYear(), ref2.getFullYear() + 1].map(fn);
+    return cands.reduce((best, s) => Math.abs(s.due.getTime() - ref2.getTime()) < Math.abs(best.due.getTime() - ref2.getTime()) ? s : best);
   };
   if (rt.includes("t4")) return nearest(t4Schedule);
   if (rt.includes("year_end") || rt.includes("yearend") || rt.includes("year-end")) {
@@ -62386,27 +62388,27 @@ function taskSchedule(ruleType, currentDue, opts) {
     return nearest((y) => yearEndSchedule(opts.yearEndMonth, y));
   }
   if (rt.includes("wsib")) {
-    const qEnd = quarterEndForMonth(ref.getMonth() + 1);
+    const qEnd = quarterEndForMonth(ref2.getMonth() + 1);
     return nearest((y) => hstQuarterlySchedule(qEnd, y));
   }
   if (rt.includes("hst") || rt.includes("gst")) {
     const period2 = (opts.hstPeriod || "quarterly").toLowerCase();
-    if (period2 === "monthly") return nearest((y) => hstMonthlySchedule(ref.getMonth() + 1, y));
+    if (period2 === "monthly") return nearest((y) => hstMonthlySchedule(ref2.getMonth() + 1, y));
     if (period2 === "annual") {
       if (!opts.yearEndMonth) return null;
       return nearest((y) => hstAnnualSchedule(opts.yearEndMonth, y));
     }
-    const qEnd = quarterEndForMonth(ref.getMonth() + 1);
+    const qEnd = quarterEndForMonth(ref2.getMonth() + 1);
     return nearest((y) => hstQuarterlySchedule(qEnd, y));
   }
   return null;
 }
 function correctedDueDate(ruleType, currentDue, yearEndMonth) {
-  const ref = currentDue ?? /* @__PURE__ */ new Date();
+  const ref2 = currentDue ?? /* @__PURE__ */ new Date();
   const rt = (ruleType || "").toLowerCase();
   const nearest = (fn) => {
-    const cands = [ref.getFullYear() - 1, ref.getFullYear(), ref.getFullYear() + 1].map(fn);
-    return cands.reduce((best, d10) => Math.abs(d10.getTime() - ref.getTime()) < Math.abs(best.getTime() - ref.getTime()) ? d10 : best);
+    const cands = [ref2.getFullYear() - 1, ref2.getFullYear(), ref2.getFullYear() + 1].map(fn);
+    return cands.reduce((best, d10) => Math.abs(d10.getTime() - ref2.getTime()) < Math.abs(best.getTime() - ref2.getTime()) ? d10 : best);
   };
   if (rt.includes("year_end") || rt.includes("yearend")) {
     if (!yearEndMonth) return null;
@@ -62416,7 +62418,7 @@ function correctedDueDate(ruleType, currentDue, yearEndMonth) {
     return nearest((y) => t4DueDate(y));
   }
   if (rt.includes("hst") && rt.includes("quarter")) {
-    const qEnd = quarterEndForMonth(ref.getMonth() + 1);
+    const qEnd = quarterEndForMonth(ref2.getMonth() + 1);
     return nearest((y) => hstQuarterlyDueDate(qEnd, y));
   }
   return null;
@@ -64070,9 +64072,9 @@ async function dedupClient(clientId, names) {
   const groups = /* @__PURE__ */ new Map();
   for (const e of emps) {
     const k = idKey(e.firstName || "", e.lastName || "");
-    const arr = groups.get(k) || [];
-    arr.push(e);
-    groups.set(k, arr);
+    const arr2 = groups.get(k) || [];
+    arr2.push(e);
+    groups.set(k, arr2);
   }
   let merged = 0, renamed = 0;
   for (const [k, group] of groups) {
@@ -64131,14 +64133,14 @@ async function dedupEmployees() {
     console.error("[emp-dedup] failed:", err instanceof Error ? err.message : err);
   }
 }
-var norm18, idKey, OS_NAMES, CW_NAMES, SHER_NAMES, completeness;
+var norm19, idKey, OS_NAMES, CW_NAMES, SHER_NAMES, completeness;
 var init_seed_employee_dedup = __esm({
   "api/seed-employee-dedup.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    norm18 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    idKey = (first, last) => (norm18(first) + norm18(last)).split("").sort().join("");
+    norm19 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    idKey = (first, last) => (norm19(first) + norm19(last)).split("").sort().join("");
     OS_NAMES = [
       { first: "Jammie", last: "Cook" },
       { first: "Grace", last: "Dickerson" },
@@ -64931,7 +64933,7 @@ async function dedupeClients(confirm) {
   const groups = /* @__PURE__ */ new Map();
   for (const r of clientRows) {
     const id = Number(r.id ?? r[0]);
-    const key10 = `${norm19(r.name ?? r[1])}|${norm19(r.company ?? r[2])}`;
+    const key10 = `${norm20(r.name ?? r[1])}|${norm20(r.company ?? r[2])}`;
     if (!groups.has(key10)) groups.set(key10, []);
     groups.get(key10).push(id);
   }
@@ -64979,7 +64981,7 @@ async function dedupeClients(confirm) {
     let cnt = 0;
     for (const m of mapping) {
       try {
-        cnt += num2(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
+        cnt += num3(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
       } catch {
         held.add(m.dupe);
       }
@@ -65001,7 +65003,7 @@ async function dedupeClients(confirm) {
         const cols = asRows(await db.run(sql.raw(`PRAGMA table_info("${t2}")`))).map((c) => String(c.name ?? c[1])).filter((name2) => !["id", "createdAt", "updatedAt"].includes(name2));
         if (cols.length === 0) continue;
         const grp = cols.map((c) => `"${c}"`).join(",");
-        const n = num2(await db.run(sql.raw(
+        const n = num3(await db.run(sql.raw(
           `DELETE FROM "${t2}" WHERE "clientId" IN (${inList}) AND id NOT IN (SELECT MIN(id) FROM "${t2}" WHERE "clientId" IN (${inList}) GROUP BY ${grp})`
         )));
         if (n) report.dedupedRecords[t2] = n;
@@ -65011,14 +65013,14 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm19, asRows, num2;
+var norm20, asRows, num3;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
-    norm19 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    norm20 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
-    num2 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
+    num3 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
 });
 
@@ -65622,9 +65624,9 @@ async function seedPayrollEmployees() {
       result.skipped += roster.employees.length;
       continue;
     }
-    const have = new Set(current.map((e) => `${norm20(e.firstName)} ${norm20(e.lastName)}`.trim()));
+    const have = new Set(current.map((e) => `${norm21(e.firstName)} ${norm21(e.lastName)}`.trim()));
     for (const emp of roster.employees) {
-      if (roster.merge && have.has(`${norm20(emp.firstName)} ${norm20(emp.lastName || "")}`.trim())) {
+      if (roster.merge && have.has(`${norm21(emp.firstName)} ${norm21(emp.lastName || "")}`.trim())) {
         result.skipped++;
         continue;
       }
@@ -65648,7 +65650,7 @@ async function seedPayrollEmployees() {
   for (const mv of PAYROLL_EMPLOYEE_MOVES) {
     const to = findClient(clientsNow, mv.toMatch);
     if (!to) continue;
-    const matches = (await db.select().from(employees)).filter((e) => norm20(e.firstName) === norm20(mv.firstName) && norm20(e.lastName) === norm20(mv.lastName));
+    const matches = (await db.select().from(employees)).filter((e) => norm21(e.firstName) === norm21(mv.firstName) && norm21(e.lastName) === norm21(mv.lastName));
     for (const e of matches) {
       if (e.clientId === to.id) continue;
       const from = findClient(clientsNow, mv.fromMatch);
@@ -65673,7 +65675,7 @@ async function seedPayrollEmployees() {
     for (const link of PAYROLL_CONTRACT_LINKS) {
       const client = findClient(clientsNow, link.clientMatch);
       if (!client) continue;
-      const emp = all.find((e) => e.clientId === client.id && norm20(e.firstName) === norm20(link.firstName) && (!link.lastName || norm20(e.lastName) === norm20(link.lastName)));
+      const emp = all.find((e) => e.clientId === client.id && norm21(e.firstName) === norm21(link.firstName) && (!link.lastName || norm21(e.lastName) === norm21(link.lastName)));
       if (emp && !emp.contractUrl) {
         await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
         contracts++;
@@ -65684,7 +65686,7 @@ async function seedPayrollEmployees() {
     console.log(`[seed] payroll employees: +${result.added} -${result.removed} moved ${moved} salary-filled ${filled} contracts ${contracts}`);
   return { ...result, moved, filled, contracts };
 }
-var PAYROLL_EMPLOYEE_MOVES, norm20, findClient;
+var PAYROLL_EMPLOYEE_MOVES, norm21, findClient;
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
@@ -65695,8 +65697,8 @@ var init_seed_payroll_employees = __esm({
     PAYROLL_EMPLOYEE_MOVES = [
       { firstName: "Stacey", lastName: "Gillham", fromMatch: "2303851", toMatch: "originality", note: "Moved to Originality as of the 15th" }
     ];
-    norm20 = (s) => (s || "").toLowerCase().trim();
-    findClient = (all, match2) => all.find((c) => norm20(c.name).includes(norm20(match2)));
+    norm21 = (s) => (s || "").toLowerCase().trim();
+    findClient = (all, match2) => all.find((c) => norm21(c.name).includes(norm21(match2)));
   }
 });
 
@@ -68827,8 +68829,8 @@ async function seedGovRegistry() {
     return report;
   }
   for (const g of GOV) {
-    let c = g.bn ? all.find((x) => norm21(x.taxId) === norm21(g.bn)) : void 0;
-    if (!c && g.nameKey) c = all.find((x) => norm21(x.name).includes(norm21(g.nameKey)) || norm21(x.company).includes(norm21(g.nameKey)));
+    let c = g.bn ? all.find((x) => norm23(x.taxId) === norm23(g.bn)) : void 0;
+    if (!c && g.nameKey) c = all.find((x) => norm23(x.name).includes(norm23(g.nameKey)) || norm23(x.company).includes(norm23(g.nameKey)));
     if (!c) continue;
     report.matched++;
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
@@ -68847,7 +68849,7 @@ async function seedGovRegistry() {
   }
   return report;
 }
-var GOV, norm21;
+var GOV, norm23;
 var init_seed_gov_registry = __esm({
   "api/seed-gov-registry.ts"() {
     init_connection();
@@ -68889,7 +68891,7 @@ var init_seed_gov_registry = __esm({
       { bn: "809545346", industry: "Healthcare/Wellness", bio: "Healthcare business in the osteopathic / wellness field, providing therapeutic services and alternative health treatments." },
       { nameKey: "universal drywall", industry: "Construction/Drywall", bio: "Drywall and construction services company providing interior framing, drywall installation and exterior finishes. USA (Florida) entity." }
     ];
-    norm21 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm23 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   }
 });
 
@@ -69151,10 +69153,10 @@ function nextHSTDueDate(period2, now = /* @__PURE__ */ new Date()) {
     return due;
   }
   if (period2 === "quarterly") {
-    const q = Math.floor(month / 3);
+    const q2 = Math.floor(month / 3);
     const dueMonths = [3, 6, 9, 0];
-    const dueYear = q === 3 ? year2 + 1 : year2;
-    return new Date(dueYear, dueMonths[q], 1);
+    const dueYear = q2 === 3 ? year2 + 1 : year2;
+    return new Date(dueYear, dueMonths[q2], 1);
   }
   if (period2 === "annual") {
     return new Date(year2, 0, 1);
@@ -69169,15 +69171,15 @@ function nextPayrollDueDate(frequency, now = /* @__PURE__ */ new Date()) {
 function nextWSIBDueDate(quarter, now = /* @__PURE__ */ new Date()) {
   const year2 = now.getFullYear();
   const month = now.getMonth();
-  const q = Math.floor(month / 3);
+  const q2 = Math.floor(month / 3);
   if (quarter === "Q1") return new Date(year2, 3, 1);
   if (quarter === "Q2") return new Date(year2, 6, 1);
   if (quarter === "Q3") return new Date(year2, 9, 1);
   if (quarter === "Q4") return new Date(year2 + 1, 0, 1);
   if (quarter === "all" || !quarter) {
     const dueMonths = [3, 6, 9, 0];
-    const dueYear = q === 3 ? year2 + 1 : year2;
-    return new Date(dueYear, dueMonths[q], 1);
+    const dueYear = q2 === 3 ? year2 + 1 : year2;
+    return new Date(dueYear, dueMonths[q2], 1);
   }
   return new Date(year2, month + 1, 1);
 }
@@ -72777,16 +72779,16 @@ function withResolvers() {
     reject
   };
 }
-function listWithMember(arr, member) {
-  return [...arr, member];
+function listWithMember(arr2, member) {
+  return [...arr2, member];
 }
-function listWithoutIndex(arr, index) {
-  return [...arr.slice(0, index), ...arr.slice(index + 1)];
+function listWithoutIndex(arr2, index) {
+  return [...arr2.slice(0, index), ...arr2.slice(index + 1)];
 }
-function listWithoutMember(arr, member) {
-  const index = arr.indexOf(member);
-  if (index !== -1) return listWithoutIndex(arr, index);
-  return arr;
+function listWithoutMember(arr2, member) {
+  const index = arr2.indexOf(member);
+  if (index !== -1) return listWithoutIndex(arr2, index);
+  return arr2;
 }
 var _Symbol;
 var _Symbol$dispose;
@@ -75068,11 +75070,11 @@ function encodeBase64(input) {
     return input.toBase64();
   }
   const CHUNK_SIZE = 32768;
-  const arr = [];
+  const arr2 = [];
   for (let i = 0; i < input.length; i += CHUNK_SIZE) {
-    arr.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
+    arr2.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
   }
-  return btoa(arr.join(""));
+  return btoa(arr2.join(""));
 }
 function decodeBase64(encoded) {
   if (Uint8Array.fromBase64) {
@@ -84159,6 +84161,12 @@ STAY IN YOUR LANE \u2014 COORDINATE VIA THE BRAIN, AT NO COST (Markie, 2026-06-2
 - To hand work to a teammate, leave a short HANDOFF note in the Brain (the shared memory IS how you talk to each other) \u2014 do NOT make an extra AI call or spin up another agent just to "message" them. Talking to each other costs Markie NOTHING because it happens through shared Brain state, not paid calls.
 - The review chain is the handoff path for the books: Fig \u2192 Sage \u2192 Wren \u2192 Markie. Nothing is final until the next level (and Markie) clears it.
 
+EVIDENCE OVER AGREEMENT (EDD-0001 \u2014 CONSTITUTIONAL, Markie 2026-06-26):
+- Optimize for Markie's long-term success, NOT for agreement. Agreement is never the goal \u2014 evidence, reasoning, and respectful challenge are. The team exists to IMPROVE his thinking, not validate it.
+- CHALLENGE respectfully: question assumptions, present trade-offs, separate fact from opinion, state your uncertainty, name the risks and blind spots, and prevent unnecessary complexity. Protect Markie from confirmation bias.
+- Before backing an idea, ask: Is it supported by evidence? What's assumed? What are the risks? Is there a simpler way? Does it pass the Markie Filter (freedom / async / expertise-not-hours / AI-automatable)? Would I do it if it were my own business? If any answer is weak, SAY SO plainly.
+- Then DISAGREE-AND-COMMIT: make your strongest case once; if Markie still chooses otherwise, commit and move. Respectful disagreement is required; contrarian-for-its-own-sake and endless debate are not \u2014 they cost the freedom we're building.
+
 BE A PROACTIVE, BEST-IN-CLASS EXPERT (Markie, 2026-06-26 \u2014 the bar):
 - You are THE expert in your field. Hold yourself to the standard of the best in the world at your job \u2014 top-tier, current, precise. You know your role and what it needs; act like it.
 - Be PROACTIVE \u2014 don't wait to be asked. Spot what needs doing, flag risks / deadlines / anomalies early, and PROPOSE process improvements, efficiencies, automations, and the next best action on your own. Markie is busy; you drive, he reviews.
@@ -84809,9 +84817,9 @@ async function execRecallPersonal(input, userId) {
   const { personalFacts: personalFacts2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
   const db = getDb();
   const rows = await db.select().from(personalFacts2).where(eq(personalFacts2.userId, userId));
-  const q = String(input?.query ?? "").trim().toLowerCase();
-  const hits = q ? rows.filter((r) => `${r.fact} ${r.category} ${r.tags ?? ""}`.toLowerCase().includes(q)) : rows;
-  if (!hits.length) return q ? `I don't have anything on "${q}" in your personal notes yet.` : "Your personal knowledge base is empty so far.";
+  const q2 = String(input?.query ?? "").trim().toLowerCase();
+  const hits = q2 ? rows.filter((r) => `${r.fact} ${r.category} ${r.tags ?? ""}`.toLowerCase().includes(q2)) : rows;
+  if (!hits.length) return q2 ? `I don't have anything on "${q2}" in your personal notes yet.` : "Your personal knowledge base is empty so far.";
   hits.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
   return hits.slice(0, 25).map((r) => `- [${r.category}] ${r.fact}`).join("\n");
 }
@@ -84883,8 +84891,8 @@ async function execSearchDrive(input, userId) {
   try {
     const token2 = await getValidGoogleAccessToken(account);
     const esc3 = query.replace(/'/g, "\\'");
-    const q = `(name contains '${esc3}' or fullText contains '${esc3}') and trashed = false`;
-    const url2 = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&pageSize=${max2}&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent("files(id,name,modifiedTime,webViewLink,mimeType)")}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+    const q2 = `(name contains '${esc3}' or fullText contains '${esc3}') and trashed = false`;
+    const url2 = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q2)}&pageSize=${max2}&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent("files(id,name,modifiedTime,webViewLink,mimeType)")}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
     const res = await fetch(url2, { headers: { Authorization: `Bearer ${token2}` } });
     if (!res.ok) return `Couldn't search Drive (${res.status}).`;
     const data = await res.json();
@@ -84919,8 +84927,8 @@ async function execReadFile(input, userId) {
       if (r3.ok) file2 = await r3.json();
     } else {
       const esc3 = query.replace(/'/g, "\\'");
-      const q = `(name contains '${esc3}' or fullText contains '${esc3}') and trashed = false and mimeType != 'application/vnd.google-apps.folder'`;
-      const url2 = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&pageSize=1&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent(`files(${FIELDS})`)}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+      const q2 = `(name contains '${esc3}' or fullText contains '${esc3}') and trashed = false and mimeType != 'application/vnd.google-apps.folder'`;
+      const url2 = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q2)}&pageSize=1&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent(`files(${FIELDS})`)}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
       const r3 = await fetch(url2, { headers: H });
       if (r3.ok) file2 = ((await r3.json()).files || [])[0];
     }
@@ -85868,9 +85876,9 @@ var registersRouter = createRouter({
       }
     }
     let questionsFiled = 0;
-    for (const q of parsed.openQuestions) {
+    for (const q2 of parsed.openQuestions) {
       try {
-        await fileQuestion(q, { kind: "firm" }, { askedBy: "Session Import", category: "strategy" });
+        await fileQuestion(q2, { kind: "firm" }, { askedBy: "Session Import", category: "strategy" });
         questionsFiled++;
       } catch {
       }
@@ -85933,10 +85941,10 @@ async function pricingAnalysis(months = 3) {
     subs = await db.all(sql`SELECT label, monthlyCost FROM firm_subscriptions WHERE active = 1`);
   } catch {
   }
-  const norm23 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const costByName = new Map(subs.map((s) => [norm23(s.label), Number(s.monthlyCost) || 0]));
+  const norm24 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const costByName = new Map(subs.map((s) => [norm24(s.label), Number(s.monthlyCost) || 0]));
   const rows = billing.rows.map((r) => {
-    const cost = costByName.get(norm23(r.customer)) ?? null;
+    const cost = costByName.get(norm24(r.customer)) ?? null;
     const margin = cost != null ? Math.round((r.monthlyAvg - cost) * 100) / 100 : null;
     const flag = r.monthlyAvg <= 0 ? "no recent billing" : margin != null && margin < 0 ? "billing below cost" : void 0;
     return { ...r, monthlyCost: cost, margin, flag };
@@ -87115,17 +87123,17 @@ function parseOpeningBalances(text2) {
 
 // api/banked-hours-router.ts
 function matchEmployee(name2, emps) {
-  const norm23 = (s) => (s || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
-  const target = norm23(name2);
+  const norm24 = (s) => (s || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
+  const target = norm24(name2);
   if (!target) return null;
   for (const e of emps) {
-    const full = norm23(`${e.firstName} ${e.lastName}`);
-    const rev = norm23(`${e.lastName} ${e.firstName}`);
+    const full = norm24(`${e.firstName} ${e.lastName}`);
+    const rev = norm24(`${e.lastName} ${e.firstName}`);
     if (target === full || target === rev) return e;
   }
   for (const e of emps) {
-    const ln = norm23(e.lastName);
-    const fi = norm23(e.firstName).charAt(0);
+    const ln = norm24(e.lastName);
+    const fi = norm24(e.firstName).charAt(0);
     if (ln && target.includes(ln) && (!fi || target.includes(fi))) return e;
   }
   return null;
@@ -87464,6 +87472,287 @@ var genealogyRouter = createRouter({
       legend: PROOF_META,
       generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
       ...shapeTree(members, { includePhotos: !!link.includePhotos })
+    };
+  })
+});
+
+// api/hst-review-router.ts
+init_zod();
+init_middleware();
+init_qbo_router();
+init_qbo_vendor_brain();
+
+// api/hst-review-core.ts
+var norm8 = (s) => (s || "").toLowerCase();
+var money2 = (n) => Math.round((n || 0) * 100) / 100;
+var isExpenseTxn = (t2) => t2.type === "Purchase" || t2.type === "Bill";
+var isSalesTxn = (t2) => t2.type === "Invoice" || t2.type === "SalesReceipt";
+var CONTROL_PATTERNS = [
+  /hst|gst|sales tax|tax payable|tax suspense/i,
+  /accounts payable|accounts receivable|a\/p|a\/r/i,
+  /undeposited funds|clearing|suspense|opening balance equity/i
+];
+var UNREVIEWED_PATTERNS = [
+  /uncategoriz|ask my accountant|ask-my-accountant|to be categorized|miscellaneous expense|suspense|opening balance equity/i
+];
+var MEALS_PATTERNS = [/meals|entertainment|restaurant|dining/i];
+function ref(t2) {
+  return [t2.type + (t2.docNumber ? ` #${t2.docNumber}` : ""), t2.name, t2.date].filter(Boolean).join(" \xB7 ");
+}
+function checkUnreviewedAccounts(accounts) {
+  const out = [];
+  for (const a of accounts) {
+    if (!a.balance || Math.abs(a.balance) < 0.01) continue;
+    if (UNREVIEWED_PATTERNS.some((re) => re.test(a.name))) {
+      out.push({
+        check: "unreviewed_account",
+        severity: "high",
+        ref: `Account: ${a.name}`,
+        amount: money2(a.balance),
+        message: `${a.name} holds ${money2(a.balance)} that hasn't been properly categorized.`,
+        fix: "Recategorize these transactions to real accounts with the correct tax code before filing \u2014 they're invisible to the HST report otherwise."
+      });
+    }
+  }
+  return out;
+}
+function checkMissingTaxCode(txns) {
+  const out = [];
+  for (const t2 of txns) {
+    if (t2.type === "JournalEntry") continue;
+    for (const l of t2.lines) {
+      const onControl = CONTROL_PATTERNS.some((re) => re.test(l.accountName || ""));
+      if (onControl) continue;
+      const noCode = !l.taxCodeId && !l.taxCodeName;
+      if (noCode && Math.abs(l.amount) >= 1) {
+        out.push({
+          check: "missing_tax_code",
+          severity: "medium",
+          ref: ref(t2),
+          amount: money2(l.amount),
+          message: `${isExpenseTxn(t2) ? "Expense" : isSalesTxn(t2) ? "Sales" : "Line"} on "${l.accountName || "?"}" has no tax code.`,
+          fix: "Set the correct tax code (HST 13% if applicable, or Exempt/Zero/Out-of-scope) so it flows to the right HST line."
+        });
+      }
+    }
+  }
+  return out;
+}
+function checkSalesWithoutTax(txns) {
+  const out = [];
+  for (const t2 of txns) {
+    if (!isSalesTxn(t2)) continue;
+    const taxableLines = t2.lines.filter((l) => l.amount > 0 && !/exempt|zero|out of scope/i.test(l.taxCodeName || ""));
+    const tax = t2.taxTotal ?? t2.lines.reduce((s, l) => s + (l.taxAmount || 0), 0);
+    if (taxableLines.length && tax < 0.01 && t2.total >= 1) {
+      out.push({
+        check: "sales_without_tax",
+        severity: "high",
+        ref: ref(t2),
+        amount: money2(t2.total),
+        message: `Sale of ${money2(t2.total)} shows no HST collected.`,
+        fix: "Confirm whether HST should have been charged. If the customer/supply is taxable, the missing HST understates Line 105."
+      });
+    }
+  }
+  return out;
+}
+function checkControlAccountCoding(txns) {
+  const out = [];
+  for (const t2 of txns) {
+    if (t2.type === "JournalEntry") continue;
+    for (const l of t2.lines) {
+      if (CONTROL_PATTERNS.some((re) => re.test(l.accountName || ""))) {
+        out.push({
+          check: "control_account_coding",
+          severity: "high",
+          ref: ref(t2),
+          amount: money2(l.amount),
+          message: `Coded directly to control account "${l.accountName}".`,
+          fix: "Recode to a real expense/income account. Posting straight to HST/AP/AR/clearing distorts the HST and balance-sheet figures."
+        });
+      }
+    }
+  }
+  return out;
+}
+function checkDuplicates(txns) {
+  const out = [];
+  const seen = /* @__PURE__ */ new Map();
+  for (const t2 of txns) {
+    if (!isExpenseTxn(t2)) continue;
+    const keyDoc = `${norm8(t2.name)}|${money2(t2.total)}|${norm8(t2.docNumber)}`;
+    const prior = t2.docNumber ? seen.get(keyDoc) : void 0;
+    if (t2.docNumber && prior) {
+      out.push({
+        check: "duplicate",
+        severity: "medium",
+        ref: ref(t2),
+        amount: money2(t2.total),
+        message: `Possible duplicate of ${ref(prior)} (same vendor, amount and document #).`,
+        fix: "Check for a double-entered bill/expense \u2014 duplicates over-claim ITCs (Line 108)."
+      });
+    }
+    if (t2.docNumber) seen.set(keyDoc, t2);
+  }
+  return out;
+}
+function checkMealsFullItc(txns) {
+  const out = [];
+  for (const t2 of txns) {
+    if (!isExpenseTxn(t2)) continue;
+    for (const l of t2.lines) {
+      if (MEALS_PATTERNS.some((re) => re.test(l.accountName || "")) && (l.taxAmount || 0) > 0) {
+        const implied = Math.abs(l.amount) * 0.13;
+        if ((l.taxAmount || 0) > implied * 0.75) {
+          out.push({
+            check: "meals_full_itc",
+            severity: "medium",
+            ref: ref(t2),
+            amount: money2(l.taxAmount || 0),
+            message: `Meals/entertainment "${l.accountName}" appears to claim full ITC.`,
+            fix: "Meals & entertainment ITCs are generally limited to 50%. Confirm the ITC is restricted (the year-end 50% adjustment may instead be done annually)."
+          });
+        }
+      }
+    }
+  }
+  return out;
+}
+function tieOut(txns) {
+  let collected = 0, itc = 0, salesBase = 0, purchaseBase = 0;
+  for (const t2 of txns) {
+    const tax = t2.taxTotal ?? t2.lines.reduce((s, l) => s + (l.taxAmount || 0), 0);
+    if (isSalesTxn(t2)) {
+      collected += tax;
+      salesBase += t2.lines.reduce((s, l) => s + Math.max(l.amount, 0), 0);
+    } else if (isExpenseTxn(t2)) {
+      itc += tax;
+      purchaseBase += t2.lines.reduce((s, l) => s + Math.max(l.amount, 0), 0);
+    }
+  }
+  return { collected: money2(collected), itc: money2(itc), net: money2(collected - itc), salesBase: money2(salesBase), purchaseBase: money2(purchaseBase) };
+}
+function runHstReview(input) {
+  const findings = [
+    ...checkUnreviewedAccounts(input.accounts),
+    ...checkControlAccountCoding(input.txns),
+    ...checkSalesWithoutTax(input.txns),
+    ...checkMissingTaxCode(input.txns),
+    ...checkDuplicates(input.txns),
+    ...checkMealsFullItc(input.txns)
+  ];
+  const bySeverity = { high: 0, medium: 0, low: 0 };
+  for (const f of findings) bySeverity[f.severity]++;
+  const order = { high: 0, medium: 1, low: 2 };
+  findings.sort((a, b) => order[a.severity] - order[b.severity]);
+  return { findings, bySeverity, tie: tieOut(input.txns), counts: { transactions: input.txns.length, accounts: input.accounts.length } };
+}
+
+// api/hst-review-router.ts
+var q = (conn, sql4) => qboRequest(conn, `/query?query=${encodeURIComponent(sql4)}`);
+var arr = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+var num2 = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+function mapExpense(e, type2, taxName) {
+  const lines2 = [];
+  for (const l of e.Line ?? []) {
+    const d10 = l.AccountBasedExpenseLineDetail;
+    if (!d10) continue;
+    lines2.push({
+      accountId: d10.AccountRef?.value,
+      accountName: d10.AccountRef?.name,
+      amount: num2(l.Amount),
+      taxCodeId: d10.TaxCodeRef?.value ?? null,
+      taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
+    });
+  }
+  return {
+    id: String(e.Id),
+    type: type2,
+    date: String(e.TxnDate || "").slice(0, 10),
+    name: e.EntityRef?.name || e.VendorRef?.name,
+    docNumber: e.DocNumber,
+    total: num2(e.TotalAmt),
+    taxTotal: num2(e.TxnTaxDetail?.TotalTax),
+    lines: lines2
+  };
+}
+function mapSale(e, type2, taxName) {
+  const lines2 = [];
+  for (const l of e.Line ?? []) {
+    const d10 = l.SalesItemLineDetail;
+    if (!d10) continue;
+    lines2.push({
+      accountName: d10.ItemRef?.name || l.Description || "Sales",
+      amount: num2(l.Amount),
+      taxCodeId: d10.TaxCodeRef?.value ?? null,
+      taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
+    });
+  }
+  return {
+    id: String(e.Id),
+    type: type2,
+    date: String(e.TxnDate || "").slice(0, 10),
+    name: e.CustomerRef?.name,
+    docNumber: e.DocNumber,
+    total: num2(e.TotalAmt),
+    taxTotal: num2(e.TxnTaxDetail?.TotalTax),
+    lines: lines2
+  };
+}
+var hstReviewRouter = createRouter({
+  /** Read-only pre-HST accuracy review for one client over a date range. */
+  run: staffQuery.input(external_exports.object({
+    clientId: external_exports.number(),
+    startDate: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    endDate: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+  })).mutation(async ({ input }) => {
+    const cr = await getConnectionForClient(input.clientId);
+    if ("error" in cr) return { ok: false, error: cr.error };
+    const conn = cr.conn;
+    const errors = [];
+    const range = `TxnDate >= '${input.startDate}' AND TxnDate <= '${input.endDate}'`;
+    const taxCodes = [];
+    const taxById = /* @__PURE__ */ new Map();
+    try {
+      for (const t2 of arr(await q(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode")) {
+        taxCodes.push({ id: String(t2.Id), name: t2.Name });
+        taxById.set(String(t2.Id), t2.Name);
+      }
+    } catch (e) {
+      errors.push(`TaxCode: ${e instanceof Error ? e.message : e}`);
+    }
+    const taxName = (id) => id ? taxById.get(String(id)) : void 0;
+    const accounts = [];
+    try {
+      for (const a of arr(await q(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
+        accounts.push({ id: String(a.Id), name: a.Name, type: a.AccountType, subType: a.AccountSubType, balance: num2(a.CurrentBalance) });
+      }
+    } catch (e) {
+      errors.push(`Account: ${e instanceof Error ? e.message : e}`);
+    }
+    const txns = [];
+    const pull = async (entity, mapper) => {
+      try {
+        for (const e of arr(await q(conn, `SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) txns.push(mapper(e));
+      } catch (e) {
+        errors.push(`${entity}: ${e instanceof Error ? e.message : e}`);
+      }
+    };
+    await pull("Purchase", (e) => mapExpense(e, "Purchase", taxName));
+    await pull("Bill", (e) => mapExpense(e, "Bill", taxName));
+    await pull("Invoice", (e) => mapSale(e, "Invoice", taxName));
+    await pull("SalesReceipt", (e) => mapSale(e, "SalesReceipt", taxName));
+    const report = runHstReview({ accounts, taxCodes, txns });
+    return {
+      ok: true,
+      period: { start: input.startDate, end: input.endDate },
+      report,
+      pulled: { accounts: accounts.length, taxCodes: taxCodes.length, transactions: txns.length },
+      errors
     };
   })
 });
@@ -87941,6 +88230,7 @@ var appRouter = createRouter({
   brain: brainRouter,
   launchpad: launchpadRouter,
   hstAudit: hstAuditRouter,
+  hstReview: hstReviewRouter,
   subscriptions: subscriptionsRouter,
   registers: registersRouter,
   jade: jadeRouter,
@@ -88235,7 +88525,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.160";
+var BUILD_TAG = "2026-06-26.161";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -88334,12 +88624,12 @@ app.get("/api/oauth/google/debug", async (c) => {
   let dbCounts = null;
   try {
     const db = getDb();
-    const rowsOf2 = async (q) => {
-      const r = await db.run(sql.raw(q));
+    const rowsOf2 = async (q2) => {
+      const r = await db.run(sql.raw(q2));
       return r?.rows ?? r ?? [];
     };
-    const one = async (q) => {
-      const r = await rowsOf2(q);
+    const one = async (q2) => {
+      const r = await rowsOf2(q2);
       return r[0] ? r[0].n ?? Object.values(r[0])[0] : 0;
     };
     dbCounts = {
