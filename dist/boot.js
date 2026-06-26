@@ -84081,6 +84081,73 @@ var subscriptionsRouter = createRouter({
   })
 });
 
+// api/jade-router.ts
+init_zod();
+init_middleware();
+
+// api/jade-pricing.ts
+init_connection();
+init_drizzle_orm();
+init_qbo_router();
+async function findFirmConnection() {
+  const db = getDb();
+  const rows = await db.all(sql`SELECT * FROM qbo_connections WHERE isActive = 1 AND (
+      lower(companyName) LIKE '%go fig%' OR lower(companyName) LIKE '%gofig%')`);
+  return rows[0] || null;
+}
+function isoMonthsAgo(months) {
+  const d10 = /* @__PURE__ */ new Date();
+  d10.setMonth(d10.getMonth() - months);
+  return d10.toISOString().slice(0, 10);
+}
+async function pullFirmBilling(months = 3) {
+  const period2 = { start: isoMonthsAgo(months), months };
+  try {
+    const conn = await findFirmConnection();
+    if (!conn) return { period: period2, rows: [], error: "No firm (GoFig Bookz Inc.) QBO connection found." };
+    const res = await qboRequest(conn, `/query?query=${encodeURIComponent(`SELECT * FROM Invoice WHERE TxnDate >= '${period2.start}' ORDERBY TxnDate DESC MAXRESULTS 1000`)}`);
+    const body = res?.QueryResponse || res?.body?.QueryResponse || res?.tool_output?.body?.QueryResponse || res;
+    const invoices2 = body?.Invoice || body?.QueryResponse?.Invoice || [];
+    const map2 = /* @__PURE__ */ new Map();
+    for (const inv of invoices2) {
+      const name2 = inv?.CustomerRef?.name || inv?.CustomerRef?.value || "Unknown";
+      const amt = Number(inv?.TotalAmt) || 0;
+      const cur = map2.get(name2) || { customer: name2, total: 0, monthlyAvg: 0, invoices: 0 };
+      cur.total += amt;
+      cur.invoices += 1;
+      if (!cur.lastDate || inv?.TxnDate && inv.TxnDate > cur.lastDate) cur.lastDate = inv?.TxnDate;
+      map2.set(name2, cur);
+    }
+    const rows = Array.from(map2.values()).map((r) => ({ ...r, total: Math.round(r.total * 100) / 100, monthlyAvg: Math.round(r.total / months * 100) / 100 })).sort((a, b) => b.monthlyAvg - a.monthlyAvg);
+    return { period: period2, firm: conn.companyName, rows };
+  } catch (e) {
+    return { period: period2, rows: [], error: e instanceof Error ? e.message : String(e) };
+  }
+}
+async function pricingAnalysis(months = 3) {
+  const billing = await pullFirmBilling(months);
+  const db = getDb();
+  let subs = [];
+  try {
+    subs = await db.all(sql`SELECT label, monthlyCost FROM firm_subscriptions WHERE active = 1`);
+  } catch {
+  }
+  const norm23 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const costByName = new Map(subs.map((s) => [norm23(s.label), Number(s.monthlyCost) || 0]));
+  const rows = billing.rows.map((r) => {
+    const cost = costByName.get(norm23(r.customer)) ?? null;
+    const margin = cost != null ? Math.round((r.monthlyAvg - cost) * 100) / 100 : null;
+    const flag = r.monthlyAvg <= 0 ? "no recent billing" : margin != null && margin < 0 ? "billing below cost" : void 0;
+    return { ...r, monthlyCost: cost, margin, flag };
+  });
+  return { ...billing, rows };
+}
+
+// api/jade-router.ts
+var jadeRouter = createRouter({
+  pricing: authedQuery.input(external_exports.object({ months: external_exports.number().min(1).max(12).default(3) }).optional()).query(async ({ input }) => pricingAnalysis(input?.months ?? 3))
+});
+
 // api/life-router.ts
 init_zod();
 init_middleware();
@@ -85543,6 +85610,7 @@ var appRouter = createRouter({
   launchpad: launchpadRouter,
   hstAudit: hstAuditRouter,
   subscriptions: subscriptionsRouter,
+  jade: jadeRouter,
   life: lifeRouter,
   learning: learningRouter,
   chat: chatRouter,
@@ -85830,7 +85898,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.136";
+var BUILD_TAG = "2026-06-26.137";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
