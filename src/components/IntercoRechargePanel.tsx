@@ -182,6 +182,11 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
         {draft && (
           <div className="space-y-2 border-t pt-2">
             <div className="text-xs text-slate-500">{r!.pulled} expense line(s) pulled · {draft.periodLabel}{r!.errors.length ? ` · warnings: ${r!.errors.join("; ")}` : ""}</div>
+            {(r as any)?.excluded?.lines > 0 && (
+              <div className="text-[11px] text-slate-500">
+                Excluded {(r as any).excluded.lines} bank-charge line(s) ({money((r as any).excluded.total)}) — not billed to {counterparty || "Holdings"}{(r as any).excluded.accounts?.length ? `: ${(r as any).excluded.accounts.join(", ")}` : ""}.
+              </div>
+            )}
             {!draft.validation.ok && <div className="text-xs text-amber-700 flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> {draft.validation.errors.join("; ")}</div>}
             {(r as any)?.zeroOut && (
               <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-2 text-xs text-emerald-900 space-y-1">

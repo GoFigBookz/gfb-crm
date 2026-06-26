@@ -46891,10 +46891,15 @@ async function ensureRechargeSchema() {
     console.error("[interco-recharge] ensure schema failed:", e instanceof Error ? e.message : e);
   }
 }
+function isNonBillableAccount(name2) {
+  return NON_BILLABLE_ACCT.test(name2 || "");
+}
 async function pullExpenses(conn, start, end) {
   const range = `TxnDate >= '${start}' AND TxnDate <= '${end}'`;
   const expenses = [];
   const byAcct = /* @__PURE__ */ new Map();
+  const excludedAccts = /* @__PURE__ */ new Set();
+  let excludedLines = 0, excludedTotal = 0;
   const errors = [];
   const q3 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
   const pull = async (entity) => {
@@ -46907,6 +46912,12 @@ async function pullExpenses(conn, start, end) {
           const acctName = d10.AccountRef?.name || "Expense";
           const acctId = d10.AccountRef?.value ? String(d10.AccountRef.value) : "";
           const amt = num2(l.Amount);
+          if (isNonBillableAccount(acctName)) {
+            excludedLines++;
+            excludedTotal += amt;
+            excludedAccts.add(acctName);
+            continue;
+          }
           expenses.push({
             description: `${acctName}${e.EntityRef?.name ? ` \u2014 ${e.EntityRef.name}` : ""} (${String(e.TxnDate || "").slice(0, 10)})`,
             net: amt,
@@ -46927,9 +46938,10 @@ async function pullExpenses(conn, start, end) {
   await pull("Purchase");
   await pull("Bill");
   const byAccount = Array.from(byAcct.values()).map((a) => ({ ...a, net: Math.round((a.net + Number.EPSILON) * 100) / 100 }));
-  return { expenses, byAccount, errors };
+  const excluded = { lines: excludedLines, total: Math.round((excludedTotal + Number.EPSILON) * 100) / 100, accounts: Array.from(excludedAccts) };
+  return { expenses, byAccount, excluded, errors };
 }
-var num2, arr2, normName, intercoRechargeRouter;
+var num2, arr2, normName, NON_BILLABLE_ACCT, intercoRechargeRouter;
 var init_interco_recharge_router = __esm({
   "api/interco-recharge-router.ts"() {
     init_zod();
@@ -46947,6 +46959,7 @@ var init_interco_recharge_router = __esm({
     };
     arr2 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
     normName = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    NON_BILLABLE_ACCT = /bank\s*(charges?|fees?|service)|service\s*charges?|merchant\s*(fees?|charges?)|nsf/i;
     intercoRechargeRouter = createRouter({
       getConfig: staffQuery.input(external_exports.object({ payerClientId: external_exports.number() })).query(async ({ input }) => {
         await ensureRechargeSchema();
@@ -47009,7 +47022,7 @@ var init_interco_recharge_router = __esm({
         const cfgRow = await getDb().run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`);
         const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
         try {
-          const { expenses, byAccount, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+          const { expenses, byAccount, excluded, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
           const draft = buildRecharge({
             periodLabel: input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`,
             payerName: input.payerName,
@@ -47021,7 +47034,7 @@ var init_interco_recharge_router = __esm({
             expenses
           });
           const zeroOut = num2(cfg.zeroOutExpenses ?? 1) !== 0;
-          return { ok: true, draft, pulled: expenses.length, errors, byAccount, zeroOut };
+          return { ok: true, draft, pulled: expenses.length, errors, byAccount, excluded, zeroOut };
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           if (msg.startsWith("bridge_not_returning_data")) return { ok: false, error: "bridge_not_returning_data", detail: msg };
@@ -89762,7 +89775,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.188";
+var BUILD_TAG = "2026-06-26.189";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
