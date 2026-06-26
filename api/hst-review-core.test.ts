@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   runHstReview, tieOut, isTaxableCode, checkUnreviewedAccounts, checkControlAccountCoding,
   checkMissingTaxCode, checkSalesWithoutTax, checkDuplicates, checkMealsFullItc,
+  hstReasonableness,
   type RawTxn, type RawAccount,
 } from "./hst-review-core";
 
@@ -114,5 +115,47 @@ describe("tie-out + full report", () => {
     expect(report.bySeverity.high).toBeGreaterThanOrEqual(2);
     expect(report.counts.transactions).toBe(2);
     expect(report.tie.collected).toBe(0);
+  });
+});
+
+describe("HST reasonableness test", () => {
+  const tie = (collected: number, salesBase: number, itc: number, purchaseBase: number) =>
+    ({ collected, itc, net: collected - itc, salesBase, purchaseBase });
+
+  it("greens both sides when effective rate ≈ 13%", () => {
+    const r = hstReasonableness(tie(1300, 10000, 650, 5000));
+    expect(r.output.effectiveRatePct).toBe(13);
+    expect(r.output.verdict).toBe("green");
+    expect(r.itc.verdict).toBe("green");
+    expect(r.overall).toBe("green");
+  });
+
+  it("reds a taxable base with ~$0 HST (missing tax code)", () => {
+    const r = hstReasonableness(tie(0, 10000, 650, 5000));
+    expect(r.output.verdict).toBe("red");
+    expect(r.overall).toBe("red");
+  });
+
+  it("yellow when a couple points off, red when far off", () => {
+    expect(hstReasonableness(tie(1100, 10000, 650, 5000)).output.verdict).toBe("yellow"); // 11% → 2 pts
+    expect(hstReasonableness(tie(500, 10000, 650, 5000)).output.verdict).toBe("red");      // 5% → 8 pts
+  });
+
+  it("flags an over-13% rate (double-taxed) as off", () => {
+    expect(hstReasonableness(tie(1600, 10000, 650, 5000)).output.verdict).toBe("yellow"); // 16% → 3 pts
+    expect(hstReasonableness(tie(1800, 10000, 650, 5000)).output.verdict).toBe("red");    // 18% → 5 pts
+  });
+
+  it("returns n/a (not a failure) when there is no base to test", () => {
+    const r = hstReasonableness(tie(0, 0, 650, 5000));
+    expect(r.output.verdict).toBe("na");
+    expect(r.overall).toBe("green"); // itc side is green; na doesn't dominate
+  });
+
+  it("overall takes the worst of the two sides", () => {
+    const r = hstReasonableness(tie(1300, 10000, 1500, 5000)); // itc 30% → red
+    expect(r.output.verdict).toBe("green");
+    expect(r.itc.verdict).toBe("red");
+    expect(r.overall).toBe("red");
   });
 });
