@@ -73,8 +73,8 @@ function num(v: string): number {
   return neg ? -Math.abs(n) : n;
 }
 
-/** Split one CSV line into fields (quote-aware). */
-function splitCsvLine(line: string): string[] {
+/** Split one line into fields (quote-aware) on a given delimiter. */
+function splitLine(line: string, delim: string): string[] {
   const out: string[] = []; let cur = ""; let q = false;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
@@ -83,11 +83,28 @@ function splitCsvLine(line: string): string[] {
       else if (c === '"') q = false;
       else cur += c;
     } else if (c === '"') q = true;
-    else if (c === ",") { out.push(cur); cur = ""; }
+    else if (c === delim) { out.push(cur); cur = ""; }
     else cur += c;
   }
   out.push(cur);
   return out.map((s) => s.trim());
+}
+
+/** Detect the delimiter: comma, tab, or semicolon — whichever yields the most
+ *  consistent multi-column rows. Lets Markie paste straight from Excel/Sheets
+ *  (tab-separated) or a European CSV, not just a comma file. */
+export function detectDelimiter(lines: string[]): string {
+  const cands = ["\t", ",", ";"];
+  let best = ","; let bestScore = -1;
+  for (const d of cands) {
+    const counts = lines.slice(0, 10).map((l) => splitLine(l, d).length);
+    const max = Math.max(...counts, 1);
+    if (max < 2) continue;                                 // no real columns with this delim
+    const consistent = counts.filter((c) => c === max).length;
+    const score = max * 10 + consistent;
+    if (score > bestScore) { bestScore = score; best = d; }
+  }
+  return best;
 }
 
 const findCol = (headers: string[], ...keys: string[]) =>
@@ -101,6 +118,8 @@ const findCol = (headers: string[], ...keys: string[]) =>
 export function parseCsvTransactions(text: string): ReconTxn[] {
   const lines = (text || "").replace(/\r/g, "").split("\n").filter((l) => l.trim());
   if (!lines.length) return [];
+  const delim = detectDelimiter(lines);                    // comma | tab | semicolon
+  const splitCsvLine = (l: string) => splitLine(l, delim);
   // header = first line that has a date-ish and an amount-ish column name
   let headerIdx = lines.findIndex((l) => {
     const lo = l.toLowerCase();

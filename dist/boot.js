@@ -63195,7 +63195,10 @@ async function seedAldersonRecurring() {
       return;
     }
     const existing = await db.all(sql`SELECT id FROM client_task_rules WHERE clientId=${clientId} AND title=${RULE_TITLE} LIMIT 1`);
-    if (existing.length) return;
+    if (existing.length) {
+      await db.run(sql`UPDATE client_task_rules SET description=${DESCRIPTION} WHERE id=${existing[0].id}`);
+      return;
+    }
     const firstDue = localNoon(2026, 9, 3);
     const [rule] = await db.insert(clientTaskRules).values({
       clientId,
@@ -63241,7 +63244,7 @@ var init_seed_alderson_recurring = __esm({
     init_drizzle_orm();
     init_schema();
     RULE_TITLE = "Email Rocco \u2014 request Alderson bank account activity (last quarter)";
-    DESCRIPTION = "Email Rocco to request the Alderson Developments bank account activity for the LAST QUARTER. The Alderson account is NOT paperless \u2014 the statement is mailed, so Rocco has to go in and print the transactions, then share them (sometimes CSV, sometimes PDF). We need this to reconcile the Alderson bank account (it's a holding account for a project). Send on the 3rd of the month; if the 3rd is a weekend or holiday, send the next business day. This quarter covers the three months just ended.";
+    DESCRIPTION = "Email Rocco to request the Alderson Developments bank account activity for the LAST QUARTER. ASK FOR THE CSV / EXCEL EXPORT (not a printed PDF) \u2014 CSV imports into the Recon Matcher instantly and for free, whereas a PDF needs paid AI reading. The Alderson account is NOT paperless (the statement is mailed), so Rocco prints/exports the transactions and sends them. We need this to reconcile the Alderson bank account (a holding account for a project). Send on the 3rd of the month; if the 3rd is a weekend or holiday, send the next business day. This quarter covers the three months just ended.";
   }
 });
 
@@ -88666,7 +88669,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.168";
+var BUILD_TAG = "2026-06-26.169";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

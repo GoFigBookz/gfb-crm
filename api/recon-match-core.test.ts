@@ -24,6 +24,13 @@ describe("parseCsvTransactions", () => {
     expect(txns[0].amount).toBe(-500);   // debit = out
     expect(txns[1].amount).toBe(1200);   // credit = in
   });
+  it("auto-detects tab-separated paste (straight from Excel/Sheets/PDF copy)", () => {
+    const tsv = "Date\tDescription\tAmount\n2026-03-01\tDeposit\t1000.00\n2026-03-02\tCheque 101\t-250.50";
+    const txns = parseCsvTransactions(tsv);
+    expect(txns).toHaveLength(2);
+    expect(txns[0].amount).toBe(1000);
+    expect(txns[1].amount).toBe(-250.5);
+  });
   it("parses QBO increase/decrease register export + handles $ and parens", () => {
     const csv = 'Date,Transaction Type,Payee,Decrease,Increase\n"03/02/2026",Cheque,Home Depot,"$1,234.56",\n03/05/2026,Deposit,Client,,"$2,000.00"';
     const txns = parseCsvTransactions(csv);

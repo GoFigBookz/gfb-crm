@@ -22,10 +22,11 @@ import { tasks, clientTaskRules } from "../db/schema";
 const RULE_TITLE = "Email Rocco — request Alderson bank account activity (last quarter)";
 const DESCRIPTION =
   "Email Rocco to request the Alderson Developments bank account activity for the LAST QUARTER. " +
-  "The Alderson account is NOT paperless — the statement is mailed, so Rocco has to go in and print the " +
-  "transactions, then share them (sometimes CSV, sometimes PDF). We need this to reconcile the Alderson " +
-  "bank account (it's a holding account for a project). Send on the 3rd of the month; if the 3rd is a " +
-  "weekend or holiday, send the next business day. This quarter covers the three months just ended.";
+  "ASK FOR THE CSV / EXCEL EXPORT (not a printed PDF) — CSV imports into the Recon Matcher instantly and " +
+  "for free, whereas a PDF needs paid AI reading. The Alderson account is NOT paperless (the statement is " +
+  "mailed), so Rocco prints/exports the transactions and sends them. We need this to reconcile the Alderson " +
+  "bank account (a holding account for a project). Send on the 3rd of the month; if the 3rd is a weekend or " +
+  "holiday, send the next business day. This quarter covers the three months just ended.";
 
 /** Local-noon Date for a y-m-d (avoids UTC-midnight drifting a day back in Ontario). */
 function localNoon(y: number, m1: number, d: number): Date {
@@ -44,9 +45,13 @@ export async function seedAldersonRecurring(): Promise<void> {
     const clientId = cl[0]?.id;
     if (!clientId) { console.warn("[alderson] no Alderson client found — skipping recurring task seed"); return; }
 
-    // Idempotent: skip if the rule already exists for this client.
+    // Idempotent: if the rule already exists, refresh its description (so the
+    // "ask for CSV not PDF" guidance lands even on a prior install) and stop.
     const existing = (await db.all(sql`SELECT id FROM client_task_rules WHERE clientId=${clientId} AND title=${RULE_TITLE} LIMIT 1`)) as any[];
-    if (existing.length) return;
+    if (existing.length) {
+      await db.run(sql`UPDATE client_task_rules SET description=${DESCRIPTION} WHERE id=${existing[0].id}`);
+      return;
+    }
 
     const firstDue = localNoon(2026, 9, 3); // 3 Sep 2026 (a Thursday) — covers Jun/Jul/Aug
 
