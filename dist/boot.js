@@ -40311,9 +40311,27 @@ async function ensureValidNativeToken(connection) {
   }
   return connection;
 }
-async function keepAliveNativeConnections(staleDays = 7) {
+async function keepAliveNativeConnections(staleDays = 7, opts = {}) {
   const db = getDb();
+  const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
   let refreshed = 0, reconnect = 0, skipped = 0;
+  const minIntervalMs = opts.minIntervalMs ?? 20 * 60 * 60 * 1e3;
+  const LAST_KEY = "qbo_keepalive_last";
+  try {
+    await db.run(sql4`CREATE TABLE IF NOT EXISTS app_settings (key text PRIMARY KEY, value text, updatedAt integer)`);
+    if (!opts.force) {
+      const row = await db.run(sql4`SELECT value FROM app_settings WHERE key=${LAST_KEY} LIMIT 1`);
+      const r = (row?.rows ?? row ?? [])[0];
+      const last = r ? Number(r.value ?? r[0]) : 0;
+      if (last && Date.now() - last < minIntervalMs) {
+        return { refreshed: 0, reconnect: 0, skipped: 0, debounced: true };
+      }
+    }
+    await db.run(sql4`INSERT INTO app_settings (key, value, updatedAt) VALUES (${LAST_KEY}, ${String(Date.now())}, ${Date.now()})
+      ON CONFLICT(key) DO UPDATE SET value=${String(Date.now())}, updatedAt=${Date.now()}`);
+  } catch (e) {
+    console.error("[qbo-oauth] keep-alive debounce check failed (continuing):", e instanceof Error ? e.message : e);
+  }
   let rows = [];
   try {
     rows = await db.select().from(qboConnections).where(and(eq(qboConnections.transport, "native"), eq(qboConnections.isActive, true)));
@@ -40324,6 +40342,11 @@ async function keepAliveNativeConnections(staleDays = 7) {
   const staleMs = staleDays * 864e5;
   for (const c of rows) {
     try {
+      const justRefreshed = c.updatedAt && Date.now() - c.updatedAt.getTime() < 45 * 60 * 1e3;
+      if (justRefreshed) {
+        skipped++;
+        continue;
+      }
       const nearExpiry = !c.expiresAt || c.expiresAt.getTime() - Date.now() < 10 * 60 * 1e3;
       const stale = !c.updatedAt || Date.now() - c.updatedAt.getTime() > staleMs;
       if (!nearExpiry && !stale) {
@@ -88725,7 +88748,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.172";
+var BUILD_TAG = "2026-06-26.173";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -90947,7 +90970,7 @@ async function startServer() {
     });
   }, 6e4);
   setInterval(() => {
-    keepAliveNativeConnections2().catch(() => {
+    keepAliveNativeConnections2(7, { force: true }).catch(() => {
     });
   }, 24 * 60 * 60 * 1e3);
   const { capturePracticeSnapshot: capturePracticeSnapshot2 } = await Promise.resolve().then(() => (init_dashboard_router(), dashboard_router_exports));
