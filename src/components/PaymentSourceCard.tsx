@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, Loader2, AlertTriangle, CreditCard } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,20 +20,25 @@ export default function PaymentSourceCard({ clientId, groupName }: { clientId: n
     groupName ? { groupName } : {},
     { staleTime: 60000 }
   );
-  const [selected, setSelected] = useState<number[]>([]);
+  // Start with THIS client selected so the button is never dead; add the rest of
+  // the group when it loads. (Falls back to scanning just this client if the group
+  // list can't load.)
+  const [selected, setSelected] = useState<number[]>([clientId]);
   const [start, setStart] = useState("2026-03-01");
   const [end, setEnd] = useState("2026-05-31");
   const scan = trpc.cleanup.paymentSourceScan.useMutation();
   const r = scan.data;
+  const initGroup = useRef(false);
 
-  // Pre-select the whole group (or just this client) once loaded.
   useEffect(() => {
-    if (groupClients?.length && selected.length === 0) {
-      setSelected(groupClients.map((c: any) => c.id));
+    if (groupClients?.length && !initGroup.current) {
+      initGroup.current = true;
+      setSelected((prev) => Array.from(new Set([...prev, ...groupClients.map((c: any) => c.id)])));
     }
-  }, [groupClients, selected.length]);
+  }, [groupClients]);
 
   const toggle = (id: number) => setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+  const ids = selected.length ? selected : [clientId];
 
   return (
     <Card className="border-amber-200">
@@ -45,17 +50,19 @@ export default function PaymentSourceCard({ clientId, groupName }: { clientId: n
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="flex flex-wrap gap-x-4 gap-y-1">
-          {(groupClients || []).map((c: any) => (
-            <label key={c.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
-              <input type="checkbox" checked={selected.includes(c.id)} onChange={() => toggle(c.id)} /> {c.name}
-            </label>
-          ))}
+          {(groupClients || []).length === 0
+            ? <span className="text-xs text-slate-400">Scanning this client only (no group set on the others — tick more below once loaded).</span>
+            : (groupClients || []).map((c: any) => (
+                <label key={c.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input type="checkbox" checked={selected.includes(c.id)} onChange={() => toggle(c.id)} /> {c.name}
+                </label>
+              ))}
         </div>
         <div className="flex items-end gap-2 flex-wrap">
           <div><Label className="text-[11px] text-slate-500">From</Label><Input type="date" className="h-8" value={start} onChange={(e) => setStart(e.target.value)} /></div>
           <div><Label className="text-[11px] text-slate-500">To</Label><Input type="date" className="h-8" value={end} onChange={(e) => setEnd(e.target.value)} /></div>
-          <Button size="sm" className="h-8" disabled={scan.isPending || selected.length === 0} onClick={() => scan.mutate({ clientIds: selected, startDate: start, endDate: end })}>
-            {scan.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Search className="h-4 w-4 mr-1" />} Scan for duplicates
+          <Button size="sm" className="h-8" disabled={scan.isPending} onClick={() => scan.mutate({ clientIds: ids, startDate: start, endDate: end })}>
+            {scan.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Search className="h-4 w-4 mr-1" />} Scan {ids.length > 1 ? `${ids.length} companies` : "for duplicates"}
           </Button>
         </div>
 
