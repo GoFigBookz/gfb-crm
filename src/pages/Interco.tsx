@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/providers/trpc";
+import IntercoRechargePanel from "@/components/IntercoRechargePanel";
 
 const money = (n: number) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD" });
 const thisMonth = () => new Date().toISOString().slice(0, 7);
@@ -63,6 +64,9 @@ export default function Interco() {
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2"><ArrowLeftRight className="h-6 w-6 text-lime-600" /> Inter-Company</h1>
         <p className="text-slate-500">Three-step close per entity/month: <b>1)</b> source company reconciled (bank/CC) → <b>2)</b> interco JE to the company that incurred the cost → <b>3)</b> the interco account reconciled (nets to zero across both). Runs back and forth between all the entities that carry an interco account.</p>
       </div>
+
+      {/* Recharge generator: payer's expenses → draft invoice + mirror bill, quarterly. */}
+      <IntercoRechargePanel />
 
       <Card className="border-amber-200 bg-amber-50">
         <CardContent className="py-3 text-sm text-amber-900 flex items-start gap-2">

@@ -48,6 +48,7 @@ import { connectorRouter } from "./connector-router";
 import { restoreRouter } from "./restore-router";
 import { bulkImportRouter } from "./bulk-import-router";
 import { intercoRouter } from "./interco-router";
+import { intercoRechargeRouter } from "./interco-recharge-router";
 import { groupRouter } from "./group-router";
 import { practiceHealthRouter } from "./practice-health-router";
 import { groupBookRouter } from "./group-book-router";
@@ -132,6 +133,7 @@ export const appRouter = createRouter({
   bulkImport: bulkImportRouter,
   restore: restoreRouter,
   interco: intercoRouter,
+  intercoRecharge: intercoRechargeRouter,
   group: groupRouter,
   practiceHealth: practiceHealthRouter,
   groupBook: groupBookRouter,
