@@ -21,22 +21,27 @@ import { ensureRechargeSchema } from "./interco-recharge-router";
 const RULE_TITLE = "Inter-company recharge + reconcile: Alderson → Ovita Holdings (fiscal quarter)";
 const DESCRIPTION =
   "ALDERSON → OVITA HOLDINGS QUARTERLY RECHARGE + RECONCILE (fiscal quarters end Feb/May/Aug/Nov; Nov 30 year-end). " +
-  "Precise steps:\n" +
+  "GOAL: bill ALL of Alderson's project costs for the quarter back to Holdings so Alderson ends with ZERO expenses " +
+  "and ZERO HST for the period (it's a flow-through — the costs belong to Holdings). Precise steps:\n" +
   "1. Confirm Alderson's bank + clearing accounts are reconciled for the quarter and the Pre-HST review is clean.\n" +
-  "2. Open Inter-Company → 'Inter-company recharge (draft)'. Payer = Alderson; Counterparty = Ovita Holdings; " +
+  "2. Open the Alderson client card → Compliance → 'Inter-company recharge'. Counterparty = Ovita Holdings; " +
   "dates = the fiscal quarter (e.g. Mar 1 – May 31). Click 'Generate draft'.\n" +
-  "3. It pulls Alderson's project expenses for the quarter and builds the invoice + mirror bill + 13% HST. " +
-  "Review the lines against what you expect; check invoice total = bill total (it ties out).\n" +
-  "4. In ALDERSON (QBO): create the INVOICE — Customer = Ovita Holdings; line(s) = the recharged costs to 'Sales'; " +
-  "HST 13% (Alderson charges the output HST). Total = the draft invoice total.\n" +
-  "5. In HOLDINGS (QBO): create the BILL — Vendor = Alderson Developments; expense account = 'Alderson Project " +
-  "Management Costs'; HST 13% (Holdings claims the ITC). Same total.\n" +
+  "3. It pulls Alderson's project expenses for the quarter, grouped by expense account, and builds the invoice + " +
+  "mirror bill + 13% HST. Review the per-account lines; check invoice total = bill total (it ties out).\n" +
+  "4. Click 'Approve & post (Fig) — LIVE'. Fig posts BOTH documents to QBO (needs Alderson + Holdings connected DIRECT/native):\n" +
+  "   • ALDERSON INVOICE — Customer = Ovita Holdings; one line PER expense account, each credited back to the SAME " +
+  "expense account it came from (zero-out), + 13% HST. Result: Alderson's expense accounts net to $0 and the HST " +
+  "charged offsets the ITCs already claimed → Alderson's HST nets to $0 for the period.\n" +
+  "   • HOLDINGS BILL — Vendor = Alderson Developments; expense = 'Alderson Project Management Costs'; 13% HST " +
+  "(Holdings picks up the cost + claims the ITC). Same total.\n" +
+  "5. CROSS-CHECK in QBO: open Alderson's P&L + balance sheet for the period — expenses = $0 and HST suspense/" +
+  "payable = $0 as of the quarter-end. If anything remains, a cost was dated outside the period or missed billable — fix and re-run.\n" +
   "6. SETTLEMENT: when Holdings pays Alderson, record the payment as a TRANSFER into the reciprocal clearing " +
   "accounts — Alderson's books → 'Holdings clearing account'; Holdings' books → 'Alderson Development clearing account'.\n" +
-  "7. RECONCILE: at quarter-end reconcile BOTH clearing accounts to zero (they mirror each other). Tick 'reconciled' " +
-  "in the recharge log on the Inter-Company page.\n" +
-  "8. File the invoice + bill copies in the client folder. " +
-  "Drafts only in Figgy — nothing posts to QBO without review.";
+  "7. RECONCILE (FINAL step, after posting + settlement): reconcile BOTH clearing accounts to zero (they mirror each " +
+  "other). Tick 'reconciled' in the recharge log.\n" +
+  "8. File the invoice + bill copies in the client folder.\n" +
+  "Fig posts these two documents live (Markie-approved for Alderson); everything else stays review-only.";
 
 function localNoon(y: number, m1: number, d: number): Date {
   return new Date(y, m1 - 1, d, 12, 0, 0);
@@ -60,13 +65,13 @@ export async function seedAldersonRecharge(): Promise<void> {
     // settlement transfer hits Alderson's "Holdings clearing account" and Holdings'
     // "Alderson Development clearing account" — both reconciled to zero each quarter.
     await db.run(sql`INSERT INTO interco_recharge_config
-      (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, updatedAt)
-      VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Holdings clearing account', 'Alderson Development clearing account', 13, 1, ${Date.now()})
+      (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, zeroOutExpenses, updatedAt)
+      VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Holdings clearing account', 'Alderson Development clearing account', 13, 1, 1, ${Date.now()})
       ON CONFLICT(payerClientId) DO UPDATE SET
         counterpartyName='Ovita Holdings Inc.', revenueAccount='Sales',
         expenseAccount='Alderson Project Management Costs',
         payerClearingAccount='Holdings clearing account',
-        counterpartyClearingAccount='Alderson Development clearing account', hstRatePct=13, chargeHst=1, updatedAt=${Date.now()}`);
+        counterpartyClearingAccount='Alderson Development clearing account', hstRatePct=13, chargeHst=1, zeroOutExpenses=1, updatedAt=${Date.now()}`);
 
     // (2) Quarterly recurring task. First instance: 30 Jun 2026 (for the fiscal Q2
     // ending 31 May 2026, which Markie is working now). Then Sep 30, Dec 31, Mar 31…

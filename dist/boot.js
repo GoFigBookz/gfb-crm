@@ -46534,19 +46534,41 @@ async function postRecharge(input) {
     const subtotal = round26(input.subtotal);
     if (!(subtotal > 0)) return { ok: false, error: "nothing_to_post", detail: "Subtotal is zero." };
     const desc7 = input.lineDescription || `Inter-company recharge \u2014 ${input.periodLabel}`;
-    const incomeAcct = await findAccountId(payer.conn, input.revenueAccount);
-    if (!incomeAcct) return { ok: false, error: "revenue_account_not_found", detail: `"${input.revenueAccount}" not in ${input.payerName}'s chart.` };
     const custId = await findOrCreateCustomer(payer.conn, input.counterpartyName);
-    const itemId = await findOrCreateServiceItem(payer.conn, incomeAcct.id);
     let invTax = null;
     if (input.chargeHst) {
       const t2 = await findHstTaxCodeId(payer.conn);
       if (!t2) return { ok: false, error: "hst_taxcode_not_found", detail: `No HST tax code in ${input.payerName}.` };
       invTax = { id: t2.id };
     }
-    const invoicePayload = {
-      CustomerRef: { value: custId },
-      Line: [{
+    const useZeroOut = !!input.zeroOut && Array.isArray(input.expenseBreakdown) && input.expenseBreakdown.length > 0;
+    let invoiceLines;
+    if (useZeroOut) {
+      const accts = (input.expenseBreakdown || []).filter((a) => a && a.accountId && round26(a.net) > 0);
+      if (accts.length === 0) return { ok: false, error: "no_expense_accounts", detail: "No expense accounts with a positive balance to recharge." };
+      invoiceLines = [];
+      for (const a of accts) {
+        let itemId;
+        try {
+          itemId = await findOrCreateServiceItem(payer.conn, a.accountId, `Recharge \u2014 ${a.accountName}`.slice(0, 100));
+        } catch (e) {
+          return { ok: false, error: "expense_item_create_failed", detail: `Could not create a recharge item mapped to "${a.accountName}" in ${input.payerName} (QBO may not allow crediting that account from an invoice): ${e instanceof Error ? e.message : String(e)}` };
+        }
+        invoiceLines.push({
+          DetailType: "SalesItemLineDetail",
+          Amount: round26(a.net),
+          Description: `${desc7} \u2014 ${a.accountName}`,
+          SalesItemLineDetail: {
+            ItemRef: { value: itemId },
+            ...invTax ? { TaxCodeRef: { value: invTax.id } } : {}
+          }
+        });
+      }
+    } else {
+      const incomeAcct = await findAccountId(payer.conn, input.revenueAccount);
+      if (!incomeAcct) return { ok: false, error: "revenue_account_not_found", detail: `"${input.revenueAccount}" not in ${input.payerName}'s chart.` };
+      const itemId = await findOrCreateServiceItem(payer.conn, incomeAcct.id);
+      invoiceLines = [{
         DetailType: "SalesItemLineDetail",
         Amount: subtotal,
         Description: desc7,
@@ -46554,9 +46576,13 @@ async function postRecharge(input) {
           ItemRef: { value: itemId },
           ...invTax ? { TaxCodeRef: { value: invTax.id } } : {}
         }
-      }],
+      }];
+    }
+    const invoicePayload = {
+      CustomerRef: { value: custId },
+      Line: invoiceLines,
       ...invTax ? { TxnTaxDetail: {} } : {},
-      PrivateNote: `Figgy inter-company recharge ${input.periodLabel}`
+      PrivateNote: `Figgy inter-company recharge ${input.periodLabel}${useZeroOut ? " (zero-out: credits source expense accounts)" : ""}`
     };
     const invRes = await qboRequest(payer.conn, "/invoice", "POST", invoicePayload);
     const invoiceId = invRes?.Invoice?.Id ? String(invRes.Invoice.Id) : "";
@@ -46641,6 +46667,10 @@ async function ensureRechargeSchema() {
       await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN counterpartyClearingAccount TEXT`);
     } catch {
     }
+    try {
+      await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN zeroOutExpenses INTEGER DEFAULT 1`);
+    } catch {
+    }
     await db.run(sql`CREATE TABLE IF NOT EXISTS interco_recharge_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       payerClientId INTEGER NOT NULL,
@@ -46660,6 +46690,7 @@ async function ensureRechargeSchema() {
 async function pullExpenses(conn, start, end) {
   const range = `TxnDate >= '${start}' AND TxnDate <= '${end}'`;
   const expenses = [];
+  const byAcct = /* @__PURE__ */ new Map();
   const errors = [];
   const q3 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
   const pull = async (entity) => {
@@ -46669,11 +46700,18 @@ async function pullExpenses(conn, start, end) {
         for (const l of e.Line ?? []) {
           const d10 = l.AccountBasedExpenseLineDetail;
           if (!d10) continue;
+          const acctName = d10.AccountRef?.name || "Expense";
+          const acctId = d10.AccountRef?.value ? String(d10.AccountRef.value) : "";
+          const amt = num2(l.Amount);
           expenses.push({
-            description: `${d10.AccountRef?.name || "Expense"}${e.EntityRef?.name ? ` \u2014 ${e.EntityRef.name}` : ""} (${String(e.TxnDate || "").slice(0, 10)})`,
-            net: num2(l.Amount),
+            description: `${acctName}${e.EntityRef?.name ? ` \u2014 ${e.EntityRef.name}` : ""} (${String(e.TxnDate || "").slice(0, 10)})`,
+            net: amt,
             sourceRef: docRef
           });
+          const key11 = acctId || `name:${acctName}`;
+          const cur = byAcct.get(key11) || { accountId: acctId, accountName: acctName, net: 0 };
+          cur.net = num2(cur.net) + amt;
+          byAcct.set(key11, cur);
         }
       }
     } catch (e2) {
@@ -46684,7 +46722,8 @@ async function pullExpenses(conn, start, end) {
   };
   await pull("Purchase");
   await pull("Bill");
-  return { expenses, errors };
+  const byAccount = Array.from(byAcct.values()).map((a) => ({ ...a, net: Math.round((a.net + Number.EPSILON) * 100) / 100 }));
+  return { expenses, byAccount, errors };
 }
 var num2, arr2, normName, intercoRechargeRouter;
 var init_interco_recharge_router = __esm({
@@ -46719,7 +46758,8 @@ var init_interco_recharge_router = __esm({
           payerClearingAccount: r.payerClearingAccount || r.clearingAccount || "",
           counterpartyClearingAccount: r.counterpartyClearingAccount || "",
           hstRatePct: num2(r.hstRatePct) || 13,
-          chargeHst: num2(r.chargeHst) !== 0
+          chargeHst: num2(r.chargeHst) !== 0,
+          zeroOutExpenses: num2(r.zeroOutExpenses ?? 1) !== 0
         };
       }),
       setConfig: staffQuery.input(external_exports.object({
@@ -46730,18 +46770,20 @@ var init_interco_recharge_router = __esm({
         payerClearingAccount: external_exports.string().default(""),
         counterpartyClearingAccount: external_exports.string().default(""),
         hstRatePct: external_exports.number().default(13),
-        chargeHst: external_exports.boolean().default(true)
+        chargeHst: external_exports.boolean().default(true),
+        zeroOutExpenses: external_exports.boolean().default(true)
       })).mutation(async ({ input }) => {
         await ensureRechargeSchema();
         const db = getDb();
+        const zo = input.zeroOutExpenses ? 1 : 0;
         await db.run(sql`INSERT INTO interco_recharge_config
-        (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, updatedAt)
-        VALUES (${input.payerClientId}, ${input.counterpartyName}, ${input.revenueAccount}, ${input.expenseAccount}, ${input.payerClearingAccount}, ${input.counterpartyClearingAccount}, ${input.hstRatePct}, ${input.chargeHst ? 1 : 0}, ${Date.now()})
+        (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, zeroOutExpenses, updatedAt)
+        VALUES (${input.payerClientId}, ${input.counterpartyName}, ${input.revenueAccount}, ${input.expenseAccount}, ${input.payerClearingAccount}, ${input.counterpartyClearingAccount}, ${input.hstRatePct}, ${input.chargeHst ? 1 : 0}, ${zo}, ${Date.now()})
         ON CONFLICT(payerClientId) DO UPDATE SET
           counterpartyName=${input.counterpartyName}, revenueAccount=${input.revenueAccount},
           expenseAccount=${input.expenseAccount}, payerClearingAccount=${input.payerClearingAccount},
           counterpartyClearingAccount=${input.counterpartyClearingAccount},
-          hstRatePct=${input.hstRatePct}, chargeHst=${input.chargeHst ? 1 : 0}, updatedAt=${Date.now()}`);
+          hstRatePct=${input.hstRatePct}, chargeHst=${input.chargeHst ? 1 : 0}, zeroOutExpenses=${zo}, updatedAt=${Date.now()}`);
         return { ok: true };
       }),
       /** Pull the payer's expenses for the period and build the DRAFT recharge. Read-only. */
@@ -46763,7 +46805,7 @@ var init_interco_recharge_router = __esm({
         const cfgRow = await getDb().run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`);
         const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
         try {
-          const { expenses, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+          const { expenses, byAccount, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
           const draft = buildRecharge({
             periodLabel: input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`,
             payerName: input.payerName,
@@ -46774,7 +46816,8 @@ var init_interco_recharge_router = __esm({
             chargeHst: input.chargeHst,
             expenses
           });
-          return { ok: true, draft, pulled: expenses.length, errors };
+          const zeroOut = num2(cfg.zeroOutExpenses ?? 1) !== 0;
+          return { ok: true, draft, pulled: expenses.length, errors, byAccount, zeroOut };
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           if (msg.startsWith("bridge_not_returning_data")) return { ok: false, error: "bridge_not_returning_data", detail: msg };
@@ -46815,8 +46858,10 @@ var init_interco_recharge_router = __esm({
         const cr = await getConnectionForClient(input.payerClientId);
         if ("error" in cr) return { ok: false, error: `payer: ${cr.error}` };
         let subtotal = 0;
+        let breakdown = [];
         try {
-          const { expenses } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+          const { expenses, byAccount } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+          breakdown = byAccount;
           const draft = buildRecharge({
             periodLabel: input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`,
             payerName: input.payerName,
@@ -46834,6 +46879,7 @@ var init_interco_recharge_router = __esm({
           return { ok: false, error: msg };
         }
         if (!(subtotal > 0)) return { ok: false, error: "nothing_to_post", detail: "No expenses found for this period." };
+        const zeroOut = num2(cfg.zeroOutExpenses ?? 1) !== 0;
         return await postRecharge({
           payerClientId: input.payerClientId,
           counterpartyClientId: cpId,
@@ -46844,7 +46890,9 @@ var init_interco_recharge_router = __esm({
           hstRatePct: input.hstRatePct,
           chargeHst: input.chargeHst,
           subtotal,
-          periodLabel: input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`
+          periodLabel: input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`,
+          zeroOut,
+          expenseBreakdown: breakdown
         });
       }),
       /** INTERCO RECONCILIATION CHECK — pull both reciprocal clearing-account balances
@@ -63861,13 +63909,13 @@ async function seedAldersonRecharge() {
       return;
     }
     await db.run(sql`INSERT INTO interco_recharge_config
-      (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, updatedAt)
-      VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Holdings clearing account', 'Alderson Development clearing account', 13, 1, ${Date.now()})
+      (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, zeroOutExpenses, updatedAt)
+      VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Holdings clearing account', 'Alderson Development clearing account', 13, 1, 1, ${Date.now()})
       ON CONFLICT(payerClientId) DO UPDATE SET
         counterpartyName='Ovita Holdings Inc.', revenueAccount='Sales',
         expenseAccount='Alderson Project Management Costs',
         payerClearingAccount='Holdings clearing account',
-        counterpartyClearingAccount='Alderson Development clearing account', hstRatePct=13, chargeHst=1, updatedAt=${Date.now()}`);
+        counterpartyClearingAccount='Alderson Development clearing account', hstRatePct=13, chargeHst=1, zeroOutExpenses=1, updatedAt=${Date.now()}`);
     const existing = await db.all(sql`SELECT id FROM client_task_rules WHERE clientId=${clientId} AND title=${RULE_TITLE2} LIMIT 1`);
     if (existing.length) {
       await db.run(sql`UPDATE client_task_rules SET description=${DESCRIPTION2} WHERE id=${existing[0].id}`);
@@ -63919,7 +63967,7 @@ var init_seed_alderson_recharge = __esm({
     init_schema();
     init_interco_recharge_router();
     RULE_TITLE2 = "Inter-company recharge + reconcile: Alderson \u2192 Ovita Holdings (fiscal quarter)";
-    DESCRIPTION2 = "ALDERSON \u2192 OVITA HOLDINGS QUARTERLY RECHARGE + RECONCILE (fiscal quarters end Feb/May/Aug/Nov; Nov 30 year-end). Precise steps:\n1. Confirm Alderson's bank + clearing accounts are reconciled for the quarter and the Pre-HST review is clean.\n2. Open Inter-Company \u2192 'Inter-company recharge (draft)'. Payer = Alderson; Counterparty = Ovita Holdings; dates = the fiscal quarter (e.g. Mar 1 \u2013 May 31). Click 'Generate draft'.\n3. It pulls Alderson's project expenses for the quarter and builds the invoice + mirror bill + 13% HST. Review the lines against what you expect; check invoice total = bill total (it ties out).\n4. In ALDERSON (QBO): create the INVOICE \u2014 Customer = Ovita Holdings; line(s) = the recharged costs to 'Sales'; HST 13% (Alderson charges the output HST). Total = the draft invoice total.\n5. In HOLDINGS (QBO): create the BILL \u2014 Vendor = Alderson Developments; expense account = 'Alderson Project Management Costs'; HST 13% (Holdings claims the ITC). Same total.\n6. SETTLEMENT: when Holdings pays Alderson, record the payment as a TRANSFER into the reciprocal clearing accounts \u2014 Alderson's books \u2192 'Holdings clearing account'; Holdings' books \u2192 'Alderson Development clearing account'.\n7. RECONCILE: at quarter-end reconcile BOTH clearing accounts to zero (they mirror each other). Tick 'reconciled' in the recharge log on the Inter-Company page.\n8. File the invoice + bill copies in the client folder. Drafts only in Figgy \u2014 nothing posts to QBO without review.";
+    DESCRIPTION2 = "ALDERSON \u2192 OVITA HOLDINGS QUARTERLY RECHARGE + RECONCILE (fiscal quarters end Feb/May/Aug/Nov; Nov 30 year-end). GOAL: bill ALL of Alderson's project costs for the quarter back to Holdings so Alderson ends with ZERO expenses and ZERO HST for the period (it's a flow-through \u2014 the costs belong to Holdings). Precise steps:\n1. Confirm Alderson's bank + clearing accounts are reconciled for the quarter and the Pre-HST review is clean.\n2. Open the Alderson client card \u2192 Compliance \u2192 'Inter-company recharge'. Counterparty = Ovita Holdings; dates = the fiscal quarter (e.g. Mar 1 \u2013 May 31). Click 'Generate draft'.\n3. It pulls Alderson's project expenses for the quarter, grouped by expense account, and builds the invoice + mirror bill + 13% HST. Review the per-account lines; check invoice total = bill total (it ties out).\n4. Click 'Approve & post (Fig) \u2014 LIVE'. Fig posts BOTH documents to QBO (needs Alderson + Holdings connected DIRECT/native):\n   \u2022 ALDERSON INVOICE \u2014 Customer = Ovita Holdings; one line PER expense account, each credited back to the SAME expense account it came from (zero-out), + 13% HST. Result: Alderson's expense accounts net to $0 and the HST charged offsets the ITCs already claimed \u2192 Alderson's HST nets to $0 for the period.\n   \u2022 HOLDINGS BILL \u2014 Vendor = Alderson Developments; expense = 'Alderson Project Management Costs'; 13% HST (Holdings picks up the cost + claims the ITC). Same total.\n5. CROSS-CHECK in QBO: open Alderson's P&L + balance sheet for the period \u2014 expenses = $0 and HST suspense/payable = $0 as of the quarter-end. If anything remains, a cost was dated outside the period or missed billable \u2014 fix and re-run.\n6. SETTLEMENT: when Holdings pays Alderson, record the payment as a TRANSFER into the reciprocal clearing accounts \u2014 Alderson's books \u2192 'Holdings clearing account'; Holdings' books \u2192 'Alderson Development clearing account'.\n7. RECONCILE (FINAL step, after posting + settlement): reconcile BOTH clearing accounts to zero (they mirror each other). Tick 'reconciled' in the recharge log.\n8. File the invoice + bill copies in the client folder.\nFig posts these two documents live (Markie-approved for Alderson); everything else stays review-only.";
   }
 });
 
@@ -89505,7 +89553,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.184";
+var BUILD_TAG = "2026-06-26.185";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

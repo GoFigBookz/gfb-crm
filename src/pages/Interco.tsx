@@ -65,7 +65,7 @@ export default function Interco() {
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2"><ArrowLeftRight className="h-6 w-6 text-lime-600" /> Inter-Company</h1>
         <p className="text-slate-500">Two different methods — use the right one per group:</p>
         <ul className="text-sm text-slate-500 list-disc ml-5 mt-1 space-y-0.5">
-          <li><b>Recharge (invoice → bill)</b> — e.g. <b>Alderson → Ovita Holdings</b>: Fig creates an invoice for the period's expenses + HST and posts it as a bill in the other company. Use the panel below.</li>
+          <li><b>Recharge (invoice → bill)</b> — e.g. <b>Alderson → Ovita Holdings</b>: Fig creates an invoice for the period's expenses + HST and posts it as a bill in the other company. This is a per-client tool — open the client's card → <b>Compliance</b> tab → <b>Inter-company recharge</b>.</li>
           <li><b>Interco journal entry</b> — e.g. <b>John's group</b>: a JE to the company that incurred the cost. The interco account carries an ongoing to/from balance and is reconciled by <b>agreeing it mirrors the other entity's interco account</b> — it does NOT net to zero until the actual transfer/settlement is made. (3-step tracker below.)</li>
         </ul>
       </div>

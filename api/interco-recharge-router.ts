@@ -64,6 +64,9 @@ export async function ensureRechargeSchema(): Promise<void> {
     try { await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN clearingAccount TEXT`); } catch { /* exists */ }
     try { await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN payerClearingAccount TEXT`); } catch { /* exists */ }
     try { await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN counterpartyClearingAccount TEXT`); } catch { /* exists */ }
+    // ZERO-OUT mode: default ON — the invoice credits the source expense accounts so
+    // the payer (Alderson) ends with $0 expenses + $0 HST. Off = credit revenue acct.
+    try { await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN zeroOutExpenses INTEGER DEFAULT 1`); } catch { /* exists */ }
     await db.run(sql`CREATE TABLE IF NOT EXISTS interco_recharge_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       payerClientId INTEGER NOT NULL,
@@ -81,10 +84,17 @@ export async function ensureRechargeSchema(): Promise<void> {
   }
 }
 
-/** Pull the payer's expense lines (Purchase + Bill) in range → {description, net}. */
-async function pullExpenses(conn: any, start: string, end: string): Promise<{ expenses: RechargeExpense[]; errors: string[] }> {
+/** A per-expense-account total for the period (the account ids are the PAYER's own,
+ *  read straight off its expense lines — so the zero-out invoice can credit each
+ *  account back by exactly what was spent, with NO name guessing). */
+export type ExpenseByAccount = { accountId: string; accountName: string; net: number };
+
+/** Pull the payer's expense lines (Purchase + Bill) in range → per-line list for the
+ *  draft preview + a per-account rollup for the zero-out invoice. */
+async function pullExpenses(conn: any, start: string, end: string): Promise<{ expenses: RechargeExpense[]; byAccount: ExpenseByAccount[]; errors: string[] }> {
   const range = `TxnDate >= '${start}' AND TxnDate <= '${end}'`;
   const expenses: RechargeExpense[] = [];
+  const byAcct = new Map<string, ExpenseByAccount>();
   const errors: string[] = [];
   const q = (s: string) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
   const pull = async (entity: "Purchase" | "Bill") => {
@@ -94,11 +104,19 @@ async function pullExpenses(conn: any, start: string, end: string): Promise<{ ex
         for (const l of e.Line ?? []) {
           const d = l.AccountBasedExpenseLineDetail;
           if (!d) continue;
+          const acctName = d.AccountRef?.name || "Expense";
+          const acctId = d.AccountRef?.value ? String(d.AccountRef.value) : "";
+          const amt = num(l.Amount);
           expenses.push({
-            description: `${d.AccountRef?.name || "Expense"}${e.EntityRef?.name ? ` — ${e.EntityRef.name}` : ""} (${String(e.TxnDate || "").slice(0, 10)})`,
-            net: num(l.Amount),
+            description: `${acctName}${e.EntityRef?.name ? ` — ${e.EntityRef.name}` : ""} (${String(e.TxnDate || "").slice(0, 10)})`,
+            net: amt,
             sourceRef: docRef,
           });
+          // Roll up by the payer's own account id (fall back to name if id missing).
+          const key = acctId || `name:${acctName}`;
+          const cur = byAcct.get(key) || { accountId: acctId, accountName: acctName, net: 0 };
+          cur.net = num(cur.net) + amt;
+          byAcct.set(key, cur);
         }
       }
     } catch (e2) {
@@ -109,7 +127,8 @@ async function pullExpenses(conn: any, start: string, end: string): Promise<{ ex
   };
   await pull("Purchase");
   await pull("Bill");
-  return { expenses, errors };
+  const byAccount = Array.from(byAcct.values()).map((a) => ({ ...a, net: Math.round((a.net + Number.EPSILON) * 100) / 100 }));
+  return { expenses, byAccount, errors };
 }
 
 export const intercoRechargeRouter = createRouter({
@@ -130,6 +149,7 @@ export const intercoRechargeRouter = createRouter({
         counterpartyClearingAccount: (r as any).counterpartyClearingAccount || "",
         hstRatePct: num((r as any).hstRatePct) || 13,
         chargeHst: num((r as any).chargeHst) !== 0,
+        zeroOutExpenses: num((r as any).zeroOutExpenses ?? 1) !== 0,
       };
     }),
 
@@ -143,18 +163,20 @@ export const intercoRechargeRouter = createRouter({
       counterpartyClearingAccount: z.string().default(""),
       hstRatePct: z.number().default(13),
       chargeHst: z.boolean().default(true),
+      zeroOutExpenses: z.boolean().default(true),
     }))
     .mutation(async ({ input }) => {
       await ensureRechargeSchema();
       const db = getDb();
+      const zo = input.zeroOutExpenses ? 1 : 0;
       await db.run(sql`INSERT INTO interco_recharge_config
-        (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, updatedAt)
-        VALUES (${input.payerClientId}, ${input.counterpartyName}, ${input.revenueAccount}, ${input.expenseAccount}, ${input.payerClearingAccount}, ${input.counterpartyClearingAccount}, ${input.hstRatePct}, ${input.chargeHst ? 1 : 0}, ${Date.now()})
+        (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, zeroOutExpenses, updatedAt)
+        VALUES (${input.payerClientId}, ${input.counterpartyName}, ${input.revenueAccount}, ${input.expenseAccount}, ${input.payerClearingAccount}, ${input.counterpartyClearingAccount}, ${input.hstRatePct}, ${input.chargeHst ? 1 : 0}, ${zo}, ${Date.now()})
         ON CONFLICT(payerClientId) DO UPDATE SET
           counterpartyName=${input.counterpartyName}, revenueAccount=${input.revenueAccount},
           expenseAccount=${input.expenseAccount}, payerClearingAccount=${input.payerClearingAccount},
           counterpartyClearingAccount=${input.counterpartyClearingAccount},
-          hstRatePct=${input.hstRatePct}, chargeHst=${input.chargeHst ? 1 : 0}, updatedAt=${Date.now()}`);
+          hstRatePct=${input.hstRatePct}, chargeHst=${input.chargeHst ? 1 : 0}, zeroOutExpenses=${zo}, updatedAt=${Date.now()}`);
       return { ok: true as const };
     }),
 
@@ -180,7 +202,7 @@ export const intercoRechargeRouter = createRouter({
       const cfgRow: any = (await getDb().run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`));
       const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
       try {
-        const { expenses, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+        const { expenses, byAccount, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
         const draft = buildRecharge({
           periodLabel: input.periodLabel || `${input.startDate} → ${input.endDate}`,
           payerName: input.payerName,
@@ -191,7 +213,8 @@ export const intercoRechargeRouter = createRouter({
           chargeHst: input.chargeHst,
           expenses,
         });
-        return { ok: true as const, draft, pulled: expenses.length, errors };
+        const zeroOut = num((cfg as any).zeroOutExpenses ?? 1) !== 0;
+        return { ok: true as const, draft, pulled: expenses.length, errors, byAccount, zeroOut };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.startsWith("bridge_not_returning_data")) return { ok: false as const, error: "bridge_not_returning_data", detail: msg };
@@ -235,12 +258,14 @@ export const intercoRechargeRouter = createRouter({
       }
       if (!cpId) return { ok: false as const, error: "counterparty_not_found", detail: `No client matched "${counterpartyName}".` };
 
-      // pull expenses + build to get the subtotal
+      // pull expenses + build to get the subtotal + per-account rollup (for zero-out)
       const cr = await getConnectionForClient(input.payerClientId);
       if ("error" in cr) return { ok: false as const, error: `payer: ${cr.error}` };
       let subtotal = 0;
+      let breakdown: { accountId: string; accountName: string; net: number }[] = [];
       try {
-        const { expenses } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+        const { expenses, byAccount } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+        breakdown = byAccount;
         const draft = buildRecharge({
           periodLabel: input.periodLabel || `${input.startDate} → ${input.endDate}`,
           payerName: input.payerName, counterpartyName, revenueAccount, expenseAccount,
@@ -254,12 +279,17 @@ export const intercoRechargeRouter = createRouter({
       }
       if (!(subtotal > 0)) return { ok: false as const, error: "nothing_to_post", detail: "No expenses found for this period." };
 
+      // ZERO-OUT (default on, e.g. Alderson): the invoice credits the SAME expense
+      // accounts so the payer's expenses + HST both net to $0. Config can turn it off.
+      const zeroOut = num((cfg as any).zeroOutExpenses ?? 1) !== 0;
+
       return await postRecharge({
         payerClientId: input.payerClientId, counterpartyClientId: cpId,
         payerName: input.payerName, counterpartyName,
         revenueAccount, expenseAccount,
         hstRatePct: input.hstRatePct, chargeHst: input.chargeHst,
         subtotal, periodLabel: input.periodLabel || `${input.startDate} → ${input.endDate}`,
+        zeroOut, expenseBreakdown: breakdown,
       });
     }),
 
