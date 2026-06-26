@@ -169,8 +169,8 @@ function getStatusCodeFromKey(code) {
   return (_JSONRPC2_TO_HTTP_COD = JSONRPC2_TO_HTTP_CODE[code]) !== null && _JSONRPC2_TO_HTTP_COD !== void 0 ? _JSONRPC2_TO_HTTP_COD : 500;
 }
 function getHTTPStatusCode(json2) {
-  const arr2 = Array.isArray(json2) ? json2 : [json2];
-  const httpStatuses = new Set(arr2.map((res) => {
+  const arr3 = Array.isArray(json2) ? json2 : [json2];
+  const httpStatuses = new Set(arr3.map((res) => {
     if ("error" in res && isObject(res.error.data)) {
       var _res$error$data;
       if (typeof ((_res$error$data = res.error.data) === null || _res$error$data === void 0 ? void 0 : _res$error$data["httpStatus"]) === "number") return res.error.data["httpStatus"];
@@ -15368,8 +15368,8 @@ function find(record2, predicate) {
 function forEach(record2, run3) {
   Object.entries(record2).forEach(([key10, value]) => run3(value, key10));
 }
-function includes(arr2, value) {
-  return arr2.indexOf(value) !== -1;
+function includes(arr3, value) {
+  return arr3.indexOf(value) !== -1;
 }
 function findArr(record2, predicate) {
   for (let i = 0; i < record2.length; i++) {
@@ -26840,26 +26840,26 @@ var require_permessage_deflate = __commonJS({
             value = value[0];
             if (key10 === "client_max_window_bits") {
               if (value !== true) {
-                const num4 = +value;
-                if (!Number.isInteger(num4) || num4 < 8 || num4 > 15) {
+                const num5 = +value;
+                if (!Number.isInteger(num5) || num5 < 8 || num5 > 15) {
                   throw new TypeError(
                     `Invalid value for parameter "${key10}": ${value}`
                   );
                 }
-                value = num4;
+                value = num5;
               } else if (!this._isServer) {
                 throw new TypeError(
                   `Invalid value for parameter "${key10}": ${value}`
                 );
               }
             } else if (key10 === "server_max_window_bits") {
-              const num4 = +value;
-              if (!Number.isInteger(num4) || num4 < 8 || num4 > 15) {
+              const num5 = +value;
+              if (!Number.isInteger(num5) || num5 < 8 || num5 > 15) {
                 throw new TypeError(
                   `Invalid value for parameter "${key10}": ${value}`
                 );
               }
-              value = num4;
+              value = num5;
             } else if (key10 === "client_no_context_takeover" || key10 === "server_no_context_takeover") {
               if (value !== true) {
                 throw new TypeError(
@@ -27554,8 +27554,8 @@ var require_receiver = __commonJS({
           return;
         }
         const buf = this.consume(8);
-        const num4 = buf.readUInt32BE(0);
-        if (num4 > Math.pow(2, 53 - 32) - 1) {
+        const num5 = buf.readUInt32BE(0);
+        if (num5 > Math.pow(2, 53 - 32) - 1) {
           const error48 = this.createError(
             RangeError,
             "Unsupported WebSocket frame: payload length > 2^53 - 1",
@@ -27566,7 +27566,7 @@ var require_receiver = __commonJS({
           cb(error48);
           return;
         }
-        this._payloadLength = num4 * Math.pow(2, 32) + buf.readUInt32BE(4);
+        this._payloadLength = num5 * Math.pow(2, 32) + buf.readUInt32BE(4);
         this.haveLength(cb);
       }
       /**
@@ -30752,11 +30752,11 @@ function valueFromProto(value, intMode) {
     return value;
   } else if (typeof value === "bigint") {
     if (intMode === "number") {
-      const num4 = Number(value);
-      if (!Number.isSafeInteger(num4)) {
+      const num5 = Number(value);
+      if (!Number.isSafeInteger(num5)) {
         throw new RangeError("Received integer which is too large to be safely represented as a JavaScript number");
       }
-      return num4;
+      return num5;
     } else if (intMode === "bigint") {
       return value;
     } else if (intMode === "string") {
@@ -42933,7 +42933,7 @@ function statHolidaysInRange(startISO, endISO) {
   const years = /* @__PURE__ */ new Set([Number(startISO.slice(0, 4)), Number(endISO.slice(0, 4))]);
   const all = [];
   for (const y of years) if (Number.isFinite(y)) all.push(...ontarioStatHolidays(y));
-  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr2) => idx === 0 || h.date !== arr2[idx - 1].date);
+  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr3) => idx === 0 || h.date !== arr3[idx - 1].date);
 }
 function statHolidaysObservedInRange(startISO, endISO) {
   return statHolidaysInRange(startISO, endISO).map((h) => {
@@ -45728,7 +45728,7 @@ function clientAppsList(onb) {
   return a;
 }
 function buildScopeForClient(client, onb) {
-  const num4 = (...vals) => {
+  const num5 = (...vals) => {
     for (const v of vals) {
       const n = Number(v);
       if (Number.isFinite(n) && n > 0) return n;
@@ -45738,14 +45738,14 @@ function buildScopeForClient(client, onb) {
   const bool = (...vals) => vals.some((v) => v === true || v === 1);
   const salesPlatformCount = onb ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro, onb.usesPayPal].filter((v) => v === true || v === 1).length : 0;
   return {
-    avgMonthlyTransactions: num4(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
+    avgMonthlyTransactions: num5(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
     bookkeepingFrequency: onb?.bookkeepingFrequency ?? "monthly",
-    bankAccountCount: num4(onb?.bankAccountCount) || 1,
-    creditCardCount: num4(onb?.creditCardCount),
+    bankAccountCount: num5(onb?.bankAccountCount) || 1,
+    creditCardCount: num5(onb?.creditCardCount),
     hasHST: bool(client?.hasHST, onb?.hstGstFrequency && onb.hstGstFrequency !== "none"),
     hstPeriod: normalizeHstPeriod(client?.hstPeriod, onb?.hstGstFrequency),
     hasPayroll: bool(client?.hasPayroll, onb?.hasEmployees, onb?.payrollFrequency && onb.payrollFrequency !== "none"),
-    employeeCount: num4(onb?.employeeCount),
+    employeeCount: num5(onb?.employeeCount),
     payrollFrequency: normalizePayrollFreq(onb?.payrollFrequency, client?.payrollFrequency),
     payrollRemitterFreq: client?.payrollRemitterFreq ?? "regular",
     hasWSIB: bool(client?.hasWSIB, onb?.wsibRequired),
@@ -45758,7 +45758,7 @@ function buildScopeForClient(client, onb) {
     invoicingByUs: onb?.invoicingResponsibility === "we_invoice",
     billPayByUs: onb?.billPayResponsibility === "we_pay",
     hasJobCosting: bool(onb?.hasJobCosting),
-    monthsBehind: num4(onb?.monthsBehind),
+    monthsBehind: num5(onb?.monthsBehind),
     qboSoftwareTier: onb?.qboSoftwareTier ?? "none",
     qboSoftwareWholesale: bool(onb?.qboSoftwareWholesale),
     qboPayrollWholesale: bool(onb?.qboPayrollWholesale)
@@ -46405,6 +46405,249 @@ var init_qbo_poster = __esm({
       "193514710535449"
       // Ovita Holdings Inc
     ]);
+  }
+});
+
+// api/interco-recharge-core.ts
+function round26(n) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+function buildRecharge(input) {
+  const rate = input.chargeHst ? (input.hstRatePct || 0) / 100 : 0;
+  const lines2 = (input.expenses || []).filter((e) => e && Number.isFinite(e.net)).map((e) => ({
+    description: e.description || "Recharged cost",
+    account: input.revenueAccount,
+    amount: round26(e.net),
+    sourceRef: e.sourceRef
+  }));
+  const subtotal = round26(lines2.reduce((s, l) => s + l.amount, 0));
+  const hst = round26(subtotal * rate);
+  const total = round26(subtotal + hst);
+  const invoice = {
+    type: "invoice",
+    party: input.counterpartyName,
+    // billed customer
+    account: input.revenueAccount,
+    lines: lines2,
+    subtotal,
+    hst,
+    total
+  };
+  const bill = {
+    type: "bill",
+    party: input.payerName,
+    // vendor
+    account: input.expenseAccount,
+    lines: lines2.map((l) => ({ ...l, account: input.expenseAccount })),
+    subtotal,
+    hst,
+    total
+  };
+  const errors = [];
+  if (lines2.length === 0) errors.push("No expense lines to recharge.");
+  if (lines2.some((l) => l.amount < 0)) errors.push("One or more expense lines are negative \u2014 review before recharging.");
+  if (!input.revenueAccount) errors.push("Missing payer-side revenue account.");
+  if (!input.expenseAccount) errors.push("Missing counterparty-side expense account.");
+  if (round26(invoice.total) !== round26(bill.total)) errors.push("Invoice total does not equal mirror-bill total.");
+  return {
+    periodLabel: input.periodLabel,
+    hstRatePct: input.hstRatePct,
+    chargeHst: input.chargeHst,
+    invoice,
+    bill,
+    validation: { ok: errors.length === 0, errors }
+  };
+}
+var init_interco_recharge_core = __esm({
+  "api/interco-recharge-core.ts"() {
+  }
+});
+
+// api/interco-recharge-router.ts
+async function ensureRechargeSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS interco_recharge_config (
+      payerClientId INTEGER PRIMARY KEY,
+      counterpartyName TEXT,
+      revenueAccount TEXT,
+      expenseAccount TEXT,
+      clearingAccount TEXT,
+      hstRatePct REAL DEFAULT 13,
+      chargeHst INTEGER DEFAULT 1,
+      updatedAt INTEGER
+    )`);
+    try {
+      await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN clearingAccount TEXT`);
+    } catch {
+    }
+    await db.run(sql`CREATE TABLE IF NOT EXISTS interco_recharge_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payerClientId INTEGER NOT NULL,
+      periodLabel TEXT NOT NULL,
+      periodStart TEXT, periodEnd TEXT,
+      subtotal REAL, hst REAL, total REAL,
+      reconciled INTEGER DEFAULT 0,
+      reconciledAt INTEGER,
+      invoiceRef TEXT, billRef TEXT,
+      notes TEXT,
+      createdAt INTEGER
+    )`);
+  } catch (e) {
+    console.error("[interco-recharge] ensure schema failed:", e instanceof Error ? e.message : e);
+  }
+}
+async function pullExpenses(conn, start, end) {
+  const range = `TxnDate >= '${start}' AND TxnDate <= '${end}'`;
+  const expenses = [];
+  const errors = [];
+  const q2 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
+  const pull = async (entity) => {
+    try {
+      for (const e of arr(await q2(`SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) {
+        const docRef = e.DocNumber ? `${entity} ${e.DocNumber}` : `${entity} ${e.Id}`;
+        for (const l of e.Line ?? []) {
+          const d10 = l.AccountBasedExpenseLineDetail;
+          if (!d10) continue;
+          expenses.push({
+            description: `${d10.AccountRef?.name || "Expense"}${e.EntityRef?.name ? ` \u2014 ${e.EntityRef.name}` : ""} (${String(e.TxnDate || "").slice(0, 10)})`,
+            net: num2(l.Amount),
+            sourceRef: docRef
+          });
+        }
+      }
+    } catch (e2) {
+      const msg = e2 instanceof Error ? e2.message : String(e2);
+      if (/async ack|non-JSON|Make bridge/i.test(msg)) throw new Error("bridge_not_returning_data:" + msg);
+      errors.push(`${entity}: ${msg}`);
+    }
+  };
+  await pull("Purchase");
+  await pull("Bill");
+  return { expenses, errors };
+}
+var num2, arr, intercoRechargeRouter;
+var init_interco_recharge_router = __esm({
+  "api/interco-recharge-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_drizzle_orm();
+    init_qbo_router();
+    init_qbo_vendor_brain();
+    init_interco_recharge_core();
+    num2 = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+    arr = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+    intercoRechargeRouter = createRouter({
+      getConfig: staffQuery.input(external_exports.object({ payerClientId: external_exports.number() })).query(async ({ input }) => {
+        await ensureRechargeSchema();
+        const db = getDb();
+        const row = await db.run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`);
+        const r = (row?.rows ?? row ?? [])[0];
+        if (!r) return null;
+        return {
+          payerClientId: input.payerClientId,
+          counterpartyName: r.counterpartyName,
+          revenueAccount: r.revenueAccount,
+          expenseAccount: r.expenseAccount,
+          clearingAccount: r.clearingAccount || "",
+          hstRatePct: num2(r.hstRatePct) || 13,
+          chargeHst: num2(r.chargeHst) !== 0
+        };
+      }),
+      setConfig: staffQuery.input(external_exports.object({
+        payerClientId: external_exports.number(),
+        counterpartyName: external_exports.string(),
+        revenueAccount: external_exports.string(),
+        expenseAccount: external_exports.string(),
+        clearingAccount: external_exports.string().default(""),
+        hstRatePct: external_exports.number().default(13),
+        chargeHst: external_exports.boolean().default(true)
+      })).mutation(async ({ input }) => {
+        await ensureRechargeSchema();
+        const db = getDb();
+        await db.run(sql`INSERT INTO interco_recharge_config
+        (payerClientId, counterpartyName, revenueAccount, expenseAccount, clearingAccount, hstRatePct, chargeHst, updatedAt)
+        VALUES (${input.payerClientId}, ${input.counterpartyName}, ${input.revenueAccount}, ${input.expenseAccount}, ${input.clearingAccount}, ${input.hstRatePct}, ${input.chargeHst ? 1 : 0}, ${Date.now()})
+        ON CONFLICT(payerClientId) DO UPDATE SET
+          counterpartyName=${input.counterpartyName}, revenueAccount=${input.revenueAccount},
+          expenseAccount=${input.expenseAccount}, clearingAccount=${input.clearingAccount},
+          hstRatePct=${input.hstRatePct}, chargeHst=${input.chargeHst ? 1 : 0}, updatedAt=${Date.now()}`);
+        return { ok: true };
+      }),
+      /** Pull the payer's expenses for the period and build the DRAFT recharge. Read-only. */
+      preview: staffQuery.input(external_exports.object({
+        payerClientId: external_exports.number(),
+        payerName: external_exports.string(),
+        counterpartyName: external_exports.string(),
+        revenueAccount: external_exports.string(),
+        expenseAccount: external_exports.string(),
+        hstRatePct: external_exports.number().default(13),
+        chargeHst: external_exports.boolean().default(true),
+        startDate: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        endDate: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        periodLabel: external_exports.string().default("")
+      })).mutation(async ({ input }) => {
+        const cr = await getConnectionForClient(input.payerClientId);
+        if ("error" in cr) return { ok: false, error: cr.error };
+        try {
+          const { expenses, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+          const draft = buildRecharge({
+            periodLabel: input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`,
+            payerName: input.payerName,
+            counterpartyName: input.counterpartyName,
+            revenueAccount: input.revenueAccount,
+            expenseAccount: input.expenseAccount,
+            hstRatePct: input.hstRatePct,
+            chargeHst: input.chargeHst,
+            expenses
+          });
+          return { ok: true, draft, pulled: expenses.length, errors };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (msg.startsWith("bridge_not_returning_data")) return { ok: false, error: "bridge_not_returning_data", detail: msg };
+          return { ok: false, error: msg };
+        }
+      }),
+      /** The quarter-by-quarter reconcile log for a payer. */
+      log: staffQuery.input(external_exports.object({ payerClientId: external_exports.number() })).query(async ({ input }) => {
+        await ensureRechargeSchema();
+        const db = getDb();
+        const rows = await db.run(sql`SELECT * FROM interco_recharge_log WHERE payerClientId=${input.payerClientId} ORDER BY id DESC LIMIT 24`);
+        return rows?.rows ?? rows ?? [];
+      }),
+      /** Record a quarter's recharge (and whether it's been reconciled to zero). */
+      recordPeriod: staffQuery.input(external_exports.object({
+        payerClientId: external_exports.number(),
+        periodLabel: external_exports.string(),
+        periodStart: external_exports.string().optional(),
+        periodEnd: external_exports.string().optional(),
+        subtotal: external_exports.number(),
+        hst: external_exports.number(),
+        total: external_exports.number(),
+        reconciled: external_exports.boolean().default(false),
+        invoiceRef: external_exports.string().optional(),
+        billRef: external_exports.string().optional(),
+        notes: external_exports.string().optional()
+      })).mutation(async ({ input }) => {
+        await ensureRechargeSchema();
+        const db = getDb();
+        await db.run(sql`INSERT INTO interco_recharge_log
+        (payerClientId, periodLabel, periodStart, periodEnd, subtotal, hst, total, reconciled, reconciledAt, invoiceRef, billRef, notes, createdAt)
+        VALUES (${input.payerClientId}, ${input.periodLabel}, ${input.periodStart ?? null}, ${input.periodEnd ?? null},
+          ${input.subtotal}, ${input.hst}, ${input.total}, ${input.reconciled ? 1 : 0},
+          ${input.reconciled ? Date.now() : null}, ${input.invoiceRef ?? null}, ${input.billRef ?? null}, ${input.notes ?? null}, ${Date.now()})`);
+        return { ok: true };
+      }),
+      markReconciled: staffQuery.input(external_exports.object({ id: external_exports.number(), reconciled: external_exports.boolean() })).mutation(async ({ input }) => {
+        const db = getDb();
+        await db.run(sql`UPDATE interco_recharge_log SET reconciled=${input.reconciled ? 1 : 0}, reconciledAt=${input.reconciled ? Date.now() : null} WHERE id=${input.id}`);
+        return { ok: true };
+      })
+    });
   }
 });
 
@@ -47215,7 +47458,7 @@ var init_utils3 = __esm({
       let out = "";
       for (let j = 0; j < string5.length; j += limit) {
         const segment = string5.length >= limit ? string5.slice(j, j + limit) : string5;
-        const arr2 = [];
+        const arr3 = [];
         for (let i = 0; i < segment.length; ++i) {
           let c = segment.charCodeAt(i);
           if (c === 45 || // -
@@ -47226,26 +47469,26 @@ var init_utils3 = __esm({
           c >= 65 && c <= 90 || // a-z
           c >= 97 && c <= 122 || // A-Z
           format === RFC1738 && (c === 40 || c === 41)) {
-            arr2[arr2.length] = segment.charAt(i);
+            arr3[arr3.length] = segment.charAt(i);
             continue;
           }
           if (c < 128) {
-            arr2[arr2.length] = hex_table[c];
+            arr3[arr3.length] = hex_table[c];
             continue;
           }
           if (c < 2048) {
-            arr2[arr2.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
+            arr3[arr3.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
             continue;
           }
           if (c < 55296 || c >= 57344) {
-            arr2[arr2.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+            arr3[arr3.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
             continue;
           }
           i += 1;
           c = 65536 + ((c & 1023) << 10 | segment.charCodeAt(i) & 1023);
-          arr2[arr2.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+          arr3[arr3.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
         }
-        out += arr2.join("");
+        out += arr3.join("");
       }
       return out;
     };
@@ -47508,8 +47751,8 @@ var init_stringify = __esm({
         return String(prefix);
       }
     };
-    push_to_array = function(arr2, value_or_array) {
-      Array.prototype.push.apply(arr2, isArray3(value_or_array) ? value_or_array : [value_or_array]);
+    push_to_array = function(arr3, value_or_array) {
+      Array.prototype.push.apply(arr3, isArray3(value_or_array) ? value_or_array : [value_or_array]);
     };
     defaults = {
       addQueryPrefix: false,
@@ -50684,12 +50927,12 @@ var require_sha256 = __commonJS({
       }
       exports2.hmac = hmac;
       function fillBuffer(buffer, hmac2, info, counter) {
-        var num4 = counter[0];
-        if (num4 === 0) {
+        var num5 = counter[0];
+        if (num5 === 0) {
           throw new Error("hkdf: cannot expand more");
         }
         hmac2.reset();
-        if (num4 > 1) {
+        if (num5 > 1) {
           hmac2.update(buffer);
         }
         if (info) {
@@ -60009,9 +60252,9 @@ function parseScanFindings(text2) {
   } catch {
     return [];
   }
-  const arr2 = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
+  const arr3 = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
   const out = [];
-  for (const f of arr2) {
+  for (const f of arr3) {
     const subjectName = String(f?.subjectName || f?.name || "").trim();
     const claim = String(f?.claim || "").trim();
     if (!subjectName || !claim) continue;
@@ -60303,7 +60546,7 @@ async function seedCollingwoodRunHours() {
       const k = key(e.firstName, e.lastName);
       const patch = {};
       if ((e.payType || "") === "salary") {
-        const g = round210((e.annualSalary || 0) / PERIODS_PER_YEAR);
+        const g = round211((e.annualSalary || 0) / PERIODS_PER_YEAR);
         if (g > 0 && (l.grossPay ?? 0) === 0) patch.grossPay = g;
       } else if (k in HOURS) {
         const target = HOURS[k];
@@ -60313,7 +60556,7 @@ async function seedCollingwoodRunHours() {
           filled++;
         }
         const rate = e.hourlyRate ?? 0;
-        const g = round210(reg * rate);
+        const g = round211(reg * rate);
         if (g !== (l.grossPay ?? 0)) patch.grossPay = g;
       }
       const entitled = !PHONE_EXEMPT_LAST2.includes(norm9(e.lastName));
@@ -60328,7 +60571,7 @@ async function seedCollingwoodRunHours() {
       }
     }
     const fresh = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, draft.id));
-    const totalGross = round210(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
+    const totalGross = round211(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
     await db.update(payRuns).set({ totalGross, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, draft.id));
     if (filled || phoneSet) console.log(`[seed-collingwood-run] run ${draft.id}: filled ${filled} hours, set ${phoneSet} phone`);
     return { run: draft.id, filled, phoneSet, skipped: "" };
@@ -60336,7 +60579,7 @@ async function seedCollingwoodRunHours() {
     console.error("[seed-collingwood-run] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID2, PHONE, round210, norm9, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
+var CLIENT_ID2, PHONE, round211, norm9, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
 var init_seed_collingwood_run_hours = __esm({
   "api/seed-collingwood-run-hours.ts"() {
     init_connection();
@@ -60344,7 +60587,7 @@ var init_seed_collingwood_run_hours = __esm({
     init_drizzle_orm();
     CLIENT_ID2 = 7;
     PHONE = 23.08;
-    round210 = (n) => Math.round(n * 100) / 100;
+    round211 = (n) => Math.round(n * 100) / 100;
     norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key = (first, last) => `${norm9(last)}|${norm9(first)}`;
     HOURS = {
@@ -60463,9 +60706,9 @@ async function ensurePayrollReminders() {
       if (!dueClients.length) continue;
       for (const c of dueClients) {
         correctKeys.add(`${c.id}|${run3.runISO}`);
-        const arr2 = scheduled.get(run3.runISO) || [];
-        arr2.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
-        scheduled.set(run3.runISO, arr2);
+        const arr3 = scheduled.get(run3.runISO) || [];
+        arr3.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
+        scheduled.set(run3.runISO, arr3);
       }
     }
     let tasksRemoved = 0;
@@ -60621,7 +60864,7 @@ async function backfillSherPayroll() {
         const emp = empByKey.get(k);
         if (!emp) continue;
         const ln = p.lines[k];
-        const gross = round211(ln?.gross ?? 0);
+        const gross = round212(ln?.gross ?? 0);
         totalGross += gross;
         await db.insert(payRunLines).values({
           payRunId: run3.id,
@@ -60630,7 +60873,7 @@ async function backfillSherPayroll() {
           grossPay: gross
         });
       }
-      await db.update(payRuns).set({ totalGross: round211(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round212(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[sher-backfill] added ${runsAdded} run(s)`);
@@ -60639,13 +60882,13 @@ async function backfillSherPayroll() {
     console.error("[sher-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round211, norm10, key2, d, ROSTER2, PERIODS;
+var round212, norm10, key2, d, ROSTER2, PERIODS;
 var init_seed_sher_backfill = __esm({
   "api/seed-sher-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round211 = (n) => Math.round(n * 100) / 100;
+    round212 = (n) => Math.round(n * 100) / 100;
     norm10 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key2 = (first, last) => `${norm10(last)}|${norm10(first)}`;
     d = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -60830,11 +61073,11 @@ async function backfillOwenSoundPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp || have.has(emp.id)) continue;
-        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: round212(v.gross) });
+        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: round213(v.gross) });
         linesAdded++;
       }
       const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run3.id));
-      const tg = round212(lines2.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
+      const tg = round213(lines2.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
       await db.update(payRuns).set({ totalGross: tg, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
     }
     if (runsAdded || linesAdded) console.log(`[os-backfill] added ${runsAdded} run(s), ${linesAdded} line(s)`);
@@ -60843,13 +61086,13 @@ async function backfillOwenSoundPayroll() {
     console.error("[os-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round212, norm11, key3, d2, ROSTER3, PERIODS2;
+var round213, norm11, key3, d2, ROSTER3, PERIODS2;
 var init_seed_os_backfill = __esm({
   "api/seed-os-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round212 = (n) => Math.round(n * 100) / 100;
+    round213 = (n) => Math.round(n * 100) / 100;
     norm11 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key3 = (first, last) => `${norm11(last)}|${norm11(first)}`;
     d2 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -61057,11 +61300,11 @@ async function backfillCollingwoodPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round213(v.gross);
+        const gross = round214(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round213(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round214(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[cw-backfill] added ${runsAdded} run(s)`);
@@ -61070,14 +61313,14 @@ async function backfillCollingwoodPayroll() {
     console.error("[cw-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID3, round213, norm12, key4, d3, ROSTER4, PERIODS3;
+var CLIENT_ID3, round214, norm12, key4, d3, ROSTER4, PERIODS3;
 var init_seed_collingwood_backfill = __esm({
   "api/seed-collingwood-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     CLIENT_ID3 = 7;
-    round213 = (n) => Math.round(n * 100) / 100;
+    round214 = (n) => Math.round(n * 100) / 100;
     norm12 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key4 = (first, last) => `${norm12(last)}|${norm12(first)}`;
     d3 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -61318,11 +61561,11 @@ async function backfillAuldPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round214(v.gross);
+        const gross = round215(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round214(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round215(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[auld-backfill] added ${runsAdded} run(s)`);
@@ -61331,13 +61574,13 @@ async function backfillAuldPayroll() {
     console.error("[auld-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round214, norm13, key5, d4, ROSTER5, PERIODS4;
+var round215, norm13, key5, d4, ROSTER5, PERIODS4;
 var init_seed_auld_backfill = __esm({
   "api/seed-auld-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round214 = (n) => Math.round(n * 100) / 100;
+    round215 = (n) => Math.round(n * 100) / 100;
     norm13 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key5 = (first, last) => `${norm13(last)}|${norm13(first)}`;
     d4 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -61624,11 +61867,11 @@ async function backfillOriginalityPayroll() {
         for (const [k, v] of Object.entries(p.lines)) {
           const emp = empByKey.get(k);
           if (!emp) continue;
-          const gross = round215(v.gross);
+          const gross = round216(v.gross);
           totalGross += gross;
           await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
         }
-        await db.update(payRuns).set({ totalGross: round215(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+        await db.update(payRuns).set({ totalGross: round216(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
         runsAdded++;
       }
     };
@@ -61640,13 +61883,13 @@ async function backfillOriginalityPayroll() {
     console.error("[og-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round215, norm14, key6, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
+var round216, norm14, key6, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
 var init_seed_originality_backfill = __esm({
   "api/seed-originality-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round215 = (n) => Math.round(n * 100) / 100;
+    round216 = (n) => Math.round(n * 100) / 100;
     norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key6 = (first, last) => `${norm14(last)}|${norm14(first)}`;
     d5 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -61874,7 +62117,7 @@ async function backfill2303851Payroll() {
     let runsAdded = 0;
     for (const p of PERIODS5) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
-      const gross = round216(p.gross);
+      const gross = round217(p.gross);
       const [run3] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d6(p.start),
@@ -61898,19 +62141,19 @@ async function backfill2303851Payroll() {
     console.error("[2303851-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round216, norm15, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
+var round217, norm15, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
 var init_seed_2303851_backfill = __esm({
   "api/seed-2303851-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round216 = (n) => Math.round(n * 100) / 100;
+    round217 = (n) => Math.round(n * 100) / 100;
     norm15 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key7 = (first, last) => `${norm15(last)}|${norm15(first)}`;
     d6 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     EMP = { first: "Stacey", last: "Gillham" };
     MONTHLY = 8333.33;
-    HALF = round216(MONTHLY / 2);
+    HALF = round217(MONTHLY / 2);
     PERIODS5 = [
       { payDate: "2026-01-31", start: "2026-01-01", end: "2026-01-31", gross: MONTHLY },
       { payDate: "2026-02-28", start: "2026-02-01", end: "2026-02-28", gross: MONTHLY },
@@ -61977,8 +62220,8 @@ async function backfillFractalPayroll() {
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       if (!run3) continue;
-      await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: round217(MONTHLY2) });
-      await db.update(payRuns).set({ totalGross: round217(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: round218(MONTHLY2) });
+      await db.update(payRuns).set({ totalGross: round218(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[fractal-backfill] added ${runsAdded} run(s)`);
@@ -61987,13 +62230,13 @@ async function backfillFractalPayroll() {
     console.error("[fractal-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round217, norm16, d7, MONTHLY2, PERIODS6;
+var round218, norm16, d7, MONTHLY2, PERIODS6;
 var init_seed_fractal_backfill = __esm({
   "api/seed-fractal-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round217 = (n) => Math.round(n * 100) / 100;
+    round218 = (n) => Math.round(n * 100) / 100;
     norm16 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     d7 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     MONTHLY2 = 4500;
@@ -62069,11 +62312,11 @@ async function backfillMotionInvestPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round218(v.gross);
+        const gross = round219(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round218(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round219(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[motioninvest-backfill] added ${runsAdded} run(s)`);
@@ -62082,13 +62325,13 @@ async function backfillMotionInvestPayroll() {
     console.error("[motioninvest-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round218, norm17, key8, d8, ROSTER7, PERIODS7;
+var round219, norm17, key8, d8, ROSTER7, PERIODS7;
 var init_seed_motioninvest_backfill = __esm({
   "api/seed-motioninvest-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round218 = (n) => Math.round(n * 100) / 100;
+    round219 = (n) => Math.round(n * 100) / 100;
     norm17 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key8 = (first, last) => `${norm17(last)}|${norm17(first)}`;
     d8 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -62152,16 +62395,16 @@ async function backfillMotionInvestRevShare() {
     let cumNet = 0;
     const paidByKey = /* @__PURE__ */ new Map();
     for (const q2 of QUARTERS) {
-      cumNet = round219(cumNet + q2.netProfit);
+      cumNet = round220(cumNet + q2.netProfit);
       const note = `Revenue share bonus (${q2.label})`;
       const due = d9(q2.payDate) <= now;
       const exists2 = allRuns.some((r) => (r.notes || "") === note);
       const lines2 = [];
       for (const s of SHARERS) {
         const k = key9(s.first, s.last);
-        const earned = round219(cumNet * s.pct);
+        const earned = round220(cumNet * s.pct);
         const prior = paidByKey.get(k) || 0;
-        const payout = round219(Math.max(0, earned - prior));
+        const payout = round220(Math.max(0, earned - prior));
         paidByKey.set(k, prior + payout);
         const emp = empByKey.get(k);
         if (emp && payout > 0) lines2.push({ emp, amount: payout });
@@ -62185,7 +62428,7 @@ async function backfillMotionInvestRevShare() {
         totalGross += ln.amount;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: ln.emp.id, regularHours: 0, grossPay: ln.amount });
       }
-      await db.update(payRuns).set({ totalGross: round219(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round220(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[mi-revshare] added ${runsAdded} quarterly run(s)`);
@@ -62194,13 +62437,13 @@ async function backfillMotionInvestRevShare() {
     console.error("[mi-revshare] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round219, norm18, key9, d9, SHARERS, QUARTERS;
+var round220, norm18, key9, d9, SHARERS, QUARTERS;
 var init_seed_motioninvest_revshare = __esm({
   "api/seed-motioninvest-revshare.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round219 = (n) => Math.round(n * 100) / 100;
+    round220 = (n) => Math.round(n * 100) / 100;
     norm18 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key9 = (first, last) => `${norm18(last)}|${norm18(first)}`;
     d9 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -63313,6 +63556,90 @@ var init_seed_rocco_hst = __esm({
   }
 });
 
+// api/seed-alderson-recharge.ts
+var seed_alderson_recharge_exports = {};
+__export(seed_alderson_recharge_exports, {
+  seedAldersonRecharge: () => seedAldersonRecharge
+});
+function localNoon2(y, m1, d10) {
+  return new Date(y, m1 - 1, d10, 12, 0, 0);
+}
+async function seedAldersonRecharge() {
+  const db = getDb();
+  try {
+    await ensureRechargeSchema();
+    const owner = await db.all(sql`SELECT id FROM users WHERE role='admin' ORDER BY id ASC LIMIT 1`);
+    const fb = owner[0] ? owner : await db.all(sql`SELECT id FROM users ORDER BY id ASC LIMIT 1`);
+    const uid = fb[0]?.id;
+    if (!uid) return;
+    const cl = await db.all(sql`SELECT id FROM clients WHERE lower(name) LIKE '%alderson%' OR lower(company) LIKE '%alderson%' ORDER BY id ASC LIMIT 1`);
+    const clientId = cl[0]?.id;
+    if (!clientId) {
+      console.warn("[alderson-recharge] no Alderson client \u2014 skipping");
+      return;
+    }
+    await db.run(sql`INSERT INTO interco_recharge_config
+      (payerClientId, counterpartyName, revenueAccount, expenseAccount, clearingAccount, hstRatePct, chargeHst, updatedAt)
+      VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Alderson Development clearing account', 13, 1, ${Date.now()})
+      ON CONFLICT(payerClientId) DO UPDATE SET
+        counterpartyName='Ovita Holdings Inc.', revenueAccount='Sales',
+        expenseAccount='Alderson Project Management Costs',
+        clearingAccount='Alderson Development clearing account', hstRatePct=13, chargeHst=1, updatedAt=${Date.now()}`);
+    const existing = await db.all(sql`SELECT id FROM client_task_rules WHERE clientId=${clientId} AND title=${RULE_TITLE2} LIMIT 1`);
+    if (existing.length) {
+      await db.run(sql`UPDATE client_task_rules SET description=${DESCRIPTION2} WHERE id=${existing[0].id}`);
+      return;
+    }
+    const firstDue = localNoon2(2026, 6, 30);
+    const [rule] = await db.insert(clientTaskRules).values({
+      clientId,
+      userId: uid,
+      title: RULE_TITLE2,
+      description: DESCRIPTION2,
+      category: "Bookkeeping",
+      priority: "high",
+      assignedTo: "Fig",
+      ruleType: "custom",
+      frequency: "quarterly",
+      dueDayOfMonth: 30,
+      daysBeforeDue: 0,
+      active: true,
+      nextDueDate: firstDue
+    }).returning();
+    const ruleId = rule?.id;
+    await db.insert(tasks).values({
+      userId: uid,
+      clientId,
+      title: RULE_TITLE2,
+      description: DESCRIPTION2,
+      dueDate: firstDue,
+      startDate: firstDue,
+      category: "Bookkeeping",
+      priority: "high",
+      assignedTo: "Fig",
+      status: "pending",
+      completed: false,
+      ruleId: ruleId ?? null,
+      isRecurring: true,
+      recurrenceCount: 1
+    });
+    console.log(`[alderson-recharge] seeded config + quarterly recharge/reconcile task (client ${clientId}, rule ${ruleId})`);
+  } catch (e) {
+    console.error("[alderson-recharge] seedAldersonRecharge failed:", e instanceof Error ? e.message : e);
+  }
+}
+var RULE_TITLE2, DESCRIPTION2;
+var init_seed_alderson_recharge = __esm({
+  "api/seed-alderson-recharge.ts"() {
+    init_connection();
+    init_drizzle_orm();
+    init_schema();
+    init_interco_recharge_router();
+    RULE_TITLE2 = "Inter-company recharge + reconcile: Alderson \u2192 Ovita Holdings (fiscal quarter)";
+    DESCRIPTION2 = "Generate the inter-company recharge for the fiscal quarter just ended: pull Alderson's project expenses, build the invoice Alderson \u2192 Ovita Holdings for those costs + 13% HST (revenue \u2192 Sales; Holdings expense \u2192 Alderson Project Management Costs), post both sides on approval, then RECONCILE the intercompany balance to zero against the counterparty. Settlement: Holdings' payment lands in the 'Alderson Development clearing account' as a TRANSFER on Alderson's side \u2014 reconcile that clearing account to zero each quarter. Tool: Inter-Company \u2192 Recharge generator (drafts only; nothing posts without review).";
+  }
+});
+
 // api/ensure-genealogy-schema.ts
 var ensure_genealogy_schema_exports = {};
 __export(ensure_genealogy_schema_exports, {
@@ -64274,9 +64601,9 @@ async function dedupClient(clientId, names) {
   const groups = /* @__PURE__ */ new Map();
   for (const e of emps) {
     const k = idKey(e.firstName || "", e.lastName || "");
-    const arr2 = groups.get(k) || [];
-    arr2.push(e);
-    groups.set(k, arr2);
+    const arr3 = groups.get(k) || [];
+    arr3.push(e);
+    groups.set(k, arr3);
   }
   let merged = 0, renamed = 0;
   for (const [k, group] of groups) {
@@ -65183,7 +65510,7 @@ async function dedupeClients(confirm) {
     let cnt = 0;
     for (const m of mapping) {
       try {
-        cnt += num3(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
+        cnt += num4(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
       } catch {
         held.add(m.dupe);
       }
@@ -65205,7 +65532,7 @@ async function dedupeClients(confirm) {
         const cols = asRows(await db.run(sql.raw(`PRAGMA table_info("${t2}")`))).map((c) => String(c.name ?? c[1])).filter((name2) => !["id", "createdAt", "updatedAt"].includes(name2));
         if (cols.length === 0) continue;
         const grp = cols.map((c) => `"${c}"`).join(",");
-        const n = num3(await db.run(sql.raw(
+        const n = num4(await db.run(sql.raw(
           `DELETE FROM "${t2}" WHERE "clientId" IN (${inList}) AND id NOT IN (SELECT MIN(id) FROM "${t2}" WHERE "clientId" IN (${inList}) GROUP BY ${grp})`
         )));
         if (n) report.dedupedRecords[t2] = n;
@@ -65215,14 +65542,14 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm20, asRows, num3;
+var norm20, asRows, num4;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
     norm20 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
-    num3 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
+    num4 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
 });
 
@@ -72984,16 +73311,16 @@ function withResolvers() {
     reject
   };
 }
-function listWithMember(arr2, member) {
-  return [...arr2, member];
+function listWithMember(arr3, member) {
+  return [...arr3, member];
 }
-function listWithoutIndex(arr2, index) {
-  return [...arr2.slice(0, index), ...arr2.slice(index + 1)];
+function listWithoutIndex(arr3, index) {
+  return [...arr3.slice(0, index), ...arr3.slice(index + 1)];
 }
-function listWithoutMember(arr2, member) {
-  const index = arr2.indexOf(member);
-  if (index !== -1) return listWithoutIndex(arr2, index);
-  return arr2;
+function listWithoutMember(arr3, member) {
+  const index = arr3.indexOf(member);
+  if (index !== -1) return listWithoutIndex(arr3, index);
+  return arr3;
 }
 var _Symbol;
 var _Symbol$dispose;
@@ -75275,11 +75602,11 @@ function encodeBase64(input) {
     return input.toBase64();
   }
   const CHUNK_SIZE = 32768;
-  const arr2 = [];
+  const arr3 = [];
   for (let i = 0; i < input.length; i += CHUNK_SIZE) {
-    arr2.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
+    arr3.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
   }
-  return btoa(arr2.join(""));
+  return btoa(arr3.join(""));
 }
 function decodeBase64(encoded) {
   if (Uint8Array.fromBase64) {
@@ -83689,6 +84016,9 @@ var intercoRouter = createRouter({
   })
 });
 
+// api/router.ts
+init_interco_recharge_router();
+
 // api/group-router.ts
 init_zod();
 init_middleware();
@@ -85674,22 +86004,22 @@ var LINE_LABELS = {
   line106: "Line 106 \u2014 Input tax credits",
   line109: "Line 109 \u2014 Net tax"
 };
-function round26(n) {
+function round27(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function sumLines(rows) {
   return rows.reduce(
     (acc, r) => ({
-      line101: round26(acc.line101 + (r.line101 || 0)),
-      line103: round26(acc.line103 + (r.line103 || 0)),
-      line106: round26(acc.line106 + (r.line106 || 0)),
-      line109: round26(acc.line109 + (r.line109 || 0))
+      line101: round27(acc.line101 + (r.line101 || 0)),
+      line103: round27(acc.line103 + (r.line103 || 0)),
+      line106: round27(acc.line106 + (r.line106 || 0)),
+      line109: round27(acc.line109 + (r.line109 || 0))
     }),
     { line101: 0, line103: 0, line106: 0, line109: 0 }
   );
 }
 function netTaxDrift(lines2) {
-  return round26(lines2.line109 - (lines2.line103 - lines2.line106));
+  return round27(lines2.line109 - (lines2.line103 - lines2.line106));
 }
 var DEFAULTS = {
   dollarTolerance: 2,
@@ -85698,11 +86028,11 @@ var DEFAULTS = {
 };
 function compareLines(filed, book, cfg) {
   return LINE_KEYS.map((line) => {
-    const f = round26(filed[line] || 0);
-    const b = round26(book[line] || 0);
-    const variance = round26(b - f);
+    const f = round27(filed[line] || 0);
+    const b = round27(book[line] || 0);
+    const variance = round27(b - f);
     const denom = Math.max(Math.abs(f), Math.abs(b), 1);
-    const variancePct = round26(Math.abs(variance) / denom * 100);
+    const variancePct = round27(Math.abs(variance) / denom * 100);
     const withinTolerance = Math.abs(variance) <= cfg.dollarTolerance || variancePct <= cfg.pctTolerance;
     return { line, label: LINE_LABELS[line], filed: f, book: b, variance, variancePct, withinTolerance };
   });
@@ -85730,7 +86060,7 @@ function auditHstYear(args) {
   const netTaxConsistent = Math.abs(filedDrift) <= cfg.dollarTolerance;
   if (!netTaxConsistent) {
     notes.push(
-      `Filed net tax (line 109 = $${filedAnnual.line109.toLocaleString()}) doesn't equal collected \u2212 ITCs ($${round26(filedAnnual.line103 - filedAnnual.line106).toLocaleString()}). Off by $${filedDrift.toLocaleString()}.`
+      `Filed net tax (line 109 = $${filedAnnual.line109.toLocaleString()}) doesn't equal collected \u2212 ITCs ($${round27(filedAnnual.line103 - filedAnnual.line106).toLocaleString()}). Off by $${filedDrift.toLocaleString()}.`
     );
   }
   let verdict;
@@ -86809,7 +87139,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/revrec-core.ts
-function round27(n) {
+function round28(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function clampPct(p) {
@@ -86827,10 +87157,10 @@ function buildProjectSchedule(project, progress) {
   for (const r of rows) {
     const pct = clampPct(r.pctComplete);
     const invoiced = r.invoicedToDate == null ? priorInvoiced : r.invoicedToDate;
-    const earned = round27(cv * pct);
-    const revenueThisPeriod = round27(cv * (pct - priorPct));
-    const contractAsset = round27(Math.max(earned - invoiced, 0));
-    const deferredRevenue = round27(Math.max(invoiced - earned, 0));
+    const earned = round28(cv * pct);
+    const revenueThisPeriod = round28(cv * (pct - priorPct));
+    const contractAsset = round28(Math.max(earned - invoiced, 0));
+    const deferredRevenue = round28(Math.max(invoiced - earned, 0));
     out.push({
       periodKey: r.periodKey,
       pctComplete: pct,
@@ -86838,7 +87168,7 @@ function buildProjectSchedule(project, progress) {
       contractValue: cv,
       earnedToDate: earned,
       revenueThisPeriod,
-      invoicedToDate: round27(invoiced),
+      invoicedToDate: round28(invoiced),
       contractAsset,
       deferredRevenue
     });
@@ -86886,8 +87216,8 @@ function period_customerJobOf(_period) {
   return null;
 }
 function sealJe(kind, date5, periodKey2, lines2) {
-  const totalDebit = round27(lines2.reduce((s, l) => s + l.debit, 0));
-  const totalCredit = round27(lines2.reduce((s, l) => s + l.credit, 0));
+  const totalDebit = round28(lines2.reduce((s, l) => s + l.debit, 0));
+  const totalCredit = round28(lines2.reduce((s, l) => s + l.credit, 0));
   return { kind, date: date5, periodKey: periodKey2, lines: lines2, totalDebit, totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 5e-3 };
 }
 function tagJeWithJob(je, customerJob) {
@@ -86910,7 +87240,7 @@ function validateForPosting(je, accountMap) {
 function rollupProject(project, schedule) {
   const last = latestPeriod(schedule);
   const cv = project.contractValue || 0;
-  const earned = last?.earnedToDate ?? round27(cv * clampPct(project.openingPct ?? 0));
+  const earned = last?.earnedToDate ?? round28(cv * clampPct(project.openingPct ?? 0));
   const invoiced = last?.invoicedToDate ?? (project.openingInvoiced ?? 0);
   return {
     projectId: project.projectId,
@@ -86919,10 +87249,10 @@ function rollupProject(project, schedule) {
     contractValue: cv,
     pctComplete: last?.pctComplete ?? clampPct(project.openingPct ?? 0),
     earnedToDate: earned,
-    invoicedToDate: round27(invoiced),
-    contractAsset: last?.contractAsset ?? round27(Math.max(earned - invoiced, 0)),
-    deferredRevenue: last?.deferredRevenue ?? round27(Math.max(invoiced - earned, 0)),
-    remainingToEarn: round27(cv - earned)
+    invoicedToDate: round28(invoiced),
+    contractAsset: last?.contractAsset ?? round28(Math.max(earned - invoiced, 0)),
+    deferredRevenue: last?.deferredRevenue ?? round28(Math.max(invoiced - earned, 0)),
+    remainingToEarn: round28(cv - earned)
   };
 }
 function buildRevenueCalendar(months, perProject) {
@@ -86931,10 +87261,10 @@ function buildRevenueCalendar(months, perProject) {
       const hit = p.schedule.find((s) => s.periodKey === m);
       return hit ? hit.revenueThisPeriod : 0;
     });
-    return { projectId: p.projectId, name: p.name, byMonth, total: round27(byMonth.reduce((s, v) => s + v, 0)) };
+    return { projectId: p.projectId, name: p.name, byMonth, total: round28(byMonth.reduce((s, v) => s + v, 0)) };
   });
-  const totalsByMonth = months.map((_, i) => round27(rows.reduce((s, r) => s + r.byMonth[i], 0)));
-  const grandTotal = round27(totalsByMonth.reduce((s, v) => s + v, 0));
+  const totalsByMonth = months.map((_, i) => round28(rows.reduce((s, r) => s + r.byMonth[i], 0)));
+  const grandTotal = round28(totalsByMonth.reduce((s, v) => s + v, 0));
   return { months, rows, totalsByMonth, grandTotal };
 }
 function fiscalYearMonths(firstMonthKey) {
@@ -87289,7 +87619,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/banked-hours-core.ts
-function round28(n) {
+function round29(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function toTime(d10) {
@@ -87303,7 +87633,7 @@ function buildLedger(entries) {
   });
   let bal = 0;
   return sorted.map((e) => {
-    bal = round28(bal + (e.hours || 0));
+    bal = round29(bal + (e.hours || 0));
     return { ...e, runningBalance: bal };
   });
 }
@@ -87318,9 +87648,9 @@ function summarize(entries) {
     last = Math.max(last, toTime(e.entryDate));
   }
   return {
-    balance: round28(totalBanked - totalTaken),
-    totalBanked: round28(totalBanked),
-    totalTaken: round28(totalTaken),
+    balance: round29(totalBanked - totalTaken),
+    totalBanked: round29(totalBanked),
+    totalTaken: round29(totalTaken),
     entryCount: entries.length,
     lastActivity: last ? new Date(last).toISOString() : null
   };
@@ -87870,8 +88200,8 @@ function runHstReview(input) {
 
 // api/hst-review-router.ts
 var q = (conn, sql4) => qboRequest(conn, `/query?query=${encodeURIComponent(sql4)}`);
-var arr = (data, entity) => data?.QueryResponse?.[entity] ?? [];
-var num2 = (v) => {
+var arr2 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+var num3 = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
@@ -87883,7 +88213,7 @@ function mapExpense(e, type2, taxName) {
     lines2.push({
       accountId: d10.AccountRef?.value,
       accountName: d10.AccountRef?.name,
-      amount: num2(l.Amount),
+      amount: num3(l.Amount),
       taxCodeId: d10.TaxCodeRef?.value ?? null,
       taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
     });
@@ -87894,8 +88224,8 @@ function mapExpense(e, type2, taxName) {
     date: String(e.TxnDate || "").slice(0, 10),
     name: e.EntityRef?.name || e.VendorRef?.name,
     docNumber: e.DocNumber,
-    total: num2(e.TotalAmt),
-    taxTotal: num2(e.TxnTaxDetail?.TotalTax),
+    total: num3(e.TotalAmt),
+    taxTotal: num3(e.TxnTaxDetail?.TotalTax),
     lines: lines2
   };
 }
@@ -87906,7 +88236,7 @@ function mapSale(e, type2, taxName) {
     if (!d10) continue;
     lines2.push({
       accountName: d10.ItemRef?.name || l.Description || "Sales",
-      amount: num2(l.Amount),
+      amount: num3(l.Amount),
       taxCodeId: d10.TaxCodeRef?.value ?? null,
       taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
     });
@@ -87917,8 +88247,8 @@ function mapSale(e, type2, taxName) {
     date: String(e.TxnDate || "").slice(0, 10),
     name: e.CustomerRef?.name,
     docNumber: e.DocNumber,
-    total: num2(e.TotalAmt),
-    taxTotal: num2(e.TxnTaxDetail?.TotalTax),
+    total: num3(e.TotalAmt),
+    taxTotal: num3(e.TxnTaxDetail?.TotalTax),
     lines: lines2
   };
 }
@@ -87937,7 +88267,7 @@ var hstReviewRouter = createRouter({
     const taxCodes = [];
     const taxById = /* @__PURE__ */ new Map();
     try {
-      for (const t2 of arr(await q(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode")) {
+      for (const t2 of arr2(await q(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode")) {
         taxCodes.push({ id: String(t2.Id), name: t2.Name });
         taxById.set(String(t2.Id), t2.Name);
       }
@@ -87951,8 +88281,8 @@ var hstReviewRouter = createRouter({
     const taxName = (id) => id ? taxById.get(String(id)) : void 0;
     const accounts = [];
     try {
-      for (const a of arr(await q(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
-        accounts.push({ id: String(a.Id), name: a.Name, type: a.AccountType, subType: a.AccountSubType, balance: num2(a.CurrentBalance) });
+      for (const a of arr2(await q(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
+        accounts.push({ id: String(a.Id), name: a.Name, type: a.AccountType, subType: a.AccountSubType, balance: num3(a.CurrentBalance) });
       }
     } catch (e) {
       errors.push(`Account: ${e instanceof Error ? e.message : e}`);
@@ -87960,7 +88290,7 @@ var hstReviewRouter = createRouter({
     const txns = [];
     const pull = async (entity, mapper) => {
       try {
-        for (const e of arr(await q(conn, `SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) txns.push(mapper(e));
+        for (const e of arr2(await q(conn, `SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) txns.push(mapper(e));
       } catch (e) {
         errors.push(`${entity}: ${e instanceof Error ? e.message : e}`);
       }
@@ -87988,7 +88318,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/loan-tracker-core.ts
-function round29(n) {
+function round210(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function toTime2(d10) {
@@ -88002,7 +88332,7 @@ function buildLoanLedger(entries) {
   });
   let bal = 0;
   return sorted.map((e) => {
-    bal = round29(bal + (e.amount || 0));
+    bal = round210(bal + (e.amount || 0));
     return { ...e, runningBalance: bal };
   });
 }
@@ -88018,13 +88348,13 @@ function summarizeLoan(entries) {
     const t2 = toTime2(e.entryDate);
     if (t2 > last) last = t2;
   }
-  balance = round29(balance);
+  balance = round210(balance);
   const direction = balance > 0 ? "owed_to_lender" : balance < 0 ? "owed_to_borrower" : "settled";
   return {
     balance,
-    totalAdvanced: round29(totalAdvanced),
-    totalRepaid: round29(totalRepaid),
-    totalInterest: round29(totalInterest),
+    totalAdvanced: round210(totalAdvanced),
+    totalRepaid: round210(totalRepaid),
+    totalInterest: round210(totalInterest),
     entryCount: entries.length,
     lastActivity: last ? new Date(last).toISOString() : null,
     direction
@@ -88440,6 +88770,7 @@ var appRouter = createRouter({
   bulkImport: bulkImportRouter,
   restore: restoreRouter,
   interco: intercoRouter,
+  intercoRecharge: intercoRechargeRouter,
   group: groupRouter,
   practiceHealth: practiceHealthRouter,
   groupBook: groupBookRouter,
@@ -88748,7 +89079,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.173";
+var BUILD_TAG = "2026-06-26.174";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -89185,6 +89516,8 @@ app.get("/api/phoenix/seed", async (c) => {
       await seedAldersonRecurring2();
       const { seedRoccoHst: seedRoccoHst2 } = await Promise.resolve().then(() => (init_seed_rocco_hst(), seed_rocco_hst_exports));
       await seedRoccoHst2();
+      const { seedAldersonRecharge: seedAldersonRecharge2 } = await Promise.resolve().then(() => (init_seed_alderson_recharge(), seed_alderson_recharge_exports));
+      await seedAldersonRecharge2();
       const { ensureGenealogySchema: ensureGenealogySchema2 } = await Promise.resolve().then(() => (init_ensure_genealogy_schema(), ensure_genealogy_schema_exports));
       await ensureGenealogySchema2();
       const { backfillGenealogyFields: backfillGenealogyFields2 } = await Promise.resolve().then(() => (init_genealogy_scan(), genealogy_scan_exports));
