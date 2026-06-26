@@ -35169,6 +35169,117 @@ var init_admin_auth = __esm({
   }
 });
 
+// api/email-core.ts
+function extractEmail(raw2) {
+  if (!raw2) return "";
+  const m = raw2.match(/<([^>]+)>/);
+  const addr = (m ? m[1] : raw2).trim().toLowerCase();
+  return /\S+@\S+\.\S+/.test(addr) ? addr.replace(/^.*?([^\s<,;]+@[^\s>,;]+).*$/, "$1") : "";
+}
+function splitAddresses(header2) {
+  if (!header2) return [];
+  return header2.split(/[,;]/).map((p) => extractEmail(p)).filter(Boolean);
+}
+function matchClientId(addresses, byAddr) {
+  for (const a of addresses) {
+    const id = byAddr.get(a.toLowerCase());
+    if (id) return id;
+  }
+  return null;
+}
+function emailDomain(addr) {
+  const a = (addr || "").toLowerCase().trim();
+  const at2 = a.lastIndexOf("@");
+  return at2 > 0 ? a.slice(at2 + 1) : "";
+}
+function buildClientDomainMap(pairs) {
+  const owners = /* @__PURE__ */ new Map();
+  for (const { clientId, address } of pairs) {
+    const d10 = emailDomain(address);
+    if (!d10 || GENERIC_EMAIL_DOMAINS.has(d10)) continue;
+    if (!owners.has(d10)) owners.set(d10, /* @__PURE__ */ new Set());
+    owners.get(d10).add(clientId);
+  }
+  const byDomain = /* @__PURE__ */ new Map();
+  for (const [d10, ids] of owners) {
+    if (ids.size === 1) byDomain.set(d10, [...ids][0]);
+  }
+  return byDomain;
+}
+function matchClientByDomain(addresses, byDomain) {
+  for (const a of addresses) {
+    const id = byDomain.get(emailDomain(a));
+    if (id) return id;
+  }
+  return null;
+}
+function base64url3(s) {
+  return Buffer.from(s, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function replyDraftSystem(styleSamples) {
+  const samples = styleSamples.filter(Boolean).slice(0, 5).map((s, i) => `--- Example ${i + 1} ---
+${s.slice(0, 800)}`).join("\n\n");
+  return [
+    "You are Liv, drafting an email reply ON BEHALF OF Markie (Go Fig Bookz, a bookkeeping firm).",
+    "Write a reply to the client email the user gives you. Match MARKIE'S OWN TONE from the writing samples below \u2014 his greeting style, sign-off, warmth, and brevity. Be helpful, professional, and concise.",
+    "Output ONLY the reply body text (no subject line, no quoted original, no preamble like 'Here is a draft'). It's a DRAFT Markie will review before sending.",
+    samples ? `
+MARKIE'S WRITING SAMPLES:
+${samples}` : "\n(No samples available yet \u2014 use a warm, concise, professional bookkeeper's tone.)"
+  ].join("\n");
+}
+function taskSuggestSystem() {
+  return [
+    "You read a client email and decide if it implies a task for the bookkeeper.",
+    'Return ONLY JSON: {"task": "<short imperative task title, or empty if none>", "due": "YYYY-MM-DD or empty"}.',
+    "Task only if the email asks for or requires an action (send a report, file something, answer a question, fix an issue). Greetings/FYIs/thank-yous \u2192 empty task.",
+    "Keep the title short and action-first, e.g. 'Send May bank statements' or 'Confirm HST filing date'."
+  ].join("\n");
+}
+function buildRawMessage(opts) {
+  const from = opts.fromName ? `${opts.fromName} <${opts.fromEmail}>` : opts.fromEmail;
+  const lines2 = [
+    `From: ${from}`,
+    `To: ${opts.to}`
+  ];
+  if (opts.cc) lines2.push(`Cc: ${opts.cc}`);
+  lines2.push(
+    `Subject: ${opts.subject}`,
+    "MIME-Version: 1.0",
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: 7bit",
+    "",
+    opts.html
+  );
+  return base64url3(lines2.join("\r\n"));
+}
+var GENERIC_EMAIL_DOMAINS;
+var init_email_core = __esm({
+  "api/email-core.ts"() {
+    GENERIC_EMAIL_DOMAINS = /* @__PURE__ */ new Set([
+      "gmail.com",
+      "googlemail.com",
+      "outlook.com",
+      "hotmail.com",
+      "live.com",
+      "msn.com",
+      "yahoo.com",
+      "yahoo.ca",
+      "icloud.com",
+      "me.com",
+      "aol.com",
+      "proton.me",
+      "protonmail.com",
+      "shaw.ca",
+      "rogers.com",
+      "bell.net",
+      "sympatico.ca",
+      "telus.net",
+      "cogeco.ca"
+    ]);
+  }
+});
+
 // api/google-token.ts
 var google_token_exports = {};
 __export(google_token_exports, {
@@ -68297,6 +68408,28 @@ var init_sync_scheduler = __esm({
 });
 
 // api/google-sync.ts
+async function buildClientAddrMaps(userId) {
+  const db = getDb();
+  const byAddr = /* @__PURE__ */ new Map();
+  const pairs = [];
+  const clientRows = await db.select({ id: clients.id, email: clients.email }).from(clients).where(eq(clients.userId, userId));
+  for (const c of clientRows) {
+    const a = (c.email || "").toLowerCase().trim();
+    if (a) {
+      byAddr.set(a, c.id);
+      pairs.push({ clientId: c.id, address: a });
+    }
+  }
+  const extraRows = await db.select({ clientId: clientEmails.clientId, email: clientEmails.email }).from(clientEmails);
+  for (const e of extraRows) {
+    const a = (e.email || "").toLowerCase().trim();
+    if (a) {
+      if (!byAddr.has(a)) byAddr.set(a, e.clientId);
+      pairs.push({ clientId: e.clientId, address: a });
+    }
+  }
+  return { byAddr, byDomain: buildClientDomainMap(pairs) };
+}
 async function refreshGoogleToken(accountId, refreshToken2) {
   const clientId = process.env.GOOGLE_CLIENT_ID || "";
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
@@ -68336,6 +68469,7 @@ async function syncGmail(accessToken, userId, accountId) {
     if (!data.messages) return 0;
     const db = getDb();
     let added = 0;
+    const { byAddr, byDomain } = await buildClientAddrMaps(userId);
     for (const msg of data.messages.slice(0, 10)) {
       const detailResponse = await fetch(
         `https://www.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata`,
@@ -68348,8 +68482,11 @@ async function syncGmail(accessToken, userId, accountId) {
       const date5 = headers.find((h) => h.name === "Date")?.value;
       const existing = await db.select().from(emails).where(eq(emails.gmailMessageId, msg.id)).limit(1);
       if (existing.length === 0) {
+        const fromAddr = extractEmail(from);
+        const clientId = matchClientId([fromAddr], byAddr) ?? matchClientByDomain([fromAddr], byDomain);
         await db.insert(emails).values({
           userId,
+          clientId,
           connectedAccountId: accountId,
           gmailMessageId: msg.id,
           threadId: detail.threadId,
@@ -68370,11 +68507,27 @@ async function syncGmail(accessToken, userId, accountId) {
         added++;
       }
     }
+    await backfillEmailClientIds(userId, byAddr, byDomain);
     return added;
   } catch (err) {
     console.error("[Google Sync] Gmail sync failed:", err);
     return 0;
   }
+}
+async function backfillEmailClientIds(userId, byAddr, byDomain) {
+  const db = getDb();
+  const unsorted = await db.select({ id: emails.id, from: emails.from }).from(emails).where(and(eq(emails.userId, userId), isNull2(emails.clientId))).limit(500);
+  let fixed = 0;
+  for (const row of unsorted) {
+    const fromAddr = extractEmail(row.from || "");
+    if (!fromAddr) continue;
+    const clientId = matchClientId([fromAddr], byAddr) ?? matchClientByDomain([fromAddr], byDomain);
+    if (clientId) {
+      await db.update(emails).set({ clientId }).where(eq(emails.id, row.id));
+      fixed++;
+    }
+  }
+  return fixed;
 }
 async function syncCalendar(accessToken, userId, accountId) {
   try {
@@ -68525,6 +68678,7 @@ var init_google_sync = __esm({
     init_connection();
     init_schema();
     init_drizzle_orm();
+    init_email_core();
   }
 });
 
@@ -72961,7 +73115,7 @@ var googleTasksRouter = createRouter({
   ).mutation(async ({ ctx, input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
     const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq3, and: and8, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    const { eq: eq3, and: and7, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const db = getDb2();
     const token2 = await getGoogleToken(ctx.user.id, ctx.db);
     if (!token2) {
@@ -72970,7 +73124,7 @@ var googleTasksRouter = createRouter({
         message: "No Google account connected. Connect Google in Integrations."
       });
     }
-    const where = input.clientId ? and8(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and8(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
+    const where = input.clientId ? and7(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and7(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
     const crmTasks = await db.select().from(tasks5).where(where);
     const results = [];
     for (const task of crmTasks.slice(0, 50)) {
@@ -73001,67 +73155,7 @@ init_middleware();
 init_connection();
 init_schema();
 init_drizzle_orm();
-
-// api/email-core.ts
-function extractEmail(raw2) {
-  if (!raw2) return "";
-  const m = raw2.match(/<([^>]+)>/);
-  const addr = (m ? m[1] : raw2).trim().toLowerCase();
-  return /\S+@\S+\.\S+/.test(addr) ? addr.replace(/^.*?([^\s<,;]+@[^\s>,;]+).*$/, "$1") : "";
-}
-function splitAddresses(header2) {
-  if (!header2) return [];
-  return header2.split(/[,;]/).map((p) => extractEmail(p)).filter(Boolean);
-}
-function matchClientId(addresses, byAddr) {
-  for (const a of addresses) {
-    const id = byAddr.get(a.toLowerCase());
-    if (id) return id;
-  }
-  return null;
-}
-function base64url3(s) {
-  return Buffer.from(s, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-function replyDraftSystem(styleSamples) {
-  const samples = styleSamples.filter(Boolean).slice(0, 5).map((s, i) => `--- Example ${i + 1} ---
-${s.slice(0, 800)}`).join("\n\n");
-  return [
-    "You are Liv, drafting an email reply ON BEHALF OF Markie (Go Fig Bookz, a bookkeeping firm).",
-    "Write a reply to the client email the user gives you. Match MARKIE'S OWN TONE from the writing samples below \u2014 his greeting style, sign-off, warmth, and brevity. Be helpful, professional, and concise.",
-    "Output ONLY the reply body text (no subject line, no quoted original, no preamble like 'Here is a draft'). It's a DRAFT Markie will review before sending.",
-    samples ? `
-MARKIE'S WRITING SAMPLES:
-${samples}` : "\n(No samples available yet \u2014 use a warm, concise, professional bookkeeper's tone.)"
-  ].join("\n");
-}
-function taskSuggestSystem() {
-  return [
-    "You read a client email and decide if it implies a task for the bookkeeper.",
-    'Return ONLY JSON: {"task": "<short imperative task title, or empty if none>", "due": "YYYY-MM-DD or empty"}.',
-    "Task only if the email asks for or requires an action (send a report, file something, answer a question, fix an issue). Greetings/FYIs/thank-yous \u2192 empty task.",
-    "Keep the title short and action-first, e.g. 'Send May bank statements' or 'Confirm HST filing date'."
-  ].join("\n");
-}
-function buildRawMessage(opts) {
-  const from = opts.fromName ? `${opts.fromName} <${opts.fromEmail}>` : opts.fromEmail;
-  const lines2 = [
-    `From: ${from}`,
-    `To: ${opts.to}`
-  ];
-  if (opts.cc) lines2.push(`Cc: ${opts.cc}`);
-  lines2.push(
-    `Subject: ${opts.subject}`,
-    "MIME-Version: 1.0",
-    'Content-Type: text/html; charset="UTF-8"',
-    "Content-Transfer-Encoding: 7bit",
-    "",
-    opts.html
-  );
-  return base64url3(lines2.join("\r\n"));
-}
-
-// api/google-sync-router.ts
+init_email_core();
 init_google_token();
 async function googleApiRequest(accessToken, endpoint, params) {
   const url2 = new URL(endpoint);
@@ -76315,9 +76409,10 @@ init_middleware();
 init_connection();
 init_schema();
 init_drizzle_orm();
-import { randomUUID } from "crypto";
+init_email_core();
 init_google_token();
 init_schema();
+import { randomUUID } from "crypto";
 async function callClaude(system, userText, maxTokens = 700) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("Email AI needs ANTHROPIC_API_KEY set on the server.");
@@ -82692,6 +82787,7 @@ init_connection();
 init_schema();
 init_drizzle_orm();
 init_google_token();
+init_email_core();
 
 // api/learning-core.ts
 function ms(d10) {
@@ -86034,7 +86130,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.140";
+var BUILD_TAG = "2026-06-26.141";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -87227,7 +87323,7 @@ app.post("/api/admin/figgy", async (c) => {
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients5, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -87340,7 +87436,7 @@ app.post("/api/admin/figgy", async (c) => {
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq3(signatureDocuments2.id, docId));
         }
-        const signedCount = (await db.select().from(signatureDocuments2).where(and8(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
+        const signedCount = (await db.select().from(signatureDocuments2).where(and7(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
         steps.push(`signed ${signedCount}/2 documents`);
         await db.update(clients5).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients5.id, cl.id));
         const res = await createClientTaskRules2({
@@ -87827,7 +87923,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients5, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and8, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and7, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const matches = await db.select().from(clients5).where(like3(clients5.name, "%Doc King%"));
       for (const cl of matches) {
@@ -87835,7 +87931,7 @@ async function startServer() {
           await db.update(clients5).set({ clientType: "wholesale" }).where(eq3(clients5.id, cl.id));
         }
         await db.update(clientTaskRules4).set({ active: false }).where(eq3(clientTaskRules4.clientId, cl.id));
-        await db.delete(tasks5).where(and8(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
+        await db.delete(tasks5).where(and7(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
       }
     } catch (e) {
       console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e);
@@ -87843,7 +87939,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients5, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and8, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and7, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
         const matches = await db.select().from(clients5).where(like3(clients5.name, nameLike));
@@ -87894,7 +87990,7 @@ async function startServer() {
       };
       for (const cl of orig) {
         for (const [last, ytd] of Object.entries(origYtd)) {
-          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and8(eq3(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
+          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and7(eq3(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
         }
       }
     } catch (e) {

@@ -38,6 +38,50 @@ export function matchClientId(addresses: string[], byAddr: Map<string, number>):
   return null;
 }
 
+/** Generic mail providers — a shared domain here means NOTHING about which client. */
+export const GENERIC_EMAIL_DOMAINS = new Set<string>([
+  "gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com", "msn.com",
+  "yahoo.com", "yahoo.ca", "icloud.com", "me.com", "aol.com", "proton.me", "protonmail.com",
+  "shaw.ca", "rogers.com", "bell.net", "sympatico.ca", "telus.net", "cogeco.ca",
+]);
+
+/** The domain part of an address (lowercased), or "" if not an address. */
+export function emailDomain(addr: string): string {
+  const a = (addr || "").toLowerCase().trim();
+  const at = a.lastIndexOf("@");
+  return at > 0 ? a.slice(at + 1) : "";
+}
+
+/**
+ * Build a domain → clientId map from a list of (clientId, address) pairs, used
+ * as a careful FALLBACK when no exact address matches. NEVER guesses: a generic
+ * provider domain (gmail/outlook/…) is excluded, and a domain owned by MORE THAN
+ * ONE client is excluded (ambiguous → no match, never silently pick a realm).
+ */
+export function buildClientDomainMap(pairs: Array<{ clientId: number; address: string }>): Map<string, number> {
+  const owners = new Map<string, Set<number>>();
+  for (const { clientId, address } of pairs) {
+    const d = emailDomain(address);
+    if (!d || GENERIC_EMAIL_DOMAINS.has(d)) continue;
+    if (!owners.has(d)) owners.set(d, new Set());
+    owners.get(d)!.add(clientId);
+  }
+  const byDomain = new Map<string, number>();
+  for (const [d, ids] of owners) {
+    if (ids.size === 1) byDomain.set(d, [...ids][0]); // unambiguous only
+  }
+  return byDomain;
+}
+
+/** Match by sender domain using a pre-vetted unambiguous domain map. */
+export function matchClientByDomain(addresses: string[], byDomain: Map<string, number>): number | null {
+  for (const a of addresses) {
+    const id = byDomain.get(emailDomain(a));
+    if (id) return id;
+  }
+  return null;
+}
+
 function base64url(s: string): string {
   return Buffer.from(s, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }

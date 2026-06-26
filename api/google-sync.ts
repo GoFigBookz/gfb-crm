@@ -4,8 +4,35 @@
  */
 
 import { getDb } from "./queries/connection";
-import { connectedAccounts, emails, calendarEvents, tasks } from "../db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { connectedAccounts, emails, calendarEvents, tasks, clients, clientEmails } from "../db/schema";
+import { eq, and, desc, isNull } from "drizzle-orm";
+import { extractEmail, matchClientId, buildClientDomainMap, matchClientByDomain } from "./email-core";
+
+/**
+ * Build the address→clientId + domain→clientId maps used to sort incoming mail
+ * into clients. Source of truth = each client's primary `email` PLUS every row
+ * in `clientEmails` (billing/payroll/etc.). Domain map is unambiguous-only and
+ * skips generic providers (see email-core) so we NEVER mis-file mail to a guess.
+ */
+async function buildClientAddrMaps(userId: number): Promise<{ byAddr: Map<string, number>; byDomain: Map<string, number> }> {
+  const db = getDb();
+  const byAddr = new Map<string, number>();
+  const pairs: Array<{ clientId: number; address: string }> = [];
+
+  const clientRows = await db.select({ id: clients.id, email: clients.email }).from(clients).where(eq(clients.userId, userId));
+  for (const c of clientRows) {
+    const a = (c.email || "").toLowerCase().trim();
+    if (a) { byAddr.set(a, c.id); pairs.push({ clientId: c.id, address: a }); }
+  }
+
+  const extraRows = await db.select({ clientId: clientEmails.clientId, email: clientEmails.email }).from(clientEmails);
+  for (const e of extraRows) {
+    const a = (e.email || "").toLowerCase().trim();
+    if (a) { if (!byAddr.has(a)) byAddr.set(a, e.clientId); pairs.push({ clientId: e.clientId, address: a }); }
+  }
+
+  return { byAddr, byDomain: buildClientDomainMap(pairs) };
+}
 
 interface SyncResult {
   emailsAdded: number;
@@ -70,6 +97,10 @@ async function syncGmail(accessToken: string, userId: number, accountId: number)
     const db = getDb();
     let added = 0;
 
+    // Build the client-matching maps ONCE per sync so each inbound email gets
+    // sorted into its client (exact address → unambiguous domain → null).
+    const { byAddr, byDomain } = await buildClientAddrMaps(userId);
+
     for (const msg of data.messages.slice(0, 10)) {
       // Get message details
       const detailResponse = await fetch(
@@ -91,8 +122,15 @@ async function syncGmail(accessToken: string, userId: number, accountId: number)
         .limit(1);
 
       if (existing.length === 0) {
+        // Sort into a client by sender: exact address first, then unambiguous
+        // domain. No match → clientId stays null (shows as unsorted for review).
+        const fromAddr = extractEmail(from);
+        const clientId =
+          matchClientId([fromAddr], byAddr) ?? matchClientByDomain([fromAddr], byDomain);
+
         await db.insert(emails).values({
           userId,
+          clientId,
           connectedAccountId: accountId,
           gmailMessageId: msg.id,
           threadId: detail.threadId,
@@ -113,11 +151,44 @@ async function syncGmail(accessToken: string, userId: number, accountId: number)
       }
     }
 
+    // Backfill: sort any EXISTING unsorted emails (clientId null) for this user
+    // now that we have the maps — fixes the historical backlog, not just new mail.
+    await backfillEmailClientIds(userId, byAddr, byDomain);
+
     return added;
   } catch (err) {
     console.error("[Google Sync] Gmail sync failed:", err);
     return 0;
   }
+}
+
+/**
+ * Assign clientId to already-stored emails that never got sorted. Read-only on
+ * the maps; only fills NULLs (never reassigns a manually-set client).
+ */
+async function backfillEmailClientIds(
+  userId: number,
+  byAddr: Map<string, number>,
+  byDomain: Map<string, number>,
+): Promise<number> {
+  const db = getDb();
+  const unsorted = await db
+    .select({ id: emails.id, from: emails.from })
+    .from(emails)
+    .where(and(eq(emails.userId, userId), isNull(emails.clientId)))
+    .limit(500);
+
+  let fixed = 0;
+  for (const row of unsorted) {
+    const fromAddr = extractEmail(row.from || "");
+    if (!fromAddr) continue;
+    const clientId = matchClientId([fromAddr], byAddr) ?? matchClientByDomain([fromAddr], byDomain);
+    if (clientId) {
+      await db.update(emails).set({ clientId }).where(eq(emails.id, row.id));
+      fixed++;
+    }
+  }
+  return fixed;
 }
 
 /**
