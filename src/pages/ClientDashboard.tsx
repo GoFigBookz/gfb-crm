@@ -224,9 +224,22 @@ export default function ClientDashboard() {
             <Badge variant="outline" className="flex items-center gap-1 border-amber-300 text-amber-700">
               <AlertCircle className="h-3 w-3" /> Multiple QBO connections
             </Badge>
+          ) : qboConn?.connection && qboConn.connection.isActive && !qboConn.connection.reconnectReason && qboConn.connection.transport === "make_bridge" ? (
+            // On the read-only Make bridge — which acks instead of returning data for
+            // some realms. Offer a one-click upgrade to native (direct) OAuth.
+            <span className="inline-flex items-center gap-1.5">
+              <Badge variant="outline" className="flex items-center gap-1 border-amber-300 text-amber-700">
+                <AlertCircle className="h-3 w-3" /> QuickBooks (bridge)
+              </Badge>
+              <Button size="sm" variant="outline" className="border-green-300 text-green-700"
+                title="Connect this company directly (native OAuth) — bypasses the read-only bridge so live reads work"
+                onClick={() => { window.location.href = `/api/qbo/connect?clientId=${id}`; }}>
+                <Link2 className="h-3.5 w-3.5 mr-1" /> Connect direct
+              </Button>
+            </span>
           ) : qboConn?.connection && qboConn.connection.isActive && !qboConn.connection.reconnectReason ? (
             <Badge variant="outline" className="flex items-center gap-1 border-emerald-300 text-emerald-700">
-              <CheckCircle className="h-3 w-3" /> QuickBooks{qboConn.connection.transport === "make_bridge" ? " (bridge)" : ""}
+              <CheckCircle className="h-3 w-3" /> QuickBooks
             </Badge>
           ) : qboConn?.connection && (qboConn.connection.reconnectReason || !qboConn.connection.isActive) && qboConn.connection.transport !== "make_bridge" ? (
             <Button size="sm" variant="outline" className="border-amber-300 text-amber-700"
