@@ -59,6 +59,7 @@ import { assistantRouter } from "./assistant-router";
 import { qaRouter } from "./qa-router";
 import { personalRouter } from "./personal-router";
 import { brainRouter } from "./brain-router";
+import { launchpadRouter } from "./launchpad-router";
 import { lifeRouter } from "./life-router";
 import { learningRouter } from "./learning-router";
 import { chatRouter } from "./chat-router";
@@ -133,6 +134,7 @@ export const appRouter = createRouter({
   jinx: qaRouter,
   personal: personalRouter,
   brain: brainRouter,
+  launchpad: launchpadRouter,
   life: lifeRouter,
   learning: learningRouter,
   chat: chatRouter,
