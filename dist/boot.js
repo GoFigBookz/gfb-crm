@@ -58858,6 +58858,487 @@ var init_sdk = __esm({
   }
 });
 
+// api/personal-core.ts
+var personal_core_exports = {};
+__export(personal_core_exports, {
+  CATEGORY_LABELS: () => CATEGORY_LABELS,
+  PERSONAL_CATEGORIES: () => PERSONAL_CATEGORIES,
+  buildPersonalContext: () => buildPersonalContext,
+  normalizeCategory: () => normalizeCategory,
+  selectPersonalFacts: () => selectPersonalFacts,
+  splitDump: () => splitDump
+});
+function normalizeCategory(c) {
+  const s = (c || "").toLowerCase().trim().replace(/\s+/g, "_");
+  if (!s) return "misc";
+  if (PERSONAL_CATEGORIES.includes(s)) return s;
+  if (/(family|kid|child|wife|spouse|partner|friend|contact)/.test(s)) return "people";
+  if (/(birthday|anniversary|date|renew)/.test(s)) return "important_dates";
+  if (/(doctor|med|health|dentist|prescription)/.test(s)) return "health";
+  if (/(car|vehicle|truck|plate|insurance)/.test(s)) return "vehicles";
+  if (/(bank|bill|subscription|money|finance)/.test(s)) return "finances";
+  if (/(login|account|membership|service|password)/.test(s)) return "accounts";
+  if (/(like|prefer|favou?rite|size|taste)/.test(s)) return "preferences";
+  if (/(trip|travel|flight|hotel|passport)/.test(s)) return "travel";
+  if (/(goal|resolution|project)/.test(s)) return "goals";
+  if (/(home|house|address|utility|maintenance)/.test(s)) return "home";
+  return "misc";
+}
+function ms2(d10) {
+  if (d10 == null) return 0;
+  const t2 = d10 instanceof Date ? d10.getTime() : Number(d10);
+  return Number.isFinite(t2) ? t2 : 0;
+}
+function selectPersonalFacts(all, limit2 = 40) {
+  return [...all].sort((a, b) => {
+    const p = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+    return p !== 0 ? p : ms2(b.createdAt) - ms2(a.createdAt);
+  }).slice(0, limit2);
+}
+function buildPersonalContext(facts, openItems = []) {
+  const picked = selectPersonalFacts(facts);
+  if (!picked.length && !openItems.length) return "";
+  const byCat = /* @__PURE__ */ new Map();
+  for (const f of picked) {
+    const c = normalizeCategory(f.category);
+    if (!byCat.has(c)) byCat.set(c, []);
+    byCat.get(c).push(`${f.pinned ? "\u2605 " : ""}${f.fact}`);
+  }
+  const order = [...PERSONAL_CATEGORIES].filter((c) => byCat.has(c)).concat([...byCat.keys()].filter((c) => !PERSONAL_CATEGORIES.includes(c)));
+  const lines2 = [
+    "=== MARKIE'S PERSONAL LIFE (PRIVATE \u2014 this is Liv's domain only; NEVER share it with other agents, clients, or mix it with firm work) ==="
+  ];
+  for (const c of order) {
+    lines2.push(`${CATEGORY_LABELS[c] ?? c}:`);
+    for (const f of byCat.get(c)) lines2.push(`  - ${f}`);
+  }
+  const open3 = openItems.filter((i) => i.kind !== "note" && !i.done);
+  if (open3.length) {
+    lines2.push("Open personal items:");
+    for (const i of open3.slice(0, 20)) {
+      const due = i.dueDate ? ` (due ${new Date(ms2(i.dueDate)).toISOString().slice(0, 10)})` : "";
+      lines2.push(`  - [${i.kind}] ${i.title}${due}`);
+    }
+  }
+  return lines2.join("\n");
+}
+function splitDump(text2) {
+  return (text2 || "").split(/\r?\n/).map((l) => l.replace(/^\s*[-*•·]\s*/, "").trim()).filter((l) => l.length > 1);
+}
+var PERSONAL_CATEGORIES, CATEGORY_LABELS;
+var init_personal_core = __esm({
+  "api/personal-core.ts"() {
+    PERSONAL_CATEGORIES = [
+      "people",
+      // family, friends, contacts and who they are
+      "important_dates",
+      // birthdays, anniversaries, renewals
+      "health",
+      // doctors, meds, conditions, appointments
+      "home",
+      // address, utilities, maintenance, services
+      "vehicles",
+      // cars, plates, insurance, service
+      "accounts",
+      // logins/services (NOT passwords), memberships
+      "finances",
+      // personal banking, bills, subscriptions
+      "preferences",
+      // tastes, sizes, likes/dislikes
+      "travel",
+      // trips, loyalty numbers, documents
+      "goals",
+      // personal goals / projects
+      "misc"
+      // anything else / unsorted dump
+    ];
+    CATEGORY_LABELS = {
+      people: "People",
+      important_dates: "Important dates",
+      health: "Health",
+      home: "Home",
+      vehicles: "Vehicles",
+      accounts: "Accounts & memberships",
+      finances: "Personal finances",
+      preferences: "Preferences",
+      travel: "Travel",
+      goals: "Goals",
+      misc: "Misc / inbox"
+    };
+  }
+});
+
+// api/qa-core.ts
+function rollup(statuses) {
+  if (statuses.includes("fail")) return "fail";
+  if (statuses.includes("warn")) return "warn";
+  return "ok";
+}
+function evaluateQa(facts) {
+  const checks = [];
+  checks.push({
+    id: "db",
+    category: "Database",
+    label: "Database connection",
+    status: facts.dbReachable ? "ok" : "fail",
+    detail: facts.dbReachable ? "Responding to queries." : `Not reachable${facts.dbError ? `: ${facts.dbError}` : "."}`
+  });
+  for (const t2 of EXPECTED_TABLES) {
+    const count5 = facts.tableCounts[t2.name];
+    if (count5 === void 0 || count5 === null) {
+      checks.push({
+        id: `table:${t2.name}`,
+        category: "Tables",
+        label: t2.label,
+        status: "fail",
+        detail: "Table missing or query failed."
+      });
+    } else if (count5 === 0 && !t2.emptyOk) {
+      checks.push({
+        id: `table:${t2.name}`,
+        category: "Tables",
+        label: t2.label,
+        status: "warn",
+        detail: "Present but empty (expected some rows)."
+      });
+    } else {
+      checks.push({
+        id: `table:${t2.name}`,
+        category: "Tables",
+        label: t2.label,
+        status: "ok",
+        detail: `${count5} row${count5 === 1 ? "" : "s"}.`
+      });
+    }
+  }
+  for (const e of REQUIRED_ENV) {
+    const present = !!facts.env[e.name];
+    checks.push({
+      id: `env:${e.name}`,
+      category: "Configuration",
+      label: e.name,
+      status: present ? "ok" : "fail",
+      detail: present ? "Set." : `Missing \u2014 needed for ${e.why}.`
+    });
+  }
+  for (const e of OPTIONAL_ENV) {
+    const present = !!facts.env[e.name];
+    checks.push({
+      id: `env:${e.name}`,
+      category: "Configuration",
+      label: e.name,
+      status: present ? "ok" : "warn",
+      detail: present ? "Set." : `Not set \u2014 ${e.why} stays off until configured.`
+    });
+  }
+  if (facts.qbo) {
+    const { total, active, needReconnect } = facts.qbo;
+    let status = "ok";
+    let detail = `${active}/${total} connection${total === 1 ? "" : "s"} active.`;
+    if (total === 0) {
+      status = "warn";
+      detail = "No QBO connections yet (bridge or native OAuth not bound).";
+    } else if (needReconnect > 0) {
+      status = "warn";
+      detail = `${needReconnect} connection${needReconnect === 1 ? "" : "s"} need reconnect.`;
+    } else if (active === 0) {
+      status = "warn";
+      detail = `${total} connection${total === 1 ? "" : "s"} but none active.`;
+    }
+    checks.push({ id: "qbo", category: "QuickBooks", label: "QBO connections", status, detail });
+  }
+  if (typeof facts.connectorCount === "number") {
+    checks.push({
+      id: "connectors",
+      category: "Integrations",
+      label: "Connected provider accounts",
+      status: "ok",
+      detail: `${facts.connectorCount} account${facts.connectorCount === 1 ? "" : "s"} linked.`
+    });
+  }
+  if (typeof facts.recentSyncErrors === "number") {
+    checks.push({
+      id: "sync-errors",
+      category: "Integrations",
+      label: "Recent sync errors",
+      status: facts.recentSyncErrors > 0 ? "warn" : "ok",
+      detail: facts.recentSyncErrors > 0 ? `${facts.recentSyncErrors} failed sync(s) recently.` : "No recent sync failures."
+    });
+  }
+  const ok = checks.filter((c) => c.status === "ok").length;
+  const warn = checks.filter((c) => c.status === "warn").length;
+  const fail = checks.filter((c) => c.status === "fail").length;
+  return {
+    status: rollup(checks.map((c) => c.status)),
+    counts: { ok, warn, fail, total: checks.length },
+    checks,
+    ts: (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+var EXPECTED_TABLES, REQUIRED_ENV, OPTIONAL_ENV;
+var init_qa_core = __esm({
+  "api/qa-core.ts"() {
+    EXPECTED_TABLES = [
+      { name: "clients", label: "Clients", emptyOk: false },
+      { name: "users", label: "Users", emptyOk: false },
+      { name: "tasks", label: "Tasks", emptyOk: true },
+      { name: "emails", label: "Emails", emptyOk: true },
+      { name: "employees", label: "Employees", emptyOk: true },
+      { name: "pay_runs", label: "Pay runs", emptyOk: true },
+      { name: "qbo_connections", label: "QBO connections", emptyOk: true },
+      { name: "connected_accounts", label: "Connector accounts", emptyOk: true },
+      { name: "triage_findings", label: "Triage findings", emptyOk: true },
+      { name: "vendor_memory", label: "Vendor memory", emptyOk: true }
+    ];
+    REQUIRED_ENV = [
+      { name: "ANTHROPIC_API_KEY", why: "AI features (Liv drafts, chatbot, bank converter, PDF splitter, web classify)" }
+    ];
+    OPTIONAL_ENV = [
+      { name: "FIGGY_TOKEN_KEY", why: "QBO token encryption at rest \u2014 set via FIGGY_TOKEN_KEY, APP_SECRET, or the auto-generated key" },
+      { name: "QBO_CLIENT_ID", why: "QBO native OAuth (production app)" },
+      { name: "QBO_CLIENT_SECRET", why: "QBO native OAuth (production app)" },
+      { name: "FIGGY_MAKE_API_TOKEN", why: "Make scenario-run bridge (Drive folders, backlog suggest)" }
+    ];
+  }
+});
+
+// api/scorecard-core.ts
+function toMs(d10) {
+  if (d10 == null) return null;
+  const t2 = d10 instanceof Date ? d10.getTime() : Number(d10);
+  return Number.isFinite(t2) ? t2 : null;
+}
+function normConf(c) {
+  if (c == null || !Number.isFinite(c)) return null;
+  return c <= 1 ? Math.round(c * 100) : Math.round(c);
+}
+function gradeFor(acceptance, reviewed) {
+  if (acceptance == null || reviewed < 3) return "n/a";
+  if (acceptance >= 90) return "excellent";
+  if (acceptance >= 75) return "good";
+  return "watch";
+}
+function scoreAgents(rows, now = Date.now()) {
+  const byAgent = /* @__PURE__ */ new Map();
+  for (const r of rows) {
+    const name2 = (r.agentName ?? "").trim() || "Unknown";
+    if (!byAgent.has(name2)) byAgent.set(name2, []);
+    byAgent.get(name2).push(r);
+  }
+  const agents = [];
+  for (const [agent, items] of byAgent) {
+    const approved = items.filter((i) => i.status === "approved").length;
+    const dismissed = items.filter((i) => i.status === "dismissed").length;
+    const pending = items.filter((i) => i.status === "new" || i.status === "awaiting_client").length;
+    const reviewed = approved + dismissed;
+    const acceptanceRate = reviewed ? Math.round(approved / reviewed * 100) : null;
+    const confs = items.map((i) => normConf(i.confidence)).filter((c) => c != null);
+    const avgConfidence = confs.length ? Math.round(confs.reduce((a, b) => a + b, 0) / confs.length) : null;
+    const recent = items.filter((i) => {
+      const t2 = toMs(i.createdAt);
+      return t2 != null && now - t2 <= RECENT_WINDOW_MS;
+    });
+    const prior = items.filter((i) => {
+      const t2 = toMs(i.createdAt);
+      return t2 != null && now - t2 > RECENT_WINDOW_MS;
+    });
+    const rate = (xs) => {
+      const a = xs.filter((i) => i.status === "approved").length;
+      const d10 = xs.filter((i) => i.status === "dismissed").length;
+      return a + d10 ? a / (a + d10) * 100 : null;
+    };
+    const rRecent = rate(recent), rPrior = rate(prior);
+    let trend = "n/a";
+    if (rRecent != null && rPrior != null) {
+      trend = rRecent > rPrior + 5 ? "up" : rRecent < rPrior - 5 ? "down" : "flat";
+    }
+    agents.push({
+      agent,
+      total: items.length,
+      approved,
+      dismissed,
+      pending,
+      reviewed,
+      acceptanceRate,
+      avgConfidence,
+      trend,
+      grade: gradeFor(acceptanceRate, reviewed)
+    });
+  }
+  agents.sort((a, b) => b.reviewed - a.reviewed || a.agent.localeCompare(b.agent));
+  const totReviewed = agents.reduce((s, a) => s + a.reviewed, 0);
+  const totApproved = agents.reduce((s, a) => s + a.approved, 0);
+  const totPending = agents.reduce((s, a) => s + a.pending, 0);
+  return {
+    agents,
+    overall: {
+      reviewed: totReviewed,
+      acceptanceRate: totReviewed ? Math.round(totApproved / totReviewed * 100) : null,
+      pending: totPending
+    },
+    ts: new Date(now).toISOString()
+  };
+}
+var RECENT_WINDOW_MS;
+var init_scorecard_core = __esm({
+  "api/scorecard-core.ts"() {
+    RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1e3;
+  }
+});
+
+// api/qa-router.ts
+var qa_router_exports = {};
+__export(qa_router_exports, {
+  qaRouter: () => qaRouter,
+  runAgentScorecard: () => runAgentScorecard,
+  runHealthReport: () => runHealthReport
+});
+async function countTable(db, table) {
+  try {
+    const res = await db.run(sql.raw(`SELECT COUNT(*) AS n FROM "${table}"`));
+    const rows = res?.rows ?? res ?? [];
+    const row = rows[0] ?? {};
+    const n = row.n ?? row[0] ?? row["COUNT(*)"];
+    return Number(n) || 0;
+  } catch {
+    return null;
+  }
+}
+async function gatherFacts() {
+  const db = getDb();
+  let dbReachable = false;
+  let dbError;
+  try {
+    await db.run(sql`SELECT 1`);
+    dbReachable = true;
+  } catch (e) {
+    dbError = e instanceof Error ? e.message : String(e);
+  }
+  const tableCounts = {};
+  if (dbReachable) {
+    for (const t2 of TABLES) tableCounts[t2] = await countTable(db, t2);
+  } else {
+    for (const t2 of TABLES) tableCounts[t2] = null;
+  }
+  const env2 = {};
+  for (const name2 of TRACKED_ENV) env2[name2] = !!process.env[name2];
+  let tokenKeyReady = !!(process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET);
+  if (!tokenKeyReady && dbReachable) {
+    try {
+      const r = await db.run(sql.raw(`SELECT value FROM app_settings WHERE key = 'figgy_token_key' LIMIT 1`));
+      const row = (r?.rows ?? r ?? [])[0];
+      tokenKeyReady = !!(row && (row.value ?? row[0]));
+    } catch {
+    }
+  }
+  env2["FIGGY_TOKEN_KEY"] = tokenKeyReady;
+  let qbo;
+  try {
+    const res = await db.run(
+      sql.raw(`SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN "isActive" = 1 THEN 1 ELSE 0 END) AS active,
+        SUM(CASE WHEN "reconnectReason" IS NOT NULL AND "reconnectReason" != '' THEN 1 ELSE 0 END) AS needReconnect
+      FROM qbo_connections`)
+    );
+    const row = (res?.rows ?? res ?? [])[0] ?? {};
+    qbo = {
+      total: Number(row.total ?? 0) || 0,
+      active: Number(row.active ?? 0) || 0,
+      needReconnect: Number(row.needReconnect ?? 0) || 0
+    };
+  } catch {
+  }
+  let connectorCount;
+  const cc = await countTable(db, "connected_accounts");
+  if (cc !== null) connectorCount = cc;
+  let recentSyncErrors;
+  try {
+    const res = await db.run(
+      sql.raw(`SELECT COUNT(*) AS n FROM (
+        SELECT status FROM connector_sync_logs ORDER BY id DESC LIMIT 50
+      ) WHERE status = 'error' OR status = 'failed'`)
+    );
+    const row = (res?.rows ?? res ?? [])[0] ?? {};
+    recentSyncErrors = Number(row.n ?? 0) || 0;
+  } catch {
+  }
+  return { dbReachable, dbError, tableCounts, env: env2, qbo, connectorCount, recentSyncErrors };
+}
+async function runHealthReport() {
+  return evaluateQa(await gatherFacts());
+}
+async function runAgentScorecard() {
+  const db = getDb();
+  let rows = [];
+  try {
+    rows = await db.select({
+      agentName: triageFindings.agentName,
+      status: triageFindings.status,
+      confidence: triageFindings.confidence,
+      createdAt: triageFindings.createdAt
+    }).from(triageFindings);
+  } catch {
+  }
+  return scoreAgents(rows);
+}
+var TABLES, TRACKED_ENV, qaRouter;
+var init_qa_router = __esm({
+  "api/qa-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_drizzle_orm();
+    init_qa_core();
+    init_schema();
+    init_scorecard_core();
+    TABLES = [
+      "clients",
+      "users",
+      "tasks",
+      "emails",
+      "employees",
+      "pay_runs",
+      "qbo_connections",
+      "connected_accounts",
+      "triage_findings",
+      "vendor_memory"
+    ];
+    TRACKED_ENV = [
+      "ANTHROPIC_API_KEY",
+      "FIGGY_TOKEN_KEY",
+      "QBO_CLIENT_ID",
+      "QBO_CLIENT_SECRET",
+      "FIGGY_MAKE_API_TOKEN"
+    ];
+    qaRouter = createRouter({
+      /** Jinx's full health report. Any signed-in staff member can run it. */
+      runChecks: authedQuery.query(async () => {
+        return runHealthReport();
+      }),
+      /** Jinx's agent scorecard — measurable quality per agent. */
+      scorecard: authedQuery.query(async () => {
+        return runAgentScorecard();
+      }),
+      /** Recent agent activity (governed-autonomy audit trail). */
+      activity: authedQuery.query(async ({ ctx }) => {
+        const { recentAudit: recentAudit2 } = await Promise.resolve().then(() => (init_agent_audit(), agent_audit_exports));
+        return recentAudit2(ctx.user.id, 30);
+      }),
+      /** Lightweight liveness — used by uptime pings / the status dot. */
+      ping: authedQuery.input(external_exports.object({}).optional()).query(async () => {
+        const db = getDb();
+        try {
+          await db.run(sql`SELECT 1`);
+          return { ok: true, ts: (/* @__PURE__ */ new Date()).toISOString() };
+        } catch (e) {
+          return { ok: false, ts: (/* @__PURE__ */ new Date()).toISOString(), error: e instanceof Error ? e.message : String(e) };
+        }
+      })
+    });
+  }
+});
+
 // api/brain-core.ts
 function tokenize2(s) {
   return (s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter((w) => w.length > 1 && !STOP.has(w));
@@ -59354,487 +59835,6 @@ var init_brain_store = __esm({
     init_drizzle_orm();
     init_brain_core();
     FOS_VERSION = "1.2";
-  }
-});
-
-// api/personal-core.ts
-var personal_core_exports = {};
-__export(personal_core_exports, {
-  CATEGORY_LABELS: () => CATEGORY_LABELS,
-  PERSONAL_CATEGORIES: () => PERSONAL_CATEGORIES,
-  buildPersonalContext: () => buildPersonalContext,
-  normalizeCategory: () => normalizeCategory,
-  selectPersonalFacts: () => selectPersonalFacts,
-  splitDump: () => splitDump
-});
-function normalizeCategory(c) {
-  const s = (c || "").toLowerCase().trim().replace(/\s+/g, "_");
-  if (!s) return "misc";
-  if (PERSONAL_CATEGORIES.includes(s)) return s;
-  if (/(family|kid|child|wife|spouse|partner|friend|contact)/.test(s)) return "people";
-  if (/(birthday|anniversary|date|renew)/.test(s)) return "important_dates";
-  if (/(doctor|med|health|dentist|prescription)/.test(s)) return "health";
-  if (/(car|vehicle|truck|plate|insurance)/.test(s)) return "vehicles";
-  if (/(bank|bill|subscription|money|finance)/.test(s)) return "finances";
-  if (/(login|account|membership|service|password)/.test(s)) return "accounts";
-  if (/(like|prefer|favou?rite|size|taste)/.test(s)) return "preferences";
-  if (/(trip|travel|flight|hotel|passport)/.test(s)) return "travel";
-  if (/(goal|resolution|project)/.test(s)) return "goals";
-  if (/(home|house|address|utility|maintenance)/.test(s)) return "home";
-  return "misc";
-}
-function ms2(d10) {
-  if (d10 == null) return 0;
-  const t2 = d10 instanceof Date ? d10.getTime() : Number(d10);
-  return Number.isFinite(t2) ? t2 : 0;
-}
-function selectPersonalFacts(all, limit2 = 40) {
-  return [...all].sort((a, b) => {
-    const p = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
-    return p !== 0 ? p : ms2(b.createdAt) - ms2(a.createdAt);
-  }).slice(0, limit2);
-}
-function buildPersonalContext(facts, openItems = []) {
-  const picked = selectPersonalFacts(facts);
-  if (!picked.length && !openItems.length) return "";
-  const byCat = /* @__PURE__ */ new Map();
-  for (const f of picked) {
-    const c = normalizeCategory(f.category);
-    if (!byCat.has(c)) byCat.set(c, []);
-    byCat.get(c).push(`${f.pinned ? "\u2605 " : ""}${f.fact}`);
-  }
-  const order = [...PERSONAL_CATEGORIES].filter((c) => byCat.has(c)).concat([...byCat.keys()].filter((c) => !PERSONAL_CATEGORIES.includes(c)));
-  const lines2 = [
-    "=== MARKIE'S PERSONAL LIFE (PRIVATE \u2014 this is Liv's domain only; NEVER share it with other agents, clients, or mix it with firm work) ==="
-  ];
-  for (const c of order) {
-    lines2.push(`${CATEGORY_LABELS[c] ?? c}:`);
-    for (const f of byCat.get(c)) lines2.push(`  - ${f}`);
-  }
-  const open3 = openItems.filter((i) => i.kind !== "note" && !i.done);
-  if (open3.length) {
-    lines2.push("Open personal items:");
-    for (const i of open3.slice(0, 20)) {
-      const due = i.dueDate ? ` (due ${new Date(ms2(i.dueDate)).toISOString().slice(0, 10)})` : "";
-      lines2.push(`  - [${i.kind}] ${i.title}${due}`);
-    }
-  }
-  return lines2.join("\n");
-}
-function splitDump(text2) {
-  return (text2 || "").split(/\r?\n/).map((l) => l.replace(/^\s*[-*•·]\s*/, "").trim()).filter((l) => l.length > 1);
-}
-var PERSONAL_CATEGORIES, CATEGORY_LABELS;
-var init_personal_core = __esm({
-  "api/personal-core.ts"() {
-    PERSONAL_CATEGORIES = [
-      "people",
-      // family, friends, contacts and who they are
-      "important_dates",
-      // birthdays, anniversaries, renewals
-      "health",
-      // doctors, meds, conditions, appointments
-      "home",
-      // address, utilities, maintenance, services
-      "vehicles",
-      // cars, plates, insurance, service
-      "accounts",
-      // logins/services (NOT passwords), memberships
-      "finances",
-      // personal banking, bills, subscriptions
-      "preferences",
-      // tastes, sizes, likes/dislikes
-      "travel",
-      // trips, loyalty numbers, documents
-      "goals",
-      // personal goals / projects
-      "misc"
-      // anything else / unsorted dump
-    ];
-    CATEGORY_LABELS = {
-      people: "People",
-      important_dates: "Important dates",
-      health: "Health",
-      home: "Home",
-      vehicles: "Vehicles",
-      accounts: "Accounts & memberships",
-      finances: "Personal finances",
-      preferences: "Preferences",
-      travel: "Travel",
-      goals: "Goals",
-      misc: "Misc / inbox"
-    };
-  }
-});
-
-// api/qa-core.ts
-function rollup(statuses) {
-  if (statuses.includes("fail")) return "fail";
-  if (statuses.includes("warn")) return "warn";
-  return "ok";
-}
-function evaluateQa(facts) {
-  const checks = [];
-  checks.push({
-    id: "db",
-    category: "Database",
-    label: "Database connection",
-    status: facts.dbReachable ? "ok" : "fail",
-    detail: facts.dbReachable ? "Responding to queries." : `Not reachable${facts.dbError ? `: ${facts.dbError}` : "."}`
-  });
-  for (const t2 of EXPECTED_TABLES) {
-    const count5 = facts.tableCounts[t2.name];
-    if (count5 === void 0 || count5 === null) {
-      checks.push({
-        id: `table:${t2.name}`,
-        category: "Tables",
-        label: t2.label,
-        status: "fail",
-        detail: "Table missing or query failed."
-      });
-    } else if (count5 === 0 && !t2.emptyOk) {
-      checks.push({
-        id: `table:${t2.name}`,
-        category: "Tables",
-        label: t2.label,
-        status: "warn",
-        detail: "Present but empty (expected some rows)."
-      });
-    } else {
-      checks.push({
-        id: `table:${t2.name}`,
-        category: "Tables",
-        label: t2.label,
-        status: "ok",
-        detail: `${count5} row${count5 === 1 ? "" : "s"}.`
-      });
-    }
-  }
-  for (const e of REQUIRED_ENV) {
-    const present = !!facts.env[e.name];
-    checks.push({
-      id: `env:${e.name}`,
-      category: "Configuration",
-      label: e.name,
-      status: present ? "ok" : "fail",
-      detail: present ? "Set." : `Missing \u2014 needed for ${e.why}.`
-    });
-  }
-  for (const e of OPTIONAL_ENV) {
-    const present = !!facts.env[e.name];
-    checks.push({
-      id: `env:${e.name}`,
-      category: "Configuration",
-      label: e.name,
-      status: present ? "ok" : "warn",
-      detail: present ? "Set." : `Not set \u2014 ${e.why} stays off until configured.`
-    });
-  }
-  if (facts.qbo) {
-    const { total, active, needReconnect } = facts.qbo;
-    let status = "ok";
-    let detail = `${active}/${total} connection${total === 1 ? "" : "s"} active.`;
-    if (total === 0) {
-      status = "warn";
-      detail = "No QBO connections yet (bridge or native OAuth not bound).";
-    } else if (needReconnect > 0) {
-      status = "warn";
-      detail = `${needReconnect} connection${needReconnect === 1 ? "" : "s"} need reconnect.`;
-    } else if (active === 0) {
-      status = "warn";
-      detail = `${total} connection${total === 1 ? "" : "s"} but none active.`;
-    }
-    checks.push({ id: "qbo", category: "QuickBooks", label: "QBO connections", status, detail });
-  }
-  if (typeof facts.connectorCount === "number") {
-    checks.push({
-      id: "connectors",
-      category: "Integrations",
-      label: "Connected provider accounts",
-      status: "ok",
-      detail: `${facts.connectorCount} account${facts.connectorCount === 1 ? "" : "s"} linked.`
-    });
-  }
-  if (typeof facts.recentSyncErrors === "number") {
-    checks.push({
-      id: "sync-errors",
-      category: "Integrations",
-      label: "Recent sync errors",
-      status: facts.recentSyncErrors > 0 ? "warn" : "ok",
-      detail: facts.recentSyncErrors > 0 ? `${facts.recentSyncErrors} failed sync(s) recently.` : "No recent sync failures."
-    });
-  }
-  const ok = checks.filter((c) => c.status === "ok").length;
-  const warn = checks.filter((c) => c.status === "warn").length;
-  const fail = checks.filter((c) => c.status === "fail").length;
-  return {
-    status: rollup(checks.map((c) => c.status)),
-    counts: { ok, warn, fail, total: checks.length },
-    checks,
-    ts: (/* @__PURE__ */ new Date()).toISOString()
-  };
-}
-var EXPECTED_TABLES, REQUIRED_ENV, OPTIONAL_ENV;
-var init_qa_core = __esm({
-  "api/qa-core.ts"() {
-    EXPECTED_TABLES = [
-      { name: "clients", label: "Clients", emptyOk: false },
-      { name: "users", label: "Users", emptyOk: false },
-      { name: "tasks", label: "Tasks", emptyOk: true },
-      { name: "emails", label: "Emails", emptyOk: true },
-      { name: "employees", label: "Employees", emptyOk: true },
-      { name: "pay_runs", label: "Pay runs", emptyOk: true },
-      { name: "qbo_connections", label: "QBO connections", emptyOk: true },
-      { name: "connected_accounts", label: "Connector accounts", emptyOk: true },
-      { name: "triage_findings", label: "Triage findings", emptyOk: true },
-      { name: "vendor_memory", label: "Vendor memory", emptyOk: true }
-    ];
-    REQUIRED_ENV = [
-      { name: "ANTHROPIC_API_KEY", why: "AI features (Liv drafts, chatbot, bank converter, PDF splitter, web classify)" }
-    ];
-    OPTIONAL_ENV = [
-      { name: "FIGGY_TOKEN_KEY", why: "QBO token encryption at rest \u2014 set via FIGGY_TOKEN_KEY, APP_SECRET, or the auto-generated key" },
-      { name: "QBO_CLIENT_ID", why: "QBO native OAuth (production app)" },
-      { name: "QBO_CLIENT_SECRET", why: "QBO native OAuth (production app)" },
-      { name: "FIGGY_MAKE_API_TOKEN", why: "Make scenario-run bridge (Drive folders, backlog suggest)" }
-    ];
-  }
-});
-
-// api/scorecard-core.ts
-function toMs(d10) {
-  if (d10 == null) return null;
-  const t2 = d10 instanceof Date ? d10.getTime() : Number(d10);
-  return Number.isFinite(t2) ? t2 : null;
-}
-function normConf(c) {
-  if (c == null || !Number.isFinite(c)) return null;
-  return c <= 1 ? Math.round(c * 100) : Math.round(c);
-}
-function gradeFor(acceptance, reviewed) {
-  if (acceptance == null || reviewed < 3) return "n/a";
-  if (acceptance >= 90) return "excellent";
-  if (acceptance >= 75) return "good";
-  return "watch";
-}
-function scoreAgents(rows, now = Date.now()) {
-  const byAgent = /* @__PURE__ */ new Map();
-  for (const r of rows) {
-    const name2 = (r.agentName ?? "").trim() || "Unknown";
-    if (!byAgent.has(name2)) byAgent.set(name2, []);
-    byAgent.get(name2).push(r);
-  }
-  const agents = [];
-  for (const [agent, items] of byAgent) {
-    const approved = items.filter((i) => i.status === "approved").length;
-    const dismissed = items.filter((i) => i.status === "dismissed").length;
-    const pending = items.filter((i) => i.status === "new" || i.status === "awaiting_client").length;
-    const reviewed = approved + dismissed;
-    const acceptanceRate = reviewed ? Math.round(approved / reviewed * 100) : null;
-    const confs = items.map((i) => normConf(i.confidence)).filter((c) => c != null);
-    const avgConfidence = confs.length ? Math.round(confs.reduce((a, b) => a + b, 0) / confs.length) : null;
-    const recent = items.filter((i) => {
-      const t2 = toMs(i.createdAt);
-      return t2 != null && now - t2 <= RECENT_WINDOW_MS;
-    });
-    const prior = items.filter((i) => {
-      const t2 = toMs(i.createdAt);
-      return t2 != null && now - t2 > RECENT_WINDOW_MS;
-    });
-    const rate = (xs) => {
-      const a = xs.filter((i) => i.status === "approved").length;
-      const d10 = xs.filter((i) => i.status === "dismissed").length;
-      return a + d10 ? a / (a + d10) * 100 : null;
-    };
-    const rRecent = rate(recent), rPrior = rate(prior);
-    let trend = "n/a";
-    if (rRecent != null && rPrior != null) {
-      trend = rRecent > rPrior + 5 ? "up" : rRecent < rPrior - 5 ? "down" : "flat";
-    }
-    agents.push({
-      agent,
-      total: items.length,
-      approved,
-      dismissed,
-      pending,
-      reviewed,
-      acceptanceRate,
-      avgConfidence,
-      trend,
-      grade: gradeFor(acceptanceRate, reviewed)
-    });
-  }
-  agents.sort((a, b) => b.reviewed - a.reviewed || a.agent.localeCompare(b.agent));
-  const totReviewed = agents.reduce((s, a) => s + a.reviewed, 0);
-  const totApproved = agents.reduce((s, a) => s + a.approved, 0);
-  const totPending = agents.reduce((s, a) => s + a.pending, 0);
-  return {
-    agents,
-    overall: {
-      reviewed: totReviewed,
-      acceptanceRate: totReviewed ? Math.round(totApproved / totReviewed * 100) : null,
-      pending: totPending
-    },
-    ts: new Date(now).toISOString()
-  };
-}
-var RECENT_WINDOW_MS;
-var init_scorecard_core = __esm({
-  "api/scorecard-core.ts"() {
-    RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1e3;
-  }
-});
-
-// api/qa-router.ts
-var qa_router_exports = {};
-__export(qa_router_exports, {
-  qaRouter: () => qaRouter,
-  runAgentScorecard: () => runAgentScorecard,
-  runHealthReport: () => runHealthReport
-});
-async function countTable(db, table) {
-  try {
-    const res = await db.run(sql.raw(`SELECT COUNT(*) AS n FROM "${table}"`));
-    const rows = res?.rows ?? res ?? [];
-    const row = rows[0] ?? {};
-    const n = row.n ?? row[0] ?? row["COUNT(*)"];
-    return Number(n) || 0;
-  } catch {
-    return null;
-  }
-}
-async function gatherFacts() {
-  const db = getDb();
-  let dbReachable = false;
-  let dbError;
-  try {
-    await db.run(sql`SELECT 1`);
-    dbReachable = true;
-  } catch (e) {
-    dbError = e instanceof Error ? e.message : String(e);
-  }
-  const tableCounts = {};
-  if (dbReachable) {
-    for (const t2 of TABLES) tableCounts[t2] = await countTable(db, t2);
-  } else {
-    for (const t2 of TABLES) tableCounts[t2] = null;
-  }
-  const env2 = {};
-  for (const name2 of TRACKED_ENV) env2[name2] = !!process.env[name2];
-  let tokenKeyReady = !!(process.env.FIGGY_TOKEN_KEY || process.env.APP_SECRET);
-  if (!tokenKeyReady && dbReachable) {
-    try {
-      const r = await db.run(sql.raw(`SELECT value FROM app_settings WHERE key = 'figgy_token_key' LIMIT 1`));
-      const row = (r?.rows ?? r ?? [])[0];
-      tokenKeyReady = !!(row && (row.value ?? row[0]));
-    } catch {
-    }
-  }
-  env2["FIGGY_TOKEN_KEY"] = tokenKeyReady;
-  let qbo;
-  try {
-    const res = await db.run(
-      sql.raw(`SELECT
-        COUNT(*) AS total,
-        SUM(CASE WHEN "isActive" = 1 THEN 1 ELSE 0 END) AS active,
-        SUM(CASE WHEN "reconnectReason" IS NOT NULL AND "reconnectReason" != '' THEN 1 ELSE 0 END) AS needReconnect
-      FROM qbo_connections`)
-    );
-    const row = (res?.rows ?? res ?? [])[0] ?? {};
-    qbo = {
-      total: Number(row.total ?? 0) || 0,
-      active: Number(row.active ?? 0) || 0,
-      needReconnect: Number(row.needReconnect ?? 0) || 0
-    };
-  } catch {
-  }
-  let connectorCount;
-  const cc = await countTable(db, "connected_accounts");
-  if (cc !== null) connectorCount = cc;
-  let recentSyncErrors;
-  try {
-    const res = await db.run(
-      sql.raw(`SELECT COUNT(*) AS n FROM (
-        SELECT status FROM connector_sync_logs ORDER BY id DESC LIMIT 50
-      ) WHERE status = 'error' OR status = 'failed'`)
-    );
-    const row = (res?.rows ?? res ?? [])[0] ?? {};
-    recentSyncErrors = Number(row.n ?? 0) || 0;
-  } catch {
-  }
-  return { dbReachable, dbError, tableCounts, env: env2, qbo, connectorCount, recentSyncErrors };
-}
-async function runHealthReport() {
-  return evaluateQa(await gatherFacts());
-}
-async function runAgentScorecard() {
-  const db = getDb();
-  let rows = [];
-  try {
-    rows = await db.select({
-      agentName: triageFindings.agentName,
-      status: triageFindings.status,
-      confidence: triageFindings.confidence,
-      createdAt: triageFindings.createdAt
-    }).from(triageFindings);
-  } catch {
-  }
-  return scoreAgents(rows);
-}
-var TABLES, TRACKED_ENV, qaRouter;
-var init_qa_router = __esm({
-  "api/qa-router.ts"() {
-    init_zod();
-    init_middleware();
-    init_connection();
-    init_drizzle_orm();
-    init_qa_core();
-    init_schema();
-    init_scorecard_core();
-    TABLES = [
-      "clients",
-      "users",
-      "tasks",
-      "emails",
-      "employees",
-      "pay_runs",
-      "qbo_connections",
-      "connected_accounts",
-      "triage_findings",
-      "vendor_memory"
-    ];
-    TRACKED_ENV = [
-      "ANTHROPIC_API_KEY",
-      "FIGGY_TOKEN_KEY",
-      "QBO_CLIENT_ID",
-      "QBO_CLIENT_SECRET",
-      "FIGGY_MAKE_API_TOKEN"
-    ];
-    qaRouter = createRouter({
-      /** Jinx's full health report. Any signed-in staff member can run it. */
-      runChecks: authedQuery.query(async () => {
-        return runHealthReport();
-      }),
-      /** Jinx's agent scorecard — measurable quality per agent. */
-      scorecard: authedQuery.query(async () => {
-        return runAgentScorecard();
-      }),
-      /** Recent agent activity (governed-autonomy audit trail). */
-      activity: authedQuery.query(async ({ ctx }) => {
-        const { recentAudit: recentAudit2 } = await Promise.resolve().then(() => (init_agent_audit(), agent_audit_exports));
-        return recentAudit2(ctx.user.id, 30);
-      }),
-      /** Lightweight liveness — used by uptime pings / the status dot. */
-      ping: authedQuery.input(external_exports.object({}).optional()).query(async () => {
-        const db = getDb();
-        try {
-          await db.run(sql`SELECT 1`);
-          return { ok: true, ts: (/* @__PURE__ */ new Date()).toISOString() };
-        } catch (e) {
-          return { ok: false, ts: (/* @__PURE__ */ new Date()).toISOString(), error: e instanceof Error ? e.message : String(e) };
-        }
-      })
-    });
   }
 });
 
@@ -62600,68 +62600,6 @@ var init_ensure_brain_schema = __esm({
   "api/ensure-brain-schema.ts"() {
     init_connection();
     init_drizzle_orm();
-  }
-});
-
-// api/seed-heritage.ts
-var seed_heritage_exports = {};
-__export(seed_heritage_exports, {
-  seedHeritage: () => seedHeritage
-});
-async function seedHeritage() {
-  const db = getDb();
-  try {
-    const owner = await db.all(sql`SELECT id FROM users WHERE role='admin' ORDER BY id ASC LIMIT 1`);
-    const fb = owner[0] ? owner : await db.all(sql`SELECT id FROM users ORDER BY id ASC LIMIT 1`);
-    const uid = fb[0]?.id;
-    if (!uid) return;
-    const have = await db.all(sql`SELECT COUNT(*) AS n FROM family_members WHERE userId=${uid} AND name=${LINES[0].name}`);
-    if (Number(have[0]?.n || 0) > 0) return;
-    const now = Date.now();
-    for (const l of LINES) {
-      await db.run(sql`INSERT INTO family_members (userId, name, relation, side, living, notes, medicalNotes, createdAt, updatedAt)
-        VALUES (${uid}, ${l.name}, ${l.relation}, ${l.side}, 1, ${l.notes}, NULL, ${now}, ${now})`);
-    }
-    await addTruth({
-      scope: { kind: "personal" },
-      userId: uid,
-      layer: "memory",
-      category: "heritage",
-      label: "Heritage & Ancestry",
-      statement: "Markie's heritage: PATERNAL Fitzpatrick (ancient Irish Gaelic clan, Mac Giolla Ph\xE1draig, Ossory). MATERNAL Walsh (Breathnach, Norman-Irish, Waterford/Wexford/Kilkenny). ANTLE line established in Newfoundland; born Fleur de Lys, NL (emotional home). Heritage symbols: Celtic cross, shamrock, Newfoundland pitcher plant (replaced the Scottish thistle), NL coastline, phoenix (reinvention/resilience), lotus (growth through adversity). Existing purple fleur-de-lis tattoo on the left outer lower leg ABOVE the ankle (untouched; all future work grows upward from it). Full reference: Drive doc 'Phoenix Rising \u2014 Heritage & Ancestry (v1)'. DNA files in Drive: dna-data-2017-11-27.zip, dna_story.png, DNA Paternal Sister Match.pdf.",
-      sourceLabels: ["Markie \u2014 Heritage & Ancestry Export v1"]
-    });
-    console.log(`[heritage] seeded ${LINES.length} family lines + heritage brain record for user ${uid}`);
-  } catch (e) {
-    console.error("[heritage] seedHeritage failed:", e instanceof Error ? e.message : e);
-  }
-}
-var LINES;
-var init_seed_heritage = __esm({
-  "api/seed-heritage.ts"() {
-    init_connection();
-    init_drizzle_orm();
-    init_brain_store();
-    LINES = [
-      {
-        name: "Fitzpatrick (paternal line)",
-        relation: "Paternal Irish clan",
-        side: "paternal",
-        notes: "Ancient Irish Gaelic clan. Gaelic: Mac Giolla Ph\xE1draig ('Son of the devotee of Saint Patrick'). Remained a powerful native Gaelic family. Homeland: County Laois, County Kilkenny, ancient Kingdom of Ossory. Represents strength, leadership, resilience, ancient Irish heritage."
-      },
-      {
-        name: "Walsh (maternal line)",
-        relation: "Maternal Norman-Irish family",
-        side: "maternal",
-        notes: "Original Irish: Breathnach ('The Welshman'). Became one of Ireland's oldest established Norman-Irish families. Areas: County Waterford, Wexford, Kilkenny. Represents Irish heritage, perseverance, family."
-      },
-      {
-        name: "Antle (Newfoundland)",
-        relation: "Surname line",
-        side: "self",
-        notes: "Established in Newfoundland; earlier European origins still being researched. Birthplace Fleur de Lys, NL \u2014 emotional home. Themes: ocean, rugged coastline, resilience, simplicity, family, roots."
-      }
-    ];
   }
 });
 
@@ -83586,8 +83524,6 @@ function formatLessonsBlock(lessons) {
 
 // api/assistant-router.ts
 init_agent_audit();
-init_brain_store();
-init_brain_core();
 init_task_command_core();
 
 // api/skills/common.ts
@@ -84118,16 +84054,6 @@ function formatAgenda(a) {
 }
 
 // api/assistant-router.ts
-async function brainFallback(message2, userId) {
-  try {
-    const res = await brainAsk(message2, { kind: "firm" }, { userId, askedBy: "assistant" });
-    if (res.answered) return `${renderAnswer(res)}
-
-_(Answered from the Brain \u2014 the AI service is unavailable right now, so I'm working from what we know.)_`;
-  } catch {
-  }
-  return null;
-}
 var ACTION_TOOLS = /* @__PURE__ */ new Set(["add_task", "add_personal", "add_life_item", "schedule_event", "complete_task", "draft_email", "remember", "remember_personal"]);
 var TZ = "America/Toronto";
 async function execAddTask(text2, userId) {
@@ -84584,23 +84510,12 @@ var assistantRouter = createRouter({
             continue;
           }
           console.error("[assistant] API error", { name: err?.name, status: err?.status, message: err?.message });
-          if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.APIConnectionError) {
-            const fromBrain = await brainFallback(input.message, ctx.user.id);
-            if (fromBrain) {
-              await saveTurn(fromBrain);
-              return { reply: fromBrain, actions, agent };
-            }
-            return { reply: err instanceof Anthropic.AuthenticationError ? "The AI key isn't valid \u2014 check ANTHROPIC_API_KEY on the server. (I can still answer from the Brain in the meantime.)" : "Couldn't reach the AI just now \u2014 retry, or ask me something that's in the Brain.", actions, agent };
-          }
+          if (err instanceof Anthropic.AuthenticationError) return { reply: "The AI key isn't valid \u2014 check ANTHROPIC_API_KEY on the server.", actions, agent };
           if (err instanceof Anthropic.RateLimitError) return { reply: "The AI is rate-limited right now \u2014 give it a minute and try again.", actions, agent };
           if (err instanceof Anthropic.InternalServerError) return { reply: "The AI is briefly overloaded \u2014 try again in a sec.", actions, agent };
+          if (err instanceof Anthropic.APIConnectionError) return { reply: "Couldn't reach the AI just now \u2014 check the connection and retry.", actions, agent };
           if (/credit balance|too low|billing|insufficient (funds|credit)|purchase credits/i.test(err?.message || "")) {
-            const fromBrain = await brainFallback(input.message, ctx.user.id);
-            if (fromBrain) {
-              await saveTurn(fromBrain);
-              return { reply: fromBrain, actions, agent };
-            }
-            return { reply: "That one needs the live AI and the Anthropic credits are out \u2014 but I can still answer anything that's in the Brain. (To restore full chat: console.anthropic.com \u2192 Plans & Billing.)", actions, agent };
+            return { reply: "I'm out of AI credits at the moment \u2014 top up the Anthropic account (console.anthropic.com \u2192 Plans & Billing) and I'll be right back. This affects all the agents, not just me.", actions, agent };
           }
           const msg = err instanceof Anthropic.APIError ? `${err.status ?? ""} ${err.message}`.trim() : err?.message || "unknown error";
           return { reply: `Snag talking to the AI: ${msg}`, actions, agent };
@@ -87297,7 +87212,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.154";
+var BUILD_TAG = "2026-06-26.153";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -87722,8 +87637,6 @@ app.get("/api/phoenix/seed", async (c) => {
       await seedAgentBrain2();
       await seedKnowledgeBrain2();
       await seedConstitution2();
-      const { seedHeritage: seedHeritage2 } = await Promise.resolve().then(() => (init_seed_heritage(), seed_heritage_exports));
-      await seedHeritage2();
       const { ensureLaunchpadSchema: ensureLaunchpadSchema2 } = await Promise.resolve().then(() => (init_ensure_launchpad_schema(), ensure_launchpad_schema_exports));
       await ensureLaunchpadSchema2();
       const { ensureSubscriptionsSchema: ensureSubscriptionsSchema2 } = await Promise.resolve().then(() => (init_ensure_subscriptions_schema(), ensure_subscriptions_schema_exports));
