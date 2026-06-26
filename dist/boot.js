@@ -40428,7 +40428,19 @@ async function qboRequestViaMake(cfg, endpoint, method = "GET", body) {
     const errText = await res.text();
     throw new Error(`Make bridge ${method} ${url2} failed: ${res.status} ${errText}`);
   }
-  const data = await res.json();
+  const text2 = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text2);
+  } catch {
+    const ack = text2.trim().slice(0, 80);
+    if (/^accepted/i.test(ack)) {
+      throw new Error(
+        `Make bridge for realm ${cfg.realmId} returned an async ack ("${ack}") instead of QBO data. The read-only bridge scenario is missing a synchronous "Webhook Response" that returns the QBO body \u2014 needs fixing on the Make side before reads work for this realm. (Not the books.)`
+      );
+    }
+    throw new Error(`Make bridge for realm ${cfg.realmId} returned non-JSON: "${ack}"`);
+  }
   return unwrapRunResponse(data);
 }
 var init_qbo_make_bridge = __esm({
@@ -63158,6 +63170,78 @@ var init_seed_rose_reselling = __esm({
         statement: "SKYE'S CADENCE: Mon pick the week's channel focus by what moved last week; draft 3 caption/listing variants + 1 boutique outreach (Markie approves before posting/sending \u2014 review gate); log every sale in Side Sales (Phoenix Rising); Fri report units sold, $/unit, sell-through %, what's working, next-week rec; flag price drops to keep velocity. SUCCESS = cleared, not engagement (track units remaining from 150, blended $/unit \u2265$22, days-to-clear, cash collected). NEEDS FROM MARKIE: product photos in the Rose sales folder; the e-Transfer email (or 'yes' to a landing page); pick opening play (wholesale fast / direct margin / both). Full package: Drive 'Skye \u2014 Rose Reselling Package & Process (v1)'."
       }
     ];
+  }
+});
+
+// api/seed-alderson-recurring.ts
+var seed_alderson_recurring_exports = {};
+__export(seed_alderson_recurring_exports, {
+  seedAldersonRecurring: () => seedAldersonRecurring
+});
+function localNoon(y, m1, d10) {
+  return new Date(y, m1 - 1, d10, 12, 0, 0);
+}
+async function seedAldersonRecurring() {
+  const db = getDb();
+  try {
+    const owner = await db.all(sql`SELECT id FROM users WHERE role='admin' ORDER BY id ASC LIMIT 1`);
+    const fb = owner[0] ? owner : await db.all(sql`SELECT id FROM users ORDER BY id ASC LIMIT 1`);
+    const uid = fb[0]?.id;
+    if (!uid) return;
+    const cl = await db.all(sql`SELECT id FROM clients WHERE lower(name) LIKE '%alderson%' OR lower(company) LIKE '%alderson%' ORDER BY id ASC LIMIT 1`);
+    const clientId = cl[0]?.id;
+    if (!clientId) {
+      console.warn("[alderson] no Alderson client found \u2014 skipping recurring task seed");
+      return;
+    }
+    const existing = await db.all(sql`SELECT id FROM client_task_rules WHERE clientId=${clientId} AND title=${RULE_TITLE} LIMIT 1`);
+    if (existing.length) return;
+    const firstDue = localNoon(2026, 9, 3);
+    const [rule] = await db.insert(clientTaskRules).values({
+      clientId,
+      userId: uid,
+      title: RULE_TITLE,
+      description: DESCRIPTION,
+      category: "Client Request",
+      priority: "high",
+      assignedTo: "Liv",
+      ruleType: "custom",
+      frequency: "quarterly",
+      dueDayOfMonth: 3,
+      daysBeforeDue: 0,
+      active: true,
+      nextDueDate: firstDue
+    }).returning();
+    const ruleId = rule?.id;
+    await db.insert(tasks).values({
+      userId: uid,
+      clientId,
+      title: RULE_TITLE,
+      description: DESCRIPTION,
+      dueDate: firstDue,
+      startDate: firstDue,
+      category: "Client Request",
+      priority: "high",
+      assignedTo: "Liv",
+      status: "pending",
+      completed: false,
+      ruleId: ruleId ?? null,
+      isRecurring: true,
+      recurrenceCount: 1
+    });
+    console.log(`[alderson] seeded quarterly 'request bank activity' rule + first task (client ${clientId}, rule ${ruleId})`);
+  } catch (e) {
+    console.error("[alderson] seedAldersonRecurring failed:", e instanceof Error ? e.message : e);
+  }
+}
+var RULE_TITLE, DESCRIPTION;
+var init_seed_alderson_recurring = __esm({
+  "api/seed-alderson-recurring.ts"() {
+    init_connection();
+    init_drizzle_orm();
+    init_schema();
+    RULE_TITLE = "Email Rocco \u2014 request Alderson bank account activity (last quarter)";
+    DESCRIPTION = "Email Rocco to request the Alderson Developments bank account activity for the LAST QUARTER. The Alderson account is NOT paperless \u2014 the statement is mailed, so Rocco has to go in and print the transactions, then share them (sometimes CSV, sometimes PDF). We need this to reconcile the Alderson bank account (it's a holding account for a project). Send on the 3rd of the month; if the 3rd is a weekend or holiday, send the next business day. This quarter covers the three months just ended.";
   }
 });
 
@@ -87773,7 +87857,11 @@ var hstReviewRouter = createRouter({
         taxById.set(String(t2.Id), t2.Name);
       }
     } catch (e) {
-      errors.push(`TaxCode: ${e instanceof Error ? e.message : e}`);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/async ack|non-JSON|Make bridge/i.test(msg)) {
+        return { ok: false, error: "bridge_not_returning_data", detail: msg };
+      }
+      errors.push(`TaxCode: ${msg}`);
     }
     const taxName = (id) => id ? taxById.get(String(id)) : void 0;
     const accounts = [];
@@ -88575,7 +88663,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.165";
+var BUILD_TAG = "2026-06-26.166";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -89008,6 +89096,8 @@ app.get("/api/phoenix/seed", async (c) => {
       await seedStrategySession2();
       const { seedRoseReselling: seedRoseReselling2 } = await Promise.resolve().then(() => (init_seed_rose_reselling(), seed_rose_reselling_exports));
       await seedRoseReselling2();
+      const { seedAldersonRecurring: seedAldersonRecurring2 } = await Promise.resolve().then(() => (init_seed_alderson_recurring(), seed_alderson_recurring_exports));
+      await seedAldersonRecurring2();
       const { ensureGenealogySchema: ensureGenealogySchema2 } = await Promise.resolve().then(() => (init_ensure_genealogy_schema(), ensure_genealogy_schema_exports));
       await ensureGenealogySchema2();
       const { backfillGenealogyFields: backfillGenealogyFields2 } = await Promise.resolve().then(() => (init_genealogy_scan(), genealogy_scan_exports));

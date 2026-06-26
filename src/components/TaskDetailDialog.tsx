@@ -247,7 +247,8 @@ function TaskHstReview({ clientId, dueDate, onClose }: { clientId: number; dueDa
         </Link>
       </div>
       {run.isError && <div className="text-xs text-red-600">{(run.error as any)?.message || "Failed to run."}</div>}
-      {r && !r.ok && <div className="text-xs text-amber-600">No usable QBO connection for this client ({r.error}).</div>}
+      {r && !r.ok && r.error === "bridge_not_returning_data" && <div className="text-xs text-amber-700">The live QBO connection isn't returning data yet (bridge config fix needed — not the books). File from QuickBooks' Sales Tax report for now.</div>}
+      {r && !r.ok && r.error !== "bridge_not_returning_data" && <div className="text-xs text-amber-600">No usable QBO connection for this client ({r.error}).</div>}
       {r && r.ok && (
         <div className="space-y-1.5">
           <div className="text-xs text-slate-600">

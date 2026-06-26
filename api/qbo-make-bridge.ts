@@ -77,6 +77,24 @@ export async function qboRequestViaMake(
     const errText = await res.text();
     throw new Error(`Make bridge ${method} ${url} failed: ${res.status} ${errText}`);
   }
-  const data = await res.json();
+  // Read as text first: a Make WEBHOOK that lacks a synchronous "Webhook Response"
+  // module just acks with the literal "Accepted" (HTTP 200) and runs async — so
+  // res.json() would blow up with a cryptic "Unexpected token 'A'". Detect that and
+  // explain the real cause (a bridge-config issue, not the client's books).
+  const text = await res.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    const ack = text.trim().slice(0, 80);
+    if (/^accepted/i.test(ack)) {
+      throw new Error(
+        `Make bridge for realm ${cfg.realmId} returned an async ack ("${ack}") instead of QBO data. ` +
+        `The read-only bridge scenario is missing a synchronous "Webhook Response" that returns the QBO body — ` +
+        `needs fixing on the Make side before reads work for this realm. (Not the books.)`,
+      );
+    }
+    throw new Error(`Make bridge for realm ${cfg.realmId} returned non-JSON: "${ack}"`);
+  }
   return unwrapRunResponse(data);
 }
