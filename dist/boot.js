@@ -59195,6 +59195,265 @@ var init_qa_router = __esm({
   }
 });
 
+// api/brain-core.ts
+function tokenize2(s) {
+  return (s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter((w) => w.length > 1 && !STOP.has(w));
+}
+function scopeMatches(recordScope, queryScope) {
+  if (recordScope.kind !== queryScope.kind) return false;
+  if (recordScope.kind === "client") return recordScope.clientId != null && recordScope.clientId === queryScope.clientId;
+  return true;
+}
+function scoreRecord(queryTerms, record2) {
+  if (queryTerms.length === 0) return 0;
+  const hay = new Set(tokenize2(`${record2.label} ${record2.text} ${record2.category ?? ""}`));
+  let hits = 0;
+  for (const t2 of queryTerms) if (hay.has(t2)) hits += 1;
+  const coverage = hits / queryTerms.length;
+  const categoryHit = record2.category ? queryTerms.includes(record2.category.toLowerCase()) : false;
+  const categoryBonus = categoryHit ? 0.25 : 0;
+  const labelBonus = tokenize2(record2.label).some((t2) => queryTerms.includes(t2)) ? 0.15 : 0;
+  return Math.min(1, coverage + categoryBonus + labelBonus);
+}
+function retrieve(question, scope, records, topN = 5) {
+  const terms = tokenize2(question);
+  return records.filter((r) => scopeMatches(r.scope, scope)).map((r) => ({ record: r, score: scoreRecord(terms, r) })).filter((m) => m.score > 0).sort((a, b) => b.score - a.score).slice(0, topN);
+}
+function formatCitations(matches) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const m of matches) {
+    const key10 = `${m.record.layer}:${m.record.label}`;
+    if (seen.has(key10)) continue;
+    seen.add(key10);
+    out.push({ label: m.record.label, layer: m.record.layer });
+  }
+  return out;
+}
+function answerFromBrain(question, scope, records, opts) {
+  const confidentAt = opts?.confidentAt ?? 0.55;
+  const matches = retrieve(question, scope, records);
+  const top = matches[0];
+  const truthTop = matches.find((m) => m.record.layer === "truth" && m.record.status === "approved");
+  if (truthTop && truthTop.score >= confidentAt) {
+    return {
+      answered: true,
+      text: truthTop.record.text,
+      confidence: Math.round(Math.min(99, 50 + truthTop.score * 49)),
+      citations: formatCitations(matches.filter((m) => m.score >= confidentAt * 0.6)),
+      matches
+    };
+  }
+  return {
+    answered: false,
+    confidence: top ? Math.round(top.score * 40) : 0,
+    // low, advisory only
+    citations: [],
+    missingInfo: { question: missingInfoQuestion(question, scope), scope, category: opts?.category },
+    matches
+  };
+}
+function missingInfoQuestion(question, scope) {
+  const who = scope.kind === "client" ? `client #${scope.clientId}` : scope.kind;
+  return `Need confirmation for ${who}: ${question.trim().replace(/\?+$/, "")}? (not yet in the brain \u2014 answer to make it truth)`;
+}
+function truthFromAnswer(input) {
+  return {
+    id: input.id,
+    layer: "truth",
+    scope: input.scope,
+    label: input.label,
+    text: input.statement,
+    status: "approved",
+    category: input.category,
+    sourceLabels: input.sourceLabels,
+    updatedAt: input.at
+  };
+}
+function renderAnswer(a) {
+  if (!a.answered) return `I don't have that in the brain yet \u2014 filing a question for you: "${a.missingInfo?.question}"`;
+  const src = a.citations.map((c) => c.label).join(" + ") || "\u2014";
+  return `${a.text}  \u2014 Source: ${src} (${a.confidence}%)`;
+}
+var STOP;
+var init_brain_core = __esm({
+  "api/brain-core.ts"() {
+    STOP = /* @__PURE__ */ new Set([
+      "the",
+      "a",
+      "an",
+      "of",
+      "to",
+      "for",
+      "and",
+      "or",
+      "is",
+      "are",
+      "in",
+      "on",
+      "at",
+      "what",
+      "which",
+      "how",
+      "do",
+      "does",
+      "did",
+      "i",
+      "we",
+      "you",
+      "it",
+      "this",
+      "that",
+      "with",
+      "by",
+      "from",
+      "be",
+      "as",
+      "should",
+      "need",
+      "needs",
+      "use",
+      "uses"
+    ]);
+  }
+});
+
+// api/brain-store.ts
+var brain_store_exports = {};
+__export(brain_store_exports, {
+  addTruth: () => addTruth,
+  answerQuestion: () => answerQuestion,
+  brainAsk: () => brainAsk,
+  brainStats: () => brainStats,
+  fileQuestion: () => fileQuestion,
+  listOpenQuestions: () => listOpenQuestions,
+  loadScopedRecords: () => loadScopedRecords,
+  seedBrain: () => seedBrain
+});
+function rowToRecord(r) {
+  return {
+    id: String(r.id),
+    layer: r.layer || "truth",
+    scope: { kind: r.scopeKind, clientId: r.clientId ?? void 0 },
+    label: r.label || "Record",
+    text: r.text || "",
+    status: r.status || "approved",
+    category: r.category ?? void 0,
+    sourceLabels: r.sourceLabels ? safeJson(r.sourceLabels) : void 0,
+    updatedAt: r.updatedAt ?? void 0
+  };
+}
+function safeJson(s) {
+  try {
+    const v = JSON.parse(s);
+    return Array.isArray(v) ? v : void 0;
+  } catch {
+    return void 0;
+  }
+}
+async function loadScopedRecords(scope, userId) {
+  const db = getDb();
+  let rows;
+  if (scope.kind === "client") {
+    rows = await db.all(sql`SELECT * FROM brain_records WHERE scopeKind = 'client' AND clientId = ${scope.clientId ?? -1}`);
+  } else if (scope.kind === "personal") {
+    rows = await db.all(sql`SELECT * FROM brain_records WHERE scopeKind = 'personal' AND userId = ${userId ?? -1}`);
+  } else {
+    rows = await db.all(sql`SELECT * FROM brain_records WHERE scopeKind = 'firm'`);
+  }
+  return rows.map(rowToRecord);
+}
+async function brainAsk(question, scope, opts) {
+  const records = await loadScopedRecords(scope, opts?.userId);
+  const ans = answerFromBrain(question, scope, records, { category: opts?.category });
+  if (ans.answered || !ans.missingInfo) return ans;
+  const filedQuestionId = await fileQuestion(ans.missingInfo.question, scope, { userId: opts?.userId, askedBy: opts?.askedBy, category: opts?.category });
+  return { ...ans, filedQuestionId };
+}
+async function fileQuestion(question, scope, opts) {
+  const db = getDb();
+  const existing = await db.all(sql`SELECT id FROM brain_questions WHERE status = 'open' AND question = ${question} AND scopeKind = ${scope.kind} AND COALESCE(clientId,-1) = ${scope.clientId ?? -1} LIMIT 1`);
+  if (existing[0]) return Number(existing[0].id);
+  const now = Date.now();
+  await db.run(sql`INSERT INTO brain_questions (scopeKind, clientId, userId, question, category, status, askedBy, createdAt)
+    VALUES (${scope.kind}, ${scope.clientId ?? null}, ${opts?.userId ?? null}, ${question}, ${opts?.category ?? null}, 'open', ${opts?.askedBy ?? "liv"}, ${now})`);
+  const row = await db.all(sql`SELECT id FROM brain_questions WHERE question = ${question} ORDER BY id DESC LIMIT 1`);
+  return row[0] ? Number(row[0].id) : void 0;
+}
+async function addTruth(input) {
+  const db = getDb();
+  const id = "br_" + (await import("crypto")).randomBytes(10).toString("hex");
+  const now = Date.now();
+  await db.run(sql`INSERT INTO brain_records (id, layer, scopeKind, clientId, userId, label, text, status, category, sourceLabels, createdAt, updatedAt)
+    VALUES (${id}, ${input.layer ?? "truth"}, ${input.scope.kind}, ${input.scope.clientId ?? null}, ${input.userId ?? null}, ${input.label}, ${input.statement}, ${input.status ?? "approved"}, ${input.category ?? null}, ${input.sourceLabels ? JSON.stringify(input.sourceLabels) : null}, ${now}, ${now})`);
+  return id;
+}
+async function answerQuestion(id, answer, opts) {
+  const db = getDb();
+  const rows = await db.all(sql`SELECT * FROM brain_questions WHERE id = ${id} LIMIT 1`);
+  const q = rows[0];
+  if (!q) return { error: "question not found" };
+  const scope = { kind: q.scopeKind, clientId: q.clientId ?? void 0 };
+  const truth = truthFromAnswer({ id: "br_" + (await import("crypto")).randomBytes(10).toString("hex"), scope, label: opts?.label || "Confirmed by Markie", statement: answer, category: opts?.category ?? q.category ?? void 0, sourceLabels: ["Markie"], at: Date.now() });
+  const truthId = await addTruth({ scope, label: truth.label, statement: truth.text, category: truth.category, sourceLabels: truth.sourceLabels, userId: q.userId ?? void 0 });
+  await db.run(sql`UPDATE brain_questions SET status = 'answered', answer = ${answer}, answeredAt = ${Date.now()} WHERE id = ${id}`);
+  return { truthId };
+}
+async function listOpenQuestions() {
+  const db = getDb();
+  return await db.all(sql`SELECT * FROM brain_questions WHERE status = 'open' ORDER BY createdAt DESC LIMIT 200`);
+}
+async function seedBrain() {
+  const db = getDb();
+  const have = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records`);
+  if (Number(have[0]?.n || 0) > 0) return;
+  const firm = { kind: "firm" };
+  const seeds = [
+    {
+      label: "Reconcile SOP",
+      category: "reconcile",
+      sourceLabels: ["Markie 2026-06-26"],
+      statement: "When reconciling a bank account in QBO, the month to reconcile is ALWAYS the next month after the 'Last statement ending date' shown. Click 'View statements' to open that next month's statement and read its ending balance. Statements live in QBO when the bank feed is connected (no Hubdoc). Confirm the beginning balance matches, enter the ending balance + date, Start reconciling, get the Difference to $0.00, then get Markie's OK before clicking Finish now."
+    },
+    {
+      label: "Figgy Clearing rule",
+      category: "coding",
+      sourceLabels: ["Markie, non-negotiable"],
+      statement: "NEVER use the 'Figgy Clearing' account, or any clearing/control account (Accounts Payable, Accounts Receivable, Undeposited Funds, equity), for any transaction or reconciliation. If a workflow seems to want it, stop and ask Markie."
+    },
+    {
+      label: "Review gate",
+      category: "policy",
+      sourceLabels: ["Firm golden rule"],
+      statement: "Nothing posts, files, or sends without Markie's review. Agents never invent accounts, clients, or data. If confidence is 80% or less, or the answer isn't in the brain, create a review item for Markie instead of acting."
+    },
+    {
+      label: "Entities are separate",
+      category: "policy",
+      sourceLabels: ["Firm golden rule"],
+      statement: "Clark OS (Owen Sound) and Clark CW (Collingwood) are permanently separate entities and books \u2014 never merge them. Judge a client by the bill-to and location on the document, never the sender or folder."
+    }
+  ];
+  for (const s of seeds) {
+    await addTruth({ scope: firm, label: s.label, statement: s.statement, category: s.category, sourceLabels: s.sourceLabels, layer: s.layer });
+  }
+  console.log(`[brain] seeded ${seeds.length} firm truths`);
+}
+async function brainStats() {
+  const db = getDb();
+  const rec = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records`);
+  const tru = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE layer='truth' AND status='approved'`);
+  const q = await db.all(sql`SELECT COUNT(*) AS n FROM brain_questions WHERE status='open'`);
+  return { records: Number(rec[0]?.n || 0), truth: Number(tru[0]?.n || 0), openQuestions: Number(q[0]?.n || 0) };
+}
+var init_brain_store = __esm({
+  "api/brain-store.ts"() {
+    init_connection();
+    init_drizzle_orm();
+    init_brain_core();
+  }
+});
+
 // api/ensure-calendar-schema.ts
 var ensure_calendar_schema_exports = {};
 __export(ensure_calendar_schema_exports, {
@@ -61634,6 +61893,56 @@ async function ensureLifeSchema() {
 }
 var init_ensure_life_schema = __esm({
   "api/ensure-life-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/ensure-brain-schema.ts
+var ensure_brain_schema_exports = {};
+__export(ensure_brain_schema_exports, {
+  ensureBrainSchema: () => ensureBrainSchema
+});
+async function ensureBrainSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS brain_records (
+      id text PRIMARY KEY,
+      layer text NOT NULL DEFAULT 'truth',
+      scopeKind text NOT NULL DEFAULT 'firm',
+      clientId integer,
+      userId integer,
+      label text NOT NULL,
+      text text NOT NULL,
+      status text NOT NULL DEFAULT 'approved',
+      category text,
+      sourceLabels text,
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[brain] ensure brain_records failed:", e instanceof Error ? e.message : e);
+  }
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS brain_questions (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      scopeKind text NOT NULL DEFAULT 'firm',
+      clientId integer,
+      userId integer,
+      question text NOT NULL,
+      category text,
+      status text NOT NULL DEFAULT 'open',
+      answer text,
+      askedBy text DEFAULT 'liv',
+      createdAt integer,
+      answeredAt integer
+    )`);
+  } catch (e) {
+    console.error("[brain] ensure brain_questions failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_brain_schema = __esm({
+  "api/ensure-brain-schema.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -83407,6 +83716,61 @@ var personalRouter = createRouter({
   })
 });
 
+// api/brain-router.ts
+init_zod();
+init_middleware();
+init_brain_core();
+init_brain_store();
+var scopeInput = external_exports.object({
+  scopeKind: external_exports.enum(["client", "firm", "personal"]).default("firm"),
+  clientId: external_exports.number().nullable().optional()
+});
+function toScope(i) {
+  return { kind: i.scopeKind, clientId: i.clientId ?? void 0 };
+}
+var brainRouter = createRouter({
+  /** Ask the brain. Answers from approved truth (with citations + confidence), or
+   *  files a question for Markie and says so. Never invents. */
+  ask: authedQuery.input(scopeInput.extend({ question: external_exports.string().min(2).max(1e3), category: external_exports.string().optional() })).mutation(async ({ ctx, input }) => {
+    const scope = toScope(input);
+    const res = await brainAsk(input.question, scope, { userId: ctx.user.id, askedBy: "liv", category: input.category });
+    return {
+      answered: res.answered,
+      text: res.text ?? null,
+      confidence: res.confidence,
+      citations: res.citations,
+      rendered: renderAnswer(res),
+      missingInfo: res.missingInfo ?? null,
+      filedQuestionId: res.filedQuestionId ?? null,
+      matches: res.matches.map((m) => ({ id: m.record.id, label: m.record.label, layer: m.record.layer, status: m.record.status, score: Math.round(m.score * 100) }))
+    };
+  }),
+  /** Add an approved fact to the brain (truth layer). */
+  addTruth: authedQuery.input(scopeInput.extend({
+    label: external_exports.string().min(1).max(120),
+    statement: external_exports.string().min(2).max(4e3),
+    category: external_exports.string().max(60).optional(),
+    sourceLabels: external_exports.array(external_exports.string()).optional(),
+    layer: external_exports.enum(["truth", "source", "memory"]).default("truth")
+  })).mutation(async ({ ctx, input }) => {
+    const id = await addTruth({
+      scope: toScope(input),
+      label: input.label,
+      statement: input.statement,
+      category: input.category,
+      sourceLabels: input.sourceLabels,
+      layer: input.layer,
+      userId: input.scopeKind === "personal" ? ctx.user.id : void 0
+    });
+    return { ok: true, id };
+  }),
+  /** The missing-info queue — what the brain didn't know and asked Markie. */
+  questions: authedQuery.query(async () => ({ questions: await listOpenQuestions() })),
+  /** Answer a question → it becomes approved truth (the learning loop). */
+  answer: authedQuery.input(external_exports.object({ id: external_exports.number(), answer: external_exports.string().min(2).max(4e3), label: external_exports.string().max(120).optional(), category: external_exports.string().max(60).optional() })).mutation(async ({ input }) => answerQuestion(input.id, input.answer, { label: input.label, category: input.category })),
+  stats: authedQuery.query(async () => brainStats())
+});
+
 // api/life-router.ts
 init_zod();
 init_middleware();
@@ -84865,6 +85229,7 @@ var appRouter = createRouter({
   assistant: assistantRouter,
   jinx: qaRouter,
   personal: personalRouter,
+  brain: brainRouter,
   life: lifeRouter,
   learning: learningRouter,
   chat: chatRouter,
@@ -85152,7 +85517,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.132";
+var BUILD_TAG = "2026-06-26.133";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -85563,6 +85928,14 @@ app.get("/api/phoenix/seed", async (c) => {
   try {
     const { ensureLifeSchema: ensureLifeSchema2 } = await Promise.resolve().then(() => (init_ensure_life_schema(), ensure_life_schema_exports));
     await ensureLifeSchema2();
+    try {
+      const { ensureBrainSchema: ensureBrainSchema2 } = await Promise.resolve().then(() => (init_ensure_brain_schema(), ensure_brain_schema_exports));
+      await ensureBrainSchema2();
+      const { seedBrain: seedBrain2 } = await Promise.resolve().then(() => (init_brain_store(), brain_store_exports));
+      await seedBrain2();
+    } catch (e) {
+      console.error("[brain] schema/seed failed (continuing):", e instanceof Error ? e.message : e);
+    }
     const { seedPhoenixPersonal: seedPhoenixPersonal2 } = await Promise.resolve().then(() => (init_seed_phoenix_personal(), seed_phoenix_personal_exports));
     const r = await seedPhoenixPersonal2();
     const { seedPhoenixPersonalV2: seedPhoenixPersonalV22 } = await Promise.resolve().then(() => (init_seed_phoenix_personal_v2(), seed_phoenix_personal_v2_exports));
