@@ -45496,9 +45496,9 @@ function wrap(inner) {
 }
 function renderQuoteHtml(opts) {
   const { firm, quote } = opts;
-  const clean3 = (label) => label.replace(/\s*—.*$/, "").replace(/\s*\(wholesale[^)]*\)/i, "").replace(/,?\s*amortized/i, "").replace(/\s*\$\d[\d,.]*/g, "").replace(/\s*\(\s*\)/g, "").trim();
+  const clean4 = (label) => label.replace(/\s*—.*$/, "").replace(/\s*\(wholesale[^)]*\)/i, "").replace(/,?\s*amortized/i, "").replace(/\s*\$\d[\d,.]*/g, "").replace(/\s*\(\s*\)/g, "").trim();
   const included = quote.monthlyLineItems.map((li) => `
-    <li style="margin:5px 0;">${esc2(clean3(li.label))}</li>`).join("");
+    <li style="margin:5px 0;">${esc2(clean4(li.label))}</li>`).join("");
   return wrap(`
     ${header(firm, opts.quoteNumber ? `Quote ${opts.quoteNumber}` : "Quote")}
     <p style="margin:0 0 4px;">Prepared for</p>
@@ -85621,6 +85621,125 @@ init_middleware();
 init_connection();
 init_drizzle_orm();
 init_brain_store();
+
+// api/session-import-core.ts
+var SECTIONS = [
+  { re: /^executive summary/i, kind: "summary" },
+  { re: /^(major )?decisions?\b/i, kind: "decision" },
+  { re: /^business structure/i, kind: "decision" },
+  { re: /^strategic breakthroughs?/i, kind: "idea", numbered: true },
+  { re: /^business philosophy/i, kind: "decision" },
+  { re: /^pricing philosophy/i, kind: "decision" },
+  { re: /^new standards?/i, kind: "system" },
+  { re: /^new kpis?/i, kind: "system" },
+  { re: /^new project/i, kind: "idea" },
+  { re: /^(future )?research( projects?)?/i, kind: "research" },
+  { re: /^open questions?/i, kind: "open_questions" },
+  // skipped (operational / narrative, not knowledge assets):
+  { re: /^ai team/i, kind: "skip" },
+  { re: /^immediate priorities/i, kind: "skip" },
+  { re: /^changelog/i, kind: "skip" },
+  { re: /^closing observation/i, kind: "skip" },
+  { re: /^strategic breakthroughs?$/i, kind: "idea", numbered: true }
+];
+var clean3 = (s) => s.replace(/^[\s\-•*–—]+/, "").replace(/[\s:]+$/, "").trim();
+var isBlank = (s) => !s.trim();
+function matchSection(line) {
+  const t2 = clean3(line);
+  if (t2.length > 60) return null;
+  for (const s of SECTIONS) if (s.re.test(t2)) return s;
+  return null;
+}
+var numberedStart = (line) => /^[\s]*\d+\.\s+/.test(line);
+function extractBullets(lines2) {
+  const out = [];
+  for (const line of lines2) {
+    if (isBlank(line)) continue;
+    const t2 = clean3(line);
+    if (!t2 || /:$/.test(line.trim())) continue;
+    if (t2.length < 3) continue;
+    out.push({ kind: "idea", title: t2.slice(0, 200) });
+  }
+  return out;
+}
+function extractNumbered(lines2) {
+  const out = [];
+  let cur = null;
+  const body = [];
+  const flush = () => {
+    if (cur) {
+      cur.body = body.filter(Boolean).join(" ").slice(0, 1500) || void 0;
+      out.push(cur);
+    }
+    body.length = 0;
+  };
+  for (const line of lines2) {
+    if (numberedStart(line)) {
+      flush();
+      cur = { kind: "idea", title: clean3(line.replace(/^\s*\d+\.\s+/, "")).slice(0, 200) };
+    } else if (cur && !isBlank(line)) {
+      const t2 = clean3(line);
+      if (t2 && !/:$/.test(line.trim())) body.push(t2);
+    }
+  }
+  flush();
+  return out.length ? out : extractBullets(lines2);
+}
+function parseSessionPackage(text2) {
+  const raw2 = (text2 || "").replace(/\r/g, "");
+  const lines2 = raw2.split("\n");
+  const idMatch = raw2.match(/\bSES-\d{4}-\d{2}-\d{2}-\d+\b/) || raw2.match(/Session ID:\s*([^\s]+)/i);
+  const sessionId = idMatch ? idMatch[0].startsWith("SES-") ? idMatch[0] : idMatch[1] : null;
+  const items = [];
+  const openQuestions = [];
+  let summary = "";
+  let current = null;
+  let block = [];
+  const commit = () => {
+    if (!current || !block.length) {
+      block = [];
+      return;
+    }
+    if (current.kind === "summary") {
+      summary = block.map((l) => clean3(l)).filter(Boolean).join(" ").slice(0, 1200);
+    } else if (current.kind === "open_questions") {
+      for (const it of extractBullets(block)) openQuestions.push(it.title);
+    } else if (current.kind !== "skip") {
+      const found = current.numbered ? extractNumbered(block) : extractBullets(block);
+      for (const it of found) items.push({ ...it, kind: current.kind });
+    }
+    block = [];
+  };
+  for (const line of lines2) {
+    const sec = matchSection(line);
+    if (sec) {
+      commit();
+      current = sec;
+      continue;
+    }
+    if (current) block.push(line);
+  }
+  commit();
+  let title = "";
+  for (const l of lines2) {
+    const t2 = clean3(l);
+    if (t2 && !/^session (close package|id)/i.test(t2) && !/^status:/i.test(t2) && !/^prepared by/i.test(t2)) {
+      title = t2.slice(0, 160);
+      break;
+    }
+  }
+  if (!title) title = sessionId ? `Session ${sessionId}` : "Imported session";
+  const seen = /* @__PURE__ */ new Set();
+  const deduped = items.filter((it) => {
+    const k = it.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  return { sessionId, title, summary, items: deduped, openQuestions };
+}
+
+// api/registers-router.ts
 var KIND = external_exports.enum(["decision", "improvement", "prompt", "research", "system", "client_process", "idea", "lesson"]);
 var PREFIX = {
   decision: "DEC",
@@ -85704,6 +85823,61 @@ var registersRouter = createRouter({
   remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     await getDb().run(sql`UPDATE firm_registers SET active=0 WHERE id=${input.id} AND userId=${ctx.user.id}`);
     return { ok: true };
+  }),
+  // ───────── SESSION IMPORT ─────────
+  // Paste a "Session Close Package" → numbered register assets + Brain entries.
+  // Reuses the existing kinds/numbering; no parallel doc system.
+  /** Dry-run: parse the package and show exactly what WOULD be created. */
+  importSessionPreview: authedQuery.input(external_exports.object({ text: external_exports.string().min(1).max(6e4) })).query(async ({ ctx, input }) => {
+    const parsed = parseSessionPackage(input.text);
+    const counts = {};
+    for (const it of parsed.items) counts[it.kind] = (counts[it.kind] || 0) + 1;
+    let alreadyImported = false;
+    if (parsed.sessionId) {
+      const dup = await getDb().all(sql`SELECT id FROM firm_registers WHERE userId=${ctx.user.id} AND kind='system' AND title LIKE ${`Session ${parsed.sessionId}%`} AND active=1 LIMIT 1`);
+      alreadyImported = dup.length > 0;
+    }
+    return { ...parsed, counts, alreadyImported };
+  }),
+  /** Commit: create the numbered assets, mirror decisions + open questions to Brain. */
+  importSessionCommit: authedQuery.input(external_exports.object({ text: external_exports.string().min(1).max(6e4) })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const uid = ctx.user.id;
+    const now = Date.now();
+    const parsed = parseSessionPackage(input.text);
+    const tag2 = parsed.sessionId || `session-${now}`;
+    if (parsed.sessionId) {
+      const dup = await db.all(sql`SELECT id FROM firm_registers WHERE userId=${uid} AND kind='system' AND title LIKE ${`Session ${parsed.sessionId}%`} AND active=1 LIMIT 1`);
+      if (dup.length) return { ok: true, alreadyImported: true, sessionId: parsed.sessionId, created: 0, codes: [] };
+    }
+    const codes = [];
+    const sessCode = await nextCode(db, uid, "system");
+    await db.run(sql`INSERT INTO firm_registers (userId, kind, code, title, body, tags, status, author, createdAt, updatedAt)
+        VALUES (${uid}, 'system', ${sessCode}, ${`Session ${tag2} \u2014 ${parsed.title}`.slice(0, 200)}, ${parsed.summary || null}, ${tag2}, 'open', 'Session Import', ${now}, ${now})`);
+    codes.push(sessCode);
+    for (const it of parsed.items) {
+      const code = await nextCode(db, uid, it.kind);
+      await db.run(sql`INSERT INTO firm_registers (userId, kind, code, title, body, tags, status, author, createdAt, updatedAt)
+          VALUES (${uid}, ${it.kind}, ${code}, ${it.title}, ${it.body ?? null}, ${tag2}, 'open', 'Session Import', ${now}, ${now})`);
+      codes.push(code);
+      if (it.kind === "decision") {
+        try {
+          await addTruth({ scope: { kind: "firm" }, label: `${code} \u2014 ${it.title}`.slice(0, 120), statement: [`Decision ${code}: ${it.title}.`, it.body || ""].filter(Boolean).join(" "), category: "decision", sourceLabels: [`Session ${tag2}`] });
+        } catch {
+        }
+      }
+    }
+    let questionsFiled = 0;
+    for (const q of parsed.openQuestions) {
+      try {
+        await fileQuestion(q, { kind: "firm" }, { askedBy: "Session Import", category: "strategy" });
+        questionsFiled++;
+      } catch {
+      }
+    }
+    const byKind = {};
+    for (const it of parsed.items) byKind[it.kind] = (byKind[it.kind] || 0) + 1;
+    return { ok: true, alreadyImported: false, sessionId: parsed.sessionId, created: parsed.items.length + 1, byKind, questionsFiled, codes };
   })
 });
 
@@ -88061,7 +88235,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.159";
+var BUILD_TAG = "2026-06-26.160";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
