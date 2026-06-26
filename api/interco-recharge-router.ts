@@ -120,12 +120,21 @@ export async function ensureRechargeSchema(): Promise<void> {
  *  account back by exactly what was spent, with NO name guessing). */
 export type ExpenseByAccount = { accountId: string; accountName: string; net: number };
 
+/** Accounts that are NEVER recharged to the counterparty — they're the payer's own
+ *  banking cost, not a project cost belonging to the other company (Markie 2026-06-26:
+ *  "bank charges are not billable back to Holdings"). Conservative, name-based. */
+const NON_BILLABLE_ACCT = /bank\s*(charges?|fees?|service)|service\s*charges?|merchant\s*(fees?|charges?)|nsf/i;
+function isNonBillableAccount(name: string): boolean { return NON_BILLABLE_ACCT.test(name || ""); }
+
 /** Pull the payer's expense lines (Purchase + Bill) in range → per-line list for the
- *  draft preview + a per-account rollup for the zero-out invoice. */
-async function pullExpenses(conn: any, start: string, end: string): Promise<{ expenses: RechargeExpense[]; byAccount: ExpenseByAccount[]; errors: string[] }> {
+ *  draft preview + a per-account rollup for the zero-out invoice. Non-billable
+ *  accounts (bank charges etc.) are EXCLUDED from both. */
+async function pullExpenses(conn: any, start: string, end: string): Promise<{ expenses: RechargeExpense[]; byAccount: ExpenseByAccount[]; excluded: { lines: number; total: number; accounts: string[] }; errors: string[] }> {
   const range = `TxnDate >= '${start}' AND TxnDate <= '${end}'`;
   const expenses: RechargeExpense[] = [];
   const byAcct = new Map<string, ExpenseByAccount>();
+  const excludedAccts = new Set<string>();
+  let excludedLines = 0, excludedTotal = 0;
   const errors: string[] = [];
   const q = (s: string) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
   const pull = async (entity: "Purchase" | "Bill") => {
@@ -138,6 +147,11 @@ async function pullExpenses(conn: any, start: string, end: string): Promise<{ ex
           const acctName = d.AccountRef?.name || "Expense";
           const acctId = d.AccountRef?.value ? String(d.AccountRef.value) : "";
           const amt = num(l.Amount);
+          // Skip non-billable accounts (bank charges etc.) — not recharged to Holdings.
+          if (isNonBillableAccount(acctName)) {
+            excludedLines++; excludedTotal += amt; excludedAccts.add(acctName);
+            continue;
+          }
           expenses.push({
             description: `${acctName}${e.EntityRef?.name ? ` — ${e.EntityRef.name}` : ""} (${String(e.TxnDate || "").slice(0, 10)})`,
             net: amt,
@@ -159,7 +173,8 @@ async function pullExpenses(conn: any, start: string, end: string): Promise<{ ex
   await pull("Purchase");
   await pull("Bill");
   const byAccount = Array.from(byAcct.values()).map((a) => ({ ...a, net: Math.round((a.net + Number.EPSILON) * 100) / 100 }));
-  return { expenses, byAccount, errors };
+  const excluded = { lines: excludedLines, total: Math.round((excludedTotal + Number.EPSILON) * 100) / 100, accounts: Array.from(excludedAccts) };
+  return { expenses, byAccount, excluded, errors };
 }
 
 export const intercoRechargeRouter = createRouter({
@@ -233,7 +248,7 @@ export const intercoRechargeRouter = createRouter({
       const cfgRow: any = (await getDb().run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`));
       const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
       try {
-        const { expenses, byAccount, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+        const { expenses, byAccount, excluded, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
         const draft = buildRecharge({
           periodLabel: input.periodLabel || `${input.startDate} → ${input.endDate}`,
           payerName: input.payerName,
@@ -245,7 +260,7 @@ export const intercoRechargeRouter = createRouter({
           expenses,
         });
         const zeroOut = num((cfg as any).zeroOutExpenses ?? 1) !== 0;
-        return { ok: true as const, draft, pulled: expenses.length, errors, byAccount, zeroOut };
+        return { ok: true as const, draft, pulled: expenses.length, errors, byAccount, excluded, zeroOut };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.startsWith("bridge_not_returning_data")) return { ok: false as const, error: "bridge_not_returning_data", detail: msg };
