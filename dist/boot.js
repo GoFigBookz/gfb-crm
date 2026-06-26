@@ -63648,7 +63648,7 @@ var init_seed_alderson_recharge = __esm({
     init_schema();
     init_interco_recharge_router();
     RULE_TITLE2 = "Inter-company recharge + reconcile: Alderson \u2192 Ovita Holdings (fiscal quarter)";
-    DESCRIPTION2 = "Generate the inter-company recharge for the fiscal quarter just ended: pull Alderson's project expenses, build the invoice Alderson \u2192 Ovita Holdings for those costs + 13% HST (revenue \u2192 Sales; Holdings expense \u2192 Alderson Project Management Costs), post both sides on approval, then RECONCILE the intercompany balance to zero against the counterparty. Settlement: Holdings' payment lands in the 'Alderson Development clearing account' as a TRANSFER on Alderson's side \u2014 reconcile that clearing account to zero each quarter. Tool: Inter-Company \u2192 Recharge generator (drafts only; nothing posts without review).";
+    DESCRIPTION2 = "ALDERSON \u2192 OVITA HOLDINGS QUARTERLY RECHARGE + RECONCILE (fiscal quarters end Feb/May/Aug/Nov; Nov 30 year-end). Precise steps:\n1. Confirm Alderson's bank + clearing accounts are reconciled for the quarter and the Pre-HST review is clean.\n2. Open Inter-Company \u2192 'Inter-company recharge (draft)'. Payer = Alderson; Counterparty = Ovita Holdings; dates = the fiscal quarter (e.g. Mar 1 \u2013 May 31). Click 'Generate draft'.\n3. It pulls Alderson's project expenses for the quarter and builds the invoice + mirror bill + 13% HST. Review the lines against what you expect; check invoice total = bill total (it ties out).\n4. In ALDERSON (QBO): create the INVOICE \u2014 Customer = Ovita Holdings; line(s) = the recharged costs to 'Sales'; HST 13% (Alderson charges the output HST). Total = the draft invoice total.\n5. In HOLDINGS (QBO): create the BILL \u2014 Vendor = Alderson Developments; expense account = 'Alderson Project Management Costs'; HST 13% (Holdings claims the ITC). Same total.\n6. SETTLEMENT: when Holdings pays Alderson, record the payment as a TRANSFER into the reciprocal clearing accounts \u2014 Alderson's books \u2192 'Holdings clearing account'; Holdings' books \u2192 'Alderson Development clearing account'.\n7. RECONCILE: at quarter-end reconcile BOTH clearing accounts to zero (they mirror each other). Tick 'reconciled' in the recharge log on the Inter-Company page.\n8. File the invoice + bill copies in the client folder. Drafts only in Figgy \u2014 nothing posts to QBO without review.";
   }
 });
 
@@ -89091,7 +89091,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.175";
+var BUILD_TAG = "2026-06-26.176";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

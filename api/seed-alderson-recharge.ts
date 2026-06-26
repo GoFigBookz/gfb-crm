@@ -20,12 +20,23 @@ import { ensureRechargeSchema } from "./interco-recharge-router";
 
 const RULE_TITLE = "Inter-company recharge + reconcile: Alderson → Ovita Holdings (fiscal quarter)";
 const DESCRIPTION =
-  "Generate the inter-company recharge for the fiscal quarter just ended: pull Alderson's project expenses, " +
-  "build the invoice Alderson → Ovita Holdings for those costs + 13% HST (revenue → Sales; Holdings expense → " +
-  "Alderson Project Management Costs), post both sides on approval, then RECONCILE the intercompany balance to " +
-  "zero against the counterparty. Settlement: Holdings' payment lands in the 'Alderson Development clearing account' " +
-  "as a TRANSFER on Alderson's side — reconcile that clearing account to zero each quarter. " +
-  "Tool: Inter-Company → Recharge generator (drafts only; nothing posts without review).";
+  "ALDERSON → OVITA HOLDINGS QUARTERLY RECHARGE + RECONCILE (fiscal quarters end Feb/May/Aug/Nov; Nov 30 year-end). " +
+  "Precise steps:\n" +
+  "1. Confirm Alderson's bank + clearing accounts are reconciled for the quarter and the Pre-HST review is clean.\n" +
+  "2. Open Inter-Company → 'Inter-company recharge (draft)'. Payer = Alderson; Counterparty = Ovita Holdings; " +
+  "dates = the fiscal quarter (e.g. Mar 1 – May 31). Click 'Generate draft'.\n" +
+  "3. It pulls Alderson's project expenses for the quarter and builds the invoice + mirror bill + 13% HST. " +
+  "Review the lines against what you expect; check invoice total = bill total (it ties out).\n" +
+  "4. In ALDERSON (QBO): create the INVOICE — Customer = Ovita Holdings; line(s) = the recharged costs to 'Sales'; " +
+  "HST 13% (Alderson charges the output HST). Total = the draft invoice total.\n" +
+  "5. In HOLDINGS (QBO): create the BILL — Vendor = Alderson Developments; expense account = 'Alderson Project " +
+  "Management Costs'; HST 13% (Holdings claims the ITC). Same total.\n" +
+  "6. SETTLEMENT: when Holdings pays Alderson, record the payment as a TRANSFER into the reciprocal clearing " +
+  "accounts — Alderson's books → 'Holdings clearing account'; Holdings' books → 'Alderson Development clearing account'.\n" +
+  "7. RECONCILE: at quarter-end reconcile BOTH clearing accounts to zero (they mirror each other). Tick 'reconciled' " +
+  "in the recharge log on the Inter-Company page.\n" +
+  "8. File the invoice + bill copies in the client folder. " +
+  "Drafts only in Figgy — nothing posts to QBO without review.";
 
 function localNoon(y: number, m1: number, d: number): Date {
   return new Date(y, m1 - 1, d, 12, 0, 0);

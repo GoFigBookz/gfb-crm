@@ -157,6 +157,21 @@ export default function IntercoRechargePanel() {
             </div>
           </div>
         )}
+
+        <details className="text-xs text-slate-500 border-t pt-2">
+          <summary className="cursor-pointer font-medium text-slate-600">Precise steps (the SOP)</summary>
+          <ol className="list-decimal ml-4 mt-1 space-y-0.5">
+            <li>Reconcile Alderson's bank + clearing accounts for the quarter; run the Pre-HST review.</li>
+            <li>Above: Payer = Alderson, Counterparty = Ovita Holdings, dates = the fiscal quarter (e.g. Mar 1–May 31). Generate draft.</li>
+            <li>Review the pulled expense lines; confirm invoice total = bill total.</li>
+            <li><b>Alderson (QBO):</b> create the Invoice — Customer = Ovita Holdings; lines → <b>Sales</b>; HST 13% (output tax).</li>
+            <li><b>Holdings (QBO):</b> create the Bill — Vendor = Alderson; expense → <b>Alderson Project Management Costs</b>; HST 13% (ITC).</li>
+            <li><b>Settlement:</b> Holdings pays Alderson → record as a <b>transfer</b> into the clearing accounts (Alderson → "Holdings clearing account"; Holdings → "Alderson Development clearing account").</li>
+            <li><b>Reconcile</b> both clearing accounts to zero each quarter (they mirror). Tick "reconciled" above.</li>
+            <li>File the invoice + bill in the client folder.</li>
+          </ol>
+          <p className="mt-1 text-slate-400">Drafts only — nothing posts to QBO without your review.</p>
+        </details>
       </CardContent>
     </Card>
   );
