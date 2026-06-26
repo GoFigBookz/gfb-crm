@@ -4,7 +4,7 @@ import { getDb } from "./queries/connection";
 import { emails, connectedAccounts, clientEmails, senderRules, clients } from "../db/schema";
 import { eq, and, desc, inArray, isNull, ne, like } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { buildRawMessage, extractEmail, replyDraftSystem, taskSuggestSystem } from "./email-core";
+import { buildRawMessage, extractEmail, replyDraftSystem, taskSuggestSystem, polishSystem } from "./email-core";
 import { getValidGoogleAccessToken } from "./google-token";
 import { tasks as tasksTable } from "../db/schema";
 
@@ -369,6 +369,15 @@ export const emailRouter = createRouter({
       const userText = `Client email to reply to:\nFrom: ${orig.fromName || orig.fromAddress}\nSubject: ${orig.subject || ""}\n\n${orig.bodyPlain || (orig.body || "").replace(/<[^>]*>/g, " ")}`;
       const draft = await callClaude(replyDraftSystem(samples), userText, 800);
       return { draft };
+    }),
+
+  // Polish a draft (fix spelling/grammar/tone) without changing meaning. Used by
+  // the composer's ✨ Polish button so Markie never sends a sloppy email.
+  polish: authedQuery
+    .input(z.object({ text: z.string().min(1).max(8000), mode: z.enum(["polish", "grammar"]).default("polish") }))
+    .mutation(async ({ input }) => {
+      const out = await callClaude(polishSystem(input.mode), input.text, 1200);
+      return { text: (out || "").trim() || input.text };
     }),
 
   // Liv: suggest a task from an inbound client email (optionally create it).

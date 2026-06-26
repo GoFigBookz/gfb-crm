@@ -101,6 +101,20 @@ export function replyDraftSystem(styleSamples: string[]): string {
   ].join("\n");
 }
 
+/** System prompt for POLISHING an email draft — fix spelling/grammar/clarity and
+ *  tighten tone WITHOUT changing the meaning or sounding robotic. Keeps Markie's
+ *  voice. Returns only the cleaned text. */
+export function polishSystem(mode: "polish" | "grammar" = "polish"): string {
+  const base = [
+    "You clean up an email draft for Markie (Go Fig Bookz, a bookkeeping firm).",
+    "Fix spelling, grammar, and punctuation. Make it clear, professional, and warm — like a competent bookkeeper, not a robot.",
+    "DO NOT change the meaning, add new facts, or invent details. Keep it roughly the same length. Keep his voice — don't make it stiff or corporate.",
+    "Output ONLY the corrected email body text — no preamble, no quotes, no 'Here is'.",
+  ];
+  if (mode === "grammar") base[1] = "Fix ONLY spelling, grammar, and punctuation. Do not rephrase or change the tone.";
+  return base.join("\n");
+}
+
 /** System prompt for suggesting a task from an inbound client email. */
 export function taskSuggestSystem(): string {
   return [

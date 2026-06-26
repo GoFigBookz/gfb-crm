@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ComposeAssist } from "@/components/ComposeAssist";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/providers/trpc";
@@ -398,7 +399,10 @@ export default function Emails() {
 
             {/* Body */}
             <div className="space-y-2">
-              <Label>Body *</Label>
+              <div className="flex items-center justify-between">
+                <Label>Body *</Label>
+                <ComposeAssist value={composeForm.body} onChange={(t) => setComposeForm((f) => ({ ...f, body: t }))} />
+              </div>
               <Textarea
                 placeholder="Write your message..."
                 rows={8}
@@ -439,7 +443,10 @@ export default function Emails() {
               <p className="text-slate-500 mt-1 line-clamp-2">{selectedEmailData?.bodyPlain?.substring(0, 200)}</p>
             </div>
             <div className="space-y-2">
-              <Label>Reply</Label>
+              <div className="flex items-center justify-between">
+                <Label>Reply</Label>
+                <ComposeAssist value={replyBody} onChange={setReplyBody} />
+              </div>
               <Textarea
                 placeholder="Write your reply..."
                 rows={6}

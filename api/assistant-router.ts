@@ -479,7 +479,7 @@ export const assistantRouter = createRouter({
       // a robust transport. We drive the tool loop ourselves (custom audit + actions).
       // maxRetries kept low + a per-request timeout so a flaky call can't stack
       // long backoffs past our reply deadline. The deadline below is the backstop.
-      const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 12_000 });
+      const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 20_000 });
       let dropServerTools = false; // set if a server-tool combo is rejected, then retry without them
 
       // Run the tool_use blocks from a response, append results, return how many ran.
@@ -555,7 +555,7 @@ export const assistantRouter = createRouter({
       // transform response from server". So we cap well under that timeout (~24s)
       // and reply with a graceful "still working" instead. (Genuinely long agent
       // work needs streaming/background — a follow-up; this keeps chat reliable.)
-      const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 14_000);
+      const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 21_000);
       let deadlineTimer: any;
       const deadline = new Promise<{ reply: string; actions: string[]; agent: AgentKey }>((resolve) => {
         deadlineTimer = setTimeout(() => resolve({
