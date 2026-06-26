@@ -74,4 +74,59 @@ export const phoenixRouter = createRouter({
   estateRemove: authedQuery.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
     await getDb().run(sql`DELETE FROM estate_items WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
   }),
+
+  // ───────── Side Sales (resale side business; Skye markets it) ─────────
+  sideOverview: authedQuery.query(async ({ ctx }) => {
+    const db = getDb(); const uid = ctx.user.id;
+    const products = (await db.all(sql`SELECT * FROM side_products WHERE userId=${uid} AND active=1 ORDER BY name`)) as any[];
+    const sales = (await db.all(sql`SELECT * FROM side_sales WHERE userId=${uid} ORDER BY soldAt DESC LIMIT 200`)) as any[];
+    // Per-product sold qty + revenue, and overall totals.
+    const soldByProduct: Record<number, { units: number; revenue: number }> = {};
+    let totalUnits = 0, totalRevenue = 0;
+    for (const s of sales) {
+      const r = (soldByProduct[s.productId] ||= { units: 0, revenue: 0 });
+      r.units += Number(s.qty) || 0; r.revenue += (Number(s.qty) || 0) * (Number(s.unitPrice) || 0);
+      totalUnits += Number(s.qty) || 0; totalRevenue += (Number(s.qty) || 0) * (Number(s.unitPrice) || 0);
+    }
+    return { products, sales, soldByProduct, totals: { totalUnits, totalRevenue } };
+  }),
+  sideProductUpsert: authedQuery
+    .input(z.object({
+      id: z.number().optional(),
+      name: z.string().min(1).max(200),
+      category: z.string().max(80).optional(),
+      qtyOnHand: z.number().int().default(0),
+      givenAway: z.number().int().default(0),
+      unitCost: z.number().default(0),
+      minPrice: z.number().default(0),
+      targetPrice: z.number().default(0),
+      discreet: z.boolean().default(false),
+      notes: z.string().max(2000).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb(); const uid = ctx.user.id; const now = Date.now();
+      if (input.id) {
+        await db.run(sql`UPDATE side_products SET name=${input.name}, category=${input.category ?? null}, qtyOnHand=${input.qtyOnHand}, givenAway=${input.givenAway}, unitCost=${input.unitCost}, minPrice=${input.minPrice}, targetPrice=${input.targetPrice}, discreet=${input.discreet ? 1 : 0}, notes=${input.notes ?? null}, updatedAt=${now} WHERE id=${input.id} AND userId=${uid}`);
+        return { ok: true, id: input.id };
+      }
+      await db.run(sql`INSERT INTO side_products (userId, name, category, qtyOnHand, givenAway, unitCost, minPrice, targetPrice, discreet, notes, createdAt, updatedAt)
+        VALUES (${uid}, ${input.name}, ${input.category ?? null}, ${input.qtyOnHand}, ${input.givenAway}, ${input.unitCost}, ${input.minPrice}, ${input.targetPrice}, ${input.discreet ? 1 : 0}, ${input.notes ?? null}, ${now}, ${now})`);
+      return { ok: true };
+    }),
+  sideProductRemove: authedQuery.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`UPDATE side_products SET active=0 WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
+  }),
+  /** Log a sale and decrement on-hand stock. */
+  sideSaleAdd: authedQuery
+    .input(z.object({ productId: z.number(), qty: z.number().int().min(1).default(1), unitPrice: z.number().min(0), channel: z.string().max(80).optional(), notes: z.string().max(500).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb(); const uid = ctx.user.id; const now = Date.now();
+      await db.run(sql`INSERT INTO side_sales (userId, productId, qty, unitPrice, channel, soldAt, notes, createdAt)
+        VALUES (${uid}, ${input.productId}, ${input.qty}, ${input.unitPrice}, ${input.channel ?? null}, ${now}, ${input.notes ?? null}, ${now})`);
+      await db.run(sql`UPDATE side_products SET qtyOnHand = MAX(qtyOnHand - ${input.qty}, 0), updatedAt=${now} WHERE id=${input.productId} AND userId=${uid}`);
+      return { ok: true };
+    }),
+  sideSaleRemove: authedQuery.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM side_sales WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
+  }),
 });

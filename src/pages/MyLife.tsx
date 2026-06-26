@@ -6,6 +6,8 @@ import {
 import HealthHub from "@/components/HealthHub";
 import FamilyHistory from "@/components/FamilyHistory";
 import EstatePlan from "@/components/EstatePlan";
+import SideSales from "@/components/SideSales";
+import { Tags } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,10 +105,15 @@ export default function MyLife() {
           className={`px-3 py-1.5 rounded-lg text-sm border flex items-center gap-1.5 transition-colors ${section === "__estate" ? "bg-indigo-600 text-white border-indigo-600" : "bg-white hover:bg-slate-50 border-slate-200"}`}>
           <Scale className="h-4 w-4" /> Estate
         </button>
+        <button onClick={() => setSection("__side")}
+          className={`px-3 py-1.5 rounded-lg text-sm border flex items-center gap-1.5 transition-colors ${section === "__side" ? "bg-fuchsia-600 text-white border-fuchsia-600" : "bg-white hover:bg-slate-50 border-slate-200"}`}>
+          <Tags className="h-4 w-4" /> Side sales
+        </button>
       </div>
 
       {section === "__family" ? <FamilyHistory />
         : section === "__estate" ? <EstatePlan />
+        : section === "__side" ? <SideSales />
         : (
           <>
             {current?.key === "health" && <HealthHub />}
