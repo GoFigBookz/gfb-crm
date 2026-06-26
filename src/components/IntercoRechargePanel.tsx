@@ -55,10 +55,20 @@ export default function IntercoRechargePanel() {
   }, [cfg]);
 
   const preview = trpc.intercoRecharge.preview.useMutation();
+  const recon = trpc.intercoRecharge.reconcileCheck.useMutation();
   const record = trpc.intercoRecharge.recordPeriod.useMutation({ onSuccess: () => utils.intercoRecharge.log.invalidate({ payerClientId: payerId! }) });
   const markRec = trpc.intercoRecharge.markReconciled.useMutation({ onSuccess: () => utils.intercoRecharge.log.invalidate({ payerClientId: payerId! }) });
   const r = preview.data;
   const draft = r && r.ok ? r.draft : null;
+  const rc = recon.data;
+
+  const checkRecon = () => {
+    if (!payerId) return;
+    recon.mutate({
+      payerClientId: payerId, payerClearingAccount: payerClearing,
+      counterpartyName: counterparty, counterpartyClearingAccount: counterpartyClearing,
+    });
+  };
 
   const run = () => {
     if (!payerId || !payer) return;
@@ -112,6 +122,36 @@ export default function IntercoRechargePanel() {
             <Input className="h-9" value={counterpartyClearing} onChange={(e) => setCounterpartyClearing(e.target.value)} placeholder="Alderson Development clearing account" />
           </div>
           <p className="text-[11px] text-slate-400 sm:col-span-2">The settlement payment lands as a <b>transfer</b> in each entity's clearing account (each named for the other company); reconcile <b>both</b> to zero each quarter — they mirror each other.</p>
+        </div>
+
+        {/* INTERCO RECONCILIATION CHECK — pull both clearing balances live, confirm they offset. */}
+        <div className="rounded-lg border border-sky-200 bg-sky-50/40 p-2 space-y-2">
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" disabled={recon.isPending || !payerId || !payerClearing || !counterpartyClearing} onClick={checkRecon}>
+              {recon.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-1" />} Check interco reconciliation (live)
+            </Button>
+            <span className="text-[11px] text-slate-400">Pulls both clearing-account balances from QBO and confirms they net to zero.</span>
+          </div>
+          {rc && !rc.ok && rc.error === "bridge_not_returning_data" && <div className="text-xs text-amber-700">The live QBO connection isn't returning data yet (bridge config — not the books).</div>}
+          {rc && !rc.ok && /clearing_account_not_found/.test(rc.error) && (
+            <div className="text-xs text-amber-700">
+              Couldn't find that clearing account name in {rc.error.includes("counterparty") ? "the counterparty's" : "the payer's"} chart. Check the spelling. {(rc as any).candidates ? <span className="text-slate-400">Accounts include: {(rc as any).candidates.slice(0, 12).join(", ")}…</span> : null}
+            </div>
+          )}
+          {rc && !rc.ok && !/clearing_account_not_found|bridge_not_returning_data/.test(rc.error) && <div className="text-xs text-amber-600">Couldn't check ({rc.error}).</div>}
+          {rc && rc.ok && (
+            <div className={`text-sm rounded-md p-2 ${rc.result.reconciled ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"}`}>
+              <div className="font-semibold flex items-center gap-1.5">
+                {rc.result.reconciled ? <><CheckCircle2 className="h-4 w-4" /> Reconciled — the two clearing accounts net to zero.</> : <><AlertTriangle className="h-4 w-4" /> NOT reconciled — variance {money(rc.result.variance)} to chase.</>}
+              </div>
+              <div className="text-xs mt-1 grid grid-cols-2 gap-x-4">
+                <span>{rc.payerAccount}: <b className="font-mono">{money(rc.result.payerBalance)}</b></span>
+                <span>{rc.counterpartyAccount}: <b className="font-mono">{money(rc.result.counterpartyBalance)}</b></span>
+                <span className="text-slate-500">sum: {money(rc.result.sum)}</span>
+                <span className="text-slate-500">magnitude diff: {money(rc.result.absDiff)}</span>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" disabled={preview.isPending || !payerId || !counterparty || !revenueAccount} onClick={run}>
