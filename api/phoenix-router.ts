@@ -74,6 +74,7 @@ export const phoenixRouter = createRouter({
   estateRemove: authedQuery.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
     await getDb().run(sql`DELETE FROM estate_items WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
   }),
+<<<<<<< HEAD
 
   // ───────── Side Sales (resale side business; Skye markets it) ─────────
   sideOverview: authedQuery.query(async ({ ctx }) => {
@@ -129,4 +130,6 @@ export const phoenixRouter = createRouter({
   sideSaleRemove: authedQuery.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
     await getDb().run(sql`DELETE FROM side_sales WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
   }),
+=======
+>>>>>>> origin/main
 });

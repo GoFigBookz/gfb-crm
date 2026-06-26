@@ -62385,33 +62385,6 @@ async function ensurePhoenixSchema() {
     createdAt integer,
     updatedAt integer
   )`);
-  await guard("side_products", sql`CREATE TABLE IF NOT EXISTS side_products (
-    id integer PRIMARY KEY AUTOINCREMENT,
-    userId integer NOT NULL,
-    name text NOT NULL,
-    category text,
-    qtyOnHand integer NOT NULL DEFAULT 0,
-    givenAway integer NOT NULL DEFAULT 0,
-    unitCost real DEFAULT 0,
-    minPrice real DEFAULT 0,         -- the floor Markie needs back per unit
-    targetPrice real DEFAULT 0,      -- what he'd like to get
-    discreet integer NOT NULL DEFAULT 0,
-    notes text,
-    active integer NOT NULL DEFAULT 1,
-    createdAt integer,
-    updatedAt integer
-  )`);
-  await guard("side_sales", sql`CREATE TABLE IF NOT EXISTS side_sales (
-    id integer PRIMARY KEY AUTOINCREMENT,
-    userId integer NOT NULL,
-    productId integer NOT NULL,
-    qty integer NOT NULL DEFAULT 1,
-    unitPrice real NOT NULL DEFAULT 0,
-    channel text,                    -- marketplace, word-of-mouth, …
-    soldAt integer NOT NULL,
-    notes text,
-    createdAt integer
-  )`);
   await guard("estate_items", sql`CREATE TABLE IF NOT EXISTS estate_items (
     id integer PRIMARY KEY AUTOINCREMENT,
     userId integer NOT NULL,
@@ -66649,7 +66622,6 @@ function serveStaticFiles(app2) {
     "/figgy-logo.svg",
     "/figgy-mark.svg",
     "/phoenix-rising.svg",
-    "/phoenix-rising.png",
     "/agents/fig.svg",
     "/agents/sage.svg",
     "/agents/wren.svg",
@@ -85402,64 +85374,6 @@ var phoenixRouter = createRouter({
   estateRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     await getDb().run(sql`DELETE FROM estate_items WHERE id=${input.id} AND userId=${ctx.user.id}`);
     return { ok: true };
-  }),
-  // ───────── Side Sales (resale side business; Skye markets it) ─────────
-  sideOverview: authedQuery.query(async ({ ctx }) => {
-    const db = getDb();
-    const uid = ctx.user.id;
-    const products = await db.all(sql`SELECT * FROM side_products WHERE userId=${uid} AND active=1 ORDER BY name`);
-    const sales = await db.all(sql`SELECT * FROM side_sales WHERE userId=${uid} ORDER BY soldAt DESC LIMIT 200`);
-    const soldByProduct = {};
-    let totalUnits = 0, totalRevenue = 0;
-    for (const s of sales) {
-      const r = soldByProduct[s.productId] ||= { units: 0, revenue: 0 };
-      r.units += Number(s.qty) || 0;
-      r.revenue += (Number(s.qty) || 0) * (Number(s.unitPrice) || 0);
-      totalUnits += Number(s.qty) || 0;
-      totalRevenue += (Number(s.qty) || 0) * (Number(s.unitPrice) || 0);
-    }
-    return { products, sales, soldByProduct, totals: { totalUnits, totalRevenue } };
-  }),
-  sideProductUpsert: authedQuery.input(external_exports.object({
-    id: external_exports.number().optional(),
-    name: external_exports.string().min(1).max(200),
-    category: external_exports.string().max(80).optional(),
-    qtyOnHand: external_exports.number().int().default(0),
-    givenAway: external_exports.number().int().default(0),
-    unitCost: external_exports.number().default(0),
-    minPrice: external_exports.number().default(0),
-    targetPrice: external_exports.number().default(0),
-    discreet: external_exports.boolean().default(false),
-    notes: external_exports.string().max(2e3).optional()
-  })).mutation(async ({ ctx, input }) => {
-    const db = getDb();
-    const uid = ctx.user.id;
-    const now = Date.now();
-    if (input.id) {
-      await db.run(sql`UPDATE side_products SET name=${input.name}, category=${input.category ?? null}, qtyOnHand=${input.qtyOnHand}, givenAway=${input.givenAway}, unitCost=${input.unitCost}, minPrice=${input.minPrice}, targetPrice=${input.targetPrice}, discreet=${input.discreet ? 1 : 0}, notes=${input.notes ?? null}, updatedAt=${now} WHERE id=${input.id} AND userId=${uid}`);
-      return { ok: true, id: input.id };
-    }
-    await db.run(sql`INSERT INTO side_products (userId, name, category, qtyOnHand, givenAway, unitCost, minPrice, targetPrice, discreet, notes, createdAt, updatedAt)
-        VALUES (${uid}, ${input.name}, ${input.category ?? null}, ${input.qtyOnHand}, ${input.givenAway}, ${input.unitCost}, ${input.minPrice}, ${input.targetPrice}, ${input.discreet ? 1 : 0}, ${input.notes ?? null}, ${now}, ${now})`);
-    return { ok: true };
-  }),
-  sideProductRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
-    await getDb().run(sql`UPDATE side_products SET active=0 WHERE id=${input.id} AND userId=${ctx.user.id}`);
-    return { ok: true };
-  }),
-  /** Log a sale and decrement on-hand stock. */
-  sideSaleAdd: authedQuery.input(external_exports.object({ productId: external_exports.number(), qty: external_exports.number().int().min(1).default(1), unitPrice: external_exports.number().min(0), channel: external_exports.string().max(80).optional(), notes: external_exports.string().max(500).optional() })).mutation(async ({ ctx, input }) => {
-    const db = getDb();
-    const uid = ctx.user.id;
-    const now = Date.now();
-    await db.run(sql`INSERT INTO side_sales (userId, productId, qty, unitPrice, channel, soldAt, notes, createdAt)
-        VALUES (${uid}, ${input.productId}, ${input.qty}, ${input.unitPrice}, ${input.channel ?? null}, ${now}, ${input.notes ?? null}, ${now})`);
-    await db.run(sql`UPDATE side_products SET qtyOnHand = MAX(qtyOnHand - ${input.qty}, 0), updatedAt=${now} WHERE id=${input.productId} AND userId=${uid}`);
-    return { ok: true };
-  }),
-  sideSaleRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
-    await getDb().run(sql`DELETE FROM side_sales WHERE id=${input.id} AND userId=${ctx.user.id}`);
-    return { ok: true };
   })
 });
 
@@ -87042,7 +86956,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.151";
+var BUILD_TAG = "2026-06-26.150";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
