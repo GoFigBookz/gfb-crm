@@ -44,7 +44,7 @@ export default function MyLife() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-5">
       <div className="flex items-center gap-3">
-        <img src="/phoenix-rising.svg" alt="Phoenix Rising" className="h-12 w-12 shrink-0" />
+        <img src="/phoenix-rising.png" alt="Phoenix Rising" className="h-20 w-auto shrink-0" />
         <div className="flex-1">
           <h1 className="text-2xl font-bold flex items-center gap-2">Phoenix Rising
             <Badge variant="outline" className="text-[10px] text-slate-500"><Lock className="h-3 w-3 mr-1" /> Private · only you</Badge>
