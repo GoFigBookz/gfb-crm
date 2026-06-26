@@ -21,6 +21,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/providers/trpc";
+import { extractPdfLines } from "@/lib/pdf-extract";
+import { parseBankStatement } from "../../api/pdf-statement-core";
 
 /* =================================================================
    TYPES
@@ -478,6 +480,8 @@ export default function BankConverter() {
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [pdfMeta, setPdfMeta] = useState<{ method: string; tiesOut: boolean; warnings: string[] } | null>(null);
+  const [scannedPdf, setScannedPdf] = useState<File | null>(null); // needs AI fallback
   const parsePdf = trpc.bankConverter.parsePdf.useMutation();
 
   const onDragOver = useCallback((e: React.DragEvent) => {
@@ -489,36 +493,54 @@ export default function BankConverter() {
     setIsDragging(false);
   }, []);
 
+  // AI fallback for SCANNED (image-only) PDFs that have no extractable text.
+  // Only path that uses credits — never reached for normal digital statements.
+  const aiReadPdf = useCallback(async (file: File) => {
+    setParseError(null); setScannedPdf(null); setParsing(true);
+    try {
+      const dataUrl: string = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result || "")); r.onerror = rej; r.readAsDataURL(file); });
+      const base64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+      const r = await parsePdf.mutateAsync({ base64, fileName: file.name });
+      if (!r.ok) { setParseError(r.error); return; }
+      if (!r.transactions.length) { setParseError("Couldn't read transactions even with AI — the scan may be too low quality."); return; }
+      setPdfMeta({ method: "AI (scanned)", tiesOut: false, warnings: [] });
+      setParsedFile({ fileName: file.name, bank: r.bank || "PDF Statement", format: "PDF", transactions: r.transactions.map(txnFromExtracted), rawData: [["Date", "Description", "Amount"], ...r.transactions.map((t) => [t.date, t.description, String(t.amount)])] });
+    } catch (err: any) { setParseError(err?.message || "PDF parsing failed."); }
+    finally { setParsing(false); }
+  }, [parsePdf]);
+
   const processFile = useCallback((file: File) => {
-    setParseError(null);
+    setParseError(null); setPdfMeta(null); setScannedPdf(null);
     const isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
 
-    // PDF → send to the server (Claude reads the statement) → transactions.
+    // PDF → read it LOCALLY in the browser (pdf.js), FREE. No server, no credits.
     if (isPdf) {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const dataUrl = (e.target?.result as string) || "";
-        const base64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
-        if (!base64) { setParseError("Could not read that PDF file."); return; }
-        setParsing(true);
+      setParsing(true);
+      (async () => {
         try {
-          const r = await parsePdf.mutateAsync({ base64, fileName: file.name });
-          if (!r.ok) { setParseError(r.error); return; }
-          if (r.transactions.length === 0) { setParseError("No transactions found in that PDF. Try a clearer copy or export CSV from online banking."); return; }
+          const lines = await extractPdfLines(file);
+          const r = parseBankStatement(lines, { year: new Date().getFullYear() });
+          if (!r.transactions.length) {
+            // No extractable text → likely a scanned image. Offer the AI fallback.
+            setScannedPdf(file);
+            setParseError("This PDF has no readable text (likely a scan/photo). I can read it with AI as a fallback — that's the only path that uses credits.");
+            return;
+          }
+          setPdfMeta({ method: r.method, tiesOut: r.tieOut.ok, warnings: r.warnings });
           setParsedFile({
             fileName: file.name,
-            bank: r.bank || "PDF Statement",
+            bank: "PDF Statement",
             format: "PDF",
-            transactions: r.transactions.map(txnFromExtracted),
+            transactions: r.transactions.map((t) => txnFromExtracted({ date: t.date, description: t.description, amount: t.amount }, 0)),
             rawData: [["Date", "Description", "Amount"], ...r.transactions.map((t) => [t.date, t.description, String(t.amount)])],
           });
         } catch (err: any) {
-          setParseError(err?.message || "PDF parsing failed.");
+          setParseError(`Couldn't read that PDF locally (${err?.message || "error"}). If it's a scan, use the AI fallback.`);
+          setScannedPdf(file);
         } finally {
           setParsing(false);
         }
-      };
-      reader.readAsDataURL(file);
+      })();
       return;
     }
 
@@ -636,9 +658,13 @@ export default function BankConverter() {
             </>
           )}
           {parseError && (
-            <div className="mt-5 mx-auto max-w-lg flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{parseError}</span>
+            <div className="mt-5 mx-auto max-w-lg flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <div className="flex items-start gap-2"><AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /><span>{parseError}</span></div>
+              {scannedPdf && (
+                <Button size="sm" className="self-start" disabled={parsing} onClick={() => aiReadPdf(scannedPdf)}>
+                  Read with AI (uses credits)
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -647,6 +673,18 @@ export default function BankConverter() {
       {/* Results */}
       {parsedFile && (
         <>
+          {pdfMeta && (
+            <div className={cn("flex items-center gap-2 rounded-lg border px-3 py-2 text-sm", pdfMeta.method === "balance" || pdfMeta.tiesOut ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800")}>
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>
+                {pdfMeta.method === "AI (scanned)" ? "Read with AI (scanned PDF)." : "Read free, on your device — no credits used."}
+                {pdfMeta.method === "balance" && " Signs come from the running balance"}
+                {pdfMeta.method === "keyword" && " Signs inferred from keywords — review the +/− before export"}
+                {pdfMeta.method === "mixed" && " Mostly from the running balance; a few inferred — quick review"}
+                {(pdfMeta.method === "balance" || pdfMeta.method === "mixed") && (pdfMeta.tiesOut ? " and it TIES OUT ✓." : " — does NOT tie to the closing balance yet, review.")}
+              </span>
+            </div>
+          )}
           {/* Stats */}
           <div className="grid grid-cols-4 gap-4">
             <Card className="bg-blue-50 border-blue-200">
