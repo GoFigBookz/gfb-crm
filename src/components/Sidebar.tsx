@@ -7,7 +7,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft, FileStack,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket,
+  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -113,6 +113,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     ...(can.senior ? [{ to: "/insights", icon: DollarSign, label: "Pricing Insights" }] : []),
     { to: "/subscriptions", icon: DollarSign, label: "Subscriptions" },
     { to: "/jade-pricing", icon: TrendingUp, label: "Jade — Pricing" },
+    { to: "/marketing", icon: Megaphone, label: "Marketing — Skye" },
     { to: "/practice-health", icon: TrendingUp, label: "Practice Health" },
     { to: "/staff-workload", icon: UserCheck, label: "Staff Workload" },
     { to: "/satisfaction", icon: BarChart3, label: "Satisfaction" },

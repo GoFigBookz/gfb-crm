@@ -63,6 +63,7 @@ import { launchpadRouter } from "./launchpad-router";
 import { hstAuditRouter } from "./hst-audit-router";
 import { subscriptionsRouter } from "./subscriptions-router";
 import { jadeRouter } from "./jade-router";
+import { marketingRouter } from "./marketing-router";
 import { lifeRouter } from "./life-router";
 import { learningRouter } from "./learning-router";
 import { chatRouter } from "./chat-router";
@@ -141,6 +142,7 @@ export const appRouter = createRouter({
   hstAudit: hstAuditRouter,
   subscriptions: subscriptionsRouter,
   jade: jadeRouter,
+  marketing: marketingRouter,
   life: lifeRouter,
   learning: learningRouter,
   chat: chatRouter,

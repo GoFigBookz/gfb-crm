@@ -46,6 +46,7 @@ import Launchpad from "./pages/Launchpad";
 import HstAudit from "./pages/HstAudit";
 import Subscriptions from "./pages/Subscriptions";
 import JadePricing from "./pages/JadePricing";
+import Marketing from "./pages/Marketing";
 import MyLife from "./pages/MyLife";
 import TaxDeadlines from "./pages/TaxDeadlines";
 import YearEndChecklist from "./pages/YearEndChecklist";
@@ -133,6 +134,7 @@ function AppRoutes() {
         <Route path="/hst-audit" element={<HstAudit />} />
         <Route path="/subscriptions" element={<Subscriptions />} />
         <Route path="/jade-pricing" element={<JadePricing />} />
+        <Route path="/marketing" element={<Marketing />} />
         <Route path="/my-life" element={<MyLife />} />
         <Route path="/tax-deadlines" element={<TaxDeadlines />} />
         <Route path="/year-end" element={<YearEndChecklist />} />
