@@ -46632,14 +46632,17 @@ var init_interco_recharge_router = __esm({
       })).mutation(async ({ input }) => {
         const cr = await getConnectionForClient(input.payerClientId);
         if ("error" in cr) return { ok: false, error: cr.error };
+        await ensureRechargeSchema();
+        const cfgRow = await getDb().run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`);
+        const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
         try {
           const { expenses, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
           const draft = buildRecharge({
             periodLabel: input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`,
             payerName: input.payerName,
-            counterpartyName: input.counterpartyName,
-            revenueAccount: input.revenueAccount,
-            expenseAccount: input.expenseAccount,
+            counterpartyName: input.counterpartyName || cfg.counterpartyName || "",
+            revenueAccount: input.revenueAccount || cfg.revenueAccount || "",
+            expenseAccount: input.expenseAccount || cfg.expenseAccount || "",
             hstRatePct: input.hstRatePct,
             chargeHst: input.chargeHst,
             expenses
@@ -46662,20 +46665,27 @@ var init_interco_recharge_router = __esm({
         counterpartyClearingAccount: external_exports.string()
       })).mutation(async ({ input }) => {
         const db = getDb();
+        await ensureRechargeSchema();
+        const cfgRow = await db.run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`);
+        const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
+        const counterpartyName = input.counterpartyName || cfg.counterpartyName || "";
+        const payerClearing = input.payerClearingAccount || cfg.payerClearingAccount || cfg.clearingAccount || "";
+        const cpClearing = input.counterpartyClearingAccount || cfg.counterpartyClearingAccount || "";
+        if (!payerClearing || !cpClearing) return { ok: false, error: "clearing_accounts_not_set", detail: "Set both clearing-account names (payer + counterparty) or save the client config." };
         let cpId = input.counterpartyClientId ?? 0;
-        if (!cpId && input.counterpartyName) {
-          const key11 = `%${input.counterpartyName.split(/\s+/)[0].toLowerCase()}%`;
+        if (!cpId && counterpartyName) {
+          const key11 = `%${counterpartyName.split(/\s+/)[0].toLowerCase()}%`;
           const rows = await db.all(sql`SELECT id, name FROM clients WHERE lower(name) LIKE ${key11} OR lower(company) LIKE ${key11} ORDER BY id ASC LIMIT 1`);
           cpId = rows[0]?.id ?? 0;
         }
-        if (!cpId) return { ok: false, error: "counterparty_not_found" };
+        if (!cpId) return { ok: false, error: "counterparty_not_found", detail: `Could not match a client for "${counterpartyName || "(blank)"}". Type the counterparty name in the field.` };
         const payerConn = await getConnectionForClient(input.payerClientId);
         if ("error" in payerConn) return { ok: false, error: `payer: ${payerConn.error}` };
         const cpConn = await getConnectionForClient(cpId);
         if ("error" in cpConn) return { ok: false, error: `counterparty: ${cpConn.error}` };
         try {
-          const payerAcct = await accountBalanceByName(payerConn.conn, input.payerClearingAccount);
-          const cpAcct = await accountBalanceByName(cpConn.conn, input.counterpartyClearingAccount);
+          const payerAcct = await accountBalanceByName(payerConn.conn, payerClearing);
+          const cpAcct = await accountBalanceByName(cpConn.conn, cpClearing);
           if (!payerAcct.found) return { ok: false, error: "payer_clearing_account_not_found", candidates: payerAcct.candidates };
           if (!cpAcct.found) return { ok: false, error: "counterparty_clearing_account_not_found", candidates: cpAcct.candidates };
           const result = checkClearingRecon(payerAcct.balance, cpAcct.balance);
@@ -89287,7 +89297,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.180";
+var BUILD_TAG = "2026-06-26.181";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
