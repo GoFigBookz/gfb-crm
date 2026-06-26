@@ -127,7 +127,7 @@ export default function IntercoRechargePanel() {
         {/* INTERCO RECONCILIATION CHECK — pull both clearing balances live, confirm they offset. */}
         <div className="rounded-lg border border-sky-200 bg-sky-50/40 p-2 space-y-2">
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" disabled={recon.isPending || !payerId || !payerClearing || !counterpartyClearing} onClick={checkRecon}>
+            <Button size="sm" variant="outline" disabled={recon.isPending || !payerId} onClick={checkRecon}>
               {recon.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-1" />} Check interco reconciliation (live)
             </Button>
             <span className="text-[11px] text-slate-400">Pulls both clearing-account balances from QBO and confirms they net to zero.</span>
