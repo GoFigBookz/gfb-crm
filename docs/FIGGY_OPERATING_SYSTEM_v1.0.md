@@ -1,9 +1,10 @@
-# Figgy Operating System (FOS) — Version 1.1
+# Figgy Operating System (FOS) — Version 1.2
 
-> **Status:** Living Document — **v1.1 ratified by Markie 2026-06-26**
-> **v1.0** = the Foundation (Markie's authored doc). **v1.1** adds three governance
-> articles: Human Oversight Threshold, Precedence, and Cost Discipline (marked *added v1.1* below).
-> **Source:** Markie's `Figgy_Operating_System_v1.0_Foundation.docx` + v1.1 amendments (added to the Figgy AI Brain 2026-06-26, firm scope, category `constitution`).
+> **Status:** Living Document — **v1.2 ratified by Markie 2026-06-26**
+> **v1.0** = the Foundation (Markie's authored doc). **v1.1** added Human Oversight
+> Threshold, Precedence, and Cost Discipline. **v1.2** adds Roles & Review Chain and
+> Data Handling & Retention (all amendments marked *added v1.x* below).
+> **Source:** Markie's `Figgy_Operating_System_v1.0_Foundation.docx` + v1.1/v1.2 amendments (in the Figgy AI Brain, firm scope, category `constitution`).
 > **Purpose:** The single source of truth for how Go Fig Bookz operates — governing
 > principles, standards, decision framework, quality expectations, security
 > requirements, workflow philosophy, and continuous-improvement model.
@@ -63,6 +64,16 @@ We are in the trust business as much as the bookkeeping business.
 - Evaluate security before deploying automations.
 - Treat client information with the same care as your own.
 
+## Data Handling & Retention *(added v1.2)*
+- **Retention:** keep books, records, and supporting documents **6 years** from the
+  end of the last tax year they relate to (CRA / Income Tax Act s.230). Get CRA
+  permission before early destruction.
+- **Privacy (PIPEDA):** collect with consent, keep secure, retain only as long as
+  needed for the identified purpose, then dispose safely; record any breach.
+- **Isolation:** every client's data stays walled off — one client's information
+  never mixes into another's; firm vs per-client scope is enforced at the data layer,
+  never by trust. Markie's personal data is walled off from all client/firm data.
+
 ## Knowledge Management
 Maintain a Knowledge Base, Prompt Library, SOP Library, Client Playbooks, Decision
 Register, and Improvement Register. Update the operating system whenever a better
@@ -72,6 +83,18 @@ method is approved.
 - The Constitution changes rarely.
 - SOPs, prompts, and workflows evolve continuously.
 - Every meaningful change is versioned and documented.
+
+## Roles & Review Chain *(added v1.2)*
+The firm runs as an org chart where **each tier reviews the one below** — nothing is
+final without the next level's check:
+- **Fig** (junior bookkeeper) does the work → **Sage** (senior bookkeeper) reviews
+  Fig + preps filings → **Wren** (controller/auditor) tie-outs + signs the workpaper →
+  **Markie** (Partner) gives final sign-off.
+- **Liv** is the front desk / EA; **Tess** (tax), **Jade** (CFO), **Skye** (marketing),
+  and **Jinx** (QA) support.
+- No agent's output is final on its own — it's a **proposal** until the chain and
+  Markie clear it. A confirmed correction teaches every agent (shared memory), but
+  per-client isolation is always preserved.
 
 ## Human Oversight Threshold *(added v1.1)*
 Appropriate human oversight is concrete, not a feeling. Anything that posts, files,
@@ -123,6 +146,6 @@ documents.
 - **Precedence: do the work, but never guess** — accuracy & oversight win the tie.
 - **Cost Discipline** — cheapest correct path; prefer subscription over metered API.
 
-### Still proposed (Markie's call — not yet adopted)
-- A **Roles & Review Chain** article (Fig→Sage→Wren→Markie gate).
-- Concrete **data-retention** specifics folded into Security & Privacy (CRA 6-year + PIPEDA + per-client isolation) — currently held as separate Brain facts.
+### Adopted in v1.2 (2026-06-26)
+- **Roles & Review Chain** — Fig→Sage→Wren→Markie gate, in the constitution.
+- **Data Handling & Retention** — CRA 6-year + PIPEDA + per-client/personal isolation, as a first-class article.
