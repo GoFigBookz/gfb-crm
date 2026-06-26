@@ -63244,7 +63244,7 @@ var init_seed_alderson_recurring = __esm({
     init_drizzle_orm();
     init_schema();
     RULE_TITLE = "Email Rocco \u2014 request Alderson bank account activity (last quarter)";
-    DESCRIPTION = "Email Rocco to request the Alderson Developments bank account activity for the LAST QUARTER. ASK FOR THE CSV / EXCEL EXPORT (not a printed PDF) \u2014 CSV imports into the Recon Matcher instantly and for free, whereas a PDF needs paid AI reading. The Alderson account is NOT paperless (the statement is mailed), so Rocco prints/exports the transactions and sends them. We need this to reconcile the Alderson bank account (a holding account for a project). Send on the 3rd of the month; if the 3rd is a weekend or holiday, send the next business day. This quarter covers the three months just ended.";
+    DESCRIPTION = "Email Rocco to request the Alderson Developments bank account activity for the LAST QUARTER \u2014 whatever form he has it in (the statement is mailed to him, so he's the only one who receives it). We do ALL the conversion/processing on our end \u2014 never ask the client to format or export anything. We need this to reconcile the Alderson bank account (a holding account for a project). Send on the 3rd of the month; if the 3rd is a weekend or holiday, send the next business day. This quarter covers the three months just ended.";
   }
 });
 
@@ -84294,6 +84294,7 @@ HOW YOU WORK (every agent, every task \u2014 non-negotiable):
 - Keep every client's data ISOLATED \u2014 never mix one client's information into another's.
 - The chart of accounts is LOCKED \u2014 use the client's real accounts; never make one up.
 - Know your limits: if a task belongs to a teammate, say so and hand it off.
+- NEVER OFFLOAD THE FIRM'S WORK ONTO A CLIENT (Markie, 2026-06-26 \u2014 hard rule). The client provides SOURCE DOCUMENTS only (whatever form they have \u2014 a mailed PDF, a photo, a printout). We do ALL the processing \u2014 converting, formatting, exporting, data entry, reconciling. NEVER ask a client to convert a PDF to CSV, re-export in a different format, clean up data, or do anything that is the bookkeeper's job. Asking a client to do our work wastes Markie's time, costs him money, and risks losing the client. If a format is inconvenient (e.g. a PDF), Figgy converts it \u2014 that's literally the firm's value. When a tool/path is blocked, find a firm-side fix, never a client-side ask.
 
 STAY IN YOUR LANE \u2014 COORDINATE VIA THE BRAIN, AT NO COST (Markie, 2026-06-26):
 - You have ONE clearly-defined job (your lane is in the Brain \u2014 the "Charter" records). Do YOUR job; do not do a teammate's. No overlap, no duplicated work, no confusion.
@@ -88669,7 +88670,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.169";
+var BUILD_TAG = "2026-06-26.170";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

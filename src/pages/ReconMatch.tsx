@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { GitCompareArrows, CheckCircle2, AlertTriangle, ArrowDownToLine, Loader2 } from "lucide-react";
+import { GitCompareArrows, CheckCircle2, AlertTriangle, ArrowDownToLine, Loader2, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { parseCsvTransactions, matchStatements, type ReconResult } from "../../api/recon-match-core";
+import { extractPdfLines } from "@/lib/pdf-extract";
+import { parseBankStatement } from "../../api/pdf-statement-core";
 
 /**
  * RECONCILIATION MATCHER — drop the bank statement + the QBO register, get the
@@ -19,6 +21,20 @@ export default function ReconMatch() {
   const [result, setResult] = useState<ReconResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [pdfBusy, setPdfBusy] = useState(false);
+
+  // Drop a PDF bank statement → read it free (in-browser) → fill the statement box as CSV.
+  const onPdf = async (file?: File | null) => {
+    if (!file) return;
+    setErr(""); setPdfBusy(true);
+    try {
+      const lines = await extractPdfLines(file);
+      const r = parseBankStatement(lines, { year: new Date().getFullYear() });
+      if (!r.transactions.length) { setErr("That PDF has no readable text (likely a scan). Use Bank → QBO's AI fallback, or paste the rows."); return; }
+      setStmtText("Date,Description,Amount\n" + r.transactions.map((t) => `${t.date},"${t.description.replace(/"/g, "'")}",${t.amount}`).join("\n"));
+    } catch (e) { setErr(`Couldn't read that PDF (${e instanceof Error ? e.message : "error"}).`); }
+    finally { setPdfBusy(false); }
+  };
 
   const run = () => {
     setErr(""); setBusy(true);
@@ -53,7 +69,13 @@ export default function ReconMatch() {
 
       <div className="grid md:grid-cols-2 gap-3">
         <div>
-          <label className="text-xs font-medium text-slate-600">Bank statement (CSV / text)</label>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-slate-600">Bank statement (CSV / text / PDF)</label>
+            <label className="text-[11px] text-violet-600 hover:underline cursor-pointer inline-flex items-center gap-1">
+              {pdfBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileUp className="h-3 w-3" />} drop a PDF (free)
+              <input type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => onPdf(e.target.files?.[0])} />
+            </label>
+          </div>
           <textarea className="w-full border rounded px-2 py-2 text-xs font-mono min-h-[180px]" placeholder="Date,Description,Amount&#10;2026-03-01,Deposit,1000.00&#10;2026-03-02,Cheque 101,-250.50" value={stmtText} onChange={(e) => setStmtText(e.target.value)} />
         </div>
         <div>
