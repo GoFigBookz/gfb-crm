@@ -86,7 +86,15 @@ export const hstReviewRouter = createRouter({
           taxCodes.push({ id: String(t.Id), name: t.Name });
           taxById.set(String(t.Id), t.Name);
         }
-      } catch (e) { errors.push(`TaxCode: ${e instanceof Error ? e.message : e}`); }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        // If the bridge isn't returning data (async ack / non-JSON), don't hammer 5
+        // more queries against a broken connection — fail fast with ONE clear status.
+        if (/async ack|non-JSON|Make bridge/i.test(msg)) {
+          return { ok: false as const, error: "bridge_not_returning_data", detail: msg };
+        }
+        errors.push(`TaxCode: ${msg}`);
+      }
       const taxName = (id?: string) => (id ? taxById.get(String(id)) : undefined);
 
       // accounts (for the unreviewed-balance check)

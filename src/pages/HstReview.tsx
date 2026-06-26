@@ -58,7 +58,14 @@ export default function HstReview() {
       </CardContent></Card>
 
       {run.isError && <Card><CardContent className="p-3 text-sm text-red-600">{(run.error as any)?.message || "Failed to run."}</CardContent></Card>}
-      {r && !r.ok && <Card><CardContent className="p-3 text-sm text-amber-600">No usable QBO connection for this client ({r.error}). Connect it first.</CardContent></Card>}
+      {r && !r.ok && r.error === "bridge_not_returning_data" && (
+        <Card><CardContent className="p-3 text-sm text-amber-700">
+          <b>The live QBO connection for this client isn't returning data yet.</b> The read-only bridge for this realm is acking instead of sending the books back — a bridge config fix is needed (not your books). Until it's fixed, file from QuickBooks' own Sales Tax report. <span className="text-slate-400">({(r as any).detail})</span>
+        </CardContent></Card>
+      )}
+      {r && !r.ok && r.error !== "bridge_not_returning_data" && (
+        <Card><CardContent className="p-3 text-sm text-amber-600">No usable QBO connection for this client ({r.error}). Connect it first.</CardContent></Card>
+      )}
 
       {r && r.ok && (
         <>
