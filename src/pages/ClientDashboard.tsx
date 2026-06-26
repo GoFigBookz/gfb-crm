@@ -22,6 +22,7 @@ import { TaskDetailDialog } from "@/components/TaskDetailDialog";
 import { STANDARD_TASK_TITLES } from "@/lib/task-options";
 import { RevRecTab } from "@/components/RevRecTab";
 import { LoanTrackerTab } from "@/components/LoanTrackerTab";
+import PaymentSourceCard from "@/components/PaymentSourceCard";
 
 export default function ClientDashboard() {
   const { clientId } = useParams<{ clientId: string }>();
@@ -429,12 +430,38 @@ export default function ClientDashboard() {
         );
       })()}
 
-      {/* TASKS — progress + overdue + open, one combined card near the top. */}
+      {/* QUICK ACTIONS — per-client tools you can RUN from the card (no hunting). */}
+      {!isWholesale && (
+        <Card className="border-l-4 border-l-violet-500">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2"><Receipt className="h-4 w-4 text-violet-600" /> Tools — run for {splitClientName(client.name).first || client.name}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {client.hasHST && <Link to={`/hst-review?clientId=${id}`} className="text-xs px-2.5 py-1.5 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">Pre-HST review</Link>}
+            <button onClick={() => setActiveTab("compliance")} className="text-xs px-2.5 py-1.5 rounded-full border border-lime-200 bg-lime-50 text-lime-700 hover:bg-lime-100">Month-end close</button>
+            <button onClick={() => setActiveTab("compliance")} className="text-xs px-2.5 py-1.5 rounded-full border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">Who paid this? (duplicates)</button>
+            <Link to="/recon-match" className="text-xs px-2.5 py-1.5 rounded-full border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100">Reconcile matcher</Link>
+            <Link to="/bank-converter" className="text-xs px-2.5 py-1.5 rounded-full border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100">Bank → CSV</Link>
+            {(client as any).groupName && <Link to="/interco" className="text-xs px-2.5 py-1.5 rounded-full border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100">Inter-company recharge + reconcile</Link>}
+            {client.hasPayroll && <Link to={`/payroll?clientId=${id}`} className="text-xs px-2.5 py-1.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">Payroll</Link>}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* TASKS — progress + overdue + open, one combined card near the top.
+          Far-future tasks (>45 days) are hidden from the inline list so they don't
+          bury what's actually due now — they're still under "View all". */}
       {(() => {
         const today = new Date(); today.setHours(0, 0, 0, 0);
+        const soon = new Date(today); soon.setDate(soon.getDate() + 45);
         const byDue = (a: any, b: any) => (+new Date(a.dueDate || "2999-01-01")) - (+new Date(b.dueDate || "2999-01-01"));
         const overdue = openTasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < today).sort(byDue);
-        const upcoming = openTasks.filter((t: any) => !(t.dueDate && new Date(t.dueDate) < today)).sort(byDue);
+        const upcoming = openTasks.filter((t: any) => {
+          if (t.dueDate && new Date(t.dueDate) < today) return false;   // overdue, shown above
+          if (t.dueDate && new Date(t.dueDate) > soon) return false;    // far future, hidden here
+          return true;
+        }).sort(byDue);
+        const laterCount = openTasks.filter((t: any) => t.dueDate && new Date(t.dueDate) > soon).length;
         const ordered = [...overdue, ...upcoming];
         const total = dashboardData?.tasks?.length || 0;
         return (
@@ -463,7 +490,7 @@ export default function ClientDashboard() {
                       </div>
                     );
                   })}
-                  {ordered.length > 8 && <Button variant="ghost" size="sm" className="w-full h-7 text-xs" onClick={() => setActiveTab("tasks")}>View all {openTasks.length} tasks</Button>}
+                  {(ordered.length > 8 || laterCount > 0) && <Button variant="ghost" size="sm" className="w-full h-7 text-xs" onClick={() => setActiveTab("tasks")}>View all {openTasks.length} tasks{laterCount > 0 ? ` (${laterCount} later)` : ""}</Button>}
                 </div>
               )}
             </CardContent>
@@ -1773,6 +1800,9 @@ function ComplianceTab({ clientId, client, onboarding, closeStatus, tasks, onOpe
       {/* Pre-HST accuracy review — right on the client card, defaults to the
           client's fiscal quarter. Only for HST-registered clients. */}
       {client.hasHST && <ClientHstReviewCard clientId={clientId} client={client} />}
+
+      {/* "Who paid this?" — cross-account / cross-entity double-post finder. */}
+      <PaymentSourceCard clientId={clientId} groupName={(client as any).groupName} />
 
       {/* Filing status from the live close engine */}
       <Card>
