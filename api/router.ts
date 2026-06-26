@@ -72,6 +72,7 @@ import { learningRouter } from "./learning-router";
 import { chatRouter } from "./chat-router";
 import { revRecRouter } from "./revrec-router";
 import { bankedHoursRouter } from "./banked-hours-router";
+import { genealogyRouter } from "./genealogy-router";
 import { loanTrackerRouter } from "./loan-tracker-router";
 import { publicRouter } from "./public-router";
 import { createRouter, publicQuery } from "./middleware";
@@ -150,6 +151,7 @@ export const appRouter = createRouter({
   life: lifeRouter,
   health: healthRouter,
   phoenix: phoenixRouter,
+  genealogy: genealogyRouter,
   learning: learningRouter,
   chat: chatRouter,
   revRec: revRecRouter,

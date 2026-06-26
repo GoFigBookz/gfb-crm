@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-26.157";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-26.158";  // bump each deploy so prod vs source is unambiguous
 
 // CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
 // secret into a hosting dashboard very often drags a trailing space or newline,
@@ -517,6 +517,14 @@ app.get("/api/phoenix/seed", async (c) => {
       const { seedHeritage, seedHeritageLineage } = await import("./seed-heritage");
       await seedHeritage();
       await seedHeritageLineage();
+      // Genealogy: confidence-rated tree + monthly auto-scan + share links.
+      const { ensureGenealogySchema } = await import("./ensure-genealogy-schema");
+      await ensureGenealogySchema();
+      const { backfillGenealogyFields } = await import("./genealogy-scan");
+      { // backfill proof/confidence/parent links for every owner who has a tree
+        const owners = (await getDb().all(sql`SELECT DISTINCT userId FROM family_members`)) as any[];
+        for (const o of owners) await backfillGenealogyFields(o.userId);
+      }
       const { ensureLaunchpadSchema } = await import("./ensure-launchpad-schema");
       await ensureLaunchpadSchema();
       const { ensureSubscriptionsSchema } = await import("./ensure-subscriptions-schema");
@@ -1794,6 +1802,20 @@ async function startServer() {
     await ensureBankedHoursSchema();
     const { ensureLoanSchema } = await import("./ensure-loan-schema");
     await ensureLoanSchema();
+    // Genealogy: make sure family_members + the tree/scan/share columns & tables
+    // exist at startup (idempotent) so the family-tree router is safe even before
+    // /api/phoenix/seed runs.
+    try {
+      const { ensurePhoenixSchema } = await import("./ensure-phoenix-schema");
+      await ensurePhoenixSchema();
+      const { ensureGenealogySchema } = await import("./ensure-genealogy-schema");
+      await ensureGenealogySchema();
+      const { backfillGenealogyFields } = await import("./genealogy-scan");
+      const { getDb: _g } = await import("./queries/connection");
+      const { sql: _s } = await import("drizzle-orm");
+      const owners = (await _g().all(_s`SELECT DISTINCT userId FROM family_members`)) as any[];
+      for (const o of owners) await backfillGenealogyFields(o.userId);
+    } catch (e) { console.error("[genealogy] startup schema/backfill failed:", e instanceof Error ? e.message : e); }
     // Repair legacy date rows stored in MILLISECONDS in a seconds column (they
     // render as year ~58000). Anything above year-2100-in-seconds is really ms → ÷1000.
     try {
@@ -2291,6 +2313,13 @@ async function startServer() {
   const { maybeRefreshTaxRates } = await import("./tax-rate-autofetch");
   setTimeout(() => { maybeRefreshTaxRates().catch(() => {}); }, 150_000);
   setInterval(() => { maybeRefreshTaxRates().catch(() => {}); }, 24 * 60 * 60 * 1000);
+
+  // Family-tree monthly web scan: a daily tick that only fires on the 28th (Markie's
+  // cadence) and only if this month hasn't run. Gated on ANTHROPIC_API_KEY; writes
+  // discoveries to the review inbox (never auto-merged). Cheap + idempotent.
+  const { maybeRunMonthlyGenealogyScan } = await import("./genealogy-scan");
+  setTimeout(() => { maybeRunMonthlyGenealogyScan().catch(() => {}); }, 180_000);
+  setInterval(() => { maybeRunMonthlyGenealogyScan().catch(() => {}); }, 24 * 60 * 60 * 1000);
 
   // One-time: make hasPayroll the source of truth by seeding it for the known
   // payroll clients (idempotent — skips any already flagged).
