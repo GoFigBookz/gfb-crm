@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { trpc } from "@/providers/trpc";
 import { format } from "date-fns";
 import { TASK_CATEGORIES, ASSIGNEES, STANDARD_TASK_TITLES } from "@/lib/task-options";
+import { isHstFilingTask, defaultHstRange } from "../../api/hst-period";
+import { ClipboardCheck, AlertCircle, AlertTriangle, Info, Loader2 } from "lucide-react";
 
 const STAGES: [string, string][] = [["todo", "To Do"], ["in_progress", "In Progress"], ["review", "Review"], ["done", "Done"]];
 
@@ -179,6 +181,10 @@ export function TaskDetailDialog({ task, onClose, onChanged }: {
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
           </div>
 
+          {isHstFilingTask(title) && clientId !== "none" && (
+            <TaskHstReview clientId={Number(clientId)} dueDate={task.dueDate} />
+          )}
+
           {task.isRecurring && (
             <p className="text-xs text-blue-600 flex items-center gap-1">
               <Repeat className="h-3.5 w-3.5" /> Recurring task — editing changes this occurrence; the next one is generated when you mark it done.
@@ -209,5 +215,57 @@ export function TaskDetailDialog({ task, onClose, onChanged }: {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Embedded read-only Pre-HST review for an HST filing task: the current data
+ *  issues for this client+period, right inside the task. Runs on demand (no costly
+ *  fan-out); QBO does the reconcile + the return — this only checks the inputs. */
+function TaskHstReview({ clientId, dueDate }: { clientId: number; dueDate?: any }) {
+  const def = defaultHstRange(dueDate ? new Date(dueDate) : new Date(), "quarterly");
+  const [start, setStart] = useState(def.start);
+  const [end, setEnd] = useState(def.end);
+  const run = trpc.hstReview.run.useMutation();
+  const r = run.data;
+  const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+  const sevIcon = (s: string) => s === "high" ? <AlertCircle className="h-3.5 w-3.5 text-red-600" /> : s === "medium" ? <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> : <Info className="h-3.5 w-3.5 text-sky-600" />;
+
+  return (
+    <div className="rounded-lg border border-indigo-200 bg-indigo-50/40 p-3 space-y-2">
+      <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+        <ClipboardCheck className="h-4 w-4 text-indigo-600" /> Pre-HST review (read-only)
+      </div>
+      <p className="text-xs text-slate-500">Reconcile in QuickBooks first, then run this to catch coding issues before you file. It checks what's in the books — it can't see transactions that were never entered. Dates default to the quarter; adjust if your period differs.</p>
+      <div className="flex items-end gap-2 flex-wrap">
+        <div><label className="text-[10px] text-slate-500">From</label><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="h-8" /></div>
+        <div><label className="text-[10px] text-slate-500">To</label><Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="h-8" /></div>
+        <Button size="sm" className="h-8" disabled={run.isPending} onClick={() => run.mutate({ clientId, startDate: start, endDate: end })}>
+          {run.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null} Run review
+        </Button>
+      </div>
+      {run.isError && <div className="text-xs text-red-600">{(run.error as any)?.message || "Failed to run."}</div>}
+      {r && !r.ok && <div className="text-xs text-amber-600">No usable QBO connection for this client ({r.error}).</div>}
+      {r && r.ok && (
+        <div className="space-y-1.5">
+          <div className="text-xs text-slate-600">
+            Implied net HST <b>{money(r.report.tie.net)}</b> (collected {money(r.report.tie.collected)} − ITC {money(r.report.tie.itc)}) · {r.pulled.transactions} txns.
+            <span className="text-slate-400"> Compare to QBO's Sales Tax report.</span>
+          </div>
+          {r.errors.length > 0 && <div className="text-[11px] text-amber-600">Pull warnings: {r.errors.join("; ")}</div>}
+          {r.report.findings.length === 0
+            ? <div className="text-xs text-emerald-600">No coding issues flagged for this period.</div>
+            : <div className="space-y-1">
+                <div className="text-xs font-medium text-slate-600">{r.report.findings.length} issue(s) — {r.report.bySeverity.high} high, {r.report.bySeverity.medium} medium:</div>
+                {r.report.findings.slice(0, 12).map((f: any, i: number) => (
+                  <div key={i} className="flex items-start gap-1.5 text-xs">
+                    {sevIcon(f.severity)}
+                    <span className="text-slate-700"><b>{f.message}</b> {f.amount != null && <span className="text-slate-400">· {money(f.amount)}</span>} <span className="text-slate-400">— {f.ref}</span></span>
+                  </div>
+                ))}
+                {r.report.findings.length > 12 && <div className="text-[11px] text-slate-400">…and {r.report.findings.length - 12} more — open the full Pre-HST Review page for all.</div>}
+              </div>}
+        </div>
+      )}
+    </div>
   );
 }
