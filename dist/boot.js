@@ -62014,6 +62014,60 @@ var init_ensure_subscriptions_schema = __esm({
   }
 });
 
+// api/ensure-marketing-schema.ts
+var ensure_marketing_schema_exports = {};
+__export(ensure_marketing_schema_exports, {
+  ensureMarketingSchema: () => ensureMarketingSchema,
+  seedMarketing: () => seedMarketing
+});
+async function ensureMarketingSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS marketing_items (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      kind text NOT NULL DEFAULT 'post',
+      platform text,
+      title text NOT NULL,
+      body text,
+      status text NOT NULL DEFAULT 'idea',
+      scheduledFor text,
+      archived integer NOT NULL DEFAULT 0,
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[marketing] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+}
+async function seedMarketing() {
+  const db = getDb();
+  const have = await db.all(sql`SELECT COUNT(*) AS n FROM marketing_items WHERE kind = 'platform'`);
+  if (Number(have[0]?.n || 0) > 0) return;
+  const now = Date.now();
+  const tasks5 = [
+    { platform: "linkedin", title: "Clean up LinkedIn profile + company page (bio, banner, services)" },
+    { platform: "linkedin", title: "Start a regular LinkedIn posting cadence" },
+    { platform: "proadvisor", title: "Clean up Intuit ProAdvisor profile (services, badge, reviews)" },
+    { platform: "instagram", title: "Clean up Instagram (bio, highlights, grid)" },
+    { platform: "instagram", title: "Start Instagram postings" },
+    { platform: "facebook", title: "Clean up Facebook business page" },
+    { platform: "facebook", title: "Start Facebook postings" },
+    { platform: "website", title: "Reposition website \u2014 drop 'small business' wording (decide new positioning/tagline)" },
+    { platform: "google", title: "Claim / tidy Google Business Profile" }
+  ];
+  for (const t2 of tasks5) {
+    await db.run(sql`INSERT INTO marketing_items (kind, platform, title, status, createdAt, updatedAt)
+      VALUES ('platform', ${t2.platform}, ${t2.title}, 'todo', ${now}, ${now})`);
+  }
+  console.log(`[marketing] seeded ${tasks5.length} platform tasks`);
+}
+var init_ensure_marketing_schema = __esm({
+  "api/ensure-marketing-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/seed-phoenix-personal.ts
 var seed_phoenix_personal_exports = {};
 __export(seed_phoenix_personal_exports, {
@@ -84149,6 +84203,61 @@ var jadeRouter = createRouter({
   pricing: authedQuery.input(external_exports.object({ months: external_exports.number().min(1).max(12).default(3) }).optional()).query(async ({ input }) => pricingAnalysis(input?.months ?? 3))
 });
 
+// api/marketing-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_drizzle_orm();
+var marketingRouter = createRouter({
+  list: authedQuery.query(async () => {
+    const db = getDb();
+    return await db.all(sql`SELECT * FROM marketing_items WHERE archived = 0 ORDER BY kind, platform, updatedAt DESC, id DESC`);
+  }),
+  add: authedQuery.input(external_exports.object({
+    kind: external_exports.enum(["platform", "post"]).default("post"),
+    platform: external_exports.string().max(40).optional(),
+    title: external_exports.string().min(1).max(300),
+    body: external_exports.string().max(8e3).optional(),
+    status: external_exports.string().max(40).optional(),
+    scheduledFor: external_exports.string().max(20).optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const now = Date.now();
+    const status = input.status || (input.kind === "platform" ? "todo" : "idea");
+    await db.run(sql`INSERT INTO marketing_items (kind, platform, title, body, status, scheduledFor, createdAt, updatedAt)
+        VALUES (${input.kind}, ${input.platform ?? null}, ${input.title}, ${input.body ?? null}, ${status}, ${input.scheduledFor ?? null}, ${now}, ${now})`);
+    return { ok: true };
+  }),
+  update: authedQuery.input(external_exports.object({
+    id: external_exports.number(),
+    title: external_exports.string().max(300).optional(),
+    body: external_exports.string().max(8e3).nullable().optional(),
+    status: external_exports.string().max(40).optional(),
+    platform: external_exports.string().max(40).nullable().optional(),
+    scheduledFor: external_exports.string().max(20).nullable().optional(),
+    archived: external_exports.boolean().optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const sets = [];
+    const push = (c, v) => sets.push(sql`${sql.raw(c)} = ${v}`);
+    if (input.title !== void 0) push("title", input.title);
+    if (input.body !== void 0) push("body", input.body);
+    if (input.status !== void 0) push("status", input.status);
+    if (input.platform !== void 0) push("platform", input.platform);
+    if (input.scheduledFor !== void 0) push("scheduledFor", input.scheduledFor);
+    if (input.archived !== void 0) push("archived", input.archived ? 1 : 0);
+    if (sets.length === 0) return { ok: true };
+    push("updatedAt", Date.now());
+    const setSql = sets.reduce((a, s, i) => i === 0 ? s : sql`${a}, ${s}`);
+    await db.run(sql`UPDATE marketing_items SET ${setSql} WHERE id = ${input.id}`);
+    return { ok: true };
+  }),
+  remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    await getDb().run(sql`UPDATE marketing_items SET archived = 1 WHERE id = ${input.id}`);
+    return { ok: true };
+  })
+});
+
 // api/life-router.ts
 init_zod();
 init_middleware();
@@ -85612,6 +85721,7 @@ var appRouter = createRouter({
   hstAudit: hstAuditRouter,
   subscriptions: subscriptionsRouter,
   jade: jadeRouter,
+  marketing: marketingRouter,
   life: lifeRouter,
   learning: learningRouter,
   chat: chatRouter,
@@ -85899,7 +86009,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.138";
+var BUILD_TAG = "2026-06-26.139";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -86319,6 +86429,9 @@ app.get("/api/phoenix/seed", async (c) => {
       await ensureLaunchpadSchema2();
       const { ensureSubscriptionsSchema: ensureSubscriptionsSchema2 } = await Promise.resolve().then(() => (init_ensure_subscriptions_schema(), ensure_subscriptions_schema_exports));
       await ensureSubscriptionsSchema2();
+      const { ensureMarketingSchema: ensureMarketingSchema2, seedMarketing: seedMarketing2 } = await Promise.resolve().then(() => (init_ensure_marketing_schema(), ensure_marketing_schema_exports));
+      await ensureMarketingSchema2();
+      await seedMarketing2();
     } catch (e) {
       console.error("[brain] schema/seed failed (continuing):", e instanceof Error ? e.message : e);
     }
