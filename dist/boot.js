@@ -62356,6 +62356,56 @@ var init_ensure_health_schema = __esm({
   }
 });
 
+// api/ensure-phoenix-schema.ts
+var ensure_phoenix_schema_exports = {};
+__export(ensure_phoenix_schema_exports, {
+  ensurePhoenixSchema: () => ensurePhoenixSchema
+});
+async function ensurePhoenixSchema() {
+  const db = getDb();
+  const guard = async (name2, ddl) => {
+    try {
+      await db.run(ddl);
+    } catch (e) {
+      console.error(`[phoenix] ensure ${name2} failed:`, e instanceof Error ? e.message : e);
+    }
+  };
+  await guard("family_members", sql`CREATE TABLE IF NOT EXISTS family_members (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    name text NOT NULL,
+    relation text,                  -- father, mother, grandfather, sibling, child, …
+    side text,                      -- maternal | paternal | self | spouse
+    birthDate text,                 -- free text (full date often unknown)
+    deathDate text,
+    living integer NOT NULL DEFAULT 1,
+    birthplace text,
+    notes text,                     -- stories, origins, occupation
+    medicalNotes text,              -- family medical history (ties to the health hub)
+    createdAt integer,
+    updatedAt integer
+  )`);
+  await guard("estate_items", sql`CREATE TABLE IF NOT EXISTS estate_items (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    category text NOT NULL,         -- will | executor | business | accounts | assets | debts | insurance | digital | wishes | contacts | other
+    title text NOT NULL,
+    detail text,                    -- the instructions / description
+    location text,                  -- where the document/key/asset is
+    contact text,                   -- person + how to reach them
+    status text DEFAULT 'open',     -- open | done (e.g. 'will notarized' once handled)
+    sortOrder integer DEFAULT 0,
+    createdAt integer,
+    updatedAt integer
+  )`);
+}
+var init_ensure_phoenix_schema = __esm({
+  "api/ensure-phoenix-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/ensure-brain-schema.ts
 var ensure_brain_schema_exports = {};
 __export(ensure_brain_schema_exports, {
@@ -85221,6 +85271,109 @@ var healthRouter = createRouter({
   labRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     await getDb().run(sql`DELETE FROM health_labs WHERE id=${input.id} AND userId=${ctx.user.id}`);
     return { ok: true };
+  }),
+  /** Bulk import parsed bloodwork rows (the "paste your results" feature). Each
+   *  row is auto-flagged against its reference range. Returns how many landed. */
+  labImport: authedQuery.input(external_exports.object({
+    panel: external_exports.string().max(120).optional(),
+    rows: external_exports.array(external_exports.object({
+      marker: external_exports.string().min(1).max(120),
+      value: external_exports.number().optional(),
+      valueText: external_exports.string().max(120).optional(),
+      unit: external_exports.string().max(40).optional(),
+      refLow: external_exports.number().optional(),
+      refHigh: external_exports.number().optional()
+    })).min(1).max(200)
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const now = Date.now();
+    let added = 0;
+    for (const r of input.rows) {
+      let flag = null;
+      if (r.value != null) {
+        if (r.refLow != null && r.value < r.refLow) flag = "low";
+        else if (r.refHigh != null && r.value > r.refHigh) flag = "high";
+        else if (r.refLow != null || r.refHigh != null) flag = "normal";
+      }
+      await db.run(sql`INSERT INTO health_labs (userId, panel, marker, value, valueText, unit, refLow, refHigh, flag, measuredAt, createdAt)
+          VALUES (${ctx.user.id}, ${input.panel ?? null}, ${r.marker}, ${r.value ?? null}, ${r.valueText ?? null}, ${r.unit ?? null}, ${r.refLow ?? null}, ${r.refHigh ?? null}, ${flag}, ${now}, ${now})`);
+      added++;
+    }
+    return { ok: true, added };
+  })
+});
+
+// api/phoenix-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_drizzle_orm();
+var ESTATE_CATEGORIES = ["will", "executor", "business", "accounts", "assets", "debts", "insurance", "digital", "wishes", "contacts", "other"];
+var phoenixRouter = createRouter({
+  // ───────── Family history / genealogy ─────────
+  familyList: authedQuery.query(async ({ ctx }) => {
+    const rows = await getDb().all(sql`SELECT * FROM family_members WHERE userId = ${ctx.user.id} ORDER BY living DESC, name`);
+    return { rows };
+  }),
+  familyUpsert: authedQuery.input(external_exports.object({
+    id: external_exports.number().optional(),
+    name: external_exports.string().min(1).max(200),
+    relation: external_exports.string().max(60).optional(),
+    side: external_exports.enum(["maternal", "paternal", "self", "spouse"]).optional(),
+    birthDate: external_exports.string().max(60).optional(),
+    deathDate: external_exports.string().max(60).optional(),
+    living: external_exports.boolean().default(true),
+    birthplace: external_exports.string().max(200).optional(),
+    notes: external_exports.string().max(4e3).optional(),
+    medicalNotes: external_exports.string().max(2e3).optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const uid = ctx.user.id;
+    const now = Date.now();
+    if (input.id) {
+      await db.run(sql`UPDATE family_members SET name=${input.name}, relation=${input.relation ?? null}, side=${input.side ?? null}, birthDate=${input.birthDate ?? null}, deathDate=${input.deathDate ?? null}, living=${input.living ? 1 : 0}, birthplace=${input.birthplace ?? null}, notes=${input.notes ?? null}, medicalNotes=${input.medicalNotes ?? null}, updatedAt=${now} WHERE id=${input.id} AND userId=${uid}`);
+      return { ok: true, id: input.id };
+    }
+    await db.run(sql`INSERT INTO family_members (userId, name, relation, side, birthDate, deathDate, living, birthplace, notes, medicalNotes, createdAt, updatedAt)
+        VALUES (${uid}, ${input.name}, ${input.relation ?? null}, ${input.side ?? null}, ${input.birthDate ?? null}, ${input.deathDate ?? null}, ${input.living ? 1 : 0}, ${input.birthplace ?? null}, ${input.notes ?? null}, ${input.medicalNotes ?? null}, ${now}, ${now})`);
+    return { ok: true };
+  }),
+  familyRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM family_members WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  }),
+  // ───────── Estate plan ("if something happens to me") ─────────
+  estateList: authedQuery.query(async ({ ctx }) => {
+    const rows = await getDb().all(sql`SELECT * FROM estate_items WHERE userId = ${ctx.user.id} ORDER BY category, sortOrder, id`);
+    return { rows };
+  }),
+  estateUpsert: authedQuery.input(external_exports.object({
+    id: external_exports.number().optional(),
+    category: external_exports.enum(ESTATE_CATEGORIES),
+    title: external_exports.string().min(1).max(200),
+    detail: external_exports.string().max(8e3).optional(),
+    location: external_exports.string().max(400).optional(),
+    contact: external_exports.string().max(300).optional(),
+    status: external_exports.enum(["open", "done"]).default("open")
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const uid = ctx.user.id;
+    const now = Date.now();
+    if (input.id) {
+      await db.run(sql`UPDATE estate_items SET category=${input.category}, title=${input.title}, detail=${input.detail ?? null}, location=${input.location ?? null}, contact=${input.contact ?? null}, status=${input.status}, updatedAt=${now} WHERE id=${input.id} AND userId=${uid}`);
+      return { ok: true, id: input.id };
+    }
+    await db.run(sql`INSERT INTO estate_items (userId, category, title, detail, location, contact, status, createdAt, updatedAt)
+        VALUES (${uid}, ${input.category}, ${input.title}, ${input.detail ?? null}, ${input.location ?? null}, ${input.contact ?? null}, ${input.status}, ${now}, ${now})`);
+    return { ok: true };
+  }),
+  estateSetStatus: authedQuery.input(external_exports.object({ id: external_exports.number(), status: external_exports.enum(["open", "done"]) })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`UPDATE estate_items SET status=${input.status}, updatedAt=${Date.now()} WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  }),
+  estateRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM estate_items WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
   })
 });
 
@@ -86516,6 +86669,7 @@ var appRouter = createRouter({
   marketing: marketingRouter,
   life: lifeRouter,
   health: healthRouter,
+  phoenix: phoenixRouter,
   learning: learningRouter,
   chat: chatRouter,
   revRec: revRecRouter,
@@ -86802,7 +86956,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.149";
+var BUILD_TAG = "2026-06-26.150";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -87215,6 +87369,8 @@ app.get("/api/phoenix/seed", async (c) => {
     await ensureLifeSchema2();
     const { ensureHealthSchema: ensureHealthSchema2 } = await Promise.resolve().then(() => (init_ensure_health_schema(), ensure_health_schema_exports));
     await ensureHealthSchema2();
+    const { ensurePhoenixSchema: ensurePhoenixSchema2 } = await Promise.resolve().then(() => (init_ensure_phoenix_schema(), ensure_phoenix_schema_exports));
+    await ensurePhoenixSchema2();
     try {
       const { ensureBrainSchema: ensureBrainSchema2 } = await Promise.resolve().then(() => (init_ensure_brain_schema(), ensure_brain_schema_exports));
       await ensureBrainSchema2();

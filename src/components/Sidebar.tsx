@@ -7,7 +7,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft, FileStack,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked, HeartPulse,
+  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -91,7 +91,6 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
   // Sits at the very bottom of the nav (still favoritable).
   const personalNav = [
     { to: "/my-life", icon: Flame, label: "Phoenix Rising", iconClass: "text-orange-400" },
-    { to: "/health", icon: HeartPulse, label: "Health", iconClass: "text-rose-400" },
     { to: "/launchpad", icon: Rocket, label: "Launchpad", iconClass: "text-sky-400" },
   ];
 

@@ -1,8 +1,11 @@
 import { useState } from "react";
 import {
   Heart, Wallet, Plane, Activity, Sprout, Plus, Lock, Pin, Trash2, CalendarDays, Users, Sparkles,
-  ChevronDown, ChevronRight, Stethoscope, ExternalLink, AlertTriangle, CheckCircle2,
+  ChevronDown, ChevronRight, Stethoscope, ExternalLink, AlertTriangle, CheckCircle2, Scale,
 } from "lucide-react";
+import HealthHub from "@/components/HealthHub";
+import FamilyHistory from "@/components/FamilyHistory";
+import EstatePlan from "@/components/EstatePlan";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,7 +83,7 @@ export default function MyLife() {
         </Card>
       </div>
 
-      {/* Section tabs */}
+      {/* Section tabs — life sections + the rich private sections (Family, Estate) */}
       <div className="flex flex-wrap gap-2">
         {sections.map((s: any) => {
           const Icon = SECTION_ICON[s.key] || Heart;
@@ -91,9 +94,25 @@ export default function MyLife() {
             </button>
           );
         })}
+        <span className="w-px bg-slate-200 mx-1" />
+        <button onClick={() => setSection("__family")}
+          className={`px-3 py-1.5 rounded-lg text-sm border flex items-center gap-1.5 transition-colors ${section === "__family" ? "bg-amber-600 text-white border-amber-600" : "bg-white hover:bg-slate-50 border-slate-200"}`}>
+          <Users className="h-4 w-4" /> Family
+        </button>
+        <button onClick={() => setSection("__estate")}
+          className={`px-3 py-1.5 rounded-lg text-sm border flex items-center gap-1.5 transition-colors ${section === "__estate" ? "bg-indigo-600 text-white border-indigo-600" : "bg-white hover:bg-slate-50 border-slate-200"}`}>
+          <Scale className="h-4 w-4" /> Estate
+        </button>
       </div>
 
-      {current && <SectionPanel section={current} />}
+      {section === "__family" ? <FamilyHistory />
+        : section === "__estate" ? <EstatePlan />
+        : (
+          <>
+            {current?.key === "health" && <HealthHub />}
+            {current && <SectionPanel section={current} />}
+          </>
+        )}
     </div>
   );
 }

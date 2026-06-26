@@ -110,4 +110,34 @@ export const healthRouter = createRouter({
   labRemove: authedQuery.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
     await getDb().run(sql`DELETE FROM health_labs WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
   }),
+
+  /** Bulk import parsed bloodwork rows (the "paste your results" feature). Each
+   *  row is auto-flagged against its reference range. Returns how many landed. */
+  labImport: authedQuery
+    .input(z.object({
+      panel: z.string().max(120).optional(),
+      rows: z.array(z.object({
+        marker: z.string().min(1).max(120),
+        value: z.number().optional(),
+        valueText: z.string().max(120).optional(),
+        unit: z.string().max(40).optional(),
+        refLow: z.number().optional(),
+        refHigh: z.number().optional(),
+      })).min(1).max(200),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb(); const now = Date.now(); let added = 0;
+      for (const r of input.rows) {
+        let flag: string | null = null;
+        if (r.value != null) {
+          if (r.refLow != null && r.value < r.refLow) flag = "low";
+          else if (r.refHigh != null && r.value > r.refHigh) flag = "high";
+          else if (r.refLow != null || r.refHigh != null) flag = "normal";
+        }
+        await db.run(sql`INSERT INTO health_labs (userId, panel, marker, value, valueText, unit, refLow, refHigh, flag, measuredAt, createdAt)
+          VALUES (${ctx.user.id}, ${input.panel ?? null}, ${r.marker}, ${r.value ?? null}, ${r.valueText ?? null}, ${r.unit ?? null}, ${r.refLow ?? null}, ${r.refHigh ?? null}, ${flag}, ${now}, ${now})`);
+        added++;
+      }
+      return { ok: true, added };
+    }),
 });

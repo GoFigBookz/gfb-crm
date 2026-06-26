@@ -67,6 +67,7 @@ import { jadeRouter } from "./jade-router";
 import { marketingRouter } from "./marketing-router";
 import { lifeRouter } from "./life-router";
 import { healthRouter } from "./health-router";
+import { phoenixRouter } from "./phoenix-router";
 import { learningRouter } from "./learning-router";
 import { chatRouter } from "./chat-router";
 import { revRecRouter } from "./revrec-router";
@@ -148,6 +149,7 @@ export const appRouter = createRouter({
   marketing: marketingRouter,
   life: lifeRouter,
   health: healthRouter,
+  phoenix: phoenixRouter,
   learning: learningRouter,
   chat: chatRouter,
   revRec: revRecRouter,

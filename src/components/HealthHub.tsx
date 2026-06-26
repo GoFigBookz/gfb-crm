@@ -1,15 +1,14 @@
 import { useState } from "react";
-import { HeartPulse, Pill, Leaf, Activity, FlaskConical, Stethoscope, Plus, Trash2, Lock } from "lucide-react";
+import { Pill, Leaf, Activity, FlaskConical, Stethoscope, Plus, Trash2, ClipboardPaste } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { trpc } from "@/providers/trpc";
 
 /**
- * HEALTH HUB — Markie's PRIVATE health page (Phoenix Rising). Owner-only; every
- * query is pinned to his userId server-side. Meds, vitamins/supplements, vitals
- * (weight/glucose/BP), bloodwork, and conditions/symptoms. Record-keeping only —
- * NOT medical advice.
+ * HEALTH HUB — meds, vitamins, vitals, bloodwork, conditions. Lives INSIDE Phoenix
+ * Rising (owner-only; every query pinned to userId server-side). Record-keeping
+ * only — NOT medical advice.
  */
 const fdate = (n?: number | null) => (n ? new Date(n).toLocaleDateString() : "");
 
@@ -21,12 +20,33 @@ const VITAL_TYPES = [
   { type: "heart_rate", label: "Heart rate", unit: "bpm" },
 ];
 
+/** Parse pasted lab rows: "Marker   value   unit   low-high" (tabs or 2+ spaces). */
+function parseLabPaste(text: string) {
+  const out: { marker: string; value?: number; valueText?: string; unit?: string; refLow?: number; refHigh?: number }[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const cols = line.split(/\t|\s{2,}/).map((c) => c.trim()).filter(Boolean);
+    if (cols.length < 2) continue;
+    const marker = cols[0];
+    const num = (s?: string) => { const m = s?.replace(/,/g, "").match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : undefined; };
+    const value = num(cols[1]);
+    const unit = cols[2] && !/\d/.test(cols[2]) ? cols[2] : undefined;
+    // a "low-high" or "low - high" range in any remaining column
+    let refLow: number | undefined, refHigh: number | undefined;
+    const rangeCol = cols.slice(2).find((c) => /\d\s*[-–]\s*\d/.test(c));
+    if (rangeCol) { const m = rangeCol.match(/(-?\d+(?:\.\d+)?)\s*[-–]\s*(-?\d+(?:\.\d+)?)/); if (m) { refLow = parseFloat(m[1]); refHigh = parseFloat(m[2]); } }
+    out.push({ marker, value, valueText: value == null ? cols[1] : undefined, unit, refLow, refHigh });
+  }
+  return out;
+}
+
 function Section({ icon: Icon, title, sub, children }: any) {
   return (
     <Card><CardContent className="p-4">
       <div className="flex items-center gap-2 mb-3">
         <Icon className="h-5 w-5 text-rose-500" />
-        <h2 className="font-semibold text-slate-800">{title}</h2>
+        <h3 className="font-semibold text-slate-800">{title}</h3>
         {sub && <span className="text-xs text-slate-400">{sub}</span>}
       </div>
       {children}
@@ -34,12 +54,11 @@ function Section({ icon: Icon, title, sub, children }: any) {
   );
 }
 
-export default function Health() {
+export default function HealthHub() {
   const q = trpc.health.overview.useQuery();
   const data = q.data;
   const refetch = () => q.refetch();
 
-  // mutations
   const medUp = trpc.health.medUpsert.useMutation({ onSuccess: refetch });
   const medRm = trpc.health.medRemove.useMutation({ onSuccess: refetch });
   const supUp = trpc.health.supplementUpsert.useMutation({ onSuccess: refetch });
@@ -50,29 +69,25 @@ export default function Health() {
   const vitRm = trpc.health.vitalRemove.useMutation({ onSuccess: refetch });
   const labAdd = trpc.health.labAdd.useMutation({ onSuccess: refetch });
   const labRm = trpc.health.labRemove.useMutation({ onSuccess: refetch });
+  const labImport = trpc.health.labImport.useMutation({ onSuccess: () => { refetch(); setPaste(""); setShowPaste(false); } });
 
-  // local form state
   const [med, setMed] = useState({ name: "", dose: "", schedule: "", purpose: "" });
   const [sup, setSup] = useState({ name: "", dose: "", reason: "" });
   const [cond, setCond] = useState({ name: "", kind: "symptom" as "condition" | "symptom" | "allergy" });
   const [vit, setVit] = useState({ type: "weight", value: "", unit: "lb" });
   const [lab, setLab] = useState({ panel: "", marker: "", value: "", unit: "", refLow: "", refHigh: "" });
+  const [showPaste, setShowPaste] = useState(false);
+  const [paste, setPaste] = useState("");
+  const [pastePanel, setPastePanel] = useState("");
+  const parsed = paste.trim() ? parseLabPaste(paste) : [];
 
   return (
-    <div className="space-y-4 max-w-4xl">
-      <div className="flex items-center gap-2">
-        <HeartPulse className="h-6 w-6 text-rose-500" />
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Health</h1>
-          <p className="text-sm text-slate-500 flex items-center gap-1"><Lock className="h-3 w-3" /> Private — only you can see this. Part of Phoenix Rising.</p>
-        </div>
-      </div>
-
+    <div className="space-y-4">
       <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-        Record-keeping only — this is <b>not medical advice</b>. Always confirm meds, doses, and supplements with your doctor or pharmacist.
+        Record-keeping only — <b>not medical advice</b>. Confirm meds, doses, and supplements with your doctor or pharmacist.
       </div>
 
-      {/* Vitals quick-add + recent */}
+      {/* Vitals */}
       <Section icon={Activity} title="Vitals" sub="weight · blood sugar · blood pressure">
         <div className="flex flex-wrap gap-2 items-end mb-3">
           <select className="border rounded px-2 py-2 text-sm bg-white" value={vit.type}
@@ -113,7 +128,6 @@ export default function Health() {
               {r.dose && <span className="text-slate-500">{r.dose}</span>}
               {r.schedule && <span className="text-slate-400">· {r.schedule}</span>}
               {r.purpose && <span className="text-xs text-rose-500">· for {r.purpose}</span>}
-              {!r.active && <span className="text-xs text-slate-400">(stopped)</span>}
               <button className="ml-auto opacity-0 group-hover:opacity-100" onClick={() => medRm.mutate({ id: r.id })}><Trash2 className="h-3.5 w-3.5 text-slate-400" /></button>
             </div>
           ))}
@@ -121,7 +135,7 @@ export default function Health() {
         </div>
       </Section>
 
-      {/* Supplements / vitamins */}
+      {/* Supplements */}
       <Section icon={Leaf} title="Vitamins & supplements" sub="what you take + why">
         <div className="grid sm:grid-cols-4 gap-2 mb-3">
           <Input placeholder="Vitamin / supplement" value={sup.name} onChange={(e) => setSup({ ...sup, name: e.target.value })} />
@@ -137,7 +151,6 @@ export default function Health() {
               <span className="font-medium text-slate-800">{r.name}</span>
               {r.dose && <span className="text-slate-500">{r.dose}</span>}
               {r.reason && <span className="text-xs text-emerald-600">· {r.reason}</span>}
-              {!r.taking && <span className="text-xs text-amber-500">(suggested)</span>}
               <button className="ml-auto opacity-0 group-hover:opacity-100" onClick={() => supRm.mutate({ id: r.id })}><Trash2 className="h-3.5 w-3.5 text-slate-400" /></button>
             </div>
           ))}
@@ -145,7 +158,7 @@ export default function Health() {
         </div>
       </Section>
 
-      {/* Conditions / symptoms */}
+      {/* Conditions */}
       <Section icon={Stethoscope} title="Conditions & symptoms" sub="drives what to watch">
         <div className="flex flex-wrap gap-2 items-end mb-3">
           <select className="border rounded px-2 py-2 text-sm bg-white" value={cond.kind} onChange={(e) => setCond({ ...cond, kind: e.target.value as any })}>
@@ -168,8 +181,23 @@ export default function Health() {
         </div>
       </Section>
 
-      {/* Bloodwork / labs */}
-      <Section icon={FlaskConical} title="Bloodwork" sub="markers + reference range (auto-flags high/low)">
+      {/* Bloodwork + paste import */}
+      <Section icon={FlaskConical} title="Bloodwork" sub="auto-flags high/low vs the range">
+        <div className="flex justify-end mb-2">
+          <Button size="sm" variant="outline" onClick={() => setShowPaste((v) => !v)}><ClipboardPaste className="h-4 w-4 mr-1" /> Paste results</Button>
+        </div>
+        {showPaste && (
+          <div className="mb-3 rounded border bg-slate-50 p-2 space-y-2">
+            <p className="text-xs text-slate-500">Paste rows from your LifeLabs/Dynacare portal — one marker per line (e.g. <code>LDL&nbsp;&nbsp;3.1&nbsp;&nbsp;mmol/L&nbsp;&nbsp;0-3.4</code>). I'll parse marker, value, unit, and range.</p>
+            <Input placeholder="Panel name (optional, e.g. Lipid panel)" value={pastePanel} onChange={(e) => setPastePanel(e.target.value)} />
+            <textarea className="w-full border rounded px-2 py-2 text-sm min-h-[120px] font-mono" placeholder={"LDL    3.1   mmol/L   0 - 3.4\nHbA1c  5.6   %        4.0 - 6.0"} value={paste} onChange={(e) => setPaste(e.target.value)} />
+            {parsed.length > 0 && <p className="text-xs text-slate-500">{parsed.length} row{parsed.length === 1 ? "" : "s"} detected: {parsed.slice(0, 4).map((r) => r.marker).join(", ")}{parsed.length > 4 ? "…" : ""}</p>}
+            <div className="flex gap-2">
+              <Button size="sm" disabled={parsed.length === 0 || labImport.isPending} onClick={() => labImport.mutate({ panel: pastePanel || undefined, rows: parsed })}>Import {parsed.length || ""}</Button>
+              <Button size="sm" variant="outline" onClick={() => { setShowPaste(false); setPaste(""); }}>Cancel</Button>
+            </div>
+          </div>
+        )}
         <div className="grid sm:grid-cols-6 gap-2 mb-3">
           <Input placeholder="Panel" value={lab.panel} onChange={(e) => setLab({ ...lab, panel: e.target.value })} />
           <Input placeholder="Marker (LDL)" value={lab.marker} onChange={(e) => setLab({ ...lab, marker: e.target.value })} />
@@ -196,7 +224,7 @@ export default function Health() {
               <button className="opacity-0 group-hover:opacity-100" onClick={() => labRm.mutate({ id: r.id })}><Trash2 className="h-3.5 w-3.5 text-slate-400" /></button>
             </div>
           ))}
-          {(data?.labs || []).length === 0 && <span className="text-xs text-slate-400">No bloodwork recorded.</span>}
+          {(data?.labs || []).length === 0 && <span className="text-xs text-slate-400">No bloodwork recorded — add one or paste your results.</span>}
         </div>
       </Section>
     </div>
