@@ -46481,6 +46481,14 @@ async function ensureRechargeSchema() {
       await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN clearingAccount TEXT`);
     } catch {
     }
+    try {
+      await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN payerClearingAccount TEXT`);
+    } catch {
+    }
+    try {
+      await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN counterpartyClearingAccount TEXT`);
+    } catch {
+    }
     await db.run(sql`CREATE TABLE IF NOT EXISTS interco_recharge_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       payerClientId INTEGER NOT NULL,
@@ -46553,7 +46561,8 @@ var init_interco_recharge_router = __esm({
           counterpartyName: r.counterpartyName,
           revenueAccount: r.revenueAccount,
           expenseAccount: r.expenseAccount,
-          clearingAccount: r.clearingAccount || "",
+          payerClearingAccount: r.payerClearingAccount || r.clearingAccount || "",
+          counterpartyClearingAccount: r.counterpartyClearingAccount || "",
           hstRatePct: num2(r.hstRatePct) || 13,
           chargeHst: num2(r.chargeHst) !== 0
         };
@@ -46563,18 +46572,20 @@ var init_interco_recharge_router = __esm({
         counterpartyName: external_exports.string(),
         revenueAccount: external_exports.string(),
         expenseAccount: external_exports.string(),
-        clearingAccount: external_exports.string().default(""),
+        payerClearingAccount: external_exports.string().default(""),
+        counterpartyClearingAccount: external_exports.string().default(""),
         hstRatePct: external_exports.number().default(13),
         chargeHst: external_exports.boolean().default(true)
       })).mutation(async ({ input }) => {
         await ensureRechargeSchema();
         const db = getDb();
         await db.run(sql`INSERT INTO interco_recharge_config
-        (payerClientId, counterpartyName, revenueAccount, expenseAccount, clearingAccount, hstRatePct, chargeHst, updatedAt)
-        VALUES (${input.payerClientId}, ${input.counterpartyName}, ${input.revenueAccount}, ${input.expenseAccount}, ${input.clearingAccount}, ${input.hstRatePct}, ${input.chargeHst ? 1 : 0}, ${Date.now()})
+        (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, updatedAt)
+        VALUES (${input.payerClientId}, ${input.counterpartyName}, ${input.revenueAccount}, ${input.expenseAccount}, ${input.payerClearingAccount}, ${input.counterpartyClearingAccount}, ${input.hstRatePct}, ${input.chargeHst ? 1 : 0}, ${Date.now()})
         ON CONFLICT(payerClientId) DO UPDATE SET
           counterpartyName=${input.counterpartyName}, revenueAccount=${input.revenueAccount},
-          expenseAccount=${input.expenseAccount}, clearingAccount=${input.clearingAccount},
+          expenseAccount=${input.expenseAccount}, payerClearingAccount=${input.payerClearingAccount},
+          counterpartyClearingAccount=${input.counterpartyClearingAccount},
           hstRatePct=${input.hstRatePct}, chargeHst=${input.chargeHst ? 1 : 0}, updatedAt=${Date.now()}`);
         return { ok: true };
       }),
@@ -63579,12 +63590,13 @@ async function seedAldersonRecharge() {
       return;
     }
     await db.run(sql`INSERT INTO interco_recharge_config
-      (payerClientId, counterpartyName, revenueAccount, expenseAccount, clearingAccount, hstRatePct, chargeHst, updatedAt)
-      VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Alderson Development clearing account', 13, 1, ${Date.now()})
+      (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, updatedAt)
+      VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Holdings clearing account', 'Alderson Development clearing account', 13, 1, ${Date.now()})
       ON CONFLICT(payerClientId) DO UPDATE SET
         counterpartyName='Ovita Holdings Inc.', revenueAccount='Sales',
         expenseAccount='Alderson Project Management Costs',
-        clearingAccount='Alderson Development clearing account', hstRatePct=13, chargeHst=1, updatedAt=${Date.now()}`);
+        payerClearingAccount='Holdings clearing account',
+        counterpartyClearingAccount='Alderson Development clearing account', hstRatePct=13, chargeHst=1, updatedAt=${Date.now()}`);
     const existing = await db.all(sql`SELECT id FROM client_task_rules WHERE clientId=${clientId} AND title=${RULE_TITLE2} LIMIT 1`);
     if (existing.length) {
       await db.run(sql`UPDATE client_task_rules SET description=${DESCRIPTION2} WHERE id=${existing[0].id}`);
@@ -63636,7 +63648,7 @@ var init_seed_alderson_recharge = __esm({
     init_schema();
     init_interco_recharge_router();
     RULE_TITLE2 = "Inter-company recharge + reconcile: Alderson \u2192 Ovita Holdings (fiscal quarter)";
-    DESCRIPTION2 = "Generate the inter-company recharge for the fiscal quarter just ended: pull Alderson's project expenses, build the invoice Alderson \u2192 Ovita Holdings for those costs + 13% HST (revenue \u2192 Sales; Holdings expense \u2192 Alderson Project Management Costs), post both sides on approval, then RECONCILE the intercompany balance to zero against the counterparty. Settlement: Holdings' payment lands in the 'Alderson Development clearing account' as a TRANSFER on Alderson's side \u2014 reconcile that clearing account to zero each quarter. Tool: Inter-Company \u2192 Recharge generator (drafts only; nothing posts without review).";
+    DESCRIPTION2 = "ALDERSON \u2192 OVITA HOLDINGS QUARTERLY RECHARGE + RECONCILE (fiscal quarters end Feb/May/Aug/Nov; Nov 30 year-end). Precise steps:\n1. Confirm Alderson's bank + clearing accounts are reconciled for the quarter and the Pre-HST review is clean.\n2. Open Inter-Company \u2192 'Inter-company recharge (draft)'. Payer = Alderson; Counterparty = Ovita Holdings; dates = the fiscal quarter (e.g. Mar 1 \u2013 May 31). Click 'Generate draft'.\n3. It pulls Alderson's project expenses for the quarter and builds the invoice + mirror bill + 13% HST. Review the lines against what you expect; check invoice total = bill total (it ties out).\n4. In ALDERSON (QBO): create the INVOICE \u2014 Customer = Ovita Holdings; line(s) = the recharged costs to 'Sales'; HST 13% (Alderson charges the output HST). Total = the draft invoice total.\n5. In HOLDINGS (QBO): create the BILL \u2014 Vendor = Alderson Developments; expense account = 'Alderson Project Management Costs'; HST 13% (Holdings claims the ITC). Same total.\n6. SETTLEMENT: when Holdings pays Alderson, record the payment as a TRANSFER into the reciprocal clearing accounts \u2014 Alderson's books \u2192 'Holdings clearing account'; Holdings' books \u2192 'Alderson Development clearing account'.\n7. RECONCILE: at quarter-end reconcile BOTH clearing accounts to zero (they mirror each other). Tick 'reconciled' in the recharge log on the Inter-Company page.\n8. File the invoice + bill copies in the client folder. Drafts only in Figgy \u2014 nothing posts to QBO without review.";
   }
 });
 
@@ -89079,7 +89091,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.174";
+var BUILD_TAG = "2026-06-26.176";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

@@ -41,8 +41,14 @@ export async function ensureRechargeSchema(): Promise<void> {
       chargeHst INTEGER DEFAULT 1,
       updatedAt INTEGER
     )`);
-    // clearingAccount added after first ship — guard for existing tables.
+    // clearing accounts added after first ship — guard for existing tables.
+    // Reciprocal interco: each entity has its OWN clearing account named for the
+    // other. Alderson's books → "Holdings clearing account"; Holdings' books →
+    // "Alderson Development clearing account". The transfer hits each side; both
+    // net to zero on reconcile. (Legacy single `clearingAccount` kept, unused.)
     try { await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN clearingAccount TEXT`); } catch { /* exists */ }
+    try { await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN payerClearingAccount TEXT`); } catch { /* exists */ }
+    try { await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN counterpartyClearingAccount TEXT`); } catch { /* exists */ }
     await db.run(sql`CREATE TABLE IF NOT EXISTS interco_recharge_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       payerClientId INTEGER NOT NULL,
@@ -105,7 +111,8 @@ export const intercoRechargeRouter = createRouter({
         counterpartyName: (r as any).counterpartyName,
         revenueAccount: (r as any).revenueAccount,
         expenseAccount: (r as any).expenseAccount,
-        clearingAccount: (r as any).clearingAccount || "",
+        payerClearingAccount: (r as any).payerClearingAccount || (r as any).clearingAccount || "",
+        counterpartyClearingAccount: (r as any).counterpartyClearingAccount || "",
         hstRatePct: num((r as any).hstRatePct) || 13,
         chargeHst: num((r as any).chargeHst) !== 0,
       };
@@ -117,7 +124,8 @@ export const intercoRechargeRouter = createRouter({
       counterpartyName: z.string(),
       revenueAccount: z.string(),
       expenseAccount: z.string(),
-      clearingAccount: z.string().default(""),
+      payerClearingAccount: z.string().default(""),
+      counterpartyClearingAccount: z.string().default(""),
       hstRatePct: z.number().default(13),
       chargeHst: z.boolean().default(true),
     }))
@@ -125,11 +133,12 @@ export const intercoRechargeRouter = createRouter({
       await ensureRechargeSchema();
       const db = getDb();
       await db.run(sql`INSERT INTO interco_recharge_config
-        (payerClientId, counterpartyName, revenueAccount, expenseAccount, clearingAccount, hstRatePct, chargeHst, updatedAt)
-        VALUES (${input.payerClientId}, ${input.counterpartyName}, ${input.revenueAccount}, ${input.expenseAccount}, ${input.clearingAccount}, ${input.hstRatePct}, ${input.chargeHst ? 1 : 0}, ${Date.now()})
+        (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, updatedAt)
+        VALUES (${input.payerClientId}, ${input.counterpartyName}, ${input.revenueAccount}, ${input.expenseAccount}, ${input.payerClearingAccount}, ${input.counterpartyClearingAccount}, ${input.hstRatePct}, ${input.chargeHst ? 1 : 0}, ${Date.now()})
         ON CONFLICT(payerClientId) DO UPDATE SET
           counterpartyName=${input.counterpartyName}, revenueAccount=${input.revenueAccount},
-          expenseAccount=${input.expenseAccount}, clearingAccount=${input.clearingAccount},
+          expenseAccount=${input.expenseAccount}, payerClearingAccount=${input.payerClearingAccount},
+          counterpartyClearingAccount=${input.counterpartyClearingAccount},
           hstRatePct=${input.hstRatePct}, chargeHst=${input.chargeHst ? 1 : 0}, updatedAt=${Date.now()}`);
       return { ok: true as const };
     }),
