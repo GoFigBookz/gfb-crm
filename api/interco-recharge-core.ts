@@ -98,9 +98,10 @@ export function buildRecharge(input: RechargeInput): RechargeResult {
   const errors: string[] = [];
   if (lines.length === 0) errors.push("No expense lines to recharge.");
   if (lines.some((l) => l.amount < 0)) errors.push("One or more expense lines are negative — review before recharging.");
-  // In ZERO-OUT mode the invoice credits the source expense accounts, so a single
-  // payer-side revenue account is NOT used (don't require it).
-  if (!input.zeroOut && !input.revenueAccount) errors.push("Missing payer-side revenue account.");
+  // The payer-side revenue account is NOT required: in zero-out mode the invoice
+  // credits the source expense accounts (no single revenue account), and in the
+  // revenue method the poster resolves it at post time. Only the counterparty-side
+  // expense account is required (the mirror Bill in Holdings posts to it).
   if (!input.expenseAccount) errors.push("Missing counterparty-side expense account.");
   if (round2(invoice.total) !== round2(bill.total)) errors.push("Invoice total does not equal mirror-bill total.");
 
