@@ -21,20 +21,11 @@ import { tasks, clientTaskRules } from "../db/schema";
 
 const RULE_TITLE = "Email Rocco — request Alderson bank account activity (last quarter)";
 const DESCRIPTION =
-<<<<<<< HEAD
   "Email Rocco to request the Alderson Developments bank account activity for the LAST QUARTER — whatever " +
   "form he has it in (the statement is mailed to him, so he's the only one who receives it). We do ALL the " +
   "conversion/processing on our end — never ask the client to format or export anything. We need this to " +
   "reconcile the Alderson bank account (a holding account for a project). Send on the 3rd of the month; if " +
   "the 3rd is a weekend or holiday, send the next business day. This quarter covers the three months just ended.";
-=======
-  "Email Rocco to request the Alderson Developments bank account activity for the LAST QUARTER. " +
-  "ASK FOR THE CSV / EXCEL EXPORT (not a printed PDF) — CSV imports into the Recon Matcher instantly and " +
-  "for free, whereas a PDF needs paid AI reading. The Alderson account is NOT paperless (the statement is " +
-  "mailed), so Rocco prints/exports the transactions and sends them. We need this to reconcile the Alderson " +
-  "bank account (a holding account for a project). Send on the 3rd of the month; if the 3rd is a weekend or " +
-  "holiday, send the next business day. This quarter covers the three months just ended.";
->>>>>>> origin/main
 
 /** Local-noon Date for a y-m-d (avoids UTC-midnight drifting a day back in Ontario). */
 function localNoon(y: number, m1: number, d: number): Date {
