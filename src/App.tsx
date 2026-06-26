@@ -57,7 +57,6 @@ import YearEndChecklist from "./pages/YearEndChecklist";
 import Templates from "./pages/Templates";
 import Receipts from "./pages/Receipts";
 import Resources from "./pages/Resources";
-import IntakeDashboard from "./pages/IntakeDashboard";
 import PracticeHealth from "./pages/PracticeHealth";
 import Insights from "./pages/Insights";
 import ClientDashboard from "./pages/ClientDashboard";
@@ -149,7 +148,6 @@ function AppRoutes() {
         <Route path="/templates" element={<Templates />} />
         <Route path="/receipts" element={<Receipts />} />
         <Route path="/resources" element={<Resources />} />
-        <Route path="/intake" element={<IntakeDashboard />} />
         <Route path="/practice-health" element={<PracticeHealth />} />
         <Route path="/insights" element={<Insights />} />
         <Route path="/users" element={<UsersManagement />} />
