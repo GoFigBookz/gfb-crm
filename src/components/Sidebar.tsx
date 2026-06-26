@@ -7,7 +7,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft, FileStack,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked,
+  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked, Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -80,7 +80,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
   // Comms — inbound/outbound to clients.
   const commsItems = [
     { to: "/assistant", icon: Bot, label: "Ask Figs" },
-    { to: "/brain", icon: Sparkles, label: "Ask Brain" },
+    { to: "/brain", icon: Brain, label: "Ask Brain", iconClass: "text-fuchsia-400" },
     { to: "/registers", icon: BookMarked, label: "Registers" },
     { to: "/emails", icon: Mail, label: "Emails" },
     { to: "/messages", icon: MessageSquare, label: "Messages" },
