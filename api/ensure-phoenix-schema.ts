@@ -33,6 +33,35 @@ export async function ensurePhoenixSchema(): Promise<void> {
     updatedAt integer
   )`);
 
+  await guard("side_products", sql`CREATE TABLE IF NOT EXISTS side_products (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    name text NOT NULL,
+    category text,
+    qtyOnHand integer NOT NULL DEFAULT 0,
+    givenAway integer NOT NULL DEFAULT 0,
+    unitCost real DEFAULT 0,
+    minPrice real DEFAULT 0,         -- the floor Markie needs back per unit
+    targetPrice real DEFAULT 0,      -- what he'd like to get
+    discreet integer NOT NULL DEFAULT 0,
+    notes text,
+    active integer NOT NULL DEFAULT 1,
+    createdAt integer,
+    updatedAt integer
+  )`);
+
+  await guard("side_sales", sql`CREATE TABLE IF NOT EXISTS side_sales (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    productId integer NOT NULL,
+    qty integer NOT NULL DEFAULT 1,
+    unitPrice real NOT NULL DEFAULT 0,
+    channel text,                    -- marketplace, word-of-mouth, …
+    soldAt integer NOT NULL,
+    notes text,
+    createdAt integer
+  )`);
+
   await guard("estate_items", sql`CREATE TABLE IF NOT EXISTS estate_items (
     id integer PRIMARY KEY AUTOINCREMENT,
     userId integer NOT NULL,
