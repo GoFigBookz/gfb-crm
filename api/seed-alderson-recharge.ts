@@ -45,16 +45,17 @@ export async function seedAldersonRecharge(): Promise<void> {
     const clientId = cl[0]?.id;
     if (!clientId) { console.warn("[alderson-recharge] no Alderson client — skipping"); return; }
 
-    // (1) Prefill the recharge config (idempotent upsert). Holdings' payment of the
-    // recharge settles through the "Alderson Development clearing account" — that's
-    // the account reconciled to zero each quarter.
+    // (1) Prefill the recharge config (idempotent upsert). Reciprocal clearing: the
+    // settlement transfer hits Alderson's "Holdings clearing account" and Holdings'
+    // "Alderson Development clearing account" — both reconciled to zero each quarter.
     await db.run(sql`INSERT INTO interco_recharge_config
-      (payerClientId, counterpartyName, revenueAccount, expenseAccount, clearingAccount, hstRatePct, chargeHst, updatedAt)
-      VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Alderson Development clearing account', 13, 1, ${Date.now()})
+      (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, updatedAt)
+      VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Holdings clearing account', 'Alderson Development clearing account', 13, 1, ${Date.now()})
       ON CONFLICT(payerClientId) DO UPDATE SET
         counterpartyName='Ovita Holdings Inc.', revenueAccount='Sales',
         expenseAccount='Alderson Project Management Costs',
-        clearingAccount='Alderson Development clearing account', hstRatePct=13, chargeHst=1, updatedAt=${Date.now()}`);
+        payerClearingAccount='Holdings clearing account',
+        counterpartyClearingAccount='Alderson Development clearing account', hstRatePct=13, chargeHst=1, updatedAt=${Date.now()}`);
 
     // (2) Quarterly recurring task. First instance: 30 Jun 2026 (for the fiscal Q2
     // ending 31 May 2026, which Markie is working now). Then Sep 30, Dec 31, Mar 31…

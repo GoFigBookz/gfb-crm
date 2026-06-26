@@ -46481,6 +46481,14 @@ async function ensureRechargeSchema() {
       await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN clearingAccount TEXT`);
     } catch {
     }
+    try {
+      await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN payerClearingAccount TEXT`);
+    } catch {
+    }
+    try {
+      await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN counterpartyClearingAccount TEXT`);
+    } catch {
+    }
     await db.run(sql`CREATE TABLE IF NOT EXISTS interco_recharge_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       payerClientId INTEGER NOT NULL,
@@ -46553,7 +46561,8 @@ var init_interco_recharge_router = __esm({
           counterpartyName: r.counterpartyName,
           revenueAccount: r.revenueAccount,
           expenseAccount: r.expenseAccount,
-          clearingAccount: r.clearingAccount || "",
+          payerClearingAccount: r.payerClearingAccount || r.clearingAccount || "",
+          counterpartyClearingAccount: r.counterpartyClearingAccount || "",
           hstRatePct: num2(r.hstRatePct) || 13,
           chargeHst: num2(r.chargeHst) !== 0
         };
@@ -46563,18 +46572,20 @@ var init_interco_recharge_router = __esm({
         counterpartyName: external_exports.string(),
         revenueAccount: external_exports.string(),
         expenseAccount: external_exports.string(),
-        clearingAccount: external_exports.string().default(""),
+        payerClearingAccount: external_exports.string().default(""),
+        counterpartyClearingAccount: external_exports.string().default(""),
         hstRatePct: external_exports.number().default(13),
         chargeHst: external_exports.boolean().default(true)
       })).mutation(async ({ input }) => {
         await ensureRechargeSchema();
         const db = getDb();
         await db.run(sql`INSERT INTO interco_recharge_config
-        (payerClientId, counterpartyName, revenueAccount, expenseAccount, clearingAccount, hstRatePct, chargeHst, updatedAt)
-        VALUES (${input.payerClientId}, ${input.counterpartyName}, ${input.revenueAccount}, ${input.expenseAccount}, ${input.clearingAccount}, ${input.hstRatePct}, ${input.chargeHst ? 1 : 0}, ${Date.now()})
+        (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, updatedAt)
+        VALUES (${input.payerClientId}, ${input.counterpartyName}, ${input.revenueAccount}, ${input.expenseAccount}, ${input.payerClearingAccount}, ${input.counterpartyClearingAccount}, ${input.hstRatePct}, ${input.chargeHst ? 1 : 0}, ${Date.now()})
         ON CONFLICT(payerClientId) DO UPDATE SET
           counterpartyName=${input.counterpartyName}, revenueAccount=${input.revenueAccount},
-          expenseAccount=${input.expenseAccount}, clearingAccount=${input.clearingAccount},
+          expenseAccount=${input.expenseAccount}, payerClearingAccount=${input.payerClearingAccount},
+          counterpartyClearingAccount=${input.counterpartyClearingAccount},
           hstRatePct=${input.hstRatePct}, chargeHst=${input.chargeHst ? 1 : 0}, updatedAt=${Date.now()}`);
         return { ok: true };
       }),
@@ -63579,12 +63590,13 @@ async function seedAldersonRecharge() {
       return;
     }
     await db.run(sql`INSERT INTO interco_recharge_config
-      (payerClientId, counterpartyName, revenueAccount, expenseAccount, clearingAccount, hstRatePct, chargeHst, updatedAt)
-      VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Alderson Development clearing account', 13, 1, ${Date.now()})
+      (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, updatedAt)
+      VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Holdings clearing account', 'Alderson Development clearing account', 13, 1, ${Date.now()})
       ON CONFLICT(payerClientId) DO UPDATE SET
         counterpartyName='Ovita Holdings Inc.', revenueAccount='Sales',
         expenseAccount='Alderson Project Management Costs',
-        clearingAccount='Alderson Development clearing account', hstRatePct=13, chargeHst=1, updatedAt=${Date.now()}`);
+        payerClearingAccount='Holdings clearing account',
+        counterpartyClearingAccount='Alderson Development clearing account', hstRatePct=13, chargeHst=1, updatedAt=${Date.now()}`);
     const existing = await db.all(sql`SELECT id FROM client_task_rules WHERE clientId=${clientId} AND title=${RULE_TITLE2} LIMIT 1`);
     if (existing.length) {
       await db.run(sql`UPDATE client_task_rules SET description=${DESCRIPTION2} WHERE id=${existing[0].id}`);
@@ -89079,7 +89091,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.174";
+var BUILD_TAG = "2026-06-26.175";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

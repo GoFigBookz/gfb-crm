@@ -34,7 +34,8 @@ export default function IntercoRechargePanel() {
   const [counterparty, setCounterparty] = useState("");
   const [revenueAccount, setRevenueAccount] = useState("");
   const [expenseAccount, setExpenseAccount] = useState("");
-  const [clearingAccount, setClearingAccount] = useState("");
+  const [payerClearing, setPayerClearing] = useState("");
+  const [counterpartyClearing, setCounterpartyClearing] = useState("");
   const [hstRatePct, setHstRatePct] = useState(13);
   const [chargeHst, setChargeHst] = useState(true);
   const [start, setStart] = useState("2026-03-01");
@@ -46,7 +47,8 @@ export default function IntercoRechargePanel() {
       setCounterparty(cfg.counterpartyName || "");
       setRevenueAccount(cfg.revenueAccount || "");
       setExpenseAccount(cfg.expenseAccount || "");
-      setClearingAccount((cfg as any).clearingAccount || "");
+      setPayerClearing((cfg as any).payerClearingAccount || "");
+      setCounterpartyClearing((cfg as any).counterpartyClearingAccount || "");
       setHstRatePct(cfg.hstRatePct ?? 13);
       setChargeHst(cfg.chargeHst ?? true);
     }
@@ -100,10 +102,16 @@ export default function IntercoRechargePanel() {
             <div className="w-20"><Label className="text-xs">Rate %</Label><Input type="number" className="h-9" value={hstRatePct} onChange={(e) => setHstRatePct(Number(e.target.value) || 0)} /></div>
           </div>
         </div>
-        <div>
-          <Label className="text-xs">Settlement / clearing account</Label>
-          <Input className="h-9" value={clearingAccount} onChange={(e) => setClearingAccount(e.target.value)} placeholder="Alderson Development clearing account" />
-          <p className="text-[11px] text-slate-400 mt-0.5">The counterparty's payment lands here as a <b>transfer</b> on the payer's side; reconcile this account to zero each quarter.</p>
+        <div className="grid sm:grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs">Clearing acct — payer's books</Label>
+            <Input className="h-9" value={payerClearing} onChange={(e) => setPayerClearing(e.target.value)} placeholder="Holdings clearing account" />
+          </div>
+          <div>
+            <Label className="text-xs">Clearing acct — counterparty's books</Label>
+            <Input className="h-9" value={counterpartyClearing} onChange={(e) => setCounterpartyClearing(e.target.value)} placeholder="Alderson Development clearing account" />
+          </div>
+          <p className="text-[11px] text-slate-400 sm:col-span-2">The settlement payment lands as a <b>transfer</b> in each entity's clearing account (each named for the other company); reconcile <b>both</b> to zero each quarter — they mirror each other.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" disabled={preview.isPending || !payerId || !counterparty || !revenueAccount} onClick={run}>
