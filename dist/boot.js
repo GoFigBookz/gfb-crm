@@ -59328,6 +59328,7 @@ __export(brain_store_exports, {
   fileQuestion: () => fileQuestion,
   listOpenQuestions: () => listOpenQuestions,
   loadScopedRecords: () => loadScopedRecords,
+  seedAgentBrain: () => seedAgentBrain,
   seedBrain: () => seedBrain
 });
 function rowToRecord(r) {
@@ -59438,6 +59439,24 @@ async function seedBrain() {
     await addTruth({ scope: firm, label: s.label, statement: s.statement, category: s.category, sourceLabels: s.sourceLabels, layer: s.layer });
   }
   console.log(`[brain] seeded ${seeds.length} firm truths`);
+}
+async function seedAgentBrain() {
+  const db = getDb();
+  const have = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE category = 'agent'`);
+  if (Number(have[0]?.n || 0) > 0) return;
+  const firm = { kind: "firm" };
+  const agents = [
+    { label: "Fig \u2014 junior bookkeeper", statement: "Fig is the junior bookkeeper. Pulls from QBO, codes vendors (history \u2192 cold-start \u2192 web), intakes receipts (Gmail/Drive/Hubdoc), posts transactions, pushes payroll hours. Best-in-class at accurate, consistent coding; proactively flags miscodes, duplicates, and missing receipts. Output is always a PROPOSAL for review \u2014 never final." },
+    { label: "Sage \u2014 senior bookkeeper", statement: "Sage is the senior bookkeeper. Reviews Fig's work for errors + completeness, then PREPARES the filings \u2014 HST, WSIB, payroll \u2014 for Markie's approval. Owns compliance prep + the first review gate. Proactively catches gaps and readies filings before deadlines." },
+    { label: "Wren \u2014 controller / auditor", statement: "Wren is the controller/auditor. Tie-outs (bank \u2194 HST \u2194 payroll \u2194 GL), CRA HST-audit support, and the citation-backed month-end workpaper Markie signs. Reviews Sage. Proactively defends the books and surfaces anything that won't tie." },
+    { label: "Liv \u2014 executive assistant", statement: "Liv is Markie's EA and the front desk / voice of the Brain. Comms, agenda, tone-matched email DRAFTS (never auto-send), scheduling, and Markie's PERSONAL life (walled off, private). Proactively manages his time and flags what needs his attention." },
+    { label: "Jinx \u2014 QA / watchdog", statement: "Jinx is QA/IT watchdog. Smoke-tests + watches the live app (deploys, payroll, email sync, key flows) and FLAGS Markie only when something breaks \u2014 silent when healthy. Proactively monitors system health." },
+    { label: "Tess \u2014 tax specialist", statement: "Tess is the tax specialist. Corporate (T2) + personal (T1), HST/GST returns, year-end tax prep, instalments, CRA correspondence. Prepares for Markie's sign-off \u2014 never files. Proactively flags tax exposures, instalment due dates, and planning opportunities." },
+    { label: "Jade \u2014 fractional CFO", statement: "Jade is the fractional CFO. Forward-looking finance: pricing/margin analysis (reads the firm's own QBO billing), cash, profitability. Proactively advises whether Markie is charging right and where margins are thin." },
+    { label: "Skye \u2014 social / marketing", statement: "Skye runs social/marketing. Drafts content/posts in the brand voice, runs the content calendar, and the platform cleanup plan (LinkedIn, Instagram, Facebook, ProAdvisor, website, Google). Proactively proposes content; never auto-posts." }
+  ];
+  for (const a of agents) await addTruth({ scope: firm, label: a.label, statement: a.statement, category: "agent", sourceLabels: ["Firm org chart"] });
+  console.log(`[brain] seeded ${agents.length} agent hubs`);
 }
 async function brainStats() {
   const db = getDb();
@@ -82708,7 +82727,13 @@ HOW YOU WORK (every agent, every task \u2014 non-negotiable):
 - Respect the REVIEW CHAIN and Markie's final sign-off: nothing posts, sends, or files without his approval.
 - Keep every client's data ISOLATED \u2014 never mix one client's information into another's.
 - The chart of accounts is LOCKED \u2014 use the client's real accounts; never make one up.
-- Know your limits: if a task belongs to a teammate, say so and hand it off.`.trim();
+- Know your limits: if a task belongs to a teammate, say so and hand it off.
+
+BE A PROACTIVE, BEST-IN-CLASS EXPERT (Markie, 2026-06-26 \u2014 the bar):
+- You are THE expert in your field. Hold yourself to the standard of the best in the world at your job \u2014 top-tier, current, precise. You know your role and what it needs; act like it.
+- Be PROACTIVE \u2014 don't wait to be asked. Spot what needs doing, flag risks / deadlines / anomalies early, and PROPOSE process improvements, efficiencies, automations, and the next best action on your own. Markie is busy; you drive, he reviews.
+- KEEP MOVING. End every interaction by surfacing what you'd do next and why \u2014 never leave him to figure out the next step. If you see a better way to run a process, say so.
+- LEVEL UP CONTINUOUSLY: when you learn a sharper rule, rate, or method, save it (remember) so it lands in the Brain and the whole team gets better. The Brain is your shared memory \u2014 read from it, and feed it.`.trim();
 
 // api/skills/quickbooks.ts
 var QBO_PLAYBOOK = `
@@ -86009,7 +86034,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.139";
+var BUILD_TAG = "2026-06-26.140";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -86423,8 +86448,9 @@ app.get("/api/phoenix/seed", async (c) => {
     try {
       const { ensureBrainSchema: ensureBrainSchema2 } = await Promise.resolve().then(() => (init_ensure_brain_schema(), ensure_brain_schema_exports));
       await ensureBrainSchema2();
-      const { seedBrain: seedBrain2 } = await Promise.resolve().then(() => (init_brain_store(), brain_store_exports));
+      const { seedBrain: seedBrain2, seedAgentBrain: seedAgentBrain2 } = await Promise.resolve().then(() => (init_brain_store(), brain_store_exports));
       await seedBrain2();
+      await seedAgentBrain2();
       const { ensureLaunchpadSchema: ensureLaunchpadSchema2 } = await Promise.resolve().then(() => (init_ensure_launchpad_schema(), ensure_launchpad_schema_exports));
       await ensureLaunchpadSchema2();
       const { ensureSubscriptionsSchema: ensureSubscriptionsSchema2 } = await Promise.resolve().then(() => (init_ensure_subscriptions_schema(), ensure_subscriptions_schema_exports));

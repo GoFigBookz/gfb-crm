@@ -114,6 +114,30 @@ export async function seedBrain(): Promise<void> {
   console.log(`[brain] seeded ${seeds.length} firm truths`);
 }
 
+/** Seed each agent's expertise hub into the Brain (firm-scope, category 'agent').
+ *  Their procedural skill packs live in code (api/skills); this puts each agent's
+ *  ROLE + best-in-class + proactive mandate into the queryable brain so "who does
+ *  X / what is Y's job" is answerable, and the agents have a shared self-knowledge.
+ *  Idempotent — only runs when no agent records exist. */
+export async function seedAgentBrain(): Promise<void> {
+  const db = getDb();
+  const have = (await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE category = 'agent'`)) as any[];
+  if (Number(have[0]?.n || 0) > 0) return;
+  const firm: Scope = { kind: "firm" };
+  const agents: { label: string; statement: string }[] = [
+    { label: "Fig — junior bookkeeper", statement: "Fig is the junior bookkeeper. Pulls from QBO, codes vendors (history → cold-start → web), intakes receipts (Gmail/Drive/Hubdoc), posts transactions, pushes payroll hours. Best-in-class at accurate, consistent coding; proactively flags miscodes, duplicates, and missing receipts. Output is always a PROPOSAL for review — never final." },
+    { label: "Sage — senior bookkeeper", statement: "Sage is the senior bookkeeper. Reviews Fig's work for errors + completeness, then PREPARES the filings — HST, WSIB, payroll — for Markie's approval. Owns compliance prep + the first review gate. Proactively catches gaps and readies filings before deadlines." },
+    { label: "Wren — controller / auditor", statement: "Wren is the controller/auditor. Tie-outs (bank ↔ HST ↔ payroll ↔ GL), CRA HST-audit support, and the citation-backed month-end workpaper Markie signs. Reviews Sage. Proactively defends the books and surfaces anything that won't tie." },
+    { label: "Liv — executive assistant", statement: "Liv is Markie's EA and the front desk / voice of the Brain. Comms, agenda, tone-matched email DRAFTS (never auto-send), scheduling, and Markie's PERSONAL life (walled off, private). Proactively manages his time and flags what needs his attention." },
+    { label: "Jinx — QA / watchdog", statement: "Jinx is QA/IT watchdog. Smoke-tests + watches the live app (deploys, payroll, email sync, key flows) and FLAGS Markie only when something breaks — silent when healthy. Proactively monitors system health." },
+    { label: "Tess — tax specialist", statement: "Tess is the tax specialist. Corporate (T2) + personal (T1), HST/GST returns, year-end tax prep, instalments, CRA correspondence. Prepares for Markie's sign-off — never files. Proactively flags tax exposures, instalment due dates, and planning opportunities." },
+    { label: "Jade — fractional CFO", statement: "Jade is the fractional CFO. Forward-looking finance: pricing/margin analysis (reads the firm's own QBO billing), cash, profitability. Proactively advises whether Markie is charging right and where margins are thin." },
+    { label: "Skye — social / marketing", statement: "Skye runs social/marketing. Drafts content/posts in the brand voice, runs the content calendar, and the platform cleanup plan (LinkedIn, Instagram, Facebook, ProAdvisor, website, Google). Proactively proposes content; never auto-posts." },
+  ];
+  for (const a of agents) await addTruth({ scope: firm, label: a.label, statement: a.statement, category: "agent", sourceLabels: ["Firm org chart"] });
+  console.log(`[brain] seeded ${agents.length} agent hubs`);
+}
+
 export async function brainStats(): Promise<{ records: number; truth: number; openQuestions: number }> {
   const db = getDb();
   const rec = (await db.all(sql`SELECT COUNT(*) AS n FROM brain_records`)) as any[];
