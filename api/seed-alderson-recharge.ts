@@ -23,7 +23,9 @@ const DESCRIPTION =
   "Generate the inter-company recharge for the fiscal quarter just ended: pull Alderson's project expenses, " +
   "build the invoice Alderson → Ovita Holdings for those costs + 13% HST (revenue → Sales; Holdings expense → " +
   "Alderson Project Management Costs), post both sides on approval, then RECONCILE the intercompany balance to " +
-  "zero against the counterparty. Tool: Inter-Company → Recharge generator (drafts only; nothing posts without review).";
+  "zero against the counterparty. Settlement: Holdings' payment lands in the 'Alderson Development clearing account' " +
+  "as a TRANSFER on Alderson's side — reconcile that clearing account to zero each quarter. " +
+  "Tool: Inter-Company → Recharge generator (drafts only; nothing posts without review).";
 
 function localNoon(y: number, m1: number, d: number): Date {
   return new Date(y, m1 - 1, d, 12, 0, 0);

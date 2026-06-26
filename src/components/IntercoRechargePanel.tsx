@@ -103,7 +103,7 @@ export default function IntercoRechargePanel() {
         <div>
           <Label className="text-xs">Settlement / clearing account</Label>
           <Input className="h-9" value={clearingAccount} onChange={(e) => setClearingAccount(e.target.value)} placeholder="Alderson Development clearing account" />
-          <p className="text-[11px] text-slate-400 mt-0.5">Holdings' payment settles through this account; reconcile it to zero each quarter.</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">The counterparty's payment lands here as a <b>transfer</b> on the payer's side; reconcile this account to zero each quarter.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" disabled={preview.isPending || !payerId || !counterparty || !revenueAccount} onClick={run}>

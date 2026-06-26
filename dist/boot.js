@@ -63636,7 +63636,7 @@ var init_seed_alderson_recharge = __esm({
     init_schema();
     init_interco_recharge_router();
     RULE_TITLE2 = "Inter-company recharge + reconcile: Alderson \u2192 Ovita Holdings (fiscal quarter)";
-    DESCRIPTION2 = "Generate the inter-company recharge for the fiscal quarter just ended: pull Alderson's project expenses, build the invoice Alderson \u2192 Ovita Holdings for those costs + 13% HST (revenue \u2192 Sales; Holdings expense \u2192 Alderson Project Management Costs), post both sides on approval, then RECONCILE the intercompany balance to zero against the counterparty. Tool: Inter-Company \u2192 Recharge generator (drafts only; nothing posts without review).";
+    DESCRIPTION2 = "Generate the inter-company recharge for the fiscal quarter just ended: pull Alderson's project expenses, build the invoice Alderson \u2192 Ovita Holdings for those costs + 13% HST (revenue \u2192 Sales; Holdings expense \u2192 Alderson Project Management Costs), post both sides on approval, then RECONCILE the intercompany balance to zero against the counterparty. Settlement: Holdings' payment lands in the 'Alderson Development clearing account' as a TRANSFER on Alderson's side \u2014 reconcile that clearing account to zero each quarter. Tool: Inter-Company \u2192 Recharge generator (drafts only; nothing posts without review).";
   }
 });
 
