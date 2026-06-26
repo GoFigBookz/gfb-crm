@@ -14,17 +14,18 @@ const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency
  * → builds the DRAFT invoice (payer → counterparty) + mirror bill, with HST. Nothing
  * posts; you review, then post on approval. Reconcile each quarter from the log.
  */
-export default function IntercoRechargePanel() {
+export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerId?: number } = {}) {
   const { data: clients } = trpc.interco.clients.useQuery();
-  const [payerId, setPayerId] = useState<number | null>(null);
+  const [payerId, setPayerId] = useState<number | null>(defaultPayerId ?? null);
 
-  // Default to Alderson if present (the first configured payer).
+  // Default to the given client (on a client card) or Alderson (standalone).
   useEffect(() => {
     if (payerId == null && clients?.length) {
+      if (defaultPayerId) { setPayerId(defaultPayerId); return; }
       const ald = clients.find((c: any) => /alderson/i.test(c.name || ""));
       setPayerId(ald?.id ?? clients[0].id);
     }
-  }, [clients, payerId]);
+  }, [clients, payerId, defaultPayerId]);
 
   const payer = clients?.find((c: any) => c.id === payerId);
   const { data: cfg } = trpc.intercoRecharge.getConfig.useQuery({ payerClientId: payerId! }, { enabled: !!payerId });
@@ -56,11 +57,24 @@ export default function IntercoRechargePanel() {
 
   const preview = trpc.intercoRecharge.preview.useMutation();
   const recon = trpc.intercoRecharge.reconcileCheck.useMutation();
+  const post = trpc.intercoRecharge.post.useMutation();
   const record = trpc.intercoRecharge.recordPeriod.useMutation({ onSuccess: () => utils.intercoRecharge.log.invalidate({ payerClientId: payerId! }) });
   const markRec = trpc.intercoRecharge.markReconciled.useMutation({ onSuccess: () => utils.intercoRecharge.log.invalidate({ payerClientId: payerId! }) });
   const r = preview.data;
   const draft = r && r.ok ? r.draft : null;
   const rc = recon.data;
+  const pr = post.data;
+
+  const postLive = () => {
+    if (!payerId || !payer) return;
+    if (!confirm(`Fig will POST LIVE to QuickBooks:\n• Invoice in ${payer.name} → ${counterparty}\n• Bill in ${counterparty}\nfor ${start} → ${end}.\n\nBoth companies must be on the DIRECT (native) connection. Proceed?`)) return;
+    post.mutate({
+      payerClientId: payerId, payerName: payer.name,
+      counterpartyName: counterparty, revenueAccount, expenseAccount,
+      hstRatePct, chargeHst, startDate: start, endDate: end,
+      periodLabel: `${start} → ${end}`, approve: true,
+    });
+  };
 
   const checkRecon = () => {
     if (!payerId) return;
@@ -156,7 +170,7 @@ export default function IntercoRechargePanel() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" disabled={preview.isPending || !payerId || !counterparty || !revenueAccount} onClick={run}>
+          <Button size="sm" disabled={preview.isPending || !payerId} onClick={run}>
             {preview.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileDown className="h-4 w-4 mr-1" />} Generate draft
           </Button>
           {!chargeHst && <span className="text-xs text-amber-600">No HST (Section 156 election).</span>}
@@ -173,13 +187,28 @@ export default function IntercoRechargePanel() {
               <DocCard title={`Invoice — ${payer?.name} → ${draft.invoice.party}`} doc={draft.invoice} sub={`Income: ${draft.invoice.account}`} />
               <DocCard title={`Mirror bill — ${draft.bill.party} → ${draft.invoice.party}`} doc={draft.bill} sub={`Expense: ${draft.bill.account}`} />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={post.isPending || !draft.validation.ok}
+                onClick={postLive}>
+                {post.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null} Approve & post (Fig) — LIVE
+              </Button>
               <Button size="sm" variant="outline" disabled={record.isPending || !draft.validation.ok}
                 onClick={() => record.mutate({ payerClientId: payerId!, periodLabel: draft.periodLabel, periodStart: start, periodEnd: end, subtotal: draft.invoice.subtotal, hst: draft.invoice.hst, total: draft.invoice.total })}>
                 Record this quarter (to reconcile)
               </Button>
-              <span className="text-[11px] text-slate-400">Posting to QBO needs the write connection; until then post the approved draft by hand.</span>
+              <span className="text-[11px] text-slate-400">Posting needs both companies on the DIRECT (native) connection.</span>
             </div>
+            {pr && pr.ok && (
+              <div className="text-sm rounded-md p-2 bg-emerald-50 text-emerald-800">
+                ✓ Posted live — Invoice <b>#{pr.invoiceId}</b> in {payer?.name}, Bill <b>#{pr.billId}</b> in {counterparty} ({money(pr.total)}). See System Health → Recent Agent Activity for the audit entry.
+              </div>
+            )}
+            {pr && !pr.ok && (
+              <div className="text-sm rounded-md p-2 bg-amber-50 text-amber-800">
+                Didn't post ({pr.error}). {(pr as any).detail || ""}
+              </div>
+            )}
+            {post.isError && <div className="text-xs text-red-600">{(post.error as any)?.message}</div>}
           </div>
         )}
 

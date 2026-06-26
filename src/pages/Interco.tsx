@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/providers/trpc";
-import IntercoRechargePanel from "@/components/IntercoRechargePanel";
 import BackButton from "@/components/BackButton";
 
 const money = (n: number) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD" });
@@ -71,8 +70,8 @@ export default function Interco() {
         </ul>
       </div>
 
-      {/* Recharge generator (Alderson method): payer's expenses → draft invoice + mirror bill. */}
-      <IntercoRechargePanel />
+      {/* Recharge (invoice→bill) is a SEPARATE per-client tool — it lives on the
+          client card (Compliance tab), not here. This page is the interco-JE method. */}
 
       <Card className="border-amber-200 bg-amber-50">
         <CardContent className="py-3 text-sm text-amber-900 flex items-start gap-2">

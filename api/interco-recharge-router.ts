@@ -24,6 +24,7 @@ import { qboRequest } from "./qbo-router";
 import { getConnectionForClient } from "./qbo-vendor-brain";
 import { buildRecharge, type RechargeExpense } from "./interco-recharge-core";
 import { checkClearingRecon } from "./interco-recon-core";
+import { postRecharge } from "./interco-recharge-poster";
 
 const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const arr = (data: any, entity: string): any[] => (data?.QueryResponse?.[entity] ?? []) as any[];
@@ -196,6 +197,70 @@ export const intercoRechargeRouter = createRouter({
         if (msg.startsWith("bridge_not_returning_data")) return { ok: false as const, error: "bridge_not_returning_data", detail: msg };
         return { ok: false as const, error: msg };
       }
+    }),
+
+  /** FIG POSTS IT LIVE — create the real Invoice (payer) + Bill (counterparty).
+   *  Requires approve:true + both connections NATIVE. Refuses rather than guesses. */
+  post: staffQuery
+    .input(z.object({
+      payerClientId: z.number(),
+      payerName: z.string(),
+      counterpartyName: z.string().optional(),
+      counterpartyClientId: z.number().optional(),
+      revenueAccount: z.string().optional(),
+      expenseAccount: z.string().optional(),
+      hstRatePct: z.number().default(13),
+      chargeHst: z.boolean().default(true),
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      periodLabel: z.string().default(""),
+      approve: z.literal(true),
+    }))
+    .mutation(async ({ input }) => {
+      await ensureRechargeSchema();
+      const db = getDb();
+      const cfgRow: any = (await db.run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`));
+      const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
+      const counterpartyName = input.counterpartyName || cfg.counterpartyName || "";
+      const revenueAccount = input.revenueAccount || cfg.revenueAccount || "";
+      const expenseAccount = input.expenseAccount || cfg.expenseAccount || "";
+      if (!counterpartyName || !revenueAccount || !expenseAccount) return { ok: false as const, error: "config_incomplete", detail: "Need counterparty + revenue + expense accounts (save the client config or fill the form)." };
+
+      // resolve counterparty client
+      let cpId = input.counterpartyClientId ?? 0;
+      if (!cpId) {
+        const key = `%${counterpartyName.split(/\s+/)[0].toLowerCase()}%`;
+        const rows = (await db.all(sql`SELECT id FROM clients WHERE lower(name) LIKE ${key} OR lower(company) LIKE ${key} ORDER BY id ASC LIMIT 1`)) as any[];
+        cpId = rows[0]?.id ?? 0;
+      }
+      if (!cpId) return { ok: false as const, error: "counterparty_not_found", detail: `No client matched "${counterpartyName}".` };
+
+      // pull expenses + build to get the subtotal
+      const cr = await getConnectionForClient(input.payerClientId);
+      if ("error" in cr) return { ok: false as const, error: `payer: ${cr.error}` };
+      let subtotal = 0;
+      try {
+        const { expenses } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+        const draft = buildRecharge({
+          periodLabel: input.periodLabel || `${input.startDate} → ${input.endDate}`,
+          payerName: input.payerName, counterpartyName, revenueAccount, expenseAccount,
+          hstRatePct: input.hstRatePct, chargeHst: input.chargeHst, expenses,
+        });
+        subtotal = draft.invoice.subtotal;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.startsWith("bridge_not_returning_data")) return { ok: false as const, error: "bridge_not_returning_data", detail: msg };
+        return { ok: false as const, error: msg };
+      }
+      if (!(subtotal > 0)) return { ok: false as const, error: "nothing_to_post", detail: "No expenses found for this period." };
+
+      return await postRecharge({
+        payerClientId: input.payerClientId, counterpartyClientId: cpId,
+        payerName: input.payerName, counterpartyName,
+        revenueAccount, expenseAccount,
+        hstRatePct: input.hstRatePct, chargeHst: input.chargeHst,
+        subtotal, periodLabel: input.periodLabel || `${input.startDate} → ${input.endDate}`,
+      });
     }),
 
   /** INTERCO RECONCILIATION CHECK — pull both reciprocal clearing-account balances
