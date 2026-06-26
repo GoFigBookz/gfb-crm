@@ -46,6 +46,7 @@ import Brain from "./pages/Brain";
 import Registers from "./pages/Registers";
 import Launchpad from "./pages/Launchpad";
 import HstAudit from "./pages/HstAudit";
+import HstReview from "./pages/HstReview";
 import Subscriptions from "./pages/Subscriptions";
 import JadePricing from "./pages/JadePricing";
 import Marketing from "./pages/Marketing";
@@ -136,6 +137,7 @@ function AppRoutes() {
         <Route path="/registers" element={<Registers />} />
         <Route path="/launchpad" element={<Launchpad />} />
         <Route path="/hst-audit" element={<HstAudit />} />
+        <Route path="/hst-review" element={<HstReview />} />
         <Route path="/subscriptions" element={<Subscriptions />} />
         <Route path="/jade-pricing" element={<JadePricing />} />
         <Route path="/marketing" element={<Marketing />} />

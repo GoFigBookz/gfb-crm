@@ -102,6 +102,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/tax-deadlines", icon: CalendarClock, label: "Tax Deadlines" },
     { to: "/year-end", icon: ClipboardCheck, label: "Year-End" },
     { to: "/hst-audit", icon: ShieldCheck, label: "HST Audit" },
+    { to: "/hst-review", icon: ClipboardCheck, label: "Pre-HST Review" },
     { to: "/monthly-close", icon: CheckSquare, label: "Monthly Close" },
     { to: "/calculators", icon: Calculator, label: "Calculators" },
     { to: "/templates", icon: FileSpreadsheet, label: "Templates" },
