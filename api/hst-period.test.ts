@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeFreq, isHstFilingTask, defaultHstRange } from "./hst-period";
+import { normalizeFreq, isHstFilingTask, defaultHstRange, fiscalHstRange } from "./hst-period";
 
 describe("normalizeFreq", () => {
   it("maps text to a frequency, defaulting to quarterly", () => {
@@ -45,5 +45,26 @@ describe("defaultHstRange", () => {
     const r = defaultHstRange(new Date(2025, 0, 31), "quarterly"); // due Jan 2025 -> Oct..Dec 2024
     expect(r.start).toBe("2024-10-01");
     expect(r.end).toBe("2024-12-31");
+  });
+});
+
+describe("fiscalHstRange (Nov 30 fiscal year-end)", () => {
+  // FYE = November (11): fiscal quarters end Feb / May / Aug / Nov.
+  it("returns Q2 = Mar 1 – May 31 as of a June due date", () => {
+    const r = fiscalHstRange(new Date(2026, 5, 30), "quarterly", 11); // asOf 2026-06-30
+    expect(r.start).toBe("2026-03-01");
+    expect(r.end).toBe("2026-05-31");
+    expect(r.quarter).toBe(2);
+  });
+  it("returns Q1 = Dec 1 – Feb 28 as of a March date", () => {
+    const r = fiscalHstRange(new Date(2026, 2, 15), "quarterly", 11);
+    expect(r.start).toBe("2025-12-01");
+    expect(r.end).toBe("2026-02-28");
+    expect(r.quarter).toBe(1);
+  });
+  it("falls back to the calendar quarter when no fiscal year-end is set", () => {
+    const r = fiscalHstRange(new Date(2025, 6, 31), "quarterly", null);
+    expect(r.start).toBe("2025-04-01");
+    expect(r.end).toBe("2025-06-30");
   });
 });

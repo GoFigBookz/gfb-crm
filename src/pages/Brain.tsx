@@ -18,7 +18,7 @@ export default function Brain() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<any>(null);
 
-  const clients = trpc.clients.list.useQuery(undefined, { staleTime: 60000 });
+  const clients = trpc.crmClient.list.useQuery(undefined, { staleTime: 60000 });
   const stats = trpc.brain.stats.useQuery();
   const questions = trpc.brain.questions.useQuery();
   const ask = trpc.brain.ask.useMutation({ onSuccess: (r) => { setAnswer(r); stats.refetch(); questions.refetch(); } });

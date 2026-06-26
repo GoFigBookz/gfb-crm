@@ -21,7 +21,7 @@ const SEV: Record<string, { icon: any; cls: string; label: string }> = {
 };
 
 export default function HstReview() {
-  const clients = trpc.clients.list.useQuery(undefined, { staleTime: 60000 });
+  const clients = trpc.crmClient.list.useQuery(undefined, { staleTime: 60000 });
   const [sp] = useSearchParams();
   const [clientId, setClientId] = useState<number | "">(sp.get("clientId") ? Number(sp.get("clientId")) : "");
   const [startDate, setStartDate] = useState(sp.get("start") || "2024-12-01");

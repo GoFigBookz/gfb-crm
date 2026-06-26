@@ -14,7 +14,7 @@ const money = (n: number) => `$${(n || 0).toLocaleString(undefined, { minimumFra
 
 export default function Subscriptions() {
   const list = trpc.subscriptions.list.useQuery();
-  const clients = trpc.clients.list.useQuery(undefined, { staleTime: 60000 });
+  const clients = trpc.crmClient.list.useQuery(undefined, { staleTime: 60000 });
   const upsert = trpc.subscriptions.upsert.useMutation({ onSuccess: () => { list.refetch(); reset(); } });
   const remove = trpc.subscriptions.remove.useMutation({ onSuccess: () => list.refetch() });
 

@@ -46,3 +46,46 @@ export function defaultHstRange(dueDate: Date, freq: HstFreq): { start: string; 
   const label = freq === "annual" ? `Annual ${ey}` : freq === "monthly" ? `${start} period` : `Quarter ending ${end}`;
   return { start, end, label };
 }
+
+/**
+ * FISCAL-QUARTER HST RANGE — for filers whose HST quarters follow their FISCAL
+ * year, not the calendar. `fiscalYearEndMonth` is the month (1..12) the fiscal year
+ * ENDS (e.g. 11 = November 30). Fiscal quarters then end at FYE+3, +6, +9, +12.
+ *  - Nov 30 FYE → quarters end Feb / May / Aug / Nov.
+ * Returns the most-recently-ENDED fiscal quarter as of `asOf` (so on the due date,
+ * which falls ~1 month after period end, you get the quarter that just closed).
+ * Falls back to the calendar default when no FYE is set or freq isn't quarterly.
+ */
+export function fiscalHstRange(
+  asOf: Date,
+  freq: HstFreq,
+  fiscalYearEndMonth?: number | null,
+): { start: string; end: string; label: string; quarter?: number } {
+  const fye = Number(fiscalYearEndMonth);
+  if (freq !== "quarterly" || !Number.isInteger(fye) || fye < 1 || fye > 12) {
+    return defaultHstRange(asOf, freq);
+  }
+  // The 4 fiscal-quarter END months (1..12), in fiscal order Q1..Q4.
+  const endMonths = [3, 6, 9, 12].map((o) => ((fye + o - 1) % 12) + 1);
+  // Build candidate quarter-ends spanning the year around asOf, pick the latest
+  // whose end-of-month date is <= asOf (the most recently completed quarter).
+  let best: { y: number; m: number; q: number } | null = null;
+  let bestTime = -Infinity;
+  for (let y = asOf.getFullYear() - 1; y <= asOf.getFullYear() + 1; y++) {
+    for (let qi = 0; qi < 4; qi++) {
+      const m = endMonths[qi];
+      const endDate = new Date(y, m - 1, lastDay(y, m), 23, 59, 59);
+      if (endDate.getTime() <= asOf.getTime() && endDate.getTime() > bestTime) {
+        bestTime = endDate.getTime();
+        best = { y, m, q: qi + 1 };
+      }
+    }
+  }
+  if (!best) return defaultHstRange(asOf, freq);
+  const end = ymd(best.y, best.m, lastDay(best.y, best.m));
+  // start = first day, 2 months before the end month (a 3-month quarter)
+  let sy = best.y, sm = best.m - 2;
+  while (sm < 1) { sm += 12; sy -= 1; }
+  const start = ymd(sy, sm, 1);
+  return { start, end, label: `Fiscal Q${best.q} ending ${end}`, quarter: best.q };
+}
