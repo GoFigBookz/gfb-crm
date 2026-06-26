@@ -174,14 +174,18 @@ export const intercoRechargeRouter = createRouter({
     .mutation(async ({ input }) => {
       const cr = await getConnectionForClient(input.payerClientId);
       if ("error" in cr) return { ok: false as const, error: cr.error };
+      // Fall back to the saved config for any blank field (the form may show placeholders).
+      await ensureRechargeSchema();
+      const cfgRow: any = (await getDb().run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`));
+      const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
       try {
         const { expenses, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
         const draft = buildRecharge({
           periodLabel: input.periodLabel || `${input.startDate} → ${input.endDate}`,
           payerName: input.payerName,
-          counterpartyName: input.counterpartyName,
-          revenueAccount: input.revenueAccount,
-          expenseAccount: input.expenseAccount,
+          counterpartyName: input.counterpartyName || cfg.counterpartyName || "",
+          revenueAccount: input.revenueAccount || cfg.revenueAccount || "",
+          expenseAccount: input.expenseAccount || cfg.expenseAccount || "",
           hstRatePct: input.hstRatePct,
           chargeHst: input.chargeHst,
           expenses,
@@ -207,14 +211,23 @@ export const intercoRechargeRouter = createRouter({
     }))
     .mutation(async ({ input }) => {
       const db = getDb();
+      await ensureRechargeSchema();
+      // FALLBACK to the saved config when the form passed blanks (placeholders).
+      const cfgRow: any = (await db.run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`));
+      const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
+      const counterpartyName = input.counterpartyName || cfg.counterpartyName || "";
+      const payerClearing = input.payerClearingAccount || cfg.payerClearingAccount || cfg.clearingAccount || "";
+      const cpClearing = input.counterpartyClearingAccount || cfg.counterpartyClearingAccount || "";
+      if (!payerClearing || !cpClearing) return { ok: false as const, error: "clearing_accounts_not_set", detail: "Set both clearing-account names (payer + counterparty) or save the client config." };
+
       // Resolve the counterparty client (explicit id wins; else match by name).
       let cpId = input.counterpartyClientId ?? 0;
-      if (!cpId && input.counterpartyName) {
-        const key = `%${input.counterpartyName.split(/\s+/)[0].toLowerCase()}%`;
+      if (!cpId && counterpartyName) {
+        const key = `%${counterpartyName.split(/\s+/)[0].toLowerCase()}%`;
         const rows = (await db.all(sql`SELECT id, name FROM clients WHERE lower(name) LIKE ${key} OR lower(company) LIKE ${key} ORDER BY id ASC LIMIT 1`)) as any[];
         cpId = rows[0]?.id ?? 0;
       }
-      if (!cpId) return { ok: false as const, error: "counterparty_not_found" };
+      if (!cpId) return { ok: false as const, error: "counterparty_not_found", detail: `Could not match a client for "${counterpartyName || "(blank)"}". Type the counterparty name in the field.` };
 
       const payerConn = await getConnectionForClient(input.payerClientId);
       if ("error" in payerConn) return { ok: false as const, error: `payer: ${payerConn.error}` };
@@ -222,8 +235,8 @@ export const intercoRechargeRouter = createRouter({
       if ("error" in cpConn) return { ok: false as const, error: `counterparty: ${cpConn.error}` };
 
       try {
-        const payerAcct = await accountBalanceByName(payerConn.conn, input.payerClearingAccount);
-        const cpAcct = await accountBalanceByName(cpConn.conn, input.counterpartyClearingAccount);
+        const payerAcct = await accountBalanceByName(payerConn.conn, payerClearing);
+        const cpAcct = await accountBalanceByName(cpConn.conn, cpClearing);
         if (!payerAcct.found) return { ok: false as const, error: "payer_clearing_account_not_found", candidates: payerAcct.candidates };
         if (!cpAcct.found) return { ok: false as const, error: "counterparty_clearing_account_not_found", candidates: cpAcct.candidates };
         const result = checkClearingRecon(payerAcct.balance, cpAcct.balance);
