@@ -46463,7 +46463,33 @@ var init_interco_recharge_core = __esm({
   }
 });
 
+// api/interco-recon-core.ts
+function round27(n) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+function checkClearingRecon(payerBalance, counterpartyBalance, toleranceDollars = 0.01) {
+  const a = Number(payerBalance) || 0;
+  const b = Number(counterpartyBalance) || 0;
+  const sum3 = round27(a + b);
+  const absDiff = round27(Math.abs(Math.abs(a) - Math.abs(b)));
+  const variance = round27(Math.min(Math.abs(sum3), absDiff));
+  const reconciled = Math.abs(sum3) <= toleranceDollars || absDiff <= toleranceDollars;
+  return { payerBalance: round27(a), counterpartyBalance: round27(b), sum: sum3, absDiff, variance, reconciled };
+}
+var init_interco_recon_core = __esm({
+  "api/interco-recon-core.ts"() {
+  }
+});
+
 // api/interco-recharge-router.ts
+async function accountBalanceByName(conn, name2) {
+  const data = await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`);
+  const accts = arr(data, "Account");
+  const target = normName(name2);
+  let hit = accts.find((a) => normName(a.Name) === target) || accts.find((a) => normName(a.Name).includes(target) || target.includes(normName(a.Name)));
+  if (!hit) return { found: false, balance: 0, candidates: accts.map((a) => a.Name).filter(Boolean).slice(0, 50) };
+  return { found: true, balance: num2(hit.CurrentBalance), matchedName: hit.Name };
+}
 async function ensureRechargeSchema() {
   const db = getDb();
   try {
@@ -46534,7 +46560,7 @@ async function pullExpenses(conn, start, end) {
   await pull("Bill");
   return { expenses, errors };
 }
-var num2, arr, intercoRechargeRouter;
+var num2, arr, normName, intercoRechargeRouter;
 var init_interco_recharge_router = __esm({
   "api/interco-recharge-router.ts"() {
     init_zod();
@@ -46544,11 +46570,13 @@ var init_interco_recharge_router = __esm({
     init_qbo_router();
     init_qbo_vendor_brain();
     init_interco_recharge_core();
+    init_interco_recon_core();
     num2 = (v) => {
       const n = Number(v);
       return Number.isFinite(n) ? n : 0;
     };
     arr = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+    normName = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     intercoRechargeRouter = createRouter({
       getConfig: staffQuery.input(external_exports.object({ payerClientId: external_exports.number() })).query(async ({ input }) => {
         await ensureRechargeSchema();
@@ -46620,6 +46648,46 @@ var init_interco_recharge_router = __esm({
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           if (msg.startsWith("bridge_not_returning_data")) return { ok: false, error: "bridge_not_returning_data", detail: msg };
+          return { ok: false, error: msg };
+        }
+      }),
+      /** INTERCO RECONCILIATION CHECK — pull both reciprocal clearing-account balances
+       *  live and confirm they offset to zero. Read-only; the auditable proof the
+       *  intercompany is settled. counterparty resolved by id or by name. */
+      reconcileCheck: staffQuery.input(external_exports.object({
+        payerClientId: external_exports.number(),
+        payerClearingAccount: external_exports.string(),
+        counterpartyClientId: external_exports.number().optional(),
+        counterpartyName: external_exports.string().optional(),
+        counterpartyClearingAccount: external_exports.string()
+      })).mutation(async ({ input }) => {
+        const db = getDb();
+        let cpId = input.counterpartyClientId ?? 0;
+        if (!cpId && input.counterpartyName) {
+          const key10 = `%${input.counterpartyName.split(/\s+/)[0].toLowerCase()}%`;
+          const rows = await db.all(sql`SELECT id, name FROM clients WHERE lower(name) LIKE ${key10} OR lower(company) LIKE ${key10} ORDER BY id ASC LIMIT 1`);
+          cpId = rows[0]?.id ?? 0;
+        }
+        if (!cpId) return { ok: false, error: "counterparty_not_found" };
+        const payerConn = await getConnectionForClient(input.payerClientId);
+        if ("error" in payerConn) return { ok: false, error: `payer: ${payerConn.error}` };
+        const cpConn = await getConnectionForClient(cpId);
+        if ("error" in cpConn) return { ok: false, error: `counterparty: ${cpConn.error}` };
+        try {
+          const payerAcct = await accountBalanceByName(payerConn.conn, input.payerClearingAccount);
+          const cpAcct = await accountBalanceByName(cpConn.conn, input.counterpartyClearingAccount);
+          if (!payerAcct.found) return { ok: false, error: "payer_clearing_account_not_found", candidates: payerAcct.candidates };
+          if (!cpAcct.found) return { ok: false, error: "counterparty_clearing_account_not_found", candidates: cpAcct.candidates };
+          const result = checkClearingRecon(payerAcct.balance, cpAcct.balance);
+          return {
+            ok: true,
+            result,
+            payerAccount: payerAcct.matchedName,
+            counterpartyAccount: cpAcct.matchedName
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false, error: "bridge_not_returning_data", detail: msg };
           return { ok: false, error: msg };
         }
       }),
@@ -60557,7 +60625,7 @@ async function seedCollingwoodRunHours() {
       const k = key(e.firstName, e.lastName);
       const patch = {};
       if ((e.payType || "") === "salary") {
-        const g = round211((e.annualSalary || 0) / PERIODS_PER_YEAR);
+        const g = round212((e.annualSalary || 0) / PERIODS_PER_YEAR);
         if (g > 0 && (l.grossPay ?? 0) === 0) patch.grossPay = g;
       } else if (k in HOURS) {
         const target = HOURS[k];
@@ -60567,7 +60635,7 @@ async function seedCollingwoodRunHours() {
           filled++;
         }
         const rate = e.hourlyRate ?? 0;
-        const g = round211(reg * rate);
+        const g = round212(reg * rate);
         if (g !== (l.grossPay ?? 0)) patch.grossPay = g;
       }
       const entitled = !PHONE_EXEMPT_LAST2.includes(norm9(e.lastName));
@@ -60582,7 +60650,7 @@ async function seedCollingwoodRunHours() {
       }
     }
     const fresh = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, draft.id));
-    const totalGross = round211(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
+    const totalGross = round212(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
     await db.update(payRuns).set({ totalGross, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, draft.id));
     if (filled || phoneSet) console.log(`[seed-collingwood-run] run ${draft.id}: filled ${filled} hours, set ${phoneSet} phone`);
     return { run: draft.id, filled, phoneSet, skipped: "" };
@@ -60590,7 +60658,7 @@ async function seedCollingwoodRunHours() {
     console.error("[seed-collingwood-run] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID2, PHONE, round211, norm9, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
+var CLIENT_ID2, PHONE, round212, norm9, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
 var init_seed_collingwood_run_hours = __esm({
   "api/seed-collingwood-run-hours.ts"() {
     init_connection();
@@ -60598,7 +60666,7 @@ var init_seed_collingwood_run_hours = __esm({
     init_drizzle_orm();
     CLIENT_ID2 = 7;
     PHONE = 23.08;
-    round211 = (n) => Math.round(n * 100) / 100;
+    round212 = (n) => Math.round(n * 100) / 100;
     norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key = (first, last) => `${norm9(last)}|${norm9(first)}`;
     HOURS = {
@@ -60875,7 +60943,7 @@ async function backfillSherPayroll() {
         const emp = empByKey.get(k);
         if (!emp) continue;
         const ln = p.lines[k];
-        const gross = round212(ln?.gross ?? 0);
+        const gross = round213(ln?.gross ?? 0);
         totalGross += gross;
         await db.insert(payRunLines).values({
           payRunId: run3.id,
@@ -60884,7 +60952,7 @@ async function backfillSherPayroll() {
           grossPay: gross
         });
       }
-      await db.update(payRuns).set({ totalGross: round212(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round213(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[sher-backfill] added ${runsAdded} run(s)`);
@@ -60893,13 +60961,13 @@ async function backfillSherPayroll() {
     console.error("[sher-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round212, norm10, key2, d, ROSTER2, PERIODS;
+var round213, norm10, key2, d, ROSTER2, PERIODS;
 var init_seed_sher_backfill = __esm({
   "api/seed-sher-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round212 = (n) => Math.round(n * 100) / 100;
+    round213 = (n) => Math.round(n * 100) / 100;
     norm10 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key2 = (first, last) => `${norm10(last)}|${norm10(first)}`;
     d = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -61084,11 +61152,11 @@ async function backfillOwenSoundPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp || have.has(emp.id)) continue;
-        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: round213(v.gross) });
+        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: round214(v.gross) });
         linesAdded++;
       }
       const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run3.id));
-      const tg = round213(lines2.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
+      const tg = round214(lines2.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
       await db.update(payRuns).set({ totalGross: tg, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
     }
     if (runsAdded || linesAdded) console.log(`[os-backfill] added ${runsAdded} run(s), ${linesAdded} line(s)`);
@@ -61097,13 +61165,13 @@ async function backfillOwenSoundPayroll() {
     console.error("[os-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round213, norm11, key3, d2, ROSTER3, PERIODS2;
+var round214, norm11, key3, d2, ROSTER3, PERIODS2;
 var init_seed_os_backfill = __esm({
   "api/seed-os-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round213 = (n) => Math.round(n * 100) / 100;
+    round214 = (n) => Math.round(n * 100) / 100;
     norm11 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key3 = (first, last) => `${norm11(last)}|${norm11(first)}`;
     d2 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -61311,11 +61379,11 @@ async function backfillCollingwoodPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round214(v.gross);
+        const gross = round215(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round214(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round215(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[cw-backfill] added ${runsAdded} run(s)`);
@@ -61324,14 +61392,14 @@ async function backfillCollingwoodPayroll() {
     console.error("[cw-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID3, round214, norm12, key4, d3, ROSTER4, PERIODS3;
+var CLIENT_ID3, round215, norm12, key4, d3, ROSTER4, PERIODS3;
 var init_seed_collingwood_backfill = __esm({
   "api/seed-collingwood-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     CLIENT_ID3 = 7;
-    round214 = (n) => Math.round(n * 100) / 100;
+    round215 = (n) => Math.round(n * 100) / 100;
     norm12 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key4 = (first, last) => `${norm12(last)}|${norm12(first)}`;
     d3 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -61572,11 +61640,11 @@ async function backfillAuldPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round215(v.gross);
+        const gross = round216(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round215(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round216(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[auld-backfill] added ${runsAdded} run(s)`);
@@ -61585,13 +61653,13 @@ async function backfillAuldPayroll() {
     console.error("[auld-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round215, norm13, key5, d4, ROSTER5, PERIODS4;
+var round216, norm13, key5, d4, ROSTER5, PERIODS4;
 var init_seed_auld_backfill = __esm({
   "api/seed-auld-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round215 = (n) => Math.round(n * 100) / 100;
+    round216 = (n) => Math.round(n * 100) / 100;
     norm13 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key5 = (first, last) => `${norm13(last)}|${norm13(first)}`;
     d4 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -61878,11 +61946,11 @@ async function backfillOriginalityPayroll() {
         for (const [k, v] of Object.entries(p.lines)) {
           const emp = empByKey.get(k);
           if (!emp) continue;
-          const gross = round216(v.gross);
+          const gross = round217(v.gross);
           totalGross += gross;
           await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
         }
-        await db.update(payRuns).set({ totalGross: round216(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+        await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
         runsAdded++;
       }
     };
@@ -61894,13 +61962,13 @@ async function backfillOriginalityPayroll() {
     console.error("[og-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round216, norm14, key6, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
+var round217, norm14, key6, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
 var init_seed_originality_backfill = __esm({
   "api/seed-originality-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round216 = (n) => Math.round(n * 100) / 100;
+    round217 = (n) => Math.round(n * 100) / 100;
     norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key6 = (first, last) => `${norm14(last)}|${norm14(first)}`;
     d5 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -62128,7 +62196,7 @@ async function backfill2303851Payroll() {
     let runsAdded = 0;
     for (const p of PERIODS5) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
-      const gross = round217(p.gross);
+      const gross = round218(p.gross);
       const [run3] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d6(p.start),
@@ -62152,19 +62220,19 @@ async function backfill2303851Payroll() {
     console.error("[2303851-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round217, norm15, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
+var round218, norm15, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
 var init_seed_2303851_backfill = __esm({
   "api/seed-2303851-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round217 = (n) => Math.round(n * 100) / 100;
+    round218 = (n) => Math.round(n * 100) / 100;
     norm15 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key7 = (first, last) => `${norm15(last)}|${norm15(first)}`;
     d6 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     EMP = { first: "Stacey", last: "Gillham" };
     MONTHLY = 8333.33;
-    HALF = round217(MONTHLY / 2);
+    HALF = round218(MONTHLY / 2);
     PERIODS5 = [
       { payDate: "2026-01-31", start: "2026-01-01", end: "2026-01-31", gross: MONTHLY },
       { payDate: "2026-02-28", start: "2026-02-01", end: "2026-02-28", gross: MONTHLY },
@@ -62231,8 +62299,8 @@ async function backfillFractalPayroll() {
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       if (!run3) continue;
-      await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: round218(MONTHLY2) });
-      await db.update(payRuns).set({ totalGross: round218(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: round219(MONTHLY2) });
+      await db.update(payRuns).set({ totalGross: round219(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[fractal-backfill] added ${runsAdded} run(s)`);
@@ -62241,13 +62309,13 @@ async function backfillFractalPayroll() {
     console.error("[fractal-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round218, norm16, d7, MONTHLY2, PERIODS6;
+var round219, norm16, d7, MONTHLY2, PERIODS6;
 var init_seed_fractal_backfill = __esm({
   "api/seed-fractal-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round218 = (n) => Math.round(n * 100) / 100;
+    round219 = (n) => Math.round(n * 100) / 100;
     norm16 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     d7 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     MONTHLY2 = 4500;
@@ -62323,11 +62391,11 @@ async function backfillMotionInvestPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round219(v.gross);
+        const gross = round220(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round219(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round220(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[motioninvest-backfill] added ${runsAdded} run(s)`);
@@ -62336,13 +62404,13 @@ async function backfillMotionInvestPayroll() {
     console.error("[motioninvest-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round219, norm17, key8, d8, ROSTER7, PERIODS7;
+var round220, norm17, key8, d8, ROSTER7, PERIODS7;
 var init_seed_motioninvest_backfill = __esm({
   "api/seed-motioninvest-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round219 = (n) => Math.round(n * 100) / 100;
+    round220 = (n) => Math.round(n * 100) / 100;
     norm17 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key8 = (first, last) => `${norm17(last)}|${norm17(first)}`;
     d8 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -62406,16 +62474,16 @@ async function backfillMotionInvestRevShare() {
     let cumNet = 0;
     const paidByKey = /* @__PURE__ */ new Map();
     for (const q2 of QUARTERS) {
-      cumNet = round220(cumNet + q2.netProfit);
+      cumNet = round221(cumNet + q2.netProfit);
       const note = `Revenue share bonus (${q2.label})`;
       const due = d9(q2.payDate) <= now;
       const exists2 = allRuns.some((r) => (r.notes || "") === note);
       const lines2 = [];
       for (const s of SHARERS) {
         const k = key9(s.first, s.last);
-        const earned = round220(cumNet * s.pct);
+        const earned = round221(cumNet * s.pct);
         const prior = paidByKey.get(k) || 0;
-        const payout = round220(Math.max(0, earned - prior));
+        const payout = round221(Math.max(0, earned - prior));
         paidByKey.set(k, prior + payout);
         const emp = empByKey.get(k);
         if (emp && payout > 0) lines2.push({ emp, amount: payout });
@@ -62439,7 +62507,7 @@ async function backfillMotionInvestRevShare() {
         totalGross += ln.amount;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: ln.emp.id, regularHours: 0, grossPay: ln.amount });
       }
-      await db.update(payRuns).set({ totalGross: round220(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round221(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[mi-revshare] added ${runsAdded} quarterly run(s)`);
@@ -62448,13 +62516,13 @@ async function backfillMotionInvestRevShare() {
     console.error("[mi-revshare] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round220, norm18, key9, d9, SHARERS, QUARTERS;
+var round221, norm18, key9, d9, SHARERS, QUARTERS;
 var init_seed_motioninvest_revshare = __esm({
   "api/seed-motioninvest-revshare.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round220 = (n) => Math.round(n * 100) / 100;
+    round221 = (n) => Math.round(n * 100) / 100;
     norm18 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key9 = (first, last) => `${norm18(last)}|${norm18(first)}`;
     d9 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -86016,22 +86084,22 @@ var LINE_LABELS = {
   line106: "Line 106 \u2014 Input tax credits",
   line109: "Line 109 \u2014 Net tax"
 };
-function round27(n) {
+function round28(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function sumLines(rows) {
   return rows.reduce(
     (acc, r) => ({
-      line101: round27(acc.line101 + (r.line101 || 0)),
-      line103: round27(acc.line103 + (r.line103 || 0)),
-      line106: round27(acc.line106 + (r.line106 || 0)),
-      line109: round27(acc.line109 + (r.line109 || 0))
+      line101: round28(acc.line101 + (r.line101 || 0)),
+      line103: round28(acc.line103 + (r.line103 || 0)),
+      line106: round28(acc.line106 + (r.line106 || 0)),
+      line109: round28(acc.line109 + (r.line109 || 0))
     }),
     { line101: 0, line103: 0, line106: 0, line109: 0 }
   );
 }
 function netTaxDrift(lines2) {
-  return round27(lines2.line109 - (lines2.line103 - lines2.line106));
+  return round28(lines2.line109 - (lines2.line103 - lines2.line106));
 }
 var DEFAULTS = {
   dollarTolerance: 2,
@@ -86040,11 +86108,11 @@ var DEFAULTS = {
 };
 function compareLines(filed, book, cfg) {
   return LINE_KEYS.map((line) => {
-    const f = round27(filed[line] || 0);
-    const b = round27(book[line] || 0);
-    const variance = round27(b - f);
+    const f = round28(filed[line] || 0);
+    const b = round28(book[line] || 0);
+    const variance = round28(b - f);
     const denom = Math.max(Math.abs(f), Math.abs(b), 1);
-    const variancePct = round27(Math.abs(variance) / denom * 100);
+    const variancePct = round28(Math.abs(variance) / denom * 100);
     const withinTolerance = Math.abs(variance) <= cfg.dollarTolerance || variancePct <= cfg.pctTolerance;
     return { line, label: LINE_LABELS[line], filed: f, book: b, variance, variancePct, withinTolerance };
   });
@@ -86072,7 +86140,7 @@ function auditHstYear(args) {
   const netTaxConsistent = Math.abs(filedDrift) <= cfg.dollarTolerance;
   if (!netTaxConsistent) {
     notes.push(
-      `Filed net tax (line 109 = $${filedAnnual.line109.toLocaleString()}) doesn't equal collected \u2212 ITCs ($${round27(filedAnnual.line103 - filedAnnual.line106).toLocaleString()}). Off by $${filedDrift.toLocaleString()}.`
+      `Filed net tax (line 109 = $${filedAnnual.line109.toLocaleString()}) doesn't equal collected \u2212 ITCs ($${round28(filedAnnual.line103 - filedAnnual.line106).toLocaleString()}). Off by $${filedDrift.toLocaleString()}.`
     );
   }
   let verdict;
@@ -87151,7 +87219,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/revrec-core.ts
-function round28(n) {
+function round29(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function clampPct(p) {
@@ -87169,10 +87237,10 @@ function buildProjectSchedule(project, progress) {
   for (const r of rows) {
     const pct = clampPct(r.pctComplete);
     const invoiced = r.invoicedToDate == null ? priorInvoiced : r.invoicedToDate;
-    const earned = round28(cv * pct);
-    const revenueThisPeriod = round28(cv * (pct - priorPct));
-    const contractAsset = round28(Math.max(earned - invoiced, 0));
-    const deferredRevenue = round28(Math.max(invoiced - earned, 0));
+    const earned = round29(cv * pct);
+    const revenueThisPeriod = round29(cv * (pct - priorPct));
+    const contractAsset = round29(Math.max(earned - invoiced, 0));
+    const deferredRevenue = round29(Math.max(invoiced - earned, 0));
     out.push({
       periodKey: r.periodKey,
       pctComplete: pct,
@@ -87180,7 +87248,7 @@ function buildProjectSchedule(project, progress) {
       contractValue: cv,
       earnedToDate: earned,
       revenueThisPeriod,
-      invoicedToDate: round28(invoiced),
+      invoicedToDate: round29(invoiced),
       contractAsset,
       deferredRevenue
     });
@@ -87228,8 +87296,8 @@ function period_customerJobOf(_period) {
   return null;
 }
 function sealJe(kind, date5, periodKey2, lines2) {
-  const totalDebit = round28(lines2.reduce((s, l) => s + l.debit, 0));
-  const totalCredit = round28(lines2.reduce((s, l) => s + l.credit, 0));
+  const totalDebit = round29(lines2.reduce((s, l) => s + l.debit, 0));
+  const totalCredit = round29(lines2.reduce((s, l) => s + l.credit, 0));
   return { kind, date: date5, periodKey: periodKey2, lines: lines2, totalDebit, totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 5e-3 };
 }
 function tagJeWithJob(je, customerJob) {
@@ -87252,7 +87320,7 @@ function validateForPosting(je, accountMap) {
 function rollupProject(project, schedule) {
   const last = latestPeriod(schedule);
   const cv = project.contractValue || 0;
-  const earned = last?.earnedToDate ?? round28(cv * clampPct(project.openingPct ?? 0));
+  const earned = last?.earnedToDate ?? round29(cv * clampPct(project.openingPct ?? 0));
   const invoiced = last?.invoicedToDate ?? (project.openingInvoiced ?? 0);
   return {
     projectId: project.projectId,
@@ -87261,10 +87329,10 @@ function rollupProject(project, schedule) {
     contractValue: cv,
     pctComplete: last?.pctComplete ?? clampPct(project.openingPct ?? 0),
     earnedToDate: earned,
-    invoicedToDate: round28(invoiced),
-    contractAsset: last?.contractAsset ?? round28(Math.max(earned - invoiced, 0)),
-    deferredRevenue: last?.deferredRevenue ?? round28(Math.max(invoiced - earned, 0)),
-    remainingToEarn: round28(cv - earned)
+    invoicedToDate: round29(invoiced),
+    contractAsset: last?.contractAsset ?? round29(Math.max(earned - invoiced, 0)),
+    deferredRevenue: last?.deferredRevenue ?? round29(Math.max(invoiced - earned, 0)),
+    remainingToEarn: round29(cv - earned)
   };
 }
 function buildRevenueCalendar(months, perProject) {
@@ -87273,10 +87341,10 @@ function buildRevenueCalendar(months, perProject) {
       const hit = p.schedule.find((s) => s.periodKey === m);
       return hit ? hit.revenueThisPeriod : 0;
     });
-    return { projectId: p.projectId, name: p.name, byMonth, total: round28(byMonth.reduce((s, v) => s + v, 0)) };
+    return { projectId: p.projectId, name: p.name, byMonth, total: round29(byMonth.reduce((s, v) => s + v, 0)) };
   });
-  const totalsByMonth = months.map((_, i) => round28(rows.reduce((s, r) => s + r.byMonth[i], 0)));
-  const grandTotal = round28(totalsByMonth.reduce((s, v) => s + v, 0));
+  const totalsByMonth = months.map((_, i) => round29(rows.reduce((s, r) => s + r.byMonth[i], 0)));
+  const grandTotal = round29(totalsByMonth.reduce((s, v) => s + v, 0));
   return { months, rows, totalsByMonth, grandTotal };
 }
 function fiscalYearMonths(firstMonthKey) {
@@ -87631,7 +87699,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/banked-hours-core.ts
-function round29(n) {
+function round210(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function toTime(d10) {
@@ -87645,7 +87713,7 @@ function buildLedger(entries) {
   });
   let bal = 0;
   return sorted.map((e) => {
-    bal = round29(bal + (e.hours || 0));
+    bal = round210(bal + (e.hours || 0));
     return { ...e, runningBalance: bal };
   });
 }
@@ -87660,9 +87728,9 @@ function summarize(entries) {
     last = Math.max(last, toTime(e.entryDate));
   }
   return {
-    balance: round29(totalBanked - totalTaken),
-    totalBanked: round29(totalBanked),
-    totalTaken: round29(totalTaken),
+    balance: round210(totalBanked - totalTaken),
+    totalBanked: round210(totalBanked),
+    totalTaken: round210(totalTaken),
     entryCount: entries.length,
     lastActivity: last ? new Date(last).toISOString() : null
   };
@@ -88330,7 +88398,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/loan-tracker-core.ts
-function round210(n) {
+function round211(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function toTime2(d10) {
@@ -88344,7 +88412,7 @@ function buildLoanLedger(entries) {
   });
   let bal = 0;
   return sorted.map((e) => {
-    bal = round210(bal + (e.amount || 0));
+    bal = round211(bal + (e.amount || 0));
     return { ...e, runningBalance: bal };
   });
 }
@@ -88360,13 +88428,13 @@ function summarizeLoan(entries) {
     const t2 = toTime2(e.entryDate);
     if (t2 > last) last = t2;
   }
-  balance = round210(balance);
+  balance = round211(balance);
   const direction = balance > 0 ? "owed_to_lender" : balance < 0 ? "owed_to_borrower" : "settled";
   return {
     balance,
-    totalAdvanced: round210(totalAdvanced),
-    totalRepaid: round210(totalRepaid),
-    totalInterest: round210(totalInterest),
+    totalAdvanced: round211(totalAdvanced),
+    totalRepaid: round211(totalRepaid),
+    totalInterest: round211(totalInterest),
     entryCount: entries.length,
     lastActivity: last ? new Date(last).toISOString() : null,
     direction
@@ -89091,7 +89159,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.176";
+var BUILD_TAG = "2026-06-26.177";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

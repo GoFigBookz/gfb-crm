@@ -23,9 +23,23 @@ import { sql } from "drizzle-orm";
 import { qboRequest } from "./qbo-router";
 import { getConnectionForClient } from "./qbo-vendor-brain";
 import { buildRecharge, type RechargeExpense } from "./interco-recharge-core";
+import { checkClearingRecon } from "./interco-recon-core";
 
 const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const arr = (data: any, entity: string): any[] => (data?.QueryResponse?.[entity] ?? []) as any[];
+const normName = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/** Pull an account's CurrentBalance by name from a connection. Returns the balance
+ *  + (on miss) the available account names so the human can correct the spelling. */
+async function accountBalanceByName(conn: any, name: string): Promise<{ found: boolean; balance: number; matchedName?: string; candidates?: string[] }> {
+  const data = await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`);
+  const accts = arr(data, "Account");
+  const target = normName(name);
+  let hit = accts.find((a: any) => normName(a.Name) === target)
+    || accts.find((a: any) => normName(a.Name).includes(target) || target.includes(normName(a.Name)));
+  if (!hit) return { found: false, balance: 0, candidates: accts.map((a: any) => a.Name).filter(Boolean).slice(0, 50) };
+  return { found: true, balance: num(hit.CurrentBalance), matchedName: hit.Name };
+}
 
 /** Ensure the recharge config + reconcile-log tables exist (idempotent, boot-safe). */
 export async function ensureRechargeSchema(): Promise<void> {
@@ -176,6 +190,52 @@ export const intercoRechargeRouter = createRouter({
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.startsWith("bridge_not_returning_data")) return { ok: false as const, error: "bridge_not_returning_data", detail: msg };
+        return { ok: false as const, error: msg };
+      }
+    }),
+
+  /** INTERCO RECONCILIATION CHECK — pull both reciprocal clearing-account balances
+   *  live and confirm they offset to zero. Read-only; the auditable proof the
+   *  intercompany is settled. counterparty resolved by id or by name. */
+  reconcileCheck: staffQuery
+    .input(z.object({
+      payerClientId: z.number(),
+      payerClearingAccount: z.string(),
+      counterpartyClientId: z.number().optional(),
+      counterpartyName: z.string().optional(),
+      counterpartyClearingAccount: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      // Resolve the counterparty client (explicit id wins; else match by name).
+      let cpId = input.counterpartyClientId ?? 0;
+      if (!cpId && input.counterpartyName) {
+        const key = `%${input.counterpartyName.split(/\s+/)[0].toLowerCase()}%`;
+        const rows = (await db.all(sql`SELECT id, name FROM clients WHERE lower(name) LIKE ${key} OR lower(company) LIKE ${key} ORDER BY id ASC LIMIT 1`)) as any[];
+        cpId = rows[0]?.id ?? 0;
+      }
+      if (!cpId) return { ok: false as const, error: "counterparty_not_found" };
+
+      const payerConn = await getConnectionForClient(input.payerClientId);
+      if ("error" in payerConn) return { ok: false as const, error: `payer: ${payerConn.error}` };
+      const cpConn = await getConnectionForClient(cpId);
+      if ("error" in cpConn) return { ok: false as const, error: `counterparty: ${cpConn.error}` };
+
+      try {
+        const payerAcct = await accountBalanceByName(payerConn.conn, input.payerClearingAccount);
+        const cpAcct = await accountBalanceByName(cpConn.conn, input.counterpartyClearingAccount);
+        if (!payerAcct.found) return { ok: false as const, error: "payer_clearing_account_not_found", candidates: payerAcct.candidates };
+        if (!cpAcct.found) return { ok: false as const, error: "counterparty_clearing_account_not_found", candidates: cpAcct.candidates };
+        const result = checkClearingRecon(payerAcct.balance, cpAcct.balance);
+        return {
+          ok: true as const,
+          result,
+          payerAccount: payerAcct.matchedName,
+          counterpartyAccount: cpAcct.matchedName,
+        };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false as const, error: "bridge_not_returning_data", detail: msg };
         return { ok: false as const, error: msg };
       }
     }),
