@@ -507,6 +507,10 @@ app.get("/api/phoenix/seed", async (c) => {
       await seedAgentBrain();
       await seedKnowledgeBrain();
       await seedConstitution();
+      const { seedBrain, seedAgentBrain, seedKnowledgeBrain } = await import("./brain-store");
+      await seedBrain();
+      await seedAgentBrain();
+      await seedKnowledgeBrain();
       const { ensureLaunchpadSchema } = await import("./ensure-launchpad-schema");
       await ensureLaunchpadSchema();
       const { ensureSubscriptionsSchema } = await import("./ensure-subscriptions-schema");

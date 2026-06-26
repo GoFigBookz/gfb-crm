@@ -59432,7 +59432,6 @@ var init_brain_core = __esm({
 // api/brain-store.ts
 var brain_store_exports = {};
 __export(brain_store_exports, {
-  FOS_VERSION: () => FOS_VERSION,
   addTruth: () => addTruth,
   answerQuestion: () => answerQuestion,
   brainAsk: () => brainAsk,
@@ -59442,7 +59441,6 @@ __export(brain_store_exports, {
   loadScopedRecords: () => loadScopedRecords,
   seedAgentBrain: () => seedAgentBrain,
   seedBrain: () => seedBrain,
-  seedConstitution: () => seedConstitution,
   seedKnowledgeBrain: () => seedKnowledgeBrain
 });
 function rowToRecord(r) {
@@ -59571,30 +59569,6 @@ async function seedAgentBrain() {
   ];
   for (const a of agents) await addTruth({ scope: firm, label: a.label, statement: a.statement, category: "agent", sourceLabels: ["Firm org chart"] });
   console.log(`[brain] seeded ${agents.length} agent hubs`);
-}
-async function seedConstitution() {
-  const db = getDb();
-  const have = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE category = 'constitution'`);
-  if (Number(have[0]?.n || 0) > 0) return;
-  const firm = { kind: "firm" };
-  const src = [`Figgy Operating System (FOS) v${FOS_VERSION} \u2014 Markie`];
-  const articles = [
-    { label: "FOS \u2014 Purpose", statement: "The Figgy Operating System is the single source of truth for how Go Fig Bookz operates: the governing principles, standards, decision framework, quality expectations, security requirements, workflow philosophy, and continuous-improvement model. It is a living document." },
-    { label: "FOS \u2014 The Figgy Promise", statement: "We are in the trust business as much as the bookkeeping business. Accuracy before speed. Security before convenience. Clarity before complexity. Every task should improve the business." },
-    { label: "FOS \u2014 Core Principles", statement: "Never guess \u2014 ask when uncertain. Protect client confidentiality at all times. Automate repetitive work while preserving appropriate human oversight. Explain recommendations in plain language. Document important decisions. Leave every client, workflow, and month better than before." },
-    { label: "FOS \u2014 AI Behaviour Standards", statement: "Complete all work that can reasonably be completed before requesting user effort. Do not offload work the AI can accurately perform. Do not artificially stop productive work. Identify automation opportunities. Recommend improvements to workflows, SOPs, prompts, and knowledge." },
-    { label: "FOS \u2014 Client Experience", statement: "Reports begin with an executive summary. Use plain English. Provide details in appendices when needed. Answer likely follow-up questions proactively. Continuously create value beyond compliance." },
-    { label: "FOS \u2014 Workflow Standards", statement: "Every client has a documented workflow. Every workflow is reviewed and improved. Capture lessons learned. Measure time, quality, profitability, and automation opportunities." },
-    { label: "FOS \u2014 Quality Assurance", statement: "Verify completeness, accuracy, reasonableness, presentation, and client value before delivery. Perform root-cause analysis for significant errors. Prevent recurrence through documentation or automation." },
-    { label: "FOS \u2014 Security & Privacy", statement: "Least-privilege access. Protect financial documents and personal information. Review permissions regularly. Evaluate security before deploying automations. Treat client information with the same care as your own." },
-    { label: "FOS \u2014 Knowledge Management", statement: "Maintain a Knowledge Base, Prompt Library, SOP Library, Client Playbooks, Decision Register, and Improvement Register. Update the operating system whenever a better method is approved." },
-    { label: "FOS \u2014 Governance", statement: "The Constitution changes rarely. SOPs, prompts, and workflows evolve continuously. Every meaningful change is versioned and documented." },
-    { label: "FOS \u2014 Thinking Framework", statement: "BEFORE: understand objectives, rules, approvals, and available knowledge. DURING: follow standards, identify risks and improvements. AFTER: capture lessons, update knowledge, recommend automation." },
-    { label: "FOS \u2014 Implementation Roadmap", statement: "Build order: 1) Constitution (foundation), 2) Knowledge Base, 3) Client Playbooks, 4) Prompt Library, 5) SOP Library, 6) Automation, 7) Operational Intelligence." },
-    { label: "FOS \u2014 Final Principle", statement: "The Operating System is the single source of truth. If a better way is discovered, document it, review it, version it, and improve the system." }
-  ];
-  for (const a of articles) await addTruth({ scope: firm, label: a.label, statement: a.statement, category: "constitution", sourceLabels: src });
-  console.log(`[brain] seeded FOS v${FOS_VERSION} constitution (${articles.length} articles)`);
 }
 async function seedKnowledgeBrain() {
   const db = getDb();
@@ -59788,13 +59762,11 @@ async function brainStats() {
   const q = await db.all(sql`SELECT COUNT(*) AS n FROM brain_questions WHERE status='open'`);
   return { records: Number(rec[0]?.n || 0), truth: Number(tru[0]?.n || 0), openQuestions: Number(q[0]?.n || 0) };
 }
-var FOS_VERSION;
 var init_brain_store = __esm({
   "api/brain-store.ts"() {
     init_connection();
     init_drizzle_orm();
     init_brain_core();
-    FOS_VERSION = "1.0";
   }
 });
 
@@ -83027,8 +82999,6 @@ init_task_command_core();
 
 // api/skills/common.ts
 var COMMON_STANDARDS = `
-YOU OPERATE UNDER THE FIGGY OPERATING SYSTEM (FOS) \u2014 the firm's constitution and single source of truth for how Go Fig Bookz works. Its promise: we are in the trust business as much as the bookkeeping business \u2014 Accuracy before speed, Security before convenience, Clarity before complexity, and every task should improve the business. When the FOS and a quick shortcut conflict, the FOS wins. The full constitution lives in the Brain (ask for "FOS" / "operating system" / "core principles") \u2014 read it when a judgment call isn't obvious.
-
 HOW YOU WORK (every agent, every task \u2014 non-negotiable):
 - Be EXCELLENT, not fast. Do the best possible job; accuracy beats speed.
 - RESEARCH before you act. If you're not 100% sure of a rule, rate, account, deadline or fact, LOOK IT UP (use web_search for anything current or external) instead of guessing.
@@ -86346,7 +86316,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.143";
+var BUILD_TAG = "2026-06-26.142";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -86760,11 +86730,10 @@ app.get("/api/phoenix/seed", async (c) => {
     try {
       const { ensureBrainSchema: ensureBrainSchema2 } = await Promise.resolve().then(() => (init_ensure_brain_schema(), ensure_brain_schema_exports));
       await ensureBrainSchema2();
-      const { seedBrain: seedBrain2, seedAgentBrain: seedAgentBrain2, seedKnowledgeBrain: seedKnowledgeBrain2, seedConstitution: seedConstitution2 } = await Promise.resolve().then(() => (init_brain_store(), brain_store_exports));
+      const { seedBrain: seedBrain2, seedAgentBrain: seedAgentBrain2, seedKnowledgeBrain: seedKnowledgeBrain2 } = await Promise.resolve().then(() => (init_brain_store(), brain_store_exports));
       await seedBrain2();
       await seedAgentBrain2();
       await seedKnowledgeBrain2();
-      await seedConstitution2();
       const { ensureLaunchpadSchema: ensureLaunchpadSchema2 } = await Promise.resolve().then(() => (init_ensure_launchpad_schema(), ensure_launchpad_schema_exports));
       await ensureLaunchpadSchema2();
       const { ensureSubscriptionsSchema: ensureSubscriptionsSchema2 } = await Promise.resolve().then(() => (init_ensure_subscriptions_schema(), ensure_subscriptions_schema_exports));
