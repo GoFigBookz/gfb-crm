@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { ClipboardCheck, AlertTriangle, AlertCircle, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,9 +22,10 @@ const SEV: Record<string, { icon: any; cls: string; label: string }> = {
 
 export default function HstReview() {
   const clients = trpc.clients.list.useQuery(undefined, { staleTime: 60000 });
-  const [clientId, setClientId] = useState<number | "">("");
-  const [startDate, setStartDate] = useState("2024-12-01");
-  const [endDate, setEndDate] = useState("2025-05-31");
+  const [sp] = useSearchParams();
+  const [clientId, setClientId] = useState<number | "">(sp.get("clientId") ? Number(sp.get("clientId")) : "");
+  const [startDate, setStartDate] = useState(sp.get("start") || "2024-12-01");
+  const [endDate, setEndDate] = useState(sp.get("end") || "2025-05-31");
   const run = trpc.hstReview.run.useMutation();
   const r = run.data;
 
