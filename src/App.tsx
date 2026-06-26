@@ -49,7 +49,6 @@ import Subscriptions from "./pages/Subscriptions";
 import JadePricing from "./pages/JadePricing";
 import Marketing from "./pages/Marketing";
 import MyLife from "./pages/MyLife";
-import Health from "./pages/Health";
 import TaxDeadlines from "./pages/TaxDeadlines";
 import YearEndChecklist from "./pages/YearEndChecklist";
 import Templates from "./pages/Templates";
@@ -139,7 +138,6 @@ function AppRoutes() {
         <Route path="/jade-pricing" element={<JadePricing />} />
         <Route path="/marketing" element={<Marketing />} />
         <Route path="/my-life" element={<MyLife />} />
-        <Route path="/health" element={<Health />} />
         <Route path="/tax-deadlines" element={<TaxDeadlines />} />
         <Route path="/year-end" element={<YearEndChecklist />} />
         <Route path="/templates" element={<Templates />} />
