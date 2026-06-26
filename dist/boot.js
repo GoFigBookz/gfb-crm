@@ -169,8 +169,8 @@ function getStatusCodeFromKey(code) {
   return (_JSONRPC2_TO_HTTP_COD = JSONRPC2_TO_HTTP_CODE[code]) !== null && _JSONRPC2_TO_HTTP_COD !== void 0 ? _JSONRPC2_TO_HTTP_COD : 500;
 }
 function getHTTPStatusCode(json2) {
-  const arr4 = Array.isArray(json2) ? json2 : [json2];
-  const httpStatuses = new Set(arr4.map((res) => {
+  const arr5 = Array.isArray(json2) ? json2 : [json2];
+  const httpStatuses = new Set(arr5.map((res) => {
     if ("error" in res && isObject(res.error.data)) {
       var _res$error$data;
       if (typeof ((_res$error$data = res.error.data) === null || _res$error$data === void 0 ? void 0 : _res$error$data["httpStatus"]) === "number") return res.error.data["httpStatus"];
@@ -15368,8 +15368,8 @@ function find(record2, predicate) {
 function forEach(record2, run3) {
   Object.entries(record2).forEach(([key11, value]) => run3(value, key11));
 }
-function includes(arr4, value) {
-  return arr4.indexOf(value) !== -1;
+function includes(arr5, value) {
+  return arr5.indexOf(value) !== -1;
 }
 function findArr(record2, predicate) {
   for (let i = 0; i < record2.length; i++) {
@@ -38934,8 +38934,8 @@ function computeHstStatus(opts) {
     const qIdx = Math.floor(m / 3);
     const endIdx0 = qIdx * 3 - 1;
     periodEnd = endOfMonth(y, endIdx0);
-    const q2 = Math.floor(periodEnd.getUTCMonth() / 3) + 1;
-    periodLabel = `Q${q2} ${periodEnd.getUTCFullYear()}`;
+    const q3 = Math.floor(periodEnd.getUTCMonth() / 3) + 1;
+    periodLabel = `Q${q3} ${periodEnd.getUTCFullYear()}`;
   } else {
     dueMonthsAfter = 3;
     const fyeMonth0 = (opts.fiscalYearEndMonth ?? 12) - 1;
@@ -39744,8 +39744,8 @@ async function createDriveFolder(name2, parentId) {
 }
 async function findDriveFolder(name2, parentId) {
   const safe = name2.replace(/'/g, "\\'");
-  const q2 = `name = '${safe}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-  const r = await driveApi("files", "GET", { q: q2, fields: "files(id,webViewLink)" });
+  const q3 = `name = '${safe}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  const r = await driveApi("files", "GET", { q: q3, fields: "files(id,webViewLink)" });
   const f = r?.files?.[0];
   return f?.id ? { id: String(f.id), webViewLink: String(f.webViewLink || `https://drive.google.com/drive/folders/${f.id}`) } : null;
 }
@@ -42933,7 +42933,7 @@ function statHolidaysInRange(startISO, endISO) {
   const years = /* @__PURE__ */ new Set([Number(startISO.slice(0, 4)), Number(endISO.slice(0, 4))]);
   const all = [];
   for (const y of years) if (Number.isFinite(y)) all.push(...ontarioStatHolidays(y));
-  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr4) => idx === 0 || h.date !== arr4[idx - 1].date);
+  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr5) => idx === 0 || h.date !== arr5[idx - 1].date);
 }
 function statHolidaysObservedInRange(startISO, endISO) {
   return statHolidaysInRange(startISO, endISO).map((h) => {
@@ -43323,10 +43323,10 @@ function driveFolderId(urlOrId) {
   return null;
 }
 async function listFolder(token2, folderId) {
-  const q2 = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+  const q3 = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
   const fields = encodeURIComponent("files(id,name,mimeType,modifiedTime)");
   const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${q2}&orderBy=modifiedTime desc&pageSize=100&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    `https://www.googleapis.com/drive/v3/files?q=${q3}&orderBy=modifiedTime desc&pageSize=100&fields=${fields}&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     { headers: { Authorization: `Bearer ${token2}` } }
   );
   if (!res.ok) throw new Error(`Couldn't open the Drive folder (${res.status}). Reconnect Google in Integrations with Drive access.`);
@@ -46481,10 +46481,162 @@ var init_interco_recon_core = __esm({
   }
 });
 
+// api/interco-recharge-poster.ts
+async function findAccountId(conn, name2) {
+  const rows = arr(await q(conn, `SELECT Id, Name FROM Account WHERE Name = '${esc3(name2)}'`), "Account");
+  if (rows[0]) return { id: String(rows[0].Id), name: rows[0].Name };
+  const all = arr(await q(conn, `SELECT Id, Name FROM Account MAXRESULTS 1000`), "Account");
+  const hit = all.find((a) => String(a.Name).toLowerCase().trim() === name2.toLowerCase().trim()) || all.find((a) => String(a.Name).toLowerCase().includes(name2.toLowerCase()));
+  return hit ? { id: String(hit.Id), name: hit.Name } : null;
+}
+async function findHstTaxCodeId(conn) {
+  const codes = arr(await q(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode");
+  const byName = codes.find((c) => /hst/i.test(c.Name) && /13/.test(c.Name)) || codes.find((c) => /hst/i.test(c.Name)) || codes.find((c) => /13/.test(c.Name));
+  return byName ? { id: String(byName.Id), name: byName.Name } : null;
+}
+async function findOrCreateCustomer(conn, name2) {
+  const rows = arr(await q(conn, `SELECT Id, DisplayName FROM Customer WHERE DisplayName = '${esc3(name2)}'`), "Customer");
+  if (rows[0]) return String(rows[0].Id);
+  const res = await qboRequest(conn, "/customer", "POST", { DisplayName: name2 });
+  const id = res?.Customer?.Id;
+  if (!id) throw new Error(`could not create customer "${name2}"`);
+  return String(id);
+}
+async function findOrCreateVendor(conn, name2) {
+  const rows = arr(await q(conn, `SELECT Id, DisplayName FROM Vendor WHERE DisplayName = '${esc3(name2)}'`), "Vendor");
+  if (rows[0]) return String(rows[0].Id);
+  const res = await qboRequest(conn, "/vendor", "POST", { DisplayName: name2 });
+  const id = res?.Vendor?.Id;
+  if (!id) throw new Error(`could not create vendor "${name2}"`);
+  return String(id);
+}
+async function findOrCreateServiceItem(conn, incomeAccountId, itemName = "Inter-company recharge") {
+  const items = arr(await q(conn, `SELECT Id, Name, Type, IncomeAccountRef FROM Item MAXRESULTS 1000`), "Item");
+  const match2 = items.find((i) => String(i.IncomeAccountRef?.value) === String(incomeAccountId) && (i.Type === "Service" || !i.Type)) || items.find((i) => i.Name === itemName);
+  if (match2) return String(match2.Id);
+  const res = await qboRequest(conn, "/item", "POST", {
+    Name: itemName,
+    Type: "Service",
+    IncomeAccountRef: { value: incomeAccountId }
+  });
+  const id = res?.Item?.Id;
+  if (!id) throw new Error(`could not create service item "${itemName}"`);
+  return String(id);
+}
+async function postRecharge(input) {
+  try {
+    const payer = await getConnectionForClient(input.payerClientId);
+    if ("error" in payer) return { ok: false, error: `payer connection: ${payer.error}` };
+    const cp2 = await getConnectionForClient(input.counterpartyClientId);
+    if ("error" in cp2) return { ok: false, error: `counterparty connection: ${cp2.error}` };
+    if (payer.conn.transport !== "native") return { ok: false, error: "payer_not_native", detail: `${input.payerName} is on the read-only bridge \u2014 connect it DIRECT (native) to write.` };
+    if (cp2.conn.transport !== "native") return { ok: false, error: "counterparty_not_native", detail: `${input.counterpartyName} is on the read-only bridge \u2014 connect it DIRECT (native) to write.` };
+    const subtotal = round26(input.subtotal);
+    if (!(subtotal > 0)) return { ok: false, error: "nothing_to_post", detail: "Subtotal is zero." };
+    const desc7 = input.lineDescription || `Inter-company recharge \u2014 ${input.periodLabel}`;
+    const custId = await findOrCreateCustomer(payer.conn, input.counterpartyName);
+    let invTax = null;
+    if (input.chargeHst) {
+      const t2 = await findHstTaxCodeId(payer.conn);
+      if (!t2) return { ok: false, error: "hst_taxcode_not_found", detail: `No HST tax code in ${input.payerName}.` };
+      invTax = { id: t2.id };
+    }
+    const useZeroOut = !!input.zeroOut && Array.isArray(input.expenseBreakdown) && input.expenseBreakdown.length > 0;
+    let invoiceLines;
+    if (useZeroOut) {
+      const accts = (input.expenseBreakdown || []).filter((a) => a && a.accountId && round26(a.net) > 0);
+      if (accts.length === 0) return { ok: false, error: "no_expense_accounts", detail: "No expense accounts with a positive balance to recharge." };
+      invoiceLines = [];
+      for (const a of accts) {
+        let itemId;
+        try {
+          itemId = await findOrCreateServiceItem(payer.conn, a.accountId, `Recharge \u2014 ${a.accountName}`.slice(0, 100));
+        } catch (e) {
+          return { ok: false, error: "expense_item_create_failed", detail: `Could not create a recharge item mapped to "${a.accountName}" in ${input.payerName} (QBO may not allow crediting that account from an invoice): ${e instanceof Error ? e.message : String(e)}` };
+        }
+        invoiceLines.push({
+          DetailType: "SalesItemLineDetail",
+          Amount: round26(a.net),
+          Description: `${desc7} \u2014 ${a.accountName}`,
+          SalesItemLineDetail: {
+            ItemRef: { value: itemId },
+            ...invTax ? { TaxCodeRef: { value: invTax.id } } : {}
+          }
+        });
+      }
+    } else {
+      const incomeAcct = await findAccountId(payer.conn, input.revenueAccount);
+      if (!incomeAcct) return { ok: false, error: "revenue_account_not_found", detail: `"${input.revenueAccount}" not in ${input.payerName}'s chart.` };
+      const itemId = await findOrCreateServiceItem(payer.conn, incomeAcct.id);
+      invoiceLines = [{
+        DetailType: "SalesItemLineDetail",
+        Amount: subtotal,
+        Description: desc7,
+        SalesItemLineDetail: {
+          ItemRef: { value: itemId },
+          ...invTax ? { TaxCodeRef: { value: invTax.id } } : {}
+        }
+      }];
+    }
+    const invoicePayload = {
+      CustomerRef: { value: custId },
+      Line: invoiceLines,
+      ...invTax ? { TxnTaxDetail: {} } : {},
+      PrivateNote: `Figgy inter-company recharge ${input.periodLabel}${useZeroOut ? " (zero-out: credits source expense accounts)" : ""}`
+    };
+    const invRes = await qboRequest(payer.conn, "/invoice", "POST", invoicePayload);
+    const invoiceId = invRes?.Invoice?.Id ? String(invRes.Invoice.Id) : "";
+    if (!invoiceId) return { ok: false, error: "invoice_post_failed", detail: "QBO returned no Invoice Id." };
+    const total = round26(Number(invRes?.Invoice?.TotalAmt ?? subtotal));
+    await recordAudit({ userId: 0, agentScope: "fig", action: "qbo.post.invoice", decision: "done", clientId: input.payerClientId, amount: total, summary: `Posted Invoice ${invoiceId} in ${input.payerName} \u2192 ${input.counterpartyName} (recharge ${input.periodLabel})` });
+    const expAcct = await findAccountId(cp2.conn, input.expenseAccount);
+    if (!expAcct) return { ok: false, error: "expense_account_not_found", detail: `"${input.expenseAccount}" not in ${input.counterpartyName}'s chart. (Invoice ${invoiceId} already posted \u2014 add the bill manually or fix the account name.)` };
+    const vendId = await findOrCreateVendor(cp2.conn, input.payerName);
+    let billTax = null;
+    if (input.chargeHst) {
+      const t2 = await findHstTaxCodeId(cp2.conn);
+      if (t2) billTax = { id: t2.id };
+    }
+    const billPayload = {
+      VendorRef: { value: vendId },
+      Line: [{
+        DetailType: "AccountBasedExpenseLineDetail",
+        Amount: subtotal,
+        Description: desc7,
+        AccountBasedExpenseLineDetail: {
+          AccountRef: { value: expAcct.id },
+          ...billTax ? { TaxCodeRef: { value: billTax.id } } : {}
+        }
+      }],
+      PrivateNote: `Figgy inter-company recharge ${input.periodLabel} (mirror of ${input.payerName} invoice ${invoiceId})`
+    };
+    const billRes = await qboRequest(cp2.conn, "/bill", "POST", billPayload);
+    const billId = billRes?.Bill?.Id ? String(billRes.Bill.Id) : "";
+    if (!billId) return { ok: false, error: "bill_post_failed", detail: `Invoice ${invoiceId} posted, but the bill failed \u2014 add it manually in ${input.counterpartyName}.` };
+    await recordAudit({ userId: 0, agentScope: "fig", action: "qbo.post.bill", decision: "done", clientId: input.counterpartyClientId, amount: total, summary: `Posted Bill ${billId} in ${input.counterpartyName} (recharge from ${input.payerName}, ${input.periodLabel})` });
+    return { ok: true, invoiceId, billId, total };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: "post_threw", detail: msg };
+  }
+}
+var arr, q, esc3;
+var init_interco_recharge_poster = __esm({
+  "api/interco-recharge-poster.ts"() {
+    init_qbo_router();
+    init_qbo_vendor_brain();
+    init_agent_audit();
+    init_interco_recharge_core();
+    arr = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+    q = (conn, s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
+    esc3 = (s) => String(s).replace(/'/g, "\\'");
+  }
+});
+
 // api/interco-recharge-router.ts
 async function accountBalanceByName(conn, name2) {
   const data = await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`);
-  const accts = arr(data, "Account");
+  const accts = arr2(data, "Account");
   const target = normName(name2);
   let hit = accts.find((a) => normName(a.Name) === target) || accts.find((a) => normName(a.Name).includes(target) || target.includes(normName(a.Name)));
   if (!hit) return { found: false, balance: 0, candidates: accts.map((a) => a.Name).filter(Boolean).slice(0, 50) };
@@ -46515,6 +46667,10 @@ async function ensureRechargeSchema() {
       await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN counterpartyClearingAccount TEXT`);
     } catch {
     }
+    try {
+      await db.run(sql`ALTER TABLE interco_recharge_config ADD COLUMN zeroOutExpenses INTEGER DEFAULT 1`);
+    } catch {
+    }
     await db.run(sql`CREATE TABLE IF NOT EXISTS interco_recharge_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       payerClientId INTEGER NOT NULL,
@@ -46534,20 +46690,28 @@ async function ensureRechargeSchema() {
 async function pullExpenses(conn, start, end) {
   const range = `TxnDate >= '${start}' AND TxnDate <= '${end}'`;
   const expenses = [];
+  const byAcct = /* @__PURE__ */ new Map();
   const errors = [];
-  const q2 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
+  const q3 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
   const pull = async (entity) => {
     try {
-      for (const e of arr(await q2(`SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) {
+      for (const e of arr2(await q3(`SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) {
         const docRef = e.DocNumber ? `${entity} ${e.DocNumber}` : `${entity} ${e.Id}`;
         for (const l of e.Line ?? []) {
           const d10 = l.AccountBasedExpenseLineDetail;
           if (!d10) continue;
+          const acctName = d10.AccountRef?.name || "Expense";
+          const acctId = d10.AccountRef?.value ? String(d10.AccountRef.value) : "";
+          const amt = num2(l.Amount);
           expenses.push({
-            description: `${d10.AccountRef?.name || "Expense"}${e.EntityRef?.name ? ` \u2014 ${e.EntityRef.name}` : ""} (${String(e.TxnDate || "").slice(0, 10)})`,
-            net: num2(l.Amount),
+            description: `${acctName}${e.EntityRef?.name ? ` \u2014 ${e.EntityRef.name}` : ""} (${String(e.TxnDate || "").slice(0, 10)})`,
+            net: amt,
             sourceRef: docRef
           });
+          const key11 = acctId || `name:${acctName}`;
+          const cur = byAcct.get(key11) || { accountId: acctId, accountName: acctName, net: 0 };
+          cur.net = num2(cur.net) + amt;
+          byAcct.set(key11, cur);
         }
       }
     } catch (e2) {
@@ -46558,9 +46722,10 @@ async function pullExpenses(conn, start, end) {
   };
   await pull("Purchase");
   await pull("Bill");
-  return { expenses, errors };
+  const byAccount = Array.from(byAcct.values()).map((a) => ({ ...a, net: Math.round((a.net + Number.EPSILON) * 100) / 100 }));
+  return { expenses, byAccount, errors };
 }
-var num2, arr, normName, intercoRechargeRouter;
+var num2, arr2, normName, intercoRechargeRouter;
 var init_interco_recharge_router = __esm({
   "api/interco-recharge-router.ts"() {
     init_zod();
@@ -46571,11 +46736,12 @@ var init_interco_recharge_router = __esm({
     init_qbo_vendor_brain();
     init_interco_recharge_core();
     init_interco_recon_core();
+    init_interco_recharge_poster();
     num2 = (v) => {
       const n = Number(v);
       return Number.isFinite(n) ? n : 0;
     };
-    arr = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+    arr2 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
     normName = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     intercoRechargeRouter = createRouter({
       getConfig: staffQuery.input(external_exports.object({ payerClientId: external_exports.number() })).query(async ({ input }) => {
@@ -46592,7 +46758,8 @@ var init_interco_recharge_router = __esm({
           payerClearingAccount: r.payerClearingAccount || r.clearingAccount || "",
           counterpartyClearingAccount: r.counterpartyClearingAccount || "",
           hstRatePct: num2(r.hstRatePct) || 13,
-          chargeHst: num2(r.chargeHst) !== 0
+          chargeHst: num2(r.chargeHst) !== 0,
+          zeroOutExpenses: num2(r.zeroOutExpenses ?? 1) !== 0
         };
       }),
       setConfig: staffQuery.input(external_exports.object({
@@ -46603,18 +46770,20 @@ var init_interco_recharge_router = __esm({
         payerClearingAccount: external_exports.string().default(""),
         counterpartyClearingAccount: external_exports.string().default(""),
         hstRatePct: external_exports.number().default(13),
-        chargeHst: external_exports.boolean().default(true)
+        chargeHst: external_exports.boolean().default(true),
+        zeroOutExpenses: external_exports.boolean().default(true)
       })).mutation(async ({ input }) => {
         await ensureRechargeSchema();
         const db = getDb();
+        const zo = input.zeroOutExpenses ? 1 : 0;
         await db.run(sql`INSERT INTO interco_recharge_config
-        (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, updatedAt)
-        VALUES (${input.payerClientId}, ${input.counterpartyName}, ${input.revenueAccount}, ${input.expenseAccount}, ${input.payerClearingAccount}, ${input.counterpartyClearingAccount}, ${input.hstRatePct}, ${input.chargeHst ? 1 : 0}, ${Date.now()})
+        (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, zeroOutExpenses, updatedAt)
+        VALUES (${input.payerClientId}, ${input.counterpartyName}, ${input.revenueAccount}, ${input.expenseAccount}, ${input.payerClearingAccount}, ${input.counterpartyClearingAccount}, ${input.hstRatePct}, ${input.chargeHst ? 1 : 0}, ${zo}, ${Date.now()})
         ON CONFLICT(payerClientId) DO UPDATE SET
           counterpartyName=${input.counterpartyName}, revenueAccount=${input.revenueAccount},
           expenseAccount=${input.expenseAccount}, payerClearingAccount=${input.payerClearingAccount},
           counterpartyClearingAccount=${input.counterpartyClearingAccount},
-          hstRatePct=${input.hstRatePct}, chargeHst=${input.chargeHst ? 1 : 0}, updatedAt=${Date.now()}`);
+          hstRatePct=${input.hstRatePct}, chargeHst=${input.chargeHst ? 1 : 0}, zeroOutExpenses=${zo}, updatedAt=${Date.now()}`);
         return { ok: true };
       }),
       /** Pull the payer's expenses for the period and build the DRAFT recharge. Read-only. */
@@ -46636,7 +46805,7 @@ var init_interco_recharge_router = __esm({
         const cfgRow = await getDb().run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`);
         const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
         try {
-          const { expenses, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+          const { expenses, byAccount, errors } = await pullExpenses(cr.conn, input.startDate, input.endDate);
           const draft = buildRecharge({
             periodLabel: input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`,
             payerName: input.payerName,
@@ -46647,12 +46816,84 @@ var init_interco_recharge_router = __esm({
             chargeHst: input.chargeHst,
             expenses
           });
-          return { ok: true, draft, pulled: expenses.length, errors };
+          const zeroOut = num2(cfg.zeroOutExpenses ?? 1) !== 0;
+          return { ok: true, draft, pulled: expenses.length, errors, byAccount, zeroOut };
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           if (msg.startsWith("bridge_not_returning_data")) return { ok: false, error: "bridge_not_returning_data", detail: msg };
           return { ok: false, error: msg };
         }
+      }),
+      /** FIG POSTS IT LIVE — create the real Invoice (payer) + Bill (counterparty).
+       *  Requires approve:true + both connections NATIVE. Refuses rather than guesses. */
+      post: staffQuery.input(external_exports.object({
+        payerClientId: external_exports.number(),
+        payerName: external_exports.string(),
+        counterpartyName: external_exports.string().optional(),
+        counterpartyClientId: external_exports.number().optional(),
+        revenueAccount: external_exports.string().optional(),
+        expenseAccount: external_exports.string().optional(),
+        hstRatePct: external_exports.number().default(13),
+        chargeHst: external_exports.boolean().default(true),
+        startDate: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        endDate: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        periodLabel: external_exports.string().default(""),
+        approve: external_exports.literal(true)
+      })).mutation(async ({ input }) => {
+        await ensureRechargeSchema();
+        const db = getDb();
+        const cfgRow = await db.run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`);
+        const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
+        const counterpartyName = input.counterpartyName || cfg.counterpartyName || "";
+        const revenueAccount = input.revenueAccount || cfg.revenueAccount || "";
+        const expenseAccount = input.expenseAccount || cfg.expenseAccount || "";
+        if (!counterpartyName || !revenueAccount || !expenseAccount) return { ok: false, error: "config_incomplete", detail: "Need counterparty + revenue + expense accounts (save the client config or fill the form)." };
+        let cpId = input.counterpartyClientId ?? 0;
+        if (!cpId) {
+          const key11 = `%${counterpartyName.split(/\s+/)[0].toLowerCase()}%`;
+          const rows = await db.all(sql`SELECT id FROM clients WHERE lower(name) LIKE ${key11} OR lower(company) LIKE ${key11} ORDER BY id ASC LIMIT 1`);
+          cpId = rows[0]?.id ?? 0;
+        }
+        if (!cpId) return { ok: false, error: "counterparty_not_found", detail: `No client matched "${counterpartyName}".` };
+        const cr = await getConnectionForClient(input.payerClientId);
+        if ("error" in cr) return { ok: false, error: `payer: ${cr.error}` };
+        let subtotal = 0;
+        let breakdown = [];
+        try {
+          const { expenses, byAccount } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+          breakdown = byAccount;
+          const draft = buildRecharge({
+            periodLabel: input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`,
+            payerName: input.payerName,
+            counterpartyName,
+            revenueAccount,
+            expenseAccount,
+            hstRatePct: input.hstRatePct,
+            chargeHst: input.chargeHst,
+            expenses
+          });
+          subtotal = draft.invoice.subtotal;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (msg.startsWith("bridge_not_returning_data")) return { ok: false, error: "bridge_not_returning_data", detail: msg };
+          return { ok: false, error: msg };
+        }
+        if (!(subtotal > 0)) return { ok: false, error: "nothing_to_post", detail: "No expenses found for this period." };
+        const zeroOut = num2(cfg.zeroOutExpenses ?? 1) !== 0;
+        return await postRecharge({
+          payerClientId: input.payerClientId,
+          counterpartyClientId: cpId,
+          payerName: input.payerName,
+          counterpartyName,
+          revenueAccount,
+          expenseAccount,
+          hstRatePct: input.hstRatePct,
+          chargeHst: input.chargeHst,
+          subtotal,
+          periodLabel: input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`,
+          zeroOut,
+          expenseBreakdown: breakdown
+        });
       }),
       /** INTERCO RECONCILIATION CHECK — pull both reciprocal clearing-account balances
        *  live and confirm they offset to zero. Read-only; the auditable proof the
@@ -47547,7 +47788,7 @@ var init_utils3 = __esm({
       let out = "";
       for (let j = 0; j < string5.length; j += limit) {
         const segment = string5.length >= limit ? string5.slice(j, j + limit) : string5;
-        const arr4 = [];
+        const arr5 = [];
         for (let i = 0; i < segment.length; ++i) {
           let c = segment.charCodeAt(i);
           if (c === 45 || // -
@@ -47558,26 +47799,26 @@ var init_utils3 = __esm({
           c >= 65 && c <= 90 || // a-z
           c >= 97 && c <= 122 || // A-Z
           format === RFC1738 && (c === 40 || c === 41)) {
-            arr4[arr4.length] = segment.charAt(i);
+            arr5[arr5.length] = segment.charAt(i);
             continue;
           }
           if (c < 128) {
-            arr4[arr4.length] = hex_table[c];
+            arr5[arr5.length] = hex_table[c];
             continue;
           }
           if (c < 2048) {
-            arr4[arr4.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
+            arr5[arr5.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
             continue;
           }
           if (c < 55296 || c >= 57344) {
-            arr4[arr4.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+            arr5[arr5.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
             continue;
           }
           i += 1;
           c = 65536 + ((c & 1023) << 10 | segment.charCodeAt(i) & 1023);
-          arr4[arr4.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+          arr5[arr5.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
         }
-        out += arr4.join("");
+        out += arr5.join("");
       }
       return out;
     };
@@ -47840,8 +48081,8 @@ var init_stringify = __esm({
         return String(prefix);
       }
     };
-    push_to_array = function(arr4, value_or_array) {
-      Array.prototype.push.apply(arr4, isArray3(value_or_array) ? value_or_array : [value_or_array]);
+    push_to_array = function(arr5, value_or_array) {
+      Array.prototype.push.apply(arr5, isArray3(value_or_array) ? value_or_array : [value_or_array]);
     };
     defaults = {
       addQueryPrefix: false,
@@ -59430,11 +59671,11 @@ async function addTruth(input) {
 async function answerQuestion(id, answer, opts) {
   const db = getDb();
   const rows = await db.all(sql`SELECT * FROM brain_questions WHERE id = ${id} LIMIT 1`);
-  const q2 = rows[0];
-  if (!q2) return { error: "question not found" };
-  const scope = { kind: q2.scopeKind, clientId: q2.clientId ?? void 0 };
-  const truth = truthFromAnswer({ id: "br_" + (await import("crypto")).randomBytes(10).toString("hex"), scope, label: opts?.label || "Confirmed by Markie", statement: answer, category: opts?.category ?? q2.category ?? void 0, sourceLabels: ["Markie"], at: Date.now() });
-  const truthId = await addTruth({ scope, label: truth.label, statement: truth.text, category: truth.category, sourceLabels: truth.sourceLabels, userId: q2.userId ?? void 0 });
+  const q3 = rows[0];
+  if (!q3) return { error: "question not found" };
+  const scope = { kind: q3.scopeKind, clientId: q3.clientId ?? void 0 };
+  const truth = truthFromAnswer({ id: "br_" + (await import("crypto")).randomBytes(10).toString("hex"), scope, label: opts?.label || "Confirmed by Markie", statement: answer, category: opts?.category ?? q3.category ?? void 0, sourceLabels: ["Markie"], at: Date.now() });
+  const truthId = await addTruth({ scope, label: truth.label, statement: truth.text, category: truth.category, sourceLabels: truth.sourceLabels, userId: q3.userId ?? void 0 });
   await db.run(sql`UPDATE brain_questions SET status = 'answered', answer = ${answer}, answeredAt = ${Date.now()} WHERE id = ${id}`);
   return { truthId };
 }
@@ -59737,8 +59978,8 @@ async function brainStats() {
   const db = getDb();
   const rec = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records`);
   const tru = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE layer='truth' AND status='approved'`);
-  const q2 = await db.all(sql`SELECT COUNT(*) AS n FROM brain_questions WHERE status='open'`);
-  return { records: Number(rec[0]?.n || 0), truth: Number(tru[0]?.n || 0), openQuestions: Number(q2[0]?.n || 0) };
+  const q3 = await db.all(sql`SELECT COUNT(*) AS n FROM brain_questions WHERE status='open'`);
+  return { records: Number(rec[0]?.n || 0), truth: Number(tru[0]?.n || 0), openQuestions: Number(q3[0]?.n || 0) };
 }
 var FOS_VERSION;
 var init_brain_store = __esm({
@@ -60341,9 +60582,9 @@ function parseScanFindings(text2) {
   } catch {
     return [];
   }
-  const arr4 = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
+  const arr5 = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
   const out = [];
-  for (const f of arr4) {
+  for (const f of arr5) {
     const subjectName = String(f?.subjectName || f?.name || "").trim();
     const claim = String(f?.claim || "").trim();
     if (!subjectName || !claim) continue;
@@ -60795,9 +61036,9 @@ async function ensurePayrollReminders() {
       if (!dueClients.length) continue;
       for (const c of dueClients) {
         correctKeys.add(`${c.id}|${run3.runISO}`);
-        const arr4 = scheduled.get(run3.runISO) || [];
-        arr4.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
-        scheduled.set(run3.runISO, arr4);
+        const arr5 = scheduled.get(run3.runISO) || [];
+        arr5.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
+        scheduled.set(run3.runISO, arr5);
       }
     }
     let tasksRemoved = 0;
@@ -62483,10 +62724,10 @@ async function backfillMotionInvestRevShare() {
     let runsAdded = 0;
     let cumNet = 0;
     const paidByKey = /* @__PURE__ */ new Map();
-    for (const q2 of QUARTERS) {
-      cumNet = round222(cumNet + q2.netProfit);
-      const note = `Revenue share bonus (${q2.label})`;
-      const due = d9(q2.payDate) <= now;
+    for (const q3 of QUARTERS) {
+      cumNet = round222(cumNet + q3.netProfit);
+      const note = `Revenue share bonus (${q3.label})`;
+      const due = d9(q3.payDate) <= now;
       const exists2 = allRuns.some((r) => (r.notes || "") === note);
       const lines2 = [];
       for (const s of SHARERS) {
@@ -62502,9 +62743,9 @@ async function backfillMotionInvestRevShare() {
       let totalGross = 0;
       const [run3] = await db.insert(payRuns).values({
         clientId,
-        payPeriodStart: d9(q2.start),
-        payPeriodEnd: d9(q2.end),
-        payDate: d9(q2.payDate),
+        payPeriodStart: d9(q3.start),
+        payPeriodEnd: d9(q3.end),
+        payDate: d9(q3.payDate),
         frequency: "quarterly",
         status: "review",
         hoursSource: "manual",
@@ -62702,7 +62943,7 @@ function hstQuarterlyDueDate(quarterEndMonth, periodYear) {
   return at(y, m, 15);
 }
 function quarterEndForMonth(month1to12) {
-  return [3, 6, 9, 12].filter((q2) => q2 <= month1to12).pop() ?? 12;
+  return [3, 6, 9, 12].filter((q3) => q3 <= month1to12).pop() ?? 12;
 }
 function t4DueDate(filingYear) {
   return at(filingYear, 1, 20);
@@ -63668,13 +63909,13 @@ async function seedAldersonRecharge() {
       return;
     }
     await db.run(sql`INSERT INTO interco_recharge_config
-      (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, updatedAt)
-      VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Holdings clearing account', 'Alderson Development clearing account', 13, 1, ${Date.now()})
+      (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, zeroOutExpenses, updatedAt)
+      VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Holdings clearing account', 'Alderson Development clearing account', 13, 1, 1, ${Date.now()})
       ON CONFLICT(payerClientId) DO UPDATE SET
         counterpartyName='Ovita Holdings Inc.', revenueAccount='Sales',
         expenseAccount='Alderson Project Management Costs',
         payerClearingAccount='Holdings clearing account',
-        counterpartyClearingAccount='Alderson Development clearing account', hstRatePct=13, chargeHst=1, updatedAt=${Date.now()}`);
+        counterpartyClearingAccount='Alderson Development clearing account', hstRatePct=13, chargeHst=1, zeroOutExpenses=1, updatedAt=${Date.now()}`);
     const existing = await db.all(sql`SELECT id FROM client_task_rules WHERE clientId=${clientId} AND title=${RULE_TITLE2} LIMIT 1`);
     if (existing.length) {
       await db.run(sql`UPDATE client_task_rules SET description=${DESCRIPTION2} WHERE id=${existing[0].id}`);
@@ -63726,7 +63967,7 @@ var init_seed_alderson_recharge = __esm({
     init_schema();
     init_interco_recharge_router();
     RULE_TITLE2 = "Inter-company recharge + reconcile: Alderson \u2192 Ovita Holdings (fiscal quarter)";
-    DESCRIPTION2 = "ALDERSON \u2192 OVITA HOLDINGS QUARTERLY RECHARGE + RECONCILE (fiscal quarters end Feb/May/Aug/Nov; Nov 30 year-end). Precise steps:\n1. Confirm Alderson's bank + clearing accounts are reconciled for the quarter and the Pre-HST review is clean.\n2. Open Inter-Company \u2192 'Inter-company recharge (draft)'. Payer = Alderson; Counterparty = Ovita Holdings; dates = the fiscal quarter (e.g. Mar 1 \u2013 May 31). Click 'Generate draft'.\n3. It pulls Alderson's project expenses for the quarter and builds the invoice + mirror bill + 13% HST. Review the lines against what you expect; check invoice total = bill total (it ties out).\n4. In ALDERSON (QBO): create the INVOICE \u2014 Customer = Ovita Holdings; line(s) = the recharged costs to 'Sales'; HST 13% (Alderson charges the output HST). Total = the draft invoice total.\n5. In HOLDINGS (QBO): create the BILL \u2014 Vendor = Alderson Developments; expense account = 'Alderson Project Management Costs'; HST 13% (Holdings claims the ITC). Same total.\n6. SETTLEMENT: when Holdings pays Alderson, record the payment as a TRANSFER into the reciprocal clearing accounts \u2014 Alderson's books \u2192 'Holdings clearing account'; Holdings' books \u2192 'Alderson Development clearing account'.\n7. RECONCILE: at quarter-end reconcile BOTH clearing accounts to zero (they mirror each other). Tick 'reconciled' in the recharge log on the Inter-Company page.\n8. File the invoice + bill copies in the client folder. Drafts only in Figgy \u2014 nothing posts to QBO without review.";
+    DESCRIPTION2 = "ALDERSON \u2192 OVITA HOLDINGS QUARTERLY RECHARGE + RECONCILE (fiscal quarters end Feb/May/Aug/Nov; Nov 30 year-end). GOAL: bill ALL of Alderson's project costs for the quarter back to Holdings so Alderson ends with ZERO expenses and ZERO HST for the period (it's a flow-through \u2014 the costs belong to Holdings). Precise steps:\n1. Confirm Alderson's bank + clearing accounts are reconciled for the quarter and the Pre-HST review is clean.\n2. Open the Alderson client card \u2192 Compliance \u2192 'Inter-company recharge'. Counterparty = Ovita Holdings; dates = the fiscal quarter (e.g. Mar 1 \u2013 May 31). Click 'Generate draft'.\n3. It pulls Alderson's project expenses for the quarter, grouped by expense account, and builds the invoice + mirror bill + 13% HST. Review the per-account lines; check invoice total = bill total (it ties out).\n4. Click 'Approve & post (Fig) \u2014 LIVE'. Fig posts BOTH documents to QBO (needs Alderson + Holdings connected DIRECT/native):\n   \u2022 ALDERSON INVOICE \u2014 Customer = Ovita Holdings; one line PER expense account, each credited back to the SAME expense account it came from (zero-out), + 13% HST. Result: Alderson's expense accounts net to $0 and the HST charged offsets the ITCs already claimed \u2192 Alderson's HST nets to $0 for the period.\n   \u2022 HOLDINGS BILL \u2014 Vendor = Alderson Developments; expense = 'Alderson Project Management Costs'; 13% HST (Holdings picks up the cost + claims the ITC). Same total.\n5. CROSS-CHECK in QBO: open Alderson's P&L + balance sheet for the period \u2014 expenses = $0 and HST suspense/payable = $0 as of the quarter-end. If anything remains, a cost was dated outside the period or missed billable \u2014 fix and re-run.\n6. SETTLEMENT: when Holdings pays Alderson, record the payment as a TRANSFER into the reciprocal clearing accounts \u2014 Alderson's books \u2192 'Holdings clearing account'; Holdings' books \u2192 'Alderson Development clearing account'.\n7. RECONCILE (FINAL step, after posting + settlement): reconcile BOTH clearing accounts to zero (they mirror each other). Tick 'reconciled' in the recharge log.\n8. File the invoice + bill copies in the client folder.\nFig posts these two documents live (Markie-approved for Alderson); everything else stays review-only.";
   }
 });
 
@@ -64691,9 +64932,9 @@ async function dedupClient(clientId, names) {
   const groups = /* @__PURE__ */ new Map();
   for (const e of emps) {
     const k = idKey(e.firstName || "", e.lastName || "");
-    const arr4 = groups.get(k) || [];
-    arr4.push(e);
-    groups.set(k, arr4);
+    const arr5 = groups.get(k) || [];
+    arr5.push(e);
+    groups.set(k, arr5);
   }
   let merged = 0, renamed = 0;
   for (const [k, group] of groups) {
@@ -69775,10 +70016,10 @@ function nextHSTDueDate(period2, now = /* @__PURE__ */ new Date()) {
     return due;
   }
   if (period2 === "quarterly") {
-    const q2 = Math.floor(month / 3);
+    const q3 = Math.floor(month / 3);
     const dueMonths = [3, 6, 9, 0];
-    const dueYear = q2 === 3 ? year2 + 1 : year2;
-    return new Date(dueYear, dueMonths[q2], 1);
+    const dueYear = q3 === 3 ? year2 + 1 : year2;
+    return new Date(dueYear, dueMonths[q3], 1);
   }
   if (period2 === "annual") {
     return new Date(year2, 0, 1);
@@ -69793,15 +70034,15 @@ function nextPayrollDueDate(frequency, now = /* @__PURE__ */ new Date()) {
 function nextWSIBDueDate(quarter, now = /* @__PURE__ */ new Date()) {
   const year2 = now.getFullYear();
   const month = now.getMonth();
-  const q2 = Math.floor(month / 3);
+  const q3 = Math.floor(month / 3);
   if (quarter === "Q1") return new Date(year2, 3, 1);
   if (quarter === "Q2") return new Date(year2, 6, 1);
   if (quarter === "Q3") return new Date(year2, 9, 1);
   if (quarter === "Q4") return new Date(year2 + 1, 0, 1);
   if (quarter === "all" || !quarter) {
     const dueMonths = [3, 6, 9, 0];
-    const dueYear = q2 === 3 ? year2 + 1 : year2;
-    return new Date(dueYear, dueMonths[q2], 1);
+    const dueYear = q3 === 3 ? year2 + 1 : year2;
+    return new Date(dueYear, dueMonths[q3], 1);
   }
   return new Date(year2, month + 1, 1);
 }
@@ -73401,16 +73642,16 @@ function withResolvers() {
     reject
   };
 }
-function listWithMember(arr4, member) {
-  return [...arr4, member];
+function listWithMember(arr5, member) {
+  return [...arr5, member];
 }
-function listWithoutIndex(arr4, index) {
-  return [...arr4.slice(0, index), ...arr4.slice(index + 1)];
+function listWithoutIndex(arr5, index) {
+  return [...arr5.slice(0, index), ...arr5.slice(index + 1)];
 }
-function listWithoutMember(arr4, member) {
-  const index = arr4.indexOf(member);
-  if (index !== -1) return listWithoutIndex(arr4, index);
-  return arr4;
+function listWithoutMember(arr5, member) {
+  const index = arr5.indexOf(member);
+  if (index !== -1) return listWithoutIndex(arr5, index);
+  return arr5;
 }
 var _Symbol;
 var _Symbol$dispose;
@@ -75692,11 +75933,11 @@ function encodeBase64(input) {
     return input.toBase64();
   }
   const CHUNK_SIZE = 32768;
-  const arr4 = [];
+  const arr5 = [];
   for (let i = 0; i < input.length; i += CHUNK_SIZE) {
-    arr4.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
+    arr5.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
   }
-  return btoa(arr4.join(""));
+  return btoa(arr5.join(""));
 }
 function decodeBase64(encoded) {
   if (Uint8Array.fromBase64) {
@@ -84182,13 +84423,13 @@ var num3 = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
-var arr2 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+var arr3 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
 async function pullPayments(conn, entityName, start, end) {
   const range = `TxnDate >= '${start}' AND TxnDate <= '${end}'`;
   const payments = [];
-  const q2 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
+  const q3 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
   try {
-    for (const e of arr2(await q2(`SELECT * FROM Purchase WHERE ${range} MAXRESULTS 1000`), "Purchase")) {
+    for (const e of arr3(await q3(`SELECT * FROM Purchase WHERE ${range} MAXRESULTS 1000`), "Purchase")) {
       payments.push({
         vendor: e.EntityRef?.name || e.VendorRef?.name || "(no payee)",
         amount: num3(e.TotalAmt),
@@ -84200,7 +84441,7 @@ async function pullPayments(conn, entityName, start, end) {
         ref: e.DocNumber ? `Purchase ${e.DocNumber}` : `Purchase ${e.Id}`
       });
     }
-    for (const e of arr2(await q2(`SELECT * FROM BillPayment WHERE ${range} MAXRESULTS 1000`), "BillPayment")) {
+    for (const e of arr3(await q3(`SELECT * FROM BillPayment WHERE ${range} MAXRESULTS 1000`), "BillPayment")) {
       const acct = e.CheckPayment?.BankAccountRef?.name || e.CreditCardPayment?.CCAccountRef?.name || "(no account)";
       payments.push({
         vendor: e.VendorRef?.name || "(no payee)",
@@ -85598,9 +85839,9 @@ async function execRecallPersonal(input, userId) {
   const { personalFacts: personalFacts2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
   const db = getDb();
   const rows = await db.select().from(personalFacts2).where(eq(personalFacts2.userId, userId));
-  const q2 = String(input?.query ?? "").trim().toLowerCase();
-  const hits = q2 ? rows.filter((r) => `${r.fact} ${r.category} ${r.tags ?? ""}`.toLowerCase().includes(q2)) : rows;
-  if (!hits.length) return q2 ? `I don't have anything on "${q2}" in your personal notes yet.` : "Your personal knowledge base is empty so far.";
+  const q3 = String(input?.query ?? "").trim().toLowerCase();
+  const hits = q3 ? rows.filter((r) => `${r.fact} ${r.category} ${r.tags ?? ""}`.toLowerCase().includes(q3)) : rows;
+  if (!hits.length) return q3 ? `I don't have anything on "${q3}" in your personal notes yet.` : "Your personal knowledge base is empty so far.";
   hits.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
   return hits.slice(0, 25).map((r) => `- [${r.category}] ${r.fact}`).join("\n");
 }
@@ -85671,9 +85912,9 @@ async function execSearchDrive(input, userId) {
   if (!account) return "I need your Google account connected first (Integrations \u2192 Google) before I can search your Drive.";
   try {
     const token2 = await getValidGoogleAccessToken(account);
-    const esc3 = query.replace(/'/g, "\\'");
-    const q2 = `(name contains '${esc3}' or fullText contains '${esc3}') and trashed = false`;
-    const url2 = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q2)}&pageSize=${max2}&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent("files(id,name,modifiedTime,webViewLink,mimeType)")}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+    const esc4 = query.replace(/'/g, "\\'");
+    const q3 = `(name contains '${esc4}' or fullText contains '${esc4}') and trashed = false`;
+    const url2 = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q3)}&pageSize=${max2}&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent("files(id,name,modifiedTime,webViewLink,mimeType)")}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
     const res = await fetch(url2, { headers: { Authorization: `Bearer ${token2}` } });
     if (!res.ok) return `Couldn't search Drive (${res.status}).`;
     const data = await res.json();
@@ -85707,9 +85948,9 @@ async function execReadFile(input, userId) {
       const r3 = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=${encodeURIComponent(FIELDS)}&supportsAllDrives=true`, { headers: H });
       if (r3.ok) file2 = await r3.json();
     } else {
-      const esc3 = query.replace(/'/g, "\\'");
-      const q2 = `(name contains '${esc3}' or fullText contains '${esc3}') and trashed = false and mimeType != 'application/vnd.google-apps.folder'`;
-      const url2 = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q2)}&pageSize=1&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent(`files(${FIELDS})`)}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+      const esc4 = query.replace(/'/g, "\\'");
+      const q3 = `(name contains '${esc4}' or fullText contains '${esc4}') and trashed = false and mimeType != 'application/vnd.google-apps.folder'`;
+      const url2 = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q3)}&pageSize=1&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent(`files(${FIELDS})`)}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
       const r3 = await fetch(url2, { headers: H });
       if (r3.ok) file2 = ((await r3.json()).files || [])[0];
     }
@@ -86657,9 +86898,9 @@ var registersRouter = createRouter({
       }
     }
     let questionsFiled = 0;
-    for (const q2 of parsed.openQuestions) {
+    for (const q3 of parsed.openQuestions) {
       try {
-        await fileQuestion(q2, { kind: "firm" }, { askedBy: "Session Import", category: "strategy" });
+        await fileQuestion(q3, { kind: "firm" }, { askedBy: "Session Import", category: "strategy" });
         questionsFiled++;
       } catch {
       }
@@ -88431,8 +88672,8 @@ function runHstReview(input) {
 }
 
 // api/hst-review-router.ts
-var q = (conn, sql4) => qboRequest(conn, `/query?query=${encodeURIComponent(sql4)}`);
-var arr3 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+var q2 = (conn, sql4) => qboRequest(conn, `/query?query=${encodeURIComponent(sql4)}`);
+var arr4 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
 var num4 = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -88499,7 +88740,7 @@ var hstReviewRouter = createRouter({
     const taxCodes = [];
     const taxById = /* @__PURE__ */ new Map();
     try {
-      for (const t2 of arr3(await q(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode")) {
+      for (const t2 of arr4(await q2(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode")) {
         taxCodes.push({ id: String(t2.Id), name: t2.Name });
         taxById.set(String(t2.Id), t2.Name);
       }
@@ -88513,7 +88754,7 @@ var hstReviewRouter = createRouter({
     const taxName = (id) => id ? taxById.get(String(id)) : void 0;
     const accounts = [];
     try {
-      for (const a of arr3(await q(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
+      for (const a of arr4(await q2(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
         accounts.push({ id: String(a.Id), name: a.Name, type: a.AccountType, subType: a.AccountSubType, balance: num4(a.CurrentBalance) });
       }
     } catch (e) {
@@ -88522,7 +88763,7 @@ var hstReviewRouter = createRouter({
     const txns = [];
     const pull = async (entity, mapper) => {
       try {
-        for (const e of arr3(await q(conn, `SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) txns.push(mapper(e));
+        for (const e of arr4(await q2(conn, `SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) txns.push(mapper(e));
       } catch (e) {
         errors.push(`${entity}: ${e instanceof Error ? e.message : e}`);
       }
@@ -89312,7 +89553,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.183";
+var BUILD_TAG = "2026-06-26.185";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -89411,12 +89652,12 @@ app.get("/api/oauth/google/debug", async (c) => {
   let dbCounts = null;
   try {
     const db = getDb();
-    const rowsOf2 = async (q2) => {
-      const r = await db.run(sql.raw(q2));
+    const rowsOf2 = async (q3) => {
+      const r = await db.run(sql.raw(q3));
       return r?.rows ?? r ?? [];
     };
-    const one = async (q2) => {
-      const r = await rowsOf2(q2);
+    const one = async (q3) => {
+      const r = await rowsOf2(q3);
       return r[0] ? r[0].n ?? Object.values(r[0])[0] : 0;
     };
     dbCounts = {

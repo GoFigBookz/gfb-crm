@@ -14,17 +14,18 @@ const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency
  * → builds the DRAFT invoice (payer → counterparty) + mirror bill, with HST. Nothing
  * posts; you review, then post on approval. Reconcile each quarter from the log.
  */
-export default function IntercoRechargePanel() {
+export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerId?: number } = {}) {
   const { data: clients } = trpc.interco.clients.useQuery();
-  const [payerId, setPayerId] = useState<number | null>(null);
+  const [payerId, setPayerId] = useState<number | null>(defaultPayerId ?? null);
 
-  // Default to Alderson if present (the first configured payer).
+  // Default to the given client (on a client card) or Alderson (standalone).
   useEffect(() => {
     if (payerId == null && clients?.length) {
+      if (defaultPayerId) { setPayerId(defaultPayerId); return; }
       const ald = clients.find((c: any) => /alderson/i.test(c.name || ""));
       setPayerId(ald?.id ?? clients[0].id);
     }
-  }, [clients, payerId]);
+  }, [clients, payerId, defaultPayerId]);
 
   const payer = clients?.find((c: any) => c.id === payerId);
   const { data: cfg } = trpc.intercoRecharge.getConfig.useQuery({ payerClientId: payerId! }, { enabled: !!payerId });
@@ -56,11 +57,24 @@ export default function IntercoRechargePanel() {
 
   const preview = trpc.intercoRecharge.preview.useMutation();
   const recon = trpc.intercoRecharge.reconcileCheck.useMutation();
+  const post = trpc.intercoRecharge.post.useMutation();
   const record = trpc.intercoRecharge.recordPeriod.useMutation({ onSuccess: () => utils.intercoRecharge.log.invalidate({ payerClientId: payerId! }) });
   const markRec = trpc.intercoRecharge.markReconciled.useMutation({ onSuccess: () => utils.intercoRecharge.log.invalidate({ payerClientId: payerId! }) });
   const r = preview.data;
   const draft = r && r.ok ? r.draft : null;
   const rc = recon.data;
+  const pr = post.data;
+
+  const postLive = () => {
+    if (!payerId || !payer) return;
+    if (!confirm(`Fig will POST LIVE to QuickBooks:\n• Invoice in ${payer.name} → ${counterparty}\n• Bill in ${counterparty}\nfor ${start} → ${end}.\n\nBoth companies must be on the DIRECT (native) connection. Proceed?`)) return;
+    post.mutate({
+      payerClientId: payerId, payerName: payer.name,
+      counterpartyName: counterparty, revenueAccount, expenseAccount,
+      hstRatePct, chargeHst, startDate: start, endDate: end,
+      periodLabel: `${start} → ${end}`, approve: true,
+    });
+  };
 
   const checkRecon = () => {
     if (!payerId) return;
@@ -87,7 +101,7 @@ export default function IntercoRechargePanel() {
           <Receipt className="h-4 w-4 text-violet-600" /> Inter-company recharge (draft)
         </CardTitle>
         <CardDescription>
-          Pull the payer's expenses for the quarter → draft invoice (payer → counterparty) + mirror bill, with HST. Nothing posts — review, then post on approval. Reconcile each quarter below.
+          Pull the payer's expenses for the quarter → draft invoice (payer → counterparty) + mirror bill, with HST. Review, then <b>Fig posts both live</b> on your approval (both companies must be connected DIRECT). Zero-out mode leaves the payer with $0 expenses + $0 HST. Reconcile each quarter below.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -156,7 +170,7 @@ export default function IntercoRechargePanel() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" disabled={preview.isPending || !payerId || !counterparty || !revenueAccount} onClick={run}>
+          <Button size="sm" disabled={preview.isPending || !payerId} onClick={run}>
             {preview.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileDown className="h-4 w-4 mr-1" />} Generate draft
           </Button>
           {!chargeHst && <span className="text-xs text-amber-600">No HST (Section 156 election).</span>}
@@ -169,17 +183,48 @@ export default function IntercoRechargePanel() {
           <div className="space-y-2 border-t pt-2">
             <div className="text-xs text-slate-500">{r!.pulled} expense line(s) pulled · {draft.periodLabel}{r!.errors.length ? ` · warnings: ${r!.errors.join("; ")}` : ""}</div>
             {!draft.validation.ok && <div className="text-xs text-amber-700 flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> {draft.validation.errors.join("; ")}</div>}
+            {(r as any)?.zeroOut && (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-2 text-xs text-emerald-900 space-y-1">
+                <div className="font-semibold flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Zero-out mode</div>
+                <div>The invoice credits each cost back to the <b>same expense account</b> it came from, so {payer?.name}'s expenses net to <b>$0</b>. The 13% HST charged offsets the ITCs already claimed → {payer?.name}'s HST nets to <b>$0</b> for the period.</div>
+                {Array.isArray((r as any).byAccount) && (r as any).byAccount.length > 0 && (
+                  <div className="mt-1 divide-y divide-emerald-100 border-t border-emerald-100">
+                    {(r as any).byAccount.map((a: any, i: number) => (
+                      <div key={i} className="flex justify-between py-0.5">
+                        <span className="truncate text-emerald-800">{a.accountName}{a.accountId ? "" : " (by name — id missing)"}</span>
+                        <span className="font-mono">{money(a.net)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="grid sm:grid-cols-2 gap-2">
-              <DocCard title={`Invoice — ${payer?.name} → ${draft.invoice.party}`} doc={draft.invoice} sub={`Income: ${draft.invoice.account}`} />
+              <DocCard title={`Invoice — ${payer?.name} → ${draft.invoice.party}`} doc={draft.invoice} sub={(r as any)?.zeroOut ? "Credits the source expense accounts (zero-out)" : `Income: ${draft.invoice.account}`} />
               <DocCard title={`Mirror bill — ${draft.bill.party} → ${draft.invoice.party}`} doc={draft.bill} sub={`Expense: ${draft.bill.account}`} />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={post.isPending || !draft.validation.ok}
+                onClick={postLive}>
+                {post.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null} Approve & post (Fig) — LIVE
+              </Button>
               <Button size="sm" variant="outline" disabled={record.isPending || !draft.validation.ok}
                 onClick={() => record.mutate({ payerClientId: payerId!, periodLabel: draft.periodLabel, periodStart: start, periodEnd: end, subtotal: draft.invoice.subtotal, hst: draft.invoice.hst, total: draft.invoice.total })}>
                 Record this quarter (to reconcile)
               </Button>
-              <span className="text-[11px] text-slate-400">Posting to QBO needs the write connection; until then post the approved draft by hand.</span>
+              <span className="text-[11px] text-slate-400">Posting needs both companies on the DIRECT (native) connection.</span>
             </div>
+            {pr && pr.ok && (
+              <div className="text-sm rounded-md p-2 bg-emerald-50 text-emerald-800">
+                ✓ Posted live — Invoice <b>#{pr.invoiceId}</b> in {payer?.name}, Bill <b>#{pr.billId}</b> in {counterparty} ({money(pr.total)}). See System Health → Recent Agent Activity for the audit entry.
+              </div>
+            )}
+            {pr && !pr.ok && (
+              <div className="text-sm rounded-md p-2 bg-amber-50 text-amber-800">
+                Didn't post ({pr.error}). {(pr as any).detail || ""}
+              </div>
+            )}
+            {post.isError && <div className="text-xs text-red-600">{(post.error as any)?.message}</div>}
           </div>
         )}
 
@@ -205,14 +250,14 @@ export default function IntercoRechargePanel() {
           <ol className="list-decimal ml-4 mt-1 space-y-0.5">
             <li>Reconcile Alderson's bank + clearing accounts for the quarter; run the Pre-HST review.</li>
             <li>Above: Payer = Alderson, Counterparty = Ovita Holdings, dates = the fiscal quarter (e.g. Mar 1–May 31). Generate draft.</li>
-            <li>Review the pulled expense lines; confirm invoice total = bill total.</li>
-            <li><b>Alderson (QBO):</b> create the Invoice — Customer = Ovita Holdings; lines → <b>Sales</b>; HST 13% (output tax).</li>
-            <li><b>Holdings (QBO):</b> create the Bill — Vendor = Alderson; expense → <b>Alderson Project Management Costs</b>; HST 13% (ITC).</li>
+            <li>Review the pulled expense lines (grouped by account); confirm invoice total = bill total.</li>
+            <li>Click <b>Approve &amp; post (Fig) — LIVE</b>. Fig posts the <b>Alderson Invoice</b> (Customer = Ovita Holdings; one line per expense account credited back to the <b>same account</b> → zero-out; HST 13%) and the <b>Holdings Bill</b> (Vendor = Alderson; expense → <b>Alderson Project Management Costs</b>; HST 13% ITC).</li>
+            <li><b>Cross-check in QBO:</b> Alderson's expenses = <b>$0</b> and HST = <b>$0</b> for the period. If anything remains, a cost was dated outside the period — fix and re-run.</li>
             <li><b>Settlement:</b> Holdings pays Alderson → record as a <b>transfer</b> into the clearing accounts (Alderson → "Holdings clearing account"; Holdings → "Alderson Development clearing account").</li>
-            <li><b>Reconcile</b> both clearing accounts to zero each quarter (they mirror). Tick "reconciled" above.</li>
+            <li><b>Reconcile</b> (final step) both clearing accounts to zero (they mirror). Tick "reconciled" above.</li>
             <li>File the invoice + bill in the client folder.</li>
           </ol>
-          <p className="mt-1 text-slate-400">Drafts only — nothing posts to QBO without your review.</p>
+          <p className="mt-1 text-slate-400">Fig posts these two documents live (Markie-approved for Alderson); everything else stays review-only.</p>
         </details>
       </CardContent>
     </Card>

@@ -23,6 +23,7 @@ import { STANDARD_TASK_TITLES } from "@/lib/task-options";
 import { RevRecTab } from "@/components/RevRecTab";
 import { LoanTrackerTab } from "@/components/LoanTrackerTab";
 import PaymentSourceCard from "@/components/PaymentSourceCard";
+import IntercoRechargePanel from "@/components/IntercoRechargePanel";
 
 export default function ClientDashboard() {
   const { clientId } = useParams<{ clientId: string }>();
@@ -1835,6 +1836,9 @@ function ComplianceTab({ clientId, client, onboarding, closeStatus, tasks, onOpe
 
       {/* "Who paid this?" — cross-account / cross-entity double-post finder. */}
       <PaymentSourceCard clientId={clientId} groupName={(client as any).groupName} />
+
+      {/* Inter-company recharge (invoice → bill) — per-client tool, for group clients. */}
+      {(client as any).groupName && <IntercoRechargePanel defaultPayerId={clientId} />}
 
       {/* Filing status from the live close engine */}
       <Card>

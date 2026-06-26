@@ -78,6 +78,9 @@ async function findOrCreateServiceItem(conn: any, incomeAccountId: string, itemN
   return String(id);
 }
 
+/** A per-expense-account total in the PAYER's books (account id is the payer's own). */
+export type ExpenseAccountTotal = { accountId: string; accountName: string; net: number };
+
 export type PostRechargeInput = {
   payerClientId: number; counterpartyClientId: number;
   payerName: string; counterpartyName: string;
@@ -85,6 +88,12 @@ export type PostRechargeInput = {
   hstRatePct: number; chargeHst: boolean;
   subtotal: number; periodLabel: string;
   lineDescription?: string;
+  /** ZERO-OUT MODE (Alderson, Markie 2026-06-26): credit the invoice back to the SAME
+   *  expense accounts the costs sit in, so the payer's expenses net to $0 and the HST
+   *  charged offsets the ITCs already claimed (HST nets to $0 too). When omitted/empty
+   *  the invoice credits `revenueAccount` (the plain cost-recovery-as-income method). */
+  zeroOut?: boolean;
+  expenseBreakdown?: ExpenseAccountTotal[];
 };
 
 export type PostRechargeResult =
@@ -105,27 +114,63 @@ export async function postRecharge(input: PostRechargeInput): Promise<PostRechar
     const desc = input.lineDescription || `Inter-company recharge — ${input.periodLabel}`;
 
     // ---- PAYER INVOICE (Alderson) ----
-    const incomeAcct = await findAccountId(payer.conn, input.revenueAccount);
-    if (!incomeAcct) return { ok: false, error: "revenue_account_not_found", detail: `"${input.revenueAccount}" not in ${input.payerName}'s chart.` };
     const custId = await findOrCreateCustomer(payer.conn, input.counterpartyName);
-    const itemId = await findOrCreateServiceItem(payer.conn, incomeAcct.id);
     let invTax: { id: string } | null = null;
     if (input.chargeHst) {
       const t = await findHstTaxCodeId(payer.conn);
       if (!t) return { ok: false, error: "hst_taxcode_not_found", detail: `No HST tax code in ${input.payerName}.` };
       invTax = { id: t.id };
     }
-    const invoicePayload: any = {
-      CustomerRef: { value: custId },
-      Line: [{
+
+    // Build the invoice LINES. Two methods:
+    //  (1) ZERO-OUT (Alderson) — one line per expense account, each line's item maps
+    //      its income to THAT expense account, so the credit reverses the cost → the
+    //      payer's expenses net to $0. The 13% HST charged offsets the ITCs already
+    //      claimed on those costs → HST nets to $0. (Markie's hard requirement.)
+    //  (2) REVENUE — a single line to the revenue account (plain cost recovery).
+    const useZeroOut = !!input.zeroOut && Array.isArray(input.expenseBreakdown) && input.expenseBreakdown.length > 0;
+    let invoiceLines: any[];
+    if (useZeroOut) {
+      // Only positive net accounts; sum must reconcile to the subtotal we charge.
+      const accts = (input.expenseBreakdown || []).filter((a) => a && a.accountId && round2(a.net) > 0);
+      if (accts.length === 0) return { ok: false, error: "no_expense_accounts", detail: "No expense accounts with a positive balance to recharge." };
+      invoiceLines = [];
+      for (const a of accts) {
+        // An item whose INCOME account IS this expense account → the sale credits the
+        // expense account, zeroing it. (QBO supports crediting expense accounts from a
+        // sales doc; if it rejects the item, we fail cleanly BEFORE anything posts.)
+        let itemId: string;
+        try {
+          itemId = await findOrCreateServiceItem(payer.conn, a.accountId, `Recharge — ${a.accountName}`.slice(0, 100));
+        } catch (e) {
+          return { ok: false, error: "expense_item_create_failed", detail: `Could not create a recharge item mapped to "${a.accountName}" in ${input.payerName} (QBO may not allow crediting that account from an invoice): ${e instanceof Error ? e.message : String(e)}` };
+        }
+        invoiceLines.push({
+          DetailType: "SalesItemLineDetail", Amount: round2(a.net), Description: `${desc} — ${a.accountName}`,
+          SalesItemLineDetail: {
+            ItemRef: { value: itemId },
+            ...(invTax ? { TaxCodeRef: { value: invTax.id } } : {}),
+          },
+        });
+      }
+    } else {
+      const incomeAcct = await findAccountId(payer.conn, input.revenueAccount);
+      if (!incomeAcct) return { ok: false, error: "revenue_account_not_found", detail: `"${input.revenueAccount}" not in ${input.payerName}'s chart.` };
+      const itemId = await findOrCreateServiceItem(payer.conn, incomeAcct.id);
+      invoiceLines = [{
         DetailType: "SalesItemLineDetail", Amount: subtotal, Description: desc,
         SalesItemLineDetail: {
           ItemRef: { value: itemId },
           ...(invTax ? { TaxCodeRef: { value: invTax.id } } : {}),
         },
-      }],
+      }];
+    }
+
+    const invoicePayload: any = {
+      CustomerRef: { value: custId },
+      Line: invoiceLines,
       ...(invTax ? { TxnTaxDetail: {} } : {}),
-      PrivateNote: `Figgy inter-company recharge ${input.periodLabel}`,
+      PrivateNote: `Figgy inter-company recharge ${input.periodLabel}${useZeroOut ? " (zero-out: credits source expense accounts)" : ""}`,
     };
     const invRes = await qboRequest(payer.conn, "/invoice", "POST", invoicePayload);
     const invoiceId = invRes?.Invoice?.Id ? String(invRes.Invoice.Id) : "";
