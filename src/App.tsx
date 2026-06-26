@@ -44,6 +44,7 @@ import Personal from "./pages/Personal";
 import Brain from "./pages/Brain";
 import Launchpad from "./pages/Launchpad";
 import HstAudit from "./pages/HstAudit";
+import Subscriptions from "./pages/Subscriptions";
 import MyLife from "./pages/MyLife";
 import TaxDeadlines from "./pages/TaxDeadlines";
 import YearEndChecklist from "./pages/YearEndChecklist";
@@ -129,6 +130,7 @@ function AppRoutes() {
         <Route path="/brain" element={<Brain />} />
         <Route path="/launchpad" element={<Launchpad />} />
         <Route path="/hst-audit" element={<HstAudit />} />
+        <Route path="/subscriptions" element={<Subscriptions />} />
         <Route path="/my-life" element={<MyLife />} />
         <Route path="/tax-deadlines" element={<TaxDeadlines />} />
         <Route path="/year-end" element={<YearEndChecklist />} />
