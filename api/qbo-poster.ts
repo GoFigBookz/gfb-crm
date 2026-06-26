@@ -25,6 +25,15 @@ import { getDb } from "./queries/connection";
 import { qboConnections, triageFindings, clients } from "../db/schema";
 import { and, eq } from "drizzle-orm";
 import { qboRequest, ensureValidToken } from "./qbo-router";
+import { recordAudit } from "./agent-audit";
+
+/** Owner userId for a client (so the QBO post lands in that owner's audit log). */
+async function ownerForClient(clientId: number): Promise<number> {
+  try {
+    const r = await getDb().select({ u: clients.userId }).from(clients).where(eq(clients.id, clientId)).limit(1);
+    return r[0]?.u ?? 0;
+  } catch { return 0; }
+}
 
 /** The realms we verified posting on FIRST (Alderson, Ovita Construction, Ovita
  *  Holdings). Kept for reference / as the recommended pilot set. */
@@ -220,12 +229,14 @@ async function connForClient(clientId: number): Promise<any | { error: string }>
  * throws — returns a structured result the caller folds into the finding.
  */
 export async function postFindingToQBO(findingId: number): Promise<PostResult> {
+  let auditClientId: number | null = null;   // hoisted so the catch can still audit
   try {
     if (!postingMasterEnabled()) return { posted: false, skipped: "posting disabled (FIGGY_QBO_POST off)" };
     const db = getDb();
     const f = (await db.select().from(triageFindings).where(eq(triageFindings.id, findingId)).limit(1))[0];
     if (!f) return { posted: false, error: "finding not found" };
     if (!f.clientId) return { posted: false, skipped: "finding has no client" };
+    auditClientId = f.clientId;
 
     const conn = await connForClient(f.clientId);
     if ("error" in conn) return { posted: false, skipped: conn.error };
@@ -240,9 +251,13 @@ export async function postFindingToQBO(findingId: number): Promise<PostResult> {
 
     const live = await ensureValidToken(conn);
     const payload = buildBillPayload(input as BillInput);
+    const billTotal = ((input as BillInput).lines || []).reduce((s, l) => s + Number(l.amount || 0), 0);
     const res = await qboRequest(live, "/bill", "POST", payload);
     const billId = res?.Bill?.Id ? String(res.Bill.Id) : "";
-    if (!billId) return { posted: false, error: "QBO did not return a Bill Id" };
+    if (!billId) {
+      await recordAudit({ userId: await ownerForClient(f.clientId), agentScope: "fig", action: "qbo.post.bill", decision: "error", clientId: f.clientId, amount: billTotal, summary: `Bill post to realm ${realmId} returned no Id (finding #${findingId})` });
+      return { posted: false, error: "QBO did not return a Bill Id" };
+    }
 
     // Stamp the posted id back onto the finding so we never double-post.
     let meta: any = {};
@@ -251,8 +266,11 @@ export async function postFindingToQBO(findingId: number): Promise<PostResult> {
     meta.postedAt = new Date().toISOString();
     await db.update(triageFindings).set({ sourceData: JSON.stringify(meta) }).where(eq(triageFindings.id, findingId));
 
+    // Auditability (FOS — every financial action is traceable: what/when/why/what-changed).
+    await recordAudit({ userId: await ownerForClient(f.clientId), agentScope: "fig", action: "qbo.post.bill", decision: "done", clientId: f.clientId, amount: billTotal, summary: `Posted Bill ${billId} to realm ${realmId} (${(input as BillInput).vendorName || "vendor"}, finding #${findingId})` });
     return { posted: true, billId, realmId };
   } catch (e) {
+    await recordAudit({ userId: auditClientId ? await ownerForClient(auditClientId) : 0, agentScope: "fig", action: "qbo.post.bill", decision: "error", clientId: auditClientId, summary: `Bill post threw: ${e instanceof Error ? e.message : String(e)}` });
     return { posted: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
@@ -282,11 +300,18 @@ export async function postJournalEntry(clientId: number, input: JournalInput): P
 
     const live = await ensureValidToken(conn);
     const payload = buildJournalEntryPayload(input);
+    const jeTotal = (input.lines || []).filter((l) => l.posting === "Debit").reduce((s, l) => s + Number(l.amount || 0), 0);
     const res = await qboRequest(live, "/journalentry", "POST", payload);
     const journalId = res?.JournalEntry?.Id ? String(res.JournalEntry.Id) : "";
-    if (!journalId) return { posted: false, error: "QBO did not return a JournalEntry Id" };
+    if (!journalId) {
+      await recordAudit({ userId: await ownerForClient(clientId), agentScope: "fig", action: "qbo.post.journal", decision: "error", clientId, amount: jeTotal, summary: `Journal post to realm ${realmId} returned no Id` });
+      return { posted: false, error: "QBO did not return a JournalEntry Id" };
+    }
+    // Auditability (FOS — financial actions are traceable).
+    await recordAudit({ userId: await ownerForClient(clientId), agentScope: "fig", action: "qbo.post.journal", decision: "done", clientId, amount: jeTotal, summary: `Posted JournalEntry ${journalId} to realm ${realmId}` });
     return { posted: true, journalId, realmId };
   } catch (e) {
+    await recordAudit({ userId: await ownerForClient(clientId), agentScope: "fig", action: "qbo.post.journal", decision: "error", clientId, summary: `Journal post threw: ${e instanceof Error ? e.message : String(e)}` });
     return { posted: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
