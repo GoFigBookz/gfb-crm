@@ -182,7 +182,7 @@ export function TaskDetailDialog({ task, onClose, onChanged }: {
           </div>
 
           {isHstFilingTask(title) && clientId !== "none" && (
-            <TaskHstReview clientId={Number(clientId)} dueDate={task.dueDate} />
+            <TaskHstReview clientId={Number(clientId)} dueDate={task.dueDate} onClose={onClose} />
           )}
 
           {task.isRecurring && (
@@ -221,7 +221,7 @@ export function TaskDetailDialog({ task, onClose, onChanged }: {
 /** Embedded read-only Pre-HST review for an HST filing task: the current data
  *  issues for this client+period, right inside the task. Runs on demand (no costly
  *  fan-out); QBO does the reconcile + the return — this only checks the inputs. */
-function TaskHstReview({ clientId, dueDate }: { clientId: number; dueDate?: any }) {
+function TaskHstReview({ clientId, dueDate, onClose }: { clientId: number; dueDate?: any; onClose?: () => void }) {
   const def = defaultHstRange(dueDate ? new Date(dueDate) : new Date(), "quarterly");
   const [start, setStart] = useState(def.start);
   const [end, setEnd] = useState(def.end);
@@ -242,6 +242,9 @@ function TaskHstReview({ clientId, dueDate }: { clientId: number; dueDate?: any 
         <Button size="sm" className="h-8" disabled={run.isPending} onClick={() => run.mutate({ clientId, startDate: start, endDate: end })}>
           {run.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null} Run review
         </Button>
+        <Link to={`/hst-review?clientId=${clientId}&start=${start}&end=${end}`} onClick={onClose} className="text-xs text-indigo-600 hover:underline inline-flex items-center gap-1 h-8">
+          Open full page <ExternalLink className="h-3 w-3" />
+        </Link>
       </div>
       {run.isError && <div className="text-xs text-red-600">{(run.error as any)?.message || "Failed to run."}</div>}
       {r && !r.ok && <div className="text-xs text-amber-600">No usable QBO connection for this client ({r.error}).</div>}
