@@ -267,6 +267,7 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
                       billId={String(x.billRef)}
                     />
                   )}
+                  <BillbackShareLink logId={x.id} />
                 </div>
               ))}
             </div>
@@ -289,6 +290,53 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
         </details>
       </CardContent>
     </Card>
+  );
+}
+
+/** Create / show / copy the shareable read-only billback worksheet link for a posted
+ *  period. Also files a copy to BOTH clients' Drive folders (Alderson + Holdings). */
+function BillbackShareLink({ logId }: { logId: number }) {
+  const utils = trpc.useUtils();
+  const { data } = trpc.intercoRecharge.shareFor.useQuery({ logId });
+  const create = trpc.intercoRecharge.shareCreate.useMutation({ onSuccess: () => utils.intercoRecharge.shareFor.invalidate({ logId }) });
+  const revoke = trpc.intercoRecharge.shareRevoke.useMutation({ onSuccess: () => utils.intercoRecharge.shareFor.invalidate({ logId }) });
+  const fileToDrive = trpc.intercoRecharge.fileToDrive.useMutation();
+  const [copied, setCopied] = useState(false);
+  const token = data?.token;
+  const url = token ? `${window.location.origin}/share/billback/${token}` : "";
+
+  const copy = async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ } };
+
+  if (!token) {
+    return (
+      <button type="button" className="mt-1 text-[11px] text-violet-700 hover:underline disabled:opacity-50"
+        disabled={create.isPending} onClick={() => create.mutate({ logId })}>
+        {create.isPending ? "Creating…" : "+ Create shareable worksheet link"}
+      </button>
+    );
+  }
+  return (
+    <div className="mt-1 rounded-md border border-violet-200 bg-violet-50/40 p-2 space-y-1">
+      <div className="flex items-center gap-2">
+        <input readOnly value={url} className="flex-1 text-[11px] bg-white border rounded px-2 py-1 font-mono text-slate-600" onFocus={(e) => e.target.select()} />
+        <button type="button" className="text-[11px] px-2 py-1 rounded border bg-white hover:bg-slate-50" onClick={copy}>{copied ? "Copied!" : "Copy"}</button>
+        <a href={url} target="_blank" rel="noreferrer" className="text-[11px] px-2 py-1 rounded border bg-white hover:bg-slate-50">Open</a>
+      </div>
+      <div className="flex items-center gap-3">
+        <button type="button" className="text-[11px] text-violet-700 hover:underline disabled:opacity-50"
+          disabled={fileToDrive.isPending} onClick={() => fileToDrive.mutate({ logId })}>
+          {fileToDrive.isPending ? "Filing…" : "File to both clients' Drive folders"}
+        </button>
+        <button type="button" className="text-[11px] text-slate-400 hover:underline" onClick={() => revoke.mutate({ logId })}>Revoke</button>
+      </div>
+      {fileToDrive.data && (
+        <div className={`text-[11px] ${fileToDrive.data.ok ? "text-emerald-700" : "text-amber-700"}`}>
+          {fileToDrive.data.ok
+            ? `Filed: ${fileToDrive.data.filed.map((f: any) => f.clientName).join(", ")}${fileToDrive.data.skipped?.length ? ` · skipped: ${fileToDrive.data.skipped.join(", ")}` : ""}`
+            : `Couldn't file (${fileToDrive.data.error}). ${(fileToDrive.data as any).detail || ""}`}
+        </div>
+      )}
+    </div>
   );
 }
 
