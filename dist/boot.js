@@ -35228,6 +35228,16 @@ MARKIE'S WRITING SAMPLES:
 ${samples}` : "\n(No samples available yet \u2014 use a warm, concise, professional bookkeeper's tone.)"
   ].join("\n");
 }
+function polishSystem(mode = "polish") {
+  const base = [
+    "You clean up an email draft for Markie (Go Fig Bookz, a bookkeeping firm).",
+    "Fix spelling, grammar, and punctuation. Make it clear, professional, and warm \u2014 like a competent bookkeeper, not a robot.",
+    "DO NOT change the meaning, add new facts, or invent details. Keep it roughly the same length. Keep his voice \u2014 don't make it stiff or corporate.",
+    "Output ONLY the corrected email body text \u2014 no preamble, no quotes, no 'Here is'."
+  ];
+  if (mode === "grammar") base[1] = "Fix ONLY spelling, grammar, and punctuation. Do not rephrase or change the tone.";
+  return base.join("\n");
+}
 function taskSuggestSystem() {
   return [
     "You read a client email and decide if it implies a task for the bookkeeper.",
@@ -62425,6 +62435,25 @@ async function ensurePhoenixSchema() {
     createdAt integer,
     updatedAt integer
   )`);
+  await guard("trading_config", sql`CREATE TABLE IF NOT EXISTS trading_config (
+    userId integer PRIMARY KEY,
+    name text,
+    strategy text,
+    startingCapital real DEFAULT 0,
+    maxDrawdownPct real DEFAULT 20,   -- alert threshold
+    rules text,                       -- the guardrails it's supposed to follow
+    notes text,
+    updatedAt integer
+  )`);
+  await guard("trading_snapshots", sql`CREATE TABLE IF NOT EXISTS trading_snapshots (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    equity real NOT NULL,             -- account value at this point
+    pnl real,                         -- period P&L (optional)
+    note text,
+    takenAt integer NOT NULL,
+    createdAt integer
+  )`);
 }
 var init_ensure_phoenix_schema = __esm({
   "api/ensure-phoenix-schema.ts"() {
@@ -77355,6 +77384,12 @@ ${orig.bodyPlain || (orig.body || "").replace(/<[^>]*>/g, " ")}`;
     const draft = await callClaude(replyDraftSystem(samples), userText, 800);
     return { draft };
   }),
+  // Polish a draft (fix spelling/grammar/tone) without changing meaning. Used by
+  // the composer's ✨ Polish button so Markie never sends a sloppy email.
+  polish: authedQuery.input(external_exports.object({ text: external_exports.string().min(1).max(8e3), mode: external_exports.enum(["polish", "grammar"]).default("polish") })).mutation(async ({ input }) => {
+    const out = await callClaude(polishSystem(input.mode), input.text, 1200);
+    return { text: (out || "").trim() || input.text };
+  }),
   // Liv: suggest a task from an inbound client email (optionally create it).
   suggestTask: authedQuery.input(external_exports.object({ emailId: external_exports.number(), create: external_exports.boolean().optional() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
@@ -83611,7 +83646,8 @@ EMAIL: identify the ask, urgency, and who it's about; draft a reply that sounds 
 TASKS/CALENDAR: capture clearly (client + action + due date); schedule with sensible defaults; protect his time.
 PERSONAL: errands, appointments, reminders, family \u2014 kept strictly private and separate from the firm. You also keep a PRIVATE KNOWLEDGE BASE of Markie's life and actively LEARN it: whenever he tells you something durable about himself (family/people, important dates, health, home, vehicles, accounts, personal finances, preferences, travel, goals), save it with remember_personal (pick the right category; pin the essentials). Before answering anything personal, recall_personal first so you reply from what you actually know. When he dumps a package about his life, file each item as a fact, ask only the few clarifying questions that matter, and confirm what you stored. This memory is for Markie ONLY \u2014 never expose it to other agents, clients, or firm work, and never use the firm-wide \`remember\` tool for personal facts.
 INTAKE QUESTIONS: who's it for / which client? what's the deadline? is this work or personal? what outcome does Markie want?
-FRONT DESK: you route "Hey <name>" to the right teammate and bring back the answer.`.trim();
+FRONT DESK: route to the right teammate AND auto-detect who a request belongs to even without "Hey <name>" \u2014 Markie shouldn't have to address anyone by name; just answer or hand off.
+PROACTIVE PHOENIX RISING OWNER: you actively MONITOR Markie's whole personal hub (finance, health, family, estate, side sales, travel, growth, trading-bot oversight). Don't wait \u2014 each visit, scan for what's missing or stale and DRIVE it forward: ask the few questions that build out a thin section, flag anything overdue or off (an unnotarized will, a health date, a trading-bot drawdown breach, an at-risk client-owned Drive file), and propose the next best action. Build each section out by guided Q&A \u2014 one focused question at a time \u2014 and offer to schedule time to go through a whole area. File anything dropped in the "Phoenix Rising \u2014 Intake" Drive folder into the right section. You manage and improve this space, not just store it.`.trim();
 
 // api/skills/jinx.ts
 var JINX_SKILL = `
@@ -83698,7 +83734,10 @@ FOR EACH POST deliver: the HOOK (scroll-stopping first line), the body, a clear 
 
 CADENCE: propose a weekly calendar mixing the pillars (e.g. LinkedIn 3\xD7, IG 3\xD7, FB 2\xD7). Keep it ~80% value / 20% ask \u2014 never all-promotion.
 
-ALWAYS: match the firm's voice, localize (Owen Sound / Collingwood, Canadian tax terms), research current trends/hooks when useful, and remember drafts are for Markie's review before anything is posted.`.trim();
+ALWAYS: match the firm's voice, localize (Owen Sound / Collingwood, Canadian tax terms), research current trends/hooks when useful, and remember drafts are for Markie's review before anything is posted.
+
+PROACTIVE \u2014 don't wait to be asked. Drive the marketing: keep the content calendar full, clean up and grow the platforms (LinkedIn, Instagram, Facebook, ProAdvisor, Google, the website's positioning), and research the firm's audience + competitors on your own.
+RESELL MARKIE'S SIDE-SALES PRODUCTS: he has a private Side Sales inventory in Phoenix Rising (e.g. the rose products \u2014 ~150 units, needs at least the MIN price back each, hard to sell openly/discreet). YOUR JOB: find channels and move that stock \u2014 draft tasteful, discreet listings (Marketplace, niche groups, bundle offers), research where this kind of product actually sells and at what price, and propose a plan to clear inventory at/above the floor. Be resourceful; respect the discreet flag. Everything is a DRAFT/PROPOSAL for Markie \u2014 never post or sell on your own.`.trim();
 
 // api/skills/index.ts
 var ROLE = {
@@ -83796,7 +83835,7 @@ var TOPIC_RULES = [
   { agent: "tess", re: /\b(income tax|tax returns?|t1|t2|t4|t5|cra|capital gains?|deductions?|rrsp|instal?ments?|year[- ]?end tax|personal tax|corporate tax)\b/ },
   { agent: "wren", re: /\b(audit|tie[- ]?outs?|reconcil\w*|variance|workpapers?|month[- ]?end close|controller|sign[- ]?off)\b/ },
   { agent: "sage", re: /\b(hst|gst|wsib|eht|payroll|remit\w*|source deduction|compliance|filing prep|review (fig|the books))\b/ },
-  { agent: "liv", re: /\b(e-?mails?|repl(y|ies)|drafts?|inbox|calendar|schedule|appointments?|meetings?|reminders?|remind me|personal)\b/ },
+  { agent: "liv", re: /\b(e-?mails?|repl(y|ies)|drafts?|inbox|calendar|schedule|appointments?|meetings?|reminders?|remind me|personal|phoenix rising|estate|will|executor|succession|family|genealogy|health|meds?|medication|vitamins?|bloodwork|side ?sales?|resale|trading bot)\b/ },
   { agent: "fig", re: /\b(categori[sz]e|code (this|these|the|my)|receipts?|bookkeep\w*|post (this|the|a|these) (transaction|bill|expense)|vendors?|enter (a |the )?(bill|expense|transaction))\b/ }
 ];
 function detectAgent(message2, current) {
@@ -84443,7 +84482,7 @@ var assistantRouter = createRouter({
       } catch {
       }
     };
-    const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 12e3 });
+    const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 2e4 });
     let dropServerTools = false;
     const handleToolUses = async (content) => {
       const toolUses = (content || []).filter((b) => b.type === "tool_use");
@@ -84501,7 +84540,7 @@ var assistantRouter = createRouter({
       }
       return { reply: "Sorry \u2014 I got stuck in a loop. Try rephrasing.", actions, agent };
     };
-    const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 14e3);
+    const DEADLINE_MS = Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 21e3);
     let deadlineTimer;
     const deadline = new Promise((resolve4) => {
       deadlineTimer = setTimeout(() => resolve4({
@@ -85550,6 +85589,46 @@ var phoenixRouter = createRouter({
   }),
   sideSaleRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     await getDb().run(sql`DELETE FROM side_sales WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  }),
+  // ───────── Trading bot — OVERSIGHT (track + flag, not manage) ─────────
+  tradingOverview: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const uid = ctx.user.id;
+    const cfg = (await db.all(sql`SELECT * FROM trading_config WHERE userId=${uid} LIMIT 1`))[0] || null;
+    const snaps = await db.all(sql`SELECT * FROM trading_snapshots WHERE userId=${uid} ORDER BY takenAt ASC LIMIT 365`);
+    let peak = 0, current = 0, drawdownPct = 0;
+    if (snaps.length) {
+      for (const s of snaps) peak = Math.max(peak, Number(s.equity) || 0);
+      current = Number(snaps[snaps.length - 1].equity) || 0;
+      drawdownPct = peak > 0 ? Math.max(0, (peak - current) / peak * 100) : 0;
+    }
+    const start = Number(cfg?.startingCapital) || (snaps[0] ? Number(snaps[0].equity) : 0);
+    const totalReturn = start > 0 ? (current - start) / start * 100 : 0;
+    const maxDD = Number(cfg?.maxDrawdownPct) || 20;
+    return { cfg, snaps, current, peak, drawdownPct, totalReturn, start, maxDD, breach: drawdownPct > maxDD };
+  }),
+  tradingConfigSet: authedQuery.input(external_exports.object({ name: external_exports.string().max(120).optional(), strategy: external_exports.string().max(2e3).optional(), startingCapital: external_exports.number().default(0), maxDrawdownPct: external_exports.number().default(20), rules: external_exports.string().max(4e3).optional(), notes: external_exports.string().max(2e3).optional() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const uid = ctx.user.id;
+    const now = Date.now();
+    const exists2 = (await db.all(sql`SELECT userId FROM trading_config WHERE userId=${uid} LIMIT 1`))[0];
+    if (exists2) {
+      await db.run(sql`UPDATE trading_config SET name=${input.name ?? null}, strategy=${input.strategy ?? null}, startingCapital=${input.startingCapital}, maxDrawdownPct=${input.maxDrawdownPct}, rules=${input.rules ?? null}, notes=${input.notes ?? null}, updatedAt=${now} WHERE userId=${uid}`);
+    } else {
+      await db.run(sql`INSERT INTO trading_config (userId, name, strategy, startingCapital, maxDrawdownPct, rules, notes, updatedAt)
+          VALUES (${uid}, ${input.name ?? null}, ${input.strategy ?? null}, ${input.startingCapital}, ${input.maxDrawdownPct}, ${input.rules ?? null}, ${input.notes ?? null}, ${now})`);
+    }
+    return { ok: true };
+  }),
+  tradingSnapshotAdd: authedQuery.input(external_exports.object({ equity: external_exports.number(), pnl: external_exports.number().optional(), note: external_exports.string().max(500).optional() })).mutation(async ({ ctx, input }) => {
+    const now = Date.now();
+    await getDb().run(sql`INSERT INTO trading_snapshots (userId, equity, pnl, note, takenAt, createdAt)
+        VALUES (${ctx.user.id}, ${input.equity}, ${input.pnl ?? null}, ${input.note ?? null}, ${now}, ${now})`);
+    return { ok: true };
+  }),
+  tradingSnapshotRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM trading_snapshots WHERE id=${input.id} AND userId=${ctx.user.id}`);
     return { ok: true };
   })
 });
@@ -87133,7 +87212,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.152";
+var BUILD_TAG = "2026-06-26.153";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
