@@ -3,6 +3,7 @@ import { createRouter, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { connectedAccounts, connectorStatements, connectorSyncLogs, clients } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { encryptSecret, decryptSecret } from "./qbo-oauth";
 
 /**
  * PER-CLIENT CONNECTOR ROUTER
@@ -590,8 +591,8 @@ export const connectorRouter = createRouter({
           .update(connectedAccounts)
           .set({
             accountLabel,
-            accessToken: apiKey,
-            refreshToken: apiSecret || null,
+            accessToken: encryptSecret(apiKey),         // encrypted at rest (AES-256-GCM)
+            refreshToken: encryptSecret(apiSecret),     // null when absent
             accountEmail: accountEmail || null,
             scopes: scopes || null,
             isActive: true,
@@ -610,8 +611,8 @@ export const connectorRouter = createRouter({
           providerAccountId: accountEmail || `${provider}_${clientId}`,
           accountLabel,
           accountEmail: accountEmail || null,
-          accessToken: apiKey,
-          refreshToken: apiSecret || null,
+          accessToken: encryptSecret(apiKey),         // encrypted at rest (AES-256-GCM)
+          refreshToken: encryptSecret(apiSecret),     // null when absent
           scopes: scopes || null,
           isActive: true,
         })
@@ -638,8 +639,8 @@ export const connectorRouter = createRouter({
 
       const updateData: Record<string, unknown> = {};
       if (data.accountLabel !== undefined) updateData.accountLabel = data.accountLabel;
-      if (data.apiKey !== undefined) updateData.accessToken = data.apiKey;
-      if (data.apiSecret !== undefined) updateData.refreshToken = data.apiSecret;
+      if (data.apiKey !== undefined) updateData.accessToken = encryptSecret(data.apiKey);
+      if (data.apiSecret !== undefined) updateData.refreshToken = encryptSecret(data.apiSecret);
       if (data.accountEmail !== undefined) updateData.accountEmail = data.accountEmail;
       if (data.isActive !== undefined) updateData.isActive = data.isActive;
       updateData.updatedAt = new Date();
@@ -761,7 +762,7 @@ export const connectorRouter = createRouter({
         // Run sync
         const result = await syncProviderData({
           provider,
-          apiKey: conn.accessToken,
+          apiKey: decryptSecret(conn.accessToken) || "",   // decrypt at point of use (legacy plaintext passes through)
           clientId: conn.clientId,
           userId: ctx.user.id,
           periodStart,

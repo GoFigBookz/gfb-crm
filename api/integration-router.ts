@@ -3,6 +3,12 @@ import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { connectedAccounts } from "../db/schema";
 import { eq, and, or, desc } from "drizzle-orm";
+import { encryptSecret } from "./qbo-oauth";
+
+// API-KEY connectors store a long-lived secret we should encrypt at rest. OAuth
+// providers (google/microsoft/dropbox/quickbooks) keep short-lived tokens read by
+// their own sync/refresh code as plaintext — leave those untouched here.
+const API_KEY_PROVIDERS = new Set(["wise", "stripe", "paypal", "touchbistro", "jobber"]);
 
 export const integrationRouter = createRouter({
   // List connected accounts. Google/Microsoft are FIRM-WIDE (one shared login for
@@ -68,11 +74,13 @@ export const integrationRouter = createRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
-      const [account] = await db.insert(connectedAccounts).values({
-        ...input,
-        userId: ctx.user.id,
-        isActive: true,
-      }).returning();
+      // Encrypt the stored secret for API-key connectors (consumed via decryptSecret).
+      const values: Record<string, unknown> = { ...input, userId: ctx.user.id, isActive: true };
+      if (API_KEY_PROVIDERS.has(input.provider)) {
+        if (input.accessToken) values.accessToken = encryptSecret(input.accessToken);
+        if (input.refreshToken) values.refreshToken = encryptSecret(input.refreshToken);
+      }
+      const [account] = await db.insert(connectedAccounts).values(values as any).returning();
       return account;
     }),
 
