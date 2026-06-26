@@ -46622,7 +46622,6 @@ function buildRecharge(input) {
   const errors = [];
   if (lines2.length === 0) errors.push("No expense lines to recharge.");
   if (lines2.some((l) => l.amount < 0)) errors.push("One or more expense lines are negative \u2014 review before recharging.");
-  if (!input.zeroOut && !input.revenueAccount) errors.push("Missing payer-side revenue account.");
   if (!input.expenseAccount) errors.push("Missing counterparty-side expense account.");
   if (round26(invoice.total) !== round26(bill.total)) errors.push("Invoice total does not equal mirror-bill total.");
   return {
@@ -90012,7 +90011,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.193";
+var BUILD_TAG = "2026-06-26.194";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
