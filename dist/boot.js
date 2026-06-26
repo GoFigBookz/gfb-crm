@@ -61982,6 +61982,38 @@ var init_ensure_launchpad_schema = __esm({
   }
 });
 
+// api/ensure-subscriptions-schema.ts
+var ensure_subscriptions_schema_exports = {};
+__export(ensure_subscriptions_schema_exports, {
+  ensureSubscriptionsSchema: () => ensureSubscriptionsSchema
+});
+async function ensureSubscriptionsSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS firm_subscriptions (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      clientId integer,
+      label text NOT NULL,
+      provider text NOT NULL DEFAULT 'QuickBooks',
+      tier text,
+      monthlyCost real NOT NULL DEFAULT 0,
+      monthlyBilled real NOT NULL DEFAULT 0,
+      notes text,
+      active integer NOT NULL DEFAULT 1,
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[subscriptions] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_subscriptions_schema = __esm({
+  "api/ensure-subscriptions-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/seed-phoenix-personal.ts
 var seed_phoenix_personal_exports = {};
 __export(seed_phoenix_personal_exports, {
@@ -84004,6 +84036,51 @@ var hstAuditRouter = createRouter({
   })
 });
 
+// api/subscriptions-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_drizzle_orm();
+var subscriptionsRouter = createRouter({
+  list: authedQuery.query(async () => {
+    const db = getDb();
+    const rows = await db.all(sql`
+      SELECT s.*, c.company AS clientCompany, c.name AS clientName
+      FROM firm_subscriptions s LEFT JOIN clients c ON c.id = s.clientId
+      WHERE s.active = 1 ORDER BY COALESCE(c.company, c.name, s.label)`);
+    let cost = 0, billed = 0;
+    for (const r of rows) {
+      cost += Number(r.monthlyCost) || 0;
+      billed += Number(r.monthlyBilled) || 0;
+    }
+    return { rows, totals: { monthlyCost: cost, monthlyBilled: billed, monthlyMargin: billed - cost, annualMargin: (billed - cost) * 12 } };
+  }),
+  upsert: authedQuery.input(external_exports.object({
+    id: external_exports.number().optional(),
+    clientId: external_exports.number().nullable().optional(),
+    label: external_exports.string().min(1).max(160),
+    provider: external_exports.string().max(60).default("QuickBooks"),
+    tier: external_exports.string().max(60).optional(),
+    monthlyCost: external_exports.number().default(0),
+    monthlyBilled: external_exports.number().default(0),
+    notes: external_exports.string().max(1e3).optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const now = Date.now();
+    if (input.id) {
+      await db.run(sql`UPDATE firm_subscriptions SET clientId=${input.clientId ?? null}, label=${input.label}, provider=${input.provider}, tier=${input.tier ?? null}, monthlyCost=${input.monthlyCost}, monthlyBilled=${input.monthlyBilled}, notes=${input.notes ?? null}, updatedAt=${now} WHERE id=${input.id}`);
+      return { ok: true, id: input.id };
+    }
+    await db.run(sql`INSERT INTO firm_subscriptions (clientId, label, provider, tier, monthlyCost, monthlyBilled, notes, createdAt, updatedAt)
+        VALUES (${input.clientId ?? null}, ${input.label}, ${input.provider}, ${input.tier ?? null}, ${input.monthlyCost}, ${input.monthlyBilled}, ${input.notes ?? null}, ${now}, ${now})`);
+    return { ok: true };
+  }),
+  remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    await getDb().run(sql`UPDATE firm_subscriptions SET active=0 WHERE id=${input.id}`);
+    return { ok: true };
+  })
+});
+
 // api/life-router.ts
 init_zod();
 init_middleware();
@@ -85465,6 +85542,7 @@ var appRouter = createRouter({
   brain: brainRouter,
   launchpad: launchpadRouter,
   hstAudit: hstAuditRouter,
+  subscriptions: subscriptionsRouter,
   life: lifeRouter,
   learning: learningRouter,
   chat: chatRouter,
@@ -85752,7 +85830,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.135";
+var BUILD_TAG = "2026-06-26.136";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -86170,6 +86248,8 @@ app.get("/api/phoenix/seed", async (c) => {
       await seedBrain2();
       const { ensureLaunchpadSchema: ensureLaunchpadSchema2 } = await Promise.resolve().then(() => (init_ensure_launchpad_schema(), ensure_launchpad_schema_exports));
       await ensureLaunchpadSchema2();
+      const { ensureSubscriptionsSchema: ensureSubscriptionsSchema2 } = await Promise.resolve().then(() => (init_ensure_subscriptions_schema(), ensure_subscriptions_schema_exports));
+      await ensureSubscriptionsSchema2();
     } catch (e) {
       console.error("[brain] schema/seed failed (continuing):", e instanceof Error ? e.message : e);
     }
