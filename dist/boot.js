@@ -46942,7 +46942,7 @@ function normalizeDoc(e, type2) {
 }
 async function pullHstAccountBalance(conn) {
   const accts = arr2(await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`), "Account");
-  const hst = accts.filter((a) => /hst|gst|sales tax/i.test(a.Name || "") && !/expense|income/i.test(a.AccountType || "")).map((a) => ({ name: a.Name, balance: num2(a.CurrentBalance), type: a.AccountType }));
+  const hst = accts.filter((a) => /hst|gst|sales tax|tax suspense|hst suspense|gst suspense|suspense/i.test(a.Name || "") && /liabilit|asset|payable|receivable/i.test(`${a.AccountType || ""} ${a.AccountSubType || ""}`) && !/expense|income/i.test(a.AccountType || "")).map((a) => ({ name: a.Name, balance: num2(a.CurrentBalance), type: a.AccountType }));
   const net = hst.reduce((s, a) => s + a.balance, 0);
   return { accounts: hst, net: Math.round((net + Number.EPSILON) * 100) / 100 };
 }
@@ -90035,7 +90035,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.195";
+var BUILD_TAG = "2026-06-26.196";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

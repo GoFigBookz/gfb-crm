@@ -206,6 +206,9 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
                 <div className="rounded-md border border-emerald-300 bg-emerald-50 p-2 text-xs text-emerald-900">
                   <div className="font-semibold flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> HST ties out — this recharge clears the HST account to $0.</div>
                   <div className="text-emerald-700">HST account {money((r as any).hstTie.hstAccountBalance)} · recharge HST {money((r as any).hstTie.rechargeHst)} · variance {money((r as any).hstTie.variance)}.</div>
+                  {Array.isArray((r as any).hstTie.accounts) && (r as any).hstTie.accounts.length > 0 && (
+                    <div className="text-emerald-700/80 mt-0.5">Totaled: {(r as any).hstTie.accounts.map((a: any) => `${a.name} ${money(a.balance)}`).join(" · ")}</div>
+                  )}
                 </div>
               ) : (
                 <div className="rounded-md border border-red-300 bg-red-50 p-2 text-xs text-red-900 space-y-1">

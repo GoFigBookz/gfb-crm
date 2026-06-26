@@ -62,8 +62,10 @@ function normalizeDoc(e: any, type: "invoice" | "bill") {
  *  must charge exactly this much output HST so the account nets to $0 on posting. */
 async function pullHstAccountBalance(conn: any): Promise<{ accounts: { name: string; balance: number; type: string }[]; net: number }> {
   const accts = arr(await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`), "Account");
+  // Include HST/GST payable + recoverable AND the HST SUSPENSE account (Markie: total
+  // the suspense too — QBO parks the net there on filing). Skip P&L (expense/income).
   const hst = accts
-    .filter((a: any) => /hst|gst|sales tax/i.test(a.Name || "") && !/expense|income/i.test(a.AccountType || ""))
+    .filter((a: any) => /hst|gst|sales tax|tax suspense|hst suspense|gst suspense|suspense/i.test(a.Name || "") && /liabilit|asset|payable|receivable/i.test(`${a.AccountType || ""} ${a.AccountSubType || ""}`) && !/expense|income/i.test(a.AccountType || ""))
     .map((a: any) => ({ name: a.Name, balance: num(a.CurrentBalance), type: a.AccountType }));
   const net = hst.reduce((s: number, a: any) => s + a.balance, 0);
   return { accounts: hst, net: Math.round((net + Number.EPSILON) * 100) / 100 };
