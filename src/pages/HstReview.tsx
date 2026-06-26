@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { trpc } from "@/providers/trpc";
+import BackButton from "@/components/BackButton";
 
 /**
  * PRE-HST REVIEW — read-only data-accuracy sweep before filing.
@@ -31,6 +32,7 @@ export default function HstReview() {
 
   return (
     <div className="space-y-4 max-w-4xl">
+      <BackButton />
       <div className="flex items-center gap-2">
         <ClipboardCheck className="h-6 w-6 text-indigo-600" />
         <div>

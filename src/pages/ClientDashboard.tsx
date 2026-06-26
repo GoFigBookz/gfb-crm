@@ -269,10 +269,6 @@ export default function ClientDashboard() {
               {activateClient.isPending ? "Reactivating…" : "Reactivate"}
             </Button>
           )}
-          <Button size="sm" variant="outline" className="border-amber-300 text-amber-700"
-            onClick={() => setMergeOpen(true)} title="Merge a duplicate client into this one (this record is kept)">
-            <Users className="h-3.5 w-3.5 mr-1" /> Merge duplicate
-          </Button>
           <Button size="sm" variant="outline" className="border-red-300 text-red-600"
             onClick={() => { if (confirm(`PERMANENTLY DELETE ${client.name} and all its data? This cannot be undone.`)) deleteClient.mutate({ id }); }}>
             Delete
