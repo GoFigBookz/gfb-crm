@@ -577,6 +577,10 @@ export default function BankConverter() {
   const totalDebits = parsedFile?.transactions.reduce((s, t) => s + (t.amount < 0 ? Math.abs(t.amount) : 0), 0) || 0;
   const totalCredits = parsedFile?.transactions.reduce((s, t) => s + (t.amount > 0 ? t.amount : 0), 0) || 0;
   const net = totalCredits - totalDebits;
+  // Item counts — what reconciliation wants alongside the totals (e.g. TD statements
+  // that don't print a "total withdrawals / total deposits" summary line).
+  const debitCount = parsedFile?.transactions.filter((t) => t.amount < 0).length || 0;
+  const creditCount = parsedFile?.transactions.filter((t) => t.amount > 0).length || 0;
 
   return (
     <div className="space-y-6">
@@ -655,14 +659,16 @@ export default function BankConverter() {
             </Card>
             <Card className="bg-red-50 border-red-200">
               <CardContent className="p-4">
-                <p className="text-xs text-red-600">Total Debits</p>
+                <p className="text-xs text-red-600">Total Debits (withdrawals/cheques)</p>
                 <p className="text-lg font-bold text-red-700">${totalDebits.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                <p className="text-[11px] text-red-500">{debitCount} item{debitCount === 1 ? "" : "s"}</p>
               </CardContent>
             </Card>
             <Card className="bg-emerald-50 border-emerald-200">
               <CardContent className="p-4">
-                <p className="text-xs text-emerald-600">Total Credits</p>
+                <p className="text-xs text-emerald-600">Total Credits (deposits)</p>
                 <p className="text-lg font-bold text-emerald-700">${totalCredits.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                <p className="text-[11px] text-emerald-500">{creditCount} item{creditCount === 1 ? "" : "s"}</p>
               </CardContent>
             </Card>
             <Card className={net >= 0 ? "bg-lime-50 border-lime-200" : "bg-amber-50 border-amber-200"}>
