@@ -8,8 +8,17 @@
 import { z } from "zod";
 import { createRouter, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { monthlyCloseChecklist, clients } from "../db/schema";
+import { monthlyCloseChecklist, clients, appSettings, users } from "../db/schema";
 import { eq, and } from "drizzle-orm";
+
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** 1-based month number for a client's fiscal year-end; default December (12). */
+function yearEndMonthNum(client: any): number {
+  const i = MONTH_ABBR.indexOf(String(client?.yearEndMonth || ""));
+  if (i >= 0) return i + 1;
+  const fy = Number(client?.fiscalYearEndMonth);
+  return Number.isFinite(fy) && fy >= 1 && fy <= 12 ? fy : 12;
+}
 
 type Need = "payroll" | "hst" | "creditCard";
 const CHECKLIST_ITEMS: { field: string; label: string; needs?: Need }[] = [
@@ -48,6 +57,61 @@ export function applicableItems(client: any): typeof CHECKLIST_ITEMS {
 async function loadClient(clientId: number) {
   const rows = await getDb().select().from(clients).where(eq(clients.id, clientId)).limit(1);
   return rows[0] || {};
+}
+
+/**
+ * Mark the month-end close 100% COMPLETE for every relevant client for all months
+ * of `year` up to and INCLUDING that client's fiscal year-end month — because once a
+ * client's year-end is filed, every month in that closed fiscal year is done. Used
+ * both by the UI button and the one-time boot seed. Idempotent (re-running just
+ * re-affirms 100%). Skips wholesale/inactive clients (never on the close board).
+ * Returns the number of (client, month) rows marked.
+ */
+export async function markFiscalYearClosedForAll(userId: number, year: number): Promise<{ clients: number; periods: number }> {
+  const db = getDb();
+  const all = await db.select().from(clients);
+  const eligible = all.filter((c: any) => c.status !== "inactive" && c.clientType !== "wholesale");
+  let periods = 0;
+  for (const client of eligible) {
+    const items = applicableItems(client);
+    const lastMonth = yearEndMonthNum(client);
+    for (let month = 1; month <= lastMonth; month++) {
+      const setData: Record<string, any> = { completionPercent: 100, completedAt: new Date() };
+      for (const it of items) setData[it.field] = 1;
+      const existing = await db.select().from(monthlyCloseChecklist)
+        .where(and(eq(monthlyCloseChecklist.clientId, client.id), eq(monthlyCloseChecklist.year, year), eq(monthlyCloseChecklist.month, month)))
+        .limit(1);
+      if (existing[0]) {
+        await db.update(monthlyCloseChecklist).set(setData).where(eq(monthlyCloseChecklist.id, (existing[0] as any).id));
+      } else {
+        await db.insert(monthlyCloseChecklist).values({ clientId: client.id, userId, year, month, ...setData } as any);
+      }
+      periods++;
+    }
+  }
+  return { clients: eligible.length, periods };
+}
+
+/** One-time boot seed: mark FY2025 closed for everyone (guarded so it runs once and
+ *  never clobbers a manual change after the first deploy). */
+export async function seedClose2025Complete(): Promise<void> {
+  const db = getDb();
+  try {
+    const KEY = "close_seed_fy2025_done";
+    const flag = await db.select().from(appSettings).where(eq(appSettings.key, KEY)).limit(1);
+    if (flag[0]?.value === "1") return;
+    const owner = await db.select().from(clients).limit(1); // any row proves DB is up
+    if (!owner.length) return;
+    // userId for any inserted rows — first admin, else first user, else 1.
+    const admins = await db.select().from(users).where(eq(users.role, "admin")).limit(1);
+    let uid = (admins[0] as any)?.id as number | undefined;
+    if (!uid) { const anyUser = await db.select().from(users).limit(1); uid = (anyUser[0] as any)?.id ?? 1; }
+    const res = await markFiscalYearClosedForAll(uid!, 2025);
+    await db.insert(appSettings).values({ key: KEY, value: "1" } as any).onConflictDoUpdate({ target: appSettings.key, set: { value: "1" } });
+    console.log(`[close-seed] FY2025 marked closed: ${res.clients} clients, ${res.periods} periods.`);
+  } catch (e) {
+    console.error("[close-seed] seedClose2025Complete failed:", e instanceof Error ? e.message : e);
+  }
 }
 
 export const monthlyCloseRouter = createRouter({
@@ -120,6 +184,15 @@ export const monthlyCloseRouter = createRouter({
       updateData.completedAt = input.done ? new Date() : null;
       await db.update(monthlyCloseChecklist).set(updateData).where(eq(monthlyCloseChecklist.id, input.id));
       return { success: true, completionPercent: updateData.completionPercent };
+    }),
+
+  /** Mark a whole fiscal year's closes COMPLETE for every relevant client, up to each
+   *  client's year-end month (their year-ends are filed → those months are done). */
+  markFiscalYearClosed: staffQuery
+    .input(z.object({ year: z.number().int().min(2000).max(2100) }))
+    .mutation(async ({ ctx, input }) => {
+      const res = await markFiscalYearClosedForAll(ctx.user.id, input.year);
+      return { success: true, ...res };
     }),
 
   /** Toggle whether a client has credit cards (drives the credit-card step). */

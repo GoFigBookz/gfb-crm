@@ -16,6 +16,7 @@ const TEXT: Record<string, string> = { red: "text-red-600", yellow: "text-amber-
  */
 export default function MonthEndClose() {
   const { data, isLoading } = trpc.monthEnd.getPortfolio.useQuery({});
+  const utils = trpc.useUtils();
   // Default to the clients that are actually in their close window this month —
   // monthly/payroll always, quarterly/annual only in their period. Toggle to
   // see everyone (e.g. to peek at an annual client mid-year). Wholesale
@@ -23,11 +24,34 @@ export default function MonthEndClose() {
   const [showAll, setShowAll] = useState(false);
   const rows = (data?.clients ?? []).filter((c: any) => showAll || c.relevantThisPeriod);
 
+  // Mark a filed fiscal year's monthly closes complete for everyone (up to each
+  // client's year-end month). Year-ends are closed → those months are done.
+  const [fyYear, setFyYear] = useState(2025);
+  const markFy = trpc.monthlyClose.markFiscalYearClosed.useMutation({
+    onSuccess: (r) => { utils.monthEnd.getPortfolio.invalidate(); alert(`Marked ${fyYear} closed for ${r.clients} clients (${r.periods} monthly closes).`); },
+    onError: (e) => alert(e.message),
+  });
+  const runMarkFy = () => {
+    if (!confirm(`Mark every client's ${fyYear} month-end closes complete, up to each client's year-end month? (Their year-ends are filed/closed.)`)) return;
+    markFy.mutate({ year: fyYear });
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Month-End Close</h1>
-        <p className="text-slate-500 mt-1">Where every client stands — who needs attention first.</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Month-End Close</h1>
+          <p className="text-slate-500 mt-1">Where every client stands — who needs attention first.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select className="border rounded px-2 py-1.5 text-sm bg-white" value={fyYear} onChange={(e) => setFyYear(Number(e.target.value))}>
+            {[2023, 2024, 2025].map((y) => <option key={y} value={y}>FY {y}</option>)}
+          </select>
+          <button onClick={runMarkFy} disabled={markFy.isPending}
+            className="text-sm font-medium px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">
+            {markFy.isPending ? "Marking…" : `Mark FY ${fyYear} year-ends closed`}
+          </button>
+        </div>
       </div>
 
       {/* Summary tiles */}
