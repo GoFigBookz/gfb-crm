@@ -84092,7 +84092,8 @@ init_qbo_router();
 async function findFirmConnection() {
   const db = getDb();
   const rows = await db.all(sql`SELECT * FROM qbo_connections WHERE isActive = 1 AND (
-      lower(companyName) LIKE '%go fig%' OR lower(companyName) LIKE '%gofig%')`);
+      lower(companyName) LIKE '%go fig%' OR lower(companyName) LIKE '%gofig%')
+      ORDER BY (lower(companyName) LIKE '%usa%') ASC`);
   return rows[0] || null;
 }
 function isoMonthsAgo(months) {
@@ -85898,7 +85899,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.137";
+var BUILD_TAG = "2026-06-26.138";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

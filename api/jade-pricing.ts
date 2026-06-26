@@ -19,8 +19,10 @@ import { qboRequest } from "./qbo-router";
 /** Find the firm's own QBO connection (GoFig Bookz Inc.). */
 export async function findFirmConnection(): Promise<any | null> {
   const db = getDb();
+  // Prefer the Canadian firm entity ("Go Fig Bookz Inc.") over "Go Fig Bookz USA".
   const rows = (await db.all(sql`SELECT * FROM qbo_connections WHERE isActive = 1 AND (
-      lower(companyName) LIKE '%go fig%' OR lower(companyName) LIKE '%gofig%')`)) as any[];
+      lower(companyName) LIKE '%go fig%' OR lower(companyName) LIKE '%gofig%')
+      ORDER BY (lower(companyName) LIKE '%usa%') ASC`)) as any[];
   return rows[0] || null;
 }
 
