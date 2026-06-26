@@ -63111,6 +63111,56 @@ var init_seed_strategy_session = __esm({
   }
 });
 
+// api/seed-rose-reselling.ts
+var seed_rose_reselling_exports = {};
+__export(seed_rose_reselling_exports, {
+  seedRoseReselling: () => seedRoseReselling
+});
+async function seedRoseReselling() {
+  const db = getDb();
+  try {
+    const owner = await db.all(sql`SELECT id FROM users WHERE role='admin' ORDER BY id ASC LIMIT 1`);
+    const fb = owner[0] ? owner : await db.all(sql`SELECT id FROM users ORDER BY id ASC LIMIT 1`);
+    const uid = fb[0]?.id;
+    if (!uid) return;
+    const have = await db.all(sql`SELECT id FROM brain_records WHERE scopeKind='personal' AND userId=${uid} AND label=${SENTINEL2} LIMIT 1`);
+    if (have.length) return;
+    for (const r of RECORDS2) {
+      await addTruth({ scope: { kind: "personal" }, userId: uid, layer: "memory", label: r.label, statement: r.statement, category: r.category, sourceLabels: [SOURCE2] });
+    }
+    console.log(`[rose] seeded ${RECORDS2.length} reselling records for Skye (user ${uid})`);
+  } catch (e) {
+    console.error("[rose] seedRoseReselling failed:", e instanceof Error ? e.message : e);
+  }
+}
+var SENTINEL2, SOURCE2, RECORDS2;
+var init_seed_rose_reselling = __esm({
+  "api/seed-rose-reselling.ts"() {
+    init_connection();
+    init_drizzle_orm();
+    init_brain_store();
+    SENTINEL2 = "Rose reselling \u2014 strategy & channel rules (Skye)";
+    SOURCE2 = "Skye \u2014 Rose Reselling Package & Process v1 (Drive, Rose sales folder)";
+    RECORDS2 = [
+      {
+        label: SENTINEL2,
+        category: "side-sales",
+        statement: "ROSE RESELL (Skye, personal/discreet): clear ~150 units of the Rose sexual-wellness product, floor $25/unit. This is a CLEAR-OUT, not a brand build. Strategy = tiered, run in parallel: TIER 1 wholesale/liquidate the lot to a local adult boutique/reseller ($15\u201318/unit, fastest cash); TIER 2 direct discreet sales via a simple landing page + Interac e-Transfer + discreet shipping ($30\u201340/unit, best margin); TIER 3 consignment + word-of-mouth/party-plan to mop up. Pricing: single $34.99, 2-pack $59, bundle $44+. Frame as wellness/self-care, never explicit; adults 18+; all sales final (hygiene)."
+      },
+      {
+        label: "Rose reselling \u2014 channel & payment HARD RULES",
+        category: "side-sales",
+        statement: "DO NOT list the Rose on Facebook Marketplace, Kijiji, Amazon, eBay or Etsy \u2014 all prohibit/restrict adult/sexual-wellness items and will pull listings or ban the account. DO NOT take payment via PayPal, Stripe, Square or Shopify Payments \u2014 all prohibit adult products (risk a frozen account). COMPLIANT instead: Interac e-Transfer for direct Canadian sales (no processor, no platform to ban you \u2014 cleanest for clearing volume); an adult-friendly high-risk processor only if a real store is needed (3.5\u20135.5% \u2014 usually overkill for $3,750 of stock); wholesale/consignment to a bricks-and-mortar adult shop (they hold the merchant account). Reach via adult-friendly channels only \u2014 mainstream IG/TikTok/FB ads reject sexual-wellness creative."
+      },
+      {
+        label: "Rose reselling \u2014 Skye's process & what she needs",
+        category: "side-sales",
+        statement: "SKYE'S CADENCE: Mon pick the week's channel focus by what moved last week; draft 3 caption/listing variants + 1 boutique outreach (Markie approves before posting/sending \u2014 review gate); log every sale in Side Sales (Phoenix Rising); Fri report units sold, $/unit, sell-through %, what's working, next-week rec; flag price drops to keep velocity. SUCCESS = cleared, not engagement (track units remaining from 150, blended $/unit \u2265$22, days-to-clear, cash collected). NEEDS FROM MARKIE: product photos in the Rose sales folder; the e-Transfer email (or 'yes' to a landing page); pick opening play (wholesale fast / direct margin / both). Full package: Drive 'Skye \u2014 Rose Reselling Package & Process (v1)'."
+      }
+    ];
+  }
+});
+
 // api/ensure-genealogy-schema.ts
 var ensure_genealogy_schema_exports = {};
 __export(ensure_genealogy_schema_exports, {
@@ -63520,8 +63570,8 @@ async function seedPhoenixPersonal() {
     if (!us.length) return { seeded: false };
     const owner = us.find((u) => /markie@gofig\.ca|markie\.antle@gmail/i.test(u.email || "")) || us.filter((u) => u.role === "admin").sort((a, b) => a.id - b.id)[0] || us[0];
     const existing = await db.select().from(lifeEntries).where(eq(lifeEntries.userId, owner.id));
-    if (existing.some((e) => safeMeta2(e.meta).seed === SENTINEL2)) return { seeded: false };
-    const meta3 = JSON.stringify({ seed: SENTINEL2 });
+    if (existing.some((e) => safeMeta2(e.meta).seed === SENTINEL3)) return { seeded: false };
+    const meta3 = JSON.stringify({ seed: SENTINEL3 });
     for (const e of ENTRIES) {
       await db.insert(lifeEntries).values({
         userId: owner.id,
@@ -63542,13 +63592,13 @@ async function seedPhoenixPersonal() {
     console.error("[phoenix-personal] failed:", err instanceof Error ? err.message : err);
   }
 }
-var SENTINEL2, drive, safeMeta2, ENTRIES;
+var SENTINEL3, drive, safeMeta2, ENTRIES;
 var init_seed_phoenix_personal = __esm({
   "api/seed-phoenix-personal.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    SENTINEL2 = "phoenix-personal";
+    SENTINEL3 = "phoenix-personal";
     drive = (id) => `https://drive.google.com/file/d/${id}/view`;
     safeMeta2 = (s) => {
       try {
@@ -63638,8 +63688,8 @@ async function seedPhoenixPersonalV2() {
     if (!us.length) return { seeded: false };
     const owner = us.find((u) => /markie@gofig\.ca|markie\.antle@gmail/i.test(u.email || "")) || us.filter((u) => u.role === "admin").sort((a, b) => a.id - b.id)[0] || us[0];
     const existing = await db.select().from(lifeEntries).where(eq(lifeEntries.userId, owner.id));
-    if (existing.some((e) => safeMeta3(e.meta).seed === SENTINEL3)) return { seeded: false };
-    const meta3 = JSON.stringify({ seed: SENTINEL3 });
+    if (existing.some((e) => safeMeta3(e.meta).seed === SENTINEL4)) return { seeded: false };
+    const meta3 = JSON.stringify({ seed: SENTINEL4 });
     for (const e of ENTRIES2) {
       await db.insert(lifeEntries).values({
         userId: owner.id,
@@ -63660,13 +63710,13 @@ async function seedPhoenixPersonalV2() {
     console.error("[phoenix-personal-v2] failed:", err instanceof Error ? err.message : err);
   }
 }
-var SENTINEL3, drive2, safeMeta3, ENTRIES2;
+var SENTINEL4, drive2, safeMeta3, ENTRIES2;
 var init_seed_phoenix_personal_v2 = __esm({
   "api/seed-phoenix-personal-v2.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    SENTINEL3 = "phoenix-personal-v2";
+    SENTINEL4 = "phoenix-personal-v2";
     drive2 = (id) => `https://drive.google.com/file/d/${id}/view`;
     safeMeta3 = (s) => {
       try {
@@ -88525,7 +88575,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.163";
+var BUILD_TAG = "2026-06-26.164";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -88956,6 +89006,8 @@ app.get("/api/phoenix/seed", async (c) => {
       await seedHeritageLineage2();
       const { seedStrategySession: seedStrategySession2 } = await Promise.resolve().then(() => (init_seed_strategy_session(), seed_strategy_session_exports));
       await seedStrategySession2();
+      const { seedRoseReselling: seedRoseReselling2 } = await Promise.resolve().then(() => (init_seed_rose_reselling(), seed_rose_reselling_exports));
+      await seedRoseReselling2();
       const { ensureGenealogySchema: ensureGenealogySchema2 } = await Promise.resolve().then(() => (init_ensure_genealogy_schema(), ensure_genealogy_schema_exports));
       await ensureGenealogySchema2();
       const { backfillGenealogyFields: backfillGenealogyFields2 } = await Promise.resolve().then(() => (init_genealogy_scan(), genealogy_scan_exports));
