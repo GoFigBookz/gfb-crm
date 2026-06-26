@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookMarked, Plus, Trash2, Check, RotateCcw, Lightbulb, Gavel, Sparkles, FlaskConical, Workflow, Users, Wand2, GraduationCap } from "lucide-react";
+import { BookMarked, Plus, Trash2, Check, RotateCcw, Lightbulb, Gavel, Sparkles, FlaskConical, Workflow, Users, Wand2, GraduationCap, FileUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,9 +34,11 @@ export default function Registers() {
   const remove = trpc.registers.remove.useMutation({ onSuccess: () => { list.refetch(); counts.refetch(); } });
 
   const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [title, setTitle] = useState(""); const [body, setBody] = useState(""); const [tags, setTags] = useState("");
   const [reason, setReason] = useState(""); const [alternatives, setAlternatives] = useState(""); const [outcome, setOutcome] = useState("Approved");
   const reset = () => { setShowAdd(false); setTitle(""); setBody(""); setTags(""); setReason(""); setAlternatives(""); setOutcome("Approved"); };
+  const afterImport = () => { setShowImport(false); list.refetch(); counts.refetch(); };
 
   const rows = list.data?.rows || [];
   const isDecision = kind === "decision";
@@ -49,8 +51,13 @@ export default function Registers() {
           <h1 className="text-2xl font-bold text-slate-900">Registers</h1>
           <p className="text-sm text-slate-500">Everything becomes a numbered, reusable asset — decisions, research, systems, client processes, ideas, lessons.</p>
         </div>
-        <Button className="ml-auto" size="sm" onClick={() => setShowAdd((v) => !v)}><Plus className="h-4 w-4 mr-1" /> Add</Button>
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button size="sm" variant="outline" onClick={() => setShowImport((v) => !v)}><FileUp className="h-4 w-4 mr-1" /> Import session</Button>
+          <Button size="sm" onClick={() => setShowAdd((v) => !v)}><Plus className="h-4 w-4 mr-1" /> Add</Button>
+        </div>
       </div>
+
+      {showImport && <ImportSession onDone={afterImport} />}
 
       <div className="flex flex-wrap gap-1.5">
         {TABS.map((t) => {
@@ -121,5 +128,45 @@ export default function Registers() {
         ))}
       </div>
     </div>
+  );
+}
+
+/** Paste a "Session Close Package" → preview the numbered assets → import them. */
+function ImportSession({ onDone }: { onDone: () => void }) {
+  const [text, setText] = useState("");
+  const [previewOn, setPreviewOn] = useState(false);
+  const preview = trpc.registers.importSessionPreview.useQuery({ text }, { enabled: previewOn && text.trim().length > 20 });
+  const commit = trpc.registers.importSessionCommit.useMutation({ onSuccess: () => { onDone(); } });
+  const p = preview.data;
+
+  return (
+    <Card className="border-sky-200"><CardContent className="p-3 space-y-2">
+      <div className="text-sm font-semibold text-slate-700 flex items-center gap-1.5"><FileUp className="h-4 w-4 text-sky-500" /> Import a Session Close Package</div>
+      <p className="text-xs text-slate-500">Paste a session package (e.g. from a strategy session). Figgy parses it into numbered assets — Decisions (DEC), Research (RES), Systems (SYS), Ideas (IDE) — mirrors decisions to the Brain, and files open questions. Preview first; nothing is created until you import.</p>
+      <textarea className="w-full border rounded px-2 py-2 text-sm min-h-[140px] font-mono" placeholder="Paste the full Session Close Package here…" value={text} onChange={(e) => { setText(e.target.value); setPreviewOn(false); }} />
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" disabled={text.trim().length < 20} onClick={() => setPreviewOn(true)}>Preview</Button>
+        {p && (
+          <Button size="sm" disabled={commit.isPending || p.alreadyImported || (p.items.length === 0)} onClick={() => commit.mutate({ text })}>
+            {commit.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+            Import {p.items.length} asset{p.items.length === 1 ? "" : "s"}
+          </Button>
+        )}
+        {commit.data?.ok && !commit.data.alreadyImported && <span className="text-xs text-emerald-600">✓ Imported {commit.data.created} assets ({(commit.data.codes || []).slice(0, 4).join(", ")}{(commit.data.codes || []).length > 4 ? "…" : ""}).</span>}
+      </div>
+      {p && (
+        <div className="text-xs text-slate-600 space-y-1 border-t pt-2">
+          {p.alreadyImported && <div className="text-amber-600">This session ({p.sessionId}) was already imported.</div>}
+          <div><b>{p.title}</b>{p.sessionId ? ` · ${p.sessionId}` : ""}</div>
+          {Object.keys(p.counts).length > 0 && <div>Will create: {Object.entries(p.counts).map(([k, n]) => `${n} ${k}`).join(" · ")} + 1 session record.</div>}
+          {p.items.slice(0, 8).map((it: any, i: number) => (
+            <div key={i} className="truncate"><span className="font-mono text-[10px] bg-slate-100 rounded px-1 mr-1">{it.kind}</span>{it.title}</div>
+          ))}
+          {p.items.length > 8 && <div className="text-slate-400">…and {p.items.length - 8} more.</div>}
+          {p.openQuestions.length > 0 && <div className="text-slate-500">+ {p.openQuestions.length} open question(s) filed to the Brain.</div>}
+          {p.items.length === 0 && !p.alreadyImported && <div className="text-amber-600">Couldn't find structured items — check the format or add them manually.</div>}
+        </div>
+      )}
+    </CardContent></Card>
   );
 }

@@ -10,7 +10,8 @@ import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { sql } from "drizzle-orm";
-import { addTruth } from "./brain-store";
+import { addTruth, fileQuestion } from "./brain-store";
+import { parseSessionPackage } from "./session-import-core";
 
 const KIND = z.enum(["decision", "improvement", "prompt", "research", "system", "client_process", "idea", "lesson"]);
 const PREFIX: Record<string, string> = {
@@ -96,4 +97,67 @@ export const registersRouter = createRouter({
     await getDb().run(sql`UPDATE firm_registers SET active=0 WHERE id=${input.id} AND userId=${ctx.user.id}`);
     return { ok: true };
   }),
+
+  // ───────── SESSION IMPORT ─────────
+  // Paste a "Session Close Package" → numbered register assets + Brain entries.
+  // Reuses the existing kinds/numbering; no parallel doc system.
+
+  /** Dry-run: parse the package and show exactly what WOULD be created. */
+  importSessionPreview: authedQuery
+    .input(z.object({ text: z.string().min(1).max(60000) }))
+    .query(async ({ ctx, input }) => {
+      const parsed = parseSessionPackage(input.text);
+      const counts: Record<string, number> = {};
+      for (const it of parsed.items) counts[it.kind] = (counts[it.kind] || 0) + 1;
+      let alreadyImported = false;
+      if (parsed.sessionId) {
+        const dup = (await getDb().all(sql`SELECT id FROM firm_registers WHERE userId=${ctx.user.id} AND kind='system' AND title LIKE ${`Session ${parsed.sessionId}%`} AND active=1 LIMIT 1`)) as any[];
+        alreadyImported = dup.length > 0;
+      }
+      return { ...parsed, counts, alreadyImported };
+    }),
+
+  /** Commit: create the numbered assets, mirror decisions + open questions to Brain. */
+  importSessionCommit: authedQuery
+    .input(z.object({ text: z.string().min(1).max(60000) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb(); const uid = ctx.user.id; const now = Date.now();
+      const parsed = parseSessionPackage(input.text);
+      const tag = parsed.sessionId || `session-${now}`;
+
+      // idempotent: skip if this session was already imported
+      if (parsed.sessionId) {
+        const dup = (await db.all(sql`SELECT id FROM firm_registers WHERE userId=${uid} AND kind='system' AND title LIKE ${`Session ${parsed.sessionId}%`} AND active=1 LIMIT 1`)) as any[];
+        if (dup.length) return { ok: true, alreadyImported: true, sessionId: parsed.sessionId, created: 0, codes: [] as string[] };
+      }
+
+      const codes: string[] = [];
+      // 1) a SYS record for the session itself = the master-index anchor
+      const sessCode = await nextCode(db, uid, "system");
+      await db.run(sql`INSERT INTO firm_registers (userId, kind, code, title, body, tags, status, author, createdAt, updatedAt)
+        VALUES (${uid}, 'system', ${sessCode}, ${`Session ${tag} — ${parsed.title}`.slice(0, 200)}, ${parsed.summary || null}, ${tag}, 'open', 'Session Import', ${now}, ${now})`);
+      codes.push(sessCode);
+
+      // 2) each parsed item → a numbered asset of its kind
+      for (const it of parsed.items) {
+        const code = await nextCode(db, uid, it.kind);
+        await db.run(sql`INSERT INTO firm_registers (userId, kind, code, title, body, tags, status, author, createdAt, updatedAt)
+          VALUES (${uid}, ${it.kind}, ${code}, ${it.title}, ${it.body ?? null}, ${tag}, 'open', 'Session Import', ${now}, ${now})`);
+        codes.push(code);
+        // decisions mirror to the firm Brain (so Liv can recall the "why")
+        if (it.kind === "decision") {
+          try { await addTruth({ scope: { kind: "firm" }, label: `${code} — ${it.title}`.slice(0, 120), statement: [`Decision ${code}: ${it.title}.`, it.body || ""].filter(Boolean).join(" "), category: "decision", sourceLabels: [`Session ${tag}`] }); } catch { /* best-effort */ }
+        }
+      }
+
+      // 3) open questions → filed to the Brain (firm) so they're tracked, not lost
+      let questionsFiled = 0;
+      for (const q of parsed.openQuestions) {
+        try { await fileQuestion(q, { kind: "firm" }, { askedBy: "Session Import", category: "strategy" }); questionsFiled++; } catch { /* best-effort */ }
+      }
+
+      const byKind: Record<string, number> = {};
+      for (const it of parsed.items) byKind[it.kind] = (byKind[it.kind] || 0) + 1;
+      return { ok: true, alreadyImported: false, sessionId: parsed.sessionId, created: parsed.items.length + 1, byKind, questionsFiled, codes };
+    }),
 });
