@@ -1470,14 +1470,14 @@ function toDotPath(_path) {
   return segs.join("");
 }
 function prettifyError(error48) {
-  const lines = [];
+  const lines2 = [];
   const issues = [...error48.issues].sort((a, b) => (a.path ?? []).length - (b.path ?? []).length);
   for (const issue2 of issues) {
-    lines.push(`\u2716 ${issue2.message}`);
+    lines2.push(`\u2716 ${issue2.message}`);
     if (issue2.path?.length)
-      lines.push(`  \u2192 at ${toDotPath(issue2.path)}`);
+      lines2.push(`  \u2192 at ${toDotPath(issue2.path)}`);
   }
-  return lines.join("\n");
+  return lines2.join("\n");
 }
 var initializer, $ZodError, $ZodRealError;
 var init_errors = __esm({
@@ -2343,9 +2343,9 @@ var init_doc = __esm({
           return;
         }
         const content = arg;
-        const lines = content.split("\n").filter((x) => x);
-        const minIndent = Math.min(...lines.map((x) => x.length - x.trimStart().length));
-        const dedented = lines.map((x) => x.slice(minIndent)).map((x) => " ".repeat(this.indent * 2) + x);
+        const lines2 = content.split("\n").filter((x) => x);
+        const minIndent = Math.min(...lines2.map((x) => x.length - x.trimStart().length));
+        const dedented = lines2.map((x) => x.slice(minIndent)).map((x) => " ".repeat(this.indent * 2) + x);
         for (const line of dedented) {
           this.content.push(line);
         }
@@ -2354,8 +2354,8 @@ var init_doc = __esm({
         const F2 = Function;
         const args = this?.args;
         const content = this?.content ?? [``];
-        const lines = [...content.map((x) => `  ${x}`)];
-        return new F2(...args, lines.join("\n"));
+        const lines2 = [...content.map((x) => `  ${x}`)];
+        return new F2(...args, lines2.join("\n"));
       }
     };
   }
@@ -37080,10 +37080,10 @@ var require_main = __commonJS({
     var LINE = /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/mg;
     function parse7(src) {
       const obj = {};
-      let lines = src.toString();
-      lines = lines.replace(/\r\n?/mg, "\n");
+      let lines2 = src.toString();
+      lines2 = lines2.replace(/\r\n?/mg, "\n");
       let match2;
-      while ((match2 = LINE.exec(lines)) != null) {
+      while ((match2 = LINE.exec(lines2)) != null) {
         const key10 = match2[1];
         let value = match2[2] || "";
         value = value.trim();
@@ -38797,16 +38797,16 @@ function computeHstStatus(opts) {
       reason: hasHST ? "HST registered but no filing period set" : "Not HST registered"
     };
   }
-  const period = opts.period;
+  const period2 = opts.period;
   const y = asOf.getUTCFullYear();
   const m = asOf.getUTCMonth();
   let periodEnd;
   let periodLabel;
   let dueMonthsAfter = 1;
-  if (period === "monthly") {
+  if (period2 === "monthly") {
     periodEnd = endOfMonth(y, m - 1);
     periodLabel = `${MONTHS[periodEnd.getUTCMonth()]} ${periodEnd.getUTCFullYear()}`;
-  } else if (period === "quarterly") {
+  } else if (period2 === "quarterly") {
     const qIdx = Math.floor(m / 3);
     const endIdx0 = qIdx * 3 - 1;
     periodEnd = endOfMonth(y, endIdx0);
@@ -38841,7 +38841,7 @@ function computeHstStatus(opts) {
   }
   return {
     applicable: true,
-    period,
+    period: period2,
     periodLabel,
     periodEnd: ymd(periodEnd),
     dueDate: ymd(dueDate),
@@ -43364,11 +43364,11 @@ function colIdx(header2, needles) {
   return -1;
 }
 function parseTimesheetCsv(text2) {
-  const lines = text2.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (!lines.length) return [];
-  let headerIdx = lines.findIndex((l) => /staff\s*name|employee|name/i.test(l) && /shift|hour|hrs|payable|clock/i.test(l));
+  const lines2 = text2.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (!lines2.length) return [];
+  let headerIdx = lines2.findIndex((l) => /staff\s*name|employee|name/i.test(l) && /shift|hour|hrs|payable|clock/i.test(l));
   if (headerIdx < 0) headerIdx = 0;
-  const header2 = splitCsvLine(lines[headerIdx]);
+  const header2 = splitCsvLine(lines2[headerIdx]);
   const iName = colIdx(header2, ["staff name", "employee", "name"]);
   const iType = colIdx(header2, ["staff type", "role", "type"]);
   const iShift = colIdx(header2, ["shift length"]);
@@ -43379,8 +43379,8 @@ function parseTimesheetCsv(text2) {
   });
   const iTotalReg = colIdx(header2, ["total(reg", "total reg", "reg. hrs", "regular hours"]);
   const agg = /* @__PURE__ */ new Map();
-  for (let r = headerIdx + 1; r < lines.length; r++) {
-    const cells = splitCsvLine(lines[r]);
+  for (let r = headerIdx + 1; r < lines2.length; r++) {
+    const cells = splitCsvLine(lines2[r]);
     const name2 = (iName >= 0 ? cells[iName] : cells[0] || "").trim();
     if (!name2) continue;
     const lname = name2.toLowerCase();
@@ -43832,9 +43832,9 @@ function payrollKind(name2, source) {
 }
 async function recomputeRunTotals(runId) {
   const db = getDb();
-  const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
+  const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
   let g = 0, n = 0, eded = 0, empc = 0;
-  for (const l of lines) {
+  for (const l of lines2) {
     g += l.grossPay || 0;
     n += (l.netPay || 0) + (l.phoneAllowance || 0) + (l.reimbursement || 0);
     eded += (l.cppEmployee || 0) + (l.cpp2Employee || 0) + (l.eiEmployee || 0) + (l.federalTax || 0) + (l.provincialTax || 0) + (l.otherDeductions || 0);
@@ -43887,8 +43887,8 @@ async function applyImportedHours(db, runId, clientId, hours) {
     }
     return byFirst.get(norm23(first)) || byFirst.get(norm23(n.split(/[ ,]/)[0])) || null;
   };
-  const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
-  const lineByEmp = new Map(lines.map((l) => [l.employeeId, l]));
+  const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
+  const lineByEmp = new Map(lines2.map((l) => [l.employeeId, l]));
   const { longShiftNote: longShiftNote2 } = await Promise.resolve().then(() => (init_timesheet_core(), timesheet_core_exports));
   let matched = 0;
   const unmatched = [];
@@ -43982,9 +43982,9 @@ var init_payroll_router = __esm({
         });
         const runIds = new Set(inQuarter.map((r) => r.id));
         const allLines = await db.select().from(payRunLines);
-        const lines = allLines.filter((l) => runIds.has(l.payRunId));
-        const eligibleEarnings = round2(lines.filter((l) => eligibleIds.has(l.employeeId)).reduce((s, l) => s + (l.grossPay || 0), 0));
-        const excludedEarnings = round2(lines.filter((l) => !eligibleIds.has(l.employeeId)).reduce((s, l) => s + (l.grossPay || 0), 0));
+        const lines2 = allLines.filter((l) => runIds.has(l.payRunId));
+        const eligibleEarnings = round2(lines2.filter((l) => eligibleIds.has(l.employeeId)).reduce((s, l) => s + (l.grossPay || 0), 0));
+        const excludedEarnings = round2(lines2.filter((l) => !eligibleIds.has(l.employeeId)).reduce((s, l) => s + (l.grossPay || 0), 0));
         const rate = client?.wsibRate ?? null;
         const remittance = rate != null ? round2(eligibleEarnings * rate / 100) : null;
         return {
@@ -44355,12 +44355,12 @@ var init_payroll_router = __esm({
         const runRows = await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1);
         const run3 = runRows[0];
         if (!run3) return null;
-        let lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
+        let lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
         const emps = await db.select().from(employees).where(eq(employees.clientId, run3.clientId));
         const empById = new Map(emps.map((e) => [e.id, e]));
         if (run3.status !== "paid") {
           let touched = false;
-          for (const l of lines) {
+          for (const l of lines2) {
             const e = empById.get(l.employeeId);
             if (!e) continue;
             const patch = {};
@@ -44371,9 +44371,9 @@ var init_payroll_router = __esm({
               touched = true;
             }
           }
-          if (touched) lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
+          if (touched) lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
         }
-        const withNames = lines.map((l) => {
+        const withNames = lines2.map((l) => {
           const e = empById.get(l.employeeId);
           return {
             ...l,
@@ -44605,12 +44605,12 @@ var init_payroll_router = __esm({
         const emps = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
         const empById = new Map(emps.map((e) => [e.id, e]));
         const allLines = await db.select().from(payRunLines);
-        const lines = allLines.filter((l) => runIds.has(l.payRunId));
+        const lines2 = allLines.filter((l) => runIds.has(l.payRunId));
         const ppy = periodsPerYear(normalizeFrequency(client?.payrollFrequency));
         const runsCount = yrRuns.length;
         const fraction = Math.min(1, Math.max(1e-4, runsCount / ppy));
         const agg = /* @__PURE__ */ new Map();
-        for (const l of lines) {
+        for (const l of lines2) {
           const a = agg.get(l.employeeId) || { gross: 0, tax: 0 };
           a.gross += l.grossPay || 0;
           a.tax += (l.federalTax || 0) + (l.provincialTax || 0);
@@ -44668,9 +44668,9 @@ var init_payroll_router = __esm({
         const emps = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
         const empById = new Map(emps.map((e) => [e.id, e]));
         const allLines = await db.select().from(payRunLines);
-        const lines = allLines.filter((l) => runIds.has(l.payRunId));
+        const lines2 = allLines.filter((l) => runIds.has(l.payRunId));
         const agg = /* @__PURE__ */ new Map();
-        for (const l of lines) {
+        for (const l of lines2) {
           const a = agg.get(l.employeeId) || { gross: 0, cpp: 0, cpp2: 0, ei: 0, tax: 0 };
           a.gross += l.grossPay || 0;
           a.cpp += l.cppEmployee || 0;
@@ -46087,9 +46087,9 @@ function billInputFromSourceData(sourceData) {
   if (!vendorId) return null;
   const txnDate = meta3.txnDate || meta3.date || null;
   const docNumber = meta3.invoiceNumber || meta3.docNumber || null;
-  let lines = [];
+  let lines2 = [];
   if (Array.isArray(meta3.lines) && meta3.lines.length) {
-    lines = meta3.lines.map((l) => ({
+    lines2 = meta3.lines.map((l) => ({
       accountId: l.accountId || l.suggestedAccountId,
       amount: Number(l.amount ?? l.subtotal ?? l.total),
       taxCodeId: l.taxCodeId || l.suggestedTaxCode || l.taxCode || null,
@@ -46099,7 +46099,7 @@ function billInputFromSourceData(sourceData) {
     const accountId = meta3.suggestedAccountId || meta3.accountId;
     const amount = Number(meta3.subtotal ?? meta3.amount ?? meta3.total);
     if (accountId && Number.isFinite(amount)) {
-      lines = [{
+      lines2 = [{
         accountId,
         amount,
         taxCodeId: meta3.suggestedTaxCode || meta3.taxCode || meta3.hstCode || null,
@@ -46107,8 +46107,8 @@ function billInputFromSourceData(sourceData) {
       }];
     }
   }
-  if (!lines.length) return null;
-  return { vendorId, txnDate, docNumber, lines, privateNote: meta3.rationale || null };
+  if (!lines2.length) return null;
+  return { vendorId, txnDate, docNumber, lines: lines2, privateNote: meta3.rationale || null };
 }
 async function connForClient(clientId) {
   const db = getDb();
@@ -48311,7 +48311,7 @@ var init_line = __esm({
         }
         const binaryChunk = chunk instanceof ArrayBuffer ? new Uint8Array(chunk) : typeof chunk === "string" ? encodeUTF8(chunk) : chunk;
         __classPrivateFieldSet(this, _LineDecoder_buffer, concatBytes([__classPrivateFieldGet(this, _LineDecoder_buffer, "f"), binaryChunk]), "f");
-        const lines = [];
+        const lines2 = [];
         let patternIndex;
         while ((patternIndex = findNewlineIndex(__classPrivateFieldGet(this, _LineDecoder_buffer, "f"), __classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f"))) != null) {
           if (patternIndex.carriage && __classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f") == null) {
@@ -48319,18 +48319,18 @@ var init_line = __esm({
             continue;
           }
           if (__classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f") != null && (patternIndex.index !== __classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f") + 1 || patternIndex.carriage)) {
-            lines.push(decodeUTF8(__classPrivateFieldGet(this, _LineDecoder_buffer, "f").subarray(0, __classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f") - 1)));
+            lines2.push(decodeUTF8(__classPrivateFieldGet(this, _LineDecoder_buffer, "f").subarray(0, __classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f") - 1)));
             __classPrivateFieldSet(this, _LineDecoder_buffer, __classPrivateFieldGet(this, _LineDecoder_buffer, "f").subarray(__classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f")), "f");
             __classPrivateFieldSet(this, _LineDecoder_carriageReturnIndex, null, "f");
             continue;
           }
           const endIndex = __classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f") !== null ? patternIndex.preceding - 1 : patternIndex.preceding;
           const line = decodeUTF8(__classPrivateFieldGet(this, _LineDecoder_buffer, "f").subarray(0, endIndex));
-          lines.push(line);
+          lines2.push(line);
           __classPrivateFieldSet(this, _LineDecoder_buffer, __classPrivateFieldGet(this, _LineDecoder_buffer, "f").subarray(patternIndex.index), "f");
           __classPrivateFieldSet(this, _LineDecoder_carriageReturnIndex, null, "f");
         }
-        return lines;
+        return lines2;
       }
       flush() {
         if (!__classPrivateFieldGet(this, _LineDecoder_buffer, "f").length) {
@@ -51975,10 +51975,10 @@ function betaReadTool(ctx) {
       if (view_range.length !== 2)
         throw new ToolError("read: view_range must be [start_line, end_line]");
       const [startLine, endLine] = view_range;
-      const lines = data.split("\n");
+      const lines2 = data.split("\n");
       const start = Math.max(0, startLine - 1);
-      const end = endLine > 0 ? endLine : lines.length;
-      return lines.slice(start, end).join("\n");
+      const end = endLine > 0 ? endLine : lines2.length;
+      return lines2.slice(start, end).join("\n");
     }
   });
 }
@@ -58761,22 +58761,22 @@ function buildPersonalContext(facts, openItems = []) {
     byCat.get(c).push(`${f.pinned ? "\u2605 " : ""}${f.fact}`);
   }
   const order = [...PERSONAL_CATEGORIES].filter((c) => byCat.has(c)).concat([...byCat.keys()].filter((c) => !PERSONAL_CATEGORIES.includes(c)));
-  const lines = [
+  const lines2 = [
     "=== MARKIE'S PERSONAL LIFE (PRIVATE \u2014 this is Liv's domain only; NEVER share it with other agents, clients, or mix it with firm work) ==="
   ];
   for (const c of order) {
-    lines.push(`${CATEGORY_LABELS[c] ?? c}:`);
-    for (const f of byCat.get(c)) lines.push(`  - ${f}`);
+    lines2.push(`${CATEGORY_LABELS[c] ?? c}:`);
+    for (const f of byCat.get(c)) lines2.push(`  - ${f}`);
   }
   const open3 = openItems.filter((i) => i.kind !== "note" && !i.done);
   if (open3.length) {
-    lines.push("Open personal items:");
+    lines2.push("Open personal items:");
     for (const i of open3.slice(0, 20)) {
       const due = i.dueDate ? ` (due ${new Date(ms2(i.dueDate)).toISOString().slice(0, 10)})` : "";
-      lines.push(`  - [${i.kind}] ${i.title}${due}`);
+      lines2.push(`  - [${i.kind}] ${i.title}${due}`);
     }
   }
-  return lines.join("\n");
+  return lines2.join("\n");
 }
 function splitDump(text2) {
   return (text2 || "").split(/\r?\n/).map((l) => l.replace(/^\s*[-*•·]\s*/, "").trim()).filter((l) => l.length > 1);
@@ -59529,15 +59529,15 @@ async function seedCollingwoodRunHours() {
     if (!draft) return { run: null, filled: 0, phoneSet: 0, skipped: "no draft run for Collingwood" };
     const emps = await db.select().from(employees).where(eq(employees.clientId, CLIENT_ID2));
     const empById = new Map(emps.map((e) => [e.id, e]));
-    const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, draft.id));
+    const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, draft.id));
     let filled = 0, phoneSet = 0;
-    for (const l of lines) {
+    for (const l of lines2) {
       const e = empById.get(l.employeeId);
       if (!e) continue;
       const k = key(e.firstName, e.lastName);
       const patch = {};
       if ((e.payType || "") === "salary") {
-        const g = round29((e.annualSalary || 0) / PERIODS_PER_YEAR);
+        const g = round210((e.annualSalary || 0) / PERIODS_PER_YEAR);
         if (g > 0 && (l.grossPay ?? 0) === 0) patch.grossPay = g;
       } else if (k in HOURS) {
         const target = HOURS[k];
@@ -59547,7 +59547,7 @@ async function seedCollingwoodRunHours() {
           filled++;
         }
         const rate = e.hourlyRate ?? 0;
-        const g = round29(reg * rate);
+        const g = round210(reg * rate);
         if (g !== (l.grossPay ?? 0)) patch.grossPay = g;
       }
       const entitled = !PHONE_EXEMPT_LAST2.includes(norm8(e.lastName));
@@ -59562,7 +59562,7 @@ async function seedCollingwoodRunHours() {
       }
     }
     const fresh = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, draft.id));
-    const totalGross = round29(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
+    const totalGross = round210(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
     await db.update(payRuns).set({ totalGross, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, draft.id));
     if (filled || phoneSet) console.log(`[seed-collingwood-run] run ${draft.id}: filled ${filled} hours, set ${phoneSet} phone`);
     return { run: draft.id, filled, phoneSet, skipped: "" };
@@ -59570,7 +59570,7 @@ async function seedCollingwoodRunHours() {
     console.error("[seed-collingwood-run] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID2, PHONE, round29, norm8, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
+var CLIENT_ID2, PHONE, round210, norm8, key, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
 var init_seed_collingwood_run_hours = __esm({
   "api/seed-collingwood-run-hours.ts"() {
     init_connection();
@@ -59578,7 +59578,7 @@ var init_seed_collingwood_run_hours = __esm({
     init_drizzle_orm();
     CLIENT_ID2 = 7;
     PHONE = 23.08;
-    round29 = (n) => Math.round(n * 100) / 100;
+    round210 = (n) => Math.round(n * 100) / 100;
     norm8 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key = (first, last) => `${norm8(last)}|${norm8(first)}`;
     HOURS = {
@@ -59855,7 +59855,7 @@ async function backfillSherPayroll() {
         const emp = empByKey.get(k);
         if (!emp) continue;
         const ln = p.lines[k];
-        const gross = round210(ln?.gross ?? 0);
+        const gross = round211(ln?.gross ?? 0);
         totalGross += gross;
         await db.insert(payRunLines).values({
           payRunId: run3.id,
@@ -59864,7 +59864,7 @@ async function backfillSherPayroll() {
           grossPay: gross
         });
       }
-      await db.update(payRuns).set({ totalGross: round210(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round211(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[sher-backfill] added ${runsAdded} run(s)`);
@@ -59873,13 +59873,13 @@ async function backfillSherPayroll() {
     console.error("[sher-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round210, norm9, key2, d, ROSTER2, PERIODS;
+var round211, norm9, key2, d, ROSTER2, PERIODS;
 var init_seed_sher_backfill = __esm({
   "api/seed-sher-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round210 = (n) => Math.round(n * 100) / 100;
+    round211 = (n) => Math.round(n * 100) / 100;
     norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key2 = (first, last) => `${norm9(last)}|${norm9(first)}`;
     d = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -60064,11 +60064,11 @@ async function backfillOwenSoundPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp || have.has(emp.id)) continue;
-        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: round211(v.gross) });
+        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: round212(v.gross) });
         linesAdded++;
       }
-      const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run3.id));
-      const tg = round211(lines.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
+      const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run3.id));
+      const tg = round212(lines2.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
       await db.update(payRuns).set({ totalGross: tg, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
     }
     if (runsAdded || linesAdded) console.log(`[os-backfill] added ${runsAdded} run(s), ${linesAdded} line(s)`);
@@ -60077,13 +60077,13 @@ async function backfillOwenSoundPayroll() {
     console.error("[os-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round211, norm10, key3, d2, ROSTER3, PERIODS2;
+var round212, norm10, key3, d2, ROSTER3, PERIODS2;
 var init_seed_os_backfill = __esm({
   "api/seed-os-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round211 = (n) => Math.round(n * 100) / 100;
+    round212 = (n) => Math.round(n * 100) / 100;
     norm10 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key3 = (first, last) => `${norm10(last)}|${norm10(first)}`;
     d2 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -60291,11 +60291,11 @@ async function backfillCollingwoodPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round212(v.gross);
+        const gross = round213(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round212(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round213(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[cw-backfill] added ${runsAdded} run(s)`);
@@ -60304,14 +60304,14 @@ async function backfillCollingwoodPayroll() {
     console.error("[cw-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID3, round212, norm11, key4, d3, ROSTER4, PERIODS3;
+var CLIENT_ID3, round213, norm11, key4, d3, ROSTER4, PERIODS3;
 var init_seed_collingwood_backfill = __esm({
   "api/seed-collingwood-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     CLIENT_ID3 = 7;
-    round212 = (n) => Math.round(n * 100) / 100;
+    round213 = (n) => Math.round(n * 100) / 100;
     norm11 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key4 = (first, last) => `${norm11(last)}|${norm11(first)}`;
     d3 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -60552,11 +60552,11 @@ async function backfillAuldPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round213(v.gross);
+        const gross = round214(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round213(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round214(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[auld-backfill] added ${runsAdded} run(s)`);
@@ -60565,13 +60565,13 @@ async function backfillAuldPayroll() {
     console.error("[auld-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round213, norm12, key5, d4, ROSTER5, PERIODS4;
+var round214, norm12, key5, d4, ROSTER5, PERIODS4;
 var init_seed_auld_backfill = __esm({
   "api/seed-auld-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round213 = (n) => Math.round(n * 100) / 100;
+    round214 = (n) => Math.round(n * 100) / 100;
     norm12 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key5 = (first, last) => `${norm12(last)}|${norm12(first)}`;
     d4 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -60858,11 +60858,11 @@ async function backfillOriginalityPayroll() {
         for (const [k, v] of Object.entries(p.lines)) {
           const emp = empByKey.get(k);
           if (!emp) continue;
-          const gross = round214(v.gross);
+          const gross = round215(v.gross);
           totalGross += gross;
           await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
         }
-        await db.update(payRuns).set({ totalGross: round214(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+        await db.update(payRuns).set({ totalGross: round215(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
         runsAdded++;
       }
     };
@@ -60874,13 +60874,13 @@ async function backfillOriginalityPayroll() {
     console.error("[og-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round214, norm13, key6, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
+var round215, norm13, key6, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
 var init_seed_originality_backfill = __esm({
   "api/seed-originality-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round214 = (n) => Math.round(n * 100) / 100;
+    round215 = (n) => Math.round(n * 100) / 100;
     norm13 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key6 = (first, last) => `${norm13(last)}|${norm13(first)}`;
     d5 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -61108,7 +61108,7 @@ async function backfill2303851Payroll() {
     let runsAdded = 0;
     for (const p of PERIODS5) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
-      const gross = round215(p.gross);
+      const gross = round216(p.gross);
       const [run3] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d6(p.start),
@@ -61132,19 +61132,19 @@ async function backfill2303851Payroll() {
     console.error("[2303851-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round215, norm14, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
+var round216, norm14, key7, d6, EMP, MONTHLY, HALF, PERIODS5;
 var init_seed_2303851_backfill = __esm({
   "api/seed-2303851-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round215 = (n) => Math.round(n * 100) / 100;
+    round216 = (n) => Math.round(n * 100) / 100;
     norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key7 = (first, last) => `${norm14(last)}|${norm14(first)}`;
     d6 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     EMP = { first: "Stacey", last: "Gillham" };
     MONTHLY = 8333.33;
-    HALF = round215(MONTHLY / 2);
+    HALF = round216(MONTHLY / 2);
     PERIODS5 = [
       { payDate: "2026-01-31", start: "2026-01-01", end: "2026-01-31", gross: MONTHLY },
       { payDate: "2026-02-28", start: "2026-02-01", end: "2026-02-28", gross: MONTHLY },
@@ -61211,8 +61211,8 @@ async function backfillFractalPayroll() {
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       if (!run3) continue;
-      await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: round216(MONTHLY2) });
-      await db.update(payRuns).set({ totalGross: round216(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: round217(MONTHLY2) });
+      await db.update(payRuns).set({ totalGross: round217(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[fractal-backfill] added ${runsAdded} run(s)`);
@@ -61221,13 +61221,13 @@ async function backfillFractalPayroll() {
     console.error("[fractal-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round216, norm15, d7, MONTHLY2, PERIODS6;
+var round217, norm15, d7, MONTHLY2, PERIODS6;
 var init_seed_fractal_backfill = __esm({
   "api/seed-fractal-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round216 = (n) => Math.round(n * 100) / 100;
+    round217 = (n) => Math.round(n * 100) / 100;
     norm15 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     d7 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     MONTHLY2 = 4500;
@@ -61303,11 +61303,11 @@ async function backfillMotionInvestPayroll() {
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round217(v.gross);
+        const gross = round218(v.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round218(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[motioninvest-backfill] added ${runsAdded} run(s)`);
@@ -61316,13 +61316,13 @@ async function backfillMotionInvestPayroll() {
     console.error("[motioninvest-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round217, norm16, key8, d8, ROSTER7, PERIODS7;
+var round218, norm16, key8, d8, ROSTER7, PERIODS7;
 var init_seed_motioninvest_backfill = __esm({
   "api/seed-motioninvest-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round217 = (n) => Math.round(n * 100) / 100;
+    round218 = (n) => Math.round(n * 100) / 100;
     norm16 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key8 = (first, last) => `${norm16(last)}|${norm16(first)}`;
     d8 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -61386,21 +61386,21 @@ async function backfillMotionInvestRevShare() {
     let cumNet = 0;
     const paidByKey = /* @__PURE__ */ new Map();
     for (const q of QUARTERS) {
-      cumNet = round218(cumNet + q.netProfit);
+      cumNet = round219(cumNet + q.netProfit);
       const note = `Revenue share bonus (${q.label})`;
       const due = d9(q.payDate) <= now;
       const exists2 = allRuns.some((r) => (r.notes || "") === note);
-      const lines = [];
+      const lines2 = [];
       for (const s of SHARERS) {
         const k = key9(s.first, s.last);
-        const earned = round218(cumNet * s.pct);
+        const earned = round219(cumNet * s.pct);
         const prior = paidByKey.get(k) || 0;
-        const payout = round218(Math.max(0, earned - prior));
+        const payout = round219(Math.max(0, earned - prior));
         paidByKey.set(k, prior + payout);
         const emp = empByKey.get(k);
-        if (emp && payout > 0) lines.push({ emp, amount: payout });
+        if (emp && payout > 0) lines2.push({ emp, amount: payout });
       }
-      if (!due || exists2 || !lines.length) continue;
+      if (!due || exists2 || !lines2.length) continue;
       let totalGross = 0;
       const [run3] = await db.insert(payRuns).values({
         clientId,
@@ -61415,11 +61415,11 @@ async function backfillMotionInvestRevShare() {
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       if (!run3) continue;
-      for (const ln of lines) {
+      for (const ln of lines2) {
         totalGross += ln.amount;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: ln.emp.id, regularHours: 0, grossPay: ln.amount });
       }
-      await db.update(payRuns).set({ totalGross: round218(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round219(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[mi-revshare] added ${runsAdded} quarterly run(s)`);
@@ -61428,13 +61428,13 @@ async function backfillMotionInvestRevShare() {
     console.error("[mi-revshare] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round218, norm17, key9, d9, SHARERS, QUARTERS;
+var round219, norm17, key9, d9, SHARERS, QUARTERS;
 var init_seed_motioninvest_revshare = __esm({
   "api/seed-motioninvest-revshare.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round218 = (n) => Math.round(n * 100) / 100;
+    round219 = (n) => Math.round(n * 100) / 100;
     norm17 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     key9 = (first, last) => `${norm17(last)}|${norm17(first)}`;
     d9 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
@@ -61664,9 +61664,9 @@ function taskSchedule(ruleType, currentDue, opts) {
     return nearest((y) => hstQuarterlySchedule(qEnd, y));
   }
   if (rt.includes("hst") || rt.includes("gst")) {
-    const period = (opts.hstPeriod || "quarterly").toLowerCase();
-    if (period === "monthly") return nearest((y) => hstMonthlySchedule(ref.getMonth() + 1, y));
-    if (period === "annual") {
+    const period2 = (opts.hstPeriod || "quarterly").toLowerCase();
+    if (period2 === "monthly") return nearest((y) => hstMonthlySchedule(ref.getMonth() + 1, y));
+    if (period2 === "annual") {
       if (!opts.yearEndMonth) return null;
       return nearest((y) => hstAnnualSchedule(opts.yearEndMonth, y));
     }
@@ -62484,17 +62484,17 @@ __export(seed_interco_scaffold_exports, {
 async function seedIntercoScaffold() {
   const db = getDb();
   try {
-    const period = (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
+    const period2 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
     const cs = await db.select().from(clients);
     let created = 0;
     const periods = [];
     for (const g of GROUP_PAYERS) {
       const payer = cs.find((c) => (c.groupName || "").trim() === g.group && g.payer.test(c.name || "")) || cs.find((c) => (c.groupName || "").trim() === g.group);
       if (!payer) continue;
-      const [existing] = await db.select().from(intercoPeriods).where(and(eq(intercoPeriods.period, period), eq(intercoPeriods.payerClientId, payer.id)));
+      const [existing] = await db.select().from(intercoPeriods).where(and(eq(intercoPeriods.period, period2), eq(intercoPeriods.payerClientId, payer.id)));
       if (existing) continue;
       await db.insert(intercoPeriods).values({
-        period,
+        period: period2,
         payerClientId: payer.id,
         intercoAccount: g.account,
         status: "open",
@@ -62503,7 +62503,7 @@ async function seedIntercoScaffold() {
         updatedAt: /* @__PURE__ */ new Date()
       });
       created++;
-      periods.push(`${g.group}: ${payer.name} ${period}`);
+      periods.push(`${g.group}: ${payer.name} ${period2}`);
     }
     if (created) console.log(`[interco-scaffold] created ${created} period shell(s): ${periods.join("; ")}`);
     return { created, periods };
@@ -67126,25 +67126,25 @@ async function seedHstDates() {
     for (const r of ROWS2) {
       const clientId = byTax.get(r.cra);
       if (!clientId) continue;
-      const period = periodFromHst(r.hst);
+      const period2 = periodFromHst(r.hst);
       const due = dueDateFromMonthYear(r.next);
       const patch = { updatedAt: /* @__PURE__ */ new Date() };
-      if (period) {
+      if (period2) {
         patch.hasHST = true;
-        patch.hstPeriod = period;
+        patch.hstPeriod = period2;
         patch.hstNumber = `${r.cra}RT0001`;
       }
       if (due) patch.hstNextDue = due;
       if (Object.keys(patch).length <= 1) continue;
       await db.update(clients).set(patch).where(eq(clients.id, clientId));
       report.updated++;
-      if (period) {
+      if (period2) {
         try {
           await ensureComplianceRulesAndTasks({
             clientId,
             userId: 1,
             needsYearEnd: false,
-            hstGstFrequency: period === "annual" ? "annually" : period === "quarterly" ? "quarterly" : "monthly"
+            hstGstFrequency: period2 === "annual" ? "annually" : period2 === "quarterly" ? "quarterly" : "monthly"
           });
         } catch (e) {
           console.error("[seed] HST task create failed for client", clientId, e instanceof Error ? e.message : e);
@@ -67618,20 +67618,20 @@ var init_reconcile_overnight = __esm({
 });
 
 // api/client-task-creator.ts
-function nextHSTDueDate(period, now = /* @__PURE__ */ new Date()) {
+function nextHSTDueDate(period2, now = /* @__PURE__ */ new Date()) {
   const year2 = now.getFullYear();
   const month = now.getMonth();
-  if (period === "monthly") {
+  if (period2 === "monthly") {
     const due = new Date(year2, month + 1, 1);
     return due;
   }
-  if (period === "quarterly") {
+  if (period2 === "quarterly") {
     const q = Math.floor(month / 3);
     const dueMonths = [3, 6, 9, 0];
     const dueYear = q === 3 ? year2 + 1 : year2;
     return new Date(dueYear, dueMonths[q], 1);
   }
-  if (period === "annual") {
+  if (period2 === "annual") {
     return new Date(year2, 0, 1);
   }
   return new Date(year2, month + 1, 1);
@@ -72940,12 +72940,12 @@ function taskSuggestSystem() {
 }
 function buildRawMessage(opts) {
   const from = opts.fromName ? `${opts.fromName} <${opts.fromEmail}>` : opts.fromEmail;
-  const lines = [
+  const lines2 = [
     `From: ${from}`,
     `To: ${opts.to}`
   ];
-  if (opts.cc) lines.push(`Cc: ${opts.cc}`);
-  lines.push(
+  if (opts.cc) lines2.push(`Cc: ${opts.cc}`);
+  lines2.push(
     `Subject: ${opts.subject}`,
     "MIME-Version: 1.0",
     'Content-Type: text/html; charset="UTF-8"',
@@ -72953,7 +72953,7 @@ function buildRawMessage(opts) {
     "",
     opts.html
   );
-  return base64url3(lines.join("\r\n"));
+  return base64url3(lines2.join("\r\n"));
 }
 
 // api/google-sync-router.ts
@@ -79408,87 +79408,87 @@ function generateDefaultSections(onboarding) {
 }
 function generateFilingDeadlines(onboarding) {
   if (!onboarding) return "No onboarding data available. Add deadlines based on client profile.";
-  const lines = [];
+  const lines2 = [];
   if (onboarding.hstGstFrequency && onboarding.hstGstFrequency !== "none") {
-    lines.push(`- HST/GST: ${onboarding.hstGstFrequency} filings required`);
+    lines2.push(`- HST/GST: ${onboarding.hstGstFrequency} filings required`);
   }
   if (onboarding.payrollFrequency && onboarding.payrollFrequency !== "none") {
-    lines.push(`- Payroll remittances: ${onboarding.payrollFrequency}`);
+    lines2.push(`- Payroll remittances: ${onboarding.payrollFrequency}`);
   }
   if (onboarding.wsibRequired) {
-    lines.push("- WSIB: Annual reconciliation due by March 31");
+    lines2.push("- WSIB: Annual reconciliation due by March 31");
   }
   if (onboarding.fiscalYearEnd) {
-    lines.push(`- Fiscal year-end: ${onboarding.fiscalYearEnd}`);
+    lines2.push(`- Fiscal year-end: ${onboarding.fiscalYearEnd}`);
   }
   if (onboarding.hasEmployees) {
-    lines.push("- T4 filing: Due last day of February");
+    lines2.push("- T4 filing: Due last day of February");
   }
   if (onboarding.hasSubcontractors) {
-    lines.push("- T5018 filing: Due last day of February");
+    lines2.push("- T5018 filing: Due last day of February");
   }
-  return lines.length > 0 ? lines.join("\n") : "No specific deadlines identified from onboarding.";
+  return lines2.length > 0 ? lines2.join("\n") : "No specific deadlines identified from onboarding.";
 }
 function generateBankingProcedures(onboarding) {
   if (!onboarding) return "Add banking details.";
-  const lines = [];
-  lines.push(`- Bank accounts: ${onboarding.bankAccountCount || 1}`);
+  const lines2 = [];
+  lines2.push(`- Bank accounts: ${onboarding.bankAccountCount || 1}`);
   if (onboarding.creditCardCount && onboarding.creditCardCount > 0) {
-    lines.push(`- Credit cards: ${onboarding.creditCardCount}`);
+    lines2.push(`- Credit cards: ${onboarding.creditCardCount}`);
   }
-  lines.push("- All bank and credit card statements must be provided monthly");
-  lines.push("- Reconcile all accounts before month-end");
-  return lines.join("\n");
+  lines2.push("- All bank and credit card statements must be provided monthly");
+  lines2.push("- Reconcile all accounts before month-end");
+  return lines2.join("\n");
 }
 function generatePayrollProcedures(onboarding) {
   if (!onboarding || !onboarding.payrollFrequency || onboarding.payrollFrequency === "none") {
     return "No payroll requirements identified.";
   }
-  const lines = [];
-  lines.push(`- Payroll frequency: ${onboarding.payrollFrequency}`);
-  lines.push(`- Payroll provider: ${onboarding.currentPayrollProvider || "TBD"}`);
+  const lines2 = [];
+  lines2.push(`- Payroll frequency: ${onboarding.payrollFrequency}`);
+  lines2.push(`- Payroll provider: ${onboarding.currentPayrollProvider || "TBD"}`);
   if (onboarding.hasEmployees) {
-    lines.push("- Ensure timesheets are submitted before each pay run");
-    lines.push("- Remit source deductions on schedule");
+    lines2.push("- Ensure timesheets are submitted before each pay run");
+    lines2.push("- Remit source deductions on schedule");
   }
-  return lines.join("\n");
+  return lines2.join("\n");
 }
 function generateHstProcedures(onboarding) {
   if (!onboarding || !onboarding.hstGstFrequency || onboarding.hstGstFrequency === "none") {
     return "No HST/GST registration identified.";
   }
-  const lines = [];
-  lines.push(`- HST/GST frequency: ${onboarding.hstGstFrequency}`);
+  const lines2 = [];
+  lines2.push(`- HST/GST frequency: ${onboarding.hstGstFrequency}`);
   if (onboarding.hstGstNumber) {
-    lines.push(`- HST/GST number: ${onboarding.hstGstNumber}`);
+    lines2.push(`- HST/GST number: ${onboarding.hstGstNumber}`);
   }
-  lines.push("- Ensure all sales invoices have HST/GST applied correctly");
-  lines.push("- Provide ITC supporting documents (receipts)");
-  return lines.join("\n");
+  lines2.push("- Ensure all sales invoices have HST/GST applied correctly");
+  lines2.push("- Provide ITC supporting documents (receipts)");
+  return lines2.join("\n");
 }
 function generateYearEndProcedures(onboarding) {
-  const lines = [];
+  const lines2 = [];
   if (onboarding?.fiscalYearEnd) {
-    lines.push(`- Fiscal year-end: ${onboarding.fiscalYearEnd}`);
+    lines2.push(`- Fiscal year-end: ${onboarding.fiscalYearEnd}`);
   }
-  lines.push("- Ensure all transactions are entered and reconciled");
-  lines.push("- Provide year-end bank and credit card statements");
-  lines.push("- Review A/R and A/P for accuracy");
-  lines.push("- Fixed asset schedule to be reviewed");
+  lines2.push("- Ensure all transactions are entered and reconciled");
+  lines2.push("- Provide year-end bank and credit card statements");
+  lines2.push("- Review A/R and A/P for accuracy");
+  lines2.push("- Fixed asset schedule to be reviewed");
   if (onboarding?.hasEmployees) {
-    lines.push("- Prepare and file T4s, T4As by February");
+    lines2.push("- Prepare and file T4s, T4As by February");
   }
-  return lines.join("\n");
+  return lines2.join("\n");
 }
 function generateWsibProcedures(onboarding) {
   if (!onboarding?.wsibRequired) return "WSIB not required.";
-  const lines = [];
+  const lines2 = [];
   if (onboarding.wsibAccountNumber) {
-    lines.push(`- WSIB account number: ${onboarding.wsibAccountNumber}`);
+    lines2.push(`- WSIB account number: ${onboarding.wsibAccountNumber}`);
   }
-  lines.push("- Report insurable earnings monthly/quarterly as required");
-  lines.push("- Annual reconciliation due March 31");
-  return lines.join("\n");
+  lines2.push("- Report insurable earnings monthly/quarterly as required");
+  lines2.push("- Annual reconciliation due March 31");
+  return lines2.join("\n");
 }
 var playbookRouter = createRouter({
   // Get or create playbook for a client
@@ -81786,7 +81786,7 @@ function buildIntercoJe(opts) {
   const offset = opts.offsetAccount?.trim() || "[offset account \u2014 select from chart]";
   const byParty = /* @__PURE__ */ new Map();
   for (const e of opts.entries) byParty.set(e.counterpartyClientId, r2((byParty.get(e.counterpartyClientId) ?? 0) + (e.amount || 0)));
-  const lines = [];
+  const lines2 = [];
   let net = 0;
   for (const [cp2, amtRaw] of byParty) {
     const amt = r2(amtRaw);
@@ -81794,16 +81794,16 @@ function buildIntercoJe(opts) {
     net = r2(net + amt);
     const who = opts.nameOf(cp2);
     if (amt > 0) {
-      lines.push({ account: interco, debit: amt, credit: 0, description: `Due from ${who} (interco settlement)` });
+      lines2.push({ account: interco, debit: amt, credit: 0, description: `Due from ${who} (interco settlement)` });
     } else {
-      lines.push({ account: interco, debit: 0, credit: -amt, description: `Due to ${who} (interco settlement)` });
+      lines2.push({ account: interco, debit: 0, credit: -amt, description: `Due to ${who} (interco settlement)` });
     }
   }
-  if (net > 0) lines.push({ account: offset, debit: 0, credit: net, description: "Interco bill-back \u2014 contra" });
-  else if (net < 0) lines.push({ account: offset, debit: -net, credit: 0, description: "Interco bill-back \u2014 contra" });
-  const totalDebit = r2(lines.reduce((s, l) => s + l.debit, 0));
-  const totalCredit = r2(lines.reduce((s, l) => s + l.credit, 0));
-  return { lines, totalDebit, totalCredit, balanced: totalDebit === totalCredit, net };
+  if (net > 0) lines2.push({ account: offset, debit: 0, credit: net, description: "Interco bill-back \u2014 contra" });
+  else if (net < 0) lines2.push({ account: offset, debit: -net, credit: 0, description: "Interco bill-back \u2014 contra" });
+  const totalDebit = r2(lines2.reduce((s, l) => s + l.debit, 0));
+  const totalCredit = r2(lines2.reduce((s, l) => s + l.credit, 0));
+  return { lines: lines2, totalDebit, totalCredit, balanced: totalDebit === totalCredit, net };
 }
 async function clientNameMap() {
   const db = getDb();
@@ -82599,10 +82599,10 @@ function selectRelevant(all, agent, limit2 = 15) {
 }
 function formatLessonsBlock(lessons) {
   if (!lessons.length) return "";
-  const lines = lessons.map((l) => `- ${l.lesson}${l.clientName ? ` [${l.clientName}]` : ""}`);
+  const lines2 = lessons.map((l) => `- ${l.lesson}${l.clientName ? ` [${l.clientName}]` : ""}`);
   return [
     "=== REMEMBERED (confirmed by Markie \u2014 apply these, they override defaults) ===",
-    ...lines
+    ...lines2
   ].join("\n");
 }
 
@@ -83444,14 +83444,14 @@ async function execAgentScorecard() {
   const { runAgentScorecard: runAgentScorecard2 } = await Promise.resolve().then(() => (init_qa_router(), qa_router_exports));
   const sc = await runAgentScorecard2();
   if (!sc.agents.length) return "No agent work has been reviewed yet \u2014 scores show up once agents post proposals and you approve/dismiss them.";
-  const lines = sc.agents.map((a) => {
+  const lines2 = sc.agents.map((a) => {
     const rate = a.acceptanceRate != null ? `${a.acceptanceRate}%` : "\u2014";
     const trend = a.trend === "up" ? " \u2191" : a.trend === "down" ? " \u2193" : "";
     return `${a.agent}: ${rate} accepted (${a.reviewed} reviewed)${trend} \u2014 ${a.grade === "n/a" ? "needs data" : a.grade}`;
   });
   const overall = sc.overall.acceptanceRate != null ? `Overall ${sc.overall.acceptanceRate}% accepted across ${sc.overall.reviewed} reviewed.` : "";
   return `${overall}
-${lines.join("\n")}`.trim();
+${lines2.join("\n")}`.trim();
 }
 async function execSystemHealth() {
   const { runHealthReport: runHealthReport2 } = await Promise.resolve().then(() => (init_qa_router(), qa_router_exports));
@@ -83459,9 +83459,9 @@ async function execSystemHealth() {
   const problems = r.checks.filter((c) => c.status !== "ok");
   const head = r.status === "ok" ? `All good \u2014 ${r.counts.ok} checks green.` : `${r.counts.fail} problem(s), ${r.counts.warn} need attention (${r.counts.ok} OK).`;
   if (!problems.length) return head;
-  const lines = problems.slice(0, 8).map((c) => `${c.status === "fail" ? "\u{1F534}" : "\u{1F7E1}"} ${c.label}: ${c.detail}`);
+  const lines2 = problems.slice(0, 8).map((c) => `${c.status === "fail" ? "\u{1F534}" : "\u{1F7E1}"} ${c.label}: ${c.detail}`);
   return `${head}
-${lines.join("\n")}`;
+${lines2.join("\n")}`;
 }
 async function runTool(name2, input, userId, activeAgent) {
   try {
@@ -83741,12 +83741,12 @@ var personalRouter = createRouter({
   // Liv to file (lands in the chosen category, default misc/inbox to organize).
   factDump: authedQuery.input(external_exports.object({ text: external_exports.string().min(1), category: external_exports.string().max(60).optional() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const lines = splitDump(input.text);
+    const lines2 = splitDump(input.text);
     const cat = normalizeCategory(input.category ?? "misc");
-    for (const fact of lines) {
+    for (const fact of lines2) {
       await db.insert(personalFacts).values({ userId: ctx.user.id, category: cat, fact, source: "dump", pinned: false });
     }
-    return { ok: true, added: lines.length };
+    return { ok: true, added: lines2.length };
   })
 });
 
@@ -83866,6 +83866,141 @@ var launchpadRouter = createRouter({
     const db = getDb();
     await db.run(sql`DELETE FROM launchpad_opportunities WHERE id = ${input.id} AND userId = ${ctx.user.id}`);
     return { ok: true };
+  })
+});
+
+// api/hst-audit-router.ts
+init_zod();
+init_middleware();
+
+// api/hst-audit-core.ts
+var LINE_KEYS = ["line101", "line103", "line106", "line109"];
+var LINE_LABELS = {
+  line101: "Line 101 \u2014 Sales & revenue",
+  line103: "Line 103 \u2014 HST collected",
+  line106: "Line 106 \u2014 Input tax credits",
+  line109: "Line 109 \u2014 Net tax"
+};
+function round26(n) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+function sumLines(rows) {
+  return rows.reduce(
+    (acc, r) => ({
+      line101: round26(acc.line101 + (r.line101 || 0)),
+      line103: round26(acc.line103 + (r.line103 || 0)),
+      line106: round26(acc.line106 + (r.line106 || 0)),
+      line109: round26(acc.line109 + (r.line109 || 0))
+    }),
+    { line101: 0, line103: 0, line106: 0, line109: 0 }
+  );
+}
+function netTaxDrift(lines2) {
+  return round26(lines2.line109 - (lines2.line103 - lines2.line106));
+}
+var DEFAULTS = {
+  dollarTolerance: 2,
+  pctTolerance: 0.5,
+  reconcileAnnualOnly: true
+};
+function compareLines(filed, book, cfg) {
+  return LINE_KEYS.map((line) => {
+    const f = round26(filed[line] || 0);
+    const b = round26(book[line] || 0);
+    const variance = round26(b - f);
+    const denom = Math.max(Math.abs(f), Math.abs(b), 1);
+    const variancePct = round26(Math.abs(variance) / denom * 100);
+    const withinTolerance = Math.abs(variance) <= cfg.dollarTolerance || variancePct <= cfg.pctTolerance;
+    return { line, label: LINE_LABELS[line], filed: f, book: b, variance, variancePct, withinTolerance };
+  });
+}
+function auditHstYear(args) {
+  const cfg = { ...DEFAULTS, ...args.config || {} };
+  const notes = [];
+  const filedAnnual = sumLines(args.filed);
+  const bookAnnual = sumLines(args.books);
+  const annualLines = compareLines(filedAnnual, bookAnnual, cfg);
+  const annualTied = annualLines.every((l) => l.withinTolerance);
+  const periods = args.filed.map((fr) => {
+    const book = args.books.find((b) => b.periodLabel === fr.periodLabel) || args.books.find((b) => b.startDate === fr.startDate && b.endDate === fr.endDate);
+    const bookLines = book || { line101: 0, line103: 0, line106: 0, line109: 0 };
+    const lines2 = compareLines(fr, bookLines, cfg);
+    return {
+      periodLabel: fr.periodLabel,
+      startDate: fr.startDate,
+      endDate: fr.endDate,
+      lines: lines2,
+      tied: lines2.every((l) => l.withinTolerance)
+    };
+  });
+  const filedDrift = netTaxDrift(filedAnnual);
+  const netTaxConsistent = Math.abs(filedDrift) <= cfg.dollarTolerance;
+  if (!netTaxConsistent) {
+    notes.push(
+      `Filed net tax (line 109 = $${filedAnnual.line109.toLocaleString()}) doesn't equal collected \u2212 ITCs ($${round26(filedAnnual.line103 - filedAnnual.line106).toLocaleString()}). Off by $${filedDrift.toLocaleString()}.`
+    );
+  }
+  let verdict;
+  if (!annualTied) {
+    verdict = "fail";
+    for (const l of annualLines) {
+      if (!l.withinTolerance) {
+        const dir = l.variance > 0 ? "books HIGHER than filed" : "books LOWER than filed";
+        notes.push(
+          `${l.label}: filed $${l.filed.toLocaleString()} vs books $${l.book.toLocaleString()} \u2014 ${dir} by $${Math.abs(l.variance).toLocaleString()} (${l.variancePct}%). Annual total does not tie.`
+        );
+      }
+    }
+  } else {
+    const swingingPeriods = periods.filter((p) => !p.tied);
+    if (cfg.reconcileAnnualOnly && swingingPeriods.length > 0) {
+      verdict = "review";
+      notes.push(
+        `Annual total ties to the books \u2713. ${swingingPeriods.length} period(s) shift revenue between filings (e.g. a $0 quarter picked up later) \u2014 expected for this client; not an error. Periods: ${swingingPeriods.map((p) => p.periodLabel).join(", ")}.`
+      );
+    } else if (!netTaxConsistent) {
+      verdict = "review";
+    } else {
+      verdict = "clean";
+      notes.push("Annual GST/HST ties to the books on all four lines (101/103/106/109). \u2713");
+    }
+  }
+  return {
+    clientLabel: args.clientLabel,
+    fiscalYear: args.fiscalYear,
+    verdict,
+    annual: { filed: filedAnnual, book: bookAnnual, lines: annualLines, tied: annualTied },
+    periods,
+    netTaxConsistent,
+    notes
+  };
+}
+
+// api/hst-audit-router.ts
+var lines = external_exports.object({
+  line101: external_exports.number().default(0),
+  line103: external_exports.number().default(0),
+  line106: external_exports.number().default(0),
+  line109: external_exports.number().default(0)
+});
+var period = lines.extend({
+  periodLabel: external_exports.string().default("Annual"),
+  startDate: external_exports.string().default(""),
+  endDate: external_exports.string().default("")
+});
+var hstAuditRouter = createRouter({
+  run: authedQuery.input(external_exports.object({
+    clientLabel: external_exports.string().default("Client"),
+    fiscalYear: external_exports.string().default(""),
+    filed: external_exports.array(period).min(1),
+    books: external_exports.array(period).min(1)
+  })).mutation(async ({ input }) => {
+    return auditHstYear({
+      clientLabel: input.clientLabel,
+      fiscalYear: input.fiscalYear,
+      filed: input.filed,
+      books: input.books
+    });
   })
 });
 
@@ -84146,7 +84281,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/revrec-core.ts
-function round26(n) {
+function round27(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function clampPct(p) {
@@ -84164,10 +84299,10 @@ function buildProjectSchedule(project, progress) {
   for (const r of rows) {
     const pct = clampPct(r.pctComplete);
     const invoiced = r.invoicedToDate == null ? priorInvoiced : r.invoicedToDate;
-    const earned = round26(cv * pct);
-    const revenueThisPeriod = round26(cv * (pct - priorPct));
-    const contractAsset = round26(Math.max(earned - invoiced, 0));
-    const deferredRevenue = round26(Math.max(invoiced - earned, 0));
+    const earned = round27(cv * pct);
+    const revenueThisPeriod = round27(cv * (pct - priorPct));
+    const contractAsset = round27(Math.max(earned - invoiced, 0));
+    const deferredRevenue = round27(Math.max(invoiced - earned, 0));
     out.push({
       periodKey: r.periodKey,
       pctComplete: pct,
@@ -84175,7 +84310,7 @@ function buildProjectSchedule(project, progress) {
       contractValue: cv,
       earnedToDate: earned,
       revenueThisPeriod,
-      invoicedToDate: round26(invoiced),
+      invoicedToDate: round27(invoiced),
       contractAsset,
       deferredRevenue
     });
@@ -84198,34 +84333,34 @@ function lastDayOfPeriod(periodKey) {
   const day2 = new Date(Date.UTC(y, m, 0)).getUTCDate();
   return `${y}-${String(m).padStart(2, "0")}-${String(day2).padStart(2, "0")}`;
 }
-function generateJeForPeriod(period, opts) {
-  const lines = [];
-  const job = period_customerJobOf(period);
-  if (period.contractAsset > 0) {
-    lines.push({ accountKey: "contract_asset", debit: period.contractAsset, credit: 0, customerJob: job, memo: `WIP accrual ${period.periodKey} \u2014 underbilling` });
-    lines.push({ accountKey: "revenue", debit: 0, credit: period.contractAsset, customerJob: job, memo: `WIP accrual ${period.periodKey} \u2014 revenue earned not yet billed` });
+function generateJeForPeriod(period2, opts) {
+  const lines2 = [];
+  const job = period_customerJobOf(period2);
+  if (period2.contractAsset > 0) {
+    lines2.push({ accountKey: "contract_asset", debit: period2.contractAsset, credit: 0, customerJob: job, memo: `WIP accrual ${period2.periodKey} \u2014 underbilling` });
+    lines2.push({ accountKey: "revenue", debit: 0, credit: period2.contractAsset, customerJob: job, memo: `WIP accrual ${period2.periodKey} \u2014 revenue earned not yet billed` });
   }
-  if (opts.depositsBookedToRevenue && period.deferredRevenue > 0) {
-    lines.push({ accountKey: "revenue", debit: period.deferredRevenue, credit: 0, customerJob: job, memo: `WIP deferral ${period.periodKey} \u2014 overbilling` });
-    lines.push({ accountKey: "deferred_revenue", debit: 0, credit: period.deferredRevenue, customerJob: job, memo: `WIP deferral ${period.periodKey} \u2014 billed ahead of work` });
+  if (opts.depositsBookedToRevenue && period2.deferredRevenue > 0) {
+    lines2.push({ accountKey: "revenue", debit: period2.deferredRevenue, credit: 0, customerJob: job, memo: `WIP deferral ${period2.periodKey} \u2014 overbilling` });
+    lines2.push({ accountKey: "deferred_revenue", debit: 0, credit: period2.deferredRevenue, customerJob: job, memo: `WIP deferral ${period2.periodKey} \u2014 billed ahead of work` });
   }
-  if (lines.length === 0) return null;
-  const accrual = sealJe("accrual", lastDayOfPeriod(period.periodKey), period.periodKey, lines);
+  if (lines2.length === 0) return null;
+  const accrual = sealJe("accrual", lastDayOfPeriod(period2.periodKey), period2.periodKey, lines2);
   const reversal = sealJe(
     "reversal",
-    firstDayOfNextPeriod(period.periodKey),
-    period.periodKey,
-    lines.map((l) => ({ ...l, debit: l.credit, credit: l.debit, memo: l.memo.replace("WIP ", "WIP reversal ") }))
+    firstDayOfNextPeriod(period2.periodKey),
+    period2.periodKey,
+    lines2.map((l) => ({ ...l, debit: l.credit, credit: l.debit, memo: l.memo.replace("WIP ", "WIP reversal ") }))
   );
   return { accrual, reversal };
 }
 function period_customerJobOf(_period) {
   return null;
 }
-function sealJe(kind, date5, periodKey, lines) {
-  const totalDebit = round26(lines.reduce((s, l) => s + l.debit, 0));
-  const totalCredit = round26(lines.reduce((s, l) => s + l.credit, 0));
-  return { kind, date: date5, periodKey, lines, totalDebit, totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 5e-3 };
+function sealJe(kind, date5, periodKey, lines2) {
+  const totalDebit = round27(lines2.reduce((s, l) => s + l.debit, 0));
+  const totalCredit = round27(lines2.reduce((s, l) => s + l.credit, 0));
+  return { kind, date: date5, periodKey, lines: lines2, totalDebit, totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 5e-3 };
 }
 function tagJeWithJob(je, customerJob) {
   if (!customerJob) return je;
@@ -84247,7 +84382,7 @@ function validateForPosting(je, accountMap) {
 function rollupProject(project, schedule) {
   const last = latestPeriod(schedule);
   const cv = project.contractValue || 0;
-  const earned = last?.earnedToDate ?? round26(cv * clampPct(project.openingPct ?? 0));
+  const earned = last?.earnedToDate ?? round27(cv * clampPct(project.openingPct ?? 0));
   const invoiced = last?.invoicedToDate ?? (project.openingInvoiced ?? 0);
   return {
     projectId: project.projectId,
@@ -84256,10 +84391,10 @@ function rollupProject(project, schedule) {
     contractValue: cv,
     pctComplete: last?.pctComplete ?? clampPct(project.openingPct ?? 0),
     earnedToDate: earned,
-    invoicedToDate: round26(invoiced),
-    contractAsset: last?.contractAsset ?? round26(Math.max(earned - invoiced, 0)),
-    deferredRevenue: last?.deferredRevenue ?? round26(Math.max(invoiced - earned, 0)),
-    remainingToEarn: round26(cv - earned)
+    invoicedToDate: round27(invoiced),
+    contractAsset: last?.contractAsset ?? round27(Math.max(earned - invoiced, 0)),
+    deferredRevenue: last?.deferredRevenue ?? round27(Math.max(invoiced - earned, 0)),
+    remainingToEarn: round27(cv - earned)
   };
 }
 function buildRevenueCalendar(months, perProject) {
@@ -84268,10 +84403,10 @@ function buildRevenueCalendar(months, perProject) {
       const hit = p.schedule.find((s) => s.periodKey === m);
       return hit ? hit.revenueThisPeriod : 0;
     });
-    return { projectId: p.projectId, name: p.name, byMonth, total: round26(byMonth.reduce((s, v) => s + v, 0)) };
+    return { projectId: p.projectId, name: p.name, byMonth, total: round27(byMonth.reduce((s, v) => s + v, 0)) };
   });
-  const totalsByMonth = months.map((_, i) => round26(rows.reduce((s, r) => s + r.byMonth[i], 0)));
-  const grandTotal = round26(totalsByMonth.reduce((s, v) => s + v, 0));
+  const totalsByMonth = months.map((_, i) => round27(rows.reduce((s, r) => s + r.byMonth[i], 0)));
+  const grandTotal = round27(totalsByMonth.reduce((s, v) => s + v, 0));
   return { months, rows, totalsByMonth, grandTotal };
 }
 function fiscalYearMonths(firstMonthKey) {
@@ -84522,10 +84657,10 @@ var revRecRouter = createRouter({
       { projectId: proj.id, name: proj.name, customerJob: proj.customerJob, contractValue: proj.contractValue ?? 0, openingPct: proj.openingPct ?? 0, openingInvoiced: proj.openingInvoiced ?? 0 },
       prog.map((r) => ({ periodKey: r.periodKey, pctComplete: r.pctComplete ?? 0, invoicedToDate: r.invoicedToDate }))
     );
-    const period = schedule.find((s) => s.periodKey === input.periodKey);
-    if (!period) throw new Error(`No progress recorded for ${input.periodKey}.`);
+    const period2 = schedule.find((s) => s.periodKey === input.periodKey);
+    if (!period2) throw new Error(`No progress recorded for ${input.periodKey}.`);
     const cfg = await getConfig(input.clientId);
-    const gen = generateJeForPeriod(period, { depositsBookedToRevenue: cfg.depositsBookedToRevenue });
+    const gen = generateJeForPeriod(period2, { depositsBookedToRevenue: cfg.depositsBookedToRevenue });
     if (!gen) return { ok: true, generated: 0, note: "Nothing to accrue for this period (fully billed)." };
     const accrual = tagJeWithJob(gen.accrual, proj.customerJob);
     const reversal = tagJeWithJob(gen.reversal, proj.customerJob);
@@ -84571,8 +84706,8 @@ var revRecRouter = createRouter({
     const jes = await db.select().from(rrJe).where(and(...conds)).orderBy(desc(rrJe.periodKey), rrJe.kind);
     const out = [];
     for (const je of jes) {
-      const lines = await db.select().from(rrJeLines).where(eq(rrJeLines.jeId, je.id));
-      out.push({ ...je, lines });
+      const lines2 = await db.select().from(rrJeLines).where(eq(rrJeLines.jeId, je.id));
+      out.push({ ...je, lines: lines2 });
     }
     return out;
   }),
@@ -84626,7 +84761,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/banked-hours-core.ts
-function round27(n) {
+function round28(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function toTime(d10) {
@@ -84640,7 +84775,7 @@ function buildLedger(entries) {
   });
   let bal = 0;
   return sorted.map((e) => {
-    bal = round27(bal + (e.hours || 0));
+    bal = round28(bal + (e.hours || 0));
     return { ...e, runningBalance: bal };
   });
 }
@@ -84655,9 +84790,9 @@ function summarize(entries) {
     last = Math.max(last, toTime(e.entryDate));
   }
   return {
-    balance: round27(totalBanked - totalTaken),
-    totalBanked: round27(totalBanked),
-    totalTaken: round27(totalTaken),
+    balance: round28(totalBanked - totalTaken),
+    totalBanked: round28(totalBanked),
+    totalTaken: round28(totalTaken),
     entryCount: entries.length,
     lastActivity: last ? new Date(last).toISOString() : null
   };
@@ -84865,7 +85000,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/loan-tracker-core.ts
-function round28(n) {
+function round29(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function toTime2(d10) {
@@ -84879,7 +85014,7 @@ function buildLoanLedger(entries) {
   });
   let bal = 0;
   return sorted.map((e) => {
-    bal = round28(bal + (e.amount || 0));
+    bal = round29(bal + (e.amount || 0));
     return { ...e, runningBalance: bal };
   });
 }
@@ -84895,13 +85030,13 @@ function summarizeLoan(entries) {
     const t2 = toTime2(e.entryDate);
     if (t2 > last) last = t2;
   }
-  balance = round28(balance);
+  balance = round29(balance);
   const direction = balance > 0 ? "owed_to_lender" : balance < 0 ? "owed_to_borrower" : "settled";
   return {
     balance,
-    totalAdvanced: round28(totalAdvanced),
-    totalRepaid: round28(totalRepaid),
-    totalInterest: round28(totalInterest),
+    totalAdvanced: round29(totalAdvanced),
+    totalRepaid: round29(totalRepaid),
+    totalInterest: round29(totalInterest),
     entryCount: entries.length,
     lastActivity: last ? new Date(last).toISOString() : null,
     direction
@@ -85178,10 +85313,10 @@ var publicRouter = createRouter({
     const run3 = (await db.select().from(payRuns).where(eq(payRuns.approvalToken, input.token)).limit(1))[0];
     if (!run3) return null;
     const client = (await db.select().from(clients).where(eq(clients.id, run3.clientId)).limit(1))[0];
-    const lines = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run3.id));
+    const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run3.id));
     const emps = await db.select().from(employees).where(eq(employees.clientId, run3.clientId));
     const byId = new Map(emps.map((e) => [e.id, e]));
-    const rows = lines.map((l) => {
+    const rows = lines2.map((l) => {
       const e = byId.get(l.employeeId);
       return {
         name: e ? `${e.firstName} ${e.lastName}` : `Employee #${l.employeeId}`,
@@ -85329,6 +85464,7 @@ var appRouter = createRouter({
   personal: personalRouter,
   brain: brainRouter,
   launchpad: launchpadRouter,
+  hstAudit: hstAuditRouter,
   life: lifeRouter,
   learning: learningRouter,
   chat: chatRouter,
@@ -85616,7 +85752,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.134";
+var BUILD_TAG = "2026-06-26.135";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
