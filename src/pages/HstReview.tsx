@@ -83,6 +83,8 @@ export default function HstReview() {
             {r.errors.length > 0 && <span className="text-amber-600"> · Pull warnings: {r.errors.join("; ")}</span>}
           </p>
 
+          {r.report.reasonableness && <HstReasonablenessBanner rz={r.report.reasonableness} />}
+
           {r.report.findings.length === 0 ? (
             <Card><CardContent className="p-4 text-sm text-emerald-600">No accuracy issues flagged in this period. Still reconcile in QBO and sanity-check the tie-out above.</CardContent></Card>
           ) : (
@@ -108,6 +110,39 @@ export default function HstReview() {
         </>
       )}
     </div>
+  );
+}
+
+/** The HST reasonableness test as a traffic-light banner (effective rate ≈ 13%?). */
+function HstReasonablenessBanner({ rz }: { rz: any }) {
+  const tone: Record<string, { box: string; dot: string; label: string }> = {
+    green: { box: "border-emerald-200 bg-emerald-50 text-emerald-900", dot: "bg-emerald-500", label: "Passed the HST reasonableness test" },
+    yellow: { box: "border-amber-200 bg-amber-50 text-amber-900", dot: "bg-amber-500", label: "HST looks off — worth a look before filing" },
+    red: { box: "border-red-200 bg-red-50 text-red-900", dot: "bg-red-500", label: "HST fails the reasonableness test — review before filing" },
+    na: { box: "border-slate-200 bg-slate-50 text-slate-600", dot: "bg-slate-400", label: "Not enough data to test HST" },
+  };
+  const dot: Record<string, string> = { green: "bg-emerald-500", yellow: "bg-amber-500", red: "bg-red-500", na: "bg-slate-400" };
+  const sideTone = (v: string) => v === "green" ? "text-emerald-700" : v === "yellow" ? "text-amber-700" : v === "red" ? "text-red-700" : "text-slate-400";
+  const t = tone[rz.overall] || tone.na;
+  const Row = ({ c }: { c: any }) => (
+    <div className="flex items-start gap-2 text-xs">
+      <span className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${dot[c.verdict] || "bg-slate-400"}`} />
+      <span className="text-slate-600">
+        <b className={sideTone(c.verdict)}>{c.label}: {c.effectiveRatePct == null ? "—" : `${c.effectiveRatePct}%`}</b>
+        {c.effectiveRatePct != null && <span className="text-slate-400"> (vs {c.expectedRatePct}% · {money(c.tax)} on {money(c.base)})</span>}
+        <span className="block text-slate-500">{c.message}</span>
+      </span>
+    </div>
+  );
+  return (
+    <Card className={t.box}><CardContent className="p-3 space-y-2">
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <span className={`h-3 w-3 rounded-full ${t.dot}`} /> {t.label}
+      </div>
+      <Row c={rz.output} />
+      <Row c={rz.itc} />
+      <p className="text-[11px] text-slate-400">The effective rate is tax ÷ taxable base. It should land near {rz.expectedRatePct}%; a rate well off that usually means a coding error that could raise a CRA flag.</p>
+    </CardContent></Card>
   );
 }
 

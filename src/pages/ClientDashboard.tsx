@@ -1673,6 +1673,39 @@ function ClientCloseChecklist({ clientId }: { clientId: number }) {
  * implied-HST tie-out to compare to QBO's own Sales Tax report. Nothing posts.
  * Dates default to the client's FISCAL quarter (fiscalYearEndMonth), editable.
  */
+/** Traffic-light banner for the HST reasonableness test (effective rate ≈ 13%?). */
+function HstReasonablenessLight({ rz }: { rz: any }) {
+  const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+  const tone: Record<string, { box: string; dot: string; label: string }> = {
+    green: { box: "border-emerald-200 bg-emerald-50 text-emerald-900", dot: "bg-emerald-500", label: "Passed the HST reasonableness test" },
+    yellow: { box: "border-amber-200 bg-amber-50 text-amber-900", dot: "bg-amber-500", label: "HST looks off — worth a look" },
+    red: { box: "border-red-200 bg-red-50 text-red-900", dot: "bg-red-500", label: "HST fails the reasonableness test — review before filing" },
+    na: { box: "border-slate-200 bg-slate-50 text-slate-600", dot: "bg-slate-400", label: "Not enough data to test HST" },
+  };
+  const t = tone[rz.overall] || tone.na;
+  const sideTone = (v: string) => v === "green" ? "text-emerald-700" : v === "yellow" ? "text-amber-700" : v === "red" ? "text-red-700" : "text-slate-400";
+  const Row = ({ c }: { c: any }) => (
+    <div className="flex items-start gap-1.5 text-[11px]">
+      <span className={`mt-1 h-1.5 w-1.5 rounded-full flex-shrink-0 ${tone[c.verdict]?.dot || "bg-slate-400"}`} />
+      <span className="text-slate-600">
+        <b className={sideTone(c.verdict)}>{c.label}: {c.effectiveRatePct == null ? "—" : `${c.effectiveRatePct}%`}</b>
+        {c.effectiveRatePct != null && <span className="text-slate-400"> (vs {c.expectedRatePct}% · {money(c.tax)} on {money(c.base)})</span>}
+        <span className="block text-slate-500">{c.message}</span>
+      </span>
+    </div>
+  );
+  return (
+    <div className={`rounded-md border p-2 space-y-1.5 ${t.box}`}>
+      <div className="flex items-center gap-2 text-xs font-semibold">
+        <span className={`h-2.5 w-2.5 rounded-full ${t.dot}`} />
+        {t.label}
+      </div>
+      <Row c={rz.output} />
+      <Row c={rz.itc} />
+    </div>
+  );
+}
+
 function ClientHstReviewCard({ clientId, client }: { clientId: number; client: any }) {
   const freq = normalizeFreq(client?.hstFilingFrequency || client?.hstPeriod);
   const def = fiscalHstRange(new Date(), freq, client?.fiscalYearEndMonth);
@@ -1706,6 +1739,7 @@ function ClientHstReviewCard({ clientId, client }: { clientId: number; client: a
         {r && !r.ok && r.error !== "bridge_not_returning_data" && <div className="text-xs text-amber-600">No usable QBO connection for this client ({r.error}).</div>}
         {r && r.ok && (
           <div className="space-y-1.5">
+            {r.report.reasonableness && <HstReasonablenessLight rz={r.report.reasonableness} />}
             <div className="text-xs text-slate-600">
               Implied net HST <b>{money(r.report.tie.net)}</b> (collected {money(r.report.tie.collected)} − ITC {money(r.report.tie.itc)}) · {r.pulled.transactions} txns.
               <span className="text-slate-400"> Compare to QBO's Sales Tax report.</span>

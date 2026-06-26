@@ -224,15 +224,92 @@ export function tieOut(txns: RawTxn[]): { collected: number; itc: number; net: n
   return { collected: money(collected), itc: money(itc), net: money(collected - itc), salesBase: money(salesBase), purchaseBase: money(purchaseBase) };
 }
 
+/**
+ * HST REASONABLENESS TEST (the "does this make sense?" check accountants run before
+ * filing, so a return doesn't raise a CRA flag). For each side it computes the
+ * EFFECTIVE rate = tax ÷ taxable base and compares it to the statutory rate (ON = 13%):
+ *   • collected ÷ sales base  → should sit ≈ 13%
+ *   • ITCs ÷ purchase base    → should sit ≈ 13%
+ * A rate well off 13% means something's miscoded (wrong/missing tax code, tax on a
+ * control account, over-claimed ITC). Bands are deviation in PERCENTAGE POINTS:
+ *   green ≤ greenBandPts · yellow ≤ warnBandPts · red beyond. A taxable base with ~$0
+ * tax is always red; no base = n/a (nothing to test). Benign causes (zero-rated/exempt
+ * sales, 50% meals ITC) explain a LOW rate — surfaced in the message, human decides.
+ */
+export type RateVerdict = "green" | "yellow" | "red" | "na";
+export interface RateCheck {
+  label: string;
+  base: number;
+  tax: number;
+  effectiveRatePct: number | null;   // null when there's no base to test
+  expectedRatePct: number;
+  deviationPts: number | null;
+  verdict: RateVerdict;
+  message: string;
+}
+export interface HstReasonablenessReport {
+  expectedRatePct: number;
+  output: RateCheck;          // HST collected on sales
+  itc: RateCheck;             // ITCs on purchases
+  netTax: number;            // collected − itc
+  overall: RateVerdict;      // worst of the two sides
+}
+
+function rankVerdict(v: RateVerdict): number { return { green: 0, na: 0, yellow: 1, red: 2 }[v]; }
+
+function rateCheck(label: string, side: "sales" | "purchases", tax: number, base: number, expectedRatePct: number, greenBandPts: number, warnBandPts: number): RateCheck {
+  const b = money(base), tx = money(tax);
+  if (b < 1) {
+    return { label, base: b, tax: tx, effectiveRatePct: null, expectedRatePct, deviationPts: null, verdict: "na",
+      message: `No taxable ${side} in the period — nothing to test.` };
+  }
+  const eff = Math.round((tx / b) * 1000) / 10; // one decimal %
+  const dev = Math.round(Math.abs(eff - expectedRatePct) * 10) / 10;
+  if (tx < 0.01) {
+    return { label, base: b, tax: tx, effectiveRatePct: eff, expectedRatePct, deviationPts: dev, verdict: "red",
+      message: `${label}: ${money(b)} of taxable ${side} but ~$0 HST — almost certainly miscoded (missing tax code). Expected ≈ ${expectedRatePct}%.` };
+  }
+  let verdict: RateVerdict = dev <= greenBandPts ? "green" : dev <= warnBandPts ? "yellow" : "red";
+  let message: string;
+  if (verdict === "green") {
+    message = `${label}: effective rate ${eff}% ≈ ${expectedRatePct}% — passes the reasonableness test.`;
+  } else {
+    const lowNote = eff < expectedRatePct
+      ? (side === "purchases" ? " A low rate can be legitimate (zero-rated/exempt purchases, 50% meals ITC) — confirm before dismissing." : " A low rate can be legitimate (zero-rated/exempt sales) — confirm before dismissing.")
+      : " A rate above 13% usually means double-taxed lines or a wrong tax code.";
+    message = `${label}: effective rate ${eff}% is ${dev} pts off ${expectedRatePct}%.${verdict === "red" ? " Likely a coding error — could raise a CRA flag. Review before filing." : ""}${lowNote}`;
+  }
+  return { label, base: b, tax: tx, effectiveRatePct: eff, expectedRatePct, deviationPts: dev, verdict, message };
+}
+
+export function hstReasonableness(
+  tie: ReturnType<typeof tieOut>,
+  expectedRatePct = 13,
+  opts?: { greenBandPts?: number; warnBandPts?: number },
+): HstReasonablenessReport {
+  const greenBandPts = opts?.greenBandPts ?? 1.0;
+  const warnBandPts = opts?.warnBandPts ?? 3.0;
+  const output = rateCheck("HST collected on sales", "sales", tie.collected, tie.salesBase, expectedRatePct, greenBandPts, warnBandPts);
+  const itc = rateCheck("ITCs on purchases", "purchases", tie.itc, tie.purchaseBase, expectedRatePct, greenBandPts, warnBandPts);
+  // Overall = worst of the testable sides; "na" (nothing to test) never dominates a
+  // real verdict. All na → na.
+  const testable = [output.verdict, itc.verdict].filter((v) => v !== "na");
+  const overall: RateVerdict = testable.length === 0
+    ? "na"
+    : testable.reduce((worst, v) => (rankVerdict(v) >= rankVerdict(worst) ? v : worst), "green" as RateVerdict);
+  return { expectedRatePct, output, itc, netTax: money(tie.collected - tie.itc), overall };
+}
+
 export interface HstReviewReport {
   findings: Finding[];
   bySeverity: Record<Severity, number>;
   tie: ReturnType<typeof tieOut>;
+  reasonableness: HstReasonablenessReport;
   counts: { transactions: number; accounts: number };
 }
 
-/** Run all checks. Pure: same input → same report. */
-export function runHstReview(input: { accounts: RawAccount[]; taxCodes: RawTaxCode[]; txns: RawTxn[] }): HstReviewReport {
+/** Run all checks. Pure: same input → same report. `expectedRatePct` defaults to ON 13%. */
+export function runHstReview(input: { accounts: RawAccount[]; taxCodes: RawTaxCode[]; txns: RawTxn[]; expectedRatePct?: number }): HstReviewReport {
   const findings = [
     ...checkUnreviewedAccounts(input.accounts),
     ...checkControlAccountCoding(input.txns),
@@ -246,5 +323,10 @@ export function runHstReview(input: { accounts: RawAccount[]; taxCodes: RawTaxCo
   // high first, then medium, then low; stable within
   const order: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
   findings.sort((a, b) => order[a.severity] - order[b.severity]);
-  return { findings, bySeverity, tie: tieOut(input.txns), counts: { transactions: input.txns.length, accounts: input.accounts.length } };
+  const tie = tieOut(input.txns);
+  return {
+    findings, bySeverity, tie,
+    reasonableness: hstReasonableness(tie, input.expectedRatePct ?? 13),
+    counts: { transactions: input.txns.length, accounts: input.accounts.length },
+  };
 }

@@ -88738,6 +88738,56 @@ function tieOut(txns) {
   }
   return { collected: money2(collected), itc: money2(itc), net: money2(collected - itc), salesBase: money2(salesBase), purchaseBase: money2(purchaseBase) };
 }
+function rankVerdict(v) {
+  return { green: 0, na: 0, yellow: 1, red: 2 }[v];
+}
+function rateCheck(label, side, tax, base, expectedRatePct, greenBandPts, warnBandPts) {
+  const b = money2(base), tx = money2(tax);
+  if (b < 1) {
+    return {
+      label,
+      base: b,
+      tax: tx,
+      effectiveRatePct: null,
+      expectedRatePct,
+      deviationPts: null,
+      verdict: "na",
+      message: `No taxable ${side} in the period \u2014 nothing to test.`
+    };
+  }
+  const eff = Math.round(tx / b * 1e3) / 10;
+  const dev = Math.round(Math.abs(eff - expectedRatePct) * 10) / 10;
+  if (tx < 0.01) {
+    return {
+      label,
+      base: b,
+      tax: tx,
+      effectiveRatePct: eff,
+      expectedRatePct,
+      deviationPts: dev,
+      verdict: "red",
+      message: `${label}: ${money2(b)} of taxable ${side} but ~$0 HST \u2014 almost certainly miscoded (missing tax code). Expected \u2248 ${expectedRatePct}%.`
+    };
+  }
+  let verdict = dev <= greenBandPts ? "green" : dev <= warnBandPts ? "yellow" : "red";
+  let message2;
+  if (verdict === "green") {
+    message2 = `${label}: effective rate ${eff}% \u2248 ${expectedRatePct}% \u2014 passes the reasonableness test.`;
+  } else {
+    const lowNote = eff < expectedRatePct ? side === "purchases" ? " A low rate can be legitimate (zero-rated/exempt purchases, 50% meals ITC) \u2014 confirm before dismissing." : " A low rate can be legitimate (zero-rated/exempt sales) \u2014 confirm before dismissing." : " A rate above 13% usually means double-taxed lines or a wrong tax code.";
+    message2 = `${label}: effective rate ${eff}% is ${dev} pts off ${expectedRatePct}%.${verdict === "red" ? " Likely a coding error \u2014 could raise a CRA flag. Review before filing." : ""}${lowNote}`;
+  }
+  return { label, base: b, tax: tx, effectiveRatePct: eff, expectedRatePct, deviationPts: dev, verdict, message: message2 };
+}
+function hstReasonableness(tie, expectedRatePct = 13, opts) {
+  const greenBandPts = opts?.greenBandPts ?? 1;
+  const warnBandPts = opts?.warnBandPts ?? 3;
+  const output = rateCheck("HST collected on sales", "sales", tie.collected, tie.salesBase, expectedRatePct, greenBandPts, warnBandPts);
+  const itc = rateCheck("ITCs on purchases", "purchases", tie.itc, tie.purchaseBase, expectedRatePct, greenBandPts, warnBandPts);
+  const testable = [output.verdict, itc.verdict].filter((v) => v !== "na");
+  const overall = testable.length === 0 ? "na" : testable.reduce((worst, v) => rankVerdict(v) >= rankVerdict(worst) ? v : worst, "green");
+  return { expectedRatePct, output, itc, netTax: money2(tie.collected - tie.itc), overall };
+}
 function runHstReview(input) {
   const findings = [
     ...checkUnreviewedAccounts(input.accounts),
@@ -88751,7 +88801,14 @@ function runHstReview(input) {
   for (const f of findings) bySeverity[f.severity]++;
   const order = { high: 0, medium: 1, low: 2 };
   findings.sort((a, b) => order[a.severity] - order[b.severity]);
-  return { findings, bySeverity, tie: tieOut(input.txns), counts: { transactions: input.txns.length, accounts: input.accounts.length } };
+  const tie = tieOut(input.txns);
+  return {
+    findings,
+    bySeverity,
+    tie,
+    reasonableness: hstReasonableness(tie, input.expectedRatePct ?? 13),
+    counts: { transactions: input.txns.length, accounts: input.accounts.length }
+  };
 }
 
 // api/hst-review-router.ts
@@ -89636,7 +89693,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.186";
+var BUILD_TAG = "2026-06-26.187";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
