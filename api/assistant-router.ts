@@ -13,6 +13,19 @@ import { getValidGoogleAccessToken } from "./google-token";
 import { buildRawMessage, extractEmail } from "./email-core";
 import { selectRelevant, formatLessonsBlock } from "./learning-core";
 import { recordAudit } from "./agent-audit";
+import { brainAsk } from "./brain-store";
+import { renderAnswer } from "./brain-core";
+
+/** When the AI API is unavailable (no credits / down), still try to ANSWER from the
+ *  Brain so the chat keeps working instead of begging for a top-up. Returns the
+ *  rendered Brain answer, or null if the Brain doesn't know. */
+async function brainFallback(message: string, userId: number): Promise<string | null> {
+  try {
+    const res = await brainAsk(message, { kind: "firm" }, { userId, askedBy: "assistant" });
+    if (res.answered) return `${renderAnswer(res)}\n\n_(Answered from the Brain — the AI service is unavailable right now, so I'm working from what we know.)_`;
+  } catch { /* brain best-effort */ }
+  return null;
+}
 
 // Tools that DO something (vs read-only) — these get written to the audit trail.
 const ACTION_TOOLS = new Set(["add_task", "add_personal", "add_life_item", "schedule_event", "complete_task", "draft_email", "remember", "remember_personal"]);
@@ -512,13 +525,20 @@ export const assistantRouter = createRouter({
             continue;
           }
           console.error("[assistant] API error", { name: err?.name, status: err?.status, message: err?.message });
-          if (err instanceof Anthropic.AuthenticationError) return { reply: "The AI key isn't valid — check ANTHROPIC_API_KEY on the server.", actions, agent };
+          if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.APIConnectionError) {
+            const fromBrain = await brainFallback(input.message, ctx.user.id);
+            if (fromBrain) { await saveTurn(fromBrain); return { reply: fromBrain, actions, agent }; }
+            return { reply: err instanceof Anthropic.AuthenticationError ? "The AI key isn't valid — check ANTHROPIC_API_KEY on the server. (I can still answer from the Brain in the meantime.)" : "Couldn't reach the AI just now — retry, or ask me something that's in the Brain.", actions, agent };
+          }
           if (err instanceof Anthropic.RateLimitError) return { reply: "The AI is rate-limited right now — give it a minute and try again.", actions, agent };
           if (err instanceof Anthropic.InternalServerError) return { reply: "The AI is briefly overloaded — try again in a sec.", actions, agent };
-          if (err instanceof Anthropic.APIConnectionError) return { reply: "Couldn't reach the AI just now — check the connection and retry.", actions, agent };
-          // Out of Anthropic credits → not a bug, a billing top-up. Say so plainly.
+          // Out of Anthropic credits → DON'T just beg for a top-up. Try to answer
+          // from the Brain so the chat keeps working (Markie's ask: "fix it or just
+          // work from the brain"). Only mention billing if the Brain can't help.
           if (/credit balance|too low|billing|insufficient (funds|credit)|purchase credits/i.test(err?.message || "")) {
-            return { reply: "I'm out of AI credits at the moment — top up the Anthropic account (console.anthropic.com → Plans & Billing) and I'll be right back. This affects all the agents, not just me.", actions, agent };
+            const fromBrain = await brainFallback(input.message, ctx.user.id);
+            if (fromBrain) { await saveTurn(fromBrain); return { reply: fromBrain, actions, agent }; }
+            return { reply: "That one needs the live AI and the Anthropic credits are out — but I can still answer anything that's in the Brain. (To restore full chat: console.anthropic.com → Plans & Billing.)", actions, agent };
           }
           const msg = err instanceof Anthropic.APIError ? `${err.status ?? ""} ${err.message}`.trim() : (err?.message || "unknown error");
           return { reply: `Snag talking to the AI: ${msg}`, actions, agent };
