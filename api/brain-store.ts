@@ -138,6 +138,39 @@ export async function seedAgentBrain(): Promise<void> {
   console.log(`[brain] seeded ${agents.length} agent hubs`);
 }
 
+/** Seed the FIGGY OPERATING SYSTEM (FOS) — the firm's constitution — into the
+ *  Brain, VERBATIM from Markie's "Figgy Operating System v1.0 Foundation" doc.
+ *  This is the top governance layer every agent operates under: the principles,
+ *  behaviour standards, quality/security bars, and continuous-improvement model.
+ *  Stored article-by-article (firm scope, category 'constitution') so retrieval
+ *  is granular. Idempotent — keyed on the 'constitution' tag. When Markie ratifies
+ *  a new version, bump FOS_VERSION and clear the old rows. */
+export const FOS_VERSION = "1.0";
+export async function seedConstitution(): Promise<void> {
+  const db = getDb();
+  const have = (await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE category = 'constitution'`)) as any[];
+  if (Number(have[0]?.n || 0) > 0) return;
+  const firm: Scope = { kind: "firm" };
+  const src = [`Figgy Operating System (FOS) v${FOS_VERSION} — Markie`];
+  const articles: { label: string; statement: string }[] = [
+    { label: "FOS — Purpose", statement: "The Figgy Operating System is the single source of truth for how Go Fig Bookz operates: the governing principles, standards, decision framework, quality expectations, security requirements, workflow philosophy, and continuous-improvement model. It is a living document." },
+    { label: "FOS — The Figgy Promise", statement: "We are in the trust business as much as the bookkeeping business. Accuracy before speed. Security before convenience. Clarity before complexity. Every task should improve the business." },
+    { label: "FOS — Core Principles", statement: "Never guess — ask when uncertain. Protect client confidentiality at all times. Automate repetitive work while preserving appropriate human oversight. Explain recommendations in plain language. Document important decisions. Leave every client, workflow, and month better than before." },
+    { label: "FOS — AI Behaviour Standards", statement: "Complete all work that can reasonably be completed before requesting user effort. Do not offload work the AI can accurately perform. Do not artificially stop productive work. Identify automation opportunities. Recommend improvements to workflows, SOPs, prompts, and knowledge." },
+    { label: "FOS — Client Experience", statement: "Reports begin with an executive summary. Use plain English. Provide details in appendices when needed. Answer likely follow-up questions proactively. Continuously create value beyond compliance." },
+    { label: "FOS — Workflow Standards", statement: "Every client has a documented workflow. Every workflow is reviewed and improved. Capture lessons learned. Measure time, quality, profitability, and automation opportunities." },
+    { label: "FOS — Quality Assurance", statement: "Verify completeness, accuracy, reasonableness, presentation, and client value before delivery. Perform root-cause analysis for significant errors. Prevent recurrence through documentation or automation." },
+    { label: "FOS — Security & Privacy", statement: "Least-privilege access. Protect financial documents and personal information. Review permissions regularly. Evaluate security before deploying automations. Treat client information with the same care as your own." },
+    { label: "FOS — Knowledge Management", statement: "Maintain a Knowledge Base, Prompt Library, SOP Library, Client Playbooks, Decision Register, and Improvement Register. Update the operating system whenever a better method is approved." },
+    { label: "FOS — Governance", statement: "The Constitution changes rarely. SOPs, prompts, and workflows evolve continuously. Every meaningful change is versioned and documented." },
+    { label: "FOS — Thinking Framework", statement: "BEFORE: understand objectives, rules, approvals, and available knowledge. DURING: follow standards, identify risks and improvements. AFTER: capture lessons, update knowledge, recommend automation." },
+    { label: "FOS — Implementation Roadmap", statement: "Build order: 1) Constitution (foundation), 2) Knowledge Base, 3) Client Playbooks, 4) Prompt Library, 5) SOP Library, 6) Automation, 7) Operational Intelligence." },
+    { label: "FOS — Final Principle", statement: "The Operating System is the single source of truth. If a better way is discovered, document it, review it, version it, and improve the system." },
+  ];
+  for (const a of articles) await addTruth({ scope: firm, label: a.label, statement: a.statement, category: "constitution", sourceLabels: src });
+  console.log(`[brain] seeded FOS v${FOS_VERSION} constitution (${articles.length} articles)`);
+}
+
 /** Seed the STANDARD-DOMAIN knowledge pack (Canadian/Ontario bookkeeping, tax,
  *  payroll, HR, legal, firm-ops + KB governance) so the agents are expert from
  *  day one instead of learning only by trickle. Researched + cited (WebSearch,
