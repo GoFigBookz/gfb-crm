@@ -84116,6 +84116,9 @@ var bankConverterRouter = createRouter({
       });
       if (!res.ok) {
         const body = await res.text().catch(() => "");
+        if (/credit balance is too low|insufficient.*credit|billing/i.test(body)) {
+          return { ok: false, error: "PDF reading is paused \u2014 the AI credit balance is empty (it's the only part of this tool that uses credits). Free fix: export the statement as CSV from online banking and upload THAT \u2014 it parses instantly, no credits. The Recon Matcher is fully free too." };
+        }
         return { ok: false, error: `Claude PDF read failed (${res.status}). ${body.slice(0, 200)}` };
       }
       const data = await res.json();
@@ -88663,7 +88666,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.167";
+var BUILD_TAG = "2026-06-26.168";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

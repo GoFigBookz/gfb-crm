@@ -82,6 +82,11 @@ export const bankConverterRouter = createRouter({
         });
         if (!res.ok) {
           const body = await res.text().catch(() => "");
+          // PDF reading is the ONLY part of this tool that uses metered AI credits.
+          // When they run out, point Markie at the FREE path instead of a billing error.
+          if (/credit balance is too low|insufficient.*credit|billing/i.test(body)) {
+            return { ok: false as const, error: "PDF reading is paused — the AI credit balance is empty (it's the only part of this tool that uses credits). Free fix: export the statement as CSV from online banking and upload THAT — it parses instantly, no credits. The Recon Matcher is fully free too." };
+          }
           return { ok: false as const, error: `Claude PDF read failed (${res.status}). ${body.slice(0, 200)}` };
         }
         const data: any = await res.json();
