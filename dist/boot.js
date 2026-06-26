@@ -62433,6 +62433,97 @@ var init_ensure_phoenix_schema = __esm({
   }
 });
 
+// api/seed-phoenix-starter.ts
+var seed_phoenix_starter_exports = {};
+__export(seed_phoenix_starter_exports, {
+  seedPhoenixStarter: () => seedPhoenixStarter
+});
+async function seedPhoenixStarter() {
+  const db = getDb();
+  try {
+    const owner = await db.all(sql`SELECT id FROM users WHERE role='admin' ORDER BY id ASC LIMIT 1`);
+    const fb = owner[0] ? owner : await db.all(sql`SELECT id FROM users ORDER BY id ASC LIMIT 1`);
+    const uid = fb[0]?.id;
+    if (!uid) return;
+    const sentinel2 = "Will \u2014 confirm location + GET IT NOTARIZED";
+    const have = await db.all(sql`SELECT COUNT(*) AS n FROM estate_items WHERE userId=${uid} AND title=${sentinel2}`);
+    if (Number(have[0]?.n || 0) > 0) return;
+    const now = Date.now();
+    for (const it of STARTER) {
+      await db.run(sql`INSERT INTO estate_items (userId, category, title, detail, location, contact, status, createdAt, updatedAt)
+        VALUES (${uid}, ${it.category}, ${it.title}, ${it.detail ?? null}, ${it.location ?? null}, ${it.contact ?? null}, 'open', ${now}, ${now})`);
+    }
+    console.log(`[phoenix] seeded ${STARTER.length} estate-plan starter items for user ${uid}`);
+  } catch (e) {
+    console.error("[phoenix] seedPhoenixStarter failed:", e instanceof Error ? e.message : e);
+  }
+}
+var STARTER;
+var init_seed_phoenix_starter = __esm({
+  "api/seed-phoenix-starter.ts"() {
+    init_connection();
+    init_drizzle_orm();
+    STARTER = [
+      {
+        category: "will",
+        title: "Will \u2014 confirm location + GET IT NOTARIZED",
+        detail: "Liv found your will in Google Drive: 'Markie Antle - Last Will and Testament.pdf' and 'Markie Draft Will (2).pdf', plus a 'Will Gift Memorandum.pdf'. ACTION: confirm which is the current version and get it notarized / reviewed by a lawyer so it's valid. Tell your executor where the signed original is.",
+        location: "Google Drive \u2192 Operations \u2192 '03 - Documents (Legal, Insurance)'"
+      },
+      {
+        category: "executor",
+        title: "Name your executor (and an alternate)",
+        detail: "Who administers your estate if you pass? Add their full name, relationship, and how to reach them \u2014 plus a backup in case they can't act."
+      },
+      {
+        category: "business",
+        title: "Go Fig Bookz \u2014 succession plan",
+        detail: "What happens to the firm and your CLIENTS if you pass: who takes over the books, who tells the clients, what happens to staff (e.g. Rachelle). Decide the path \u2014 sell the practice, transfer clients to a trusted bookkeeper/CPA, or wind down \u2014 and write the step-by-step so it can be executed without you."
+      },
+      {
+        category: "business",
+        title: "Client list, QBO access & logins",
+        detail: "Where the master client list and all access live (the Figgy CRM + QBO connections + the connector keys). Make sure your executor / successor can get in: who has admin, where the password manager is."
+      },
+      {
+        category: "accounts",
+        title: "Bank & financial accounts",
+        detail: "List your banks, investment/brokerage accounts (incl. the trading bot), and where statements/access are. Don't write passwords here \u2014 point to the password manager."
+      },
+      {
+        category: "assets",
+        title: "Property & major assets",
+        detail: "Real estate, vehicles, valuables \u2014 what you own and where the ownership docs are."
+      },
+      {
+        category: "debts",
+        title: "Debts & recurring obligations",
+        detail: "Mortgages, loans, lines of credit, and recurring bills that would need to be paid or cancelled."
+      },
+      {
+        category: "insurance",
+        title: "Insurance policies (confirm which are personal)",
+        detail: "Liv found insurance documents in your Drive (Federated, Wawanesa, Ferrari & Associates, travel insurance, others) \u2014 some look like client certificates, so confirm which are YOURS. List your personal life / home / auto / travel policies + policy numbers + the broker contact."
+      },
+      {
+        category: "digital",
+        title: "Digital accounts & password manager",
+        detail: "Where the keys to everything are: your password manager, primary email, phone, and any accounts your executor will need. This is the master key \u2014 keep the location secure."
+      },
+      {
+        category: "wishes",
+        title: "Final wishes",
+        detail: "Funeral / burial / cremation preferences, organ donation, and any messages or instructions you want carried out."
+      },
+      {
+        category: "contacts",
+        title: "Key contacts",
+        detail: "Your lawyer, accountant, financial advisor, and anyone your executor should call first. Names + numbers."
+      }
+    ];
+  }
+});
+
 // api/ensure-brain-schema.ts
 var ensure_brain_schema_exports = {};
 __export(ensure_brain_schema_exports, {
@@ -87042,7 +87133,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.151";
+var BUILD_TAG = "2026-06-26.152";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -87457,6 +87548,8 @@ app.get("/api/phoenix/seed", async (c) => {
     await ensureHealthSchema2();
     const { ensurePhoenixSchema: ensurePhoenixSchema2 } = await Promise.resolve().then(() => (init_ensure_phoenix_schema(), ensure_phoenix_schema_exports));
     await ensurePhoenixSchema2();
+    const { seedPhoenixStarter: seedPhoenixStarter2 } = await Promise.resolve().then(() => (init_seed_phoenix_starter(), seed_phoenix_starter_exports));
+    await seedPhoenixStarter2();
     try {
       const { ensureBrainSchema: ensureBrainSchema2 } = await Promise.resolve().then(() => (init_ensure_brain_schema(), ensure_brain_schema_exports));
       await ensureBrainSchema2();
