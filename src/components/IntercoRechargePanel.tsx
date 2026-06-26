@@ -68,7 +68,12 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
 
   const postLive = () => {
     if (!payerId || !payer) return;
-    if (!confirm(`Fig will POST LIVE to QuickBooks:\n• Invoice in ${payer.name} → ${counterparty}\n• Bill in ${counterparty}\nfor ${start} → ${end}.\n\nBoth companies must be on the DIRECT (native) connection. Proceed?`)) return;
+    const tie = (preview.data as any)?.hstTie;
+    let warn = "";
+    if (tie && !tie.error && !tie.ties) {
+      warn = `\n\n⚠ WARNING: the HST will NOT zero out — variance ${money(tie.variance)}. The HST account holds ${money(tie.target)} but this recharge only charges ${money(tie.rechargeHst)}. A bill (~${money(tie.impliedMissingBase)} of expenses) is likely not captured. Posting now will leave HST on Alderson's books. Set the From date back to capture it first.\n\nPost anyway?`;
+    }
+    if (!confirm(`Fig will POST LIVE to QuickBooks:\n• Invoice in ${payer.name} → ${counterparty}\n• Bill in ${counterparty}\nfor ${start} → ${end}.\n\nBoth companies must be on the DIRECT (native) connection.${warn || "\n\nProceed?"}`)) return;
     post.mutate({
       payerClientId: payerId, payerName: payer.name,
       counterpartyName: counterparty, revenueAccount, expenseAccount,
@@ -196,6 +201,22 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
               </div>
             )}
             {!draft.validation.ok && <div className="text-xs text-amber-700 flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> {draft.validation.errors.join("; ")}</div>}
+            {(r as any)?.hstTie && !(r as any).hstTie.error && (
+              (r as any).hstTie.ties ? (
+                <div className="rounded-md border border-emerald-300 bg-emerald-50 p-2 text-xs text-emerald-900">
+                  <div className="font-semibold flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> HST ties out — this recharge clears the HST account to $0.</div>
+                  <div className="text-emerald-700">HST account {money((r as any).hstTie.hstAccountBalance)} · recharge HST {money((r as any).hstTie.rechargeHst)} · variance {money((r as any).hstTie.variance)}.</div>
+                </div>
+              ) : (
+                <div className="rounded-md border border-red-300 bg-red-50 p-2 text-xs text-red-900 space-y-1">
+                  <div className="font-semibold flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> HST will NOT zero out — variance {money((r as any).hstTie.variance)}.</div>
+                  <div>HST account holds <b>{money((r as any).hstTie.target)}</b> but the recharge only charges <b>{money((r as any).hstTie.rechargeHst)}</b>. About <b>{money((r as any).hstTie.impliedMissingBase)}</b> of expenses isn't captured — likely a bill dated before this period (entered after the last filing). Set the <b>From</b> date back to include it, then re-generate.</div>
+                  {Array.isArray((r as any).hstTie.accounts) && (r as any).hstTie.accounts.length > 0 && (
+                    <div className="text-red-700">HST account(s): {(r as any).hstTie.accounts.map((a: any) => `${a.name} ${money(a.balance)}`).join(" · ")}</div>
+                  )}
+                </div>
+              )
+            )}
             {(r as any)?.zeroOut && (
               <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-2 text-xs text-emerald-900 space-y-1">
                 <div className="font-semibold flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Zero-out mode</div>

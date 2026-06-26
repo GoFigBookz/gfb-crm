@@ -57,6 +57,18 @@ function normalizeDoc(e: any, type: "invoice" | "bill") {
   };
 }
 
+/** Pull Alderson's HST/GST account balance(s). For a pure-ITC entity this is the
+ *  unbilled HST sitting in the books (incl. any late prior-period bill). The recharge
+ *  must charge exactly this much output HST so the account nets to $0 on posting. */
+async function pullHstAccountBalance(conn: any): Promise<{ accounts: { name: string; balance: number; type: string }[]; net: number }> {
+  const accts = arr(await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`), "Account");
+  const hst = accts
+    .filter((a: any) => /hst|gst|sales tax/i.test(a.Name || "") && !/expense|income/i.test(a.AccountType || ""))
+    .map((a: any) => ({ name: a.Name, balance: num(a.CurrentBalance), type: a.AccountType }));
+  const net = hst.reduce((s: number, a: any) => s + a.balance, 0);
+  return { accounts: hst, net: Math.round((net + Number.EPSILON) * 100) / 100 };
+}
+
 /** Pull an account's CurrentBalance by name from a connection. Returns the balance
  *  + (on miss) the available account names so the human can correct the spelling. */
 async function accountBalanceByName(conn: any, name: string): Promise<{ found: boolean; balance: number; matchedName?: string; candidates?: string[] }> {
@@ -276,7 +288,22 @@ export const intercoRechargeRouter = createRouter({
           expenses,
           zeroOut,
         });
-        return { ok: true as const, draft, pulled: expenses.length, errors, byAccount, excluded, zeroOut };
+        // HST TIE-OUT: does the recharge's output HST clear Alderson's HST account to $0?
+        // If not, a bill isn't captured (e.g. a late prior-period entry) — surface the gap.
+        let hstTie: any = null;
+        try {
+          const hstAcc = await pullHstAccountBalance(cr.conn);
+          const rechargeHst = round2(draft.invoice.hst);
+          const target = round2(Math.abs(hstAcc.net));   // ITC sitting in the account to clear
+          const variance = round2(target - rechargeHst);
+          hstTie = {
+            hstAccountBalance: round2(hstAcc.net), target, rechargeHst, variance,
+            ties: Math.abs(variance) < 1,
+            impliedMissingBase: round2(Math.abs(variance) / ((input.hstRatePct || 13) / 100)),
+            accounts: hstAcc.accounts,
+          };
+        } catch (e) { hstTie = { error: e instanceof Error ? e.message : String(e) }; }
+        return { ok: true as const, draft, pulled: expenses.length, errors, byAccount, excluded, zeroOut, hstTie };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.startsWith("bridge_not_returning_data")) return { ok: false as const, error: "bridge_not_returning_data", detail: msg };
