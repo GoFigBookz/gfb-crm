@@ -393,9 +393,38 @@ export async function ensureValidNativeToken(connection: Conn): Promise<Conn> {
  * access token is expired/near-expiry OR the connection hasn't been touched in
  * `staleDays`. Best-effort + isolated: one failure never blocks the others.
  */
-export async function keepAliveNativeConnections(staleDays = 7): Promise<{ refreshed: number; reconnect: number; skipped: number }> {
+export async function keepAliveNativeConnections(
+  staleDays = 7,
+  opts: { force?: boolean; minIntervalMs?: number } = {},
+): Promise<{ refreshed: number; reconnect: number; skipped: number; debounced?: boolean }> {
   const db = getDb();
+  const { sql } = await import("drizzle-orm");
   let refreshed = 0, reconnect = 0, skipped = 0;
+
+  // DEBOUNCE (2026-06-26 fix): the access token lives ~1h, so on every boot this
+  // sweep would refresh EVERY native connection. With several deploys in a day,
+  // a deploy that kills the process mid-refresh rotates the QBO refresh token at
+  // Intuit WITHOUT persisting the new one → next boot uses a dead token →
+  // invalid_grant. So: only run at most once per `minIntervalMs` (default ~20h)
+  // unless forced (the daily timer). This stops rapid deploys from churning tokens.
+  const minIntervalMs = opts.minIntervalMs ?? 20 * 60 * 60 * 1000;
+  const LAST_KEY = "qbo_keepalive_last";
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS app_settings (key text PRIMARY KEY, value text, updatedAt integer)`);
+    if (!opts.force) {
+      const row: any = (await db.run(sql`SELECT value FROM app_settings WHERE key=${LAST_KEY} LIMIT 1`));
+      const r = (row?.rows ?? row ?? [])[0];
+      const last = r ? Number((r as any).value ?? (r as any)[0]) : 0;
+      if (last && Date.now() - last < minIntervalMs) {
+        return { refreshed: 0, reconnect: 0, skipped: 0, debounced: true };
+      }
+    }
+    await db.run(sql`INSERT INTO app_settings (key, value, updatedAt) VALUES (${LAST_KEY}, ${String(Date.now())}, ${Date.now()})
+      ON CONFLICT(key) DO UPDATE SET value=${String(Date.now())}, updatedAt=${Date.now()}`);
+  } catch (e) {
+    console.error("[qbo-oauth] keep-alive debounce check failed (continuing):", e instanceof Error ? e.message : e);
+  }
+
   let rows: Conn[] = [];
   try {
     rows = await db.select().from(qboConnections)
@@ -407,6 +436,10 @@ export async function keepAliveNativeConnections(staleDays = 7): Promise<{ refre
   const staleMs = staleDays * 86_400_000;
   for (const c of rows) {
     try {
+      // Don't re-rotate a token that was just refreshed (another sweep/request) —
+      // needless rotation is exactly what risks the lost-token lockout.
+      const justRefreshed = c.updatedAt && Date.now() - c.updatedAt.getTime() < 45 * 60 * 1000;
+      if (justRefreshed) { skipped++; continue; }
       const nearExpiry = !c.expiresAt || c.expiresAt.getTime() - Date.now() < 10 * 60 * 1000;
       const stale = !c.updatedAt || Date.now() - c.updatedAt.getTime() > staleMs;
       if (!nearExpiry && !stale) { skipped++; continue; }

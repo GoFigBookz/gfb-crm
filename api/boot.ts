@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-26.172";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-26.173";  // bump each deploy so prod vs source is unambiguous
 
 // CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
 // secret into a hosting dashboard very often drags a trailing space or newline,
@@ -2310,10 +2310,13 @@ async function startServer() {
   const { startAllSchedulers } = await import("./all-sync-scheduler");
   startAllSchedulers();
 
-  // QBO native-token keep-alive: run shortly after boot, then daily. Best-effort
-  // and isolated — a refresh failure only flags that one connection for reconnect.
+  // QBO native-token keep-alive. The boot call is DEBOUNCED (runs at most once per
+  // ~20h) so back-to-back deploys can't churn/rotate refresh tokens and brick them
+  // (the 2026-06-26 lockout). The daily timer FORCES a real sweep to hold the
+  // rolling 100-day window. Best-effort + isolated — one failure flags only that
+  // connection for reconnect.
   setTimeout(() => { keepAliveNativeConnections().catch(() => {}); }, 60_000);
-  setInterval(() => { keepAliveNativeConnections().catch(() => {}); }, 24 * 60 * 60 * 1000);
+  setInterval(() => { keepAliveNativeConnections(7, { force: true }).catch(() => {}); }, 24 * 60 * 60 * 1000);
 
   // Dashboard trend snapshots: capture shortly after boot, then daily.
   const { capturePracticeSnapshot } = await import("./dashboard-router");
