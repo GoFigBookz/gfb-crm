@@ -36,7 +36,8 @@ export type RechargeInput = {
   hstRatePct: number;         // e.g. 13 for Ontario
   chargeHst: boolean;         // false only if a Section 156 election makes it nil
   expenses: RechargeExpense[];
-};
+  zeroOut?: boolean;          // zero-out method → invoice credits source expense accounts
+};                            // (so a single payer-side revenue account is NOT required)
 
 export type RechargeLine = { description: string; account: string; amount: number; sourceRef?: string };
 export type RechargeDoc = {
@@ -97,7 +98,9 @@ export function buildRecharge(input: RechargeInput): RechargeResult {
   const errors: string[] = [];
   if (lines.length === 0) errors.push("No expense lines to recharge.");
   if (lines.some((l) => l.amount < 0)) errors.push("One or more expense lines are negative — review before recharging.");
-  if (!input.revenueAccount) errors.push("Missing payer-side revenue account.");
+  // In ZERO-OUT mode the invoice credits the source expense accounts, so a single
+  // payer-side revenue account is NOT used (don't require it).
+  if (!input.zeroOut && !input.revenueAccount) errors.push("Missing payer-side revenue account.");
   if (!input.expenseAccount) errors.push("Missing counterparty-side expense account.");
   if (round2(invoice.total) !== round2(bill.total)) errors.push("Invoice total does not equal mirror-bill total.");
 
