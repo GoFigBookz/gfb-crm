@@ -58858,6 +58858,526 @@ var init_sdk = __esm({
   }
 });
 
+// api/brain-core.ts
+function tokenize2(s) {
+  return (s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter((w) => w.length > 1 && !STOP.has(w));
+}
+function scopeMatches(recordScope, queryScope) {
+  if (recordScope.kind !== queryScope.kind) return false;
+  if (recordScope.kind === "client") return recordScope.clientId != null && recordScope.clientId === queryScope.clientId;
+  return true;
+}
+function scoreRecord(queryTerms, record2) {
+  if (queryTerms.length === 0) return 0;
+  const hay = new Set(tokenize2(`${record2.label} ${record2.text} ${record2.category ?? ""}`));
+  let hits = 0;
+  for (const t2 of queryTerms) if (hay.has(t2)) hits += 1;
+  const coverage = hits / queryTerms.length;
+  const categoryHit = record2.category ? queryTerms.includes(record2.category.toLowerCase()) : false;
+  const categoryBonus = categoryHit ? 0.25 : 0;
+  const labelBonus = tokenize2(record2.label).some((t2) => queryTerms.includes(t2)) ? 0.15 : 0;
+  return Math.min(1, coverage + categoryBonus + labelBonus);
+}
+function retrieve(question, scope, records, topN = 5) {
+  const terms = tokenize2(question);
+  return records.filter((r) => scopeMatches(r.scope, scope)).map((r) => ({ record: r, score: scoreRecord(terms, r) })).filter((m) => m.score > 0).sort((a, b) => b.score - a.score).slice(0, topN);
+}
+function formatCitations(matches) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const m of matches) {
+    const key10 = `${m.record.layer}:${m.record.label}`;
+    if (seen.has(key10)) continue;
+    seen.add(key10);
+    out.push({ label: m.record.label, layer: m.record.layer });
+  }
+  return out;
+}
+function answerFromBrain(question, scope, records, opts) {
+  const confidentAt = opts?.confidentAt ?? 0.55;
+  const matches = retrieve(question, scope, records);
+  const top = matches[0];
+  const truthTop = matches.find((m) => m.record.layer === "truth" && m.record.status === "approved");
+  if (truthTop && truthTop.score >= confidentAt) {
+    return {
+      answered: true,
+      text: truthTop.record.text,
+      confidence: Math.round(Math.min(99, 50 + truthTop.score * 49)),
+      citations: formatCitations(matches.filter((m) => m.score >= confidentAt * 0.6)),
+      matches
+    };
+  }
+  return {
+    answered: false,
+    confidence: top ? Math.round(top.score * 40) : 0,
+    // low, advisory only
+    citations: [],
+    missingInfo: { question: missingInfoQuestion(question, scope), scope, category: opts?.category },
+    matches
+  };
+}
+function missingInfoQuestion(question, scope) {
+  const who = scope.kind === "client" ? `client #${scope.clientId}` : scope.kind;
+  return `Need confirmation for ${who}: ${question.trim().replace(/\?+$/, "")}? (not yet in the brain \u2014 answer to make it truth)`;
+}
+function truthFromAnswer(input) {
+  return {
+    id: input.id,
+    layer: "truth",
+    scope: input.scope,
+    label: input.label,
+    text: input.statement,
+    status: "approved",
+    category: input.category,
+    sourceLabels: input.sourceLabels,
+    updatedAt: input.at
+  };
+}
+function renderAnswer(a) {
+  if (!a.answered) return `I don't have that in the brain yet \u2014 filing a question for you: "${a.missingInfo?.question}"`;
+  const src = a.citations.map((c) => c.label).join(" + ") || "\u2014";
+  return `${a.text}  \u2014 Source: ${src} (${a.confidence}%)`;
+}
+var STOP;
+var init_brain_core = __esm({
+  "api/brain-core.ts"() {
+    STOP = /* @__PURE__ */ new Set([
+      "the",
+      "a",
+      "an",
+      "of",
+      "to",
+      "for",
+      "and",
+      "or",
+      "is",
+      "are",
+      "in",
+      "on",
+      "at",
+      "what",
+      "which",
+      "how",
+      "do",
+      "does",
+      "did",
+      "i",
+      "we",
+      "you",
+      "it",
+      "this",
+      "that",
+      "with",
+      "by",
+      "from",
+      "be",
+      "as",
+      "should",
+      "need",
+      "needs",
+      "use",
+      "uses"
+    ]);
+  }
+});
+
+// api/brain-store.ts
+var brain_store_exports = {};
+__export(brain_store_exports, {
+  FOS_VERSION: () => FOS_VERSION,
+  addTruth: () => addTruth,
+  answerQuestion: () => answerQuestion,
+  brainAsk: () => brainAsk,
+  brainStats: () => brainStats,
+  fileQuestion: () => fileQuestion,
+  listOpenQuestions: () => listOpenQuestions,
+  loadScopedRecords: () => loadScopedRecords,
+  seedAgentBrain: () => seedAgentBrain,
+  seedAgentCharter: () => seedAgentCharter,
+  seedBrain: () => seedBrain,
+  seedConstitution: () => seedConstitution,
+  seedKnowledgeBrain: () => seedKnowledgeBrain
+});
+function rowToRecord(r) {
+  return {
+    id: String(r.id),
+    layer: r.layer || "truth",
+    scope: { kind: r.scopeKind, clientId: r.clientId ?? void 0 },
+    label: r.label || "Record",
+    text: r.text || "",
+    status: r.status || "approved",
+    category: r.category ?? void 0,
+    sourceLabels: r.sourceLabels ? safeJson(r.sourceLabels) : void 0,
+    updatedAt: r.updatedAt ?? void 0
+  };
+}
+function safeJson(s) {
+  try {
+    const v = JSON.parse(s);
+    return Array.isArray(v) ? v : void 0;
+  } catch {
+    return void 0;
+  }
+}
+async function loadScopedRecords(scope, userId) {
+  const db = getDb();
+  let rows;
+  if (scope.kind === "client") {
+    rows = await db.all(sql`SELECT * FROM brain_records WHERE scopeKind = 'client' AND clientId = ${scope.clientId ?? -1}`);
+  } else if (scope.kind === "personal") {
+    rows = await db.all(sql`SELECT * FROM brain_records WHERE scopeKind = 'personal' AND userId = ${userId ?? -1}`);
+  } else {
+    rows = await db.all(sql`SELECT * FROM brain_records WHERE scopeKind = 'firm'`);
+  }
+  return rows.map(rowToRecord);
+}
+async function brainAsk(question, scope, opts) {
+  const records = await loadScopedRecords(scope, opts?.userId);
+  const ans = answerFromBrain(question, scope, records, { category: opts?.category });
+  if (ans.answered || !ans.missingInfo) return ans;
+  const filedQuestionId = await fileQuestion(ans.missingInfo.question, scope, { userId: opts?.userId, askedBy: opts?.askedBy, category: opts?.category });
+  return { ...ans, filedQuestionId };
+}
+async function fileQuestion(question, scope, opts) {
+  const db = getDb();
+  const existing = await db.all(sql`SELECT id FROM brain_questions WHERE status = 'open' AND question = ${question} AND scopeKind = ${scope.kind} AND COALESCE(clientId,-1) = ${scope.clientId ?? -1} LIMIT 1`);
+  if (existing[0]) return Number(existing[0].id);
+  const now = Date.now();
+  await db.run(sql`INSERT INTO brain_questions (scopeKind, clientId, userId, question, category, status, askedBy, createdAt)
+    VALUES (${scope.kind}, ${scope.clientId ?? null}, ${opts?.userId ?? null}, ${question}, ${opts?.category ?? null}, 'open', ${opts?.askedBy ?? "liv"}, ${now})`);
+  const row = await db.all(sql`SELECT id FROM brain_questions WHERE question = ${question} ORDER BY id DESC LIMIT 1`);
+  return row[0] ? Number(row[0].id) : void 0;
+}
+async function addTruth(input) {
+  const db = getDb();
+  const id = "br_" + (await import("crypto")).randomBytes(10).toString("hex");
+  const now = Date.now();
+  await db.run(sql`INSERT INTO brain_records (id, layer, scopeKind, clientId, userId, label, text, status, category, sourceLabels, createdAt, updatedAt)
+    VALUES (${id}, ${input.layer ?? "truth"}, ${input.scope.kind}, ${input.scope.clientId ?? null}, ${input.userId ?? null}, ${input.label}, ${input.statement}, ${input.status ?? "approved"}, ${input.category ?? null}, ${input.sourceLabels ? JSON.stringify(input.sourceLabels) : null}, ${now}, ${now})`);
+  return id;
+}
+async function answerQuestion(id, answer, opts) {
+  const db = getDb();
+  const rows = await db.all(sql`SELECT * FROM brain_questions WHERE id = ${id} LIMIT 1`);
+  const q = rows[0];
+  if (!q) return { error: "question not found" };
+  const scope = { kind: q.scopeKind, clientId: q.clientId ?? void 0 };
+  const truth = truthFromAnswer({ id: "br_" + (await import("crypto")).randomBytes(10).toString("hex"), scope, label: opts?.label || "Confirmed by Markie", statement: answer, category: opts?.category ?? q.category ?? void 0, sourceLabels: ["Markie"], at: Date.now() });
+  const truthId = await addTruth({ scope, label: truth.label, statement: truth.text, category: truth.category, sourceLabels: truth.sourceLabels, userId: q.userId ?? void 0 });
+  await db.run(sql`UPDATE brain_questions SET status = 'answered', answer = ${answer}, answeredAt = ${Date.now()} WHERE id = ${id}`);
+  return { truthId };
+}
+async function listOpenQuestions() {
+  const db = getDb();
+  return await db.all(sql`SELECT * FROM brain_questions WHERE status = 'open' ORDER BY createdAt DESC LIMIT 200`);
+}
+async function seedBrain() {
+  const db = getDb();
+  const have = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records`);
+  if (Number(have[0]?.n || 0) > 0) return;
+  const firm = { kind: "firm" };
+  const seeds = [
+    {
+      label: "Reconcile SOP",
+      category: "reconcile",
+      sourceLabels: ["Markie 2026-06-26"],
+      statement: "When reconciling a bank account in QBO, the month to reconcile is ALWAYS the next month after the 'Last statement ending date' shown. Click 'View statements' to open that next month's statement and read its ending balance. Statements live in QBO when the bank feed is connected (no Hubdoc). Confirm the beginning balance matches, enter the ending balance + date, Start reconciling, get the Difference to $0.00, then get Markie's OK before clicking Finish now."
+    },
+    {
+      label: "Figgy Clearing rule",
+      category: "coding",
+      sourceLabels: ["Markie, non-negotiable"],
+      statement: "NEVER use the 'Figgy Clearing' account, or any clearing/control account (Accounts Payable, Accounts Receivable, Undeposited Funds, equity), for any transaction or reconciliation. If a workflow seems to want it, stop and ask Markie."
+    },
+    {
+      label: "Review gate",
+      category: "policy",
+      sourceLabels: ["Firm golden rule"],
+      statement: "Nothing posts, files, or sends without Markie's review. Agents never invent accounts, clients, or data. If confidence is 80% or less, or the answer isn't in the brain, create a review item for Markie instead of acting."
+    },
+    {
+      label: "Entities are separate",
+      category: "policy",
+      sourceLabels: ["Firm golden rule"],
+      statement: "Clark OS (Owen Sound) and Clark CW (Collingwood) are permanently separate entities and books \u2014 never merge them. Judge a client by the bill-to and location on the document, never the sender or folder."
+    }
+  ];
+  for (const s of seeds) {
+    await addTruth({ scope: firm, label: s.label, statement: s.statement, category: s.category, sourceLabels: s.sourceLabels, layer: s.layer });
+  }
+  console.log(`[brain] seeded ${seeds.length} firm truths`);
+}
+async function seedAgentBrain() {
+  const db = getDb();
+  const have = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE category = 'agent'`);
+  if (Number(have[0]?.n || 0) > 0) return;
+  const firm = { kind: "firm" };
+  const agents = [
+    { label: "Fig \u2014 junior bookkeeper", statement: "Fig is the junior bookkeeper. Pulls from QBO, codes vendors (history \u2192 cold-start \u2192 web), intakes receipts (Gmail/Drive/Hubdoc), posts transactions, pushes payroll hours. Best-in-class at accurate, consistent coding; proactively flags miscodes, duplicates, and missing receipts. Output is always a PROPOSAL for review \u2014 never final." },
+    { label: "Sage \u2014 senior bookkeeper", statement: "Sage is the senior bookkeeper. Reviews Fig's work for errors + completeness, then PREPARES the filings \u2014 HST, WSIB, payroll \u2014 for Markie's approval. Owns compliance prep + the first review gate. Proactively catches gaps and readies filings before deadlines." },
+    { label: "Wren \u2014 controller / auditor", statement: "Wren is the controller/auditor. Tie-outs (bank \u2194 HST \u2194 payroll \u2194 GL), CRA HST-audit support, and the citation-backed month-end workpaper Markie signs. Reviews Sage. Proactively defends the books and surfaces anything that won't tie." },
+    { label: "Liv \u2014 executive assistant", statement: "Liv is Markie's EA and the front desk / voice of the Brain. Comms, agenda, tone-matched email DRAFTS (never auto-send), scheduling, and Markie's PERSONAL life (walled off, private). Proactively manages his time and flags what needs his attention." },
+    { label: "Jinx \u2014 QA / watchdog", statement: "Jinx is QA/IT watchdog. Smoke-tests + watches the live app (deploys, payroll, email sync, key flows) and FLAGS Markie only when something breaks \u2014 silent when healthy. Proactively monitors system health." },
+    { label: "Tess \u2014 tax specialist", statement: "Tess is the tax specialist. Corporate (T2) + personal (T1), HST/GST returns, year-end tax prep, instalments, CRA correspondence. Prepares for Markie's sign-off \u2014 never files. Proactively flags tax exposures, instalment due dates, and planning opportunities." },
+    { label: "Jade \u2014 fractional CFO", statement: "Jade is the fractional CFO. Forward-looking finance: pricing/margin analysis (reads the firm's own QBO billing), cash, profitability. Proactively advises whether Markie is charging right and where margins are thin." },
+    { label: "Skye \u2014 social / marketing", statement: "Skye runs social/marketing. Drafts content/posts in the brand voice, runs the content calendar, and the platform cleanup plan (LinkedIn, Instagram, Facebook, ProAdvisor, website, Google). Proactively proposes content; never auto-posts." }
+  ];
+  for (const a of agents) await addTruth({ scope: firm, label: a.label, statement: a.statement, category: "agent", sourceLabels: ["Firm org chart"] });
+  console.log(`[brain] seeded ${agents.length} agent hubs`);
+}
+async function seedAgentCharter() {
+  const db = getDb();
+  const have = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE category = 'charter'`);
+  if (Number(have[0]?.n || 0) > 0) return;
+  const firm = { kind: "firm" };
+  const src = ["Agent Charter \u2014 Markie 2026-06-26"];
+  const lanes = [
+    { label: "Charter \u2014 Coordination (no cost, via the Brain)", statement: "Agents coordinate THROUGH THE BRAIN \u2014 the shared memory IS the message bus. Before acting, READ the Brain (free retrieval). To pass work to a teammate, write a short HANDOFF note to the Brain (free) \u2014 do NOT spin up another agent or make an extra AI call to 'talk' (that costs money). A confirmed correction is written once and teaches everyone. Net rule: agents talk by reading/writing shared Brain state \u2014 never by paying to message each other. Stay in your lane; never redo work another agent already did \u2014 check the Brain first to avoid duplication." },
+    { label: "Charter \u2014 Fig (junior bookkeeper) lane", statement: "FIG DOES: pull from QBO, code vendors (history\u2192cold-start\u2192web), intake receipts, post transactions as a PROPOSAL. FIG DOES NOT: review its own work, prepare/file filings, do tie-outs, or tax returns. HANDS OFF: completed coding \u2192 Sage." },
+    { label: "Charter \u2014 Sage (senior bookkeeper) lane", statement: "SAGE DOES: review Fig's work for errors + completeness, then PREPARE filings (HST/WSIB/payroll) for Markie. SAGE DOES NOT: do the initial coding (Fig's), the final audit/workpaper (Wren's), or tax returns (Tess's). HANDS OFF: reviewed books \u2192 Wren; tax questions \u2192 Tess." },
+    { label: "Charter \u2014 Wren (controller/auditor) lane", statement: "WREN DOES: tie-outs (bank\u2194HST\u2194payroll\u2194GL), CRA HST-audit support, the citation-backed month-end workpaper Markie signs. WREN DOES NOT: code (Fig) or prep routine filings (Sage). Final quality gate before Markie." },
+    { label: "Charter \u2014 Tess (tax) lane", statement: "TESS DOES: T2 corporate, T1 personal, HST/GST returns, year-end tax prep, instalments, CRA correspondence \u2014 prepared for Markie's sign-off, never filed. TESS DOES NOT: do the bookkeeping (Fig/Sage) or audit tie-outs (Wren)." },
+    { label: "Charter \u2014 Jade (fractional CFO) lane", statement: "JADE DOES: forward-looking finance \u2014 pricing/margin, cash flow, profitability, projections (reads the firm's own QBO). JADE DOES NOT: keep the books (Fig/Sage), do tax (Tess), or audit (Wren). Advisory only." },
+    { label: "Charter \u2014 Liv (EA / front desk) lane", statement: "LIV DOES: comms (email drafts, never auto-send), calendar, tasks, routing, and Markie's PERSONAL life + Phoenix Rising (walled off). LIV DOES NOT: do bookkeeping, tax, or audit \u2014 she ROUTES those to the right agent and brings back the answer. Auto-detects who a request belongs to (no 'Hey X' needed)." },
+    { label: "Charter \u2014 Jinx (QA / watchdog) lane", statement: "JINX DOES: monitor the live app (deploys, payroll, email sync, key flows), run smoke tests, grade system health, flag Markie ONLY when something breaks. JINX DOES NOT: do any client/financial work \u2014 it only watches and reports." },
+    { label: "Charter \u2014 Skye (social / marketing) lane", statement: "SKYE DOES: social content + platforms, the content calendar, reselling Markie's Side Sales inventory, and marketing research \u2014 drafts/proposals only, never auto-posts. SKYE DOES NOT: touch client books, finance, or tax." }
+  ];
+  for (const l of lanes) await addTruth({ scope: firm, label: l.label, statement: l.statement, category: "charter", sourceLabels: src });
+  console.log(`[brain] seeded agent charter (${lanes.length} lanes)`);
+}
+async function seedConstitution() {
+  const db = getDb();
+  const cur = await db.all(sql`SELECT text FROM brain_records WHERE category = 'constitution' AND label = 'FOS — Version & Amendments' LIMIT 1`);
+  if (cur[0] && String(cur[0].text || "").includes(`v${FOS_VERSION}`)) return;
+  await db.run(sql`DELETE FROM brain_records WHERE category = 'constitution'`);
+  const firm = { kind: "firm" };
+  const src = [`Figgy Operating System (FOS) v${FOS_VERSION} \u2014 Markie`];
+  const articles = [
+    { label: "FOS \u2014 Version & Amendments", statement: "Figgy Operating System v1.2 (ratified by Markie 2026-06-26). v1.0 = foundation (Markie's authored doc). v1.1 added Human Oversight Threshold, Precedence (do the work, never guess), and Cost Discipline. v1.2 adds Roles & Review Chain and Data Handling & Retention. Amend by: document \u2192 review \u2192 bump FOS_VERSION \u2192 re-seed." },
+    { label: "FOS \u2014 Purpose", statement: "The Figgy Operating System is the single source of truth for how Go Fig Bookz operates: the governing principles, standards, decision framework, quality expectations, security requirements, workflow philosophy, and continuous-improvement model. It is a living document." },
+    { label: "FOS \u2014 The Figgy Promise", statement: "We are in the trust business as much as the bookkeeping business. Accuracy before speed. Security before convenience. Clarity before complexity. Every task should improve the business." },
+    { label: "FOS \u2014 Core Principles", statement: "Never guess \u2014 ask when uncertain. Protect client confidentiality at all times. Automate repetitive work while preserving appropriate human oversight. Explain recommendations in plain language. Document important decisions. Leave every client, workflow, and month better than before." },
+    { label: "FOS \u2014 AI Behaviour Standards", statement: "Complete all work that can reasonably be completed before requesting user effort. Do not offload work the AI can accurately perform. Do not artificially stop productive work. Identify automation opportunities. Recommend improvements to workflows, SOPs, prompts, and knowledge." },
+    { label: "FOS \u2014 Client Experience", statement: "Reports begin with an executive summary. Use plain English. Provide details in appendices when needed. Answer likely follow-up questions proactively. Continuously create value beyond compliance." },
+    { label: "FOS \u2014 Workflow Standards", statement: "Every client has a documented workflow. Every workflow is reviewed and improved. Capture lessons learned. Measure time, quality, profitability, and automation opportunities." },
+    { label: "FOS \u2014 Quality Assurance", statement: "Verify completeness, accuracy, reasonableness, presentation, and client value before delivery. Perform root-cause analysis for significant errors. Prevent recurrence through documentation or automation." },
+    { label: "FOS \u2014 Security & Privacy", statement: "Least-privilege access. Protect financial documents and personal information. Review permissions regularly. Evaluate security before deploying automations. Treat client information with the same care as your own." },
+    { label: "FOS \u2014 Data Handling & Retention", statement: "Concrete data rules (added v1.2). RETENTION: keep books, records, and supporting documents 6 years from the end of the last tax year they relate to (CRA / Income Tax Act s.230) \u2014 get CRA permission before early destruction. PRIVACY: under PIPEDA, collect with consent, keep secure, retain only as long as needed for the identified purpose, then dispose safely; record any breach. ISOLATION: every client's data stays walled off \u2014 one client's information never mixes into another's; firm vs per-client scope is enforced at the data layer, never by trust. Personal (Markie's) data is walled off from all client/firm data." },
+    { label: "FOS \u2014 Knowledge Management", statement: "Maintain a Knowledge Base, Prompt Library, SOP Library, Client Playbooks, Decision Register, and Improvement Register. Update the operating system whenever a better method is approved." },
+    { label: "FOS \u2014 Governance", statement: "The Constitution changes rarely. SOPs, prompts, and workflows evolve continuously. Every meaningful change is versioned and documented." },
+    { label: "FOS \u2014 Roles & Review Chain", statement: "The firm runs as an org chart where each tier REVIEWS the one below \u2014 nothing is final without the next level's check (added v1.2). Fig (junior bookkeeper) does the work \u2192 Sage (senior bookkeeper) reviews Fig + preps filings \u2192 Wren (controller/auditor) tie-outs + signs the workpaper \u2192 Markie (Partner) gives final sign-off. Liv is the front desk / EA; Tess (tax), Jade (CFO), Skye (marketing), Jinx (QA) support. No agent's output is final on its own \u2014 it is a PROPOSAL until the chain and Markie clear it. A confirmed correction teaches every agent (shared memory), but per-client isolation is always preserved." },
+    { label: "FOS \u2014 Human Oversight Threshold", statement: "Appropriate human oversight is concrete, not a feeling. Anything that posts, files, or sends \u2014 to QuickBooks, the CRA, or a client \u2014 requires Markie's review and sign-off. Any coding, answer, or action the responsible agent is less than ~80% confident in, or that the Brain does not support, is escalated to Markie instead of acted on. An agent's autonomy is raised only when its track record (scorecard) earns it." },
+    { label: "FOS \u2014 Precedence: do the work, but never guess", statement: "When 'complete all work before requesting user effort' meets 'never guess \u2014 ask when uncertain', accuracy and oversight win. Do everything that can be done WITHOUT guessing; stop only where a human is genuinely needed \u2014 approvals, irreversible or outward-facing actions, and real uncertainty. Don't stop early on work you can do; don't push past a point that needs Markie's decision." },
+    { label: "FOS \u2014 Cost Discipline", statement: "Spend the firm's money and compute like an owner. Use the cheapest model, tool, or path that does the job correctly; prefer the existing subscription over metered API; don't run expensive automation where a simple lookup suffices. Accuracy first, then the lowest-cost way to reach it." },
+    { label: "FOS \u2014 Thinking Framework", statement: "BEFORE: understand objectives, rules, approvals, and available knowledge. DURING: follow standards, identify risks and improvements. AFTER: capture lessons, update knowledge, recommend automation." },
+    { label: "FOS \u2014 Implementation Roadmap", statement: "Build order: 1) Constitution (foundation), 2) Knowledge Base, 3) Client Playbooks, 4) Prompt Library, 5) SOP Library, 6) Automation, 7) Operational Intelligence." },
+    { label: "FOS \u2014 Final Principle", statement: "The Operating System is the single source of truth. If a better way is discovered, document it, review it, version it, and improve the system." }
+  ];
+  for (const a of articles) await addTruth({ scope: firm, label: a.label, statement: a.statement, category: "constitution", sourceLabels: src });
+  console.log(`[brain] seeded FOS v${FOS_VERSION} constitution (${articles.length} articles)`);
+}
+async function seedKnowledgeBrain() {
+  const db = getDb();
+  const have = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE category = 'kb-governance'`);
+  if (Number(have[0]?.n || 0) > 0) return;
+  const firm = { kind: "firm" };
+  const CRA = "CRA (canada.ca)";
+  const ESA = "Ontario.ca \u2014 Guide to the Employment Standards Act";
+  const OPC = "Office of the Privacy Commissioner \u2014 PIPEDA";
+  const CPA = "CPA Canada / CPA Ontario";
+  const seeds = [
+    // ───── TAX: GST/HST ─────
+    {
+      label: "HST rate \u2014 Ontario",
+      category: "tax",
+      sourceLabels: [CRA],
+      statement: "HST in Ontario is 13%. (Other provinces differ: 5% GST in AB/BC/SK/MB/territories where no HST; 15% HST in NS/NB/NL/PEI.) Always confirm the place-of-supply when coding tax."
+    },
+    {
+      label: "GST/HST filing & payment deadlines",
+      category: "tax",
+      sourceLabels: [CRA],
+      statement: "Monthly/quarterly GST/HST filers: return AND payment due one month after the period end. Annual filers: return + payment due 3 months after fiscal year-end \u2014 EXCEPT an individual/sole-prop with a Dec 31 year-end, whose RETURN is due June 15 but PAYMENT is still due April 30 (CRA charges interest from April 30). Don't confuse the filing date with the payment date."
+    },
+    {
+      label: "GST/HST input tax credit (ITC) documentation",
+      category: "tax",
+      sourceLabels: [CRA + " \u2014 GST/HST Memorandum 8.4"],
+      statement: "To claim an ITC you must hold supporting docs BEFORE filing: supplier name, date, total, and GST/HST amount. For purchases of $30 or more the supplier's GST/HST registration number (9-digit BN + 'RT' + 4-digit, e.g. 123456789RT0001) must appear. Thresholds tighten at $30 and $150. Keep all ITC support 6 years. No single-document rule \u2014 info can come from several docs as long as it's all in hand before claiming."
+    },
+    {
+      label: "GST/HST registration threshold",
+      category: "tax",
+      sourceLabels: [CRA],
+      statement: "A business must register for GST/HST once it stops being a 'small supplier' \u2014 generally over $30,000 in taxable revenue in a single calendar quarter or over four consecutive quarters. Below that, registration is optional. \u26A0 Verify the current threshold/rules with CRA before advising a specific client."
+    },
+    // ───── TAX: corporate / personal ─────
+    {
+      label: "T2 corporate tax deadlines",
+      category: "tax",
+      sourceLabels: [CRA],
+      statement: "T2 return is due 6 months after fiscal year-end. Balance owing is due 2 months after year-end, or 3 months for an eligible CCPC (the corp + associated corps had taxable income under $500,000 in the prior year and claimed the Small Business Deduction). Filing date \u2260 payment date \u2014 the most common costly mistake."
+    },
+    {
+      label: "Corporate tax instalments",
+      category: "tax",
+      sourceLabels: [CRA],
+      statement: "A corporation generally must pay tax by instalments when its total tax payable is more than $3,000 in the current or prior year. Most pay monthly; eligible small CCPCs can pay quarterly."
+    },
+    {
+      label: "T1 personal tax deadlines",
+      category: "tax",
+      sourceLabels: [CRA],
+      statement: "T1 personal returns: file and pay by April 30. Self-employed individuals (and their spouse) get until June 15 to FILE, but any balance owing is still due April 30."
+    },
+    {
+      label: "Late-filing penalties (income tax)",
+      category: "tax",
+      sourceLabels: [CRA],
+      statement: "Late filing: 5% of the balance owing plus 1% per month late (up to 12 months). Repeat offenders (penalized in any of the prior 3 years) double to 10% plus 2% per month up to 20 months. File on time even if you can't pay."
+    },
+    // ───── PAYROLL (rates change yearly) ─────
+    {
+      label: "CPP contribution rates \u2014 2026 \u26A0 VERIFY ANNUALLY",
+      category: "payroll",
+      sourceLabels: [CRA + " \u2014 T4127 / T4001", "\u26A0 verify each January"],
+      statement: "\u26A0 KEEP CURRENT (re-verify every January). 2026: CPP rate 5.95% (employer + employee each) on earnings between the $3,500 basic exemption and the YMPE of $74,600. Second tier CPP2 applies between $74,600 and the YAMPE of $85,000; maximum CPP2 contribution is $416 each. Employer matches employee."
+    },
+    {
+      label: "EI premium rates \u2014 2026 \u26A0 VERIFY ANNUALLY",
+      category: "payroll",
+      sourceLabels: [CRA + " \u2014 T4001", "\u26A0 verify each January"],
+      statement: "\u26A0 KEEP CURRENT (re-verify every January). 2026: employee EI premium $1.64 per $100 of insurable earnings up to Maximum Insurable Earnings of $65,700 (max employee premium \u2248 $1,077.48). Employer pays 1.4\xD7 the employee premium."
+    },
+    {
+      label: "Payroll remittance frequency",
+      category: "payroll",
+      sourceLabels: [CRA + " \u2014 T4001"],
+      statement: "Remittance frequency is set by the employer's average monthly withholding amount (AMWA): roughly under $25,000 \u2192 regular/quarterly remitter (due the 15th of the next month); $25,000\u2013$99,999.99 \u2192 accelerated threshold 1; $100,000+ \u2192 accelerated threshold 2 (remit within ~3 business days of pay date). Late remittances draw penalties \u2014 confirm the client's assigned frequency with CRA."
+    },
+    {
+      label: "T4 / T4A filing deadline",
+      category: "payroll",
+      sourceLabels: [CRA],
+      statement: "T4 and T4A slips must be issued to employees AND filed with CRA by the last day of February (Feb 28, 2026 for the 2025 year). More than 5 slips of a type must be filed electronically. Late slips draw per-slip penalties."
+    },
+    {
+      label: "Record of Employment (ROE)",
+      category: "payroll",
+      sourceLabels: ["Service Canada"],
+      statement: "An ROE must be issued whenever an employee has an interruption of earnings. Electronic ROEs are due within 5 calendar days after the end of the pay period in which the interruption occurs."
+    },
+    // ───── HR / Ontario ESA ─────
+    {
+      label: "Ontario vacation pay",
+      category: "hr",
+      sourceLabels: [ESA],
+      statement: "Ontario ESA minimum vacation pay: 4% of gross wages for employees with under 5 years of service, rising to 6% at 5+ years. On termination, unpaid earned vacation pay is due within 7 days of the end of employment or on the next regular payday, whichever is later."
+    },
+    {
+      label: "Ontario public holiday pay",
+      category: "hr",
+      sourceLabels: [ESA],
+      statement: "Public holiday pay = (all regular wages earned in the 4 work weeks before the work week with the holiday + all vacation pay payable over those 4 weeks) \xF7 20. If a holiday falls in a vacation, the employee gets a substitute day (taken within 3 months, or 12 with written agreement) or holiday pay if they agree in writing."
+    },
+    {
+      label: "Ontario termination notice",
+      category: "hr",
+      sourceLabels: [ESA],
+      statement: "ESA written notice of termination (or pay in lieu) is required once an employee has 3+ months continuous service. Statutory notice scales with tenure (about 1 week per year of service, to a maximum of 8 weeks); mass terminations and 'severance pay' (50+ employees / $2.5M payroll, 5+ years) have additional rules. ESA is the floor \u2014 common-law notice can be much higher; flag to Markie, don't advise legally."
+    },
+    {
+      label: "Ontario ESA record-keeping (3 years)",
+      category: "hr",
+      sourceLabels: [ESA],
+      statement: "ESA requires employers to keep employee records ~3 years: names, addresses, start dates, daily/weekly hours, wage statements, vacation-pay and public-holiday statements, and any work-agreements. NOTE this is the ESA employment-record rule \u2014 separate from CRA's 6-year tax-record rule; payroll touches both."
+    },
+    // ───── LEGAL / COMPLIANCE / PRIVACY ─────
+    {
+      label: "CRA 6-year record retention",
+      category: "legal",
+      sourceLabels: [CRA + " \u2014 Income Tax Act s.230 / RC4022"],
+      statement: "Keep all books, records and supporting documents for 6 years from the end of the last tax year they relate to: invoices/receipts (income + expense), bank/credit-card statements, payroll (T4s, registers), GST/HST records and returns, contracts, corporate minutes, shareholder-loan records. Some exceptions let CRA ask beyond 6 years; get CRA permission before early destruction."
+    },
+    {
+      label: "Records storage & backups",
+      category: "legal",
+      sourceLabels: [CRA],
+      statement: "Records should be kept at the principal place of business in Canada (or get CRA permission to keep them elsewhere). Paper may be kept as electronic images/microfilm. Always keep backup copies of electronic files, stored at a separate location safe from hazards."
+    },
+    {
+      label: "PIPEDA \u2014 client privacy",
+      category: "legal",
+      sourceLabels: [OPC],
+      statement: "Under PIPEDA, get consent to collect/use/disclose personal information, keep it secure, and retain it only as long as needed for the identified purpose, then dispose of it safely. There's a tension with CRA's mandatory retention \u2014 keep what tax law requires, but store it securely and limit access. Privacy breaches of personal info must be recorded and may require notification."
+    },
+    {
+      label: "Engagement letters",
+      category: "firm-ops",
+      sourceLabels: [CPA + " \u2014 onboarding best practice"],
+      statement: "Every client engagement should be defined by a signed engagement letter stating scope (what's in AND out) and fees before work starts \u2014 this prevents scope creep, protects margin, and is the trigger that kicks off onboarding (create the client record, assign the team, open the portal)."
+    },
+    // ───── BOOKKEEPING / STANDARDS ─────
+    {
+      label: "ASPE is the default framework",
+      category: "bookkeeping",
+      sourceLabels: [CPA],
+      statement: "Most Canadian private enterprises report under ASPE (Accounting Standards for Private Enterprises) on the accrual basis. Use ASPE unless a client specifically requires IFRS. Revenue recognition for long-term contracts follows ASPE Section 3400 (percentage-of-completion \u2014 already implemented in the Rev Rec module)."
+    },
+    {
+      label: "Month-end close SOP",
+      category: "bookkeeping",
+      sourceLabels: [CPA + " / month-end best practice"],
+      statement: "A monthly close reconciles every account: bank, credit cards (matched to receipts), loans/lines of credit, payment processors, clearing accounts, and AR/AP \u2014 plus cutoff/accruals, journal-entry approval, and a review step. A documented, repeatable close cuts close time dramatically and is the backbone of clean books. Bank reconciliation is done every month, no exceptions."
+    },
+    {
+      label: "Chart of accounts is the backbone (LOCKED)",
+      category: "bookkeeping",
+      sourceLabels: ["Firm golden rule + best practice"],
+      statement: "A well-structured chart of accounts is the backbone of the books. It is LOCKED \u2014 Fig and the agents use the client's real existing accounts and NEVER invent or guess one. If a transaction has no obvious home, flag it for Markie rather than create an account."
+    },
+    // ───── KB / BRAIN GOVERNANCE (best practices) ─────
+    {
+      label: "Brain governance \u2014 single source of truth + provenance",
+      category: "kb-governance",
+      sourceLabels: ["RAG best practice 2026"],
+      statement: "Every Brain answer must carry its source/citation and a confidence level. Nothing becomes 'truth' without review/approval (the human-confirm gate). Governance is built into retrieval, not bolted on: scope isolation (firm vs per-client) is enforced at query time so a client's data can never leak into another's answer."
+    },
+    {
+      label: "Brain freshness \u2014 verify-annually flags",
+      category: "kb-governance",
+      sourceLabels: ["RAG best practice 2026"],
+      statement: "Rate/threshold facts (CPP, EI, mileage, tax brackets, ESA minimums) carry a '\u26A0 VERIFY ANNUALLY' marker and should be re-checked against the source each January \u2014 RAG knowledge silently degrades as it ages. When a source updates, flag the related Brain records for re-review rather than trusting stale chunks."
+    },
+    {
+      label: "Brain anti-hallucination rule",
+      category: "kb-governance",
+      sourceLabels: ["Firm rule + RAG best practice"],
+      statement: "If an answer isn't in the Brain, the agent asks Markie and files a missing-info question \u2014 it NEVER invents a fact, account, client, rate, or deadline. Confidence \u2264 80% or no source \u2192 escalate to review, don't act. A confirmed correction teaches every agent (shared memory), but per-client isolation is always preserved."
+    }
+  ];
+  for (const s of seeds) {
+    await addTruth({ scope: firm, label: s.label, statement: s.statement, category: s.category, sourceLabels: s.sourceLabels });
+  }
+  console.log(`[brain] seeded ${seeds.length} standard-domain knowledge truths`);
+}
+async function brainStats() {
+  const db = getDb();
+  const rec = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records`);
+  const tru = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE layer='truth' AND status='approved'`);
+  const q = await db.all(sql`SELECT COUNT(*) AS n FROM brain_questions WHERE status='open'`);
+  return { records: Number(rec[0]?.n || 0), truth: Number(tru[0]?.n || 0), openQuestions: Number(q[0]?.n || 0) };
+}
+var FOS_VERSION;
+var init_brain_store = __esm({
+  "api/brain-store.ts"() {
+    init_connection();
+    init_drizzle_orm();
+    init_brain_core();
+    FOS_VERSION = "1.2";
+  }
+});
+
 // api/personal-core.ts
 var personal_core_exports = {};
 __export(personal_core_exports, {
@@ -59336,505 +59856,6 @@ var init_qa_router = __esm({
         }
       })
     });
-  }
-});
-
-// api/brain-core.ts
-function tokenize2(s) {
-  return (s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter((w) => w.length > 1 && !STOP.has(w));
-}
-function scopeMatches(recordScope, queryScope) {
-  if (recordScope.kind !== queryScope.kind) return false;
-  if (recordScope.kind === "client") return recordScope.clientId != null && recordScope.clientId === queryScope.clientId;
-  return true;
-}
-function scoreRecord(queryTerms, record2) {
-  if (queryTerms.length === 0) return 0;
-  const hay = new Set(tokenize2(`${record2.label} ${record2.text} ${record2.category ?? ""}`));
-  let hits = 0;
-  for (const t2 of queryTerms) if (hay.has(t2)) hits += 1;
-  const coverage = hits / queryTerms.length;
-  const categoryHit = record2.category ? queryTerms.includes(record2.category.toLowerCase()) : false;
-  const categoryBonus = categoryHit ? 0.25 : 0;
-  const labelBonus = tokenize2(record2.label).some((t2) => queryTerms.includes(t2)) ? 0.15 : 0;
-  return Math.min(1, coverage + categoryBonus + labelBonus);
-}
-function retrieve(question, scope, records, topN = 5) {
-  const terms = tokenize2(question);
-  return records.filter((r) => scopeMatches(r.scope, scope)).map((r) => ({ record: r, score: scoreRecord(terms, r) })).filter((m) => m.score > 0).sort((a, b) => b.score - a.score).slice(0, topN);
-}
-function formatCitations(matches) {
-  const seen = /* @__PURE__ */ new Set();
-  const out = [];
-  for (const m of matches) {
-    const key10 = `${m.record.layer}:${m.record.label}`;
-    if (seen.has(key10)) continue;
-    seen.add(key10);
-    out.push({ label: m.record.label, layer: m.record.layer });
-  }
-  return out;
-}
-function answerFromBrain(question, scope, records, opts) {
-  const confidentAt = opts?.confidentAt ?? 0.55;
-  const matches = retrieve(question, scope, records);
-  const top = matches[0];
-  const truthTop = matches.find((m) => m.record.layer === "truth" && m.record.status === "approved");
-  if (truthTop && truthTop.score >= confidentAt) {
-    return {
-      answered: true,
-      text: truthTop.record.text,
-      confidence: Math.round(Math.min(99, 50 + truthTop.score * 49)),
-      citations: formatCitations(matches.filter((m) => m.score >= confidentAt * 0.6)),
-      matches
-    };
-  }
-  return {
-    answered: false,
-    confidence: top ? Math.round(top.score * 40) : 0,
-    // low, advisory only
-    citations: [],
-    missingInfo: { question: missingInfoQuestion(question, scope), scope, category: opts?.category },
-    matches
-  };
-}
-function missingInfoQuestion(question, scope) {
-  const who = scope.kind === "client" ? `client #${scope.clientId}` : scope.kind;
-  return `Need confirmation for ${who}: ${question.trim().replace(/\?+$/, "")}? (not yet in the brain \u2014 answer to make it truth)`;
-}
-function truthFromAnswer(input) {
-  return {
-    id: input.id,
-    layer: "truth",
-    scope: input.scope,
-    label: input.label,
-    text: input.statement,
-    status: "approved",
-    category: input.category,
-    sourceLabels: input.sourceLabels,
-    updatedAt: input.at
-  };
-}
-function renderAnswer(a) {
-  if (!a.answered) return `I don't have that in the brain yet \u2014 filing a question for you: "${a.missingInfo?.question}"`;
-  const src = a.citations.map((c) => c.label).join(" + ") || "\u2014";
-  return `${a.text}  \u2014 Source: ${src} (${a.confidence}%)`;
-}
-var STOP;
-var init_brain_core = __esm({
-  "api/brain-core.ts"() {
-    STOP = /* @__PURE__ */ new Set([
-      "the",
-      "a",
-      "an",
-      "of",
-      "to",
-      "for",
-      "and",
-      "or",
-      "is",
-      "are",
-      "in",
-      "on",
-      "at",
-      "what",
-      "which",
-      "how",
-      "do",
-      "does",
-      "did",
-      "i",
-      "we",
-      "you",
-      "it",
-      "this",
-      "that",
-      "with",
-      "by",
-      "from",
-      "be",
-      "as",
-      "should",
-      "need",
-      "needs",
-      "use",
-      "uses"
-    ]);
-  }
-});
-
-// api/brain-store.ts
-var brain_store_exports = {};
-__export(brain_store_exports, {
-  FOS_VERSION: () => FOS_VERSION,
-  addTruth: () => addTruth,
-  answerQuestion: () => answerQuestion,
-  brainAsk: () => brainAsk,
-  brainStats: () => brainStats,
-  fileQuestion: () => fileQuestion,
-  listOpenQuestions: () => listOpenQuestions,
-  loadScopedRecords: () => loadScopedRecords,
-  seedAgentBrain: () => seedAgentBrain,
-  seedBrain: () => seedBrain,
-  seedConstitution: () => seedConstitution,
-  seedKnowledgeBrain: () => seedKnowledgeBrain
-});
-function rowToRecord(r) {
-  return {
-    id: String(r.id),
-    layer: r.layer || "truth",
-    scope: { kind: r.scopeKind, clientId: r.clientId ?? void 0 },
-    label: r.label || "Record",
-    text: r.text || "",
-    status: r.status || "approved",
-    category: r.category ?? void 0,
-    sourceLabels: r.sourceLabels ? safeJson(r.sourceLabels) : void 0,
-    updatedAt: r.updatedAt ?? void 0
-  };
-}
-function safeJson(s) {
-  try {
-    const v = JSON.parse(s);
-    return Array.isArray(v) ? v : void 0;
-  } catch {
-    return void 0;
-  }
-}
-async function loadScopedRecords(scope, userId) {
-  const db = getDb();
-  let rows;
-  if (scope.kind === "client") {
-    rows = await db.all(sql`SELECT * FROM brain_records WHERE scopeKind = 'client' AND clientId = ${scope.clientId ?? -1}`);
-  } else if (scope.kind === "personal") {
-    rows = await db.all(sql`SELECT * FROM brain_records WHERE scopeKind = 'personal' AND userId = ${userId ?? -1}`);
-  } else {
-    rows = await db.all(sql`SELECT * FROM brain_records WHERE scopeKind = 'firm'`);
-  }
-  return rows.map(rowToRecord);
-}
-async function brainAsk(question, scope, opts) {
-  const records = await loadScopedRecords(scope, opts?.userId);
-  const ans = answerFromBrain(question, scope, records, { category: opts?.category });
-  if (ans.answered || !ans.missingInfo) return ans;
-  const filedQuestionId = await fileQuestion(ans.missingInfo.question, scope, { userId: opts?.userId, askedBy: opts?.askedBy, category: opts?.category });
-  return { ...ans, filedQuestionId };
-}
-async function fileQuestion(question, scope, opts) {
-  const db = getDb();
-  const existing = await db.all(sql`SELECT id FROM brain_questions WHERE status = 'open' AND question = ${question} AND scopeKind = ${scope.kind} AND COALESCE(clientId,-1) = ${scope.clientId ?? -1} LIMIT 1`);
-  if (existing[0]) return Number(existing[0].id);
-  const now = Date.now();
-  await db.run(sql`INSERT INTO brain_questions (scopeKind, clientId, userId, question, category, status, askedBy, createdAt)
-    VALUES (${scope.kind}, ${scope.clientId ?? null}, ${opts?.userId ?? null}, ${question}, ${opts?.category ?? null}, 'open', ${opts?.askedBy ?? "liv"}, ${now})`);
-  const row = await db.all(sql`SELECT id FROM brain_questions WHERE question = ${question} ORDER BY id DESC LIMIT 1`);
-  return row[0] ? Number(row[0].id) : void 0;
-}
-async function addTruth(input) {
-  const db = getDb();
-  const id = "br_" + (await import("crypto")).randomBytes(10).toString("hex");
-  const now = Date.now();
-  await db.run(sql`INSERT INTO brain_records (id, layer, scopeKind, clientId, userId, label, text, status, category, sourceLabels, createdAt, updatedAt)
-    VALUES (${id}, ${input.layer ?? "truth"}, ${input.scope.kind}, ${input.scope.clientId ?? null}, ${input.userId ?? null}, ${input.label}, ${input.statement}, ${input.status ?? "approved"}, ${input.category ?? null}, ${input.sourceLabels ? JSON.stringify(input.sourceLabels) : null}, ${now}, ${now})`);
-  return id;
-}
-async function answerQuestion(id, answer, opts) {
-  const db = getDb();
-  const rows = await db.all(sql`SELECT * FROM brain_questions WHERE id = ${id} LIMIT 1`);
-  const q = rows[0];
-  if (!q) return { error: "question not found" };
-  const scope = { kind: q.scopeKind, clientId: q.clientId ?? void 0 };
-  const truth = truthFromAnswer({ id: "br_" + (await import("crypto")).randomBytes(10).toString("hex"), scope, label: opts?.label || "Confirmed by Markie", statement: answer, category: opts?.category ?? q.category ?? void 0, sourceLabels: ["Markie"], at: Date.now() });
-  const truthId = await addTruth({ scope, label: truth.label, statement: truth.text, category: truth.category, sourceLabels: truth.sourceLabels, userId: q.userId ?? void 0 });
-  await db.run(sql`UPDATE brain_questions SET status = 'answered', answer = ${answer}, answeredAt = ${Date.now()} WHERE id = ${id}`);
-  return { truthId };
-}
-async function listOpenQuestions() {
-  const db = getDb();
-  return await db.all(sql`SELECT * FROM brain_questions WHERE status = 'open' ORDER BY createdAt DESC LIMIT 200`);
-}
-async function seedBrain() {
-  const db = getDb();
-  const have = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records`);
-  if (Number(have[0]?.n || 0) > 0) return;
-  const firm = { kind: "firm" };
-  const seeds = [
-    {
-      label: "Reconcile SOP",
-      category: "reconcile",
-      sourceLabels: ["Markie 2026-06-26"],
-      statement: "When reconciling a bank account in QBO, the month to reconcile is ALWAYS the next month after the 'Last statement ending date' shown. Click 'View statements' to open that next month's statement and read its ending balance. Statements live in QBO when the bank feed is connected (no Hubdoc). Confirm the beginning balance matches, enter the ending balance + date, Start reconciling, get the Difference to $0.00, then get Markie's OK before clicking Finish now."
-    },
-    {
-      label: "Figgy Clearing rule",
-      category: "coding",
-      sourceLabels: ["Markie, non-negotiable"],
-      statement: "NEVER use the 'Figgy Clearing' account, or any clearing/control account (Accounts Payable, Accounts Receivable, Undeposited Funds, equity), for any transaction or reconciliation. If a workflow seems to want it, stop and ask Markie."
-    },
-    {
-      label: "Review gate",
-      category: "policy",
-      sourceLabels: ["Firm golden rule"],
-      statement: "Nothing posts, files, or sends without Markie's review. Agents never invent accounts, clients, or data. If confidence is 80% or less, or the answer isn't in the brain, create a review item for Markie instead of acting."
-    },
-    {
-      label: "Entities are separate",
-      category: "policy",
-      sourceLabels: ["Firm golden rule"],
-      statement: "Clark OS (Owen Sound) and Clark CW (Collingwood) are permanently separate entities and books \u2014 never merge them. Judge a client by the bill-to and location on the document, never the sender or folder."
-    }
-  ];
-  for (const s of seeds) {
-    await addTruth({ scope: firm, label: s.label, statement: s.statement, category: s.category, sourceLabels: s.sourceLabels, layer: s.layer });
-  }
-  console.log(`[brain] seeded ${seeds.length} firm truths`);
-}
-async function seedAgentBrain() {
-  const db = getDb();
-  const have = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE category = 'agent'`);
-  if (Number(have[0]?.n || 0) > 0) return;
-  const firm = { kind: "firm" };
-  const agents = [
-    { label: "Fig \u2014 junior bookkeeper", statement: "Fig is the junior bookkeeper. Pulls from QBO, codes vendors (history \u2192 cold-start \u2192 web), intakes receipts (Gmail/Drive/Hubdoc), posts transactions, pushes payroll hours. Best-in-class at accurate, consistent coding; proactively flags miscodes, duplicates, and missing receipts. Output is always a PROPOSAL for review \u2014 never final." },
-    { label: "Sage \u2014 senior bookkeeper", statement: "Sage is the senior bookkeeper. Reviews Fig's work for errors + completeness, then PREPARES the filings \u2014 HST, WSIB, payroll \u2014 for Markie's approval. Owns compliance prep + the first review gate. Proactively catches gaps and readies filings before deadlines." },
-    { label: "Wren \u2014 controller / auditor", statement: "Wren is the controller/auditor. Tie-outs (bank \u2194 HST \u2194 payroll \u2194 GL), CRA HST-audit support, and the citation-backed month-end workpaper Markie signs. Reviews Sage. Proactively defends the books and surfaces anything that won't tie." },
-    { label: "Liv \u2014 executive assistant", statement: "Liv is Markie's EA and the front desk / voice of the Brain. Comms, agenda, tone-matched email DRAFTS (never auto-send), scheduling, and Markie's PERSONAL life (walled off, private). Proactively manages his time and flags what needs his attention." },
-    { label: "Jinx \u2014 QA / watchdog", statement: "Jinx is QA/IT watchdog. Smoke-tests + watches the live app (deploys, payroll, email sync, key flows) and FLAGS Markie only when something breaks \u2014 silent when healthy. Proactively monitors system health." },
-    { label: "Tess \u2014 tax specialist", statement: "Tess is the tax specialist. Corporate (T2) + personal (T1), HST/GST returns, year-end tax prep, instalments, CRA correspondence. Prepares for Markie's sign-off \u2014 never files. Proactively flags tax exposures, instalment due dates, and planning opportunities." },
-    { label: "Jade \u2014 fractional CFO", statement: "Jade is the fractional CFO. Forward-looking finance: pricing/margin analysis (reads the firm's own QBO billing), cash, profitability. Proactively advises whether Markie is charging right and where margins are thin." },
-    { label: "Skye \u2014 social / marketing", statement: "Skye runs social/marketing. Drafts content/posts in the brand voice, runs the content calendar, and the platform cleanup plan (LinkedIn, Instagram, Facebook, ProAdvisor, website, Google). Proactively proposes content; never auto-posts." }
-  ];
-  for (const a of agents) await addTruth({ scope: firm, label: a.label, statement: a.statement, category: "agent", sourceLabels: ["Firm org chart"] });
-  console.log(`[brain] seeded ${agents.length} agent hubs`);
-}
-async function seedConstitution() {
-  const db = getDb();
-  const cur = await db.all(sql`SELECT text FROM brain_records WHERE category = 'constitution' AND label = 'FOS — Version & Amendments' LIMIT 1`);
-  if (cur[0] && String(cur[0].text || "").includes(`v${FOS_VERSION}`)) return;
-  await db.run(sql`DELETE FROM brain_records WHERE category = 'constitution'`);
-  const firm = { kind: "firm" };
-  const src = [`Figgy Operating System (FOS) v${FOS_VERSION} \u2014 Markie`];
-  const articles = [
-    { label: "FOS \u2014 Version & Amendments", statement: "Figgy Operating System v1.2 (ratified by Markie 2026-06-26). v1.0 = foundation (Markie's authored doc). v1.1 added Human Oversight Threshold, Precedence (do the work, never guess), and Cost Discipline. v1.2 adds Roles & Review Chain and Data Handling & Retention. Amend by: document \u2192 review \u2192 bump FOS_VERSION \u2192 re-seed." },
-    { label: "FOS \u2014 Purpose", statement: "The Figgy Operating System is the single source of truth for how Go Fig Bookz operates: the governing principles, standards, decision framework, quality expectations, security requirements, workflow philosophy, and continuous-improvement model. It is a living document." },
-    { label: "FOS \u2014 The Figgy Promise", statement: "We are in the trust business as much as the bookkeeping business. Accuracy before speed. Security before convenience. Clarity before complexity. Every task should improve the business." },
-    { label: "FOS \u2014 Core Principles", statement: "Never guess \u2014 ask when uncertain. Protect client confidentiality at all times. Automate repetitive work while preserving appropriate human oversight. Explain recommendations in plain language. Document important decisions. Leave every client, workflow, and month better than before." },
-    { label: "FOS \u2014 AI Behaviour Standards", statement: "Complete all work that can reasonably be completed before requesting user effort. Do not offload work the AI can accurately perform. Do not artificially stop productive work. Identify automation opportunities. Recommend improvements to workflows, SOPs, prompts, and knowledge." },
-    { label: "FOS \u2014 Client Experience", statement: "Reports begin with an executive summary. Use plain English. Provide details in appendices when needed. Answer likely follow-up questions proactively. Continuously create value beyond compliance." },
-    { label: "FOS \u2014 Workflow Standards", statement: "Every client has a documented workflow. Every workflow is reviewed and improved. Capture lessons learned. Measure time, quality, profitability, and automation opportunities." },
-    { label: "FOS \u2014 Quality Assurance", statement: "Verify completeness, accuracy, reasonableness, presentation, and client value before delivery. Perform root-cause analysis for significant errors. Prevent recurrence through documentation or automation." },
-    { label: "FOS \u2014 Security & Privacy", statement: "Least-privilege access. Protect financial documents and personal information. Review permissions regularly. Evaluate security before deploying automations. Treat client information with the same care as your own." },
-    { label: "FOS \u2014 Data Handling & Retention", statement: "Concrete data rules (added v1.2). RETENTION: keep books, records, and supporting documents 6 years from the end of the last tax year they relate to (CRA / Income Tax Act s.230) \u2014 get CRA permission before early destruction. PRIVACY: under PIPEDA, collect with consent, keep secure, retain only as long as needed for the identified purpose, then dispose safely; record any breach. ISOLATION: every client's data stays walled off \u2014 one client's information never mixes into another's; firm vs per-client scope is enforced at the data layer, never by trust. Personal (Markie's) data is walled off from all client/firm data." },
-    { label: "FOS \u2014 Knowledge Management", statement: "Maintain a Knowledge Base, Prompt Library, SOP Library, Client Playbooks, Decision Register, and Improvement Register. Update the operating system whenever a better method is approved." },
-    { label: "FOS \u2014 Governance", statement: "The Constitution changes rarely. SOPs, prompts, and workflows evolve continuously. Every meaningful change is versioned and documented." },
-    { label: "FOS \u2014 Roles & Review Chain", statement: "The firm runs as an org chart where each tier REVIEWS the one below \u2014 nothing is final without the next level's check (added v1.2). Fig (junior bookkeeper) does the work \u2192 Sage (senior bookkeeper) reviews Fig + preps filings \u2192 Wren (controller/auditor) tie-outs + signs the workpaper \u2192 Markie (Partner) gives final sign-off. Liv is the front desk / EA; Tess (tax), Jade (CFO), Skye (marketing), Jinx (QA) support. No agent's output is final on its own \u2014 it is a PROPOSAL until the chain and Markie clear it. A confirmed correction teaches every agent (shared memory), but per-client isolation is always preserved." },
-    { label: "FOS \u2014 Human Oversight Threshold", statement: "Appropriate human oversight is concrete, not a feeling. Anything that posts, files, or sends \u2014 to QuickBooks, the CRA, or a client \u2014 requires Markie's review and sign-off. Any coding, answer, or action the responsible agent is less than ~80% confident in, or that the Brain does not support, is escalated to Markie instead of acted on. An agent's autonomy is raised only when its track record (scorecard) earns it." },
-    { label: "FOS \u2014 Precedence: do the work, but never guess", statement: "When 'complete all work before requesting user effort' meets 'never guess \u2014 ask when uncertain', accuracy and oversight win. Do everything that can be done WITHOUT guessing; stop only where a human is genuinely needed \u2014 approvals, irreversible or outward-facing actions, and real uncertainty. Don't stop early on work you can do; don't push past a point that needs Markie's decision." },
-    { label: "FOS \u2014 Cost Discipline", statement: "Spend the firm's money and compute like an owner. Use the cheapest model, tool, or path that does the job correctly; prefer the existing subscription over metered API; don't run expensive automation where a simple lookup suffices. Accuracy first, then the lowest-cost way to reach it." },
-    { label: "FOS \u2014 Thinking Framework", statement: "BEFORE: understand objectives, rules, approvals, and available knowledge. DURING: follow standards, identify risks and improvements. AFTER: capture lessons, update knowledge, recommend automation." },
-    { label: "FOS \u2014 Implementation Roadmap", statement: "Build order: 1) Constitution (foundation), 2) Knowledge Base, 3) Client Playbooks, 4) Prompt Library, 5) SOP Library, 6) Automation, 7) Operational Intelligence." },
-    { label: "FOS \u2014 Final Principle", statement: "The Operating System is the single source of truth. If a better way is discovered, document it, review it, version it, and improve the system." }
-  ];
-  for (const a of articles) await addTruth({ scope: firm, label: a.label, statement: a.statement, category: "constitution", sourceLabels: src });
-  console.log(`[brain] seeded FOS v${FOS_VERSION} constitution (${articles.length} articles)`);
-}
-async function seedKnowledgeBrain() {
-  const db = getDb();
-  const have = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE category = 'kb-governance'`);
-  if (Number(have[0]?.n || 0) > 0) return;
-  const firm = { kind: "firm" };
-  const CRA = "CRA (canada.ca)";
-  const ESA = "Ontario.ca \u2014 Guide to the Employment Standards Act";
-  const OPC = "Office of the Privacy Commissioner \u2014 PIPEDA";
-  const CPA = "CPA Canada / CPA Ontario";
-  const seeds = [
-    // ───── TAX: GST/HST ─────
-    {
-      label: "HST rate \u2014 Ontario",
-      category: "tax",
-      sourceLabels: [CRA],
-      statement: "HST in Ontario is 13%. (Other provinces differ: 5% GST in AB/BC/SK/MB/territories where no HST; 15% HST in NS/NB/NL/PEI.) Always confirm the place-of-supply when coding tax."
-    },
-    {
-      label: "GST/HST filing & payment deadlines",
-      category: "tax",
-      sourceLabels: [CRA],
-      statement: "Monthly/quarterly GST/HST filers: return AND payment due one month after the period end. Annual filers: return + payment due 3 months after fiscal year-end \u2014 EXCEPT an individual/sole-prop with a Dec 31 year-end, whose RETURN is due June 15 but PAYMENT is still due April 30 (CRA charges interest from April 30). Don't confuse the filing date with the payment date."
-    },
-    {
-      label: "GST/HST input tax credit (ITC) documentation",
-      category: "tax",
-      sourceLabels: [CRA + " \u2014 GST/HST Memorandum 8.4"],
-      statement: "To claim an ITC you must hold supporting docs BEFORE filing: supplier name, date, total, and GST/HST amount. For purchases of $30 or more the supplier's GST/HST registration number (9-digit BN + 'RT' + 4-digit, e.g. 123456789RT0001) must appear. Thresholds tighten at $30 and $150. Keep all ITC support 6 years. No single-document rule \u2014 info can come from several docs as long as it's all in hand before claiming."
-    },
-    {
-      label: "GST/HST registration threshold",
-      category: "tax",
-      sourceLabels: [CRA],
-      statement: "A business must register for GST/HST once it stops being a 'small supplier' \u2014 generally over $30,000 in taxable revenue in a single calendar quarter or over four consecutive quarters. Below that, registration is optional. \u26A0 Verify the current threshold/rules with CRA before advising a specific client."
-    },
-    // ───── TAX: corporate / personal ─────
-    {
-      label: "T2 corporate tax deadlines",
-      category: "tax",
-      sourceLabels: [CRA],
-      statement: "T2 return is due 6 months after fiscal year-end. Balance owing is due 2 months after year-end, or 3 months for an eligible CCPC (the corp + associated corps had taxable income under $500,000 in the prior year and claimed the Small Business Deduction). Filing date \u2260 payment date \u2014 the most common costly mistake."
-    },
-    {
-      label: "Corporate tax instalments",
-      category: "tax",
-      sourceLabels: [CRA],
-      statement: "A corporation generally must pay tax by instalments when its total tax payable is more than $3,000 in the current or prior year. Most pay monthly; eligible small CCPCs can pay quarterly."
-    },
-    {
-      label: "T1 personal tax deadlines",
-      category: "tax",
-      sourceLabels: [CRA],
-      statement: "T1 personal returns: file and pay by April 30. Self-employed individuals (and their spouse) get until June 15 to FILE, but any balance owing is still due April 30."
-    },
-    {
-      label: "Late-filing penalties (income tax)",
-      category: "tax",
-      sourceLabels: [CRA],
-      statement: "Late filing: 5% of the balance owing plus 1% per month late (up to 12 months). Repeat offenders (penalized in any of the prior 3 years) double to 10% plus 2% per month up to 20 months. File on time even if you can't pay."
-    },
-    // ───── PAYROLL (rates change yearly) ─────
-    {
-      label: "CPP contribution rates \u2014 2026 \u26A0 VERIFY ANNUALLY",
-      category: "payroll",
-      sourceLabels: [CRA + " \u2014 T4127 / T4001", "\u26A0 verify each January"],
-      statement: "\u26A0 KEEP CURRENT (re-verify every January). 2026: CPP rate 5.95% (employer + employee each) on earnings between the $3,500 basic exemption and the YMPE of $74,600. Second tier CPP2 applies between $74,600 and the YAMPE of $85,000; maximum CPP2 contribution is $416 each. Employer matches employee."
-    },
-    {
-      label: "EI premium rates \u2014 2026 \u26A0 VERIFY ANNUALLY",
-      category: "payroll",
-      sourceLabels: [CRA + " \u2014 T4001", "\u26A0 verify each January"],
-      statement: "\u26A0 KEEP CURRENT (re-verify every January). 2026: employee EI premium $1.64 per $100 of insurable earnings up to Maximum Insurable Earnings of $65,700 (max employee premium \u2248 $1,077.48). Employer pays 1.4\xD7 the employee premium."
-    },
-    {
-      label: "Payroll remittance frequency",
-      category: "payroll",
-      sourceLabels: [CRA + " \u2014 T4001"],
-      statement: "Remittance frequency is set by the employer's average monthly withholding amount (AMWA): roughly under $25,000 \u2192 regular/quarterly remitter (due the 15th of the next month); $25,000\u2013$99,999.99 \u2192 accelerated threshold 1; $100,000+ \u2192 accelerated threshold 2 (remit within ~3 business days of pay date). Late remittances draw penalties \u2014 confirm the client's assigned frequency with CRA."
-    },
-    {
-      label: "T4 / T4A filing deadline",
-      category: "payroll",
-      sourceLabels: [CRA],
-      statement: "T4 and T4A slips must be issued to employees AND filed with CRA by the last day of February (Feb 28, 2026 for the 2025 year). More than 5 slips of a type must be filed electronically. Late slips draw per-slip penalties."
-    },
-    {
-      label: "Record of Employment (ROE)",
-      category: "payroll",
-      sourceLabels: ["Service Canada"],
-      statement: "An ROE must be issued whenever an employee has an interruption of earnings. Electronic ROEs are due within 5 calendar days after the end of the pay period in which the interruption occurs."
-    },
-    // ───── HR / Ontario ESA ─────
-    {
-      label: "Ontario vacation pay",
-      category: "hr",
-      sourceLabels: [ESA],
-      statement: "Ontario ESA minimum vacation pay: 4% of gross wages for employees with under 5 years of service, rising to 6% at 5+ years. On termination, unpaid earned vacation pay is due within 7 days of the end of employment or on the next regular payday, whichever is later."
-    },
-    {
-      label: "Ontario public holiday pay",
-      category: "hr",
-      sourceLabels: [ESA],
-      statement: "Public holiday pay = (all regular wages earned in the 4 work weeks before the work week with the holiday + all vacation pay payable over those 4 weeks) \xF7 20. If a holiday falls in a vacation, the employee gets a substitute day (taken within 3 months, or 12 with written agreement) or holiday pay if they agree in writing."
-    },
-    {
-      label: "Ontario termination notice",
-      category: "hr",
-      sourceLabels: [ESA],
-      statement: "ESA written notice of termination (or pay in lieu) is required once an employee has 3+ months continuous service. Statutory notice scales with tenure (about 1 week per year of service, to a maximum of 8 weeks); mass terminations and 'severance pay' (50+ employees / $2.5M payroll, 5+ years) have additional rules. ESA is the floor \u2014 common-law notice can be much higher; flag to Markie, don't advise legally."
-    },
-    {
-      label: "Ontario ESA record-keeping (3 years)",
-      category: "hr",
-      sourceLabels: [ESA],
-      statement: "ESA requires employers to keep employee records ~3 years: names, addresses, start dates, daily/weekly hours, wage statements, vacation-pay and public-holiday statements, and any work-agreements. NOTE this is the ESA employment-record rule \u2014 separate from CRA's 6-year tax-record rule; payroll touches both."
-    },
-    // ───── LEGAL / COMPLIANCE / PRIVACY ─────
-    {
-      label: "CRA 6-year record retention",
-      category: "legal",
-      sourceLabels: [CRA + " \u2014 Income Tax Act s.230 / RC4022"],
-      statement: "Keep all books, records and supporting documents for 6 years from the end of the last tax year they relate to: invoices/receipts (income + expense), bank/credit-card statements, payroll (T4s, registers), GST/HST records and returns, contracts, corporate minutes, shareholder-loan records. Some exceptions let CRA ask beyond 6 years; get CRA permission before early destruction."
-    },
-    {
-      label: "Records storage & backups",
-      category: "legal",
-      sourceLabels: [CRA],
-      statement: "Records should be kept at the principal place of business in Canada (or get CRA permission to keep them elsewhere). Paper may be kept as electronic images/microfilm. Always keep backup copies of electronic files, stored at a separate location safe from hazards."
-    },
-    {
-      label: "PIPEDA \u2014 client privacy",
-      category: "legal",
-      sourceLabels: [OPC],
-      statement: "Under PIPEDA, get consent to collect/use/disclose personal information, keep it secure, and retain it only as long as needed for the identified purpose, then dispose of it safely. There's a tension with CRA's mandatory retention \u2014 keep what tax law requires, but store it securely and limit access. Privacy breaches of personal info must be recorded and may require notification."
-    },
-    {
-      label: "Engagement letters",
-      category: "firm-ops",
-      sourceLabels: [CPA + " \u2014 onboarding best practice"],
-      statement: "Every client engagement should be defined by a signed engagement letter stating scope (what's in AND out) and fees before work starts \u2014 this prevents scope creep, protects margin, and is the trigger that kicks off onboarding (create the client record, assign the team, open the portal)."
-    },
-    // ───── BOOKKEEPING / STANDARDS ─────
-    {
-      label: "ASPE is the default framework",
-      category: "bookkeeping",
-      sourceLabels: [CPA],
-      statement: "Most Canadian private enterprises report under ASPE (Accounting Standards for Private Enterprises) on the accrual basis. Use ASPE unless a client specifically requires IFRS. Revenue recognition for long-term contracts follows ASPE Section 3400 (percentage-of-completion \u2014 already implemented in the Rev Rec module)."
-    },
-    {
-      label: "Month-end close SOP",
-      category: "bookkeeping",
-      sourceLabels: [CPA + " / month-end best practice"],
-      statement: "A monthly close reconciles every account: bank, credit cards (matched to receipts), loans/lines of credit, payment processors, clearing accounts, and AR/AP \u2014 plus cutoff/accruals, journal-entry approval, and a review step. A documented, repeatable close cuts close time dramatically and is the backbone of clean books. Bank reconciliation is done every month, no exceptions."
-    },
-    {
-      label: "Chart of accounts is the backbone (LOCKED)",
-      category: "bookkeeping",
-      sourceLabels: ["Firm golden rule + best practice"],
-      statement: "A well-structured chart of accounts is the backbone of the books. It is LOCKED \u2014 Fig and the agents use the client's real existing accounts and NEVER invent or guess one. If a transaction has no obvious home, flag it for Markie rather than create an account."
-    },
-    // ───── KB / BRAIN GOVERNANCE (best practices) ─────
-    {
-      label: "Brain governance \u2014 single source of truth + provenance",
-      category: "kb-governance",
-      sourceLabels: ["RAG best practice 2026"],
-      statement: "Every Brain answer must carry its source/citation and a confidence level. Nothing becomes 'truth' without review/approval (the human-confirm gate). Governance is built into retrieval, not bolted on: scope isolation (firm vs per-client) is enforced at query time so a client's data can never leak into another's answer."
-    },
-    {
-      label: "Brain freshness \u2014 verify-annually flags",
-      category: "kb-governance",
-      sourceLabels: ["RAG best practice 2026"],
-      statement: "Rate/threshold facts (CPP, EI, mileage, tax brackets, ESA minimums) carry a '\u26A0 VERIFY ANNUALLY' marker and should be re-checked against the source each January \u2014 RAG knowledge silently degrades as it ages. When a source updates, flag the related Brain records for re-review rather than trusting stale chunks."
-    },
-    {
-      label: "Brain anti-hallucination rule",
-      category: "kb-governance",
-      sourceLabels: ["Firm rule + RAG best practice"],
-      statement: "If an answer isn't in the Brain, the agent asks Markie and files a missing-info question \u2014 it NEVER invents a fact, account, client, rate, or deadline. Confidence \u2264 80% or no source \u2192 escalate to review, don't act. A confirmed correction teaches every agent (shared memory), but per-client isolation is always preserved."
-    }
-  ];
-  for (const s of seeds) {
-    await addTruth({ scope: firm, label: s.label, statement: s.statement, category: s.category, sourceLabels: s.sourceLabels });
-  }
-  console.log(`[brain] seeded ${seeds.length} standard-domain knowledge truths`);
-}
-async function brainStats() {
-  const db = getDb();
-  const rec = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records`);
-  const tru = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE layer='truth' AND status='approved'`);
-  const q = await db.all(sql`SELECT COUNT(*) AS n FROM brain_questions WHERE status='open'`);
-  return { records: Number(rec[0]?.n || 0), truth: Number(tru[0]?.n || 0), openQuestions: Number(q[0]?.n || 0) };
-}
-var FOS_VERSION;
-var init_brain_store = __esm({
-  "api/brain-store.ts"() {
-    init_connection();
-    init_drizzle_orm();
-    init_brain_core();
-    FOS_VERSION = "1.2";
   }
 });
 
@@ -62603,6 +62624,68 @@ var init_ensure_brain_schema = __esm({
   }
 });
 
+// api/seed-heritage.ts
+var seed_heritage_exports = {};
+__export(seed_heritage_exports, {
+  seedHeritage: () => seedHeritage
+});
+async function seedHeritage() {
+  const db = getDb();
+  try {
+    const owner = await db.all(sql`SELECT id FROM users WHERE role='admin' ORDER BY id ASC LIMIT 1`);
+    const fb = owner[0] ? owner : await db.all(sql`SELECT id FROM users ORDER BY id ASC LIMIT 1`);
+    const uid = fb[0]?.id;
+    if (!uid) return;
+    const have = await db.all(sql`SELECT COUNT(*) AS n FROM family_members WHERE userId=${uid} AND name=${LINES[0].name}`);
+    if (Number(have[0]?.n || 0) > 0) return;
+    const now = Date.now();
+    for (const l of LINES) {
+      await db.run(sql`INSERT INTO family_members (userId, name, relation, side, living, notes, medicalNotes, createdAt, updatedAt)
+        VALUES (${uid}, ${l.name}, ${l.relation}, ${l.side}, 1, ${l.notes}, NULL, ${now}, ${now})`);
+    }
+    await addTruth({
+      scope: { kind: "personal" },
+      userId: uid,
+      layer: "memory",
+      category: "heritage",
+      label: "Heritage & Ancestry",
+      statement: "Markie's heritage: PATERNAL Fitzpatrick (ancient Irish Gaelic clan, Mac Giolla Ph\xE1draig, Ossory). MATERNAL Walsh (Breathnach, Norman-Irish, Waterford/Wexford/Kilkenny). ANTLE line established in Newfoundland; born Fleur de Lys, NL (emotional home). Heritage symbols: Celtic cross, shamrock, Newfoundland pitcher plant (replaced the Scottish thistle), NL coastline, phoenix (reinvention/resilience), lotus (growth through adversity). Existing purple fleur-de-lis tattoo on the left outer lower leg ABOVE the ankle (untouched; all future work grows upward from it). Full reference: Drive doc 'Phoenix Rising \u2014 Heritage & Ancestry (v1)'. DNA files in Drive: dna-data-2017-11-27.zip, dna_story.png, DNA Paternal Sister Match.pdf.",
+      sourceLabels: ["Markie \u2014 Heritage & Ancestry Export v1"]
+    });
+    console.log(`[heritage] seeded ${LINES.length} family lines + heritage brain record for user ${uid}`);
+  } catch (e) {
+    console.error("[heritage] seedHeritage failed:", e instanceof Error ? e.message : e);
+  }
+}
+var LINES;
+var init_seed_heritage = __esm({
+  "api/seed-heritage.ts"() {
+    init_connection();
+    init_drizzle_orm();
+    init_brain_store();
+    LINES = [
+      {
+        name: "Fitzpatrick (paternal line)",
+        relation: "Paternal Irish clan",
+        side: "paternal",
+        notes: "Ancient Irish Gaelic clan. Gaelic: Mac Giolla Ph\xE1draig ('Son of the devotee of Saint Patrick'). Remained a powerful native Gaelic family. Homeland: County Laois, County Kilkenny, ancient Kingdom of Ossory. Represents strength, leadership, resilience, ancient Irish heritage."
+      },
+      {
+        name: "Walsh (maternal line)",
+        relation: "Maternal Norman-Irish family",
+        side: "maternal",
+        notes: "Original Irish: Breathnach ('The Welshman'). Became one of Ireland's oldest established Norman-Irish families. Areas: County Waterford, Wexford, Kilkenny. Represents Irish heritage, perseverance, family."
+      },
+      {
+        name: "Antle (Newfoundland)",
+        relation: "Surname line",
+        side: "self",
+        notes: "Established in Newfoundland; earlier European origins still being researched. Birthplace Fleur de Lys, NL \u2014 emotional home. Themes: ocean, rugged coastline, resilience, simplicity, family, roots."
+      }
+    ];
+  }
+});
+
 // api/ensure-launchpad-schema.ts
 var ensure_launchpad_schema_exports = {};
 __export(ensure_launchpad_schema_exports, {
@@ -62680,9 +62763,13 @@ async function ensureRegistersSchema() {
     await db.run(sql`CREATE TABLE IF NOT EXISTS firm_registers (
       id integer PRIMARY KEY AUTOINCREMENT,
       userId integer NOT NULL,
-      kind text NOT NULL,            -- 'decision' | 'improvement' | 'prompt'
+      kind text NOT NULL,            -- decision|improvement|prompt|research|system|client_process|idea|lesson
+      code text,                     -- typed asset id, e.g. DEC-0001, RES-0042
       title text NOT NULL,
       body text,
+      reason text,                   -- decisions: the rationale (why)
+      alternatives text,             -- decisions: options considered
+      outcome text,                  -- decisions: approved|rejected|deferred + note
       tags text,                     -- comma-separated (e.g. agent name, area)
       status text NOT NULL DEFAULT 'open',  -- improvements: open|done; others: open
       author text,                   -- who logged it (Markie or an agent name)
@@ -62692,6 +62779,12 @@ async function ensureRegistersSchema() {
     )`);
   } catch (e) {
     console.error("[registers] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+  for (const col of ["code text", "reason text", "alternatives text", "outcome text"]) {
+    try {
+      await db.run(sql.raw(`ALTER TABLE firm_registers ADD COLUMN ${col}`));
+    } catch {
+    }
   }
 }
 var init_ensure_registers_schema = __esm({
@@ -83524,6 +83617,8 @@ function formatLessonsBlock(lessons) {
 
 // api/assistant-router.ts
 init_agent_audit();
+init_brain_store();
+init_brain_core();
 init_task_command_core();
 
 // api/skills/common.ts
@@ -83541,6 +83636,12 @@ HOW YOU WORK (every agent, every task \u2014 non-negotiable):
 - Keep every client's data ISOLATED \u2014 never mix one client's information into another's.
 - The chart of accounts is LOCKED \u2014 use the client's real accounts; never make one up.
 - Know your limits: if a task belongs to a teammate, say so and hand it off.
+
+STAY IN YOUR LANE \u2014 COORDINATE VIA THE BRAIN, AT NO COST (Markie, 2026-06-26):
+- You have ONE clearly-defined job (your lane is in the Brain \u2014 the "Charter" records). Do YOUR job; do not do a teammate's. No overlap, no duplicated work, no confusion.
+- Before you act, READ the Brain \u2014 if a teammate already did this, don't redo it.
+- To hand work to a teammate, leave a short HANDOFF note in the Brain (the shared memory IS how you talk to each other) \u2014 do NOT make an extra AI call or spin up another agent just to "message" them. Talking to each other costs Markie NOTHING because it happens through shared Brain state, not paid calls.
+- The review chain is the handoff path for the books: Fig \u2192 Sage \u2192 Wren \u2192 Markie. Nothing is final until the next level (and Markie) clears it.
 
 BE A PROACTIVE, BEST-IN-CLASS EXPERT (Markie, 2026-06-26 \u2014 the bar):
 - You are THE expert in your field. Hold yourself to the standard of the best in the world at your job \u2014 top-tier, current, precise. You know your role and what it needs; act like it.
@@ -84054,6 +84155,16 @@ function formatAgenda(a) {
 }
 
 // api/assistant-router.ts
+async function brainFallback(message2, userId) {
+  try {
+    const res = await brainAsk(message2, { kind: "firm" }, { userId, askedBy: "assistant" });
+    if (res.answered) return `${renderAnswer(res)}
+
+_(Answered from the Brain \u2014 the AI service is unavailable right now, so I'm working from what we know.)_`;
+  } catch {
+  }
+  return null;
+}
 var ACTION_TOOLS = /* @__PURE__ */ new Set(["add_task", "add_personal", "add_life_item", "schedule_event", "complete_task", "draft_email", "remember", "remember_personal"]);
 var TZ = "America/Toronto";
 async function execAddTask(text2, userId) {
@@ -84510,12 +84621,23 @@ var assistantRouter = createRouter({
             continue;
           }
           console.error("[assistant] API error", { name: err?.name, status: err?.status, message: err?.message });
-          if (err instanceof Anthropic.AuthenticationError) return { reply: "The AI key isn't valid \u2014 check ANTHROPIC_API_KEY on the server.", actions, agent };
+          if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.APIConnectionError) {
+            const fromBrain = await brainFallback(input.message, ctx.user.id);
+            if (fromBrain) {
+              await saveTurn(fromBrain);
+              return { reply: fromBrain, actions, agent };
+            }
+            return { reply: err instanceof Anthropic.AuthenticationError ? "The AI key isn't valid \u2014 check ANTHROPIC_API_KEY on the server. (I can still answer from the Brain in the meantime.)" : "Couldn't reach the AI just now \u2014 retry, or ask me something that's in the Brain.", actions, agent };
+          }
           if (err instanceof Anthropic.RateLimitError) return { reply: "The AI is rate-limited right now \u2014 give it a minute and try again.", actions, agent };
           if (err instanceof Anthropic.InternalServerError) return { reply: "The AI is briefly overloaded \u2014 try again in a sec.", actions, agent };
-          if (err instanceof Anthropic.APIConnectionError) return { reply: "Couldn't reach the AI just now \u2014 check the connection and retry.", actions, agent };
           if (/credit balance|too low|billing|insufficient (funds|credit)|purchase credits/i.test(err?.message || "")) {
-            return { reply: "I'm out of AI credits at the moment \u2014 top up the Anthropic account (console.anthropic.com \u2192 Plans & Billing) and I'll be right back. This affects all the agents, not just me.", actions, agent };
+            const fromBrain = await brainFallback(input.message, ctx.user.id);
+            if (fromBrain) {
+              await saveTurn(fromBrain);
+              return { reply: fromBrain, actions, agent };
+            }
+            return { reply: "That one needs the live AI and the Anthropic credits are out \u2014 but I can still answer anything that's in the Brain. (To restore full chat: console.anthropic.com \u2192 Plans & Billing.)", actions, agent };
           }
           const msg = err instanceof Anthropic.APIError ? `${err.status ?? ""} ${err.message}`.trim() : err?.message || "unknown error";
           return { reply: `Snag talking to the AI: ${msg}`, actions, agent };
@@ -84982,48 +85104,83 @@ init_zod();
 init_middleware();
 init_connection();
 init_drizzle_orm();
-var KIND = external_exports.enum(["decision", "improvement", "prompt"]);
+init_brain_store();
+var KIND = external_exports.enum(["decision", "improvement", "prompt", "research", "system", "client_process", "idea", "lesson"]);
+var PREFIX = {
+  decision: "DEC",
+  improvement: "IMP",
+  prompt: "PR",
+  research: "RES",
+  system: "SYS",
+  client_process: "GF",
+  idea: "IDE",
+  lesson: "LL"
+};
+async function nextCode(db, userId, kind) {
+  const prefix = PREFIX[kind] || kind.slice(0, 3).toUpperCase();
+  const rows = await db.all(sql`SELECT code FROM firm_registers WHERE userId=${userId} AND kind=${kind} AND code IS NOT NULL`);
+  let max2 = 0;
+  for (const r of rows) {
+    const m = String(r.code || "").match(/-(\d+)$/);
+    if (m) max2 = Math.max(max2, parseInt(m[1], 10));
+  }
+  return `${prefix}-${String(max2 + 1).padStart(4, "0")}`;
+}
 var registersRouter = createRouter({
-  /** List entries of one register kind (newest first; open improvements first). */
+  /** List entries of one kind (newest first; open improvements first). */
   list: authedQuery.input(external_exports.object({ kind: KIND })).query(async ({ ctx, input }) => {
-    const db = getDb();
-    const rows = await db.all(sql`
+    const rows = await getDb().all(sql`
       SELECT * FROM firm_registers
       WHERE userId = ${ctx.user.id} AND kind = ${input.kind} AND active = 1
       ORDER BY (status = 'open') DESC, createdAt DESC`);
     return { rows };
   }),
-  /** Counts for each register (for the page badges). */
   counts: authedQuery.query(async ({ ctx }) => {
-    const db = getDb();
-    const rows = await db.all(sql`
+    const rows = await getDb().all(sql`
       SELECT kind, COUNT(*) AS n, SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) AS open
       FROM firm_registers WHERE userId = ${ctx.user.id} AND active = 1 GROUP BY kind`);
     const out = {};
     for (const r of rows) out[r.kind] = { total: Number(r.n) || 0, open: Number(r.open) || 0 };
     return out;
   }),
-  /** Add or edit an entry. */
+  /** Add or edit. New entries get an auto typed-code; decisions mirror to the Brain. */
   upsert: authedQuery.input(external_exports.object({
     id: external_exports.number().optional(),
     kind: KIND,
     title: external_exports.string().min(1).max(200),
     body: external_exports.string().max(8e3).optional(),
     tags: external_exports.string().max(300).optional(),
-    author: external_exports.string().max(60).optional()
+    author: external_exports.string().max(60).optional(),
+    // Decision Register fields:
+    reason: external_exports.string().max(4e3).optional(),
+    alternatives: external_exports.string().max(2e3).optional(),
+    outcome: external_exports.string().max(400).optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const now = Date.now();
     if (input.id) {
-      await db.run(sql`UPDATE firm_registers SET title=${input.title}, body=${input.body ?? null}, tags=${input.tags ?? null}, updatedAt=${now}
+      await db.run(sql`UPDATE firm_registers SET title=${input.title}, body=${input.body ?? null}, tags=${input.tags ?? null},
+          reason=${input.reason ?? null}, alternatives=${input.alternatives ?? null}, outcome=${input.outcome ?? null}, updatedAt=${now}
           WHERE id=${input.id} AND userId=${ctx.user.id}`);
       return { ok: true, id: input.id };
     }
-    await db.run(sql`INSERT INTO firm_registers (userId, kind, title, body, tags, status, author, createdAt, updatedAt)
-        VALUES (${ctx.user.id}, ${input.kind}, ${input.title}, ${input.body ?? null}, ${input.tags ?? null}, 'open', ${input.author ?? "Markie"}, ${now}, ${now})`);
-    return { ok: true };
+    const code = await nextCode(db, ctx.user.id, input.kind);
+    await db.run(sql`INSERT INTO firm_registers (userId, kind, code, title, body, reason, alternatives, outcome, tags, status, author, createdAt, updatedAt)
+        VALUES (${ctx.user.id}, ${input.kind}, ${code}, ${input.title}, ${input.body ?? null}, ${input.reason ?? null}, ${input.alternatives ?? null}, ${input.outcome ?? null}, ${input.tags ?? null}, 'open', ${input.author ?? "Markie"}, ${now}, ${now})`);
+    if (input.kind === "decision") {
+      const statement = [
+        `Decision ${code}: ${input.title}.`,
+        input.reason ? `Reason: ${input.reason}` : "",
+        input.alternatives ? `Alternatives considered: ${input.alternatives}` : "",
+        input.outcome ? `Outcome: ${input.outcome}` : ""
+      ].filter(Boolean).join(" ");
+      try {
+        await addTruth({ scope: { kind: "firm" }, label: `${code} \u2014 ${input.title}`.slice(0, 120), statement, category: "decision", sourceLabels: ["Decision Register"] });
+      } catch {
+      }
+    }
+    return { ok: true, code };
   }),
-  /** Toggle an improvement open ↔ done (no-op meaning on other kinds). */
   setStatus: authedQuery.input(external_exports.object({ id: external_exports.number(), status: external_exports.enum(["open", "done"]) })).mutation(async ({ ctx, input }) => {
     await getDb().run(sql`UPDATE firm_registers SET status=${input.status}, updatedAt=${Date.now()} WHERE id=${input.id} AND userId=${ctx.user.id}`);
     return { ok: true };
@@ -87212,7 +87369,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.153";
+var BUILD_TAG = "2026-06-26.156";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -87632,11 +87789,14 @@ app.get("/api/phoenix/seed", async (c) => {
     try {
       const { ensureBrainSchema: ensureBrainSchema2 } = await Promise.resolve().then(() => (init_ensure_brain_schema(), ensure_brain_schema_exports));
       await ensureBrainSchema2();
-      const { seedBrain: seedBrain2, seedAgentBrain: seedAgentBrain2, seedKnowledgeBrain: seedKnowledgeBrain2, seedConstitution: seedConstitution2 } = await Promise.resolve().then(() => (init_brain_store(), brain_store_exports));
+      const { seedBrain: seedBrain2, seedAgentBrain: seedAgentBrain2, seedAgentCharter: seedAgentCharter2, seedKnowledgeBrain: seedKnowledgeBrain2, seedConstitution: seedConstitution2 } = await Promise.resolve().then(() => (init_brain_store(), brain_store_exports));
       await seedBrain2();
       await seedAgentBrain2();
+      await seedAgentCharter2();
       await seedKnowledgeBrain2();
       await seedConstitution2();
+      const { seedHeritage: seedHeritage2 } = await Promise.resolve().then(() => (init_seed_heritage(), seed_heritage_exports));
+      await seedHeritage2();
       const { ensureLaunchpadSchema: ensureLaunchpadSchema2 } = await Promise.resolve().then(() => (init_ensure_launchpad_schema(), ensure_launchpad_schema_exports));
       await ensureLaunchpadSchema2();
       const { ensureSubscriptionsSchema: ensureSubscriptionsSchema2 } = await Promise.resolve().then(() => (init_ensure_subscriptions_schema(), ensure_subscriptions_schema_exports));
