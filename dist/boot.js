@@ -61948,6 +61948,40 @@ var init_ensure_brain_schema = __esm({
   }
 });
 
+// api/ensure-launchpad-schema.ts
+var ensure_launchpad_schema_exports = {};
+__export(ensure_launchpad_schema_exports, {
+  ensureLaunchpadSchema: () => ensureLaunchpadSchema
+});
+async function ensureLaunchpadSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS launchpad_opportunities (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      name text NOT NULL,
+      stage text NOT NULL DEFAULT 'idea',
+      category text,
+      notes text,
+      nextStep text,
+      potentialValue text,
+      link text,
+      pinned integer NOT NULL DEFAULT 0,
+      archived integer NOT NULL DEFAULT 0,
+      createdAt integer,
+      updatedAt integer
+    )`);
+  } catch (e) {
+    console.error("[launchpad] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_launchpad_schema = __esm({
+  "api/ensure-launchpad-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/seed-phoenix-personal.ts
 var seed_phoenix_personal_exports = {};
 __export(seed_phoenix_personal_exports, {
@@ -83771,6 +83805,70 @@ var brainRouter = createRouter({
   stats: authedQuery.query(async () => brainStats())
 });
 
+// api/launchpad-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_drizzle_orm();
+var STAGES = ["idea", "exploring", "building", "launched", "parked"];
+var launchpadRouter = createRouter({
+  list: authedQuery.input(external_exports.object({ includeArchived: external_exports.boolean().optional() }).optional()).query(async ({ ctx, input }) => {
+    const db = getDb();
+    const rows = await db.all(sql`SELECT * FROM launchpad_opportunities WHERE userId = ${ctx.user.id} ${input?.includeArchived ? sql`` : sql`AND archived = 0`} ORDER BY pinned DESC, updatedAt DESC, id DESC`);
+    return rows;
+  }),
+  add: authedQuery.input(external_exports.object({
+    name: external_exports.string().min(1).max(200),
+    stage: external_exports.enum(STAGES).default("idea"),
+    category: external_exports.string().max(80).optional(),
+    notes: external_exports.string().max(5e3).optional(),
+    nextStep: external_exports.string().max(500).optional(),
+    potentialValue: external_exports.string().max(80).optional(),
+    link: external_exports.string().max(500).optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const now = Date.now();
+    await db.run(sql`INSERT INTO launchpad_opportunities (userId, name, stage, category, notes, nextStep, potentialValue, link, createdAt, updatedAt)
+        VALUES (${ctx.user.id}, ${input.name}, ${input.stage}, ${input.category ?? null}, ${input.notes ?? null}, ${input.nextStep ?? null}, ${input.potentialValue ?? null}, ${input.link ?? null}, ${now}, ${now})`);
+    return { ok: true };
+  }),
+  update: authedQuery.input(external_exports.object({
+    id: external_exports.number(),
+    name: external_exports.string().min(1).max(200).optional(),
+    stage: external_exports.enum(STAGES).optional(),
+    category: external_exports.string().max(80).nullable().optional(),
+    notes: external_exports.string().max(5e3).nullable().optional(),
+    nextStep: external_exports.string().max(500).nullable().optional(),
+    potentialValue: external_exports.string().max(80).nullable().optional(),
+    link: external_exports.string().max(500).nullable().optional(),
+    pinned: external_exports.boolean().optional(),
+    archived: external_exports.boolean().optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const sets = [];
+    const push = (col, val) => sets.push(sql`${sql.raw(col)} = ${val}`);
+    if (input.name !== void 0) push("name", input.name);
+    if (input.stage !== void 0) push("stage", input.stage);
+    if (input.category !== void 0) push("category", input.category);
+    if (input.notes !== void 0) push("notes", input.notes);
+    if (input.nextStep !== void 0) push("nextStep", input.nextStep);
+    if (input.potentialValue !== void 0) push("potentialValue", input.potentialValue);
+    if (input.link !== void 0) push("link", input.link);
+    if (input.pinned !== void 0) push("pinned", input.pinned ? 1 : 0);
+    if (input.archived !== void 0) push("archived", input.archived ? 1 : 0);
+    if (sets.length === 0) return { ok: true };
+    push("updatedAt", Date.now());
+    const setSql = sets.reduce((acc, s, i) => i === 0 ? s : sql`${acc}, ${s}`);
+    await db.run(sql`UPDATE launchpad_opportunities SET ${setSql} WHERE id = ${input.id} AND userId = ${ctx.user.id}`);
+    return { ok: true };
+  }),
+  remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    await db.run(sql`DELETE FROM launchpad_opportunities WHERE id = ${input.id} AND userId = ${ctx.user.id}`);
+    return { ok: true };
+  })
+});
+
 // api/life-router.ts
 init_zod();
 init_middleware();
@@ -85230,6 +85328,7 @@ var appRouter = createRouter({
   jinx: qaRouter,
   personal: personalRouter,
   brain: brainRouter,
+  launchpad: launchpadRouter,
   life: lifeRouter,
   learning: learningRouter,
   chat: chatRouter,
@@ -85517,7 +85616,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.133";
+var BUILD_TAG = "2026-06-26.134";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -85933,6 +86032,8 @@ app.get("/api/phoenix/seed", async (c) => {
       await ensureBrainSchema2();
       const { seedBrain: seedBrain2 } = await Promise.resolve().then(() => (init_brain_store(), brain_store_exports));
       await seedBrain2();
+      const { ensureLaunchpadSchema: ensureLaunchpadSchema2 } = await Promise.resolve().then(() => (init_ensure_launchpad_schema(), ensure_launchpad_schema_exports));
+      await ensureLaunchpadSchema2();
     } catch (e) {
       console.error("[brain] schema/seed failed (continuing):", e instanceof Error ? e.message : e);
     }

@@ -7,7 +7,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft, FileStack,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles,
+  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -90,6 +90,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
   // Sits at the very bottom of the nav (still favoritable).
   const personalNav = [
     { to: "/my-life", icon: Flame, label: "Phoenix Rising" },
+    { to: "/launchpad", icon: Rocket, label: "Launchpad" },
   ];
 
   // Tools & Compliance.
@@ -209,7 +210,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
       {/* Logo */}
       <div className="flex items-center justify-between min-h-[5rem] py-2 px-3 border-b border-slate-800 flex-shrink-0">
         {!collapsed && (
-          <FiggyLogo className="h-16 w-auto" />
+          <FiggyLogo className="h-11 w-auto" />
         )}
         {collapsed && (
           <img src="/figgy-mark.svg" alt="Figgy" className="h-10 w-auto object-contain mx-auto" />

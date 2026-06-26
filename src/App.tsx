@@ -42,6 +42,7 @@ import SystemHealth from "./pages/SystemHealth";
 import CashWatch from "./pages/CashWatch";
 import Personal from "./pages/Personal";
 import Brain from "./pages/Brain";
+import Launchpad from "./pages/Launchpad";
 import MyLife from "./pages/MyLife";
 import TaxDeadlines from "./pages/TaxDeadlines";
 import YearEndChecklist from "./pages/YearEndChecklist";
@@ -125,6 +126,7 @@ function AppRoutes() {
         <Route path="/cash-watch" element={<CashWatch />} />
         <Route path="/personal" element={<Personal />} />
         <Route path="/brain" element={<Brain />} />
+        <Route path="/launchpad" element={<Launchpad />} />
         <Route path="/my-life" element={<MyLife />} />
         <Route path="/tax-deadlines" element={<TaxDeadlines />} />
         <Route path="/year-end" element={<YearEndChecklist />} />
