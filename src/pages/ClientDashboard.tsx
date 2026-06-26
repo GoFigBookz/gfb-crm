@@ -1587,9 +1587,15 @@ function ClientCloseChecklist({ clientId }: { clientId: number }) {
   const { data: checklist } = trpc.monthlyClose.getOrCreate.useQuery({ clientId, year, month }, { enabled: clientId > 0 });
   const { data: qbo } = trpc.qbo.connectionForClient.useQuery({ clientId }, { enabled: clientId > 0 });
   const realmId = qbo?.connection?.realmId ?? null;
-  const toggle = trpc.monthlyClose.toggleItem.useMutation({
-    onSuccess: () => utils.monthlyClose.getOrCreate.invalidate({ clientId, year, month }),
-  });
+  const { data: flags } = trpc.monthlyClose.clientFlags.useQuery({ clientId }, { enabled: clientId > 0 });
+  const invalidateClose = () => {
+    utils.monthlyClose.getOrCreate.invalidate({ clientId, year, month });
+    utils.monthlyClose.getChecklistDefinition.invalidate({ clientId });
+    utils.monthlyClose.clientFlags.invalidate({ clientId });
+  };
+  const toggle = trpc.monthlyClose.toggleItem.useMutation({ onSuccess: invalidateClose });
+  const markAll = trpc.monthlyClose.markAll.useMutation({ onSuccess: invalidateClose });
+  const setCC = trpc.monthlyClose.setHasCreditCard.useMutation({ onSuccess: invalidateClose });
   const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const pct = checklist?.completionPercent ?? 0;
   const done = pct === 100;
@@ -1626,6 +1632,23 @@ function ClientCloseChecklist({ clientId }: { clientId: number }) {
             </a>
           ))}
           {!realmId && <span className="text-[10px] text-slate-400">(no QBO connection yet — opens your active company)</span>}
+        </div>
+        {/* Tailor + bulk-complete: opt this client out of credit cards (drops that
+            step), and mark every relevant item done in one click. */}
+        <div className="flex items-center justify-between gap-2 flex-wrap pb-1">
+          {flags && (
+            <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer">
+              <input type="checkbox" checked={flags.hasCreditCard} disabled={setCC.isPending}
+                onChange={(e) => setCC.mutate({ clientId, value: e.target.checked })} />
+              Has credit cards
+            </label>
+          )}
+          {checklist && (
+            <Button size="sm" variant="outline" className="h-7 text-xs" disabled={markAll.isPending}
+              onClick={() => markAll.mutate({ id: checklist.id, done: !done })}>
+              <CheckCircle className="h-3.5 w-3.5 mr-1" /> {done ? "Clear all" : "Mark all done"}
+            </Button>
+          )}
         </div>
         <Progress value={pct} className="h-2 mb-1" />
         {(items || []).map((item: any) => {
