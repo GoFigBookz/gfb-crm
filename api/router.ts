@@ -58,6 +58,7 @@ import { pdfSplitterRouter } from "./pdf-splitter-router";
 import { assistantRouter } from "./assistant-router";
 import { qaRouter } from "./qa-router";
 import { personalRouter } from "./personal-router";
+import { brainRouter } from "./brain-router";
 import { lifeRouter } from "./life-router";
 import { learningRouter } from "./learning-router";
 import { chatRouter } from "./chat-router";
@@ -131,6 +132,7 @@ export const appRouter = createRouter({
   assistant: assistantRouter,
   jinx: qaRouter,
   personal: personalRouter,
+  brain: brainRouter,
   life: lifeRouter,
   learning: learningRouter,
   chat: chatRouter,
