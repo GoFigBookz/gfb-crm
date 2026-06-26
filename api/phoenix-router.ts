@@ -129,4 +129,45 @@ export const phoenixRouter = createRouter({
   sideSaleRemove: authedQuery.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
     await getDb().run(sql`DELETE FROM side_sales WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
   }),
+
+  // ───────── Trading bot — OVERSIGHT (track + flag, not manage) ─────────
+  tradingOverview: authedQuery.query(async ({ ctx }) => {
+    const db = getDb(); const uid = ctx.user.id;
+    const cfg = ((await db.all(sql`SELECT * FROM trading_config WHERE userId=${uid} LIMIT 1`)) as any[])[0] || null;
+    const snaps = (await db.all(sql`SELECT * FROM trading_snapshots WHERE userId=${uid} ORDER BY takenAt ASC LIMIT 365`)) as any[];
+    let peak = 0, current = 0, drawdownPct = 0;
+    if (snaps.length) {
+      for (const s of snaps) peak = Math.max(peak, Number(s.equity) || 0);
+      current = Number(snaps[snaps.length - 1].equity) || 0;
+      drawdownPct = peak > 0 ? Math.max(0, (peak - current) / peak * 100) : 0;
+    }
+    const start = Number(cfg?.startingCapital) || (snaps[0] ? Number(snaps[0].equity) : 0);
+    const totalReturn = start > 0 ? (current - start) / start * 100 : 0;
+    const maxDD = Number(cfg?.maxDrawdownPct) || 20;
+    return { cfg, snaps, current, peak, drawdownPct, totalReturn, start, maxDD, breach: drawdownPct > maxDD };
+  }),
+  tradingConfigSet: authedQuery
+    .input(z.object({ name: z.string().max(120).optional(), strategy: z.string().max(2000).optional(), startingCapital: z.number().default(0), maxDrawdownPct: z.number().default(20), rules: z.string().max(4000).optional(), notes: z.string().max(2000).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb(); const uid = ctx.user.id; const now = Date.now();
+      const exists = ((await db.all(sql`SELECT userId FROM trading_config WHERE userId=${uid} LIMIT 1`)) as any[])[0];
+      if (exists) {
+        await db.run(sql`UPDATE trading_config SET name=${input.name ?? null}, strategy=${input.strategy ?? null}, startingCapital=${input.startingCapital}, maxDrawdownPct=${input.maxDrawdownPct}, rules=${input.rules ?? null}, notes=${input.notes ?? null}, updatedAt=${now} WHERE userId=${uid}`);
+      } else {
+        await db.run(sql`INSERT INTO trading_config (userId, name, strategy, startingCapital, maxDrawdownPct, rules, notes, updatedAt)
+          VALUES (${uid}, ${input.name ?? null}, ${input.strategy ?? null}, ${input.startingCapital}, ${input.maxDrawdownPct}, ${input.rules ?? null}, ${input.notes ?? null}, ${now})`);
+      }
+      return { ok: true };
+    }),
+  tradingSnapshotAdd: authedQuery
+    .input(z.object({ equity: z.number(), pnl: z.number().optional(), note: z.string().max(500).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const now = Date.now();
+      await getDb().run(sql`INSERT INTO trading_snapshots (userId, equity, pnl, note, takenAt, createdAt)
+        VALUES (${ctx.user.id}, ${input.equity}, ${input.pnl ?? null}, ${input.note ?? null}, ${now}, ${now})`);
+      return { ok: true };
+    }),
+  tradingSnapshotRemove: authedQuery.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM trading_snapshots WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
+  }),
 });

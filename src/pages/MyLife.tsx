@@ -7,6 +7,7 @@ import HealthHub from "@/components/HealthHub";
 import FamilyHistory from "@/components/FamilyHistory";
 import EstatePlan from "@/components/EstatePlan";
 import SideSales from "@/components/SideSales";
+import TradingBot from "@/components/TradingBot";
 import { Tags } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -117,6 +118,7 @@ export default function MyLife() {
         : (
           <>
             {current?.key === "health" && <HealthHub />}
+            {current?.key === "finance" && <TradingBot />}
             {current && <SectionPanel section={current} />}
           </>
         )}

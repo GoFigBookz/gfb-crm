@@ -75,4 +75,25 @@ export async function ensurePhoenixSchema(): Promise<void> {
     createdAt integer,
     updatedAt integer
   )`);
+
+  // Trading bot — OVERSIGHT only (track + flag), not active management.
+  await guard("trading_config", sql`CREATE TABLE IF NOT EXISTS trading_config (
+    userId integer PRIMARY KEY,
+    name text,
+    strategy text,
+    startingCapital real DEFAULT 0,
+    maxDrawdownPct real DEFAULT 20,   -- alert threshold
+    rules text,                       -- the guardrails it's supposed to follow
+    notes text,
+    updatedAt integer
+  )`);
+  await guard("trading_snapshots", sql`CREATE TABLE IF NOT EXISTS trading_snapshots (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    equity real NOT NULL,             -- account value at this point
+    pnl real,                         -- period P&L (optional)
+    note text,
+    takenAt integer NOT NULL,
+    createdAt integer
+  )`);
 }
