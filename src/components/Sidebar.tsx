@@ -98,6 +98,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
   const toolItems = [
     { to: "/qbo", icon: Receipt, label: "QBO Review" },
     { to: "/bank-converter", icon: ArrowRightLeft, label: "Bank → QBO" },
+    { to: "/recon-match", icon: ArrowRightLeft, label: "Recon Matcher" },
     { to: "/pdf-splitter", icon: FileStack, label: "PDF Splitter" },
     { to: "/tax-deadlines", icon: CalendarClock, label: "Tax Deadlines" },
     { to: "/year-end", icon: ClipboardCheck, label: "Year-End" },
