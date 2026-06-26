@@ -1,21 +1,27 @@
 import { useState } from "react";
-import { BookMarked, Plus, Trash2, Check, RotateCcw, Lightbulb, Gavel, Sparkles } from "lucide-react";
+import { BookMarked, Plus, Trash2, Check, RotateCcw, Lightbulb, Gavel, Sparkles, FlaskConical, Workflow, Users, Wand2, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { trpc } from "@/providers/trpc";
 
 /**
- * FIRM REGISTERS — the three knowledge registers the Figgy Operating System
- * requires: Decision Register, Improvement Register, and Prompt Library.
- * Backed by firm_registers (kind-distinguished). Improvements toggle open↔done.
+ * REGISTERS / KNOWLEDGE-ASSET LIBRARY — "everything becomes a numbered asset."
+ * Each entry gets a typed code (DEC-0001, RES-0042, SYS-0015, GF-0124, IDE-0021,
+ * LL-0008…). The Decision Register adds reason / alternatives / outcome, and each
+ * decision is mirrored into the Brain so Liv can recall "why did we decide X?".
  */
-type Kind = "decision" | "improvement" | "prompt";
+type Kind = "decision" | "research" | "system" | "client_process" | "idea" | "lesson" | "improvement" | "prompt";
 
 const TABS: { kind: Kind; label: string; icon: any; blurb: string; titlePh: string; bodyPh: string; tagPh: string }[] = [
-  { kind: "decision", label: "Decisions", icon: Gavel, blurb: "Important decisions + the why, so they're never re-litigated.", titlePh: "The decision (e.g. 'Clark OS and CW stay separate books')", bodyPh: "Rationale / context…", tagPh: "Area (e.g. policy, pricing)" },
-  { kind: "improvement", label: "Improvements", icon: Lightbulb, blurb: "Process-improvement ideas — open until done.", titlePh: "The improvement (e.g. 'Auto-schedule HST dates per client')", bodyPh: "What & why it helps…", tagPh: "Area (e.g. workflow, automation)" },
-  { kind: "prompt", label: "Prompt Library", icon: Sparkles, blurb: "Reusable prompts the agents can pull from.", titlePh: "Prompt name (e.g. 'Month-end review checklist')", bodyPh: "The prompt text…", tagPh: "Agent / tag (e.g. Sage, review)" },
+  { kind: "decision", label: "Decisions", icon: Gavel, blurb: "DEC — every significant decision + the why, so it's never re-litigated or forgotten.", titlePh: "The decision (e.g. 'Phoenix Living Labs stays under the numbered company')", bodyPh: "Context / details…", tagPh: "Area (e.g. structure, pricing)" },
+  { kind: "research", label: "Research", icon: FlaskConical, blurb: "RES — a researched topic or conversation, captured as a reusable reference.", titlePh: "Topic (e.g. 'Multi-agent orchestration patterns')", bodyPh: "Findings / summary…", tagPh: "Area" },
+  { kind: "system", label: "Systems", icon: Workflow, blurb: "SYS — a workflow / system / SOP.", titlePh: "System name (e.g. 'Month-end close SOP')", bodyPh: "How it works…", tagPh: "Area" },
+  { kind: "client_process", label: "Client Processes", icon: Users, blurb: "GF — a documented client process.", titlePh: "Process (e.g. 'Clark Pools HST workflow')", bodyPh: "The steps…", tagPh: "Client" },
+  { kind: "idea", label: "Ideas", icon: Wand2, blurb: "IDE — an idea worth keeping.", titlePh: "The idea", bodyPh: "What & why…", tagPh: "Area" },
+  { kind: "lesson", label: "Lessons", icon: GraduationCap, blurb: "LL — a lesson learned, so we don't repeat the mistake.", titlePh: "The lesson (e.g. 'Always commit dist before deploy')", bodyPh: "What happened & the takeaway…", tagPh: "Area" },
+  { kind: "improvement", label: "Improvements", icon: Lightbulb, blurb: "IMP — process-improvement ideas, open until done.", titlePh: "The improvement", bodyPh: "What & why it helps…", tagPh: "Area" },
+  { kind: "prompt", label: "Prompts", icon: Sparkles, blurb: "PR — reusable prompts the agents can pull from.", titlePh: "Prompt name", bodyPh: "The prompt text…", tagPh: "Agent / tag" },
 ];
 
 export default function Registers() {
@@ -29,9 +35,11 @@ export default function Registers() {
 
   const [showAdd, setShowAdd] = useState(false);
   const [title, setTitle] = useState(""); const [body, setBody] = useState(""); const [tags, setTags] = useState("");
-  const reset = () => { setShowAdd(false); setTitle(""); setBody(""); setTags(""); };
+  const [reason, setReason] = useState(""); const [alternatives, setAlternatives] = useState(""); const [outcome, setOutcome] = useState("Approved");
+  const reset = () => { setShowAdd(false); setTitle(""); setBody(""); setTags(""); setReason(""); setAlternatives(""); setOutcome("Approved"); };
 
   const rows = list.data?.rows || [];
+  const isDecision = kind === "decision";
 
   return (
     <div className="space-y-4">
@@ -39,12 +47,12 @@ export default function Registers() {
         <BookMarked className="h-6 w-6 text-lime-600" />
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Registers</h1>
-          <p className="text-sm text-slate-500">The FOS knowledge registers — decisions, improvements, and reusable prompts.</p>
+          <p className="text-sm text-slate-500">Everything becomes a numbered, reusable asset — decisions, research, systems, client processes, ideas, lessons.</p>
         </div>
         <Button className="ml-auto" size="sm" onClick={() => setShowAdd((v) => !v)}><Plus className="h-4 w-4 mr-1" /> Add</Button>
       </div>
 
-      <div className="flex gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         {TABS.map((t) => {
           const c = counts.data?.[t.kind];
           const Icon = t.icon;
@@ -63,24 +71,38 @@ export default function Registers() {
       {showAdd && (
         <Card><CardContent className="p-3 grid gap-2">
           <Input placeholder={tab.titlePh} value={title} onChange={(e) => setTitle(e.target.value)} />
-          <textarea className="border rounded px-2 py-2 text-sm min-h-[72px]" placeholder={tab.bodyPh} value={body} onChange={(e) => setBody(e.target.value)} />
+          {isDecision ? (
+            <>
+              <textarea className="border rounded px-2 py-2 text-sm min-h-[56px]" placeholder="Reason / rationale (why this decision)" value={reason} onChange={(e) => setReason(e.target.value)} />
+              <textarea className="border rounded px-2 py-2 text-sm min-h-[44px]" placeholder="Alternatives considered (e.g. new corp, non-profit, partnership)" value={alternatives} onChange={(e) => setAlternatives(e.target.value)} />
+              <Input placeholder="Outcome (Approved / Rejected / Deferred + note)" value={outcome} onChange={(e) => setOutcome(e.target.value)} />
+            </>
+          ) : (
+            <textarea className="border rounded px-2 py-2 text-sm min-h-[72px]" placeholder={tab.bodyPh} value={body} onChange={(e) => setBody(e.target.value)} />
+          )}
           <Input placeholder={tab.tagPh} value={tags} onChange={(e) => setTags(e.target.value)} />
           <div className="flex gap-2">
-            <Button size="sm" disabled={upsert.isPending || !title.trim()} onClick={() => upsert.mutate({ kind, title: title.trim(), body: body.trim() || undefined, tags: tags.trim() || undefined })}>Save</Button>
+            <Button size="sm" disabled={upsert.isPending || !title.trim()} onClick={() => upsert.mutate({ kind, title: title.trim(), body: isDecision ? undefined : (body.trim() || undefined), tags: tags.trim() || undefined, reason: isDecision ? (reason.trim() || undefined) : undefined, alternatives: isDecision ? (alternatives.trim() || undefined) : undefined, outcome: isDecision ? (outcome.trim() || undefined) : undefined })}>Save</Button>
             <Button size="sm" variant="outline" onClick={reset}>Cancel</Button>
           </div>
         </CardContent></Card>
       )}
 
       <div className="space-y-2">
-        {rows.length === 0 && <Card><CardContent className="p-4 text-xs text-slate-400">Nothing logged yet. Add the first {tab.label.toLowerCase().replace(/s$/, "")} above — the agents can log here too as they work.</CardContent></Card>}
+        {rows.length === 0 && <Card><CardContent className="p-4 text-xs text-slate-400">Nothing logged yet — add the first one above. Agents log here too as they work.</CardContent></Card>}
         {rows.map((r: any) => (
           <Card key={r.id} className={r.kind === "improvement" && r.status === "done" ? "opacity-60" : ""}>
             <CardContent className="p-3">
               <div className="flex items-start gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className={`font-medium text-slate-800 ${r.status === "done" ? "line-through" : ""}`}>{r.title}</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {r.code && <span className="text-[10px] font-mono font-semibold bg-slate-100 text-slate-600 rounded px-1.5 py-0.5">{r.code}</span>}
+                    <span className={`font-medium text-slate-800 ${r.status === "done" ? "line-through" : ""}`}>{r.title}</span>
+                  </div>
                   {r.body && <div className="text-sm text-slate-600 mt-0.5 whitespace-pre-wrap">{r.body}</div>}
+                  {r.reason && <div className="text-sm text-slate-600 mt-1"><b className="text-slate-500">Reason:</b> {r.reason}</div>}
+                  {r.alternatives && <div className="text-xs text-slate-500 mt-0.5"><b>Alternatives:</b> {r.alternatives}</div>}
+                  {r.outcome && <div className="text-xs mt-0.5"><b className="text-slate-500">Outcome:</b> <span className={/reject/i.test(r.outcome) ? "text-red-600" : /defer/i.test(r.outcome) ? "text-amber-600" : "text-emerald-600"}>{r.outcome}</span></div>}
                   <div className="text-xs text-slate-400 mt-1">
                     {r.author || "Markie"}{r.tags ? ` · ${r.tags}` : ""}{r.createdAt ? ` · ${new Date(r.createdAt).toLocaleDateString()}` : ""}
                   </div>

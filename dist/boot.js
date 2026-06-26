@@ -62763,9 +62763,13 @@ async function ensureRegistersSchema() {
     await db.run(sql`CREATE TABLE IF NOT EXISTS firm_registers (
       id integer PRIMARY KEY AUTOINCREMENT,
       userId integer NOT NULL,
-      kind text NOT NULL,            -- 'decision' | 'improvement' | 'prompt'
+      kind text NOT NULL,            -- decision|improvement|prompt|research|system|client_process|idea|lesson
+      code text,                     -- typed asset id, e.g. DEC-0001, RES-0042
       title text NOT NULL,
       body text,
+      reason text,                   -- decisions: the rationale (why)
+      alternatives text,             -- decisions: options considered
+      outcome text,                  -- decisions: approved|rejected|deferred + note
       tags text,                     -- comma-separated (e.g. agent name, area)
       status text NOT NULL DEFAULT 'open',  -- improvements: open|done; others: open
       author text,                   -- who logged it (Markie or an agent name)
@@ -62775,6 +62779,12 @@ async function ensureRegistersSchema() {
     )`);
   } catch (e) {
     console.error("[registers] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+  for (const col of ["code text", "reason text", "alternatives text", "outcome text"]) {
+    try {
+      await db.run(sql.raw(`ALTER TABLE firm_registers ADD COLUMN ${col}`));
+    } catch {
+    }
   }
 }
 var init_ensure_registers_schema = __esm({
@@ -85094,48 +85104,83 @@ init_zod();
 init_middleware();
 init_connection();
 init_drizzle_orm();
-var KIND = external_exports.enum(["decision", "improvement", "prompt"]);
+init_brain_store();
+var KIND = external_exports.enum(["decision", "improvement", "prompt", "research", "system", "client_process", "idea", "lesson"]);
+var PREFIX = {
+  decision: "DEC",
+  improvement: "IMP",
+  prompt: "PR",
+  research: "RES",
+  system: "SYS",
+  client_process: "GF",
+  idea: "IDE",
+  lesson: "LL"
+};
+async function nextCode(db, userId, kind) {
+  const prefix = PREFIX[kind] || kind.slice(0, 3).toUpperCase();
+  const rows = await db.all(sql`SELECT code FROM firm_registers WHERE userId=${userId} AND kind=${kind} AND code IS NOT NULL`);
+  let max2 = 0;
+  for (const r of rows) {
+    const m = String(r.code || "").match(/-(\d+)$/);
+    if (m) max2 = Math.max(max2, parseInt(m[1], 10));
+  }
+  return `${prefix}-${String(max2 + 1).padStart(4, "0")}`;
+}
 var registersRouter = createRouter({
-  /** List entries of one register kind (newest first; open improvements first). */
+  /** List entries of one kind (newest first; open improvements first). */
   list: authedQuery.input(external_exports.object({ kind: KIND })).query(async ({ ctx, input }) => {
-    const db = getDb();
-    const rows = await db.all(sql`
+    const rows = await getDb().all(sql`
       SELECT * FROM firm_registers
       WHERE userId = ${ctx.user.id} AND kind = ${input.kind} AND active = 1
       ORDER BY (status = 'open') DESC, createdAt DESC`);
     return { rows };
   }),
-  /** Counts for each register (for the page badges). */
   counts: authedQuery.query(async ({ ctx }) => {
-    const db = getDb();
-    const rows = await db.all(sql`
+    const rows = await getDb().all(sql`
       SELECT kind, COUNT(*) AS n, SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) AS open
       FROM firm_registers WHERE userId = ${ctx.user.id} AND active = 1 GROUP BY kind`);
     const out = {};
     for (const r of rows) out[r.kind] = { total: Number(r.n) || 0, open: Number(r.open) || 0 };
     return out;
   }),
-  /** Add or edit an entry. */
+  /** Add or edit. New entries get an auto typed-code; decisions mirror to the Brain. */
   upsert: authedQuery.input(external_exports.object({
     id: external_exports.number().optional(),
     kind: KIND,
     title: external_exports.string().min(1).max(200),
     body: external_exports.string().max(8e3).optional(),
     tags: external_exports.string().max(300).optional(),
-    author: external_exports.string().max(60).optional()
+    author: external_exports.string().max(60).optional(),
+    // Decision Register fields:
+    reason: external_exports.string().max(4e3).optional(),
+    alternatives: external_exports.string().max(2e3).optional(),
+    outcome: external_exports.string().max(400).optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const now = Date.now();
     if (input.id) {
-      await db.run(sql`UPDATE firm_registers SET title=${input.title}, body=${input.body ?? null}, tags=${input.tags ?? null}, updatedAt=${now}
+      await db.run(sql`UPDATE firm_registers SET title=${input.title}, body=${input.body ?? null}, tags=${input.tags ?? null},
+          reason=${input.reason ?? null}, alternatives=${input.alternatives ?? null}, outcome=${input.outcome ?? null}, updatedAt=${now}
           WHERE id=${input.id} AND userId=${ctx.user.id}`);
       return { ok: true, id: input.id };
     }
-    await db.run(sql`INSERT INTO firm_registers (userId, kind, title, body, tags, status, author, createdAt, updatedAt)
-        VALUES (${ctx.user.id}, ${input.kind}, ${input.title}, ${input.body ?? null}, ${input.tags ?? null}, 'open', ${input.author ?? "Markie"}, ${now}, ${now})`);
-    return { ok: true };
+    const code = await nextCode(db, ctx.user.id, input.kind);
+    await db.run(sql`INSERT INTO firm_registers (userId, kind, code, title, body, reason, alternatives, outcome, tags, status, author, createdAt, updatedAt)
+        VALUES (${ctx.user.id}, ${input.kind}, ${code}, ${input.title}, ${input.body ?? null}, ${input.reason ?? null}, ${input.alternatives ?? null}, ${input.outcome ?? null}, ${input.tags ?? null}, 'open', ${input.author ?? "Markie"}, ${now}, ${now})`);
+    if (input.kind === "decision") {
+      const statement = [
+        `Decision ${code}: ${input.title}.`,
+        input.reason ? `Reason: ${input.reason}` : "",
+        input.alternatives ? `Alternatives considered: ${input.alternatives}` : "",
+        input.outcome ? `Outcome: ${input.outcome}` : ""
+      ].filter(Boolean).join(" ");
+      try {
+        await addTruth({ scope: { kind: "firm" }, label: `${code} \u2014 ${input.title}`.slice(0, 120), statement, category: "decision", sourceLabels: ["Decision Register"] });
+      } catch {
+      }
+    }
+    return { ok: true, code };
   }),
-  /** Toggle an improvement open ↔ done (no-op meaning on other kinds). */
   setStatus: authedQuery.input(external_exports.object({ id: external_exports.number(), status: external_exports.enum(["open", "done"]) })).mutation(async ({ ctx, input }) => {
     await getDb().run(sql`UPDATE firm_registers SET status=${input.status}, updatedAt=${Date.now()} WHERE id=${input.id} AND userId=${ctx.user.id}`);
     return { ok: true };
@@ -87324,7 +87369,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.155";
+var BUILD_TAG = "2026-06-26.156";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
