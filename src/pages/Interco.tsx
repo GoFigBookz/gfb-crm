@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/providers/trpc";
 import IntercoRechargePanel from "@/components/IntercoRechargePanel";
+import BackButton from "@/components/BackButton";
 
 const money = (n: number) => n.toLocaleString("en-CA", { style: "currency", currency: "CAD" });
 const thisMonth = () => new Date().toISOString().slice(0, 7);
@@ -60,12 +61,17 @@ export default function Interco() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       <div>
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2"><ArrowLeftRight className="h-6 w-6 text-lime-600" /> Inter-Company</h1>
-        <p className="text-slate-500">Three-step close per entity/month: <b>1)</b> source company reconciled (bank/CC) → <b>2)</b> interco JE to the company that incurred the cost → <b>3)</b> the interco account reconciled (nets to zero across both). Runs back and forth between all the entities that carry an interco account.</p>
+        <p className="text-slate-500">Two different methods — use the right one per group:</p>
+        <ul className="text-sm text-slate-500 list-disc ml-5 mt-1 space-y-0.5">
+          <li><b>Recharge (invoice → bill)</b> — e.g. <b>Alderson → Ovita Holdings</b>: Fig creates an invoice for the period's expenses + HST and posts it as a bill in the other company. Use the panel below.</li>
+          <li><b>Interco journal entry</b> — e.g. <b>John's group</b>: a JE to the company that incurred the cost. The interco account carries an ongoing to/from balance and is reconciled by <b>agreeing it mirrors the other entity's interco account</b> — it does NOT net to zero until the actual transfer/settlement is made. (3-step tracker below.)</li>
+        </ul>
       </div>
 
-      {/* Recharge generator: payer's expenses → draft invoice + mirror bill, quarterly. */}
+      {/* Recharge generator (Alderson method): payer's expenses → draft invoice + mirror bill. */}
       <IntercoRechargePanel />
 
       <Card className="border-amber-200 bg-amber-50">

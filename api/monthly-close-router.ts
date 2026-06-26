@@ -104,6 +104,24 @@ export const monthlyCloseRouter = createRouter({
       return { success: true };
     }),
 
+  /** Mark ALL relevant items done (or clear) in one click — over the client's
+   *  applicable items only, so it never re-introduces an irrelevant step. */
+  markAll: staffQuery
+    .input(z.object({ id: z.number(), done: z.boolean().default(true) }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const rows = await db.select().from(monthlyCloseChecklist).where(eq(monthlyCloseChecklist.id, input.id)).limit(1);
+      if (!rows[0]) throw new Error("Checklist not found");
+      const client = await loadClient((rows[0] as any).clientId);
+      const items = applicableItems(client);
+      const updateData: Record<string, any> = {};
+      for (const item of items) updateData[item.field] = input.done ? 1 : 0;
+      updateData.completionPercent = input.done ? 100 : 0;
+      updateData.completedAt = input.done ? new Date() : null;
+      await db.update(monthlyCloseChecklist).set(updateData).where(eq(monthlyCloseChecklist.id, input.id));
+      return { success: true, completionPercent: updateData.completionPercent };
+    }),
+
   /** Toggle whether a client has credit cards (drives the credit-card step). */
   setHasCreditCard: staffQuery
     .input(z.object({ clientId: z.number(), value: z.boolean() }))

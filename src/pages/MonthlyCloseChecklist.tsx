@@ -49,6 +49,10 @@ export default function MonthlyCloseChecklist() {
     onSuccess: () => refetchChecklist(),
   });
 
+  const markAll = trpc.monthlyClose.markAll.useMutation({
+    onSuccess: () => refetchChecklist(),
+  });
+
   const updateNotes = trpc.monthlyClose.updateNotes.useMutation({
     onSuccess: () => refetchChecklist(),
   });
@@ -161,10 +165,20 @@ export default function MonthlyCloseChecklist() {
           {/* Checklist Items */}
           <Card>
             <CardHeader>
-              <CardTitle>Close Procedures</CardTitle>
-              <CardDescription>
-                Tailored to this client — only the steps that apply to them show here.
-              </CardDescription>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <CardTitle>Close Procedures</CardTitle>
+                  <CardDescription>
+                    Tailored to this client — only the steps that apply to them show here.
+                  </CardDescription>
+                </div>
+                {checklist && (
+                  <Button size="sm" variant="outline" disabled={markAll.isPending}
+                    onClick={() => markAll.mutate({ id: checklist.id, done: checklist.completionPercent !== 100 })}>
+                    <CheckCircle className="h-4 w-4 mr-1" /> {checklist.completionPercent === 100 ? "Clear all" : "Mark all done"}
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {flags && (

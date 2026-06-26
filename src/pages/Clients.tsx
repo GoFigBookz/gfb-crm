@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, Users, Globe, LayoutGrid, List, AlertTriangle, ArrowUpDown } from "lucide-react";
+import { Plus, Search, Users, Globe, LayoutGrid, List, AlertTriangle, ArrowUpDown, Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,6 +85,7 @@ export default function Clients() {
   const [search, setSearch] = useState("");
   const [firmFilter, setFirmFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [groupFilter, setGroupFilter] = useState("all");
   const [sort, setSort] = useState<SortType>("name");
   const [viewMode, setViewMode] = useState<ViewType>("grid");
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -139,6 +140,7 @@ export default function Clients() {
   const filtered = clients?.filter((c) => {
     if (!matchTab(c)) return false;
     if (firmFilter !== "all" && (c as any).qboAccountType !== firmFilter) return false;
+    if (groupFilter !== "all" && ((c as any).groupName || "") !== groupFilter) return false;
     // Payroll filters are flag-based (hasPayroll), not a clientType value.
     if (typeFilter === "payroll") { if (!isPayrollC(c)) return false; }
     else if (typeFilter === "payroll_manual") { if (!isPayrollC(c) || isAutoPay(c) || isClientRun(c)) return false; }
@@ -219,6 +221,22 @@ export default function Clients() {
             <SelectItem value="us_clients">🇺🇸 Go Fig Bookz US</SelectItem>
           </SelectContent>
         </Select>
+        {(() => {
+          const groups = Array.from(new Set((clients ?? []).map((c: any) => c.groupName).filter(Boolean))).sort() as string[];
+          if (groups.length === 0) return null;
+          return (
+            <Select value={groupFilter} onValueChange={setGroupFilter}>
+              <SelectTrigger className="w-[200px]">
+                <Building2 className="h-4 w-4 mr-2 text-slate-400" />
+                <SelectValue placeholder="All groups" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All groups</SelectItem>
+                {groups.map((g) => <SelectItem key={g} value={g}>👥 {g}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          );
+        })()}
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-[190px]">
             <SelectValue placeholder="All Types" />

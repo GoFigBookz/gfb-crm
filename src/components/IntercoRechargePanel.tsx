@@ -124,13 +124,15 @@ export default function IntercoRechargePanel() {
           <p className="text-[11px] text-slate-400 sm:col-span-2">The settlement payment lands as a <b>transfer</b> in each entity's clearing account (each named for the other company); reconcile <b>both</b> to zero each quarter — they mirror each other.</p>
         </div>
 
-        {/* INTERCO RECONCILIATION CHECK — pull both clearing balances live, confirm they offset. */}
+        {/* INTERCO RECONCILIATION CHECK — the FINAL step, run only AFTER the invoice +
+            bill are posted and the settlement transfer is recorded. */}
         <div className="rounded-lg border border-sky-200 bg-sky-50/40 p-2 space-y-2">
+          <div className="text-[11px] font-medium text-sky-700">Final step — run AFTER the invoice + bill are posted and the settlement transfer is recorded</div>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" disabled={recon.isPending || !payerId} onClick={checkRecon}>
               {recon.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-1" />} Check interco reconciliation (live)
             </Button>
-            <span className="text-[11px] text-slate-400">Pulls both clearing-account balances from QBO and confirms they net to zero.</span>
+            <span className="text-[11px] text-slate-400">Confirms both clearing accounts net to zero. It won't balance until the invoice, bill, and settlement transfer are all in QBO.</span>
           </div>
           {rc && !rc.ok && rc.error === "bridge_not_returning_data" && <div className="text-xs text-amber-700">The live QBO connection isn't returning data yet (bridge config — not the books).</div>}
           {rc && !rc.ok && /clearing_account_not_found/.test(rc.error) && (
