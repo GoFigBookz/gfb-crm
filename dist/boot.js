@@ -62249,6 +62249,90 @@ var init_ensure_life_schema = __esm({
   }
 });
 
+// api/ensure-health-schema.ts
+var ensure_health_schema_exports = {};
+__export(ensure_health_schema_exports, {
+  ensureHealthSchema: () => ensureHealthSchema
+});
+async function ensureHealthSchema() {
+  const db = getDb();
+  const guard = async (name2, ddl) => {
+    try {
+      await db.run(ddl);
+    } catch (e) {
+      console.error(`[health] ensure ${name2} failed:`, e instanceof Error ? e.message : e);
+    }
+  };
+  await guard("health_meds", sql`CREATE TABLE IF NOT EXISTS health_meds (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    name text NOT NULL,
+    dose text,                      -- e.g. "500 mg"
+    schedule text,                  -- e.g. "twice daily with food"
+    prescriber text,
+    purpose text,                   -- what it's for
+    startDate integer,
+    active integer NOT NULL DEFAULT 1,
+    notes text,
+    createdAt integer,
+    updatedAt integer
+  )`);
+  await guard("health_supplements", sql`CREATE TABLE IF NOT EXISTS health_supplements (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    name text NOT NULL,
+    dose text,
+    reason text,                    -- the symptom / why he takes (or should take) it
+    taking integer NOT NULL DEFAULT 1,   -- 1 = currently taking, 0 = suggested/considering
+    notes text,
+    createdAt integer,
+    updatedAt integer
+  )`);
+  await guard("health_vitals", sql`CREATE TABLE IF NOT EXISTS health_vitals (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    type text NOT NULL,             -- weight | glucose | bp_systolic | bp_diastolic | heart_rate | ...
+    value real NOT NULL,
+    unit text,                      -- lb/kg, mmol/L or mg/dL, mmHg, bpm
+    measuredAt integer NOT NULL,
+    source text DEFAULT 'manual',   -- manual | withings | dexcom | libre | ...
+    notes text,
+    createdAt integer
+  )`);
+  await guard("health_labs", sql`CREATE TABLE IF NOT EXISTS health_labs (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    panel text,                     -- e.g. "Lipid panel", "CBC"
+    marker text NOT NULL,           -- e.g. "LDL", "HbA1c", "Vitamin D"
+    value real,
+    valueText text,                 -- for non-numeric results
+    unit text,
+    refLow real,
+    refHigh real,
+    flag text,                      -- low | normal | high (computed or entered)
+    measuredAt integer NOT NULL,
+    notes text,
+    createdAt integer
+  )`);
+  await guard("health_conditions", sql`CREATE TABLE IF NOT EXISTS health_conditions (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    name text NOT NULL,
+    kind text NOT NULL DEFAULT 'condition',  -- condition | symptom | allergy
+    since integer,
+    active integer NOT NULL DEFAULT 1,
+    notes text,
+    createdAt integer,
+    updatedAt integer
+  )`);
+}
+var init_ensure_health_schema = __esm({
+  "api/ensure-health-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/ensure-brain-schema.ts
 var ensure_brain_schema_exports = {};
 __export(ensure_brain_schema_exports, {
@@ -85008,6 +85092,106 @@ var lifeRouter = createRouter({
   })
 });
 
+// api/health-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_drizzle_orm();
+var healthRouter = createRouter({
+  /** Everything for the hub in one call. */
+  overview: authedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const uid = ctx.user.id;
+    const meds = await db.all(sql`SELECT * FROM health_meds WHERE userId=${uid} ORDER BY active DESC, name`);
+    const supplements = await db.all(sql`SELECT * FROM health_supplements WHERE userId=${uid} ORDER BY taking DESC, name`);
+    const conditions = await db.all(sql`SELECT * FROM health_conditions WHERE userId=${uid} ORDER BY active DESC, kind, name`);
+    const vitals = await db.all(sql`SELECT * FROM health_vitals WHERE userId=${uid} ORDER BY measuredAt DESC LIMIT 200`);
+    const labs = await db.all(sql`SELECT * FROM health_labs WHERE userId=${uid} ORDER BY measuredAt DESC LIMIT 300`);
+    return { meds, supplements, conditions, vitals, labs };
+  }),
+  // ───── Medications ─────
+  medUpsert: authedQuery.input(external_exports.object({ id: external_exports.number().optional(), name: external_exports.string().min(1).max(200), dose: external_exports.string().max(120).optional(), schedule: external_exports.string().max(200).optional(), prescriber: external_exports.string().max(120).optional(), purpose: external_exports.string().max(300).optional(), active: external_exports.boolean().default(true), notes: external_exports.string().max(2e3).optional() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const uid = ctx.user.id;
+    const now = Date.now();
+    if (input.id) {
+      await db.run(sql`UPDATE health_meds SET name=${input.name}, dose=${input.dose ?? null}, schedule=${input.schedule ?? null}, prescriber=${input.prescriber ?? null}, purpose=${input.purpose ?? null}, active=${input.active ? 1 : 0}, notes=${input.notes ?? null}, updatedAt=${now} WHERE id=${input.id} AND userId=${uid}`);
+      return { ok: true, id: input.id };
+    }
+    await db.run(sql`INSERT INTO health_meds (userId, name, dose, schedule, prescriber, purpose, active, notes, startDate, createdAt, updatedAt)
+        VALUES (${uid}, ${input.name}, ${input.dose ?? null}, ${input.schedule ?? null}, ${input.prescriber ?? null}, ${input.purpose ?? null}, ${input.active ? 1 : 0}, ${input.notes ?? null}, ${now}, ${now}, ${now})`);
+    return { ok: true };
+  }),
+  medRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM health_meds WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  }),
+  // ───── Supplements / vitamins ─────
+  supplementUpsert: authedQuery.input(external_exports.object({ id: external_exports.number().optional(), name: external_exports.string().min(1).max(200), dose: external_exports.string().max(120).optional(), reason: external_exports.string().max(400).optional(), taking: external_exports.boolean().default(true), notes: external_exports.string().max(2e3).optional() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const uid = ctx.user.id;
+    const now = Date.now();
+    if (input.id) {
+      await db.run(sql`UPDATE health_supplements SET name=${input.name}, dose=${input.dose ?? null}, reason=${input.reason ?? null}, taking=${input.taking ? 1 : 0}, notes=${input.notes ?? null}, updatedAt=${now} WHERE id=${input.id} AND userId=${uid}`);
+      return { ok: true, id: input.id };
+    }
+    await db.run(sql`INSERT INTO health_supplements (userId, name, dose, reason, taking, notes, createdAt, updatedAt)
+        VALUES (${uid}, ${input.name}, ${input.dose ?? null}, ${input.reason ?? null}, ${input.taking ? 1 : 0}, ${input.notes ?? null}, ${now}, ${now})`);
+    return { ok: true };
+  }),
+  supplementRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM health_supplements WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  }),
+  // ───── Conditions / symptoms / allergies ─────
+  conditionUpsert: authedQuery.input(external_exports.object({ id: external_exports.number().optional(), name: external_exports.string().min(1).max(200), kind: external_exports.enum(["condition", "symptom", "allergy"]).default("condition"), active: external_exports.boolean().default(true), notes: external_exports.string().max(2e3).optional() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const uid = ctx.user.id;
+    const now = Date.now();
+    if (input.id) {
+      await db.run(sql`UPDATE health_conditions SET name=${input.name}, kind=${input.kind}, active=${input.active ? 1 : 0}, notes=${input.notes ?? null}, updatedAt=${now} WHERE id=${input.id} AND userId=${uid}`);
+      return { ok: true, id: input.id };
+    }
+    await db.run(sql`INSERT INTO health_conditions (userId, name, kind, active, notes, since, createdAt, updatedAt)
+        VALUES (${uid}, ${input.name}, ${input.kind}, ${input.active ? 1 : 0}, ${input.notes ?? null}, ${now}, ${now}, ${now})`);
+    return { ok: true };
+  }),
+  conditionRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM health_conditions WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  }),
+  // ───── Vitals (weight / glucose / BP / HR) ─────
+  vitalAdd: authedQuery.input(external_exports.object({ type: external_exports.string().min(1).max(40), value: external_exports.number(), unit: external_exports.string().max(20).optional(), measuredAt: external_exports.number().optional(), notes: external_exports.string().max(500).optional() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const now = Date.now();
+    await db.run(sql`INSERT INTO health_vitals (userId, type, value, unit, measuredAt, source, notes, createdAt)
+        VALUES (${ctx.user.id}, ${input.type}, ${input.value}, ${input.unit ?? null}, ${input.measuredAt ?? now}, 'manual', ${input.notes ?? null}, ${now})`);
+    return { ok: true };
+  }),
+  vitalRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM health_vitals WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  }),
+  // ───── Bloodwork / labs ─────
+  labAdd: authedQuery.input(external_exports.object({ panel: external_exports.string().max(120).optional(), marker: external_exports.string().min(1).max(120), value: external_exports.number().optional(), valueText: external_exports.string().max(120).optional(), unit: external_exports.string().max(40).optional(), refLow: external_exports.number().optional(), refHigh: external_exports.number().optional(), measuredAt: external_exports.number().optional(), notes: external_exports.string().max(500).optional() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const now = Date.now();
+    let flag = null;
+    if (input.value != null) {
+      if (input.refLow != null && input.value < input.refLow) flag = "low";
+      else if (input.refHigh != null && input.value > input.refHigh) flag = "high";
+      else if (input.refLow != null || input.refHigh != null) flag = "normal";
+    }
+    await db.run(sql`INSERT INTO health_labs (userId, panel, marker, value, valueText, unit, refLow, refHigh, flag, measuredAt, notes, createdAt)
+        VALUES (${ctx.user.id}, ${input.panel ?? null}, ${input.marker}, ${input.value ?? null}, ${input.valueText ?? null}, ${input.unit ?? null}, ${input.refLow ?? null}, ${input.refHigh ?? null}, ${flag}, ${input.measuredAt ?? now}, ${input.notes ?? null}, ${now})`);
+    return { ok: true };
+  }),
+  labRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM health_labs WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  })
+});
+
 // api/learning-router.ts
 init_zod();
 init_middleware();
@@ -86299,6 +86483,7 @@ var appRouter = createRouter({
   jade: jadeRouter,
   marketing: marketingRouter,
   life: lifeRouter,
+  health: healthRouter,
   learning: learningRouter,
   chat: chatRouter,
   revRec: revRecRouter,
@@ -86585,7 +86770,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.146";
+var BUILD_TAG = "2026-06-26.147";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -86996,6 +87181,8 @@ app.get("/api/phoenix/seed", async (c) => {
   try {
     const { ensureLifeSchema: ensureLifeSchema2 } = await Promise.resolve().then(() => (init_ensure_life_schema(), ensure_life_schema_exports));
     await ensureLifeSchema2();
+    const { ensureHealthSchema: ensureHealthSchema2 } = await Promise.resolve().then(() => (init_ensure_health_schema(), ensure_health_schema_exports));
+    await ensureHealthSchema2();
     try {
       const { ensureBrainSchema: ensureBrainSchema2 } = await Promise.resolve().then(() => (init_ensure_brain_schema(), ensure_brain_schema_exports));
       await ensureBrainSchema2();
