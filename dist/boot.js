@@ -46940,6 +46940,12 @@ function normalizeDoc(e, type2) {
     balance: Math.round((num2(e.Balance) + Number.EPSILON) * 100) / 100
   };
 }
+async function pullHstAccountBalance(conn) {
+  const accts = arr2(await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`), "Account");
+  const hst = accts.filter((a) => /hst|gst|sales tax|tax suspense|hst suspense|gst suspense|suspense/i.test(a.Name || "") && /liabilit|asset|payable|receivable/i.test(`${a.AccountType || ""} ${a.AccountSubType || ""}`) && !/expense|income/i.test(a.AccountType || "")).map((a) => ({ name: a.Name, balance: num2(a.CurrentBalance), type: a.AccountType }));
+  const net = hst.reduce((s, a) => s + a.balance, 0);
+  return { accounts: hst, net: Math.round((net + Number.EPSILON) * 100) / 100 };
+}
 async function accountBalanceByName(conn, name2) {
   const data = await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`);
   const accts = arr2(data, "Account");
@@ -47156,7 +47162,25 @@ var init_interco_recharge_router = __esm({
             expenses,
             zeroOut
           });
-          return { ok: true, draft, pulled: expenses.length, errors, byAccount, excluded, zeroOut };
+          let hstTie = null;
+          try {
+            const hstAcc = await pullHstAccountBalance(cr.conn);
+            const rechargeHst = round26(draft.invoice.hst);
+            const target = round26(Math.abs(hstAcc.net));
+            const variance = round26(target - rechargeHst);
+            hstTie = {
+              hstAccountBalance: round26(hstAcc.net),
+              target,
+              rechargeHst,
+              variance,
+              ties: Math.abs(variance) < 1,
+              impliedMissingBase: round26(Math.abs(variance) / ((input.hstRatePct || 13) / 100)),
+              accounts: hstAcc.accounts
+            };
+          } catch (e) {
+            hstTie = { error: e instanceof Error ? e.message : String(e) };
+          }
+          return { ok: true, draft, pulled: expenses.length, errors, byAccount, excluded, zeroOut, hstTie };
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           if (msg.startsWith("bridge_not_returning_data")) return { ok: false, error: "bridge_not_returning_data", detail: msg };
@@ -90011,7 +90035,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.194";
+var BUILD_TAG = "2026-06-26.196";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
