@@ -71,6 +71,41 @@ async function pullHstAccountBalance(conn: any): Promise<{ accounts: { name: str
   return { accounts: hst, net: Math.round((net + Number.EPSILON) * 100) / 100 };
 }
 
+/** Parse a QBO GeneralLedger report → the transaction rows posted to accounts whose
+ *  section name matches `acctNameRe` (HST/GST/suspense). Each row = one HST posting. */
+function parseGlTxns(report: any, acctNameRe: RegExp): { date: string; type: string; docNum: string; name: string; amount: number }[] {
+  const cols: any[] = report?.Columns?.Column ?? [];
+  const title = (c: any) => String(c?.ColType ?? c?.ColTitle ?? "").toLowerCase();
+  const findCol = (re: RegExp) => cols.findIndex((c) => re.test(title(c)));
+  const dateIdx = Math.max(0, findCol(/date/));
+  const typeIdx = findCol(/txn_type|type/);
+  const docIdx = findCol(/doc_num|num/);
+  const nameIdx = findCol(/name|vendor|customer|payee/);
+  let amtIdx = findCol(/subt_nat_amount|nat_amount|amount/);
+  if (amtIdx < 0) amtIdx = cols.length - 2; // GL: amount is usually 2nd-last (balance is last)
+  const out: { date: string; type: string; docNum: string; name: string; amount: number }[] = [];
+  const walk = (row: any, acctName: string) => {
+    const header = row?.Header?.ColData?.[0]?.value;
+    const section = header || acctName;
+    const cd: any[] = row?.ColData;
+    if (Array.isArray(cd) && cd.length && acctNameRe.test(section || "")) {
+      const dv = cd[dateIdx]?.value;
+      if (dv && /\d{4}-\d{2}-\d{2}/.test(String(dv))) {
+        out.push({
+          date: String(dv).slice(0, 10),
+          type: typeIdx >= 0 ? String(cd[typeIdx]?.value || "") : "",
+          docNum: docIdx >= 0 ? String(cd[docIdx]?.value || "") : "",
+          name: nameIdx >= 0 ? String(cd[nameIdx]?.value || "") : "",
+          amount: num(amtIdx >= 0 ? cd[amtIdx]?.value : 0),
+        });
+      }
+    }
+    for (const k of (row?.Rows?.Row ?? [])) walk(k, section);
+  };
+  for (const r of (report?.Rows?.Row ?? [])) walk(r, "");
+  return out;
+}
+
 /** Pull an account's CurrentBalance by name from a connection. Returns the balance
  *  + (on miss) the available account names so the human can correct the spelling. */
 async function accountBalanceByName(conn: any, name: string): Promise<{ found: boolean; balance: number; matchedName?: string; candidates?: string[] }> {
@@ -517,6 +552,45 @@ export const intercoRechargeRouter = createRouter({
           result,
           payerAccount: payerAcct.matchedName,
           counterpartyAccount: cpAcct.matchedName,
+        };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false as const, error: "bridge_not_returning_data", detail: msg };
+        return { ok: false as const, error: msg };
+      }
+    }),
+
+  /** HST GAP-FINDER (read-only). Pulls the General Ledger of the HST/GST/suspense
+   *  accounts over a WIDE window so it catches exceptions (prior-period bills entered
+   *  after filing), then flags which HST transactions fall OUTSIDE the recharge window
+   *  [startDate,endDate] — i.e. what the date-range recharge is missing. Nothing posts. */
+  hstGapFinder: staffQuery
+    .input(z.object({
+      payerClientId: z.number(),
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      ledgerFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const cr = await getConnectionForClient(input.payerClientId);
+      if ("error" in cr) return { ok: false as const, error: cr.error };
+      // Default the ledger window back 2 years from period end to catch old exceptions.
+      const ledgerFrom = input.ledgerFrom || (() => { const d = new Date(input.endDate); d.setUTCFullYear(d.getUTCFullYear() - 2); return d.toISOString().slice(0, 10); })();
+      const acctNameRe = /hst|gst|sales tax|suspense/i;
+      try {
+        const hstAcc = await pullHstAccountBalance(cr.conn);
+        const report = await qboRequest(cr.conn, `/reports/GeneralLedger?start_date=${ledgerFrom}&end_date=${input.endDate}&columns=tx_date,txn_type,doc_num,name,subt_nat_amount`);
+        const txns = parseGlTxns(report, acctNameRe);
+        const within = txns.filter((t) => t.date >= input.startDate && t.date <= input.endDate);
+        const outside = txns.filter((t) => !(t.date >= input.startDate && t.date <= input.endDate));
+        const sum = (a: any[]) => round2(a.reduce((s, t) => s + Math.abs(num(t.amount)), 0));
+        return {
+          ok: true as const,
+          hstAccounts: hstAcc.accounts, hstAccountNet: hstAcc.net,
+          ledgerFrom, window: { start: input.startDate, end: input.endDate },
+          ledgerTotal: sum(txns), withinTotal: sum(within), outsideTotal: sum(outside),
+          outside: outside.sort((a, b) => a.date.localeCompare(b.date)),
+          count: txns.length, outsideCount: outside.length,
         };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
