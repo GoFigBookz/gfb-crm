@@ -16,6 +16,23 @@ is useless to him. So: develop on the dev branch, then ALWAYS open a PR to `main
 and MERGE it (standing permission granted) so it deploys. Every batch of work ends
 with a merge to main, not a push to the branch.
 
+## Engineering standard (Markie, 2026-06-26 — "for you", the builder; full text `docs/FIGGY_ENGINEERING_STANDARD.md`)
+Governs ALL code/agents/automations. Hold every change to these: **(1)** no black
+boxes — explainable or documented; **(2)** document while building (Purpose/Inputs/
+Outputs/Dependencies/Config/Errors/Limitations/Future); **(3)** modular first, one
+responsibility per module; **(4)** standardize anything repeated >2× (component/
+template/SOP/prompt/lib); **(5)** security is a requirement — never expose secrets/
+keys/client data, least-privilege; **(6)** fail safely — if uncertain: stop, log,
+explain, request review; never silently continue an uncertain financial decision;
+**(7)** build for change (requirements/models/tax rules/clients WILL change); **(8)**
+no hard-coded client logic — it lives in Client Playbooks/config, never shared code;
+**(9)** preserve auditability — record what/when/why/what-changed for financial
+actions; **(10)** test with representative sample data before deployment; **(11)**
+complete the task — don't half-finish, don't offload what the AI can do accurately;
+**(12)** continuous refactoring — readability↑, duplication↓, behaviour preserved,
+docs updated. **FINAL RULE: don't optimize for writing code — optimize for a business
+that's still understandable, secure, and maintainable years from now.**
+
 ## Operating preference (Markie, 2026-06-19)
 **"Always do which one is best."** When there's a clearly-best technical option,
 PICK IT and proceed — don't stop to make me choose. Still flag genuinely
