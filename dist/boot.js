@@ -46809,6 +46809,114 @@ var init_interco_recharge_poster = __esm({
   }
 });
 
+// api/billback-drive.ts
+var billback_drive_exports = {};
+__export(billback_drive_exports, {
+  fileBillbackToDrive: () => fileBillbackToDrive
+});
+function folderIdFromUrl(url2) {
+  if (!url2) return null;
+  const s = String(url2);
+  const m = s.match(/folders\/([A-Za-z0-9_-]+)/) || s.match(/[?&]id=([A-Za-z0-9_-]+)/) || s.match(/([A-Za-z0-9_-]{25,})/);
+  return m ? m[1] : null;
+}
+function worksheetHtml(ws) {
+  const rows = (ws.byAccount || []).map((a) => `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escapeHtml(a.accountName)}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${money2(a.net)}</td></tr>`).join("");
+  const excluded = ws.excluded && ws.excluded.lines > 0 ? `<p style="color:#666;font-size:12px">Excluded ${ws.excluded.lines} bank-charge line(s) (${money2(ws.excluded.total)})${ws.excluded.accounts?.length ? ` \u2014 ${escapeHtml(ws.excluded.accounts.join(", "))}` : ""}. These are ${escapeHtml(ws.payerName)}'s own banking costs, not recharged.</p>` : "";
+  return `<!doctype html><html><head><meta charset="utf-8"></head><body style="font-family:Arial,Helvetica,sans-serif;color:#1f2937">
+  <h1 style="font-size:18px">Inter-company billback \u2014 ${escapeHtml(ws.payerName)} \u2192 ${escapeHtml(ws.counterpartyName)}</h1>
+  <p style="color:#666">${escapeHtml(ws.periodLabel || "")}${ws.periodStart ? ` (${ws.periodStart} \u2192 ${ws.periodEnd})` : ""}</p>
+  <table style="border-collapse:collapse;width:100%;max-width:560px;font-size:14px">
+    <thead><tr><th style="text-align:left;padding:4px 8px;border-bottom:2px solid #ddd">Account</th><th style="text-align:right;padding:4px 8px;border-bottom:2px solid #ddd">Amount</th></tr></thead>
+    <tbody>
+      ${rows}
+      <tr><td style="padding:4px 8px;font-weight:bold">Subtotal</td><td style="padding:4px 8px;text-align:right;font-weight:bold">${money2(ws.subtotal)}</td></tr>
+      ${ws.chargeHst ? `<tr><td style="padding:4px 8px;color:#666">HST (${ws.hstRatePct}%)</td><td style="padding:4px 8px;text-align:right">${money2(ws.hst)}</td></tr>` : ""}
+      <tr><td style="padding:6px 8px;font-weight:bold;border-top:2px solid #ddd">Total billed</td><td style="padding:6px 8px;text-align:right;font-weight:bold;border-top:2px solid #ddd">${money2(ws.total)}</td></tr>
+    </tbody>
+  </table>
+  ${excluded}
+  <p style="font-size:13px">Invoice in ${escapeHtml(ws.payerName)}: <b>#${escapeHtml(ws.invoiceId || "\u2014")}</b> &nbsp;\xB7&nbsp; Bill in ${escapeHtml(ws.counterpartyName)}: <b>#${escapeHtml(ws.billId || "\u2014")}</b></p>
+  ${ws.zeroOut ? `<p style="font-size:12px;color:#666">The recharge credits ${escapeHtml(ws.payerName)}'s cost accounts so its expenses and HST net to zero for the period; ${escapeHtml(ws.counterpartyName)} carries the cost and claims the ITC.</p>` : ""}
+  <p style="font-size:11px;color:#999">Generated ${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)} \xB7 Go Fig Bookz</p>
+  </body></html>`;
+}
+function escapeHtml(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+async function uploadDoc(token2, folderId, name2, html) {
+  const boundary = "figgybillback" + Math.abs(name2.length * 7 + html.length).toString(36);
+  const meta3 = { name: name2, parents: [folderId], mimeType: "application/vnd.google-apps.document" };
+  const body = `--${boundary}\r
+Content-Type: application/json; charset=UTF-8\r
+\r
+${JSON.stringify(meta3)}\r
+--${boundary}\r
+Content-Type: text/html; charset=UTF-8\r
+\r
+${html}\r
+--${boundary}--`;
+  const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,webViewLink", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token2}`, "Content-Type": `multipart/related; boundary=${boundary}` },
+    body
+  });
+  if (!res.ok) throw new Error(`Drive ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const j = await res.json();
+  return { id: j.id, url: j.webViewLink || `https://drive.google.com/file/d/${j.id}/view` };
+}
+async function fileBillbackToDrive(logId) {
+  const db = getDb();
+  const row = (await db.all(sql`SELECT * FROM interco_recharge_log WHERE id=${logId} LIMIT 1`))[0];
+  if (!row) return { ok: false, error: "period_not_found" };
+  let ws = {};
+  try {
+    ws = row.worksheetJson ? JSON.parse(row.worksheetJson) : {};
+  } catch {
+    ws = {};
+  }
+  const ids = [row.payerClientId, row.counterpartyClientId].filter(Boolean);
+  if (ids.length === 0) return { ok: false, error: "no_clients_on_period" };
+  const clientRows = await db.all(sql`SELECT id, name, driveFolderUrl FROM clients WHERE id IN (${sql.join(ids, sql`, `)})`);
+  const { getFirmGoogleAccount: getFirmGoogleAccount2, getValidGoogleAccessToken: getValidGoogleAccessToken2 } = await Promise.resolve().then(() => (init_google_token(), google_token_exports));
+  const acct = await getFirmGoogleAccount2();
+  if (!acct) return { ok: false, error: "google_not_connected", detail: "Connect the firm Google account (Integrations) to file to Drive." };
+  let token2;
+  try {
+    token2 = await getValidGoogleAccessToken2(acct);
+  } catch (e) {
+    return { ok: false, error: "google_token_failed", detail: e instanceof Error ? e.message : String(e) };
+  }
+  const html = worksheetHtml({ ...ws, payerName: ws.payerName || "Payer", counterpartyName: ws.counterpartyName || "Counterparty" });
+  const periodTag = (ws.periodLabel || row.periodLabel || "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || "period";
+  const baseName = `${ws.payerName || "Billback"}_${periodTag}_Billback_GoFigBookz`.replace(/\s+/g, "-");
+  const filed = [];
+  const skipped = [];
+  for (const c of clientRows) {
+    const folderId = folderIdFromUrl(c.driveFolderUrl);
+    if (!folderId) {
+      skipped.push(`${c.name} (no Drive folder set)`);
+      continue;
+    }
+    try {
+      const f = await uploadDoc(token2, folderId, baseName, html);
+      filed.push({ clientName: c.name, url: f.url });
+    } catch (e) {
+      skipped.push(`${c.name} (${e instanceof Error ? e.message : String(e)})`);
+    }
+  }
+  if (filed.length === 0) return { ok: false, error: "nothing_filed", detail: skipped.join("; ") };
+  return { ok: true, filed, skipped };
+}
+var money2;
+var init_billback_drive = __esm({
+  "api/billback-drive.ts"() {
+    init_connection();
+    init_drizzle_orm();
+    money2 = (n) => (Number(n) || 0).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+  }
+});
+
 // api/interco-recharge-router.ts
 function normalizeDoc(e, type2) {
   const lines2 = (e.Line ?? []).filter((l) => l.DetailType === "SalesItemLineDetail" || l.DetailType === "AccountBasedExpenseLineDetail").map((l) => {
@@ -46887,6 +46995,20 @@ async function ensureRechargeSchema() {
       await db.run(sql`ALTER TABLE interco_recharge_log ADD COLUMN counterpartyClientId INTEGER`);
     } catch {
     }
+    try {
+      await db.run(sql`ALTER TABLE interco_recharge_log ADD COLUMN worksheetJson TEXT`);
+    } catch {
+    }
+    await db.run(sql`CREATE TABLE IF NOT EXISTS interco_recharge_share_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      logId INTEGER NOT NULL,
+      payerClientId INTEGER,
+      token TEXT NOT NULL UNIQUE,
+      active INTEGER DEFAULT 1,
+      createdBy INTEGER,
+      createdAt INTEGER,
+      revokedAt INTEGER
+    )`);
   } catch (e) {
     console.error("[interco-recharge] ensure schema failed:", e instanceof Error ? e.message : e);
   }
@@ -47076,9 +47198,11 @@ var init_interco_recharge_router = __esm({
         if ("error" in cr) return { ok: false, error: `payer: ${cr.error}` };
         let subtotal = 0;
         let breakdown = [];
+        let excludedSnap = { lines: 0, total: 0, accounts: [] };
         try {
-          const { expenses, byAccount } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+          const { expenses, byAccount, excluded } = await pullExpenses(cr.conn, input.startDate, input.endDate);
           breakdown = byAccount;
+          excludedSnap = excluded;
           const draft = buildRecharge({
             periodLabel: input.periodLabel || `${input.startDate} \u2192 ${input.endDate}`,
             payerName: input.payerName,
@@ -47115,10 +47239,28 @@ var init_interco_recharge_router = __esm({
         if (result.ok) {
           const total = round26(result.total);
           const hst = round26(input.chargeHst ? round26(subtotal) * ((input.hstRatePct || 0) / 100) : 0);
+          const worksheet = {
+            payerName: input.payerName,
+            counterpartyName,
+            periodLabel,
+            periodStart: input.startDate,
+            periodEnd: input.endDate,
+            byAccount: breakdown,
+            excluded: excludedSnap,
+            subtotal: round26(subtotal),
+            hstRatePct: input.hstRatePct,
+            chargeHst: input.chargeHst,
+            hst,
+            total,
+            invoiceId: result.invoiceId,
+            billId: result.billId,
+            zeroOut,
+            postedAt: (/* @__PURE__ */ new Date()).toISOString()
+          };
           try {
             await db.run(sql`INSERT INTO interco_recharge_log
-            (payerClientId, counterpartyClientId, periodLabel, periodStart, periodEnd, subtotal, hst, total, reconciled, invoiceRef, billRef, createdAt)
-            VALUES (${input.payerClientId}, ${cpId}, ${periodLabel}, ${input.startDate}, ${input.endDate}, ${round26(subtotal)}, ${hst}, ${total}, 0, ${result.invoiceId}, ${result.billId}, ${Date.now()})`);
+            (payerClientId, counterpartyClientId, periodLabel, periodStart, periodEnd, subtotal, hst, total, reconciled, invoiceRef, billRef, worksheetJson, createdAt)
+            VALUES (${input.payerClientId}, ${cpId}, ${periodLabel}, ${input.startDate}, ${input.endDate}, ${round26(subtotal)}, ${hst}, ${total}, 0, ${result.invoiceId}, ${result.billId}, ${JSON.stringify(worksheet)}, ${Date.now()})`);
           } catch (e) {
             console.error("[interco-recharge] post log insert failed:", e instanceof Error ? e.message : e);
           }
@@ -47248,6 +47390,80 @@ var init_interco_recharge_router = __esm({
         const db = getDb();
         await db.run(sql`UPDATE interco_recharge_log SET reconciled=${input.reconciled ? 1 : 0}, reconciledAt=${input.reconciled ? Date.now() : null} WHERE id=${input.id}`);
         return { ok: true };
+      }),
+      /** Create a shareable read-only billback worksheet link for a posted period (log row). */
+      shareCreate: staffQuery.input(external_exports.object({ logId: external_exports.number() })).mutation(async ({ ctx, input }) => {
+        await ensureRechargeSchema();
+        const db = getDb();
+        const rows = await db.all(sql`SELECT id, payerClientId FROM interco_recharge_log WHERE id=${input.logId} LIMIT 1`);
+        if (!rows[0]) return { ok: false, error: "period_not_found" };
+        const existing = await db.all(sql`SELECT token FROM interco_recharge_share_links WHERE logId=${input.logId} AND active=1 ORDER BY id DESC LIMIT 1`);
+        if (existing[0]?.token) return { ok: true, token: existing[0].token };
+        const token2 = `bb_${crypto.randomUUID().replace(/-/g, "")}`;
+        await db.run(sql`INSERT INTO interco_recharge_share_links (logId, payerClientId, token, active, createdBy, createdAt)
+        VALUES (${input.logId}, ${rows[0].payerClientId}, ${token2}, 1, ${ctx.user.id}, ${Date.now()})`);
+        return { ok: true, token: token2 };
+      }),
+      shareRevoke: staffQuery.input(external_exports.object({ logId: external_exports.number() })).mutation(async ({ input }) => {
+        const db = getDb();
+        await db.run(sql`UPDATE interco_recharge_share_links SET active=0, revokedAt=${Date.now()} WHERE logId=${input.logId} AND active=1`);
+        return { ok: true };
+      }),
+      /** File the billback worksheet into BOTH clients' Drive folders (payer + counterparty). */
+      fileToDrive: staffQuery.input(external_exports.object({ logId: external_exports.number() })).mutation(async ({ input }) => {
+        const { fileBillbackToDrive: fileBillbackToDrive2 } = await Promise.resolve().then(() => (init_billback_drive(), billback_drive_exports));
+        return await fileBillbackToDrive2(input.logId);
+      }),
+      /** The active share token for a posted period (so the panel can show/copy the link). */
+      shareFor: staffQuery.input(external_exports.object({ logId: external_exports.number() })).query(async ({ input }) => {
+        await ensureRechargeSchema();
+        const rows = await getDb().all(sql`SELECT token FROM interco_recharge_share_links WHERE logId=${input.logId} AND active=1 ORDER BY id DESC LIMIT 1`);
+        return { token: rows[0]?.token ?? null };
+      }),
+      // ===== PUBLIC (token-gated, read-only) — the branded billback worksheet =====
+      publicView: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
+        await ensureRechargeSchema();
+        const db = getDb();
+        const link = (await db.all(sql`SELECT * FROM interco_recharge_share_links WHERE token=${input.token} LIMIT 1`))[0];
+        if (!link || !link.active) return null;
+        const row = (await db.all(sql`SELECT * FROM interco_recharge_log WHERE id=${link.logId} LIMIT 1`))[0];
+        if (!row) return null;
+        let ws = {};
+        try {
+          ws = row.worksheetJson ? JSON.parse(row.worksheetJson) : {};
+        } catch {
+          ws = {};
+        }
+        let payerName = ws.payerName || "";
+        let counterpartyName = ws.counterpartyName || "";
+        if (!payerName && row.payerClientId) {
+          const c = (await db.all(sql`SELECT name FROM clients WHERE id=${row.payerClientId} LIMIT 1`))[0];
+          payerName = c?.name || "Payer";
+        }
+        if (!counterpartyName && row.counterpartyClientId) {
+          const c = (await db.all(sql`SELECT name FROM clients WHERE id=${row.counterpartyClientId} LIMIT 1`))[0];
+          counterpartyName = c?.name || "Counterparty";
+        }
+        return {
+          payerName,
+          counterpartyName,
+          periodLabel: ws.periodLabel || row.periodLabel,
+          periodStart: ws.periodStart || row.periodStart,
+          periodEnd: ws.periodEnd || row.periodEnd,
+          byAccount: Array.isArray(ws.byAccount) ? ws.byAccount.map((a) => ({ accountName: a.accountName, net: a.net })) : [],
+          excluded: ws.excluded || { lines: 0, total: 0, accounts: [] },
+          subtotal: num2(ws.subtotal ?? row.subtotal),
+          hstRatePct: num2(ws.hstRatePct ?? 13),
+          chargeHst: ws.chargeHst !== false,
+          hst: num2(ws.hst ?? row.hst),
+          total: num2(ws.total ?? row.total),
+          invoiceId: ws.invoiceId || row.invoiceRef || "",
+          billId: ws.billId || row.billRef || "",
+          zeroOut: ws.zeroOut !== false,
+          reconciled: !!row.reconciled,
+          postedAt: ws.postedAt || null,
+          generatedAt: (/* @__PURE__ */ new Date()).toISOString()
+        };
       })
     });
   }
@@ -88671,7 +88887,7 @@ init_qbo_vendor_brain();
 
 // api/hst-review-core.ts
 var norm8 = (s) => (s || "").toLowerCase();
-var money2 = (n) => Math.round((n || 0) * 100) / 100;
+var money3 = (n) => Math.round((n || 0) * 100) / 100;
 var isExpenseTxn = (t2) => t2.type === "Purchase" || t2.type === "Bill";
 var isSalesTxn = (t2) => t2.type === "Invoice" || t2.type === "SalesReceipt";
 var CONTROL_PATTERNS = [
@@ -88695,8 +88911,8 @@ function checkUnreviewedAccounts(accounts) {
         check: "unreviewed_account",
         severity: "high",
         ref: `Account: ${a.name}`,
-        amount: money2(a.balance),
-        message: `${a.name} holds ${money2(a.balance)} that hasn't been properly categorized.`,
+        amount: money3(a.balance),
+        message: `${a.name} holds ${money3(a.balance)} that hasn't been properly categorized.`,
         fix: "Recategorize these transactions to real accounts with the correct tax code before filing \u2014 they're invisible to the HST report otherwise."
       });
     }
@@ -88716,7 +88932,7 @@ function checkMissingTaxCode(txns) {
           check: "missing_tax_code",
           severity: "medium",
           ref: ref(t2),
-          amount: money2(l.amount),
+          amount: money3(l.amount),
           message: `${isExpenseTxn(t2) ? "Expense" : isSalesTxn(t2) ? "Sales" : "Line"} on "${l.accountName || "?"}" has no tax code.`,
           fix: "Set the correct tax code (HST 13% if applicable, or Exempt/Zero/Out-of-scope) so it flows to the right HST line."
         });
@@ -88736,8 +88952,8 @@ function checkSalesWithoutTax(txns) {
         check: "sales_without_tax",
         severity: "high",
         ref: ref(t2),
-        amount: money2(t2.total),
-        message: `Sale of ${money2(t2.total)} shows no HST collected.`,
+        amount: money3(t2.total),
+        message: `Sale of ${money3(t2.total)} shows no HST collected.`,
         fix: "Confirm whether HST should have been charged. If the customer/supply is taxable, the missing HST understates Line 105."
       });
     }
@@ -88754,7 +88970,7 @@ function checkControlAccountCoding(txns) {
           check: "control_account_coding",
           severity: "high",
           ref: ref(t2),
-          amount: money2(l.amount),
+          amount: money3(l.amount),
           message: `Coded directly to control account "${l.accountName}".`,
           fix: "Recode to a real expense/income account. Posting straight to HST/AP/AR/clearing distorts the HST and balance-sheet figures."
         });
@@ -88768,14 +88984,14 @@ function checkDuplicates(txns) {
   const seen = /* @__PURE__ */ new Map();
   for (const t2 of txns) {
     if (!isExpenseTxn(t2)) continue;
-    const keyDoc = `${norm8(t2.name)}|${money2(t2.total)}|${norm8(t2.docNumber)}`;
+    const keyDoc = `${norm8(t2.name)}|${money3(t2.total)}|${norm8(t2.docNumber)}`;
     const prior = t2.docNumber ? seen.get(keyDoc) : void 0;
     if (t2.docNumber && prior) {
       out.push({
         check: "duplicate",
         severity: "medium",
         ref: ref(t2),
-        amount: money2(t2.total),
+        amount: money3(t2.total),
         message: `Possible duplicate of ${ref(prior)} (same vendor, amount and document #).`,
         fix: "Check for a double-entered bill/expense \u2014 duplicates over-claim ITCs (Line 108)."
       });
@@ -88796,7 +89012,7 @@ function checkMealsFullItc(txns) {
             check: "meals_full_itc",
             severity: "medium",
             ref: ref(t2),
-            amount: money2(l.taxAmount || 0),
+            amount: money3(l.taxAmount || 0),
             message: `Meals/entertainment "${l.accountName}" appears to claim full ITC.`,
             fix: "Meals & entertainment ITCs are generally limited to 50%. Confirm the ITC is restricted (the year-end 50% adjustment may instead be done annually)."
           });
@@ -88818,13 +89034,13 @@ function tieOut(txns) {
       purchaseBase += t2.lines.reduce((s, l) => s + Math.max(l.amount, 0), 0);
     }
   }
-  return { collected: money2(collected), itc: money2(itc), net: money2(collected - itc), salesBase: money2(salesBase), purchaseBase: money2(purchaseBase) };
+  return { collected: money3(collected), itc: money3(itc), net: money3(collected - itc), salesBase: money3(salesBase), purchaseBase: money3(purchaseBase) };
 }
 function rankVerdict(v) {
   return { green: 0, na: 0, yellow: 1, red: 2 }[v];
 }
 function rateCheck(label, side, tax, base, expectedRatePct, greenBandPts, warnBandPts) {
-  const b = money2(base), tx = money2(tax);
+  const b = money3(base), tx = money3(tax);
   if (b < 1) {
     return {
       label,
@@ -88848,7 +89064,7 @@ function rateCheck(label, side, tax, base, expectedRatePct, greenBandPts, warnBa
       expectedRatePct,
       deviationPts: dev,
       verdict: "red",
-      message: `${label}: ${money2(b)} of taxable ${side} but ~$0 HST \u2014 almost certainly miscoded (missing tax code). Expected \u2248 ${expectedRatePct}%.`
+      message: `${label}: ${money3(b)} of taxable ${side} but ~$0 HST \u2014 almost certainly miscoded (missing tax code). Expected \u2248 ${expectedRatePct}%.`
     };
   }
   let verdict = dev <= greenBandPts ? "green" : dev <= warnBandPts ? "yellow" : "red";
@@ -88868,7 +89084,7 @@ function hstReasonableness(tie, expectedRatePct = 13, opts) {
   const itc = rateCheck("ITCs on purchases", "purchases", tie.itc, tie.purchaseBase, expectedRatePct, greenBandPts, warnBandPts);
   const testable = [output.verdict, itc.verdict].filter((v) => v !== "na");
   const overall = testable.length === 0 ? "na" : testable.reduce((worst, v) => rankVerdict(v) >= rankVerdict(worst) ? v : worst, "green");
-  return { expectedRatePct, output, itc, netTax: money2(tie.collected - tie.itc), overall };
+  return { expectedRatePct, output, itc, netTax: money3(tie.collected - tie.itc), overall };
 }
 function runHstReview(input) {
   const findings = [
@@ -89775,7 +89991,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.189";
+var BUILD_TAG = "2026-06-26.190";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

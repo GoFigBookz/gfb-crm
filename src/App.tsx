@@ -28,6 +28,7 @@ import Payroll from "./pages/Payroll";
 import PayrollApproval from "./pages/PayrollApproval";
 import RevRecShare from "./pages/RevRecShare";
 import BankedHoursShare from "./pages/BankedHoursShare";
+import BillbackShare from "./pages/BillbackShare";
 import FamilyTreeShare from "./pages/FamilyTreeShare";
 import LoanShare from "./pages/LoanShare";
 import GroupBookShare from "./pages/GroupBookShare";
@@ -95,6 +96,8 @@ function AppRoutes() {
 
       {/* Public read+write banked-hours sheet for the client */}
       <Route path="/share/banked/:token" element={<BankedHoursShare />} />
+      {/* Public read-only inter-company billback worksheet */}
+      <Route path="/share/billback/:token" element={<BillbackShare />} />
       <Route path="/share/family/:token" element={<FamilyTreeShare />} />
       <Route path="/share/loans/:token" element={<LoanShare />} />
       <Route path="/share/group/:token" element={<GroupBookShare />} />

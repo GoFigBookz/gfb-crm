@@ -17,7 +17,7 @@
  * =============================================================================
  */
 import { z } from "zod";
-import { createRouter, staffQuery } from "./middleware";
+import { createRouter, staffQuery, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { sql } from "drizzle-orm";
 import { qboRequest } from "./qbo-router";
@@ -110,6 +110,21 @@ export async function ensureRechargeSchema(): Promise<void> {
     // counterpartyClientId added after first ship — so a posted period can re-fetch
     // BOTH live QBO docs (invoice from payer, bill from counterparty). Guard existing DBs.
     try { await db.run(sql`ALTER TABLE interco_recharge_log ADD COLUMN counterpartyClientId INTEGER`); } catch { /* exists */ }
+    // worksheetJson: a snapshot of what was billed (cost-by-account, HST, excluded,
+    // invoice/bill #s) captured AT POST TIME — powers the shareable billback worksheet
+    // without needing a live QBO pull, and preserves the audit record of what was billed.
+    try { await db.run(sql`ALTER TABLE interco_recharge_log ADD COLUMN worksheetJson TEXT`); } catch { /* exists */ }
+    // Shareable read-only billback worksheet links (revocable by token).
+    await db.run(sql`CREATE TABLE IF NOT EXISTS interco_recharge_share_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      logId INTEGER NOT NULL,
+      payerClientId INTEGER,
+      token TEXT NOT NULL UNIQUE,
+      active INTEGER DEFAULT 1,
+      createdBy INTEGER,
+      createdAt INTEGER,
+      revokedAt INTEGER
+    )`);
   } catch (e) {
     console.error("[interco-recharge] ensure schema failed:", e instanceof Error ? e.message : e);
   }
@@ -309,9 +324,11 @@ export const intercoRechargeRouter = createRouter({
       if ("error" in cr) return { ok: false as const, error: `payer: ${cr.error}` };
       let subtotal = 0;
       let breakdown: { accountId: string; accountName: string; net: number }[] = [];
+      let excludedSnap: { lines: number; total: number; accounts: string[] } = { lines: 0, total: 0, accounts: [] };
       try {
-        const { expenses, byAccount } = await pullExpenses(cr.conn, input.startDate, input.endDate);
+        const { expenses, byAccount, excluded } = await pullExpenses(cr.conn, input.startDate, input.endDate);
         breakdown = byAccount;
+        excludedSnap = excluded;
         const draft = buildRecharge({
           periodLabel: input.periodLabel || `${input.startDate} → ${input.endDate}`,
           payerName: input.payerName, counterpartyName, revenueAccount, expenseAccount,
@@ -345,10 +362,18 @@ export const intercoRechargeRouter = createRouter({
       if (result.ok) {
         const total = round2(result.total);
         const hst = round2(input.chargeHst ? round2(subtotal) * ((input.hstRatePct || 0) / 100) : 0);
+        const worksheet = {
+          payerName: input.payerName, counterpartyName,
+          periodLabel, periodStart: input.startDate, periodEnd: input.endDate,
+          byAccount: breakdown, excluded: excludedSnap,
+          subtotal: round2(subtotal), hstRatePct: input.hstRatePct, chargeHst: input.chargeHst, hst, total,
+          invoiceId: result.invoiceId, billId: result.billId,
+          zeroOut, postedAt: new Date().toISOString(),
+        };
         try {
           await db.run(sql`INSERT INTO interco_recharge_log
-            (payerClientId, counterpartyClientId, periodLabel, periodStart, periodEnd, subtotal, hst, total, reconciled, invoiceRef, billRef, createdAt)
-            VALUES (${input.payerClientId}, ${cpId}, ${periodLabel}, ${input.startDate}, ${input.endDate}, ${round2(subtotal)}, ${hst}, ${total}, 0, ${result.invoiceId}, ${result.billId}, ${Date.now()})`);
+            (payerClientId, counterpartyClientId, periodLabel, periodStart, periodEnd, subtotal, hst, total, reconciled, invoiceRef, billRef, worksheetJson, createdAt)
+            VALUES (${input.payerClientId}, ${cpId}, ${periodLabel}, ${input.startDate}, ${input.endDate}, ${round2(subtotal)}, ${hst}, ${total}, 0, ${result.invoiceId}, ${result.billId}, ${JSON.stringify(worksheet)}, ${Date.now()})`);
         } catch (e) { console.error("[interco-recharge] post log insert failed:", e instanceof Error ? e.message : e); }
         return { ...result, counterpartyClientId: cpId, periodLabel };
       }
@@ -488,5 +513,87 @@ export const intercoRechargeRouter = createRouter({
       const db = getDb();
       await db.run(sql`UPDATE interco_recharge_log SET reconciled=${input.reconciled ? 1 : 0}, reconciledAt=${input.reconciled ? Date.now() : null} WHERE id=${input.id}`);
       return { ok: true as const };
+    }),
+
+  /** Create a shareable read-only billback worksheet link for a posted period (log row). */
+  shareCreate: staffQuery
+    .input(z.object({ logId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await ensureRechargeSchema();
+      const db = getDb();
+      const rows = (await db.all(sql`SELECT id, payerClientId FROM interco_recharge_log WHERE id=${input.logId} LIMIT 1`)) as any[];
+      if (!rows[0]) return { ok: false as const, error: "period_not_found" };
+      // Reuse an existing active link if there is one (idempotent-ish; one link per period).
+      const existing = (await db.all(sql`SELECT token FROM interco_recharge_share_links WHERE logId=${input.logId} AND active=1 ORDER BY id DESC LIMIT 1`)) as any[];
+      if (existing[0]?.token) return { ok: true as const, token: existing[0].token };
+      const token = `bb_${crypto.randomUUID().replace(/-/g, "")}`;
+      await db.run(sql`INSERT INTO interco_recharge_share_links (logId, payerClientId, token, active, createdBy, createdAt)
+        VALUES (${input.logId}, ${rows[0].payerClientId}, ${token}, 1, ${ctx.user.id}, ${Date.now()})`);
+      return { ok: true as const, token };
+    }),
+
+  shareRevoke: staffQuery
+    .input(z.object({ logId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.run(sql`UPDATE interco_recharge_share_links SET active=0, revokedAt=${Date.now()} WHERE logId=${input.logId} AND active=1`);
+      return { ok: true as const };
+    }),
+
+  /** File the billback worksheet into BOTH clients' Drive folders (payer + counterparty). */
+  fileToDrive: staffQuery
+    .input(z.object({ logId: z.number() }))
+    .mutation(async ({ input }) => {
+      const { fileBillbackToDrive } = await import("./billback-drive");
+      return await fileBillbackToDrive(input.logId);
+    }),
+
+  /** The active share token for a posted period (so the panel can show/copy the link). */
+  shareFor: staffQuery
+    .input(z.object({ logId: z.number() }))
+    .query(async ({ input }) => {
+      await ensureRechargeSchema();
+      const rows = (await getDb().all(sql`SELECT token FROM interco_recharge_share_links WHERE logId=${input.logId} AND active=1 ORDER BY id DESC LIMIT 1`)) as any[];
+      return { token: rows[0]?.token ?? null };
+    }),
+
+  // ===== PUBLIC (token-gated, read-only) — the branded billback worksheet =====
+  publicView: publicQuery
+    .input(z.object({ token: z.string().min(6) }))
+    .query(async ({ input }) => {
+      await ensureRechargeSchema();
+      const db = getDb();
+      const link = (await db.all(sql`SELECT * FROM interco_recharge_share_links WHERE token=${input.token} LIMIT 1`))[0] as any;
+      if (!link || !link.active) return null;
+      const row = (await db.all(sql`SELECT * FROM interco_recharge_log WHERE id=${link.logId} LIMIT 1`))[0] as any;
+      if (!row) return null;
+      let ws: any = {};
+      try { ws = row.worksheetJson ? JSON.parse(row.worksheetJson) : {}; } catch { ws = {}; }
+      // Resolve display names (snapshot first; fall back to the client rows).
+      let payerName = ws.payerName || "";
+      let counterpartyName = ws.counterpartyName || "";
+      if (!payerName && row.payerClientId) {
+        const c = (await db.all(sql`SELECT name FROM clients WHERE id=${row.payerClientId} LIMIT 1`))[0] as any;
+        payerName = c?.name || "Payer";
+      }
+      if (!counterpartyName && row.counterpartyClientId) {
+        const c = (await db.all(sql`SELECT name FROM clients WHERE id=${row.counterpartyClientId} LIMIT 1`))[0] as any;
+        counterpartyName = c?.name || "Counterparty";
+      }
+      return {
+        payerName, counterpartyName,
+        periodLabel: ws.periodLabel || row.periodLabel,
+        periodStart: ws.periodStart || row.periodStart, periodEnd: ws.periodEnd || row.periodEnd,
+        byAccount: Array.isArray(ws.byAccount) ? ws.byAccount.map((a: any) => ({ accountName: a.accountName, net: a.net })) : [],
+        excluded: ws.excluded || { lines: 0, total: 0, accounts: [] },
+        subtotal: num(ws.subtotal ?? row.subtotal),
+        hstRatePct: num(ws.hstRatePct ?? 13), chargeHst: ws.chargeHst !== false,
+        hst: num(ws.hst ?? row.hst), total: num(ws.total ?? row.total),
+        invoiceId: ws.invoiceId || row.invoiceRef || "", billId: ws.billId || row.billRef || "",
+        zeroOut: ws.zeroOut !== false,
+        reconciled: !!row.reconciled,
+        postedAt: ws.postedAt || null,
+        generatedAt: new Date().toISOString(),
+      };
     }),
 });
