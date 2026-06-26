@@ -90,9 +90,9 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
   // Phoenix Rising — Markie's PRIVATE life hub. Owner-only: no other user sees it.
   // Sits at the very bottom of the nav (still favoritable).
   const personalNav = [
-    { to: "/my-life", icon: Flame, label: "Phoenix Rising" },
-    { to: "/health", icon: HeartPulse, label: "Health" },
-    { to: "/launchpad", icon: Rocket, label: "Launchpad" },
+    { to: "/my-life", icon: Flame, label: "Phoenix Rising", iconClass: "text-orange-400" },
+    { to: "/health", icon: HeartPulse, label: "Health", iconClass: "text-rose-400" },
+    { to: "/launchpad", icon: Rocket, label: "Launchpad", iconClass: "text-sky-400" },
   ];
 
   // Tools & Compliance.
@@ -135,7 +135,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
   const itemByPath = new Map(allItems.map((i) => [i.to, i]));
   const favItems = favorites.map((to) => itemByPath.get(to)).filter(Boolean) as { to: string; icon: any; label: string }[];
 
-  const NavItem = ({ to, icon: Icon, label, end = false }: { to: string; icon: any; label: string; end?: boolean }) => (
+  const NavItem = ({ to, icon: Icon, label, end = false, iconClass }: { to: string; icon: any; label: string; end?: boolean; iconClass?: string }) => (
     <NavLink
       to={to}
       end={end}
@@ -151,7 +151,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         )
       }
     >
-      <Icon className="h-5 w-5 flex-shrink-0" />
+      <Icon className={cn("h-5 w-5 flex-shrink-0", iconClass)} />
       {!collapsed && <span className="font-medium text-sm truncate">{label}</span>}
       {!collapsed && (
         <button
@@ -239,7 +239,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
             )}
             <div className="space-y-0.5 mt-0.5">
               {favItems.map((item) => (
-                <NavItem key={`fav-${item.to}`} to={item.to} icon={item.icon} label={item.label} end={item.to === "/"} />
+                <NavItem key={`fav-${item.to}`} to={item.to} icon={item.icon} label={item.label} end={item.to === "/"} iconClass={(item as any).iconClass} />
               ))}
             </div>
           </div>
@@ -266,7 +266,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
           <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Personal</div>
         )}
         {personalNav.map((item) => (
-          <NavItem key={item.to} to={item.to} icon={item.icon} label={item.label} />
+          <NavItem key={item.to} to={item.to} icon={item.icon} label={item.label} iconClass={(item as any).iconClass} />
         ))}
       </nav>
 
