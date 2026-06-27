@@ -47509,6 +47509,10 @@ var init_interco_recharge_router = __esm({
         const from = input.from || fiscalYearStartFor(to, fyeMonth);
         const q3 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
         const range = `TxnDate >= '${from}' AND TxnDate <= '${to}'`;
+        await ensureRechargeSchema();
+        const cfgRow = await getDb().run(sql`SELECT counterpartyName FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`);
+        const cpName = String((cfgRow?.rows ?? cfgRow ?? [])[0]?.counterpartyName || "");
+        const cpKey = cpName ? normName(cpName.split(/\s+/)[0]) : "";
         let totalExpenses = 0, totalHst = 0, txnCount = 0, itemLines = 0;
         let billableTotal = 0, notBillableTotal = 0;
         const byAcct = /* @__PURE__ */ new Map();
@@ -47534,10 +47538,14 @@ var init_interco_recharge_router = __esm({
                 cur.net += amt;
                 byAcct.set(nm, cur);
                 const status = String(d10.BillableStatus || "NotBillable");
-                if (status === "Billable" || status === "HasBeenBilled") billableTotal += amt;
+                const custName = String(d10.CustomerRef?.name || "");
+                const isBillable = status === "Billable" || status === "HasBeenBilled";
+                const custOk = !cpKey || custName && normName(custName).includes(cpKey);
+                if (isBillable && custName && custOk) billableTotal += amt;
                 else {
                   notBillableTotal += amt;
-                  notBillable.push({ date: dateRef, type: entity, docNum: docRef, name: nameRef, amount: round26(amt), account: nm });
+                  const reason = !isBillable ? "not marked billable" : !custName ? "billable but NO customer attached" : `billable to "${custName}" \u2014 not ${cpName}`;
+                  notBillable.push({ date: dateRef, type: entity, docNum: docRef, name: nameRef, amount: round26(amt), account: nm, reason, customer: custName });
                 }
               }
             }
@@ -90206,7 +90214,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.199";
+var BUILD_TAG = "2026-06-27.200";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
