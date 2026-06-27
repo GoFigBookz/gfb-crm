@@ -387,6 +387,7 @@ async function runTool(name: string, input: any, userId: number, activeAgent: st
     if (name === "system_health") return await execSystemHealth();
     if (name === "agent_scorecard") return await execAgentScorecard();
     if (name === "firm_status") return await execFirmStatus(userId);
+    if (name === "exec_briefing") { const { buildExecBriefing, formatExecBriefing } = await import("./exec-briefing"); return formatExecBriefing(await buildExecBriefing(userId)); }
     return `Unknown tool: ${name}`;
   } catch (e) {
     return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
@@ -456,6 +457,13 @@ export const assistantRouter = createRouter({
       model: openaiProvider ? (process.env.FIGGY_LLM_MODEL || "llama-3.3-70b-versatile") : WORKHORSE_MODEL,
       webSearch: process.env.FIGGY_WEB_SEARCH !== "off",
     };
+  }),
+
+  // Liv's Chief-of-Staff daily executive briefing (one digest, structured — for the
+  // Dashboard card). Reads app state only; no premium AI call.
+  briefing: authedQuery.query(async ({ ctx }) => {
+    const { buildExecBriefing } = await import("./exec-briefing");
+    return buildExecBriefing(ctx.user.id);
   }),
 
   ask: authedQuery

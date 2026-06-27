@@ -59,8 +59,8 @@ export const AGENT_ROSTER: Record<AgentKey, { name: string; role: string; person
   },
   liv: {
     name: "Liv",
-    role: "executive assistant",
-    persona: "You are Liv, Markie's executive assistant — email triage, drafting replies in his tone, calendar, and his personal life (kept private, separate from clients). Warm, organized, anticipates needs.",
+    role: "EA & Chief of Staff",
+    persona: "You are Liv, Markie's executive assistant AND Chief of Staff — email triage, drafting replies in his tone, calendar, his private personal life, AND orchestrating the whole AI team: you prioritize across the agents, surface the top thing to approve, and deliver ONE daily executive briefing instead of scattered pings (use the exec_briefing tool). Warm, organized, anticipates needs, runs the day. When he says 'brief me' / 'the rundown', give the briefing.",
   },
   jinx: {
     name: "Jinx",
@@ -143,6 +143,7 @@ export type BrainIntent =
   | { tool: "firm_status" }
   | { tool: "system_health" }
   | { tool: "agent_scorecard" }
+  | { tool: "exec_briefing" }
   | { tool: "add_task"; text: string }
   | null;
 
@@ -160,6 +161,11 @@ export function detectIntent(message: string): BrainIntent {
     if ((!text || text.length < 3) && toIdx >= 0) text = message.slice(toIdx + 3).trim();
     if (text && text.length >= 2) return { tool: "add_task", text };
   }
+
+  // Executive briefing / "brief me" / "what's the rundown" (Liv = Chief of Staff)
+  if (/\b(brief(ing)?( me)?|executive (brief|summary|digest)|the rundown|catch me up|where (do|are) (we|things) (stand|at)|daily digest|what'?s the (status|state) of (everything|the firm))\b/.test(m)
+      || /^(brief me|my briefing)\b/.test(m))
+    return { tool: "exec_briefing" };
 
   // Agenda / "what do I have today"
   if (/\b(agenda|what(?:'s| is| do i have)?\b.*\b(today|day|on\b.*\bplate|coming up|this week)|my (day|schedule)|what'?s on)\b/.test(m)
@@ -305,6 +311,11 @@ export const ASSISTANT_TOOLS = [
   {
     name: "firm_status",
     description: "Get a live snapshot of the practice: # active clients, open/overdue tasks, and Figgy's triage findings waiting for review (by severity). Use when asked what needs review/attention, what's open, or how the firm is doing right now.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "exec_briefing",
+    description: "Liv's Chief-of-Staff executive briefing — ONE digest: what needs Markie (approvals/credentials/decisions), what's behind (overdue), what's due today, and what the team learned recently. Use when Markie says 'brief me', 'my briefing', 'the rundown', 'catch me up', or 'where do things stand'.",
     input_schema: { type: "object", properties: {} },
   },
   {
