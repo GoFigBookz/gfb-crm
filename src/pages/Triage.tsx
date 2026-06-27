@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import { Shield, AlertTriangle, XCircle, Info, CheckCircle2, ChevronLeft, Pencil, ExternalLink, Send } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import HelpButton from "@/components/HelpButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/providers/trpc";
@@ -160,6 +161,7 @@ export default function Triage() {
         </Button>
         <Shield className="h-6 w-6 text-purple-500" />
         <h1 className="text-2xl font-bold text-slate-800">Ask Markie</h1>
+        <HelpButton id="triage" />
       </div>
       <p className="text-sm text-slate-500 -mt-2">
         Your review queue — everything Figs or Sage isn't sure about lands here for your call (not in the chat). Fix anything wrong, add a note to teach them, then approve, dismiss, or ask the client for what's missing.

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Sparkles, BookOpen, HelpCircle, Plus, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HelpButton from "@/components/HelpButton";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { trpc } from "@/providers/trpc";
@@ -38,7 +39,7 @@ export default function Brain() {
       <div className="flex items-center gap-2">
         <Sparkles className="h-6 w-6 text-lime-600" />
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Ask Figgy Brain</h1>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">Ask Figgy Brain <HelpButton id="brain" /></h1>
           <p className="text-sm text-slate-500">Liv answers from the firm's shared knowledge — with sources. If it's not in the brain, she asks you instead of guessing.</p>
         </div>
         {stats.data && <div className="ml-auto text-xs text-slate-500 text-right">{stats.data.truth} facts · {stats.data.openQuestions} open questions</div>}

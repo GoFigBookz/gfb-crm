@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Search, Users, Globe, LayoutGrid, List, AlertTriangle, ArrowUpDown, Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import HelpButton from "@/components/HelpButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -175,7 +176,7 @@ export default function Clients() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Clients</h1>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">Clients <HelpButton id="clients" /></h1>
           <p className="text-slate-500 text-sm">Go Fig Bookz — {filtered?.length ?? 0} clients</p>
         </div>
         {/* Add Client goes straight to the full intake form */}

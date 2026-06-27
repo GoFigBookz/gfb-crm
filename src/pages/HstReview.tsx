@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { ClipboardCheck, AlertTriangle, AlertCircle, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HelpButton from "@/components/HelpButton";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { trpc } from "@/providers/trpc";
@@ -36,7 +37,7 @@ export default function HstReview() {
       <div className="flex items-center gap-2">
         <ClipboardCheck className="h-6 w-6 text-indigo-600" />
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Pre-HST Review</h1>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">Pre-HST Review <HelpButton id="hst-review" /></h1>
           <p className="text-sm text-slate-500">Read-only accuracy sweep before you run QuickBooks' HST report. Nothing is changed or posted.</p>
         </div>
       </div>
