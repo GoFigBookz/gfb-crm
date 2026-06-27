@@ -96,6 +96,57 @@ export const HELP: Record<string, HelpEntry> = {
       "Use it as the sanity gate before Sage prepares the return.",
     ],
   },
+  "triage": {
+    title: "Ask Markie (review queue)",
+    steps: [
+      "Everything Fig or Sage isn't sure about lands here — not in the chat — for your call.",
+      "Tabs: New, Awaiting client, Approved, Dismissed. Each card shows the vendor/amount, a 🟢🟡🔴 confidence pill, and Figgy's plain-English ‘Why’.",
+      "Click ‘✨ Get Figgy's suggestions’ to run the brain over the current cards (coding + rationale) before you decide.",
+      "Fix anything wrong and add a note — your note TEACHES the team (it's captured as a lesson).",
+      "Then Approve, Dismiss, or ‘Ask the client’ for what's missing.",
+    ],
+    note: "Nothing posts to QuickBooks from here — approving records your decision; posting stays off until the QBO write connection is on.",
+  },
+  "payroll": {
+    title: "Payroll",
+    steps: [
+      "Pick the company from the dropdown — each runs on its own cadence (weekly, bi-weekly, monthly, or QBO autopay).",
+      "Open or start a pay run: enter hours/salary per employee; phone allowance, banked hours, and reimbursements flow in where set.",
+      "Review the totals — gross, deductions (CPP/EI/tax), net, and the CRA remittance.",
+      "Click an employee to open their card (one shared editor across Payroll and Employee Management).",
+      "Banked hours: the per-employee panel + the client board sync with the shared ledger.",
+    ],
+    note: "Numbers come from your inputs + the employee records. Nothing files with CRA automatically.",
+  },
+  "month-end-close": {
+    title: "Month-End Close",
+    steps: [
+      "This is your close cockpit: every active client and where they stand this period.",
+      "Each row shows transactions to review, HST status, year-end, and reconciliation — fed by the live QBO snapshot.",
+      "Sort by ‘who's behind’ to triage the portfolio; click a client to open their dashboard.",
+      "Use the ‘Open in QuickBooks’ deep-link to jump straight to that client's books.",
+      "Work the reds and yellows down to green — that's the close.",
+    ],
+    note: "Reads a cached snapshot (cheap) — refresh pulls the latest from QBO.",
+  },
+  "brain": {
+    title: "Ask Figgy Brain",
+    steps: [
+      "Ask anything about the firm, clients, tax, HR, or process — Liv answers from the shared knowledge base, with sources.",
+      "If it's not in the brain, she asks YOU instead of guessing — answering teaches it for next time.",
+      "Confirmed corrections become facts every agent can use (per-client isolation preserved).",
+      "The counter shows how many facts and open questions the brain holds.",
+    ],
+  },
+  "clients": {
+    title: "Clients",
+    steps: [
+      "Your whole book of business — search or filter, click a card to open that client's dashboard.",
+      "‘Add Client’ opens the full intake form (entity, QBO realm, payroll, compliance dates).",
+      "Each card shows status and what's outstanding at a glance.",
+      "Inside a client: Overview, Tasks, Financials, Billing, Payroll, Compliance, Rev Rec, Cash Book, Loans, Time.",
+    ],
+  },
   "cash-book": {
     title: "Cash book",
     steps: [

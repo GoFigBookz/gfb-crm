@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import HelpButton from "@/components/HelpButton";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
@@ -40,7 +41,7 @@ export default function MonthEndClose() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Month-End Close</h1>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">Month-End Close <HelpButton id="month-end-close" /></h1>
           <p className="text-slate-500 mt-1">Where every client stands — who needs attention first.</p>
         </div>
         <div className="flex items-center gap-2">

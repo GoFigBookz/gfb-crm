@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Wallet, Plus, Trash2, Calculator, Mail, ExternalLink, Building2, ChevronRight, Download, Upload, Pencil, Users, DollarSign } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import HelpButton from "@/components/HelpButton";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -250,7 +251,7 @@ export default function Payroll() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2"><Wallet className="h-6 w-6 text-lime-600" /> Payroll</h1>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2"><Wallet className="h-6 w-6 text-lime-600" /> Payroll <HelpButton id="payroll" /></h1>
           <p className="text-slate-500">Pick a company to run its payroll — pay runs, hours, and the CRA remittance.</p>
         </div>
         {/* Company picker (dropdown, not a whole column) */}
