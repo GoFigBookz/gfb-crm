@@ -421,6 +421,20 @@ async function brainAnswer(message: string, agent: AgentKey, userId: number): Pr
   return null;
 }
 
+// ── TIERED MODEL STRATEGY (Markie 2026-06-27: "don't want to spend hundreds of
+// thousands on tokens"). Most bookkeeping work is the DETERMINISTIC Brain ($0). For
+// the chat agents we run a CHEAP workhorse (Haiku 4.5) by default and reserve the
+// stronger Sonnet for the heavy, judgment/long-context agents (Wren's tie-outs +
+// signed workpaper, Tess's tax). Both are env-overridable. Haiku 4.5 IS tool-capable
+// (the old "Haiku breaks tools" warning was a 3.x snapshot); if a model ever rejects
+// the tool call we auto-retry on the heavy model, so cheap-by-default can't break chat.
+const WORKHORSE_MODEL = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
+const HEAVY_MODEL = process.env.FIGGY_ASSISTANT_MODEL_HEAVY || "claude-sonnet-4-6";
+const HEAVY_AGENTS = new Set<AgentKey>(["wren", "tess"]);
+function modelForAgent(agent: AgentKey): string {
+  return HEAVY_AGENTS.has(agent) ? HEAVY_MODEL : WORKHORSE_MODEL;
+}
+
 /** The honest "model is off" note, with what the Brain CAN still do. */
 function brainOnlyHelp(agent: AgentKey): string {
   const name = AGENT_ROSTER[agent].name;
@@ -439,7 +453,7 @@ export const assistantRouter = createRouter({
     return {
       keyConfigured,
       provider: openaiProvider ? "openai" : "anthropic",
-      model: openaiProvider ? (process.env.FIGGY_LLM_MODEL || "llama-3.3-70b-versatile") : (process.env.FIGGY_ASSISTANT_MODEL || "claude-sonnet-4-6"),
+      model: openaiProvider ? (process.env.FIGGY_LLM_MODEL || "llama-3.3-70b-versatile") : WORKHORSE_MODEL,
       webSearch: process.env.FIGGY_WEB_SEARCH !== "off",
     };
   }),
@@ -468,10 +482,9 @@ export const assistantRouter = createRouter({
         const fb = await brainAnswer(input.message, agent, ctx.user.id);
         return fb ? { ...fb, agent, degraded: true } : { reply: brainOnlyHelp(agent), actions: [] as string[], agent, degraded: true };
       }
-      // Must be a tool-capable model — Haiku snapshots reject programmatic tool
-      // calling (that 400 broke the whole chatbot). Sonnet handles tools + is the
-      // right balance for an all-day assistant.
-      const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-sonnet-4-6";
+      // Tiered: cheap Haiku workhorse for everyday agents, Sonnet for the heavy ones
+      // (see modelForAgent). `let` so a tool-rejection can auto-escalate to HEAVY_MODEL.
+      let model = modelForAgent(agent);
       // Tell it "now" so it can answer time/date without searching, in Markie's TZ.
       const nowLine = `Current date & time: ${new Date().toLocaleString("en-CA", { timeZone: "America/Toronto", dateStyle: "full", timeStyle: "short" })} (America/Toronto).`;
       // Location: Markie travels, so use his live device location when the app sent
@@ -586,9 +599,11 @@ export const assistantRouter = createRouter({
         } catch (err: any) {
           // Transient overloads/rate limits are already retried by the SDK; a final
           // failure here is real. Surface a clear, typed reason.
-          if (err instanceof Anthropic.BadRequestError && !dropServerTools && /tool|web_search|web_fetch/i.test(err.message || "")) {
-            dropServerTools = true; // a server-tool combo was rejected — retry without them
-            continue;
+          if (err instanceof Anthropic.BadRequestError && /tool|web_search|web_fetch/i.test(err.message || "")) {
+            if (!dropServerTools) { dropServerTools = true; continue; } // drop web tools, retry
+            // Still rejecting tools → the cheap workhorse model can't tool-call. Escalate
+            // ONCE to the heavy model so cheap-by-default never breaks the chat.
+            if (model !== HEAVY_MODEL) { console.warn(`[assistant] ${model} rejected tools — escalating to ${HEAVY_MODEL}`); model = HEAVY_MODEL; continue; }
           }
           console.error("[assistant] API error", { name: err?.name, status: err?.status, message: err?.message });
           if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.APIConnectionError) {

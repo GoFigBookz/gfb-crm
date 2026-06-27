@@ -87601,6 +87601,12 @@ async function brainAnswer(message2, agent, userId) {
   if (known) return { reply: `${AGENT_ROSTER[agent].name} \u2014 ${known}`, actions: [] };
   return null;
 }
+var WORKHORSE_MODEL = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
+var HEAVY_MODEL = process.env.FIGGY_ASSISTANT_MODEL_HEAVY || "claude-sonnet-4-6";
+var HEAVY_AGENTS = /* @__PURE__ */ new Set(["wren", "tess"]);
+function modelForAgent(agent) {
+  return HEAVY_AGENTS.has(agent) ? HEAVY_MODEL : WORKHORSE_MODEL;
+}
 function brainOnlyHelp(agent) {
   const name2 = AGENT_ROSTER[agent].name;
   return `${name2} \u2014 the AI model is off right now, so I can't chat open-endedly, but I can still work from the Brain. Try: \u201Cagenda\u201D, \u201Cfirm status\u201D (what needs posting / who's behind), \u201Csystem health\u201D, \u201Cscorecard\u201D, or \u201Cadd task \u2026\u201D. Turn the model back on (ANTHROPIC_API_KEY) for full conversation.`;
@@ -87616,7 +87622,7 @@ var assistantRouter = createRouter({
     return {
       keyConfigured,
       provider: openaiProvider ? "openai" : "anthropic",
-      model: openaiProvider ? process.env.FIGGY_LLM_MODEL || "llama-3.3-70b-versatile" : process.env.FIGGY_ASSISTANT_MODEL || "claude-sonnet-4-6",
+      model: openaiProvider ? process.env.FIGGY_LLM_MODEL || "llama-3.3-70b-versatile" : WORKHORSE_MODEL,
       webSearch: process.env.FIGGY_WEB_SEARCH !== "off"
     };
   }),
@@ -87639,7 +87645,7 @@ var assistantRouter = createRouter({
       const fb = await brainAnswer(input.message, agent, ctx.user.id);
       return fb ? { ...fb, agent, degraded: true } : { reply: brainOnlyHelp(agent), actions: [], agent, degraded: true };
     }
-    const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-sonnet-4-6";
+    let model = modelForAgent(agent);
     const nowLine = `Current date & time: ${(/* @__PURE__ */ new Date()).toLocaleString("en-CA", { timeZone: "America/Toronto", dateStyle: "full", timeStyle: "short" })} (America/Toronto).`;
     const locLine = input.location ? `Markie's CURRENT location (live from his device \u2014 he travels, so this is where he is right now): latitude ${input.location.lat}, longitude ${input.location.lon}${input.location.label ? ` (${input.location.label})` : ""}. Use it for "near me"/local questions (weather, stores, hours) \u2014 search around this spot.` : `Markie travels and his location is UNKNOWN right now. If a question needs where he is ("near me", local weather/stores/hours), briefly ASK what city he's in before answering \u2014 do NOT assume a town.`;
     let lessonsBlock = "";
@@ -87732,9 +87738,16 @@ var assistantRouter = createRouter({
         try {
           data = await client.messages.create({ model, max_tokens: 1024, system, messages, tools: tools3 });
         } catch (err) {
-          if (err instanceof Anthropic.BadRequestError && !dropServerTools && /tool|web_search|web_fetch/i.test(err.message || "")) {
-            dropServerTools = true;
-            continue;
+          if (err instanceof Anthropic.BadRequestError && /tool|web_search|web_fetch/i.test(err.message || "")) {
+            if (!dropServerTools) {
+              dropServerTools = true;
+              continue;
+            }
+            if (model !== HEAVY_MODEL) {
+              console.warn(`[assistant] ${model} rejected tools \u2014 escalating to ${HEAVY_MODEL}`);
+              model = HEAVY_MODEL;
+              continue;
+            }
           }
           console.error("[assistant] API error", { name: err?.name, status: err?.status, message: err?.message });
           if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.APIConnectionError) {
@@ -91186,7 +91199,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.217";
+var BUILD_TAG = "2026-06-27.218";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
