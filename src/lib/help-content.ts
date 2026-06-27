@@ -157,6 +157,16 @@ export const HELP: Record<string, HelpEntry> = {
       "Inside a client: Overview, Tasks, Financials, Billing, Payroll, Compliance, Rev Rec, Cash Book, Loans, Time.",
     ],
   },
+  "backup": {
+    title: "Backup & Data",
+    steps: [
+      "Figgy automatically snapshots all your live data once a day — the client list, tasks, payroll, everything.",
+      "‘Back up now’ takes an extra snapshot on demand (e.g. before a big change).",
+      "Click the download icon on any snapshot to save a full copy as a file — keep it on your computer or Drive for a true off-site backup.",
+      "Restoring from a snapshot is an admin action and always shows you exactly what will change first (it also auto-saves a safety backup before overwriting).",
+    ],
+    note: "Auto backups keep the latest 20; manual ones are kept until you delete them.",
+  },
   "cash-book": {
     title: "Cash book",
     steps: [

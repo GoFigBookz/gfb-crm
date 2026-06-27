@@ -19606,14 +19606,14 @@ var init_dialect = __esm({
         return sql`${withSql}delete from ${table}${whereSql}${returningSql}${orderBySql}${limitSql}`;
       }
       buildUpdateSet(table, set2) {
-        const tableColumns = table[Table.Symbol.Columns];
-        const columnNames = Object.keys(tableColumns).filter(
-          (colName) => set2[colName] !== void 0 || tableColumns[colName]?.onUpdateFn !== void 0
+        const tableColumns2 = table[Table.Symbol.Columns];
+        const columnNames = Object.keys(tableColumns2).filter(
+          (colName) => set2[colName] !== void 0 || tableColumns2[colName]?.onUpdateFn !== void 0
         );
         const setSize = columnNames.length;
         return sql.join(
           columnNames.flatMap((colName, i) => {
-            const col = tableColumns[colName];
+            const col = tableColumns2[colName];
             const onUpdateFnResult = col.onUpdateFn?.();
             const value = set2[colName] ?? (is(onUpdateFnResult, SQL) ? onUpdateFnResult : sql.param(onUpdateFnResult, col));
             const res = sql`${sql.identifier(this.casing.getColumnCasing(col))} = ${value}`;
@@ -62170,6 +62170,203 @@ var init_listing_generator = __esm({
   }
 });
 
+// api/backup-core.ts
+function selectBackupTables(allTables, opts) {
+  const extra = new Set((opts?.extraDeny || []).map((s) => s.toLowerCase()));
+  return allTables.filter((t2) => t2 && !t2.startsWith("sqlite_") && !t2.startsWith("_cf_")).filter((t2) => !BACKUP_DENYLIST.has(t2) && !extra.has(t2.toLowerCase()) && !DENY_SUFFIX.test(t2)).sort();
+}
+function summarizeBackup(snapshot) {
+  const perTable = {};
+  let totalRows = 0;
+  for (const [t2, rows] of Object.entries(snapshot.tables || {})) {
+    const n = Array.isArray(rows) ? rows.length : 0;
+    perTable[t2] = n;
+    totalRows += n;
+  }
+  return { tableCount: Object.keys(perTable).length, totalRows, perTable };
+}
+function pruneSnapshots(list, keep3) {
+  return [...list].sort((a, b) => b.createdAt - a.createdAt).slice(Math.max(0, keep3)).map((s) => s.id);
+}
+function shouldAutoSnapshot(lastCreatedAtMs, nowMs) {
+  if (!lastCreatedAtMs) return true;
+  return dayKey(lastCreatedAtMs) !== dayKey(nowMs);
+}
+function restoreDiff(backupCounts, currentCounts2) {
+  const tables = /* @__PURE__ */ new Set([...Object.keys(backupCounts), ...Object.keys(currentCounts2)]);
+  return [...tables].map((table) => {
+    const inBackup = backupCounts[table] || 0;
+    const current = currentCounts2[table] || 0;
+    return { table, inBackup, current, delta: inBackup - current };
+  }).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || a.table.localeCompare(b.table));
+}
+var BACKUP_DENYLIST, DENY_SUFFIX, dayKey;
+var init_backup_core = __esm({
+  "api/backup-core.ts"() {
+    BACKUP_DENYLIST = /* @__PURE__ */ new Set([
+      "sessions",
+      "session",
+      "user_sessions",
+      "auth_sessions",
+      "_litestream_seq",
+      "_litestream_lock"
+    ]);
+    DENY_SUFFIX = /(_cache|_log|_logs|_audit_log|_tmp|_temp)$/i;
+    dayKey = (ms5) => new Date(ms5).toISOString().slice(0, 10);
+  }
+});
+
+// api/backup-router.ts
+var backup_router_exports = {};
+__export(backup_router_exports, {
+  autoSnapshotIfDue: () => autoSnapshotIfDue,
+  backupRouter: () => backupRouter,
+  takeSnapshot: () => takeSnapshot
+});
+async function listTableNames() {
+  const rows = await getDb().all(sql`SELECT name FROM sqlite_master WHERE type='table'`);
+  return selectBackupTables(rows.map((r) => String(r.name)));
+}
+async function tableColumns(table) {
+  const rows = await getDb().all(sql.raw(`PRAGMA table_info("${table.replace(/"/g, "")}")`));
+  return rows.map((r) => String(r.name));
+}
+async function currentCounts(tables) {
+  const db = getDb();
+  const out = {};
+  for (const t2 of tables) {
+    try {
+      const r = await db.all(sql.raw(`SELECT COUNT(*) AS n FROM "${t2.replace(/"/g, "")}"`));
+      out[t2] = Number(r[0]?.n || 0);
+    } catch {
+      out[t2] = 0;
+    }
+  }
+  return out;
+}
+async function takeSnapshot(opts) {
+  const db = getDb();
+  const tables = await listTableNames();
+  const snapshot = { version: 1, createdAt: Date.now(), app: process.env.BUILD_TAG || "figgy", tables: {} };
+  for (const t2 of tables) {
+    try {
+      snapshot.tables[t2] = await db.all(sql.raw(`SELECT * FROM "${t2.replace(/"/g, "")}"`));
+    } catch (e) {
+      console.error(`[backup] read ${t2} failed:`, e instanceof Error ? e.message : e);
+      snapshot.tables[t2] = [];
+    }
+  }
+  const summary = summarizeBackup(snapshot);
+  const now = Date.now();
+  await db.run(sql`INSERT INTO data_backups (kind, label, app, tableCount, totalRows, summary, payload, createdBy, createdAt)
+    VALUES (${opts.kind}, ${opts.label ?? null}, ${snapshot.app}, ${summary.tableCount}, ${summary.totalRows},
+    ${JSON.stringify(summary.perTable)}, ${JSON.stringify(snapshot)}, ${opts.createdBy ?? null}, ${now})`);
+  const row = (await db.all(sql`SELECT id FROM data_backups ORDER BY id DESC LIMIT 1`))[0];
+  try {
+    const all = await db.all(sql`SELECT id, createdAt FROM data_backups WHERE kind != 'manual'`);
+    const drop = pruneSnapshots(all.map((r) => ({ id: Number(r.id), createdAt: Number(r.createdAt) })), KEEP);
+    for (const id of drop) await db.run(sql`DELETE FROM data_backups WHERE id=${id}`);
+  } catch {
+  }
+  return { id: Number(row?.id), tableCount: summary.tableCount, totalRows: summary.totalRows };
+}
+async function autoSnapshotIfDue() {
+  try {
+    const db = getDb();
+    const last = (await db.all(sql`SELECT createdAt FROM data_backups ORDER BY createdAt DESC LIMIT 1`))[0];
+    if (shouldAutoSnapshot(last ? Number(last.createdAt) : null, Date.now())) {
+      const r = await takeSnapshot({ kind: "auto", label: "Daily automatic backup" });
+      console.log(`[backup] auto snapshot #${r.id}: ${r.tableCount} tables, ${r.totalRows} rows`);
+    }
+  } catch (e) {
+    console.error("[backup] autoSnapshotIfDue failed:", e instanceof Error ? e.message : e);
+  }
+}
+var KEEP, backupRouter;
+var init_backup_router = __esm({
+  "api/backup-router.ts"() {
+    init_zod();
+    init_middleware();
+    init_connection();
+    init_drizzle_orm();
+    init_backup_core();
+    KEEP = Number(process.env.FIGGY_BACKUP_KEEP || 20);
+    backupRouter = createRouter({
+      status: seniorQuery.query(async () => {
+        const db = getDb();
+        const last = (await db.all(sql`SELECT id, kind, totalRows, tableCount, createdAt FROM data_backups ORDER BY createdAt DESC LIMIT 1`))[0] || null;
+        const total = (await db.all(sql`SELECT COUNT(*) AS n FROM data_backups`))[0]?.n || 0;
+        return { last, count: Number(total), keep: KEEP };
+      }),
+      list: seniorQuery.query(async () => {
+        return await getDb().all(sql`SELECT id, kind, label, app, tableCount, totalRows, createdAt FROM data_backups ORDER BY createdAt DESC LIMIT 100`);
+      }),
+      snapshotNow: seniorQuery.input(external_exports.object({ label: external_exports.string().max(120).optional() }).optional()).mutation(async ({ ctx, input }) => {
+        return takeSnapshot({ kind: "manual", label: input?.label || "Manual backup", createdBy: ctx.user.id });
+      }),
+      /** The full snapshot JSON for download (front-end turns it into a file). */
+      download: seniorQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ input }) => {
+        const row = (await getDb().all(sql`SELECT payload, createdAt FROM data_backups WHERE id=${input.id} LIMIT 1`))[0];
+        if (!row) return null;
+        return { createdAt: Number(row.createdAt), payload: row.payload };
+      }),
+      remove: adminQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+        await getDb().run(sql`DELETE FROM data_backups WHERE id=${input.id}`);
+        return { ok: true };
+      }),
+      /** Compare a backup to the live data — never restore blind. */
+      restorePreview: seniorQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ input }) => {
+        const row = (await getDb().all(sql`SELECT summary, createdAt FROM data_backups WHERE id=${input.id} LIMIT 1`))[0];
+        if (!row) return null;
+        const backupCounts = JSON.parse(row.summary || "{}");
+        const current = await currentCounts(Object.keys(backupCounts));
+        return { createdAt: Number(row.createdAt), diff: restoreDiff(backupCounts, current) };
+      }),
+      /**
+       * Restore SELECTED tables from a snapshot (ADMIN). Takes a safety snapshot first,
+       * then for each chosen table: DELETE all rows + re-insert the backup rows, filtered
+       * to the table's real columns. Per-table txn-ish; one bad table doesn't abort the rest.
+       */
+      restoreFrom: adminQuery.input(external_exports.object({ id: external_exports.number(), tables: external_exports.array(external_exports.string()).min(1).max(200) })).mutation(async ({ ctx, input }) => {
+        const db = getDb();
+        const row = (await db.all(sql`SELECT payload FROM data_backups WHERE id=${input.id} LIMIT 1`))[0];
+        if (!row) return { ok: false, error: "backup_not_found" };
+        const snap = JSON.parse(row.payload);
+        await takeSnapshot({ kind: "pre_restore", label: `Auto safety backup before restoring #${input.id}`, createdBy: ctx.user.id });
+        const restored = [];
+        const errors = [];
+        for (const t2 of input.tables) {
+          const rows = (snap.tables || {})[t2];
+          if (!Array.isArray(rows)) {
+            errors.push({ table: t2, error: "not_in_backup" });
+            continue;
+          }
+          const safe = t2.replace(/"/g, "");
+          try {
+            const cols = new Set(await tableColumns(safe));
+            if (!cols.size) {
+              errors.push({ table: t2, error: "table_missing" });
+              continue;
+            }
+            await db.run(sql.raw(`DELETE FROM "${safe}"`));
+            for (const r of rows) {
+              const keys = Object.keys(r).filter((k) => cols.has(k));
+              if (!keys.length) continue;
+              const colList = keys.map((k) => `"${k.replace(/"/g, "")}"`).join(", ");
+              const valueChunks = keys.map((k) => sql`${r[k] ?? null}`);
+              await db.run(sql`INSERT INTO ${sql.raw(`"${safe}" (${colList})`)} VALUES (${sql.join(valueChunks, sql`, `)})`);
+            }
+            restored.push({ table: t2, rows: rows.length });
+          } catch (e) {
+            errors.push({ table: t2, error: e instanceof Error ? e.message : String(e) });
+          }
+        }
+        return { ok: true, restored, errors };
+      })
+    });
+  }
+});
+
 // api/genealogy-core.ts
 function clampConfidence(n) {
   const v2 = Math.round(Number(n));
@@ -64767,7 +64964,7 @@ async function dedupeTasks() {
   const allTasks = await db.select().from(tasks);
   const taskGroups = /* @__PURE__ */ new Map();
   for (const t2 of allTasks) {
-    const key11 = `${t2.clientId}::${(t2.title ?? "").trim().toLowerCase()}::${dayKey(t2.dueDate)}`;
+    const key11 = `${t2.clientId}::${(t2.title ?? "").trim().toLowerCase()}::${dayKey2(t2.dueDate)}`;
     if (!taskGroups.has(key11)) taskGroups.set(key11, []);
     taskGroups.get(key11).push(t2);
   }
@@ -64784,13 +64981,13 @@ async function dedupeTasks() {
   if (rulesRemoved || tasksRemoved) console.log(`[dedupe-tasks] removed ${rulesRemoved} dup rules, ${tasksRemoved} dup tasks`);
   return { rulesRemoved, tasksRemoved };
 }
-var dayKey;
+var dayKey2;
 var init_dedupe_tasks = __esm({
   "api/dedupe-tasks.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    dayKey = (d10) => {
+    dayKey2 = (d10) => {
       if (!d10) return "none";
       const t2 = d10 instanceof Date ? d10 : new Date(d10);
       return Number.isNaN(t2.getTime()) ? "none" : t2.toISOString().slice(0, 10);
@@ -66115,6 +66312,38 @@ async function ensureCashBookSchema() {
 }
 var init_ensure_cash_book_schema = __esm({
   "api/ensure-cash-book-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/ensure-backup-schema.ts
+var ensure_backup_schema_exports = {};
+__export(ensure_backup_schema_exports, {
+  ensureBackupSchema: () => ensureBackupSchema
+});
+async function ensureBackupSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS data_backups (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      kind text NOT NULL DEFAULT 'auto',   -- auto | manual | pre_restore
+      label text,
+      app text,                            -- build tag at snapshot time
+      tableCount integer DEFAULT 0,
+      totalRows integer DEFAULT 0,
+      summary text,                        -- JSON: per-table row counts
+      payload text,                        -- JSON: { version, createdAt, app, tables:{name:[rows]} }
+      createdBy integer,
+      createdAt integer NOT NULL
+    )`);
+    await db.run(sql`CREATE INDEX IF NOT EXISTS data_backups_created ON data_backups (createdAt)`);
+  } catch (e) {
+    console.error("[backup] ensure schema failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_backup_schema = __esm({
+  "api/ensure-backup-schema.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -91018,6 +91247,9 @@ var cashBookRouter = createRouter({
   })
 });
 
+// api/router.ts
+init_backup_router();
+
 // api/genealogy-router.ts
 init_zod();
 init_middleware();
@@ -92030,6 +92262,7 @@ var appRouter = createRouter({
   revRec: revRecRouter,
   bankedHours: bankedHoursRouter,
   cashBook: cashBookRouter,
+  backup: backupRouter,
   loanTracker: loanTrackerRouter
 });
 
@@ -92312,7 +92545,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.230";
+var BUILD_TAG = "2026-06-27.231";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -92773,6 +93006,10 @@ app.get("/api/phoenix/seed", async (c) => {
       await ensureRegistersSchema2();
       const { ensureCashBookSchema: ensureCashBookSchema2 } = await Promise.resolve().then(() => (init_ensure_cash_book_schema(), ensure_cash_book_schema_exports));
       await ensureCashBookSchema2();
+      const { ensureBackupSchema: ensureBackupSchema2 } = await Promise.resolve().then(() => (init_ensure_backup_schema(), ensure_backup_schema_exports));
+      await ensureBackupSchema2();
+      const { autoSnapshotIfDue: autoSnapshotIfDue2 } = await Promise.resolve().then(() => (init_backup_router(), backup_router_exports));
+      void autoSnapshotIfDue2();
       const { seedEngineeringAudit: seedEngineeringAudit2 } = await Promise.resolve().then(() => (init_seed_engineering_audit(), seed_engineering_audit_exports));
       await seedEngineeringAudit2();
       const { ensureMarketingSchema: ensureMarketingSchema2, seedMarketing: seedMarketing2 } = await Promise.resolve().then(() => (init_ensure_marketing_schema(), ensure_marketing_schema_exports));

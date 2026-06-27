@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { trpc } from "@/providers/trpc";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import BackupPanel from "@/components/BackupPanel";
 
 export default function SettingsPage() {
   const utils = trpc.useUtils();
@@ -44,6 +45,9 @@ export default function SettingsPage() {
           <p className="text-xs text-slate-400">Your profile comes from your login. To change your name/email, update it in your account or ask an admin.</p>
         </CardContent>
       </Card>
+
+      {/* Backup & Data — live snapshots + full export */}
+      <BackupPanel />
 
       {/* Appearance */}
       <Card>

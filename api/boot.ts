@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-27.230";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-27.231";  // bump each deploy so prod vs source is unambiguous
 
 // CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
 // secret into a hosting dashboard very often drags a trailing space or newline,
@@ -557,6 +557,12 @@ app.get("/api/phoenix/seed", async (c) => {
       await ensureRegistersSchema();
       const { ensureCashBookSchema } = await import("./ensure-cash-book-schema");
       await ensureCashBookSchema();
+      const { ensureBackupSchema } = await import("./ensure-backup-schema");
+      await ensureBackupSchema();
+      // Daily automatic data backup (once per UTC day) — keeps the live client list +
+      // every business table snapshotted so nothing's lost. Non-blocking, best-effort.
+      const { autoSnapshotIfDue } = await import("./backup-router");
+      void autoSnapshotIfDue();
       const { seedEngineeringAudit } = await import("./seed-engineering-audit");
       await seedEngineeringAudit();
       const { ensureMarketingSchema, seedMarketing } = await import("./ensure-marketing-schema");
