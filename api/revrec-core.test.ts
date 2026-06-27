@@ -200,6 +200,29 @@ describe("revrec-core — rollups & calendar", () => {
     expect(r.remainingToEarn).toBe(40000);
   });
 
+  it("cost-to-cost %, overrun flag, gross profit, and holdback-release readiness", () => {
+    const project = { projectId: 1, name: "Job A", contractValue: 100000, estimatedCost: 80000, holdbackPct: 0.10 };
+    // 50% done but already spent 50k of an 80k estimate (expected 40k) → over budget.
+    const sched = buildProjectSchedule(project, [
+      { periodKey: "2026-01", pctComplete: 0.5, invoicedToDate: 40000, actualCostToDate: 50000 },
+    ]);
+    expect(sched[0].costToCostPct).toBe(0.625);            // 50000 / 80000
+    const r = rollupProject(project, sched, "active");
+    expect(r.estGrossProfit).toBe(20000);                  // 100000 − 80000
+    expect(r.actualCostToDate).toBe(50000);
+    expect(r.costOverrun).toBe(10000);                     // 50000 − (80000 × 0.5)
+    expect(r.overBudget).toBe(true);
+    expect(r.holdbackReadyToRelease).toBe(false);          // only 50% complete
+  });
+
+  it("flags holdback ready to release when the job is substantially complete", () => {
+    const project = { projectId: 2, name: "Job B", contractValue: 100000, holdbackPct: 0.10 };
+    const sched = buildProjectSchedule(project, [{ periodKey: "2026-05", pctComplete: 0.98, invoicedToDate: 98000 }]);
+    const r = rollupProject(project, sched, "active");
+    expect(r.holdbackReceivable).toBe(9800);
+    expect(r.holdbackReadyToRelease).toBe(true);           // ≥97% complete + holdback outstanding
+  });
+
   it("fiscalYearMonths produces 12 ordered keys from a non-January start", () => {
     const m = fiscalYearMonths("2025-07");
     expect(m.length).toBe(12);

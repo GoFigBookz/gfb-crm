@@ -71105,6 +71105,10 @@ async function ensureRevRecSchema() {
   const addColumns = [
     { table: "rr_projects", column: "holdbackPct", type: "real DEFAULT 0" },
     // contractor lien holdback (e.g. 0.10)
+    { table: "rr_projects", column: "estimatedCost", type: "real DEFAULT 0" },
+    // total estimated cost (cost-to-cost denominator)
+    { table: "rr_progress", column: "actualCostToDate", type: "real" },
+    // job-costing actual cost incurred to date
     { table: "rr_client_config", column: "jobCostingByProject", type: "integer DEFAULT 0" },
     // client tags costs to Customer:Job/Project in QBO?
     { table: "rr_client_config", column: "defaultHoldbackPct", type: "real DEFAULT 0" }
@@ -90322,18 +90326,22 @@ function buildProjectSchedule(project, progress) {
   const rows = [...progress].sort((a, b) => a.periodKey.localeCompare(b.periodKey));
   const cv = project.contractValue || 0;
   const holdbackPct = clampPct(project.holdbackPct ?? 0);
+  const estCost = project.estimatedCost && project.estimatedCost > 0 ? project.estimatedCost : null;
   let priorPct = clampPct(project.openingPct ?? 0);
   let priorInvoiced = project.openingInvoiced ?? 0;
+  let priorCost = 0;
   const out = [];
   for (const r of rows) {
     const pct = clampPct(r.pctComplete);
     const invoiced = r.invoicedToDate == null ? priorInvoiced : r.invoicedToDate;
+    const actualCost = r.actualCostToDate == null ? priorCost : r.actualCostToDate;
     const earned = round210(cv * pct);
     const revenueThisPeriod = round210(cv * (pct - priorPct));
     const contractAsset = round210(Math.max(earned - invoiced, 0));
     const deferredRevenue = round210(Math.max(invoiced - earned, 0));
     const holdbackReceivable = round210(invoiced * holdbackPct);
     const arReceivable = round210(invoiced - holdbackReceivable);
+    const costToCostPct = estCost ? clampPct(actualCost / estCost) : null;
     out.push({
       periodKey: r.periodKey,
       pctComplete: pct,
@@ -90345,10 +90353,13 @@ function buildProjectSchedule(project, progress) {
       contractAsset,
       deferredRevenue,
       holdbackReceivable,
-      arReceivable
+      arReceivable,
+      actualCostToDate: round210(actualCost),
+      costToCostPct
     });
     priorPct = pct;
     priorInvoiced = invoiced;
+    priorCost = actualCost;
   }
   return out;
 }
@@ -90412,24 +90423,38 @@ function validateForPosting(je, accountMap) {
   }
   return { ok: errors.length === 0, errors };
 }
-function rollupProject(project, schedule) {
+var SUBSTANTIAL_COMPLETION = 0.97;
+function rollupProject(project, schedule, status) {
   const last = latestPeriod(schedule);
   const cv = project.contractValue || 0;
   const holdbackPct = clampPct(project.holdbackPct ?? 0);
-  const earned = last?.earnedToDate ?? round210(cv * clampPct(project.openingPct ?? 0));
+  const estCost = project.estimatedCost && project.estimatedCost > 0 ? project.estimatedCost : null;
+  const pctComplete = last?.pctComplete ?? clampPct(project.openingPct ?? 0);
+  const earned = last?.earnedToDate ?? round210(cv * pctComplete);
   const invoiced = last?.invoicedToDate ?? (project.openingInvoiced ?? 0);
+  const actualCost = last?.actualCostToDate ?? 0;
+  const holdbackReceivable = last?.holdbackReceivable ?? round210(invoiced * holdbackPct);
+  const expectedCost = estCost ? round210(estCost * pctComplete) : 0;
+  const costOverrun = estCost ? round210(actualCost - expectedCost) : 0;
+  const isComplete = status === "complete" || pctComplete >= SUBSTANTIAL_COMPLETION;
   return {
     projectId: project.projectId,
     name: project.name,
     customerJob: project.customerJob ?? null,
     contractValue: cv,
-    pctComplete: last?.pctComplete ?? clampPct(project.openingPct ?? 0),
+    pctComplete,
     earnedToDate: earned,
     invoicedToDate: round210(invoiced),
     contractAsset: last?.contractAsset ?? round210(Math.max(earned - invoiced, 0)),
     deferredRevenue: last?.deferredRevenue ?? round210(Math.max(invoiced - earned, 0)),
     remainingToEarn: round210(cv - earned),
-    holdbackReceivable: last?.holdbackReceivable ?? round210(invoiced * holdbackPct)
+    holdbackReceivable,
+    estimatedCost: estCost,
+    actualCostToDate: round210(actualCost),
+    estGrossProfit: estCost ? round210(cv - estCost) : null,
+    costOverrun,
+    overBudget: estCost ? costOverrun > 5e-3 : false,
+    holdbackReadyToRelease: isComplete && holdbackReceivable > 5e-3
   };
 }
 function buildRevenueCalendar(months, perProject) {
@@ -90472,12 +90497,14 @@ async function loadProjectInputs(clientId) {
         contractValue: p.contractValue ?? 0,
         openingPct: p.openingPct ?? 0,
         openingInvoiced: p.openingInvoiced ?? 0,
-        holdbackPct: p.holdbackPct ?? 0
+        holdbackPct: p.holdbackPct ?? 0,
+        estimatedCost: p.estimatedCost ?? 0
       },
       progress: prog.map((r) => ({
         periodKey: r.periodKey,
         pctComplete: r.pctComplete ?? 0,
-        invoicedToDate: r.invoicedToDate
+        invoicedToDate: r.invoicedToDate,
+        actualCostToDate: r.actualCostToDate
       }))
     });
   }
@@ -90510,7 +90537,7 @@ async function buildClientView(clientId, fyStartKey) {
   const active = inputs.filter((i) => i.raw.status !== "archived");
   const projects = active.map((i) => {
     const schedule = buildProjectSchedule(i.project, i.progress);
-    const rollup2 = rollupProject(i.project, schedule);
+    const rollup2 = rollupProject(i.project, schedule, i.raw.status);
     return { id: i.raw.id, status: i.raw.status, schedule, rollup: rollup2, customerJob: i.project.customerJob ?? null };
   });
   const allPeriods = active.flatMap((i) => i.progress.map((p) => p.periodKey)).sort();
@@ -90553,6 +90580,7 @@ var revRecRouter = createRouter({
     openingPct: external_exports.number().min(0).max(1).nullable().optional(),
     openingInvoiced: external_exports.number().min(0).nullable().optional(),
     holdbackPct: external_exports.number().min(0).max(1).nullable().optional(),
+    estimatedCost: external_exports.number().min(0).nullable().optional(),
     startDate: external_exports.date().nullable().optional(),
     expectedEndDate: external_exports.date().nullable().optional(),
     notes: external_exports.string().max(2e3).nullable().optional()
@@ -90566,6 +90594,7 @@ var revRecRouter = createRouter({
       openingPct: input.openingPct ?? 0,
       openingInvoiced: input.openingInvoiced ?? 0,
       holdbackPct: input.holdbackPct ?? 0,
+      estimatedCost: input.estimatedCost ?? 0,
       startDate: input.startDate ?? null,
       expectedEndDate: input.expectedEndDate ?? null,
       notes: input.notes ?? null,
@@ -90581,6 +90610,7 @@ var revRecRouter = createRouter({
     openingPct: external_exports.number().min(0).max(1).nullable().optional(),
     openingInvoiced: external_exports.number().min(0).nullable().optional(),
     holdbackPct: external_exports.number().min(0).max(1).nullable().optional(),
+    estimatedCost: external_exports.number().min(0).nullable().optional(),
     startDate: external_exports.date().nullable().optional(),
     expectedEndDate: external_exports.date().nullable().optional(),
     status: external_exports.enum(["active", "complete", "archived"]).optional(),
@@ -90603,6 +90633,7 @@ var revRecRouter = createRouter({
     periodKey: external_exports.string().regex(/^\d{4}-\d{2}$/),
     pctComplete: external_exports.number().min(0).max(1),
     invoicedToDate: external_exports.number().min(0).nullable().optional(),
+    actualCostToDate: external_exports.number().min(0).nullable().optional(),
     note: external_exports.string().max(1e3).nullable().optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
@@ -90611,6 +90642,7 @@ var revRecRouter = createRouter({
       await db.update(rrProgress).set({
         pctComplete: input.pctComplete,
         invoicedToDate: input.invoicedToDate ?? null,
+        actualCostToDate: input.actualCostToDate ?? null,
         note: input.note ?? null,
         enteredBy: ctx.user.email ?? String(ctx.user.id),
         updatedAt: /* @__PURE__ */ new Date()
@@ -90622,6 +90654,7 @@ var revRecRouter = createRouter({
         periodKey: input.periodKey,
         pctComplete: input.pctComplete,
         invoicedToDate: input.invoicedToDate ?? null,
+        actualCostToDate: input.actualCostToDate ?? null,
         note: input.note ?? null,
         enteredBy: ctx.user.email ?? String(ctx.user.id)
       });
@@ -93842,7 +93875,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.242";
+var BUILD_TAG = "2026-06-27.243";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
