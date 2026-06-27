@@ -182,6 +182,7 @@ export default function Tasks() {
           <p className="text-slate-500">Manage tasks and recurring workflows</p>
         </div>
         <div className="flex gap-3">
+          <Link to="/tasks-cleanup"><Button variant="outline"><Sparkles className="h-4 w-4 mr-2" /> Clean up</Button></Link>
           <Dialog open={isRecurringOpen} onOpenChange={setIsRecurringOpen}>
             <DialogTrigger asChild>
               <Button variant="outline"><Repeat className="h-4 w-4 mr-2" /> Recurring</Button>
