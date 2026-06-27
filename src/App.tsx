@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
 import Tasks from "./pages/Tasks";
 import TasksCleanup from "./pages/TasksCleanup";
+import PlanMyDay from "./pages/PlanMyDay";
 import Emails from "./pages/Emails";
 import CalendarPage from "./pages/Calendar";
 import Files from "./pages/Files";
@@ -116,6 +117,7 @@ function AppRoutes() {
         <Route path="/leads" element={<Leads />} />
         <Route path="/clients" element={<Clients />} />
         <Route path="/tasks" element={<Tasks />} />
+        <Route path="/plan" element={<PlanMyDay />} />
         <Route path="/tasks-cleanup" element={<TasksCleanup />} />
         <Route path="/emails" element={<Emails />} />
         <Route path="/messages" element={<Messages />} />
