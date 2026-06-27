@@ -169,8 +169,8 @@ function getStatusCodeFromKey(code) {
   return (_JSONRPC2_TO_HTTP_COD = JSONRPC2_TO_HTTP_CODE[code]) !== null && _JSONRPC2_TO_HTTP_COD !== void 0 ? _JSONRPC2_TO_HTTP_COD : 500;
 }
 function getHTTPStatusCode(json2) {
-  const arr5 = Array.isArray(json2) ? json2 : [json2];
-  const httpStatuses = new Set(arr5.map((res) => {
+  const arr6 = Array.isArray(json2) ? json2 : [json2];
+  const httpStatuses = new Set(arr6.map((res) => {
     if ("error" in res && isObject(res.error.data)) {
       var _res$error$data;
       if (typeof ((_res$error$data = res.error.data) === null || _res$error$data === void 0 ? void 0 : _res$error$data["httpStatus"]) === "number") return res.error.data["httpStatus"];
@@ -15368,8 +15368,8 @@ function find(record2, predicate) {
 function forEach(record2, run3) {
   Object.entries(record2).forEach(([key11, value]) => run3(value, key11));
 }
-function includes(arr5, value) {
-  return arr5.indexOf(value) !== -1;
+function includes(arr6, value) {
+  return arr6.indexOf(value) !== -1;
 }
 function findArr(record2, predicate) {
   for (let i = 0; i < record2.length; i++) {
@@ -43330,7 +43330,7 @@ function statHolidaysInRange(startISO, endISO) {
   const years = /* @__PURE__ */ new Set([Number(startISO.slice(0, 4)), Number(endISO.slice(0, 4))]);
   const all = [];
   for (const y of years) if (Number.isFinite(y)) all.push(...ontarioStatHolidays(y));
-  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr5) => idx === 0 || h.date !== arr5[idx - 1].date);
+  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr6) => idx === 0 || h.date !== arr6[idx - 1].date);
 }
 function statHolidaysObservedInRange(startISO, endISO) {
   return statHolidaysInRange(startISO, endISO).map((h) => {
@@ -45497,8 +45497,8 @@ function explicitCloseSteps(client) {
   try {
     const raw2 = client?.closeSteps;
     if (!raw2) return null;
-    const arr5 = typeof raw2 === "string" ? JSON.parse(raw2) : raw2;
-    return Array.isArray(arr5) && arr5.length ? arr5.map(String) : null;
+    const arr6 = typeof raw2 === "string" ? JSON.parse(raw2) : raw2;
+    return Array.isArray(arr6) && arr6.length ? arr6.map(String) : null;
   } catch {
     return null;
   }
@@ -49033,7 +49033,7 @@ var init_utils3 = __esm({
       let out = "";
       for (let j = 0; j < string5.length; j += limit) {
         const segment = string5.length >= limit ? string5.slice(j, j + limit) : string5;
-        const arr5 = [];
+        const arr6 = [];
         for (let i = 0; i < segment.length; ++i) {
           let c = segment.charCodeAt(i);
           if (c === 45 || // -
@@ -49044,26 +49044,26 @@ var init_utils3 = __esm({
           c >= 65 && c <= 90 || // a-z
           c >= 97 && c <= 122 || // A-Z
           format === RFC1738 && (c === 40 || c === 41)) {
-            arr5[arr5.length] = segment.charAt(i);
+            arr6[arr6.length] = segment.charAt(i);
             continue;
           }
           if (c < 128) {
-            arr5[arr5.length] = hex_table[c];
+            arr6[arr6.length] = hex_table[c];
             continue;
           }
           if (c < 2048) {
-            arr5[arr5.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
+            arr6[arr6.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
             continue;
           }
           if (c < 55296 || c >= 57344) {
-            arr5[arr5.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+            arr6[arr6.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
             continue;
           }
           i += 1;
           c = 65536 + ((c & 1023) << 10 | segment.charCodeAt(i) & 1023);
-          arr5[arr5.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+          arr6[arr6.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
         }
-        out += arr5.join("");
+        out += arr6.join("");
       }
       return out;
     };
@@ -49326,8 +49326,8 @@ var init_stringify = __esm({
         return String(prefix);
       }
     };
-    push_to_array = function(arr5, value_or_array) {
-      Array.prototype.push.apply(arr5, isArray3(value_or_array) ? value_or_array : [value_or_array]);
+    push_to_array = function(arr6, value_or_array) {
+      Array.prototype.push.apply(arr6, isArray3(value_or_array) ? value_or_array : [value_or_array]);
     };
     defaults = {
       addQueryPrefix: false,
@@ -61827,9 +61827,9 @@ function parseScanFindings(text2) {
   } catch {
     return [];
   }
-  const arr5 = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
+  const arr6 = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
   const out = [];
-  for (const f of arr5) {
+  for (const f of arr6) {
     const subjectName = String(f?.subjectName || f?.name || "").trim();
     const claim = String(f?.claim || "").trim();
     if (!subjectName || !claim) continue;
@@ -62281,9 +62281,9 @@ async function ensurePayrollReminders() {
       if (!dueClients.length) continue;
       for (const c of dueClients) {
         correctKeys.add(`${c.id}|${run3.runISO}`);
-        const arr5 = scheduled.get(run3.runISO) || [];
-        arr5.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
-        scheduled.set(run3.runISO, arr5);
+        const arr6 = scheduled.get(run3.runISO) || [];
+        arr6.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
+        scheduled.set(run3.runISO, arr6);
       }
     }
     let tasksRemoved = 0;
@@ -66181,9 +66181,9 @@ async function dedupClient(clientId, names) {
   const groups = /* @__PURE__ */ new Map();
   for (const e of emps) {
     const k = idKey(e.firstName || "", e.lastName || "");
-    const arr5 = groups.get(k) || [];
-    arr5.push(e);
-    groups.set(k, arr5);
+    const arr6 = groups.get(k) || [];
+    arr6.push(e);
+    groups.set(k, arr6);
   }
   let merged = 0, renamed = 0;
   for (const [k, group] of groups) {
@@ -74523,16 +74523,16 @@ function withResolvers() {
     reject
   };
 }
-function listWithMember(arr5, member) {
-  return [...arr5, member];
+function listWithMember(arr6, member) {
+  return [...arr6, member];
 }
-function listWithoutIndex(arr5, index) {
-  return [...arr5.slice(0, index), ...arr5.slice(index + 1)];
+function listWithoutIndex(arr6, index) {
+  return [...arr6.slice(0, index), ...arr6.slice(index + 1)];
 }
-function listWithoutMember(arr5, member) {
-  const index = arr5.indexOf(member);
-  if (index !== -1) return listWithoutIndex(arr5, index);
-  return arr5;
+function listWithoutMember(arr6, member) {
+  const index = arr6.indexOf(member);
+  if (index !== -1) return listWithoutIndex(arr6, index);
+  return arr6;
 }
 var _Symbol;
 var _Symbol$dispose;
@@ -76814,11 +76814,11 @@ function encodeBase64(input) {
     return input.toBase64();
   }
   const CHUNK_SIZE = 32768;
-  const arr5 = [];
+  const arr6 = [];
   for (let i = 0; i < input.length; i += CHUNK_SIZE) {
-    arr5.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
+    arr6.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
   }
-  return btoa(arr5.join(""));
+  return btoa(arr6.join(""));
 }
 function decodeBase64(encoded) {
   if (Uint8Array.fromBase64) {
@@ -85202,6 +85202,88 @@ var intercoRouter = createRouter({
 // api/router.ts
 init_interco_recharge_router();
 
+// api/vendor-rules-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_schema();
+init_drizzle_orm();
+init_qbo_vendor_brain();
+init_qbo_router();
+var arr3 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+var vendorRulesRouter = createRouter({
+  /** The locked rules for a client (confirmed vendorMemory entries). */
+  list: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+    const db = getDb();
+    const cr = await getConnectionForClient(input.clientId);
+    const connId = "conn" in cr ? cr.conn.id : null;
+    const rows = connId != null ? await db.select().from(vendorMemory).where(eq(vendorMemory.connectionId, connId)).orderBy(desc(vendorMemory.confirmedByHuman), desc(vendorMemory.updatedAt)) : await db.select().from(vendorMemory).where(eq(vendorMemory.clientId, input.clientId)).orderBy(desc(vendorMemory.updatedAt));
+    return rows.map((r) => ({
+      id: r.id,
+      qboVendorId: r.qboVendorId,
+      vendorName: r.vendorName,
+      accountId: r.preferredAccountId,
+      accountName: r.preferredAccountName,
+      taxCode: r.preferredTaxCode,
+      sampleCount: r.sampleCount,
+      confirmed: !!r.confirmedByHuman
+    }));
+  }),
+  /** Read-only pick-lists for building a rule: the client's QBO vendors + accounts + tax codes. */
+  options: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ input }) => {
+    const cr = await getConnectionForClient(input.clientId);
+    if ("error" in cr) return { ok: false, error: cr.error };
+    try {
+      const conn = cr.conn;
+      const q3 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
+      const vendors = arr3(await q3("SELECT Id, DisplayName FROM Vendor WHERE Active = true ORDER BY DisplayName MAXRESULTS 1000"), "Vendor").map((v) => ({ id: String(v.Id), name: v.DisplayName })).sort((a, b) => a.name.localeCompare(b.name));
+      const accounts = arr3(await q3("SELECT Id, Name, AccountType FROM Account WHERE Active = true MAXRESULTS 1000"), "Account").filter((a) => /expense|cost of goods/i.test(a.AccountType || "")).map((a) => ({ id: String(a.Id), name: a.Name, type: a.AccountType })).sort((a, b) => a.name.localeCompare(b.name));
+      const taxCodes = arr3(await q3("SELECT Id, Name FROM TaxCode MAXRESULTS 1000"), "TaxCode").map((t2) => ({ id: String(t2.Id), name: t2.Name }));
+      return { ok: true, vendors, accounts, taxCodes };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false, error: "bridge_not_returning_data" };
+      return { ok: false, error: msg };
+    }
+  }),
+  /** Lock a rule: this vendor always codes to this account/tax (confirmed → wins over history). */
+  setRule: staffQuery.input(external_exports.object({
+    clientId: external_exports.number(),
+    qboVendorId: external_exports.string(),
+    vendorName: external_exports.string(),
+    accountId: external_exports.string(),
+    accountName: external_exports.string(),
+    taxCode: external_exports.string().optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const cr = await getConnectionForClient(input.clientId);
+    if ("error" in cr) return { ok: false, error: cr.error };
+    const connId = cr.conn.id;
+    const now = /* @__PURE__ */ new Date();
+    const patch = {
+      connectionId: connId,
+      clientId: input.clientId,
+      qboVendorId: input.qboVendorId,
+      vendorName: input.vendorName,
+      preferredAccountId: input.accountId,
+      preferredAccountName: input.accountName,
+      preferredTaxCode: input.taxCode ?? null,
+      confirmedByHuman: true,
+      confirmedAt: now,
+      updatedAt: now
+    };
+    const existing = (await db.select().from(vendorMemory).where(and(eq(vendorMemory.connectionId, connId), eq(vendorMemory.qboVendorId, input.qboVendorId))).limit(1))[0];
+    if (existing) await db.update(vendorMemory).set(patch).where(eq(vendorMemory.id, existing.id));
+    else await db.insert(vendorMemory).values(patch);
+    return { ok: true };
+  }),
+  /** Remove a rule (vendor goes back to history-derived / review coding). */
+  removeRule: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    await getDb().delete(vendorMemory).where(eq(vendorMemory.id, input.id));
+    return { ok: true };
+  })
+});
+
 // api/cleanup-router.ts
 init_zod();
 init_middleware();
@@ -85260,13 +85342,13 @@ var num3 = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
-var arr3 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+var arr4 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
 async function pullPayments(conn, entityName, start, end) {
   const range = `TxnDate >= '${start}' AND TxnDate <= '${end}'`;
   const payments = [];
   const q3 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
   try {
-    for (const e of arr3(await q3(`SELECT * FROM Purchase WHERE ${range} MAXRESULTS 1000`), "Purchase")) {
+    for (const e of arr4(await q3(`SELECT * FROM Purchase WHERE ${range} MAXRESULTS 1000`), "Purchase")) {
       payments.push({
         vendor: e.EntityRef?.name || e.VendorRef?.name || "(no payee)",
         amount: num3(e.TotalAmt),
@@ -85278,7 +85360,7 @@ async function pullPayments(conn, entityName, start, end) {
         ref: e.DocNumber ? `Purchase ${e.DocNumber}` : `Purchase ${e.Id}`
       });
     }
-    for (const e of arr3(await q3(`SELECT * FROM BillPayment WHERE ${range} MAXRESULTS 1000`), "BillPayment")) {
+    for (const e of arr4(await q3(`SELECT * FROM BillPayment WHERE ${range} MAXRESULTS 1000`), "BillPayment")) {
       const acct = e.CheckPayment?.BankAccountRef?.name || e.CreditCardPayment?.CCAccountRef?.name || "(no account)";
       payments.push({
         vendor: e.VendorRef?.name || "(no payee)",
@@ -89567,7 +89649,7 @@ function runHstReview(input) {
 
 // api/hst-review-router.ts
 var q2 = (conn, sql4) => qboRequest(conn, `/query?query=${encodeURIComponent(sql4)}`);
-var arr4 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+var arr5 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
 var num4 = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -89634,7 +89716,7 @@ var hstReviewRouter = createRouter({
     const taxCodes = [];
     const taxById = /* @__PURE__ */ new Map();
     try {
-      for (const t2 of arr4(await q2(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode")) {
+      for (const t2 of arr5(await q2(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode")) {
         taxCodes.push({ id: String(t2.Id), name: t2.Name });
         taxById.set(String(t2.Id), t2.Name);
       }
@@ -89648,7 +89730,7 @@ var hstReviewRouter = createRouter({
     const taxName = (id) => id ? taxById.get(String(id)) : void 0;
     const accounts = [];
     try {
-      for (const a of arr4(await q2(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
+      for (const a of arr5(await q2(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
         accounts.push({ id: String(a.Id), name: a.Name, type: a.AccountType, subType: a.AccountSubType, balance: num4(a.CurrentBalance) });
       }
     } catch (e) {
@@ -89657,7 +89739,7 @@ var hstReviewRouter = createRouter({
     const txns = [];
     const pull = async (entity, mapper) => {
       try {
-        for (const e of arr4(await q2(conn, `SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) txns.push(mapper(e));
+        for (const e of arr5(await q2(conn, `SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) txns.push(mapper(e));
       } catch (e) {
         errors.push(`${entity}: ${e instanceof Error ? e.message : e}`);
       }
@@ -90138,6 +90220,7 @@ var appRouter = createRouter({
   restore: restoreRouter,
   interco: intercoRouter,
   intercoRecharge: intercoRechargeRouter,
+  vendorRules: vendorRulesRouter,
   cleanup: cleanupRouter,
   group: groupRouter,
   practiceHealth: practiceHealthRouter,
@@ -90447,7 +90530,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.207";
+var BUILD_TAG = "2026-06-27.208";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
