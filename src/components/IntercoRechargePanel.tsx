@@ -56,7 +56,7 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
   }, [cfg]);
 
   const preview = trpc.intercoRecharge.preview.useMutation();
-  const gapFinder = trpc.intercoRecharge.hstGapFinder.useMutation();
+  const billableRecon = trpc.intercoRecharge.billableReconcile.useMutation();
   const saveConfig = trpc.intercoRecharge.setConfig.useMutation({ onSuccess: () => utils.intercoRecharge.getConfig.invalidate({ payerClientId: payerId! }) });
   const recon = trpc.intercoRecharge.reconcileCheck.useMutation();
   const post = trpc.intercoRecharge.post.useMutation({ onSuccess: () => utils.intercoRecharge.log.invalidate({ payerClientId: payerId! }) });
@@ -72,7 +72,7 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
     const tie = (preview.data as any)?.hstTie;
     let warn = "";
     if (tie && !tie.error && !tie.ties) {
-      warn = `\n\n⚠ WARNING: the HST will NOT zero out — variance ${money(tie.variance)}. The HST account holds ${money(tie.target)} but this recharge only charges ${money(tie.rechargeHst)}. A bill (~${money(tie.impliedMissingBase)} of expenses) is likely not captured. Posting now will leave HST on Alderson's books. Set the From date back to capture it first.\n\nPost anyway?`;
+      warn = `\n\nNote: this period charges ${money(tie.rechargeHst)} HST; the HST account holds ${money(tie.target)} (difference ${money(tie.variance)} = prior-period exceptions you're handling manually). This Mar-to-date recharge is correct — after you also add the manual exception(s), the HST account clears.\n\nPost this period now?`;
     }
     if (!confirm(`Fig will POST LIVE to QuickBooks:\n• Invoice in ${payer.name} → ${counterparty}\n• Bill in ${counterparty}\nfor ${start} → ${end}.\n\nBoth companies must be on the DIRECT (native) connection.${warn || "\n\nProceed?"}`)) return;
     post.mutate({
@@ -187,41 +187,42 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
           <Button size="sm" disabled={preview.isPending || !payerId} onClick={run}>
             {preview.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileDown className="h-4 w-4 mr-1" />} Generate draft
           </Button>
-          <Button size="sm" variant="outline" disabled={gapFinder.isPending || !payerId}
-            onClick={() => payerId && gapFinder.mutate({ payerClientId: payerId, startDate: start, endDate: end })}>
-            {gapFinder.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null} Find missing HST (exceptions)
+          <Button size="sm" variant="outline" disabled={billableRecon.isPending || !payerId}
+            onClick={() => payerId && billableRecon.mutate({ payerClientId: payerId, from: start, to: end })}>
+            {billableRecon.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null} Reconcile this period vs HST
           </Button>
           {!chargeHst && <span className="text-xs text-amber-600">No HST (Section 156 election).</span>}
         </div>
 
-        {gapFinder.data && !gapFinder.data.ok && (
+        {billableRecon.data && !billableRecon.data.ok && (
           <div className="text-xs text-amber-700">
-            {gapFinder.data.error === "bridge_not_returning_data" ? "The live QBO connection isn't returning data yet (bridge config — not the books)." : `Couldn't read the HST ledger (${gapFinder.data.error}).`}
+            {billableRecon.data.error === "bridge_not_returning_data" ? "The live QBO connection isn't returning data yet (bridge config — not the books)." : `Couldn't read the books (${billableRecon.data.error}).`}
           </div>
         )}
-        {gapFinder.data && gapFinder.data.ok && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-2 space-y-1.5 text-xs">
-            <div className="font-medium text-slate-700">
-              HST ledger {gapFinder.data.ledgerFrom} → {gapFinder.data.window.end}: total {money(gapFinder.data.ledgerTotal)} · in your window {money(gapFinder.data.withinTotal)} · <span className={gapFinder.data.outsideTotal > 1 ? "text-red-600 font-semibold" : "text-emerald-600"}>outside window (exceptions) {money(gapFinder.data.outsideTotal)}</span>
+        {billableRecon.data && billableRecon.data.ok && (
+          <div className={`rounded-lg border p-2 space-y-1 text-xs ${billableRecon.data.ties ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"}`}>
+            <div className="font-medium text-slate-700">Fiscal-YTD expenses {billableRecon.data.from} → {billableRecon.data.to}: <b>{money(billableRecon.data.totalExpenses)}</b> across {billableRecon.data.txnCount} bills/expenses{billableRecon.data.itemLines > 0 ? ` (incl. ${billableRecon.data.itemLines} item lines)` : ""}.</div>
+            <div className={billableRecon.data.ties ? "text-emerald-800" : "text-amber-800"}>
+              HST on those expenses <b>{money(billableRecon.data.totalHst)}</b> vs HST account <b>{money(billableRecon.data.hstAccountBalance)}</b> → difference <b>{money(billableRecon.data.variance)}</b> (prior-period exceptions, handled manually).
             </div>
-            <div className="text-[11px] text-slate-400">HST account balance now: {money(gapFinder.data.hstAccountNet)} ({gapFinder.data.hstAccounts.map((a: any) => `${a.name} ${money(a.balance)}`).join(" · ")}). If the ledger total doesn't match the balance, widen the window with an earlier From date.</div>
-            {gapFinder.data.outsideCount === 0 ? (
-              <div className="text-emerald-700">No HST transactions outside your window — nothing's being missed by the dates.</div>
+            {/* SPOT CHECK: anything from this period not marked billable will be missed. */}
+            {billableRecon.data.notBillableCount === 0 ? (
+              <div className="text-emerald-700 font-medium">✓ Spot check: all {billableRecon.data.txnCount} expenses this period are marked billable — none will be missed.</div>
             ) : (
-              <>
-                <div className="text-red-700 font-medium">{gapFinder.data.outsideCount} HST transaction(s) dated OUTSIDE {gapFinder.data.window.start} → {gapFinder.data.window.end} — these are the exceptions the recharge is missing:</div>
-                <div className="max-h-52 overflow-auto divide-y border rounded bg-white">
-                  {gapFinder.data.outside.map((t: any, i: number) => (
+              <div className="space-y-1">
+                <div className="text-red-700 font-medium">⚠ Spot check: {billableRecon.data.notBillableCount} expense(s) ({money(billableRecon.data.notBillableTotal)}) are NOT marked billable — these will be MISSED. Mark them billable to Holdings before invoicing:</div>
+                <div className="max-h-44 overflow-auto divide-y border rounded bg-white">
+                  {billableRecon.data.notBillable.map((t: any, i: number) => (
                     <div key={i} className="flex items-center gap-2 px-2 py-1">
                       <span className="text-slate-400 w-20 shrink-0">{t.date}</span>
-                      <span className="text-slate-600 flex-1 truncate">{t.type} {t.docNum ? `#${t.docNum}` : ""} {t.name ? `· ${t.name}` : ""}</span>
-                      <span className="font-mono text-slate-700">{money(Math.abs(t.amount))}</span>
+                      <span className="text-slate-600 flex-1 truncate">{t.type} {t.docNum ? `#${t.docNum}` : ""} {t.name ? `· ${t.name}` : ""} <span className="text-slate-400">— {t.account}</span></span>
+                      <span className="font-mono text-slate-700">{money(t.amount)}</span>
                     </div>
                   ))}
                 </div>
-                <div className="text-[11px] text-slate-500">To include these, set the <b>From</b> date back to {gapFinder.data.outside[0]?.date} (or earlier) and re-generate — then the HST tie-out should hit $0.</div>
-              </>
+              </div>
             )}
+            <div className="text-[11px] text-slate-400">HST account: {billableRecon.data.hstAccounts.map((a: any) => `${a.name} ${money(a.balance)}`).join(" · ")}.</div>
           </div>
         )}
 
@@ -247,11 +248,11 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
                   )}
                 </div>
               ) : (
-                <div className="rounded-md border border-red-300 bg-red-50 p-2 text-xs text-red-900 space-y-1">
-                  <div className="font-semibold flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> HST will NOT zero out — variance {money((r as any).hstTie.variance)}.</div>
-                  <div>HST account holds <b>{money((r as any).hstTie.target)}</b> but the recharge only charges <b>{money((r as any).hstTie.rechargeHst)}</b>. About <b>{money((r as any).hstTie.impliedMissingBase)}</b> of expenses isn't captured — likely a bill dated before this period (entered after the last filing). Set the <b>From</b> date back to include it, then re-generate.</div>
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 space-y-1">
+                  <div className="font-semibold flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> This period charges {money((r as any).hstTie.rechargeHst)} HST · the HST account holds {money((r as any).hstTie.target)} · difference {money((r as any).hstTie.variance)}.</div>
+                  <div>The difference (~<b>{money((r as any).hstTie.impliedMissingBase)}</b> of expenses) is <b>prior-period exceptions</b> dated before this window — handle those <b>manually</b> (e.g. the New Air Mechanical bill). This period's Mar-to-date recharge is correct on its own; once you post it and add the manual exception(s), the HST account clears to $0.</div>
                   {Array.isArray((r as any).hstTie.accounts) && (r as any).hstTie.accounts.length > 0 && (
-                    <div className="text-red-700">HST account(s): {(r as any).hstTie.accounts.map((a: any) => `${a.name} ${money(a.balance)}`).join(" · ")}</div>
+                    <div className="text-amber-700">HST account(s): {(r as any).hstTie.accounts.map((a: any) => `${a.name} ${money(a.balance)}`).join(" · ")}</div>
                   )}
                 </div>
               )
