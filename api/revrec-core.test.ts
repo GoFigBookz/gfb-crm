@@ -27,6 +27,26 @@ describe("revrec-core — POC math", () => {
     expect(p.deferredRevenue).toBe(0);
   });
 
+  it("splits billings into holdback receivable + regular A/R (10% holdback)", () => {
+    const sched = buildProjectSchedule(
+      { projectId: 1, name: "Job A", contractValue: 100000, holdbackPct: 0.10 },
+      [{ periodKey: "2026-01", pctComplete: 0.25, invoicedToDate: 20000 }],
+    );
+    const p = sched[0];
+    expect(p.holdbackReceivable).toBe(2000);   // 20000 × 10%
+    expect(p.arReceivable).toBe(18000);        // the rest is regular A/R
+    expect(p.earnedToDate).toBe(25000);        // revenue unaffected by holdback
+  });
+
+  it("no holdback → holdbackReceivable 0, all of billings is A/R", () => {
+    const sched = buildProjectSchedule(
+      { projectId: 1, name: "Job A", contractValue: 100000 },
+      [{ periodKey: "2026-01", pctComplete: 0.5, invoicedToDate: 60000 }],
+    );
+    expect(sched[0].holdbackReceivable).toBe(0);
+    expect(sched[0].arReceivable).toBe(60000);
+  });
+
   it("overbilled period → deferred revenue, no contract asset", () => {
     const sched = buildProjectSchedule(
       { projectId: 1, name: "Job A", contractValue: 100000 },

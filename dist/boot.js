@@ -71102,6 +71102,20 @@ async function ensureRevRecSchema() {
       console.error(`[revrec] ensure ${s.name} failed:`, e instanceof Error ? e.message : e);
     }
   }
+  const addColumns = [
+    { table: "rr_projects", column: "holdbackPct", type: "real DEFAULT 0" },
+    // contractor lien holdback (e.g. 0.10)
+    { table: "rr_client_config", column: "jobCostingByProject", type: "integer DEFAULT 0" },
+    // client tags costs to Customer:Job/Project in QBO?
+    { table: "rr_client_config", column: "defaultHoldbackPct", type: "real DEFAULT 0" }
+    // firm-wide default holdback for this client
+  ];
+  for (const c of addColumns) {
+    try {
+      await db.run(sql.raw(`ALTER TABLE ${c.table} ADD COLUMN ${c.column} ${c.type}`));
+    } catch {
+    }
+  }
 }
 var init_ensure_revrec_schema = __esm({
   "api/ensure-revrec-schema.ts"() {
@@ -90307,6 +90321,7 @@ function clampPct(p) {
 function buildProjectSchedule(project, progress) {
   const rows = [...progress].sort((a, b) => a.periodKey.localeCompare(b.periodKey));
   const cv = project.contractValue || 0;
+  const holdbackPct = clampPct(project.holdbackPct ?? 0);
   let priorPct = clampPct(project.openingPct ?? 0);
   let priorInvoiced = project.openingInvoiced ?? 0;
   const out = [];
@@ -90317,6 +90332,8 @@ function buildProjectSchedule(project, progress) {
     const revenueThisPeriod = round210(cv * (pct - priorPct));
     const contractAsset = round210(Math.max(earned - invoiced, 0));
     const deferredRevenue = round210(Math.max(invoiced - earned, 0));
+    const holdbackReceivable = round210(invoiced * holdbackPct);
+    const arReceivable = round210(invoiced - holdbackReceivable);
     out.push({
       periodKey: r.periodKey,
       pctComplete: pct,
@@ -90326,7 +90343,9 @@ function buildProjectSchedule(project, progress) {
       revenueThisPeriod,
       invoicedToDate: round210(invoiced),
       contractAsset,
-      deferredRevenue
+      deferredRevenue,
+      holdbackReceivable,
+      arReceivable
     });
     priorPct = pct;
     priorInvoiced = invoiced;
@@ -90396,6 +90415,7 @@ function validateForPosting(je, accountMap) {
 function rollupProject(project, schedule) {
   const last = latestPeriod(schedule);
   const cv = project.contractValue || 0;
+  const holdbackPct = clampPct(project.holdbackPct ?? 0);
   const earned = last?.earnedToDate ?? round210(cv * clampPct(project.openingPct ?? 0));
   const invoiced = last?.invoicedToDate ?? (project.openingInvoiced ?? 0);
   return {
@@ -90408,7 +90428,8 @@ function rollupProject(project, schedule) {
     invoicedToDate: round210(invoiced),
     contractAsset: last?.contractAsset ?? round210(Math.max(earned - invoiced, 0)),
     deferredRevenue: last?.deferredRevenue ?? round210(Math.max(invoiced - earned, 0)),
-    remainingToEarn: round210(cv - earned)
+    remainingToEarn: round210(cv - earned),
+    holdbackReceivable: last?.holdbackReceivable ?? round210(invoiced * holdbackPct)
   };
 }
 function buildRevenueCalendar(months, perProject) {
@@ -90450,7 +90471,8 @@ async function loadProjectInputs(clientId) {
         customerJob: p.customerJob,
         contractValue: p.contractValue ?? 0,
         openingPct: p.openingPct ?? 0,
-        openingInvoiced: p.openingInvoiced ?? 0
+        openingInvoiced: p.openingInvoiced ?? 0,
+        holdbackPct: p.holdbackPct ?? 0
       },
       progress: prog.map((r) => ({
         periodKey: r.periodKey,
@@ -90470,7 +90492,9 @@ async function getConfig(clientId) {
     depositsBookedToRevenue: row?.depositsBookedToRevenue ?? false,
     pctSource: row?.pctSource ?? null,
     pctEnteredByRole: row?.pctEnteredByRole ?? null,
-    notes: row?.notes ?? null
+    notes: row?.notes ?? null,
+    jobCostingByProject: row?.jobCostingByProject ?? false,
+    defaultHoldbackPct: row?.defaultHoldbackPct ?? 0
   };
 }
 async function getAccountMap(clientId) {
@@ -90506,9 +90530,10 @@ async function buildClientView(clientId, fyStartKey) {
       acc.contractAsset += p.rollup.contractAsset;
       acc.deferredRevenue += p.rollup.deferredRevenue;
       acc.remainingToEarn += p.rollup.remainingToEarn;
+      acc.holdbackReceivable += p.rollup.holdbackReceivable;
       return acc;
     },
-    { contractValue: 0, earnedToDate: 0, invoicedToDate: 0, contractAsset: 0, deferredRevenue: 0, remainingToEarn: 0 }
+    { contractValue: 0, earnedToDate: 0, invoicedToDate: 0, contractAsset: 0, deferredRevenue: 0, remainingToEarn: 0, holdbackReceivable: 0 }
   );
   return { config: cfg, projects, calendar, totals };
 }
@@ -90527,6 +90552,7 @@ var revRecRouter = createRouter({
     contractValue: external_exports.number().min(0).default(0),
     openingPct: external_exports.number().min(0).max(1).nullable().optional(),
     openingInvoiced: external_exports.number().min(0).nullable().optional(),
+    holdbackPct: external_exports.number().min(0).max(1).nullable().optional(),
     startDate: external_exports.date().nullable().optional(),
     expectedEndDate: external_exports.date().nullable().optional(),
     notes: external_exports.string().max(2e3).nullable().optional()
@@ -90539,6 +90565,7 @@ var revRecRouter = createRouter({
       contractValue: input.contractValue,
       openingPct: input.openingPct ?? 0,
       openingInvoiced: input.openingInvoiced ?? 0,
+      holdbackPct: input.holdbackPct ?? 0,
       startDate: input.startDate ?? null,
       expectedEndDate: input.expectedEndDate ?? null,
       notes: input.notes ?? null,
@@ -90553,6 +90580,7 @@ var revRecRouter = createRouter({
     contractValue: external_exports.number().min(0).optional(),
     openingPct: external_exports.number().min(0).max(1).nullable().optional(),
     openingInvoiced: external_exports.number().min(0).nullable().optional(),
+    holdbackPct: external_exports.number().min(0).max(1).nullable().optional(),
     startDate: external_exports.date().nullable().optional(),
     expectedEndDate: external_exports.date().nullable().optional(),
     status: external_exports.enum(["active", "complete", "archived"]).optional(),
@@ -90622,7 +90650,9 @@ var revRecRouter = createRouter({
     depositsBookedToRevenue: external_exports.boolean().optional(),
     pctSource: external_exports.string().max(100).nullable().optional(),
     pctEnteredByRole: external_exports.string().max(100).nullable().optional(),
-    notes: external_exports.string().max(2e3).nullable().optional()
+    notes: external_exports.string().max(2e3).nullable().optional(),
+    jobCostingByProject: external_exports.boolean().optional(),
+    defaultHoldbackPct: external_exports.number().min(0).max(1).optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
     const { clientId, ...rest } = input;
@@ -93812,7 +93842,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.241";
+var BUILD_TAG = "2026-06-27.242";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

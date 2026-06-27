@@ -123,4 +123,15 @@ export async function ensureRevRecSchema(): Promise<void> {
       console.error(`[revrec] ensure ${s.name} failed:`, e instanceof Error ? e.message : e);
     }
   }
+
+  // Additive column guards (CREATE IF NOT EXISTS can't add columns to an existing table).
+  const addColumns: { table: string; column: string; type: string }[] = [
+    { table: "rr_projects", column: "holdbackPct", type: "real DEFAULT 0" },          // contractor lien holdback (e.g. 0.10)
+    { table: "rr_client_config", column: "jobCostingByProject", type: "integer DEFAULT 0" }, // client tags costs to Customer:Job/Project in QBO?
+    { table: "rr_client_config", column: "defaultHoldbackPct", type: "real DEFAULT 0" },      // firm-wide default holdback for this client
+  ];
+  for (const c of addColumns) {
+    try { await db.run(sql.raw(`ALTER TABLE ${c.table} ADD COLUMN ${c.column} ${c.type}`)); }
+    catch { /* already exists — fine */ }
+  }
 }

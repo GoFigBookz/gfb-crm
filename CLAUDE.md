@@ -399,6 +399,16 @@ STATUS / deep-dive (2026-06-23):
   `src/pages/RevRecShare.tsx` at `/share/revrec/:token`. PHASE 2-3 DEFERRED (post draft
   JE to QBO via Make scenario) pending per-client inputs: the 3 QBO account IDs, the
   deposits-booked-to-revenue flag, fiscal year-end. Local end-to-end verified vs Clark OS.
+  **HOLDBACK + JOB-COSTING (2026-06-27):** RevRec is CLIENT-SPECIFIC (a tab on the client
+  file, NOT in Tools — confirmed; Clark Pools OS gets it assigned, not one-off). Added
+  contractor lien **holdback**: `holdbackPct` on `rr_projects` → schedule/rollup split each
+  billing into `holdbackReceivable` (withheld until acceptance) + `arReceivable` (revenue
+  recognition unaffected — holdback only splits the billed side). Config gained
+  `defaultHoldbackPct` + `jobCostingByProject` (intake question: does the client tag costs to
+  Customer:Job/Project/Class in QBO? — if yes we can later pull actual costs for cost-to-cost
+  %; if no, % is entered). Baked-in SOP "How to" panel in the tab. Core +2 tests (20 total).
+  NEXT (gated on Markie's answer): build the QBO actual-cost pull per Customer:Job → auto
+  cost-to-cost % (needs confirmation Clark tags costs by project in QBO).
 - **BANKED HOURS LEDGER (2026-06-24, live on main).** Per-employee banked/lieu
   hours ledger that REPLACES the client's old Google-sheet banked-hours tab — ONE
   shared ledger the client updates and Markie views/updates, synced into payroll.

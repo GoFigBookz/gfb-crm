@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Link2, Copy, Trash2, Settings, FileText, CheckCircle, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Link2, Copy, Trash2, Settings, FileText, CheckCircle, AlertCircle, ChevronDown, ChevronUp, BookOpen } from "lucide-react";
 
 const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
 const pct = (n: number) => `${Math.round((n ?? 0) * 1000) / 10}%`;
@@ -36,6 +36,7 @@ export function RevRecTab({ clientId }: { clientId: number }) {
   const [showNew, setShowNew] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showHowTo, setShowHowTo] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
 
   const totals = schedule?.totals;
@@ -49,20 +50,24 @@ export function RevRecTab({ clientId }: { clientId: number }) {
           <p className="text-sm text-muted-foreground">Percentage-of-completion — recognise revenue as the work is earned, not just when billed.</p>
         </div>
         <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowHowTo((v) => !v)}><BookOpen className="h-4 w-4 mr-1" />How to</Button>
           <Button size="sm" variant="outline" onClick={() => setShowConfig(true)}><Settings className="h-4 w-4 mr-1" />Settings</Button>
           <Button size="sm" variant="outline" onClick={() => setShowShare(true)}><Link2 className="h-4 w-4 mr-1" />Client link</Button>
           <Button size="sm" onClick={() => setShowNew(true)}><Plus className="h-4 w-4 mr-1" />Add job</Button>
         </div>
       </div>
 
+      {showHowTo && <HowToPanel />}
+
       {/* Portfolio totals */}
       {totals && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className={`grid grid-cols-2 gap-3 ${totals.holdbackReceivable > 0 ? "md:grid-cols-6" : "md:grid-cols-5"}`}>
           <Stat label="Contract value" value={money(totals.contractValue)} />
           <Stat label="Earned to date" value={money(totals.earnedToDate)} />
           <Stat label="Billed to date" value={money(totals.invoicedToDate)} />
           <Stat label="Contract asset" value={money(totals.contractAsset)} hint="Earned, not yet billed" />
           <Stat label="Deferred revenue" value={money(totals.deferredRevenue)} hint="Billed ahead of work" />
+          {totals.holdbackReceivable > 0 && <Stat label="Holdback receivable" value={money(totals.holdbackReceivable)} hint="Withheld until acceptance" />}
         </div>
       )}
 
@@ -122,6 +127,37 @@ export function RevRecTab({ clientId }: { clientId: number }) {
   );
 }
 
+/** Explicit step-by-step SOP for running POC + holdback WIP — Markie wanted it baked in. */
+function HowToPanel() {
+  return (
+    <Card className="border-lime-200 bg-lime-50/40">
+      <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><BookOpen className="h-4 w-4 text-lime-700" />How to run WIP / revenue recognition</CardTitle>
+        <CardDescription>Percentage-of-completion (ASPE 3400), with contractor holdback. Draft entries only — nothing posts to QBO without review.</CardDescription>
+      </CardHeader>
+      <CardContent className="text-sm space-y-3 text-slate-700">
+        <div>
+          <p className="font-semibold mb-1">One-time setup per client</p>
+          <ol className="list-decimal ml-5 space-y-1">
+            <li><b>Settings</b> → set the fiscal year-end, whether deposits are booked to revenue, the holdback % (e.g. 10%), and whether the client tags job costing by project in QBO.</li>
+            <li><b>Settings → Account mapping</b> — pick the exact QBO accounts for Contract Asset, Revenue, and Deferred Revenue (never guessed; required before any draft JE).</li>
+            <li><b>Add job</b> for each contract: name, optional QBO Customer:Job, contract value, holdback %, and any carry-in % / billings if it started before tracking.</li>
+          </ol>
+        </div>
+        <div>
+          <p className="font-semibold mb-1">Each month</p>
+          <ol className="list-decimal ml-5 space-y-1">
+            <li>For every job, enter the <b>% complete</b> at month-end and the <b>billings to date</b>. (% complete = costs incurred ÷ total estimated costs — cost-to-cost — or the PM's estimate.)</li>
+            <li>Figgy computes <b>earned = contract × %</b>, the revenue for the month, and whether the job is a <b>contract asset</b> (earned but not yet billed) or <b>deferred revenue</b> (billed ahead of work).</li>
+            <li>If there's holdback, the billed amount splits: the withheld portion shows as <b>Holdback receivable</b>, the rest as regular A/R. Revenue is unaffected by holdback.</li>
+            <li>Click <b>Generate draft JE</b> on the job → review the accrual + next-month reversal → only then post to QBO.</li>
+          </ol>
+        </div>
+        <p className="text-xs text-muted-foreground">Holdback receivable stays on the balance sheet until the contract is accepted/substantially complete, then it becomes a normal receivable due. Keep the support (progress draws, holdback ledger) in the client's file.</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <Card><CardContent className="p-3">
@@ -162,6 +198,7 @@ function JobCard({ clientId, job, expanded, onToggle, depositsBookedToRevenue, o
             <div className="text-right">
               {r.contractAsset > 0 && <p className="text-sm font-medium text-emerald-600">{money(r.contractAsset)} asset</p>}
               {r.deferredRevenue > 0 && <p className="text-sm font-medium text-amber-600">{money(r.deferredRevenue)} deferred</p>}
+              {r.holdbackReceivable > 0 && <p className="text-sm font-medium text-sky-600">{money(r.holdbackReceivable)} holdback</p>}
             </div>
             {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </div>
@@ -265,11 +302,15 @@ function JePreview({ result }: { result: any; depositsBookedToRevenue: boolean }
 }
 
 function NewJobDialog({ clientId, onClose, onSaved }: { clientId: number; onClose: () => void; onSaved: () => void }) {
+  const { data: config } = trpc.revRec.configGet.useQuery({ clientId });
   const [name, setName] = useState("");
   const [customerJob, setCustomerJob] = useState("");
   const [contractValue, setContractValue] = useState("");
   const [openingPct, setOpeningPct] = useState("");
   const [openingInvoiced, setOpeningInvoiced] = useState("");
+  const [holdback, setHoldback] = useState("");
+  // Default the holdback field to the client's configured default once config loads.
+  const holdbackVal = holdback !== "" ? holdback : config?.defaultHoldbackPct ? String(Math.round(config.defaultHoldbackPct * 100)) : "";
   const create = trpc.revRec.projectCreate.useMutation({ onSuccess: onSaved });
   return (
     <Dialog open onOpenChange={onClose}>
@@ -278,18 +319,22 @@ function NewJobDialog({ clientId, onClose, onSaved }: { clientId: number; onClos
         <div className="space-y-3">
           <div><Label>Job name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. 123 Main St — pool build" /></div>
           <div><Label>QBO Customer:Job (optional)</Label><Input value={customerJob} onChange={(e) => setCustomerJob(e.target.value)} placeholder="Customer:Job name in QuickBooks" /></div>
-          <div><Label>Contract value</Label><Input type="number" min={0} step={0.01} value={contractValue} onChange={(e) => setContractValue(e.target.value)} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Contract value</Label><Input type="number" min={0} step={0.01} value={contractValue} onChange={(e) => setContractValue(e.target.value)} /></div>
+            <div><Label className="text-xs">Holdback %</Label><Input type="number" min={0} max={100} value={holdbackVal} onChange={(e) => setHoldback(e.target.value)} placeholder="e.g. 10" /></div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label className="text-xs">Carry-in % complete</Label><Input type="number" min={0} max={100} value={openingPct} onChange={(e) => setOpeningPct(e.target.value)} placeholder="if started before tracking" /></div>
             <div><Label className="text-xs">Carry-in billed</Label><Input type="number" min={0} step={0.01} value={openingInvoiced} onChange={(e) => setOpeningInvoiced(e.target.value)} /></div>
           </div>
-          <p className="text-[11px] text-muted-foreground">Carry-in baselines a job already underway so prior revenue isn't double-counted.</p>
+          <p className="text-[11px] text-muted-foreground">Holdback % = the portion the customer withholds from each billing until acceptance (shown separately as Holdback receivable). Carry-in baselines a job already underway so prior revenue isn't double-counted.</p>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
             <Button disabled={!name || create.isPending} onClick={() => create.mutate({
               clientId, name, customerJob: customerJob || null, contractValue: Number(contractValue) || 0,
               openingPct: openingPct === "" ? null : Math.max(0, Math.min(1, Number(openingPct) / 100)),
               openingInvoiced: openingInvoiced === "" ? null : Number(openingInvoiced),
+              holdbackPct: holdbackVal === "" ? null : Math.max(0, Math.min(1, Number(holdbackVal) / 100)),
             })}>{create.isPending ? "Adding…" : "Add job"}</Button>
           </div>
         </div>
@@ -304,6 +349,8 @@ function ConfigDialog({ clientId, config, onClose }: { clientId: number; config:
   const [fyStart, setFyStart] = useState(String(config?.fiscalYearStartMonth ?? 1));
   const [deposits, setDeposits] = useState(!!config?.depositsBookedToRevenue);
   const [pctSource, setPctSource] = useState(config?.pctSource ?? "");
+  const [jobCosting, setJobCosting] = useState(!!config?.jobCostingByProject);
+  const [defHoldback, setDefHoldback] = useState(config?.defaultHoldbackPct ? String(Math.round(config.defaultHoldbackPct * 100)) : "");
   const setConfig = trpc.revRec.configSet.useMutation({ onSuccess: () => { utils.revRec.configGet.invalidate({ clientId }); utils.revRec.schedule.invalidate({ clientId }); } });
   const setMap = trpc.revRec.accountMapSet.useMutation({ onSuccess: () => utils.revRec.accountMapGet.invalidate({ clientId }) });
   const [mapDraft, setMapDraft] = useState<Record<string, { id: string; name: string }>>({});
@@ -323,11 +370,19 @@ function ConfigDialog({ clientId, config, onClose }: { clientId: number; config:
               </Select></div>
             <div><Label>% source</Label><Input value={pctSource} onChange={(e) => setPctSource(e.target.value)} placeholder="manual / cost-to-cost / PM" /></div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label className="text-xs">Default holdback %</Label><Input type="number" min={0} max={100} value={defHoldback} onChange={(e) => setDefHoldback(e.target.value)} placeholder="e.g. 10" /></div>
+          </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={deposits} onChange={(e) => setDeposits(e.target.checked)} />
             Deposits / progress billings are booked to a <strong>Revenue</strong> account (not a liability)
           </label>
           <p className="text-[11px] text-muted-foreground -mt-2">If checked, overbillings get moved to Deferred Revenue. Leave off if deposits already hit a liability account.</p>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={jobCosting} onChange={(e) => setJobCosting(e.target.checked)} />
+            Client tracks <strong>job costing by project</strong> in QBO (Customer:Job / Projects / Classes)
+          </label>
+          <p className="text-[11px] text-muted-foreground -mt-2">An intake question. If yes, we can pull actual costs per project from QBO for cost-to-cost % complete. If no, % complete is entered manually.</p>
 
           <div className="border-t pt-3">
             <p className="text-sm font-medium mb-2">QBO account mapping <span className="text-xs text-muted-foreground">(required before posting — never guessed)</span></p>
@@ -347,7 +402,7 @@ function ConfigDialog({ clientId, config, onClose }: { clientId: number; config:
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>Close</Button>
-            <Button onClick={() => { setConfig.mutate({ clientId, fiscalYearStartMonth: Number(fyStart), depositsBookedToRevenue: deposits, pctSource: pctSource || null }); onClose(); }}>Save settings</Button>
+            <Button onClick={() => { setConfig.mutate({ clientId, fiscalYearStartMonth: Number(fyStart), depositsBookedToRevenue: deposits, pctSource: pctSource || null, jobCostingByProject: jobCosting, defaultHoldbackPct: defHoldback === "" ? 0 : Math.max(0, Math.min(1, Number(defHoldback) / 100)) }); onClose(); }}>Save settings</Button>
           </div>
         </div>
       </DialogContent>
