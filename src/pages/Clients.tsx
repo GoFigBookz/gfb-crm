@@ -89,6 +89,8 @@ export default function Clients() {
   const [groupFilter, setGroupFilter] = useState("all");
   const [sort, setSort] = useState<SortType>("name");
   const [viewMode, setViewMode] = useState<ViewType>("grid");
+  const [showDupes, setShowDupes] = useState(false);
+  const dupes = trpc.cleanup.duplicateClients.useQuery(undefined, { enabled: showDupes });
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newClient, setNewClient] = useState({
     name: "", email: "", phone: "", company: "",
@@ -180,8 +182,33 @@ export default function Clients() {
           <p className="text-slate-500 text-sm">Go Fig Bookz — {filtered?.length ?? 0} clients</p>
         </div>
         {/* Add Client goes straight to the full intake form */}
-        <Button onClick={() => navigate("/onboarding?intake=1")}><Plus className="h-4 w-4 mr-2" />Add Client</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowDupes((v) => !v)}>{showDupes ? "Hide duplicates" : "Find duplicates"}</Button>
+          <Button onClick={() => navigate("/onboarding?intake=1")}><Plus className="h-4 w-4 mr-2" />Add Client</Button>
+        </div>
       </div>
+
+      {showDupes && (
+        <Card><CardContent className="p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-700">Possible duplicate clients</span>
+            <HelpButton id="find-duplicates" />
+            {dupes.isFetching && <span className="text-xs text-slate-400">scanning…</span>}
+            {dupes.data && <span className="text-xs text-slate-400">{dupes.data.pairs.length} pair(s) · {dupes.data.scanned} clients</span>}
+          </div>
+          {dupes.data && dupes.data.pairs.length === 0 && <div className="text-sm text-slate-500">No likely duplicates found. 🎉</div>}
+          {dupes.data?.pairs.map((p: any, i: number) => (
+            <div key={i} className="border rounded-lg p-2.5 flex items-center gap-3 flex-wrap">
+              <span className={`text-[10px] uppercase font-semibold rounded px-1.5 py-0.5 ${p.strength === "strong" ? "bg-red-100 text-red-700" : p.strength === "likely" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>{p.strength}</span>
+              <button className="text-sm text-indigo-700 hover:underline" onClick={() => navigate(`/client/${p.a.id}`)}>{p.a.name}</button>
+              <span className="text-slate-300">↔</span>
+              <button className="text-sm text-indigo-700 hover:underline" onClick={() => navigate(`/client/${p.b.id}`)}>{p.b.name}</button>
+              <span className="text-xs text-slate-500">{p.reasons.join(" · ")}</span>
+            </div>
+          ))}
+          <p className="text-[11px] text-slate-400">Read-only — open each card to compare, then merge by hand. Automatic merging isn't enabled because re-pointing data blindly could collapse two separate QuickBooks companies (per-client isolation).</p>
+        </CardContent></Card>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-slate-200">

@@ -138,6 +138,16 @@ export const HELP: Record<string, HelpEntry> = {
       "The counter shows how many facts and open questions the brain holds.",
     ],
   },
+  "find-duplicates": {
+    title: "Find duplicate clients",
+    steps: [
+      "Click ‘Find duplicates’ — it scans every client card for matching name, email, phone, HST/business number, or tax ID.",
+      "Pairs are ranked: 🔴 strong (shared hard ID), 🟠 likely, ⚪ possible (name only).",
+      "Open each card to compare them side by side.",
+      "Decide which to keep, move anything important over, and set the other to inactive.",
+    ],
+    note: "Read-only — it finds, you decide. One-click merge isn't enabled on purpose: blindly re-pointing data could collapse two separate QuickBooks companies into one.",
+  },
   "clients": {
     title: "Clients",
     steps: [
