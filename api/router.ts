@@ -79,6 +79,7 @@ import { revRecRouter } from "./revrec-router";
 import { bankedHoursRouter } from "./banked-hours-router";
 import { cashBookRouter } from "./cash-book-router";
 import { backupRouter } from "./backup-router";
+import { opportunitiesRouter } from "./opportunities-router";
 import { genealogyRouter } from "./genealogy-router";
 import { hstReviewRouter } from "./hst-review-router";
 import { loanTrackerRouter } from "./loan-tracker-router";
@@ -175,6 +176,7 @@ export const appRouter = createRouter({
   bankedHours: bankedHoursRouter,
   cashBook: cashBookRouter,
   backup: backupRouter,
+  opportunities: opportunitiesRouter,
   loanTracker: loanTrackerRouter,
 });
 
