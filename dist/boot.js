@@ -61510,6 +61510,25 @@ function evaluateQa(facts) {
       detail: facts.recentSyncErrors > 0 ? `${facts.recentSyncErrors} failed sync(s) recently.` : "No recent sync failures."
     });
   }
+  if (facts.lastBackupAgeMs !== void 0) {
+    const age = facts.lastBackupAgeMs;
+    const DAY2 = 864e5;
+    let bStatus = "ok";
+    let detail = "";
+    if (age == null) {
+      bStatus = "warn";
+      detail = "No data backup has run yet.";
+    } else if (age > 2 * DAY2) {
+      bStatus = "fail";
+      detail = `Last backup was ${Math.floor(age / DAY2)} days ago \u2014 daily auto-backup may have stopped.`;
+    } else if (age > 1.5 * DAY2) {
+      bStatus = "warn";
+      detail = `Last backup was ${Math.floor(age / 36e5)}h ago \u2014 expected within ~24h.`;
+    } else {
+      detail = `Last backup ${Math.floor(age / 36e5)}h ago.`;
+    }
+    checks.push({ id: "backups", category: "Data", label: "Data backups", status: bStatus, detail });
+  }
   const ok = checks.filter((c) => c.status === "ok").length;
   const warn = checks.filter((c) => c.status === "warn").length;
   const fail = checks.filter((c) => c.status === "fail").length;
@@ -61708,7 +61727,13 @@ async function gatherFacts() {
     recentSyncErrors = Number(row.n ?? 0) || 0;
   } catch {
   }
-  return { dbReachable, dbError, tableCounts, env: env2, qbo, connectorCount, recentSyncErrors };
+  let lastBackupAgeMs;
+  try {
+    const r = await db.all(sql`SELECT createdAt FROM data_backups ORDER BY createdAt DESC LIMIT 1`);
+    lastBackupAgeMs = r.length ? Date.now() - Number(r[0].createdAt) : null;
+  } catch {
+  }
+  return { dbReachable, dbError, tableCounts, env: env2, qbo, connectorCount, recentSyncErrors, lastBackupAgeMs };
 }
 async function runHealthReport() {
   return evaluateQa(await gatherFacts());
@@ -92545,7 +92570,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.231";
+var BUILD_TAG = "2026-06-27.232";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
