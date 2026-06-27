@@ -1,3 +1,4 @@
+import HelpButton from "@/components/HelpButton";
 import { useState } from "react";
 import { Lock, Loader2, Trash2, Plus, CheckCircle2, AlertTriangle, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,7 @@ export default function VendorRulesPanel({ clientId }: { clientId: number }) {
         <div className="flex items-center gap-2">
           <Lock className="h-4 w-4 text-lime-600" />
           <span className="text-sm font-semibold text-slate-700">Vendor auto-post rules</span>
+          <HelpButton id="vendor-rules" />
         </div>
         {!adding && (
           <div className="flex gap-2">

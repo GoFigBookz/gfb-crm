@@ -1,3 +1,4 @@
+import HelpButton from "@/components/HelpButton";
 import { useState, useEffect } from "react";
 import { Receipt, Loader2, CheckCircle2, AlertTriangle, FileDown, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -105,7 +106,7 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
     <Card className="border-violet-200">
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
-          <Receipt className="h-4 w-4 text-violet-600" /> Inter-company recharge (draft)
+          <Receipt className="h-4 w-4 text-violet-600" /> Inter-company recharge (draft) <HelpButton id="recharge-invoice" />
         </CardTitle>
         <CardDescription>
           Pull the payer's expenses for the quarter → draft invoice (payer → counterparty) + mirror bill, with HST. Review, then <b>Fig posts both live</b> on your approval (both companies must be connected DIRECT). Zero-out mode leaves the payer with $0 expenses + $0 HST. Reconcile each quarter below.

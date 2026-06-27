@@ -1,3 +1,4 @@
+import HelpButton from "@/components/HelpButton";
 import { useState } from "react";
 import { FileUp, Loader2, Sparkles, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export default function StatementCodingPanel({ clientId }: { clientId: number })
       <div className="flex items-center gap-2">
         <FileUp className="h-4 w-4 text-lime-600" />
         <span className="text-sm font-semibold text-slate-700">Statement coding</span>
+        <HelpButton id="statement-coding" />
         <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 rounded px-1">READ-ONLY</span>
       </div>
       <p className="text-xs text-slate-500">
