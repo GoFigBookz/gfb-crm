@@ -30,6 +30,7 @@ const COLUMNS: Array<[string, string]> = [
   ["estimatedMonthlyValue", "real"], ["leadScore", "integer"],
   ["painPoints", "text"], ["expectations", "text"],
   ["currentSoftware", "text"], ["bizNeeds", "text"],   // intake: tools they use + what'd help beyond financials
+  ["minCashBuffer", "real DEFAULT 0"],                  // cash floor for the cash-position check (transfer-in alert)
   ["serviceTier", "text DEFAULT 'standard'"], ["monthlyFee", "real DEFAULT 0"],
   ["onboardingSentAt", "integer"], ["onboardingCompletedAt", "integer"], ["onboardingToken", "text"],
   ["hasHST", "integer DEFAULT 0"], ["hstNumber", "text"], ["hstPeriod", "text"], ["hstNextDue", "text"],

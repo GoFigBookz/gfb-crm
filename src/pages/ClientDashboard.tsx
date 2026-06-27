@@ -23,6 +23,7 @@ import { STANDARD_TASK_TITLES } from "@/lib/task-options";
 import { RevRecTab } from "@/components/RevRecTab";
 import { CashBookTab } from "@/components/CashBookTab";
 import { OpportunitiesTab } from "@/components/OpportunitiesTab";
+import { CashPositionCard } from "@/components/CashPositionCard";
 import { LoanTrackerTab } from "@/components/LoanTrackerTab";
 import PaymentSourceCard from "@/components/PaymentSourceCard";
 import IntercoRechargePanel from "@/components/IntercoRechargePanel";
@@ -595,6 +596,7 @@ export default function ClientDashboard() {
 
         {/* OVERVIEW TAB */}
         <TabsContent value="overview" className="space-y-4 mt-4">
+          {!wholesale && <CashPositionCard clientId={id} />}
           <GroupCard clientId={id} groupName={(client as any).groupName} />
           <ContactsCard clientId={id} />
           <ClientChatsCard clientId={id} />

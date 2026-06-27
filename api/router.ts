@@ -80,6 +80,7 @@ import { bankedHoursRouter } from "./banked-hours-router";
 import { cashBookRouter } from "./cash-book-router";
 import { backupRouter } from "./backup-router";
 import { opportunitiesRouter } from "./opportunities-router";
+import { cashPositionRouter } from "./cash-position-router";
 import { genealogyRouter } from "./genealogy-router";
 import { hstReviewRouter } from "./hst-review-router";
 import { loanTrackerRouter } from "./loan-tracker-router";
@@ -177,6 +178,7 @@ export const appRouter = createRouter({
   cashBook: cashBookRouter,
   backup: backupRouter,
   opportunities: opportunitiesRouter,
+  cashPosition: cashPositionRouter,
   loanTracker: loanTrackerRouter,
 });
 
