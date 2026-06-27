@@ -23,6 +23,25 @@ const q = (conn: any, sql: string) => qboRequest(conn, `/query?query=${encodeURI
 const arr = (data: any, entity: string): any[] => (data?.QueryResponse?.[entity] ?? []) as any[];
 const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
+const TAXABLE_CODE = (name?: string | null) => !!name && !/exempt|out of scope|out-of-scope|zero|0\s*%|^z$|^e$|^os$|non-?taxable/i.test(name);
+
+/**
+ * QBO carries the tax total at the transaction level (TxnTaxDetail.TotalTax), not per line.
+ * To make the per-line checks (meals 50% ITC, etc.) work, apportion that total across the
+ * TAXABLE-coded lines by their share of the taxable base. Best-effort — exact per-line tax
+ * isn't exposed; the tie-out still uses the authoritative txn-level total.
+ */
+function apportionLineTax(lines: RawLine[], taxTotal: number): void {
+  if (!taxTotal) return;
+  const taxableBase = lines.filter((l) => TAXABLE_CODE(l.taxCodeName)).reduce((s, l) => s + Math.max(l.amount, 0), 0);
+  if (taxableBase <= 0) return;
+  for (const l of lines) {
+    if (TAXABLE_CODE(l.taxCodeName) && l.amount > 0) {
+      l.taxAmount = Math.round((taxTotal * (l.amount / taxableBase)) * 100) / 100;
+    }
+  }
+}
+
 /** Map a QBO expense entity (Purchase / Bill) → RawTxn. */
 function mapExpense(e: any, type: "Purchase" | "Bill", taxName: (id?: string) => string | undefined): RawTxn {
   const lines: RawLine[] = [];
@@ -36,10 +55,12 @@ function mapExpense(e: any, type: "Purchase" | "Bill", taxName: (id?: string) =>
       taxCodeName: d.TaxCodeRef?.name ?? taxName(d.TaxCodeRef?.value) ?? null,
     });
   }
+  const taxTotal = num(e.TxnTaxDetail?.TotalTax);
+  apportionLineTax(lines, taxTotal);
   return {
     id: String(e.Id), type, date: String(e.TxnDate || "").slice(0, 10),
     name: e.EntityRef?.name || e.VendorRef?.name, docNumber: e.DocNumber,
-    total: num(e.TotalAmt), taxTotal: num(e.TxnTaxDetail?.TotalTax), lines,
+    total: num(e.TotalAmt), taxTotal, lines,
   };
 }
 
@@ -56,10 +77,12 @@ function mapSale(e: any, type: "Invoice" | "SalesReceipt", taxName: (id?: string
       taxCodeName: d.TaxCodeRef?.name ?? taxName(d.TaxCodeRef?.value) ?? null,
     });
   }
+  const taxTotal = num(e.TxnTaxDetail?.TotalTax);
+  apportionLineTax(lines, taxTotal);
   return {
     id: String(e.Id), type, date: String(e.TxnDate || "").slice(0, 10),
     name: e.CustomerRef?.name, docNumber: e.DocNumber,
-    total: num(e.TotalAmt), taxTotal: num(e.TxnTaxDetail?.TotalTax), lines,
+    total: num(e.TotalAmt), taxTotal, lines,
   };
 }
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   runHstReview, tieOut, isTaxableCode, checkUnreviewedAccounts, checkControlAccountCoding,
   checkMissingTaxCode, checkSalesWithoutTax, checkDuplicates, checkMealsFullItc,
+  checkWrongTaxCode, hstAccountTieOut, findHstControlAccounts,
   hstReasonableness,
   type RawTxn, type RawAccount,
 } from "./hst-review-core";
@@ -157,5 +158,62 @@ describe("HST reasonableness test", () => {
     expect(r.output.verdict).toBe("green");
     expect(r.itc.verdict).toBe("red");
     expect(r.overall).toBe("red");
+  });
+});
+
+describe("checkWrongTaxCode — the exception accountants chase", () => {
+  it("flags a taxable expense coded exempt/zero/out-of-scope, skips genuinely-exempt accounts", () => {
+    const txns: RawTxn[] = [
+      exp("1", "Home Depot", [{ accountName: "Repairs & Maintenance", amount: 500, taxCodeName: "Out of Scope" }]),
+      exp("2", "Sun Life", [{ accountName: "Insurance", amount: 300, taxCodeName: "Exempt" }]),          // legit exempt → skip
+      exp("3", "Staples", [{ accountName: "Office Supplies", amount: 200, taxCodeName: "HST ON" }]),       // correct → no flag
+      exp("4", "Payroll", [{ accountName: "Wages & Salaries", amount: 4000, taxCodeName: "Out of Scope" }]), // legit → skip
+    ];
+    const f = checkWrongTaxCode(txns);
+    expect(f.length).toBe(1);
+    expect(f[0].ref).toContain("Home Depot");
+    expect(f[0].check).toBe("wrong_tax_code");
+  });
+});
+
+describe("hstAccountTieOut — confirm the chart-of-accounts HST balance", () => {
+  it("ties when the HST control account matches the implied net", () => {
+    const accounts: RawAccount[] = [
+      { id: "10", name: "GST/HST Payable", type: "Other Current Liability", subType: "GlobalTaxPayable", balance: 1300 },
+    ];
+    const r = hstAccountTieOut(accounts, { net: 1300 });
+    expect(r.tied).toBe(true);
+    expect(r.controlBalance).toBe(1300);
+    expect(r.verdict).toBe("green");
+  });
+
+  it("flags a gap between the control account and the implied net", () => {
+    const accounts: RawAccount[] = [
+      { id: "10", name: "HST Suspense", type: "Other Current Liability", subType: "GlobalTaxSuspense", balance: 900 },
+    ];
+    const r = hstAccountTieOut(accounts, { net: 1300 });
+    expect(r.tied).toBe(false);
+    expect(r.diff).toBe(-400);
+    expect(r.message).toMatch(/gap/);
+  });
+
+  it("finds the control account by name when subtype is absent, and reports 'na' when none exists", () => {
+    expect(findHstControlAccounts([{ id: "1", name: "HST Payable", balance: 5 }]).length).toBe(1);
+    const none = hstAccountTieOut([{ id: "1", name: "Chequing", type: "Bank", balance: 100 }], { net: 200 });
+    expect(none.verdict).toBe("na");
+    expect(none.controlAccounts.length).toBe(0);
+  });
+});
+
+describe("runHstReview — wrong-code + account tie-out wired in", () => {
+  it("surfaces a wrong-code finding and a high control-account gap finding", () => {
+    const accounts: RawAccount[] = [{ id: "10", name: "GST/HST Payable", subType: "GlobalTaxPayable", balance: 5000 }];
+    const txns: RawTxn[] = [
+      exp("1", "Lumber Yard", [{ accountName: "Materials", amount: 1000, taxCodeName: "Out of Scope" }]),
+    ];
+    const r = runHstReview({ accounts, taxCodes: [], txns });
+    expect(r.findings.some((f) => f.check === "wrong_tax_code")).toBe(true);
+    expect(r.findings.some((f) => f.check === "hst_account_tieout")).toBe(true);
+    expect(r.accountTieOut.tied).toBe(false);
   });
 });
