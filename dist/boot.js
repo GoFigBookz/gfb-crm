@@ -87565,10 +87565,13 @@ var assistantRouter = createRouter({
   // when it's not set every agent can only reply "needs the key", which reads like
   // "the agents don't work". This lets the UI show a clear setup banner instead.
   health: authedQuery.query(() => {
-    const keyConfigured = !!process.env.ANTHROPIC_API_KEY;
+    const openaiProvider = process.env.FIGGY_LLM_PROVIDER === "openai";
+    const openaiReady = openaiProvider && (!!process.env.FIGGY_LLM_API_KEY || /localhost|127\.0\.0\.1|ollama/i.test(process.env.FIGGY_LLM_BASE_URL || ""));
+    const keyConfigured = openaiProvider ? openaiReady : !!process.env.ANTHROPIC_API_KEY;
     return {
       keyConfigured,
-      model: process.env.FIGGY_ASSISTANT_MODEL || "claude-sonnet-4-6",
+      provider: openaiProvider ? "openai" : "anthropic",
+      model: openaiProvider ? process.env.FIGGY_LLM_MODEL || "llama-3.3-70b-versatile" : process.env.FIGGY_ASSISTANT_MODEL || "claude-sonnet-4-6",
       webSearch: process.env.FIGGY_WEB_SEARCH !== "off"
     };
   }),
@@ -87631,6 +87634,36 @@ var assistantRouter = createRouter({
       } catch {
       }
     };
+    if (process.env.FIGGY_LLM_PROVIDER === "openai") {
+      const base = process.env.FIGGY_LLM_BASE_URL || "https://api.groq.com/openai/v1";
+      const oaiModel = process.env.FIGGY_LLM_MODEL || "llama-3.3-70b-versatile";
+      const oaiKey = process.env.FIGGY_LLM_API_KEY;
+      const out = await openaiToolChat({
+        baseUrl: base,
+        apiKey: oaiKey,
+        model: oaiModel,
+        system,
+        history: input.history || [],
+        userText: input.message,
+        tools: ASSISTANT_TOOLS,
+        actionToolNames: /* @__PURE__ */ new Set(["add_task", "add_personal", "schedule_event", "complete_task"]),
+        runTool: (name2, args) => runTool(name2, args, ctx.user.id, agent),
+        onAction: async (name2, output) => {
+          if (ACTION_TOOLS.has(name2)) await recordAudit({ userId: ctx.user.id, agentScope: agent, action: name2, summary: output, decision: "done" });
+        },
+        timeoutMs: Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 19e3)
+      });
+      if (out) {
+        await saveTurn(out.reply);
+        return { reply: out.reply, actions: out.actions, agent };
+      }
+      const fb = await brainAnswer(input.message, agent, ctx.user.id);
+      if (fb) {
+        await saveTurn(fb.reply);
+        return { reply: fb.reply, actions: fb.actions, agent };
+      }
+      return { reply: brainOnlyHelp(agent), actions, agent };
+    }
     const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 2e4 });
     let dropServerTools = false;
     const handleToolUses = async (content) => {
@@ -91105,7 +91138,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.214";
+var BUILD_TAG = "2026-06-27.215";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
