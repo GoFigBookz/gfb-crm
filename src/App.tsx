@@ -62,6 +62,7 @@ import Resources from "./pages/Resources";
 import PracticeHealth from "./pages/PracticeHealth";
 import Insights from "./pages/Insights";
 import ClientDashboard from "./pages/ClientDashboard";
+import ClientWorkspace from "./pages/ClientWorkspace";
 import ClientPortal from "./pages/ClientPortal";
 import PortalSettings from "./pages/PortalSettings";
 import Signatures from "./pages/Signatures";
@@ -155,7 +156,8 @@ function AppRoutes() {
         <Route path="/practice-health" element={<PracticeHealth />} />
         <Route path="/insights" element={<Insights />} />
         <Route path="/users" element={<UsersManagement />} />
-        <Route path="/client/:clientId" element={<ClientDashboard />} />
+        <Route path="/client/:clientId" element={<ClientWorkspace />} />
+        <Route path="/client/:clientId/classic" element={<ClientDashboard />} />
         <Route path="/report/billback/:clientId" element={<BillbackReport />} />
         <Route path="/portal-settings" element={<PortalSettings />} />
         <Route path="/signatures" element={<Signatures />} />
