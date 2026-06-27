@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-27.228";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-27.229";  // bump each deploy so prod vs source is unambiguous
 
 // CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
 // secret into a hosting dashboard very often drags a trailing space or newline,
@@ -517,6 +517,8 @@ app.get("/api/phoenix/seed", async (c) => {
       await seedAgentDocsBrain();   // ingest the docs Markie added to the Agents Drive folder
       const { seedRoseLiquidationTasks } = await import("./seed-rose-tasks");
       await seedRoseLiquidationTasks();   // Skye's Rose liquidation execution checklist
+      const { seedNewsChannelTasks } = await import("./seed-news-channel-tasks");
+      await seedNewsChannelTasks();       // Skye's world-news / tragedy-curation channel launch checklist
       const { seedHeritage, seedHeritageLineage } = await import("./seed-heritage");
       await seedHeritage();
       await seedHeritageLineage();

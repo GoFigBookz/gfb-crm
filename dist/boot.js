@@ -41389,11 +41389,24 @@ var init_qbo_vendor_classify = __esm({
 });
 
 // api/qbo-vendor-web-classify.ts
+function vendorClassifyBody(name2, model) {
+  const list = CATEGORIES.join(", ");
+  return {
+    model,
+    max_tokens: 256,
+    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }],
+    system: `You categorize a business vendor for bookkeeping. Use web_search ONLY if the name is unfamiliar. Reply with EXACTLY ONE token from this list, or "unknown" \u2014 and nothing else: ${list}.`,
+    messages: [{ role: "user", content: `Vendor name: "${name2}". Which category?` }]
+  };
+}
+function parseVendorCategory(content) {
+  const text2 = (typeof content === "string" ? content : (content ?? []).filter((b) => b?.type === "text").map((b) => String(b.text ?? "")).join(" ")).toLowerCase();
+  const hit = CATEGORIES.find((c) => new RegExp(`\\b${c}\\b`).test(text2));
+  return hit ? { category: hit, label: LABELS[hit] } : null;
+}
 async function classifyVendorByWeb(name2, opts) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || process.env.FIGGY_WEB_CLASSIFY === "off" || !name2?.trim()) return null;
-  const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
-  const list = CATEGORIES.join(", ");
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), opts?.timeoutMs ?? 15e3);
   try {
@@ -41401,26 +41414,18 @@ async function classifyVendorByWeb(name2, opts) {
       method: "POST",
       signal: ctrl.signal,
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({
-        model,
-        max_tokens: 256,
-        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }],
-        system: `You categorize a business vendor for bookkeeping. Use web_search ONLY if the name is unfamiliar. Reply with EXACTLY ONE token from this list, or "unknown" \u2014 and nothing else: ${list}.`,
-        messages: [{ role: "user", content: `Vendor name: "${name2}". Which category?` }]
-      })
+      body: JSON.stringify(vendorClassifyBody(name2, CLASSIFY_MODEL()))
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const text2 = (data?.content ?? []).filter((b) => b?.type === "text").map((b) => String(b.text ?? "")).join(" ").toLowerCase();
-    const hit = CATEGORIES.find((c) => new RegExp(`\\b${c}\\b`).test(text2));
-    return hit ? { category: hit, label: LABELS[hit] } : null;
+    return parseVendorCategory(data?.content ?? []);
   } catch {
     return null;
   } finally {
     clearTimeout(timer);
   }
 }
-var CATEGORIES, LABELS;
+var CATEGORIES, LABELS, CLASSIFY_MODEL;
 var init_qbo_vendor_web_classify = __esm({
   "api/qbo-vendor-web-classify.ts"() {
     CATEGORIES = ["meals", "fuel", "shipping", "telecom", "office", "utilities"];
@@ -41432,6 +41437,7 @@ var init_qbo_vendor_web_classify = __esm({
       office: "office / hardware / supplies",
       utilities: "utility (power / water / gas)"
     };
+    CLASSIFY_MODEL = () => process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
   }
 });
 
@@ -65366,6 +65372,81 @@ var init_seed_rose_tasks = __esm({
   }
 });
 
+// api/seed-news-channel-tasks.ts
+var seed_news_channel_tasks_exports = {};
+__export(seed_news_channel_tasks_exports, {
+  seedNewsChannelTasks: () => seedNewsChannelTasks
+});
+async function seedNewsChannelTasks() {
+  const db = getDb();
+  const markie = await db.all(sql`SELECT id FROM users WHERE email IN ('markie.antle@gmail.com','markie@gofig.ca') OR role = 'admin' ORDER BY (role = 'admin') DESC, id ASC LIMIT 1`);
+  const userId = markie[0]?.id ? Number(markie[0].id) : null;
+  if (userId == null) {
+    console.log("[news] no Markie user \u2014 skipped news-channel seed");
+    return;
+  }
+  const have = await db.all(sql`SELECT COUNT(*) AS n FROM tasks WHERE category = 'news-channel'`);
+  if (Number(have[0]?.n || 0) > 0) return;
+  const day2 = 864e5;
+  const due = (n) => new Date(Date.now() + n * day2);
+  const steps = [
+    [
+      "News channel: research trending tragedy/true-crime pages (Canada first)",
+      2,
+      "high",
+      false,
+      "Skye researches the tragedy / true-crime / world-news pages + groups that are TRENDING and growing right now, Canada first: their format, posting cadence, hooks, community size, what drives shares, and the gaps a new page could own. Deliver a research brief + the best sources to curate from (wire services, local outlets, court/police blotters)."
+    ],
+    [
+      "News channel: recommend Page vs Group + name/handle/bio (Canada edition)",
+      3,
+      "high",
+      false,
+      "Skye recommends the strongest primary format \u2014 Facebook PAGE (curator-controlled, cleaner growth) vs GROUP (community, more moderation) \u2014 with the why, plus optional adjacent platforms (subreddit / IG-TikTok reels / newsletter). Deliver name + handle ideas, bio, and the Canada-edition launch plan. Design region-agnostic so US/Europe are clones later."
+    ],
+    [
+      "News channel: write the attribution / repost SOP (credit + link template)",
+      3,
+      "high",
+      false,
+      "Skye writes the exact repost SOP that keeps this legitimate: short original summary in our own words + clear CREDIT (author + outlet) + LINK back to source. NO republishing full/paywalled text; quote a line or two max under fair dealing, attributed; never strip a byline. This template governs every post."
+    ],
+    [
+      "News channel: starter content calendar + daily posting rhythm",
+      4,
+      "medium",
+      false,
+      "Skye builds a starter calendar + a repeatable daily posting rhythm (how many stories/day, mix of breaking vs follow-up vs anniversary cases), with the hook style that earns shares \u2014 all running through the attribution SOP."
+    ],
+    [
+      "News channel: create the Facebook Page/account \u2014 NEEDS MARKIE",
+      5,
+      "high",
+      true,
+      "Needs Markie: create the actual Facebook Page (or Group) for the Canada edition under a SEPARATE identity from Go Fig Bookz, and approve the name/handle/bio Skye proposed. Skye supplies everything ready-to-paste; Markie owns the account + the go-live."
+    ],
+    [
+      "News channel: decide US + Europe rollout AFTER Canada shows traction",
+      14,
+      "low",
+      true,
+      "Hold: once the Canadian page shows real growth, Markie greenlights the US and Europe editions. Skye clones the Canada plan per region (region-agnostic by design). Don't spin these up until the Canadian one proves the model."
+    ]
+  ];
+  for (const [title, d10, priority, needsMarkie, description] of steps) {
+    void needsMarkie;
+    await db.run(sql`INSERT INTO tasks (userId, clientId, title, description, dueDate, priority, status, completed, assignedTo, category, createdAt, updatedAt)
+      VALUES (${userId}, ${null}, ${title}, ${description}, ${due(d10).getTime()}, ${priority}, 'pending', 0, 'Skye', 'news-channel', ${Date.now()}, ${Date.now()})`);
+  }
+  console.log(`[news] seeded ${steps.length} world-news channel tasks (Skye)`);
+}
+var init_seed_news_channel_tasks = __esm({
+  "api/seed-news-channel-tasks.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/seed-heritage.ts
 var seed_heritage_exports = {};
 __export(seed_heritage_exports, {
@@ -87435,7 +87516,13 @@ INSTAGRAM GROWTH PLAYBOOK (run on request \u2014 e.g. "Skye, run the IG growth p
   4. SCRIPT FRAMEWORKS \u2192 REEL SCRIPTS \u2014 extract the structure (opening hook, curiosity loops, info reveals, pattern interrupts, re-hooks, closing payoff) into a template, then generate high-retention Reel script OUTLINES: hook / curiosity build / key info / re-hook / payoff, with placeholder lines + visual/clip suggestions.
   5. COMPETITOR ANALYSIS \u2014 map what top accounts do (strategy, positioning, posting frequency, hook + visual style), patterns across them, gaps/weaknesses, and how to position to stand out. For REAL numbers, ask Markie to paste competitors' public posts/screenshots, or use an Instagram Graph API connection (below).
   6. PAGE AUDIT \u2014 audit the subject's page (niche positioning, username, bio, highlights, branding, visual consistency) + per-post hook/visual/pacing/caption, find friction cutting views/shares/follows, compare to top competitors, deliver prioritized steps: fix-now, experiments next, formats to scale. Audit the REAL page only from a link/screenshots Markie provides, or a live Graph API connection.
-HONEST LIMITS + HOW TO BEAT THEM: you can't browse a live IG account on your own (login walls). So for steps 3/5/6 either (a) Markie pastes the posts/screenshots and you analyze the REAL content with your vision, or (b) once an Instagram Graph API connection exists you can pull the OWN page's real metrics + public competitor post data (business_discovery) + schedule posts. You DRAFT scripts/captions/calendars; posting + filming stay with Markie or a connected scheduler \u2014 never post on your own.`.trim();
+HONEST LIMITS + HOW TO BEAT THEM: you can't browse a live IG account on your own (login walls). So for steps 3/5/6 either (a) Markie pastes the posts/screenshots and you analyze the REAL content with your vision, or (b) once an Instagram Graph API connection exists you can pull the OWN page's real metrics + public competitor post data (business_discovery) + schedule posts. You DRAFT scripts/captions/calendars; posting + filming stay with Markie or a connected scheduler \u2014 never post on your own.
+
+WORLD-NEWS / "TRAGEDIES AROUND THE WORLD" CHANNEL (Markie's personal interest project \u2014 true-crime / tragedy / world-news curation). GOAL: build and grow a following by curating crime & tragedy news stories, ALWAYS crediting the original author + outlet. START WITH CANADA; once the Canadian one shows traction, spin up US and Europe editions (one page/group per region \u2014 design everything region-agnostic so a new region is a clone, not a rebuild). This is SEPARATE from the Go Fig Bookz firm brand \u2014 different identity, never cross-posted with firm/client content.
+  PLATFORM CHOICE (research + recommend, don't assume): a Facebook PAGE (you control posting, cleaner growth, ad-eligible, better reach for a curator) vs a GROUP (community discussion, members post, higher engagement but more moderation) \u2014 for a curation/repost model a PAGE is usually the stronger primary, optionally paired with a discussion GROUP later. Also weigh adjacent platforms where this content travels well (a subreddit, a TikTok/IG reel page, a newsletter). Recommend the best primary + why.
+  COPYRIGHT / ATTRIBUTION (non-negotiable \u2014 this is what keeps it legitimate): you may NOT republish an article's full text or paywalled content. The legitimate curation model = a short original summary/headline in your own words + a clear CREDIT (author + outlet) + a LINK back to the source; use the outlet's own share image only where their sharing terms allow, otherwise a neutral graphic. Never present someone else's reporting as your own; never strip a byline. Quote sparingly (a line or two) under fair dealing, attributed.
+  RESEARCH (run on request / proactively): what tragedy/true-crime/world-news pages & groups are TRENDING and growing right now (Canada first) \u2014 their format, posting cadence, hooks, what drives shares, community size, and the gaps a new page could own. Identify the best sources to curate from (wire services, local outlets, court/police blotters) and a repeatable daily posting rhythm.
+  DELIVERABLES: a launch plan (name + handle ideas, bio, page-vs-group rec, region rollout Canada\u2192US\u2192Europe), an attribution/repost SOP (the exact "summary + credit + link" template), a starter content calendar, and a trending-pages research brief. Everything is a DRAFT/PROPOSAL \u2014 Markie creates the actual page/account and approves before anything goes live; never post on your own.`.trim();
 
 // api/skills/index.ts
 var ROLE = {
@@ -88228,7 +88315,11 @@ var assistantRouter = createRouter({
       lessonsBlock = formatLessonsBlock(selectRelevant(rows, agent));
     } catch {
     }
-    const system = [frontDeskSystem(agent), nowLine, locLine, lessonsBlock].filter(Boolean).join("\n");
+    const stableSystem = [frontDeskSystem(agent), lessonsBlock].filter(Boolean).join("\n");
+    const volatileSystem = [nowLine, locLine].filter(Boolean).join("\n");
+    const system = [stableSystem, volatileSystem].filter(Boolean).join("\n");
+    const systemBlocks = [{ type: "text", text: stableSystem || " ", cache_control: { type: "ephemeral" } }];
+    if (volatileSystem) systemBlocks.push({ type: "text", text: volatileSystem });
     const webOn = process.env.FIGGY_WEB_SEARCH === "on";
     const serverTools = !webOn ? [] : [
       { type: "web_search_20260209", name: "web_search", max_uses: 1 },
@@ -88309,7 +88400,7 @@ var assistantRouter = createRouter({
         const tools3 = [...ASSISTANT_TOOLS, ...dropServerTools ? [] : serverTools];
         let data;
         try {
-          data = await client.messages.create({ model, max_tokens: 1024, system, messages, tools: tools3 });
+          data = await client.messages.create({ model, max_tokens: 1024, system: systemBlocks, messages, tools: tools3 });
         } catch (err) {
           if (err instanceof Anthropic.BadRequestError && /tool|web_search|web_fetch/i.test(err.message || "")) {
             if (!dropServerTools) {
@@ -92221,7 +92312,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.228";
+var BUILD_TAG = "2026-06-27.229";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -92650,6 +92741,8 @@ app.get("/api/phoenix/seed", async (c) => {
       await seedAgentDocsBrain2();
       const { seedRoseLiquidationTasks: seedRoseLiquidationTasks2 } = await Promise.resolve().then(() => (init_seed_rose_tasks(), seed_rose_tasks_exports));
       await seedRoseLiquidationTasks2();
+      const { seedNewsChannelTasks: seedNewsChannelTasks2 } = await Promise.resolve().then(() => (init_seed_news_channel_tasks(), seed_news_channel_tasks_exports));
+      await seedNewsChannelTasks2();
       const { seedHeritage: seedHeritage2, seedHeritageLineage: seedHeritageLineage2 } = await Promise.resolve().then(() => (init_seed_heritage(), seed_heritage_exports));
       await seedHeritage2();
       await seedHeritageLineage2();
