@@ -90862,6 +90862,34 @@ var cashBookRouter = createRouter({
         WHERE id=${input.id} AND clientId=${input.clientId}`);
     return { ok: true };
   }),
+  /**
+   * Import bank/CSV transactions into the cash book. Reuses the recon CSV parser
+   * (handles signed Amount OR debit/credit columns). Sign → direction, magnitude →
+   * amount. Returns a preview when dryRun, or the inserted count. Skips $0/unparseable
+   * rows. HST is left blank (the user codes it after) — never guessed.
+   */
+  importEntries: staffQuery.input(external_exports.object({ clientId: external_exports.number(), accountId: external_exports.number(), text: external_exports.string().min(1), dryRun: external_exports.boolean().optional() })).mutation(async ({ input }) => {
+    const acct = await getAccount(input.clientId, input.accountId);
+    if (!acct) return { ok: false, error: "account_not_found" };
+    const txns = parseCsvTransactions(input.text);
+    const rows = txns.map((t2) => {
+      const iso2 = t2._ms != null ? new Date(t2._ms).toISOString().slice(0, 10) : String(t2.date).slice(0, 10);
+      return {
+        entryDate: iso2,
+        direction: t2.amount >= 0 ? "in" : "out",
+        amount: Math.abs(t2.amount),
+        description: t2.description || null
+      };
+    }).filter((r) => r.amount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(r.entryDate));
+    if (input.dryRun) return { ok: true, preview: rows.slice(0, 50), count: rows.length };
+    const db = getDb();
+    const now = Date.now();
+    for (const r of rows) {
+      await db.run(sql`INSERT INTO cash_book_entries (clientId, accountId, entryDate, direction, amount, description, cleared, source, createdAt, updatedAt)
+          VALUES (${input.clientId}, ${input.accountId}, ${r.entryDate}, ${r.direction}, ${r.amount}, ${r.description}, 0, 'import', ${now}, ${now})`);
+    }
+    return { ok: true, count: rows.length };
+  }),
   setCleared: staffQuery.input(external_exports.object({ id: external_exports.number(), clientId: external_exports.number(), cleared: external_exports.boolean() })).mutation(async ({ input }) => {
     await getDb().run(sql`UPDATE cash_book_entries SET cleared=${input.cleared ? 1 : 0}, updatedAt=${Date.now()} WHERE id=${input.id} AND clientId=${input.clientId}`);
     return { ok: true };
@@ -92193,7 +92221,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.227";
+var BUILD_TAG = "2026-06-27.228";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

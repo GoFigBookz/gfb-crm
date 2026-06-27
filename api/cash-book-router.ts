@@ -17,6 +17,7 @@ import {
   buildRegister, summarize, categoryTotals, inRange, reconcile, validateEntry,
   hstWorksheet, DEFAULT_CATEGORIES, type CashEntry, type Direction,
 } from "./cash-book-core";
+import { parseCsvTransactions } from "./recon-match-core";
 
 const dirEnum = z.enum(["in", "out"]);
 
@@ -151,6 +152,36 @@ export const cashBookRouter = createRouter({
         cleared=${input.cleared === undefined ? cur.cleared : input.cleared ? 1 : 0}, updatedAt=${Date.now()}
         WHERE id=${input.id} AND clientId=${input.clientId}`);
       return { ok: true as const };
+    }),
+
+  /**
+   * Import bank/CSV transactions into the cash book. Reuses the recon CSV parser
+   * (handles signed Amount OR debit/credit columns). Sign → direction, magnitude →
+   * amount. Returns a preview when dryRun, or the inserted count. Skips $0/unparseable
+   * rows. HST is left blank (the user codes it after) — never guessed.
+   */
+  importEntries: staffQuery
+    .input(z.object({ clientId: z.number(), accountId: z.number(), text: z.string().min(1), dryRun: z.boolean().optional() }))
+    .mutation(async ({ input }) => {
+      const acct = await getAccount(input.clientId, input.accountId);
+      if (!acct) return { ok: false as const, error: "account_not_found" };
+      const txns = parseCsvTransactions(input.text);
+      const rows = txns.map((t) => {
+        const iso = t._ms != null ? new Date(t._ms).toISOString().slice(0, 10) : String(t.date).slice(0, 10);
+        return {
+          entryDate: iso,
+          direction: (t.amount >= 0 ? "in" : "out") as Direction,
+          amount: Math.abs(t.amount),
+          description: t.description || null,
+        };
+      }).filter((r) => r.amount > 0 && /^\d{4}-\d{2}-\d{2}$/.test(r.entryDate));
+      if (input.dryRun) return { ok: true as const, preview: rows.slice(0, 50), count: rows.length };
+      const db = getDb(); const now = Date.now();
+      for (const r of rows) {
+        await db.run(sql`INSERT INTO cash_book_entries (clientId, accountId, entryDate, direction, amount, description, cleared, source, createdAt, updatedAt)
+          VALUES (${input.clientId}, ${input.accountId}, ${r.entryDate}, ${r.direction}, ${r.amount}, ${r.description}, 0, 'import', ${now}, ${now})`);
+      }
+      return { ok: true as const, count: rows.length };
     }),
 
   setCleared: staffQuery.input(z.object({ id: z.number(), clientId: z.number(), cleared: z.boolean() })).mutation(async ({ input }) => {

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import HelpButton from "@/components/HelpButton";
-import { Plus, Trash2, Check, BookOpen, Scale, Download, CheckCircle2, AlertCircle, Receipt } from "lucide-react";
+import { Plus, Trash2, Check, BookOpen, Scale, Download, Upload, CheckCircle2, AlertCircle, Receipt } from "lucide-react";
 
 const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -49,6 +49,7 @@ export function CashBookTab({ clientId }: { clientId: number }) {
   const removeAccount = trpc.cashBook.removeAccount.useMutation({ onSuccess: () => { setAccountId(null); refresh(); } });
   const updateAccount = trpc.cashBook.updateAccount.useMutation({ onSuccess: refresh });
   const addEntry = trpc.cashBook.addEntry.useMutation({ onSuccess: refresh });
+  const importEntries = trpc.cashBook.importEntries.useMutation();
   const setCleared = trpc.cashBook.setCleared.useMutation({ onSuccess: refresh });
   const removeEntry = trpc.cashBook.removeEntry.useMutation({ onSuccess: refresh });
 
@@ -59,6 +60,21 @@ export function CashBookTab({ clientId }: { clientId: number }) {
   const blankEntry = { entryDate: todayIso(), direction: "out" as "in" | "out", amount: "", category: "", description: "", reference: "", hst: "", cleared: false };
   const [draft, setDraft] = useState(blankEntry);
   const [entryErr, setEntryErr] = useState<string>("");
+
+  // CSV import
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importMsg, setImportMsg] = useState<string>("");
+  const runImport = (dryRun: boolean) => {
+    setImportMsg("");
+    importEntries.mutate({ clientId, accountId: activeId!, text: importText, dryRun }, {
+      onSuccess: (r: any) => {
+        if (!r?.ok) { setImportMsg(r?.error || "Import failed."); return; }
+        if (dryRun) setImportMsg(`Found ${r.count} transaction(s) ready to import.`);
+        else { setImportMsg(`Imported ${r.count} transaction(s).`); setImportText(""); setShowImport(false); refresh(); }
+      },
+    });
+  };
 
   // HST worksheet period
   const [hstRange, setHstRange] = useState<{ start: string; end: string } | null>(null);
@@ -135,8 +151,22 @@ export function CashBookTab({ clientId }: { clientId: number }) {
           </select>
         )}
         <Button size="sm" variant="outline" onClick={() => setShowNewAccount(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Account</Button>
+        {activeId && <Button size="sm" variant="outline" onClick={() => setShowImport((v) => !v)}><Upload className="h-3.5 w-3.5 mr-1" /> Import</Button>}
         {register.data && <Button size="sm" variant="ghost" onClick={exportCsv}><Download className="h-3.5 w-3.5 mr-1" /> CSV</Button>}
       </div>
+
+      {showImport && activeId && (
+        <Card><CardContent className="p-3 space-y-2">
+          <div className="text-sm font-semibold text-slate-700">Import bank transactions (CSV / paste)</div>
+          <p className="text-xs text-slate-500">Paste a bank or credit-card export — Date + a signed Amount column, or separate Debit/Credit (money out/in) columns. Deposits import as money-in, withdrawals as money-out. Code categories + HST after.</p>
+          <textarea className="w-full rounded border border-slate-300 px-2 py-1.5 text-xs font-mono min-h-[120px]" placeholder="Date,Description,Amount&#10;2026-04-10,Deposit,1130.00&#10;2026-04-12,Bell,-95.20" value={importText} onChange={(e) => setImportText(e.target.value)} />
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" disabled={!importText.trim() || importEntries.isPending} onClick={() => runImport(true)}>Preview</Button>
+            <Button size="sm" disabled={!importText.trim() || importEntries.isPending} onClick={() => runImport(false)}>Import</Button>
+            {importMsg && <span className="text-xs text-slate-600">{importMsg}</span>}
+          </div>
+        </CardContent></Card>
+      )}
 
       {showNewAccount && (
         <Card><CardContent className="p-3 space-y-2">
