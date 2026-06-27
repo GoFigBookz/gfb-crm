@@ -190,6 +190,18 @@ export const HELP: Record<string, HelpEntry> = {
     ],
     note: "Read-only — the chart of accounts is LOCKED, so this tool only EXPORTS, COMPARES, and CHECKS. It never edits QuickBooks accounts (QBO has no safe bulk rewrite — you apply the cleaned changes yourself, tied to the trial balance first). Needs the client connected to QuickBooks.",
   },
+  "drive-cleanup": {
+    title: "Drive Cleanup",
+    steps: [
+      "Pick a connected Google account — your business gofig Drive, or your personal Google account (connect it in Integrations first) for photos & videos.",
+      "Choose what to look at: Photos & videos, Photos only, Videos only, or Everything. Click Scan.",
+      "Figgy reads file info only (names, sizes, checksums — never the contents) and groups duplicates. ✓ exact = identical file by checksum (certain); ~ possible = same name & size (review first).",
+      "The OLDEST copy is always kept. Tick the extra copies you want gone, or ‘Select all exact’ to grab every certain duplicate at once.",
+      "‘Move to Trash’ sends them to Google Drive’s Trash — recoverable for 30 days, never hard-deleted. A keeper can never be trashed, even by accident.",
+      "‘Biggest files’ lists the space hogs to review by hand.",
+    ],
+    note: "Read-mostly and reversible by design. Needs a Google account connected with Drive access. Personal photos live in your personal Google account — connect that one to clean them; the business Drive is the gofig account.",
+  },
   "smart-money": {
     title: "Smart Money",
     steps: [

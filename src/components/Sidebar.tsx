@@ -7,7 +7,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft, FileStack,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked, Brain, Sun, ListTree,
+  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked, Brain, Sun, ListTree, HardDrive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -113,6 +113,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/resources", icon: BookOpen, label: "Resources" },
     { to: "/pricing-calculator", icon: DollarSign, label: "Pricing Calc" },
     { to: "/chart-of-accounts", icon: ListTree, label: "Chart Cleanup" },
+    { to: "/drive-cleanup", icon: HardDrive, label: "Drive Cleanup" },
   ];
 
   // Insights — practice analytics + automation.

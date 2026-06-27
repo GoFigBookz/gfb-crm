@@ -82,6 +82,7 @@ import { backupRouter } from "./backup-router";
 import { opportunitiesRouter } from "./opportunities-router";
 import { cashPositionRouter } from "./cash-position-router";
 import { coaRouter } from "./coa-router";
+import { driveCleanupRouter } from "./drive-cleanup-router";
 import { genealogyRouter } from "./genealogy-router";
 import { hstReviewRouter } from "./hst-review-router";
 import { loanTrackerRouter } from "./loan-tracker-router";
@@ -181,6 +182,7 @@ export const appRouter = createRouter({
   opportunities: opportunitiesRouter,
   cashPosition: cashPositionRouter,
   coa: coaRouter,
+  driveCleanup: driveCleanupRouter,
   loanTracker: loanTrackerRouter,
 });
 

@@ -19227,19 +19227,19 @@ function extractTablesRelationalConfig(schema, configHelpers) {
       const relations2 = value.config(
         configHelpers(value.table)
       );
-      let primaryKey2;
+      let primaryKey3;
       for (const [relationName, relation] of Object.entries(relations2)) {
         if (tableName) {
           const tableConfig = tablesConfig[tableName];
           tableConfig.relations[relationName] = relation;
-          if (primaryKey2) {
-            tableConfig.primaryKey.push(...primaryKey2);
+          if (primaryKey3) {
+            tableConfig.primaryKey.push(...primaryKey3);
           }
         } else {
           if (!(dbName in relationsBuffer)) {
             relationsBuffer[dbName] = {
               relations: {},
-              primaryKey: primaryKey2
+              primaryKey: primaryKey3
             };
           }
           relationsBuffer[dbName].relations[relationName] = relation;
@@ -39340,7 +39340,7 @@ async function upsertClientToMaster(c) {
     const bnCol = cols.get("craBn");
     const nameCol = cols.get("name") ?? 0;
     const bn = (c.taxId || "").trim();
-    const nameKey = norm2(c.name || c.company);
+    const nameKey2 = norm2(c.name || c.company);
     let matchIdx = -1;
     if (bn && bnCol != null) for (let i = 1; i < rows.length; i++) {
       if (norm2((rows[i] || [])[bnCol]) === norm2(bn)) {
@@ -39348,8 +39348,8 @@ async function upsertClientToMaster(c) {
         break;
       }
     }
-    if (matchIdx < 0 && nameKey) for (let i = 1; i < rows.length; i++) {
-      if (norm2((rows[i] || [])[nameCol]) === nameKey) {
+    if (matchIdx < 0 && nameKey2) for (let i = 1; i < rows.length; i++) {
+      if (norm2((rows[i] || [])[nameCol]) === nameKey2) {
         matchIdx = i;
         break;
       }
@@ -39902,8 +39902,8 @@ async function pushEventToGoogle(eventId) {
       payload.end = { dateTime: new Date(ev.endDate || ev.startDate).toISOString() };
     }
     if (ev.attendees) {
-      const emails2 = String(ev.attendees).match(/[\w.+-]+@[\w.-]+\.\w+/g) || [];
-      if (emails2.length) payload.attendees = emails2.map((email3) => ({ email: email3 }));
+      const emails3 = String(ev.attendees).match(/[\w.+-]+@[\w.-]+\.\w+/g) || [];
+      if (emails3.length) payload.attendees = emails3.map((email3) => ({ email: email3 }));
     }
     if (ev.googleEventId) {
       await gfetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${ev.googleEventId}`, "PATCH", at2, payload);
@@ -40016,10 +40016,10 @@ function endOfWeek(d10) {
 function endOfMonth2(d10) {
   return new Date(d10.getFullYear(), d10.getMonth() + 1, 0);
 }
-function matchClient(text2, clients4) {
+function matchClient(text2, clients5) {
   const n = norm4(text2);
   let best = null;
-  for (const c of clients4) {
+  for (const c of clients5) {
     const cn = norm4(c.name);
     if (!cn) continue;
     const idx = n.indexOf(cn);
@@ -40030,9 +40030,9 @@ function matchClient(text2, clients4) {
   const cleaned = text2.replace(re, "").replace(/\s{2,}/g, " ").replace(/^[\s:,-]+|[\s:,-]+$/g, "").trim();
   return { text: cleaned, client: best.client };
 }
-function parseTaskCommand(raw2, clients4, now = /* @__PURE__ */ new Date()) {
+function parseTaskCommand(raw2, clients5, now = /* @__PURE__ */ new Date()) {
   let text2 = stripLeadVerb(raw2);
-  const c = matchClient(text2, clients4);
+  const c = matchClient(text2, clients5);
   text2 = c.text;
   const d10 = extractDueDate(text2, now);
   text2 = d10.text;
@@ -40692,8 +40692,8 @@ async function doSyncInvoices(connectionId) {
   const connection = await ensureValidToken(connRow[0]);
   const clientId = connection.clientId;
   const data = await qboRequest(connection, "/query?query=SELECT * FROM Invoice MAXRESULTS 1000");
-  const invoices2 = data.QueryResponse?.Invoice || [];
-  for (const inv of invoices2) {
+  const invoices3 = data.QueryResponse?.Invoice || [];
+  for (const inv of invoices3) {
     const existing = await db.select().from(qboInvoices).where(and(eq2(qboInvoices.connectionId, connectionId), eq2(qboInvoices.qboInvoiceId, String(inv.Id))));
     const row = {
       connectionId,
@@ -40724,10 +40724,10 @@ async function doSyncInvoices(connectionId) {
     connectionId,
     entityType: "invoices",
     status: "success",
-    recordsSynced: invoices2.length,
+    recordsSynced: invoices3.length,
     completedAt: /* @__PURE__ */ new Date()
   });
-  return { success: true, recordsSynced: invoices2.length };
+  return { success: true, recordsSynced: invoices3.length };
 }
 async function doSyncPayments(connectionId) {
   const db = getDb();
@@ -43742,7 +43742,7 @@ async function readNewestTimesheetFromDrive(userId, folderUrlOrId) {
   if (!acct) throw new Error("Google isn't connected. Connect it in Integrations (with Drive access) so I can read the timesheet from Drive.");
   const token2 = await getValidGoogleAccessToken(acct);
   const isFolder = (f) => f.mimeType === "application/vnd.google-apps.folder";
-  let files2 = [];
+  let files3 = [];
   let frontier = [folderId];
   const seen = /* @__PURE__ */ new Set([folderId]);
   for (let depth = 0; depth < 4 && frontier.length; depth++) {
@@ -43760,13 +43760,13 @@ async function readNewestTimesheetFromDrive(userId, folderUrlOrId) {
             seen.add(k.id);
             next.push(k.id);
           }
-        } else files2.push(k);
+        } else files3.push(k);
       }
     }
     frontier = next;
   }
   const importable = (f) => f.mimeType === "application/pdf" || f.mimeType === "text/csv" || f.mimeType === "text/plain" || (f.mimeType || "").startsWith("image/") || f.mimeType === "application/vnd.google-apps.spreadsheet" || f.mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  const candidates = files2.filter(importable).sort((a, b) => String(b.modifiedTime || "").localeCompare(String(a.modifiedTime || "")));
+  const candidates = files3.filter(importable).sort((a, b) => String(b.modifiedTime || "").localeCompare(String(a.modifiedTime || "")));
   if (!candidates.length) throw new Error("No timesheet files found in that Drive folder (or its Payroll subfolder). Save the detailed timesheet (PDF or CSV) there first.");
   const named = candidates.filter((f) => /time\s*sheet|timesheet|time card|hours/i.test(f.name || ""));
   const pick2 = named[0] || candidates[0];
@@ -46602,7 +46602,7 @@ var init_quote_router = __esm({
           workflowStatus: "active",
           engagementSignedAt: client.engagementSignedAt ?? /* @__PURE__ */ new Date()
         }).where(eq2(clients.id, client.id));
-        const { clientTaskRules: clientTaskRules4, tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+        const { clientTaskRules: clientTaskRules4, tasks: tasks6 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
         const hasRules = (await db.select().from(clientTaskRules4).where(eq2(clientTaskRules4.clientId, client.id)).limit(1)).length > 0;
         let tasksCreated = 0;
         if (!hasRules) {
@@ -48720,7 +48720,7 @@ var init_values = __esm({
 var sleep;
 var init_sleep = __esm({
   "node_modules/@anthropic-ai/sdk/internal/utils/sleep.mjs"() {
-    sleep = (ms5, signal) => new Promise((resolve4) => {
+    sleep = (ms6, signal) => new Promise((resolve4) => {
       if (signal?.aborted)
         return resolve4();
       const onAbort = () => {
@@ -48730,7 +48730,7 @@ var init_sleep = __esm({
       const timer = setTimeout(() => {
         signal?.removeEventListener("abort", onAbort);
         resolve4();
-      }, ms5);
+      }, ms6);
       signal?.addEventListener("abort", onAbort, { once: true });
     });
   }
@@ -52926,8 +52926,8 @@ function backoff(attempt, baseMs, capMs) {
 function jitter(lowMs, highMs) {
   return lowMs + Math.random() * (highMs - lowMs);
 }
-function applyJitter(ms5) {
-  return ms5 * (1 - Math.random() * 0.25);
+function applyJitter(ms6) {
+  return ms6 * (1 - Math.random() * 0.25);
 }
 var init_backoff = __esm({
   "node_modules/@anthropic-ai/sdk/internal/utils/backoff.mjs"() {
@@ -59961,7 +59961,7 @@ var init_client4 = __esm({
         const request = this.makeRequest(options, null, void 0);
         return new PagePromise(this, request, Page2);
       }
-      async fetchWithTimeout(url2, init, ms5, controller, requestOptions, logCtx) {
+      async fetchWithTimeout(url2, init, ms6, controller, requestOptions, logCtx) {
         const { signal, method, ...options } = init || {};
         const abort = this._makeAbort(controller);
         if (signal)
@@ -59978,7 +59978,7 @@ var init_client4 = __esm({
         }
         const baseFetch = this.fetch;
         const timedFetch = async (innerUrl, innerInit) => {
-          const timeout = setTimeout(abort, ms5);
+          const timeout = setTimeout(abort, ms6);
           try {
             return await baseFetch.call(void 0, innerUrl, innerInit);
           } finally {
@@ -61835,20 +61835,20 @@ async function buildExecBriefing(userId) {
   const now = Date.now();
   const sot = startOfToday().getTime();
   const eot = endOfToday().getTime();
-  const ms5 = (d10) => {
+  const ms6 = (d10) => {
     if (!d10) return null;
     const t2 = d10 instanceof Date ? d10.getTime() : new Date(d10).getTime();
     return Number.isNaN(t2) ? null : t2;
   };
   const overdue = open3.filter((t2) => {
-    const m = ms5(t2.dueDate);
+    const m = ms6(t2.dueDate);
     return m != null && m < sot;
-  }).sort((a, b) => ms5(a.dueDate) - ms5(b.dueDate));
+  }).sort((a, b) => ms6(a.dueDate) - ms6(b.dueDate));
   const dueToday = open3.filter((t2) => {
-    const m = ms5(t2.dueDate);
+    const m = ms6(t2.dueDate);
     return m != null && m >= sot && m <= eot;
   });
-  const needsYou = open3.filter((t2) => NEEDS_MARKIE.test(`${t2.title} ${t2.description ?? ""} ${t2.assignedTo ?? ""}`)).sort((a, b) => (ms5(a.dueDate) ?? Infinity) - (ms5(b.dueDate) ?? Infinity)).slice(0, 8).map(lbl);
+  const needsYou = open3.filter((t2) => NEEDS_MARKIE.test(`${t2.title} ${t2.description ?? ""} ${t2.assignedTo ?? ""}`)).sort((a, b) => (ms6(a.dueDate) ?? Infinity) - (ms6(b.dueDate) ?? Infinity)).slice(0, 8).map(lbl);
   let learned = [];
   try {
     const since = new Date(now - 14 * 864e5);
@@ -62237,7 +62237,7 @@ var init_backup_core = __esm({
       "_litestream_lock"
     ]);
     DENY_SUFFIX = /(_cache|_log|_logs|_audit_log|_tmp|_temp)$/i;
-    dayKey = (ms5) => new Date(ms5).toISOString().slice(0, 10);
+    dayKey = (ms6) => new Date(ms6).toISOString().slice(0, 10);
   }
 });
 
@@ -66582,7 +66582,7 @@ async function seedMarketing() {
   const have = await db.all(sql`SELECT COUNT(*) AS n FROM marketing_items WHERE kind = 'platform'`);
   if (Number(have[0]?.n || 0) > 0) return;
   const now = Date.now();
-  const tasks5 = [
+  const tasks6 = [
     { platform: "linkedin", title: "Clean up LinkedIn profile + company page (bio, banner, services)" },
     { platform: "linkedin", title: "Start a regular LinkedIn posting cadence" },
     { platform: "proadvisor", title: "Clean up Intuit ProAdvisor profile (services, badge, reviews)" },
@@ -66593,11 +66593,11 @@ async function seedMarketing() {
     { platform: "website", title: "Reposition website \u2014 drop 'small business' wording (decide new positioning/tagline)" },
     { platform: "google", title: "Claim / tidy Google Business Profile" }
   ];
-  for (const t2 of tasks5) {
+  for (const t2 of tasks6) {
     await db.run(sql`INSERT INTO marketing_items (kind, platform, title, status, createdAt, updatedAt)
       VALUES ('platform', ${t2.platform}, ${t2.title}, 'todo', ${now}, ${now})`);
   }
-  console.log(`[marketing] seeded ${tasks5.length} platform tasks`);
+  console.log(`[marketing] seeded ${tasks6.length} platform tasks`);
 }
 var init_ensure_marketing_schema = __esm({
   "api/ensure-marketing-schema.ts"() {
@@ -75616,12 +75616,12 @@ function makeAsyncResource(thing, dispose) {
   return it;
 }
 var disposablePromiseTimerResult = /* @__PURE__ */ Symbol();
-function timerResource(ms5) {
+function timerResource(ms6) {
   let timer = null;
   return makeResource({ start() {
     if (timer) throw new Error("Timer already started");
     const promise2 = new Promise((resolve4) => {
-      timer = setTimeout(() => resolve4(disposablePromiseTimerResult), ms5);
+      timer = setTimeout(() => resolve4(disposablePromiseTimerResult), ms6);
     });
     return promise2;
   } }, () => {
@@ -77226,7 +77226,7 @@ var googleTasksRouter = createRouter({
     })
   ).mutation(async ({ ctx, input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-    const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { tasks: tasks6 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const { eq: eq4, and: and9, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const db = getDb2();
     const token2 = await getGoogleToken(ctx.user.id, ctx.db);
@@ -77236,8 +77236,8 @@ var googleTasksRouter = createRouter({
         message: "No Google account connected. Connect Google in Integrations."
       });
     }
-    const where = input.clientId ? and9(eq4(tasks5.userId, ctx.user.id), eq4(tasks5.clientId, input.clientId)) : and9(eq4(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
-    const crmTasks = await db.select().from(tasks5).where(where);
+    const where = input.clientId ? and9(eq4(tasks6.userId, ctx.user.id), eq4(tasks6.clientId, input.clientId)) : and9(eq4(tasks6.userId, ctx.user.id), isNull3(tasks6.completedAt));
+    const crmTasks = await db.select().from(tasks6).where(where);
     const results = [];
     for (const task of crmTasks.slice(0, 50)) {
       try {
@@ -85039,8 +85039,8 @@ async function syncJobber(params) {
       };
     }
     const data = await res.json();
-    const invoices2 = data?.data?.invoices?.edges?.map((e) => e.node) || [];
-    const periodInvoices = invoices2.filter((inv) => {
+    const invoices3 = data?.data?.invoices?.edges?.map((e) => e.node) || [];
+    const periodInvoices = invoices3.filter((inv) => {
       const date5 = new Date(inv.createdAt);
       return date5 >= params.periodStart && date5 <= params.periodEnd;
     });
@@ -85053,7 +85053,7 @@ async function syncJobber(params) {
       transactionCount: periodInvoices.length,
       transactionsJson: JSON.stringify(periodInvoices.slice(0, 500)),
       rawJson: JSON.stringify({
-        totalInvoices: invoices2.length,
+        totalInvoices: invoices3.length,
         periodInvoices: periodInvoices.length
       })
     });
@@ -86548,8 +86548,8 @@ function parseCsvTransactions(text2) {
     const f = splitCsvLine2(lines3[i]);
     if (!f.length) continue;
     const rawDate = dateI >= 0 ? f[dateI] : f[0];
-    const ms5 = parseDateLoose(rawDate);
-    if (ms5 == null) continue;
+    const ms6 = parseDateLoose(rawDate);
+    if (ms6 == null) continue;
     let amount = NaN;
     if (amtI >= 0 && f[amtI]) amount = num3(f[amtI]);
     if (!Number.isFinite(amount)) {
@@ -86560,7 +86560,7 @@ function parseCsvTransactions(text2) {
       if (dv || cv) amount = cv - dv;
     }
     if (!Number.isFinite(amount) || amount === 0) continue;
-    out.push({ date: rawDate, description: descI >= 0 ? f[descI] || "" : "", amount: money3(amount), _ms: ms5 });
+    out.push({ date: rawDate, description: descI >= 0 ? f[descI] || "" : "", amount: money3(amount), _ms: ms6 });
   }
   return out;
 }
@@ -86832,11 +86832,11 @@ var normEmail = (s) => (s || "").toLowerCase().trim();
 var digits = (s) => (s || "").replace(/\D/g, "");
 var normId = (s) => (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 var bn9 = (s) => digits(s).slice(0, 9);
-function findDuplicateClients(clients4) {
+function findDuplicateClients(clients5) {
   const pairs = [];
-  for (let i = 0; i < clients4.length; i++) {
-    for (let j = i + 1; j < clients4.length; j++) {
-      const a = clients4[i], b = clients4[j];
+  for (let i = 0; i < clients5.length; i++) {
+    for (let j = i + 1; j < clients5.length; j++) {
+      const a = clients5[i], b = clients5[j];
       const reasons = [];
       let score = 0;
       const an = normName2(a.name), bn = normName2(b.name);
@@ -87096,7 +87096,7 @@ var practiceHealthRouter = createRouter({
     const year2 = input?.year ?? (/* @__PURE__ */ new Date()).getFullYear();
     const now = /* @__PURE__ */ new Date();
     const monthStart = new Date(year2, now.getMonth(), 1);
-    const [cs, runs, invoices2, allTasks] = await Promise.all([
+    const [cs, runs, invoices3, allTasks] = await Promise.all([
       db.select().from(clients),
       db.select().from(payRuns),
       db.select().from(qboInvoices),
@@ -87160,7 +87160,7 @@ var practiceHealthRouter = createRouter({
     })).sort((a, b) => b.monthlyFee - a.monthlyFee || b.ytdPayroll - a.ytdPayroll || a.name.localeCompare(b.name)).slice(0, 10);
     let billing = null;
     if (firm) {
-      const firmInv = invoices2.filter((i) => i.clientId === firm.id && yearOf2(i.transactionDate) === year2);
+      const firmInv = invoices3.filter((i) => i.clientId === firm.id && yearOf2(i.transactionDate) === year2);
       if (firmInv.length) {
         const invoiced = r24(firmInv.reduce((s, i) => s + (Number(i.totalAmount) || 0), 0));
         const outstanding = r24(firmInv.reduce((s, i) => s + (Number(i.balance) || 0), 0));
@@ -88447,9 +88447,9 @@ async function execSearchDrive(input, userId) {
     const res = await fetch(url2, { headers: { Authorization: `Bearer ${token2}` } });
     if (!res.ok) return `Couldn't search Drive (${res.status}).`;
     const data = await res.json();
-    const files2 = data.files || [];
-    if (!files2.length) return `No Drive files matched "${query}".`;
-    const rows = files2.map((f) => {
+    const files3 = data.files || [];
+    if (!files3.length) return `No Drive files matched "${query}".`;
+    const rows = files3.map((f) => {
       const mod = f.modifiedTime ? new Date(f.modifiedTime).toLocaleDateString(void 0, { month: "short", day: "numeric", year: "numeric" }) : "";
       const kind = String(f.mimeType || "").includes("folder") ? "\u{1F4C1}" : "\u{1F4C4}";
       return `${kind} ${f.name}${mod ? ` (modified ${mod})` : ""}${f.webViewLink ? `
@@ -88471,15 +88471,15 @@ async function execReadFile(input, userId) {
   try {
     const token2 = await getValidGoogleAccessToken(account);
     const H = { Authorization: `Bearer ${token2}` };
-    const FIELDS = "id,name,mimeType,webViewLink";
+    const FIELDS2 = "id,name,mimeType,webViewLink";
     let file2 = null;
     if (fileId) {
-      const r3 = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=${encodeURIComponent(FIELDS)}&supportsAllDrives=true`, { headers: H });
+      const r3 = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=${encodeURIComponent(FIELDS2)}&supportsAllDrives=true`, { headers: H });
       if (r3.ok) file2 = await r3.json();
     } else {
       const esc4 = query.replace(/'/g, "\\'");
       const q3 = `(name contains '${esc4}' or fullText contains '${esc4}') and trashed = false and mimeType != 'application/vnd.google-apps.folder'`;
-      const url2 = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q3)}&pageSize=1&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent(`files(${FIELDS})`)}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+      const url2 = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q3)}&pageSize=1&orderBy=${encodeURIComponent("modifiedTime desc")}&fields=${encodeURIComponent(`files(${FIELDS2})`)}&supportsAllDrives=true&includeItemsFromAllDrives=true`;
       const r3 = await fetch(url2, { headers: H });
       if (r3.ok) file2 = ((await r3.json()).files || [])[0];
     }
@@ -89549,9 +89549,9 @@ async function pullFirmBilling(months = 3) {
     if (!conn) return { period: period2, rows: [], error: "No firm (GoFig Bookz Inc.) QBO connection found." };
     const res = await qboRequest(conn, `/query?query=${encodeURIComponent(`SELECT * FROM Invoice WHERE TxnDate >= '${period2.start}' ORDERBY TxnDate DESC MAXRESULTS 1000`)}`);
     const body = res?.QueryResponse || res?.body?.QueryResponse || res?.tool_output?.body?.QueryResponse || res;
-    const invoices2 = body?.Invoice || body?.QueryResponse?.Invoice || [];
+    const invoices3 = body?.Invoice || body?.QueryResponse?.Invoice || [];
     const map2 = /* @__PURE__ */ new Map();
-    for (const inv of invoices2) {
+    for (const inv of invoices3) {
       const name2 = inv?.CustomerRef?.name || inv?.CustomerRef?.value || "Unknown";
       const amt = Number(inv?.TotalAmt) || 0;
       const cur = map2.get(name2) || { customer: name2, total: 0, monthlyAvg: 0, invoices: 0 };
@@ -92057,6 +92057,462 @@ var coaRouter = createRouter({
   })
 });
 
+// api/drive-cleanup-router.ts
+init_zod();
+init_middleware();
+init_connection();
+
+// db/sqlite-schema.ts
+init_sqlite_core();
+var users3 = sqliteTable("users", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  unionId: text("unionId").notNull().unique(),
+  name: text("name"),
+  email: text("email"),
+  avatar: text("avatar"),
+  role: text("role", { enum: ["user", "admin"] }).default("user").notNull(),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+  lastSignInAt: integer2("lastSignInAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+var connectedAccounts3 = sqliteTable("connected_accounts", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  userId: integer2("userId").notNull(),
+  provider: text("provider", { enum: ["google", "microsoft", "dropbox", "icloud"] }).notNull(),
+  providerAccountId: text("providerAccountId").notNull(),
+  accountLabel: text("accountLabel").default("Primary").notNull(),
+  accountEmail: text("accountEmail"),
+  accessToken: text("accessToken"),
+  refreshToken: text("refreshToken"),
+  expiresAt: integer2("expiresAt", { mode: "timestamp" }),
+  scopes: text("scopes"),
+  isActive: integer2("isActive", { mode: "boolean" }).default(true).notNull(),
+  syncEnabled: text("syncEnabled").default('{"email":true,"calendar":true,"files":true,"tasks":true}'),
+  lastSyncedAt: integer2("lastSyncedAt", { mode: "timestamp" }),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+var clients4 = sqliteTable("clients", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  userId: integer2("userId").notNull(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  company: text("company"),
+  address: text("address"),
+  taxId: text("taxId"),
+  status: text("status", { enum: ["active", "inactive", "prospect"] }).default("active").notNull(),
+  leadSource: text("leadSource"),
+  assignedTo: text("assignedTo"),
+  notes: text("notes"),
+  googleDriveFolderId: text("googleDriveFolderId"),
+  oneDriveFolderId: text("oneDriveFolderId"),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+var tasks5 = sqliteTable("tasks", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  userId: integer2("userId").notNull(),
+  clientId: integer2("clientId"),
+  title: text("title").notNull(),
+  description: text("description"),
+  dueDate: integer2("dueDate", { mode: "timestamp" }),
+  completed: integer2("completed", { mode: "boolean" }).default(false).notNull(),
+  priority: text("priority", { enum: ["low", "medium", "high"] }).default("medium").notNull(),
+  status: text("status", { enum: ["pending", "in_progress", "completed", "overdue"] }).default("pending").notNull(),
+  category: text("category"),
+  assignedTo: text("assignedTo"),
+  googleCalendarEventId: text("googleCalendarEventId"),
+  googleTaskId: text("googleTaskId"),
+  outlookTaskId: text("outlookTaskId"),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+var recurringTasks2 = sqliteTable("recurring_tasks", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  userId: integer2("userId").notNull(),
+  clientId: integer2("clientId"),
+  title: text("title").notNull(),
+  description: text("description"),
+  frequency: text("frequency", { enum: ["daily", "weekly", "biweekly", "monthly", "quarterly", "yearly"] }).notNull(),
+  startDate: integer2("startDate", { mode: "timestamp" }).notNull(),
+  endDate: integer2("endDate", { mode: "timestamp" }),
+  priority: text("priority", { enum: ["low", "medium", "high"] }).default("medium").notNull(),
+  category: text("category"),
+  assignedTo: text("assignedTo"),
+  lastGeneratedDate: integer2("lastGeneratedDate", { mode: "timestamp" }),
+  nextDueDate: integer2("nextDueDate", { mode: "timestamp" }).notNull(),
+  active: integer2("active", { mode: "boolean" }).default(true).notNull(),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+var emails2 = sqliteTable("emails", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  userId: integer2("userId").notNull(),
+  connectedAccountId: integer2("connectedAccountId").notNull(),
+  clientId: integer2("clientId"),
+  gmailMessageId: text("gmailMessageId"),
+  outlookMessageId: text("outlookMessageId"),
+  threadId: text("threadId"),
+  fromAddress: text("fromAddress").notNull(),
+  fromName: text("fromName"),
+  toAddresses: text("toAddresses").notNull(),
+  ccAddresses: text("ccAddresses"),
+  subject: text("subject"),
+  body: text("body"),
+  bodyPlain: text("bodyPlain"),
+  isRead: integer2("isRead", { mode: "boolean" }).default(false).notNull(),
+  isStarred: integer2("isStarred", { mode: "boolean" }).default(false).notNull(),
+  isImportant: integer2("isImportant", { mode: "boolean" }).default(false).notNull(),
+  labels: text("labels"),
+  attachments: text("attachments"),
+  receivedAt: integer2("receivedAt", { mode: "timestamp" }).notNull(),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+var files2 = sqliteTable("files", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  userId: integer2("userId").notNull(),
+  clientId: integer2("clientId"),
+  connectedAccountId: integer2("connectedAccountId"),
+  provider: text("provider", { enum: ["google_drive", "one_drive", "local"] }).notNull(),
+  providerFileId: text("providerFileId"),
+  providerParentId: text("providerParentId"),
+  name: text("name").notNull(),
+  mimeType: text("mimeType"),
+  size: integer2("size"),
+  webViewLink: text("webViewLink"),
+  downloadLink: text("downloadLink"),
+  thumbnailLink: text("thumbnailLink"),
+  isFolder: integer2("isFolder", { mode: "boolean" }).default(false).notNull(),
+  localPath: text("localPath"),
+  syncStatus: text("syncStatus", { enum: ["synced", "pending", "error", "offline"] }).default("synced").notNull(),
+  lastSyncedAt: integer2("lastSyncedAt", { mode: "timestamp" }),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+var calendarEvents2 = sqliteTable("calendar_events", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  userId: integer2("userId").notNull(),
+  clientId: integer2("clientId"),
+  connectedAccountId: integer2("connectedAccountId"),
+  taskId: integer2("taskId"),
+  googleEventId: text("googleEventId"),
+  outlookEventId: text("outlookEventId"),
+  title: text("title").notNull(),
+  description: text("description"),
+  location: text("location"),
+  startDate: integer2("startDate", { mode: "timestamp" }).notNull(),
+  endDate: integer2("endDate", { mode: "timestamp" }).notNull(),
+  isAllDay: integer2("isAllDay", { mode: "boolean" }).default(false).notNull(),
+  attendees: text("attendees"),
+  recurrence: text("recurrence"),
+  color: text("color"),
+  isRecurring: integer2("isRecurring", { mode: "boolean" }).default(false).notNull(),
+  status: text("status", { enum: ["confirmed", "tentative", "cancelled"] }).default("confirmed").notNull(),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+var invoices2 = sqliteTable("invoices", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  userId: integer2("userId").notNull(),
+  clientId: integer2("clientId").notNull(),
+  invoiceNumber: text("invoiceNumber").notNull(),
+  amount: real("amount").notNull(),
+  status: text("status", { enum: ["draft", "sent", "paid", "overdue"] }).default("draft").notNull(),
+  issueDate: integer2("issueDate", { mode: "timestamp" }).notNull(),
+  dueDate: integer2("dueDate", { mode: "timestamp" }).notNull(),
+  paidDate: integer2("paidDate", { mode: "timestamp" }),
+  description: text("description"),
+  notes: text("notes"),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+var invoiceItems2 = sqliteTable("invoice_items", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  invoiceId: integer2("invoiceId").notNull(),
+  description: text("description").notNull(),
+  quantity: real("quantity").default(1).notNull(),
+  rate: real("rate").notNull(),
+  amount: real("amount").notNull(),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+var interactions2 = sqliteTable("interactions", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  userId: integer2("userId").notNull(),
+  clientId: integer2("clientId").notNull(),
+  type: text("type", { enum: ["call", "email", "meeting", "video", "sms", "note", "other"] }).notNull(),
+  date: integer2("date", { mode: "timestamp" }).notNull(),
+  notes: text("notes"),
+  assignedTo: text("assignedTo"),
+  followUpDate: integer2("followUpDate", { mode: "timestamp" }),
+  emailId: integer2("emailId"),
+  calendarEventId: integer2("calendarEventId"),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+var aiAgentConfigs2 = sqliteTable("ai_agent_configs", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  userId: integer2("userId").notNull(),
+  name: text("name").notNull(),
+  agentType: text("agentType", { enum: ["bookkeeper", "executive_assistant", "sales_assistant", "customer_support", "custom"] }).notNull(),
+  description: text("description"),
+  capabilities: text("capabilities").default('{"readEmails":false,"sendEmails":false,"manageCalendar":false,"createTasks":true,"manageInvoices":false,"fileAccess":false,"clientCommunication":true}'),
+  webhookUrl: text("webhookUrl"),
+  webhookSecret: text("webhookSecret"),
+  model: text("model").default("gpt-4"),
+  temperature: real("temperature").default(0.7),
+  systemPrompt: text("systemPrompt"),
+  autoRun: integer2("autoRun", { mode: "boolean" }).default(false).notNull(),
+  runSchedule: text("runSchedule"),
+  lastRunAt: integer2("lastRunAt", { mode: "timestamp" }),
+  isActive: integer2("isActive", { mode: "boolean" }).default(true).notNull(),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+var aiAgentRuns2 = sqliteTable("ai_agent_runs", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  agentId: integer2("agentId").notNull(),
+  userId: integer2("userId").notNull(),
+  triggerType: text("triggerType", { enum: ["manual", "scheduled", "webhook", "api"] }).notNull(),
+  status: text("status", { enum: ["running", "completed", "failed", "cancelled"] }).default("running").notNull(),
+  input: text("input"),
+  output: text("output"),
+  actionsTaken: text("actionsTaken"),
+  errorMessage: text("errorMessage"),
+  durationMs: integer2("durationMs"),
+  startedAt: integer2("startedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+  completedAt: integer2("completedAt", { mode: "timestamp" })
+});
+var notifications2 = sqliteTable("notifications", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  userId: integer2("userId").notNull(),
+  type: text("type", { enum: ["task_due", "task_overdue", "invoice_overdue", "email_received", "calendar_event", "client_activity", "ai_agent_alert", "system"] }).notNull(),
+  title: text("title").notNull(),
+  message: text("message"),
+  relatedId: integer2("relatedId"),
+  relatedType: text("relatedType"),
+  isRead: integer2("isRead", { mode: "boolean" }).default(false).notNull(),
+  sentVia: text("sentVia", { enum: ["in_app", "email", "sms", "push"] }).default("in_app").notNull(),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+var userSettings2 = sqliteTable("user_settings", {
+  id: integer2("id").primaryKey({ autoIncrement: true }),
+  userId: integer2("userId").notNull().unique(),
+  notifyTaskDue: integer2("notifyTaskDue", { mode: "boolean" }).default(true).notNull(),
+  notifyTaskOverdue: integer2("notifyTaskOverdue", { mode: "boolean" }).default(true).notNull(),
+  notifyInvoiceOverdue: integer2("notifyInvoiceOverdue", { mode: "boolean" }).default(true).notNull(),
+  notifyNewEmail: integer2("notifyNewEmail", { mode: "boolean" }).default(false).notNull(),
+  notifyCalendarEvent: integer2("notifyCalendarEvent", { mode: "boolean" }).default(true).notNull(),
+  notifyClientActivity: integer2("notifyClientActivity", { mode: "boolean" }).default(false).notNull(),
+  notifyAIAgent: integer2("notifyAIAgent", { mode: "boolean" }).default(true).notNull(),
+  dashboardWidgets: text("dashboardWidgets").default('["stats","tasks","emails","calendar"]'),
+  defaultView: text("defaultView", { enum: ["dashboard", "clients", "tasks", "emails", "calendar", "files", "invoices"] }).default("dashboard"),
+  theme: text("theme", { enum: ["light", "dark", "system"] }).default("system"),
+  timezone: text("timezone").default("UTC"),
+  dateFormat: text("dateFormat").default("MMM d, yyyy"),
+  currency: text("currency").default("USD"),
+  createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+  updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+});
+
+// api/drive-cleanup-router.ts
+init_drizzle_orm();
+init_google_token();
+init_agent_audit();
+
+// api/drive-cleanup-core.ts
+function kindOf(mimeType) {
+  if (/^image\//.test(mimeType)) return "image";
+  if (/^video\//.test(mimeType)) return "video";
+  if (/^(application\/(pdf|vnd\.google-apps\.(document|spreadsheet|presentation))|text\/)/.test(mimeType)) return "document";
+  return "other";
+}
+var KIND_LABEL = { image: "Photos", video: "Videos", document: "Documents", other: "Other" };
+var ms5 = (f) => (f.modifiedTime ? Date.parse(f.modifiedTime) : 0) || (f.createdTime ? Date.parse(f.createdTime) : 0);
+var nameKey = (f) => f.name.trim().toLowerCase().replace(/\s+/g, " ");
+function chooseKeeper(files3) {
+  const sorted = [...files3].sort((a, b) => {
+    const ta = ms5(a) || Infinity, tb = ms5(b) || Infinity;
+    if (ta !== tb) return ta - tb;
+    if (a.name.length !== b.name.length) return a.name.length - b.name.length;
+    return a.id.localeCompare(b.id);
+  });
+  return { keeper: sorted[0], duplicates: sorted.slice(1) };
+}
+function findDuplicates(files3) {
+  const live = files3.filter((f) => !f.trashed);
+  const groups = [];
+  const claimed = /* @__PURE__ */ new Set();
+  const byMd5 = /* @__PURE__ */ new Map();
+  for (const f of live) {
+    if (!f.md5Checksum) continue;
+    (byMd5.get(f.md5Checksum) ?? byMd5.set(f.md5Checksum, []).get(f.md5Checksum)).push(f);
+  }
+  for (const [md5, grp] of byMd5) {
+    if (grp.length < 2) continue;
+    const { keeper, duplicates } = chooseKeeper(grp);
+    const size = grp[0].size ?? 0;
+    grp.forEach((f) => claimed.add(f.id));
+    groups.push({ key: `md5:${md5}`, kind: kindOf(keeper.mimeType), exact: true, size, keeper, duplicates, reclaim: size * duplicates.length });
+  }
+  const byNameSize = /* @__PURE__ */ new Map();
+  for (const f of live) {
+    if (claimed.has(f.id) || f.md5Checksum) continue;
+    const k = `${nameKey(f)}|${f.size ?? "?"}`;
+    (byNameSize.get(k) ?? byNameSize.set(k, []).get(k)).push(f);
+  }
+  for (const [k, grp] of byNameSize) {
+    if (grp.length < 2) continue;
+    const { keeper, duplicates } = chooseKeeper(grp);
+    const size = grp[0].size ?? 0;
+    groups.push({ key: `ns:${k}`, kind: kindOf(keeper.mimeType), exact: false, size, keeper, duplicates, reclaim: size * duplicates.length });
+  }
+  groups.sort((a, b) => Number(b.exact) - Number(a.exact) || b.reclaim - a.reclaim);
+  const reclaim = groups.reduce((s, g) => s + g.reclaim, 0);
+  const exactReclaim = groups.filter((g) => g.exact).reduce((s, g) => s + g.reclaim, 0);
+  return { groups, reclaim, exactReclaim };
+}
+function biggestFiles(files3, limit2 = 20) {
+  return files3.filter((f) => !f.trashed && (f.size ?? 0) > 0).sort((a, b) => (b.size ?? 0) - (a.size ?? 0)).slice(0, limit2).map((f) => ({ id: f.id, name: f.name, size: f.size ?? 0, kind: kindOf(f.mimeType), webViewLink: f.webViewLink }));
+}
+function summarizeScan(files3, dup) {
+  const live = files3.filter((f) => !f.trashed);
+  const kinds = ["image", "video", "document", "other"];
+  const byKind = kinds.map((kind) => {
+    const fs4 = live.filter((f) => kindOf(f.mimeType) === kind);
+    return { kind, label: KIND_LABEL[kind], count: fs4.length, bytes: fs4.reduce((s, f) => s + (f.size ?? 0), 0) };
+  }).filter((k) => k.count > 0);
+  return {
+    totalFiles: live.length,
+    totalBytes: live.reduce((s, f) => s + (f.size ?? 0), 0),
+    byKind,
+    dupGroups: dup.groups.length,
+    dupExtraFiles: dup.groups.reduce((s, g) => s + g.duplicates.length, 0),
+    reclaimBytes: dup.reclaim,
+    exactReclaimBytes: dup.exactReclaim
+  };
+}
+function safeTrashIds(requested, groups) {
+  const dupIds = /* @__PURE__ */ new Set();
+  const keeperIds = /* @__PURE__ */ new Set();
+  for (const g of groups) {
+    g.duplicates.forEach((d10) => dupIds.add(d10.id));
+    keeperIds.add(g.keeper.id);
+  }
+  const allowed = [], blocked = [];
+  for (const id of requested) (dupIds.has(id) && !keeperIds.has(id) ? allowed : blocked).push(id);
+  return { allowed, blocked };
+}
+
+// api/drive-cleanup-router.ts
+var FIELDS = "nextPageToken,files(id,name,mimeType,size,md5Checksum,modifiedTime,createdTime,parents,thumbnailLink,webViewLink,trashed,ownedByMe)";
+async function googleAccount2(accountId) {
+  const rows = await getDb().select().from(connectedAccounts3).where(and(eq2(connectedAccounts3.id, accountId), eq2(connectedAccounts3.provider, "google")));
+  return rows[0] || null;
+}
+async function listDriveFiles(token2, kind, folderId, maxPages = 20) {
+  const mimeClause = kind === "image" ? " and mimeType contains 'image/'" : kind === "video" ? " and mimeType contains 'video/'" : kind === "media" ? " and (mimeType contains 'image/' or mimeType contains 'video/')" : "";
+  const folderClause = folderId ? ` and '${folderId}' in parents` : "";
+  const q3 = `trashed = false${mimeClause}${folderClause}`;
+  const out = [];
+  let pageToken;
+  for (let i = 0; i < maxPages; i++) {
+    const params = new URLSearchParams({
+      q: q3,
+      fields: FIELDS,
+      pageSize: "1000",
+      spaces: "drive",
+      corpora: "user",
+      orderBy: "modifiedTime",
+      ...pageToken ? { pageToken } : {}
+    });
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, { headers: { Authorization: `Bearer ${token2}` } });
+    if (!res.ok) throw new Error(`Drive API ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const data = await res.json();
+    for (const f of data.files ?? []) out.push({ ...f, size: f.size != null ? Number(f.size) : void 0 });
+    pageToken = data.nextPageToken;
+    if (!pageToken) break;
+  }
+  return out;
+}
+var driveCleanupRouter = createRouter({
+  /** Connected Google accounts you can clean (business gofig + any personal gmail). */
+  accounts: staffQuery.query(async () => {
+    const rows = await getDb().select().from(connectedAccounts3).where(eq2(connectedAccounts3.provider, "google"));
+    return rows.filter((a) => a.isActive).map((a) => ({ id: a.id, email: a.accountEmail, label: a.accountLabel }));
+  }),
+  /** Scan a Drive: duplicates (exact + possible), biggest files, totals by kind. Read-only. */
+  scan: staffQuery.input(external_exports.object({ accountId: external_exports.number(), kind: external_exports.enum(["all", "image", "video", "media"]).default("media"), folderId: external_exports.string().optional() })).mutation(async ({ input }) => {
+    const acct = await googleAccount2(input.accountId);
+    if (!acct) return { ok: false, error: "account_not_found" };
+    let token2;
+    try {
+      token2 = await getValidGoogleAccessToken(acct);
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "token_error" };
+    }
+    try {
+      const files3 = await listDriveFiles(token2, input.kind, input.folderId);
+      const dup = findDuplicates(files3);
+      return {
+        ok: true,
+        email: acct.accountEmail,
+        summary: summarizeScan(files3, dup),
+        groups: dup.groups.slice(0, 200).map((g) => ({
+          key: g.key,
+          kind: g.kind,
+          exact: g.exact,
+          size: g.size,
+          reclaim: g.reclaim,
+          keeper: { id: g.keeper.id, name: g.keeper.name, modifiedTime: g.keeper.modifiedTime, webViewLink: g.keeper.webViewLink, thumbnailLink: g.keeper.thumbnailLink },
+          duplicates: g.duplicates.map((d10) => ({ id: d10.id, name: d10.name, modifiedTime: d10.modifiedTime, webViewLink: d10.webViewLink, thumbnailLink: d10.thumbnailLink }))
+        })),
+        biggest: biggestFiles(files3, 25)
+      };
+    } catch (e) {
+      return { ok: true, error: e instanceof Error ? e.message : String(e) };
+    }
+  }),
+  /**
+   * Move duplicate copies to Trash (REVERSIBLE — recoverable for 30 days). Re-scans first
+   * and only trashes ids that are a duplicate (never a keeper) in the live Drive — so a
+   * stale UI can't delete an original. Audited.
+   */
+  trashDuplicates: staffQuery.input(external_exports.object({ accountId: external_exports.number(), fileIds: external_exports.array(external_exports.string()).min(1).max(500), kind: external_exports.enum(["all", "image", "video", "media"]).default("media") })).mutation(async ({ input, ctx }) => {
+    const acct = await googleAccount2(input.accountId);
+    if (!acct) return { ok: false, error: "account_not_found" };
+    let token2;
+    try {
+      token2 = await getValidGoogleAccessToken(acct);
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "token_error" };
+    }
+    const files3 = await listDriveFiles(token2, input.kind);
+    const { groups } = findDuplicates(files3);
+    const { allowed, blocked } = safeTrashIds(input.fileIds, groups);
+    const trashed = [], failed = [];
+    for (const id of allowed) {
+      try {
+        const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=id`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token2}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ trashed: true })
+        });
+        (res.ok ? trashed : failed).push(id);
+      } catch {
+        failed.push(id);
+      }
+    }
+    await recordAudit({
+      userId: ctx.user.id,
+      agentScope: "liv",
+      action: "drive_trash_duplicates",
+      summary: `Moved ${trashed.length} duplicate file(s) to Trash on ${acct.accountEmail} (reversible). Blocked ${blocked.length} non-duplicate.`,
+      decision: "done"
+    });
+    return { ok: true, trashed: trashed.length, failed: failed.length, blocked: blocked.length };
+  })
+});
+
 // api/genealogy-router.ts
 init_zod();
 init_middleware();
@@ -93073,6 +93529,7 @@ var appRouter = createRouter({
   opportunities: opportunitiesRouter,
   cashPosition: cashPositionRouter,
   coa: coaRouter,
+  driveCleanup: driveCleanupRouter,
   loanTracker: loanTrackerRouter
 });
 
@@ -93355,7 +93812,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.240";
+var BUILD_TAG = "2026-06-27.241";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -94314,7 +94771,7 @@ app.post("/api/admin/import-clients", async (c) => {
       return c.json({ error: "Invalid token" }, 401);
     }
     const db = getDb();
-    const { clients: clients4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { clients: clients5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const { eq: eq4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const { ensureComplianceForClient: ensureComplianceForClient2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
     const CLIENTS_DATA2 = [
@@ -94342,12 +94799,12 @@ app.post("/api/admin/import-clients", async (c) => {
     const results = { imported: 0, skipped: 0, tasksCreated: 0, errors: [] };
     for (const clientData of CLIENTS_DATA2) {
       try {
-        const existing = await db.select().from(clients4).where(eq4(clients4.name, clientData.name)).limit(1);
+        const existing = await db.select().from(clients5).where(eq4(clients5.name, clientData.name)).limit(1);
         if (existing.length > 0) {
           results.skipped++;
           continue;
         }
-        const [client] = await db.insert(clients4).values({
+        const [client] = await db.insert(clients5).values({
           ...clientData,
           userId: 1,
           createdAt: /* @__PURE__ */ new Date(),
@@ -94436,9 +94893,9 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "clients") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, qboConnections: qboConnections2, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5, qboConnections: qboConnections2, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const db = getDb2();
-      const cs = await db.select().from(clients4);
+      const cs = await db.select().from(clients5);
       const conns = await db.select().from(qboConnections2);
       const ruleRows = await db.select().from(clientTaskRules4);
       const byClient = /* @__PURE__ */ new Map();
@@ -94473,9 +94930,9 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "tasks") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { tasks: tasks6 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const db = getDb2();
-      const all = await db.select().from(tasks5);
+      const all = await db.select().from(tasks6);
       const withDue = all.filter((t2) => t2.dueDate != null);
       const openWithDue = withDue.filter((t2) => !t2.completed);
       const sample = all.slice(0, 15).map((t2) => ({
@@ -94500,10 +94957,10 @@ app.post("/api/admin/figgy", async (c) => {
     }
     if (op === "backfillDueDates") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { tasks: tasks6 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
-      const all = await db.select().from(tasks5);
+      const all = await db.select().from(tasks6);
       const open3 = all.filter((t2) => !t2.completed && t2.dueDate == null);
       let i = 0;
       const updated = [];
@@ -94511,7 +94968,7 @@ app.post("/api/admin/figgy", async (c) => {
         const d10 = /* @__PURE__ */ new Date();
         d10.setHours(9, 0, 0, 0);
         d10.setDate(d10.getDate() + i % 10 + 1);
-        await db.update(tasks5).set({ dueDate: d10 }).where(eq4(tasks5.id, t2.id));
+        await db.update(tasks6).set({ dueDate: d10 }).where(eq4(tasks6.id, t2.id));
         updated.push(t2.id);
         i++;
       }
@@ -94521,10 +94978,10 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq4, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq4(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients5).where(eq4(clients5.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq4(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       return c.json({ success: true, op, client: {
@@ -94549,12 +95006,12 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq4, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq4(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients5).where(eq4(clients5.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq4(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const scope = buildScopeForClient2(cl, onb);
@@ -94566,14 +95023,14 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq4, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
       const { renderQuoteHtml: renderQuoteHtml2 } = await Promise.resolve().then(() => (init_quote_doc(), quote_doc_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq4(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients5).where(eq4(clients5.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq4(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
@@ -94590,12 +95047,12 @@ app.post("/api/admin/figgy", async (c) => {
         documentType: "custom",
         clientEmail: cl.email || null
       });
-      await db.update(clients4).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: /* @__PURE__ */ new Date(), workflowStatus: "quote_sent" }).where(eq4(clients4.id, cl.id));
+      await db.update(clients5).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: /* @__PURE__ */ new Date(), workflowStatus: "quote_sent" }).where(eq4(clients5.id, cl.id));
       return c.json({ success: true, op, clientName: cl.name, recurringMonthly: quote.recurringMonthly, nearestPackage: quote.nearestPackage, ...res });
     }
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks6, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq4, and: and9 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
@@ -94606,15 +95063,15 @@ app.post("/api/admin/figgy", async (c) => {
       const steps = [];
       const TESTNAME = "E2E Test Co Inc.";
       try {
-        const prev = await db.select().from(clients4).where(eq4(clients4.name, TESTNAME));
+        const prev = await db.select().from(clients5).where(eq4(clients5.name, TESTNAME));
         for (const p of prev) {
-          await db.delete(tasks5).where(eq4(tasks5.clientId, p.id));
+          await db.delete(tasks6).where(eq4(tasks6.clientId, p.id));
           await db.delete(clientTaskRules4).where(eq4(clientTaskRules4.clientId, p.id));
           await db.delete(signatureDocuments2).where(eq4(signatureDocuments2.clientId, p.id));
           await db.delete(clientOnboarding2).where(eq4(clientOnboarding2.clientId, p.id));
-          await db.delete(clients4).where(eq4(clients4.id, p.id));
+          await db.delete(clients5).where(eq4(clients5.id, p.id));
         }
-        const [cl] = await db.insert(clients4).values({
+        const [cl] = await db.insert(clients5).values({
           userId: 1,
           name: TESTNAME,
           company: TESTNAME,
@@ -94711,7 +95168,7 @@ app.post("/api/admin/figgy", async (c) => {
         }
         const signedCount = (await db.select().from(signatureDocuments2).where(and9(eq4(signatureDocuments2.clientId, cl.id), eq4(signatureDocuments2.status, "signed")))).length;
         steps.push(`signed ${signedCount}/2 documents`);
-        await db.update(clients4).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq4(clients4.id, cl.id));
+        await db.update(clients5).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq4(clients5.id, cl.id));
         const res = await createClientTaskRules2({
           clientId: cl.id,
           userId: 1,
@@ -94728,7 +95185,7 @@ app.post("/api/admin/figgy", async (c) => {
           hasInvestments: true,
           needsYearEnd: true
         });
-        const taskCount = (await db.select().from(tasks5).where(eq4(tasks5.clientId, cl.id))).length;
+        const taskCount = (await db.select().from(tasks6).where(eq4(tasks6.clientId, cl.id))).length;
         steps.push(`activated \u2192 ${res.rules.length} rules, ${res.tasks.length} recurring tasks, ${taskCount} tasks total`);
         return c.json({
           success: true,
@@ -94748,14 +95205,14 @@ app.post("/api/admin/figgy", async (c) => {
       const clientId = Number(c.req.query("clientId") || body?.clientId);
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq4, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
       const { renderEngagementHtml: renderEngagementHtml2 } = await Promise.resolve().then(() => (init_quote_doc(), quote_doc_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq4(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients5).where(eq4(clients5.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
       const onb = (await db.select().from(clientOnboarding2).where(eq4(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
@@ -95185,11 +95642,11 @@ async function startServer() {
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { reorderNumberedName: reorderNumberedName2 } = await Promise.resolve().then(() => (init_client_name(), client_name_exports));
       const db = getDb2();
-      const rows = await db.select().from(clients4);
+      const rows = await db.select().from(clients5);
       for (const cl of rows) {
         const patch = {};
         const newName = reorderNumberedName2(cl.name);
@@ -95198,7 +95655,7 @@ async function startServer() {
         if (newCompany && newCompany !== cl.company) patch.company = newCompany;
         if (Object.keys(patch).length) {
           try {
-            await db.update(clients4).set(patch).where(eq4(clients4.id, cl.id));
+            await db.update(clients5).set(patch).where(eq4(clients5.id, cl.id));
           } catch {
           }
         }
@@ -95208,31 +95665,31 @@ async function startServer() {
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5, tasks: tasks6, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq4, and: and9, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
-      const matches = await db.select().from(clients4).where(like3(clients4.name, "%Doc King%"));
+      const matches = await db.select().from(clients5).where(like3(clients5.name, "%Doc King%"));
       for (const cl of matches) {
         if (cl.clientType !== "wholesale") {
-          await db.update(clients4).set({ clientType: "wholesale" }).where(eq4(clients4.id, cl.id));
+          await db.update(clients5).set({ clientType: "wholesale" }).where(eq4(clients5.id, cl.id));
         }
         await db.update(clientTaskRules4).set({ active: false }).where(eq4(clientTaskRules4.clientId, cl.id));
-        await db.delete(tasks5).where(and9(eq4(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
+        await db.delete(tasks6).where(and9(eq4(tasks6.clientId, cl.id), ne4(tasks6.status, "completed")));
       }
     } catch (e) {
       console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { clients: clients4, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { clients: clients5, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eq4, and: and9, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
-        const matches = await db.select().from(clients4).where(like3(clients4.name, nameLike));
+        const matches = await db.select().from(clients5).where(like3(clients5.name, nameLike));
         for (const cl of matches) {
           const patch = {};
           for (const [k, v2] of Object.entries(flags)) if (!cl[k]) patch[k] = v2;
-          if (Object.keys(patch).length) await db.update(clients4).set(patch).where(eq4(clients4.id, cl.id));
+          if (Object.keys(patch).length) await db.update(clients5).set(patch).where(eq4(clients5.id, cl.id));
         }
         return matches;
       };
@@ -95245,11 +95702,11 @@ async function startServer() {
         const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
         const marker = await db.select().from(appSettings2).where(eq4(appSettings2.key, "fix_sharebonus_originality_only_v1")).limit(1);
         if (!marker[0]) {
-          const all = await db.select().from(clients4);
+          const all = await db.select().from(clients5);
           for (const cl of all) {
             if (/originality/i.test(cl.name || "")) continue;
             if (cl.payrollBonuses || cl.payrollRevenueShare) {
-              await db.update(clients4).set({ payrollBonuses: 0, payrollRevenueShare: 0 }).where(eq4(clients4.id, cl.id));
+              await db.update(clients5).set({ payrollBonuses: 0, payrollRevenueShare: 0 }).where(eq4(clients5.id, cl.id));
             }
           }
           await db.insert(appSettings2).values({ key: "fix_sharebonus_originality_only_v1", value: (/* @__PURE__ */ new Date()).toISOString() });
