@@ -90590,6 +90590,48 @@ function validateEntry(e) {
   }
   return problems;
 }
+var NON_REVENUE_IN = ["owner contribution", "owner deposit", "loan", "transfer", "capital", "refund"];
+function isRevenueIn(category) {
+  const c = (category || "").toLowerCase();
+  return !NON_REVENUE_IN.some((k) => c.includes(k));
+}
+function hstWorksheet(entries, opts = {}) {
+  const scoped = opts.start || opts.end ? inRange(entries, opts.start, opts.end) : entries;
+  let line101 = 0, collected = 0, itc = 0, salesCount = 0, itcCount = 0, untaxed = 0;
+  for (const e of scoped) {
+    const amt = Math.abs(Number(e.amount) || 0);
+    const h = Math.abs(Number(e.hst) || 0);
+    if (e.direction === "in") {
+      if (!isRevenueIn(e.category)) continue;
+      line101 += amt - h;
+      if (h > 0) {
+        collected += h;
+        salesCount += 1;
+      } else {
+        untaxed += amt;
+      }
+    } else {
+      if (h > 0) {
+        itc += h;
+        itcCount += 1;
+      }
+    }
+  }
+  const net = r26(collected - itc);
+  return {
+    start: opts.start,
+    end: opts.end,
+    line101Sales: r26(line101),
+    line105Collected: r26(collected),
+    line108Itc: r26(itc),
+    line109NetTax: net,
+    owing: net,
+    isRefund: net < 0,
+    salesCount,
+    itcCount,
+    untaxedSales: r26(untaxed)
+  };
+}
 var DEFAULT_CATEGORIES = [
   { name: "Sales / revenue", direction: "in" },
   { name: "Owner contribution", direction: "in" },
@@ -90768,6 +90810,13 @@ var cashBookRouter = createRouter({
     if (!acct) return null;
     const all = await loadEntries(input.clientId, input.accountId);
     return reconcile(all, input.statementBalance, acct.openingBalance || 0);
+  }),
+  // ───────── HST / GST RETURN WORKSHEET (deterministic from the book) ─────────
+  hstWorksheet: staffQuery.input(external_exports.object({ clientId: external_exports.number(), accountId: external_exports.number(), start: external_exports.string().optional(), end: external_exports.string().optional() })).query(async ({ input }) => {
+    const acct = await getAccount(input.clientId, input.accountId);
+    if (!acct) return null;
+    const all = await loadEntries(input.clientId, input.accountId);
+    return { account: acct, worksheet: hstWorksheet(all, { start: input.start, end: input.end }) };
   }),
   // ───────── YEAR-END / PERIOD SUMMARY (the T2 backbone) ─────────
   summary: staffQuery.input(external_exports.object({ clientId: external_exports.number(), accountId: external_exports.number(), start: external_exports.string().optional(), end: external_exports.string().optional() })).query(async ({ input }) => {
@@ -92078,7 +92127,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.224";
+var BUILD_TAG = "2026-06-27.225";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
