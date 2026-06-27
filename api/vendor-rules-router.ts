@@ -16,7 +16,7 @@ import { createRouter, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { vendorMemory } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { getConnectionForClient } from "./qbo-vendor-brain";
+import { getConnectionForClient, suggestForClient } from "./qbo-vendor-brain";
 import { qboRequest } from "./qbo-router";
 
 const arr = (data: any, entity: string): any[] => (data?.QueryResponse?.[entity] ?? []) as any[];
@@ -61,6 +61,68 @@ export const vendorRulesRouter = createRouter({
         if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false as const, error: "bridge_not_returning_data" };
         return { ok: false as const, error: msg };
       }
+    }),
+
+  /**
+   * Suggest rules from history: scan the client's vendors, run the brain on each,
+   * and return the ones whose history is CONSISTENT (green) and don't already have a
+   * confirmed rule — so Markie locks the obvious recurring vendors (Bell, hydro, rent)
+   * in bulk instead of building each by hand. Deliberate scan: uses live QBO calls,
+   * so it's capped (default 40 vendors, most-recent-first by QBO order) and labelled.
+   */
+  suggestRules: staffQuery
+    .input(z.object({ clientId: z.number(), limit: z.number().min(1).max(100).optional() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const cr = await getConnectionForClient(input.clientId);
+      if ("error" in cr) return { ok: false as const, error: cr.error };
+      const conn = cr.conn as any;
+      const cap = input.limit ?? 40;
+      let vendors: Array<{ id: string; name: string }>;
+      try {
+        const data = await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT Id, DisplayName FROM Vendor WHERE Active = true ORDER BY DisplayName MAXRESULTS 1000")}`);
+        vendors = arr(data, "Vendor").map((v: any) => ({ id: String(v.Id), name: v.DisplayName }));
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false as const, error: "bridge_not_returning_data" };
+        return { ok: false as const, error: msg };
+      }
+
+      // Skip vendors that already have a confirmed rule.
+      const ruled = new Set(
+        (await db.select().from(vendorMemory).where(and(eq(vendorMemory.connectionId, conn.id), eq(vendorMemory.confirmedByHuman, true))))
+          .map((r: any) => String(r.qboVendorId)),
+      );
+      const todo = vendors.filter((v) => !ruled.has(v.id)).slice(0, cap);
+
+      const suggestions: any[] = [];
+      let scanned = 0, errors = 0;
+      for (const v of todo) {
+        scanned++;
+        try {
+          const r = await suggestForClient(input.clientId, { vendorName: v.name });
+          if (!r.ok) { errors++; continue; }
+          const c: any = r.coding ?? {};
+          // Only the clean, repeating vendors become silent rules (green + has an account).
+          if (c.triage === "green" && c.suggestedAccountId) {
+            suggestions.push({
+              qboVendorId: r.resolution?.vendorId ?? v.id,
+              vendorName: r.resolution?.displayName ?? v.name,
+              accountId: c.suggestedAccountId,
+              accountName: c.suggestedAccountName ?? null,
+              taxCode: c.suggestedTaxCode ?? null,
+              confidence: typeof c.confidence === "number" ? c.confidence : null,
+              sampleCount: c.sampleCount ?? null,
+              rationale: c.rationale ?? null,
+            });
+          }
+        } catch { errors++; }
+      }
+      return {
+        ok: true as const,
+        suggestions,
+        meta: { totalVendors: vendors.length, alreadyRuled: ruled.size, scanned, errors, capped: vendors.length - ruled.size > cap },
+      };
     }),
 
   /** Lock a rule: this vendor always codes to this account/tax (confirmed → wins over history). */
