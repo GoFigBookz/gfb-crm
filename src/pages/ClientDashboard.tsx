@@ -1912,8 +1912,10 @@ function ComplianceTab({ clientId, client, onboarding, closeStatus, tasks, onOpe
       {/* "Who paid this?" — cross-account / cross-entity double-post finder. */}
       <PaymentSourceCard clientId={clientId} groupName={(client as any).groupName} />
 
-      {/* Inter-company recharge (invoice → bill) — per-client tool, for group clients. */}
-      {(client as any).groupName && <IntercoRechargePanel defaultPayerId={clientId} />}
+      {/* Inter-company recharge (invoice → bill) — shows when the client is flagged for
+          recharge (e.g. Alderson) OR belongs to a group. Was gated on groupName alone,
+          which hid it for Alderson (hasRecharge=1 but no groupName set). */}
+      {((client as any).hasRecharge || (client as any).groupName) && <IntercoRechargePanel defaultPayerId={clientId} />}
 
       {/* Filing status from the live close engine */}
       <Card>
