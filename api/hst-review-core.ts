@@ -434,3 +434,99 @@ export function runHstReview(input: { accounts: RawAccount[]; taxCodes: RawTaxCo
     counts: { transactions: input.txns.length, accounts: input.accounts.length },
   };
 }
+
+// ===========================================================================
+// EXCEPTION-REPORT RECONCILE (Markie's method — the authoritative cross-check).
+// ===========================================================================
+// Instead of trusting our own transaction scan, take QuickBooks' OWN tax numbers
+// (its Tax/Exception report: HST collected on sales + ITCs on purchases) and check
+// that the resulting NET TAX equals the balance sitting in the HST control account at
+// period end. If they don't tie, the difference is the exception total — money in the
+// HST account that the return doesn't explain (a manual JE, an opening balance, a
+// prior-period adjustment, or a miscode). This is the only check that proves the filing
+// matches the books. Works from PASTED report numbers — no live connection required.
+// ===========================================================================
+
+export interface HstExceptionReconcileInput {
+  collected: number;          // HST collected on sales (QBO Line 105 / output tax)
+  itc: number;                // input tax credits on purchases (QBO Line 108)
+  adjustments?: number;       // any HST adjustments on the return (Line 104/107), signed
+  hstAccountBalance: number;  // GST/HST Payable (or Suspense) balance at period END
+  priorUnfiled?: number;      // HST carried in the account from a prior, not-yet-filed period
+  tolerance?: number;
+}
+
+export interface HstExceptionReconcile {
+  collected: number;
+  itc: number;
+  adjustments: number;
+  netTax: number;             // collected − itc + adjustments — what the return says is owed
+  hstAccountBalance: number;
+  priorUnfiled: number;
+  expectedInAccount: number;  // netTax + priorUnfiled — what SHOULD be in the account
+  diff: number;               // hstAccountBalance − expectedInAccount  (the exception total)
+  tied: boolean;
+  verdict: RateVerdict;
+  message: string;
+}
+
+/**
+ * The cross-check Markie wants: net tax from QuickBooks' tax report must equal what's
+ * sitting in the HST account at period end (allowing for any prior unfiled balance).
+ * Pure: paste the three numbers, get a tie/no-tie + the exact gap.
+ */
+export function reconcileHstException(input: HstExceptionReconcileInput): HstExceptionReconcile {
+  const collected = money(input.collected || 0);
+  const itc = money(input.itc || 0);
+  const adjustments = money(input.adjustments || 0);
+  const priorUnfiled = money(input.priorUnfiled || 0);
+  const hstAccountBalance = money(input.hstAccountBalance || 0);
+  const tol = input.tolerance ?? 1;
+  const netTax = money(collected - itc + adjustments);
+  const expectedInAccount = money(netTax + priorUnfiled);
+  const diff = money(hstAccountBalance - expectedInAccount);
+  const tied = Math.abs(diff) <= tol;
+  return {
+    collected, itc, adjustments, netTax, hstAccountBalance, priorUnfiled, expectedInAccount, diff, tied,
+    verdict: tied ? "green" : "red",
+    message: tied
+      ? `Tied — net tax ${money(netTax)} equals the HST account (${money(hstAccountBalance)}). The return matches the books.`
+      : `Net tax ${money(netTax)} (collected ${money(collected)} − ITC ${money(itc)}${adjustments ? ` ${adjustments >= 0 ? "+" : "−"} adj ${money(Math.abs(adjustments))}` : ""}) but the HST account holds ${money(hstAccountBalance)}${priorUnfiled ? ` (incl. ${money(priorUnfiled)} prior unfiled)` : ""} — a ${money(Math.abs(diff))} exception. Something hit the HST account that the return doesn't explain (manual JE, opening balance, prior-period adjustment, or a miscode). Find and clear it before filing.`,
+  };
+}
+
+/**
+ * Best-effort parse of a PASTED QuickBooks tax/exception report to pull the three key
+ * numbers (collected, ITC, net) so Markie doesn't retype them. Looks for the line labels
+ * QBO uses; falls back to nulls (he can type them). Tolerant of $, commas, parens.
+ */
+export interface ParsedTaxReport { collected: number | null; itc: number | null; netTax: number | null; matched: string[] }
+export function parseTaxReportNumbers(text: string): ParsedTaxReport {
+  const out: ParsedTaxReport = { collected: null, itc: null, netTax: null, matched: [] };
+  const numFrom = (s: string): number | null => {
+    const m = s.match(/\(?-?\$?\s*[\d,]+(?:\.\d+)?\)?/g);
+    if (!m || !m.length) return null;
+    const last = m[m.length - 1];
+    const neg = /^\(.*\)$/.test(last) || /^-/.test(last);
+    const mag = Number(last.replace(/[()$,\s-]/g, ""));
+    return Number.isFinite(mag) ? (neg ? -mag : mag) : null;
+  };
+  for (const raw of (text || "").split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    const low = line.toLowerCase();
+    if (out.collected == null && /(collected|line\s*105|tax on sales|gst\/hst on sales|output tax|sales tax collected)/.test(low)) {
+      const n = numFrom(line); if (n != null) { out.collected = Math.abs(n); out.matched.push("collected"); continue; }
+    }
+    if (out.itc == null && /(input tax credit|itc|line\s*108|tax on purchases|gst\/hst on purchases)/.test(low)) {
+      const n = numFrom(line); if (n != null) { out.itc = Math.abs(n); out.matched.push("itc"); continue; }
+    }
+    if (out.netTax == null && /(net tax|line\s*109|balance \(refund\)|net gst\/hst)/.test(low)) {
+      const n = numFrom(line); if (n != null) { out.netTax = n; out.matched.push("netTax"); }
+    }
+  }
+  // If only net + one side given, infer the other.
+  if (out.netTax != null && out.collected != null && out.itc == null) out.itc = money(out.collected - out.netTax);
+  if (out.netTax != null && out.itc != null && out.collected == null) out.collected = money(out.netTax + out.itc);
+  return out;
+}
