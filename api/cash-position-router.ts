@@ -17,8 +17,8 @@ import { getDb } from "./queries/connection";
 import { sql } from "drizzle-orm";
 import { qboRequest } from "./qbo-router";
 import { getConnectionForClient } from "./qbo-vendor-brain";
-import { bankBreakdownFromAccounts } from "./qbo-cashflow";
-import { assessCashPosition } from "./cash-position-core";
+import { bankBreakdownFromAccounts, staleFeedFromTransactionList } from "./qbo-cashflow";
+import { assessCashPosition, type StaleAccount } from "./cash-position-core";
 
 const arr = (data: any, entity: string): any[] => (data?.QueryResponse?.[entity] ?? []) as any[];
 const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
@@ -64,7 +64,23 @@ export const cashPositionRouter = createRouter({
       const bb = bankBreakdownFromAccounts(accounts);
       const payrollNeed = await payrollNeedFor(input.clientId);
       const minBuffer = await bufferFor(input.clientId);
-      const position = assessCashPosition({ cashTotal: bb.cashTotal, creditCardOwed: bb.creditCardOwed, payrollNeed, minBuffer });
+
+      // "Is each account up to date?" — last posting date per account from a recent
+      // TransactionList (best-effort; one report). Markie: flag if older than ~5 days.
+      let staleAccounts: StaleAccount[] = [];
+      try {
+        const now = new Date();
+        const end = now.toISOString().slice(0, 10);
+        const start = new Date(now.getTime() - 90 * 86400000).toISOString().slice(0, 10);
+        const report = await qboRequest(conn, `/reports/TransactionList?start_date=${start}&end_date=${end}&columns=tx_date,account_name,subt_nat_amount`);
+        const stale = staleFeedFromTransactionList(report, now, 5);
+        const bankNames = new Set(bb.bankAccounts.map((a) => a.name));
+        staleAccounts = Object.entries(stale.perAccount)
+          .filter(([name]) => bankNames.has(name))   // only the bank/credit-card accounts
+          .map(([name, days]) => ({ name, days }));
+      } catch (e) { console.error(`[cash-position] stale-feed (client ${input.clientId}):`, e instanceof Error ? e.message : e); }
+
+      const position = assessCashPosition({ cashTotal: bb.cashTotal, creditCardOwed: bb.creditCardOwed, payrollNeed, minBuffer, staleAccounts, staleThresholdDays: 5 });
       return {
         connected: true as const,
         asOf: new Date().toISOString(),

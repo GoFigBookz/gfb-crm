@@ -91624,16 +91624,19 @@ function assessCashPosition(input) {
   const needsTransfer = effectiveCash < buffer;
   const suggestedTransfer = needsTransfer ? r27(buffer - effectiveCash) : 0;
   const ccHigh = cash > 0 ? cc >= cash : cc > 0;
+  const threshold = input.staleThresholdDays ?? 5;
+  const staleAccounts = (input.staleAccounts || []).filter((a) => Number.isFinite(a.days) && a.days > threshold).sort((a, b) => b.days - a.days);
   const flags = [];
   if (payrollShortfall > 0) flags.push(`Not enough to cover the next payroll \u2014 short ${money4(payrollShortfall)}.`);
   else if (enoughForPayroll === true && need != null) flags.push(`Payroll covered \u2014 ${money4(afterPayroll)} left after the run.`);
   if (needsTransfer) flags.push(`Balance is heading below the ${money4(buffer)} buffer \u2014 transfer in about ${money4(suggestedTransfer)}.`);
   if (cash < 0) flags.push(`Bank balance is negative (${money4(cash)}).`);
   if (ccHigh && cc > 0) flags.push(`Credit card owing (${money4(cc)}) is high vs cash on hand (${money4(cash)}).`);
+  for (const a of staleAccounts) flags.push(`${a.name} hasn't posted in ${a.days} days \u2014 likely behind / needs catching up.`);
   if (!flags.length) flags.push("Healthy \u2014 cash covers the buffer and upcoming payroll.");
   let status = "ok";
   if (payrollShortfall > 0 || cash < 0 || afterPayroll != null && afterPayroll < 0) status = "alert";
-  else if (needsTransfer || ccHigh) status = "watch";
+  else if (needsTransfer || ccHigh || staleAccounts.length) status = "watch";
   return {
     cashTotal: cash,
     creditCardOwed: cc,
@@ -91646,6 +91649,7 @@ function assessCashPosition(input) {
     needsTransfer,
     suggestedTransfer,
     ccHigh,
+    staleAccounts,
     status,
     flags
   };
@@ -91694,7 +91698,19 @@ var cashPositionRouter = createRouter({
       const bb = bankBreakdownFromAccounts(accounts);
       const payrollNeed = await payrollNeedFor(input.clientId);
       const minBuffer = await bufferFor(input.clientId);
-      const position = assessCashPosition({ cashTotal: bb.cashTotal, creditCardOwed: bb.creditCardOwed, payrollNeed, minBuffer });
+      let staleAccounts = [];
+      try {
+        const now = /* @__PURE__ */ new Date();
+        const end = now.toISOString().slice(0, 10);
+        const start = new Date(now.getTime() - 90 * 864e5).toISOString().slice(0, 10);
+        const report = await qboRequest(conn, `/reports/TransactionList?start_date=${start}&end_date=${end}&columns=tx_date,account_name,subt_nat_amount`);
+        const stale = staleFeedFromTransactionList(report, now, 5);
+        const bankNames = new Set(bb.bankAccounts.map((a) => a.name));
+        staleAccounts = Object.entries(stale.perAccount).filter(([name2]) => bankNames.has(name2)).map(([name2, days]) => ({ name: name2, days }));
+      } catch (e) {
+        console.error(`[cash-position] stale-feed (client ${input.clientId}):`, e instanceof Error ? e.message : e);
+      }
+      const position = assessCashPosition({ cashTotal: bb.cashTotal, creditCardOwed: bb.creditCardOwed, payrollNeed, minBuffer, staleAccounts, staleThresholdDays: 5 });
       return {
         connected: true,
         asOf: (/* @__PURE__ */ new Date()).toISOString(),
@@ -93009,7 +93025,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.237";
+var BUILD_TAG = "2026-06-27.238";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
