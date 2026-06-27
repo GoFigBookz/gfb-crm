@@ -42447,9 +42447,9 @@ function checkRevealCode(code) {
 }
 function maskSin(decrypted) {
   if (!decrypted) return null;
-  const digits = decrypted.replace(/\D/g, "");
-  if (digits.length < 3) return "\u2022\u2022\u2022";
-  return `\u2022\u2022\u2022-\u2022\u2022\u2022-${digits.slice(-3)}`;
+  const digits2 = decrypted.replace(/\D/g, "");
+  if (digits2.length < 3) return "\u2022\u2022\u2022";
+  return `\u2022\u2022\u2022-\u2022\u2022\u2022-${digits2.slice(-3)}`;
 }
 var init_sensitive = __esm({
   "api/sensitive.ts"() {
@@ -86387,6 +86387,61 @@ function findCrossAccountDuplicates(payments) {
   };
 }
 
+// api/duplicate-clients-core.ts
+var normName2 = (s) => (s || "").toLowerCase().replace(/\b(inc|incorporated|ltd|limited|corp|corporation|co|company|the|and|&)\b/g, "").replace(/[^a-z0-9]/g, "").trim();
+var normEmail = (s) => (s || "").toLowerCase().trim();
+var digits = (s) => (s || "").replace(/\D/g, "");
+var normId = (s) => (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+var bn9 = (s) => digits(s).slice(0, 9);
+function findDuplicateClients(clients4) {
+  const pairs = [];
+  for (let i = 0; i < clients4.length; i++) {
+    for (let j = i + 1; j < clients4.length; j++) {
+      const a = clients4[i], b = clients4[j];
+      const reasons = [];
+      let score = 0;
+      const an = normName2(a.name), bn = normName2(b.name);
+      if (an && bn && an === bn) {
+        reasons.push("Same name");
+        score += 5;
+      } else if (an && bn && (an.includes(bn) || bn.includes(an)) && Math.min(an.length, bn.length) >= 4) {
+        reasons.push("Name contains the other");
+        score += 3;
+      }
+      const ae = normEmail(a.email), be = normEmail(b.email);
+      if (ae && be && ae === be) {
+        reasons.push("Same email");
+        score += 5;
+      }
+      const ap = digits(a.phone), bp = digits(b.phone);
+      if (ap && bp && ap.length >= 7 && ap === bp) {
+        reasons.push("Same phone");
+        score += 4;
+      }
+      const ah = bn9(a.hstNumber), bh = bn9(b.hstNumber);
+      if (ah && bh && ah.length === 9 && ah === bh) {
+        reasons.push("Same HST/business number");
+        score += 6;
+      }
+      const at2 = normId(a.taxId), bt = normId(b.taxId);
+      if (at2 && bt && at2 === bt) {
+        reasons.push("Same tax ID");
+        score += 6;
+      }
+      if (score >= 3) {
+        pairs.push({
+          a,
+          b,
+          reasons,
+          score,
+          strength: score >= 8 ? "strong" : score >= 5 ? "likely" : "possible"
+        });
+      }
+    }
+  }
+  return pairs.sort((x, y) => y.score - x.score);
+}
+
 // api/cleanup-router.ts
 var num4 = (v2) => {
   const n = Number(v2);
@@ -86434,6 +86489,17 @@ var cleanupRouter = createRouter({
     const db = getDb();
     const rows = input?.groupName ? await db.all(sql`SELECT id, name, groupName FROM clients WHERE groupName = ${input.groupName} ORDER BY name`) : await db.all(sql`SELECT id, name, groupName FROM clients WHERE status='active' ORDER BY name`);
     return rows;
+  }),
+  /**
+   * Read-only scan for LIKELY duplicate client cards (same name / email / phone /
+   * HST# / tax ID). Detection only — never merges (a blind clientId re-point could
+   * collapse two separate QBO realms, breaking per-client isolation). Markie reviews
+   * the pairs and merges by hand, or signs off on merge rules first.
+   */
+  duplicateClients: staffQuery.query(async () => {
+    const rows = await getDb().all(sql`SELECT id, name, email, phone, hstNumber, taxId, status FROM clients`);
+    const pairs = findDuplicateClients(rows);
+    return { pairs, scanned: rows.length };
   }),
   /** Scan a set of entities for cross-account / cross-entity payment duplicates. */
   paymentSourceScan: staffQuery.input(external_exports.object({
@@ -92127,7 +92193,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.226";
+var BUILD_TAG = "2026-06-27.227";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

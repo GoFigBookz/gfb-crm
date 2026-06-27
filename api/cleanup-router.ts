@@ -21,6 +21,7 @@ import { sql } from "drizzle-orm";
 import { qboRequest } from "./qbo-router";
 import { getConnectionForClient } from "./qbo-vendor-brain";
 import { findCrossAccountDuplicates, type Payment } from "./payment-source-core";
+import { findDuplicateClients } from "./duplicate-clients-core";
 
 const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const arr = (data: any, entity: string): any[] => (data?.QueryResponse?.[entity] ?? []) as any[];
@@ -71,6 +72,18 @@ export const cleanupRouter = createRouter({
         : (await db.all(sql`SELECT id, name, groupName FROM clients WHERE status='active' ORDER BY name`)) as any[];
       return rows;
     }),
+
+  /**
+   * Read-only scan for LIKELY duplicate client cards (same name / email / phone /
+   * HST# / tax ID). Detection only — never merges (a blind clientId re-point could
+   * collapse two separate QBO realms, breaking per-client isolation). Markie reviews
+   * the pairs and merges by hand, or signs off on merge rules first.
+   */
+  duplicateClients: staffQuery.query(async () => {
+    const rows = (await getDb().all(sql`SELECT id, name, email, phone, hstNumber, taxId, status FROM clients`)) as any[];
+    const pairs = findDuplicateClients(rows);
+    return { pairs, scanned: rows.length };
+  }),
 
   /** Scan a set of entities for cross-account / cross-entity payment duplicates. */
   paymentSourceScan: staffQuery
