@@ -66,6 +66,9 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/invoices", icon: Receipt, label: "Invoices" },
     { to: "/files", icon: FolderOpen, label: "Files" },
     { to: "/engagement", icon: FileSpreadsheet, label: "Engagement Letters" },
+    { to: "/playbook", icon: BookMarked, label: "Client Playbooks" },
+    { to: "/vault", icon: Lock, label: "Client Vault" },
+    { to: "/portal-settings", icon: Globe, label: "Portal Settings" },
   ];
 
   // People & Payroll.

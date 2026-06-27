@@ -43,8 +43,11 @@ export default function Receipts() {
   const { data: clients } = trpc.crmClient.list.useQuery();
 
   const processFile = useCallback((file: File) => {
-    // Simulated OCR - in production this would call a server-side OCR service
-    const mockReceipt: ScannedReceipt = {
+    // HONEST INTAKE: receipts are coded by Fig's intake pipeline (Gmail/Drive →
+    // vendor brain → Triage), NEVER fabricated here. We list the file as queued and
+    // do NOT invent vendor/amount/HST — making up financial data would violate the
+    // golden rules. (Live in-browser extraction lands when the OCR service is wired.)
+    const queued: ScannedReceipt = {
       id: Math.random().toString(36).substring(2, 10),
       fileName: file.name,
       vendor: "",
@@ -56,27 +59,7 @@ export default function Receipts() {
       status: "pending",
       clientId: selectedClient || undefined,
     };
-    setReceipts((prev) => [mockReceipt, ...prev]);
-
-    // Simulate OCR processing delay
-    setTimeout(() => {
-      setReceipts((prev) =>
-        prev.map((r) =>
-          r.id === mockReceipt.id
-            ? {
-                ...r,
-                status: Math.random() > 0.2 ? "processed" : "flagged" as any,
-                vendor: "Extracted Vendor",
-                date: new Date().toISOString().slice(0, 10),
-                amount: (Math.random() * 500 + 10).toFixed(2),
-                taxAmount: (Math.random() * 50 + 5).toFixed(2),
-                hstGst: (Math.random() > 0.5 ? 0.13 : 0.05).toFixed(2),
-                category: CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)],
-              }
-            : r
-        )
-      );
-    }, 1500);
+    setReceipts((prev) => [queued, ...prev]);
   }, [selectedClient]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
@@ -116,7 +99,15 @@ export default function Receipts() {
           <ScanLine className="h-6 w-6 text-lime-500" />
           Receipt Scanner
         </h1>
-        <p className="text-slate-500">Upload receipts to extract vendor, date, amount, and HST/GST</p>
+        <p className="text-slate-500">Queue receipts for Fig to code — vendor, date, amount, and HST</p>
+      </div>
+
+      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+        <span>
+          Receipts are coded by <b>Fig's intake pipeline</b> (Gmail/Drive → vendor brain → <a href="/triage" className="underline">Triage</a>), where you review the suggested coding.
+          This page <b>does not invent</b> vendor/amount/HST — automatic in-browser extraction lands when the OCR service is wired. For now, drop files here to queue them or forward to the intake inbox.
+        </span>
       </div>
 
       <Card>

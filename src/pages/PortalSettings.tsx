@@ -120,7 +120,7 @@ export default function PortalSettings() {
   });
 
   // Get connected accounts for sending email
-  const { data: connectedAccounts } = trpc.integration.listAccounts.useQuery();
+  const { data: connectedAccounts } = trpc.integration.list.useQuery();
   const [selectedAccountId, setSelectedAccountId] = useState<number | undefined>();
 
   const selectedClient = clients?.find((c) => c.id === clientId);
