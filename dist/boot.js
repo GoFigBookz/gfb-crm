@@ -72383,6 +72383,66 @@ async function cloneStructure() {
   }
   return made;
 }
+async function syncMissingStructure() {
+  const real2 = getRealDb();
+  const demo = getDemoDb();
+  const have = new Set(
+    rowsOf(await demo.run(sql.raw("SELECT name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"))).map((r) => String(r.name))
+  );
+  const defs = rowsOf(await real2.run(sql.raw(
+    "SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY CASE type WHEN 'table' THEN 0 ELSE 1 END"
+  )));
+  let made = 0;
+  for (const d10 of defs) {
+    const name2 = String(d10.name ?? "");
+    if (!name2 || have.has(name2)) continue;
+    const stmt = String(d10.sql ?? "");
+    if (!stmt) continue;
+    try {
+      await demo.run(sql.raw(stmt));
+      made++;
+    } catch {
+    }
+  }
+  return made;
+}
+async function seedDemoExtras() {
+  const demo = getDemoDb();
+  try {
+    const client = rowsOf(await demo.run(sql.raw("SELECT id FROM clients ORDER BY id LIMIT 1")))[0];
+    const clientId = client ? Number(client.id) : null;
+    if (clientId == null) return;
+    const now = Date.now();
+    const haveCash = rowsOf(await demo.run(sql.raw("SELECT name FROM sqlite_master WHERE type='table' AND name='cash_book_accounts'"))).length;
+    const seededCash = haveCash && rowsOf(await demo.run(sql.raw(`SELECT id FROM cash_book_accounts WHERE clientId=${clientId} LIMIT 1`))).length;
+    if (haveCash && !seededCash) {
+      await demo.run(sql.raw(`INSERT INTO cash_book_accounts (clientId, name, institution, openingBalance, openingDate, currency, active, createdAt, updatedAt)
+        VALUES (${clientId}, 'Operating chequing', 'Demo Bank', 5000, '2026-01-01', 'CAD', 1, ${now}, ${now})`));
+      const acct = rowsOf(await demo.run(sql.raw(`SELECT id FROM cash_book_accounts WHERE clientId=${clientId} ORDER BY id DESC LIMIT 1`)))[0];
+      const aId = Number(acct.id);
+      const E = (d10, dir, amt, hst, cat, desc7, cleared) => `INSERT INTO cash_book_entries (clientId, accountId, entryDate, direction, amount, category, description, hst, cleared, source, createdAt, updatedAt) VALUES (${clientId}, ${aId}, '${d10}', '${dir}', ${amt}, '${cat}', '${desc7}', ${hst == null ? "NULL" : hst}, ${cleared}, 'demo', ${now}, ${now})`;
+      for (const stmt of [
+        E("2026-04-03", "in", 2260, 260, "Sales / revenue", "Invoice #1042 \u2014 Maple Reno", 1),
+        E("2026-04-08", "out", 565, 65, "Materials / supplies", "Lumber yard", 1),
+        E("2026-04-15", "in", 1130, 130, "Sales / revenue", "Invoice #1043 \u2014 Birch Cafe", 1),
+        E("2026-04-20", "out", 95, null, "Bank charges", "Monthly account fee", 1),
+        E("2026-04-28", "out", 339, 39, "Vehicle / fuel", "Fuel + supplies", 0)
+      ]) await demo.run(sql.raw(stmt));
+    }
+    const haveOpp = rowsOf(await demo.run(sql.raw("SELECT name FROM sqlite_master WHERE type='table' AND name='client_opportunities'"))).length;
+    const seededOpp = haveOpp && rowsOf(await demo.run(sql.raw(`SELECT id FROM client_opportunities WHERE clientId=${clientId} LIMIT 1`))).length;
+    if (haveOpp && !seededOpp) {
+      const O = (cat, title, summary, est, elig, url2, src, status) => `INSERT INTO client_opportunities (clientId, category, title, summary, estValue, eligibility, url, source, status, createdAt, updatedAt) VALUES (${clientId}, '${cat}', '${title.replace(/'/g, "''")}', '${summary.replace(/'/g, "''")}', '${est}', '${elig.replace(/'/g, "''")}', '${url2}', '${src}', '${status}', ${now}, ${now})`;
+      for (const stmt of [
+        O("grants", "Canada Digital Adoption Program (example)", "Funding to adopt digital tools and e-commerce.", "up to $15,000", "Canadian SMBs", "https://ised-isde.canada.ca", "ISED", "reviewing"),
+        O("wsib", "WSIB Health & Safety Excellence (example)", "Rebates for completing safety topics.", "premium rebate", "WSIB-registered employers", "https://www.wsib.ca", "WSIB", "suggested"),
+        O("software", "Proposal/quoting tool (example)", "Send branded quotes and track acceptance.", "from $29/mo", "Service businesses", "https://example.com", "Demo Vendor", "applied")
+      ]) await demo.run(sql.raw(stmt));
+    }
+  } catch (e) {
+    console.error("[demo-db] seedDemoExtras failed (non-fatal):", e instanceof Error ? e.message : e);
+  }
+}
 async function prepareDemoDb() {
   try {
     await runInDemo(async () => {
@@ -72392,12 +72452,15 @@ async function prepareDemoDb() {
         const made = await cloneStructure();
         console.log(`[demo-db] cloned ${made} table/index definitions into demo.db`);
       }
+      const added = await syncMissingStructure();
+      if (added) console.log(`[demo-db] synced ${added} new table/index def(s) into demo.db`);
       const ec = await Promise.resolve().then(() => (init_ensure_clients_schema(), ensure_clients_schema_exports));
       await ec.ensurePayrollTables();
       const { ensureGroupBookTables: ensureGroupBookTables2 } = await Promise.resolve().then(() => (init_ensure_group_book_schema(), ensure_group_book_schema_exports));
       await ensureGroupBookTables2();
       for (const [table, name2] of SEEDED_TABLES) await syncColumns(table, name2);
       await seedDemoData();
+      await seedDemoExtras();
     });
   } catch (e) {
     console.error("[demo-db] prepare failed (non-fatal):", e instanceof Error ? e.message : e);
@@ -92830,7 +92893,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.234";
+var BUILD_TAG = "2026-06-27.235";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
