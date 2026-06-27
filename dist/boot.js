@@ -22654,6 +22654,9 @@ var init_schema = __esm({
       address: text("address"),
       taxId: text("taxId"),
       status: text("status", { enum: ["active", "inactive", "prospect", "lead"] }).default("active").notNull(),
+      // Last time we emailed/contacted this client — stamped by the email send/reply flow,
+      // read by the sheet export. MUST be declared here or Drizzle emits an empty SET on update.
+      lastContactedAt: integer2("lastContactedAt", { mode: "timestamp" }),
       // Service type — drives task generation AND month-end-board relevance.
       //  monthly  = full-service bookkeeping (default; on the board every month)
       //  quarterly= surfaces in post-quarter months (Jan/Apr/Jul/Oct)
@@ -70614,6 +70617,8 @@ var init_ensure_clients_schema = __esm({
       ["governmentStatus", "text"],
       ["companyKey", "text"],
       ["craRepId", "text"],
+      ["lastContactedAt", "integer"],
+      // stamped by email send/reply; missing column = empty SET → send fails
       ["createdAt", "integer"],
       ["updatedAt", "integer"]
     ];
@@ -80683,7 +80688,11 @@ var emailRouter = createRouter({
     const fromAddress = matchedRule?.fromAddress || "markie@gofig.ca";
     const fromName = matchedRule?.fromName || "Go Fig Bookz";
     const replyTo = matchedRule?.replyTo || null;
-    await db.update(clients).set({ lastContactedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, input.clientId));
+    try {
+      await db.update(clients).set({ lastContactedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, input.clientId));
+    } catch (e) {
+      console.error("[email] lastContactedAt stamp failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
     const threadId = input.threadId || randomUUID();
     const [email3] = await db.insert(emails).values({
       userId: ctx.user.id,
@@ -80725,7 +80734,11 @@ var emailRouter = createRouter({
     }
     const account = acctRows[0];
     if (input.clientId) {
-      await db.update(clients).set({ lastContactedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, input.clientId));
+      try {
+        await db.update(clients).set({ lastContactedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, input.clientId));
+      } catch (e) {
+        console.error("[email.send] lastContactedAt stamp failed (non-fatal):", e instanceof Error ? e.message : e);
+      }
     }
     const sent = await providerSend(account, {
       to: input.to,
@@ -93973,7 +93986,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.247";
+var BUILD_TAG = "2026-06-27.248";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

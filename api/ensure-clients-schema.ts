@@ -63,6 +63,7 @@ const COLUMNS: Array<[string, string]> = [
   // guard always covers them and intake saves can't hit a missing column.)
   ["bio", "text"], ["registryNumber", "text"], ["incorporationDate", "text"],
   ["corpType", "text"], ["governmentStatus", "text"], ["companyKey", "text"], ["craRepId", "text"],
+  ["lastContactedAt", "integer"],   // stamped by email send/reply; missing column = empty SET → send fails
   ["createdAt", "integer"], ["updatedAt", "integer"],
 ];
 

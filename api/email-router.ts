@@ -183,10 +183,12 @@ export const emailRouter = createRouter({
       const fromName = matchedRule?.fromName || "Go Fig Bookz";
       const replyTo = matchedRule?.replyTo || null;
 
-      // Update client's lastContactedAt
-      await db.update(clients)
-        .set({ lastContactedAt: new Date() })
-        .where(eq(clients.id, input.clientId));
+      // Update client's lastContactedAt — NON-FATAL (never block the send on a stamp).
+      try {
+        await db.update(clients)
+          .set({ lastContactedAt: new Date() })
+          .where(eq(clients.id, input.clientId));
+      } catch (e) { console.error("[email] lastContactedAt stamp failed (non-fatal):", e instanceof Error ? e.message : e); }
 
       const threadId = input.threadId || randomUUID();
 
@@ -241,11 +243,14 @@ export const emailRouter = createRouter({
 
       const account = acctRows[0];
 
-      // Update client's lastContactedAt if clientId provided
+      // Update client's lastContactedAt if clientId provided. NON-FATAL: a tracking
+      // stamp must never block sending the actual email.
       if (input.clientId) {
-        await db.update(clients)
-          .set({ lastContactedAt: new Date() })
-          .where(eq(clients.id, input.clientId));
+        try {
+          await db.update(clients)
+            .set({ lastContactedAt: new Date() })
+            .where(eq(clients.id, input.clientId));
+        } catch (e) { console.error("[email.send] lastContactedAt stamp failed (non-fatal):", e instanceof Error ? e.message : e); }
       }
 
       // Actually send it through the provider FIRST — only record it if it sent.

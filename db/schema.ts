@@ -259,6 +259,9 @@ export const clients = sqliteTable("clients", {
   address: text("address"),
   taxId: text("taxId"),
   status: text("status", { enum: ["active", "inactive", "prospect", "lead"] }).default("active").notNull(),
+  // Last time we emailed/contacted this client — stamped by the email send/reply flow,
+  // read by the sheet export. MUST be declared here or Drizzle emits an empty SET on update.
+  lastContactedAt: integer("lastContactedAt", { mode: "timestamp" }),
   // Service type — drives task generation AND month-end-board relevance.
   //  monthly  = full-service bookkeeping (default; on the board every month)
   //  quarterly= surfaces in post-quarter months (Jan/Apr/Jul/Oct)
