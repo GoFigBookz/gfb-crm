@@ -25007,13 +25007,13 @@ var init_base64 = __esm({
       if (!b64re.test(asc2))
         throw new TypeError("malformed base64.");
       asc2 += "==".slice(2 - (asc2.length & 3));
-      let u24, r1, r26;
+      let u24, r1, r27;
       let binArray = [];
       for (let i = 0; i < asc2.length; ) {
-        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r26 = b64tab[asc2.charAt(i++)]);
+        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r27 = b64tab[asc2.charAt(i++)]);
         if (r1 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255));
-        } else if (r26 === 64) {
+        } else if (r27 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255));
         } else {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255, u24 & 255));
@@ -37139,7 +37139,7 @@ var require_bcrypt = __commonJS({
           } else
             throw err;
         }
-        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r26 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r26, real_salt = salt.substring(offset + 3, offset + 25);
+        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r27 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r27, real_salt = salt.substring(offset + 3, offset + 25);
         s += minor >= "a" ? "\0" : "";
         var passwordb = stringToBytes(s), saltb = base64_decode(real_salt, BCRYPT_SALT_LEN);
         function finish(bytes) {
@@ -40909,10 +40909,10 @@ var init_qbo_router = __esm({
       // --- Sync All ---
       syncAll: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => {
         const r1 = await doSyncCustomers(input.connectionId);
-        const r26 = await doSyncInvoices(input.connectionId);
+        const r27 = await doSyncInvoices(input.connectionId);
         const r3 = await doSyncPayments(input.connectionId);
         const r4 = await doSyncAccounts(input.connectionId);
-        return { success: true, customers: r1, invoices: r26, payments: r3, accounts: r4 };
+        return { success: true, customers: r1, invoices: r27, payments: r3, accounts: r4 };
       }),
       // --- Data Retrieval ---
       getCustomers: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
@@ -48714,7 +48714,7 @@ var init_values = __esm({
 var sleep;
 var init_sleep = __esm({
   "node_modules/@anthropic-ai/sdk/internal/utils/sleep.mjs"() {
-    sleep = (ms4, signal) => new Promise((resolve4) => {
+    sleep = (ms5, signal) => new Promise((resolve4) => {
       if (signal?.aborted)
         return resolve4();
       const onAbort = () => {
@@ -48724,7 +48724,7 @@ var init_sleep = __esm({
       const timer = setTimeout(() => {
         signal?.removeEventListener("abort", onAbort);
         resolve4();
-      }, ms4);
+      }, ms5);
       signal?.addEventListener("abort", onAbort, { once: true });
     });
   }
@@ -52920,8 +52920,8 @@ function backoff(attempt, baseMs, capMs) {
 function jitter(lowMs, highMs) {
   return lowMs + Math.random() * (highMs - lowMs);
 }
-function applyJitter(ms4) {
-  return ms4 * (1 - Math.random() * 0.25);
+function applyJitter(ms5) {
+  return ms5 * (1 - Math.random() * 0.25);
 }
 var init_backoff = __esm({
   "node_modules/@anthropic-ai/sdk/internal/utils/backoff.mjs"() {
@@ -59955,7 +59955,7 @@ var init_client4 = __esm({
         const request = this.makeRequest(options, null, void 0);
         return new PagePromise(this, request, Page2);
       }
-      async fetchWithTimeout(url2, init, ms4, controller, requestOptions, logCtx) {
+      async fetchWithTimeout(url2, init, ms5, controller, requestOptions, logCtx) {
         const { signal, method, ...options } = init || {};
         const abort = this._makeAbort(controller);
         if (signal)
@@ -59972,7 +59972,7 @@ var init_client4 = __esm({
         }
         const baseFetch = this.fetch;
         const timedFetch = async (innerUrl, innerInit) => {
-          const timeout = setTimeout(abort, ms4);
+          const timeout = setTimeout(abort, ms5);
           try {
             return await baseFetch.call(void 0, innerUrl, innerInit);
           } finally {
@@ -61804,20 +61804,20 @@ async function buildExecBriefing(userId) {
   const now = Date.now();
   const sot = startOfToday().getTime();
   const eot = endOfToday().getTime();
-  const ms4 = (d10) => {
+  const ms5 = (d10) => {
     if (!d10) return null;
     const t2 = d10 instanceof Date ? d10.getTime() : new Date(d10).getTime();
     return Number.isNaN(t2) ? null : t2;
   };
   const overdue = open3.filter((t2) => {
-    const m = ms4(t2.dueDate);
+    const m = ms5(t2.dueDate);
     return m != null && m < sot;
-  }).sort((a, b) => ms4(a.dueDate) - ms4(b.dueDate));
+  }).sort((a, b) => ms5(a.dueDate) - ms5(b.dueDate));
   const dueToday = open3.filter((t2) => {
-    const m = ms4(t2.dueDate);
+    const m = ms5(t2.dueDate);
     return m != null && m >= sot && m <= eot;
   });
-  const needsYou = open3.filter((t2) => NEEDS_MARKIE.test(`${t2.title} ${t2.description ?? ""} ${t2.assignedTo ?? ""}`)).sort((a, b) => (ms4(a.dueDate) ?? Infinity) - (ms4(b.dueDate) ?? Infinity)).slice(0, 8).map(lbl);
+  const needsYou = open3.filter((t2) => NEEDS_MARKIE.test(`${t2.title} ${t2.description ?? ""} ${t2.assignedTo ?? ""}`)).sort((a, b) => (ms5(a.dueDate) ?? Infinity) - (ms5(b.dueDate) ?? Infinity)).slice(0, 8).map(lbl);
   let learned = [];
   try {
     const since = new Date(now - 14 * 864e5);
@@ -65979,6 +65979,61 @@ async function ensureRegistersSchema() {
 }
 var init_ensure_registers_schema = __esm({
   "api/ensure-registers-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/ensure-cash-book-schema.ts
+var ensure_cash_book_schema_exports = {};
+__export(ensure_cash_book_schema_exports, {
+  ensureCashBookSchema: () => ensureCashBookSchema
+});
+async function ensureCashBookSchema() {
+  const db = getDb();
+  const guard = async (name2, ddl) => {
+    try {
+      await db.run(ddl);
+    } catch (e) {
+      console.error(`[cashbook] ensure ${name2} failed:`, e instanceof Error ? e.message : e);
+    }
+  };
+  await guard("cash_book_accounts", sql`CREATE TABLE IF NOT EXISTS cash_book_accounts (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    clientId integer NOT NULL,
+    name text NOT NULL,                 -- "Operating chequing", "Holdco bank", "Petty cash"
+    institution text,                   -- bank name (optional)
+    openingBalance real NOT NULL DEFAULT 0,
+    openingDate text,                   -- yyyy-mm-dd the opening balance is as of
+    currency text DEFAULT 'CAD',
+    fiscalYearEnd text,                 -- mm-dd, for the year-end summary (optional)
+    statementBalance real,              -- latest bank-statement closing balance (for the rec)
+    statementDate text,                 -- yyyy-mm-dd of that statement
+    notes text,
+    active integer NOT NULL DEFAULT 1,
+    createdAt integer,
+    updatedAt integer
+  )`);
+  await guard("cash_book_entries", sql`CREATE TABLE IF NOT EXISTS cash_book_entries (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    clientId integer NOT NULL,
+    accountId integer NOT NULL,
+    entryDate text NOT NULL,            -- yyyy-mm-dd
+    direction text NOT NULL,            -- 'in' (deposit/receipt) | 'out' (payment)
+    amount real NOT NULL,               -- positive magnitude
+    category text,
+    description text,
+    reference text,                     -- cheque #, transfer id
+    hst real,                           -- HST/GST portion of amount (optional)
+    cleared integer NOT NULL DEFAULT 0, -- has it cleared the bank statement?
+    source text DEFAULT 'manual',       -- manual | import
+    createdAt integer,
+    updatedAt integer
+  )`);
+  await guard("cash_book_entries_idx", sql`CREATE INDEX IF NOT EXISTS cash_book_entries_acct ON cash_book_entries (accountId, entryDate)`);
+}
+var init_ensure_cash_book_schema = __esm({
+  "api/ensure-cash-book-schema.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -71261,8 +71316,8 @@ async function seedDockKingFlowthrough() {
       report.updated++;
     }
     const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq2(clientTaskRules.clientId, c.id)).returning();
-    const r26 = await db.delete(tasks).where(and(eq2(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
-    report.tasksPaused += (r1?.length || 0) + (r26?.length || 0);
+    const r27 = await db.delete(tasks).where(and(eq2(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
+    report.tasksPaused += (r1?.length || 0) + (r27?.length || 0);
   }
   return report;
 }
@@ -75122,12 +75177,12 @@ function makeAsyncResource(thing, dispose) {
   return it;
 }
 var disposablePromiseTimerResult = /* @__PURE__ */ Symbol();
-function timerResource(ms4) {
+function timerResource(ms5) {
   let timer = null;
   return makeResource({ start() {
     if (timer) throw new Error("Timer already started");
     const promise2 = new Promise((resolve4) => {
-      timer = setTimeout(() => resolve4(disposablePromiseTimerResult), ms4);
+      timer = setTimeout(() => resolve4(disposablePromiseTimerResult), ms5);
     });
     return promise2;
   } }, () => {
@@ -81978,19 +82033,19 @@ var clientDashboardRouter = createRouter({
         pnl = profitAndLossFromReport2(await qboRequest2(conn, `/reports/ProfitAndLoss?start_date=${yStart}&end_date=${today3}`));
       } catch {
       }
-      const r26 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+      const r27 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
       return {
         ok: true,
         companyName: conn.companyName || "",
         transport: conn.transport || "native",
-        cashTotal: r26(bank.cashTotal),
-        cashCad: r26(bank.cashCad),
-        cashUsd: r26(bank.cashUsd),
-        creditCardOwed: r26(bank.creditCardOwed),
-        uncategorized: r26(bank.uncategorizedBalance),
+        cashTotal: r27(bank.cashTotal),
+        cashCad: r27(bank.cashCad),
+        cashUsd: r27(bank.cashUsd),
+        creditCardOwed: r27(bank.creditCardOwed),
+        uncategorized: r27(bank.uncategorizedBalance),
         uncategorizedCount: bank.uncategorizedCount,
-        ar: r26(ar),
-        ap: r26(ap),
+        ar: r27(ar),
+        ap: r27(ap),
         revenue: pnl.revenue,
         expenses: pnl.expenses,
         netIncome: pnl.netIncome,
@@ -86054,8 +86109,8 @@ function parseCsvTransactions(text2) {
     const f = splitCsvLine2(lines3[i]);
     if (!f.length) continue;
     const rawDate = dateI >= 0 ? f[dateI] : f[0];
-    const ms4 = parseDateLoose(rawDate);
-    if (ms4 == null) continue;
+    const ms5 = parseDateLoose(rawDate);
+    if (ms5 == null) continue;
     let amount = NaN;
     if (amtI >= 0 && f[amtI]) amount = num3(f[amtI]);
     if (!Number.isFinite(amount)) {
@@ -86066,7 +86121,7 @@ function parseCsvTransactions(text2) {
       if (dv || cv) amount = cv - dv;
     }
     if (!Number.isFinite(amount) || amount === 0) continue;
-    out.push({ date: rawDate, description: descI >= 0 ? f[descI] || "" : "", amount: money3(amount), _ms: ms4 });
+    out.push({ date: rawDate, description: descI >= 0 ? f[descI] || "" : "", amount: money3(amount), _ms: ms5 });
   }
   return out;
 }
@@ -90430,6 +90485,305 @@ var bankedHoursRouter = createRouter({
   })
 });
 
+// api/cash-book-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_drizzle_orm();
+
+// api/cash-book-core.ts
+var r26 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+var ms4 = (d10) => d10 instanceof Date ? d10.getTime() : new Date(d10).getTime();
+function signedAmount(e) {
+  const a = Math.abs(Number(e.amount) || 0);
+  return e.direction === "out" ? -a : a;
+}
+function buildRegister(entries, openingBalance = 0) {
+  const sorted = entries.map((e, i) => ({ e, i })).sort((a, b) => ms4(a.e.entryDate) - ms4(b.e.entryDate) || a.i - b.i).map((x) => x.e);
+  let bal = r26(openingBalance);
+  const rows = [];
+  for (const e of sorted) {
+    const signed = r26(signedAmount(e));
+    bal = r26(bal + signed);
+    rows.push({ ...e, signed, balance: bal });
+  }
+  return rows;
+}
+function closingBalance(entries, openingBalance = 0) {
+  return r26(entries.reduce((sum3, e) => sum3 + signedAmount(e), openingBalance));
+}
+function summarize2(entries, openingBalance = 0) {
+  let totalIn = 0, totalOut = 0, hstCollected = 0, hstPaid = 0;
+  for (const e of entries) {
+    const a = Math.abs(Number(e.amount) || 0);
+    const h = Math.abs(Number(e.hst) || 0);
+    if (e.direction === "out") {
+      totalOut += a;
+      hstPaid += h;
+    } else {
+      totalIn += a;
+      hstCollected += h;
+    }
+  }
+  totalIn = r26(totalIn);
+  totalOut = r26(totalOut);
+  return {
+    openingBalance: r26(openingBalance),
+    totalIn,
+    totalOut,
+    net: r26(totalIn - totalOut),
+    closingBalance: r26(openingBalance + totalIn - totalOut),
+    hstCollected: r26(hstCollected),
+    hstPaid: r26(hstPaid),
+    count: entries.length
+  };
+}
+function categoryTotals(entries) {
+  const map2 = /* @__PURE__ */ new Map();
+  for (const e of entries) {
+    const cat = (e.category || "").trim() || "(uncategorized)";
+    const key11 = `${e.direction}:${cat}`;
+    const cur = map2.get(key11) || { category: cat, direction: e.direction, total: 0, hst: 0, count: 0 };
+    cur.total = r26(cur.total + Math.abs(Number(e.amount) || 0));
+    cur.hst = r26(cur.hst + Math.abs(Number(e.hst) || 0));
+    cur.count += 1;
+    map2.set(key11, cur);
+  }
+  return [...map2.values()].sort(
+    (a, b) => a.direction === b.direction ? b.total - a.total : a.direction === "out" ? 1 : -1
+  );
+}
+function inRange(entries, start, end) {
+  const s = start ? ms4(start) : -Infinity;
+  const e = end ? ms4(end) + 24 * 3600 * 1e3 - 1 : Infinity;
+  return entries.filter((x) => {
+    const t2 = ms4(x.entryDate);
+    return t2 >= s && t2 <= e;
+  });
+}
+function reconcile(entries, statementBalance, openingBalance = 0) {
+  const cleared = entries.filter((e) => e.cleared);
+  const uncleared = entries.filter((e) => !e.cleared);
+  const bookBalance = closingBalance(entries, openingBalance);
+  const clearedBalance = closingBalance(cleared, openingBalance);
+  const difference = r26(statementBalance - clearedBalance);
+  return {
+    bookBalance,
+    clearedBalance,
+    statementBalance: r26(statementBalance),
+    difference,
+    reconciled: Math.abs(difference) < 5e-3,
+    unclearedCount: uncleared.length,
+    unclearedTotal: r26(uncleared.reduce((s, e) => s + signedAmount(e), 0))
+  };
+}
+function validateEntry(e) {
+  const problems = [];
+  if (!e.entryDate || isNaN(ms4(e.entryDate))) problems.push({ field: "entryDate", message: "A valid date is required." });
+  if (e.direction !== "in" && e.direction !== "out") problems.push({ field: "direction", message: "Direction must be 'in' or 'out'." });
+  const amt = Number(e.amount);
+  if (!isFinite(amt) || amt <= 0) problems.push({ field: "amount", message: "Amount must be a positive number." });
+  if (e.hst != null) {
+    const h = Number(e.hst);
+    if (!isFinite(h) || h < 0) problems.push({ field: "hst", message: "HST can't be negative." });
+    else if (isFinite(amt) && h > amt + 5e-3) problems.push({ field: "hst", message: "HST can't exceed the entry amount." });
+  }
+  return problems;
+}
+var DEFAULT_CATEGORIES = [
+  { name: "Sales / revenue", direction: "in" },
+  { name: "Owner contribution", direction: "in" },
+  { name: "Interest income", direction: "in" },
+  { name: "Other income", direction: "in" },
+  { name: "Subcontractors", direction: "out" },
+  { name: "Materials / supplies", direction: "out" },
+  { name: "Rent", direction: "out" },
+  { name: "Utilities", direction: "out" },
+  { name: "Insurance", direction: "out" },
+  { name: "Vehicle / fuel", direction: "out" },
+  { name: "Professional fees", direction: "out" },
+  { name: "Bank charges", direction: "out" },
+  { name: "Office / software", direction: "out" },
+  { name: "Meals & entertainment", direction: "out" },
+  { name: "Owner draw", direction: "out" },
+  { name: "Taxes / HST remittance", direction: "out" },
+  { name: "Other expense", direction: "out" }
+];
+
+// api/cash-book-router.ts
+var dirEnum = external_exports.enum(["in", "out"]);
+async function loadEntries(clientId, accountId) {
+  const rows = await getDb().all(sql`SELECT id, entryDate, direction, amount, category, description, reference, hst, cleared
+    FROM cash_book_entries WHERE clientId=${clientId} AND accountId=${accountId}`);
+  return rows.map((r) => ({
+    id: r.id,
+    entryDate: r.entryDate,
+    direction: r.direction,
+    amount: r.amount,
+    category: r.category,
+    description: r.description,
+    reference: r.reference,
+    hst: r.hst,
+    cleared: !!r.cleared
+  }));
+}
+async function getAccount(clientId, accountId) {
+  return (await getDb().all(sql`SELECT * FROM cash_book_accounts WHERE id=${accountId} AND clientId=${clientId} LIMIT 1`))[0] || null;
+}
+var cashBookRouter = createRouter({
+  defaultCategories: staffQuery.query(() => DEFAULT_CATEGORIES),
+  // ───────── ACCOUNTS ─────────
+  accounts: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+    return await getDb().all(sql`SELECT * FROM cash_book_accounts WHERE clientId=${input.clientId} ORDER BY active DESC, name ASC`);
+  }),
+  createAccount: staffQuery.input(external_exports.object({
+    clientId: external_exports.number(),
+    name: external_exports.string().min(1).max(120),
+    institution: external_exports.string().max(120).optional(),
+    openingBalance: external_exports.number().default(0),
+    openingDate: external_exports.string().optional(),
+    fiscalYearEnd: external_exports.string().max(5).optional(),
+    notes: external_exports.string().max(500).optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const now = Date.now();
+    await db.run(sql`INSERT INTO cash_book_accounts (clientId, name, institution, openingBalance, openingDate, fiscalYearEnd, notes, active, createdAt, updatedAt)
+        VALUES (${input.clientId}, ${input.name}, ${input.institution ?? null}, ${input.openingBalance}, ${input.openingDate ?? null}, ${input.fiscalYearEnd ?? null}, ${input.notes ?? null}, 1, ${now}, ${now})`);
+    const row = (await db.all(sql`SELECT id FROM cash_book_accounts WHERE clientId=${input.clientId} ORDER BY id DESC LIMIT 1`))[0];
+    return { ok: true, id: row?.id };
+  }),
+  updateAccount: staffQuery.input(external_exports.object({
+    id: external_exports.number(),
+    clientId: external_exports.number(),
+    name: external_exports.string().min(1).max(120).optional(),
+    institution: external_exports.string().max(120).nullable().optional(),
+    openingBalance: external_exports.number().optional(),
+    openingDate: external_exports.string().nullable().optional(),
+    fiscalYearEnd: external_exports.string().max(5).nullable().optional(),
+    statementBalance: external_exports.number().nullable().optional(),
+    statementDate: external_exports.string().nullable().optional(),
+    notes: external_exports.string().max(500).nullable().optional(),
+    active: external_exports.boolean().optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const cur = await getAccount(input.clientId, input.id);
+    if (!cur) return { ok: false, error: "not_found" };
+    const m = (k, v2) => v2 === void 0 ? cur[k] : v2;
+    await db.run(sql`UPDATE cash_book_accounts SET
+        name=${m("name", input.name)}, institution=${m("institution", input.institution)},
+        openingBalance=${m("openingBalance", input.openingBalance)}, openingDate=${m("openingDate", input.openingDate)},
+        fiscalYearEnd=${m("fiscalYearEnd", input.fiscalYearEnd)},
+        statementBalance=${m("statementBalance", input.statementBalance)}, statementDate=${m("statementDate", input.statementDate)},
+        notes=${m("notes", input.notes)}, active=${input.active === void 0 ? cur.active : input.active ? 1 : 0}, updatedAt=${Date.now()}
+        WHERE id=${input.id} AND clientId=${input.clientId}`);
+    return { ok: true };
+  }),
+  removeAccount: staffQuery.input(external_exports.object({ id: external_exports.number(), clientId: external_exports.number() })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.run(sql`DELETE FROM cash_book_entries WHERE accountId=${input.id} AND clientId=${input.clientId}`);
+    await db.run(sql`DELETE FROM cash_book_accounts WHERE id=${input.id} AND clientId=${input.clientId}`);
+    return { ok: true };
+  }),
+  // ───────── REGISTER (entries + running balance + summary) ─────────
+  register: staffQuery.input(external_exports.object({ clientId: external_exports.number(), accountId: external_exports.number(), start: external_exports.string().optional(), end: external_exports.string().optional() })).query(async ({ input }) => {
+    const acct = await getAccount(input.clientId, input.accountId);
+    if (!acct) return null;
+    const all = await loadEntries(input.clientId, input.accountId);
+    const fullRegister = buildRegister(all, acct.openingBalance || 0);
+    const idSet = new Set(inRange(all, input.start, input.end).map((e) => e.id));
+    const rows = input.start || input.end ? fullRegister.filter((r) => idSet.has(r.id)) : fullRegister;
+    const windowEntries = input.start || input.end ? inRange(all, input.start, input.end) : all;
+    return {
+      account: acct,
+      rows: rows.slice().reverse(),
+      // newest first for display
+      summary: summarize2(windowEntries, acct.openingBalance || 0),
+      currentBalance: fullRegister.length ? fullRegister[fullRegister.length - 1].balance : acct.openingBalance || 0
+    };
+  }),
+  addEntry: staffQuery.input(external_exports.object({
+    clientId: external_exports.number(),
+    accountId: external_exports.number(),
+    entryDate: external_exports.string(),
+    direction: dirEnum,
+    amount: external_exports.number(),
+    category: external_exports.string().max(120).optional(),
+    description: external_exports.string().max(500).optional(),
+    reference: external_exports.string().max(120).optional(),
+    hst: external_exports.number().nullable().optional(),
+    cleared: external_exports.boolean().optional()
+  })).mutation(async ({ input }) => {
+    const problems = validateEntry(input);
+    if (problems.length) return { ok: false, problems };
+    const db = getDb();
+    const now = Date.now();
+    await db.run(sql`INSERT INTO cash_book_entries (clientId, accountId, entryDate, direction, amount, category, description, reference, hst, cleared, source, createdAt, updatedAt)
+        VALUES (${input.clientId}, ${input.accountId}, ${input.entryDate}, ${input.direction}, ${Math.abs(input.amount)},
+        ${input.category ?? null}, ${input.description ?? null}, ${input.reference ?? null}, ${input.hst ?? null}, ${input.cleared ? 1 : 0}, 'manual', ${now}, ${now})`);
+    return { ok: true };
+  }),
+  updateEntry: staffQuery.input(external_exports.object({
+    id: external_exports.number(),
+    clientId: external_exports.number(),
+    entryDate: external_exports.string().optional(),
+    direction: dirEnum.optional(),
+    amount: external_exports.number().optional(),
+    category: external_exports.string().max(120).nullable().optional(),
+    description: external_exports.string().max(500).nullable().optional(),
+    reference: external_exports.string().max(120).nullable().optional(),
+    hst: external_exports.number().nullable().optional(),
+    cleared: external_exports.boolean().optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const cur = (await db.all(sql`SELECT * FROM cash_book_entries WHERE id=${input.id} AND clientId=${input.clientId} LIMIT 1`))[0];
+    if (!cur) return { ok: false, error: "not_found" };
+    const merged = {
+      entryDate: input.entryDate ?? cur.entryDate,
+      direction: input.direction ?? cur.direction,
+      amount: input.amount ?? cur.amount,
+      hst: input.hst === void 0 ? cur.hst : input.hst
+    };
+    const problems = validateEntry(merged);
+    if (problems.length) return { ok: false, problems };
+    const m = (k, v2) => v2 === void 0 ? cur[k] : v2;
+    await db.run(sql`UPDATE cash_book_entries SET
+        entryDate=${merged.entryDate}, direction=${merged.direction}, amount=${Math.abs(merged.amount)},
+        category=${m("category", input.category)}, description=${m("description", input.description)},
+        reference=${m("reference", input.reference)}, hst=${merged.hst},
+        cleared=${input.cleared === void 0 ? cur.cleared : input.cleared ? 1 : 0}, updatedAt=${Date.now()}
+        WHERE id=${input.id} AND clientId=${input.clientId}`);
+    return { ok: true };
+  }),
+  setCleared: staffQuery.input(external_exports.object({ id: external_exports.number(), clientId: external_exports.number(), cleared: external_exports.boolean() })).mutation(async ({ input }) => {
+    await getDb().run(sql`UPDATE cash_book_entries SET cleared=${input.cleared ? 1 : 0}, updatedAt=${Date.now()} WHERE id=${input.id} AND clientId=${input.clientId}`);
+    return { ok: true };
+  }),
+  removeEntry: staffQuery.input(external_exports.object({ id: external_exports.number(), clientId: external_exports.number() })).mutation(async ({ input }) => {
+    await getDb().run(sql`DELETE FROM cash_book_entries WHERE id=${input.id} AND clientId=${input.clientId}`);
+    return { ok: true };
+  }),
+  // ───────── RECONCILIATION ─────────
+  reconcile: staffQuery.input(external_exports.object({ clientId: external_exports.number(), accountId: external_exports.number(), statementBalance: external_exports.number() })).query(async ({ input }) => {
+    const acct = await getAccount(input.clientId, input.accountId);
+    if (!acct) return null;
+    const all = await loadEntries(input.clientId, input.accountId);
+    return reconcile(all, input.statementBalance, acct.openingBalance || 0);
+  }),
+  // ───────── YEAR-END / PERIOD SUMMARY (the T2 backbone) ─────────
+  summary: staffQuery.input(external_exports.object({ clientId: external_exports.number(), accountId: external_exports.number(), start: external_exports.string().optional(), end: external_exports.string().optional() })).query(async ({ input }) => {
+    const acct = await getAccount(input.clientId, input.accountId);
+    if (!acct) return null;
+    const all = await loadEntries(input.clientId, input.accountId);
+    const windowEntries = input.start || input.end ? inRange(all, input.start, input.end) : all;
+    return {
+      account: acct,
+      period: { start: input.start ?? null, end: input.end ?? null },
+      totals: summarize2(windowEntries, acct.openingBalance || 0),
+      categories: categoryTotals(windowEntries)
+    };
+  })
+});
+
 // api/genealogy-router.ts
 init_zod();
 init_middleware();
@@ -91008,7 +91362,7 @@ function validateLoanEntry(e) {
 
 // api/loan-tracker-router.ts
 var KIND2 = external_exports.enum(["opening", "advance", "repayment", "interest", "adjust"]);
-function signedAmount(kind, amount) {
+function signedAmount2(kind, amount) {
   const a = Math.abs(amount);
   if (kind === "repayment") return -a;
   if (kind === "advance" || kind === "interest") return a;
@@ -91092,7 +91446,7 @@ var loanTrackerRouter = createRouter({
     const db = getDb();
     const loan = (await db.select().from(loanAccounts).where(eq2(loanAccounts.id, input.loanId)).limit(1))[0];
     if (!loan) throw new Error("Loan not found.");
-    const amount = signedAmount(input.kind, input.amount);
+    const amount = signedAmount2(input.kind, input.amount);
     const warn = validateLoanEntry({ amount, kind: input.kind });
     if (warn) throw new Error(warn);
     await db.insert(loanEntries).values({
@@ -91122,7 +91476,7 @@ var loanTrackerRouter = createRouter({
     if (input.entryDate) patch.entryDate = input.entryDate;
     if (input.kind) patch.kind = input.kind;
     if (input.note !== void 0) patch.note = input.note;
-    if (input.amount != null) patch.amount = signedAmount(kind, input.amount);
+    if (input.amount != null) patch.amount = signedAmount2(kind, input.amount);
     await db.update(loanEntries).set(patch).where(eq2(loanEntries.id, input.id));
     return { ok: true };
   }),
@@ -91441,6 +91795,7 @@ var appRouter = createRouter({
   chat: chatRouter,
   revRec: revRecRouter,
   bankedHours: bankedHoursRouter,
+  cashBook: cashBookRouter,
   loanTracker: loanTrackerRouter
 });
 
@@ -91723,7 +92078,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.223";
+var BUILD_TAG = "2026-06-27.224";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -92180,6 +92535,8 @@ app.get("/api/phoenix/seed", async (c) => {
       await ensureSubscriptionsSchema2();
       const { ensureRegistersSchema: ensureRegistersSchema2 } = await Promise.resolve().then(() => (init_ensure_registers_schema(), ensure_registers_schema_exports));
       await ensureRegistersSchema2();
+      const { ensureCashBookSchema: ensureCashBookSchema2 } = await Promise.resolve().then(() => (init_ensure_cash_book_schema(), ensure_cash_book_schema_exports));
+      await ensureCashBookSchema2();
       const { seedEngineeringAudit: seedEngineeringAudit2 } = await Promise.resolve().then(() => (init_seed_engineering_audit(), seed_engineering_audit_exports));
       await seedEngineeringAudit2();
       const { ensureMarketingSchema: ensureMarketingSchema2, seedMarketing: seedMarketing2 } = await Promise.resolve().then(() => (init_ensure_marketing_schema(), ensure_marketing_schema_exports));
@@ -92191,8 +92548,8 @@ app.get("/api/phoenix/seed", async (c) => {
     const { seedPhoenixPersonal: seedPhoenixPersonal2 } = await Promise.resolve().then(() => (init_seed_phoenix_personal(), seed_phoenix_personal_exports));
     const r = await seedPhoenixPersonal2();
     const { seedPhoenixPersonalV2: seedPhoenixPersonalV22 } = await Promise.resolve().then(() => (init_seed_phoenix_personal_v2(), seed_phoenix_personal_v2_exports));
-    const r26 = await seedPhoenixPersonalV22();
-    return c.json({ ok: true, v1: r, v2: r26 });
+    const r27 = await seedPhoenixPersonalV22();
+    return c.json({ ok: true, v1: r, v2: r27 });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
@@ -93894,8 +94251,8 @@ async function startServer() {
       const r = await seedPhoenixPersonal2();
       if (r?.seeded) console.log(`[phoenix-personal] seeded ${r.count} entries`);
       const { seedPhoenixPersonalV2: seedPhoenixPersonalV22 } = await Promise.resolve().then(() => (init_seed_phoenix_personal_v2(), seed_phoenix_personal_v2_exports));
-      const r26 = await seedPhoenixPersonalV22();
-      if (r26?.seeded) console.log(`[phoenix-personal-v2] seeded ${r26.count} entries`);
+      const r27 = await seedPhoenixPersonalV22();
+      if (r27?.seeded) console.log(`[phoenix-personal-v2] seeded ${r27.count} entries`);
     } catch (e) {
       console.error("[phoenix-personal] failed (non-fatal):", e instanceof Error ? e.message : e);
     }

@@ -21,6 +21,7 @@ import { format, isPast, isToday } from "date-fns";
 import { TaskDetailDialog } from "@/components/TaskDetailDialog";
 import { STANDARD_TASK_TITLES } from "@/lib/task-options";
 import { RevRecTab } from "@/components/RevRecTab";
+import { CashBookTab } from "@/components/CashBookTab";
 import { LoanTrackerTab } from "@/components/LoanTrackerTab";
 import PaymentSourceCard from "@/components/PaymentSourceCard";
 import IntercoRechargePanel from "@/components/IntercoRechargePanel";
@@ -585,6 +586,7 @@ export default function ClientDashboard() {
           {!wholesale && client.hasPayroll && <TabsTrigger value="payroll">Payroll</TabsTrigger>}
           {!wholesale && <TabsTrigger value="compliance">Compliance</TabsTrigger>}
           {!wholesale && <TabsTrigger value="revrec">Rev Rec</TabsTrigger>}
+          {!wholesale && <TabsTrigger value="cashbook">Cash Book</TabsTrigger>}
           {!wholesale && <TabsTrigger value="loans">Loans</TabsTrigger>}
           {!wholesale && <TabsTrigger value="time">Time</TabsTrigger>}
         </TabsList>
@@ -1162,6 +1164,10 @@ export default function ClientDashboard() {
         {/* REVENUE RECOGNITION (WIP) TAB */}
         <TabsContent value="revrec">
           <RevRecTab clientId={id} />
+        </TabsContent>
+
+        <TabsContent value="cashbook">
+          <CashBookTab clientId={id} />
         </TabsContent>
 
         <TabsContent value="loans">
