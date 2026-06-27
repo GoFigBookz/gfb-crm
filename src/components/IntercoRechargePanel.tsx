@@ -207,16 +207,19 @@ export default function IntercoRechargePanel({ defaultPayerId }: { defaultPayerI
             </div>
             {/* SPOT CHECK: anything from this period not marked billable will be missed. */}
             {billableRecon.data.notBillableCount === 0 ? (
-              <div className="text-emerald-700 font-medium">✓ Spot check: all {billableRecon.data.txnCount} expenses this period are marked billable — none will be missed.</div>
+              <div className="text-emerald-700 font-medium">✓ Spot check: all {billableRecon.data.txnCount} expenses this period are marked billable with the customer attached — none will be missed.</div>
             ) : (
               <div className="space-y-1">
-                <div className="text-red-700 font-medium">⚠ Spot check: {billableRecon.data.notBillableCount} expense(s) ({money(billableRecon.data.notBillableTotal)}) are NOT marked billable — these will be MISSED. Mark them billable to Holdings before invoicing:</div>
+                <div className="text-red-700 font-medium">⚠ Spot check: {billableRecon.data.notBillableCount} expense(s) ({money(billableRecon.data.notBillableTotal)}) won't land on the billable report — they're not Billable, or have no/ wrong customer. Fix each (mark Billable + attach the customer) before invoicing:</div>
                 <div className="max-h-44 overflow-auto divide-y border rounded bg-white">
                   {billableRecon.data.notBillable.map((t: any, i: number) => (
-                    <div key={i} className="flex items-center gap-2 px-2 py-1">
+                    <div key={i} className="flex items-start gap-2 px-2 py-1">
                       <span className="text-slate-400 w-20 shrink-0">{t.date}</span>
-                      <span className="text-slate-600 flex-1 truncate">{t.type} {t.docNum ? `#${t.docNum}` : ""} {t.name ? `· ${t.name}` : ""} <span className="text-slate-400">— {t.account}</span></span>
-                      <span className="font-mono text-slate-700">{money(t.amount)}</span>
+                      <span className="text-slate-600 flex-1 min-w-0">
+                        <span className="truncate block">{t.type} {t.docNum ? `#${t.docNum}` : ""} {t.name ? `· ${t.name}` : ""} <span className="text-slate-400">— {t.account}</span></span>
+                        <span className="text-[10px] text-red-600">{t.reason}</span>
+                      </span>
+                      <span className="font-mono text-slate-700 shrink-0">{money(t.amount)}</span>
                     </div>
                   ))}
                 </div>

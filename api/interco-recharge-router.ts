@@ -642,10 +642,15 @@ export const intercoRechargeRouter = createRouter({
       const from = input.from || fiscalYearStartFor(to, fyeMonth);
       const q = (s: string) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
       const range = `TxnDate >= '${from}' AND TxnDate <= '${to}'`;
+      // The customer that MUST be attached for the billable to land on the right report.
+      await ensureRechargeSchema();
+      const cfgRow: any = (await getDb().run(sql`SELECT counterpartyName FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`));
+      const cpName = String((cfgRow?.rows ?? cfgRow ?? [])[0]?.counterpartyName || "");
+      const cpKey = cpName ? normName(cpName.split(/\s+/)[0]) : "";
       let totalExpenses = 0, totalHst = 0, txnCount = 0, itemLines = 0;
       let billableTotal = 0, notBillableTotal = 0;
       const byAcct = new Map<string, { accountName: string; net: number }>();
-      const notBillable: { date: string; type: string; docNum: string; name: string; amount: number; account: string }[] = [];
+      const notBillable: { date: string; type: string; docNum: string; name: string; amount: number; account: string; reason: string; customer: string }[] = [];
       try {
         for (const entity of ["Bill", "Purchase"] as const) {
           for (const e of arr(await q(`SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) {
@@ -665,13 +670,19 @@ export const intercoRechargeRouter = createRouter({
               totalExpenses += amt;
               const cur = byAcct.get(nm) || { accountName: nm, net: 0 };
               cur.net += amt; byAcct.set(nm, cur);
-              // SPOT CHECK: is this line actually marked billable? If not, the
-              // invoice-from-billables will MISS it.
+              // SPOT CHECK: a line only lands on the counterparty's billable report if it
+              // is marked Billable AND has the right CUSTOMER (Ovita Holdings) attached.
               const status = String(d.BillableStatus || "NotBillable");
-              if (status === "Billable" || status === "HasBeenBilled") billableTotal += amt;
+              const custName = String(d.CustomerRef?.name || "");
+              const isBillable = status === "Billable" || status === "HasBeenBilled";
+              const custOk = !cpKey || (custName && normName(custName).includes(cpKey));
+              if (isBillable && custName && custOk) billableTotal += amt;
               else {
                 notBillableTotal += amt;
-                notBillable.push({ date: dateRef, type: entity, docNum: docRef, name: nameRef, amount: round2(amt), account: nm });
+                const reason = !isBillable ? "not marked billable"
+                  : !custName ? "billable but NO customer attached"
+                  : `billable to "${custName}" — not ${cpName}`;
+                notBillable.push({ date: dateRef, type: entity, docNum: docRef, name: nameRef, amount: round2(amt), account: nm, reason, customer: custName });
               }
             }
           }
