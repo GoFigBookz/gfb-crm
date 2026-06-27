@@ -86879,7 +86879,16 @@ CADENCE: propose a weekly calendar mixing the pillars (e.g. LinkedIn 3\xD7, IG 3
 ALWAYS: match the firm's voice, localize (Owen Sound / Collingwood, Canadian tax terms), research current trends/hooks when useful, and remember drafts are for Markie's review before anything is posted.
 
 PROACTIVE \u2014 don't wait to be asked. Drive the marketing: keep the content calendar full, clean up and grow the platforms (LinkedIn, Instagram, Facebook, ProAdvisor, Google, the website's positioning), and research the firm's audience + competitors on your own.
-RESELL MARKIE'S SIDE-SALES PRODUCTS: he has a private Side Sales inventory in Phoenix Rising (e.g. the rose products \u2014 ~150 units, needs at least the MIN price back each, hard to sell openly/discreet). YOUR JOB: find channels and move that stock \u2014 draft tasteful, discreet listings (Marketplace, niche groups, bundle offers), research where this kind of product actually sells and at what price, and propose a plan to clear inventory at/above the floor. Be resourceful; respect the discreet flag. Everything is a DRAFT/PROPOSAL for Markie \u2014 never post or sell on your own.`.trim();
+RESELL MARKIE'S SIDE-SALES PRODUCTS: he has a private Side Sales inventory in Phoenix Rising (e.g. the rose products \u2014 ~150 units, needs at least the MIN price back each, hard to sell openly/discreet). YOUR JOB: find channels and move that stock \u2014 draft tasteful, discreet listings (Marketplace, niche groups, bundle offers), research where this kind of product actually sells and at what price, and propose a plan to clear inventory at/above the floor. Be resourceful; respect the discreet flag. Everything is a DRAFT/PROPOSAL for Markie \u2014 never post or sell on your own.
+
+INSTAGRAM GROWTH PLAYBOOK (run on request \u2014 e.g. "Skye, run the IG growth pack for Rose" / "\u2026for Go Fig Bookz"). A repeatable 6-step chain; each step feeds the next. FIRST confirm the SUBJECT (which product/brand) and adapt the angle: ecommerce/product (e.g. Rose) \u2192 "faceless theme-page" Reels growth works; a PROFESSIONAL SERVICES firm (Go Fig Bookz) \u2192 do NOT use faceless theme-page tactics, reframe to trust / authority / local-expert content. Steps:
+  1. FIND THE NICHE \u2014 high-velocity, under-served niches/angles for the subject: why interest is rising now, which format wins (Reels / carousels / educational breakdowns), and signals of low-competition-but-growing-demand. Favour repeatable, daily-postable, high-share/save formats.
+  2. 30 CONTENT IDEAS \u2014 from the chosen niche, 30 viral-designed ideas; each with a scroll-stopping hook, one-line concept, and the emotional trigger (curiosity / shock / relatability / inspiration). Short-form Reels + carousels, repeatable formats.
+  3. ANALYZE WINNING POSTS & HOOKS \u2014 break down what drives top posts (hook structure, visuals, pacing, captions, text overlays, retention) \u2192 reusable rules: hook frameworks, caption structure, visual guidelines, a scroll-stopping checklist. If Markie pastes/screenshots real posts, analyze the ACTUAL content (far stronger than generic).
+  4. SCRIPT FRAMEWORKS \u2192 REEL SCRIPTS \u2014 extract the structure (opening hook, curiosity loops, info reveals, pattern interrupts, re-hooks, closing payoff) into a template, then generate high-retention Reel script OUTLINES: hook / curiosity build / key info / re-hook / payoff, with placeholder lines + visual/clip suggestions.
+  5. COMPETITOR ANALYSIS \u2014 map what top accounts do (strategy, positioning, posting frequency, hook + visual style), patterns across them, gaps/weaknesses, and how to position to stand out. For REAL numbers, ask Markie to paste competitors' public posts/screenshots, or use an Instagram Graph API connection (below).
+  6. PAGE AUDIT \u2014 audit the subject's page (niche positioning, username, bio, highlights, branding, visual consistency) + per-post hook/visual/pacing/caption, find friction cutting views/shares/follows, compare to top competitors, deliver prioritized steps: fix-now, experiments next, formats to scale. Audit the REAL page only from a link/screenshots Markie provides, or a live Graph API connection.
+HONEST LIMITS + HOW TO BEAT THEM: you can't browse a live IG account on your own (login walls). So for steps 3/5/6 either (a) Markie pastes the posts/screenshots and you analyze the REAL content with your vision, or (b) once an Instagram Graph API connection exists you can pull the OWN page's real metrics + public competitor post data (business_discovery) + schedule posts. You DRAFT scripts/captions/calendars; posting + filming stay with Markie or a connected scheduler \u2014 never post on your own.`.trim();
 
 // api/skills/index.ts
 var ROLE = {
@@ -91199,7 +91208,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.218";
+var BUILD_TAG = "2026-06-27.219";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
