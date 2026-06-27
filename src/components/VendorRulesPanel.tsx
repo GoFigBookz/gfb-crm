@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lock, Loader2, Trash2, Plus, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Lock, Loader2, Trash2, Plus, CheckCircle2, AlertTriangle, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/providers/trpc";
 
@@ -22,6 +22,17 @@ export default function VendorRulesPanel({ clientId }: { clientId: number }) {
   const removeRule = trpc.vendorRules.removeRule.useMutation({
     onSuccess: () => utils.vendorRules.list.invalidate({ clientId }),
   });
+  const suggest = trpc.vendorRules.suggestRules.useMutation();
+  const [locked, setLocked] = useState<Set<string>>(new Set());
+
+  const lockSuggestion = (s: any) => {
+    setRule.mutate({
+      clientId, qboVendorId: s.qboVendorId, vendorName: s.vendorName,
+      accountId: s.accountId, accountName: s.accountName ?? s.accountId, taxCode: s.taxCode ?? undefined,
+    }, { onSuccess: () => setLocked((p) => new Set(p).add(s.qboVendorId)) });
+  };
+
+  const sg = suggest.data && "ok" in suggest.data && suggest.data.ok ? suggest.data : null;
 
   const [adding, setAdding] = useState(false);
   const [vendorId, setVendorId] = useState("");
@@ -60,10 +71,16 @@ export default function VendorRulesPanel({ clientId }: { clientId: number }) {
           <span className="text-sm font-semibold text-slate-700">Vendor auto-post rules</span>
         </div>
         {!adding && (
-          <Button size="sm" variant="outline" onClick={openAddForm} disabled={options.isPending}>
-            {options.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-            <span className="ml-1">Add rule</span>
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => suggest.mutate({ clientId })} disabled={suggest.isPending}>
+              {suggest.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+              <span className="ml-1">Suggest from history</span>
+            </Button>
+            <Button size="sm" variant="outline" onClick={openAddForm} disabled={options.isPending}>
+              {options.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              <span className="ml-1">Add rule</span>
+            </Button>
+          </div>
         )}
       </div>
       <p className="text-xs text-slate-500">
@@ -71,6 +88,40 @@ export default function VendorRulesPanel({ clientId }: { clientId: number }) {
         rules code <span className="font-medium text-emerald-600">green automatically</span> on every
         future post — no re-review. Writes only Figgy's memory, never QuickBooks.
       </p>
+
+      {suggest.data && "ok" in suggest.data && !suggest.data.ok && (
+        <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 rounded p-2">
+          <AlertTriangle className="h-3.5 w-3.5" /> Couldn't scan history: {suggest.data.error}
+        </div>
+      )}
+      {sg && (
+        <div className="rounded-md bg-lime-50/60 border border-lime-200 p-2 space-y-1.5">
+          <div className="text-xs text-slate-600">
+            Scanned {sg.meta.scanned} vendor(s) → <b>{sg.suggestions.length}</b> with consistent history.
+            {sg.meta.capped && <span className="text-slate-400"> (capped — re-run after locking these for more)</span>}
+          </div>
+          {sg.suggestions.length === 0 ? (
+            <div className="text-xs text-slate-400">No clean auto-rule candidates — the rest need review.</div>
+          ) : sg.suggestions.map((s: any) => {
+            const isLocked = locked.has(s.qboVendorId);
+            return (
+              <div key={s.qboVendorId} className="flex items-center gap-2 rounded bg-white border border-slate-100 px-2 py-1 text-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-slate-700 truncate">{s.vendorName}</div>
+                  <div className="text-xs text-slate-500 truncate">→ {s.accountName || s.accountId}{s.taxCode ? ` · tax ${s.taxCode}` : ""}{s.confidence != null ? ` · ${s.confidence}%` : ""}</div>
+                </div>
+                {isLocked ? (
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded px-1.5 py-0.5">LOCKED ✓</span>
+                ) : (
+                  <Button size="sm" variant="outline" className="h-7" onClick={() => lockSuggestion(s)} disabled={setRule.isPending}>
+                    <Lock className="h-3 w-3" /><span className="ml-1">Lock</span>
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {adding && (
         <div className="rounded-md bg-slate-50 border border-slate-200 p-3 space-y-2">
