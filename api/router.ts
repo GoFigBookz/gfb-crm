@@ -85,7 +85,10 @@ import { createRouter, publicQuery } from "./middleware";
 
 export const appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
-  health: publicQuery.query(() => ({ status: "ok", timestamp: new Date().toISOString(), version: "2.0.0" })),
+  // NOTE: a second `health:` key (the personal Health Hub router) is registered
+  // below and was silently overwriting this status endpoint — renamed to `healthcheck`
+  // so both coexist. `ping` also covers liveness.
+  healthcheck: publicQuery.query(() => ({ status: "ok", timestamp: new Date().toISOString(), version: "2.0.0" })),
   auth: authRouter,
   crmClient: clientRouter,
   task: taskRouter,

@@ -82584,6 +82584,51 @@ init_connection();
 init_schema();
 init_drizzle_orm();
 var engagementLetterRouter = createRouter({
+  // ── Saved engagement-letter records (the EngagementLetters page CRUD) ──
+  // These back the templated multi-letter list view; the generate/get/sign procs
+  // below drive the per-client onboarding gate. Both use the engagement_letters /
+  // clients tables. (Fixes the page that threw NOT_FOUND on these procedures.)
+  list: authedQuery.input(external_exports.object({ clientId: external_exports.number() }).optional()).query(async ({ input }) => {
+    const db = getDb();
+    const rows = input?.clientId ? await db.select().from(engagementLetters).where(eq2(engagementLetters.clientId, input.clientId)).orderBy(desc(engagementLetters.createdAt)) : await db.select().from(engagementLetters).orderBy(desc(engagementLetters.createdAt));
+    return rows;
+  }),
+  create: authedQuery.input(external_exports.object({
+    clientId: external_exports.number(),
+    templateName: external_exports.string().optional(),
+    title: external_exports.string(),
+    content: external_exports.string(),
+    monthlyFee: external_exports.number().optional(),
+    hourlyRate: external_exports.number().optional(),
+    retainerAmount: external_exports.number().optional(),
+    servicesIncluded: external_exports.string().optional(),
+    servicesExcluded: external_exports.string().optional(),
+    termStart: external_exports.date().optional(),
+    termEnd: external_exports.date().optional(),
+    autoRenew: external_exports.boolean().optional(),
+    renewalNoticeDays: external_exports.number().optional(),
+    jurisdiction: external_exports.string().optional(),
+    governingLaw: external_exports.string().optional()
+  })).mutation(async ({ input }) => {
+    const db = getDb();
+    const [row] = await db.insert(engagementLetters).values({ ...input, status: "draft" }).returning();
+    return row;
+  }),
+  send: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    await db.update(engagementLetters).set({ status: "sent", sentAt: /* @__PURE__ */ new Date(), sentBy: ctx.user.id, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(engagementLetters.id, input.id));
+    return { success: true };
+  }),
+  markSigned: authedQuery.input(external_exports.object({ id: external_exports.number(), signedBy: external_exports.string().optional() })).mutation(async ({ input }) => {
+    const db = getDb();
+    const [row] = await db.update(engagementLetters).set({ status: "signed", signedAt: /* @__PURE__ */ new Date(), signedBy: input.signedBy ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(engagementLetters.id, input.id)).returning();
+    if (row?.clientId) await db.update(clients).set({ engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, row.clientId));
+    return { success: true };
+  }),
+  delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    await getDb().delete(engagementLetters).where(eq2(engagementLetters.id, input.id));
+    return { success: true };
+  }),
   // Generate engagement letter PDF
   generate: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
@@ -90773,7 +90818,10 @@ var publicRouter = createRouter({
 init_middleware();
 var appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
-  health: publicQuery.query(() => ({ status: "ok", timestamp: (/* @__PURE__ */ new Date()).toISOString(), version: "2.0.0" })),
+  // NOTE: a second `health:` key (the personal Health Hub router) is registered
+  // below and was silently overwriting this status endpoint — renamed to `healthcheck`
+  // so both coexist. `ping` also covers liveness.
+  healthcheck: publicQuery.query(() => ({ status: "ok", timestamp: (/* @__PURE__ */ new Date()).toISOString(), version: "2.0.0" })),
   auth: authRouter,
   crmClient: clientRouter,
   task: taskRouter,
@@ -91138,7 +91186,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.215";
+var BUILD_TAG = "2026-06-27.216";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
