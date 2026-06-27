@@ -1,5 +1,34 @@
 import { describe, it, expect } from "vitest";
-import { formatAgenda, detectAgent, frontDeskSystem } from "./assistant-core";
+import { formatAgenda, detectAgent, detectIntent, frontDeskSystem } from "./assistant-core";
+
+describe("detectIntent (brain-only fallback)", () => {
+  it("routes agenda questions", () => {
+    expect(detectIntent("what do I have today?")?.tool).toBe("get_agenda");
+    expect(detectIntent("show me my agenda")?.tool).toBe("get_agenda");
+    expect(detectIntent("what's on this week")?.tool).toBe("get_agenda");
+  });
+  it("routes firm-status / what-needs-posting questions", () => {
+    expect(detectIntent("firm status")?.tool).toBe("firm_status");
+    expect(detectIntent("what needs posting?")?.tool).toBe("firm_status");
+    expect(detectIntent("who's behind on month-end")?.tool).toBe("firm_status");
+  });
+  it("routes system health + scorecard", () => {
+    expect(detectIntent("is everything working?")?.tool).toBe("system_health");
+    expect(detectIntent("system health")?.tool).toBe("system_health");
+    expect(detectIntent("how are the agents doing")?.tool).toBe("agent_scorecard");
+  });
+  it("routes add-task with the task text", () => {
+    const i = detectIntent("add a task to call Clark Pools");
+    expect(i?.tool).toBe("add_task");
+    if (i?.tool === "add_task") expect(i.text.toLowerCase()).toContain("call clark pools");
+    const r = detectIntent("remind me to file HST");
+    expect(r?.tool).toBe("add_task");
+  });
+  it("returns null for open-ended chat that genuinely needs the model", () => {
+    expect(detectIntent("what do you think about hiring a junior?")).toBeNull();
+    expect(detectIntent("write me a poem about taxes")).toBeNull();
+  });
+});
 
 describe("detectAgent", () => {
   it("routes by name at the start of the message", () => {
