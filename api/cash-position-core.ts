@@ -13,11 +13,17 @@
  * =============================================================================
  */
 
+export interface StaleAccount { name: string; days: number }
+
 export interface CashInputs {
   cashTotal: number;            // sum of bank account balances (CAD-equiv)
   creditCardOwed: number;       // sum of credit-card balances owed (positive)
   payrollNeed: number | null;   // cash the next payroll run needs (null = no payroll)
   minBuffer: number;            // the floor Markie wants kept in the bank
+  /** Bank/CC accounts + days since their last posting (for the "is it up to date?" flag). */
+  staleAccounts?: StaleAccount[];
+  /** Flag an account whose last posting is older than this many days. Default 5 (Markie). */
+  staleThresholdDays?: number;
 }
 
 export type CashStatus = "ok" | "watch" | "alert";
@@ -34,6 +40,7 @@ export interface CashPosition {
   needsTransfer: boolean;       // balance is/▶ going below the buffer → move money IN
   suggestedTransfer: number;    // amount to bring post-payroll cash back to the buffer
   ccHigh: boolean;              // credit card owed ≥ cash on hand
+  staleAccounts: StaleAccount[];// accounts whose last posting is past the threshold (not up to date)
   status: CashStatus;
   flags: string[];
 }
@@ -59,21 +66,30 @@ export function assessCashPosition(input: CashInputs): CashPosition {
   const suggestedTransfer = needsTransfer ? r2(buffer - effectiveCash) : 0;
   const ccHigh = cash > 0 ? cc >= cash : cc > 0;
 
+  // Accounts whose last posting is older than the threshold = the books/bank feed
+  // aren't up to date (Markie: "if the credit card last posted May 15 but it's now
+  // June 12, it's behind — flag if older than ~5 days").
+  const threshold = input.staleThresholdDays ?? 5;
+  const staleAccounts = (input.staleAccounts || [])
+    .filter((a) => Number.isFinite(a.days) && a.days > threshold)
+    .sort((a, b) => b.days - a.days);
+
   const flags: string[] = [];
   if (payrollShortfall > 0) flags.push(`Not enough to cover the next payroll — short ${money(payrollShortfall)}.`);
   else if (enoughForPayroll === true && need != null) flags.push(`Payroll covered — ${money(afterPayroll!)} left after the run.`);
   if (needsTransfer) flags.push(`Balance is heading below the ${money(buffer)} buffer — transfer in about ${money(suggestedTransfer)}.`);
   if (cash < 0) flags.push(`Bank balance is negative (${money(cash)}).`);
   if (ccHigh && cc > 0) flags.push(`Credit card owing (${money(cc)}) is high vs cash on hand (${money(cash)}).`);
+  for (const a of staleAccounts) flags.push(`${a.name} hasn't posted in ${a.days} days — likely behind / needs catching up.`);
   if (!flags.length) flags.push("Healthy — cash covers the buffer and upcoming payroll.");
 
   let status: CashStatus = "ok";
   if (payrollShortfall > 0 || cash < 0 || (afterPayroll != null && afterPayroll < 0)) status = "alert";
-  else if (needsTransfer || ccHigh) status = "watch";
+  else if (needsTransfer || ccHigh || staleAccounts.length) status = "watch";
 
   return {
     cashTotal: cash, creditCardOwed: cc, payrollNeed: need, minBuffer: buffer,
     afterPayroll, headroom, enoughForPayroll, payrollShortfall, needsTransfer,
-    suggestedTransfer, ccHigh, status, flags,
+    suggestedTransfer, ccHigh, staleAccounts, status, flags,
   };
 }

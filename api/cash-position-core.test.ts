@@ -39,6 +39,16 @@ describe("cash-position-core", () => {
     expect(p.status).toBe("ok");
   });
 
+  it("flags an account that hasn't posted past the threshold (stale = behind)", () => {
+    const p = assessCashPosition({
+      cashTotal: 40000, creditCardOwed: 1000, payrollNeed: null, minBuffer: 10000,
+      staleAccounts: [{ name: "Visa", days: 28 }, { name: "Chequing", days: 2 }], staleThresholdDays: 5,
+    });
+    expect(p.staleAccounts.map((a) => a.name)).toEqual(["Visa"]); // only the >5-day one
+    expect(p.status).toBe("watch");
+    expect(p.flags.some((f) => /Visa hasn't posted in 28 days/.test(f))).toBe(true);
+  });
+
   it("alerts on a negative bank balance", () => {
     const p = assessCashPosition({ cashTotal: -500, creditCardOwed: 0, payrollNeed: null, minBuffer: 0 });
     expect(p.status).toBe("alert");
