@@ -26852,26 +26852,26 @@ var require_permessage_deflate = __commonJS({
             value = value[0];
             if (key11 === "client_max_window_bits") {
               if (value !== true) {
-                const num6 = +value;
-                if (!Number.isInteger(num6) || num6 < 8 || num6 > 15) {
+                const num7 = +value;
+                if (!Number.isInteger(num7) || num7 < 8 || num7 > 15) {
                   throw new TypeError(
                     `Invalid value for parameter "${key11}": ${value}`
                   );
                 }
-                value = num6;
+                value = num7;
               } else if (!this._isServer) {
                 throw new TypeError(
                   `Invalid value for parameter "${key11}": ${value}`
                 );
               }
             } else if (key11 === "server_max_window_bits") {
-              const num6 = +value;
-              if (!Number.isInteger(num6) || num6 < 8 || num6 > 15) {
+              const num7 = +value;
+              if (!Number.isInteger(num7) || num7 < 8 || num7 > 15) {
                 throw new TypeError(
                   `Invalid value for parameter "${key11}": ${value}`
                 );
               }
-              value = num6;
+              value = num7;
             } else if (key11 === "client_no_context_takeover" || key11 === "server_no_context_takeover") {
               if (value !== true) {
                 throw new TypeError(
@@ -27566,8 +27566,8 @@ var require_receiver = __commonJS({
           return;
         }
         const buf = this.consume(8);
-        const num6 = buf.readUInt32BE(0);
-        if (num6 > Math.pow(2, 53 - 32) - 1) {
+        const num7 = buf.readUInt32BE(0);
+        if (num7 > Math.pow(2, 53 - 32) - 1) {
           const error48 = this.createError(
             RangeError,
             "Unsupported WebSocket frame: payload length > 2^53 - 1",
@@ -27578,7 +27578,7 @@ var require_receiver = __commonJS({
           cb(error48);
           return;
         }
-        this._payloadLength = num6 * Math.pow(2, 32) + buf.readUInt32BE(4);
+        this._payloadLength = num7 * Math.pow(2, 32) + buf.readUInt32BE(4);
         this.haveLength(cb);
       }
       /**
@@ -30764,11 +30764,11 @@ function valueFromProto(value, intMode) {
     return value;
   } else if (typeof value === "bigint") {
     if (intMode === "number") {
-      const num6 = Number(value);
-      if (!Number.isSafeInteger(num6)) {
+      const num7 = Number(value);
+      if (!Number.isSafeInteger(num7)) {
         throw new RangeError("Received integer which is too large to be safely represented as a JavaScript number");
       }
-      return num6;
+      return num7;
     } else if (intMode === "bigint") {
       return value;
     } else if (intMode === "string") {
@@ -46332,7 +46332,7 @@ function clientAppsList(onb) {
   return a;
 }
 function buildScopeForClient(client, onb) {
-  const num6 = (...vals) => {
+  const num7 = (...vals) => {
     for (const v of vals) {
       const n = Number(v);
       if (Number.isFinite(n) && n > 0) return n;
@@ -46342,14 +46342,14 @@ function buildScopeForClient(client, onb) {
   const bool = (...vals) => vals.some((v) => v === true || v === 1);
   const salesPlatformCount = onb ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro, onb.usesPayPal].filter((v) => v === true || v === 1).length : 0;
   return {
-    avgMonthlyTransactions: num6(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
+    avgMonthlyTransactions: num7(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
     bookkeepingFrequency: onb?.bookkeepingFrequency ?? "monthly",
-    bankAccountCount: num6(onb?.bankAccountCount) || 1,
-    creditCardCount: num6(onb?.creditCardCount),
+    bankAccountCount: num7(onb?.bankAccountCount) || 1,
+    creditCardCount: num7(onb?.creditCardCount),
     hasHST: bool(client?.hasHST, onb?.hstGstFrequency && onb.hstGstFrequency !== "none"),
     hstPeriod: normalizeHstPeriod(client?.hstPeriod, onb?.hstGstFrequency),
     hasPayroll: bool(client?.hasPayroll, onb?.hasEmployees, onb?.payrollFrequency && onb.payrollFrequency !== "none"),
-    employeeCount: num6(onb?.employeeCount),
+    employeeCount: num7(onb?.employeeCount),
     payrollFrequency: normalizePayrollFreq(onb?.payrollFrequency, client?.payrollFrequency),
     payrollRemitterFreq: client?.payrollRemitterFreq ?? "regular",
     hasWSIB: bool(client?.hasWSIB, onb?.wsibRequired),
@@ -46362,7 +46362,7 @@ function buildScopeForClient(client, onb) {
     invoicingByUs: onb?.invoicingResponsibility === "we_invoice",
     billPayByUs: onb?.billPayResponsibility === "we_pay",
     hasJobCosting: bool(onb?.hasJobCosting),
-    monthsBehind: num6(onb?.monthsBehind),
+    monthsBehind: num7(onb?.monthsBehind),
     qboSoftwareTier: onb?.qboSoftwareTier ?? "none",
     qboSoftwareWholesale: bool(onb?.qboSoftwareWholesale),
     qboPayrollWholesale: bool(onb?.qboPayrollWholesale)
@@ -47450,12 +47450,12 @@ async function clientFyeMonth(clientId) {
 function parseGlTxns(report, acctNameRe) {
   const cols = report?.Columns?.Column ?? [];
   const title = (c) => String(c?.ColType ?? c?.ColTitle ?? "").toLowerCase();
-  const findCol = (re) => cols.findIndex((c) => re.test(title(c)));
-  const dateIdx = Math.max(0, findCol(/date/));
-  const typeIdx = findCol(/txn_type|type/);
-  const docIdx = findCol(/doc_num|num/);
-  const nameIdx = findCol(/name|vendor|customer|payee/);
-  let amtIdx = findCol(/subt_nat_amount|nat_amount|amount/);
+  const findCol2 = (re) => cols.findIndex((c) => re.test(title(c)));
+  const dateIdx = Math.max(0, findCol2(/date/));
+  const typeIdx = findCol2(/txn_type|type/);
+  const docIdx = findCol2(/doc_num|num/);
+  const nameIdx = findCol2(/name|vendor|customer|payee/);
+  let amtIdx = findCol2(/subt_nat_amount|nat_amount|amount/);
   if (amtIdx < 0) amtIdx = cols.length - 2;
   const out = [];
   const walk2 = (row, acctName) => {
@@ -52502,12 +52502,12 @@ var require_sha256 = __commonJS({
       }
       exports2.hmac = hmac;
       function fillBuffer(buffer, hmac2, info, counter) {
-        var num6 = counter[0];
-        if (num6 === 0) {
+        var num7 = counter[0];
+        if (num7 === 0) {
           throw new Error("hkdf: cannot expand more");
         }
         hmac2.reset();
-        if (num6 > 1) {
+        if (num7 > 1) {
           hmac2.update(buffer);
         }
         if (info) {
@@ -66713,7 +66713,7 @@ async function dedupeClients(confirm) {
     let cnt = 0;
     for (const m of mapping) {
       try {
-        cnt += num5(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
+        cnt += num6(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
       } catch {
         held.add(m.dupe);
       }
@@ -66735,7 +66735,7 @@ async function dedupeClients(confirm) {
         const cols = asRows(await db.run(sql.raw(`PRAGMA table_info("${t2}")`))).map((c) => String(c.name ?? c[1])).filter((name2) => !["id", "createdAt", "updatedAt"].includes(name2));
         if (cols.length === 0) continue;
         const grp = cols.map((c) => `"${c}"`).join(",");
-        const n = num5(await db.run(sql.raw(
+        const n = num6(await db.run(sql.raw(
           `DELETE FROM "${t2}" WHERE "clientId" IN (${inList}) AND id NOT IN (SELECT MIN(id) FROM "${t2}" WHERE "clientId" IN (${inList}) GROUP BY ${grp})`
         )));
         if (n) report.dedupedRecords[t2] = n;
@@ -66745,14 +66745,14 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm20, asRows, num5;
+var norm20, asRows, num6;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
     norm20 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
-    num5 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
+    num6 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
 });
 
@@ -81397,17 +81397,17 @@ var clientDashboardRouter = createRouter({
     const cr = await getConnectionForClient2(input.clientId);
     if ("error" in cr) return { ok: false, error: cr.error };
     const conn = cr.conn;
-    const num6 = (v) => {
+    const num7 = (v) => {
       const n = Number(v);
       return Number.isFinite(n) ? n : 0;
     };
     try {
       const data = await qboRequest2(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`);
       const accounts = data?.QueryResponse?.Account ?? [];
-      const rows = accounts.map((a) => ({ name: a.Name, accountType: a.AccountType, currentBalance: num6(a.CurrentBalance), currencyRef: a.CurrencyRef?.value, active: a.Active }));
+      const rows = accounts.map((a) => ({ name: a.Name, accountType: a.AccountType, currentBalance: num7(a.CurrentBalance), currencyRef: a.CurrencyRef?.value, active: a.Active }));
       const bank = bankBreakdownFromAccounts2(rows);
-      const ar = accounts.filter((a) => /receivable/i.test(a.AccountType || "")).reduce((s, a) => s + num6(a.CurrentBalance), 0);
-      const ap = accounts.filter((a) => /payable/i.test(a.AccountType || "")).reduce((s, a) => s + Math.abs(num6(a.CurrentBalance)), 0);
+      const ar = accounts.filter((a) => /receivable/i.test(a.AccountType || "")).reduce((s, a) => s + num7(a.CurrentBalance), 0);
+      const ap = accounts.filter((a) => /payable/i.test(a.AccountType || "")).reduce((s, a) => s + Math.abs(num7(a.CurrentBalance)), 0);
       const today2 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const yStart = `${today2.slice(0, 4)}-01-01`;
       let pnl = { revenue: null, expenses: null, netIncome: null };
@@ -85284,6 +85284,203 @@ var vendorRulesRouter = createRouter({
   })
 });
 
+// api/statement-coding-router.ts
+init_zod();
+init_middleware();
+
+// api/recon-match-core.ts
+var money3 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+function parseDateLoose(s) {
+  if (!s) return null;
+  const t2 = s.trim();
+  let m = t2.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (m) return Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  m = t2.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
+  if (m) {
+    let a = +m[1], b = +m[2];
+    const y = +m[3] < 100 ? 2e3 + +m[3] : +m[3];
+    if (a > 12 && b <= 12) {
+      const tmp = a;
+      a = b;
+      b = tmp;
+    }
+    return Date.UTC(y, a - 1, b);
+  }
+  const d10 = new Date(t2);
+  return Number.isNaN(d10.getTime()) ? null : d10.getTime();
+}
+function num3(v) {
+  if (v == null) return NaN;
+  let s = String(v).trim();
+  if (!s) return NaN;
+  let neg = false;
+  if (/^\(.*\)$/.test(s)) {
+    neg = true;
+    s = s.slice(1, -1);
+  }
+  if (/-$/.test(s)) {
+    neg = true;
+    s = s.replace(/-$/, "");
+  }
+  s = s.replace(/[$,\s]/g, "");
+  const n = parseFloat(s);
+  if (!Number.isFinite(n)) return NaN;
+  return neg ? -Math.abs(n) : n;
+}
+function splitLine(line, delim) {
+  const out = [];
+  let cur = "";
+  let q3 = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (q3) {
+      if (c === '"' && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else if (c === '"') q3 = false;
+      else cur += c;
+    } else if (c === '"') q3 = true;
+    else if (c === delim) {
+      out.push(cur);
+      cur = "";
+    } else cur += c;
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
+}
+function detectDelimiter(lines2) {
+  const cands = ["	", ",", ";"];
+  let best = ",";
+  let bestScore = -1;
+  for (const d10 of cands) {
+    const counts = lines2.slice(0, 10).map((l) => splitLine(l, d10).length);
+    const max2 = Math.max(...counts, 1);
+    if (max2 < 2) continue;
+    const consistent = counts.filter((c) => c === max2).length;
+    const score = max2 * 10 + consistent;
+    if (score > bestScore) {
+      bestScore = score;
+      best = d10;
+    }
+  }
+  return best;
+}
+var findCol = (headers, ...keys) => headers.findIndex((h) => keys.some((k) => h.toLowerCase().includes(k)));
+function parseCsvTransactions(text2) {
+  const lines2 = (text2 || "").replace(/\r/g, "").split("\n").filter((l) => l.trim());
+  if (!lines2.length) return [];
+  const delim = detectDelimiter(lines2);
+  const splitCsvLine2 = (l) => splitLine(l, delim);
+  let headerIdx = lines2.findIndex((l) => {
+    const lo = l.toLowerCase();
+    return /date/.test(lo) && /(amount|debit|credit|withdraw|deposit|increase|decrease)/.test(lo);
+  });
+  if (headerIdx < 0) headerIdx = 0;
+  const headers = splitCsvLine2(lines2[headerIdx]);
+  const dateI = findCol(headers, "date");
+  const descI = findCol(headers, "description", "payee", "name", "memo", "details", "transaction");
+  const amtI = findCol(headers, "amount");
+  const debitI = findCol(headers, "debit", "withdrawal", "decrease", "money out", "paid out");
+  const creditI = findCol(headers, "credit", "deposit", "increase", "money in", "paid in");
+  const out = [];
+  for (let i = headerIdx + 1; i < lines2.length; i++) {
+    const f = splitCsvLine2(lines2[i]);
+    if (!f.length) continue;
+    const rawDate = dateI >= 0 ? f[dateI] : f[0];
+    const ms3 = parseDateLoose(rawDate);
+    if (ms3 == null) continue;
+    let amount = NaN;
+    if (amtI >= 0 && f[amtI]) amount = num3(f[amtI]);
+    if (!Number.isFinite(amount)) {
+      const d10 = debitI >= 0 ? num3(f[debitI]) : NaN;
+      const c = creditI >= 0 ? num3(f[creditI]) : NaN;
+      const dv = Number.isFinite(d10) ? Math.abs(d10) : 0;
+      const cv = Number.isFinite(c) ? Math.abs(c) : 0;
+      if (dv || cv) amount = cv - dv;
+    }
+    if (!Number.isFinite(amount) || amount === 0) continue;
+    out.push({ date: rawDate, description: descI >= 0 ? f[descI] || "" : "", amount: money3(amount), _ms: ms3 });
+  }
+  return out;
+}
+
+// api/statement-coding-router.ts
+init_qbo_vendor_brain();
+function vendorKey(desc7) {
+  return (desc7 || "").toUpperCase().replace(/\b(POS|PURCHASE|PAYMENT|DEBIT|VISA|MASTERCARD|MC|WWW|HTTP\S*)\b/g, " ").replace(/#\s*\d+/g, " ").replace(/\b\d{2}[/-]\d{2}([/-]\d{2,4})?\b/g, " ").replace(/\b\d{4,}\b/g, " ").replace(/[^A-Z& ]+/g, " ").replace(/\s+/g, " ").trim().split(" ").slice(0, 4).join(" ");
+}
+var statementCodingRouter = createRouter({
+  /**
+   * Parse a pasted statement CSV and code each spend row via the vendor brain.
+   * Read-only; nothing posts. Returns coded rows + a roll-up summary.
+   */
+  code: staffQuery.input(external_exports.object({
+    clientId: external_exports.number(),
+    csvText: external_exports.string().min(1)
+  })).mutation(async ({ input }) => {
+    const cr = await getConnectionForClient(input.clientId);
+    if ("error" in cr) return { ok: false, error: cr.error };
+    const txns = parseCsvTransactions(input.csvText);
+    if (!txns.length) {
+      return { ok: false, error: "no_rows", message: "Couldn't read any transactions. Paste CSV with a Date column and an Amount (or Debit/Credit) column." };
+    }
+    const MAX = 500;
+    const rows = txns.slice(0, MAX);
+    const truncated = txns.length > MAX;
+    const cache2 = /* @__PURE__ */ new Map();
+    const distinctOut = /* @__PURE__ */ new Set();
+    for (const t2 of rows) if (t2.amount < 0) distinctOut.add(vendorKey(t2.description));
+    for (const key11 of distinctOut) {
+      if (!key11) {
+        cache2.set(key11, null);
+        continue;
+      }
+      try {
+        const r = await suggestForClient(input.clientId, { vendorName: key11 });
+        cache2.set(key11, r.ok ? r : null);
+      } catch {
+        cache2.set(key11, null);
+      }
+    }
+    const coded = rows.map((t2) => {
+      const inflow = t2.amount > 0;
+      const key11 = vendorKey(t2.description);
+      const r = inflow ? null : cache2.get(key11);
+      const c = r && r.ok ? r.coding ?? {} : {};
+      const triage = inflow ? "inflow" : c.triage ?? "red";
+      return {
+        date: t2.date,
+        description: t2.description,
+        amount: t2.amount,
+        // signed: − out, + in
+        spend: !inflow,
+        vendorKey: key11,
+        vendorMatched: r && r.ok ? r.resolution?.displayName ?? null : null,
+        accountId: c.suggestedAccountId ?? null,
+        accountName: c.suggestedAccountName ?? null,
+        taxCode: c.suggestedTaxCode ?? null,
+        confidence: typeof c.confidence === "number" ? c.confidence : null,
+        triage,
+        rationale: c.rationale ?? (inflow ? "Money in \u2014 not coded as an expense." : "No history for this vendor \u2014 needs review.")
+      };
+    });
+    const spendRows = coded.filter((c) => c.spend);
+    const greens = spendRows.filter((c) => c.triage === "green");
+    const summary = {
+      total: coded.length,
+      spend: spendRows.length,
+      inflow: coded.length - spendRows.length,
+      green: greens.length,
+      yellow: spendRows.filter((c) => c.triage === "yellow").length,
+      red: spendRows.filter((c) => c.triage === "red").length,
+      spendTotal: Math.round(spendRows.reduce((s, c) => s + Math.abs(c.amount), 0) * 100) / 100,
+      autoCodableTotal: Math.round(greens.reduce((s, c) => s + Math.abs(c.amount), 0) * 100) / 100,
+      truncated
+    };
+    return { ok: true, rows: coded, summary };
+  })
+});
+
 // api/cleanup-router.ts
 init_zod();
 init_middleware();
@@ -85338,7 +85535,7 @@ function findCrossAccountDuplicates(payments) {
 }
 
 // api/cleanup-router.ts
-var num3 = (v) => {
+var num4 = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
@@ -85351,7 +85548,7 @@ async function pullPayments(conn, entityName, start, end) {
     for (const e of arr4(await q3(`SELECT * FROM Purchase WHERE ${range} MAXRESULTS 1000`), "Purchase")) {
       payments.push({
         vendor: e.EntityRef?.name || e.VendorRef?.name || "(no payee)",
-        amount: num3(e.TotalAmt),
+        amount: num4(e.TotalAmt),
         date: String(e.TxnDate || "").slice(0, 10),
         account: e.AccountRef?.name || "(no account)",
         // the SOURCE (bank / credit card)
@@ -85364,7 +85561,7 @@ async function pullPayments(conn, entityName, start, end) {
       const acct = e.CheckPayment?.BankAccountRef?.name || e.CreditCardPayment?.CCAccountRef?.name || "(no account)";
       payments.push({
         vendor: e.VendorRef?.name || "(no payee)",
-        amount: num3(e.TotalAmt),
+        amount: num4(e.TotalAmt),
         date: String(e.TxnDate || "").slice(0, 10),
         account: acct,
         entity: entityName,
@@ -89425,7 +89622,7 @@ init_qbo_vendor_brain();
 
 // api/hst-review-core.ts
 var norm8 = (s) => (s || "").toLowerCase();
-var money3 = (n) => Math.round((n || 0) * 100) / 100;
+var money4 = (n) => Math.round((n || 0) * 100) / 100;
 var isExpenseTxn = (t2) => t2.type === "Purchase" || t2.type === "Bill";
 var isSalesTxn = (t2) => t2.type === "Invoice" || t2.type === "SalesReceipt";
 var CONTROL_PATTERNS = [
@@ -89449,8 +89646,8 @@ function checkUnreviewedAccounts(accounts) {
         check: "unreviewed_account",
         severity: "high",
         ref: `Account: ${a.name}`,
-        amount: money3(a.balance),
-        message: `${a.name} holds ${money3(a.balance)} that hasn't been properly categorized.`,
+        amount: money4(a.balance),
+        message: `${a.name} holds ${money4(a.balance)} that hasn't been properly categorized.`,
         fix: "Recategorize these transactions to real accounts with the correct tax code before filing \u2014 they're invisible to the HST report otherwise."
       });
     }
@@ -89470,7 +89667,7 @@ function checkMissingTaxCode(txns) {
           check: "missing_tax_code",
           severity: "medium",
           ref: ref(t2),
-          amount: money3(l.amount),
+          amount: money4(l.amount),
           message: `${isExpenseTxn(t2) ? "Expense" : isSalesTxn(t2) ? "Sales" : "Line"} on "${l.accountName || "?"}" has no tax code.`,
           fix: "Set the correct tax code (HST 13% if applicable, or Exempt/Zero/Out-of-scope) so it flows to the right HST line."
         });
@@ -89490,8 +89687,8 @@ function checkSalesWithoutTax(txns) {
         check: "sales_without_tax",
         severity: "high",
         ref: ref(t2),
-        amount: money3(t2.total),
-        message: `Sale of ${money3(t2.total)} shows no HST collected.`,
+        amount: money4(t2.total),
+        message: `Sale of ${money4(t2.total)} shows no HST collected.`,
         fix: "Confirm whether HST should have been charged. If the customer/supply is taxable, the missing HST understates Line 105."
       });
     }
@@ -89508,7 +89705,7 @@ function checkControlAccountCoding(txns) {
           check: "control_account_coding",
           severity: "high",
           ref: ref(t2),
-          amount: money3(l.amount),
+          amount: money4(l.amount),
           message: `Coded directly to control account "${l.accountName}".`,
           fix: "Recode to a real expense/income account. Posting straight to HST/AP/AR/clearing distorts the HST and balance-sheet figures."
         });
@@ -89522,14 +89719,14 @@ function checkDuplicates(txns) {
   const seen = /* @__PURE__ */ new Map();
   for (const t2 of txns) {
     if (!isExpenseTxn(t2)) continue;
-    const keyDoc = `${norm8(t2.name)}|${money3(t2.total)}|${norm8(t2.docNumber)}`;
+    const keyDoc = `${norm8(t2.name)}|${money4(t2.total)}|${norm8(t2.docNumber)}`;
     const prior = t2.docNumber ? seen.get(keyDoc) : void 0;
     if (t2.docNumber && prior) {
       out.push({
         check: "duplicate",
         severity: "medium",
         ref: ref(t2),
-        amount: money3(t2.total),
+        amount: money4(t2.total),
         message: `Possible duplicate of ${ref(prior)} (same vendor, amount and document #).`,
         fix: "Check for a double-entered bill/expense \u2014 duplicates over-claim ITCs (Line 108)."
       });
@@ -89550,7 +89747,7 @@ function checkMealsFullItc(txns) {
             check: "meals_full_itc",
             severity: "medium",
             ref: ref(t2),
-            amount: money3(l.taxAmount || 0),
+            amount: money4(l.taxAmount || 0),
             message: `Meals/entertainment "${l.accountName}" appears to claim full ITC.`,
             fix: "Meals & entertainment ITCs are generally limited to 50%. Confirm the ITC is restricted (the year-end 50% adjustment may instead be done annually)."
           });
@@ -89572,13 +89769,13 @@ function tieOut(txns) {
       purchaseBase += t2.lines.reduce((s, l) => s + Math.max(l.amount, 0), 0);
     }
   }
-  return { collected: money3(collected), itc: money3(itc), net: money3(collected - itc), salesBase: money3(salesBase), purchaseBase: money3(purchaseBase) };
+  return { collected: money4(collected), itc: money4(itc), net: money4(collected - itc), salesBase: money4(salesBase), purchaseBase: money4(purchaseBase) };
 }
 function rankVerdict(v) {
   return { green: 0, na: 0, yellow: 1, red: 2 }[v];
 }
 function rateCheck(label, side, tax, base, expectedRatePct, greenBandPts, warnBandPts) {
-  const b = money3(base), tx = money3(tax);
+  const b = money4(base), tx = money4(tax);
   if (b < 1) {
     return {
       label,
@@ -89602,7 +89799,7 @@ function rateCheck(label, side, tax, base, expectedRatePct, greenBandPts, warnBa
       expectedRatePct,
       deviationPts: dev,
       verdict: "red",
-      message: `${label}: ${money3(b)} of taxable ${side} but ~$0 HST \u2014 almost certainly miscoded (missing tax code). Expected \u2248 ${expectedRatePct}%.`
+      message: `${label}: ${money4(b)} of taxable ${side} but ~$0 HST \u2014 almost certainly miscoded (missing tax code). Expected \u2248 ${expectedRatePct}%.`
     };
   }
   let verdict = dev <= greenBandPts ? "green" : dev <= warnBandPts ? "yellow" : "red";
@@ -89622,7 +89819,7 @@ function hstReasonableness(tie, expectedRatePct = 13, opts) {
   const itc = rateCheck("ITCs on purchases", "purchases", tie.itc, tie.purchaseBase, expectedRatePct, greenBandPts, warnBandPts);
   const testable = [output.verdict, itc.verdict].filter((v) => v !== "na");
   const overall = testable.length === 0 ? "na" : testable.reduce((worst, v) => rankVerdict(v) >= rankVerdict(worst) ? v : worst, "green");
-  return { expectedRatePct, output, itc, netTax: money3(tie.collected - tie.itc), overall };
+  return { expectedRatePct, output, itc, netTax: money4(tie.collected - tie.itc), overall };
 }
 function runHstReview(input) {
   const findings = [
@@ -89650,7 +89847,7 @@ function runHstReview(input) {
 // api/hst-review-router.ts
 var q2 = (conn, sql4) => qboRequest(conn, `/query?query=${encodeURIComponent(sql4)}`);
 var arr5 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
-var num4 = (v) => {
+var num5 = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
@@ -89662,7 +89859,7 @@ function mapExpense(e, type2, taxName) {
     lines2.push({
       accountId: d10.AccountRef?.value,
       accountName: d10.AccountRef?.name,
-      amount: num4(l.Amount),
+      amount: num5(l.Amount),
       taxCodeId: d10.TaxCodeRef?.value ?? null,
       taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
     });
@@ -89673,8 +89870,8 @@ function mapExpense(e, type2, taxName) {
     date: String(e.TxnDate || "").slice(0, 10),
     name: e.EntityRef?.name || e.VendorRef?.name,
     docNumber: e.DocNumber,
-    total: num4(e.TotalAmt),
-    taxTotal: num4(e.TxnTaxDetail?.TotalTax),
+    total: num5(e.TotalAmt),
+    taxTotal: num5(e.TxnTaxDetail?.TotalTax),
     lines: lines2
   };
 }
@@ -89685,7 +89882,7 @@ function mapSale(e, type2, taxName) {
     if (!d10) continue;
     lines2.push({
       accountName: d10.ItemRef?.name || l.Description || "Sales",
-      amount: num4(l.Amount),
+      amount: num5(l.Amount),
       taxCodeId: d10.TaxCodeRef?.value ?? null,
       taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
     });
@@ -89696,8 +89893,8 @@ function mapSale(e, type2, taxName) {
     date: String(e.TxnDate || "").slice(0, 10),
     name: e.CustomerRef?.name,
     docNumber: e.DocNumber,
-    total: num4(e.TotalAmt),
-    taxTotal: num4(e.TxnTaxDetail?.TotalTax),
+    total: num5(e.TotalAmt),
+    taxTotal: num5(e.TxnTaxDetail?.TotalTax),
     lines: lines2
   };
 }
@@ -89731,7 +89928,7 @@ var hstReviewRouter = createRouter({
     const accounts = [];
     try {
       for (const a of arr5(await q2(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
-        accounts.push({ id: String(a.Id), name: a.Name, type: a.AccountType, subType: a.AccountSubType, balance: num4(a.CurrentBalance) });
+        accounts.push({ id: String(a.Id), name: a.Name, type: a.AccountType, subType: a.AccountSubType, balance: num5(a.CurrentBalance) });
       }
     } catch (e) {
       errors.push(`Account: ${e instanceof Error ? e.message : e}`);
@@ -90221,6 +90418,7 @@ var appRouter = createRouter({
   interco: intercoRouter,
   intercoRecharge: intercoRechargeRouter,
   vendorRules: vendorRulesRouter,
+  statementCoding: statementCodingRouter,
   cleanup: cleanupRouter,
   group: groupRouter,
   practiceHealth: practiceHealthRouter,
@@ -90530,7 +90728,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.208";
+var BUILD_TAG = "2026-06-27.209";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
