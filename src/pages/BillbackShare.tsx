@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 import { Receipt } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Letterhead, LetterheadFooter } from "@/components/Letterhead";
 import { trpc } from "@/providers/trpc";
 
 const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
@@ -20,13 +21,7 @@ export default function BillbackShare() {
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
       <div className="max-w-3xl mx-auto space-y-4">
-        <div className="flex items-center gap-2">
-          <Receipt className="h-6 w-6 text-lime-600" />
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Inter-company billback — {data.payerName} → {data.counterpartyName}</h1>
-            <p className="text-sm text-slate-500">{data.periodLabel}{data.periodStart ? ` (${data.periodStart} → ${data.periodEnd})` : ""}</p>
-          </div>
-        </div>
+        <Letterhead title="Inter-company billback" client={`${data.payerName} → ${data.counterpartyName}`} subtitle={`${data.periodLabel}${data.periodStart ? ` (${data.periodStart} → ${data.periodEnd})` : ""}`} />
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Tile label="Costs recharged" value={money(data.subtotal)} />
@@ -90,7 +85,7 @@ export default function BillbackShare() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs text-slate-400">Generated {new Date(data.generatedAt).toLocaleString()} · Go Fig Bookz</p>
+        <LetterheadFooter generatedAt={data.generatedAt} />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 import { TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Letterhead, LetterheadFooter } from "@/components/Letterhead";
 import { trpc } from "@/providers/trpc";
 
 const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
@@ -20,13 +21,7 @@ export default function RevRecShare() {
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
       <div className="max-w-4xl mx-auto space-y-4">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="h-6 w-6 text-lime-600" />
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">{data.clientName} — Work in Progress</h1>
-            <p className="text-sm text-slate-500">Revenue recognised as work is completed{data.label ? ` · ${data.label}` : ""}</p>
-          </div>
-        </div>
+        <Letterhead title="Work in Progress" client={data.clientName} subtitle={`Revenue recognised as work is completed${data.label ? ` · ${data.label}` : ""}`} />
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Tile label="Contract value" value={money(t.contractValue)} />
@@ -92,7 +87,7 @@ export default function RevRecShare() {
           </Card>
         )}
 
-        <p className="text-center text-xs text-slate-400">Generated {new Date(data.generatedAt).toLocaleString()} · Go Fig Bookz</p>
+        <LetterheadFooter generatedAt={data.generatedAt} />
       </div>
     </div>
   );
