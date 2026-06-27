@@ -1,3 +1,4 @@
+import HelpButton from "@/components/HelpButton";
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router";
 import { Sun, Moon, Check, Clock, GripVertical, Building2, Lock, CalendarClock, Loader2 } from "lucide-react";
@@ -88,7 +89,7 @@ export default function PlanMyDay() {
         <div className="flex items-center gap-2">
           {evening ? <Moon className="h-6 w-6 text-indigo-500" /> : <Sun className="h-6 w-6 text-amber-500" />}
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{evening ? "Shut down the day" : "Plan my day"}</h1>
+            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-1.5">{evening ? "Shut down the day" : "Plan my day"} <HelpButton id="plan-my-day" /></h1>
             <p className="text-sm text-slate-500">{new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" })}</p>
           </div>
         </div>

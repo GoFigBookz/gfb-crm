@@ -1,3 +1,4 @@
+import HelpButton from "@/components/HelpButton";
 import { useState } from "react";
 import { Tags, Plus, Trash2, Pencil, DollarSign, Megaphone, Copy, Loader2, Check, ListPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -140,6 +141,7 @@ function ListingsPanel({ productId, productName }: { productId: number; productN
     <div className="mt-2 p-2 bg-fuchsia-50/50 border border-fuchsia-100 rounded space-y-2">
       <div className="flex items-center gap-2">
         <span className="text-xs font-semibold text-fuchsia-700">Skye's listings for {productName}</span>
+        <HelpButton id="reseller-listings" />
         <Button size="sm" className="h-7 ml-auto" disabled={gen.isPending} onClick={() => gen.mutate({ productId, channels: ["marketplace", "kijiji", "ebay"] })}>
           {gen.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ListPlus className="h-3.5 w-3.5 mr-1" />} Draft (FB · Kijiji · eBay)
         </Button>

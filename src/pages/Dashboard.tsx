@@ -1,3 +1,4 @@
+import HelpButton from "@/components/HelpButton";
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import {
@@ -293,6 +294,7 @@ function LivBriefingCard() {
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-lime-500 text-white text-[10px] font-bold">L</span>
             Liv's briefing
             <span className="font-normal text-slate-500">— {data.headline}</span>
+            <HelpButton id="liv-briefing" />
           </CardTitle>
           <span className="text-xs text-slate-400">{open ? "hide" : "show"}</span>
         </button>

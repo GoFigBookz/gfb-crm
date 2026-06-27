@@ -1,3 +1,4 @@
+import HelpButton from "@/components/HelpButton";
 import { useState, useMemo } from "react";
 import { Link } from "react-router";
 import { Sparkles, Loader2, Trash2, CheckCircle2, AlertTriangle, CalendarOff, Copy, Clock } from "lucide-react";
@@ -42,7 +43,7 @@ export default function TasksCleanup() {
         <div className="flex items-center gap-2">
           <Sparkles className="h-6 w-6 text-lime-600" />
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Tasks cleanup</h1>
+            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-1.5">Tasks cleanup <HelpButton id="tasks-cleanup" /></h1>
             <p className="text-sm text-slate-500">Kill duplicates, schedule the undated, clear long-stale tasks. Nothing changes until you act.</p>
           </div>
         </div>

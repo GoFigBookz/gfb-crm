@@ -1,3 +1,4 @@
+import HelpButton from "@/components/HelpButton";
 import { useState } from "react";
 import { GitCompareArrows, CheckCircle2, AlertTriangle, ArrowDownToLine, Loader2, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,7 @@ export default function ReconMatch() {
       <div className="flex items-center gap-2">
         <GitCompareArrows className="h-6 w-6 text-violet-600" />
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Reconciliation Matcher</h1>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-1.5">Reconciliation Matcher <HelpButton id="reconcile-matcher" /></h1>
           <p className="text-sm text-slate-500">Drop the bank statement + the QuickBooks register → get matched / outstanding / missing. Nothing posts.</p>
         </div>
       </div>
