@@ -16,6 +16,15 @@ is useless to him. So: develop on the dev branch, then ALWAYS open a PR to `main
 and MERGE it (standing permission granted) so it deploys. Every batch of work ends
 with a merge to main, not a push to the branch.
 
+## Demo-parity rule (Markie, 2026-06-27 — STANDING)
+The "Try Demo" demo (separate `demo.db`, no login, fake firm) must STAY CURRENT with
+what we ship — Markie hands it to family/prospects, never his real data. Table
+structure auto-mirrors every boot (`syncMissingStructure` in `api/prepare-demo-db.ts`),
+so new tables appear automatically. The one manual habit: whenever you ship a new
+user-facing TAB/feature, add a few obviously-fake demo rows for it in `seedDemoExtras`
+(same file) so the tab lights up in the demo instead of sitting empty. Demo seed data
+lives ONLY in that one function.
+
 ## Engineering standard (Markie, 2026-06-26 — "for you", the builder; full text `docs/FIGGY_ENGINEERING_STANDARD.md`)
 Governs ALL code/agents/automations. Hold every change to these: **(1)** no black
 boxes — explainable or documented; **(2)** document while building (Purpose/Inputs/
