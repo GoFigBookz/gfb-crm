@@ -508,7 +508,19 @@ export const assistantRouter = createRouter({
           .from(agentLearnings).where(eq(agentLearnings.userId, ctx.user.id)).orderBy(desc(agentLearnings.createdAt)).limit(100)) as any[];
         lessonsBlock = formatLessonsBlock(selectRelevant(rows, agent));
       } catch { /* table may not exist yet — skip */ }
-      const system = [frontDeskSystem(agent), nowLine, locLine, lessonsBlock].filter(Boolean).join("\n");
+      // PROMPT CACHING (cost): the big stable prefix — the agent's full system prompt
+      // (FOS constitution + skill pack) plus remembered lessons — is identical on every
+      // message, so we cache it once and pay ~10% on reuse. The clock + device location
+      // change every call, so they go in a SEPARATE trailing block AFTER the cache
+      // breakpoint — otherwise the timestamp would bust the cache on every request.
+      const stableSystem = [frontDeskSystem(agent), lessonsBlock].filter(Boolean).join("\n");
+      const volatileSystem = [nowLine, locLine].filter(Boolean).join("\n");
+      const system = [stableSystem, volatileSystem].filter(Boolean).join("\n"); // string form (Groq/Brain paths)
+      // Anthropic block form: cache the stable prefix (5-min ephemeral; refreshes each
+      // message in a live chat). Min cacheable prefix is ~4096 tokens on Haiku — the
+      // book agents' full QBO playbook clears it; a short prefix simply won't cache (no harm).
+      const systemBlocks: any[] = [{ type: "text", text: stableSystem || " ", cache_control: { type: "ephemeral" } }];
+      if (volatileSystem) systemBlocks.push({ type: "text", text: volatileSystem });
       // Server-side web tools: SEARCH (find things) + FETCH (open a specific URL
       // the user shares). DEFAULT OFF for reliability — each web round-trip adds
       // several seconds and is the main cause of a turn overrunning the gateway and
@@ -603,7 +615,7 @@ export const assistantRouter = createRouter({
         const tools = [...ASSISTANT_TOOLS, ...(dropServerTools ? [] : serverTools)];
         let data: any;
         try {
-          data = await client.messages.create({ model, max_tokens: 1024, system, messages, tools } as any);
+          data = await client.messages.create({ model, max_tokens: 1024, system: systemBlocks, messages, tools } as any);
         } catch (err: any) {
           // Transient overloads/rate limits are already retried by the SDK; a final
           // failure here is real. Surface a clear, typed reason.

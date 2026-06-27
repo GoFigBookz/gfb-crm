@@ -34,6 +34,33 @@ const LABELS: Record<VendorCategoryId, string> = {
   utilities: "utility (power / water / gas)",
 };
 
+/** The Messages API request body for classifying ONE vendor name. Shared by the
+ *  live single-call path here AND the 50%-off Batch path (one source of truth). */
+export function vendorClassifyBody(name: string, model: string): any {
+  const list = CATEGORIES.join(", ");
+  return {
+    model,
+    max_tokens: 256,
+    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }],
+    system:
+      `You categorize a business vendor for bookkeeping. Use web_search ONLY if the name is unfamiliar. ` +
+      `Reply with EXACTLY ONE token from this list, or "unknown" — and nothing else: ${list}.`,
+    messages: [{ role: "user", content: `Vendor name: "${name}". Which category?` }],
+  };
+}
+
+/** Pull text out of a Messages API response `content` array, then map → category. */
+export function parseVendorCategory(content: any[] | string): { category: VendorCategoryId; label: string } | null {
+  const text = (typeof content === "string"
+    ? content
+    : (content ?? []).filter((b: any) => b?.type === "text").map((b: any) => String(b.text ?? "")).join(" ")
+  ).toLowerCase();
+  const hit = CATEGORIES.find((c) => new RegExp(`\\b${c}\\b`).test(text));
+  return hit ? { category: hit, label: LABELS[hit] } : null;
+}
+
+export const CLASSIFY_MODEL = () => process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
+
 export async function classifyVendorByWeb(
   name: string,
   opts?: { timeoutMs?: number },
@@ -41,8 +68,6 @@ export async function classifyVendorByWeb(
   const apiKey = process.env.ANTHROPIC_API_KEY;
   // On whenever a key is present; opt out with FIGGY_WEB_CLASSIFY=off.
   if (!apiKey || process.env.FIGGY_WEB_CLASSIFY === "off" || !name?.trim()) return null;
-  const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
-  const list = CATEGORIES.join(", ");
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), opts?.timeoutMs ?? 15_000);
   try {
@@ -50,25 +75,11 @@ export async function classifyVendorByWeb(
       method: "POST",
       signal: ctrl.signal,
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({
-        model,
-        max_tokens: 256,
-        tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }],
-        system:
-          `You categorize a business vendor for bookkeeping. Use web_search ONLY if the name is unfamiliar. ` +
-          `Reply with EXACTLY ONE token from this list, or "unknown" — and nothing else: ${list}.`,
-        messages: [{ role: "user", content: `Vendor name: "${name}". Which category?` }],
-      }),
+      body: JSON.stringify(vendorClassifyBody(name, CLASSIFY_MODEL())),
     });
     if (!res.ok) return null;
     const data: any = await res.json();
-    const text: string = (data?.content ?? [])
-      .filter((b: any) => b?.type === "text")
-      .map((b: any) => String(b.text ?? ""))
-      .join(" ")
-      .toLowerCase();
-    const hit = CATEGORIES.find((c) => new RegExp(`\\b${c}\\b`).test(text));
-    return hit ? { category: hit, label: LABELS[hit] } : null;
+    return parseVendorCategory(data?.content ?? []);
   } catch {
     return null; // network error, abort/timeout, bad JSON — degrade safely
   } finally {
