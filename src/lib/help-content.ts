@@ -167,6 +167,17 @@ export const HELP: Record<string, HelpEntry> = {
     ],
     note: "Auto backups keep the latest 20; manual ones are kept until you delete them.",
   },
+  "smart-money": {
+    title: "Smart Money",
+    steps: [
+      "Pick a category — Grants, WSIB programs, Tax credits, Cost-saving programs, or Business credit cards.",
+      "Figgy searches the web live for current programs that fit this client (province, industry, employees) and lists them with a source link.",
+      "For credit cards, choose the preference (cash back / travel / low interest / no fee) before searching.",
+      "Review each result, click the source to verify it, and ‘Save’ the good ones.",
+      "Track saved ones with the status dropdown: Suggested → Reviewing → Applied → Won.",
+    ],
+    note: "Results are AI web-research SUGGESTIONS to verify on the official site — not financial or legal advice. For your own firm, open the Go Fig Bookz client and use its Smart Money tab.",
+  },
   "cash-book": {
     title: "Cash book",
     steps: [
