@@ -49,8 +49,28 @@ function applies(item: { needs?: Need }, client: any): boolean {
   return true;
 }
 
-/** The relevant checklist items for a client (pure-ish; the only data dep is the client row). */
+/** The full library of close steps (for the per-client "customize / trim" picker). */
+export const ALL_CHECKLIST_ITEMS = CHECKLIST_ITEMS;
+
+/** Parse a client's explicit close-step selection (JSON array of field names), if set. */
+function explicitCloseSteps(client: any): string[] | null {
+  try {
+    const raw = (client as any)?.closeSteps;
+    if (!raw) return null;
+    const arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return Array.isArray(arr) && arr.length ? arr.map(String) : null;
+  } catch { return null; }
+}
+
+/** The relevant checklist items for a client. If the client has an EXPLICIT step
+ *  selection (trimmed at intake), use exactly that; otherwise fall back to the
+ *  flag-driven default set. */
 export function applicableItems(client: any): typeof CHECKLIST_ITEMS {
+  const explicit = explicitCloseSteps(client);
+  if (explicit) {
+    const set = new Set(explicit);
+    return CHECKLIST_ITEMS.filter((i) => set.has(i.field));
+  }
   return CHECKLIST_ITEMS.filter((i) => applies(i, client));
 }
 
@@ -201,6 +221,26 @@ export const monthlyCloseRouter = createRouter({
     .mutation(async ({ input }) => {
       await getDb().update(clients).set({ hasCreditCard: input.value } as any).where(eq(clients.id, input.clientId));
       return { success: true };
+    }),
+
+  /** The close-step picker for a client: the full library + which are enabled (the
+   *  trimmed set). Defaults to the flag-driven set when nothing's been customized. */
+  getStepConfig: staffQuery
+    .input(z.object({ clientId: z.number() }))
+    .query(async ({ input }) => {
+      const client = await loadClient(input.clientId);
+      const enabled = new Set(applicableItems(client).map((i) => i.field));
+      return ALL_CHECKLIST_ITEMS.map((i) => ({ field: i.field, label: i.label, enabled: enabled.has(i.field) }));
+    }),
+
+  /** Save a client's trimmed close-step selection (the fields that apply). */
+  setStepConfig: staffQuery
+    .input(z.object({ clientId: z.number(), fields: z.array(z.string()) }))
+    .mutation(async ({ input }) => {
+      const valid = new Set(ALL_CHECKLIST_ITEMS.map((i) => i.field));
+      const fields = input.fields.filter((f) => valid.has(f));
+      await getDb().update(clients).set({ closeSteps: JSON.stringify(fields) } as any).where(eq(clients.id, input.clientId));
+      return { success: true, count: fields.length };
     }),
 
   /** Does this client have credit cards? (for the inline toggle default) */

@@ -45077,6 +45077,7 @@ var init_message_router = __esm({
 // api/monthly-close-router.ts
 var monthly_close_router_exports = {};
 __export(monthly_close_router_exports, {
+  ALL_CHECKLIST_ITEMS: () => ALL_CHECKLIST_ITEMS,
   applicableItems: () => applicableItems,
   markFiscalYearClosedForAll: () => markFiscalYearClosedForAll,
   monthlyCloseRouter: () => monthlyCloseRouter,
@@ -45095,7 +45096,22 @@ function applies(item, client) {
   if (item.needs === "creditCard") return client?.hasCreditCard !== false;
   return true;
 }
+function explicitCloseSteps(client) {
+  try {
+    const raw2 = client?.closeSteps;
+    if (!raw2) return null;
+    const arr5 = typeof raw2 === "string" ? JSON.parse(raw2) : raw2;
+    return Array.isArray(arr5) && arr5.length ? arr5.map(String) : null;
+  } catch {
+    return null;
+  }
+}
 function applicableItems(client) {
+  const explicit = explicitCloseSteps(client);
+  if (explicit) {
+    const set2 = new Set(explicit);
+    return CHECKLIST_ITEMS.filter((i) => set2.has(i.field));
+  }
   return CHECKLIST_ITEMS.filter((i) => applies(i, client));
 }
 async function loadClient(clientId) {
@@ -45145,7 +45161,7 @@ async function seedClose2025Complete() {
     console.error("[close-seed] seedClose2025Complete failed:", e instanceof Error ? e.message : e);
   }
 }
-var MONTH_ABBR, CHECKLIST_ITEMS, monthlyCloseRouter;
+var MONTH_ABBR, CHECKLIST_ITEMS, ALL_CHECKLIST_ITEMS, monthlyCloseRouter;
 var init_monthly_close_router = __esm({
   "api/monthly-close-router.ts"() {
     init_zod();
@@ -45172,6 +45188,7 @@ var init_monthly_close_router = __esm({
       { field: "clientNotified", label: "Client notified" },
       { field: "sourceDocsFiled", label: "Source docs filed in Drive" }
     ];
+    ALL_CHECKLIST_ITEMS = CHECKLIST_ITEMS;
     monthlyCloseRouter = createRouter({
       getOrCreate: staffQuery.input(external_exports.object({ clientId: external_exports.number(), year: external_exports.number(), month: external_exports.number() })).query(async ({ ctx, input }) => {
         const db = getDb();
@@ -45240,6 +45257,20 @@ var init_monthly_close_router = __esm({
       setHasCreditCard: staffQuery.input(external_exports.object({ clientId: external_exports.number(), value: external_exports.boolean() })).mutation(async ({ input }) => {
         await getDb().update(clients).set({ hasCreditCard: input.value }).where(eq(clients.id, input.clientId));
         return { success: true };
+      }),
+      /** The close-step picker for a client: the full library + which are enabled (the
+       *  trimmed set). Defaults to the flag-driven set when nothing's been customized. */
+      getStepConfig: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+        const client = await loadClient(input.clientId);
+        const enabled = new Set(applicableItems(client).map((i) => i.field));
+        return ALL_CHECKLIST_ITEMS.map((i) => ({ field: i.field, label: i.label, enabled: enabled.has(i.field) }));
+      }),
+      /** Save a client's trimmed close-step selection (the fields that apply). */
+      setStepConfig: staffQuery.input(external_exports.object({ clientId: external_exports.number(), fields: external_exports.array(external_exports.string()) })).mutation(async ({ input }) => {
+        const valid = new Set(ALL_CHECKLIST_ITEMS.map((i) => i.field));
+        const fields = input.fields.filter((f) => valid.has(f));
+        await getDb().update(clients).set({ closeSteps: JSON.stringify(fields) }).where(eq(clients.id, input.clientId));
+        return { success: true, count: fields.length };
       }),
       /** Does this client have credit cards? (for the inline toggle default) */
       clientFlags: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
@@ -69525,6 +69556,15 @@ var init_ensure_clients_schema = __esm({
       ["engagementSentAt", "integer"],
       ["engagementSignedAt", "integer"],
       ["engagementLetterUrl", "text"],
+      ["depositReceivedAt", "integer"],
+      // onboarding gate: workflow stays off until signed + paid
+      ["closeSteps", "text"],
+      // per-client month-end-close step selection (JSON array of fields)
+      ["hasRecharge", "integer DEFAULT 0"],
+      // recharge-invoice tool flag (Alderson)
+      ["craBusinessNumber", "text"],
+      ["craPulledAt", "integer"],
+      // CRA / government program-account pull (onboarding)
       ["assignedTo", "text"],
       ["oneDriveFolderId", "text"],
       ["payrollRpNumber", "text"],
@@ -90320,7 +90360,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.204";
+var BUILD_TAG = "2026-06-27.205";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
