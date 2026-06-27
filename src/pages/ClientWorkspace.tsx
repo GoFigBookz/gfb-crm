@@ -90,6 +90,7 @@ export default function ClientWorkspace() {
   // Jump-links shown for an active client.
   const jump = [
     ["Payroll", `sec-${id}-payroll`, hasPayroll],
+    ["Month-end", `sec-${id}-close`, true],
     ["Custom workflow", `sec-${id}-workflow`, hasRecharge || hasInterco || isGroup],
     ["HST", `sec-${id}-hst`, hasHST],
     ["Emails", `sec-${id}-emails`, true],
@@ -245,6 +246,12 @@ export default function ClientWorkspace() {
             </Section>
           )}
 
+          {/* MONTH-END CLOSE — own section, right after payroll (cockpit core) */}
+          <Section id={`${id}-close`} title="Month-end close" subtitle="post → reconcile → review → financials" icon={<CheckCircle2 className="h-4 w-4 text-indigo-500" />}
+            badge={closeStatus?.checklistPercent != null ? <span className="text-xs text-slate-500">{closeStatus.checklistPercent}%</span> : undefined}>
+            <ClientCloseChecklist clientId={id} />
+          </Section>
+
           {/* CUSTOM WORKFLOW — per-client assigned tools (recharge, interco, …) */}
           {(hasRecharge || hasInterco) && (
             <Section id={`${id}-workflow`} title="Custom workflow" subtitle="tools assigned to this client" icon={<Wrench className="h-4 w-4 text-slate-500" />} defaultOpen>
@@ -312,13 +319,9 @@ export default function ClientWorkspace() {
             <ContactsCard clientId={id} />
           </Section>
 
-          {/* MORE — the occasional stuff: close, bookkeeping tools, requests, group */}
-          <Section id={`${id}-more`} title="More" subtitle="month-end close, bookkeeping tools, requests, loans, time">
+          {/* MORE — the occasional stuff: bookkeeping tools, requests, group */}
+          <Section id={`${id}-more`} title="More" subtitle="bookkeeping tools, requests, loans, time">
             <div className="space-y-3">
-              <div>
-                <div className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-indigo-500" /> Month-end close {closeStatus?.checklistPercent != null && <span className="text-slate-400">· {closeStatus.checklistPercent}%</span>}</div>
-                <ClientCloseChecklist clientId={id} />
-              </div>
               <StatementCodingPanel clientId={id} />
               <VendorRulesPanel clientId={id} />
               <PaymentSourceCard clientId={id} groupName={(client as any).groupName} />
