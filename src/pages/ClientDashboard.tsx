@@ -3009,11 +3009,39 @@ export function ContactsCard({ clientId }: { clientId: number }) {
     if (editId) update.mutate({ id: editId, ...form });
     else create.mutate({ clientId, ...form });
   }
+
+  // ── Harvest: scour Gmail for real people on this client ────────────────────
+  const [harvestOpen, setHarvestOpen] = useState(false);
+  const [cands, setCands] = useState<any[]>([]);          // editable candidate rows
+  const [harvestMsg, setHarvestMsg] = useState<string>("");
+  const harvest = trpc.contacts.harvest.useMutation({
+    onSuccess: (r: any) => {
+      if (!r.ok) { setHarvestMsg(r.error || "Couldn't reach Gmail"); setCands([]); return; }
+      const rows = (r.candidates || []).map((c: any) => ({ ...c, title: c.role || "", checked: true }));
+      setCands(rows);
+      setHarvestMsg(rows.length ? `Scanned ${r.scanned} emails · found ${rows.length}` : `Scanned ${r.scanned} emails · no new contacts`);
+    },
+    onError: (e) => setHarvestMsg(e.message),
+  });
+  const harvestSave = trpc.contacts.harvestSave.useMutation({
+    onSuccess: (r: any) => { inv(); setHarvestMsg(`Saved ${r.saved}`); setCands([]); setHarvestOpen(false); },
+    onError: (e) => alert(e.message),
+  });
+  function runHarvest() { setHarvestMsg("Searching Gmail…"); setCands([]); harvest.mutate({ clientId }); }
+  function saveHarvest() {
+    const picked = cands.filter((c) => c.checked && c.name?.trim() && c.email);
+    if (!picked.length) return;
+    harvestSave.mutate({ clientId, contacts: picked.map((c) => ({ name: c.name.trim(), email: c.email, title: c.title?.trim() || undefined })) });
+  }
+
   return (
     <Card>
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2 text-base"><Users className="h-5 w-5 text-lime-500" /> Contacts</CardTitle>
-        <Button size="sm" variant="outline" onClick={startAdd}><Plus className="h-3.5 w-3.5 mr-1" /> Add contact</Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => { setHarvestOpen(true); setHarvestMsg(""); setCands([]); }}><Mail className="h-3.5 w-3.5 mr-1" /> Find from Gmail</Button>
+          <Button size="sm" variant="outline" onClick={startAdd}><Plus className="h-3.5 w-3.5 mr-1" /> Add contact</Button>
+        </div>
       </CardHeader>
       <CardContent>
         {(!contacts || contacts.length === 0) ? (
@@ -3052,6 +3080,50 @@ export function ContactsCard({ clientId }: { clientId: number }) {
               <Button className="bg-lime-500 flex-1" disabled={!form.name.trim() || create.isPending || update.isPending} onClick={save}>{create.isPending || update.isPending ? "Saving…" : "Save"}</Button>
               <Button variant="outline" onClick={close}>Cancel</Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* HARVEST — find real contacts from Gmail, confirm, save. */}
+      <Dialog open={harvestOpen} onOpenChange={(v) => { if (!v) { setHarvestOpen(false); setCands([]); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Mail className="h-4 w-4 text-lime-500" /> Find contacts from Gmail</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <p className="text-xs text-slate-500">
+              Scans the firm's Gmail for the people on this client's threads, skips automated senders and our own addresses, and proposes them below.
+              Nothing is saved until you pick and click Save. Roles are a guess — edit them.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button size="sm" className="bg-lime-500" disabled={harvest.isPending} onClick={runHarvest}>
+                {harvest.isPending ? "Searching…" : cands.length ? "Search again" : "Search Gmail"}
+              </Button>
+              {harvestMsg && <span className="text-xs text-slate-500">{harvestMsg}</span>}
+            </div>
+
+            {cands.length > 0 && (
+              <>
+                <div className="max-h-72 overflow-y-auto divide-y border rounded-lg">
+                  {cands.map((c, i) => (
+                    <div key={c.email} className="flex items-center gap-2 p-2">
+                      <input type="checkbox" checked={c.checked} onChange={(e) => setCands((cs) => cs.map((x, j) => j === i ? { ...x, checked: e.target.checked } : x))} />
+                      <div className="flex-1 min-w-0 grid grid-cols-[1fr_1fr] gap-1.5">
+                        <Input className="h-7 text-xs" value={c.name} onChange={(e) => setCands((cs) => cs.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder="Name" />
+                        <Input className="h-7 text-xs" value={c.title} onChange={(e) => setCands((cs) => cs.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="Role (optional)" />
+                        <p className="col-span-2 text-[11px] text-slate-500 truncate">{c.email} · seen {c.occurrences}×{c.fromCount ? " · writes us" : ""}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button className="bg-lime-500 flex-1" disabled={harvestSave.isPending || !cands.some((c) => c.checked)} onClick={saveHarvest}>
+                    {harvestSave.isPending ? "Saving…" : `Save ${cands.filter((c) => c.checked).length} selected`}
+                  </Button>
+                  <Button variant="outline" onClick={() => { setHarvestOpen(false); setCands([]); }}>Close</Button>
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>

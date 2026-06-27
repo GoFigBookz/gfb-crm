@@ -83141,6 +83141,158 @@ init_middleware();
 init_connection();
 init_schema();
 init_drizzle_orm();
+
+// api/contact-harvest-core.ts
+var AUTOMATED = [
+  "noreply",
+  "no-reply",
+  "no_reply",
+  "donotreply",
+  "do-not-reply",
+  "do_not_reply",
+  "notifications",
+  "notification",
+  "mailer-daemon",
+  "postmaster",
+  "bounce",
+  "bounces",
+  "automated",
+  "auto-reply",
+  "autoreply",
+  "alerts",
+  "alert",
+  "support@",
+  "no.reply"
+];
+var LOCAL_ROLES = [
+  [/^(ap|accountspayable|accounts\.payable)$/i, "Accounts Payable"],
+  [/^(ar|accountsreceivable|accounts\.receivable)$/i, "Accounts Receivable"],
+  [/(payroll)/i, "Payroll"],
+  [/(billing|invoices?|accounts)/i, "Billing"],
+  [/(bookkeep)/i, "Bookkeeper"],
+  [/^(admin|administration|office)$/i, "Admin"],
+  [/^(info|hello|contact|inquiries|enquiries|reception)$/i, "General"],
+  [/(sales)/i, "Sales"],
+  [/(hr|humanresources)/i, "HR"]
+];
+var DOMAIN_ROLES = [
+  [/(account|cpa|\bcga\b|\bllp\b|bookkeep|taxservices|\btax\b)/i, "Accountant"],
+  [/(rbc|td|scotia|bmo|cibc|tangerine|nationalbank|desjardins|\bbank\b|creditunion)/i, "Bank"],
+  [/(insurance|insur)/i, "Insurance"],
+  [/(law|legal|barrister|solicitor)/i, "Lawyer"]
+];
+function domainOf(email3) {
+  const at2 = email3.lastIndexOf("@");
+  return at2 >= 0 ? email3.slice(at2 + 1).toLowerCase() : "";
+}
+function localOf(email3) {
+  const at2 = email3.lastIndexOf("@");
+  return at2 >= 0 ? email3.slice(0, at2).toLowerCase() : email3.toLowerCase();
+}
+function inferRole(email3, _name) {
+  const local = localOf(email3).replace(/\+.*$/, "");
+  const domain2 = domainOf(email3);
+  for (const [re, role] of LOCAL_ROLES) if (re.test(local)) return role;
+  for (const [re, role] of DOMAIN_ROLES) if (re.test(domain2)) return role;
+  return "";
+}
+function isAutomated(email3) {
+  const lc = email3.toLowerCase();
+  const local = localOf(lc);
+  return AUTOMATED.some((a) => a.endsWith("@") ? lc.startsWith(a) : local.includes(a));
+}
+function parseAddressList(raw2) {
+  if (!raw2) return [];
+  const out = [];
+  let buf = "";
+  let inQuote = false;
+  let inAngle = false;
+  const flush = () => {
+    const part = buf.trim();
+    buf = "";
+    if (!part) return;
+    let name2 = "";
+    let email3 = "";
+    const angle = part.match(/<([^>]+)>/);
+    if (angle) {
+      email3 = angle[1].trim();
+      name2 = part.slice(0, angle.index).trim();
+    } else {
+      email3 = part.trim();
+    }
+    name2 = name2.replace(/^["']|["']$/g, "").trim();
+    email3 = email3.replace(/^["']|["']$/g, "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email3)) return;
+    out.push({ name: name2, email: email3 });
+  };
+  for (const ch of raw2) {
+    if (ch === '"') inQuote = !inQuote;
+    else if (ch === "<") inAngle = true;
+    else if (ch === ">") inAngle = false;
+    if (ch === "," && !inQuote && !inAngle) {
+      flush();
+      continue;
+    }
+    buf += ch;
+  }
+  flush();
+  return out;
+}
+function nameFromLocal(email3) {
+  const local = localOf(email3).replace(/\+.*$/, "");
+  return local.split(/[._-]+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+function extractContacts(input) {
+  const exclude = new Set((input.excludeEmails || []).map((e) => e.toLowerCase().trim()).filter(Boolean));
+  const firmDomains = (input.firmDomains || []).map((d10) => d10.toLowerCase().trim()).filter(Boolean);
+  const acc = /* @__PURE__ */ new Map();
+  for (const msg of input.messages || []) {
+    const ts = msg.date ? Date.parse(msg.date) : NaN;
+    const lastSeen = Number.isFinite(ts) ? ts : null;
+    const buckets = [
+      ["from", parseAddressList(msg.from)],
+      ["to", parseAddressList(msg.to)],
+      ["to", parseAddressList(msg.cc)],
+      ["to", parseAddressList(msg.replyTo)]
+    ];
+    for (const [kind, people] of buckets) {
+      for (const p of people) {
+        const email3 = p.email;
+        if (!email3 || exclude.has(email3)) continue;
+        if (isAutomated(email3)) continue;
+        const dom = domainOf(email3);
+        if (firmDomains.some((fd) => dom === fd || dom.endsWith("." + fd))) continue;
+        let c = acc.get(email3);
+        if (!c) {
+          c = {
+            email: email3,
+            name: p.name || nameFromLocal(email3),
+            role: inferRole(email3, p.name),
+            occurrences: 0,
+            fromCount: 0,
+            toCount: 0,
+            lastSeen
+          };
+          acc.set(email3, c);
+        }
+        if (p.name && (!c.name || c.name === nameFromLocal(email3))) c.name = p.name;
+        c.occurrences += 1;
+        if (kind === "from") c.fromCount += 1;
+        else c.toCount += 1;
+        if (lastSeen && (!c.lastSeen || lastSeen > c.lastSeen)) c.lastSeen = lastSeen;
+      }
+    }
+  }
+  return Array.from(acc.values()).sort((a, b) => {
+    if ((b.fromCount > 0 ? 1 : 0) !== (a.fromCount > 0 ? 1 : 0)) return (b.fromCount > 0 ? 1 : 0) - (a.fromCount > 0 ? 1 : 0);
+    if (b.occurrences !== a.occurrences) return b.occurrences - a.occurrences;
+    return (b.lastSeen || 0) - (a.lastSeen || 0);
+  });
+}
+
+// api/contacts-router.ts
+var FIRM_DOMAINS = ["gofig.ca", "gofigbooks.com"];
+var FIRM_EXTRA_EMAILS = ["markie.antle@gmail.com"];
 async function ensureTable() {
   try {
     await getDb().run(sql`CREATE TABLE IF NOT EXISTS client_contacts (
@@ -83184,6 +83336,101 @@ var contactsRouter = createRouter({
   remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     await getDb().delete(clientContacts).where(eq2(clientContacts.id, input.id));
     return { success: true };
+  }),
+  // HARVEST — scour the firm's Gmail for the people we actually deal with on this
+  // client, dedup them, infer a role, and return CANDIDATES (never auto-saves).
+  // Read-only on Gmail. Defensive: a Google hiccup returns an error string, not a throw,
+  // so the Contacts panel can show "couldn't reach Gmail" instead of a broken page.
+  harvest: authedQuery.input(external_exports.object({
+    clientId: external_exports.number(),
+    query: external_exports.string().max(400).optional(),
+    // override the auto Gmail query
+    maxMessages: external_exports.number().min(1).max(100).default(40)
+  })).mutation(async ({ input }) => {
+    await ensureTable();
+    const db = getDb();
+    try {
+      const [client] = await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1);
+      if (!client) return { ok: false, error: "Client not found", candidates: [], query: "" };
+      const saved = await db.select().from(clientContacts).where(eq2(clientContacts.clientId, input.clientId));
+      const cEmails = await db.select().from(clientEmails).where(eq2(clientEmails.clientId, input.clientId));
+      const exclude = new Set(FIRM_EXTRA_EMAILS);
+      const realDomains = /* @__PURE__ */ new Set();
+      const noteReal = (e) => {
+        if (!e) return;
+        const lc = String(e).toLowerCase().trim();
+        if (!lc || lc.includes("@example.com")) return;
+        exclude.add(lc);
+        const at2 = lc.lastIndexOf("@");
+        if (at2 >= 0) realDomains.add(lc.slice(at2 + 1));
+      };
+      noteReal(client.email);
+      for (const c of saved) noteReal(c.email);
+      for (const ce of cEmails) noteReal(ce.email);
+      const nameTerm = `"${String(client.name || "").replace(/"/g, "")}"`;
+      const domainTerms = Array.from(realDomains).map((d10) => `from:${d10} OR to:${d10}`).join(" OR ");
+      const autoQuery = [nameTerm, domainTerms].filter(Boolean).join(" OR ");
+      const q3 = input.query || autoQuery;
+      const { getFirmGoogleAccount: getFirmGoogleAccount2, getValidGoogleAccessToken: getValidGoogleAccessToken2 } = await Promise.resolve().then(() => (init_google_token(), google_token_exports));
+      const account = await getFirmGoogleAccount2();
+      if (!account) return { ok: false, error: "No Google account connected", candidates: [], query: q3 };
+      const token2 = await getValidGoogleAccessToken2(account);
+      const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+      listUrl.searchParams.set("maxResults", String(input.maxMessages));
+      listUrl.searchParams.set("q", q3);
+      const listRes = await fetch(listUrl.toString(), { headers: { Authorization: `Bearer ${token2}` } });
+      if (!listRes.ok) return { ok: false, error: `Gmail list ${listRes.status}`, candidates: [], query: q3 };
+      const listData = await listRes.json();
+      const ids = (listData.messages || []).map((m) => m.id);
+      const messages = [];
+      for (const id of ids) {
+        const mUrl = new URL(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}`);
+        mUrl.searchParams.set("format", "metadata");
+        for (const h of ["From", "To", "Cc", "Reply-To", "Date"]) mUrl.searchParams.append("metadataHeaders", h);
+        const mRes = await fetch(mUrl.toString(), { headers: { Authorization: `Bearer ${token2}` } });
+        if (!mRes.ok) continue;
+        const mData = await mRes.json();
+        const hdrs = mData.payload?.headers || [];
+        const get = (n) => hdrs.find((h) => h.name?.toLowerCase() === n.toLowerCase())?.value || "";
+        messages.push({ from: get("From"), to: get("To"), cc: get("Cc"), replyTo: get("Reply-To"), date: get("Date") });
+      }
+      const candidates = extractContacts({
+        messages,
+        excludeEmails: Array.from(exclude),
+        firmDomains: FIRM_DOMAINS
+      });
+      return { ok: true, candidates, query: q3, scanned: messages.length };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e), candidates: [], query: "" };
+    }
+  }),
+  // Save confirmed harvested candidates. Skips any email already on the client.
+  harvestSave: authedQuery.input(external_exports.object({
+    clientId: external_exports.number(),
+    contacts: external_exports.array(external_exports.object({
+      name: external_exports.string().min(1).max(200),
+      email: external_exports.string().email(),
+      title: external_exports.string().max(120).optional()
+    })).min(1).max(50)
+  })).mutation(async ({ input }) => {
+    await ensureTable();
+    const db = getDb();
+    const existing = await db.select({ email: clientContacts.email }).from(clientContacts).where(eq2(clientContacts.clientId, input.clientId));
+    const have = new Set(existing.map((r) => String(r.email || "").toLowerCase()));
+    let saved = 0;
+    for (const c of input.contacts) {
+      if (have.has(c.email.toLowerCase())) continue;
+      await db.insert(clientContacts).values({
+        clientId: input.clientId,
+        name: c.name,
+        title: c.title || null,
+        email: c.email.toLowerCase(),
+        updatedAt: /* @__PURE__ */ new Date()
+      });
+      have.add(c.email.toLowerCase());
+      saved++;
+    }
+    return { success: true, saved };
   })
 });
 
@@ -93986,7 +94233,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.250";
+var BUILD_TAG = "2026-06-27.251";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
