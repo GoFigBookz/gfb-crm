@@ -36,18 +36,25 @@ The honest landscape, because this is the constrained part:
      digital-assistant feel whenever the app is up (e.g. phone on the desk in the morning).
      Cost: Porcupine has a free tier; ~1 small JS dependency.
 
-  2. **OS launch-by-voice (no native app needed).**
-     - **iOS — Siri Shortcut.** Create a Shortcut named "Morning Figgy" → "Hey Siri,
-       Morning Figgy" opens the Figgy PWA at a deep link (e.g. `/assistant?brief=1`) that
-       auto-runs + reads the brief. True voice trigger from a locked phone, zero native code.
-     - **Android — App shortcut / Assistant routine / homescreen action** that opens the
-       same deep link. ("Hey Google" can't route to a custom app post-2023, but a Routine
-       can *open* the app.)
+  2. **OS launch-by-voice — Markie is on a Samsung Galaxy S25 (Android), so Samsung-first:**
+     - **Bixby Quick Command (recommended hands-free trigger).** Create a Bixby quick
+       command **"Morning Figgy"** → opens the Figgy PWA at a deep link (e.g.
+       `/assistant?brief=1`) that auto-runs + reads the brief. Then **"Hey Bixby, Morning
+       Figgy"** works from a locked phone, zero native code. Bixby allows custom phrases →
+       open-app/URL, which is exactly what we need (and is the Samsung equivalent of an
+       iOS Siri Shortcut).
+     - **Google Assistant Routine** as an alternative launcher (open-app on a phrase).
+       Note: post-2023 "Hey Google" can't *converse* with a custom app, but a Routine can
+       still *open* the deep link.
+     - Either way the trigger just **opens** Figgy at the brief deep link; Figgy's own
+       voice (TTS) reads it out.
+     - (iOS path, for reference if ever needed: a Siri Shortcut does the same.)
 
   3. **Native wrapper (later, if wanted).** The PWA is already TWA-ready for Play Store
-     (`docs/ANDROID_APP.md`). A native Android wrapper could add a foreground service +
-     Porcupine for true always-on "Hey Figgy" even when the app's closed — but that's a
-     real native build + battery trade-off. Only if #1/#2 aren't enough.
+     (`docs/ANDROID_APP.md`) — clean fit for the S25. A native Android (TWA + foreground
+     service) wrapper could add Porcupine for true always-on "Hey Figgy" even when the app
+     is closed — but that's a real native build + battery trade-off. Only if #1/#2 aren't
+     enough. (On Android this is more achievable than iOS, which locks down background mic.)
 
 - **Driving / hands-free-while-moving** (Markie's separate want): the cleanest is the
   **SMS channel** — text "morning brief" and get it back (Twilio), which also reads aloud
@@ -57,7 +64,7 @@ The honest landscape, because this is the constrained part:
 1. `morning_brief` aggregator skill + spoken output (the content).
 2. Deep link `/assistant?brief=1` that auto-runs it.
 3. Picovoice "Hey Figgy" in-app wake word (hands-free while open).
-4. iOS Siri Shortcut + Android shortcut to launch by voice from a locked phone.
+4. **Bixby Quick Command "Morning Figgy"** (Samsung S25) to launch by voice from a locked phone.
 5. (Optional) morning auto-push; SMS channel for driving.
 
 Net: ~90% of the "digital assistant" feel on the phone with **no** dependence on the
