@@ -169,8 +169,8 @@ function getStatusCodeFromKey(code) {
   return (_JSONRPC2_TO_HTTP_COD = JSONRPC2_TO_HTTP_CODE[code]) !== null && _JSONRPC2_TO_HTTP_COD !== void 0 ? _JSONRPC2_TO_HTTP_COD : 500;
 }
 function getHTTPStatusCode(json2) {
-  const arr6 = Array.isArray(json2) ? json2 : [json2];
-  const httpStatuses = new Set(arr6.map((res) => {
+  const arr7 = Array.isArray(json2) ? json2 : [json2];
+  const httpStatuses = new Set(arr7.map((res) => {
     if ("error" in res && isObject(res.error.data)) {
       var _res$error$data;
       if (typeof ((_res$error$data = res.error.data) === null || _res$error$data === void 0 ? void 0 : _res$error$data["httpStatus"]) === "number") return res.error.data["httpStatus"];
@@ -15368,8 +15368,8 @@ function find(record2, predicate) {
 function forEach(record2, run3) {
   Object.entries(record2).forEach(([key12, value]) => run3(value, key12));
 }
-function includes(arr6, value) {
-  return arr6.indexOf(value) !== -1;
+function includes(arr7, value) {
+  return arr7.indexOf(value) !== -1;
 }
 function findArr(record2, predicate) {
   for (let i = 0; i < record2.length; i++) {
@@ -25007,13 +25007,13 @@ var init_base64 = __esm({
       if (!b64re.test(asc2))
         throw new TypeError("malformed base64.");
       asc2 += "==".slice(2 - (asc2.length & 3));
-      let u24, r1, r27;
+      let u24, r1, r28;
       let binArray = [];
       for (let i = 0; i < asc2.length; ) {
-        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r27 = b64tab[asc2.charAt(i++)]);
+        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r28 = b64tab[asc2.charAt(i++)]);
         if (r1 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255));
-        } else if (r27 === 64) {
+        } else if (r28 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255));
         } else {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255, u24 & 255));
@@ -26852,26 +26852,26 @@ var require_permessage_deflate = __commonJS({
             value = value[0];
             if (key12 === "client_max_window_bits") {
               if (value !== true) {
-                const num7 = +value;
-                if (!Number.isInteger(num7) || num7 < 8 || num7 > 15) {
+                const num8 = +value;
+                if (!Number.isInteger(num8) || num8 < 8 || num8 > 15) {
                   throw new TypeError(
                     `Invalid value for parameter "${key12}": ${value}`
                   );
                 }
-                value = num7;
+                value = num8;
               } else if (!this._isServer) {
                 throw new TypeError(
                   `Invalid value for parameter "${key12}": ${value}`
                 );
               }
             } else if (key12 === "server_max_window_bits") {
-              const num7 = +value;
-              if (!Number.isInteger(num7) || num7 < 8 || num7 > 15) {
+              const num8 = +value;
+              if (!Number.isInteger(num8) || num8 < 8 || num8 > 15) {
                 throw new TypeError(
                   `Invalid value for parameter "${key12}": ${value}`
                 );
               }
-              value = num7;
+              value = num8;
             } else if (key12 === "client_no_context_takeover" || key12 === "server_no_context_takeover") {
               if (value !== true) {
                 throw new TypeError(
@@ -27566,8 +27566,8 @@ var require_receiver = __commonJS({
           return;
         }
         const buf = this.consume(8);
-        const num7 = buf.readUInt32BE(0);
-        if (num7 > Math.pow(2, 53 - 32) - 1) {
+        const num8 = buf.readUInt32BE(0);
+        if (num8 > Math.pow(2, 53 - 32) - 1) {
           const error48 = this.createError(
             RangeError,
             "Unsupported WebSocket frame: payload length > 2^53 - 1",
@@ -27578,7 +27578,7 @@ var require_receiver = __commonJS({
           cb(error48);
           return;
         }
-        this._payloadLength = num7 * Math.pow(2, 32) + buf.readUInt32BE(4);
+        this._payloadLength = num8 * Math.pow(2, 32) + buf.readUInt32BE(4);
         this.haveLength(cb);
       }
       /**
@@ -30764,11 +30764,11 @@ function valueFromProto(value, intMode) {
     return value;
   } else if (typeof value === "bigint") {
     if (intMode === "number") {
-      const num7 = Number(value);
-      if (!Number.isSafeInteger(num7)) {
+      const num8 = Number(value);
+      if (!Number.isSafeInteger(num8)) {
         throw new RangeError("Received integer which is too large to be safely represented as a JavaScript number");
       }
-      return num7;
+      return num8;
     } else if (intMode === "bigint") {
       return value;
     } else if (intMode === "string") {
@@ -37139,7 +37139,7 @@ var require_bcrypt = __commonJS({
           } else
             throw err;
         }
-        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r27 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r27, real_salt = salt.substring(offset + 3, offset + 25);
+        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r28 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r28, real_salt = salt.substring(offset + 3, offset + 25);
         s += minor >= "a" ? "\0" : "";
         var passwordb = stringToBytes(s), saltb = base64_decode(real_salt, BCRYPT_SALT_LEN);
         function finish(bytes) {
@@ -40909,10 +40909,10 @@ var init_qbo_router = __esm({
       // --- Sync All ---
       syncAll: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => {
         const r1 = await doSyncCustomers(input.connectionId);
-        const r27 = await doSyncInvoices(input.connectionId);
+        const r28 = await doSyncInvoices(input.connectionId);
         const r3 = await doSyncPayments(input.connectionId);
         const r4 = await doSyncAccounts(input.connectionId);
-        return { success: true, customers: r1, invoices: r27, payments: r3, accounts: r4 };
+        return { success: true, customers: r1, invoices: r28, payments: r3, accounts: r4 };
       }),
       // --- Data Retrieval ---
       getCustomers: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
@@ -43336,7 +43336,7 @@ function statHolidaysInRange(startISO, endISO) {
   const years = /* @__PURE__ */ new Set([Number(startISO.slice(0, 4)), Number(endISO.slice(0, 4))]);
   const all = [];
   for (const y of years) if (Number.isFinite(y)) all.push(...ontarioStatHolidays(y));
-  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr6) => idx === 0 || h.date !== arr6[idx - 1].date);
+  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr7) => idx === 0 || h.date !== arr7[idx - 1].date);
 }
 function statHolidaysObservedInRange(startISO, endISO) {
   return statHolidaysInRange(startISO, endISO).map((h) => {
@@ -45503,8 +45503,8 @@ function explicitCloseSteps(client) {
   try {
     const raw2 = client?.closeSteps;
     if (!raw2) return null;
-    const arr6 = typeof raw2 === "string" ? JSON.parse(raw2) : raw2;
-    return Array.isArray(arr6) && arr6.length ? arr6.map(String) : null;
+    const arr7 = typeof raw2 === "string" ? JSON.parse(raw2) : raw2;
+    return Array.isArray(arr7) && arr7.length ? arr7.map(String) : null;
   } catch {
     return null;
   }
@@ -46338,7 +46338,7 @@ function clientAppsList(onb) {
   return a;
 }
 function buildScopeForClient(client, onb) {
-  const num7 = (...vals) => {
+  const num8 = (...vals) => {
     for (const v2 of vals) {
       const n = Number(v2);
       if (Number.isFinite(n) && n > 0) return n;
@@ -46348,14 +46348,14 @@ function buildScopeForClient(client, onb) {
   const bool = (...vals) => vals.some((v2) => v2 === true || v2 === 1);
   const salesPlatformCount = onb ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro, onb.usesPayPal].filter((v2) => v2 === true || v2 === 1).length : 0;
   return {
-    avgMonthlyTransactions: num7(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
+    avgMonthlyTransactions: num8(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
     bookkeepingFrequency: onb?.bookkeepingFrequency ?? "monthly",
-    bankAccountCount: num7(onb?.bankAccountCount) || 1,
-    creditCardCount: num7(onb?.creditCardCount),
+    bankAccountCount: num8(onb?.bankAccountCount) || 1,
+    creditCardCount: num8(onb?.creditCardCount),
     hasHST: bool(client?.hasHST, onb?.hstGstFrequency && onb.hstGstFrequency !== "none"),
     hstPeriod: normalizeHstPeriod(client?.hstPeriod, onb?.hstGstFrequency),
     hasPayroll: bool(client?.hasPayroll, onb?.hasEmployees, onb?.payrollFrequency && onb.payrollFrequency !== "none"),
-    employeeCount: num7(onb?.employeeCount),
+    employeeCount: num8(onb?.employeeCount),
     payrollFrequency: normalizePayrollFreq(onb?.payrollFrequency, client?.payrollFrequency),
     payrollRemitterFreq: client?.payrollRemitterFreq ?? "regular",
     hasWSIB: bool(client?.hasWSIB, onb?.wsibRequired),
@@ -46368,7 +46368,7 @@ function buildScopeForClient(client, onb) {
     invoicingByUs: onb?.invoicingResponsibility === "we_invoice",
     billPayByUs: onb?.billPayResponsibility === "we_pay",
     hasJobCosting: bool(onb?.hasJobCosting),
-    monthsBehind: num7(onb?.monthsBehind),
+    monthsBehind: num8(onb?.monthsBehind),
     qboSoftwareTier: onb?.qboSoftwareTier ?? "none",
     qboSoftwareWholesale: bool(onb?.qboSoftwareWholesale),
     qboPayrollWholesale: bool(onb?.qboPayrollWholesale)
@@ -49039,7 +49039,7 @@ var init_utils3 = __esm({
       let out = "";
       for (let j = 0; j < string5.length; j += limit) {
         const segment = string5.length >= limit ? string5.slice(j, j + limit) : string5;
-        const arr6 = [];
+        const arr7 = [];
         for (let i = 0; i < segment.length; ++i) {
           let c = segment.charCodeAt(i);
           if (c === 45 || // -
@@ -49050,26 +49050,26 @@ var init_utils3 = __esm({
           c >= 65 && c <= 90 || // a-z
           c >= 97 && c <= 122 || // A-Z
           format === RFC1738 && (c === 40 || c === 41)) {
-            arr6[arr6.length] = segment.charAt(i);
+            arr7[arr7.length] = segment.charAt(i);
             continue;
           }
           if (c < 128) {
-            arr6[arr6.length] = hex_table[c];
+            arr7[arr7.length] = hex_table[c];
             continue;
           }
           if (c < 2048) {
-            arr6[arr6.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
+            arr7[arr7.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
             continue;
           }
           if (c < 55296 || c >= 57344) {
-            arr6[arr6.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+            arr7[arr7.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
             continue;
           }
           i += 1;
           c = 65536 + ((c & 1023) << 10 | segment.charCodeAt(i) & 1023);
-          arr6[arr6.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+          arr7[arr7.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
         }
-        out += arr6.join("");
+        out += arr7.join("");
       }
       return out;
     };
@@ -49332,8 +49332,8 @@ var init_stringify = __esm({
         return String(prefix);
       }
     };
-    push_to_array = function(arr6, value_or_array) {
-      Array.prototype.push.apply(arr6, isArray3(value_or_array) ? value_or_array : [value_or_array]);
+    push_to_array = function(arr7, value_or_array) {
+      Array.prototype.push.apply(arr7, isArray3(value_or_array) ? value_or_array : [value_or_array]);
     };
     defaults = {
       addQueryPrefix: false,
@@ -52508,12 +52508,12 @@ var require_sha256 = __commonJS({
       }
       exports2.hmac = hmac;
       function fillBuffer(buffer, hmac2, info, counter) {
-        var num7 = counter[0];
-        if (num7 === 0) {
+        var num8 = counter[0];
+        if (num8 === 0) {
           throw new Error("hkdf: cannot expand more");
         }
         hmac2.reset();
-        if (num7 > 1) {
+        if (num8 > 1) {
           hmac2.update(buffer);
         }
         if (info) {
@@ -62502,9 +62502,9 @@ function parseScanFindings(text2) {
   } catch {
     return [];
   }
-  const arr6 = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
+  const arr7 = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
   const out = [];
-  for (const f of arr6) {
+  for (const f of arr7) {
     const subjectName = String(f?.subjectName || f?.name || "").trim();
     const claim = String(f?.claim || "").trim();
     if (!subjectName || !claim) continue;
@@ -62956,9 +62956,9 @@ async function ensurePayrollReminders() {
       if (!dueClients.length) continue;
       for (const c of dueClients) {
         correctKeys.add(`${c.id}|${run3.runISO}`);
-        const arr6 = scheduled.get(run3.runISO) || [];
-        arr6.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
-        scheduled.set(run3.runISO, arr6);
+        const arr7 = scheduled.get(run3.runISO) || [];
+        arr7.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
+        scheduled.set(run3.runISO, arr7);
       }
     }
     let tasksRemoved = 0;
@@ -67170,9 +67170,9 @@ async function dedupClient(clientId, names) {
   const groups = /* @__PURE__ */ new Map();
   for (const e of emps) {
     const k = idKey(e.firstName || "", e.lastName || "");
-    const arr6 = groups.get(k) || [];
-    arr6.push(e);
-    groups.set(k, arr6);
+    const arr7 = groups.get(k) || [];
+    arr7.push(e);
+    groups.set(k, arr7);
   }
   let merged = 0, renamed = 0;
   for (const [k, group] of groups) {
@@ -67702,7 +67702,7 @@ async function dedupeClients(confirm) {
     let cnt = 0;
     for (const m of mapping) {
       try {
-        cnt += num6(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
+        cnt += num7(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
       } catch {
         held.add(m.dupe);
       }
@@ -67724,7 +67724,7 @@ async function dedupeClients(confirm) {
         const cols = asRows(await db.run(sql.raw(`PRAGMA table_info("${t2}")`))).map((c) => String(c.name ?? c[1])).filter((name2) => !["id", "createdAt", "updatedAt"].includes(name2));
         if (cols.length === 0) continue;
         const grp = cols.map((c) => `"${c}"`).join(",");
-        const n = num6(await db.run(sql.raw(
+        const n = num7(await db.run(sql.raw(
           `DELETE FROM "${t2}" WHERE "clientId" IN (${inList}) AND id NOT IN (SELECT MIN(id) FROM "${t2}" WHERE "clientId" IN (${inList}) GROUP BY ${grp})`
         )));
         if (n) report.dedupedRecords[t2] = n;
@@ -67734,14 +67734,14 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm20, asRows, num6;
+var norm20, asRows, num7;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
     norm20 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
-    num6 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
+    num7 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
 });
 
@@ -70531,6 +70531,8 @@ var init_ensure_clients_schema = __esm({
       ["currentSoftware", "text"],
       ["bizNeeds", "text"],
       // intake: tools they use + what'd help beyond financials
+      ["minCashBuffer", "real DEFAULT 0"],
+      // cash floor for the cash-position check (transfer-in alert)
       ["serviceTier", "text DEFAULT 'standard'"],
       ["monthlyFee", "real DEFAULT 0"],
       ["onboardingSentAt", "integer"],
@@ -71690,8 +71692,8 @@ async function seedDockKingFlowthrough() {
       report.updated++;
     }
     const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq2(clientTaskRules.clientId, c.id)).returning();
-    const r27 = await db.delete(tasks).where(and(eq2(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
-    report.tasksPaused += (r1?.length || 0) + (r27?.length || 0);
+    const r28 = await db.delete(tasks).where(and(eq2(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
+    report.tasksPaused += (r1?.length || 0) + (r28?.length || 0);
   }
   return report;
 }
@@ -75578,16 +75580,16 @@ function withResolvers() {
     reject
   };
 }
-function listWithMember(arr6, member) {
-  return [...arr6, member];
+function listWithMember(arr7, member) {
+  return [...arr7, member];
 }
-function listWithoutIndex(arr6, index) {
-  return [...arr6.slice(0, index), ...arr6.slice(index + 1)];
+function listWithoutIndex(arr7, index) {
+  return [...arr7.slice(0, index), ...arr7.slice(index + 1)];
 }
-function listWithoutMember(arr6, member) {
-  const index = arr6.indexOf(member);
-  if (index !== -1) return listWithoutIndex(arr6, index);
-  return arr6;
+function listWithoutMember(arr7, member) {
+  const index = arr7.indexOf(member);
+  if (index !== -1) return listWithoutIndex(arr7, index);
+  return arr7;
 }
 var _Symbol;
 var _Symbol$dispose;
@@ -77869,11 +77871,11 @@ function encodeBase64(input) {
     return input.toBase64();
   }
   const CHUNK_SIZE = 32768;
-  const arr6 = [];
+  const arr7 = [];
   for (let i = 0; i < input.length; i += CHUNK_SIZE) {
-    arr6.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
+    arr7.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
   }
-  return btoa(arr6.join(""));
+  return btoa(arr7.join(""));
 }
 function decodeBase64(encoded) {
   if (Uint8Array.fromBase64) {
@@ -82452,17 +82454,17 @@ var clientDashboardRouter = createRouter({
     const cr = await getConnectionForClient2(input.clientId);
     if ("error" in cr) return { ok: false, error: cr.error };
     const conn = cr.conn;
-    const num7 = (v2) => {
+    const num8 = (v2) => {
       const n = Number(v2);
       return Number.isFinite(n) ? n : 0;
     };
     try {
       const data = await qboRequest2(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`);
       const accounts = data?.QueryResponse?.Account ?? [];
-      const rows = accounts.map((a) => ({ name: a.Name, accountType: a.AccountType, currentBalance: num7(a.CurrentBalance), currencyRef: a.CurrencyRef?.value, active: a.Active }));
+      const rows = accounts.map((a) => ({ name: a.Name, accountType: a.AccountType, currentBalance: num8(a.CurrentBalance), currencyRef: a.CurrencyRef?.value, active: a.Active }));
       const bank = bankBreakdownFromAccounts2(rows);
-      const ar = accounts.filter((a) => /receivable/i.test(a.AccountType || "")).reduce((s, a) => s + num7(a.CurrentBalance), 0);
-      const ap = accounts.filter((a) => /payable/i.test(a.AccountType || "")).reduce((s, a) => s + Math.abs(num7(a.CurrentBalance)), 0);
+      const ar = accounts.filter((a) => /receivable/i.test(a.AccountType || "")).reduce((s, a) => s + num8(a.CurrentBalance), 0);
+      const ap = accounts.filter((a) => /payable/i.test(a.AccountType || "")).reduce((s, a) => s + Math.abs(num8(a.CurrentBalance)), 0);
       const today3 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const yStart = `${today3.slice(0, 4)}-01-01`;
       let pnl = { revenue: null, expenses: null, netIncome: null };
@@ -82470,19 +82472,19 @@ var clientDashboardRouter = createRouter({
         pnl = profitAndLossFromReport2(await qboRequest2(conn, `/reports/ProfitAndLoss?start_date=${yStart}&end_date=${today3}`));
       } catch {
       }
-      const r27 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+      const r28 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
       return {
         ok: true,
         companyName: conn.companyName || "",
         transport: conn.transport || "native",
-        cashTotal: r27(bank.cashTotal),
-        cashCad: r27(bank.cashCad),
-        cashUsd: r27(bank.cashUsd),
-        creditCardOwed: r27(bank.creditCardOwed),
-        uncategorized: r27(bank.uncategorizedBalance),
+        cashTotal: r28(bank.cashTotal),
+        cashCad: r28(bank.cashCad),
+        cashUsd: r28(bank.cashUsd),
+        creditCardOwed: r28(bank.creditCardOwed),
+        uncategorized: r28(bank.uncategorizedBalance),
         uncategorizedCount: bank.uncategorizedCount,
-        ar: r27(ar),
-        ap: r27(ap),
+        ar: r28(ar),
+        ap: r28(ap),
         revenue: pnl.revenue,
         expenses: pnl.expenses,
         netIncome: pnl.netIncome,
@@ -91597,6 +91599,119 @@ var opportunitiesRouter = createRouter({
   })
 });
 
+// api/cash-position-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_drizzle_orm();
+init_qbo_router();
+init_qbo_vendor_brain();
+init_qbo_cashflow();
+
+// api/cash-position-core.ts
+var r27 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+var money4 = (n) => `$${r27(Math.abs(n)).toLocaleString("en-CA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+function assessCashPosition(input) {
+  const cash = r27(input.cashTotal || 0);
+  const cc = r27(Math.abs(input.creditCardOwed || 0));
+  const need = input.payrollNeed != null ? r27(input.payrollNeed) : null;
+  const buffer = r27(input.minBuffer || 0);
+  const afterPayroll = need != null ? r27(cash - need) : null;
+  const headroom = r27(cash - buffer);
+  const enoughForPayroll = need == null ? null : cash >= need;
+  const payrollShortfall = need != null && cash < need ? r27(need - cash) : 0;
+  const effectiveCash = afterPayroll != null ? afterPayroll : cash;
+  const needsTransfer = effectiveCash < buffer;
+  const suggestedTransfer = needsTransfer ? r27(buffer - effectiveCash) : 0;
+  const ccHigh = cash > 0 ? cc >= cash : cc > 0;
+  const flags = [];
+  if (payrollShortfall > 0) flags.push(`Not enough to cover the next payroll \u2014 short ${money4(payrollShortfall)}.`);
+  else if (enoughForPayroll === true && need != null) flags.push(`Payroll covered \u2014 ${money4(afterPayroll)} left after the run.`);
+  if (needsTransfer) flags.push(`Balance is heading below the ${money4(buffer)} buffer \u2014 transfer in about ${money4(suggestedTransfer)}.`);
+  if (cash < 0) flags.push(`Bank balance is negative (${money4(cash)}).`);
+  if (ccHigh && cc > 0) flags.push(`Credit card owing (${money4(cc)}) is high vs cash on hand (${money4(cash)}).`);
+  if (!flags.length) flags.push("Healthy \u2014 cash covers the buffer and upcoming payroll.");
+  let status = "ok";
+  if (payrollShortfall > 0 || cash < 0 || afterPayroll != null && afterPayroll < 0) status = "alert";
+  else if (needsTransfer || ccHigh) status = "watch";
+  return {
+    cashTotal: cash,
+    creditCardOwed: cc,
+    payrollNeed: need,
+    minBuffer: buffer,
+    afterPayroll,
+    headroom,
+    enoughForPayroll,
+    payrollShortfall,
+    needsTransfer,
+    suggestedTransfer,
+    ccHigh,
+    status,
+    flags
+  };
+}
+
+// api/cash-position-router.ts
+var arr5 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+var num5 = (v2) => {
+  const n = Number(v2);
+  return Number.isFinite(n) ? n : 0;
+};
+async function payrollNeedFor(clientId) {
+  const r = (await getDb().all(sql`SELECT totalGross, totalNet FROM pay_runs WHERE clientId=${clientId} ORDER BY id DESC LIMIT 1`))[0];
+  if (!r) return null;
+  const gross = num5(r.totalGross), net = num5(r.totalNet);
+  if (gross <= 0 && net <= 0) return null;
+  return Math.round((gross > 0 ? gross * 1.06 : net) * 100) / 100;
+}
+async function bufferFor(clientId) {
+  const r = (await getDb().all(sql`SELECT minCashBuffer FROM clients WHERE id=${clientId} LIMIT 1`))[0];
+  return num5(r?.minCashBuffer);
+}
+var cashPositionRouter = createRouter({
+  /** Saved buffer (the cash floor) for a client. */
+  buffer: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => ({ minCashBuffer: await bufferFor(input.clientId) })),
+  setBuffer: staffQuery.input(external_exports.object({ clientId: external_exports.number(), minCashBuffer: external_exports.number().min(0) })).mutation(async ({ input }) => {
+    await getDb().run(sql`UPDATE clients SET minCashBuffer=${input.minCashBuffer} WHERE id=${input.clientId}`);
+    return { ok: true };
+  }),
+  /** Live cash position for one client (on-demand pull of account balances). */
+  forClient: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ input }) => {
+    const connResult = await getConnectionForClient(input.clientId);
+    if ("error" in connResult) {
+      return { connected: false, reason: connResult.error };
+    }
+    const conn = connResult.conn;
+    try {
+      const data = await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account WHERE AccountType IN ('Bank','Credit Card') MAXRESULTS 200")}`);
+      const accounts = arr5(data, "Account").map((a) => ({
+        name: a.Name,
+        accountType: a.AccountType,
+        currentBalance: num5(a.CurrentBalance),
+        currencyRef: a.CurrencyRef?.value,
+        active: a.Active
+      }));
+      const bb = bankBreakdownFromAccounts(accounts);
+      const payrollNeed = await payrollNeedFor(input.clientId);
+      const minBuffer = await bufferFor(input.clientId);
+      const position = assessCashPosition({ cashTotal: bb.cashTotal, creditCardOwed: bb.creditCardOwed, payrollNeed, minBuffer });
+      return {
+        connected: true,
+        asOf: (/* @__PURE__ */ new Date()).toISOString(),
+        position,
+        bankAccounts: bb.bankAccounts,
+        cashCad: bb.cashCad,
+        cashUsd: bb.cashUsd,
+        // Honest: QBO's API can't expose the bank-feed "For Review" queue.
+        bankFeedToPost: null
+      };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { connected: true, error: /async ack|non-JSON|bridge/i.test(msg) ? "bridge_not_returning_data" : msg };
+    }
+  })
+});
+
 // api/genealogy-router.ts
 init_zod();
 init_middleware();
@@ -91780,7 +91895,7 @@ init_qbo_vendor_brain();
 
 // api/hst-review-core.ts
 var norm8 = (s) => (s || "").toLowerCase();
-var money4 = (n) => Math.round((n || 0) * 100) / 100;
+var money5 = (n) => Math.round((n || 0) * 100) / 100;
 var isExpenseTxn = (t2) => t2.type === "Purchase" || t2.type === "Bill";
 var isSalesTxn = (t2) => t2.type === "Invoice" || t2.type === "SalesReceipt";
 var CONTROL_PATTERNS = [
@@ -91804,8 +91919,8 @@ function checkUnreviewedAccounts(accounts) {
         check: "unreviewed_account",
         severity: "high",
         ref: `Account: ${a.name}`,
-        amount: money4(a.balance),
-        message: `${a.name} holds ${money4(a.balance)} that hasn't been properly categorized.`,
+        amount: money5(a.balance),
+        message: `${a.name} holds ${money5(a.balance)} that hasn't been properly categorized.`,
         fix: "Recategorize these transactions to real accounts with the correct tax code before filing \u2014 they're invisible to the HST report otherwise."
       });
     }
@@ -91825,7 +91940,7 @@ function checkMissingTaxCode(txns) {
           check: "missing_tax_code",
           severity: "medium",
           ref: ref(t2),
-          amount: money4(l.amount),
+          amount: money5(l.amount),
           message: `${isExpenseTxn(t2) ? "Expense" : isSalesTxn(t2) ? "Sales" : "Line"} on "${l.accountName || "?"}" has no tax code.`,
           fix: "Set the correct tax code (HST 13% if applicable, or Exempt/Zero/Out-of-scope) so it flows to the right HST line."
         });
@@ -91845,8 +91960,8 @@ function checkSalesWithoutTax(txns) {
         check: "sales_without_tax",
         severity: "high",
         ref: ref(t2),
-        amount: money4(t2.total),
-        message: `Sale of ${money4(t2.total)} shows no HST collected.`,
+        amount: money5(t2.total),
+        message: `Sale of ${money5(t2.total)} shows no HST collected.`,
         fix: "Confirm whether HST should have been charged. If the customer/supply is taxable, the missing HST understates Line 105."
       });
     }
@@ -91863,7 +91978,7 @@ function checkControlAccountCoding(txns) {
           check: "control_account_coding",
           severity: "high",
           ref: ref(t2),
-          amount: money4(l.amount),
+          amount: money5(l.amount),
           message: `Coded directly to control account "${l.accountName}".`,
           fix: "Recode to a real expense/income account. Posting straight to HST/AP/AR/clearing distorts the HST and balance-sheet figures."
         });
@@ -91877,14 +91992,14 @@ function checkDuplicates(txns) {
   const seen = /* @__PURE__ */ new Map();
   for (const t2 of txns) {
     if (!isExpenseTxn(t2)) continue;
-    const keyDoc = `${norm8(t2.name)}|${money4(t2.total)}|${norm8(t2.docNumber)}`;
+    const keyDoc = `${norm8(t2.name)}|${money5(t2.total)}|${norm8(t2.docNumber)}`;
     const prior = t2.docNumber ? seen.get(keyDoc) : void 0;
     if (t2.docNumber && prior) {
       out.push({
         check: "duplicate",
         severity: "medium",
         ref: ref(t2),
-        amount: money4(t2.total),
+        amount: money5(t2.total),
         message: `Possible duplicate of ${ref(prior)} (same vendor, amount and document #).`,
         fix: "Check for a double-entered bill/expense \u2014 duplicates over-claim ITCs (Line 108)."
       });
@@ -91905,7 +92020,7 @@ function checkMealsFullItc(txns) {
             check: "meals_full_itc",
             severity: "medium",
             ref: ref(t2),
-            amount: money4(l.taxAmount || 0),
+            amount: money5(l.taxAmount || 0),
             message: `Meals/entertainment "${l.accountName}" appears to claim full ITC.`,
             fix: "Meals & entertainment ITCs are generally limited to 50%. Confirm the ITC is restricted (the year-end 50% adjustment may instead be done annually)."
           });
@@ -91927,13 +92042,13 @@ function tieOut(txns) {
       purchaseBase += t2.lines.reduce((s, l) => s + Math.max(l.amount, 0), 0);
     }
   }
-  return { collected: money4(collected), itc: money4(itc), net: money4(collected - itc), salesBase: money4(salesBase), purchaseBase: money4(purchaseBase) };
+  return { collected: money5(collected), itc: money5(itc), net: money5(collected - itc), salesBase: money5(salesBase), purchaseBase: money5(purchaseBase) };
 }
 function rankVerdict(v2) {
   return { green: 0, na: 0, yellow: 1, red: 2 }[v2];
 }
 function rateCheck(label, side, tax, base, expectedRatePct, greenBandPts, warnBandPts) {
-  const b = money4(base), tx = money4(tax);
+  const b = money5(base), tx = money5(tax);
   if (b < 1) {
     return {
       label,
@@ -91957,7 +92072,7 @@ function rateCheck(label, side, tax, base, expectedRatePct, greenBandPts, warnBa
       expectedRatePct,
       deviationPts: dev,
       verdict: "red",
-      message: `${label}: ${money4(b)} of taxable ${side} but ~$0 HST \u2014 almost certainly miscoded (missing tax code). Expected \u2248 ${expectedRatePct}%.`
+      message: `${label}: ${money5(b)} of taxable ${side} but ~$0 HST \u2014 almost certainly miscoded (missing tax code). Expected \u2248 ${expectedRatePct}%.`
     };
   }
   let verdict = dev <= greenBandPts ? "green" : dev <= warnBandPts ? "yellow" : "red";
@@ -91977,7 +92092,7 @@ function hstReasonableness(tie, expectedRatePct = 13, opts) {
   const itc = rateCheck("ITCs on purchases", "purchases", tie.itc, tie.purchaseBase, expectedRatePct, greenBandPts, warnBandPts);
   const testable = [output.verdict, itc.verdict].filter((v2) => v2 !== "na");
   const overall = testable.length === 0 ? "na" : testable.reduce((worst, v2) => rankVerdict(v2) >= rankVerdict(worst) ? v2 : worst, "green");
-  return { expectedRatePct, output, itc, netTax: money4(tie.collected - tie.itc), overall };
+  return { expectedRatePct, output, itc, netTax: money5(tie.collected - tie.itc), overall };
 }
 function runHstReview(input) {
   const findings = [
@@ -92004,8 +92119,8 @@ function runHstReview(input) {
 
 // api/hst-review-router.ts
 var q2 = (conn, sql5) => qboRequest(conn, `/query?query=${encodeURIComponent(sql5)}`);
-var arr5 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
-var num5 = (v2) => {
+var arr6 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+var num6 = (v2) => {
   const n = Number(v2);
   return Number.isFinite(n) ? n : 0;
 };
@@ -92017,7 +92132,7 @@ function mapExpense(e, type2, taxName) {
     lines3.push({
       accountId: d10.AccountRef?.value,
       accountName: d10.AccountRef?.name,
-      amount: num5(l.Amount),
+      amount: num6(l.Amount),
       taxCodeId: d10.TaxCodeRef?.value ?? null,
       taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
     });
@@ -92028,8 +92143,8 @@ function mapExpense(e, type2, taxName) {
     date: String(e.TxnDate || "").slice(0, 10),
     name: e.EntityRef?.name || e.VendorRef?.name,
     docNumber: e.DocNumber,
-    total: num5(e.TotalAmt),
-    taxTotal: num5(e.TxnTaxDetail?.TotalTax),
+    total: num6(e.TotalAmt),
+    taxTotal: num6(e.TxnTaxDetail?.TotalTax),
     lines: lines3
   };
 }
@@ -92040,7 +92155,7 @@ function mapSale(e, type2, taxName) {
     if (!d10) continue;
     lines3.push({
       accountName: d10.ItemRef?.name || l.Description || "Sales",
-      amount: num5(l.Amount),
+      amount: num6(l.Amount),
       taxCodeId: d10.TaxCodeRef?.value ?? null,
       taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
     });
@@ -92051,8 +92166,8 @@ function mapSale(e, type2, taxName) {
     date: String(e.TxnDate || "").slice(0, 10),
     name: e.CustomerRef?.name,
     docNumber: e.DocNumber,
-    total: num5(e.TotalAmt),
-    taxTotal: num5(e.TxnTaxDetail?.TotalTax),
+    total: num6(e.TotalAmt),
+    taxTotal: num6(e.TxnTaxDetail?.TotalTax),
     lines: lines3
   };
 }
@@ -92071,7 +92186,7 @@ var hstReviewRouter = createRouter({
     const taxCodes = [];
     const taxById = /* @__PURE__ */ new Map();
     try {
-      for (const t2 of arr5(await q2(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode")) {
+      for (const t2 of arr6(await q2(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode")) {
         taxCodes.push({ id: String(t2.Id), name: t2.Name });
         taxById.set(String(t2.Id), t2.Name);
       }
@@ -92085,8 +92200,8 @@ var hstReviewRouter = createRouter({
     const taxName = (id) => id ? taxById.get(String(id)) : void 0;
     const accounts = [];
     try {
-      for (const a of arr5(await q2(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
-        accounts.push({ id: String(a.Id), name: a.Name, type: a.AccountType, subType: a.AccountSubType, balance: num5(a.CurrentBalance) });
+      for (const a of arr6(await q2(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
+        accounts.push({ id: String(a.Id), name: a.Name, type: a.AccountType, subType: a.AccountSubType, balance: num6(a.CurrentBalance) });
       }
     } catch (e) {
       errors.push(`Account: ${e instanceof Error ? e.message : e}`);
@@ -92094,7 +92209,7 @@ var hstReviewRouter = createRouter({
     const txns = [];
     const pull = async (entity, mapper) => {
       try {
-        for (const e of arr5(await q2(conn, `SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) txns.push(mapper(e));
+        for (const e of arr6(await q2(conn, `SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) txns.push(mapper(e));
       } catch (e) {
         errors.push(`${entity}: ${e instanceof Error ? e.message : e}`);
       }
@@ -92611,6 +92726,7 @@ var appRouter = createRouter({
   cashBook: cashBookRouter,
   backup: backupRouter,
   opportunities: opportunitiesRouter,
+  cashPosition: cashPositionRouter,
   loanTracker: loanTrackerRouter
 });
 
@@ -92893,7 +93009,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.235";
+var BUILD_TAG = "2026-06-27.236";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -93371,8 +93487,8 @@ app.get("/api/phoenix/seed", async (c) => {
     const { seedPhoenixPersonal: seedPhoenixPersonal2 } = await Promise.resolve().then(() => (init_seed_phoenix_personal(), seed_phoenix_personal_exports));
     const r = await seedPhoenixPersonal2();
     const { seedPhoenixPersonalV2: seedPhoenixPersonalV22 } = await Promise.resolve().then(() => (init_seed_phoenix_personal_v2(), seed_phoenix_personal_v2_exports));
-    const r27 = await seedPhoenixPersonalV22();
-    return c.json({ ok: true, v1: r, v2: r27 });
+    const r28 = await seedPhoenixPersonalV22();
+    return c.json({ ok: true, v1: r, v2: r28 });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
@@ -95074,8 +95190,8 @@ async function startServer() {
       const r = await seedPhoenixPersonal2();
       if (r?.seeded) console.log(`[phoenix-personal] seeded ${r.count} entries`);
       const { seedPhoenixPersonalV2: seedPhoenixPersonalV22 } = await Promise.resolve().then(() => (init_seed_phoenix_personal_v2(), seed_phoenix_personal_v2_exports));
-      const r27 = await seedPhoenixPersonalV22();
-      if (r27?.seeded) console.log(`[phoenix-personal-v2] seeded ${r27.count} entries`);
+      const r28 = await seedPhoenixPersonalV22();
+      if (r28?.seeded) console.log(`[phoenix-personal-v2] seeded ${r28.count} entries`);
     } catch (e) {
       console.error("[phoenix-personal] failed (non-fatal):", e instanceof Error ? e.message : e);
     }

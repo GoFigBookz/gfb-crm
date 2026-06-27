@@ -167,6 +167,17 @@ export const HELP: Record<string, HelpEntry> = {
     ],
     note: "Auto backups keep the latest 20; manual ones are kept until you delete them.",
   },
+  "cash-position": {
+    title: "Cash position",
+    steps: [
+      "Set the buffer — the minimum you want kept in the client's bank account.",
+      "Click ‘Check now’ — Figgy pulls the live account balances from QuickBooks (balances only, not transactions).",
+      "It shows cash on hand, credit cards owing, the next payroll's cash need, and whether there's enough.",
+      "If the balance is heading below the buffer (especially after payroll), it tells you how much to transfer in.",
+      "🟢 Healthy · 🟡 Watch (low buffer or high credit card) · 🔴 Needs attention (can't cover payroll / negative).",
+    ],
+    note: "Needs the client connected to QuickBooks. QBO's API can't expose the bank-feed ‘For Review’ count, so ‘what's left to post’ still needs a look in QBO — everything else here is live.",
+  },
   "smart-money": {
     title: "Smart Money",
     steps: [
