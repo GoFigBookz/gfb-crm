@@ -334,6 +334,18 @@ export const clients = sqliteTable("clients", {
   // Related entities billed back monthly → needs an inter-company journal
   // reconciliation every month. Drives the interco_monthly task.
   hasIntercoJournals: integer("hasIntercoJournals", { mode: "boolean" }).default(false),
+  // Recharge-invoice tool (e.g. Alderson → Holdings). Surfaces the recharge section.
+  hasRecharge: integer("hasRecharge", { mode: "boolean" }).default(false),
+  // Per-client month-end-close step selection (JSON array of step field names). Null = default set.
+  closeSteps: text("closeSteps"),
+  // HST filing frequency + fiscal year-end month (drive the HST period math).
+  hstFilingFrequency: text("hstFilingFrequency"),
+  fiscalYearEndMonth: integer("fiscalYearEndMonth"),
+  // CRA / government program accounts captured at onboarding (the "pull from CRA" step).
+  craBusinessNumber: text("craBusinessNumber"),
+  craPulledAt: integer("craPulledAt"),
+  // Onboarding gate: workflow stays off until the engagement is signed AND a deposit is in.
+  depositReceivedAt: integer("depositReceivedAt"),
 
   // Quote & Engagement Letter
   quoteAmount: real("quoteAmount"),
