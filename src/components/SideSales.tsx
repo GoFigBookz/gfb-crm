@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Tags, Plus, Trash2, Pencil, DollarSign, Megaphone } from "lucide-react";
+import { Tags, Plus, Trash2, Pencil, DollarSign, Megaphone, Copy, Loader2, Check, ListPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +21,7 @@ export default function SideSales() {
   const [form, setForm] = useState<any>(BLANK);
   const [open, setOpen] = useState(false);
   const [selling, setSelling] = useState<number | null>(null);
+  const [listingFor, setListingFor] = useState<number | null>(null);
   const [saleForm, setSaleForm] = useState({ qty: "1", unitPrice: "", channel: "" });
   const reset = () => { setForm(BLANK); setOpen(false); };
   const edit = (p: any) => { setForm({ ...p, qtyOnHand: String(p.qtyOnHand ?? ""), givenAway: String(p.givenAway ?? ""), unitCost: String(p.unitCost ?? ""), minPrice: String(p.minPrice ?? ""), targetPrice: String(p.targetPrice ?? ""), discreet: !!p.discreet }); setOpen(true); };
@@ -97,11 +98,13 @@ export default function SideSales() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <Button size="sm" variant="outline" className="h-7" onClick={() => setListingFor(listingFor === p.id ? null : p.id)}><Megaphone className="h-3.5 w-3.5 mr-1" /> Listings</Button>
                     <Button size="sm" variant="outline" className="h-7" onClick={() => { setSelling(p.id); setSaleForm({ qty: "1", unitPrice: String(p.targetPrice || p.minPrice || ""), channel: "" }); }}><DollarSign className="h-3.5 w-3.5 mr-1" /> Sell</Button>
                     <button className="opacity-0 group-hover:opacity-100" onClick={() => edit(p)}><Pencil className="h-3.5 w-3.5 text-slate-400" /></button>
                     <button className="opacity-0 group-hover:opacity-100" onClick={() => { if (confirm("Remove product?")) rm.mutate({ id: p.id }); }}><Trash2 className="h-3.5 w-3.5 text-slate-400" /></button>
                   </div>
                 </div>
+                {listingFor === p.id && <ListingsPanel productId={p.id} productName={p.name} />}
               </CardContent>
             </Card>
           );
@@ -113,6 +116,57 @@ export default function SideSales() {
         <Megaphone className="h-4 w-4 shrink-0 mt-0.5 text-fuchsia-500" />
         <span>Skye (marketing) handles reselling these — channels, listings, and discreet outreach. Ask her in chat to draft a listing or find buyers for any product here.</span>
       </div>
+    </div>
+  );
+}
+
+// Reseller engine — Skye drafts channel-tailored listings; you copy + paste-and-post
+// (Facebook Marketplace has no public listing API, so drafts are the safe play).
+function ListingsPanel({ productId, productName }: { productId: number; productName: string }) {
+  const utils = trpc.useUtils();
+  const q = trpc.phoenix.listings.useQuery({ productId });
+  const gen = trpc.phoenix.generateListing.useMutation({ onSuccess: () => utils.phoenix.listings.invalidate({ productId }) });
+  const setStatus = trpc.phoenix.listingSetStatus.useMutation({ onSuccess: () => utils.phoenix.listings.invalidate({ productId }) });
+  const del = trpc.phoenix.listingRemove.useMutation({ onSuccess: () => utils.phoenix.listings.invalidate({ productId }) });
+  const [copied, setCopied] = useState<number | null>(null);
+  const money = (n: number) => `$${(n || 0).toLocaleString()}`;
+
+  const copy = (l: any) => {
+    const text = `${l.title}\n\n${l.body}${l.hashtags ? `\n\n${l.hashtags}` : ""}${l.price ? `\n\nPrice: ${money(l.price)}` : ""}`;
+    navigator.clipboard?.writeText(text).then(() => { setCopied(l.id); setTimeout(() => setCopied(null), 1500); }).catch(() => {});
+  };
+  const listings = q.data || [];
+  return (
+    <div className="mt-2 p-2 bg-fuchsia-50/50 border border-fuchsia-100 rounded space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold text-fuchsia-700">Skye's listings for {productName}</span>
+        <Button size="sm" className="h-7 ml-auto" disabled={gen.isPending} onClick={() => gen.mutate({ productId, channels: ["marketplace", "kijiji", "ebay"] })}>
+          {gen.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ListPlus className="h-3.5 w-3.5 mr-1" />} Draft (FB · Kijiji · eBay)
+        </Button>
+      </div>
+      {q.isLoading ? <p className="text-xs text-slate-400">Loading…</p> : listings.length === 0 ? (
+        <p className="text-xs text-slate-500">No listings yet. Click “Draft” — Skye writes one per channel, then you copy &amp; post. (No auto-posting: Marketplace has no API.)</p>
+      ) : (
+        <div className="space-y-2">
+          {listings.map((l: any) => (
+            <div key={l.id} className="rounded border border-slate-200 bg-white p-2 text-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] uppercase font-semibold text-fuchsia-600 bg-fuchsia-50 rounded px-1.5 py-0.5">{l.channel}</span>
+                {l.price ? <span className="text-xs text-emerald-700">{money(l.price)}</span> : null}
+                {l.status === "listed" && <span className="text-[10px] text-emerald-700 bg-emerald-50 rounded px-1">LISTED</span>}
+                <div className="ml-auto flex items-center gap-1">
+                  <button title="Copy" className="text-slate-400 hover:text-slate-700" onClick={() => copy(l)}>{copied === l.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}</button>
+                  <button title={l.status === "listed" ? "Mark draft" : "Mark listed"} className="text-slate-400 hover:text-emerald-600 text-xs" onClick={() => setStatus.mutate({ id: l.id, status: l.status === "listed" ? "draft" : "listed" })}>{l.status === "listed" ? "↺" : "✓ posted"}</button>
+                  <button title="Delete" className="text-slate-400 hover:text-red-500" onClick={() => del.mutate({ id: l.id })}><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
+              </div>
+              <div className="font-medium text-slate-800">{l.title}</div>
+              <div className="text-slate-600 whitespace-pre-wrap text-xs mt-0.5">{l.body}</div>
+              {l.hashtags && <div className="text-[11px] text-slate-400 mt-1">{l.hashtags}</div>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

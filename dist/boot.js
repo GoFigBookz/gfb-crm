@@ -61882,6 +61882,79 @@ var init_exec_briefing = __esm({
   }
 });
 
+// api/listing-generator.ts
+var listing_generator_exports = {};
+__export(listing_generator_exports, {
+  generateListings: () => generateListings
+});
+function templateListing(p, channel) {
+  const price = p.targetPrice || p.minPrice || null;
+  const cond = p.condition || "Brand new";
+  const discreetTail = p.discreet ? " Discreet packaging, ships from Canada." : "";
+  return {
+    channel,
+    title: `${p.name}${p.category ? ` \u2014 ${p.category}` : ""} (${cond})`,
+    body: `${cond} ${p.name}.${p.notes ? ` ${p.notes}.` : ""} ${fmtPrice(price)} ${channel === "ebay" ? "Ships fast." : "Local pickup or can ship."}${discreetTail} Message to grab it.`.replace(/\s+/g, " ").trim(),
+    price,
+    hashtags: [p.category, p.name].filter(Boolean).map((s) => "#" + String(s).replace(/[^a-z0-9]+/gi, "")).join(" ")
+  };
+}
+async function generateListings(p, channels) {
+  const chans = channels.length ? channels : ["marketplace", "kijiji", "ebay"];
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-haiku-4-5";
+  if (!apiKey || process.env.FIGGY_LLM_PROVIDER === "openai") {
+    return chans.map((c) => templateListing(p, c));
+  }
+  try {
+    const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 2e4 });
+    const discreet = p.discreet ? "This item is SENSITIVE/DISCREET \u2014 keep it tasteful and non-explicit; emphasize 'brand new, sealed, discreet packaging' and avoid anything that would get the post removed." : "";
+    const system = "You are Skye, a sharp resale marketer. Write listings that sell fast and honestly \u2014 strong scroll-stopping title, concise persuasive body (condition, what it is, why it's a great buy), and a clear price + DM call-to-action. Never exaggerate or misrepresent condition. Canadian seller. Output ONLY valid JSON, no prose.";
+    const user = [
+      `Product: ${p.name}`,
+      p.category ? `Category: ${p.category}` : "",
+      p.condition ? `Condition: ${p.condition}` : "Condition: Brand new",
+      p.targetPrice ? `Target price: $${p.targetPrice}` : "",
+      p.minPrice ? `Floor (don't go below): $${p.minPrice}` : "",
+      p.notes ? `Notes: ${p.notes}` : "",
+      discreet,
+      "",
+      `Write ONE listing for EACH of these channels: ${chans.join(", ")}.`,
+      "Channel guidance:",
+      ...chans.map((c) => `- ${c}: ${CHANNEL_NOTES[c] || "general resale listing"}`),
+      "",
+      'Return JSON: {"listings":[{"channel":"...","title":"...","body":"...","price":<number or null>,"hashtags":"#a #b"}]}'
+    ].filter(Boolean).join("\n");
+    const data = await client.messages.create({ model, max_tokens: 1200, system, messages: [{ role: "user", content: user }] });
+    const text2 = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
+    const json2 = text2.slice(text2.indexOf("{"), text2.lastIndexOf("}") + 1);
+    const parsed = JSON.parse(json2);
+    const list = (parsed.listings || []).map((l) => ({
+      channel: String(l.channel || "").toLowerCase() || "marketplace",
+      title: String(l.title || p.name),
+      body: String(l.body || ""),
+      price: typeof l.price === "number" ? l.price : p.targetPrice || p.minPrice || null,
+      hashtags: String(l.hashtags || "")
+    }));
+    return chans.map((c) => list.find((l) => l.channel === c) || templateListing(p, c));
+  } catch {
+    return chans.map((c) => templateListing(p, c));
+  }
+}
+var CHANNEL_NOTES, fmtPrice;
+var init_listing_generator = __esm({
+  "api/listing-generator.ts"() {
+    init_sdk();
+    CHANNEL_NOTES = {
+      marketplace: "Facebook Marketplace \u2014 short punchy title, friendly local-pickup tone, condition + why-selling, clear price. Add 'porch pickup / can ship'.",
+      kijiji: "Kijiji \u2014 practical, detail-forward, local. Title with the key noun first for search.",
+      ebay: "eBay \u2014 keyword-rich title (brand, model, size, condition), structured description, shipping noted, buyer-search optimized.",
+      groups: "Niche Facebook/community groups \u2014 warm, member-to-member tone; lead with the benefit + a soft CTA to DM."
+    };
+    fmtPrice = (n) => n != null && n > 0 ? `$${n}` : "";
+  }
+});
+
 // api/genealogy-core.ts
 function clampConfidence(n) {
   const v = Math.round(Number(n));
@@ -64787,6 +64860,18 @@ async function ensurePhoenixSchema() {
     notes text,
     createdAt integer
   )`);
+  await guard("side_listings", sql`CREATE TABLE IF NOT EXISTS side_listings (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    productId integer NOT NULL,
+    channel text NOT NULL,           -- marketplace | kijiji | ebay | groups
+    title text,
+    body text,
+    price real,
+    hashtags text,
+    status text DEFAULT 'draft',     -- draft | listed
+    createdAt integer
+  )`);
   await guard("estate_items", sql`CREATE TABLE IF NOT EXISTS estate_items (
     id integer PRIMARY KEY AUTOINCREMENT,
     userId integer NOT NULL,
@@ -64975,17 +65060,26 @@ __export(seed_rose_tasks_exports, {
 });
 async function seedRoseLiquidationTasks() {
   const db = getDb();
-  const have = await db.all(sql`SELECT COUNT(*) AS n FROM tasks WHERE category = 'rose-resale'`);
-  if (Number(have[0]?.n || 0) > 0) return;
-  const markie = await db.all(sql`SELECT id FROM users WHERE email IN ('markie.antle@gmail.com','markie@gofig.ca') OR role = 'admin' ORDER BY (role = 'admin') DESC, id ASC LIMIT 1`);
-  const userId = markie[0]?.id ? Number(markie[0].id) : null;
-  if (userId == null) {
-    console.log("[rose] no Markie user \u2014 skipped Rose task seed");
-    return;
-  }
   void users;
   void or;
   void eq;
+  const markie = await db.all(sql`SELECT id FROM users WHERE email IN ('markie.antle@gmail.com','markie@gofig.ca') OR role = 'admin' ORDER BY (role = 'admin') DESC, id ASC LIMIT 1`);
+  const userId = markie[0]?.id ? Number(markie[0].id) : null;
+  if (userId == null) {
+    console.log("[rose] no Markie user \u2014 skipped Rose seed");
+    return;
+  }
+  try {
+    const existing = await db.all(sql`SELECT id FROM side_products WHERE userId=${userId} AND active=1 AND lower(name) LIKE '%rose%' LIMIT 1`);
+    if (!existing.length) {
+      await db.run(sql`INSERT INTO side_products (userId, name, category, qtyOnHand, givenAway, unitCost, minPrice, targetPrice, discreet, notes, active, createdAt, updatedAt)
+        VALUES (${userId}, 'Rose Wellness Massager', 'Wellness', 150, 0, 0, 0, 39.99, 1, 'Brand new & sealed. Sale $29.99 / 2 for $50 (free ship on 2). Discreet packaging, ships from Canada. SET your MIN floor (cost back) on this card.', 1, ${Date.now()}, ${Date.now()})`);
+      console.log("[rose] seeded Rose product into side_products");
+    }
+  } catch {
+  }
+  const have = await db.all(sql`SELECT COUNT(*) AS n FROM tasks WHERE category = 'rose-resale'`);
+  if (Number(have[0]?.n || 0) > 0) return;
   const day2 = 864e5;
   const due = (n) => new Date(Date.now() + n * day2);
   const steps = [
@@ -89189,6 +89283,37 @@ var phoenixRouter = createRouter({
     await getDb().run(sql`DELETE FROM side_sales WHERE id=${input.id} AND userId=${ctx.user.id}`);
     return { ok: true };
   }),
+  // ───────── Reseller engine — Skye-drafted listings (draft → paste-and-post) ─────────
+  /** Draft channel-tailored listings for a product (cheap workhorse model; never posts). */
+  generateListing: authedQuery.input(external_exports.object({ productId: external_exports.number(), channels: external_exports.array(external_exports.string()).max(6).optional() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const uid = ctx.user.id;
+    const now = Date.now();
+    const p = (await db.all(sql`SELECT * FROM side_products WHERE id=${input.productId} AND userId=${uid} LIMIT 1`))[0];
+    if (!p) return { ok: false, error: "product_not_found" };
+    const { generateListings: generateListings2 } = await Promise.resolve().then(() => (init_listing_generator(), listing_generator_exports));
+    const drafts = await generateListings2(
+      { name: p.name, category: p.category, condition: null, minPrice: p.minPrice, targetPrice: p.targetPrice, discreet: !!p.discreet, notes: p.notes },
+      input.channels ?? ["marketplace", "kijiji", "ebay"]
+    );
+    for (const d10 of drafts) {
+      await db.run(sql`INSERT INTO side_listings (userId, productId, channel, title, body, price, hashtags, status, createdAt)
+          VALUES (${uid}, ${input.productId}, ${d10.channel}, ${d10.title}, ${d10.body}, ${d10.price ?? null}, ${d10.hashtags}, 'draft', ${now})`);
+    }
+    return { ok: true, count: drafts.length };
+  }),
+  /** Listings for a product (most recent first). */
+  listings: authedQuery.input(external_exports.object({ productId: external_exports.number() })).query(async ({ ctx, input }) => {
+    return await getDb().all(sql`SELECT * FROM side_listings WHERE productId=${input.productId} AND userId=${ctx.user.id} ORDER BY id DESC`);
+  }),
+  listingSetStatus: authedQuery.input(external_exports.object({ id: external_exports.number(), status: external_exports.enum(["draft", "listed"]) })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`UPDATE side_listings SET status=${input.status} WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  }),
+  listingRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM side_listings WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  }),
   // ───────── Trading bot — OVERSIGHT (track + flag, not manage) ─────────
   tradingOverview: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
@@ -91337,7 +91462,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.220";
+var BUILD_TAG = "2026-06-27.221";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

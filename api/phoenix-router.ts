@@ -130,6 +130,36 @@ export const phoenixRouter = createRouter({
     await getDb().run(sql`DELETE FROM side_sales WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
   }),
 
+  // ───────── Reseller engine — Skye-drafted listings (draft → paste-and-post) ─────────
+  /** Draft channel-tailored listings for a product (cheap workhorse model; never posts). */
+  generateListing: authedQuery
+    .input(z.object({ productId: z.number(), channels: z.array(z.string()).max(6).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb(); const uid = ctx.user.id; const now = Date.now();
+      const p = ((await db.all(sql`SELECT * FROM side_products WHERE id=${input.productId} AND userId=${uid} LIMIT 1`)) as any[])[0];
+      if (!p) return { ok: false as const, error: "product_not_found" };
+      const { generateListings } = await import("./listing-generator");
+      const drafts = await generateListings(
+        { name: p.name, category: p.category, condition: null, minPrice: p.minPrice, targetPrice: p.targetPrice, discreet: !!p.discreet, notes: p.notes },
+        input.channels ?? ["marketplace", "kijiji", "ebay"],
+      );
+      for (const d of drafts) {
+        await db.run(sql`INSERT INTO side_listings (userId, productId, channel, title, body, price, hashtags, status, createdAt)
+          VALUES (${uid}, ${input.productId}, ${d.channel}, ${d.title}, ${d.body}, ${d.price ?? null}, ${d.hashtags}, 'draft', ${now})`);
+      }
+      return { ok: true as const, count: drafts.length };
+    }),
+  /** Listings for a product (most recent first). */
+  listings: authedQuery.input(z.object({ productId: z.number() })).query(async ({ ctx, input }) => {
+    return (await getDb().all(sql`SELECT * FROM side_listings WHERE productId=${input.productId} AND userId=${ctx.user.id} ORDER BY id DESC`)) as any[];
+  }),
+  listingSetStatus: authedQuery.input(z.object({ id: z.number(), status: z.enum(["draft", "listed"]) })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`UPDATE side_listings SET status=${input.status} WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
+  }),
+  listingRemove: authedQuery.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM side_listings WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
+  }),
+
   // ───────── Trading bot — OVERSIGHT (track + flag, not manage) ─────────
   tradingOverview: authedQuery.query(async ({ ctx }) => {
     const db = getDb(); const uid = ctx.user.id;
