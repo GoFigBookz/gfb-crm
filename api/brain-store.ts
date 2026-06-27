@@ -290,6 +290,62 @@ export async function seedKnowledgeBrain(): Promise<void> {
   console.log(`[brain] seeded ${seeds.length} standard-domain knowledge truths`);
 }
 
+/**
+ * AGENT-FOLDER DOCS → BRAIN (Markie 2026-06-27: "I've added documents in the
+ * agents' folders — review them and get the agents set up").
+ * ---------------------------------------------------------------------------
+ * Ingests the readable docs Markie dropped into the new Finn filing system's
+ * "Agents" folder so the team actually KNOWS them. Scope discipline is preserved:
+ *  - FIRM scope  → Go Fig Bookz marketing assets (Skye) + the filing-system map.
+ *  - PERSONAL scope (Markie's userId) → the Rose resale plan (Phoenix Rising
+ *    side-sales — personal, walled off from client/firm work).
+ * INTEGRITY (Markie confirmed): the "500 client reviews" are AI-GENERATED and are
+ * DRAFTS/SAMPLES ONLY — never to be published as real testimonials. Seeded with
+ * that guard so no agent ever treats them as genuine.
+ * Idempotent: only runs when category 'agent-docs' is empty. Binary zips (the
+ * Kimi marketing-machine + Marketplace zips) can't be ingested — noted, not read.
+ */
+export async function seedAgentDocsBrain(): Promise<void> {
+  const db = getDb();
+  const have = (await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE category = 'agent-docs'`)) as any[];
+  if (Number(have[0]?.n || 0) > 0) return;
+  const firm: Scope = { kind: "firm" };
+  const SRC = "Drive › new Finn filing system › Agents folder (Markie, 2026-06-27)";
+
+  // ───── FIRM scope: marketing assets (Skye) + the filing-system map ─────
+  const firmSeeds: { label: string; statement: string; category: string; sourceLabels: string[] }[] = [
+    { label: "New Drive filing system (Finn) — structure", category: "agent-docs", sourceLabels: [SRC],
+      statement: "Markie + Finn (ChatGPT) created a new canonical Drive filing system. Root has four areas: 'Agents' (agent reference docs/assets), 'Client Master' (canonical per-client homes), 'Standards & Index' (naming/index/SOPs), and 'Build & Notes' (build logs). As of 2026-06-27 only 'Agents' has files; the other three are still empty — the bulk Drive migration into this structure has NOT run yet." },
+    { label: "Drive migration status — blocked on OAuth publish (#42)", category: "agent-docs", sourceLabels: [SRC, "Liv — Drive Cleanup & Migration Plan 2026-06-26"],
+      statement: "The agents' Google Drive tools can CREATE and COPY but cannot MOVE or DELETE files. So moving everything into the new filing system / deleting duplicates needs the Go Fig Bookz Google OAuth app PUBLISHED TO PRODUCTION (Markie action, task #42). Until then the agents can only copy/create — flag this rather than claim the migration is done." },
+    { label: "Go Fig Bookz client reviews — AI DRAFT, NEVER publish as real", category: "agent-docs", sourceLabels: [SRC, "GoFigBookz_ClientReviews.docx (AI-generated, Kimi)"],
+      statement: "The 'GoFigBookz_ClientReviews.docx' (500 testimonials) and the Kimi reviews CSV are AI-GENERATED. Markie's standing instruction (2026-06-27): treat them as DRAFTS / inspiration ONLY — they are NOT real client testimonials and must NEVER be published or presented as genuine reviews (that would be false advertising). Skye may use them as tone/format samples to solicit REAL reviews, nothing more." },
+    { label: "Skye marketing package (Kimi 'AI Marketing Machine')", category: "agent-docs", sourceLabels: [SRC, "sheet_…generated_by_Kimi_AI.csv (index)"],
+      statement: "In the Agents folder Markie added a Kimi-generated marketing package for Go Fig Bookz with 8 parts: 01 Brand Identity (colors/handles/pricing/voice), 02 Content Strategy (5 pillars, weekly calendar, 30 ideas), 03 AI Automation Specs (8-layer machine, APIs, costs, 7-week plan), 04 Video Templates/Scripts, 05 Social Media Setup (TikTok/IG/FB/YouTube/Google Business/Alignable), 06 SEO & Local Listings, 07 Templates Sheet (Content Machine .xlsx, 6 tabs), 08 Figgy Mascot Design Brief. The full package is a 212MB zip (Kimi_Agent_Social Media-GFB) — Skye's reference for firm marketing; binary, not auto-ingested." },
+    { label: "Skye marketplace-selling package", category: "agent-docs", sourceLabels: [SRC, "Kimi_Agent_Marketplace Selling Machine zip"],
+      statement: "A 'Marketplace Selling Machine' package (zip) is in the Agents folder — Skye's reference for marketplace listing/selling workflow (used for the Rose resale and future resale). Binary zip, not auto-ingested; open it in Drive when running a marketplace campaign." },
+  ];
+  for (const s of firmSeeds) {
+    await addTruth({ scope: firm, label: s.label, statement: s.statement, category: s.category, sourceLabels: s.sourceLabels });
+  }
+
+  // ───── PERSONAL scope: Rose resale (Phoenix Rising side-sales) ─────
+  const markie = (await db.all(sql`SELECT id FROM users WHERE email IN ('markie.antle@gmail.com','markie@gofig.ca') OR role = 'admin' ORDER BY (role = 'admin') DESC, id ASC LIMIT 1`)) as any[];
+  const markieId = markie[0]?.id ? Number(markie[0].id) : undefined;
+  if (markieId != null) {
+    const personal: Scope = { kind: "personal" };
+    await addTruth({
+      scope: personal, userId: markieId, category: "agent-docs",
+      label: "Rose Liquidation Master Plan (personal resale — Skye runs it)",
+      sourceLabels: [SRC, "# ROSE LIQUIDATION MASTER PLAN v1.0"],
+      statement: "Personal side-sale (Phoenix Rising), NOT client/firm work. Goal: sell ~200 new sealed Rose wellness massagers and turn inventory into cash in 2–4 weeks — a LIQUIDATION campaign, not branding. Pricing: ideal $39.99, sale $29.99, primary offer 2 for $50 CAD. Shipping: 1 unit = $29.99 + flat-rate shipping; 2 units = $50 with free shipping (bundle to lift AOV / cut per-unit shipping) — do NOT free-ship every order. Channels: a simple Shopify store (Home/Product/FAQ/Contact; clearance banner, photos, benefits, trust badges, FAQ, checkout) + marketplace listings (Facebook Marketplace where permitted, Kijiji, eBay, Craigslist). Listing/store angle: Brand New, Factory Sealed, Ships from Canada, Discreet Packaging, Limited Inventory, Secure Checkout. Product copy headline 'CLEARANCE SALE — Rose Wellness Massager'; benefits: rechargeable, quiet, soft-touch, compact, travel-friendly; CTA 'Order today while supplies last.' SEO: Canadian terms ('Rose wellness massager Canada', 'rechargeable wellness massager'). Success = visibility + fast response + multiple channels + trust + urgency + consistent daily posting. NEEDS MARKIE to execute: Shopify account, marketplace accounts, product photos, shipping/flat-rate setup (task #85)." });
+    console.log("[brain] seeded Rose resale plan into personal scope");
+  } else {
+    console.log("[brain] seedAgentDocsBrain: no Markie user found — skipped personal-scope Rose seed");
+  }
+  console.log(`[brain] seeded ${firmSeeds.length} agent-folder doc truths (firm)`);
+}
+
 export async function brainStats(): Promise<{ records: number; truth: number; openQuestions: number }> {
   const db = getDb();
   const rec = (await db.all(sql`SELECT COUNT(*) AS n FROM brain_records`)) as any[];
