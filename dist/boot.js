@@ -70528,6 +70528,9 @@ var init_ensure_clients_schema = __esm({
       ["leadScore", "integer"],
       ["painPoints", "text"],
       ["expectations", "text"],
+      ["currentSoftware", "text"],
+      ["bizNeeds", "text"],
+      // intake: tools they use + what'd help beyond financials
       ["serviceTier", "text DEFAULT 'standard'"],
       ["monthlyFee", "real DEFAULT 0"],
       ["onboardingSentAt", "integer"],
@@ -87761,7 +87764,13 @@ WHAT YOU DO: from the client's P&L, balance sheet and cash-flow data, deliver st
 WHAT TO LOOK FOR: gross margin trend, fixed vs variable cost creep, customer/revenue concentration, A/R days & collection risk, burn vs runway, seasonality, pricing power, owner pay sustainability.
 DELIVER: a SHORT, prioritized list of concrete moves to run leaner (cut/consolidate cost) or grow revenue (pricing, mix, upsell), each with the quantified impact. Surface advisory/upsell opportunities Go Fig Bookz could offer.
 INTAKE QUESTIONS: which client + period? what decision is this for (hire, price change, financing)? what's the owner's goal \u2014 cash, growth, or take-home?
-NEVER fabricate figures \u2014 if data is missing, say what you need (often: the live QBO connection).`.trim();
+NEVER fabricate figures \u2014 if data is missing, say what you need (often: the live QBO connection).
+
+SMART MONEY \u2014 you own the per-client "Smart Money" finder (Client \u2192 Smart Money tab). PROACTIVELY help each client SAVE money, MAKE money, and RUN better:
+- GRANTS & FUNDING, WSIB PROGRAMS (rebates + safety-incentive programs they could benefit from), TAX CREDITS (SR&ED, apprenticeship, hiring, digital adoption), COST-SAVING PROGRAMS (utility/energy rebates, group buying), BUSINESS CREDIT CARDS (matched to the owner's reward preference \u2014 travel vs cash back vs low-interest vs no-fee), and SOFTWARE & TOOLS to run the business beyond accounting.
+- HOW IT WORKS: the tool runs a LIVE web search and returns CURRENT, REAL programs/tools WITH source links. Results are SUGGESTIONS to verify on the official source before applying \u2014 never advice. You review, surface the best fits to Markie, and save the winners; track them suggested \u2192 applied \u2192 won.
+- SOFTWARE RECOMMENDATIONS (proactive, not reactive): clients ask things like "what can we use to track our proposals?" Answer with a real, current tool (pricing + link) via the software search. To trigger the right recommendations, capture at INTAKE / a review: (1) "What software do you currently use to run the business, besides accounting?" and (2) "Beyond the financials, what part of running the business would be easier with the right tool?" Save those on the Smart Money tab (tech stack) \u2014 they feed the software search and tell you exactly what to recommend. Don't re-recommend what they already use.
+- BE PROACTIVE: for each client, periodically run the relevant Smart Money categories (construction \u2192 WSIB + grants are usually richest), flag genuine wins to Markie, and tie them to the client's goal (cash / growth / take-home). For Go Fig Bookz itself, open its own client card \u2192 Smart Money for the firm's grants, credit cards, and tools.`.trim();
 
 // api/skills/skye.ts
 var SKYE_SKILL = `
@@ -91323,7 +91332,8 @@ var OPP_CATEGORIES = [
   { key: "wsib", label: "WSIB programs", focus: "current WSIB programs, rebates, and safety-incentive programs (e.g. the Health & Safety Excellence program) that could lower premiums or earn rebates" },
   { key: "tax_credit", label: "Tax credits", focus: "current tax credits and incentives the business may qualify for (e.g. SR&ED, apprenticeship, hiring/co-op, digital adoption)" },
   { key: "cost_saving", label: "Cost-saving programs", focus: "current cost-saving programs \u2014 utility/energy rebates, group-buying, government-supported discounts" },
-  { key: "credit_card", label: "Business credit cards", focus: "best-fit Canadian business credit cards for this business, matched to the stated rewards preference" }
+  { key: "credit_card", label: "Business credit cards", focus: "best-fit Canadian business credit cards for this business, matched to the stated rewards preference" },
+  { key: "software", label: "Software & tools", focus: "the best-fit business software/tools to help the business run beyond accounting (e.g. proposals/quoting, CRM, scheduling, project management, inventory, e-signatures, field service) \u2014 match the stated need" }
 ];
 var NORM_PROV = {
   ontario: "ON",
@@ -91343,7 +91353,7 @@ function normalizeProvince(p) {
   if (/^[A-Za-z]{2}$/.test(t2)) return t2.toUpperCase();
   return NORM_PROV[t2.toLowerCase()] || t2;
 }
-function buildSearchPrompt(profile, category) {
+function buildSearchPrompt(profile, category, opts) {
   const cat = OPP_CATEGORIES.find((c) => c.key === category) || OPP_CATEGORIES[0];
   const country = profile.country || "Canada";
   const prov = normalizeProvince(profile.province);
@@ -91352,11 +91362,14 @@ function buildSearchPrompt(profile, category) {
   const size = profile.employees != null ? ` with about ${profile.employees} employee(s)` : "";
   const wsibNote = profile.hasWSIB ? " The business is WSIB-registered." : "";
   const cardNote = category === "credit_card" ? ` The owner's rewards preference is: ${profile.cardPreference || "cash back"}. Prioritize cards matching that preference; include annual fee, reward rate, and a notable perk.` : "";
-  const system = `You are a Canadian small-business advisor researching how a business can save or make money. Find ${cat.focus}, current as of today, for ${who} ${where}${size}.${wsibNote}${cardNote}
-Use web_search to verify everything is REAL and CURRENT. Do NOT invent programs or links. Return ONLY a JSON array (no prose, no code fences) of up to 6 items, each:
-{"title":"","summary":"one or two plain sentences","estValue":"e.g. 'up to $5,000' or 'varies' or '2% cash back'","eligibility":"who qualifies, short","url":"official link","source":"org/site name"}
+  const need = (opts?.need || "").trim();
+  const have = (opts?.currentSoftware || "").trim();
+  const softwareNote = category === "software" ? ` The specific need is: ${need || "general business management beyond accounting (proposals/quoting, CRM, scheduling, project management)"}.` + (have ? ` They ALREADY use: ${have} \u2014 don't re-recommend those; suggest complementary or better-fit options.` : "") + ` For each tool put pricing in estValue (e.g. 'from $29/mo' or 'free tier') and who it suits in eligibility. Prefer tools popular with Canadian small businesses.` : "";
+  const system = `You are a Canadian small-business advisor researching how a business can save money, make money, or run better. Find ${cat.focus}, current as of today, for ${who} ${where}${size}.${wsibNote}${cardNote}${softwareNote}
+Use web_search to verify everything is REAL and CURRENT. Do NOT invent programs, tools, or links. Return ONLY a JSON array (no prose, no code fences) of up to 6 items, each:
+{"title":"","summary":"one or two plain sentences","estValue":"e.g. 'up to $5,000' or 'from $29/mo' or '2% cash back'","eligibility":"who it suits / who qualifies, short","url":"official link","source":"org/site name"}
 Only include items with a real official URL. If you find nothing credible, return [].`;
-  const user = `Find ${cat.label.toLowerCase()} for ${profile.isFirm ? "Go Fig Bookz (my own firm)" : profile.name}.`;
+  const user = category === "software" && need ? `Find software to ${need} for ${profile.isFirm ? "Go Fig Bookz (my own firm)" : profile.name}.` : `Find ${cat.label.toLowerCase()} for ${profile.isFirm ? "Go Fig Bookz (my own firm)" : profile.name}.`;
   return { system, user };
 }
 var str = (v2, max2 = 600) => (typeof v2 === "string" ? v2 : v2 == null ? "" : String(v2)).trim().slice(0, max2);
@@ -91399,7 +91412,7 @@ function dedupeAgainst(found, existing) {
 }
 
 // api/opportunities-router.ts
-var catEnum = external_exports.enum(["grants", "wsib", "tax_credit", "cost_saving", "credit_card"]);
+var catEnum = external_exports.enum(["grants", "wsib", "tax_credit", "cost_saving", "credit_card", "software"]);
 async function profileFor(clientId, cardPreference) {
   if (clientId == null) {
     return { name: "Go Fig Bookz", isFirm: true, province: "ON", country: "Canada", industry: "accounting / bookkeeping", cardPreference: cardPreference ?? null };
@@ -91415,11 +91428,11 @@ async function profileFor(clientId, cardPreference) {
     cardPreference: cardPreference ?? null
   };
 }
-async function runScan(profile, category) {
+async function runScan(profile, category, opts) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || process.env.FIGGY_OPPORTUNITIES === "off") return { ok: false, items: [], error: "ai_off" };
   const model = process.env.FIGGY_OPP_MODEL || process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
-  const { system, user } = buildSearchPrompt(profile, category);
+  const { system, user } = buildSearchPrompt(profile, category, opts);
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 5e4);
   try {
@@ -91445,12 +91458,37 @@ async function runScan(profile, category) {
     clearTimeout(timer);
   }
 }
+async function techFor(clientId) {
+  if (clientId == null) return { currentSoftware: "", bizNeeds: "" };
+  const c = (await getDb().all(sql`SELECT currentSoftware, bizNeeds FROM clients WHERE id=${clientId} LIMIT 1`))[0] || {};
+  return { currentSoftware: c.currentSoftware || "", bizNeeds: c.bizNeeds || "" };
+}
 var opportunitiesRouter = createRouter({
   categories: staffQuery.query(() => OPP_CATEGORIES),
+  /** Intake: what software the client uses + what'd help them beyond the financials. */
+  tech: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => techFor(input.clientId)),
+  setTech: staffQuery.input(external_exports.object({ clientId: external_exports.number(), currentSoftware: external_exports.string().max(600).nullable().optional(), bizNeeds: external_exports.string().max(600).nullable().optional() })).mutation(async ({ input }) => {
+    const cur = await techFor(input.clientId);
+    await getDb().run(sql`UPDATE clients SET currentSoftware=${input.currentSoftware === void 0 ? cur.currentSoftware : input.currentSoftware},
+        bizNeeds=${input.bizNeeds === void 0 ? cur.bizNeeds : input.bizNeeds} WHERE id=${input.clientId}`);
+    return { ok: true };
+  }),
   /** Live scan for one category (review-gated; nothing is saved here). */
-  scan: staffQuery.input(external_exports.object({ clientId: external_exports.number().nullable(), category: catEnum, cardPreference: external_exports.enum(["travel", "cashback", "low_interest", "no_fee"]).optional() })).mutation(async ({ input }) => {
+  scan: staffQuery.input(external_exports.object({
+    clientId: external_exports.number().nullable(),
+    category: catEnum,
+    cardPreference: external_exports.enum(["travel", "cashback", "low_interest", "no_fee"]).optional(),
+    need: external_exports.string().max(200).optional(),
+    // software: what they want it to do
+    currentSoftware: external_exports.string().max(400).optional()
+    // software: what they already use
+  })).mutation(async ({ input }) => {
     const profile = await profileFor(input.clientId, input.cardPreference ?? null);
-    const r = await runScan(profile, input.category);
+    const tech = input.category === "software" ? await techFor(input.clientId) : { currentSoftware: "", bizNeeds: "" };
+    const r = await runScan(profile, input.category, {
+      need: input.need || tech.bizNeeds || void 0,
+      currentSoftware: input.currentSoftware || tech.currentSoftware || void 0
+    });
     const saved = await getDb().all(sql`SELECT title, url FROM client_opportunities
         WHERE category=${input.category} AND ${input.clientId == null ? sql`clientId IS NULL` : sql`clientId=${input.clientId}`}`);
     const fresh = dedupeAgainst(r.items, saved.map((s) => ({ title: s.title, url: s.url || "" })));
@@ -92792,7 +92830,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.233";
+var BUILD_TAG = "2026-06-27.234";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

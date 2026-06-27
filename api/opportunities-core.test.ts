@@ -59,8 +59,18 @@ describe("opportunities-core", () => {
     expect(fresh.map((f) => f.title)).toEqual(["B"]);
   });
 
-  it("has the five categories", () => {
-    expect(OPP_CATEGORIES.map((c) => c.key)).toContain("wsib");
-    expect(OPP_CATEGORIES.length).toBe(5);
+  it("builds a software prompt from the need + avoids what they have", () => {
+    const { system, user } = buildSearchPrompt({ name: "Acme" }, "software", { need: "track proposals", currentSoftware: "QuickBooks, Jobber" });
+    expect(system).toContain("track proposals");
+    expect(system).toContain("QuickBooks, Jobber");
+    expect(system.toLowerCase()).toContain("don't re-recommend");
+    expect(user).toContain("track proposals");
+  });
+
+  it("has the six categories incl. software", () => {
+    expect(OPP_CATEGORIES.map((c) => c.key)).toEqual(
+      expect.arrayContaining(["grants", "wsib", "tax_credit", "cost_saving", "credit_card", "software"]),
+    );
+    expect(OPP_CATEGORIES.length).toBe(6);
   });
 });

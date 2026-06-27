@@ -8,6 +8,7 @@ import { useState } from "react";
 import { trpc } from "@/providers/trpc";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import HelpButton from "@/components/HelpButton";
 import { Sparkles, ExternalLink, Loader2, Check, Trash2, PiggyBank } from "lucide-react";
 
@@ -35,13 +36,20 @@ export function OpportunitiesTab({ clientId }: { clientId: number | null }) {
 
   const [activeCat, setActiveCat] = useState<string>("grants");
   const [cardPref, setCardPref] = useState<string>("cashback");
+  const [softwareNeed, setSoftwareNeed] = useState<string>("");
   const [found, setFound] = useState<any[]>([]);
   const [scanMsg, setScanMsg] = useState<string>("");
+
+  // Intake: tools they use + what'd help beyond the financials (only for real clients).
+  const tech = trpc.opportunities.tech.useQuery({ clientId: clientId! }, { enabled: clientId != null });
+  const setTech = trpc.opportunities.setTech.useMutation({ onSuccess: () => utils.opportunities.tech.invalidate() });
+  const [techDraft, setTechDraft] = useState<{ currentSoftware: string; bizNeeds: string } | null>(null);
+  const techVal = techDraft ?? { currentSoftware: tech.data?.currentSoftware || "", bizNeeds: tech.data?.bizNeeds || "" };
 
   const runScan = (category: string) => {
     setActiveCat(category); setScanMsg(""); setFound([]);
     scan.mutate(
-      { clientId, category: category as any, cardPreference: category === "credit_card" ? (cardPref as any) : undefined },
+      { clientId, category: category as any, cardPreference: category === "credit_card" ? (cardPref as any) : undefined, need: category === "software" ? (softwareNeed || undefined) : undefined },
       {
         onSuccess: (r: any) => {
           if (!r.ok) { setScanMsg(r.error === "ai_off" ? "The AI web search is off — set the Anthropic key to enable live searches." : `Couldn't search right now (${r.error || "try again"}).`); return; }
@@ -83,8 +91,36 @@ export function OpportunitiesTab({ clientId }: { clientId: number | null }) {
             <Button size="sm" variant="outline" disabled={scan.isPending} onClick={() => runScan("credit_card")}>Search cards</Button>
           </div>
         )}
+        {activeCat === "software" && (
+          <div className="flex items-center gap-2 flex-wrap text-xs text-slate-600">
+            <span>What do they need it to do?</span>
+            <Input className="h-8 w-64" placeholder="e.g. track proposals, schedule jobs, manage inventory" value={softwareNeed} onChange={(e) => setSoftwareNeed(e.target.value)} />
+            <Button size="sm" variant="outline" disabled={scan.isPending} onClick={() => runScan("software")}>Find tools</Button>
+          </div>
+        )}
         {scanMsg && <div className="text-xs text-amber-700">{scanMsg}</div>}
       </CardContent></Card>
+
+      {/* Intake: what they run on + what'd help (feeds the software search + Jade) */}
+      {clientId != null && (
+        <Card><CardContent className="p-3 space-y-2">
+          <div className="text-sm font-semibold text-slate-700">Their tech stack (intake)</div>
+          <p className="text-[11px] text-slate-500">Ask at intake / a review: what software do they use to run the business (besides accounting)? And what — beyond the financials — would make running it easier? This drives the software search and lets Jade suggest tools proactively.</p>
+          <div className="grid sm:grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-slate-500">Software they use now</label>
+              <Input className="h-8" placeholder="e.g. Jobber, Square, Google Workspace" value={techVal.currentSoftware} onChange={(e) => setTechDraft({ ...techVal, currentSoftware: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500">What'd help (beyond financials)</label>
+              <Input className="h-8" placeholder="e.g. tracking proposals, scheduling, inventory" value={techVal.bizNeeds} onChange={(e) => setTechDraft({ ...techVal, bizNeeds: e.target.value })} />
+            </div>
+          </div>
+          {techDraft && (
+            <Button size="sm" disabled={setTech.isPending} onClick={() => setTech.mutate({ clientId, currentSoftware: techVal.currentSoftware, bizNeeds: techVal.bizNeeds }, { onSuccess: () => setTechDraft(null) })}>Save</Button>
+          )}
+        </CardContent></Card>
+      )}
 
       {/* Scan results (review-gated; save the good ones) */}
       {found.length > 0 && (

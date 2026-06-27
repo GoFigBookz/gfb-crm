@@ -170,9 +170,10 @@ export const HELP: Record<string, HelpEntry> = {
   "smart-money": {
     title: "Smart Money",
     steps: [
-      "Pick a category — Grants, WSIB programs, Tax credits, Cost-saving programs, or Business credit cards.",
-      "Figgy searches the web live for current programs that fit this client (province, industry, employees) and lists them with a source link.",
-      "For credit cards, choose the preference (cash back / travel / low interest / no fee) before searching.",
+      "Pick a category — Grants, WSIB programs, Tax credits, Cost-saving programs, Business credit cards, or Software & tools.",
+      "Figgy searches the web live for current programs/tools that fit this client (province, industry, employees) and lists them with a source link.",
+      "For credit cards, choose the preference (cash back / travel / low interest / no fee). For software, type what they need it to do (e.g. ‘track proposals’).",
+      "Fill in ‘their tech stack’ (what software they use + what'd help) — it powers the software search and lets Jade recommend tools proactively.",
       "Review each result, click the source to verify it, and ‘Save’ the good ones.",
       "Track saved ones with the status dropdown: Suggested → Reviewing → Applied → Won.",
     ],
