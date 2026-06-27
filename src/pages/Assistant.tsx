@@ -27,6 +27,16 @@ function newConvId() {
   try { return crypto.randomUUID(); } catch { return `c_${Date.now()}_${Math.random().toString(36).slice(2)}`; }
 }
 
+/** Plain-English label for the live chat engine, from the health readout. */
+function engineLabel(model?: string, provider?: string): string {
+  const m = (model || "").toLowerCase();
+  if (provider === "openai") return /llama/.test(m) ? "Llama (Groq)" : (model || "an external model");
+  if (/haiku/.test(m)) return "Claude Haiku (cheap workhorse)";
+  if (/sonnet/.test(m)) return "Claude Sonnet";
+  if (/opus/.test(m)) return "Claude Opus";
+  return model || "Claude";
+}
+
 export default function Assistant() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -273,6 +283,13 @@ export default function Assistant() {
             Try <b>“agenda”</b>, <b>“firm status”</b>, <b>“system health”</b>, <b>“scorecard”</b>, or <b>“add task …”</b>.
             For full conversation, add the key in Railway → Variables and redeploy (key: console.anthropic.com → API Keys).
           </p>
+        </div>
+      )}
+      {healthQ.data?.keyConfigured && (
+        <div className="mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800 flex items-center gap-1.5 flex-wrap">
+          <span className="font-semibold">Engine ✓</span>
+          <span>Brain first (free) → {engineLabel(healthQ.data.model, healthQ.data.provider)} for open chat.{healthQ.data.webSearch ? " Web search on." : ""}</span>
+          {healthQ.data.provider === "anthropic" && /haiku/i.test(healthQ.data.model || "") && <span className="text-emerald-600">Wren &amp; Tess use Sonnet for the heavy tax/audit work.</span>}
         </div>
       )}
       <div className="pb-3 border-b space-y-2">
