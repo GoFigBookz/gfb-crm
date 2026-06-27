@@ -169,8 +169,8 @@ function getStatusCodeFromKey(code) {
   return (_JSONRPC2_TO_HTTP_COD = JSONRPC2_TO_HTTP_CODE[code]) !== null && _JSONRPC2_TO_HTTP_COD !== void 0 ? _JSONRPC2_TO_HTTP_COD : 500;
 }
 function getHTTPStatusCode(json2) {
-  const arr7 = Array.isArray(json2) ? json2 : [json2];
-  const httpStatuses = new Set(arr7.map((res) => {
+  const arr8 = Array.isArray(json2) ? json2 : [json2];
+  const httpStatuses = new Set(arr8.map((res) => {
     if ("error" in res && isObject(res.error.data)) {
       var _res$error$data;
       if (typeof ((_res$error$data = res.error.data) === null || _res$error$data === void 0 ? void 0 : _res$error$data["httpStatus"]) === "number") return res.error.data["httpStatus"];
@@ -15368,8 +15368,8 @@ function find(record2, predicate) {
 function forEach(record2, run3) {
   Object.entries(record2).forEach(([key12, value]) => run3(value, key12));
 }
-function includes(arr7, value) {
-  return arr7.indexOf(value) !== -1;
+function includes(arr8, value) {
+  return arr8.indexOf(value) !== -1;
 }
 function findArr(record2, predicate) {
   for (let i = 0; i < record2.length; i++) {
@@ -25007,13 +25007,13 @@ var init_base64 = __esm({
       if (!b64re.test(asc2))
         throw new TypeError("malformed base64.");
       asc2 += "==".slice(2 - (asc2.length & 3));
-      let u24, r1, r28;
+      let u24, r1, r29;
       let binArray = [];
       for (let i = 0; i < asc2.length; ) {
-        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r28 = b64tab[asc2.charAt(i++)]);
+        u24 = b64tab[asc2.charAt(i++)] << 18 | b64tab[asc2.charAt(i++)] << 12 | (r1 = b64tab[asc2.charAt(i++)]) << 6 | (r29 = b64tab[asc2.charAt(i++)]);
         if (r1 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255));
-        } else if (r28 === 64) {
+        } else if (r29 === 64) {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255));
         } else {
           binArray.push(_fromCC(u24 >> 16 & 255, u24 >> 8 & 255, u24 & 255));
@@ -26852,26 +26852,26 @@ var require_permessage_deflate = __commonJS({
             value = value[0];
             if (key12 === "client_max_window_bits") {
               if (value !== true) {
-                const num8 = +value;
-                if (!Number.isInteger(num8) || num8 < 8 || num8 > 15) {
+                const num9 = +value;
+                if (!Number.isInteger(num9) || num9 < 8 || num9 > 15) {
                   throw new TypeError(
                     `Invalid value for parameter "${key12}": ${value}`
                   );
                 }
-                value = num8;
+                value = num9;
               } else if (!this._isServer) {
                 throw new TypeError(
                   `Invalid value for parameter "${key12}": ${value}`
                 );
               }
             } else if (key12 === "server_max_window_bits") {
-              const num8 = +value;
-              if (!Number.isInteger(num8) || num8 < 8 || num8 > 15) {
+              const num9 = +value;
+              if (!Number.isInteger(num9) || num9 < 8 || num9 > 15) {
                 throw new TypeError(
                   `Invalid value for parameter "${key12}": ${value}`
                 );
               }
-              value = num8;
+              value = num9;
             } else if (key12 === "client_no_context_takeover" || key12 === "server_no_context_takeover") {
               if (value !== true) {
                 throw new TypeError(
@@ -27566,8 +27566,8 @@ var require_receiver = __commonJS({
           return;
         }
         const buf = this.consume(8);
-        const num8 = buf.readUInt32BE(0);
-        if (num8 > Math.pow(2, 53 - 32) - 1) {
+        const num9 = buf.readUInt32BE(0);
+        if (num9 > Math.pow(2, 53 - 32) - 1) {
           const error48 = this.createError(
             RangeError,
             "Unsupported WebSocket frame: payload length > 2^53 - 1",
@@ -27578,7 +27578,7 @@ var require_receiver = __commonJS({
           cb(error48);
           return;
         }
-        this._payloadLength = num8 * Math.pow(2, 32) + buf.readUInt32BE(4);
+        this._payloadLength = num9 * Math.pow(2, 32) + buf.readUInt32BE(4);
         this.haveLength(cb);
       }
       /**
@@ -30764,11 +30764,11 @@ function valueFromProto(value, intMode) {
     return value;
   } else if (typeof value === "bigint") {
     if (intMode === "number") {
-      const num8 = Number(value);
-      if (!Number.isSafeInteger(num8)) {
+      const num9 = Number(value);
+      if (!Number.isSafeInteger(num9)) {
         throw new RangeError("Received integer which is too large to be safely represented as a JavaScript number");
       }
-      return num8;
+      return num9;
     } else if (intMode === "bigint") {
       return value;
     } else if (intMode === "string") {
@@ -37139,7 +37139,7 @@ var require_bcrypt = __commonJS({
           } else
             throw err;
         }
-        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r28 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r28, real_salt = salt.substring(offset + 3, offset + 25);
+        var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r29 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r29, real_salt = salt.substring(offset + 3, offset + 25);
         s += minor >= "a" ? "\0" : "";
         var passwordb = stringToBytes(s), saltb = base64_decode(real_salt, BCRYPT_SALT_LEN);
         function finish(bytes) {
@@ -39048,8 +39048,8 @@ var init_month_end_core = __esm({
     MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     DAY = 864e5;
     worse = (a, b) => {
-      const rank = { green: 0, yellow: 1, red: 2 };
-      return rank[a] >= rank[b] ? a : b;
+      const rank2 = { green: 0, yellow: 1, red: 2 };
+      return rank2[a] >= rank2[b] ? a : b;
     };
   }
 });
@@ -40909,10 +40909,10 @@ var init_qbo_router = __esm({
       // --- Sync All ---
       syncAll: publicQuery.input(external_exports.object({ connectionId: external_exports.number() })).mutation(async ({ input }) => {
         const r1 = await doSyncCustomers(input.connectionId);
-        const r28 = await doSyncInvoices(input.connectionId);
+        const r29 = await doSyncInvoices(input.connectionId);
         const r3 = await doSyncPayments(input.connectionId);
         const r4 = await doSyncAccounts(input.connectionId);
-        return { success: true, customers: r1, invoices: r28, payments: r3, accounts: r4 };
+        return { success: true, customers: r1, invoices: r29, payments: r3, accounts: r4 };
       }),
       // --- Data Retrieval ---
       getCustomers: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
@@ -41014,8 +41014,8 @@ var init_qbo_router = __esm({
           let bestMatch = null;
           let bestScore = 0;
           for (const client of crmClients) {
-            const clientName = (client.companyName || client.name || "").toLowerCase();
-            const score = jaccardSimilarity(qboName, clientName);
+            const clientName2 = (client.companyName || client.name || "").toLowerCase();
+            const score = jaccardSimilarity(qboName, clientName2);
             if (score > bestScore && score > 0.3) {
               bestScore = score;
               bestMatch = client;
@@ -43336,7 +43336,7 @@ function statHolidaysInRange(startISO, endISO) {
   const years = /* @__PURE__ */ new Set([Number(startISO.slice(0, 4)), Number(endISO.slice(0, 4))]);
   const all = [];
   for (const y of years) if (Number.isFinite(y)) all.push(...ontarioStatHolidays(y));
-  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr7) => idx === 0 || h.date !== arr7[idx - 1].date);
+  return all.filter((h) => h.date >= startISO && h.date <= endISO).sort((a, b) => a.date.localeCompare(b.date)).filter((h, idx, arr8) => idx === 0 || h.date !== arr8[idx - 1].date);
 }
 function statHolidaysObservedInRange(startISO, endISO) {
   return statHolidaysInRange(startISO, endISO).map((h) => {
@@ -43682,8 +43682,8 @@ __export(touchbistro_client_exports, {
   readNewestTimesheetFromDrive: () => readNewestTimesheetFromDrive,
   workbookFor: () => workbookFor
 });
-function workbookFor(clientName) {
-  const n = (clientName || "").toLowerCase();
+function workbookFor(clientName2) {
+  const n = (clientName2 || "").toLowerCase();
   return TOUCHBISTRO_WORKBOOKS.find((w) => n.includes(w.match))?.sheetId ?? null;
 }
 async function googleAccount(userId) {
@@ -43797,9 +43797,9 @@ function extractJson(text2) {
   }
   return null;
 }
-async function importTouchBistroHoursData(userId, clientName, periodStart, periodEnd) {
-  const sheetId = workbookFor(clientName);
-  if (!sheetId) throw new Error(`No TouchBistro workbook is linked for "${clientName}".`);
+async function importTouchBistroHoursData(userId, clientName2, periodStart, periodEnd) {
+  const sheetId = workbookFor(clientName2);
+  if (!sheetId) throw new Error(`No TouchBistro workbook is linked for "${clientName2}".`);
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY isn't set \u2014 needed to read the timesheet.");
   const text2 = await readWorkbookText(userId, sheetId);
@@ -43824,9 +43824,9 @@ ${text2}`;
   const emps = json2?.employees || [];
   return emps.filter((e) => e && e.name).map((e) => ({ userName: String(e.name), hours: Number(e.hours) || 0 }));
 }
-async function readEmployeeRosterFromWorkbook(userId, clientName) {
-  const sheetId = workbookFor(clientName);
-  if (!sheetId) throw new Error(`No payroll workbook is linked for "${clientName}".`);
+async function readEmployeeRosterFromWorkbook(userId, clientName2) {
+  const sheetId = workbookFor(clientName2);
+  if (!sheetId) throw new Error(`No payroll workbook is linked for "${clientName2}".`);
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY isn't set \u2014 needed to read the roster sheet.");
   const acct = await googleAccount(userId);
@@ -45503,8 +45503,8 @@ function explicitCloseSteps(client) {
   try {
     const raw2 = client?.closeSteps;
     if (!raw2) return null;
-    const arr7 = typeof raw2 === "string" ? JSON.parse(raw2) : raw2;
-    return Array.isArray(arr7) && arr7.length ? arr7.map(String) : null;
+    const arr8 = typeof raw2 === "string" ? JSON.parse(raw2) : raw2;
+    return Array.isArray(arr8) && arr8.length ? arr8.map(String) : null;
   } catch {
     return null;
   }
@@ -45763,8 +45763,8 @@ async function computePortfolio(asOf) {
       relevantThisPeriod: isRelevantForPeriod({ ...c, openWork }, asOf)
     });
   }
-  const rank = { red: 0, yellow: 1, green: 2 };
-  out.sort((a, b) => rank[a.status] - rank[b.status] || b.toReview - a.toReview);
+  const rank2 = { red: 0, yellow: 1, green: 2 };
+  out.sort((a, b) => rank2[a.status] - rank2[b.status] || b.toReview - a.toReview);
   const relevant = out.filter((o) => o.relevantThisPeriod);
   const summary = {
     total: out.length,
@@ -46338,7 +46338,7 @@ function clientAppsList(onb) {
   return a;
 }
 function buildScopeForClient(client, onb) {
-  const num8 = (...vals) => {
+  const num9 = (...vals) => {
     for (const v2 of vals) {
       const n = Number(v2);
       if (Number.isFinite(n) && n > 0) return n;
@@ -46348,14 +46348,14 @@ function buildScopeForClient(client, onb) {
   const bool = (...vals) => vals.some((v2) => v2 === true || v2 === 1);
   const salesPlatformCount = onb ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro, onb.usesPayPal].filter((v2) => v2 === true || v2 === 1).length : 0;
   return {
-    avgMonthlyTransactions: num8(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
+    avgMonthlyTransactions: num9(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
     bookkeepingFrequency: onb?.bookkeepingFrequency ?? "monthly",
-    bankAccountCount: num8(onb?.bankAccountCount) || 1,
-    creditCardCount: num8(onb?.creditCardCount),
+    bankAccountCount: num9(onb?.bankAccountCount) || 1,
+    creditCardCount: num9(onb?.creditCardCount),
     hasHST: bool(client?.hasHST, onb?.hstGstFrequency && onb.hstGstFrequency !== "none"),
     hstPeriod: normalizeHstPeriod(client?.hstPeriod, onb?.hstGstFrequency),
     hasPayroll: bool(client?.hasPayroll, onb?.hasEmployees, onb?.payrollFrequency && onb.payrollFrequency !== "none"),
-    employeeCount: num8(onb?.employeeCount),
+    employeeCount: num9(onb?.employeeCount),
     payrollFrequency: normalizePayrollFreq(onb?.payrollFrequency, client?.payrollFrequency),
     payrollRemitterFreq: client?.payrollRemitterFreq ?? "regular",
     hasWSIB: bool(client?.hasWSIB, onb?.wsibRequired),
@@ -46368,7 +46368,7 @@ function buildScopeForClient(client, onb) {
     invoicingByUs: onb?.invoicingResponsibility === "we_invoice",
     billPayByUs: onb?.billPayResponsibility === "we_pay",
     hasJobCosting: bool(onb?.hasJobCosting),
-    monthsBehind: num8(onb?.monthsBehind),
+    monthsBehind: num9(onb?.monthsBehind),
     qboSoftwareTier: onb?.qboSoftwareTier ?? "none",
     qboSoftwareWholesale: bool(onb?.qboSoftwareWholesale),
     qboPayrollWholesale: bool(onb?.qboPayrollWholesale)
@@ -49039,7 +49039,7 @@ var init_utils3 = __esm({
       let out = "";
       for (let j = 0; j < string5.length; j += limit) {
         const segment = string5.length >= limit ? string5.slice(j, j + limit) : string5;
-        const arr7 = [];
+        const arr8 = [];
         for (let i = 0; i < segment.length; ++i) {
           let c = segment.charCodeAt(i);
           if (c === 45 || // -
@@ -49050,26 +49050,26 @@ var init_utils3 = __esm({
           c >= 65 && c <= 90 || // a-z
           c >= 97 && c <= 122 || // A-Z
           format === RFC1738 && (c === 40 || c === 41)) {
-            arr7[arr7.length] = segment.charAt(i);
+            arr8[arr8.length] = segment.charAt(i);
             continue;
           }
           if (c < 128) {
-            arr7[arr7.length] = hex_table[c];
+            arr8[arr8.length] = hex_table[c];
             continue;
           }
           if (c < 2048) {
-            arr7[arr7.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
+            arr8[arr8.length] = hex_table[192 | c >> 6] + hex_table[128 | c & 63];
             continue;
           }
           if (c < 55296 || c >= 57344) {
-            arr7[arr7.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+            arr8[arr8.length] = hex_table[224 | c >> 12] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
             continue;
           }
           i += 1;
           c = 65536 + ((c & 1023) << 10 | segment.charCodeAt(i) & 1023);
-          arr7[arr7.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
+          arr8[arr8.length] = hex_table[240 | c >> 18] + hex_table[128 | c >> 12 & 63] + hex_table[128 | c >> 6 & 63] + hex_table[128 | c & 63];
         }
-        out += arr7.join("");
+        out += arr8.join("");
       }
       return out;
     };
@@ -49332,8 +49332,8 @@ var init_stringify = __esm({
         return String(prefix);
       }
     };
-    push_to_array = function(arr7, value_or_array) {
-      Array.prototype.push.apply(arr7, isArray3(value_or_array) ? value_or_array : [value_or_array]);
+    push_to_array = function(arr8, value_or_array) {
+      Array.prototype.push.apply(arr8, isArray3(value_or_array) ? value_or_array : [value_or_array]);
     };
     defaults = {
       addQueryPrefix: false,
@@ -52508,12 +52508,12 @@ var require_sha256 = __commonJS({
       }
       exports2.hmac = hmac;
       function fillBuffer(buffer, hmac2, info, counter) {
-        var num8 = counter[0];
-        if (num8 === 0) {
+        var num9 = counter[0];
+        if (num9 === 0) {
           throw new Error("hkdf: cannot expand more");
         }
         hmac2.reset();
-        if (num8 > 1) {
+        if (num9 > 1) {
           hmac2.update(buffer);
         }
         if (info) {
@@ -61349,11 +61349,11 @@ function buildPersonalContext(facts, openItems = []) {
     if (!byCat.has(c)) byCat.set(c, []);
     byCat.get(c).push(`${f.pinned ? "\u2605 " : ""}${f.fact}`);
   }
-  const order = [...PERSONAL_CATEGORIES].filter((c) => byCat.has(c)).concat([...byCat.keys()].filter((c) => !PERSONAL_CATEGORIES.includes(c)));
+  const order2 = [...PERSONAL_CATEGORIES].filter((c) => byCat.has(c)).concat([...byCat.keys()].filter((c) => !PERSONAL_CATEGORIES.includes(c)));
   const lines3 = [
     "=== MARKIE'S PERSONAL LIFE (PRIVATE \u2014 this is Liv's domain only; NEVER share it with other agents, clients, or mix it with firm work) ==="
   ];
-  for (const c of order) {
+  for (const c of order2) {
     lines3.push(`${CATEGORY_LABELS[c] ?? c}:`);
     for (const f of byCat.get(c)) lines3.push(`  - ${f}`);
   }
@@ -62502,9 +62502,9 @@ function parseScanFindings(text2) {
   } catch {
     return [];
   }
-  const arr7 = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
+  const arr8 = Array.isArray(obj) ? obj : Array.isArray(obj?.findings) ? obj.findings : [];
   const out = [];
-  for (const f of arr7) {
+  for (const f of arr8) {
     const subjectName = String(f?.subjectName || f?.name || "").trim();
     const claim = String(f?.claim || "").trim();
     if (!subjectName || !claim) continue;
@@ -62956,9 +62956,9 @@ async function ensurePayrollReminders() {
       if (!dueClients.length) continue;
       for (const c of dueClients) {
         correctKeys.add(`${c.id}|${run3.runISO}`);
-        const arr7 = scheduled.get(run3.runISO) || [];
-        arr7.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
-        scheduled.set(run3.runISO, arr7);
+        const arr8 = scheduled.get(run3.runISO) || [];
+        arr8.push({ client: c, dateStr: run3.runISO, statShift: run3.statShifted });
+        scheduled.set(run3.runISO, arr8);
       }
     }
     let tasksRemoved = 0;
@@ -67170,9 +67170,9 @@ async function dedupClient(clientId, names) {
   const groups = /* @__PURE__ */ new Map();
   for (const e of emps) {
     const k = idKey(e.firstName || "", e.lastName || "");
-    const arr7 = groups.get(k) || [];
-    arr7.push(e);
-    groups.set(k, arr7);
+    const arr8 = groups.get(k) || [];
+    arr8.push(e);
+    groups.set(k, arr8);
   }
   let merged = 0, renamed = 0;
   for (const [k, group] of groups) {
@@ -67598,12 +67598,12 @@ async function relinkFindings() {
         const patch = {};
         let newMeta = meta3;
         if (!f.clientId) {
-          const clientName = String(meta3.clientName ?? "").trim() || (rowId ? ROW_CLIENT_MAP[rowId] ?? "" : "");
-          if (clientName) {
-            const clientId = await matchClientIdByName(clientName);
+          const clientName2 = String(meta3.clientName ?? "").trim() || (rowId ? ROW_CLIENT_MAP[rowId] ?? "" : "");
+          if (clientName2) {
+            const clientId = await matchClientIdByName(clientName2);
             if (clientId) {
               patch.clientId = clientId;
-              if (isJson && !meta3.clientName) newMeta = { ...newMeta, clientName };
+              if (isJson && !meta3.clientName) newMeta = { ...newMeta, clientName: clientName2 };
               linked++;
             }
           }
@@ -67702,7 +67702,7 @@ async function dedupeClients(confirm) {
     let cnt = 0;
     for (const m of mapping) {
       try {
-        cnt += num7(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
+        cnt += num8(await db.run(sql.raw(`UPDATE "${t2}" SET "clientId" = ${m.canonical} WHERE "clientId" = ${m.dupe}`)));
       } catch {
         held.add(m.dupe);
       }
@@ -67724,7 +67724,7 @@ async function dedupeClients(confirm) {
         const cols = asRows(await db.run(sql.raw(`PRAGMA table_info("${t2}")`))).map((c) => String(c.name ?? c[1])).filter((name2) => !["id", "createdAt", "updatedAt"].includes(name2));
         if (cols.length === 0) continue;
         const grp = cols.map((c) => `"${c}"`).join(",");
-        const n = num7(await db.run(sql.raw(
+        const n = num8(await db.run(sql.raw(
           `DELETE FROM "${t2}" WHERE "clientId" IN (${inList}) AND id NOT IN (SELECT MIN(id) FROM "${t2}" WHERE "clientId" IN (${inList}) GROUP BY ${grp})`
         )));
         if (n) report.dedupedRecords[t2] = n;
@@ -67734,14 +67734,14 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm20, asRows, num7;
+var norm20, asRows, num8;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
     norm20 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
-    num7 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
+    num8 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
 });
 
@@ -71692,8 +71692,8 @@ async function seedDockKingFlowthrough() {
       report.updated++;
     }
     const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq2(clientTaskRules.clientId, c.id)).returning();
-    const r28 = await db.delete(tasks).where(and(eq2(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
-    report.tasksPaused += (r1?.length || 0) + (r28?.length || 0);
+    const r29 = await db.delete(tasks).where(and(eq2(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
+    report.tasksPaused += (r1?.length || 0) + (r29?.length || 0);
   }
   return report;
 }
@@ -71921,13 +71921,13 @@ function nextWSIBDueDate(quarter, now = /* @__PURE__ */ new Date()) {
   }
   return new Date(year2, month + 1, 1);
 }
-async function createRecurringTasksForClient(clientId, userId, flags, clientName, assignedTo) {
+async function createRecurringTasksForClient(clientId, userId, flags, clientName2, assignedTo) {
   const db = getDb();
   const created = [];
   const now = /* @__PURE__ */ new Date();
   if (flags.hasHST && flags.hstPeriod) {
     const dueDate = nextHSTDueDate(flags.hstPeriod, now);
-    const title = `HST Filing \u2014 ${clientName}`;
+    const title = `HST Filing \u2014 ${clientName2}`;
     const existing = await db.select({ id: tasks.id }).from(tasks).where(
       sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`HST Filing%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
     ).limit(1);
@@ -71953,7 +71953,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
           clientId,
           userId,
           title,
-          description: `Prepare and file ${flags.hstPeriod} HST return for ${clientName}.`,
+          description: `Prepare and file ${flags.hstPeriod} HST return for ${clientName2}.`,
           frequency: flags.hstPeriod === "monthly" ? "monthly" : flags.hstPeriod === "quarterly" ? "quarterly" : "yearly",
           startDate: now,
           nextDueDate: dueDate,
@@ -71967,7 +71967,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
   }
   if (flags.hasWSIB) {
     const dueDate = nextWSIBDueDate(flags.wsibQuarter || "all", now);
-    const title = `WSIB Filing \u2014 ${clientName}`;
+    const title = `WSIB Filing \u2014 ${clientName2}`;
     const existing = await db.select({ id: tasks.id }).from(tasks).where(
       sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`WSIB Filing%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
     ).limit(1);
@@ -71992,7 +71992,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
           clientId,
           userId,
           title,
-          description: `Prepare and file WSIB return for ${clientName}.`,
+          description: `Prepare and file WSIB return for ${clientName2}.`,
           frequency: "quarterly",
           startDate: now,
           nextDueDate: dueDate,
@@ -72006,7 +72006,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
   }
   if (flags.hasPayroll && flags.payrollFrequency && !flags.payrollExternal) {
     const dueDate = nextPayrollDueDate(flags.payrollFrequency, now);
-    const title = `Payroll Remittance \u2014 ${clientName}`;
+    const title = `Payroll Remittance \u2014 ${clientName2}`;
     const existing = await db.select({ id: tasks.id }).from(tasks).where(
       sql`${tasks.clientId} = ${clientId} AND ${tasks.title} LIKE ${`Payroll Remittance%`} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
     ).limit(1);
@@ -72032,7 +72032,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
           clientId,
           userId,
           title,
-          description: `Process ${flags.payrollFrequency} payroll and remit source deductions for ${clientName}.`,
+          description: `Process ${flags.payrollFrequency} payroll and remit source deductions for ${clientName2}.`,
           frequency: flags.payrollFrequency === "weekly" ? "weekly" : flags.payrollFrequency === "bi-weekly" ? "biweekly" : flags.payrollFrequency === "semi-monthly" ? "monthly" : flags.payrollFrequency === "monthly" ? "monthly" : "yearly",
           startDate: now,
           nextDueDate: dueDate,
@@ -72044,7 +72044,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
       }
     }
     const t4Due = new Date(now.getFullYear() + 1, 1, 28);
-    const t4Title = `T4 Filing \u2014 ${clientName}`;
+    const t4Title = `T4 Filing \u2014 ${clientName2}`;
     const t4Existing = await db.select({ id: tasks.id }).from(tasks).where(
       sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${t4Title} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
     ).limit(1);
@@ -72053,7 +72053,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
         userId,
         clientId,
         title: t4Title,
-        description: `Prepare and file annual T4/T4A slips and summary for ${clientName}.`,
+        description: `Prepare and file annual T4/T4A slips and summary for ${clientName2}.`,
         dueDate: t4Due,
         priority: "high",
         status: "pending",
@@ -72069,7 +72069,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
           clientId,
           userId,
           title: t4Title,
-          description: `Prepare and file annual T4/T4A slips and summary for ${clientName}.`,
+          description: `Prepare and file annual T4/T4A slips and summary for ${clientName2}.`,
           frequency: "yearly",
           startDate: now,
           nextDueDate: t4Due,
@@ -72083,12 +72083,12 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
   }
   if (flags.hasPayroll && (flags.payrollExternal || flags.payrollFrequency === "self")) {
     const dueDate = new Date(now.getFullYear() + 1, 1, 28);
-    const title = `Year-end payroll reconciliation \u2014 ${clientName}`;
+    const title = `Year-end payroll reconciliation \u2014 ${clientName2}`;
     const existing = await db.select({ id: tasks.id }).from(tasks).where(
       sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${title} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
     ).limit(1);
     if (existing.length === 0) {
-      const description = `${clientName} runs their own payroll. Get the year's payroll data (T4 summary / payroll register) from the client and reconcile it against their year-end.`;
+      const description = `${clientName2} runs their own payroll. Get the year's payroll data (T4 summary / payroll register) from the client and reconcile it against their year-end.`;
       const [task] = await db.insert(tasks).values({
         userId,
         clientId,
@@ -72123,7 +72123,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
   }
   if (flags.paysDividends) {
     const t5Due = new Date(now.getFullYear() + 1, 1, 28);
-    const t5Title = `T5 Filing \u2014 ${clientName}`;
+    const t5Title = `T5 Filing \u2014 ${clientName2}`;
     const t5Existing = await db.select({ id: tasks.id }).from(tasks).where(
       sql`${tasks.clientId} = ${clientId} AND ${tasks.title} = ${t5Title} AND ${tasks.dueDate} > ${Math.floor(now.getTime() / 1e3)}`
     ).limit(1);
@@ -72132,7 +72132,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
         userId,
         clientId,
         title: t5Title,
-        description: `Prepare and file T5 slips and summary (dividends/interest) for ${clientName}.`,
+        description: `Prepare and file T5 slips and summary (dividends/interest) for ${clientName2}.`,
         dueDate: t5Due,
         priority: "high",
         status: "pending",
@@ -72148,7 +72148,7 @@ async function createRecurringTasksForClient(clientId, userId, flags, clientName
           clientId,
           userId,
           title: t5Title,
-          description: `Prepare and file annual T5 slips and summary (dividends) for ${clientName}.`,
+          description: `Prepare and file annual T5 slips and summary (dividends) for ${clientName2}.`,
           frequency: "yearly",
           startDate: now,
           nextDueDate: t5Due,
@@ -72262,8 +72262,8 @@ async function seedDemoData() {
     "Initech Software Inc.": [["Sam", "Becker", 7800], ["Lena", "Ortiz", 6900]],
     "Stark Industries Canada Inc.": [["Tony", "Stratton", 9e3], ["Pepper", "Posey", 7200], ["Happy", "Hogue", 5400], ["May", "Park", 4600]]
   };
-  for (const [clientName, roster] of Object.entries(ROSTERS)) {
-    const clientId = byName(clientName);
+  for (const [clientName2, roster] of Object.entries(ROSTERS)) {
+    const clientId = byName(clientName2);
     if (!clientId) continue;
     const emps = await db.insert(employees).values(
       roster.map(([first, last]) => ({ clientId, firstName: first, lastName: last, isActive: true }))
@@ -72291,10 +72291,10 @@ async function seedDemoData() {
       );
     }
   }
-  const t2 = (title, clientName, due, status = "pending") => ({
+  const t2 = (title, clientName2, due, status = "pending") => ({
     userId,
     title,
-    clientId: clientName ? byName(clientName) : null,
+    clientId: clientName2 ? byName(clientName2) : null,
     dueDate: daysFromNow(due),
     status,
     priority: "medium",
@@ -75580,16 +75580,16 @@ function withResolvers() {
     reject
   };
 }
-function listWithMember(arr7, member) {
-  return [...arr7, member];
+function listWithMember(arr8, member) {
+  return [...arr8, member];
 }
-function listWithoutIndex(arr7, index) {
-  return [...arr7.slice(0, index), ...arr7.slice(index + 1)];
+function listWithoutIndex(arr8, index) {
+  return [...arr8.slice(0, index), ...arr8.slice(index + 1)];
 }
-function listWithoutMember(arr7, member) {
-  const index = arr7.indexOf(member);
-  if (index !== -1) return listWithoutIndex(arr7, index);
-  return arr7;
+function listWithoutMember(arr8, member) {
+  const index = arr8.indexOf(member);
+  if (index !== -1) return listWithoutIndex(arr8, index);
+  return arr8;
 }
 var _Symbol;
 var _Symbol$dispose;
@@ -77871,11 +77871,11 @@ function encodeBase64(input) {
     return input.toBase64();
   }
   const CHUNK_SIZE = 32768;
-  const arr7 = [];
+  const arr8 = [];
   for (let i = 0; i < input.length; i += CHUNK_SIZE) {
-    arr7.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
+    arr8.push(String.fromCharCode.apply(null, input.subarray(i, i + CHUNK_SIZE)));
   }
-  return btoa(arr7.join(""));
+  return btoa(arr8.join(""));
 }
 function decodeBase64(encoded) {
   if (Uint8Array.fromBase64) {
@@ -82454,17 +82454,17 @@ var clientDashboardRouter = createRouter({
     const cr = await getConnectionForClient2(input.clientId);
     if ("error" in cr) return { ok: false, error: cr.error };
     const conn = cr.conn;
-    const num8 = (v2) => {
+    const num9 = (v2) => {
       const n = Number(v2);
       return Number.isFinite(n) ? n : 0;
     };
     try {
       const data = await qboRequest2(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`);
       const accounts = data?.QueryResponse?.Account ?? [];
-      const rows = accounts.map((a) => ({ name: a.Name, accountType: a.AccountType, currentBalance: num8(a.CurrentBalance), currencyRef: a.CurrencyRef?.value, active: a.Active }));
+      const rows = accounts.map((a) => ({ name: a.Name, accountType: a.AccountType, currentBalance: num9(a.CurrentBalance), currencyRef: a.CurrencyRef?.value, active: a.Active }));
       const bank = bankBreakdownFromAccounts2(rows);
-      const ar = accounts.filter((a) => /receivable/i.test(a.AccountType || "")).reduce((s, a) => s + num8(a.CurrentBalance), 0);
-      const ap = accounts.filter((a) => /payable/i.test(a.AccountType || "")).reduce((s, a) => s + Math.abs(num8(a.CurrentBalance)), 0);
+      const ar = accounts.filter((a) => /receivable/i.test(a.AccountType || "")).reduce((s, a) => s + num9(a.CurrentBalance), 0);
+      const ap = accounts.filter((a) => /payable/i.test(a.AccountType || "")).reduce((s, a) => s + Math.abs(num9(a.CurrentBalance)), 0);
       const today3 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const yStart = `${today3.slice(0, 4)}-01-01`;
       let pnl = { revenue: null, expenses: null, netIncome: null };
@@ -82472,19 +82472,19 @@ var clientDashboardRouter = createRouter({
         pnl = profitAndLossFromReport2(await qboRequest2(conn, `/reports/ProfitAndLoss?start_date=${yStart}&end_date=${today3}`));
       } catch {
       }
-      const r28 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+      const r29 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
       return {
         ok: true,
         companyName: conn.companyName || "",
         transport: conn.transport || "native",
-        cashTotal: r28(bank.cashTotal),
-        cashCad: r28(bank.cashCad),
-        cashUsd: r28(bank.cashUsd),
-        creditCardOwed: r28(bank.creditCardOwed),
-        uncategorized: r28(bank.uncategorizedBalance),
+        cashTotal: r29(bank.cashTotal),
+        cashCad: r29(bank.cashCad),
+        cashUsd: r29(bank.cashUsd),
+        creditCardOwed: r29(bank.creditCardOwed),
+        uncategorized: r29(bank.uncategorizedBalance),
         uncategorizedCount: bank.uncategorizedCount,
-        ar: r28(ar),
-        ap: r28(ap),
+        ar: r29(ar),
+        ap: r29(ap),
         revenue: pnl.revenue,
         expenses: pnl.expenses,
         netIncome: pnl.netIncome,
@@ -82605,8 +82605,8 @@ var clientDashboardRouter = createRouter({
     for (const s of snaps) if (!latestByClient.has(s.clientId)) latestByClient.set(s.clientId, s);
     const clientRows = await db.select({ id: clients.id, name: clients.name }).from(clients);
     const nameById = new Map(clientRows.map((c) => [c.id, c.name]));
-    const order = { red: 0, amber: 1, green: 2 };
-    const list = Array.from(latestByClient.values()).map((s) => ({ ...shapeCashSnapshot(s), clientName: nameById.get(s.clientId) || `Client ${s.clientId}` })).sort((a, b) => order[a.risk] - order[b.risk] || (b.payrollShortfall || 0) - (a.payrollShortfall || 0));
+    const order2 = { red: 0, amber: 1, green: 2 };
+    const list = Array.from(latestByClient.values()).map((s) => ({ ...shapeCashSnapshot(s), clientName: nameById.get(s.clientId) || `Client ${s.clientId}` })).sort((a, b) => order2[a.risk] - order2[b.risk] || (b.payrollShortfall || 0) - (a.payrollShortfall || 0));
     return {
       clients: list,
       summary: {
@@ -91728,6 +91728,229 @@ var cashPositionRouter = createRouter({
   })
 });
 
+// api/coa-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_drizzle_orm();
+init_qbo_router();
+init_qbo_vendor_brain();
+
+// api/coa-core.ts
+var r28 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+var normName3 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").replace(/[^a-z0-9 ]/g, "").trim();
+var normNum = (s) => (s || "").trim();
+function buildCoaCsv(rows) {
+  const head = ["Number", "Name", "Type", "SubType", "Balance", "Active"];
+  const esc4 = (v2) => {
+    const s = String(v2 ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const body = rows.map((r) => [r.num, r.name, r.type, r.subType ?? "", r.balance, r.active === false ? "no" : "yes"].map(esc4).join(","));
+  return [head.join(","), ...body].join("\n");
+}
+function diffCharts(a, b) {
+  const byNumA = new Map(a.filter((x) => x.num).map((x) => [normNum(x.num), x]));
+  const byNumB = new Map(b.filter((x) => x.num).map((x) => [normNum(x.num), x]));
+  const byNameB = new Map(b.map((x) => [normName3(x.name), x]));
+  const seenB = /* @__PURE__ */ new Set();
+  const entries = [];
+  for (const ra of a) {
+    const key12 = normNum(ra.num);
+    const rb = key12 ? byNumB.get(key12) : void 0;
+    if (rb) {
+      seenB.add(key12);
+      if (normName3(ra.name) !== normName3(rb.name)) entries.push({ num: ra.num, a: ra, b: rb, issue: "name_differs" });
+      else if (ra.type !== rb.type) entries.push({ num: ra.num, a: ra, b: rb, issue: "type_differs" });
+      else entries.push({ num: ra.num, a: ra, b: rb, issue: "match" });
+    } else {
+      const sameName = byNameB.get(normName3(ra.name));
+      if (sameName && normNum(sameName.num) !== key12) {
+        entries.push({ num: ra.num, a: ra, b: sameName, issue: "number_differs" });
+        seenB.add(normNum(sameName.num));
+      } else entries.push({ num: ra.num, a: ra, issue: "only_a" });
+    }
+  }
+  for (const rb of b) {
+    const key12 = normNum(rb.num);
+    if (key12 && seenB.has(key12)) continue;
+    if (!key12 && byNameB.get(normName3(rb.name)) && [...entries].some((e) => e.b === rb)) continue;
+    if ([...entries].some((e) => e.b === rb)) continue;
+    entries.push({ num: rb.num, b: rb, issue: "only_b" });
+  }
+  const summary = {
+    match: entries.filter((e) => e.issue === "match").length,
+    onlyA: entries.filter((e) => e.issue === "only_a").length,
+    onlyB: entries.filter((e) => e.issue === "only_b").length,
+    mismatches: entries.filter((e) => ["name_differs", "type_differs", "number_differs"].includes(e.issue)).length
+  };
+  entries.sort((x, y) => order(x.issue) - order(y.issue) || normNum(x.num).localeCompare(normNum(y.num)));
+  return { entries, summary };
+}
+var order = (i) => ({ number_differs: 0, name_differs: 1, type_differs: 2, only_a: 3, only_b: 4, match: 5 })[i];
+var COA_TEMPLATES = {
+  construction: {
+    label: "Construction / Trades",
+    accounts: [
+      { num: "1000", name: "Chequing", type: "Bank" },
+      { num: "1010", name: "Savings", type: "Bank" },
+      { num: "1100", name: "Accounts Receivable", type: "Accounts Receivable" },
+      { num: "1200", name: "Inventory / Materials", type: "Other Current Asset" },
+      { num: "1250", name: "Work in Progress", type: "Other Current Asset" },
+      { num: "1300", name: "Prepaid Expenses", type: "Other Current Asset" },
+      { num: "1500", name: "Vehicles", type: "Fixed Asset" },
+      { num: "1510", name: "Equipment & Tools", type: "Fixed Asset" },
+      { num: "1590", name: "Accumulated Depreciation", type: "Fixed Asset" },
+      { num: "2000", name: "Accounts Payable", type: "Accounts Payable" },
+      { num: "2100", name: "Credit Card", type: "Credit Card" },
+      { num: "2200", name: "HST/GST Payable", type: "Other Current Liability" },
+      { num: "2300", name: "Payroll Liabilities", type: "Other Current Liability" },
+      { num: "2400", name: "Holdback Payable", type: "Other Current Liability" },
+      { num: "3000", name: "Owner's Equity", type: "Equity" },
+      { num: "3100", name: "Retained Earnings", type: "Equity" },
+      { num: "4000", name: "Construction Revenue", type: "Income" },
+      { num: "4100", name: "Service Revenue", type: "Income" },
+      { num: "5000", name: "Materials", type: "Cost of Goods Sold" },
+      { num: "5100", name: "Subcontractors", type: "Cost of Goods Sold" },
+      { num: "5200", name: "Direct Labour", type: "Cost of Goods Sold" },
+      { num: "5300", name: "Equipment Rental", type: "Cost of Goods Sold" },
+      { num: "6000", name: "Advertising & Marketing", type: "Expense" },
+      { num: "6100", name: "Insurance", type: "Expense" },
+      { num: "6200", name: "Office & Admin", type: "Expense" },
+      { num: "6300", name: "Vehicle - Fuel", type: "Expense" },
+      { num: "6310", name: "Vehicle - Repairs", type: "Expense" },
+      { num: "6400", name: "Repairs & Maintenance", type: "Expense" },
+      { num: "6500", name: "Professional Fees", type: "Expense" },
+      { num: "6600", name: "Wages & Salaries", type: "Expense" },
+      { num: "6700", name: "Meals & Entertainment", type: "Expense" },
+      { num: "6800", name: "Bank Charges", type: "Expense" }
+    ]
+  }
+};
+function diffToTemplate(chart, templateKey) {
+  const tpl = COA_TEMPLATES[templateKey];
+  if (!tpl) return null;
+  const tplRows = tpl.accounts.map((t2) => ({ num: t2.num, name: t2.name, type: t2.type, balance: 0 }));
+  const { entries, summary } = diffCharts(chart, tplRows);
+  return { label: tpl.label, entries, summary: { ...summary, missingFromChart: summary.onlyB, extraInChart: summary.onlyA } };
+}
+function parseTrialBalance(text2) {
+  const out = [];
+  const balRe = /[-(]?\$?\s*\d[\d,]*(?:\.\d+)?\)?%?\s*$/;
+  for (const raw2 of (text2 || "").split("\n")) {
+    const line = raw2.trim();
+    if (!line || /^(account|name|number|total)\b/i.test(line)) continue;
+    const m = line.match(balRe);
+    if (!m) continue;
+    const balTok = m[0].trim();
+    const neg = /^\(.*\)$/.test(balTok) || /^-/.test(balTok);
+    const mag = Number(balTok.replace(/[()$,%\s]/g, "").replace(/-/g, ""));
+    if (!Number.isFinite(mag)) continue;
+    const bal = neg ? -Math.abs(mag) : mag;
+    const rest = line.slice(0, m.index).replace(/[\t,]+$/, "").trim();
+    const lead = rest.split(/\s+/)[0] || "";
+    const hasNum = /^\d{2,6}$/.test(lead);
+    const name2 = (hasNum ? rest.slice(lead.length) : rest).replace(/[\t,]/g, " ").replace(/\s+/g, " ").trim();
+    if (!name2 && !hasNum) continue;
+    out.push({ num: hasNum ? lead : void 0, name: name2, balance: r28(bal) });
+  }
+  return out;
+}
+function reconcileToTrialBalance(qbo, tb, tolerance = 0.01) {
+  const tbByNum = new Map(tb.filter((t2) => t2.num).map((t2) => [normNum(t2.num), t2]));
+  const tbByName = new Map(tb.map((t2) => [normName3(t2.name), t2]));
+  const used = /* @__PURE__ */ new Set();
+  const entries = [];
+  for (const a of qbo) {
+    const t2 = a.num && tbByNum.get(normNum(a.num)) || tbByName.get(normName3(a.name));
+    if (t2) {
+      used.add(t2);
+      const diff = r28(a.balance - t2.balance);
+      entries.push({ num: a.num, name: a.name, qbo: r28(a.balance), tb: r28(t2.balance), diff, status: Math.abs(diff) <= tolerance ? "match" : "differs" });
+    } else {
+      entries.push({ num: a.num, name: a.name, qbo: r28(a.balance), tb: null, diff: r28(a.balance), status: "only_qbo" });
+    }
+  }
+  for (const t2 of tb) {
+    if (used.has(t2)) continue;
+    entries.push({ num: t2.num, name: t2.name, qbo: null, tb: r28(t2.balance), diff: r28(-t2.balance), status: "only_tb" });
+  }
+  const mismatches = entries.filter((e) => e.status !== "match").length;
+  entries.sort((x, y) => rank(x.status) - rank(y.status) || Math.abs(y.diff) - Math.abs(x.diff));
+  return { entries, tied: mismatches === 0, mismatches };
+}
+var rank = (s) => ({ differs: 0, only_qbo: 1, only_tb: 2, match: 3 })[s];
+
+// api/coa-router.ts
+var arr6 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+var num6 = (v2) => {
+  const n = Number(v2);
+  return Number.isFinite(n) ? n : 0;
+};
+async function pullChart(clientId) {
+  const connResult = await getConnectionForClient(clientId);
+  if ("error" in connResult) return { error: connResult.error };
+  try {
+    const data = await qboRequest(connResult.conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`);
+    const rows = arr6(data, "Account").map((a) => ({
+      num: String(a.AcctNum ?? "").trim(),
+      name: a.Name ?? "",
+      type: a.AccountType ?? "",
+      subType: a.AccountSubType ?? void 0,
+      balance: num6(a.CurrentBalance),
+      active: a.Active !== false
+    }));
+    return { rows };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { error: /async ack|non-JSON|bridge/i.test(msg) ? "bridge_not_returning_data" : msg };
+  }
+}
+async function clientName(clientId) {
+  const r = (await getDb().all(sql`SELECT name FROM clients WHERE id=${clientId} LIMIT 1`))[0];
+  return r?.name ?? `Client ${clientId}`;
+}
+var coaRouter = createRouter({
+  /** Export one client's chart of accounts → rows + CSV (the file they clean up externally). */
+  exportChart: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ input }) => {
+    const res = await pullChart(input.clientId);
+    if ("error" in res) return { ok: false, error: res.error };
+    const name2 = await clientName(input.clientId);
+    const rows = res.rows.sort((a, b) => (a.num || "").localeCompare(b.num || "") || a.name.localeCompare(b.name));
+    return { ok: true, clientName: name2, count: rows.length, rows, csv: buildCoaCsv(rows) };
+  }),
+  /** Diff two clients' charts so they can be married (e.g. Clark OS ↔ Clark CW). */
+  compareCharts: staffQuery.input(external_exports.object({ clientIdA: external_exports.number(), clientIdB: external_exports.number() })).mutation(async ({ input }) => {
+    const [ra, rb] = await Promise.all([pullChart(input.clientIdA), pullChart(input.clientIdB)]);
+    if ("error" in ra) return { ok: false, error: `Chart A: ${ra.error}` };
+    if ("error" in rb) return { ok: false, error: `Chart B: ${rb.error}` };
+    const [nameA, nameB] = await Promise.all([clientName(input.clientIdA), clientName(input.clientIdB)]);
+    const { entries, summary } = diffCharts(ra.rows, rb.rows);
+    return { ok: true, nameA, nameB, entries, summary };
+  }),
+  /** Gap between a client's chart and a standard template for their business type. */
+  compareToTemplate: staffQuery.input(external_exports.object({ clientId: external_exports.number(), templateKey: external_exports.string() })).mutation(async ({ input }) => {
+    const res = await pullChart(input.clientId);
+    if ("error" in res) return { ok: false, error: res.error };
+    const diff = diffToTemplate(res.rows, input.templateKey);
+    if (!diff) return { ok: false, error: "unknown_template" };
+    const name2 = await clientName(input.clientId);
+    return { ok: true, clientName: name2, ...diff };
+  }),
+  /** Available standard templates (for the picker). */
+  templates: staffQuery.query(async () => Object.entries(COA_TEMPLATES).map(([key12, t2]) => ({ key: key12, label: t2.label, count: t2.accounts.length }))),
+  /** The tie-out gate: reconcile QBO chart balances to the accountant's pasted trial balance. */
+  reconcileTb: staffQuery.input(external_exports.object({ clientId: external_exports.number(), trialBalance: external_exports.string() })).mutation(async ({ input }) => {
+    const res = await pullChart(input.clientId);
+    if ("error" in res) return { ok: false, error: res.error };
+    const tb = parseTrialBalance(input.trialBalance);
+    if (!tb.length) return { ok: false, error: "no_tb_lines_parsed" };
+    const name2 = await clientName(input.clientId);
+    const r = reconcileToTrialBalance(res.rows, tb);
+    return { ok: true, clientName: name2, parsedLines: tb.length, ...r };
+  })
+});
+
 // api/genealogy-router.ts
 init_zod();
 init_middleware();
@@ -92121,8 +92344,8 @@ function runHstReview(input) {
   ];
   const bySeverity = { high: 0, medium: 0, low: 0 };
   for (const f of findings) bySeverity[f.severity]++;
-  const order = { high: 0, medium: 1, low: 2 };
-  findings.sort((a, b) => order[a.severity] - order[b.severity]);
+  const order2 = { high: 0, medium: 1, low: 2 };
+  findings.sort((a, b) => order2[a.severity] - order2[b.severity]);
   const tie = tieOut(input.txns);
   return {
     findings,
@@ -92135,8 +92358,8 @@ function runHstReview(input) {
 
 // api/hst-review-router.ts
 var q2 = (conn, sql5) => qboRequest(conn, `/query?query=${encodeURIComponent(sql5)}`);
-var arr6 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
-var num6 = (v2) => {
+var arr7 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
+var num7 = (v2) => {
   const n = Number(v2);
   return Number.isFinite(n) ? n : 0;
 };
@@ -92148,7 +92371,7 @@ function mapExpense(e, type2, taxName) {
     lines3.push({
       accountId: d10.AccountRef?.value,
       accountName: d10.AccountRef?.name,
-      amount: num6(l.Amount),
+      amount: num7(l.Amount),
       taxCodeId: d10.TaxCodeRef?.value ?? null,
       taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
     });
@@ -92159,8 +92382,8 @@ function mapExpense(e, type2, taxName) {
     date: String(e.TxnDate || "").slice(0, 10),
     name: e.EntityRef?.name || e.VendorRef?.name,
     docNumber: e.DocNumber,
-    total: num6(e.TotalAmt),
-    taxTotal: num6(e.TxnTaxDetail?.TotalTax),
+    total: num7(e.TotalAmt),
+    taxTotal: num7(e.TxnTaxDetail?.TotalTax),
     lines: lines3
   };
 }
@@ -92171,7 +92394,7 @@ function mapSale(e, type2, taxName) {
     if (!d10) continue;
     lines3.push({
       accountName: d10.ItemRef?.name || l.Description || "Sales",
-      amount: num6(l.Amount),
+      amount: num7(l.Amount),
       taxCodeId: d10.TaxCodeRef?.value ?? null,
       taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
     });
@@ -92182,8 +92405,8 @@ function mapSale(e, type2, taxName) {
     date: String(e.TxnDate || "").slice(0, 10),
     name: e.CustomerRef?.name,
     docNumber: e.DocNumber,
-    total: num6(e.TotalAmt),
-    taxTotal: num6(e.TxnTaxDetail?.TotalTax),
+    total: num7(e.TotalAmt),
+    taxTotal: num7(e.TxnTaxDetail?.TotalTax),
     lines: lines3
   };
 }
@@ -92202,7 +92425,7 @@ var hstReviewRouter = createRouter({
     const taxCodes = [];
     const taxById = /* @__PURE__ */ new Map();
     try {
-      for (const t2 of arr6(await q2(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode")) {
+      for (const t2 of arr7(await q2(conn, `SELECT * FROM TaxCode MAXRESULTS 1000`), "TaxCode")) {
         taxCodes.push({ id: String(t2.Id), name: t2.Name });
         taxById.set(String(t2.Id), t2.Name);
       }
@@ -92216,8 +92439,8 @@ var hstReviewRouter = createRouter({
     const taxName = (id) => id ? taxById.get(String(id)) : void 0;
     const accounts = [];
     try {
-      for (const a of arr6(await q2(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
-        accounts.push({ id: String(a.Id), name: a.Name, type: a.AccountType, subType: a.AccountSubType, balance: num6(a.CurrentBalance) });
+      for (const a of arr7(await q2(conn, `SELECT * FROM Account MAXRESULTS 1000`), "Account")) {
+        accounts.push({ id: String(a.Id), name: a.Name, type: a.AccountType, subType: a.AccountSubType, balance: num7(a.CurrentBalance) });
       }
     } catch (e) {
       errors.push(`Account: ${e instanceof Error ? e.message : e}`);
@@ -92225,7 +92448,7 @@ var hstReviewRouter = createRouter({
     const txns = [];
     const pull = async (entity, mapper) => {
       try {
-        for (const e of arr6(await q2(conn, `SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) txns.push(mapper(e));
+        for (const e of arr7(await q2(conn, `SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) txns.push(mapper(e));
       } catch (e) {
         errors.push(`${entity}: ${e instanceof Error ? e.message : e}`);
       }
@@ -92743,6 +92966,7 @@ var appRouter = createRouter({
   backup: backupRouter,
   opportunities: opportunitiesRouter,
   cashPosition: cashPositionRouter,
+  coa: coaRouter,
   loanTracker: loanTrackerRouter
 });
 
@@ -93025,7 +93249,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.238";
+var BUILD_TAG = "2026-06-27.239";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -93503,8 +93727,8 @@ app.get("/api/phoenix/seed", async (c) => {
     const { seedPhoenixPersonal: seedPhoenixPersonal2 } = await Promise.resolve().then(() => (init_seed_phoenix_personal(), seed_phoenix_personal_exports));
     const r = await seedPhoenixPersonal2();
     const { seedPhoenixPersonalV2: seedPhoenixPersonalV22 } = await Promise.resolve().then(() => (init_seed_phoenix_personal_v2(), seed_phoenix_personal_v2_exports));
-    const r28 = await seedPhoenixPersonalV22();
-    return c.json({ ok: true, v1: r, v2: r28 });
+    const r29 = await seedPhoenixPersonalV22();
+    return c.json({ ok: true, v1: r, v2: r29 });
   } catch (e) {
     return c.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 200);
   }
@@ -93802,14 +94026,14 @@ app.post("/api/figgy-jr-sync", async (c) => {
       const attachment = String(row[19] || "").trim();
       const driveFileId = attachment.startsWith("drive::") ? attachment.slice("drive::".length).trim() : "";
       const gmailMsgId = !driveFileId && attachment.includes("::") ? attachment.split("::")[0].trim() : "";
-      const clientName = String(row[2] || "").trim();
-      const clientId = (clientName ? await matchClientIdByName(clientName) : null) ?? void 0;
+      const clientName2 = String(row[2] || "").trim();
+      const clientId = (clientName2 ? await matchClientIdByName(clientName2) : null) ?? void 0;
       const sourceData = JSON.stringify({
         rowId,
         gmailMsgId,
         driveFileId,
         attachment,
-        clientName,
+        clientName: clientName2,
         vendor: String(row[7] || "").trim(),
         amount: String(row[8] || "").trim(),
         currency: String(row[9] || "").trim(),
@@ -93860,10 +94084,10 @@ app.post("/api/figgy-jr-finding", async (c) => {
     const db = getDb();
     const dup = await db.select().from(triageFindings).where(eq2(triageFindings.sourceData, rowId)).limit(1);
     if (dup[0]) return c.json({ success: true, deduped: true, findingId: dup[0].id });
-    const clientName = String(b.clientName || "").trim();
+    const clientName2 = String(b.clientName || "").trim();
     let clientId;
-    if (clientName) {
-      const cc = await db.select().from(clients).where(eq2(clients.name, clientName)).limit(1);
+    if (clientName2) {
+      const cc = await db.select().from(clients).where(eq2(clients.name, clientName2)).limit(1);
       if (cc[0]) clientId = cc[0].id;
     }
     const sevRaw = String(b.severity || "warning");
@@ -95206,8 +95430,8 @@ async function startServer() {
       const r = await seedPhoenixPersonal2();
       if (r?.seeded) console.log(`[phoenix-personal] seeded ${r.count} entries`);
       const { seedPhoenixPersonalV2: seedPhoenixPersonalV22 } = await Promise.resolve().then(() => (init_seed_phoenix_personal_v2(), seed_phoenix_personal_v2_exports));
-      const r28 = await seedPhoenixPersonalV22();
-      if (r28?.seeded) console.log(`[phoenix-personal-v2] seeded ${r28.count} entries`);
+      const r29 = await seedPhoenixPersonalV22();
+      if (r29?.seeded) console.log(`[phoenix-personal-v2] seeded ${r29.count} entries`);
     } catch (e) {
       console.error("[phoenix-personal] failed (non-fatal):", e instanceof Error ? e.message : e);
     }
