@@ -2,7 +2,7 @@ import { useState } from "react";
 import { GitCompareArrows, CheckCircle2, AlertTriangle, ArrowDownToLine, Loader2, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { parseCsvTransactions, matchStatements, type ReconResult } from "../../api/recon-match-core";
+import { parseCsvTransactions, matchStatements, findCleanupFlags, type ReconResult, type CleanupFlags } from "../../api/recon-match-core";
 import { extractPdfLines } from "@/lib/pdf-extract";
 import { parseBankStatement } from "../../api/pdf-statement-core";
 
@@ -19,6 +19,7 @@ export default function ReconMatch() {
   const [stmtText, setStmtText] = useState("");
   const [booksText, setBooksText] = useState("");
   const [result, setResult] = useState<ReconResult | null>(null);
+  const [cleanup, setCleanup] = useState<CleanupFlags | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -43,7 +44,10 @@ export default function ReconMatch() {
       const books = parseCsvTransactions(booksText);
       if (!stmt.length) { setErr("Couldn't read any transactions from the bank statement side. Paste CSV with Date + Amount (or Debit/Credit) columns."); setBusy(false); return; }
       if (!books.length) { setErr("Couldn't read any transactions from the QuickBooks side. Export the account register to CSV and paste it."); setBusy(false); return; }
-      setResult(matchStatements(stmt, books));
+      const matched = matchStatements(stmt, books);
+      setResult(matched);
+      // Post-recon cleanup: stale outstanding (uncashed cheques) + likely duplicates in the register.
+      setCleanup(findCleanupFlags(matched.onlyBooks, books));
     } catch (e) { setErr(e instanceof Error ? e.message : "Failed to match."); }
     setBusy(false);
   };
@@ -103,6 +107,21 @@ export default function ReconMatch() {
           <Section title="Outstanding in QuickBooks — not on the statement" hint="Uncleared/outstanding: cheques that haven't cashed, deposits in transit. Expected — leave uncleared in the reconcile." icon={<ArrowDownToLine className="h-4 w-4 text-amber-600" />} rows={r.onlyBooks} />
           <Section title="On the statement — missing from the books" hint="The bank shows these but QBO doesn't — add them in QBO before you finish reconciling." icon={<AlertTriangle className="h-4 w-4 text-amber-600" />} rows={r.onlyStatement} />
           <Section title="Matched" hint="Statement ↔ QBO, same amount within ~6 days. Tick these as cleared in QBO." icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />} rows={r.matched.map((m) => ({ ...m.statement, description: `${m.statement.description} ↔ ${m.books.description}${m.dateGapDays ? ` (${m.dateGapDays}d)` : ""}` }))} startCollapsed />
+
+          {cleanup && (cleanup.stale.length > 0 || cleanup.duplicates.length > 0) && (
+            <Card className="border-amber-200 bg-amber-50/40"><CardContent className="p-3 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-amber-700">
+                <AlertTriangle className="h-4 w-4" /> Post-reconciliation cleanup — chase or flag the client
+              </div>
+              <Section
+                title="Stale / uncashed cheques (outstanding 6+ months)"
+                hint="Outstanding in QBO and older than 6 months — likely never cashed. Follow up or void/re-issue; in Ontario a cheque goes stale-dated at 6 months."
+                icon={<AlertTriangle className="h-4 w-4 text-amber-600" />}
+                rows={cleanup.stale.map((s) => ({ date: s.date, description: `${s.description || "—"} · ${s.ageDays}d old`, amount: s.amount }))}
+              />
+              <DupSection pairs={cleanup.duplicates} />
+            </CardContent></Card>
+          )}
         </>
       )}
     </div>
@@ -141,6 +160,40 @@ function Section({ title, hint, icon, rows, startCollapsed }: { title: string; h
         </div>
       )}
       {open && rows.length === 0 && <p className="text-xs text-emerald-600 mt-1">None — all clear.</p>}
+    </CardContent></Card>
+  );
+}
+
+function DupSection({ pairs }: { pairs: CleanupFlags["duplicates"] }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <Card><CardContent className="p-3">
+      <button className="w-full flex items-center gap-2 text-sm font-semibold text-slate-700" onClick={() => setOpen((v) => !v)}>
+        <AlertTriangle className="h-4 w-4 text-amber-600" /> Possible duplicates (double-entered)
+        <span className="text-slate-400 font-normal">({pairs.length})</span>
+        <span className="ml-auto text-xs text-slate-400">{open ? "hide" : "show"}</span>
+      </button>
+      <p className="text-xs text-slate-400 mt-0.5">Same amount + similar payee within a few days — likely entered twice. Check QBO before deleting one.</p>
+      {open && pairs.length > 0 && (
+        <div className="mt-2 divide-y text-sm">
+          {pairs.map((p, i) => (
+            <div key={i} className="py-1.5">
+              <div className="text-xs text-amber-700">{p.reason}</div>
+              <div className="flex items-center gap-2 text-slate-600">
+                <span className="text-xs text-slate-400 w-24 shrink-0">{p.a.date}</span>
+                <span className="flex-1 min-w-0 truncate">{p.a.description || "—"}</span>
+                <span className={`font-mono ${p.a.amount < 0 ? "text-red-600" : "text-emerald-600"}`}>{money(p.a.amount)}</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-600">
+                <span className="text-xs text-slate-400 w-24 shrink-0">{p.b.date}</span>
+                <span className="flex-1 min-w-0 truncate">{p.b.description || "—"}</span>
+                <span className={`font-mono ${p.b.amount < 0 ? "text-red-600" : "text-emerald-600"}`}>{money(p.b.amount)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {open && pairs.length === 0 && <p className="text-xs text-emerald-600 mt-1">None found.</p>}
     </CardContent></Card>
   );
 }

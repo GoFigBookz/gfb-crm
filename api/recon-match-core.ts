@@ -202,3 +202,81 @@ export function matchStatements(statement: ReconTxn[], books: ReconTxn[], opts?:
     counts: { statement: stmt.length, books: bk.length, matched: matched.length, onlyStatement: onlyStatement.length, onlyBooks: onlyBooks.length },
   };
 }
+
+// =============================================================================
+// POST-RECONCILIATION CLEANUP (Markie 2026-06-27, backlog #87): after the match,
+// flag the things a bookkeeper should chase — stale/uncashed cheques still
+// outstanding, and likely duplicate (double-entered) transactions. Read-only +
+// deterministic; surfaces a review list, never edits the books.
+// =============================================================================
+
+export interface StaleItem extends ReconTxn { ageDays: number; }
+export interface DuplicatePair { a: ReconTxn; b: ReconTxn; dayGap: number; reason: string; }
+export interface CleanupFlags {
+  stale: StaleItem[];           // outstanding (uncleared) items older than the threshold
+  duplicates: DuplicatePair[];  // same amount + similar payee within a tight window
+  asOfMs: number;
+}
+
+/** Reduce a description to a comparison key (drop cheque/ref #s, casing, punctuation). */
+function payeeKey(desc: string): string {
+  return (desc || "").toUpperCase()
+    .replace(/\bCHE?QUE?\b|\bCHK\b|\bCHEQUE\b|\bNO\.?\b|\bREF\b/g, " ")
+    .replace(/#?\s*\d+/g, " ")
+    .replace(/[^A-Z& ]+/g, " ")
+    .replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Flag post-reconciliation cleanup items.
+ *  - stale: items still OUTSTANDING (typically the matcher's `onlyBooks`) whose
+ *    date is older than `staleDays` (default 180 = the 6-month CRA staleness mark
+ *    for cheques). These are uncashed cheques / uncleared entries to chase or void.
+ *  - duplicates: within `allBooks`, two entries with the SAME amount and a similar
+ *    payee dated within `dupWindowDays` (default 4) — a likely double-entry.
+ * asOfMs defaults to the newest date seen (so it works on historical exports too).
+ */
+export function findCleanupFlags(
+  outstanding: ReconTxn[],
+  allBooks: ReconTxn[],
+  opts?: { staleDays?: number; dupWindowDays?: number; asOfMs?: number },
+): CleanupFlags {
+  const staleDays = opts?.staleDays ?? 180;
+  const dupWindow = opts?.dupWindowDays ?? 4;
+  const ms = (t: ReconTxn) => t._ms ?? parseDateLoose(t.date) ?? undefined;
+  const allMs = [...outstanding, ...allBooks].map(ms).filter((x): x is number => x != null);
+  const asOf = opts?.asOfMs ?? (allMs.length ? Math.max(...allMs) : Date.now());
+
+  const stale: StaleItem[] = outstanding
+    .map((t) => ({ t, m: ms(t) }))
+    .filter(({ m }) => m != null && (asOf - (m as number)) / 86_400_000 >= staleDays)
+    .map(({ t, m }) => ({ ...t, ageDays: Math.round((asOf - (m as number)) / 86_400_000) }))
+    .sort((a, b) => b.ageDays - a.ageDays);
+
+  // Duplicates: group by amount-in-cents, then pair up close-dated, similar-payee rows.
+  const byCents = new Map<number, ReconTxn[]>();
+  for (const t of allBooks) {
+    const k = cents(t.amount);
+    if (!byCents.has(k)) byCents.set(k, []);
+    byCents.get(k)!.push(t);
+  }
+  const duplicates: DuplicatePair[] = [];
+  for (const group of byCents.values()) {
+    if (group.length < 2) continue;
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        const a = group[i], b = group[j];
+        const gap = dayGap(ms(a), ms(b));
+        if (gap > dupWindow) continue;
+        const ka = payeeKey(a.description), kb = payeeKey(b.description);
+        const samePayee = ka && kb && (ka === kb || ka.includes(kb) || kb.includes(ka));
+        // Same amount + close date is suspicious; same payee too makes it a strong flag.
+        const reason = samePayee
+          ? `Same ${money(Math.abs(a.amount))} to "${a.description}" ${Math.round(gap)} day(s) apart`
+          : `Two ${money(Math.abs(a.amount))} entries ${Math.round(gap)} day(s) apart`;
+        if (samePayee || gap <= 1) duplicates.push({ a, b, dayGap: Math.round(gap), reason });
+      }
+    }
+  }
+  return { stale, duplicates, asOfMs: asOf };
+}

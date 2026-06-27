@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseCsvTransactions, matchStatements, parseDateLoose, type ReconTxn } from "./recon-match-core";
+import { parseCsvTransactions, matchStatements, parseDateLoose, findCleanupFlags, type ReconTxn } from "./recon-match-core";
 
 describe("parseDateLoose", () => {
   it("parses common formats", () => {
@@ -77,5 +77,38 @@ describe("matchStatements", () => {
     expect(r.totals.statementOut).toBe(230.5);
     // books net differs by the uncashed cheque → netDifference is non-zero (expected until it clears)
     expect(typeof r.totals.netDifference).toBe("number");
+  });
+});
+
+describe("findCleanupFlags", () => {
+  it("flags outstanding items older than 6 months as stale", () => {
+    const outstanding: ReconTxn[] = [
+      { date: "2025-09-01", description: "Cheque 88", amount: -500 }, // ~9 months before asOf
+      { date: "2026-05-15", description: "Cheque 120", amount: -250 }, // recent → not stale
+    ];
+    const asOf = parseDateLoose("2026-06-27")!;
+    const f = findCleanupFlags(outstanding, outstanding, { asOfMs: asOf });
+    expect(f.stale.map((s) => s.description)).toEqual(["Cheque 88"]);
+    expect(f.stale[0].ageDays).toBeGreaterThan(180);
+  });
+
+  it("flags same-amount, same-payee, close-dated entries as duplicates", () => {
+    const books: ReconTxn[] = [
+      { date: "2026-03-02", description: "Home Depot #1421", amount: -226.0 },
+      { date: "2026-03-03", description: "HOME DEPOT 1421", amount: -226.0 }, // dup (1 day)
+      { date: "2026-03-10", description: "Hydro One", amount: -180.0 },        // unique
+    ];
+    const f = findCleanupFlags([], books, { asOfMs: parseDateLoose("2026-03-31")! });
+    expect(f.duplicates).toHaveLength(1);
+    expect(f.duplicates[0].a.amount).toBe(-226);
+  });
+
+  it("does not flag same amount to different payees far apart", () => {
+    const books: ReconTxn[] = [
+      { date: "2026-03-02", description: "Home Depot", amount: -100 },
+      { date: "2026-03-25", description: "Canadian Tire", amount: -100 }, // 23 days, different payee
+    ];
+    const f = findCleanupFlags([], books, { asOfMs: parseDateLoose("2026-03-31")! });
+    expect(f.duplicates).toHaveLength(0);
   });
 });
