@@ -29,6 +29,7 @@ const COLUMNS: Array<[string, string]> = [
   ["discoveryDate", "integer"], ["nextAction", "text"], ["nextActionDate", "integer"],
   ["estimatedMonthlyValue", "real"], ["leadScore", "integer"],
   ["painPoints", "text"], ["expectations", "text"],
+  ["currentSoftware", "text"], ["bizNeeds", "text"],   // intake: tools they use + what'd help beyond financials
   ["serviceTier", "text DEFAULT 'standard'"], ["monthlyFee", "real DEFAULT 0"],
   ["onboardingSentAt", "integer"], ["onboardingCompletedAt", "integer"], ["onboardingToken", "text"],
   ["hasHST", "integer DEFAULT 0"], ["hstNumber", "text"], ["hstPeriod", "text"], ["hstNextDue", "text"],

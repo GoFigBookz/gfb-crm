@@ -18,7 +18,7 @@ import {
   OPP_CATEGORIES, type OppCategory, type ClientProfile,
 } from "./opportunities-core";
 
-const catEnum = z.enum(["grants", "wsib", "tax_credit", "cost_saving", "credit_card"]);
+const catEnum = z.enum(["grants", "wsib", "tax_credit", "cost_saving", "credit_card", "software"]);
 
 /** Build the search profile from a client row (or the firm when clientId is null). */
 async function profileFor(clientId: number | null, cardPreference?: ClientProfile["cardPreference"]): Promise<ClientProfile> {
@@ -39,11 +39,11 @@ async function profileFor(clientId: number | null, cardPreference?: ClientProfil
 }
 
 /** Run the live web-search scan for one category. Returns {ok, items, error?}. */
-async function runScan(profile: ClientProfile, category: OppCategory): Promise<{ ok: boolean; items: ReturnType<typeof parseOpportunities>; error?: string }> {
+async function runScan(profile: ClientProfile, category: OppCategory, opts?: { need?: string; currentSoftware?: string }): Promise<{ ok: boolean; items: ReturnType<typeof parseOpportunities>; error?: string }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || process.env.FIGGY_OPPORTUNITIES === "off") return { ok: false, items: [], error: "ai_off" };
   const model = process.env.FIGGY_OPP_MODEL || process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
-  const { system, user } = buildSearchPrompt(profile, category);
+  const { system, user } = buildSearchPrompt(profile, category, opts);
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 50_000);
   try {
@@ -66,15 +66,44 @@ async function runScan(profile: ClientProfile, category: OppCategory): Promise<{
   } finally { clearTimeout(timer); }
 }
 
+/** The client's saved tech intake: tools they use + what'd help beyond financials. */
+async function techFor(clientId: number | null): Promise<{ currentSoftware: string; bizNeeds: string }> {
+  if (clientId == null) return { currentSoftware: "", bizNeeds: "" };
+  const c = ((await getDb().all(sql`SELECT currentSoftware, bizNeeds FROM clients WHERE id=${clientId} LIMIT 1`)) as any[])[0] || {};
+  return { currentSoftware: c.currentSoftware || "", bizNeeds: c.bizNeeds || "" };
+}
+
 export const opportunitiesRouter = createRouter({
   categories: staffQuery.query(() => OPP_CATEGORIES),
 
+  /** Intake: what software the client uses + what'd help them beyond the financials. */
+  tech: staffQuery.input(z.object({ clientId: z.number() })).query(async ({ input }) => techFor(input.clientId)),
+
+  setTech: staffQuery
+    .input(z.object({ clientId: z.number(), currentSoftware: z.string().max(600).nullable().optional(), bizNeeds: z.string().max(600).nullable().optional() }))
+    .mutation(async ({ input }) => {
+      const cur = await techFor(input.clientId);
+      await getDb().run(sql`UPDATE clients SET currentSoftware=${input.currentSoftware === undefined ? cur.currentSoftware : input.currentSoftware},
+        bizNeeds=${input.bizNeeds === undefined ? cur.bizNeeds : input.bizNeeds} WHERE id=${input.clientId}`);
+      return { ok: true as const };
+    }),
+
   /** Live scan for one category (review-gated; nothing is saved here). */
   scan: staffQuery
-    .input(z.object({ clientId: z.number().nullable(), category: catEnum, cardPreference: z.enum(["travel", "cashback", "low_interest", "no_fee"]).optional() }))
+    .input(z.object({
+      clientId: z.number().nullable(), category: catEnum,
+      cardPreference: z.enum(["travel", "cashback", "low_interest", "no_fee"]).optional(),
+      need: z.string().max(200).optional(),            // software: what they want it to do
+      currentSoftware: z.string().max(400).optional(), // software: what they already use
+    }))
     .mutation(async ({ input }) => {
       const profile = await profileFor(input.clientId, input.cardPreference ?? null);
-      const r = await runScan(profile, input.category);
+      // For software, fall back to the client's saved intake (tools they use / needs).
+      const tech = input.category === "software" ? await techFor(input.clientId) : { currentSoftware: "", bizNeeds: "" };
+      const r = await runScan(profile, input.category, {
+        need: input.need || tech.bizNeeds || undefined,
+        currentSoftware: input.currentSoftware || tech.currentSoftware || undefined,
+      });
       // Hide ones already saved for this client/category so a re-scan only shows new finds.
       const saved = (await getDb().all(sql`SELECT title, url FROM client_opportunities
         WHERE category=${input.category} AND ${input.clientId == null ? sql`clientId IS NULL` : sql`clientId=${input.clientId}`}`)) as any[];

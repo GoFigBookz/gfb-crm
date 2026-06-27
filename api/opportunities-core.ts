@@ -12,7 +12,7 @@
  * =============================================================================
  */
 
-export type OppCategory = "grants" | "wsib" | "tax_credit" | "cost_saving" | "credit_card";
+export type OppCategory = "grants" | "wsib" | "tax_credit" | "cost_saving" | "credit_card" | "software";
 
 export const OPP_CATEGORIES: { key: OppCategory; label: string; focus: string }[] = [
   { key: "grants", label: "Grants & funding", focus: "current government grants, funding programs, and subsidies the business may qualify for" },
@@ -20,6 +20,7 @@ export const OPP_CATEGORIES: { key: OppCategory; label: string; focus: string }[
   { key: "tax_credit", label: "Tax credits", focus: "current tax credits and incentives the business may qualify for (e.g. SR&ED, apprenticeship, hiring/co-op, digital adoption)" },
   { key: "cost_saving", label: "Cost-saving programs", focus: "current cost-saving programs — utility/energy rebates, group-buying, government-supported discounts" },
   { key: "credit_card", label: "Business credit cards", focus: "best-fit Canadian business credit cards for this business, matched to the stated rewards preference" },
+  { key: "software", label: "Software & tools", focus: "the best-fit business software/tools to help the business run beyond accounting (e.g. proposals/quoting, CRM, scheduling, project management, inventory, e-signatures, field service) — match the stated need" },
 ];
 
 export interface ClientProfile {
@@ -48,8 +49,10 @@ export function normalizeProvince(p?: string | null): string | null {
 
 export interface OppSearchPrompt { system: string; user: string }
 
-/** Build the web-search prompt for one category, tailored to the client's profile. */
-export function buildSearchPrompt(profile: ClientProfile, category: OppCategory): OppSearchPrompt {
+/** Build the web-search prompt for one category, tailored to the client's profile.
+ *  `opts.need` (software) describes what the client wants the tool to do, e.g.
+ *  "track proposals". `opts.currentSoftware` lets us avoid recommending what they have. */
+export function buildSearchPrompt(profile: ClientProfile, category: OppCategory, opts?: { need?: string; currentSoftware?: string }): OppSearchPrompt {
   const cat = OPP_CATEGORIES.find((c) => c.key === category) || OPP_CATEGORIES[0];
   const country = profile.country || "Canada";
   const prov = normalizeProvince(profile.province);
@@ -62,16 +65,25 @@ export function buildSearchPrompt(profile: ClientProfile, category: OppCategory)
   const cardNote = category === "credit_card"
     ? ` The owner's rewards preference is: ${profile.cardPreference || "cash back"}. Prioritize cards matching that preference; include annual fee, reward rate, and a notable perk.`
     : "";
+  const need = (opts?.need || "").trim();
+  const have = (opts?.currentSoftware || "").trim();
+  const softwareNote = category === "software"
+    ? ` The specific need is: ${need || "general business management beyond accounting (proposals/quoting, CRM, scheduling, project management)"}.` +
+      (have ? ` They ALREADY use: ${have} — don't re-recommend those; suggest complementary or better-fit options.` : "") +
+      ` For each tool put pricing in estValue (e.g. 'from $29/mo' or 'free tier') and who it suits in eligibility. Prefer tools popular with Canadian small businesses.`
+    : "";
 
   const system =
-    `You are a Canadian small-business advisor researching how a business can save or make money. ` +
-    `Find ${cat.focus}, current as of today, for ${who} ${where}${size}.${wsibNote}${cardNote}\n` +
-    `Use web_search to verify everything is REAL and CURRENT. Do NOT invent programs or links. ` +
+    `You are a Canadian small-business advisor researching how a business can save money, make money, or run better. ` +
+    `Find ${cat.focus}, current as of today, for ${who} ${where}${size}.${wsibNote}${cardNote}${softwareNote}\n` +
+    `Use web_search to verify everything is REAL and CURRENT. Do NOT invent programs, tools, or links. ` +
     `Return ONLY a JSON array (no prose, no code fences) of up to 6 items, each:\n` +
-    `{"title":"","summary":"one or two plain sentences","estValue":"e.g. 'up to $5,000' or 'varies' or '2% cash back'",` +
-    `"eligibility":"who qualifies, short","url":"official link","source":"org/site name"}\n` +
+    `{"title":"","summary":"one or two plain sentences","estValue":"e.g. 'up to $5,000' or 'from $29/mo' or '2% cash back'",` +
+    `"eligibility":"who it suits / who qualifies, short","url":"official link","source":"org/site name"}\n` +
     `Only include items with a real official URL. If you find nothing credible, return [].`;
-  const user = `Find ${cat.label.toLowerCase()} for ${profile.isFirm ? "Go Fig Bookz (my own firm)" : profile.name}.`;
+  const user = category === "software" && need
+    ? `Find software to ${need} for ${profile.isFirm ? "Go Fig Bookz (my own firm)" : profile.name}.`
+    : `Find ${cat.label.toLowerCase()} for ${profile.isFirm ? "Go Fig Bookz (my own firm)" : profile.name}.`;
   return { system, user };
 }
 
