@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router";
-import { ChevronDown, Building2, CheckCircle2, Lock, ListChecks } from "lucide-react";
+import { ChevronDown, Building2, CheckCircle2, Lock, ListChecks, AlertTriangle, Mail, Wrench, DollarSign, Receipt, Users } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import BackButton from "@/components/BackButton";
+import { buildClientAlerts } from "../../api/client-alerts-core";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 import PaymentSourceCard from "@/components/PaymentSourceCard";
@@ -14,7 +15,7 @@ import IntercoRechargePanel from "@/components/IntercoRechargePanel";
 import VendorRulesPanel from "@/components/VendorRulesPanel";
 import StatementCodingPanel from "@/components/StatementCodingPanel";
 import {
-  ClientCloseChecklist, ClientHstReviewCard, EmployeesCard, ContactsCard, GroupCard, ClientRequestsCard,
+  ClientCloseChecklist, ClientHstReviewCard, EmployeesCard, ContactsCard, GroupCard, ClientRequestsCard, ClientEmailsCard,
 } from "./ClientDashboard";
 
 /**
@@ -37,7 +38,7 @@ function Section({ id, title, subtitle, icon, children, defaultOpen = false, bad
   });
   const toggle = () => setOpen((o) => { try { localStorage.setItem(storeKey, o ? "0" : "1"); } catch { /* ignore */ } return !o; });
   return (
-    <Card className={cn("overflow-hidden", accent)}>
+    <Card id={`sec-${id}`} className={cn("overflow-hidden scroll-mt-20", accent)}>
       <button type="button" onClick={toggle} className="w-full flex items-center gap-2 px-4 py-3 hover:bg-slate-50 text-left">
         <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform shrink-0", open ? "" : "-rotate-90")} />
         {icon}
@@ -75,6 +76,29 @@ export default function ClientWorkspace() {
   const hasInterco = !!(client as any).hasIntercoJournals;
   const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
 
+  // ── NEEDS ATTENTION — the first thing on the card. Only true-right-now flags. ──
+  const now = Date.now();
+  const overdueTasks = (dashboardData?.tasks || []).filter(
+    (t: any) => !t.completed && t.status !== "completed" && t.dueDate && new Date(t.dueDate).getTime() < now,
+  ).length;
+  const hstFlag = hasHST && closeStatus?.hst
+    ? { overdue: !!closeStatus.hst.overdue, filed: !!closeStatus.hst.filed,
+        due: !!closeStatus.hst.periodLabel && !closeStatus.hst.filed && !closeStatus.hst.overdue,
+        periodLabel: closeStatus.hst.periodLabel }
+    : null;
+  const alerts = buildClientAlerts({ overdueTasks, hst: hstFlag });
+  // Jump-links shown for an active client.
+  const jump = [
+    ["Payroll", `sec-${id}-payroll`, hasPayroll],
+    ["Custom workflow", `sec-${id}-workflow`, hasRecharge || hasInterco || isGroup],
+    ["HST", `sec-${id}-hst`, hasHST],
+    ["Emails", `sec-${id}-emails`, true],
+    ["Tasks", `sec-${id}-tasks`, true],
+    ["Financials", `sec-${id}-qbo`, true],
+    ["Billing", `sec-${id}-billing`, true],
+    ["More", `sec-${id}-more`, true],
+  ].filter((j) => j[2]) as [string, string, boolean][];
+
   return (
     <div className="space-y-3 max-w-4xl">
       <div className="flex items-center justify-between gap-2">
@@ -97,6 +121,34 @@ export default function ClientWorkspace() {
           </div>
         </div>
       </div>
+
+      {/* ⚠ NEEDS ATTENTION — the first thing you see. Only the flags that are true right now. */}
+      {alerts.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 mb-1.5 text-amber-900 font-semibold text-sm">
+              <AlertTriangle className="h-4 w-4" /> Needs attention
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {alerts.map((a) => (
+                <Badge key={a.key} variant="secondary"
+                  className={cn("font-normal", a.severity === "high" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800")}>
+                  {a.label}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Jump-links — scroll to a section (links stay; data is all below too). */}
+      {active && jump.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 text-xs">
+          {jump.map(([label, anchor]) => (
+            <a key={anchor} href={`#${anchor}`} className="px-2.5 py-1 rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-lime-50 hover:border-lime-300 hover:text-lime-700">{label}</a>
+          ))}
+        </div>
+      )}
 
       {/* 1. SETUP / INTAKE — editable; the toggles drive which sections appear + the tasks. */}
       <Section id={`${id}-setup`} title="Client setup / intake" icon={<Building2 className="h-4 w-4 text-slate-500" />}
@@ -181,35 +233,22 @@ export default function ClientWorkspace() {
         )}
       </Section>
 
-      {/* QUICKBOOKS overview — live high-level numbers, read-only. */}
-      <QboOverviewSection clientId={id} />
-
-      {/* Operational sections — gated on active. */}
+      {/* Operational sections — gated on active, in priority order:
+          Payroll → Custom workflow → HST → Emails → Tasks → Financials → Billing → Contacts → More. */}
       {active ? (
         <>
+          {/* PAYROLL — always first if they have it */}
           {hasPayroll && (
-            <Section id={`${id}-payroll`} title="Payroll" subtitle="employees, runs, banked hours">
+            <Section id={`${id}-payroll`} title="Payroll" subtitle="employees, runs, banked hours" defaultOpen>
               <EmployeesCard clientId={id} />
               <div className="mt-2"><Link to="/payroll" className="text-xs text-lime-700 hover:underline">Open full Payroll page →</Link></div>
             </Section>
           )}
 
-          <Section id={`${id}-close`} title="Month-end close" subtitle="post → reconcile → review → financials" icon={<CheckCircle2 className="h-4 w-4 text-indigo-500" />}
-            badge={closeStatus?.checklistPercent != null ? <span className="text-xs text-slate-500">{closeStatus.checklistPercent}%</span> : undefined}>
-            <ClientCloseChecklist clientId={id} />
-          </Section>
-
-          {hasHST && (
-            <Section id={`${id}-hst`} title="HST" subtitle="pre-HST review + reasonableness check">
-              <ClientHstReviewCard clientId={id} client={client} />
-            </Section>
-          )}
-
-          {(hasRecharge || hasInterco || isGroup || active) && (
-            <Section id={`${id}-tools`} title="Tools" subtitle="vendor rules, recharge, interco journal, duplicates" defaultOpen={hasRecharge || hasInterco}>
+          {/* CUSTOM WORKFLOW — per-client assigned tools (recharge, interco, …) */}
+          {(hasRecharge || hasInterco) && (
+            <Section id={`${id}-workflow`} title="Custom workflow" subtitle="tools assigned to this client" icon={<Wrench className="h-4 w-4 text-slate-500" />} defaultOpen>
               <div className="space-y-3">
-                <StatementCodingPanel clientId={id} />
-                <VendorRulesPanel clientId={id} />
                 {hasRecharge && (
                   <div>
                     <div className="text-xs font-semibold text-slate-500 mb-1">Recharge invoice</div>
@@ -222,16 +261,24 @@ export default function ClientWorkspace() {
                     <p className="text-xs text-slate-500">Ongoing to/from balance, mirror-reconcile (John's group method). <Link to="/interco" className="text-lime-700 hover:underline">Open Inter-Company →</Link></p>
                   </div>
                 )}
-                <PaymentSourceCard clientId={id} groupName={(client as any).groupName} />
+                <p className="text-[11px] text-slate-400">More tools (Rev Rec / WIP, banked hours, billback) get assigned here from intake.</p>
               </div>
             </Section>
           )}
 
-          <ClientRequestsCard clientId={id} clientName={client.name} />
-          {isGroup && <GroupCard clientId={id} groupName={(client as any).groupName} />}
-          <ContactsCard clientId={id} />
+          {/* HST */}
+          {hasHST && (
+            <Section id={`${id}-hst`} title="HST" subtitle="pre-HST review + reasonableness check">
+              <ClientHstReviewCard clientId={id} client={client} />
+            </Section>
+          )}
 
-          {/* TASKS — hidden/collapsed at the bottom by design. */}
+          {/* EMAILS — this client's real correspondence (sent + received) */}
+          <Section id={`${id}-emails`} title="Emails" subtitle="this client's correspondence" icon={<Mail className="h-4 w-4 text-slate-500" />}>
+            <ClientEmailsCard clientId={id} />
+          </Section>
+
+          {/* TASKS */}
           <Section id={`${id}-tasks`} title="Tasks" icon={<ListChecks className="h-4 w-4 text-slate-500" />}
             badge={<Badge variant={tasks.length ? "default" : "secondary"} className={tasks.length ? "bg-amber-500" : ""}>{tasks.length}</Badge>}>
             {tasks.length === 0 ? <p className="text-sm text-slate-400">No open tasks.</p> : (
@@ -247,9 +294,48 @@ export default function ClientWorkspace() {
             )}
             <div className="mt-2"><Link to={`/client/${id}/classic`} className="text-xs text-lime-700 hover:underline">Manage tasks in classic view →</Link></div>
           </Section>
+
+          {/* FINANCIALS — live QuickBooks snapshot */}
+          <QboOverviewSection clientId={id} />
+
+          {/* BILLING */}
+          <Section id={`${id}-billing`} title="Billing" subtitle="fee + invoicing" icon={<Receipt className="h-4 w-4 text-slate-500" />}>
+            <div className="text-sm space-y-1.5">
+              <div className="flex justify-between border-b border-slate-100 py-0.5"><span className="text-slate-400">Monthly fee</span><span className="font-medium">{money(client.monthlyFee || 0)}</span></div>
+              <div className="flex justify-between border-b border-slate-100 py-0.5"><span className="text-slate-400">Billing type</span><span className="font-medium">{(client as any).billingType || "—"}</span></div>
+              <Link to="/invoices" className="text-xs text-lime-700 hover:underline">Open invoices →</Link>
+            </div>
+          </Section>
+
+          {/* CONTACTS — bottom, collapsed by default */}
+          <Section id={`${id}-contacts`} title="Contacts" subtitle="people at this client" icon={<Users className="h-4 w-4 text-slate-500" />}>
+            <ContactsCard clientId={id} />
+          </Section>
+
+          {/* MORE — the occasional stuff: close, bookkeeping tools, requests, group */}
+          <Section id={`${id}-more`} title="More" subtitle="month-end close, bookkeeping tools, requests, loans, time">
+            <div className="space-y-3">
+              <div>
+                <div className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-indigo-500" /> Month-end close {closeStatus?.checklistPercent != null && <span className="text-slate-400">· {closeStatus.checklistPercent}%</span>}</div>
+                <ClientCloseChecklist clientId={id} />
+              </div>
+              <StatementCodingPanel clientId={id} />
+              <VendorRulesPanel clientId={id} />
+              <PaymentSourceCard clientId={id} groupName={(client as any).groupName} />
+              <ClientRequestsCard clientId={id} clientName={client.name} />
+              {isGroup && <GroupCard clientId={id} groupName={(client as any).groupName} />}
+              <div className="flex flex-wrap gap-3 text-xs pt-1">
+                <Link to={`/client/${id}/classic`} className="text-lime-700 hover:underline">Loans · Time · Cash Book (classic) →</Link>
+                <Link to="/year-end" className="text-lime-700 hover:underline">Year-end →</Link>
+              </div>
+            </div>
+          </Section>
         </>
       ) : (
-        <Card><CardContent className="p-4 text-sm text-slate-500">The workflow (payroll, month-end, HST, tools, tasks) activates once this client is onboarded. Tick both gates above and hit <b>Activate client</b>.</CardContent></Card>
+        <>
+          <QboOverviewSection clientId={id} />
+          <Card><CardContent className="p-4 text-sm text-slate-500">The workflow (payroll, custom tools, HST, emails, tasks) activates once this client is onboarded. Tick both gates above and hit <b>Activate client</b>.</CardContent></Card>
+        </>
       )}
     </div>
   );
@@ -262,11 +348,11 @@ function QboOverviewSection({ clientId }: { clientId: number }) {
   const money = (n: number | null | undefined) => n == null ? "—" : (n).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
   const toggle = () => setOpen((o) => { try { localStorage.setItem(`ws-open:${clientId}-qbo`, o ? "0" : "1"); } catch { /* */ } return !o; });
   return (
-    <Card className="overflow-hidden border-emerald-200">
+    <Card id={`sec-${clientId}-qbo`} className="overflow-hidden border-emerald-200 scroll-mt-20">
       <button type="button" onClick={toggle} className="w-full flex items-center gap-2 px-4 py-3 hover:bg-emerald-50/40 text-left">
         <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform shrink-0", open ? "" : "-rotate-90")} />
-        <span className="font-semibold text-slate-800">QuickBooks</span>
-        <span className="text-xs text-slate-400">· live snapshot</span>
+        <span className="font-semibold text-slate-800">Financials</span>
+        <span className="text-xs text-slate-400">· live QuickBooks snapshot</span>
         {isFetching && <span className="text-[11px] text-slate-400">loading…</span>}
         {data && data.ok && (data as any).transport !== "native" && <span className="ml-auto text-[10px] text-amber-600">read-only bridge</span>}
       </button>
