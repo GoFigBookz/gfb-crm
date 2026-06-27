@@ -46946,6 +46946,21 @@ async function pullHstAccountBalance(conn) {
   const net = hst.reduce((s, a) => s + a.balance, 0);
   return { accounts: hst, net: Math.round((net + Number.EPSILON) * 100) / 100 };
 }
+function fiscalYearStartFor(endISO, fyeMonth) {
+  const end = /* @__PURE__ */ new Date(endISO + "T00:00:00Z");
+  const startMonthIdx = fyeMonth % 12;
+  let start = new Date(Date.UTC(end.getUTCFullYear(), startMonthIdx, 1));
+  if (start > end) start = new Date(Date.UTC(end.getUTCFullYear() - 1, startMonthIdx, 1));
+  return start.toISOString().slice(0, 10);
+}
+async function clientFyeMonth(clientId) {
+  const rows = await getDb().all(sql`SELECT fiscalYearEndMonth, yearEndMonth FROM clients WHERE id=${clientId} LIMIT 1`);
+  const r = rows[0] || {};
+  const n = Number(r.fiscalYearEndMonth);
+  if (Number.isFinite(n) && n >= 1 && n <= 12) return n;
+  const i = MONTH_ABBR3.indexOf(String(r.yearEndMonth || "").slice(0, 3).toLowerCase());
+  return i >= 0 ? i + 1 : 12;
+}
 function parseGlTxns(report, acctNameRe) {
   const cols = report?.Columns?.Column ?? [];
   const title = (c) => String(c?.ColType ?? c?.ColTitle ?? "").toLowerCase();
@@ -47100,7 +47115,7 @@ async function pullExpenses(conn, start, end) {
   const excluded = { lines: excludedLines, total: Math.round((excludedTotal + Number.EPSILON) * 100) / 100, accounts: Array.from(excludedAccts) };
   return { expenses, byAccount, excluded, errors };
 }
-var num2, arr2, normName, NON_BILLABLE_ACCT, intercoRechargeRouter;
+var num2, arr2, normName, MONTH_ABBR3, NON_BILLABLE_ACCT, intercoRechargeRouter;
 var init_interco_recharge_router = __esm({
   "api/interco-recharge-router.ts"() {
     init_zod();
@@ -47118,6 +47133,7 @@ var init_interco_recharge_router = __esm({
     };
     arr2 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
     normName = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    MONTH_ABBR3 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
     NON_BILLABLE_ACCT = /bank\s*(charges?|fees?|service)|service\s*charges?|merchant\s*(fees?|charges?)|nsf/i;
     intercoRechargeRouter = createRouter({
       getConfig: staffQuery.input(external_exports.object({ payerClientId: external_exports.number() })).query(async ({ input }) => {
@@ -47468,6 +47484,75 @@ var init_interco_recharge_router = __esm({
             outside: outside.sort((a, b) => a.date.localeCompare(b.date)),
             count: txns.length,
             outsideCount: outside.length
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false, error: "bridge_not_returning_data", detail: msg };
+          return { ok: false, error: msg };
+        }
+      }),
+      /** BILLABLE RECONCILE (read-only, step 1 of the billable-expenses method). Pulls
+       *  ALL of the payer's expenses (Bill + Purchase, account- AND item-based) since the
+       *  fiscal-year start, sums the ACTUAL HST on them, and compares to the live HST
+       *  account balance. When they tie, that expense set is exactly what must be marked
+       *  billable to the counterparty and invoiced. Nothing is written. */
+      billableReconcile: staffQuery.input(external_exports.object({
+        payerClientId: external_exports.number(),
+        from: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        to: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+      })).mutation(async ({ input }) => {
+        const cr = await getConnectionForClient(input.payerClientId);
+        if ("error" in cr) return { ok: false, error: cr.error };
+        const conn = cr.conn;
+        const to = input.to || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+        const fyeMonth = await clientFyeMonth(input.payerClientId);
+        const from = input.from || fiscalYearStartFor(to, fyeMonth);
+        const q3 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
+        const range = `TxnDate >= '${from}' AND TxnDate <= '${to}'`;
+        let totalExpenses = 0, totalHst = 0, txnCount = 0, itemLines = 0;
+        const byAcct = /* @__PURE__ */ new Map();
+        try {
+          for (const entity of ["Bill", "Purchase"]) {
+            for (const e of arr2(await q3(`SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) {
+              txnCount++;
+              totalHst += Math.abs(num2(e.TxnTaxDetail?.TotalTax));
+              for (const l of e.Line ?? []) {
+                const ab = l.AccountBasedExpenseLineDetail, ib = l.ItemBasedExpenseLineDetail;
+                if (ab) {
+                  const nm = ab.AccountRef?.name || "Expense";
+                  if (isNonBillableAccount(nm)) continue;
+                  totalExpenses += num2(l.Amount);
+                  const cur = byAcct.get(nm) || { accountName: nm, net: 0 };
+                  cur.net += num2(l.Amount);
+                  byAcct.set(nm, cur);
+                } else if (ib) {
+                  itemLines++;
+                  totalExpenses += num2(l.Amount);
+                  const nm = `Item: ${ib.ItemRef?.name || "?"}`;
+                  const cur = byAcct.get(nm) || { accountName: nm, net: 0 };
+                  cur.net += num2(l.Amount);
+                  byAcct.set(nm, cur);
+                }
+              }
+            }
+          }
+          const hstAcc = await pullHstAccountBalance(conn);
+          const target = round26(Math.abs(hstAcc.net));
+          totalHst = round26(totalHst);
+          const variance = round26(target - totalHst);
+          return {
+            ok: true,
+            from,
+            to,
+            totalExpenses: round26(totalExpenses),
+            totalHst,
+            hstAccountBalance: round26(hstAcc.net),
+            hstAccounts: hstAcc.accounts,
+            variance,
+            ties: Math.abs(variance) < 1,
+            txnCount,
+            itemLines,
+            byAccount: Array.from(byAcct.values()).map((a) => ({ ...a, net: round26(a.net) })).sort((a, b) => b.net - a.net)
           };
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
@@ -90111,7 +90196,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-26.197";
+var BUILD_TAG = "2026-06-27.198";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

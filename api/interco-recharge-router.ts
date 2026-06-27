@@ -71,6 +71,29 @@ async function pullHstAccountBalance(conn: any): Promise<{ accounts: { name: str
   return { accounts: hst, net: Math.round((net + Number.EPSILON) * 100) / 100 };
 }
 
+/** First day of the FISCAL year that contains `endISO`, given the year-end month
+ *  (1-12). FY ends the last day of fyeMonth → FY starts the 1st of the next month.
+ *  Alderson (Nov 30 YE) → Dec 1; a Dec 31 YE → Jan 1. The hard floor for the recharge
+ *  lookback: we capture exceptions back to here, never into a previous fiscal year. */
+function fiscalYearStartFor(endISO: string, fyeMonth: number): string {
+  const end = new Date(endISO + "T00:00:00Z");
+  const startMonthIdx = (fyeMonth % 12);          // 0-based month of FY start (Nov YE=11 → Dec idx 11)
+  let start = new Date(Date.UTC(end.getUTCFullYear(), startMonthIdx, 1));
+  if (start > end) start = new Date(Date.UTC(end.getUTCFullYear() - 1, startMonthIdx, 1));
+  return start.toISOString().slice(0, 10);
+}
+
+const MONTH_ABBR3 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+/** The client's fiscal year-end month number (1-12). Default December. */
+async function clientFyeMonth(clientId: number): Promise<number> {
+  const rows = (await getDb().all(sql`SELECT fiscalYearEndMonth, yearEndMonth FROM clients WHERE id=${clientId} LIMIT 1`)) as any[];
+  const r = rows[0] || {};
+  const n = Number(r.fiscalYearEndMonth);
+  if (Number.isFinite(n) && n >= 1 && n <= 12) return n;
+  const i = MONTH_ABBR3.indexOf(String(r.yearEndMonth || "").slice(0, 3).toLowerCase());
+  return i >= 0 ? i + 1 : 12;
+}
+
 /** Parse a QBO GeneralLedger report → the transaction rows posted to accounts whose
  *  section name matches `acctNameRe` (HST/GST/suspense). Each row = one HST posting. */
 function parseGlTxns(report: any, acctNameRe: RegExp): { date: string; type: string; docNum: string; name: string; amount: number }[] {
@@ -591,6 +614,70 @@ export const intercoRechargeRouter = createRouter({
           ledgerTotal: sum(txns), withinTotal: sum(within), outsideTotal: sum(outside),
           outside: outside.sort((a, b) => a.date.localeCompare(b.date)),
           count: txns.length, outsideCount: outside.length,
+        };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false as const, error: "bridge_not_returning_data", detail: msg };
+        return { ok: false as const, error: msg };
+      }
+    }),
+
+  /** BILLABLE RECONCILE (read-only, step 1 of the billable-expenses method). Pulls
+   *  ALL of the payer's expenses (Bill + Purchase, account- AND item-based) since the
+   *  fiscal-year start, sums the ACTUAL HST on them, and compares to the live HST
+   *  account balance. When they tie, that expense set is exactly what must be marked
+   *  billable to the counterparty and invoiced. Nothing is written. */
+  billableReconcile: staffQuery
+    .input(z.object({
+      payerClientId: z.number(),
+      from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const cr = await getConnectionForClient(input.payerClientId);
+      if ("error" in cr) return { ok: false as const, error: cr.error };
+      const conn = cr.conn;
+      const to = input.to || new Date().toISOString().slice(0, 10);
+      const fyeMonth = await clientFyeMonth(input.payerClientId);
+      const from = input.from || fiscalYearStartFor(to, fyeMonth);
+      const q = (s: string) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
+      const range = `TxnDate >= '${from}' AND TxnDate <= '${to}'`;
+      let totalExpenses = 0, totalHst = 0, txnCount = 0, itemLines = 0;
+      const byAcct = new Map<string, { accountName: string; net: number }>();
+      try {
+        for (const entity of ["Bill", "Purchase"] as const) {
+          for (const e of arr(await q(`SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) {
+            txnCount++;
+            totalHst += Math.abs(num(e.TxnTaxDetail?.TotalTax));
+            for (const l of e.Line ?? []) {
+              const ab = l.AccountBasedExpenseLineDetail, ib = l.ItemBasedExpenseLineDetail;
+              if (ab) {
+                const nm = ab.AccountRef?.name || "Expense";
+                if (isNonBillableAccount(nm)) continue;
+                totalExpenses += num(l.Amount);
+                const cur = byAcct.get(nm) || { accountName: nm, net: 0 };
+                cur.net += num(l.Amount); byAcct.set(nm, cur);
+              } else if (ib) {
+                itemLines++;
+                totalExpenses += num(l.Amount);
+                const nm = `Item: ${ib.ItemRef?.name || "?"}`;
+                const cur = byAcct.get(nm) || { accountName: nm, net: 0 };
+                cur.net += num(l.Amount); byAcct.set(nm, cur);
+              }
+            }
+          }
+        }
+        const hstAcc = await pullHstAccountBalance(conn);
+        const target = round2(Math.abs(hstAcc.net));
+        totalHst = round2(totalHst);
+        const variance = round2(target - totalHst);
+        return {
+          ok: true as const, from, to,
+          totalExpenses: round2(totalExpenses), totalHst,
+          hstAccountBalance: round2(hstAcc.net), hstAccounts: hstAcc.accounts,
+          variance, ties: Math.abs(variance) < 1,
+          txnCount, itemLines,
+          byAccount: Array.from(byAcct.values()).map((a) => ({ ...a, net: round2(a.net) })).sort((a, b) => b.net - a.net),
         };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
