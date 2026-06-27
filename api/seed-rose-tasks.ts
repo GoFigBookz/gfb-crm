@@ -17,13 +17,26 @@ import { sql } from "drizzle-orm";
 
 export async function seedRoseLiquidationTasks(): Promise<void> {
   const db = getDb();
-  const have = (await db.all(sql`SELECT COUNT(*) AS n FROM tasks WHERE category = 'rose-resale'`)) as any[];
-  if (Number(have[0]?.n || 0) > 0) return;
-
+  void users; void or; void eq;
   const markie = (await db.all(sql`SELECT id FROM users WHERE email IN ('markie.antle@gmail.com','markie@gofig.ca') OR role = 'admin' ORDER BY (role = 'admin') DESC, id ASC LIMIT 1`)) as any[];
   const userId = markie[0]?.id ? Number(markie[0].id) : null;
-  if (userId == null) { console.log("[rose] no Markie user — skipped Rose task seed"); return; }
-  void users; void or; void eq;
+  if (userId == null) { console.log("[rose] no Markie user — skipped Rose seed"); return; }
+
+  // Seed the Rose product into the Side-Sales inventory so listings can be drafted
+  // immediately (idempotent — independent of the task guard below). Pricing from the
+  // Rose Liquidation plan; MIN floor left at 0 for Markie to set his cost back.
+  try {
+    const existing = (await db.all(sql`SELECT id FROM side_products WHERE userId=${userId} AND active=1 AND lower(name) LIKE '%rose%' LIMIT 1`)) as any[];
+    if (!existing.length) {
+      await db.run(sql`INSERT INTO side_products (userId, name, category, qtyOnHand, givenAway, unitCost, minPrice, targetPrice, discreet, notes, active, createdAt, updatedAt)
+        VALUES (${userId}, 'Rose Wellness Massager', 'Wellness', 150, 0, 0, 0, 39.99, 1, 'Brand new & sealed. Sale $29.99 / 2 for $50 (free ship on 2). Discreet packaging, ships from Canada. SET your MIN floor (cost back) on this card.', 1, ${Date.now()}, ${Date.now()})`);
+      console.log("[rose] seeded Rose product into side_products");
+    }
+  } catch { /* side_products table may not exist yet — seeds next boot */ }
+
+  // Task checklist — its own guard (independent of the product seed above).
+  const have = (await db.all(sql`SELECT COUNT(*) AS n FROM tasks WHERE category = 'rose-resale'`)) as any[];
+  if (Number(have[0]?.n || 0) > 0) return;
 
   const day = 86_400_000;
   const due = (n: number) => new Date(Date.now() + n * day);

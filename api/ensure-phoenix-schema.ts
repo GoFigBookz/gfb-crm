@@ -62,6 +62,20 @@ export async function ensurePhoenixSchema(): Promise<void> {
     createdAt integer
   )`);
 
+  // Reseller engine: Skye-drafted listings per product/channel (draft → listed).
+  await guard("side_listings", sql`CREATE TABLE IF NOT EXISTS side_listings (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    productId integer NOT NULL,
+    channel text NOT NULL,           -- marketplace | kijiji | ebay | groups
+    title text,
+    body text,
+    price real,
+    hashtags text,
+    status text DEFAULT 'draft',     -- draft | listed
+    createdAt integer
+  )`);
+
   await guard("estate_items", sql`CREATE TABLE IF NOT EXISTS estate_items (
     id integer PRIMARY KEY AUTOINCREMENT,
     userId integer NOT NULL,
