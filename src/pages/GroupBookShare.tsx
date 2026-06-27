@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams } from "react-router";
 import { BookOpen } from "lucide-react";
 import { GroupControlBookView } from "@/components/GroupControlBook";
+import { Letterhead, LetterheadFooter } from "@/components/Letterhead";
 import { trpc } from "@/providers/trpc";
 
 /**
@@ -19,22 +20,14 @@ export default function GroupBookShare() {
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
       <div className="max-w-5xl mx-auto space-y-4">
-        <div className="flex items-center gap-2">
-          <BookOpen className="h-6 w-6 text-indigo-600" />
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">{data.groupName} — Control Book</h1>
-            <p className="text-sm text-slate-500">
-              Consolidated view prepared by Go Fig Bookz{data.label ? ` · ${data.label}` : ""} · read-only
-              {data.generatedAt ? ` · ${new Date(data.generatedAt).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" })}` : ""}
-            </p>
-          </div>
-        </div>
+        <Letterhead title="Control Book" client={data.groupName} subtitle={`Consolidated, read-only${data.label ? ` · ${data.label}` : ""}`} />
 
         <div className="bg-white rounded-xl border p-5">
           <GroupControlBookView data={data} onFiscalYear={setFy} />
         </div>
 
-        <p className="text-center text-xs text-slate-400">Prepared by Go Fig Bookz · figures recreated from your records · work in progress, for review.</p>
+        <LetterheadFooter generatedAt={data.generatedAt} />
+        <p className="text-center text-[11px] text-slate-400">Figures recreated from your records · work in progress, for review.</p>
       </div>
     </div>
   );

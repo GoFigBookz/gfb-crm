@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 import { Landmark } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Letterhead, LetterheadFooter } from "@/components/Letterhead";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/providers/trpc";
 import { format } from "date-fns";
@@ -22,13 +23,7 @@ export default function LoanShare() {
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-4">
-        <div className="flex items-center gap-2">
-          <Landmark className="h-6 w-6 text-lime-600" />
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">{data.clientName} — Loans</h1>
-            <p className="text-sm text-slate-500">Loan balances{data.label ? ` · ${data.label}` : ""} · view-only</p>
-          </div>
-        </div>
+        <Letterhead title="Loans" client={data.clientName} subtitle={`Loan balances${data.label ? ` · ${data.label}` : ""} · view-only`} />
 
         {data.loans.length === 0 ? (
           <Card><CardContent className="py-10 text-center text-slate-400">No loans on file.</CardContent></Card>
@@ -56,7 +51,7 @@ export default function LoanShare() {
             ))}
           </>
         )}
-        <p className="text-center text-[11px] text-slate-400 pt-2">Generated {format(new Date(data.generatedAt), "MMM d, yyyy h:mm a")} · Figgy</p>
+        <LetterheadFooter generatedAt={data.generatedAt} />
       </div>
     </div>
   );

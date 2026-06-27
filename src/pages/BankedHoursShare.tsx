@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Letterhead, LetterheadFooter } from "@/components/Letterhead";
 import { trpc } from "@/providers/trpc";
 
 const hrs = (n: number) => `${(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} h`;
@@ -33,13 +34,7 @@ export default function BankedHoursShare() {
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-4">
-        <div className="flex items-center gap-2">
-          <Clock className="h-6 w-6 text-lime-600" />
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">{data.clientName} — Banked hours</h1>
-            <p className="text-sm text-slate-500">Live balances{data.label ? ` · ${data.label}` : ""}{!data.allowEdit ? " · view-only" : ""}</p>
-          </div>
-        </div>
+        <Letterhead title="Banked hours" client={data.clientName} subtitle={`Live balances${data.label ? ` · ${data.label}` : ""}${!data.allowEdit ? " · view-only" : ""}`} />
 
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-base">Balances</CardTitle></CardHeader>
@@ -94,7 +89,7 @@ export default function BankedHoursShare() {
           </Card>
         )}
 
-        <p className="text-center text-xs text-slate-400">Updated {new Date(data.generatedAt).toLocaleString()} · Go Fig Bookz</p>
+        <LetterheadFooter generatedAt={data.generatedAt} label="Updated" />
       </div>
     </div>
   );
