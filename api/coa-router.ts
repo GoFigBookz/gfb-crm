@@ -23,7 +23,7 @@ import { getDb } from "./queries/connection";
 import { sql } from "drizzle-orm";
 import { qboRequest } from "./qbo-router";
 import { getConnectionForClient } from "./qbo-vendor-brain";
-import { buildCoaCsv, diffCharts, diffToTemplate, parseTrialBalance, reconcileToTrialBalance, COA_TEMPLATES, type AcctRow } from "./coa-core";
+import { buildCoaCsv, diffCharts, diffToTemplate, parseTrialBalance, reconcileToTrialBalance, reviewChartForCleanup, COA_TEMPLATES, type AcctRow } from "./coa-core";
 
 const arr = (data: any, entity: string): any[] => (data?.QueryResponse?.[entity] ?? []) as any[];
 const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
@@ -62,6 +62,15 @@ export const coaRouter = createRouter({
     const name = await clientName(input.clientId);
     const rows = res.rows.sort((a, b) => (a.num || "").localeCompare(b.num || "") || a.name.localeCompare(b.name));
     return { ok: true as const, clientName: name, count: rows.length, rows, csv: buildCoaCsv(rows) };
+  }),
+
+  /** Review ONE chart for a standalone cleanup (no marrying) — review-gated suggestions. */
+  reviewChart: staffQuery.input(z.object({ clientId: z.number() })).mutation(async ({ input }) => {
+    const res = await pullChart(input.clientId);
+    if ("error" in res) return { ok: false as const, error: res.error };
+    const name = await clientName(input.clientId);
+    const { findings, summary } = reviewChartForCleanup(res.rows);
+    return { ok: true as const, clientName: name, count: res.rows.length, findings, summary };
   }),
 
   /** Diff two clients' charts so they can be married (e.g. Clark OS ↔ Clark CW). */

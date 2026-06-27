@@ -142,6 +142,110 @@ export function diffToTemplate(chart: AcctRow[], templateKey: string) {
   return { label: tpl.label, entries, summary: { ...summary, missingFromChart: summary.onlyB, extraInChart: summary.onlyA } };
 }
 
+// ===========================================================================
+// SINGLE-CHART CLEANUP REVIEW — for a chart that doesn't need to "marry" another,
+// it just needs a tidy-up: professional/consistent names, missing numbers, duplicates,
+// inactive accounts still carrying a balance. Review-gated suggestions only (LOCKED chart).
+// ===========================================================================
+
+const SMALL_WORDS = new Set(["of", "and", "the", "for", "to", "in", "on", "a", "an", "or", "by", "with"]);
+// Tokens that should keep a fixed casing (acronyms / financial terms) rather than Title Case.
+const FIXED_CASE: Record<string, string> = {
+  hst: "HST", gst: "GST", pst: "PST", qst: "QST", cogs: "COGS", wip: "WIP", usd: "USD",
+  cad: "CAD", rrsp: "RRSP", tfsa: "TFSA", gic: "GIC", cor: "COR", gl: "GL", ap: "AP",
+  ar: "AR", hr: "HR", it: "IT", t4: "T4", t5: "T5", wsib: "WSIB", cpp: "CPP", ei: "EI",
+};
+
+/** Tidy a single account name to professional Title Case (acronyms preserved). */
+export function suggestCleanName(name: string): string {
+  const collapsed = (name || "").replace(/\s+/g, " ").trim();
+  if (!collapsed) return collapsed;
+  const words = collapsed.split(" ");
+  return words
+    .map((w, i) => {
+      const bare = w.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (FIXED_CASE[bare]) return w.replace(new RegExp(bare, "i"), FIXED_CASE[bare]);
+      if (i !== 0 && i !== words.length - 1 && SMALL_WORDS.has(bare)) return bare;
+      // Preserve an existing internal-capital word (e.g. "PayPal", "QuickBooks").
+      if (/[a-z][A-Z]/.test(w)) return w;
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
+export interface CoaCleanupFinding {
+  num?: string;
+  name: string;
+  severity: "high" | "medium" | "low";
+  issue: "duplicate_name" | "duplicate_number" | "missing_number" | "inactive_with_balance" | "casing" | "whitespace" | "abbreviation";
+  message: string;
+  suggestion?: string;
+}
+
+const ABBREVS: [RegExp, string][] = [
+  [/\bacct\b/i, "Account"], [/\ba\/p\b/i, "Accounts Payable"], [/\ba\/r\b/i, "Accounts Receivable"],
+  [/\brec'?ble\b/i, "Receivable"], [/\bpay'?ble\b/i, "Payable"], [/\bexp\b/i, "Expense"],
+  [/\bmktg\b/i, "Marketing"], [/\bmisc\b/i, "Miscellaneous"], [/\binv\b/i, "Inventory"],
+  [/\bequip\b/i, "Equipment"], [/\bmaint\b/i, "Maintenance"], [/\binsur\b/i, "Insurance"],
+  [/\bdepr\b/i, "Depreciation"], [/\bint\b/i, "Interest"], [/\butil\b/i, "Utilities"],
+];
+
+/**
+ * Review ONE chart for cleanup. Read-only — surfaces suggestions a human approves; never
+ * edits QBO. Catches duplicate names/numbers, missing numbers, inactive-with-balance,
+ * inconsistent casing (ALL CAPS / lowercase), stray whitespace, and common abbreviations.
+ */
+export function reviewChartForCleanup(rows: AcctRow[]): { findings: CoaCleanupFinding[]; summary: { high: number; medium: number; low: number; clean: number } } {
+  const findings: CoaCleanupFinding[] = [];
+
+  // Cross-account: duplicate normalized names + duplicate numbers.
+  const byName = new Map<string, AcctRow[]>();
+  const byNum = new Map<string, AcctRow[]>();
+  for (const r of rows) {
+    const n = normName(r.name); if (n) (byName.get(n) ?? byName.set(n, []).get(n)!).push(r);
+    const k = normNum(r.num); if (k) (byNum.get(k) ?? byNum.set(k, []).get(k)!).push(r);
+  }
+  for (const [, group] of byName) if (group.length > 1)
+    for (const r of group) findings.push({ num: r.num, name: r.name, severity: "high", issue: "duplicate_name", message: `Duplicate name — ${group.length} accounts called "${r.name}". Merge or rename so each is distinct.` });
+  for (const [k, group] of byNum) if (group.length > 1)
+    for (const r of group) findings.push({ num: r.num, name: r.name, severity: "high", issue: "duplicate_number", message: `Account number ${k} is used by ${group.length} accounts. Numbers must be unique.` });
+
+  // Per-account checks.
+  for (const r of rows) {
+    const name = r.name || "";
+    if (!normNum(r.num)) findings.push({ num: r.num, name, severity: "medium", issue: "missing_number", message: `"${name}" has no account number.` });
+    if (r.active === false && Math.abs(r.balance) > 0.005) findings.push({ num: r.num, name, severity: "high", issue: "inactive_with_balance", message: `"${name}" is inactive but still carries ${r.balance.toLocaleString("en-CA", { style: "currency", currency: "CAD" })}. Can't be cleaned up until it's zeroed.` });
+
+    if (name !== name.trim() || /\s{2,}/.test(name)) findings.push({ num: r.num, name, severity: "low", issue: "whitespace", message: `Stray spaces in "${name}".`, suggestion: suggestNameWithAbbrevs(name) });
+    else {
+      const cleaned = suggestNameWithAbbrevs(name);
+      const allCaps = name.length > 3 && name === name.toUpperCase() && /[A-Z]/.test(name);
+      const allLower = name === name.toLowerCase() && /[a-z]/.test(name);
+      const abbrev = ABBREVS.some(([re]) => re.test(name));
+      if (abbrev && cleaned !== name) findings.push({ num: r.num, name, severity: "medium", issue: "abbreviation", message: `"${name}" uses an abbreviation — spell it out for a professional chart.`, suggestion: cleaned });
+      else if ((allCaps || allLower) && cleaned !== name) findings.push({ num: r.num, name, severity: "medium", issue: "casing", message: `"${name}" is ${allCaps ? "ALL CAPS" : "all lowercase"} — use Title Case.`, suggestion: cleaned });
+    }
+  }
+
+  const flagged = new Set(findings.map((f) => `${f.num}|${f.name}`));
+  const summary = {
+    high: findings.filter((f) => f.severity === "high").length,
+    medium: findings.filter((f) => f.severity === "medium").length,
+    low: findings.filter((f) => f.severity === "low").length,
+    clean: rows.filter((r) => !flagged.has(`${r.num}|${r.name}`)).length,
+  };
+  const sev = (s: CoaCleanupFinding["severity"]) => ({ high: 0, medium: 1, low: 2 }[s]);
+  findings.sort((a, b) => sev(a.severity) - sev(b.severity) || normNum(a.num).localeCompare(normNum(b.num)));
+  return { findings, summary };
+}
+
+/** Title-case a name AND expand any common abbreviation it contains. */
+function suggestNameWithAbbrevs(name: string): string {
+  let out = name;
+  for (const [re, full] of ABBREVS) out = out.replace(re, full);
+  return suggestCleanName(out);
+}
+
 export interface TbLine { num?: string; name: string; balance: number }
 
 /** Parse a pasted accountant's trial balance: "1500  Accounts Receivable  12,345.67" or
