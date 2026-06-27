@@ -46,6 +46,14 @@ export interface ProjectInput {
   openingPct?: number | null;
   /** Billings to the customer BEFORE the first tracked period. */
   openingInvoiced?: Money | null;
+  /**
+   * Construction holdback (a.k.a. lien holdback) the customer withholds from each
+   * progress billing until the project is accepted — e.g. 0.10 for 10%. The withheld
+   * portion of billings is a HOLDBACK RECEIVABLE (still owed, just not yet payable),
+   * not regular A/R. Revenue recognition (earned = contractValue × %) is unaffected —
+   * holdback only splits the BILLED side. null/0 = no holdback.
+   */
+  holdbackPct?: number | null;
 }
 
 export interface ProgressInput {
@@ -66,6 +74,8 @@ export interface PeriodResult {
   invoicedToDate: Money;
   contractAsset: Money;      // underbilling (asset)
   deferredRevenue: Money;    // overbilling (liability)
+  holdbackReceivable: Money; // withheld portion of billings (invoiced × holdbackPct)
+  arReceivable: Money;       // regular A/R portion of billings (invoiced − holdback)
 }
 
 /**
@@ -77,6 +87,7 @@ export interface PeriodResult {
 export function buildProjectSchedule(project: ProjectInput, progress: ProgressInput[]): PeriodResult[] {
   const rows = [...progress].sort((a, b) => a.periodKey.localeCompare(b.periodKey));
   const cv = project.contractValue || 0;
+  const holdbackPct = clampPct(project.holdbackPct ?? 0);
   let priorPct = clampPct(project.openingPct ?? 0);
   let priorInvoiced = project.openingInvoiced ?? 0;
   const out: PeriodResult[] = [];
@@ -90,6 +101,8 @@ export function buildProjectSchedule(project: ProjectInput, progress: ProgressIn
     const revenueThisPeriod = round2(cv * (pct - priorPct));
     const contractAsset = round2(Math.max(earned - invoiced, 0));
     const deferredRevenue = round2(Math.max(invoiced - earned, 0));
+    const holdbackReceivable = round2(invoiced * holdbackPct);
+    const arReceivable = round2(invoiced - holdbackReceivable);
     out.push({
       periodKey: r.periodKey,
       pctComplete: pct,
@@ -100,6 +113,8 @@ export function buildProjectSchedule(project: ProjectInput, progress: ProgressIn
       invoicedToDate: round2(invoiced),
       contractAsset,
       deferredRevenue,
+      holdbackReceivable,
+      arReceivable,
     });
     priorPct = pct;
     priorInvoiced = invoiced;
@@ -273,11 +288,13 @@ export interface ProjectRollup {
   contractAsset: Money;
   deferredRevenue: Money;
   remainingToEarn: Money; // contractValue - earnedToDate
+  holdbackReceivable: Money; // withheld portion of billings to date
 }
 
 export function rollupProject(project: ProjectInput, schedule: PeriodResult[]): ProjectRollup {
   const last = latestPeriod(schedule);
   const cv = project.contractValue || 0;
+  const holdbackPct = clampPct(project.holdbackPct ?? 0);
   const earned = last?.earnedToDate ?? round2(cv * clampPct(project.openingPct ?? 0));
   const invoiced = last?.invoicedToDate ?? (project.openingInvoiced ?? 0);
   return {
@@ -291,6 +308,7 @@ export function rollupProject(project: ProjectInput, schedule: PeriodResult[]): 
     contractAsset: last?.contractAsset ?? round2(Math.max(earned - invoiced, 0)),
     deferredRevenue: last?.deferredRevenue ?? round2(Math.max(invoiced - earned, 0)),
     remainingToEarn: round2(cv - earned),
+    holdbackReceivable: last?.holdbackReceivable ?? round2(invoiced * holdbackPct),
   };
 }
 

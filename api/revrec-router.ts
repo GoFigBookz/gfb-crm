@@ -51,6 +51,7 @@ async function loadProjectInputs(clientId: number): Promise<{ project: ProjectIn
         contractValue: p.contractValue ?? 0,
         openingPct: p.openingPct ?? 0,
         openingInvoiced: p.openingInvoiced ?? 0,
+        holdbackPct: p.holdbackPct ?? 0,
       },
       progress: (prog as any[]).map((r) => ({
         periodKey: r.periodKey,
@@ -62,7 +63,7 @@ async function loadProjectInputs(clientId: number): Promise<{ project: ProjectIn
   return out;
 }
 
-async function getConfig(clientId: number): Promise<{ enabled: boolean; fiscalYearStartMonth: number; depositsBookedToRevenue: boolean; pctSource: string | null; pctEnteredByRole: string | null; notes: string | null }> {
+async function getConfig(clientId: number): Promise<{ enabled: boolean; fiscalYearStartMonth: number; depositsBookedToRevenue: boolean; pctSource: string | null; pctEnteredByRole: string | null; notes: string | null; jobCostingByProject: boolean; defaultHoldbackPct: number }> {
   const db = getDb();
   const row = (await db.select().from(rrClientConfig).where(eq(rrClientConfig.clientId, clientId)).limit(1))[0] as any;
   return {
@@ -72,6 +73,8 @@ async function getConfig(clientId: number): Promise<{ enabled: boolean; fiscalYe
     pctSource: row?.pctSource ?? null,
     pctEnteredByRole: row?.pctEnteredByRole ?? null,
     notes: row?.notes ?? null,
+    jobCostingByProject: row?.jobCostingByProject ?? false,
+    defaultHoldbackPct: row?.defaultHoldbackPct ?? 0,
   };
 }
 
@@ -114,9 +117,10 @@ async function buildClientView(clientId: number, fyStartKey?: string) {
       acc.contractAsset += p.rollup.contractAsset;
       acc.deferredRevenue += p.rollup.deferredRevenue;
       acc.remainingToEarn += p.rollup.remainingToEarn;
+      acc.holdbackReceivable += p.rollup.holdbackReceivable;
       return acc;
     },
-    { contractValue: 0, earnedToDate: 0, invoicedToDate: 0, contractAsset: 0, deferredRevenue: 0, remainingToEarn: 0 },
+    { contractValue: 0, earnedToDate: 0, invoicedToDate: 0, contractAsset: 0, deferredRevenue: 0, remainingToEarn: 0, holdbackReceivable: 0 },
   );
 
   return { config: cfg, projects, calendar, totals };
@@ -143,6 +147,7 @@ export const revRecRouter = createRouter({
       contractValue: z.number().min(0).default(0),
       openingPct: z.number().min(0).max(1).nullable().optional(),
       openingInvoiced: z.number().min(0).nullable().optional(),
+      holdbackPct: z.number().min(0).max(1).nullable().optional(),
       startDate: z.date().nullable().optional(),
       expectedEndDate: z.date().nullable().optional(),
       notes: z.string().max(2000).nullable().optional(),
@@ -156,6 +161,7 @@ export const revRecRouter = createRouter({
         contractValue: input.contractValue,
         openingPct: input.openingPct ?? 0,
         openingInvoiced: input.openingInvoiced ?? 0,
+        holdbackPct: input.holdbackPct ?? 0,
         startDate: input.startDate ?? null,
         expectedEndDate: input.expectedEndDate ?? null,
         notes: input.notes ?? null,
@@ -172,6 +178,7 @@ export const revRecRouter = createRouter({
       contractValue: z.number().min(0).optional(),
       openingPct: z.number().min(0).max(1).nullable().optional(),
       openingInvoiced: z.number().min(0).nullable().optional(),
+      holdbackPct: z.number().min(0).max(1).nullable().optional(),
       startDate: z.date().nullable().optional(),
       expectedEndDate: z.date().nullable().optional(),
       status: z.enum(["active", "complete", "archived"]).optional(),
@@ -264,6 +271,8 @@ export const revRecRouter = createRouter({
       pctSource: z.string().max(100).nullable().optional(),
       pctEnteredByRole: z.string().max(100).nullable().optional(),
       notes: z.string().max(2000).nullable().optional(),
+      jobCostingByProject: z.boolean().optional(),
+      defaultHoldbackPct: z.number().min(0).max(1).optional(),
     }))
     .mutation(async ({ input }) => {
       const db = getDb();
