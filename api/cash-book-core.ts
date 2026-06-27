@@ -190,6 +190,67 @@ export function validateEntry(e: Partial<CashEntry>): EntryProblem[] {
   return problems;
 }
 
+/**
+ * Money-IN categories that are NOT revenue/sales (so they're excluded from the HST
+ * line-101 sales figure): owner money put into the business, loan proceeds, and
+ * transfers between the owner's own accounts. Matched case-insensitively by substring.
+ */
+export const NON_REVENUE_IN = ["owner contribution", "owner deposit", "loan", "transfer", "capital", "refund"];
+
+function isRevenueIn(category?: string | null): boolean {
+  const c = (category || "").toLowerCase();
+  return !NON_REVENUE_IN.some((k) => c.includes(k));
+}
+
+export interface HstWorksheet {
+  start?: string;
+  end?: string;
+  line101Sales: number;       // revenue (money-in, net of HST), excluding non-revenue receipts
+  line105Collected: number;   // HST/GST collected on sales (line 105)
+  line108Itc: number;         // input tax credits — HST/GST paid on expenses (line 108)
+  line109NetTax: number;      // net tax = collected - ITCs (line 109)
+  owing: number;              // > 0 = remit to CRA; < 0 = refund
+  isRefund: boolean;
+  salesCount: number;         // # of money-in entries that carried HST
+  itcCount: number;           // # of money-out entries that carried HST
+  untaxedSales: number;       // revenue money-in with NO hst recorded (flag to confirm)
+}
+
+/**
+ * Build an HST/GST return worksheet from cash-book entries for a period. Deterministic
+ * — purely sums what's recorded; it does NOT decide tax treatment. line 101 excludes
+ * non-revenue receipts (owner money, loans, transfers). HONEST: this is a worksheet to
+ * confirm + file, NOT an e-filed return; untaxedSales surfaces revenue with no HST so a
+ * cash basis / exempt / missed-HST case is visible rather than silently assumed.
+ */
+export function hstWorksheet(entries: CashEntry[], opts: { start?: string; end?: string } = {}): HstWorksheet {
+  const scoped = (opts.start || opts.end) ? inRange(entries, opts.start, opts.end) : entries;
+  let line101 = 0, collected = 0, itc = 0, salesCount = 0, itcCount = 0, untaxed = 0;
+  for (const e of scoped) {
+    const amt = Math.abs(Number(e.amount) || 0);
+    const h = Math.abs(Number(e.hst) || 0);
+    if (e.direction === "in") {
+      if (!isRevenueIn(e.category)) continue; // skip owner money / loans / transfers
+      line101 += amt - h;          // sales net of the HST portion
+      if (h > 0) { collected += h; salesCount += 1; } else { untaxed += amt; }
+    } else {
+      if (h > 0) { itc += h; itcCount += 1; }
+    }
+  }
+  const net = r2(collected - itc);
+  return {
+    start: opts.start, end: opts.end,
+    line101Sales: r2(line101),
+    line105Collected: r2(collected),
+    line108Itc: r2(itc),
+    line109NetTax: net,
+    owing: net,
+    isRefund: net < 0,
+    salesCount, itcCount,
+    untaxedSales: r2(untaxed),
+  };
+}
+
 /** A reasonable starter category set for a micro-business cash book (editable/free-text in the UI). */
 export const DEFAULT_CATEGORIES: { name: string; direction: Direction }[] = [
   { name: "Sales / revenue", direction: "in" },

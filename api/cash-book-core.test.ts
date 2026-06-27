@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildRegister, closingBalance, summarize, categoryTotals, inRange,
-  reconcile, validateEntry, signedAmount, type CashEntry,
+  reconcile, validateEntry, signedAmount, hstWorksheet, type CashEntry,
 } from "./cash-book-core";
 
 const E = (d: string, dir: "in" | "out", amount: number, extra: Partial<CashEntry> = {}): CashEntry =>
@@ -96,6 +96,43 @@ describe("cash-book-core — reconcile", () => {
     const rec = reconcile(entries, 690, 0);
     expect(rec.reconciled).toBe(false);
     expect(rec.difference).toBe(-10);
+  });
+});
+
+describe("cash-book-core — HST worksheet", () => {
+  const entries = [
+    E("2026-04-10", "in", 1130, { hst: 130, category: "Sales / revenue" }),   // sale 1000 + HST 130
+    E("2026-05-01", "in", 565, { hst: 65, category: "Sales / revenue" }),     // sale 500 + HST 65
+    E("2026-05-15", "in", 5000, { category: "Owner contribution" }),          // not revenue, excluded
+    E("2026-04-20", "out", 226, { hst: 26, category: "Materials / supplies" }), // ITC 26
+    E("2026-06-01", "out", 50, { category: "Bank charges" }),                  // no HST
+  ];
+
+  it("computes lines 101/105/108/109 and owing", () => {
+    const w = hstWorksheet(entries, { start: "2026-04-01", end: "2026-06-30" });
+    expect(w.line101Sales).toBe(1500);   // 1000 + 500, owner money excluded
+    expect(w.line105Collected).toBe(195); // 130 + 65
+    expect(w.line108Itc).toBe(26);
+    expect(w.line109NetTax).toBe(169);    // 195 - 26
+    expect(w.owing).toBe(169);
+    expect(w.isRefund).toBe(false);
+    expect(w.salesCount).toBe(2);
+    expect(w.itcCount).toBe(1);
+  });
+
+  it("flags revenue with no HST recorded", () => {
+    const w = hstWorksheet([E("2026-04-10", "in", 800, { category: "Sales / revenue" })]);
+    expect(w.untaxedSales).toBe(800);
+    expect(w.line105Collected).toBe(0);
+  });
+
+  it("marks a refund when ITCs exceed collected", () => {
+    const w = hstWorksheet([
+      E("2026-04-10", "in", 113, { hst: 13, category: "Sales / revenue" }),
+      E("2026-04-20", "out", 1130, { hst: 130, category: "Materials / supplies" }),
+    ]);
+    expect(w.line109NetTax).toBe(-117);
+    expect(w.isRefund).toBe(true);
   });
 });
 

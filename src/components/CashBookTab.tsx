@@ -12,10 +12,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import HelpButton from "@/components/HelpButton";
-import { Plus, Trash2, Check, BookOpen, Scale, Download, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Check, BookOpen, Scale, Download, CheckCircle2, AlertCircle, Receipt } from "lucide-react";
 
 const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
 const todayIso = () => new Date().toISOString().slice(0, 10);
+const iso = (y: number, m1: number, d: number) => `${y}-${String(m1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+// Calendar-quarter presets for the current year (HST filers usually file calendar quarters).
+function quarterPresets(): { label: string; start: string; end: string }[] {
+  const y = new Date().getFullYear();
+  return [
+    { label: `Q1 ${y}`, start: iso(y, 1, 1), end: iso(y, 3, 31) },
+    { label: `Q2 ${y}`, start: iso(y, 4, 1), end: iso(y, 6, 30) },
+    { label: `Q3 ${y}`, start: iso(y, 7, 1), end: iso(y, 9, 30) },
+    { label: `Q4 ${y}`, start: iso(y, 10, 1), end: iso(y, 12, 31) },
+    { label: `Full ${y}`, start: iso(y, 1, 1), end: iso(y, 12, 31) },
+  ];
+}
 
 export function CashBookTab({ clientId }: { clientId: number }) {
   const utils = trpc.useUtils();
@@ -47,6 +59,13 @@ export function CashBookTab({ clientId }: { clientId: number }) {
   const blankEntry = { entryDate: todayIso(), direction: "out" as "in" | "out", amount: "", category: "", description: "", reference: "", hst: "", cleared: false };
   const [draft, setDraft] = useState(blankEntry);
   const [entryErr, setEntryErr] = useState<string>("");
+
+  // HST worksheet period
+  const [hstRange, setHstRange] = useState<{ start: string; end: string } | null>(null);
+  const hstQuery = trpc.cashBook.hstWorksheet.useQuery(
+    { clientId, accountId: activeId!, start: hstRange?.start, end: hstRange?.end },
+    { enabled: !!activeId && !!hstRange },
+  );
 
   // reconcile
   const [stmtBal, setStmtBal] = useState("");
@@ -249,6 +268,42 @@ export function CashBookTab({ clientId }: { clientId: number }) {
           )}
         </CardContent></Card>
       </div>
+
+      {/* HST / GST return worksheet */}
+      {activeId && (
+        <Card><CardContent className="p-3 space-y-2">
+          <div className="flex items-center gap-2"><Receipt className="h-4 w-4 text-emerald-600" /><span className="text-sm font-semibold text-slate-700">HST / GST return worksheet</span></div>
+          <p className="text-xs text-slate-500">Pick the filing period. The worksheet sums what's recorded — sales (net of HST), HST collected, and input tax credits — into the return lines. It's a worksheet to confirm and file, not an e-filed return.</p>
+          <div className="flex flex-wrap gap-1.5">
+            {quarterPresets().map((p) => (
+              <button key={p.label} onClick={() => setHstRange({ start: p.start, end: p.end })}
+                className={`text-xs border rounded px-2 py-1 ${hstRange?.start === p.start && hstRange?.end === p.end ? "bg-emerald-600 text-white border-emerald-600" : "hover:bg-slate-50"}`}>{p.label}</button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <Input type="date" className="h-8 w-auto" value={hstRange?.start || ""} onChange={(e) => setHstRange({ start: e.target.value, end: hstRange?.end || todayIso() })} />
+            <span className="text-slate-400">→</span>
+            <Input type="date" className="h-8 w-auto" value={hstRange?.end || ""} onChange={(e) => setHstRange({ start: hstRange?.start || "", end: e.target.value })} />
+          </div>
+          {hstQuery.data?.worksheet && (
+            <div className="text-sm border-t border-slate-100 pt-2 space-y-0.5">
+              <Row k="Line 101 — Sales & revenue (net of HST)" v={money(hstQuery.data.worksheet.line101Sales)} />
+              <Row k="Line 105 — HST/GST collected" v={money(hstQuery.data.worksheet.line105Collected)} />
+              <Row k="Line 108 — Input tax credits (ITCs)" v={money(hstQuery.data.worksheet.line108Itc)} />
+              <div className={`flex justify-between font-semibold pt-1 mt-1 border-t border-slate-100 ${hstQuery.data.worksheet.isRefund ? "text-emerald-700" : "text-slate-900"}`}>
+                <span>Line 109 — Net tax {hstQuery.data.worksheet.isRefund ? "(refund)" : "(remit to CRA)"}</span>
+                <span>{money(Math.abs(hstQuery.data.worksheet.owing))}</span>
+              </div>
+              {hstQuery.data.worksheet.untaxedSales > 0 && (
+                <div className="flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-1.5 mt-1">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>{money(hstQuery.data.worksheet.untaxedSales)} of revenue has no HST recorded — confirm it's exempt/zero-rated or add the HST before filing.</span>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent></Card>
+      )}
 
       {acct && (
         <div className="text-right">

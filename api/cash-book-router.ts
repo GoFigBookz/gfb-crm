@@ -15,7 +15,7 @@ import { getDb } from "./queries/connection";
 import { sql } from "drizzle-orm";
 import {
   buildRegister, summarize, categoryTotals, inRange, reconcile, validateEntry,
-  DEFAULT_CATEGORIES, type CashEntry, type Direction,
+  hstWorksheet, DEFAULT_CATEGORIES, type CashEntry, type Direction,
 } from "./cash-book-core";
 
 const dirEnum = z.enum(["in", "out"]);
@@ -171,6 +171,16 @@ export const cashBookRouter = createRouter({
       if (!acct) return null;
       const all = await loadEntries(input.clientId, input.accountId);
       return reconcile(all, input.statementBalance, acct.openingBalance || 0);
+    }),
+
+  // ───────── HST / GST RETURN WORKSHEET (deterministic from the book) ─────────
+  hstWorksheet: staffQuery
+    .input(z.object({ clientId: z.number(), accountId: z.number(), start: z.string().optional(), end: z.string().optional() }))
+    .query(async ({ input }) => {
+      const acct = await getAccount(input.clientId, input.accountId);
+      if (!acct) return null;
+      const all = await loadEntries(input.clientId, input.accountId);
+      return { account: acct, worksheet: hstWorksheet(all, { start: input.start, end: input.end }) };
     }),
 
   // ───────── YEAR-END / PERIOD SUMMARY (the T2 backbone) ─────────

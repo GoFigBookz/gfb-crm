@@ -104,6 +104,7 @@ export const HELP: Record<string, HelpEntry> = {
       "Tick ‘Cleared’ when it shows on the bank statement — that drives the reconciliation.",
       "Reconcile: type the statement's closing balance — it ties to your CLEARED book balance (uncleared cheques are shown as in-transit).",
       "Year-end: the category summary totals income and expenses (with HST) — the backbone for the T2 / income statement. Export to CSV anytime.",
+      "HST: pick a quarter in the HST worksheet — it sums sales (line 101), HST collected (105), and ITCs (108) into the net tax owing (109). It flags any revenue with no HST recorded.",
     ],
     note: "For micro-clients / holding companies that don't need full QuickBooks. Nothing posts to QBO — this IS the book of record for that account.",
   },
