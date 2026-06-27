@@ -46946,6 +46946,58 @@ async function pullHstAccountBalance(conn) {
   const net = hst.reduce((s, a) => s + a.balance, 0);
   return { accounts: hst, net: Math.round((net + Number.EPSILON) * 100) / 100 };
 }
+async function pullBillableExpenses(conn, cpKey, fromISO, toISO2) {
+  const q3 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
+  const itemMap = /* @__PURE__ */ new Map();
+  try {
+    for (const it of arr2(await q3(`SELECT Id, Name, ExpenseAccountRef FROM Item MAXRESULTS 1000`), "Item")) {
+      if (it.ExpenseAccountRef?.value) itemMap.set(String(it.Id), { acctId: String(it.ExpenseAccountRef.value), acctName: it.ExpenseAccountRef.name || it.Name });
+    }
+  } catch {
+  }
+  const byAcct = /* @__PURE__ */ new Map();
+  let subtotal = 0, hstActual = 0, count5 = 0;
+  const range = `TxnDate >= '${fromISO}' AND TxnDate <= '${toISO2}'`;
+  for (const entity of ["Bill", "Purchase"]) {
+    for (const e of arr2(await q3(`SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) {
+      let hasBillable = false;
+      for (const l of e.Line ?? []) {
+        const ab = l.AccountBasedExpenseLineDetail, ib = l.ItemBasedExpenseLineDetail, d10 = ab || ib;
+        if (!d10) continue;
+        if (String(d10.BillableStatus || "") !== "Billable") continue;
+        const cust = String(d10.CustomerRef?.name || "");
+        if (cpKey && !(cust && normName(cust).includes(cpKey))) continue;
+        let acctId = "", acctName = "Expense";
+        if (ab) {
+          acctId = String(ab.AccountRef?.value || "");
+          acctName = ab.AccountRef?.name || "Expense";
+        } else {
+          const m = itemMap.get(String(ib.ItemRef?.value || ""));
+          acctId = m?.acctId || "";
+          acctName = m?.acctName || `Item: ${ib.ItemRef?.name || "?"}`;
+        }
+        if (isNonBillableAccount(acctName)) continue;
+        const amt = num2(l.Amount);
+        subtotal += amt;
+        hasBillable = true;
+        const key11 = acctId || `name:${acctName}`;
+        const cur = byAcct.get(key11) || { accountId: acctId, accountName: acctName, net: 0 };
+        cur.net = num2(cur.net) + amt;
+        byAcct.set(key11, cur);
+      }
+      if (hasBillable) {
+        count5++;
+        hstActual += Math.abs(num2(e.TxnTaxDetail?.TotalTax));
+      }
+    }
+  }
+  return {
+    byAccount: Array.from(byAcct.values()).map((a) => ({ ...a, net: round26(a.net) })),
+    subtotal: round26(subtotal),
+    hstActual: round26(hstActual),
+    count: count5
+  };
+}
 function fiscalYearStartFor(endISO, fyeMonth) {
   const end = /* @__PURE__ */ new Date(endISO + "T00:00:00Z");
   const startMonthIdx = fyeMonth % 12;
@@ -47642,6 +47694,55 @@ var init_interco_recharge_router = __esm({
         await ensureRechargeSchema();
         const rows = await getDb().all(sql`SELECT token FROM interco_recharge_share_links WHERE logId=${input.logId} AND active=1 ORDER BY id DESC LIMIT 1`);
         return { token: rows[0]?.token ?? null };
+      }),
+      /** LIVE report (staff). Builds the billback worksheet from the BILLABLE expenses
+       *  marked to the counterparty (Ovita Holdings) right now — no post needed. Renders at
+       *  /report/billback/:clientId so Markie can see exactly what will be billed + the HST. */
+      previewWorksheet: staffQuery.input(external_exports.object({ payerClientId: external_exports.number() })).query(async ({ input }) => {
+        const cr = await getConnectionForClient(input.payerClientId);
+        if ("error" in cr) return { ok: false, error: cr.error };
+        await ensureRechargeSchema();
+        const db = getDb();
+        const cfgRow = await db.run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`);
+        const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
+        const counterpartyName = String(cfg.counterpartyName || "");
+        const cpKey = counterpartyName ? normName(counterpartyName.split(/\s+/)[0]) : "";
+        const rate = num2(cfg.chargeHst ?? 1) !== 0 ? (num2(cfg.hstRatePct) || 13) / 100 : 0;
+        const clientRow = await db.all(sql`SELECT name FROM clients WHERE id=${input.payerClientId} LIMIT 1`);
+        const payerName = clientRow[0]?.name || "Payer";
+        const to = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+        const from = fiscalYearStartFor(to, await clientFyeMonth(input.payerClientId));
+        try {
+          const b = await pullBillableExpenses(cr.conn, cpKey, from, to);
+          const subtotal = round26(b.subtotal);
+          const hst = round26(subtotal * rate);
+          const hstAcc = await pullHstAccountBalance(cr.conn);
+          const target = round26(Math.abs(hstAcc.net));
+          return {
+            ok: true,
+            payerName,
+            counterpartyName,
+            from,
+            to,
+            byAccount: b.byAccount,
+            count: b.count,
+            subtotal,
+            hstRatePct: num2(cfg.hstRatePct) || 13,
+            chargeHst: rate > 0,
+            hst,
+            total: round26(subtotal + hst),
+            hstActualOnBillables: b.hstActual,
+            hstAccountBalance: round26(hstAcc.net),
+            hstAccounts: hstAcc.accounts,
+            tieVariance: round26(target - hst),
+            ties: Math.abs(round26(target - hst)) < 1,
+            generatedAt: (/* @__PURE__ */ new Date()).toISOString()
+          };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false, error: "bridge_not_returning_data", detail: msg };
+          return { ok: false, error: msg };
+        }
       }),
       // ===== PUBLIC (token-gated, read-only) — the branded billback worksheet =====
       publicView: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
@@ -90214,7 +90315,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.201";
+var BUILD_TAG = "2026-06-27.202";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
