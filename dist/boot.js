@@ -47510,28 +47510,34 @@ var init_interco_recharge_router = __esm({
         const q3 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
         const range = `TxnDate >= '${from}' AND TxnDate <= '${to}'`;
         let totalExpenses = 0, totalHst = 0, txnCount = 0, itemLines = 0;
+        let billableTotal = 0, notBillableTotal = 0;
         const byAcct = /* @__PURE__ */ new Map();
+        const notBillable = [];
         try {
           for (const entity of ["Bill", "Purchase"]) {
             for (const e of arr2(await q3(`SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) {
               txnCount++;
               totalHst += Math.abs(num2(e.TxnTaxDetail?.TotalTax));
+              const docRef = e.DocNumber || String(e.Id);
+              const nameRef = e.EntityRef?.name || e.VendorRef?.name || "";
+              const dateRef = String(e.TxnDate || "").slice(0, 10);
               for (const l of e.Line ?? []) {
                 const ab = l.AccountBasedExpenseLineDetail, ib = l.ItemBasedExpenseLineDetail;
-                if (ab) {
-                  const nm = ab.AccountRef?.name || "Expense";
-                  if (isNonBillableAccount(nm)) continue;
-                  totalExpenses += num2(l.Amount);
-                  const cur = byAcct.get(nm) || { accountName: nm, net: 0 };
-                  cur.net += num2(l.Amount);
-                  byAcct.set(nm, cur);
-                } else if (ib) {
-                  itemLines++;
-                  totalExpenses += num2(l.Amount);
-                  const nm = `Item: ${ib.ItemRef?.name || "?"}`;
-                  const cur = byAcct.get(nm) || { accountName: nm, net: 0 };
-                  cur.net += num2(l.Amount);
-                  byAcct.set(nm, cur);
+                const d10 = ab || ib;
+                if (!d10) continue;
+                const nm = ab ? ab.AccountRef?.name || "Expense" : `Item: ${ib.ItemRef?.name || "?"}`;
+                if (ab && isNonBillableAccount(nm)) continue;
+                if (ib) itemLines++;
+                const amt = num2(l.Amount);
+                totalExpenses += amt;
+                const cur = byAcct.get(nm) || { accountName: nm, net: 0 };
+                cur.net += amt;
+                byAcct.set(nm, cur);
+                const status = String(d10.BillableStatus || "NotBillable");
+                if (status === "Billable" || status === "HasBeenBilled") billableTotal += amt;
+                else {
+                  notBillableTotal += amt;
+                  notBillable.push({ date: dateRef, type: entity, docNum: docRef, name: nameRef, amount: round26(amt), account: nm });
                 }
               }
             }
@@ -47552,6 +47558,10 @@ var init_interco_recharge_router = __esm({
             ties: Math.abs(variance) < 1,
             txnCount,
             itemLines,
+            billableTotal: round26(billableTotal),
+            notBillableTotal: round26(notBillableTotal),
+            notBillableCount: notBillable.length,
+            notBillable: notBillable.sort((a, b) => a.date.localeCompare(b.date)),
             byAccount: Array.from(byAcct.values()).map((a) => ({ ...a, net: round26(a.net) })).sort((a, b) => b.net - a.net)
           };
         } catch (e) {
@@ -90196,7 +90206,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.198";
+var BUILD_TAG = "2026-06-27.199";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

@@ -643,26 +643,35 @@ export const intercoRechargeRouter = createRouter({
       const q = (s: string) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
       const range = `TxnDate >= '${from}' AND TxnDate <= '${to}'`;
       let totalExpenses = 0, totalHst = 0, txnCount = 0, itemLines = 0;
+      let billableTotal = 0, notBillableTotal = 0;
       const byAcct = new Map<string, { accountName: string; net: number }>();
+      const notBillable: { date: string; type: string; docNum: string; name: string; amount: number; account: string }[] = [];
       try {
         for (const entity of ["Bill", "Purchase"] as const) {
           for (const e of arr(await q(`SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) {
             txnCount++;
             totalHst += Math.abs(num(e.TxnTaxDetail?.TotalTax));
+            const docRef = e.DocNumber || String(e.Id);
+            const nameRef = e.EntityRef?.name || e.VendorRef?.name || "";
+            const dateRef = String(e.TxnDate || "").slice(0, 10);
             for (const l of e.Line ?? []) {
               const ab = l.AccountBasedExpenseLineDetail, ib = l.ItemBasedExpenseLineDetail;
-              if (ab) {
-                const nm = ab.AccountRef?.name || "Expense";
-                if (isNonBillableAccount(nm)) continue;
-                totalExpenses += num(l.Amount);
-                const cur = byAcct.get(nm) || { accountName: nm, net: 0 };
-                cur.net += num(l.Amount); byAcct.set(nm, cur);
-              } else if (ib) {
-                itemLines++;
-                totalExpenses += num(l.Amount);
-                const nm = `Item: ${ib.ItemRef?.name || "?"}`;
-                const cur = byAcct.get(nm) || { accountName: nm, net: 0 };
-                cur.net += num(l.Amount); byAcct.set(nm, cur);
+              const d = ab || ib;
+              if (!d) continue;
+              const nm = ab ? (ab.AccountRef?.name || "Expense") : `Item: ${ib.ItemRef?.name || "?"}`;
+              if (ab && isNonBillableAccount(nm)) continue;   // skip bank charges
+              if (ib) itemLines++;
+              const amt = num(l.Amount);
+              totalExpenses += amt;
+              const cur = byAcct.get(nm) || { accountName: nm, net: 0 };
+              cur.net += amt; byAcct.set(nm, cur);
+              // SPOT CHECK: is this line actually marked billable? If not, the
+              // invoice-from-billables will MISS it.
+              const status = String(d.BillableStatus || "NotBillable");
+              if (status === "Billable" || status === "HasBeenBilled") billableTotal += amt;
+              else {
+                notBillableTotal += amt;
+                notBillable.push({ date: dateRef, type: entity, docNum: docRef, name: nameRef, amount: round2(amt), account: nm });
               }
             }
           }
@@ -677,6 +686,9 @@ export const intercoRechargeRouter = createRouter({
           hstAccountBalance: round2(hstAcc.net), hstAccounts: hstAcc.accounts,
           variance, ties: Math.abs(variance) < 1,
           txnCount, itemLines,
+          billableTotal: round2(billableTotal), notBillableTotal: round2(notBillableTotal),
+          notBillableCount: notBillable.length,
+          notBillable: notBillable.sort((a, b) => a.date.localeCompare(b.date)),
           byAccount: Array.from(byAcct.values()).map((a) => ({ ...a, net: round2(a.net) })).sort((a, b) => b.net - a.net),
         };
       } catch (e) {
