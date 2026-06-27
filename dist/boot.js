@@ -48714,7 +48714,7 @@ var init_values = __esm({
 var sleep;
 var init_sleep = __esm({
   "node_modules/@anthropic-ai/sdk/internal/utils/sleep.mjs"() {
-    sleep = (ms3, signal) => new Promise((resolve4) => {
+    sleep = (ms4, signal) => new Promise((resolve4) => {
       if (signal?.aborted)
         return resolve4();
       const onAbort = () => {
@@ -48724,7 +48724,7 @@ var init_sleep = __esm({
       const timer = setTimeout(() => {
         signal?.removeEventListener("abort", onAbort);
         resolve4();
-      }, ms3);
+      }, ms4);
       signal?.addEventListener("abort", onAbort, { once: true });
     });
   }
@@ -52920,8 +52920,8 @@ function backoff(attempt, baseMs, capMs) {
 function jitter(lowMs, highMs) {
   return lowMs + Math.random() * (highMs - lowMs);
 }
-function applyJitter(ms3) {
-  return ms3 * (1 - Math.random() * 0.25);
+function applyJitter(ms4) {
+  return ms4 * (1 - Math.random() * 0.25);
 }
 var init_backoff = __esm({
   "node_modules/@anthropic-ai/sdk/internal/utils/backoff.mjs"() {
@@ -55806,7 +55806,7 @@ var init_parser = __esm({
   "node_modules/@anthropic-ai/sdk/_vendor/partial-json-parser/parser.mjs"() {
     tokenize = (input) => {
       let current = 0;
-      let tokens = [];
+      let tokens2 = [];
       while (current < input.length) {
         let char = input[current];
         if (char === "\\") {
@@ -55814,7 +55814,7 @@ var init_parser = __esm({
           continue;
         }
         if (char === "{") {
-          tokens.push({
+          tokens2.push({
             type: "brace",
             value: "{"
           });
@@ -55822,7 +55822,7 @@ var init_parser = __esm({
           continue;
         }
         if (char === "}") {
-          tokens.push({
+          tokens2.push({
             type: "brace",
             value: "}"
           });
@@ -55830,7 +55830,7 @@ var init_parser = __esm({
           continue;
         }
         if (char === "[") {
-          tokens.push({
+          tokens2.push({
             type: "paren",
             value: "["
           });
@@ -55838,7 +55838,7 @@ var init_parser = __esm({
           continue;
         }
         if (char === "]") {
-          tokens.push({
+          tokens2.push({
             type: "paren",
             value: "]"
           });
@@ -55846,7 +55846,7 @@ var init_parser = __esm({
           continue;
         }
         if (char === ":") {
-          tokens.push({
+          tokens2.push({
             type: "separator",
             value: ":"
           });
@@ -55854,7 +55854,7 @@ var init_parser = __esm({
           continue;
         }
         if (char === ",") {
-          tokens.push({
+          tokens2.push({
             type: "delimiter",
             value: ","
           });
@@ -55885,7 +55885,7 @@ var init_parser = __esm({
           }
           char = input[++current];
           if (!danglingQuote) {
-            tokens.push({
+            tokens2.push({
               type: "string",
               value
             });
@@ -55910,7 +55910,7 @@ var init_parser = __esm({
             value += char;
             char = input[++current];
           }
-          tokens.push({
+          tokens2.push({
             type: "number",
             value
           });
@@ -55927,7 +55927,7 @@ var init_parser = __esm({
             char = input[++current];
           }
           if (value == "true" || value == "false" || value === "null") {
-            tokens.push({
+            tokens2.push({
               type: "name",
               value
             });
@@ -55939,44 +55939,44 @@ var init_parser = __esm({
         }
         current++;
       }
-      return tokens;
+      return tokens2;
     };
-    strip2 = (tokens) => {
-      if (tokens.length === 0) {
-        return tokens;
+    strip2 = (tokens2) => {
+      if (tokens2.length === 0) {
+        return tokens2;
       }
-      let lastToken = tokens[tokens.length - 1];
+      let lastToken = tokens2[tokens2.length - 1];
       switch (lastToken.type) {
         case "separator":
-          tokens = tokens.slice(0, tokens.length - 1);
-          return strip2(tokens);
+          tokens2 = tokens2.slice(0, tokens2.length - 1);
+          return strip2(tokens2);
           break;
         case "number":
           let lastCharacterOfLastToken = lastToken.value[lastToken.value.length - 1];
           if (lastCharacterOfLastToken === "." || lastCharacterOfLastToken === "-" || lastCharacterOfLastToken === "+" || lastCharacterOfLastToken === "e" || lastCharacterOfLastToken === "E") {
-            tokens = tokens.slice(0, tokens.length - 1);
-            return strip2(tokens);
+            tokens2 = tokens2.slice(0, tokens2.length - 1);
+            return strip2(tokens2);
           }
         case "string":
-          let tokenBeforeTheLastToken = tokens[tokens.length - 2];
+          let tokenBeforeTheLastToken = tokens2[tokens2.length - 2];
           if (tokenBeforeTheLastToken?.type === "delimiter") {
-            tokens = tokens.slice(0, tokens.length - 1);
-            return strip2(tokens);
+            tokens2 = tokens2.slice(0, tokens2.length - 1);
+            return strip2(tokens2);
           } else if (tokenBeforeTheLastToken?.type === "brace" && tokenBeforeTheLastToken.value === "{") {
-            tokens = tokens.slice(0, tokens.length - 1);
-            return strip2(tokens);
+            tokens2 = tokens2.slice(0, tokens2.length - 1);
+            return strip2(tokens2);
           }
           break;
         case "delimiter":
-          tokens = tokens.slice(0, tokens.length - 1);
-          return strip2(tokens);
+          tokens2 = tokens2.slice(0, tokens2.length - 1);
+          return strip2(tokens2);
           break;
       }
-      return tokens;
+      return tokens2;
     };
-    unstrip = (tokens) => {
+    unstrip = (tokens2) => {
       let tail = [];
-      tokens.map((token2) => {
+      tokens2.map((token2) => {
         if (token2.type === "brace") {
           if (token2.value === "{") {
             tail.push("}");
@@ -55995,23 +55995,23 @@ var init_parser = __esm({
       if (tail.length > 0) {
         tail.reverse().map((item) => {
           if (item === "}") {
-            tokens.push({
+            tokens2.push({
               type: "brace",
               value: "}"
             });
           } else if (item === "]") {
-            tokens.push({
+            tokens2.push({
               type: "paren",
               value: "]"
             });
           }
         });
       }
-      return tokens;
+      return tokens2;
     };
-    generate = (tokens) => {
+    generate = (tokens2) => {
       let output = "";
-      tokens.map((token2) => {
+      tokens2.map((token2) => {
         switch (token2.type) {
           case "string":
             output += '"' + token2.value + '"';
@@ -59955,7 +59955,7 @@ var init_client4 = __esm({
         const request = this.makeRequest(options, null, void 0);
         return new PagePromise(this, request, Page2);
       }
-      async fetchWithTimeout(url2, init, ms3, controller, requestOptions, logCtx) {
+      async fetchWithTimeout(url2, init, ms4, controller, requestOptions, logCtx) {
         const { signal, method, ...options } = init || {};
         const abort = this._makeAbort(controller);
         if (signal)
@@ -59972,7 +59972,7 @@ var init_client4 = __esm({
         }
         const baseFetch = this.fetch;
         const timedFetch = async (innerUrl, innerInit) => {
-          const timeout = setTimeout(abort, ms3);
+          const timeout = setTimeout(abort, ms4);
           try {
             return await baseFetch.call(void 0, innerUrl, innerInit);
           } finally {
@@ -61262,7 +61262,7 @@ function normalizeCategory(c) {
   if (/(home|house|address|utility|maintenance)/.test(s)) return "home";
   return "misc";
 }
-function ms2(d10) {
+function ms3(d10) {
   if (d10 == null) return 0;
   const t2 = d10 instanceof Date ? d10.getTime() : Number(d10);
   return Number.isFinite(t2) ? t2 : 0;
@@ -61270,7 +61270,7 @@ function ms2(d10) {
 function selectPersonalFacts(all, limit2 = 40) {
   return [...all].sort((a, b) => {
     const p = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
-    return p !== 0 ? p : ms2(b.createdAt) - ms2(a.createdAt);
+    return p !== 0 ? p : ms3(b.createdAt) - ms3(a.createdAt);
   }).slice(0, limit2);
 }
 function buildPersonalContext(facts, openItems = []) {
@@ -61294,7 +61294,7 @@ function buildPersonalContext(facts, openItems = []) {
   if (open3.length) {
     lines2.push("Open personal items:");
     for (const i of open3.slice(0, 20)) {
-      const due = i.dueDate ? ` (due ${new Date(ms2(i.dueDate)).toISOString().slice(0, 10)})` : "";
+      const due = i.dueDate ? ` (due ${new Date(ms3(i.dueDate)).toISOString().slice(0, 10)})` : "";
       lines2.push(`  - [${i.kind}] ${i.title}${due}`);
     }
   }
@@ -73297,8 +73297,8 @@ var Node = class _Node {
   #index;
   #varIndex;
   #children = /* @__PURE__ */ Object.create(null);
-  insert(tokens, index, paramMap, context, pathErrorCheckOnly) {
-    if (tokens.length === 0) {
+  insert(tokens2, index, paramMap, context, pathErrorCheckOnly) {
+    if (tokens2.length === 0) {
       if (this.#index !== void 0) {
         throw PATH_ERROR;
       }
@@ -73308,7 +73308,7 @@ var Node = class _Node {
       this.#index = index;
       return;
     }
-    const [token2, ...restTokens] = tokens;
+    const [token2, ...restTokens] = tokens2;
     const pattern = token2 === "*" ? restTokens.length === 0 ? ["", "", ONLY_WILDCARD_REG_EXP_STR] : ["", "", LABEL_REG_EXP_STR] : token2 === "/*" ? ["", "", TAIL_WILDCARD_REG_EXP_STR] : token2.match(/^\:([^\{\}]+)(?:\{(.+)\})?$/);
     let node;
     if (pattern) {
@@ -73396,17 +73396,17 @@ var Trie = class {
         break;
       }
     }
-    const tokens = path7.match(/(?::[^\/]+)|(?:\/\*$)|./g) || [];
+    const tokens2 = path7.match(/(?::[^\/]+)|(?:\/\*$)|./g) || [];
     for (let i = groups.length - 1; i >= 0; i--) {
       const [mark] = groups[i];
-      for (let j = tokens.length - 1; j >= 0; j--) {
-        if (tokens[j].indexOf(mark) !== -1) {
-          tokens[j] = tokens[j].replace(mark, groups[i][1]);
+      for (let j = tokens2.length - 1; j >= 0; j--) {
+        if (tokens2[j].indexOf(mark) !== -1) {
+          tokens2[j] = tokens2[j].replace(mark, groups[i][1]);
           break;
         }
       }
     }
-    this.#root.insert(tokens, index, paramAssoc, this.#context, pathErrorCheckOnly);
+    this.#root.insert(tokens2, index, paramAssoc, this.#context, pathErrorCheckOnly);
     return paramAssoc;
   }
   buildRegExp() {
@@ -74559,12 +74559,12 @@ function makeAsyncResource(thing, dispose) {
   return it;
 }
 var disposablePromiseTimerResult = /* @__PURE__ */ Symbol();
-function timerResource(ms3) {
+function timerResource(ms4) {
   let timer = null;
   return makeResource({ start() {
     if (timer) throw new Error("Timer already started");
     const promise2 = new Promise((resolve4) => {
-      timer = setTimeout(() => resolve4(disposablePromiseTimerResult), ms3);
+      timer = setTimeout(() => resolve4(disposablePromiseTimerResult), ms4);
     });
     return promise2;
   } }, () => {
@@ -76170,7 +76170,7 @@ var googleTasksRouter = createRouter({
   ).mutation(async ({ ctx, input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
     const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq3, and: and7, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    const { eq: eq3, and: and8, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const db = getDb2();
     const token2 = await getGoogleToken(ctx.user.id, ctx.db);
     if (!token2) {
@@ -76179,7 +76179,7 @@ var googleTasksRouter = createRouter({
         message: "No Google account connected. Connect Google in Integrations."
       });
     }
-    const where = input.clientId ? and7(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and7(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
+    const where = input.clientId ? and8(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and8(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
     const crmTasks = await db.select().from(tasks5).where(where);
     const results = [];
     for (const task of crmTasks.slice(0, 50)) {
@@ -79407,9 +79407,9 @@ var integrationRouter = createRouter({
     expiresAt: external_exports.date().optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const { id, ...tokens } = input;
+    const { id, ...tokens2 } = input;
     await db.update(connectedAccounts).set({
-      ...tokens,
+      ...tokens2,
       lastSyncedAt: /* @__PURE__ */ new Date()
     }).where(and(eq(connectedAccounts.id, id), eq(connectedAccounts.userId, ctx.user.id)));
     return { success: true };
@@ -85387,8 +85387,8 @@ function parseCsvTransactions(text2) {
     const f = splitCsvLine2(lines2[i]);
     if (!f.length) continue;
     const rawDate = dateI >= 0 ? f[dateI] : f[0];
-    const ms3 = parseDateLoose(rawDate);
-    if (ms3 == null) continue;
+    const ms4 = parseDateLoose(rawDate);
+    if (ms4 == null) continue;
     let amount = NaN;
     if (amtI >= 0 && f[amtI]) amount = num3(f[amtI]);
     if (!Number.isFinite(amount)) {
@@ -85399,7 +85399,7 @@ function parseCsvTransactions(text2) {
       if (dv || cv) amount = cv - dv;
     }
     if (!Number.isFinite(amount) || amount === 0) continue;
-    out.push({ date: rawDate, description: descI >= 0 ? f[descI] || "" : "", amount: money3(amount), _ms: ms3 });
+    out.push({ date: rawDate, description: descI >= 0 ? f[descI] || "" : "", amount: money3(amount), _ms: ms4 });
   }
   return out;
 }
@@ -85478,6 +85478,137 @@ var statementCodingRouter = createRouter({
       truncated
     };
     return { ok: true, rows: coded, summary };
+  })
+});
+
+// api/tasks-cleanup-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_schema();
+init_drizzle_orm();
+init_sync_hooks();
+
+// api/tasks-cleanup-core.ts
+var ms = (d10) => {
+  if (d10 == null) return null;
+  const t2 = d10 instanceof Date ? d10.getTime() : typeof d10 === "number" ? d10 : new Date(d10).getTime();
+  return Number.isNaN(t2) ? null : t2;
+};
+function tokens(title) {
+  const clean4 = (title || "").toLowerCase().replace(/\b20\d{2}\b/g, " ").replace(/\bq[1-4]\b/g, " ").replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\b/g, " ").replace(/[^a-z ]+/g, " ").replace(/\s+/g, " ").trim();
+  return new Set(clean4.split(" ").filter((w) => w.length > 2));
+}
+function similarity(a, b) {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  for (const t2 of a) if (b.has(t2)) inter++;
+  return inter / (a.size + b.size - inter);
+}
+function analyzeTasks(all, nowMs, opts) {
+  const staleDays = opts?.staleDays ?? 120;
+  const threshold = opts?.threshold ?? 0.6;
+  const open3 = all.filter((t2) => !t2.completed);
+  const byClient = /* @__PURE__ */ new Map();
+  for (const t2 of open3) {
+    const k = String(t2.clientId ?? "none");
+    if (!byClient.has(k)) byClient.set(k, []);
+    byClient.get(k).push(t2);
+  }
+  const nearDuplicates = [];
+  for (const group of byClient.values()) {
+    const used = /* @__PURE__ */ new Set();
+    const withTok = group.map((t2) => ({ t: t2, tok: tokens(t2.title) }));
+    for (let i = 0; i < withTok.length; i++) {
+      if (used.has(withTok[i].t.id)) continue;
+      const cluster = [withTok[i]];
+      for (let j = i + 1; j < withTok.length; j++) {
+        if (used.has(withTok[j].t.id)) continue;
+        if (similarity(withTok[i].tok, withTok[j].tok) >= threshold) cluster.push(withTok[j]);
+      }
+      if (cluster.length < 2) continue;
+      cluster.forEach((c) => used.add(c.t.id));
+      const days = new Set(cluster.map((c) => {
+        const m = ms(c.t.dueDate);
+        return m == null ? "none" : new Date(m).toISOString().slice(0, 10);
+      }));
+      if (days.size <= 1) continue;
+      const sorted = cluster.slice().sort((a, b) => (ms(a.t.dueDate) ?? Infinity) - (ms(b.t.dueDate) ?? Infinity) || a.t.id - b.t.id);
+      nearDuplicates.push({
+        clientId: sorted[0].t.clientId,
+        clientName: sorted[0].t.clientName,
+        keepId: sorted[0].t.id,
+        tasks: sorted.map((c) => ({ id: c.t.id, title: c.t.title, dueDate: ms(c.t.dueDate) }))
+      });
+    }
+  }
+  const undated = open3.filter((t2) => ms(t2.startDate) == null && ms(t2.dueDate) == null).map((t2) => ({ id: t2.id, clientId: t2.clientId, clientName: t2.clientName, title: t2.title }));
+  const staleOverdue = open3.map((t2) => ({ t: t2, due: ms(t2.dueDate) })).filter(({ due }) => due != null && (nowMs - due) / 864e5 >= staleDays).map(({ t: t2, due }) => ({ id: t2.id, clientId: t2.clientId, clientName: t2.clientName, title: t2.title, dueDate: due, ageDays: Math.round((nowMs - due) / 864e5) })).sort((a, b) => b.ageDays - a.ageDays);
+  return {
+    nearDuplicates,
+    undated,
+    staleOverdue,
+    summary: {
+      nearDuplicateGroups: nearDuplicates.length,
+      nearDuplicateExtra: nearDuplicates.reduce((s, g) => s + (g.tasks.length - 1), 0),
+      undated: undated.length,
+      staleOverdue: staleOverdue.length
+    }
+  };
+}
+
+// api/tasks-cleanup-router.ts
+async function visibleTasks(ctx) {
+  const db = getDb();
+  const { role, id: userId, name: name2, email: email3 } = ctx.user;
+  const all = role === "admin" || role === "senior_bookkeeper";
+  const rows = all ? await db.select().from(tasks) : await db.select().from(tasks).where(or(eq(tasks.userId, userId), eq(tasks.assignedTo, name2 || email3)));
+  const dead = await db.select({ id: clients.id }).from(clients).where(or(eq(clients.status, "inactive"), eq(clients.status, "archived")));
+  const deadIds = new Set(dead.map((c) => c.id));
+  return rows.filter((t2) => !t2.clientId || !deadIds.has(t2.clientId));
+}
+var tasksCleanupRouter = createRouter({
+  /** Read-only scan: find near-duplicate, undated, and long-stale open tasks. */
+  scan: authedQuery.input(external_exports.object({ staleDays: external_exports.number().min(30).max(730).optional() }).optional()).query(async ({ ctx, input }) => {
+    const db = getDb();
+    const rows = await visibleTasks(ctx);
+    const clientRows = await db.select({ id: clients.id, name: clients.name }).from(clients);
+    const nameById = new Map(clientRows.map((c) => [c.id, c.name]));
+    const mapped = rows.map((t2) => ({
+      id: t2.id,
+      clientId: t2.clientId,
+      clientName: t2.clientId ? nameById.get(t2.clientId) ?? null : null,
+      title: t2.title,
+      startDate: t2.startDate,
+      dueDate: t2.dueDate,
+      completed: t2.completed,
+      priority: t2.priority
+    }));
+    const result = analyzeTasks(mapped, Date.now(), { staleDays: input?.staleDays ?? 120 });
+    return { ...result, totalOpen: mapped.filter((t2) => !t2.completed).length };
+  }),
+  /** Mark the ticked tasks complete (preserves history — used for stale-overdue). */
+  bulkComplete: authedQuery.input(external_exports.object({ ids: external_exports.array(external_exports.number()).min(1) })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const allowed = new Set((await visibleTasks(ctx)).map((t2) => t2.id));
+    const ids = input.ids.filter((id) => allowed.has(id));
+    if (!ids.length) return { ok: true, updated: 0 };
+    const now = /* @__PURE__ */ new Date();
+    await db.update(tasks).set({ completed: true, completedAt: now, status: "completed", updatedAt: now }).where(inArray(tasks.id, ids));
+    for (const id of ids) {
+      const row = (await db.select().from(tasks).where(eq(tasks.id, id)).limit(1))[0];
+      if (row) syncUpdate("tasks", row);
+    }
+    return { ok: true, updated: ids.length };
+  }),
+  /** Delete the ticked tasks (used for confirmed near-duplicate extras). */
+  bulkDelete: authedQuery.input(external_exports.object({ ids: external_exports.array(external_exports.number()).min(1) })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const allowed = new Set((await visibleTasks(ctx)).map((t2) => t2.id));
+    const ids = input.ids.filter((id) => allowed.has(id));
+    if (!ids.length) return { ok: true, deleted: 0 };
+    await db.delete(tasks).where(inArray(tasks.id, ids));
+    return { ok: true, deleted: ids.length };
   })
 });
 
@@ -86253,13 +86384,13 @@ init_google_token();
 init_email_core();
 
 // api/learning-core.ts
-function ms(d10) {
+function ms2(d10) {
   if (d10 == null) return 0;
   const t2 = d10 instanceof Date ? d10.getTime() : Number(d10);
   return Number.isFinite(t2) ? t2 : 0;
 }
 function selectRelevant(all, agent, limit2 = 15) {
-  return all.filter((l) => l.scope === agent || l.scope === "all").sort((a, b) => ms(b.createdAt) - ms(a.createdAt)).slice(0, limit2);
+  return all.filter((l) => l.scope === agent || l.scope === "all").sort((a, b) => ms2(b.createdAt) - ms2(a.createdAt)).slice(0, limit2);
 }
 function formatLessonsBlock(lessons) {
   if (!lessons.length) return "";
@@ -90419,6 +90550,7 @@ var appRouter = createRouter({
   intercoRecharge: intercoRechargeRouter,
   vendorRules: vendorRulesRouter,
   statementCoding: statementCodingRouter,
+  tasksCleanup: tasksCleanupRouter,
   cleanup: cleanupRouter,
   group: groupRouter,
   practiceHealth: practiceHealthRouter,
@@ -90641,8 +90773,8 @@ function createOAuthCallbackHandler() {
     if (!code) return c.json({ error: "code is required" }, 400);
     try {
       const clientId = process.env.GOOGLE_CLIENT_ID || "";
-      const tokens = await exchangeGoogleCode(code);
-      const userInfo = await getGoogleUserInfo(tokens.access_token);
+      const tokens2 = await exchangeGoogleCode(code);
+      const userInfo = await getGoogleUserInfo(tokens2.access_token);
       const unionId = `google_${userInfo.sub}`;
       await upsertGoogleUser(unionId, userInfo.name, userInfo.email);
       const token2 = await signSessionToken({ unionId, clientId });
@@ -90728,7 +90860,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.210";
+var BUILD_TAG = "2026-06-27.211";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -91956,7 +92088,7 @@ app.post("/api/admin/figgy", async (c) => {
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -92069,7 +92201,7 @@ app.post("/api/admin/figgy", async (c) => {
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq3(signatureDocuments2.id, docId));
         }
-        const signedCount = (await db.select().from(signatureDocuments2).where(and7(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
+        const signedCount = (await db.select().from(signatureDocuments2).where(and8(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
         steps.push(`signed ${signedCount}/2 documents`);
         await db.update(clients4).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients4.id, cl.id));
         const res = await createClientTaskRules2({
@@ -92569,7 +92701,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and7, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and8, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const matches = await db.select().from(clients4).where(like3(clients4.name, "%Doc King%"));
       for (const cl of matches) {
@@ -92577,7 +92709,7 @@ async function startServer() {
           await db.update(clients4).set({ clientType: "wholesale" }).where(eq3(clients4.id, cl.id));
         }
         await db.update(clientTaskRules4).set({ active: false }).where(eq3(clientTaskRules4.clientId, cl.id));
-        await db.delete(tasks5).where(and7(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
+        await db.delete(tasks5).where(and8(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
       }
     } catch (e) {
       console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e);
@@ -92585,7 +92717,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and7, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq3, and: and8, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
         const matches = await db.select().from(clients4).where(like3(clients4.name, nameLike));
@@ -92636,7 +92768,7 @@ async function startServer() {
       };
       for (const cl of orig) {
         for (const [last, ytd] of Object.entries(origYtd)) {
-          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and7(eq3(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
+          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and8(eq3(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
         }
       }
     } catch (e) {

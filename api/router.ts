@@ -51,6 +51,7 @@ import { intercoRouter } from "./interco-router";
 import { intercoRechargeRouter } from "./interco-recharge-router";
 import { vendorRulesRouter } from "./vendor-rules-router";
 import { statementCodingRouter } from "./statement-coding-router";
+import { tasksCleanupRouter } from "./tasks-cleanup-router";
 import { cleanupRouter } from "./cleanup-router";
 import { groupRouter } from "./group-router";
 import { practiceHealthRouter } from "./practice-health-router";
@@ -139,6 +140,7 @@ export const appRouter = createRouter({
   intercoRecharge: intercoRechargeRouter,
   vendorRules: vendorRulesRouter,
   statementCoding: statementCodingRouter,
+  tasksCleanup: tasksCleanupRouter,
   cleanup: cleanupRouter,
   group: groupRouter,
   practiceHealth: practiceHealthRouter,
