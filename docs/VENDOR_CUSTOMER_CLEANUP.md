@@ -41,3 +41,34 @@ Same idea for customer cards, BUT scoped:
 
 Effort: medium. Reuses the vendor brain + the QBO write path (contact write-back already
 exists per CLAUDE.md). The customer side is new but small.
+
+## 3. Vendor default account FROM HISTORY → AUTO-POST RULES (Markie, 2026-06-27)
+The default account is derived from the vendor's **own QBO history** — and this already
+exists: `qboVendorHistory` pulls a vendor's prior bills, `decideCoding` reads the account
+they consistently used, cached in `vendorMemory`. The new ask:
+- **Turn consistent history into an auto-post RULE.** If a vendor's history is uniform
+  (e.g. **Bell Canada** always → a utilities/telecom expense account), Fig should code it
+  automatically at high confidence (🟢) — **don't make Markie re-decide a recurring
+  operating expense every time.** Utilities/telecom/rent/subscriptions are the obvious set.
+- **Vendor Rules view** (Tools on the Workspace, or a firm-wide page): list each vendor +
+  its locked-in default account + tax code; Markie confirms/edits once → it auto-applies on
+  every future post. A confirmed rule = green every time, no review needed.
+- **QBO note:** QuickBooks' native **Bank Rules are NOT fully exposed via the API** (can't
+  reliably create them programmatically), so **Figgy applies the rule itself** on the
+  posting path (vendorMemory is the rule store). Optionally surface "set this as a QBO Bank
+  Rule too" as a manual step for Markie.
+- Confidence gate stays: a vendor with *inconsistent* history is NOT auto-ruled — it goes
+  to review (the existing 🟡/🔴 path). Only clean, repeating vendors become silent rules.
+
+## 4. Marketing research use → SKYE (Markie, 2026-06-27)
+The cleaned vendor (and customer) dataset is also wanted for **marketing research**. Once
+the cards are enriched + consistent, hand the dataset to **Skye** (social/marketing agent)
+to mine for research/segmentation. Backlog under Skye's area. (Per-client isolation +
+privacy still apply — aggregate/anonymize before any cross-client analysis.)
+
+## Already built vs to-build
+- ✅ History-based vendor coding (vendor brain + vendorMemory).
+- ▢ Promote consistent history → auto-post RULE (no re-review) + a Vendor Rules view.
+- ▢ Vendor card contact/address write-back to QBO.
+- ▢ Customer enrichment (regular companies only; skip Stripe/PayPal companies).
+- ▢ Skye marketing-research pass over the cleaned dataset.
