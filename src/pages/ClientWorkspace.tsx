@@ -11,6 +11,7 @@ import BackButton from "@/components/BackButton";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 import PaymentSourceCard from "@/components/PaymentSourceCard";
 import IntercoRechargePanel from "@/components/IntercoRechargePanel";
+import VendorRulesPanel from "@/components/VendorRulesPanel";
 import {
   ClientCloseChecklist, ClientHstReviewCard, EmployeesCard, ContactsCard, GroupCard, ClientRequestsCard,
 } from "./ClientDashboard";
@@ -203,9 +204,10 @@ export default function ClientWorkspace() {
             </Section>
           )}
 
-          {(hasRecharge || hasInterco || isGroup) && (
-            <Section id={`${id}-tools`} title="Tools" subtitle="recharge, interco journal, duplicates" defaultOpen={hasRecharge || hasInterco}>
+          {(hasRecharge || hasInterco || isGroup || active) && (
+            <Section id={`${id}-tools`} title="Tools" subtitle="vendor rules, recharge, interco journal, duplicates" defaultOpen={hasRecharge || hasInterco}>
               <div className="space-y-3">
+                <VendorRulesPanel clientId={id} />
                 {hasRecharge && (
                   <div>
                     <div className="text-xs font-semibold text-slate-500 mb-1">Recharge invoice</div>
