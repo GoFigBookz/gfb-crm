@@ -45,6 +45,10 @@ const COLUMNS: Array<[string, string]> = [
   ["quoteAmount", "real"], ["quoteSentAt", "integer"], ["quoteApprovedAt", "integer"],
   ["transactionsPerMonth", "integer DEFAULT 0"],
   ["engagementSentAt", "integer"], ["engagementSignedAt", "integer"], ["engagementLetterUrl", "text"],
+  ["depositReceivedAt", "integer"],                 // onboarding gate: workflow stays off until signed + paid
+  ["closeSteps", "text"],                           // per-client month-end-close step selection (JSON array of fields)
+  ["hasRecharge", "integer DEFAULT 0"],             // recharge-invoice tool flag (Alderson)
+  ["craBusinessNumber", "text"], ["craPulledAt", "integer"],   // CRA / government program-account pull (onboarding)
   ["assignedTo", "text"], ["oneDriveFolderId", "text"],
   ["payrollRpNumber", "text"], ["driveFolderUrl", "text"], ["clientInfoDocUrl", "text"], ["nextPayday", "text"],
   ["qboCustomerId", "text"], ["qboConnectionId", "integer"], ["qboRealmId", "text"],

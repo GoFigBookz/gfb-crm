@@ -1593,6 +1593,10 @@ export function ClientCloseChecklist({ clientId }: { clientId: number }) {
   const toggle = trpc.monthlyClose.toggleItem.useMutation({ onSuccess: invalidateClose });
   const markAll = trpc.monthlyClose.markAll.useMutation({ onSuccess: invalidateClose });
   const setCC = trpc.monthlyClose.setHasCreditCard.useMutation({ onSuccess: invalidateClose });
+  // Per-client step trimming — only the steps this client actually needs.
+  const [customizing, setCustomizing] = useState(false);
+  const { data: stepConfig } = trpc.monthlyClose.getStepConfig.useQuery({ clientId }, { enabled: clientId > 0 && customizing });
+  const setSteps = trpc.monthlyClose.setStepConfig.useMutation({ onSuccess: () => { invalidateClose(); utils.monthlyClose.getStepConfig.invalidate({ clientId }); } });
   const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const pct = checklist?.completionPercent ?? 0;
   const done = pct === 100;
@@ -1640,13 +1644,36 @@ export function ClientCloseChecklist({ clientId }: { clientId: number }) {
               Has credit cards
             </label>
           )}
-          {checklist && (
-            <Button size="sm" variant="outline" className="h-7 text-xs" disabled={markAll.isPending}
-              onClick={() => markAll.mutate({ id: checklist.id, done: !done })}>
-              <CheckCircle className="h-3.5 w-3.5 mr-1" /> {done ? "Clear all" : "Mark all done"}
+          <div className="flex items-center gap-1.5">
+            <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-500" onClick={() => setCustomizing((c) => !c)}>
+              {customizing ? "Done customizing" : "Customize steps"}
             </Button>
-          )}
+            {checklist && (
+              <Button size="sm" variant="outline" className="h-7 text-xs" disabled={markAll.isPending}
+                onClick={() => markAll.mutate({ id: checklist.id, done: !done })}>
+                <CheckCircle className="h-3.5 w-3.5 mr-1" /> {done ? "Clear all" : "Mark all done"}
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* TRIM: tick only the close steps this client needs. Defaults to the sensible
+            flag-driven set — untick the few that don't apply. */}
+        {customizing && stepConfig && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-2 space-y-1">
+            <div className="text-[11px] text-slate-500">Tick the steps this client's close needs — only these show. (Defaults to the standard set; trim what doesn't apply.)</div>
+            {stepConfig.map((s: any) => (
+              <label key={s.field} className="flex items-center gap-2 text-sm py-0.5 cursor-pointer">
+                <input type="checkbox" checked={s.enabled} disabled={setSteps.isPending}
+                  onChange={(e) => {
+                    const next = stepConfig.filter((x: any) => (x.field === s.field ? e.target.checked : x.enabled)).map((x: any) => x.field);
+                    setSteps.mutate({ clientId, fields: next });
+                  }} />
+                <span className={s.enabled ? "text-slate-700" : "text-slate-400"}>{s.label}</span>
+              </label>
+            ))}
+          </div>
+        )}
         <Progress value={pct} className="h-2 mb-1" />
         {(items || []).map((item: any) => {
           const checked = (checklist as any)?.[item.field] === true || (checklist as any)?.[item.field] === 1;
