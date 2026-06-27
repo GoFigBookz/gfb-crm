@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { Search, Send, Reply, Star, MailOpen, Mail, Trash2, Plus, ChevronLeft, Paperclip, X, User, Building2, Inbox, Send as SentIcon, Star as StarredIcon, Clock, FileText } from "lucide-react";
+import { Search, Send, Reply, Star, MailOpen, Mail, Trash2, Plus, ChevronLeft, Paperclip, X, User, Building2, Inbox, Send as SentIcon, Star as StarredIcon, Clock, FileText, RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,21 @@ export default function Emails() {
 
   const { data: clients } = trpc.crmClient.list.useQuery();
   const { data: connectedAccounts } = trpc.integration.list.useQuery();
+
+  // Gmail auto-sync. Uses the FIRM-WIDE Google account accessor (same proven path the
+  // Calendar uses) so it works regardless of which user row the OAuth landed on. Runs
+  // once automatically on page load + an explicit "Sync" button — no hunting on Integrations.
+  const { data: firmAcct } = trpc.googleSync.firmAccount.useQuery();
+  const googleAcct = firmAcct?.connected ? firmAcct : null;
+  const syncGmail = trpc.googleSync.syncGmail.useMutation({
+    onSuccess: () => { utils.email.list.invalidate(); utils.email.stats.invalidate(); },
+  });
+  const doSync = () => { if (googleAcct?.id) syncGmail.mutate({ accountId: googleAcct.id, maxResults: 100 }); };
+  const [autoSynced, setAutoSynced] = useState(false);
+  useEffect(() => {
+    if (googleAcct && !autoSynced) { setAutoSynced(true); doSync(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleAcct, autoSynced]);
   const { data: clientEmails } = trpc.email.getClientEmails.useQuery(
     { clientId: selectedClient! },
     { enabled: !!selectedClient }
@@ -141,10 +156,35 @@ export default function Emails() {
             ) : "Loading..."}
           </p>
         </div>
-        <Button className="bg-lime-500" onClick={() => setComposeOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" /> Compose
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={doSync} disabled={!googleAcct || syncGmail.isPending} title={googleAcct ? "Pull your Gmail into the CRM (keeps only client emails)" : "Connect Google in Integrations first"}>
+            <RefreshCw className={cn("h-4 w-4 mr-2", syncGmail.isPending && "animate-spin")} />
+            {syncGmail.isPending ? "Syncing…" : "Sync Gmail"}
+          </Button>
+          <Button className="bg-lime-500" onClick={() => setComposeOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" /> Compose
+          </Button>
+        </div>
       </div>
+
+      {/* Sync status — shows the result so it's never a mystery whether it ran. */}
+      {!googleAcct && (
+        <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" /> No Google account connected — connect it in <Link to="/integrations" className="underline font-medium">Integrations</Link>, then come back.
+        </div>
+      )}
+      {syncGmail.isError && (
+        <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-2.5">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" /> Gmail sync failed: {(syncGmail.error as any)?.message || "unknown error"}
+        </div>
+      )}
+      {syncGmail.data && (
+        <div className="text-xs text-slate-500">
+          Last sync: pulled <b>{syncGmail.data.synced}</b> new client email{syncGmail.data.synced === 1 ? "" : "s"}
+          {typeof syncGmail.data.skippedNonClient === "number" && <> · skipped {syncGmail.data.skippedNonClient} non-client of {syncGmail.data.totalInBatch}</>}.
+          {syncGmail.data.synced === 0 && syncGmail.data.skippedNonClient > 0 && <span className="text-amber-600"> (Inbox shows client emails only — the skipped ones weren't to/from a client on file.)</span>}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Email List */}
@@ -411,6 +451,15 @@ export default function Emails() {
               />
             </div>
 
+            {sendEmail.isError && (
+              <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-2.5">
+                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span>Couldn't send: {(sendEmail.error as any)?.message || "unknown error"}</span>
+              </div>
+            )}
+            {!composeForm.connectedAccountId && (
+              <p className="text-xs text-amber-600">Pick the account to send <b>from</b> at the top of this form first.</p>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setComposeOpen(false)}>
                 <X className="h-4 w-4 mr-1" /> Cancel
