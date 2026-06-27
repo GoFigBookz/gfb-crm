@@ -7,7 +7,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft, FileStack,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked, Brain,
+  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked, Brain, Sun,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -51,6 +51,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
   // Work — the daily close cockpit: where things stand + what to do next.
   const workItems = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+    { to: "/plan", icon: Sun, label: "Plan My Day" },
     { to: "/month-end-close", icon: Gauge, label: "Month-End Close" },
     { to: "/cash-watch", icon: Wallet, label: "Cash Watch" },
     { to: "/triage", icon: ShieldCheck, label: "Ask Markie" },
