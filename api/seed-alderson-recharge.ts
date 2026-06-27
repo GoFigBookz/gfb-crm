@@ -61,6 +61,10 @@ export async function seedAldersonRecharge(): Promise<void> {
     const clientId = cl[0]?.id;
     if (!clientId) { console.warn("[alderson-recharge] no Alderson client — skipping"); return; }
 
+    // Alderson gets BOTH the recharge-invoice tool AND the interco-journal section
+    // (Markie 2026-06-27) — surface them on the new Workspace via the intake flags.
+    try { await db.run(sql`UPDATE clients SET hasRecharge=1, hasIntercoJournals=1 WHERE id=${clientId}`); } catch { /* columns guarded on boot */ }
+
     // (1) Prefill the recharge config (idempotent upsert). Reciprocal clearing: the
     // settlement transfer hits Alderson's "Holdings clearing account" and Holdings'
     // "Alderson Development clearing account" — both reconciled to zero each quarter.

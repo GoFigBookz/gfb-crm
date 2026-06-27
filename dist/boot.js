@@ -22725,6 +22725,18 @@ var init_schema = __esm({
       // Related entities billed back monthly → needs an inter-company journal
       // reconciliation every month. Drives the interco_monthly task.
       hasIntercoJournals: integer2("hasIntercoJournals", { mode: "boolean" }).default(false),
+      // Recharge-invoice tool (e.g. Alderson → Holdings). Surfaces the recharge section.
+      hasRecharge: integer2("hasRecharge", { mode: "boolean" }).default(false),
+      // Per-client month-end-close step selection (JSON array of step field names). Null = default set.
+      closeSteps: text("closeSteps"),
+      // HST filing frequency + fiscal year-end month (drive the HST period math).
+      hstFilingFrequency: text("hstFilingFrequency"),
+      fiscalYearEndMonth: integer2("fiscalYearEndMonth"),
+      // CRA / government program accounts captured at onboarding (the "pull from CRA" step).
+      craBusinessNumber: text("craBusinessNumber"),
+      craPulledAt: integer2("craPulledAt"),
+      // Onboarding gate: workflow stays off until the engagement is signed AND a deposit is in.
+      depositReceivedAt: integer2("depositReceivedAt"),
       // Quote & Engagement Letter
       quoteAmount: real("quoteAmount"),
       quoteSentAt: integer2("quoteSentAt", { mode: "timestamp" }),
@@ -64756,6 +64768,10 @@ async function seedAldersonRecharge() {
       console.warn("[alderson-recharge] no Alderson client \u2014 skipping");
       return;
     }
+    try {
+      await db.run(sql`UPDATE clients SET hasRecharge=1, hasIntercoJournals=1 WHERE id=${clientId}`);
+    } catch {
+    }
     await db.run(sql`INSERT INTO interco_recharge_config
       (payerClientId, counterpartyName, revenueAccount, expenseAccount, payerClearingAccount, counterpartyClearingAccount, hstRatePct, chargeHst, zeroOutExpenses, updatedAt)
       VALUES (${clientId}, 'Ovita Holdings Inc.', 'Sales', 'Alderson Project Management Costs', 'Holdings clearing account', 'Alderson Development clearing account', 13, 1, 1, ${Date.now()})
@@ -78639,6 +78655,14 @@ var clientRouter = createRouter({
     payrollCraComparison: external_exports.boolean().optional(),
     payrollHoursSource: external_exports.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
     hasIntercoJournals: external_exports.boolean().optional(),
+    hasRecharge: external_exports.boolean().optional(),
+    hasCreditCard: external_exports.boolean().optional(),
+    hstFilingFrequency: external_exports.enum(["monthly", "quarterly", "annual"]).optional(),
+    fiscalYearEndMonth: external_exports.number().int().min(1).max(12).optional(),
+    // CRA / government program accounts + onboarding gate timestamps.
+    craBusinessNumber: external_exports.string().optional(),
+    craPulledAt: external_exports.number().nullable().optional(),
+    depositReceivedAt: external_exports.number().nullable().optional(),
     // Bookkeeping workflow (how Figs processes this client)
     usesHubdoc: external_exports.boolean().optional(),
     bankSource: external_exports.enum(["bank_feed", "manual"]).optional(),
@@ -90360,7 +90384,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.205";
+var BUILD_TAG = "2026-06-27.206";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

@@ -346,6 +346,14 @@ export const clientRouter = createRouter({
       payrollCraComparison: z.boolean().optional(),
       payrollHoursSource: z.enum(["manual", "jobber", "touchbistro", "clockify", "qbo_autopay"]).optional(),
       hasIntercoJournals: z.boolean().optional(),
+      hasRecharge: z.boolean().optional(),
+      hasCreditCard: z.boolean().optional(),
+      hstFilingFrequency: z.enum(["monthly", "quarterly", "annual"]).optional(),
+      fiscalYearEndMonth: z.number().int().min(1).max(12).optional(),
+      // CRA / government program accounts + onboarding gate timestamps.
+      craBusinessNumber: z.string().optional(),
+      craPulledAt: z.number().nullable().optional(),
+      depositReceivedAt: z.number().nullable().optional(),
       // Bookkeeping workflow (how Figs processes this client)
       usesHubdoc: z.boolean().optional(),
       bankSource: z.enum(["bank_feed", "manual"]).optional(),
