@@ -267,10 +267,11 @@ export default function Assistant() {
     <div className="flex flex-col h-[calc(100vh-2rem)] max-w-2xl mx-auto">
       {agentsOffline && (
         <div className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          <p className="font-semibold">The agents are offline.</p>
+          <p className="font-semibold">Brain-only mode (AI model off)</p>
           <p className="text-xs mt-0.5">
-            The whole team runs on one key — <code className="bg-amber-100 px-1 rounded">ANTHROPIC_API_KEY</code> isn't set on the server, so Fig, Sage, Liv and the rest can't reply yet.
-            Add it in Railway → your service → Variables, then redeploy. (Get the key at console.anthropic.com → API Keys.)
+            The conversational model (<code className="bg-amber-100 px-1 rounded">ANTHROPIC_API_KEY</code>) isn't set, so the team can't chat open-endedly — but they still work from the Brain.
+            Try <b>“agenda”</b>, <b>“firm status”</b>, <b>“system health”</b>, <b>“scorecard”</b>, or <b>“add task …”</b>.
+            For full conversation, add the key in Railway → Variables and redeploy (key: console.anthropic.com → API Keys).
           </p>
         </div>
       )}

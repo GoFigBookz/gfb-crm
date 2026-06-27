@@ -32,7 +32,7 @@ const ACTION_TOOLS = new Set(["add_task", "add_personal", "add_life_item", "sche
 
 const TZ = "America/Toronto";
 import { parseTaskCommand } from "./task-command-core";
-import { ASSISTANT_TOOLS, formatAgenda, detectAgent, frontDeskSystem, AGENT_ROSTER, type AgentKey } from "./assistant-core";
+import { ASSISTANT_TOOLS, formatAgenda, detectAgent, detectIntent, frontDeskSystem, AGENT_ROSTER, type AgentKey } from "./assistant-core";
 
 
 async function execAddTask(text: string, userId: number): Promise<string> {
@@ -393,6 +393,40 @@ async function runTool(name: string, input: any, userId: number, activeAgent: st
   }
 }
 
+/**
+ * OPERATIONAL FALLBACK — when the conversational model is unavailable (no key /
+ * credits off / API error), still DO the job from the live CRM: route the message
+ * to a deterministic tool (agenda / firm status / health / scorecard / add task).
+ * Returns null when no operational intent matches (then we try the knowledge Brain).
+ */
+async function brainToolFallback(message: string, agent: AgentKey, userId: number): Promise<{ reply: string; actions: string[] } | null> {
+  const intent = detectIntent(message);
+  if (!intent) return null;
+  const out = await runTool(intent.tool, intent.tool === "add_task" ? { text: intent.text } : {}, userId, agent);
+  const name = AGENT_ROSTER[agent].name;
+  const actions = intent.tool === "add_task" ? [out] : [];
+  return { reply: `${name} — ${out}`, actions };
+}
+
+/**
+ * FULL BRAIN ANSWER (no model): operational CRM tools FIRST (agenda/firm status/…),
+ * then the knowledge Brain (brainAsk over seeded firm knowledge). Returns the reply
+ * + any actions, or null if neither can help (caller shows the brain-only help).
+ */
+async function brainAnswer(message: string, agent: AgentKey, userId: number): Promise<{ reply: string; actions: string[] } | null> {
+  const tool = await brainToolFallback(message, agent, userId);
+  if (tool) return tool;
+  const known = await brainFallback(message, userId);   // knowledge Brain (brainAsk)
+  if (known) return { reply: `${AGENT_ROSTER[agent].name} — ${known}`, actions: [] };
+  return null;
+}
+
+/** The honest "model is off" note, with what the Brain CAN still do. */
+function brainOnlyHelp(agent: AgentKey): string {
+  const name = AGENT_ROSTER[agent].name;
+  return `${name} — the AI model is off right now, so I can't chat open-endedly, but I can still work from the Brain. Try: “agenda”, “firm status” (what needs posting / who's behind), “system health”, “scorecard”, or “add task …”. Turn the model back on (ANTHROPIC_API_KEY) for full conversation.`;
+}
+
 export const assistantRouter = createRouter({
   // Is the agent brain actually online? The whole team runs on ANTHROPIC_API_KEY;
   // when it's not set every agent can only reply "needs the key", which reads like
@@ -425,7 +459,11 @@ export const assistantRouter = createRouter({
       // Who is Markie addressing? An explicit name in the message wins; else stay
       // with the agent the UI last had (sticky); else default to Fig.
       const agent: AgentKey = detectAgent(input.message, input.agent ?? null);
-      if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [] as string[], agent };
+      if (!apiKey) {
+        // No model — still DO the job from the Brain (agenda/firm status/health/…).
+        const fb = await brainAnswer(input.message, agent, ctx.user.id);
+        return fb ? { ...fb, agent, degraded: true } : { reply: brainOnlyHelp(agent), actions: [] as string[], agent, degraded: true };
+      }
       // Must be a tool-capable model — Haiku snapshots reject programmatic tool
       // calling (that 400 broke the whole chatbot). Sonnet handles tools + is the
       // right balance for an all-day assistant.
@@ -526,9 +564,9 @@ export const assistantRouter = createRouter({
           }
           console.error("[assistant] API error", { name: err?.name, status: err?.status, message: err?.message });
           if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.APIConnectionError) {
-            const fromBrain = await brainFallback(input.message, ctx.user.id);
-            if (fromBrain) { await saveTurn(fromBrain); return { reply: fromBrain, actions, agent }; }
-            return { reply: err instanceof Anthropic.AuthenticationError ? "The AI key isn't valid — check ANTHROPIC_API_KEY on the server. (I can still answer from the Brain in the meantime.)" : "Couldn't reach the AI just now — retry, or ask me something that's in the Brain.", actions, agent };
+            const fromBrain = await brainAnswer(input.message, agent, ctx.user.id);
+            if (fromBrain) { await saveTurn(fromBrain.reply); return { reply: fromBrain.reply, actions: [...actions, ...fromBrain.actions], agent }; }
+            return { reply: brainOnlyHelp(agent), actions, agent };
           }
           if (err instanceof Anthropic.RateLimitError) return { reply: "The AI is rate-limited right now — give it a minute and try again.", actions, agent };
           if (err instanceof Anthropic.InternalServerError) return { reply: "The AI is briefly overloaded — try again in a sec.", actions, agent };
@@ -536,9 +574,9 @@ export const assistantRouter = createRouter({
           // from the Brain so the chat keeps working (Markie's ask: "fix it or just
           // work from the brain"). Only mention billing if the Brain can't help.
           if (/credit balance|too low|billing|insufficient (funds|credit)|purchase credits/i.test(err?.message || "")) {
-            const fromBrain = await brainFallback(input.message, ctx.user.id);
-            if (fromBrain) { await saveTurn(fromBrain); return { reply: fromBrain, actions, agent }; }
-            return { reply: "That one needs the live AI and the Anthropic credits are out — but I can still answer anything that's in the Brain. (To restore full chat: console.anthropic.com → Plans & Billing.)", actions, agent };
+            const fromBrain = await brainAnswer(input.message, agent, ctx.user.id);
+            if (fromBrain) { await saveTurn(fromBrain.reply); return { reply: fromBrain.reply, actions: [...actions, ...fromBrain.actions], agent }; }
+            return { reply: "That one needs the live AI and the Anthropic credits are out — but I can still answer anything that's in the Brain (agenda, firm status, system health, add task). To restore full chat: console.anthropic.com → Plans & Billing.", actions, agent };
           }
           const msg = err instanceof Anthropic.APIError ? `${err.status ?? ""} ${err.message}`.trim() : (err?.message || "unknown error");
           return { reply: `Snag talking to the AI: ${msg}`, actions, agent };

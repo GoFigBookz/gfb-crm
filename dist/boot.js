@@ -86805,6 +86805,26 @@ function detectAgent(message2, current) {
   }
   return current ?? "liv";
 }
+function detectIntent(message2) {
+  const m = (message2 || "").toLowerCase().trim();
+  if (!m) return null;
+  const addTask = m.match(/^(?:hey \w+[ ,]*)?(?:can you |please )?(?:add|create|make|new)\b.*\btask\b[:\-]?\s*(.*)$/i) || m.match(/^(?:hey \w+[ ,]*)?remind me to\s+(.*)$/i);
+  if (addTask) {
+    let text2 = (addTask[1] || "").trim();
+    const toIdx = m.search(/\bto\b/);
+    if ((!text2 || text2.length < 3) && toIdx >= 0) text2 = message2.slice(toIdx + 3).trim();
+    if (text2 && text2.length >= 2) return { tool: "add_task", text: text2 };
+  }
+  if (/\b(agenda|what(?:'s| is| do i have)?\b.*\b(today|day|on\b.*\bplate|coming up|this week)|my (day|schedule)|what'?s on)\b/.test(m) || /^what(?:'s| is) (next|due)/.test(m))
+    return { tool: "get_agenda" };
+  if (/\b(system )?health\b|are we (up|online|working|running|down)|is (everything|the (app|system|site)) (ok|okay|working|up|down)|status of the (app|system|site)/.test(m))
+    return { tool: "system_health" };
+  if (/\bscorecard\b|how (are|is) (the )?(agents?|team)\b.*(doing|performing)|agent performance/.test(m))
+    return { tool: "agent_scorecard" };
+  if (/\b(firm status|what needs (posting|review|doing)|who'?s behind|where (do|are) (my |the )?clients?|open items|triage|month[- ]?end|outstanding|how (are|is) (my |the )?(clients?|books|firm))\b/.test(m))
+    return { tool: "firm_status" };
+  return null;
+}
 function frontDeskSystem(agent) {
   const a = AGENT_ROSTER[agent];
   const team = Object.keys(AGENT_ROSTER).map((k) => `${AGENT_ROSTER[k].name} (${AGENT_ROSTER[k].role})`).join(", ");
@@ -87377,6 +87397,25 @@ async function runTool(name2, input, userId, activeAgent) {
     return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
   }
 }
+async function brainToolFallback(message2, agent, userId) {
+  const intent = detectIntent(message2);
+  if (!intent) return null;
+  const out = await runTool(intent.tool, intent.tool === "add_task" ? { text: intent.text } : {}, userId, agent);
+  const name2 = AGENT_ROSTER[agent].name;
+  const actions = intent.tool === "add_task" ? [out] : [];
+  return { reply: `${name2} \u2014 ${out}`, actions };
+}
+async function brainAnswer(message2, agent, userId) {
+  const tool = await brainToolFallback(message2, agent, userId);
+  if (tool) return tool;
+  const known = await brainFallback(message2, userId);
+  if (known) return { reply: `${AGENT_ROSTER[agent].name} \u2014 ${known}`, actions: [] };
+  return null;
+}
+function brainOnlyHelp(agent) {
+  const name2 = AGENT_ROSTER[agent].name;
+  return `${name2} \u2014 the AI model is off right now, so I can't chat open-endedly, but I can still work from the Brain. Try: \u201Cagenda\u201D, \u201Cfirm status\u201D (what needs posting / who's behind), \u201Csystem health\u201D, \u201Cscorecard\u201D, or \u201Cadd task \u2026\u201D. Turn the model back on (ANTHROPIC_API_KEY) for full conversation.`;
+}
 var assistantRouter = createRouter({
   // Is the agent brain actually online? The whole team runs on ANTHROPIC_API_KEY;
   // when it's not set every agent can only reply "needs the key", which reads like
@@ -87404,7 +87443,10 @@ var assistantRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     const agent = detectAgent(input.message, input.agent ?? null);
-    if (!apiKey) return { reply: "The assistant needs ANTHROPIC_API_KEY set on the server.", actions: [], agent };
+    if (!apiKey) {
+      const fb = await brainAnswer(input.message, agent, ctx.user.id);
+      return fb ? { ...fb, agent, degraded: true } : { reply: brainOnlyHelp(agent), actions: [], agent, degraded: true };
+    }
     const model = process.env.FIGGY_ASSISTANT_MODEL || "claude-sonnet-4-6";
     const nowLine = `Current date & time: ${(/* @__PURE__ */ new Date()).toLocaleString("en-CA", { timeZone: "America/Toronto", dateStyle: "full", timeStyle: "short" })} (America/Toronto).`;
     const locLine = input.location ? `Markie's CURRENT location (live from his device \u2014 he travels, so this is where he is right now): latitude ${input.location.lat}, longitude ${input.location.lon}${input.location.label ? ` (${input.location.label})` : ""}. Use it for "near me"/local questions (weather, stores, hours) \u2014 search around this spot.` : `Markie travels and his location is UNKNOWN right now. If a question needs where he is ("near me", local weather/stores/hours), briefly ASK what city he's in before answering \u2014 do NOT assume a town.`;
@@ -87474,22 +87516,22 @@ var assistantRouter = createRouter({
           }
           console.error("[assistant] API error", { name: err?.name, status: err?.status, message: err?.message });
           if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.APIConnectionError) {
-            const fromBrain = await brainFallback(input.message, ctx.user.id);
+            const fromBrain = await brainAnswer(input.message, agent, ctx.user.id);
             if (fromBrain) {
-              await saveTurn(fromBrain);
-              return { reply: fromBrain, actions, agent };
+              await saveTurn(fromBrain.reply);
+              return { reply: fromBrain.reply, actions: [...actions, ...fromBrain.actions], agent };
             }
-            return { reply: err instanceof Anthropic.AuthenticationError ? "The AI key isn't valid \u2014 check ANTHROPIC_API_KEY on the server. (I can still answer from the Brain in the meantime.)" : "Couldn't reach the AI just now \u2014 retry, or ask me something that's in the Brain.", actions, agent };
+            return { reply: brainOnlyHelp(agent), actions, agent };
           }
           if (err instanceof Anthropic.RateLimitError) return { reply: "The AI is rate-limited right now \u2014 give it a minute and try again.", actions, agent };
           if (err instanceof Anthropic.InternalServerError) return { reply: "The AI is briefly overloaded \u2014 try again in a sec.", actions, agent };
           if (/credit balance|too low|billing|insufficient (funds|credit)|purchase credits/i.test(err?.message || "")) {
-            const fromBrain = await brainFallback(input.message, ctx.user.id);
+            const fromBrain = await brainAnswer(input.message, agent, ctx.user.id);
             if (fromBrain) {
-              await saveTurn(fromBrain);
-              return { reply: fromBrain, actions, agent };
+              await saveTurn(fromBrain.reply);
+              return { reply: fromBrain.reply, actions: [...actions, ...fromBrain.actions], agent };
             }
-            return { reply: "That one needs the live AI and the Anthropic credits are out \u2014 but I can still answer anything that's in the Brain. (To restore full chat: console.anthropic.com \u2192 Plans & Billing.)", actions, agent };
+            return { reply: "That one needs the live AI and the Anthropic credits are out \u2014 but I can still answer anything that's in the Brain (agenda, firm status, system health, add task). To restore full chat: console.anthropic.com \u2192 Plans & Billing.", actions, agent };
           }
           const msg = err instanceof Anthropic.APIError ? `${err.status ?? ""} ${err.message}`.trim() : err?.message || "unknown error";
           return { reply: `Snag talking to the AI: ${msg}`, actions, agent };
@@ -90919,7 +90961,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.212";
+var BUILD_TAG = "2026-06-27.213";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

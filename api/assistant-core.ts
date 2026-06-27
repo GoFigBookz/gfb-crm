@@ -128,6 +128,59 @@ export function detectAgent(message: string, current?: AgentKey | null): AgentKe
   return current ?? "liv";
 }
 
+/**
+ * BRAIN-ONLY FALLBACK (Markie 2026-06-27: "the agents shouldn't be dead just
+ * because the AI model/API is off — they should answer from the Brain").
+ * ---------------------------------------------------------------------------
+ * Maps a plain message to ONE deterministic CRM/Brain action that runs straight
+ * off the database — NO language model needed. Used whenever the conversational
+ * model is unavailable (no key / credits off / API error) so the team still DOES
+ * its job: agenda, firm status, system health, scorecard, and quick "add task".
+ * Open-ended conversation still needs the model and returns null here.
+ */
+export type BrainIntent =
+  | { tool: "get_agenda" }
+  | { tool: "firm_status" }
+  | { tool: "system_health" }
+  | { tool: "agent_scorecard" }
+  | { tool: "add_task"; text: string }
+  | null;
+
+export function detectIntent(message: string): BrainIntent {
+  const m = (message || "").toLowerCase().trim();
+  if (!m) return null;
+
+  // "add a task to call the client" / "remind me to file HST" → add_task
+  const addTask = m.match(/^(?:hey \w+[ ,]*)?(?:can you |please )?(?:add|create|make|new)\b.*\btask\b[:\-]?\s*(.*)$/i)
+    || m.match(/^(?:hey \w+[ ,]*)?remind me to\s+(.*)$/i);
+  if (addTask) {
+    // pull the actual task text: after "to", after "task", or the trailing capture
+    let text = (addTask[1] || "").trim();
+    const toIdx = m.search(/\bto\b/);
+    if ((!text || text.length < 3) && toIdx >= 0) text = message.slice(toIdx + 3).trim();
+    if (text && text.length >= 2) return { tool: "add_task", text };
+  }
+
+  // Agenda / "what do I have today"
+  if (/\b(agenda|what(?:'s| is| do i have)?\b.*\b(today|day|on\b.*\bplate|coming up|this week)|my (day|schedule)|what'?s on)\b/.test(m)
+      || /^what(?:'s| is) (next|due)/.test(m))
+    return { tool: "get_agenda" };
+
+  // System health / "is everything working"
+  if (/\b(system )?health\b|are we (up|online|working|running|down)|is (everything|the (app|system|site)) (ok|okay|working|up|down)|status of the (app|system|site)/.test(m))
+    return { tool: "system_health" };
+
+  // Agent scorecard / "how are the agents doing"
+  if (/\bscorecard\b|how (are|is) (the )?(agents?|team)\b.*(doing|performing)|agent performance/.test(m))
+    return { tool: "agent_scorecard" };
+
+  // Firm status / what needs posting / who's behind (the cockpit question)
+  if (/\b(firm status|what needs (posting|review|doing)|who'?s behind|where (do|are) (my |the )?clients?|open items|triage|month[- ]?end|outstanding|how (are|is) (my |the )?(clients?|books|firm))\b/.test(m))
+    return { tool: "firm_status" };
+
+  return null;
+}
+
 /** Build the system prompt for the addressed agent (base tools + persona). */
 export function frontDeskSystem(agent: AgentKey): string {
   const a = AGENT_ROSTER[agent];
