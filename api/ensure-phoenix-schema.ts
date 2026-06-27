@@ -62,6 +62,19 @@ export async function ensurePhoenixSchema(): Promise<void> {
     createdAt integer
   )`);
 
+  // Legal / estate documents — guided Q&A → generated DRAFT (will, POAs, succession…).
+  await guard("legal_documents", sql`CREATE TABLE IF NOT EXISTS legal_documents (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    docType text NOT NULL,           -- will | poa_property | poa_care | business_succession | account_directive
+    title text,
+    answers text,                    -- JSON of the Q&A answers
+    body text,                       -- generated draft text (editable)
+    status text DEFAULT 'draft',     -- draft | finalized
+    createdAt integer,
+    updatedAt integer
+  )`);
+
   // Reseller engine: Skye-drafted listings per product/channel (draft → listed).
   await guard("side_listings", sql`CREATE TABLE IF NOT EXISTS side_listings (
     id integer PRIMARY KEY AUTOINCREMENT,

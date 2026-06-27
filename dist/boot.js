@@ -386,7 +386,7 @@ function isRouter(value) {
 }
 function createRouterFactory(config2) {
   function createRouterInner(input) {
-    const reservedWordsUsed = new Set(Object.keys(input).filter((v) => reservedWords.includes(v)));
+    const reservedWordsUsed = new Set(Object.keys(input).filter((v2) => reservedWords.includes(v2)));
     if (reservedWordsUsed.size > 0) throw new Error("Reserved words used in `router({})` call: " + Array.from(reservedWordsUsed).join(", "));
     const procedures = emptyObject();
     const lazy$1 = emptyObject();
@@ -758,8 +758,8 @@ function assertNever(_x) {
 function assert(_) {
 }
 function getEnumValues(entries) {
-  const numericValues = Object.values(entries).filter((v) => typeof v === "number");
-  const values = Object.entries(entries).filter(([k, _]) => numericValues.indexOf(+k) === -1).map(([_, v]) => v);
+  const numericValues = Object.values(entries).filter((v2) => typeof v2 === "number");
+  const values = Object.entries(entries).filter(([k, _]) => numericValues.indexOf(+k) === -1).map(([_, v2]) => v2);
   return values;
 }
 function joinValues(array3, separator = "|") {
@@ -819,9 +819,9 @@ function defineLazy(object3, key11, getter) {
       }
       return value;
     },
-    set(v) {
+    set(v2) {
       Object.defineProperty(object3, key11, {
-        value: v
+        value: v2
         // configurable: true,
       });
     },
@@ -1470,14 +1470,14 @@ function toDotPath(_path) {
   return segs.join("");
 }
 function prettifyError(error48) {
-  const lines2 = [];
+  const lines3 = [];
   const issues = [...error48.issues].sort((a, b) => (a.path ?? []).length - (b.path ?? []).length);
   for (const issue2 of issues) {
-    lines2.push(`\u2716 ${issue2.message}`);
+    lines3.push(`\u2716 ${issue2.message}`);
     if (issue2.path?.length)
-      lines2.push(`  \u2192 at ${toDotPath(issue2.path)}`);
+      lines3.push(`  \u2192 at ${toDotPath(issue2.path)}`);
   }
-  return lines2.join("\n");
+  return lines3.join("\n");
 }
 var initializer, $ZodError, $ZodRealError;
 var init_errors = __esm({
@@ -2343,9 +2343,9 @@ var init_doc = __esm({
           return;
         }
         const content = arg;
-        const lines2 = content.split("\n").filter((x) => x);
-        const minIndent = Math.min(...lines2.map((x) => x.length - x.trimStart().length));
-        const dedented = lines2.map((x) => x.slice(minIndent)).map((x) => " ".repeat(this.indent * 2) + x);
+        const lines3 = content.split("\n").filter((x) => x);
+        const minIndent = Math.min(...lines3.map((x) => x.length - x.trimStart().length));
+        const dedented = lines3.map((x) => x.slice(minIndent)).map((x) => " ".repeat(this.indent * 2) + x);
         for (const line of dedented) {
           this.content.push(line);
         }
@@ -2354,8 +2354,8 @@ var init_doc = __esm({
         const F2 = Function;
         const args = this?.args;
         const content = this?.content ?? [``];
-        const lines2 = [...content.map((x) => `  ${x}`)];
-        return new F2(...args, lines2.join("\n"));
+        const lines3 = [...content.map((x) => `  ${x}`)];
+        return new F2(...args, lines3.join("\n"));
       }
     };
   }
@@ -2891,10 +2891,10 @@ var init_schemas = __esm({
           v7: 7,
           v8: 8
         };
-        const v = versionMap[def.version];
-        if (v === void 0)
+        const v2 = versionMap[def.version];
+        if (v2 === void 0)
           throw new Error(`Invalid UUID version: "${def.version}"`);
-        def.pattern ?? (def.pattern = uuid(v));
+        def.pattern ?? (def.pattern = uuid(v2));
       } else
         def.pattern ?? (def.pattern = uuid());
       $ZodStringFormat.init(inst, def);
@@ -3361,8 +3361,8 @@ var init_schemas = __esm({
           const field = shape[key11]._zod;
           if (field.values) {
             propValues[key11] ?? (propValues[key11] = /* @__PURE__ */ new Set());
-            for (const v of field.values)
-              propValues[key11].add(v);
+            for (const v2 of field.values)
+              propValues[key11].add(v2);
           }
         }
         return propValues;
@@ -3586,10 +3586,10 @@ var init_schemas = __esm({
           const pv = option._zod.propValues;
           if (!pv || Object.keys(pv).length === 0)
             throw new Error(`Invalid discriminated union option at index "${def.options.indexOf(option)}"`);
-          for (const [k, v] of Object.entries(pv)) {
+          for (const [k, v2] of Object.entries(pv)) {
             if (!propValues[k])
               propValues[k] = /* @__PURE__ */ new Set();
-            for (const val of v) {
+            for (const val of v2) {
               propValues[k].add(val);
             }
           }
@@ -3603,11 +3603,11 @@ var init_schemas = __esm({
           const values = o._zod.propValues?.[def.discriminator];
           if (!values || values.size === 0)
             throw new Error(`Invalid discriminated union option at index "${def.options.indexOf(o)}"`);
-          for (const v of values) {
-            if (map2.has(v)) {
-              throw new Error(`Duplicate discriminator value "${String(v)}"`);
+          for (const v2 of values) {
+            if (map2.has(v2)) {
+              throw new Error(`Duplicate discriminator value "${String(v2)}"`);
             }
-            map2.set(v, o);
+            map2.set(v2, o);
           }
         }
         return map2;
@@ -4054,8 +4054,8 @@ var init_schemas = __esm({
     $ZodNonOptional = /* @__PURE__ */ $constructor("$ZodNonOptional", (inst, def) => {
       $ZodType.init(inst, def);
       defineLazy(inst._zod, "values", () => {
-        const v = def.innerType._zod.values;
-        return v ? new Set([...v].filter((x) => x !== void 0)) : void 0;
+        const v2 = def.innerType._zod.values;
+        return v2 ? new Set([...v2].filter((x) => x !== void 0)) : void 0;
       });
       inst._zod.parse = (payload, ctx) => {
         const result = def.innerType._zod.run(payload, ctx);
@@ -6289,7 +6289,7 @@ var init_he = __esm({
             if (issue2.values.length === 1) {
               return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05E2\u05E8\u05DA \u05D7\u05D9\u05D9\u05D1 \u05DC\u05D4\u05D9\u05D5\u05EA ${stringifyPrimitive(issue2.values[0])}`;
             }
-            const stringified = issue2.values.map((v) => stringifyPrimitive(v));
+            const stringified = issue2.values.map((v2) => stringifyPrimitive(v2));
             if (issue2.values.length === 2) {
               return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05D0\u05E4\u05E9\u05E8\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D5\u05EA \u05D4\u05DF ${stringified[0]} \u05D0\u05D5 ${stringified[1]}`;
             }
@@ -11097,7 +11097,7 @@ function _set(Class2, valueType, params) {
 }
 // @__NO_SIDE_EFFECTS__
 function _enum(Class2, values, params) {
-  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
+  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v2) => [v2, v2])) : values;
   return new Class2({
     type: "enum",
     entries,
@@ -11302,8 +11302,8 @@ function _stringbool(Classes, _params) {
   let truthyArray = params.truthy ?? ["true", "1", "yes", "on", "y", "enabled"];
   let falsyArray = params.falsy ?? ["false", "0", "no", "off", "n", "disabled"];
   if (params.case !== "sensitive") {
-    truthyArray = truthyArray.map((v) => typeof v === "string" ? v.toLowerCase() : v);
-    falsyArray = falsyArray.map((v) => typeof v === "string" ? v.toLowerCase() : v);
+    truthyArray = truthyArray.map((v2) => typeof v2 === "string" ? v2.toLowerCase() : v2);
+    falsyArray = falsyArray.map((v2) => typeof v2 === "string" ? v2.toLowerCase() : v2);
   }
   const truthySet = new Set(truthyArray);
   const falsySet = new Set(falsyArray);
@@ -11910,9 +11910,9 @@ var init_json_schema_processors = __esm({
     enumProcessor = (schema, _ctx, json2, _params) => {
       const def = schema._zod.def;
       const values = getEnumValues(def.entries);
-      if (values.every((v) => typeof v === "number"))
+      if (values.every((v2) => typeof v2 === "number"))
         json2.type = "number";
-      if (values.every((v) => typeof v === "string"))
+      if (values.every((v2) => typeof v2 === "string"))
         json2.type = "string";
       json2.enum = values;
     };
@@ -11945,13 +11945,13 @@ var init_json_schema_processors = __esm({
           json2.const = val;
         }
       } else {
-        if (vals.every((v) => typeof v === "number"))
+        if (vals.every((v2) => typeof v2 === "number"))
           json2.type = "number";
-        if (vals.every((v) => typeof v === "string"))
+        if (vals.every((v2) => typeof v2 === "string"))
           json2.type = "string";
-        if (vals.every((v) => typeof v === "boolean"))
+        if (vals.every((v2) => typeof v2 === "boolean"))
           json2.type = "boolean";
-        if (vals.every((v) => v === null))
+        if (vals.every((v2) => v2 === null))
           json2.type = "null";
         json2.enum = vals;
       }
@@ -12046,11 +12046,11 @@ var init_json_schema_processors = __esm({
       }
       const allKeys = new Set(Object.keys(shape));
       const requiredKeys = new Set([...allKeys].filter((key11) => {
-        const v = def.shape[key11]._zod;
+        const v2 = def.shape[key11]._zod;
         if (ctx.io === "input") {
-          return v.optin === void 0;
+          return v2.optin === void 0;
         } else {
-          return v.optout === void 0;
+          return v2.optout === void 0;
         }
       }));
       if (requiredKeys.size > 0) {
@@ -12170,7 +12170,7 @@ var init_json_schema_processors = __esm({
       }
       const keyValues = keyType._zod.values;
       if (keyValues) {
-        const validKeyValues = [...keyValues].filter((v) => typeof v === "string" || typeof v === "number");
+        const validKeyValues = [...keyValues].filter((v2) => typeof v2 === "string" || typeof v2 === "number");
         if (validKeyValues.length > 0) {
           json2.required = validKeyValues;
         }
@@ -13273,7 +13273,7 @@ function set(valueType, params) {
   });
 }
 function _enum2(values, params) {
-  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
+  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v2) => [v2, v2])) : values;
   return new ZodEnum({
     type: "enum",
     entries,
@@ -14212,10 +14212,10 @@ function convertBaseSchema(schema, ctx) {
     if (enumValues.length === 1) {
       return z.literal(enumValues[0]);
     }
-    if (enumValues.every((v) => typeof v === "string")) {
+    if (enumValues.every((v2) => typeof v2 === "string")) {
       return z.enum(enumValues);
     }
-    const literalSchemas = enumValues.map((v) => z.literal(v));
+    const literalSchemas = enumValues.map((v2) => z.literal(v2));
     if (literalSchemas.length < 2) {
       return literalSchemas[0];
     }
@@ -15397,8 +15397,8 @@ var init_custom_transformer_registry = __esm({
       register(transformer) {
         this.transfomers[transformer.name] = transformer;
       }
-      findApplicable(v) {
-        return find(this.transfomers, (transformer) => transformer.isApplicable(v));
+      findApplicable(v2) {
+        return find(this.transfomers, (transformer) => transformer.isApplicable(v2));
       }
       findByName(name2) {
         return this.transfomers[name2];
@@ -15516,36 +15516,36 @@ var init_transformer = __esm({
     init_util2();
     simpleRules = [
       simpleTransformation(isUndefined, "undefined", () => null, () => void 0),
-      simpleTransformation(isBigint, "bigint", (v) => v.toString(), (v) => {
+      simpleTransformation(isBigint, "bigint", (v2) => v2.toString(), (v2) => {
         if (typeof BigInt !== "undefined") {
-          return BigInt(v);
+          return BigInt(v2);
         }
         console.error("Please add a BigInt polyfill.");
-        return v;
+        return v2;
       }),
-      simpleTransformation(isDate, "Date", (v) => v.toISOString(), (v) => new Date(v)),
-      simpleTransformation(isError, "Error", (v, superJson) => {
+      simpleTransformation(isDate, "Date", (v2) => v2.toISOString(), (v2) => new Date(v2)),
+      simpleTransformation(isError, "Error", (v2, superJson) => {
         const baseError = {
-          name: v.name,
-          message: v.message
+          name: v2.name,
+          message: v2.message
         };
-        if ("cause" in v) {
-          baseError.cause = v.cause;
+        if ("cause" in v2) {
+          baseError.cause = v2.cause;
         }
         superJson.allowedErrorProps.forEach((prop) => {
-          baseError[prop] = v[prop];
+          baseError[prop] = v2[prop];
         });
         return baseError;
-      }, (v, superJson) => {
-        const e = new Error(v.message, { cause: v.cause });
-        e.name = v.name;
-        e.stack = v.stack;
+      }, (v2, superJson) => {
+        const e = new Error(v2.message, { cause: v2.cause });
+        e.name = v2.name;
+        e.stack = v2.stack;
         superJson.allowedErrorProps.forEach((prop) => {
-          e[prop] = v[prop];
+          e[prop] = v2[prop];
         });
         return e;
       }),
-      simpleTransformation(isRegExp, "regexp", (v) => "" + v, (regex) => {
+      simpleTransformation(isRegExp, "regexp", (v2) => "" + v2, (regex) => {
         const body = regex.slice(1, regex.lastIndexOf("/"));
         const flags = regex.slice(regex.lastIndexOf("/") + 1);
         return new RegExp(body, flags);
@@ -15555,24 +15555,24 @@ var init_transformer = __esm({
         "set",
         // (sets only exist in es6+)
         // eslint-disable-next-line es5/no-es6-methods
-        (v) => [...v.values()],
-        (v) => new Set(v)
+        (v2) => [...v2.values()],
+        (v2) => new Set(v2)
       ),
-      simpleTransformation(isMap, "map", (v) => [...v.entries()], (v) => new Map(v)),
-      simpleTransformation((v) => isNaNValue(v) || isInfinite(v), "number", (v) => {
-        if (isNaNValue(v)) {
+      simpleTransformation(isMap, "map", (v2) => [...v2.entries()], (v2) => new Map(v2)),
+      simpleTransformation((v2) => isNaNValue(v2) || isInfinite(v2), "number", (v2) => {
+        if (isNaNValue(v2)) {
           return "NaN";
         }
-        if (v > 0) {
+        if (v2 > 0) {
           return "Infinity";
         } else {
           return "-Infinity";
         }
       }, Number),
-      simpleTransformation((v) => v === 0 && 1 / v === -Infinity, "number", () => {
+      simpleTransformation((v2) => v2 === 0 && 1 / v2 === -Infinity, "number", () => {
         return "-0";
       }, Number),
-      simpleTransformation(isURL, "URL", (v) => v.toString(), (v) => new URL(v))
+      simpleTransformation(isURL, "URL", (v2) => v2.toString(), (v2) => new URL(v2))
     ];
     symbolRule = compositeTransformation((s, superJson) => {
       if (isSymbol(s)) {
@@ -15583,7 +15583,7 @@ var init_transformer = __esm({
     }, (s, superJson) => {
       const identifier = superJson.symbolRegistry.getIdentifier(s);
       return ["symbol", identifier];
-    }, (v) => v.description, (_, a, superJson) => {
+    }, (v2) => v2.description, (_, a, superJson) => {
       const value = superJson.symbolRegistry.getValue(a[1]);
       if (!value) {
         throw new Error("Trying to deserialize unknown symbol");
@@ -15604,12 +15604,12 @@ var init_transformer = __esm({
       obj[ctor.name] = ctor;
       return obj;
     }, {});
-    typedArrayRule = compositeTransformation(isTypedArray, (v) => ["typed-array", v.constructor.name], (v) => [...v], (v, a) => {
+    typedArrayRule = compositeTransformation(isTypedArray, (v2) => ["typed-array", v2.constructor.name], (v2) => [...v2], (v2, a) => {
       const ctor = constructorToName[a[1]];
       if (!ctor) {
         throw new Error("Trying to deserialize unknown typed array");
       }
-      return new ctor(v);
+      return new ctor(v2);
     });
     classRule = compositeTransformation(isInstanceOfRegisteredClass, (clazz, superJson) => {
       const identifier = superJson.classRegistry.getIdentifier(clazz.constructor);
@@ -15624,12 +15624,12 @@ var init_transformer = __esm({
         result[prop] = clazz[prop];
       });
       return result;
-    }, (v, a, superJson) => {
+    }, (v2, a, superJson) => {
       const clazz = superJson.classRegistry.getValue(a[1]);
       if (!clazz) {
         throw new Error(`Trying to deserialize unknown class '${a[1]}' - check https://github.com/blitz-js/superjson/issues/116#issuecomment-773996564`);
       }
-      return Object.assign(Object.create(clazz.prototype), v);
+      return Object.assign(Object.create(clazz.prototype), v2);
     });
     customRule = compositeTransformation((value, superJson) => {
       return !!superJson.customTransformerRegistry.findApplicable(value);
@@ -15639,12 +15639,12 @@ var init_transformer = __esm({
     }, (value, superJson) => {
       const transformer = superJson.customTransformerRegistry.findApplicable(value);
       return transformer.serialize(value);
-    }, (v, a, superJson) => {
+    }, (v2, a, superJson) => {
       const transformer = superJson.customTransformerRegistry.findByName(a[1]);
       if (!transformer) {
         throw new Error("Trying to deserialize unknown custom value");
       }
-      return transformer.deserialize(v);
+      return transformer.deserialize(v2);
     });
     compositeRules = [classRule, symbolRule, customRule, typedArrayRule];
     transformValue = (value, superJson) => {
@@ -15842,7 +15842,7 @@ function traverse(tree, walker2, version4, origin = []) {
 }
 function applyValueAnnotations(plain, annotations, version4, superJson) {
   traverse(annotations, (type2, path7) => {
-    plain = setDeep(plain, path7, (v) => untransformValue(v, type2, superJson));
+    plain = setDeep(plain, path7, (v2) => untransformValue(v2, type2, superJson));
   }, version4);
   return plain;
 }
@@ -16116,11 +16116,11 @@ var init_dist4 = __esm({
       parse(string5) {
         return this.deserialize(JSON.parse(string5), { inPlace: true });
       }
-      registerClass(v, options) {
-        this.classRegistry.register(v, options);
+      registerClass(v2, options) {
+        this.classRegistry.register(v2, options);
       }
-      registerSymbol(v, identifier) {
-        this.symbolRegistry.register(v, identifier);
+      registerSymbol(v2, identifier) {
+        this.symbolRegistry.register(v2, identifier);
       }
       registerCustom(transformer, name2) {
         this.customTransformerRegistry.register({
@@ -16808,11 +16808,11 @@ var init_common = __esm({
         if (typeof value === "string") {
           value = parsePgArray(value);
         }
-        return value.map((v) => this.baseColumn.mapFromDriverValue(v));
+        return value.map((v2) => this.baseColumn.mapFromDriverValue(v2));
       }
       mapToDriverValue(value, isNestedArray = false) {
         const a = value.map(
-          (v) => v === null ? null : is(this.baseColumn, _PgArray) ? this.baseColumn.mapToDriverValue(v, true) : this.baseColumn.mapToDriverValue(v)
+          (v2) => v2 === null ? null : is(this.baseColumn, _PgArray) ? this.baseColumn.mapToDriverValue(v2, true) : this.baseColumn.mapToDriverValue(v2)
         );
         if (isNestedArray) return a;
         return makePgArray(a);
@@ -19024,7 +19024,7 @@ function inArray(column, values) {
     if (values.length === 0) {
       return sql`false`;
     }
-    return sql`${column} in ${values.map((v) => bindIfParam(v, column))}`;
+    return sql`${column} in ${values.map((v2) => bindIfParam(v2, column))}`;
   }
   return sql`${column} in ${bindIfParam(values, column)}`;
 }
@@ -19033,7 +19033,7 @@ function notInArray(column, values) {
     if (values.length === 0) {
       return sql`true`;
     }
-    return sql`${column} not in ${values.map((v) => bindIfParam(v, column))}`;
+    return sql`${column} not in ${values.map((v2) => bindIfParam(v2, column))}`;
   }
   return sql`${column} not in ${bindIfParam(values, column)}`;
 }
@@ -19706,7 +19706,7 @@ var init_dialect = __esm({
             const entries = Object.entries(field._.selectedFields);
             if (entries.length === 1) {
               const entry = entries[0][1];
-              const fieldDecoder = is(entry, SQL) ? entry.decoder : is(entry, Column) ? { mapFromDriverValue: (v) => entry.mapFromDriverValue(v) } : entry.sql.decoder;
+              const fieldDecoder = is(entry, SQL) ? entry.decoder : is(entry, Column) ? { mapFromDriverValue: (v2) => entry.mapFromDriverValue(v2) } : entry.sql.decoder;
               if (fieldDecoder) field._.sql.decoder = fieldDecoder;
             }
             chunk.push(field);
@@ -25033,9 +25033,9 @@ var init_base64 = __esm({
       const s = src.replace(/\s+/g, "").replace(/={0,2}$/, "");
       return !/[^\s0-9a-zA-Z\+/]/.test(s) || !/[^\s0-9a-zA-Z\-_]/.test(s);
     };
-    _noEnum = (v) => {
+    _noEnum = (v2) => {
       return {
-        value: v,
+        value: v2,
         enumerable: false,
         writable: true,
         configurable: true
@@ -25295,10 +25295,10 @@ var require_dist = __commonJS({
       if (k2 === void 0) k2 = k;
       o[k2] = m[k];
     }));
-    var __setModuleDefault = exports && exports.__setModuleDefault || (Object.create ? (function(o, v) {
-      Object.defineProperty(o, "default", { enumerable: true, value: v });
-    }) : function(o, v) {
-      o["default"] = v;
+    var __setModuleDefault = exports && exports.__setModuleDefault || (Object.create ? (function(o, v2) {
+      Object.defineProperty(o, "default", { enumerable: true, value: v2 });
+    }) : function(o, v2) {
+      o["default"] = v2;
     });
     var __importStar = exports && exports.__importStar || function(mod) {
       if (mod && mod.__esModule) return mod;
@@ -28695,7 +28695,7 @@ var require_extension = __commonJS({
             Object.keys(params).map((k) => {
               let values = params[k];
               if (!Array.isArray(values)) values = [values];
-              return values.map((v) => v === true ? k : `${k}=${v}`).join("; ");
+              return values.map((v2) => v2 === true ? k : `${k}=${v2}`).join("; ");
             })
           ).join("; ");
         }).join(", ");
@@ -34980,7 +34980,7 @@ var init_session2 = __esm({
         return rows.map((row) => {
           return mapResultRow(
             this.fields,
-            Array.prototype.slice.call(row).map((v) => normalizeFieldValue(v)),
+            Array.prototype.slice.call(row).map((v2) => normalizeFieldValue(v2)),
             this.joinsNotNullableMap
           );
         });
@@ -35014,7 +35014,7 @@ var init_session2 = __esm({
         }
         return mapResultRow(
           this.fields,
-          Array.prototype.slice.call(row).map((v) => normalizeFieldValue(v)),
+          Array.prototype.slice.call(row).map((v2) => normalizeFieldValue(v2)),
           this.joinsNotNullableMap
         );
       }
@@ -35263,12 +35263,12 @@ function taskSuggestSystem() {
 }
 function buildRawMessage(opts) {
   const from = opts.fromName ? `${opts.fromName} <${opts.fromEmail}>` : opts.fromEmail;
-  const lines2 = [
+  const lines3 = [
     `From: ${from}`,
     `To: ${opts.to}`
   ];
-  if (opts.cc) lines2.push(`Cc: ${opts.cc}`);
-  lines2.push(
+  if (opts.cc) lines3.push(`Cc: ${opts.cc}`);
+  lines3.push(
     `Subject: ${opts.subject}`,
     "MIME-Version: 1.0",
     'Content-Type: text/html; charset="UTF-8"',
@@ -35276,7 +35276,7 @@ function buildRawMessage(opts) {
     "",
     opts.html
   );
-  return base64url3(lines2.join("\r\n"));
+  return base64url3(lines3.join("\r\n"));
 }
 var GENERIC_EMAIL_DOMAINS;
 var init_email_core = __esm({
@@ -37216,10 +37216,10 @@ var require_main = __commonJS({
     var LINE = /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/mg;
     function parse7(src) {
       const obj = {};
-      let lines2 = src.toString();
-      lines2 = lines2.replace(/\r\n?/mg, "\n");
+      let lines3 = src.toString();
+      lines3 = lines3.replace(/\r\n?/mg, "\n");
       let match2;
-      while ((match2 = LINE.exec(lines2)) != null) {
+      while ((match2 = LINE.exec(lines3)) != null) {
         const key11 = match2[1];
         let value = match2[2] || "";
         value = value.trim();
@@ -37876,11 +37876,11 @@ async function pushToSheets(table, record2) {
       }
     }
     const row = headers.map((col) => {
-      const v = record2[col];
-      if (v === void 0 || v === null) return "";
-      if (typeof v === "boolean") return v ? "1" : "0";
-      if (v instanceof Date) return v.toISOString();
-      return String(v);
+      const v2 = record2[col];
+      if (v2 === void 0 || v2 === null) return "";
+      if (typeof v2 === "boolean") return v2 ? "1" : "0";
+      if (v2 instanceof Date) return v2.toISOString();
+      return String(v2);
     });
     if (rowIndex >= 0) {
       const sheetRow = rowIndex + 1;
@@ -39188,16 +39188,16 @@ __export(master_sheet_sync_exports, {
   upsertClientToMaster: () => upsertClientToMaster,
   upsertLeadToMaster: () => upsertLeadToMaster
 });
-function cadenceIn(v) {
-  const s = v.toLowerCase();
+function cadenceIn(v2) {
+  const s = v2.toLowerCase();
   if (!s) return null;
   if (s.includes("month")) return "monthly";
   if (s.includes("quart") || s.includes("qrtly")) return "quarterly";
   if (s.includes("annual") || s.includes("year")) return "annual";
   return null;
 }
-function payInF(v) {
-  const s = v.toLowerCase().replace(/\s+/g, "-");
+function payInF(v2) {
+  const s = v2.toLowerCase().replace(/\s+/g, "-");
   if (!s) return null;
   if (s.includes("bi-week")) return "bi-weekly";
   if (s.includes("week")) return "weekly";
@@ -39206,16 +39206,16 @@ function payInF(v) {
   if (s.includes("self")) return "self";
   return null;
 }
-function remitIn(v) {
-  const s = v.toLowerCase();
+function remitIn(v2) {
+  const s = v2.toLowerCase();
   if (!s) return null;
   if (s.includes("threshold") || s.includes("acceler")) return "accelerated";
   if (s.includes("quart")) return "quarterly";
   if (s.includes("regular")) return "regular";
   return null;
 }
-function statusInF(v) {
-  const s = v.toLowerCase().trim();
+function statusInF(v2) {
+  const s = v2.toLowerCase().trim();
   return ["active", "inactive", "prospect", "lead"].includes(s) ? s : null;
 }
 function resolveColumns(header2) {
@@ -39360,9 +39360,9 @@ async function upsertClientToMaster(c) {
     for (const f of MASTER_FIELDS) {
       const ci = cols.get(f.key);
       if (ci == null) continue;
-      const v = f.toSheet(c);
-      if (f.soft) out[ci] = v ?? (existing[ci] ?? "");
-      else out[ci] = v ?? (matchIdx >= 0 ? existing[ci] ?? "" : "");
+      const v2 = f.toSheet(c);
+      if (f.soft) out[ci] = v2 ?? (existing[ci] ?? "");
+      else out[ci] = v2 ?? (matchIdx >= 0 ? existing[ci] ?? "" : "");
     }
     const last = colLetter(width);
     if (matchIdx >= 0) {
@@ -39490,7 +39490,7 @@ var init_master_sheet_sync = __esm({
     titleCadence = { annual: "Annual", quarterly: "Quarterly", monthly: "Monthly" };
     titlePay = { weekly: "Weekly", "bi-weekly": "Bi-Weekly", "semi-monthly": "Semi-Monthly", monthly: "Monthly", self: "Self" };
     titleRemit = { regular: "Regular", quarterly: "Quarterly", accelerated: "Threshold 1" };
-    boolToSheet = (v) => v ? "TRUE" : "FALSE";
+    boolToSheet = (v2) => v2 ? "TRUE" : "FALSE";
     boolFromSheet = (raw2) => /^(true|t|yes|y|1|x|✓|checked)$/i.test(String(raw2).trim());
     MASTER_FIELDS = [
       { key: "name", match: (h) => h.includes("legal name") || h.includes("client") && h.includes("name"), toSheet: (c) => c.name || c.company || null, soft: false, fromSheet: (r) => ({ name: r }) },
@@ -41462,7 +41462,7 @@ async function qboResolveVendor(conn, rawName) {
   const seen = /* @__PURE__ */ new Map();
   for (const term of likes) {
     const data = await qboRequest(conn, `/query?query=${encodeURIComponent(`SELECT Id, DisplayName FROM Vendor WHERE DisplayName LIKE '%${term}%'`)}`);
-    for (const v of data?.QueryResponse?.Vendor ?? []) seen.set(String(v.Id), { Id: String(v.Id), DisplayName: String(v.DisplayName) });
+    for (const v2 of data?.QueryResponse?.Vendor ?? []) seen.set(String(v2.Id), { Id: String(v2.Id), DisplayName: String(v2.DisplayName) });
     if (seen.size > 0 && term === safe) break;
   }
   return resolveVendorFromCandidates(rawName, [...seen.values()]);
@@ -41470,8 +41470,8 @@ async function qboResolveVendor(conn, rawName) {
 async function qboVendorHistory(conn, vendorId, sinceISO) {
   const billData = await qboRequest(conn, `/query?query=${encodeURIComponent(`SELECT * FROM Bill WHERE VendorRef = '${vendorId}' ORDERBY TxnDate DESC MAXRESULTS 50`)}`);
   const bills = parseBillHistory(billData);
-  const today2 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-  const reportPath = `/reports/TransactionList?vendor=${vendorId}&start_date=${sinceISO}&end_date=${today2}&columns=tx_date,txn_type,doc_num,other_account,subt_nat_amount`;
+  const today3 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const reportPath = `/reports/TransactionList?vendor=${vendorId}&start_date=${sinceISO}&end_date=${today3}&columns=tx_date,txn_type,doc_num,other_account,subt_nat_amount`;
   let expenses = [];
   try {
     const rep = await qboRequest(conn, reportPath);
@@ -41482,13 +41482,13 @@ async function qboVendorHistory(conn, vendorId, sinceISO) {
 }
 async function writeBackVendorCardContact(conn, vendorId, fields) {
   const cur = await qboRequest(conn, `/query?query=${encodeURIComponent(`SELECT * FROM Vendor WHERE Id = '${vendorId}'`)}`);
-  const v = cur?.QueryResponse?.Vendor?.[0];
-  if (!v) return { updated: false };
-  const body = { Id: vendorId, SyncToken: v.SyncToken, sparse: true };
+  const v2 = cur?.QueryResponse?.Vendor?.[0];
+  if (!v2) return { updated: false };
+  const body = { Id: vendorId, SyncToken: v2.SyncToken, sparse: true };
   if (fields.email) body.PrimaryEmailAddr = { Address: fields.email };
   if (fields.phone) body.PrimaryPhone = { FreeFormNumber: fields.phone };
   if (fields.addressLine1 || fields.city || fields.postalCode) {
-    body.BillAddr = { Line1: fields.addressLine1 ?? v.BillAddr?.Line1, City: fields.city ?? v.BillAddr?.City, PostalCode: fields.postalCode ?? v.BillAddr?.PostalCode };
+    body.BillAddr = { Line1: fields.addressLine1 ?? v2.BillAddr?.Line1, City: fields.city ?? v2.BillAddr?.City, PostalCode: fields.postalCode ?? v2.BillAddr?.PostalCode };
   }
   if (Object.keys(body).length <= 3) return { updated: false };
   await qboRequest(conn, `/vendor`, "POST", body);
@@ -41501,9 +41501,9 @@ async function getConnectionForClient(clientId) {
   if (rows.length > 1) return { error: "ambiguous_qbo_connections_for_client" };
   return { conn: await ensureValidToken(rows[0]) };
 }
-function parseAmt(v) {
-  if (v == null || v === "") return void 0;
-  const n = Number(String(v).replace(/[^0-9.\-]/g, ""));
+function parseAmt(v2) {
+  if (v2 == null || v2 === "") return void 0;
+  const n = Number(String(v2).replace(/[^0-9.\-]/g, ""));
   return Number.isFinite(n) && n !== 0 ? n : void 0;
 }
 async function suggestForClient(clientId, input) {
@@ -41761,7 +41761,7 @@ async function applyOnboardingPatch(db, clientId, patch) {
     const latest = rows[rows.length - 1];
     if (latest) {
       const diff = {};
-      for (const [k, v] of Object.entries(patch)) if (Number(!!latest[k]) !== Number(!!v)) diff[k] = v;
+      for (const [k, v2] of Object.entries(patch)) if (Number(!!latest[k]) !== Number(!!v2)) diff[k] = v2;
       if (Object.keys(diff).length) {
         diff.updatedAt = /* @__PURE__ */ new Date();
         await db.update(clientOnboarding).set(diff).where(eq2(clientOnboarding.id, latest.id));
@@ -41817,8 +41817,8 @@ async function pullClientMasterIntoCrm() {
     }
     if (match2) {
       const patch = {};
-      for (const [k, v] of Object.entries(sv)) {
-        if (String(match2[k] ?? "") !== String(v ?? "")) patch[k] = v;
+      for (const [k, v2] of Object.entries(sv)) {
+        if (String(match2[k] ?? "") !== String(v2 ?? "")) patch[k] = v2;
       }
       if (Object.keys(patch).length) {
         patch.updatedAt = /* @__PURE__ */ new Date();
@@ -41865,8 +41865,8 @@ async function pullLeadsIntoCrm() {
     const crmId = Number(clean2(r[13])) || 0;
     const match2 = crmId && byId.get(crmId) || email3 && byEmail.get(norm5(email3));
     const sv = {};
-    const set2 = (k, v) => {
-      if (v !== null && v !== void 0 && v !== "") sv[k] = v;
+    const set2 = (k, v2) => {
+      if (v2 !== null && v2 !== void 0 && v2 !== "") sv[k] = v2;
     };
     set2("name", leadName || business);
     set2("company", business);
@@ -41884,7 +41884,7 @@ async function pullLeadsIntoCrm() {
     set2("notes", clean2(r[12]));
     if (match2) {
       const patch = {};
-      for (const [k, v] of Object.entries(sv)) if (String(match2[k] ?? "") !== String(v ?? "")) patch[k] = v;
+      for (const [k, v2] of Object.entries(sv)) if (String(match2[k] ?? "") !== String(v2 ?? "")) patch[k] = v2;
       if (Object.keys(patch).length) {
         patch.updatedAt = /* @__PURE__ */ new Date();
         await db.update(clients).set(patch).where(eq2(clients.id, match2.id));
@@ -42006,11 +42006,11 @@ async function pullInactiveClientsIntoCrm() {
     const match2 = bn && byBn.get(norm5(bn)) || byName.get(norm5(name2));
     if (match2) {
       const patch = { status: "inactive", updatedAt: /* @__PURE__ */ new Date() };
-      for (const [k, v] of Object.entries(fields)) if (v !== void 0 && String(match2[k] ?? "") !== String(v)) patch[k] = v;
+      for (const [k, v2] of Object.entries(fields)) if (v2 !== void 0 && String(match2[k] ?? "") !== String(v2)) patch[k] = v2;
       await db.update(clients).set(patch).where(eq2(clients.id, match2.id));
       report.updated++;
     } else {
-      const clean22 = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== void 0));
+      const clean22 = (o) => Object.fromEntries(Object.entries(o).filter(([, v2]) => v2 !== void 0));
       await db.insert(clients).values({
         userId: 1,
         name: name2,
@@ -42035,8 +42035,8 @@ var init_sheet_inbound_sync = __esm({
     init_drizzle_orm();
     init_master_sheet_sync();
     norm5 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    clean2 = (v) => {
-      const s = String(v ?? "").trim();
+    clean2 = (v2) => {
+      const s = String(v2 ?? "").trim();
       return /^(n\/?a|none|null)$/i.test(s) ? "" : s;
     };
   }
@@ -42226,9 +42226,9 @@ function reportGroupValue(report, group) {
     if (row?.group && String(row.group).toLowerCase() === want) {
       const cols = row?.Summary?.ColData ?? [];
       for (let i = cols.length - 1; i >= 0; i--) {
-        const v = cols[i]?.value;
-        if (v != null && v !== "" && !isNaN(Number(v))) {
-          found = Number(v);
+        const v2 = cols[i]?.value;
+        if (v2 != null && v2 !== "" && !isNaN(Number(v2))) {
+          found = Number(v2);
           return;
         }
       }
@@ -42436,8 +42436,8 @@ __export(sensitive_exports, {
   isEncrypted: () => isEncrypted,
   maskSin: () => maskSin
 });
-function isEncrypted(v) {
-  return typeof v === "string" && v.startsWith("enc:v1:");
+function isEncrypted(v2) {
+  return typeof v2 === "string" && v2.startsWith("enc:v1:");
 }
 function checkRevealCode(code) {
   const pin = process.env.FIGGY_SIN_PIN;
@@ -43384,8 +43384,8 @@ async function getCred(key11, envVal) {
 async function setJobberCreds(clientId, secret) {
   await ensureAppSettings();
   const db = getDb();
-  for (const [k, v] of [["jobber_client_id", clientId], ["jobber_client_secret", secret]]) {
-    const enc = encryptSecret(v.trim());
+  for (const [k, v2] of [["jobber_client_id", clientId], ["jobber_client_secret", secret]]) {
+    const enc = encryptSecret(v2.trim());
     const existing = await db.select().from(appSettings).where(eq2(appSettings.key, k)).limit(1);
     if (existing[0]) await db.update(appSettings).set({ value: enc, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(appSettings.key, k));
     else await db.insert(appSettings).values({ key: k, value: enc });
@@ -43921,11 +43921,11 @@ function colIdx(header2, needles) {
   return -1;
 }
 function parseTimesheetCsv(text2) {
-  const lines2 = text2.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (!lines2.length) return [];
-  let headerIdx = lines2.findIndex((l) => /staff\s*name|employee|name/i.test(l) && /shift|hour|hrs|payable|clock/i.test(l));
+  const lines3 = text2.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (!lines3.length) return [];
+  let headerIdx = lines3.findIndex((l) => /staff\s*name|employee|name/i.test(l) && /shift|hour|hrs|payable|clock/i.test(l));
   if (headerIdx < 0) headerIdx = 0;
-  const header2 = splitCsvLine(lines2[headerIdx]);
+  const header2 = splitCsvLine(lines3[headerIdx]);
   const iName = colIdx(header2, ["staff name", "employee", "name"]);
   const iType = colIdx(header2, ["staff type", "role", "type"]);
   const iShift = colIdx(header2, ["shift length"]);
@@ -43936,8 +43936,8 @@ function parseTimesheetCsv(text2) {
   });
   const iTotalReg = colIdx(header2, ["total(reg", "total reg", "reg. hrs", "regular hours"]);
   const agg = /* @__PURE__ */ new Map();
-  for (let r = headerIdx + 1; r < lines2.length; r++) {
-    const cells = splitCsvLine(lines2[r]);
+  for (let r = headerIdx + 1; r < lines3.length; r++) {
+    const cells = splitCsvLine(lines3[r]);
     const name2 = (iName >= 0 ? cells[iName] : cells[0] || "").trim();
     if (!name2) continue;
     const lname = name2.toLowerCase();
@@ -44389,9 +44389,9 @@ function payrollKind(name2, source) {
 }
 async function recomputeRunTotals(runId) {
   const db = getDb();
-  const lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, runId));
+  const lines3 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, runId));
   let g = 0, n = 0, eded = 0, empc = 0;
-  for (const l of lines2) {
+  for (const l of lines3) {
     g += l.grossPay || 0;
     n += (l.netPay || 0) + (l.phoneAllowance || 0) + (l.reimbursement || 0);
     eded += (l.cppEmployee || 0) + (l.cpp2Employee || 0) + (l.eiEmployee || 0) + (l.federalTax || 0) + (l.provincialTax || 0) + (l.otherDeductions || 0);
@@ -44444,8 +44444,8 @@ async function applyImportedHours(db, runId, clientId, hours) {
     }
     return byFirst.get(norm24(first)) || byFirst.get(norm24(n.split(/[ ,]/)[0])) || null;
   };
-  const lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, runId));
-  const lineByEmp = new Map(lines2.map((l) => [l.employeeId, l]));
+  const lines3 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, runId));
+  const lineByEmp = new Map(lines3.map((l) => [l.employeeId, l]));
   const { longShiftNote: longShiftNote2 } = await Promise.resolve().then(() => (init_timesheet_core(), timesheet_core_exports));
   let matched = 0;
   const unmatched = [];
@@ -44539,9 +44539,9 @@ var init_payroll_router = __esm({
         });
         const runIds = new Set(inQuarter.map((r) => r.id));
         const allLines = await db.select().from(payRunLines);
-        const lines2 = allLines.filter((l) => runIds.has(l.payRunId));
-        const eligibleEarnings = round2(lines2.filter((l) => eligibleIds.has(l.employeeId)).reduce((s, l) => s + (l.grossPay || 0), 0));
-        const excludedEarnings = round2(lines2.filter((l) => !eligibleIds.has(l.employeeId)).reduce((s, l) => s + (l.grossPay || 0), 0));
+        const lines3 = allLines.filter((l) => runIds.has(l.payRunId));
+        const eligibleEarnings = round2(lines3.filter((l) => eligibleIds.has(l.employeeId)).reduce((s, l) => s + (l.grossPay || 0), 0));
+        const excludedEarnings = round2(lines3.filter((l) => !eligibleIds.has(l.employeeId)).reduce((s, l) => s + (l.grossPay || 0), 0));
         const rate = client?.wsibRate ?? null;
         const remittance = rate != null ? round2(eligibleEarnings * rate / 100) : null;
         return {
@@ -44912,12 +44912,12 @@ var init_payroll_router = __esm({
         const runRows = await db.select().from(payRuns).where(eq2(payRuns.id, input.runId)).limit(1);
         const run3 = runRows[0];
         if (!run3) return null;
-        let lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, input.runId));
+        let lines3 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, input.runId));
         const emps = await db.select().from(employees).where(eq2(employees.clientId, run3.clientId));
         const empById = new Map(emps.map((e) => [e.id, e]));
         if (run3.status !== "paid") {
           let touched = false;
-          for (const l of lines2) {
+          for (const l of lines3) {
             const e = empById.get(l.employeeId);
             if (!e) continue;
             const patch = {};
@@ -44928,9 +44928,9 @@ var init_payroll_router = __esm({
               touched = true;
             }
           }
-          if (touched) lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, input.runId));
+          if (touched) lines3 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, input.runId));
         }
-        const withNames = lines2.map((l) => {
+        const withNames = lines3.map((l) => {
           const e = empById.get(l.employeeId);
           return {
             ...l,
@@ -45162,12 +45162,12 @@ var init_payroll_router = __esm({
         const emps = await db.select().from(employees).where(eq2(employees.clientId, input.clientId));
         const empById = new Map(emps.map((e) => [e.id, e]));
         const allLines = await db.select().from(payRunLines);
-        const lines2 = allLines.filter((l) => runIds.has(l.payRunId));
+        const lines3 = allLines.filter((l) => runIds.has(l.payRunId));
         const ppy = periodsPerYear2(normalizeFrequency(client?.payrollFrequency));
         const runsCount = yrRuns.length;
         const fraction = Math.min(1, Math.max(1e-4, runsCount / ppy));
         const agg = /* @__PURE__ */ new Map();
-        for (const l of lines2) {
+        for (const l of lines3) {
           const a = agg.get(l.employeeId) || { gross: 0, tax: 0 };
           a.gross += l.grossPay || 0;
           a.tax += (l.federalTax || 0) + (l.provincialTax || 0);
@@ -45225,9 +45225,9 @@ var init_payroll_router = __esm({
         const emps = await db.select().from(employees).where(eq2(employees.clientId, input.clientId));
         const empById = new Map(emps.map((e) => [e.id, e]));
         const allLines = await db.select().from(payRunLines);
-        const lines2 = allLines.filter((l) => runIds.has(l.payRunId));
+        const lines3 = allLines.filter((l) => runIds.has(l.payRunId));
         const agg = /* @__PURE__ */ new Map();
-        for (const l of lines2) {
+        for (const l of lines3) {
           const a = agg.get(l.employeeId) || { gross: 0, cpp: 0, cpp2: 0, ei: 0, tax: 0 };
           a.gross += l.grossPay || 0;
           a.cpp += l.cppEmployee || 0;
@@ -46333,14 +46333,14 @@ function clientAppsList(onb) {
 }
 function buildScopeForClient(client, onb) {
   const num7 = (...vals) => {
-    for (const v of vals) {
-      const n = Number(v);
+    for (const v2 of vals) {
+      const n = Number(v2);
       if (Number.isFinite(n) && n > 0) return n;
     }
     return 0;
   };
-  const bool = (...vals) => vals.some((v) => v === true || v === 1);
-  const salesPlatformCount = onb ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro, onb.usesPayPal].filter((v) => v === true || v === 1).length : 0;
+  const bool = (...vals) => vals.some((v2) => v2 === true || v2 === 1);
+  const salesPlatformCount = onb ? [onb.usesStripe, onb.usesSquare, onb.usesJobber, onb.usesTouchBistro, onb.usesPayPal].filter((v2) => v2 === true || v2 === 1).length : 0;
   return {
     avgMonthlyTransactions: num7(onb?.avgMonthlyTransactions, client?.transactionsPerMonth),
     bookkeepingFrequency: onb?.bookkeepingFrequency ?? "monthly",
@@ -46896,9 +46896,9 @@ function billInputFromSourceData(sourceData) {
   if (!vendorId) return null;
   const txnDate = meta3.txnDate || meta3.date || null;
   const docNumber = meta3.invoiceNumber || meta3.docNumber || null;
-  let lines2 = [];
+  let lines3 = [];
   if (Array.isArray(meta3.lines) && meta3.lines.length) {
-    lines2 = meta3.lines.map((l) => ({
+    lines3 = meta3.lines.map((l) => ({
       accountId: l.accountId || l.suggestedAccountId,
       amount: Number(l.amount ?? l.subtotal ?? l.total),
       taxCodeId: l.taxCodeId || l.suggestedTaxCode || l.taxCode || null,
@@ -46908,7 +46908,7 @@ function billInputFromSourceData(sourceData) {
     const accountId = meta3.suggestedAccountId || meta3.accountId;
     const amount = Number(meta3.subtotal ?? meta3.amount ?? meta3.total);
     if (accountId && Number.isFinite(amount)) {
-      lines2 = [{
+      lines3 = [{
         accountId,
         amount,
         taxCodeId: meta3.suggestedTaxCode || meta3.taxCode || meta3.hstCode || null,
@@ -46916,8 +46916,8 @@ function billInputFromSourceData(sourceData) {
       }];
     }
   }
-  if (!lines2.length) return null;
-  return { vendorId, txnDate, docNumber, lines: lines2, privateNote: meta3.rationale || null };
+  if (!lines3.length) return null;
+  return { vendorId, txnDate, docNumber, lines: lines3, privateNote: meta3.rationale || null };
 }
 async function connForClient(clientId) {
   const db = getDb();
@@ -47018,13 +47018,13 @@ function round26(n) {
 }
 function buildRecharge(input) {
   const rate = input.chargeHst ? (input.hstRatePct || 0) / 100 : 0;
-  const lines2 = (input.expenses || []).filter((e) => e && Number.isFinite(e.net)).map((e) => ({
+  const lines3 = (input.expenses || []).filter((e) => e && Number.isFinite(e.net)).map((e) => ({
     description: e.description || "Recharged cost",
     account: input.revenueAccount,
     amount: round26(e.net),
     sourceRef: e.sourceRef
   }));
-  const subtotal = round26(lines2.reduce((s, l) => s + l.amount, 0));
+  const subtotal = round26(lines3.reduce((s, l) => s + l.amount, 0));
   const hst = round26(subtotal * rate);
   const total = round26(subtotal + hst);
   const invoice = {
@@ -47032,7 +47032,7 @@ function buildRecharge(input) {
     party: input.counterpartyName,
     // billed customer
     account: input.revenueAccount,
-    lines: lines2,
+    lines: lines3,
     subtotal,
     hst,
     total
@@ -47042,14 +47042,14 @@ function buildRecharge(input) {
     party: input.payerName,
     // vendor
     account: input.expenseAccount,
-    lines: lines2.map((l) => ({ ...l, account: input.expenseAccount })),
+    lines: lines3.map((l) => ({ ...l, account: input.expenseAccount })),
     subtotal,
     hst,
     total
   };
   const errors = [];
-  if (lines2.length === 0) errors.push("No expense lines to recharge.");
-  if (lines2.some((l) => l.amount < 0)) errors.push("One or more expense lines are negative \u2014 review before recharging.");
+  if (lines3.length === 0) errors.push("No expense lines to recharge.");
+  if (lines3.some((l) => l.amount < 0)) errors.push("One or more expense lines are negative \u2014 review before recharging.");
   if (!input.expenseAccount) errors.push("Missing counterparty-side expense account.");
   if (round26(invoice.total) !== round26(bill.total)) errors.push("Invoice total does not equal mirror-bill total.");
   return {
@@ -47346,7 +47346,7 @@ var init_billback_drive = __esm({
 
 // api/interco-recharge-router.ts
 function normalizeDoc(e, type2) {
-  const lines2 = (e.Line ?? []).filter((l) => l.DetailType === "SalesItemLineDetail" || l.DetailType === "AccountBasedExpenseLineDetail").map((l) => {
+  const lines3 = (e.Line ?? []).filter((l) => l.DetailType === "SalesItemLineDetail" || l.DetailType === "AccountBasedExpenseLineDetail").map((l) => {
     const sid = l.SalesItemLineDetail, aed = l.AccountBasedExpenseLineDetail;
     return {
       description: l.Description || sid?.ItemRef?.name || aed?.AccountRef?.name || "",
@@ -47354,14 +47354,14 @@ function normalizeDoc(e, type2) {
       amount: num2(l.Amount)
     };
   });
-  const subtotal = Math.round((lines2.reduce((s, l) => s + l.amount, 0) + Number.EPSILON) * 100) / 100;
+  const subtotal = Math.round((lines3.reduce((s, l) => s + l.amount, 0) + Number.EPSILON) * 100) / 100;
   return {
     type: type2,
     docNumber: e.DocNumber || String(e.Id || ""),
     id: String(e.Id || ""),
     date: String(e.TxnDate || "").slice(0, 10),
     party: type2 === "invoice" ? e.CustomerRef?.name || "" : e.VendorRef?.name || "",
-    lines: lines2,
+    lines: lines3,
     subtotal,
     hst: Math.round((num2(e.TxnTaxDetail?.TotalTax) + Number.EPSILON) * 100) / 100,
     total: Math.round((num2(e.TotalAmt) + Number.EPSILON) * 100) / 100,
@@ -47613,8 +47613,8 @@ var init_interco_recharge_router = __esm({
     init_interco_recharge_core();
     init_interco_recon_core();
     init_interco_recharge_poster();
-    num2 = (v) => {
-      const n = Number(v);
+    num2 = (v2) => {
+      const n = Number(v2);
       return Number.isFinite(n) ? n : 0;
     };
     arr2 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
@@ -48235,7 +48235,7 @@ __export(dashboard_router_exports, {
 async function capturePracticeSnapshot() {
   try {
     const db = getDb();
-    const today2 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const today3 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     const startToday = /* @__PURE__ */ new Date();
     startToday.setHours(0, 0, 0, 0);
     const weekAhead = new Date(startToday.getTime() + 7 * DAY_MS);
@@ -48258,7 +48258,7 @@ async function capturePracticeSnapshot() {
     const toReviewTotal = Number(reviewRows[0]?.n ?? 0);
     const port = await computePortfolio(/* @__PURE__ */ new Date());
     const row = {
-      date: today2,
+      date: today3,
       clientsActive,
       clientsTotal: allClients.length,
       closeRed: port.summary.red,
@@ -48273,18 +48273,18 @@ async function capturePracticeSnapshot() {
       pipelineValue,
       pipelineLeads: leads.length
     };
-    const existing = await db.select().from(practiceSnapshots).where(eq2(practiceSnapshots.date, today2)).limit(1);
-    if (existing[0]) await db.update(practiceSnapshots).set(row).where(eq2(practiceSnapshots.date, today2));
+    const existing = await db.select().from(practiceSnapshots).where(eq2(practiceSnapshots.date, today3)).limit(1);
+    if (existing[0]) await db.update(practiceSnapshots).set(row).where(eq2(practiceSnapshots.date, today3));
     else await db.insert(practiceSnapshots).values(row);
     const openByClient = /* @__PURE__ */ new Map();
     for (const t2 of openTasks) if (t2.clientId != null) openByClient.set(t2.clientId, (openByClient.get(t2.clientId) ?? 0) + 1);
     for (const c of port.clients) {
-      const crow = { clientId: c.clientId, date: today2, toReview: c.toReview ?? 0, closeStatus: c.status, openTasks: openByClient.get(c.clientId) ?? 0 };
-      const ex = await db.select().from(clientSnapshots).where(and(eq2(clientSnapshots.clientId, c.clientId), eq2(clientSnapshots.date, today2))).limit(1);
+      const crow = { clientId: c.clientId, date: today3, toReview: c.toReview ?? 0, closeStatus: c.status, openTasks: openByClient.get(c.clientId) ?? 0 };
+      const ex = await db.select().from(clientSnapshots).where(and(eq2(clientSnapshots.clientId, c.clientId), eq2(clientSnapshots.date, today3))).limit(1);
       if (ex[0]) await db.update(clientSnapshots).set(crow).where(eq2(clientSnapshots.id, ex[0].id));
       else await db.insert(clientSnapshots).values(crow);
     }
-    console.log(`[snapshot] practice + ${port.clients.length} client snapshots captured for ${today2}`);
+    console.log(`[snapshot] practice + ${port.clients.length} client snapshots captured for ${today3}`);
   } catch (e) {
     console.error("[snapshot] capture failed:", e instanceof Error ? e.message : e);
   }
@@ -48975,9 +48975,9 @@ var default_format, default_formatter, formatters, RFC1738;
 var init_formats = __esm({
   "node_modules/@anthropic-ai/sdk/internal/qs/formats.mjs"() {
     default_format = "RFC3986";
-    default_formatter = (v) => String(v);
+    default_formatter = (v2) => String(v2);
     formatters = {
-      RFC1738: (v) => String(v).replace(/%20/g, "+"),
+      RFC1738: (v2) => String(v2).replace(/%20/g, "+"),
       RFC3986: default_formatter
     };
     RFC1738 = "RFC1738";
@@ -49071,8 +49071,8 @@ var init_utils3 = __esm({
 });
 
 // node_modules/@anthropic-ai/sdk/internal/qs/stringify.mjs
-function is_non_nullish_primitive(v) {
-  return typeof v === "string" || typeof v === "number" || typeof v === "boolean" || typeof v === "symbol" || typeof v === "bigint";
+function is_non_nullish_primitive(v2) {
+  return typeof v2 === "string" || typeof v2 === "number" || typeof v2 === "boolean" || typeof v2 === "symbol" || typeof v2 === "bigint";
 }
 function inner_stringify(object3, prefix, generateArrayPrefix, commaRoundTrip, allowEmptyArrays, strictNullHandling, skipNulls, encodeDotInKeys, encoder3, filter, sort, allowDots, serializeDate, format, formatter, encodeValuesOnly, charset, sideChannel) {
   let obj = object3;
@@ -49415,9 +49415,9 @@ function redactSensitive(body) {
   }
   if (typeof body === "object" && !Array.isArray(body)) {
     const out = {};
-    for (const [k, v] of Object.entries(body)) {
+    for (const [k, v2] of Object.entries(body)) {
       if (SAFE_ERROR_KEYS.has(k))
-        out[k] = v;
+        out[k] = v2;
     }
     return out;
   }
@@ -50349,7 +50349,7 @@ var init_line = __esm({
         }
         const binaryChunk = chunk instanceof ArrayBuffer ? new Uint8Array(chunk) : typeof chunk === "string" ? encodeUTF8(chunk) : chunk;
         __classPrivateFieldSet(this, _LineDecoder_buffer, concatBytes([__classPrivateFieldGet(this, _LineDecoder_buffer, "f"), binaryChunk]), "f");
-        const lines2 = [];
+        const lines3 = [];
         let patternIndex;
         while ((patternIndex = findNewlineIndex(__classPrivateFieldGet(this, _LineDecoder_buffer, "f"), __classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f"))) != null) {
           if (patternIndex.carriage && __classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f") == null) {
@@ -50357,18 +50357,18 @@ var init_line = __esm({
             continue;
           }
           if (__classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f") != null && (patternIndex.index !== __classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f") + 1 || patternIndex.carriage)) {
-            lines2.push(decodeUTF8(__classPrivateFieldGet(this, _LineDecoder_buffer, "f").subarray(0, __classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f") - 1)));
+            lines3.push(decodeUTF8(__classPrivateFieldGet(this, _LineDecoder_buffer, "f").subarray(0, __classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f") - 1)));
             __classPrivateFieldSet(this, _LineDecoder_buffer, __classPrivateFieldGet(this, _LineDecoder_buffer, "f").subarray(__classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f")), "f");
             __classPrivateFieldSet(this, _LineDecoder_carriageReturnIndex, null, "f");
             continue;
           }
           const endIndex = __classPrivateFieldGet(this, _LineDecoder_carriageReturnIndex, "f") !== null ? patternIndex.preceding - 1 : patternIndex.preceding;
           const line = decodeUTF8(__classPrivateFieldGet(this, _LineDecoder_buffer, "f").subarray(0, endIndex));
-          lines2.push(line);
+          lines3.push(line);
           __classPrivateFieldSet(this, _LineDecoder_buffer, __classPrivateFieldGet(this, _LineDecoder_buffer, "f").subarray(patternIndex.index), "f");
           __classPrivateFieldSet(this, _LineDecoder_carriageReturnIndex, null, "f");
         }
-        return lines2;
+        return lines3;
       }
       flush() {
         if (!__classPrivateFieldGet(this, _LineDecoder_buffer, "f").length) {
@@ -52255,17 +52255,17 @@ var require_sha256 = __commonJS({
         3204031479,
         3329325298
       ]);
-      function hashBlocks(w, v, p, pos2, len) {
+      function hashBlocks(w, v2, p, pos2, len) {
         var a, b, c, d10, e, f, g, h, u, i, j, t1, t2;
         while (len >= 64) {
-          a = v[0];
-          b = v[1];
-          c = v[2];
-          d10 = v[3];
-          e = v[4];
-          f = v[5];
-          g = v[6];
-          h = v[7];
+          a = v2[0];
+          b = v2[1];
+          c = v2[2];
+          d10 = v2[3];
+          e = v2[4];
+          f = v2[5];
+          g = v2[6];
+          h = v2[7];
           for (i = 0; i < 16; i++) {
             j = pos2 + i * 4;
             w[i] = (p[j] & 255) << 24 | (p[j + 1] & 255) << 16 | (p[j + 2] & 255) << 8 | p[j + 3] & 255;
@@ -52289,14 +52289,14 @@ var require_sha256 = __commonJS({
             b = a;
             a = t1 + t2 | 0;
           }
-          v[0] += a;
-          v[1] += b;
-          v[2] += c;
-          v[3] += d10;
-          v[4] += e;
-          v[5] += f;
-          v[6] += g;
-          v[7] += h;
+          v2[0] += a;
+          v2[1] += b;
+          v2[2] += c;
+          v2[3] += d10;
+          v2[4] += e;
+          v2[5] += f;
+          v2[6] += g;
+          v2[7] += h;
           pos2 += 64;
           len -= 64;
         }
@@ -53765,9 +53765,9 @@ async function resolveSkillVersion(client, skillId, version4) {
   if (/^\d+$/.test(version4))
     return version4;
   let newest;
-  for await (const v of client.beta.skills.versions.list(skillId)) {
-    if (/^\d+$/.test(v.version) && (newest === void 0 || BigInt(v.version) > BigInt(newest))) {
-      newest = v.version;
+  for await (const v2 of client.beta.skills.versions.list(skillId)) {
+    if (/^\d+$/.test(v2.version) && (newest === void 0 || BigInt(v2.version) > BigInt(newest))) {
+      newest = v2.version;
     }
   }
   if (newest === void 0) {
@@ -54013,10 +54013,10 @@ function betaReadTool(ctx) {
       if (view_range.length !== 2)
         throw new ToolError("read: view_range must be [start_line, end_line]");
       const [startLine, endLine] = view_range;
-      const lines2 = data.split("\n");
+      const lines3 = data.split("\n");
       const start = Math.max(0, startLine - 1);
-      const end = endLine > 0 ? endLine : lines2.length;
-      return lines2.slice(start, end).join("\n");
+      const end = endLine > 0 ? endLine : lines3.length;
+      return lines3.slice(start, end).join("\n");
     }
   });
 }
@@ -59785,9 +59785,9 @@ var init_client4 = __esm({
       async prepareRequest(request, { url: url2, options }) {
         if (this._authState.tokenCache && this.apiKey == null) {
           const headers = request.headers instanceof Headers ? request.headers : new Headers(request.headers);
-          for (const [k, v] of Object.entries(this._authState.extraHeaders)) {
+          for (const [k, v2] of Object.entries(this._authState.extraHeaders)) {
             if (!headers.has(k))
-              headers.set(k, v);
+              headers.set(k, v2);
           }
           const existing = headers.get("anthropic-beta")?.split(",").map((s) => s.trim());
           if (!existing?.includes(OAUTH_API_BETA_HEADER)) {
@@ -60871,8 +60871,8 @@ function rowToRecord(r) {
 }
 function safeJson(s) {
   try {
-    const v = JSON.parse(s);
-    return Array.isArray(v) ? v : void 0;
+    const v2 = JSON.parse(s);
+    return Array.isArray(v2) ? v2 : void 0;
   } catch {
     return void 0;
   }
@@ -61344,22 +61344,22 @@ function buildPersonalContext(facts, openItems = []) {
     byCat.get(c).push(`${f.pinned ? "\u2605 " : ""}${f.fact}`);
   }
   const order = [...PERSONAL_CATEGORIES].filter((c) => byCat.has(c)).concat([...byCat.keys()].filter((c) => !PERSONAL_CATEGORIES.includes(c)));
-  const lines2 = [
+  const lines3 = [
     "=== MARKIE'S PERSONAL LIFE (PRIVATE \u2014 this is Liv's domain only; NEVER share it with other agents, clients, or mix it with firm work) ==="
   ];
   for (const c of order) {
-    lines2.push(`${CATEGORY_LABELS[c] ?? c}:`);
-    for (const f of byCat.get(c)) lines2.push(`  - ${f}`);
+    lines3.push(`${CATEGORY_LABELS[c] ?? c}:`);
+    for (const f of byCat.get(c)) lines3.push(`  - ${f}`);
   }
   const open3 = openItems.filter((i) => i.kind !== "note" && !i.done);
   if (open3.length) {
-    lines2.push("Open personal items:");
+    lines3.push("Open personal items:");
     for (const i of open3.slice(0, 20)) {
       const due = i.dueDate ? ` (due ${new Date(ms3(i.dueDate)).toISOString().slice(0, 10)})` : "";
-      lines2.push(`  - [${i.kind}] ${i.title}${due}`);
+      lines3.push(`  - [${i.kind}] ${i.title}${due}`);
     }
   }
-  return lines2.join("\n");
+  return lines3.join("\n");
 }
 function splitDump(text2) {
   return (text2 || "").split(/\r?\n/).map((l) => l.replace(/^\s*[-*•·]\s*/, "").trim()).filter((l) => l.length > 1);
@@ -61882,6 +61882,215 @@ var init_exec_briefing = __esm({
   }
 });
 
+// api/legal-templates.ts
+var legal_templates_exports = {};
+__export(legal_templates_exports, {
+  LEGAL_DOCS: () => LEGAL_DOCS,
+  generateLegalDoc: () => generateLegalDoc,
+  getLegalSpec: () => getLegalSpec
+});
+function getLegalSpec(type2) {
+  return LEGAL_DOCS.find((d10) => d10.type === type2);
+}
+function generateLegalDoc(type2, answers) {
+  const spec = getLegalSpec(type2);
+  return spec ? spec.generate(answers) : "";
+}
+var v, lines2, today2, DISCLAIMER, witnessBlock, LEGAL_DOCS;
+var init_legal_templates = __esm({
+  "api/legal-templates.ts"() {
+    v = (a, k, fallback = "____________________") => a[k] && a[k].trim() ? a[k].trim() : fallback;
+    lines2 = (a, k) => (a[k] || "").split("\n").map((s) => s.trim()).filter(Boolean);
+    today2 = () => (/* @__PURE__ */ new Date()).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
+    DISCLAIMER = "\u26A0 DRAFT \u2014 NOT LEGAL ADVICE. This is a working document generated from your answers. It is NOT a valid legal instrument until reviewed by a lawyer and properly signed and witnessed per Ontario law. Do not rely on it as-is.";
+    witnessBlock = (who) => `
+
+\u2014 \u2014 \u2014 SIGNING (Ontario) \u2014 \u2014 \u2014
+Signed by ${who} on ______________________, in the presence of both witnesses below, who were present at the same time.
+
+${who}: _______________________________   Date: ____________
+
+Witness 1 (not a beneficiary or their spouse): __________________________  Print: ______________  Address: ______________
+Witness 2 (not a beneficiary or their spouse): __________________________  Print: ______________  Address: ______________`;
+    LEGAL_DOCS = [
+      {
+        type: "will",
+        title: "Last Will & Testament",
+        blurb: "Who gets what, who's in charge (executor), and who cares for minor children.",
+        fields: [
+          { key: "fullName", label: "Your full legal name", type: "text" },
+          { key: "address", label: "Your address", type: "text" },
+          { key: "executor", label: "Executor (full name + relationship)", type: "text", help: "The person who carries out your will." },
+          { key: "altExecutor", label: "Alternate executor (if the first can't act)", type: "text" },
+          { key: "spouse", label: "Spouse / partner (if any)", type: "text" },
+          { key: "children", label: "Children (one per line)", type: "lines" },
+          { key: "guardian", label: "Guardian for minor children (name + relationship)", type: "text" },
+          { key: "bequests", label: "Specific gifts (one per line, e.g. 'My truck \u2192 my son John')", type: "lines" },
+          { key: "residue", label: "Everything else (the residue) goes to\u2026", type: "textarea", help: "e.g. 'split equally among my children' or a named person." },
+          { key: "funeral", label: "Funeral / burial wishes (optional)", type: "textarea" }
+        ],
+        generate: (a) => {
+          const kids = lines2(a, "children");
+          const beq = lines2(a, "bequests");
+          return [
+            `LAST WILL AND TESTAMENT OF ${v(a, "fullName").toUpperCase()}`,
+            `(${v(a, "address")}) \u2014 Ontario, Canada \u2014 ${today2()}`,
+            ``,
+            DISCLAIMER,
+            ``,
+            `1. REVOCATION. I revoke all prior wills and codicils.`,
+            `2. EXECUTOR. I appoint ${v(a, "executor")} as the Executor and Estate Trustee of this Will. If they are unable or unwilling to act, I appoint ${v(a, "altExecutor")} in their place.`,
+            a.spouse?.trim() ? `3. SPOUSE. My spouse/partner is ${v(a, "spouse")}.` : ``,
+            kids.length ? `4. CHILDREN. My children are: ${kids.join("; ")}.` : ``,
+            a.guardian?.trim() ? `5. GUARDIAN. If any of my children are minors at my death, I appoint ${v(a, "guardian")} as their guardian.` : ``,
+            beq.length ? `6. SPECIFIC GIFTS. I make the following gifts:
+${beq.map((b, i) => `   (${i + 1}) ${b}`).join("\n")}` : ``,
+            `7. RESIDUE. I give all the rest and residue of my estate to: ${v(a, "residue")}.`,
+            `8. EXECUTOR POWERS. My Executor may sell, invest, and distribute my estate, pay my debts, taxes, and funeral expenses, and do all things necessary to administer my estate.`,
+            a.funeral?.trim() ? `9. FUNERAL WISHES. ${v(a, "funeral")}` : ``,
+            `10. GOVERNING LAW. This Will is governed by the laws of Ontario.`,
+            witnessBlock(v(a, "fullName")),
+            ``,
+            `NOTE: In Ontario a will must be signed by you and TWO witnesses, all present together; a witness (or their spouse) must NOT be a beneficiary. Have a lawyer review before signing.`
+          ].filter(Boolean).join("\n");
+        }
+      },
+      {
+        type: "poa_property",
+        title: "Power of Attorney for Property",
+        blurb: "Who manages your money/finances if you can't.",
+        fields: [
+          { key: "fullName", label: "Your full legal name", type: "text" },
+          { key: "address", label: "Your address", type: "text" },
+          { key: "attorney", label: "Attorney (who manages your property)", type: "text" },
+          { key: "altAttorney", label: "Alternate attorney", type: "text" },
+          { key: "effective", label: "When it takes effect", type: "text", placeholder: "immediately / only if I become incapable" },
+          { key: "restrictions", label: "Any restrictions or instructions (optional)", type: "textarea" }
+        ],
+        generate: (a) => [
+          `CONTINUING POWER OF ATTORNEY FOR PROPERTY`,
+          `${v(a, "fullName").toUpperCase()} (${v(a, "address")}) \u2014 Ontario \u2014 ${today2()}`,
+          ``,
+          DISCLAIMER,
+          ``,
+          `1. I, ${v(a, "fullName")}, appoint ${v(a, "attorney")} to be my attorney for property.`,
+          `2. ALTERNATE. If they cannot act, I appoint ${v(a, "altAttorney")}.`,
+          `3. AUTHORITY. My attorney may do anything on my behalf regarding my property that I could do if capable, except make a will.`,
+          `4. EFFECTIVE. This power of attorney takes effect: ${v(a, "effective", "only if I become mentally incapable of managing property")}.`,
+          `5. CONTINUING. This is a CONTINUING power of attorney under the Substitute Decisions Act (Ontario) and may be used if I become mentally incapable.`,
+          a.restrictions?.trim() ? `6. INSTRUCTIONS. ${v(a, "restrictions")}` : ``,
+          witnessBlock(v(a, "fullName")),
+          ``,
+          `NOTE: Requires two witnesses (your attorney, their spouse/partner, and your own spouse/children cannot witness). Have a lawyer review.`
+        ].filter(Boolean).join("\n")
+      },
+      {
+        type: "poa_care",
+        title: "Power of Attorney for Personal Care (Living Will)",
+        blurb: "Who makes health/care decisions and your wishes for end-of-life care.",
+        fields: [
+          { key: "fullName", label: "Your full legal name", type: "text" },
+          { key: "attorney", label: "Attorney for personal care", type: "text" },
+          { key: "altAttorney", label: "Alternate", type: "text" },
+          { key: "lifeSupport", label: "Life support wishes", type: "textarea", placeholder: "e.g. no life support if no reasonable chance of recovery" },
+          { key: "resuscitation", label: "Resuscitation (CPR) wishes", type: "text" },
+          { key: "organDonation", label: "Organ donation wishes", type: "text" },
+          { key: "comfort", label: "Comfort care / pain management wishes", type: "textarea" },
+          { key: "other", label: "Other care instructions (optional)", type: "textarea" }
+        ],
+        generate: (a) => [
+          `POWER OF ATTORNEY FOR PERSONAL CARE (with care wishes / "Living Will")`,
+          `${v(a, "fullName").toUpperCase()} \u2014 Ontario \u2014 ${today2()}`,
+          ``,
+          DISCLAIMER,
+          ``,
+          `1. I, ${v(a, "fullName")}, appoint ${v(a, "attorney")} to make personal care decisions (health, nutrition, shelter, safety) for me if I become incapable of making them myself.`,
+          `2. ALTERNATE. If they cannot act, I appoint ${v(a, "altAttorney")}.`,
+          `3. MY CARE WISHES (to guide my attorney and care team):`,
+          `   \u2022 Life support: ${v(a, "lifeSupport")}`,
+          `   \u2022 Resuscitation (CPR): ${v(a, "resuscitation")}`,
+          `   \u2022 Organ donation: ${v(a, "organDonation")}`,
+          `   \u2022 Comfort / pain management: ${v(a, "comfort")}`,
+          a.other?.trim() ? `   \u2022 Other: ${v(a, "other")}` : ``,
+          `4. These wishes express my values and are to guide decisions made on my behalf.`,
+          witnessBlock(v(a, "fullName")),
+          ``,
+          `NOTE: Requires two witnesses (same exclusions as a property POA). Discuss your wishes with your attorney and doctor. Have a lawyer review.`
+        ].filter(Boolean).join("\n")
+      },
+      {
+        type: "business_succession",
+        title: "Business Succession Directive (what happens to my company)",
+        blurb: "What happens to your company/companies if you pass away.",
+        fields: [
+          { key: "fullName", label: "Your full legal name", type: "text" },
+          { key: "companies", label: "Company / companies you own (one per line, with your % ownership)", type: "lines" },
+          { key: "successor", label: "Who takes over / inherits the business", type: "textarea" },
+          { key: "buyout", label: "Buy-sell / shareholder agreement (exists? where is it?)", type: "textarea" },
+          { key: "advisors", label: "Key advisors (accountant, lawyer, banker \u2014 name + contact)", type: "lines" },
+          { key: "clients", label: "What to do with clients / staff / Go Fig Bookz files", type: "textarea" },
+          { key: "access", label: "Where the books, accounts, passwords, and key records are", type: "textarea" }
+        ],
+        generate: (a) => {
+          const co = lines2(a, "companies");
+          const adv = lines2(a, "advisors");
+          return [
+            `BUSINESS SUCCESSION DIRECTIVE`,
+            `${v(a, "fullName").toUpperCase()} \u2014 ${today2()}`,
+            ``,
+            DISCLAIMER + " (A succession directive supports \u2014 but does not replace \u2014 your Will and any shareholder agreement.)",
+            ``,
+            co.length ? `1. BUSINESSES. I own:
+${co.map((c, i) => `   (${i + 1}) ${c}`).join("\n")}` : `1. BUSINESSES. ____________________`,
+            `2. SUCCESSION. On my death or incapacity, my businesses should be handled as follows: ${v(a, "successor")}.`,
+            `3. SHAREHOLDER / BUY-SELL AGREEMENT. ${v(a, "buyout")}`,
+            adv.length ? `4. KEY ADVISORS to contact:
+${adv.map((c) => `   \u2022 ${c}`).join("\n")}` : ``,
+            `5. CLIENTS & STAFF. ${v(a, "clients")}`,
+            `6. RECORDS & ACCESS. The books, bank/credit accounts, logins, and key records are located: ${v(a, "access")}.`,
+            `7. This directive is to guide my Executor and family; it must be read together with my Will, any shareholder agreement, and corporate documents.`,
+            ``,
+            `NOTE: Have your lawyer + accountant confirm this aligns with your Will, corporate structure, and any shareholder agreement (tax on death can be significant \u2014 get advice).`
+          ].filter(Boolean).join("\n");
+        }
+      },
+      {
+        type: "account_directive",
+        title: "Personal Accounts Directive (bank accounts & finances)",
+        blurb: "What happens to your personal bank accounts and where everything is.",
+        fields: [
+          { key: "fullName", label: "Your full legal name", type: "text" },
+          { key: "accounts", label: "Accounts (one per line: institution \u2014 type \u2014 what should happen)", type: "lines", help: "e.g. 'TD \u2014 chequing \u2014 joint with spouse, passes to her'" },
+          { key: "joint", label: "Joint account holders / beneficiaries", type: "textarea" },
+          { key: "recurring", label: "Recurring payments / subscriptions to cancel or continue", type: "textarea" },
+          { key: "notify", label: "Who to notify (CRA, pension, insurance, employer\u2026)", type: "lines" },
+          { key: "access", label: "Where statements, cards, and password manager are", type: "textarea" }
+        ],
+        generate: (a) => {
+          const acc = lines2(a, "accounts");
+          const notify = lines2(a, "notify");
+          return [
+            `PERSONAL ACCOUNTS DIRECTIVE`,
+            `${v(a, "fullName").toUpperCase()} \u2014 ${today2()}`,
+            ``,
+            DISCLAIMER + " (This is an information/instruction memo for your Executor \u2014 your Will controls who inherits.)",
+            ``,
+            acc.length ? `1. ACCOUNTS:
+${acc.map((c, i) => `   (${i + 1}) ${c}`).join("\n")}` : `1. ACCOUNTS. ____________________`,
+            `2. JOINT HOLDERS / BENEFICIARIES. ${v(a, "joint")}`,
+            `3. RECURRING PAYMENTS. ${v(a, "recurring")}`,
+            notify.length ? `4. NOTIFY:
+${notify.map((c) => `   \u2022 ${c}`).join("\n")}` : ``,
+            `5. ACCESS. Statements, cards, and the password manager are: ${v(a, "access")}.`,
+            ``,
+            `NOTE: This memo helps your Executor act quickly; it does not override your Will or account beneficiary designations.`
+          ].filter(Boolean).join("\n");
+        }
+      }
+    ];
+  }
+});
+
 // api/listing-generator.ts
 var listing_generator_exports = {};
 __export(listing_generator_exports, {
@@ -61957,9 +62166,9 @@ var init_listing_generator = __esm({
 
 // api/genealogy-core.ts
 function clampConfidence(n) {
-  const v = Math.round(Number(n));
-  if (!Number.isFinite(v)) return 0;
-  return Math.max(0, Math.min(100, v));
+  const v2 = Math.round(Number(n));
+  if (!Number.isFinite(v2)) return 0;
+  return Math.max(0, Math.min(100, v2));
 }
 function confidenceToProof(n) {
   const c = clampConfidence(n);
@@ -62351,9 +62560,9 @@ async function seedCollingwoodRunHours() {
     if (!draft) return { run: null, filled: 0, phoneSet: 0, skipped: "no draft run for Collingwood" };
     const emps = await db.select().from(employees).where(eq2(employees.clientId, CLIENT_ID2));
     const empById = new Map(emps.map((e) => [e.id, e]));
-    const lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, draft.id));
+    const lines3 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, draft.id));
     let filled = 0, phoneSet = 0;
-    for (const l of lines2) {
+    for (const l of lines3) {
       const e = empById.get(l.employeeId);
       if (!e) continue;
       const k = key2(e.firstName, e.lastName);
@@ -62883,14 +63092,14 @@ async function backfillOwenSoundPayroll() {
         runsAdded++;
       }
       const have = new Set((await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, run3.id))).map((l) => l.employeeId));
-      for (const [k, v] of Object.entries(p.lines)) {
+      for (const [k, v2] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp || have.has(emp.id)) continue;
-        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: round215(v.gross) });
+        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v2.hours, grossPay: round215(v2.gross) });
         linesAdded++;
       }
-      const lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, run3.id));
-      const tg = round215(lines2.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
+      const lines3 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, run3.id));
+      const tg = round215(lines3.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
       await db.update(payRuns).set({ totalGross: tg, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
     }
     if (runsAdded || linesAdded) console.log(`[os-backfill] added ${runsAdded} run(s), ${linesAdded} line(s)`);
@@ -63110,12 +63319,12 @@ async function backfillCollingwoodPayroll() {
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       if (!run3) continue;
-      for (const [k, v] of Object.entries(p.lines)) {
+      for (const [k, v2] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round216(v.gross);
+        const gross = round216(v2.gross);
         totalGross += gross;
-        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
+        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v2.hours, grossPay: gross });
       }
       await db.update(payRuns).set({ totalGross: round216(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
@@ -63371,12 +63580,12 @@ async function backfillAuldPayroll() {
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       if (!run3) continue;
-      for (const [k, v] of Object.entries(p.lines)) {
+      for (const [k, v2] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round217(v.gross);
+        const gross = round217(v2.gross);
         totalGross += gross;
-        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
+        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v2.hours, grossPay: gross });
       }
       await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
@@ -63677,12 +63886,12 @@ async function backfillOriginalityPayroll() {
           updatedAt: /* @__PURE__ */ new Date()
         }).returning();
         if (!run3) continue;
-        for (const [k, v] of Object.entries(p.lines)) {
+        for (const [k, v2] of Object.entries(p.lines)) {
           const emp = empByKey.get(k);
           if (!emp) continue;
-          const gross = round218(v.gross);
+          const gross = round218(v2.gross);
           totalGross += gross;
-          await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
+          await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v2.hours, grossPay: gross });
         }
         await db.update(payRuns).set({ totalGross: round218(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
         runsAdded++;
@@ -64122,10 +64331,10 @@ async function backfillMotionInvestPayroll() {
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       if (!run3) continue;
-      for (const [k, v] of Object.entries(p.lines)) {
+      for (const [k, v2] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round221(v.gross);
+        const gross = round221(v2.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
       }
@@ -64212,7 +64421,7 @@ async function backfillMotionInvestRevShare() {
       const note = `Revenue share bonus (${q3.label})`;
       const due = d9(q3.payDate) <= now;
       const exists2 = allRuns.some((r) => (r.notes || "") === note);
-      const lines2 = [];
+      const lines3 = [];
       for (const s of SHARERS) {
         const k = key10(s.first, s.last);
         const earned = round222(cumNet * s.pct);
@@ -64220,9 +64429,9 @@ async function backfillMotionInvestRevShare() {
         const payout = round222(Math.max(0, earned - prior));
         paidByKey.set(k, prior + payout);
         const emp = empByKey.get(k);
-        if (emp && payout > 0) lines2.push({ emp, amount: payout });
+        if (emp && payout > 0) lines3.push({ emp, amount: payout });
       }
-      if (!due || exists2 || !lines2.length) continue;
+      if (!due || exists2 || !lines3.length) continue;
       let totalGross = 0;
       const [run3] = await db.insert(payRuns).values({
         clientId,
@@ -64237,7 +64446,7 @@ async function backfillMotionInvestRevShare() {
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       if (!run3) continue;
-      for (const ln of lines2) {
+      for (const ln of lines3) {
         totalGross += ln.amount;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: ln.emp.id, regularHours: 0, grossPay: ln.amount });
       }
@@ -64859,6 +65068,17 @@ async function ensurePhoenixSchema() {
     soldAt integer NOT NULL,
     notes text,
     createdAt integer
+  )`);
+  await guard("legal_documents", sql`CREATE TABLE IF NOT EXISTS legal_documents (
+    id integer PRIMARY KEY AUTOINCREMENT,
+    userId integer NOT NULL,
+    docType text NOT NULL,           -- will | poa_property | poa_care | business_succession | account_directive
+    title text,
+    answers text,                    -- JSON of the Q&A answers
+    body text,                       -- generated draft text (editable)
+    status text DEFAULT 'draft',     -- draft | finalized
+    createdAt integer,
+    updatedAt integer
   )`);
   await guard("side_listings", sql`CREATE TABLE IF NOT EXISTS side_listings (
     id integer PRIMARY KEY AUTOINCREMENT,
@@ -67349,9 +67569,9 @@ async function importClientMaster() {
     if (r.touchbistro) procs.touchbistro = "https://www.touchbistro.com/login";
     if (Object.keys(procs).length) {
       const existing = (await db.select().from(clientVault).where(eq2(clientVault.clientId, clientId)).limit(1))[0];
-      const v = { clientId, otherSoftwareLogins: JSON.stringify(procs), updatedAt: /* @__PURE__ */ new Date() };
-      if (existing) await db.update(clientVault).set(v).where(eq2(clientVault.id, existing.id));
-      else await db.insert(clientVault).values(v);
+      const v2 = { clientId, otherSoftwareLogins: JSON.stringify(procs), updatedAt: /* @__PURE__ */ new Date() };
+      if (existing) await db.update(clientVault).set(v2).where(eq2(clientVault.id, existing.id));
+      else await db.insert(clientVault).values(v2);
       report.vaults++;
     }
     try {
@@ -68346,7 +68566,7 @@ function newId() {
   return `fx_${seq}_${sessions.size}`;
 }
 function idOf(s) {
-  for (const [k, v] of sessions) if (v === s) return k;
+  for (const [k, v2] of sessions) if (v2 === s) return k;
   return "";
 }
 function tools2() {
@@ -68873,11 +69093,11 @@ var init_dist5 = __esm({
         headers = new Headers(headers ?? void 0);
       }
       const cookies = [];
-      for (const [k, v] of headers) {
+      for (const [k, v2] of headers) {
         if (k === "set-cookie") {
-          cookies.push(v);
+          cookies.push(v2);
         } else {
-          res[k] = v;
+          res[k] = v2;
         }
       }
       if (cookies.length > 0) {
@@ -71062,8 +71282,8 @@ __export(seed_tax_rate_reviews_exports, {
 function nextOccurrence(month, day2, now = /* @__PURE__ */ new Date()) {
   const y = now.getFullYear();
   const thisYear = new Date(y, month - 1, day2);
-  const today2 = new Date(y, now.getMonth(), now.getDate());
-  return thisYear >= today2 ? thisYear : new Date(y + 1, month - 1, day2);
+  const today3 = new Date(y, now.getMonth(), now.getDate());
+  return thisYear >= today3 ? thisYear : new Date(y + 1, month - 1, day2);
 }
 async function seedTaxRateReviewTasks() {
   const db = getDb();
@@ -72407,7 +72627,7 @@ var checkOptionalParameter = (path7) => {
       }
     }
   });
-  return results.filter((v, i, a) => a.indexOf(v) === i);
+  return results.filter((v2, i, a) => a.indexOf(v2) === i);
 };
 var _decodeURI = (value) => {
   if (!/[%+]/.test(value)) {
@@ -72920,7 +73140,7 @@ var Context = class {
   set res(_res) {
     if (this.#res && _res) {
       _res = createResponseInstance(_res.body, _res);
-      for (const [k, v] of this.#res.headers.entries()) {
+      for (const [k, v2] of this.#res.headers.entries()) {
         if (k === "content-type") {
           continue;
         }
@@ -72931,7 +73151,7 @@ var Context = class {
             _res.headers.append("set-cookie", cookie3);
           }
         } else {
-          _res.headers.set(k, v);
+          _res.headers.set(k, v2);
         }
       }
     }
@@ -73086,13 +73306,13 @@ var Context = class {
       }
     }
     if (headers) {
-      for (const [k, v] of Object.entries(headers)) {
-        if (typeof v === "string") {
-          responseHeaders.set(k, v);
+      for (const [k, v2] of Object.entries(headers)) {
+        if (typeof v2 === "string") {
+          responseHeaders.set(k, v2);
         } else {
           responseHeaders.delete(k);
-          for (const v2 of v) {
-            responseHeaders.append(k, v2);
+          for (const v22 of v2) {
+            responseHeaders.append(k, v22);
           }
         }
       }
@@ -74060,7 +74280,7 @@ var Node2 = class _Node2 {
     curNode.#methods.push({
       [method]: {
         handler,
-        possibleKeys: possibleKeys.filter((v, i, a) => a.indexOf(v) === i),
+        possibleKeys: possibleKeys.filter((v2, i, a) => a.indexOf(v2) === i),
         score: this.#order
       }
     });
@@ -75721,7 +75941,7 @@ function initResponse(initOpts) {
   if (meta3.headers) {
     if (meta3.headers instanceof Headers) for (const [key11, value] of meta3.headers.entries()) headers.append(key11, value);
     else
-      for (const [key11, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) headers.append(key11, v);
+      for (const [key11, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v2 of value) headers.append(key11, v2);
       else if (typeof value === "string") headers.set(key11, value);
   }
   if (meta3.status) status = meta3.status;
@@ -75754,10 +75974,10 @@ function caughtErrorToData(cause, errorOpts) {
     body
   };
 }
-function isDataStream(v) {
-  if (!isObject(v)) return false;
-  if (isAsyncIterable(v)) return true;
-  return Object.values(v).some(isPromise) || Object.values(v).some(isAsyncIterable);
+function isDataStream(v2) {
+  if (!isObject(v2)) return false;
+  if (isAsyncIterable(v2)) return true;
+  return Object.values(v2).some(isPromise) || Object.values(v2).some(isAsyncIterable);
 }
 async function resolveResponse(opts) {
   var _ref, _opts$allowBatching, _opts$batching, _opts$allowMethodOver, _config$sse$enabled, _config$sse;
@@ -75926,7 +76146,7 @@ async function resolveResponse(opts) {
           });
           const stream = sseStreamProducer((0, import_objectSpread23.default)((0, import_objectSpread23.default)({}, config2.sse), {}, {
             data: iterable,
-            serialize: (v) => config2.transformer.output.serialize(v),
+            serialize: (v2) => config2.transformer.output.serialize(v2),
             formatError(errorOpts) {
               var _call$procedure$_def$2, _call$procedure3, _opts$onError2;
               const error$1 = getTRPCErrorFromUnknown(errorOpts.error);
@@ -76151,7 +76371,7 @@ async function fetchRequestHandler(opts) {
       if (meta3 === null || meta3 === void 0 ? void 0 : meta3.headers) {
         if (meta3.headers instanceof Headers) for (const [key11, value] of meta3.headers.entries()) resHeaders.append(key11, value);
         else
-          for (const [key11, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v of value) resHeaders.append(key11, v);
+          for (const [key11, value] of Object.entries(meta3.headers)) if (Array.isArray(value)) for (const v2 of value) resHeaders.append(key11, v2);
           else if (typeof value === "string") resHeaders.set(key11, value);
       }
       return {
@@ -76282,16 +76502,16 @@ var voiceRouter = createRouter({
     const userId = user.id;
     const userName = user.name || user.email;
     const now = /* @__PURE__ */ new Date();
-    const today2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today2.getTime() + 24 * 60 * 60 * 1e3);
-    const nextWeek = new Date(today2.getTime() + 7 * 24 * 60 * 60 * 1e3);
+    const today3 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today3.getTime() + 24 * 60 * 60 * 1e3);
+    const nextWeek = new Date(today3.getTime() + 7 * 24 * 60 * 60 * 1e3);
     const allTasks = await db.select().from(tasks).where(eq2(tasks.userId, userId)).orderBy(tasks.dueDate);
     const openTasks = allTasks.filter((t2) => !t2.completed);
-    const overdue = openTasks.filter((t2) => t2.dueDate && new Date(t2.dueDate) < today2);
+    const overdue = openTasks.filter((t2) => t2.dueDate && new Date(t2.dueDate) < today3);
     const dueToday = openTasks.filter((t2) => {
       if (!t2.dueDate) return false;
       const d10 = new Date(t2.dueDate);
-      return d10 >= today2 && d10 < tomorrow;
+      return d10 >= today3 && d10 < tomorrow;
     });
     const upcoming = openTasks.filter((t2) => {
       if (!t2.dueDate) return false;
@@ -76557,7 +76777,7 @@ init_email_core();
 init_google_token();
 async function googleApiRequest(accessToken, endpoint, params) {
   const url2 = new URL(endpoint);
-  if (params) Object.entries(params).forEach(([k, v]) => url2.searchParams.set(k, v));
+  if (params) Object.entries(params).forEach(([k, v2]) => url2.searchParams.set(k, v2));
   const res = await fetch(url2.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
@@ -76819,7 +77039,7 @@ init_schema();
 init_drizzle_orm();
 async function graphApiRequest(accessToken, endpoint, params) {
   const url2 = new URL(endpoint);
-  if (params) Object.entries(params).forEach(([k, v]) => url2.searchParams.set(k, v));
+  if (params) Object.entries(params).forEach(([k, v2]) => url2.searchParams.set(k, v2));
   const res = await fetch(url2.toString(), {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -79125,12 +79345,12 @@ var clientRouter = createRouter({
       }
     }
     const fill = {};
-    for (const [k, v] of Object.entries(dupe)) {
+    for (const [k, v2] of Object.entries(dupe)) {
       if (k === "id") continue;
       const cur = keep3[k];
       const curEmpty = cur === null || cur === void 0 || cur === "";
-      const dupHas = v !== null && v !== void 0 && v !== "";
-      if (curEmpty && dupHas) fill[k] = v;
+      const dupHas = v2 !== null && v2 !== void 0 && v2 !== "";
+      if (curEmpty && dupHas) fill[k] = v2;
     }
     if (Object.keys(fill).length) {
       try {
@@ -80874,8 +81094,8 @@ init_master_sheet_sync();
 import crypto3 from "crypto";
 
 // api/gov-registry-lookup.ts
-var clean = (v) => {
-  const s = String(v ?? "").trim();
+var clean = (v2) => {
+  const s = String(v2 ?? "").trim();
   if (!s || /^(n\/?a|none|unknown|null)$/i.test(s)) return void 0;
   return s;
 };
@@ -80938,7 +81158,7 @@ init_connection();
 init_schema();
 init_drizzle_orm();
 init_master_sheet_sync();
-var blank = (v) => v === null || v === void 0 || v === "";
+var blank = (v2) => v2 === null || v2 === void 0 || v2 === "";
 async function enrichClientFromRegistry(clientId) {
   const db = getDb();
   try {
@@ -80947,8 +81167,8 @@ async function enrichClientFromRegistry(clientId) {
     const hit = await lookupGovRegistry(c.name, { province: c.province, knownBn: c.taxId });
     if (!hit) return [];
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
-    const take = (k, v) => {
-      if (v && blank(c[k])) patch[k] = v;
+    const take = (k, v2) => {
+      if (v2 && blank(c[k])) patch[k] = v2;
     };
     take("bio", hit.bio);
     take("registryNumber", hit.registryNumber);
@@ -81644,10 +81864,10 @@ var onboardingRouter = createRouter({
     if (!c) return { success: false, error: "client not found" };
     const hit = await lookupGovRegistry(c.name, { province: c.province, knownBn: c.taxId });
     if (!hit) return { success: false, error: "no registry data found (or lookup disabled)" };
-    const blank2 = (v) => v === null || v === void 0 || v === "";
+    const blank2 = (v2) => v2 === null || v2 === void 0 || v2 === "";
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
-    const take = (k, v) => {
-      if (v && (input.force || blank2(c[k]))) patch[k] = v;
+    const take = (k, v2) => {
+      if (v2 && (input.force || blank2(c[k]))) patch[k] = v2;
     };
     take("bio", hit.bio);
     take("registryNumber", hit.registryNumber);
@@ -81740,8 +81960,8 @@ var clientDashboardRouter = createRouter({
     const cr = await getConnectionForClient2(input.clientId);
     if ("error" in cr) return { ok: false, error: cr.error };
     const conn = cr.conn;
-    const num7 = (v) => {
-      const n = Number(v);
+    const num7 = (v2) => {
+      const n = Number(v2);
       return Number.isFinite(n) ? n : 0;
     };
     try {
@@ -81751,11 +81971,11 @@ var clientDashboardRouter = createRouter({
       const bank = bankBreakdownFromAccounts2(rows);
       const ar = accounts.filter((a) => /receivable/i.test(a.AccountType || "")).reduce((s, a) => s + num7(a.CurrentBalance), 0);
       const ap = accounts.filter((a) => /payable/i.test(a.AccountType || "")).reduce((s, a) => s + Math.abs(num7(a.CurrentBalance)), 0);
-      const today2 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-      const yStart = `${today2.slice(0, 4)}-01-01`;
+      const today3 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      const yStart = `${today3.slice(0, 4)}-01-01`;
       let pnl = { revenue: null, expenses: null, netIncome: null };
       try {
-        pnl = profitAndLossFromReport2(await qboRequest2(conn, `/reports/ProfitAndLoss?start_date=${yStart}&end_date=${today2}`));
+        pnl = profitAndLossFromReport2(await qboRequest2(conn, `/reports/ProfitAndLoss?start_date=${yStart}&end_date=${today3}`));
       } catch {
       }
       const r26 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -81776,7 +81996,7 @@ var clientDashboardRouter = createRouter({
         netIncome: pnl.netIncome,
         bankAccounts: bank.bankAccounts,
         periodFrom: yStart,
-        periodTo: today2
+        periodTo: today3
       };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -83123,87 +83343,87 @@ function generateDefaultSections(onboarding) {
 }
 function generateFilingDeadlines(onboarding) {
   if (!onboarding) return "No onboarding data available. Add deadlines based on client profile.";
-  const lines2 = [];
+  const lines3 = [];
   if (onboarding.hstGstFrequency && onboarding.hstGstFrequency !== "none") {
-    lines2.push(`- HST/GST: ${onboarding.hstGstFrequency} filings required`);
+    lines3.push(`- HST/GST: ${onboarding.hstGstFrequency} filings required`);
   }
   if (onboarding.payrollFrequency && onboarding.payrollFrequency !== "none") {
-    lines2.push(`- Payroll remittances: ${onboarding.payrollFrequency}`);
+    lines3.push(`- Payroll remittances: ${onboarding.payrollFrequency}`);
   }
   if (onboarding.wsibRequired) {
-    lines2.push("- WSIB: Annual reconciliation due by March 31");
+    lines3.push("- WSIB: Annual reconciliation due by March 31");
   }
   if (onboarding.fiscalYearEnd) {
-    lines2.push(`- Fiscal year-end: ${onboarding.fiscalYearEnd}`);
+    lines3.push(`- Fiscal year-end: ${onboarding.fiscalYearEnd}`);
   }
   if (onboarding.hasEmployees) {
-    lines2.push("- T4 filing: Due last day of February");
+    lines3.push("- T4 filing: Due last day of February");
   }
   if (onboarding.hasSubcontractors) {
-    lines2.push("- T5018 filing: Due last day of February");
+    lines3.push("- T5018 filing: Due last day of February");
   }
-  return lines2.length > 0 ? lines2.join("\n") : "No specific deadlines identified from onboarding.";
+  return lines3.length > 0 ? lines3.join("\n") : "No specific deadlines identified from onboarding.";
 }
 function generateBankingProcedures(onboarding) {
   if (!onboarding) return "Add banking details.";
-  const lines2 = [];
-  lines2.push(`- Bank accounts: ${onboarding.bankAccountCount || 1}`);
+  const lines3 = [];
+  lines3.push(`- Bank accounts: ${onboarding.bankAccountCount || 1}`);
   if (onboarding.creditCardCount && onboarding.creditCardCount > 0) {
-    lines2.push(`- Credit cards: ${onboarding.creditCardCount}`);
+    lines3.push(`- Credit cards: ${onboarding.creditCardCount}`);
   }
-  lines2.push("- All bank and credit card statements must be provided monthly");
-  lines2.push("- Reconcile all accounts before month-end");
-  return lines2.join("\n");
+  lines3.push("- All bank and credit card statements must be provided monthly");
+  lines3.push("- Reconcile all accounts before month-end");
+  return lines3.join("\n");
 }
 function generatePayrollProcedures(onboarding) {
   if (!onboarding || !onboarding.payrollFrequency || onboarding.payrollFrequency === "none") {
     return "No payroll requirements identified.";
   }
-  const lines2 = [];
-  lines2.push(`- Payroll frequency: ${onboarding.payrollFrequency}`);
-  lines2.push(`- Payroll provider: ${onboarding.currentPayrollProvider || "TBD"}`);
+  const lines3 = [];
+  lines3.push(`- Payroll frequency: ${onboarding.payrollFrequency}`);
+  lines3.push(`- Payroll provider: ${onboarding.currentPayrollProvider || "TBD"}`);
   if (onboarding.hasEmployees) {
-    lines2.push("- Ensure timesheets are submitted before each pay run");
-    lines2.push("- Remit source deductions on schedule");
+    lines3.push("- Ensure timesheets are submitted before each pay run");
+    lines3.push("- Remit source deductions on schedule");
   }
-  return lines2.join("\n");
+  return lines3.join("\n");
 }
 function generateHstProcedures(onboarding) {
   if (!onboarding || !onboarding.hstGstFrequency || onboarding.hstGstFrequency === "none") {
     return "No HST/GST registration identified.";
   }
-  const lines2 = [];
-  lines2.push(`- HST/GST frequency: ${onboarding.hstGstFrequency}`);
+  const lines3 = [];
+  lines3.push(`- HST/GST frequency: ${onboarding.hstGstFrequency}`);
   if (onboarding.hstGstNumber) {
-    lines2.push(`- HST/GST number: ${onboarding.hstGstNumber}`);
+    lines3.push(`- HST/GST number: ${onboarding.hstGstNumber}`);
   }
-  lines2.push("- Ensure all sales invoices have HST/GST applied correctly");
-  lines2.push("- Provide ITC supporting documents (receipts)");
-  return lines2.join("\n");
+  lines3.push("- Ensure all sales invoices have HST/GST applied correctly");
+  lines3.push("- Provide ITC supporting documents (receipts)");
+  return lines3.join("\n");
 }
 function generateYearEndProcedures(onboarding) {
-  const lines2 = [];
+  const lines3 = [];
   if (onboarding?.fiscalYearEnd) {
-    lines2.push(`- Fiscal year-end: ${onboarding.fiscalYearEnd}`);
+    lines3.push(`- Fiscal year-end: ${onboarding.fiscalYearEnd}`);
   }
-  lines2.push("- Ensure all transactions are entered and reconciled");
-  lines2.push("- Provide year-end bank and credit card statements");
-  lines2.push("- Review A/R and A/P for accuracy");
-  lines2.push("- Fixed asset schedule to be reviewed");
+  lines3.push("- Ensure all transactions are entered and reconciled");
+  lines3.push("- Provide year-end bank and credit card statements");
+  lines3.push("- Review A/R and A/P for accuracy");
+  lines3.push("- Fixed asset schedule to be reviewed");
   if (onboarding?.hasEmployees) {
-    lines2.push("- Prepare and file T4s, T4As by February");
+    lines3.push("- Prepare and file T4s, T4As by February");
   }
-  return lines2.join("\n");
+  return lines3.join("\n");
 }
 function generateWsibProcedures(onboarding) {
   if (!onboarding?.wsibRequired) return "WSIB not required.";
-  const lines2 = [];
+  const lines3 = [];
   if (onboarding.wsibAccountNumber) {
-    lines2.push(`- WSIB account number: ${onboarding.wsibAccountNumber}`);
+    lines3.push(`- WSIB account number: ${onboarding.wsibAccountNumber}`);
   }
-  lines2.push("- Report insurable earnings monthly/quarterly as required");
-  lines2.push("- Annual reconciliation due March 31");
-  return lines2.join("\n");
+  lines3.push("- Report insurable earnings monthly/quarterly as required");
+  lines3.push("- Annual reconciliation due March 31");
+  return lines3.join("\n");
 }
 var playbookRouter = createRouter({
   // Get or create playbook for a client
@@ -85425,7 +85645,7 @@ function buildIntercoJe(opts) {
   const offset = opts.offsetAccount?.trim() || "[offset account \u2014 select from chart]";
   const byParty = /* @__PURE__ */ new Map();
   for (const e of opts.entries) byParty.set(e.counterpartyClientId, r2((byParty.get(e.counterpartyClientId) ?? 0) + (e.amount || 0)));
-  const lines2 = [];
+  const lines3 = [];
   let net = 0;
   for (const [cp2, amtRaw] of byParty) {
     const amt = r2(amtRaw);
@@ -85433,16 +85653,16 @@ function buildIntercoJe(opts) {
     net = r2(net + amt);
     const who = opts.nameOf(cp2);
     if (amt > 0) {
-      lines2.push({ account: interco, debit: amt, credit: 0, description: `Due from ${who} (interco settlement)` });
+      lines3.push({ account: interco, debit: amt, credit: 0, description: `Due from ${who} (interco settlement)` });
     } else {
-      lines2.push({ account: interco, debit: 0, credit: -amt, description: `Due to ${who} (interco settlement)` });
+      lines3.push({ account: interco, debit: 0, credit: -amt, description: `Due to ${who} (interco settlement)` });
     }
   }
-  if (net > 0) lines2.push({ account: offset, debit: 0, credit: net, description: "Interco bill-back \u2014 contra" });
-  else if (net < 0) lines2.push({ account: offset, debit: -net, credit: 0, description: "Interco bill-back \u2014 contra" });
-  const totalDebit = r2(lines2.reduce((s, l) => s + l.debit, 0));
-  const totalCredit = r2(lines2.reduce((s, l) => s + l.credit, 0));
-  return { lines: lines2, totalDebit, totalCredit, balanced: totalDebit === totalCredit, net };
+  if (net > 0) lines3.push({ account: offset, debit: 0, credit: net, description: "Interco bill-back \u2014 contra" });
+  else if (net < 0) lines3.push({ account: offset, debit: -net, credit: 0, description: "Interco bill-back \u2014 contra" });
+  const totalDebit = r2(lines3.reduce((s, l) => s + l.debit, 0));
+  const totalCredit = r2(lines3.reduce((s, l) => s + l.credit, 0));
+  return { lines: lines3, totalDebit, totalCredit, balanced: totalDebit === totalCredit, net };
 }
 async function clientNameMap() {
   const db = getDb();
@@ -85624,7 +85844,7 @@ var vendorRulesRouter = createRouter({
     try {
       const conn = cr.conn;
       const q3 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
-      const vendors = arr3(await q3("SELECT Id, DisplayName FROM Vendor WHERE Active = true ORDER BY DisplayName MAXRESULTS 1000"), "Vendor").map((v) => ({ id: String(v.Id), name: v.DisplayName })).sort((a, b) => a.name.localeCompare(b.name));
+      const vendors = arr3(await q3("SELECT Id, DisplayName FROM Vendor WHERE Active = true ORDER BY DisplayName MAXRESULTS 1000"), "Vendor").map((v2) => ({ id: String(v2.Id), name: v2.DisplayName })).sort((a, b) => a.name.localeCompare(b.name));
       const accounts = arr3(await q3("SELECT Id, Name, AccountType FROM Account WHERE Active = true MAXRESULTS 1000"), "Account").filter((a) => /expense|cost of goods/i.test(a.AccountType || "")).map((a) => ({ id: String(a.Id), name: a.Name, type: a.AccountType })).sort((a, b) => a.name.localeCompare(b.name));
       const taxCodes = arr3(await q3("SELECT Id, Name FROM TaxCode MAXRESULTS 1000"), "TaxCode").map((t2) => ({ id: String(t2.Id), name: t2.Name }));
       return { ok: true, vendors, accounts, taxCodes };
@@ -85650,7 +85870,7 @@ var vendorRulesRouter = createRouter({
     let vendors;
     try {
       const data = await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT Id, DisplayName FROM Vendor WHERE Active = true ORDER BY DisplayName MAXRESULTS 1000")}`);
-      vendors = arr3(data, "Vendor").map((v) => ({ id: String(v.Id), name: v.DisplayName }));
+      vendors = arr3(data, "Vendor").map((v2) => ({ id: String(v2.Id), name: v2.DisplayName }));
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false, error: "bridge_not_returning_data" };
@@ -85659,13 +85879,13 @@ var vendorRulesRouter = createRouter({
     const ruled = new Set(
       (await db.select().from(vendorMemory).where(and(eq2(vendorMemory.connectionId, conn.id), eq2(vendorMemory.confirmedByHuman, true)))).map((r) => String(r.qboVendorId))
     );
-    const todo = vendors.filter((v) => !ruled.has(v.id)).slice(0, cap2);
+    const todo = vendors.filter((v2) => !ruled.has(v2.id)).slice(0, cap2);
     const suggestions = [];
     let scanned = 0, errors = 0;
-    for (const v of todo) {
+    for (const v2 of todo) {
       scanned++;
       try {
-        const r = await suggestForClient(input.clientId, { vendorName: v.name });
+        const r = await suggestForClient(input.clientId, { vendorName: v2.name });
         if (!r.ok) {
           errors++;
           continue;
@@ -85673,8 +85893,8 @@ var vendorRulesRouter = createRouter({
         const c = r.coding ?? {};
         if (c.triage === "green" && c.suggestedAccountId) {
           suggestions.push({
-            qboVendorId: r.resolution?.vendorId ?? v.id,
-            vendorName: r.resolution?.displayName ?? v.name,
+            qboVendorId: r.resolution?.vendorId ?? v2.id,
+            vendorName: r.resolution?.displayName ?? v2.name,
             accountId: c.suggestedAccountId,
             accountName: c.suggestedAccountName ?? null,
             taxCode: c.suggestedTaxCode ?? null,
@@ -85756,9 +85976,9 @@ function parseDateLoose(s) {
   const d10 = new Date(t2);
   return Number.isNaN(d10.getTime()) ? null : d10.getTime();
 }
-function num3(v) {
-  if (v == null) return NaN;
-  let s = String(v).trim();
+function num3(v2) {
+  if (v2 == null) return NaN;
+  let s = String(v2).trim();
   if (!s) return NaN;
   let neg = false;
   if (/^\(.*\)$/.test(s)) {
@@ -85795,12 +86015,12 @@ function splitLine(line, delim) {
   out.push(cur);
   return out.map((s) => s.trim());
 }
-function detectDelimiter(lines2) {
+function detectDelimiter(lines3) {
   const cands = ["	", ",", ";"];
   let best = ",";
   let bestScore = -1;
   for (const d10 of cands) {
-    const counts = lines2.slice(0, 10).map((l) => splitLine(l, d10).length);
+    const counts = lines3.slice(0, 10).map((l) => splitLine(l, d10).length);
     const max2 = Math.max(...counts, 1);
     if (max2 < 2) continue;
     const consistent = counts.filter((c) => c === max2).length;
@@ -85814,24 +86034,24 @@ function detectDelimiter(lines2) {
 }
 var findCol = (headers, ...keys) => headers.findIndex((h) => keys.some((k) => h.toLowerCase().includes(k)));
 function parseCsvTransactions(text2) {
-  const lines2 = (text2 || "").replace(/\r/g, "").split("\n").filter((l) => l.trim());
-  if (!lines2.length) return [];
-  const delim = detectDelimiter(lines2);
+  const lines3 = (text2 || "").replace(/\r/g, "").split("\n").filter((l) => l.trim());
+  if (!lines3.length) return [];
+  const delim = detectDelimiter(lines3);
   const splitCsvLine2 = (l) => splitLine(l, delim);
-  let headerIdx = lines2.findIndex((l) => {
+  let headerIdx = lines3.findIndex((l) => {
     const lo = l.toLowerCase();
     return /date/.test(lo) && /(amount|debit|credit|withdraw|deposit|increase|decrease)/.test(lo);
   });
   if (headerIdx < 0) headerIdx = 0;
-  const headers = splitCsvLine2(lines2[headerIdx]);
+  const headers = splitCsvLine2(lines3[headerIdx]);
   const dateI = findCol(headers, "date");
   const descI = findCol(headers, "description", "payee", "name", "memo", "details", "transaction");
   const amtI = findCol(headers, "amount");
   const debitI = findCol(headers, "debit", "withdrawal", "decrease", "money out", "paid out");
   const creditI = findCol(headers, "credit", "deposit", "increase", "money in", "paid in");
   const out = [];
-  for (let i = headerIdx + 1; i < lines2.length; i++) {
-    const f = splitCsvLine2(lines2[i]);
+  for (let i = headerIdx + 1; i < lines3.length; i++) {
+    const f = splitCsvLine2(lines3[i]);
     if (!f.length) continue;
     const rawDate = dateI >= 0 ? f[dateI] : f[0];
     const ms4 = parseDateLoose(rawDate);
@@ -86103,7 +86323,7 @@ function findCrossAccountDuplicates(payments) {
     e.total = round28(e.total + Math.abs(p.amount || 0));
     byAcc.set(a, e);
   }
-  const byAccount = Array.from(byAcc.entries()).map(([account, v]) => ({ account, ...v })).sort((a, b) => b.total - a.total);
+  const byAccount = Array.from(byAcc.entries()).map(([account, v2]) => ({ account, ...v2 })).sort((a, b) => b.total - a.total);
   const flaggedAmount = round28(duplicates.reduce((s, d10) => s + d10.amount, 0));
   return {
     duplicates,
@@ -86113,8 +86333,8 @@ function findCrossAccountDuplicates(payments) {
 }
 
 // api/cleanup-router.ts
-var num4 = (v) => {
-  const n = Number(v);
+var num4 = (v2) => {
+  const n = Number(v2);
   return Number.isFinite(n) ? n : 0;
 };
 var arr4 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
@@ -86575,8 +86795,8 @@ async function fetchBocFxRates() {
     const rates = { CAD: 1 };
     for (const [key11, val] of Object.entries(obs)) {
       const m = /^FX([A-Z]{3})CAD$/.exec(key11);
-      const v = Number(val?.v);
-      if (m && Number.isFinite(v) && v > 0) rates[m[1]] = v;
+      const v2 = Number(val?.v);
+      if (m && Number.isFinite(v2) && v2 > 0) rates[m[1]] = v2;
     }
     if (Object.keys(rates).length < 2) return null;
     return { date: date5, rates, source: "Bank of Canada" };
@@ -86597,8 +86817,8 @@ async function fetchFallbackFxRates() {
     const date5 = String(json2.time_last_update_utc ? new Date(json2.time_last_update_utc).toISOString().slice(0, 10) : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
     const rates = { CAD: 1 };
     for (const [cur, perCad] of Object.entries(json2.rates)) {
-      const v = Number(perCad);
-      if (/^[A-Z]{3}$/.test(cur) && Number.isFinite(v) && v > 0) rates[cur] = 1 / v;
+      const v2 = Number(perCad);
+      if (/^[A-Z]{3}$/.test(cur) && Number.isFinite(v2) && v2 > 0) rates[cur] = 1 / v2;
     }
     if (Object.keys(rates).length < 2) return null;
     return { date: date5, rates, source: "exchangerate-api.com" };
@@ -86841,10 +87061,10 @@ function selectRelevant(all, agent, limit2 = 15) {
 }
 function formatLessonsBlock(lessons) {
   if (!lessons.length) return "";
-  const lines2 = lessons.map((l) => `- ${l.lesson}${l.clientName ? ` [${l.clientName}]` : ""}`);
+  const lines3 = lessons.map((l) => `- ${l.lesson}${l.clientName ? ` [${l.clientName}]` : ""}`);
   return [
     "=== REMEMBERED (confirmed by Markie \u2014 apply these, they override defaults) ===",
-    ...lines2
+    ...lines3
   ].join("\n");
 }
 
@@ -87484,13 +87704,13 @@ async function execGetAgenda(userId) {
       return "";
     }
   };
-  const overdue = [], today2 = [], upcoming = [];
+  const overdue = [], today3 = [], upcoming = [];
   for (const t2 of open3) {
     if (!t2.dueDate) continue;
     const d10 = new Date(t2.dueDate);
     const item = { title: t2.title, client: t2.clientId ? nameById.get(t2.clientId) : null, due: dstr(d10) };
     if (d10 < todayStart) overdue.push(item);
-    else if (d10 < todayEnd) today2.push({ ...item, due: null });
+    else if (d10 < todayEnd) today3.push({ ...item, due: null });
     else upcoming.push(item);
   }
   overdue.sort((a, b) => a.due.localeCompare(b.due));
@@ -87500,7 +87720,7 @@ async function execGetAgenda(userId) {
     const s = new Date(e.startDate);
     return s >= todayStart && s < todayEnd;
   }).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()).map((e) => ({ title: e.title, when: e.isAllDay ? "all day" : new Date(e.startDate).toLocaleTimeString("en-CA", { timeZone: TZ, hour: "numeric", minute: "2-digit" }) }));
-  return formatAgenda({ overdue, today: today2, upcoming, events });
+  return formatAgenda({ overdue, today: today3, upcoming, events });
 }
 async function execAddPersonal(input, userId) {
   const db = getDb();
@@ -87766,14 +87986,14 @@ async function execAgentScorecard() {
   const { runAgentScorecard: runAgentScorecard2 } = await Promise.resolve().then(() => (init_qa_router(), qa_router_exports));
   const sc = await runAgentScorecard2();
   if (!sc.agents.length) return "No agent work has been reviewed yet \u2014 scores show up once agents post proposals and you approve/dismiss them.";
-  const lines2 = sc.agents.map((a) => {
+  const lines3 = sc.agents.map((a) => {
     const rate = a.acceptanceRate != null ? `${a.acceptanceRate}%` : "\u2014";
     const trend = a.trend === "up" ? " \u2191" : a.trend === "down" ? " \u2193" : "";
     return `${a.agent}: ${rate} accepted (${a.reviewed} reviewed)${trend} \u2014 ${a.grade === "n/a" ? "needs data" : a.grade}`;
   });
   const overall = sc.overall.acceptanceRate != null ? `Overall ${sc.overall.acceptanceRate}% accepted across ${sc.overall.reviewed} reviewed.` : "";
   return `${overall}
-${lines2.join("\n")}`.trim();
+${lines3.join("\n")}`.trim();
 }
 async function execSystemHealth() {
   const { runHealthReport: runHealthReport2 } = await Promise.resolve().then(() => (init_qa_router(), qa_router_exports));
@@ -87781,9 +88001,9 @@ async function execSystemHealth() {
   const problems = r.checks.filter((c) => c.status !== "ok");
   const head = r.status === "ok" ? `All good \u2014 ${r.counts.ok} checks green.` : `${r.counts.fail} problem(s), ${r.counts.warn} need attention (${r.counts.ok} OK).`;
   if (!problems.length) return head;
-  const lines2 = problems.slice(0, 8).map((c) => `${c.status === "fail" ? "\u{1F534}" : "\u{1F7E1}"} ${c.label}: ${c.detail}`);
+  const lines3 = problems.slice(0, 8).map((c) => `${c.status === "fail" ? "\u{1F534}" : "\u{1F7E1}"} ${c.label}: ${c.detail}`);
   return `${head}
-${lines2.join("\n")}`;
+${lines3.join("\n")}`;
 }
 async function runTool(name2, input, userId, activeAgent) {
   try {
@@ -88152,12 +88372,12 @@ var personalRouter = createRouter({
   // Liv to file (lands in the chosen category, default misc/inbox to organize).
   factDump: authedQuery.input(external_exports.object({ text: external_exports.string().min(1), category: external_exports.string().max(60).optional() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const lines2 = splitDump(input.text);
+    const lines3 = splitDump(input.text);
     const cat = normalizeCategory(input.category ?? "misc");
-    for (const fact of lines2) {
+    for (const fact of lines3) {
       await db.insert(personalFacts).values({ userId: ctx.user.id, category: cat, fact, source: "dump", pinned: false });
     }
-    return { ok: true, added: lines2.length };
+    return { ok: true, added: lines3.length };
   })
 });
 
@@ -88306,8 +88526,8 @@ function sumLines(rows) {
     { line101: 0, line103: 0, line106: 0, line109: 0 }
   );
 }
-function netTaxDrift(lines2) {
-  return round29(lines2.line109 - (lines2.line103 - lines2.line106));
+function netTaxDrift(lines3) {
+  return round29(lines3.line109 - (lines3.line103 - lines3.line106));
 }
 var DEFAULTS = {
   dollarTolerance: 2,
@@ -88335,13 +88555,13 @@ function auditHstYear(args) {
   const periods = args.filed.map((fr) => {
     const book = args.books.find((b) => b.periodLabel === fr.periodLabel) || args.books.find((b) => b.startDate === fr.startDate && b.endDate === fr.endDate);
     const bookLines = book || { line101: 0, line103: 0, line106: 0, line109: 0 };
-    const lines2 = compareLines(fr, bookLines, cfg);
+    const lines3 = compareLines(fr, bookLines, cfg);
     return {
       periodLabel: fr.periodLabel,
       startDate: fr.startDate,
       endDate: fr.endDate,
-      lines: lines2,
-      tied: lines2.every((l) => l.withinTolerance)
+      lines: lines3,
+      tied: lines3.every((l) => l.withinTolerance)
     };
   });
   const filedDrift = netTaxDrift(filedAnnual);
@@ -88496,9 +88716,9 @@ function matchSection(line) {
   return null;
 }
 var numberedStart = (line) => /^[\s]*\d+\.\s+/.test(line);
-function extractBullets(lines2) {
+function extractBullets(lines3) {
   const out = [];
-  for (const line of lines2) {
+  for (const line of lines3) {
     if (isBlank(line)) continue;
     const t2 = clean3(line);
     if (!t2 || /:$/.test(line.trim())) continue;
@@ -88507,7 +88727,7 @@ function extractBullets(lines2) {
   }
   return out;
 }
-function extractNumbered(lines2) {
+function extractNumbered(lines3) {
   const out = [];
   let cur = null;
   const body = [];
@@ -88518,7 +88738,7 @@ function extractNumbered(lines2) {
     }
     body.length = 0;
   };
-  for (const line of lines2) {
+  for (const line of lines3) {
     if (numberedStart(line)) {
       flush();
       cur = { kind: "idea", title: clean3(line.replace(/^\s*\d+\.\s+/, "")).slice(0, 200) };
@@ -88528,11 +88748,11 @@ function extractNumbered(lines2) {
     }
   }
   flush();
-  return out.length ? out : extractBullets(lines2);
+  return out.length ? out : extractBullets(lines3);
 }
 function parseSessionPackage(text2) {
   const raw2 = (text2 || "").replace(/\r/g, "");
-  const lines2 = raw2.split("\n");
+  const lines3 = raw2.split("\n");
   const idMatch = raw2.match(/\bSES-\d{4}-\d{2}-\d{2}-\d+\b/) || raw2.match(/Session ID:\s*([^\s]+)/i);
   const sessionId = idMatch ? idMatch[0].startsWith("SES-") ? idMatch[0] : idMatch[1] : null;
   const items = [];
@@ -88555,7 +88775,7 @@ function parseSessionPackage(text2) {
     }
     block = [];
   };
-  for (const line of lines2) {
+  for (const line of lines3) {
     const sec = matchSection(line);
     if (sec) {
       commit();
@@ -88566,7 +88786,7 @@ function parseSessionPackage(text2) {
   }
   commit();
   let title = "";
-  for (const l of lines2) {
+  for (const l of lines3) {
     const t2 = clean3(l);
     if (t2 && !/^session (close package|id)/i.test(t2) && !/^status:/i.test(t2) && !/^prepared by/i.test(t2)) {
       title = t2.slice(0, 160);
@@ -88830,7 +89050,7 @@ var marketingRouter = createRouter({
   })).mutation(async ({ input }) => {
     const db = getDb();
     const sets = [];
-    const push = (c, v) => sets.push(sql`${sql.raw(c)} = ${v}`);
+    const push = (c, v2) => sets.push(sql`${sql.raw(c)} = ${v2}`);
     if (input.title !== void 0) push("title", input.title);
     if (input.body !== void 0) push("body", input.body);
     if (input.status !== void 0) push("status", input.status);
@@ -88998,7 +89218,7 @@ var lifeRouter = createRouter({
     const db = getDb();
     const { id, ...rest } = input;
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
-    for (const [k, v] of Object.entries(rest)) if (v !== void 0) patch[k] = v;
+    for (const [k, v2] of Object.entries(rest)) if (v2 !== void 0) patch[k] = v2;
     await db.update(lifeEntries).set(patch).where(and(eq2(lifeEntries.id, id), eq2(lifeEntries.userId, ctx.user.id)));
     if (patch.title !== void 0 || patch.date !== void 0) {
       const cur = (await db.select().from(lifeEntries).where(and(eq2(lifeEntries.id, id), eq2(lifeEntries.userId, ctx.user.id))).limit(1))[0];
@@ -89283,6 +89503,47 @@ var phoenixRouter = createRouter({
     await getDb().run(sql`DELETE FROM side_sales WHERE id=${input.id} AND userId=${ctx.user.id}`);
     return { ok: true };
   }),
+  // ───────── Legal / estate documents — guided Q&A → generated DRAFT ─────────
+  /** The available document types + their question schemas (for the UI). */
+  legalSpecs: authedQuery.query(async () => {
+    const { LEGAL_DOCS: LEGAL_DOCS2 } = await Promise.resolve().then(() => (init_legal_templates(), legal_templates_exports));
+    return LEGAL_DOCS2.map((d10) => ({ type: d10.type, title: d10.title, blurb: d10.blurb, fields: d10.fields }));
+  }),
+  /** Markie's saved legal documents. */
+  legalList: authedQuery.query(async ({ ctx }) => {
+    return await getDb().all(sql`SELECT id, docType, title, status, answers, updatedAt FROM legal_documents WHERE userId=${ctx.user.id} ORDER BY updatedAt DESC`);
+  }),
+  legalGet: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {
+    return (await getDb().all(sql`SELECT * FROM legal_documents WHERE id=${input.id} AND userId=${ctx.user.id} LIMIT 1`))[0] || null;
+  }),
+  /** Save answers → regenerate the draft body (deterministic template fill). */
+  legalSave: authedQuery.input(external_exports.object({ id: external_exports.number().optional(), docType: external_exports.string(), answers: external_exports.record(external_exports.string(), external_exports.string()), bodyOverride: external_exports.string().optional() })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const uid = ctx.user.id;
+    const now = Date.now();
+    const { getLegalSpec: getLegalSpec2, generateLegalDoc: generateLegalDoc2 } = await Promise.resolve().then(() => (init_legal_templates(), legal_templates_exports));
+    const spec = getLegalSpec2(input.docType);
+    if (!spec) return { ok: false, error: "unknown_doc_type" };
+    const body = input.bodyOverride ?? generateLegalDoc2(input.docType, input.answers);
+    const title = spec.title;
+    const ansJson = JSON.stringify(input.answers);
+    if (input.id) {
+      await db.run(sql`UPDATE legal_documents SET answers=${ansJson}, body=${body}, title=${title}, updatedAt=${now} WHERE id=${input.id} AND userId=${uid}`);
+      return { ok: true, id: input.id, body };
+    }
+    await db.run(sql`INSERT INTO legal_documents (userId, docType, title, answers, body, status, createdAt, updatedAt)
+        VALUES (${uid}, ${input.docType}, ${title}, ${ansJson}, ${body}, 'draft', ${now}, ${now})`);
+    const row = (await db.all(sql`SELECT id FROM legal_documents WHERE userId=${uid} ORDER BY id DESC LIMIT 1`))[0];
+    return { ok: true, id: row?.id, body };
+  }),
+  legalSetStatus: authedQuery.input(external_exports.object({ id: external_exports.number(), status: external_exports.enum(["draft", "finalized"]) })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`UPDATE legal_documents SET status=${input.status}, updatedAt=${Date.now()} WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  }),
+  legalRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM legal_documents WHERE id=${input.id} AND userId=${ctx.user.id}`);
+    return { ok: true };
+  }),
   // ───────── Reseller engine — Skye-drafted listings (draft → paste-and-post) ─────────
   /** Draft channel-tailored listings for a product (cheap workhorse model; never posts). */
   generateListing: authedQuery.input(external_exports.object({ productId: external_exports.number(), channels: external_exports.array(external_exports.string()).max(6).optional() })).mutation(async ({ ctx, input }) => {
@@ -89511,33 +89772,33 @@ function lastDayOfPeriod(periodKey2) {
   return `${y}-${String(m).padStart(2, "0")}-${String(day2).padStart(2, "0")}`;
 }
 function generateJeForPeriod(period2, opts) {
-  const lines2 = [];
+  const lines3 = [];
   const job = period_customerJobOf(period2);
   if (period2.contractAsset > 0) {
-    lines2.push({ accountKey: "contract_asset", debit: period2.contractAsset, credit: 0, customerJob: job, memo: `WIP accrual ${period2.periodKey} \u2014 underbilling` });
-    lines2.push({ accountKey: "revenue", debit: 0, credit: period2.contractAsset, customerJob: job, memo: `WIP accrual ${period2.periodKey} \u2014 revenue earned not yet billed` });
+    lines3.push({ accountKey: "contract_asset", debit: period2.contractAsset, credit: 0, customerJob: job, memo: `WIP accrual ${period2.periodKey} \u2014 underbilling` });
+    lines3.push({ accountKey: "revenue", debit: 0, credit: period2.contractAsset, customerJob: job, memo: `WIP accrual ${period2.periodKey} \u2014 revenue earned not yet billed` });
   }
   if (opts.depositsBookedToRevenue && period2.deferredRevenue > 0) {
-    lines2.push({ accountKey: "revenue", debit: period2.deferredRevenue, credit: 0, customerJob: job, memo: `WIP deferral ${period2.periodKey} \u2014 overbilling` });
-    lines2.push({ accountKey: "deferred_revenue", debit: 0, credit: period2.deferredRevenue, customerJob: job, memo: `WIP deferral ${period2.periodKey} \u2014 billed ahead of work` });
+    lines3.push({ accountKey: "revenue", debit: period2.deferredRevenue, credit: 0, customerJob: job, memo: `WIP deferral ${period2.periodKey} \u2014 overbilling` });
+    lines3.push({ accountKey: "deferred_revenue", debit: 0, credit: period2.deferredRevenue, customerJob: job, memo: `WIP deferral ${period2.periodKey} \u2014 billed ahead of work` });
   }
-  if (lines2.length === 0) return null;
-  const accrual = sealJe("accrual", lastDayOfPeriod(period2.periodKey), period2.periodKey, lines2);
+  if (lines3.length === 0) return null;
+  const accrual = sealJe("accrual", lastDayOfPeriod(period2.periodKey), period2.periodKey, lines3);
   const reversal = sealJe(
     "reversal",
     firstDayOfNextPeriod(period2.periodKey),
     period2.periodKey,
-    lines2.map((l) => ({ ...l, debit: l.credit, credit: l.debit, memo: l.memo.replace("WIP ", "WIP reversal ") }))
+    lines3.map((l) => ({ ...l, debit: l.credit, credit: l.debit, memo: l.memo.replace("WIP ", "WIP reversal ") }))
   );
   return { accrual, reversal };
 }
 function period_customerJobOf(_period) {
   return null;
 }
-function sealJe(kind, date5, periodKey2, lines2) {
-  const totalDebit = round210(lines2.reduce((s, l) => s + l.debit, 0));
-  const totalCredit = round210(lines2.reduce((s, l) => s + l.credit, 0));
-  return { kind, date: date5, periodKey: periodKey2, lines: lines2, totalDebit, totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 5e-3 };
+function sealJe(kind, date5, periodKey2, lines3) {
+  const totalDebit = round210(lines3.reduce((s, l) => s + l.debit, 0));
+  const totalCredit = round210(lines3.reduce((s, l) => s + l.credit, 0));
+  return { kind, date: date5, periodKey: periodKey2, lines: lines3, totalDebit, totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 5e-3 };
 }
 function tagJeWithJob(je, customerJob) {
   if (!customerJob) return je;
@@ -89580,10 +89841,10 @@ function buildRevenueCalendar(months, perProject) {
       const hit = p.schedule.find((s) => s.periodKey === m);
       return hit ? hit.revenueThisPeriod : 0;
     });
-    return { projectId: p.projectId, name: p.name, byMonth, total: round210(byMonth.reduce((s, v) => s + v, 0)) };
+    return { projectId: p.projectId, name: p.name, byMonth, total: round210(byMonth.reduce((s, v2) => s + v2, 0)) };
   });
   const totalsByMonth = months.map((_, i) => round210(rows.reduce((s, r) => s + r.byMonth[i], 0)));
-  const grandTotal = round210(totalsByMonth.reduce((s, v) => s + v, 0));
+  const grandTotal = round210(totalsByMonth.reduce((s, v2) => s + v2, 0));
   return { months, rows, totalsByMonth, grandTotal };
 }
 function fiscalYearMonths(firstMonthKey) {
@@ -89883,8 +90144,8 @@ var revRecRouter = createRouter({
     const jes = await db.select().from(rrJe).where(and(...conds)).orderBy(desc(rrJe.periodKey), rrJe.kind);
     const out = [];
     for (const je of jes) {
-      const lines2 = await db.select().from(rrJeLines).where(eq2(rrJeLines.jeId, je.id));
-      out.push({ ...je, lines: lines2 });
+      const lines3 = await db.select().from(rrJeLines).where(eq2(rrJeLines.jeId, je.id));
+      out.push({ ...je, lines: lines3 });
     }
     return out;
   }),
@@ -90501,8 +90762,8 @@ function tieOut(txns) {
   }
   return { collected: money4(collected), itc: money4(itc), net: money4(collected - itc), salesBase: money4(salesBase), purchaseBase: money4(purchaseBase) };
 }
-function rankVerdict(v) {
-  return { green: 0, na: 0, yellow: 1, red: 2 }[v];
+function rankVerdict(v2) {
+  return { green: 0, na: 0, yellow: 1, red: 2 }[v2];
 }
 function rateCheck(label, side, tax, base, expectedRatePct, greenBandPts, warnBandPts) {
   const b = money4(base), tx = money4(tax);
@@ -90547,8 +90808,8 @@ function hstReasonableness(tie, expectedRatePct = 13, opts) {
   const warnBandPts = opts?.warnBandPts ?? 3;
   const output = rateCheck("HST collected on sales", "sales", tie.collected, tie.salesBase, expectedRatePct, greenBandPts, warnBandPts);
   const itc = rateCheck("ITCs on purchases", "purchases", tie.itc, tie.purchaseBase, expectedRatePct, greenBandPts, warnBandPts);
-  const testable = [output.verdict, itc.verdict].filter((v) => v !== "na");
-  const overall = testable.length === 0 ? "na" : testable.reduce((worst, v) => rankVerdict(v) >= rankVerdict(worst) ? v : worst, "green");
+  const testable = [output.verdict, itc.verdict].filter((v2) => v2 !== "na");
+  const overall = testable.length === 0 ? "na" : testable.reduce((worst, v2) => rankVerdict(v2) >= rankVerdict(worst) ? v2 : worst, "green");
   return { expectedRatePct, output, itc, netTax: money4(tie.collected - tie.itc), overall };
 }
 function runHstReview(input) {
@@ -90577,16 +90838,16 @@ function runHstReview(input) {
 // api/hst-review-router.ts
 var q2 = (conn, sql5) => qboRequest(conn, `/query?query=${encodeURIComponent(sql5)}`);
 var arr5 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
-var num5 = (v) => {
-  const n = Number(v);
+var num5 = (v2) => {
+  const n = Number(v2);
   return Number.isFinite(n) ? n : 0;
 };
 function mapExpense(e, type2, taxName) {
-  const lines2 = [];
+  const lines3 = [];
   for (const l of e.Line ?? []) {
     const d10 = l.AccountBasedExpenseLineDetail;
     if (!d10) continue;
-    lines2.push({
+    lines3.push({
       accountId: d10.AccountRef?.value,
       accountName: d10.AccountRef?.name,
       amount: num5(l.Amount),
@@ -90602,15 +90863,15 @@ function mapExpense(e, type2, taxName) {
     docNumber: e.DocNumber,
     total: num5(e.TotalAmt),
     taxTotal: num5(e.TxnTaxDetail?.TotalTax),
-    lines: lines2
+    lines: lines3
   };
 }
 function mapSale(e, type2, taxName) {
-  const lines2 = [];
+  const lines3 = [];
   for (const l of e.Line ?? []) {
     const d10 = l.SalesItemLineDetail;
     if (!d10) continue;
-    lines2.push({
+    lines3.push({
       accountName: d10.ItemRef?.name || l.Description || "Sales",
       amount: num5(l.Amount),
       taxCodeId: d10.TaxCodeRef?.value ?? null,
@@ -90625,7 +90886,7 @@ function mapSale(e, type2, taxName) {
     docNumber: e.DocNumber,
     total: num5(e.TotalAmt),
     taxTotal: num5(e.TxnTaxDetail?.TotalTax),
-    lines: lines2
+    lines: lines3
   };
 }
 var hstReviewRouter = createRouter({
@@ -91007,10 +91268,10 @@ var publicRouter = createRouter({
     const run3 = (await db.select().from(payRuns).where(eq2(payRuns.approvalToken, input.token)).limit(1))[0];
     if (!run3) return null;
     const client = (await db.select().from(clients).where(eq2(clients.id, run3.clientId)).limit(1))[0];
-    const lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, run3.id));
+    const lines3 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, run3.id));
     const emps = await db.select().from(employees).where(eq2(employees.clientId, run3.clientId));
     const byId = new Map(emps.map((e) => [e.id, e]));
-    const rows = lines2.map((l) => {
+    const rows = lines3.map((l) => {
       const e = byId.get(l.employeeId);
       return {
         name: e ? `${e.firstName} ${e.lastName}` : `Employee #${l.employeeId}`,
@@ -91462,7 +91723,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.222";
+var BUILD_TAG = "2026-06-27.223";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -92362,8 +92623,8 @@ app.post("/api/intake/webhook", async (c) => {
     const payload = body;
     const extract = (keys) => {
       for (const k of keys) {
-        const v = payload[k];
-        if (v != null && v !== "") return String(v);
+        const v2 = payload[k];
+        if (v2 != null && v2 !== "") return String(v2);
         for (const parent of Object.values(payload)) {
           if (parent && typeof parent === "object" && !Array.isArray(parent)) {
             const nested = parent[k];
@@ -93328,7 +93589,7 @@ async function startServer() {
         const matches = await db.select().from(clients4).where(like3(clients4.name, nameLike));
         for (const cl of matches) {
           const patch = {};
-          for (const [k, v] of Object.entries(flags)) if (!cl[k]) patch[k] = v;
+          for (const [k, v2] of Object.entries(flags)) if (!cl[k]) patch[k] = v2;
           if (Object.keys(patch).length) await db.update(clients4).set(patch).where(eq4(clients4.id, cl.id));
         }
         return matches;

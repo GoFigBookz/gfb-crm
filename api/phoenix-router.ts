@@ -130,6 +130,46 @@ export const phoenixRouter = createRouter({
     await getDb().run(sql`DELETE FROM side_sales WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
   }),
 
+  // ───────── Legal / estate documents — guided Q&A → generated DRAFT ─────────
+  /** The available document types + their question schemas (for the UI). */
+  legalSpecs: authedQuery.query(async () => {
+    const { LEGAL_DOCS } = await import("./legal-templates");
+    return LEGAL_DOCS.map((d) => ({ type: d.type, title: d.title, blurb: d.blurb, fields: d.fields }));
+  }),
+  /** Markie's saved legal documents. */
+  legalList: authedQuery.query(async ({ ctx }) => {
+    return (await getDb().all(sql`SELECT id, docType, title, status, answers, updatedAt FROM legal_documents WHERE userId=${ctx.user.id} ORDER BY updatedAt DESC`)) as any[];
+  }),
+  legalGet: authedQuery.input(z.object({ id: z.number() })).query(async ({ ctx, input }) => {
+    return ((await getDb().all(sql`SELECT * FROM legal_documents WHERE id=${input.id} AND userId=${ctx.user.id} LIMIT 1`)) as any[])[0] || null;
+  }),
+  /** Save answers → regenerate the draft body (deterministic template fill). */
+  legalSave: authedQuery
+    .input(z.object({ id: z.number().optional(), docType: z.string(), answers: z.record(z.string(), z.string()), bodyOverride: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb(); const uid = ctx.user.id; const now = Date.now();
+      const { getLegalSpec, generateLegalDoc } = await import("./legal-templates");
+      const spec = getLegalSpec(input.docType);
+      if (!spec) return { ok: false as const, error: "unknown_doc_type" };
+      const body = input.bodyOverride ?? generateLegalDoc(input.docType, input.answers);
+      const title = spec.title;
+      const ansJson = JSON.stringify(input.answers);
+      if (input.id) {
+        await db.run(sql`UPDATE legal_documents SET answers=${ansJson}, body=${body}, title=${title}, updatedAt=${now} WHERE id=${input.id} AND userId=${uid}`);
+        return { ok: true as const, id: input.id, body };
+      }
+      await db.run(sql`INSERT INTO legal_documents (userId, docType, title, answers, body, status, createdAt, updatedAt)
+        VALUES (${uid}, ${input.docType}, ${title}, ${ansJson}, ${body}, 'draft', ${now}, ${now})`);
+      const row = ((await db.all(sql`SELECT id FROM legal_documents WHERE userId=${uid} ORDER BY id DESC LIMIT 1`)) as any[])[0];
+      return { ok: true as const, id: row?.id, body };
+    }),
+  legalSetStatus: authedQuery.input(z.object({ id: z.number(), status: z.enum(["draft", "finalized"]) })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`UPDATE legal_documents SET status=${input.status}, updatedAt=${Date.now()} WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
+  }),
+  legalRemove: authedQuery.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+    await getDb().run(sql`DELETE FROM legal_documents WHERE id=${input.id} AND userId=${ctx.user.id}`); return { ok: true };
+  }),
+
   // ───────── Reseller engine — Skye-drafted listings (draft → paste-and-post) ─────────
   /** Draft channel-tailored listings for a product (cheap workhorse model; never posts). */
   generateListing: authedQuery

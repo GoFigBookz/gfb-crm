@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { trpc } from "@/providers/trpc";
+import LegalDocs from "@/components/LegalDocs";
 
 /**
  * ESTATE PLAN — the "if something happens to me" binder for whoever administers
@@ -38,7 +39,13 @@ export default function EstatePlan() {
   const willNotarized = rows.some((r: any) => r.category === "will" && /notar/i.test(`${r.title} ${r.detail}`) && r.status === "done");
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Document builder — generate the actual legal drafts (will, POAs, succession). */}
+      <LegalDocs />
+
+      <div className="border-t border-slate-200" />
+
+      {/* The "if something happens to me" binder — where everything is, for your executor. */}
       <div className="flex items-center gap-2">
         <Scale className="h-5 w-5 text-indigo-600" />
         <h3 className="font-semibold text-slate-800">Estate plan</h3>
