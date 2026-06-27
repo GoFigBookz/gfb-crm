@@ -179,6 +179,16 @@ export const HELP: Record<string, HelpEntry> = {
     ],
     note: "Needs the client connected to QuickBooks. QBO's API can't expose the bank-feed ‘For Review’ count, so ‘what's left to post’ still needs a look in QBO — everything else here is live.",
   },
+  "coa-cleanup": {
+    title: "Chart of Accounts Cleanup",
+    steps: [
+      "Export — pick a client, pull their full chart of accounts, and download the CSV. Clean it up in Sheets/Excel with AI, then apply the few real changes back in QBO by hand.",
+      "Compare 2 — line up two clients so their charts ‘marry’ (e.g. Clark Pools Owen Sound ↔ Collingwood: same numbers, same names). It flags same-name/different-number, same-number/different-name, and accounts only one of them has.",
+      "Template — check a client against a standard chart for their business type (e.g. Construction/Trades) so all clients of the same type look alike. Shows what's missing vs the standard and what's extra.",
+      "Tie-out — paste the accountant's trial balance; Figgy checks every QBO balance ties before you clean anything. Clean the chart only once it's tied.",
+    ],
+    note: "Read-only — the chart of accounts is LOCKED, so this tool only EXPORTS, COMPARES, and CHECKS. It never edits QuickBooks accounts (QBO has no safe bulk rewrite — you apply the cleaned changes yourself, tied to the trial balance first). Needs the client connected to QuickBooks.",
+  },
   "smart-money": {
     title: "Smart Money",
     steps: [
