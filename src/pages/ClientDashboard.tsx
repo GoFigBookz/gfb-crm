@@ -1361,7 +1361,7 @@ export default function ClientDashboard() {
 // Per-client email history (only this client's emails) + inline reply. Reply sends
 // from the account that received it (so John's-company mail replies from the Adbank
 // Agent conversations filed to this client (from the chatbot's "Save to client").
-function ClientChatsCard({ clientId }: { clientId: number }) {
+export function ClientChatsCard({ clientId }: { clientId: number }) {
   const { data: convs, isLoading } = trpc.chat.forClient.useQuery({ clientId });
   const [collapsed, setCollapsed] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -1410,7 +1410,7 @@ function ClientChatsCard({ clientId }: { clientId: number }) {
 }
 
 // address automatically).
-function ClientEmailsCard({ clientId }: { clientId: number }) {
+export function ClientEmailsCard({ clientId }: { clientId: number }) {
   const utils = trpc.useUtils();
   const { data: emails, isLoading } = trpc.email.list.useQuery({ clientId, folder: "all", limit: 50 });
   const [collapsed, setCollapsed] = useState(true);
@@ -1575,7 +1575,7 @@ function qboUrl(path: string, realmId?: string | null) {
   return realmId ? `${base}?cid=${encodeURIComponent(realmId)}` : base;
 }
 
-function ClientCloseChecklist({ clientId }: { clientId: number }) {
+export function ClientCloseChecklist({ clientId }: { clientId: number }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1); // 1-12
@@ -1706,7 +1706,7 @@ function HstReasonablenessLight({ rz }: { rz: any }) {
   );
 }
 
-function ClientHstReviewCard({ clientId, client }: { clientId: number; client: any }) {
+export function ClientHstReviewCard({ clientId, client }: { clientId: number; client: any }) {
   const freq = normalizeFreq(client?.hstFilingFrequency || client?.hstPeriod);
   const def = fiscalHstRange(new Date(), freq, client?.fiscalYearEndMonth);
   const [start, setStart] = useState(def.start);
@@ -2894,7 +2894,7 @@ function PlatformsCard({ onboarding, client }: { onboarding: any; client: any })
 
 /** Client grouping — one owner with multiple companies. Set a shared group/owner name;
  *  other clients with the same group show as related companies (links). */
-function GroupCard({ clientId, groupName }: { clientId: number; groupName: string | null }) {
+export function GroupCard({ clientId, groupName }: { clientId: number; groupName: string | null }) {
   const utils = trpc.useUtils();
   const { data: related } = trpc.crmClient.related.useQuery({ clientId });
   const [editing, setEditing] = useState(false);
@@ -2942,7 +2942,7 @@ function GroupCard({ clientId, groupName }: { clientId: number; groupName: strin
 }
 
 /** Per-client contacts (receptionist, AP, owner, etc.) — add/edit/delete, saved per client. */
-function ContactsCard({ clientId }: { clientId: number }) {
+export function ContactsCard({ clientId }: { clientId: number }) {
   const utils = trpc.useUtils();
   const { data: contacts } = trpc.contacts.list.useQuery({ clientId });
   const inv = () => utils.contacts.list.invalidate({ clientId });
@@ -3100,7 +3100,7 @@ function PartiesCard({ clientId, kind }: { clientId: number; kind: "vendor" | "c
 /** Employees, tied into the client's Payroll tab — add/edit, WSIB eligibility,
  *  Jobber name alias, and YTD gross (pulls from QuickBooks once connected; the
  *  YTD figure also feeds the Originality CRA-comparison check). */
-function EmployeesCard({ clientId }: { clientId: number }) {
+export function EmployeesCard({ clientId }: { clientId: number }) {
   const utils = trpc.useUtils();
   const { data: emps } = trpc.employee.list.useQuery({ clientId });
   const blank = { firstName: "", lastName: "", position: "", payType: "salary", annualSalary: "", hourlyRate: "", wsibEligible: true, jobberName: "", ytdGrossOpening: "" };
@@ -3208,7 +3208,7 @@ function EmployeesCard({ clientId }: { clientId: number }) {
   );
 }
 
-function QuickLinksCard({ client, onboarding, variant = "card" }: { client: any; onboarding: any; variant?: "card" | "header" }) {
+export function QuickLinksCard({ client, onboarding, variant = "card" }: { client: any; onboarding: any; variant?: "card" | "header" }) {
   const [editOpen, setEditOpen] = useState(false);
   const [driveUrl, setDriveUrl] = useState(client.driveFolderUrl || "");
   const [linksJson, setLinksJson] = useState(() => {
@@ -3387,7 +3387,7 @@ function QuickLinksCard({ client, onboarding, variant = "card" }: { client: any;
 }
 
 /** Karbon-style document/info request checklists for a client (magic-link). */
-function ClientRequestsCard({ clientId, clientName }: { clientId: number; clientName: string }) {
+export function ClientRequestsCard({ clientId, clientName }: { clientId: number; clientName: string }) {
   const utils = trpc.useUtils();
   const { data: requests } = trpc.clientRequest.listForClient.useQuery({ clientId });
   const refresh = () => utils.clientRequest.listForClient.invalidate({ clientId });
