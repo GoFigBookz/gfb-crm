@@ -20,6 +20,50 @@ function shapeCashSnapshot(s: any) {
 }
 
 export const clientDashboardRouter = createRouter({
+  /** LIVE high-level QBO numbers for the client card (read-only; no posting). Cash,
+   *  credit-card owed, A/R, A/P, uncategorized, and fiscal-YTD revenue/expense/net.
+   *  NOT all transactions — just the cockpit glance (Markie 2026-06-27). */
+  qboOverview: staffQuery
+    .input(z.object({ clientId: z.number() }))
+    .query(async ({ input }) => {
+      const { getConnectionForClient } = await import("./qbo-vendor-brain");
+      const { qboRequest } = await import("./qbo-router");
+      const { bankBreakdownFromAccounts } = await import("./qbo-cashflow");
+      const { profitAndLossFromReport } = await import("./qbo-snapshot");
+      const cr = await getConnectionForClient(input.clientId);
+      if ("error" in cr) return { ok: false as const, error: cr.error };
+      const conn = cr.conn;
+      const num = (v: any) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+      try {
+        const data: any = await qboRequest(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`);
+        const accounts: any[] = data?.QueryResponse?.Account ?? [];
+        const rows = accounts.map((a) => ({ name: a.Name, accountType: a.AccountType, currentBalance: num(a.CurrentBalance), currencyRef: a.CurrencyRef?.value, active: a.Active }));
+        const bank = bankBreakdownFromAccounts(rows);
+        const ar = accounts.filter((a) => /receivable/i.test(a.AccountType || "")).reduce((s, a) => s + num(a.CurrentBalance), 0);
+        const ap = accounts.filter((a) => /payable/i.test(a.AccountType || "")).reduce((s, a) => s + Math.abs(num(a.CurrentBalance)), 0);
+        // Fiscal-YTD P&L (calendar-year-to-date is fine for the glance).
+        const today = new Date().toISOString().slice(0, 10);
+        const yStart = `${today.slice(0, 4)}-01-01`;
+        let pnl: { revenue: number | null; expenses: number | null; netIncome: number | null } = { revenue: null, expenses: null, netIncome: null };
+        try { pnl = profitAndLossFromReport(await qboRequest(conn, `/reports/ProfitAndLoss?start_date=${yStart}&end_date=${today}`)); } catch { /* P&L best-effort */ }
+        const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+        return {
+          ok: true as const,
+          companyName: (conn as any).companyName || "",
+          transport: (conn as any).transport || "native",
+          cashTotal: r2(bank.cashTotal), cashCad: r2(bank.cashCad), cashUsd: r2(bank.cashUsd),
+          creditCardOwed: r2(bank.creditCardOwed), uncategorized: r2(bank.uncategorizedBalance), uncategorizedCount: bank.uncategorizedCount,
+          ar: r2(ar), ap: r2(ap),
+          revenue: pnl.revenue, expenses: pnl.expenses, netIncome: pnl.netIncome,
+          bankAccounts: bank.bankAccounts, periodFrom: yStart, periodTo: today,
+        };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false as const, error: "bridge_not_returning_data" };
+        return { ok: false as const, error: msg };
+      }
+    }),
+
   // Get all dashboard data for a client
   getByClient: authedQuery
     .input(z.object({ clientId: z.number() }))

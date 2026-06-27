@@ -61,6 +61,17 @@ on the strongest option with a one-line note on why.
    him to redo work that was already fine (e.g. "your 22 QBO connections are
    old/broken" when they weren't) wastes his limited time. Work smarter, not
    harder = look it up, THEN answer. One verified reply beats three guesses.
+6. **PUSH THE BACKLOG, DON'T PARK IT (Markie, 2026-06-27 — NON-NEGOTIABLE).** Don't sit
+   idle while work waits in the backlog. If a backlogged/queued task does NOT need Markie
+   to connect something, BUILD IT NOW — even when it needs his advice, ASK the question
+   AND keep building everything around it; only a real external connect/credential truly
+   blocks. **If you can connect it yourself, do that FIRST** (self-serve before asking).
+   He'd rather review finished work than approve a plan; his time > parking lots. Ship.
+7. **HIS #1 TIME-SINK = POSTING + RECONCILING (Markie, 2026-06-27).** Biggest relief =
+   automating transaction posting + bank/credit-card reconciliation (Hubdoc, bank feeds,
+   statements). Prioritize anything that cuts that load. Honest constraint to design
+   around: QBO's API does NOT expose the bank-feed "For Review" queue — build the match/
+   code/review brain + the writable paths, and flag the gaps rather than fake it.
 
 ## Product north star (what this is FOR — Markie, 2026-06-19)
 The CRM is Markie's **month-end-close cockpit**: at a glance, where each client
