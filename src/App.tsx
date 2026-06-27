@@ -29,6 +29,7 @@ import PayrollApproval from "./pages/PayrollApproval";
 import RevRecShare from "./pages/RevRecShare";
 import BankedHoursShare from "./pages/BankedHoursShare";
 import BillbackShare from "./pages/BillbackShare";
+import BillbackReport from "./pages/BillbackReport";
 import FamilyTreeShare from "./pages/FamilyTreeShare";
 import LoanShare from "./pages/LoanShare";
 import GroupBookShare from "./pages/GroupBookShare";
@@ -155,6 +156,7 @@ function AppRoutes() {
         <Route path="/insights" element={<Insights />} />
         <Route path="/users" element={<UsersManagement />} />
         <Route path="/client/:clientId" element={<ClientDashboard />} />
+        <Route path="/report/billback/:clientId" element={<BillbackReport />} />
         <Route path="/portal-settings" element={<PortalSettings />} />
         <Route path="/signatures" element={<Signatures />} />
         <Route path="/playbook" element={<ClientPlaybook />} />

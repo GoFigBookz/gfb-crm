@@ -71,6 +71,52 @@ async function pullHstAccountBalance(conn: any): Promise<{ accounts: { name: str
   return { accounts: hst, net: Math.round((net + Number.EPSILON) * 100) / 100 };
 }
 
+/** BILLABLE-DRIVEN pull — THE recharge source. Returns every expense LINE marked
+ *  Billable (and not yet invoiced) to the counterparty (Ovita Holdings), grouped by the
+ *  payer's own expense account. This is what QBO's billable-expenses feature tracks:
+ *  it captures exactly what's been flagged — any date, any line type — and EXCLUDES
+ *  anything already invoiced (status becomes "HasBeenBilled"), so it never double-bills.
+ *  Marking the Feb exception billable → it shows up here. Bank charges excluded. */
+async function pullBillableExpenses(conn: any, cpKey: string, fromISO: string, toISO: string): Promise<{ byAccount: ExpenseByAccount[]; subtotal: number; hstActual: number; count: number }> {
+  const q = (s: string) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
+  // Item → its expense account, for item-based billable lines.
+  const itemMap = new Map<string, { acctId: string; acctName: string }>();
+  try {
+    for (const it of arr(await q(`SELECT Id, Name, ExpenseAccountRef FROM Item MAXRESULTS 1000`), "Item")) {
+      if (it.ExpenseAccountRef?.value) itemMap.set(String(it.Id), { acctId: String(it.ExpenseAccountRef.value), acctName: it.ExpenseAccountRef.name || it.Name });
+    }
+  } catch { /* item lookup best-effort */ }
+  const byAcct = new Map<string, ExpenseByAccount>();
+  let subtotal = 0, hstActual = 0, count = 0;
+  const range = `TxnDate >= '${fromISO}' AND TxnDate <= '${toISO}'`;
+  for (const entity of ["Bill", "Purchase"] as const) {
+    for (const e of arr(await q(`SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) {
+      let hasBillable = false;
+      for (const l of e.Line ?? []) {
+        const ab = l.AccountBasedExpenseLineDetail, ib = l.ItemBasedExpenseLineDetail, d = ab || ib;
+        if (!d) continue;
+        if (String(d.BillableStatus || "") !== "Billable") continue;            // only un-invoiced billables
+        const cust = String(d.CustomerRef?.name || "");
+        if (cpKey && !(cust && normName(cust).includes(cpKey))) continue;       // must be billed TO the counterparty
+        let acctId = "", acctName = "Expense";
+        if (ab) { acctId = String(ab.AccountRef?.value || ""); acctName = ab.AccountRef?.name || "Expense"; }
+        else { const m = itemMap.get(String(ib.ItemRef?.value || "")); acctId = m?.acctId || ""; acctName = m?.acctName || `Item: ${ib.ItemRef?.name || "?"}`; }
+        if (isNonBillableAccount(acctName)) continue;                            // skip bank charges
+        const amt = num(l.Amount);
+        subtotal += amt; hasBillable = true;
+        const key = acctId || `name:${acctName}`;
+        const cur = byAcct.get(key) || { accountId: acctId, accountName: acctName, net: 0 };
+        cur.net = num(cur.net) + amt; byAcct.set(key, cur);
+      }
+      if (hasBillable) { count++; hstActual += Math.abs(num(e.TxnTaxDetail?.TotalTax)); }
+    }
+  }
+  return {
+    byAccount: Array.from(byAcct.values()).map((a) => ({ ...a, net: round2(a.net) })),
+    subtotal: round2(subtotal), hstActual: round2(hstActual), count,
+  };
+}
+
 /** First day of the FISCAL year that contains `endISO`, given the year-end month
  *  (1-12). FY ends the last day of fyeMonth → FY starts the 1st of the next month.
  *  Alderson (Nov 30 YE) → Dec 1; a Dec 31 YE → Jan 1. The hard floor for the recharge
@@ -787,6 +833,47 @@ export const intercoRechargeRouter = createRouter({
       await ensureRechargeSchema();
       const rows = (await getDb().all(sql`SELECT token FROM interco_recharge_share_links WHERE logId=${input.logId} AND active=1 ORDER BY id DESC LIMIT 1`)) as any[];
       return { token: rows[0]?.token ?? null };
+    }),
+
+  /** LIVE report (staff). Builds the billback worksheet from the BILLABLE expenses
+   *  marked to the counterparty (Ovita Holdings) right now — no post needed. Renders at
+   *  /report/billback/:clientId so Markie can see exactly what will be billed + the HST. */
+  previewWorksheet: staffQuery
+    .input(z.object({ payerClientId: z.number() }))
+    .query(async ({ input }) => {
+      const cr = await getConnectionForClient(input.payerClientId);
+      if ("error" in cr) return { ok: false as const, error: cr.error };
+      await ensureRechargeSchema();
+      const db = getDb();
+      const cfgRow: any = (await db.run(sql`SELECT * FROM interco_recharge_config WHERE payerClientId=${input.payerClientId} LIMIT 1`));
+      const cfg = (cfgRow?.rows ?? cfgRow ?? [])[0] || {};
+      const counterpartyName = String(cfg.counterpartyName || "");
+      const cpKey = counterpartyName ? normName(counterpartyName.split(/\s+/)[0]) : "";
+      const rate = (num(cfg.chargeHst ?? 1) !== 0) ? (num(cfg.hstRatePct) || 13) / 100 : 0;
+      const clientRow = (await db.all(sql`SELECT name FROM clients WHERE id=${input.payerClientId} LIMIT 1`)) as any[];
+      const payerName = clientRow[0]?.name || "Payer";
+      const to = new Date().toISOString().slice(0, 10);
+      const from = fiscalYearStartFor(to, await clientFyeMonth(input.payerClientId));
+      try {
+        const b = await pullBillableExpenses(cr.conn, cpKey, from, to);
+        const subtotal = round2(b.subtotal);
+        const hst = round2(subtotal * rate);
+        const hstAcc = await pullHstAccountBalance(cr.conn);
+        const target = round2(Math.abs(hstAcc.net));
+        return {
+          ok: true as const, payerName, counterpartyName, from, to,
+          byAccount: b.byAccount, count: b.count,
+          subtotal, hstRatePct: num(cfg.hstRatePct) || 13, chargeHst: rate > 0, hst, total: round2(subtotal + hst),
+          hstActualOnBillables: b.hstActual,
+          hstAccountBalance: round2(hstAcc.net), hstAccounts: hstAcc.accounts,
+          tieVariance: round2(target - hst), ties: Math.abs(round2(target - hst)) < 1,
+          generatedAt: new Date().toISOString(),
+        };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false as const, error: "bridge_not_returning_data", detail: msg };
+        return { ok: false as const, error: msg };
+      }
     }),
 
   // ===== PUBLIC (token-gated, read-only) — the branded billback worksheet =====
