@@ -432,10 +432,14 @@ export const assistantRouter = createRouter({
   // when it's not set every agent can only reply "needs the key", which reads like
   // "the agents don't work". This lets the UI show a clear setup banner instead.
   health: authedQuery.query(() => {
-    const keyConfigured = !!process.env.ANTHROPIC_API_KEY;
+    const openaiProvider = process.env.FIGGY_LLM_PROVIDER === "openai";
+    // The cheaper/self-serve path needs a key unless it's a local Ollama endpoint.
+    const openaiReady = openaiProvider && (!!process.env.FIGGY_LLM_API_KEY || /localhost|127\.0\.0\.1|ollama/i.test(process.env.FIGGY_LLM_BASE_URL || ""));
+    const keyConfigured = openaiProvider ? openaiReady : !!process.env.ANTHROPIC_API_KEY;
     return {
       keyConfigured,
-      model: process.env.FIGGY_ASSISTANT_MODEL || "claude-sonnet-4-6",
+      provider: openaiProvider ? "openai" : "anthropic",
+      model: openaiProvider ? (process.env.FIGGY_LLM_MODEL || "llama-3.3-70b-versatile") : (process.env.FIGGY_ASSISTANT_MODEL || "claude-sonnet-4-6"),
       webSearch: process.env.FIGGY_WEB_SEARCH !== "off",
     };
   }),
@@ -525,6 +529,30 @@ export const assistantRouter = createRouter({
           ] as any);
         } catch { /* history is best-effort — never block the reply */ }
       };
+
+      // ── CHEAPER / SELF-SERVE MODEL PATH (Markie: "something I can use on my own
+      // like Llama"). FIGGY_LLM_PROVIDER=openai routes the whole turn through any
+      // OpenAI-compatible endpoint — Groq (free Llama 3.3 70B), DeepSeek (cheap),
+      // OpenRouter, or a self-hosted Ollama. Opt-in; default stays Anthropic. On any
+      // failure we fall back to the Brain so chat never dies. ──
+      if (process.env.FIGGY_LLM_PROVIDER === "openai") {
+        const base = process.env.FIGGY_LLM_BASE_URL || "https://api.groq.com/openai/v1";
+        const oaiModel = process.env.FIGGY_LLM_MODEL || "llama-3.3-70b-versatile";
+        const oaiKey = process.env.FIGGY_LLM_API_KEY;
+        const out = await openaiToolChat({
+          baseUrl: base, apiKey: oaiKey, model: oaiModel, system,
+          history: (input.history || []) as any, userText: input.message,
+          tools: ASSISTANT_TOOLS as any, actionToolNames: new Set(["add_task", "add_personal", "schedule_event", "complete_task"]),
+          runTool: (name, args) => runTool(name, args, ctx.user.id, agent),
+          onAction: async (name, output) => { if (ACTION_TOOLS.has(name)) await recordAudit({ userId: ctx.user.id, agentScope: agent, action: name, summary: output, decision: "done" }); },
+          timeoutMs: Number(process.env.FIGGY_ASSISTANT_DEADLINE_MS || 19_000),
+        });
+        if (out) { await saveTurn(out.reply); return { reply: out.reply, actions: out.actions, agent }; }
+        // endpoint failed → still answer from the Brain
+        const fb = await brainAnswer(input.message, agent, ctx.user.id);
+        if (fb) { await saveTurn(fb.reply); return { reply: fb.reply, actions: fb.actions, agent }; }
+        return { reply: brainOnlyHelp(agent), actions, agent };
+      }
 
       // Official Anthropic SDK — built-in retries/backoff for 429/5xx, typed errors,
       // a robust transport. We drive the tool loop ourselves (custom audit + actions).
