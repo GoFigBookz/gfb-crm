@@ -127,6 +127,8 @@ export async function ensureRevRecSchema(): Promise<void> {
   // Additive column guards (CREATE IF NOT EXISTS can't add columns to an existing table).
   const addColumns: { table: string; column: string; type: string }[] = [
     { table: "rr_projects", column: "holdbackPct", type: "real DEFAULT 0" },          // contractor lien holdback (e.g. 0.10)
+    { table: "rr_projects", column: "estimatedCost", type: "real DEFAULT 0" },        // total estimated cost (cost-to-cost denominator)
+    { table: "rr_progress", column: "actualCostToDate", type: "real" },               // job-costing actual cost incurred to date
     { table: "rr_client_config", column: "jobCostingByProject", type: "integer DEFAULT 0" }, // client tags costs to Customer:Job/Project in QBO?
     { table: "rr_client_config", column: "defaultHoldbackPct", type: "real DEFAULT 0" },      // firm-wide default holdback for this client
   ];

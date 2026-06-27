@@ -52,11 +52,13 @@ async function loadProjectInputs(clientId: number): Promise<{ project: ProjectIn
         openingPct: p.openingPct ?? 0,
         openingInvoiced: p.openingInvoiced ?? 0,
         holdbackPct: p.holdbackPct ?? 0,
+        estimatedCost: p.estimatedCost ?? 0,
       },
       progress: (prog as any[]).map((r) => ({
         periodKey: r.periodKey,
         pctComplete: r.pctComplete ?? 0,
         invoicedToDate: r.invoicedToDate,
+        actualCostToDate: r.actualCostToDate,
       })),
     });
   }
@@ -94,7 +96,7 @@ async function buildClientView(clientId: number, fyStartKey?: string) {
 
   const projects = active.map((i) => {
     const schedule = buildProjectSchedule(i.project, i.progress);
-    const rollup = rollupProject(i.project, schedule);
+    const rollup = rollupProject(i.project, schedule, i.raw.status);
     return { id: i.raw.id, status: i.raw.status, schedule, rollup, customerJob: i.project.customerJob ?? null };
   });
 
@@ -148,6 +150,7 @@ export const revRecRouter = createRouter({
       openingPct: z.number().min(0).max(1).nullable().optional(),
       openingInvoiced: z.number().min(0).nullable().optional(),
       holdbackPct: z.number().min(0).max(1).nullable().optional(),
+      estimatedCost: z.number().min(0).nullable().optional(),
       startDate: z.date().nullable().optional(),
       expectedEndDate: z.date().nullable().optional(),
       notes: z.string().max(2000).nullable().optional(),
@@ -162,6 +165,7 @@ export const revRecRouter = createRouter({
         openingPct: input.openingPct ?? 0,
         openingInvoiced: input.openingInvoiced ?? 0,
         holdbackPct: input.holdbackPct ?? 0,
+        estimatedCost: input.estimatedCost ?? 0,
         startDate: input.startDate ?? null,
         expectedEndDate: input.expectedEndDate ?? null,
         notes: input.notes ?? null,
@@ -179,6 +183,7 @@ export const revRecRouter = createRouter({
       openingPct: z.number().min(0).max(1).nullable().optional(),
       openingInvoiced: z.number().min(0).nullable().optional(),
       holdbackPct: z.number().min(0).max(1).nullable().optional(),
+      estimatedCost: z.number().min(0).nullable().optional(),
       startDate: z.date().nullable().optional(),
       expectedEndDate: z.date().nullable().optional(),
       status: z.enum(["active", "complete", "archived"]).optional(),
@@ -207,6 +212,7 @@ export const revRecRouter = createRouter({
       periodKey: z.string().regex(/^\d{4}-\d{2}$/),
       pctComplete: z.number().min(0).max(1),
       invoicedToDate: z.number().min(0).nullable().optional(),
+      actualCostToDate: z.number().min(0).nullable().optional(),
       note: z.string().max(1000).nullable().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -217,6 +223,7 @@ export const revRecRouter = createRouter({
         await db.update(rrProgress).set({
           pctComplete: input.pctComplete,
           invoicedToDate: input.invoicedToDate ?? null,
+          actualCostToDate: input.actualCostToDate ?? null,
           note: input.note ?? null,
           enteredBy: ctx.user.email ?? String(ctx.user.id),
           updatedAt: new Date(),
@@ -228,6 +235,7 @@ export const revRecRouter = createRouter({
           periodKey: input.periodKey,
           pctComplete: input.pctComplete,
           invoicedToDate: input.invoicedToDate ?? null,
+          actualCostToDate: input.actualCostToDate ?? null,
           note: input.note ?? null,
           enteredBy: ctx.user.email ?? String(ctx.user.id),
         } as any);

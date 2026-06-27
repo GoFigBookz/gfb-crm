@@ -174,11 +174,12 @@ function JobCard({ clientId, job, expanded, onToggle, depositsBookedToRevenue, o
   const [period, setPeriod] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; });
   const [pctVal, setPctVal] = useState("");
   const [invoiced, setInvoiced] = useState("");
+  const [cost, setCost] = useState("");
   const [note, setNote] = useState("");
   const [jeResult, setJeResult] = useState<any>(null);
 
   const upsert = trpc.revRec.progressUpsert.useMutation({
-    onSuccess: () => { utils.revRec.schedule.invalidate({ clientId }); setPctVal(""); setInvoiced(""); setNote(""); onChange?.(); },
+    onSuccess: () => { utils.revRec.schedule.invalidate({ clientId }); setPctVal(""); setInvoiced(""); setCost(""); setNote(""); onChange?.(); },
   });
   const archive = trpc.revRec.projectArchive.useMutation({ onSuccess: () => onChange?.() });
   const genJe = trpc.revRec.jeGenerate.useMutation({ onSuccess: (d) => setJeResult(d) });
@@ -188,11 +189,13 @@ function JobCard({ clientId, job, expanded, onToggle, depositsBookedToRevenue, o
       <CardHeader className="cursor-pointer" onClick={onToggle}>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="text-base flex items-center gap-2 flex-wrap">
               {r.name}
               {job.customerJob && <Badge variant="outline" className="text-xs">{job.customerJob}</Badge>}
+              {r.overBudget && <Badge variant="destructive" className="text-xs"><AlertCircle className="h-3 w-3 mr-1" />Over budget {money(r.costOverrun)}</Badge>}
+              {r.holdbackReadyToRelease && <Badge className="text-xs bg-sky-600"><CheckCircle className="h-3 w-3 mr-1" />Release holdback {money(r.holdbackReceivable)}</Badge>}
             </CardTitle>
-            <CardDescription>{money(r.contractValue)} contract · {pct(r.pctComplete)} complete · {money(r.earnedToDate)} earned</CardDescription>
+            <CardDescription>{money(r.contractValue)} contract · {pct(r.pctComplete)} complete · {money(r.earnedToDate)} earned{r.estimatedCost ? ` · ${money(r.actualCostToDate)}/${money(r.estimatedCost)} cost` : ""}</CardDescription>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
@@ -238,16 +241,17 @@ function JobCard({ clientId, job, expanded, onToggle, depositsBookedToRevenue, o
           {/* Entry row */}
           <div className="rounded-lg border p-3 bg-muted/30 space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Update progress</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
               <div><Label className="text-xs">Period</Label><Input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} /></div>
               <div><Label className="text-xs">% complete</Label><Input type="number" min={0} max={100} step={1} placeholder="e.g. 45" value={pctVal} onChange={(e) => setPctVal(e.target.value)} /></div>
               <div><Label className="text-xs">Billed to date</Label><Input type="number" min={0} step={0.01} placeholder="cumulative $" value={invoiced} onChange={(e) => setInvoiced(e.target.value)} /></div>
+              <div><Label className="text-xs">Cost to date</Label><Input type="number" min={0} step={0.01} placeholder="cumulative $" value={cost} onChange={(e) => setCost(e.target.value)} /></div>
               <div className="flex items-end"><Button className="w-full" disabled={!pctVal || upsert.isPending}
-                onClick={() => upsert.mutate({ projectId: job.id, clientId, periodKey: period, pctComplete: Math.max(0, Math.min(1, Number(pctVal) / 100)), invoicedToDate: invoiced === "" ? null : Number(invoiced), note: note || null })}>
+                onClick={() => upsert.mutate({ projectId: job.id, clientId, periodKey: period, pctComplete: Math.max(0, Math.min(1, Number(pctVal) / 100)), invoicedToDate: invoiced === "" ? null : Number(invoiced), actualCostToDate: cost === "" ? null : Number(cost), note: note || null })}>
                 {upsert.isPending ? "Saving…" : "Save period"}</Button></div>
             </div>
             <Input placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-            <p className="text-[11px] text-muted-foreground">Enter the cumulative % complete and total billed-to-date for the period. Revenue is recognised on the change since the prior period.</p>
+            <p className="text-[11px] text-muted-foreground">Enter cumulative % complete, billed-to-date, and (for job costing) actual cost-to-date. Revenue is recognised on the change since the prior period. Leave cost blank if the client doesn't job-cost by project.</p>
           </div>
 
           {/* JE generation (review-gated) */}
@@ -309,6 +313,7 @@ function NewJobDialog({ clientId, onClose, onSaved }: { clientId: number; onClos
   const [openingPct, setOpeningPct] = useState("");
   const [openingInvoiced, setOpeningInvoiced] = useState("");
   const [holdback, setHoldback] = useState("");
+  const [estCost, setEstCost] = useState("");
   // Default the holdback field to the client's configured default once config loads.
   const holdbackVal = holdback !== "" ? holdback : config?.defaultHoldbackPct ? String(Math.round(config.defaultHoldbackPct * 100)) : "";
   const create = trpc.revRec.projectCreate.useMutation({ onSuccess: onSaved });
@@ -319,8 +324,9 @@ function NewJobDialog({ clientId, onClose, onSaved }: { clientId: number; onClos
         <div className="space-y-3">
           <div><Label>Job name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. 123 Main St — pool build" /></div>
           <div><Label>QBO Customer:Job (optional)</Label><Input value={customerJob} onChange={(e) => setCustomerJob(e.target.value)} placeholder="Customer:Job name in QuickBooks" /></div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div><Label>Contract value</Label><Input type="number" min={0} step={0.01} value={contractValue} onChange={(e) => setContractValue(e.target.value)} /></div>
+            <div><Label className="text-xs">Estimated cost</Label><Input type="number" min={0} step={0.01} value={estCost} onChange={(e) => setEstCost(e.target.value)} placeholder="for cost-to-cost %" /></div>
             <div><Label className="text-xs">Holdback %</Label><Input type="number" min={0} max={100} value={holdbackVal} onChange={(e) => setHoldback(e.target.value)} placeholder="e.g. 10" /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -335,6 +341,7 @@ function NewJobDialog({ clientId, onClose, onSaved }: { clientId: number; onClos
               openingPct: openingPct === "" ? null : Math.max(0, Math.min(1, Number(openingPct) / 100)),
               openingInvoiced: openingInvoiced === "" ? null : Number(openingInvoiced),
               holdbackPct: holdbackVal === "" ? null : Math.max(0, Math.min(1, Number(holdbackVal) / 100)),
+              estimatedCost: estCost === "" ? null : Number(estCost),
             })}>{create.isPending ? "Adding…" : "Add job"}</Button>
           </div>
         </div>

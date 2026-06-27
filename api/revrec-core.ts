@@ -54,6 +54,8 @@ export interface ProjectInput {
    * holdback only splits the BILLED side. null/0 = no holdback.
    */
   holdbackPct?: number | null;
+  /** Total ESTIMATED cost to complete the job — the denominator for cost-to-cost %. */
+  estimatedCost?: number | null;
 }
 
 export interface ProgressInput {
@@ -62,6 +64,8 @@ export interface ProgressInput {
   pctComplete: number;
   /** Cumulative billings to the customer through the end of this period. */
   invoicedToDate?: Money | null;
+  /** Cumulative ACTUAL cost incurred on the job through this period (job-costing). */
+  actualCostToDate?: Money | null;
 }
 
 export interface PeriodResult {
@@ -76,6 +80,8 @@ export interface PeriodResult {
   deferredRevenue: Money;    // overbilling (liability)
   holdbackReceivable: Money; // withheld portion of billings (invoiced × holdbackPct)
   arReceivable: Money;       // regular A/R portion of billings (invoiced − holdback)
+  actualCostToDate: Money;   // job-costing actual cost incurred through this period
+  costToCostPct: number | null; // actualCost / estimatedCost (the cost-to-cost % method), or null if no estimate
 }
 
 /**
@@ -88,13 +94,16 @@ export function buildProjectSchedule(project: ProjectInput, progress: ProgressIn
   const rows = [...progress].sort((a, b) => a.periodKey.localeCompare(b.periodKey));
   const cv = project.contractValue || 0;
   const holdbackPct = clampPct(project.holdbackPct ?? 0);
+  const estCost = project.estimatedCost && project.estimatedCost > 0 ? project.estimatedCost : null;
   let priorPct = clampPct(project.openingPct ?? 0);
   let priorInvoiced = project.openingInvoiced ?? 0;
+  let priorCost = 0;
   const out: PeriodResult[] = [];
 
   for (const r of rows) {
     const pct = clampPct(r.pctComplete);
     const invoiced = r.invoicedToDate == null ? priorInvoiced : r.invoicedToDate;
+    const actualCost = r.actualCostToDate == null ? priorCost : r.actualCostToDate;
     const earned = round2(cv * pct);
     // revenueThisPeriod uses the raw delta so a correction (pct going down) shows
     // a negative recovery rather than being silently floored.
@@ -103,6 +112,7 @@ export function buildProjectSchedule(project: ProjectInput, progress: ProgressIn
     const deferredRevenue = round2(Math.max(invoiced - earned, 0));
     const holdbackReceivable = round2(invoiced * holdbackPct);
     const arReceivable = round2(invoiced - holdbackReceivable);
+    const costToCostPct = estCost ? clampPct(actualCost / estCost) : null;
     out.push({
       periodKey: r.periodKey,
       pctComplete: pct,
@@ -115,9 +125,12 @@ export function buildProjectSchedule(project: ProjectInput, progress: ProgressIn
       deferredRevenue,
       holdbackReceivable,
       arReceivable,
+      actualCostToDate: round2(actualCost),
+      costToCostPct,
     });
     priorPct = pct;
     priorInvoiced = invoiced;
+    priorCost = actualCost;
   }
   return out;
 }
@@ -289,26 +302,50 @@ export interface ProjectRollup {
   deferredRevenue: Money;
   remainingToEarn: Money; // contractValue - earnedToDate
   holdbackReceivable: Money; // withheld portion of billings to date
+  estimatedCost: Money | null;
+  actualCostToDate: Money;
+  estGrossProfit: Money | null;   // contractValue − estimatedCost
+  costOverrun: Money;             // actualCost − (estimatedCost × pctComplete); >0 = over budget so far
+  overBudget: boolean;
+  holdbackReadyToRelease: boolean; // job ~complete + holdback still receivable
 }
 
-export function rollupProject(project: ProjectInput, schedule: PeriodResult[]): ProjectRollup {
+/** A job is "ready to release holdback" once it's substantially complete (≥97% or marked
+ *  complete) and still carries a holdback receivable — the cue to invoice/release it. */
+export const SUBSTANTIAL_COMPLETION = 0.97;
+
+export function rollupProject(project: ProjectInput, schedule: PeriodResult[], status?: string): ProjectRollup {
   const last = latestPeriod(schedule);
   const cv = project.contractValue || 0;
   const holdbackPct = clampPct(project.holdbackPct ?? 0);
-  const earned = last?.earnedToDate ?? round2(cv * clampPct(project.openingPct ?? 0));
+  const estCost = project.estimatedCost && project.estimatedCost > 0 ? project.estimatedCost : null;
+  const pctComplete = last?.pctComplete ?? clampPct(project.openingPct ?? 0);
+  const earned = last?.earnedToDate ?? round2(cv * pctComplete);
   const invoiced = last?.invoicedToDate ?? (project.openingInvoiced ?? 0);
+  const actualCost = last?.actualCostToDate ?? 0;
+  const holdbackReceivable = last?.holdbackReceivable ?? round2(invoiced * holdbackPct);
+  // Cost should be ~ estCost × % complete; anything beyond that is an overrun so far.
+  const expectedCost = estCost ? round2(estCost * pctComplete) : 0;
+  const costOverrun = estCost ? round2(actualCost - expectedCost) : 0;
+  const isComplete = status === "complete" || pctComplete >= SUBSTANTIAL_COMPLETION;
   return {
     projectId: project.projectId,
     name: project.name,
     customerJob: project.customerJob ?? null,
     contractValue: cv,
-    pctComplete: last?.pctComplete ?? clampPct(project.openingPct ?? 0),
+    pctComplete,
     earnedToDate: earned,
     invoicedToDate: round2(invoiced),
     contractAsset: last?.contractAsset ?? round2(Math.max(earned - invoiced, 0)),
     deferredRevenue: last?.deferredRevenue ?? round2(Math.max(invoiced - earned, 0)),
     remainingToEarn: round2(cv - earned),
-    holdbackReceivable: last?.holdbackReceivable ?? round2(invoiced * holdbackPct),
+    holdbackReceivable,
+    estimatedCost: estCost,
+    actualCostToDate: round2(actualCost),
+    estGrossProfit: estCost ? round2(cv - estCost) : null,
+    costOverrun,
+    overBudget: estCost ? costOverrun > 0.005 : false,
+    holdbackReadyToRelease: isComplete && holdbackReceivable > 0.005,
   };
 }
 
