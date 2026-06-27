@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Heart, Wallet, Plane, Activity, Sprout, Plus, Lock, Pin, Trash2, CalendarDays, Users, Sparkles,
-  ChevronDown, ChevronRight, Stethoscope, ExternalLink, AlertTriangle, CheckCircle2, Scale,
+  ChevronDown, ChevronRight, Stethoscope, ExternalLink, AlertTriangle, CheckCircle2, Scale, HardDrive,
 } from "lucide-react";
 import HealthHub from "@/components/HealthHub";
 import FamilyHistory from "@/components/FamilyHistory";
@@ -110,6 +110,10 @@ export default function MyLife() {
           className={`px-3 py-1.5 rounded-lg text-sm border flex items-center gap-1.5 transition-colors ${section === "__side" ? "bg-fuchsia-600 text-white border-fuchsia-600" : "bg-white hover:bg-slate-50 border-slate-200"}`}>
           <Tags className="h-4 w-4" /> Side sales
         </button>
+        <a href="/drive-cleanup"
+          className="px-3 py-1.5 rounded-lg text-sm border flex items-center gap-1.5 transition-colors bg-white hover:bg-slate-50 border-slate-200">
+          <HardDrive className="h-4 w-4" /> Photo cleanup
+        </a>
       </div>
 
       {section === "__family" ? <FamilyHistory />

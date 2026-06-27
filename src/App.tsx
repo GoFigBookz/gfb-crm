@@ -22,6 +22,7 @@ import QBO from "./pages/QBO";
 
 import Calculators from "./pages/Calculators";
 import ChartOfAccounts from "./pages/ChartOfAccounts";
+import DriveCleanup from "./pages/DriveCleanup";
 import ClientVault from "./pages/ClientVault";
 import Onboarding from "./pages/Onboarding";
 import OnboardingForm from "./pages/OnboardingForm";
@@ -131,6 +132,7 @@ function AppRoutes() {
         <Route path="/qbo" element={<QBO />} />
         <Route path="/calculators" element={<Calculators />} />
         <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />
+        <Route path="/drive-cleanup" element={<DriveCleanup />} />
         <Route path="/vault" element={<ClientVault />} />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/employees" element={<Employees />} />
