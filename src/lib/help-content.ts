@@ -161,7 +161,8 @@ export const HELP: Record<string, HelpEntry> = {
     title: "Cash book",
     steps: [
       "Add the client's bank/cash account with its opening balance and the date it's as of.",
-      "Log each transaction: date, Money in/out, amount, optional HST, a category, and a reference (cheque #).",
+      "Fast start: click ‘Import’ and paste a bank/credit-card CSV (Date + Amount, or Debit/Credit columns) — deposits come in as money-in, withdrawals as money-out. Preview first, then import.",
+      "Or log each transaction by hand: date, Money in/out, amount, optional HST, a category, and a reference (cheque #).",
       "Tick ‘Cleared’ when it shows on the bank statement — that drives the reconciliation.",
       "Reconcile: type the statement's closing balance — it ties to your CLEARED book balance (uncleared cheques are shown as in-transit).",
       "Year-end: the category summary totals income and expenses (with HST) — the backbone for the T2 / income statement. Export to CSV anytime.",
