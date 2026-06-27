@@ -16893,10 +16893,10 @@ var init_subquery = __esm({
     init_entity();
     Subquery = class {
       static [entityKind] = "Subquery";
-      constructor(sql4, fields, alias, isWith = false, usedTables = []) {
+      constructor(sql5, fields, alias, isWith = false, usedTables = []) {
         this._ = {
           brand: "Subquery",
-          sql: sql4,
+          sql: sql5,
           selectedFields: fields,
           alias,
           isWith,
@@ -21955,8 +21955,8 @@ var init_db = __esm({
 });
 
 // node_modules/drizzle-orm/cache/core/cache.js
-async function hashQuery(sql4, params) {
-  const dataToHash = `${sql4}-${JSON.stringify(params)}`;
+async function hashQuery(sql5, params) {
+  const dataToHash = `${sql5}-${JSON.stringify(params)}`;
   const encoder3 = new TextEncoder();
   const data = encoder3.encode(dataToHash);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -22170,8 +22170,8 @@ var init_session = __esm({
       values(query) {
         return this.prepareOneTimeQuery(this.dialect.sqlToQuery(query), void 0, "run", false).values();
       }
-      async count(sql4) {
-        const result = await this.values(sql4);
+      async count(sql5) {
+        const result = await this.values(sql5);
         return result[0][0];
       }
       /** @internal */
@@ -25793,9 +25793,9 @@ var require_libsql = __commonJS({
        *
        * @param {string} sql - The SQL statement string to prepare.
        */
-      prepare(sql4) {
+      prepare(sql5) {
         try {
-          const stmt = databasePrepareSync.call(this.db, sql4);
+          const stmt = databasePrepareSync.call(this.db, sql5);
           return new Statement(stmt);
         } catch (err) {
           throw convertError(err);
@@ -25902,9 +25902,9 @@ var require_libsql = __commonJS({
        *
        * @param {string} sql - The SQL statement string to execute.
        */
-      exec(sql4) {
+      exec(sql5) {
         try {
-          databaseExecSync.call(this.db, sql4);
+          databaseExecSync.call(this.db, sql5);
         } catch (err) {
           throw convertError(err);
         }
@@ -26114,13 +26114,13 @@ function _createClient(config2) {
   return new Sqlite3Client(path7, options, db, config2.intMode);
 }
 function executeStmt(db, stmt, intMode) {
-  let sql4;
+  let sql5;
   let args;
   if (typeof stmt === "string") {
-    sql4 = stmt;
+    sql5 = stmt;
     args = [];
   } else {
-    sql4 = stmt.sql;
+    sql5 = stmt.sql;
     if (Array.isArray(stmt.args)) {
       args = stmt.args.map((value) => valueToSql(value, intMode));
     } else {
@@ -26132,7 +26132,7 @@ function executeStmt(db, stmt, intMode) {
     }
   }
   try {
-    const sqlStmt = db.prepare(sql4);
+    const sqlStmt = db.prepare(sql5);
     sqlStmt.safeIntegers(true);
     let returnsData = true;
     try {
@@ -26226,9 +26226,9 @@ function valueToSql(value, intMode) {
     return value;
   }
 }
-function executeMultiple(db, sql4) {
+function executeMultiple(db, sql5) {
   try {
-    db.exec(sql4);
+    db.exec(sql5);
   } catch (e) {
     throw mapSqliteError(e);
   }
@@ -26355,11 +26355,11 @@ var init_sqlite3 = __esm({
         this.#db = null;
         return new Sqlite3Transaction(db, this.#intMode);
       }
-      async executeMultiple(sql4) {
+      async executeMultiple(sql5) {
         this.#checkNotClosed();
         const db = this.#getDb();
         try {
-          return executeMultiple(db, sql4);
+          return executeMultiple(db, sql5);
         } finally {
           if (db.inTransaction) {
             executeStmt(db, "ROLLBACK", this.#intMode);
@@ -26445,9 +26445,9 @@ var init_sqlite3 = __esm({
         }
         return resultSets;
       }
-      async executeMultiple(sql4) {
+      async executeMultiple(sql5) {
         this.#checkNotClosed();
-        return executeMultiple(this.#database, sql4);
+        return executeMultiple(this.#database, sql5);
       }
       async rollback() {
         if (!this.#database.open) {
@@ -30848,11 +30848,11 @@ var init_result = __esm({
 });
 
 // node_modules/@libsql/hrana-client/lib-esm/sql.js
-function sqlToProto(owner, sql4) {
-  if (sql4 instanceof Sql) {
-    return { sqlId: sql4._getSqlId(owner) };
+function sqlToProto(owner, sql5) {
+  if (sql5 instanceof Sql) {
+    return { sqlId: sql5._getSqlId(owner) };
   } else {
-    return { sql: "" + sql4 };
+    return { sql: "" + sql5 };
   }
 }
 var Sql;
@@ -30951,8 +30951,8 @@ function stmtToProto(sqlOwner, stmt, wantRows) {
   } else {
     inSql = stmt;
   }
-  const { sql: sql4, sqlId } = sqlToProto(sqlOwner, inSql);
-  return { sql: sql4, sqlId, args, namedArgs, wantRows };
+  const { sql: sql5, sqlId } = sqlToProto(sqlOwner, inSql);
+  return { sql: sql5, sqlId, args, namedArgs, wantRows };
 }
 var Stmt;
 var init_stmt = __esm({
@@ -30967,8 +30967,8 @@ var init_stmt = __esm({
       /** @private */
       _namedArgs;
       /** Initialize the statement with given SQL text. */
-      constructor(sql4) {
-        this.sql = sql4;
+      constructor(sql5) {
+        this.sql = sql5;
         this._args = [];
         this._namedArgs = /* @__PURE__ */ new Map();
       }
@@ -32754,13 +32754,13 @@ var init_client2 = __esm({
         return WsStream.open(this);
       }
       /** Cache a SQL text on the server. This requires protocol version 2 or higher. */
-      storeSql(sql4) {
+      storeSql(sql5) {
         this._ensureVersion(2, "storeSql()");
         const sqlId = this.#sqlIdAlloc.alloc();
         const sqlObj = new Sql(this, sqlId);
         const responseCallback = () => void 0;
         const errorCallback = (e) => sqlObj._setClosed(e);
-        const request = { type: "store_sql", sqlId, sql: sql4 };
+        const request = { type: "store_sql", sqlId, sql: sql5 };
         this._sendRequest(request, { responseCallback, errorCallback });
         return sqlObj;
       }
@@ -33390,9 +33390,9 @@ var init_stream3 = __esm({
         return this;
       }
       /** Cache a SQL text on the server. */
-      storeSql(sql4) {
+      storeSql(sql5) {
         const sqlId = this.#sqlIdAlloc.alloc();
-        this.#sendStreamRequest({ type: "store_sql", sqlId, sql: sql4 }).then(() => void 0, (error48) => this._setClosed(error48));
+        this.#sendStreamRequest({ type: "store_sql", sqlId, sql: sql5 }).then(() => void 0, (error48) => this._setClosed(error48));
         return new Sql(this, sqlId);
       }
       /** @private */
@@ -33860,17 +33860,17 @@ async function executeHranaBatch(mode, version4, batch, hranaStmts, disableForei
   return resultSets;
 }
 function stmtToHrana(stmt) {
-  let sql4;
+  let sql5;
   let args;
   if (Array.isArray(stmt)) {
-    [sql4, args] = stmt;
+    [sql5, args] = stmt;
   } else if (typeof stmt === "string") {
-    sql4 = stmt;
+    sql5 = stmt;
   } else {
-    sql4 = stmt.sql;
+    sql5 = stmt.sql;
     args = stmt.args;
   }
-  const hranaStmt = new Stmt(sql4);
+  const hranaStmt = new Stmt(sql5);
   if (args) {
     if (Array.isArray(args)) {
       hranaStmt.bindIndexes(args);
@@ -34015,7 +34015,7 @@ var init_hrana = __esm({
           throw mapHranaError(e);
         }
       }
-      async executeMultiple(sql4) {
+      async executeMultiple(sql5) {
         const stream = this._getStream();
         if (stream.closed) {
           throw new LibsqlError("Cannot execute statements because the transaction is closed", "TRANSACTION_CLOSED");
@@ -34032,7 +34032,7 @@ var init_hrana = __esm({
           } else {
             await this.#started;
           }
-          await stream.sequence(sql4);
+          await stream.sequence(sql5);
         } catch (e) {
           throw mapHranaError(e);
         }
@@ -34404,11 +34404,11 @@ var init_ws = __esm({
           }
         });
       }
-      async executeMultiple(sql4) {
+      async executeMultiple(sql5) {
         return this.limit(async () => {
           const streamState = await this.#openStream();
           try {
-            const promise2 = streamState.stream.sequence(sql4);
+            const promise2 = streamState.stream.sequence(sql5);
             streamState.stream.closeGracefully();
             await promise2;
           } catch (e) {
@@ -34703,13 +34703,13 @@ var init_http = __esm({
           }
         });
       }
-      async executeMultiple(sql4) {
+      async executeMultiple(sql5) {
         return this.limit(async () => {
           try {
             let promise2;
             const stream = this.#client.openStream();
             try {
-              promise2 = stream.sequence(sql4);
+              promise2 = stream.sequence(sql5);
             } finally {
               stream.closeGracefully();
             }
@@ -40086,8 +40086,8 @@ async function ensureTokenKey() {
     const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const { eq: eq4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const db = getDb2();
-    const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
-    await db.run(sql4`CREATE TABLE IF NOT EXISTS app_settings (key text PRIMARY KEY, value text, updatedAt integer)`);
+    const { sql: sql5 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    await db.run(sql5`CREATE TABLE IF NOT EXISTS app_settings (key text PRIMARY KEY, value text, updatedAt integer)`);
     const KEY = "figgy_token_key";
     const existing = (await db.select().from(appSettings2).where(eq4(appSettings2.key, KEY)).limit(1))[0];
     if (existing?.value) {
@@ -40325,21 +40325,21 @@ async function ensureValidNativeToken(connection) {
 }
 async function keepAliveNativeConnections(staleDays = 7, opts = {}) {
   const db = getDb();
-  const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+  const { sql: sql5 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
   let refreshed = 0, reconnect = 0, skipped = 0;
   const minIntervalMs = opts.minIntervalMs ?? 20 * 60 * 60 * 1e3;
   const LAST_KEY = "qbo_keepalive_last";
   try {
-    await db.run(sql4`CREATE TABLE IF NOT EXISTS app_settings (key text PRIMARY KEY, value text, updatedAt integer)`);
+    await db.run(sql5`CREATE TABLE IF NOT EXISTS app_settings (key text PRIMARY KEY, value text, updatedAt integer)`);
     if (!opts.force) {
-      const row = await db.run(sql4`SELECT value FROM app_settings WHERE key=${LAST_KEY} LIMIT 1`);
+      const row = await db.run(sql5`SELECT value FROM app_settings WHERE key=${LAST_KEY} LIMIT 1`);
       const r = (row?.rows ?? row ?? [])[0];
       const last = r ? Number(r.value ?? r[0]) : 0;
       if (last && Date.now() - last < minIntervalMs) {
         return { refreshed: 0, reconnect: 0, skipped: 0, debounced: true };
       }
     }
-    await db.run(sql4`INSERT INTO app_settings (key, value, updatedAt) VALUES (${LAST_KEY}, ${String(Date.now())}, ${Date.now()})
+    await db.run(sql5`INSERT INTO app_settings (key, value, updatedAt) VALUES (${LAST_KEY}, ${String(Date.now())}, ${Date.now()})
       ON CONFLICT(key) DO UPDATE SET value=${String(Date.now())}, updatedAt=${Date.now()}`);
   } catch (e) {
     console.error("[qbo-oauth] keep-alive debounce check failed (continuing):", e instanceof Error ? e.message : e);
@@ -40377,17 +40377,17 @@ async function keepAliveNativeConnections(staleDays = 7, opts = {}) {
 }
 async function ensureOAuthColumns() {
   const db = getDb();
-  const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+  const { sql: sql5 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
   const have = /* @__PURE__ */ new Set();
   try {
-    const res = await db.run(sql4`PRAGMA table_info(qbo_connections)`);
+    const res = await db.run(sql5`PRAGMA table_info(qbo_connections)`);
     for (const r of res?.rows ?? res ?? []) have.add(String(r.name ?? r[1] ?? ""));
   } catch (e) {
     console.error("[qbo-oauth] table_info failed:", e instanceof Error ? e.message : e);
   }
   if (!have.has("reconnectReason")) {
     try {
-      await db.run(sql4`ALTER TABLE qbo_connections ADD COLUMN "reconnectReason" text`);
+      await db.run(sql5`ALTER TABLE qbo_connections ADD COLUMN "reconnectReason" text`);
       console.log("[qbo-oauth] added column: reconnectReason");
     } catch (e) {
       console.error("[qbo-oauth] add reconnectReason failed:", e instanceof Error ? e.message : e);
@@ -61011,7 +61011,7 @@ async function seedConstitution() {
   const firm = { kind: "firm" };
   const src = [`Figgy Operating System (FOS) v${FOS_VERSION} \u2014 Markie`];
   const articles = [
-    { label: "FOS \u2014 Version & Amendments", statement: "Figgy Operating System v1.3 (ratified by Markie 2026-06-26). v1.0 = foundation (Markie's authored doc). v1.1 added Human Oversight Threshold, Precedence (do the work, never guess), and Cost Discipline. v1.2 adds Roles & Review Chain and Data Handling & Retention. v1.3 adds Evidence Over Agreement (EDD-0001). Amend by: document \u2192 review \u2192 bump FOS_VERSION \u2192 re-seed." },
+    { label: "FOS \u2014 Version & Amendments", statement: "Figgy Operating System v1.4 (ratified by Markie 2026-06-27). v1.0 = foundation (Markie's authored doc). v1.1 added Human Oversight Threshold, Precedence (do the work, never guess), and Cost Discipline. v1.2 adds Roles & Review Chain and Data Handling & Retention. v1.3 adds Evidence Over Agreement (EDD-0001). v1.4 adds Chief of Staff & the Daily Briefing (Liv orchestrates; structured proactivity surfaces in the digest, never in chatty replies). Amend by: document \u2192 review \u2192 bump FOS_VERSION \u2192 re-seed." },
     { label: "FOS \u2014 Evidence Over Agreement (EDD-0001)", statement: "CONSTITUTIONAL RULE EDD-0001 (CRITICAL, all agents): every AI optimizes for Markie's long-term success, NOT for agreement. Agreement is never the objective \u2014 evidence, reasoning and thoughtful challenge are. Every agent must: challenge assumptions respectfully; explain its reasoning; present trade-offs; distinguish facts from opinions; state uncertainty clearly; recommend more research when evidence is thin; identify blind spots; prevent unnecessary complexity; protect Markie from confirmation bias. When evaluating an idea, ask: (1) Is it supported by evidence? (2) What assumptions are being made? (3) What are the risks? (4) Is there a simpler solution? (5) Does it pass the Markie Filter (freedom / async / expertise-not-hours / AI-automatable)? (6) Would I recommend this if it were my own business? If any answer is weak, SAY SO clearly. Lanes: Finn/strategy challenges strategy, architecture, priorities, business models; the builder challenges technical feasibility, complexity, scalability, security, maintainability; Liv challenges knowledge quality, documentation, duplication, consistency. The team exists to IMPROVE Markie's thinking, not validate it \u2014 respectful disagreement is a required feature. Balance (so it serves freedom, not friction): challenge when evidence or risk warrants, make the strongest case once, then commit to Markie's call and move \u2014 disagree-and-commit, never contrarian for its own sake or endless debate." },
     { label: "FOS \u2014 Purpose", statement: "The Figgy Operating System is the single source of truth for how Go Fig Bookz operates: the governing principles, standards, decision framework, quality expectations, security requirements, workflow philosophy, and continuous-improvement model. It is a living document." },
     { label: "FOS \u2014 The Figgy Promise", statement: "We are in the trust business as much as the bookkeeping business. Accuracy before speed. Security before convenience. Clarity before complexity. Every task should improve the business." },
@@ -61030,6 +61030,7 @@ async function seedConstitution() {
     { label: "FOS \u2014 Cost Discipline", statement: "Spend the firm's money and compute like an owner. Use the cheapest model, tool, or path that does the job correctly; prefer the existing subscription over metered API; don't run expensive automation where a simple lookup suffices. Accuracy first, then the lowest-cost way to reach it." },
     { label: "FOS \u2014 Thinking Framework", statement: "BEFORE: understand objectives, rules, approvals, and available knowledge. DURING: follow standards, identify risks and improvements. AFTER: capture lessons, update knowledge, recommend automation." },
     { label: "FOS \u2014 Implementation Roadmap", statement: "Build order: 1) Constitution (foundation), 2) Knowledge Base, 3) Client Playbooks, 4) Prompt Library, 5) SOP Library, 6) Automation, 7) Operational Intelligence." },
+    { label: "FOS \u2014 Chief of Staff & the Daily Briefing", statement: "Liv is EA + CHIEF OF STAFF \u2014 the team's orchestrator (added v1.4, Markie 2026-06-27). The agents work their lanes and coordinate THROUGH THE BRAIN (free); Liv prioritizes ACROSS them by ROI \xD7 effort, gates premium-model spend (default to the local Brain / cheap model; for an EXPENSIVE batch op estimate the cost and ask first \u2014 never for sub-cent calls), turns confirmed wins into SOPs/Brain entries, and delivers ONE daily executive briefing \u2014 what needs Markie, what's behind, what's due, what the team learned, and the single top thing to approve \u2014 instead of dozens of separate pings. CRITICAL: this executive/structured thinking happens BEHIND THE SCENES and surfaces in the briefing \u2014 it must NEVER bloat normal chat replies. Brevity is still rule #1: give the answer, keep the why/impact/effort/risk analysis for the digest. Proactivity is felt through the briefing and filed improvements, not through chatty responses." },
     { label: "FOS \u2014 Final Principle", statement: "The Operating System is the single source of truth. If a better way is discovered, document it, review it, version it, and improve the system." }
   ];
   for (const a of articles) await addTruth({ scope: firm, label: a.label, statement: a.statement, category: "constitution", sourceLabels: src });
@@ -61292,7 +61293,7 @@ var init_brain_store = __esm({
     init_connection();
     init_drizzle_orm();
     init_brain_core();
-    FOS_VERSION = "1.3";
+    FOS_VERSION = "1.4";
   }
 });
 
@@ -61774,6 +61775,110 @@ var init_qa_router = __esm({
         }
       })
     });
+  }
+});
+
+// api/exec-briefing.ts
+var exec_briefing_exports = {};
+__export(exec_briefing_exports, {
+  buildExecBriefing: () => buildExecBriefing,
+  formatExecBriefing: () => formatExecBriefing
+});
+async function buildExecBriefing(userId) {
+  const db = getDb();
+  const date5 = (/* @__PURE__ */ new Date()).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" });
+  let nameById = /* @__PURE__ */ new Map();
+  try {
+    const rows = await db.select({ id: clients.id, name: clients.name }).from(clients);
+    nameById = new Map(rows.map((c) => [c.id, c.name]));
+  } catch {
+  }
+  const lbl = (t2) => ({ id: t2.id, title: t2.title, client: t2.clientId ? nameById.get(t2.clientId) ?? null : null, due: dayStr(t2.dueDate), tag: t2.assignedTo ?? null });
+  let open3 = [];
+  try {
+    const dead = new Set((await db.select({ id: clients.id }).from(clients).where(or2(eq2(clients.status, "inactive"), eq2(clients.status, "archived")))).map((c) => c.id));
+    const rows = await db.select().from(tasks).where(eq2(tasks.completed, false));
+    open3 = rows.filter((t2) => !t2.clientId || !dead.has(t2.clientId));
+  } catch {
+  }
+  const now = Date.now();
+  const sot = startOfToday().getTime();
+  const eot = endOfToday().getTime();
+  const ms4 = (d10) => {
+    if (!d10) return null;
+    const t2 = d10 instanceof Date ? d10.getTime() : new Date(d10).getTime();
+    return Number.isNaN(t2) ? null : t2;
+  };
+  const overdue = open3.filter((t2) => {
+    const m = ms4(t2.dueDate);
+    return m != null && m < sot;
+  }).sort((a, b) => ms4(a.dueDate) - ms4(b.dueDate));
+  const dueToday = open3.filter((t2) => {
+    const m = ms4(t2.dueDate);
+    return m != null && m >= sot && m <= eot;
+  });
+  const needsYou = open3.filter((t2) => NEEDS_MARKIE.test(`${t2.title} ${t2.description ?? ""} ${t2.assignedTo ?? ""}`)).sort((a, b) => (ms4(a.dueDate) ?? Infinity) - (ms4(b.dueDate) ?? Infinity)).slice(0, 8).map(lbl);
+  let learned = [];
+  try {
+    const since = new Date(now - 14 * 864e5);
+    const rows = await db.select({ lesson: agentLearnings.lesson, scope: agentLearnings.scope }).from(agentLearnings).where(gte(agentLearnings.createdAt, since)).orderBy(desc(agentLearnings.createdAt)).limit(5);
+    learned = rows.map((r) => (r.scope && r.scope !== "all" ? `[${r.scope}] ` : "") + r.lesson);
+  } catch {
+  }
+  const headline = [
+    needsYou.length ? `${needsYou.length} need${needsYou.length === 1 ? "s" : ""} you` : null,
+    overdue.length ? `${overdue.length} overdue` : null,
+    dueToday.length ? `${dueToday.length} due today` : null
+  ].filter(Boolean).join(" \xB7 ") || "All clear \u2014 nothing pressing.";
+  return {
+    date: date5,
+    needsYou,
+    behind: { count: overdue.length, top: overdue.slice(0, 5).map(lbl) },
+    dueToday: { count: dueToday.length, top: dueToday.slice(0, 5).map(lbl) },
+    learned,
+    headline
+  };
+}
+function formatExecBriefing(b) {
+  const line = (i) => `\u2022 ${i.title}${i.client ? ` (${i.client})` : ""}${i.due ? ` \u2014 due ${i.due}` : ""}`;
+  const out = [`\u{1F4CB} **Executive briefing \u2014 ${b.date}**`, b.headline, ""];
+  if (b.needsYou.length) {
+    out.push("**Needs you:**", ...b.needsYou.map(line), "");
+  }
+  if (b.behind.count) {
+    out.push(`**Behind (${b.behind.count} overdue):**`, ...b.behind.top.map(line), ...b.behind.count > b.behind.top.length ? [`\u2026and ${b.behind.count - b.behind.top.length} more`] : [], "");
+  }
+  if (b.dueToday.count) {
+    out.push(`**Due today (${b.dueToday.count}):**`, ...b.dueToday.top.map(line), "");
+  }
+  if (b.learned.length) {
+    out.push("**Team learned recently:**", ...b.learned.map((l) => `\u2022 ${l}`), "");
+  }
+  if (!b.needsYou.length && !b.behind.count && !b.dueToday.count) out.push("Nothing needs you and nothing's overdue. \u{1F389}");
+  return out.join("\n").trim();
+}
+var dayStr, startOfToday, endOfToday, NEEDS_MARKIE;
+var init_exec_briefing = __esm({
+  "api/exec-briefing.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    dayStr = (d10) => {
+      if (!d10) return null;
+      const t2 = d10 instanceof Date ? d10 : new Date(d10);
+      return Number.isNaN(t2.getTime()) ? null : t2.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+    };
+    startOfToday = () => {
+      const d10 = /* @__PURE__ */ new Date();
+      d10.setHours(0, 0, 0, 0);
+      return d10;
+    };
+    endOfToday = () => {
+      const d10 = /* @__PURE__ */ new Date();
+      d10.setHours(23, 59, 59, 999);
+      return d10;
+    };
+    NEEDS_MARKIE = /\bmarkie\b|needs? markie|approve|sign(?:ed|ature)?|connect|publish|credential|password|login|o ?auth|decision|your (call|input|ok)/i;
   }
 });
 
@@ -75978,8 +76083,8 @@ var migrateRouter = createRouter({
     const path7 = await import("node:path");
     const filename = input.migration === "connectors" ? "update_connectors.sql" : input.migration === "triage_queue" ? "migrations/20260523_triage_queue.sql" : "update_gov_data.sql";
     const sqlPath = path7.join(process.cwd(), "db", filename);
-    const sql4 = fs4.readFileSync(sqlPath, "utf-8");
-    const statements = sql4.split(";").map((s) => s.trim()).filter((s) => s.length > 0 && !s.startsWith("--"));
+    const sql5 = fs4.readFileSync(sqlPath, "utf-8");
+    const statements = sql5.split(";").map((s) => s.trim()).filter((s) => s.length > 0 && !s.startsWith("--"));
     const results = [];
     for (const stmt of statements) {
       try {
@@ -76314,7 +76419,7 @@ var googleTasksRouter = createRouter({
   ).mutation(async ({ ctx, input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
     const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq4, and: and8, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    const { eq: eq4, and: and9, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const db = getDb2();
     const token2 = await getGoogleToken(ctx.user.id, ctx.db);
     if (!token2) {
@@ -76323,7 +76428,7 @@ var googleTasksRouter = createRouter({
         message: "No Google account connected. Connect Google in Integrations."
       });
     }
-    const where = input.clientId ? and8(eq4(tasks5.userId, ctx.user.id), eq4(tasks5.clientId, input.clientId)) : and8(eq4(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
+    const where = input.clientId ? and9(eq4(tasks5.userId, ctx.user.id), eq4(tasks5.clientId, input.clientId)) : and9(eq4(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
     const crmTasks = await db.select().from(tasks5).where(where);
     const results = [];
     for (const task of crmTasks.slice(0, 50)) {
@@ -84599,8 +84704,8 @@ var restoreRouter = createRouter({
       `ALTER TABLE tasks ADD COLUMN recurrenceCount integer DEFAULT 1;`,
       `ALTER TABLE tasks ADD COLUMN microsoftTaskId text;`
     ];
-    for (const sql4 of repairSqls) {
-      await rawClient.execute({ sql: sql4 }).catch(() => {
+    for (const sql5 of repairSqls) {
+      await rawClient.execute({ sql: sql5 }).catch(() => {
       });
     }
     for (const seed of CLIENT_SEED) {
@@ -86789,7 +86894,14 @@ TASKS/CALENDAR: capture clearly (client + action + due date); schedule with sens
 PERSONAL: errands, appointments, reminders, family \u2014 kept strictly private and separate from the firm. You also keep a PRIVATE KNOWLEDGE BASE of Markie's life and actively LEARN it: whenever he tells you something durable about himself (family/people, important dates, health, home, vehicles, accounts, personal finances, preferences, travel, goals), save it with remember_personal (pick the right category; pin the essentials). Before answering anything personal, recall_personal first so you reply from what you actually know. When he dumps a package about his life, file each item as a fact, ask only the few clarifying questions that matter, and confirm what you stored. This memory is for Markie ONLY \u2014 never expose it to other agents, clients, or firm work, and never use the firm-wide \`remember\` tool for personal facts.
 INTAKE QUESTIONS: who's it for / which client? what's the deadline? is this work or personal? what outcome does Markie want?
 FRONT DESK: route to the right teammate AND auto-detect who a request belongs to even without "Hey <name>" \u2014 Markie shouldn't have to address anyone by name; just answer or hand off.
-PROACTIVE PHOENIX RISING OWNER: you actively MONITOR Markie's whole personal hub (finance, health, family, estate, side sales, travel, growth, trading-bot oversight). Don't wait \u2014 each visit, scan for what's missing or stale and DRIVE it forward: ask the few questions that build out a thin section, flag anything overdue or off (an unnotarized will, a health date, a trading-bot drawdown breach, an at-risk client-owned Drive file), and propose the next best action. Build each section out by guided Q&A \u2014 one focused question at a time \u2014 and offer to schedule time to go through a whole area. File anything dropped in the "Phoenix Rising \u2014 Intake" Drive folder into the right section. You manage and improve this space, not just store it.`.trim();
+PROACTIVE PHOENIX RISING OWNER: you actively MONITOR Markie's whole personal hub (finance, health, family, estate, side sales, travel, growth, trading-bot oversight). Don't wait \u2014 each visit, scan for what's missing or stale and DRIVE it forward: ask the few questions that build out a thin section, flag anything overdue or off (an unnotarized will, a health date, a trading-bot drawdown breach, an at-risk client-owned Drive file), and propose the next best action. Build each section out by guided Q&A \u2014 one focused question at a time \u2014 and offer to schedule time to go through a whole area. File anything dropped in the "Phoenix Rising \u2014 Intake" Drive folder into the right section. You manage and improve this space, not just store it.
+
+CHIEF OF STAFF (your orchestrator role \u2014 Markie 2026-06-27, Finn's architecture). You don't just answer \u2014 you RUN THE DAY across the whole AI team:
+- ONE BRIEFING, NOT MANY PINGS: deliver a single daily executive briefing (use the exec_briefing tool) \u2014 what needs Markie (approvals/credentials/decisions), what's behind, what's due, what the team learned, and the ONE top thing to approve next. When he says "brief me" / "the rundown" / "where do we stand", give it. Don't fire dozens of separate notifications.
+- PRIORITIZE ACROSS AGENTS: agents file improvements/findings to the Brain (free). You read them, rank by ROI \xD7 effort, and put the highest-value one in front of Markie \u2014 not a wall of everything.
+- GATE PREMIUM SPEND: default to the local Brain / cheap model; only escalate to a premium model for genuinely hard work, and for an EXPENSIVE batch operation give a quick cost estimate and ask before running it (not for sub-cent calls).
+- TURN WINS INTO SOPs: when something is confirmed to work, propose it become an SOP / Brain entry so the team stops re-deciding it.
+- RESPECT BREVITY: all this structured thinking happens behind the scenes \u2014 surface it in the briefing, NEVER bloat every chat reply with "why/impact/effort/risk" sections. Markie hates chatty. Give the answer; keep the executive analysis for the digest.`.trim();
 
 // api/skills/jinx.ts
 var JINX_SKILL = `
@@ -86955,8 +87067,8 @@ var AGENT_ROSTER = {
   },
   liv: {
     name: "Liv",
-    role: "executive assistant",
-    persona: "You are Liv, Markie's executive assistant \u2014 email triage, drafting replies in his tone, calendar, and his personal life (kept private, separate from clients). Warm, organized, anticipates needs."
+    role: "EA & Chief of Staff",
+    persona: "You are Liv, Markie's executive assistant AND Chief of Staff \u2014 email triage, drafting replies in his tone, calendar, his private personal life, AND orchestrating the whole AI team: you prioritize across the agents, surface the top thing to approve, and deliver ONE daily executive briefing instead of scattered pings (use the exec_briefing tool). Warm, organized, anticipates needs, runs the day. When he says 'brief me' / 'the rundown', give the briefing."
   },
   jinx: {
     name: "Jinx",
@@ -87013,6 +87125,8 @@ function detectIntent(message2) {
     if ((!text2 || text2.length < 3) && toIdx >= 0) text2 = message2.slice(toIdx + 3).trim();
     if (text2 && text2.length >= 2) return { tool: "add_task", text: text2 };
   }
+  if (/\b(brief(ing)?( me)?|executive (brief|summary|digest)|the rundown|catch me up|where (do|are) (we|things) (stand|at)|daily digest|what'?s the (status|state) of (everything|the firm))\b/.test(m) || /^(brief me|my briefing)\b/.test(m))
+    return { tool: "exec_briefing" };
   if (/\b(agenda|what(?:'s| is| do i have)?\b.*\b(today|day|on\b.*\bplate|coming up|this week)|my (day|schedule)|what'?s on)\b/.test(m) || /^what(?:'s| is) (next|due)/.test(m))
     return { tool: "get_agenda" };
   if (/\b(system )?health\b|are we (up|online|working|running|down)|is (everything|the (app|system|site)) (ok|okay|working|up|down)|status of the (app|system|site)/.test(m))
@@ -87145,6 +87259,11 @@ var ASSISTANT_TOOLS = [
   {
     name: "firm_status",
     description: "Get a live snapshot of the practice: # active clients, open/overdue tasks, and Figgy's triage findings waiting for review (by severity). Use when asked what needs review/attention, what's open, or how the firm is doing right now.",
+    input_schema: { type: "object", properties: {} }
+  },
+  {
+    name: "exec_briefing",
+    description: "Liv's Chief-of-Staff executive briefing \u2014 ONE digest: what needs Markie (approvals/credentials/decisions), what's behind (overdue), what's due today, and what the team learned recently. Use when Markie says 'brief me', 'my briefing', 'the rundown', 'catch me up', or 'where do things stand'.",
     input_schema: { type: "object", properties: {} }
   },
   {
@@ -87590,6 +87709,10 @@ async function runTool(name2, input, userId, activeAgent) {
     if (name2 === "system_health") return await execSystemHealth();
     if (name2 === "agent_scorecard") return await execAgentScorecard();
     if (name2 === "firm_status") return await execFirmStatus(userId);
+    if (name2 === "exec_briefing") {
+      const { buildExecBriefing: buildExecBriefing2, formatExecBriefing: formatExecBriefing2 } = await Promise.resolve().then(() => (init_exec_briefing(), exec_briefing_exports));
+      return formatExecBriefing2(await buildExecBriefing2(userId));
+    }
     return `Unknown tool: ${name2}`;
   } catch (e) {
     return `That action failed: ${e instanceof Error ? e.message : String(e)}`;
@@ -87634,6 +87757,12 @@ var assistantRouter = createRouter({
       model: openaiProvider ? process.env.FIGGY_LLM_MODEL || "llama-3.3-70b-versatile" : WORKHORSE_MODEL,
       webSearch: process.env.FIGGY_WEB_SEARCH !== "off"
     };
+  }),
+  // Liv's Chief-of-Staff daily executive briefing (one digest, structured — for the
+  // Dashboard card). Reads app state only; no premium AI call.
+  briefing: authedQuery.query(async ({ ctx }) => {
+    const { buildExecBriefing: buildExecBriefing2 } = await Promise.resolve().then(() => (init_exec_briefing(), exec_briefing_exports));
+    return buildExecBriefing2(ctx.user.id);
   }),
   ask: authedQuery.input(external_exports.object({
     message: external_exports.string().min(1).max(8e3),
@@ -90321,7 +90450,7 @@ function runHstReview(input) {
 }
 
 // api/hst-review-router.ts
-var q2 = (conn, sql4) => qboRequest(conn, `/query?query=${encodeURIComponent(sql4)}`);
+var q2 = (conn, sql5) => qboRequest(conn, `/query?query=${encodeURIComponent(sql5)}`);
 var arr5 = (data, entity) => data?.QueryResponse?.[entity] ?? [];
 var num5 = (v) => {
   const n = Number(v);
@@ -91208,7 +91337,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.219";
+var BUILD_TAG = "2026-06-27.220";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -92439,7 +92568,7 @@ app.post("/api/admin/figgy", async (c) => {
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq4, and: and8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4, and: and9 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -92552,7 +92681,7 @@ app.post("/api/admin/figgy", async (c) => {
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq4(signatureDocuments2.id, docId));
         }
-        const signedCount = (await db.select().from(signatureDocuments2).where(and8(eq4(signatureDocuments2.clientId, cl.id), eq4(signatureDocuments2.status, "signed")))).length;
+        const signedCount = (await db.select().from(signatureDocuments2).where(and9(eq4(signatureDocuments2.clientId, cl.id), eq4(signatureDocuments2.status, "signed")))).length;
         steps.push(`signed ${signedCount}/2 documents`);
         await db.update(clients4).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq4(clients4.id, cl.id));
         const res = await createClientTaskRules2({
@@ -93008,7 +93137,7 @@ async function startServer() {
     }
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
-      const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { sql: sql5 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const THRESH = 4102444800;
       for (const [t2, cols] of [
@@ -93018,7 +93147,7 @@ async function startServer() {
       ]) {
         for (const col of cols) {
           try {
-            await db.run(sql4.raw(`UPDATE ${t2} SET "${col}" = "${col}"/1000 WHERE "${col}" > ${THRESH}`));
+            await db.run(sql5.raw(`UPDATE ${t2} SET "${col}" = "${col}"/1000 WHERE "${col}" > ${THRESH}`));
           } catch {
           }
         }
@@ -93052,7 +93181,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq4, and: and8, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4, and: and9, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const matches = await db.select().from(clients4).where(like3(clients4.name, "%Doc King%"));
       for (const cl of matches) {
@@ -93060,7 +93189,7 @@ async function startServer() {
           await db.update(clients4).set({ clientType: "wholesale" }).where(eq4(clients4.id, cl.id));
         }
         await db.update(clientTaskRules4).set({ active: false }).where(eq4(clientTaskRules4.clientId, cl.id));
-        await db.delete(tasks5).where(and8(eq4(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
+        await db.delete(tasks5).where(and9(eq4(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
       }
     } catch (e) {
       console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e);
@@ -93068,7 +93197,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq4, and: and8, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4, and: and9, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
         const matches = await db.select().from(clients4).where(like3(clients4.name, nameLike));
@@ -93119,7 +93248,7 @@ async function startServer() {
       };
       for (const cl of orig) {
         for (const [last, ytd] of Object.entries(origYtd)) {
-          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and8(eq4(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
+          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and9(eq4(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
         }
       }
     } catch (e) {

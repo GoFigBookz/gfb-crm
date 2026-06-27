@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import {
   Users, CheckSquare, AlertCircle, CalendarDays, FileText, Clock, Flame, Plus,
@@ -106,6 +107,9 @@ export default function Dashboard() {
           <Button size="sm" onClick={() => navigate("/quick-add")}><Plus className="h-4 w-4 mr-1.5" /> Quick Add</Button>
         </div>
       </div>
+
+      {/* Liv's Chief-of-Staff briefing — one digest, not scattered pings */}
+      <LivBriefingCard />
 
       {/* KPI strip — dense, one row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-2">
@@ -263,5 +267,62 @@ export default function Dashboard() {
         );
       })()}
     </div>
+  );
+}
+
+// Liv's Chief-of-Staff daily executive briefing — one digest (what needs you /
+// behind / due today / learned). Collapsible; remembers its state. Reads app
+// state only (no premium AI). Markie 2026-06-27, Finn's orchestrator architecture.
+function LivBriefingCard() {
+  const { data } = trpc.assistant.briefing.useQuery(undefined, { staleTime: 5 * 60_000 });
+  const [open, setOpenState] = useState<boolean>(() => { try { return localStorage.getItem("liv-brief-open") !== "0"; } catch { return true; } });
+  const setOpen = (v: boolean) => { setOpenState(v); try { localStorage.setItem("liv-brief-open", v ? "1" : "0"); } catch { /* ignore */ } };
+  if (!data) return null;
+  const item = (i: any, key: number) => (
+    <li key={key} className="flex items-start gap-1.5">
+      <span className="text-slate-300 mt-0.5">•</span>
+      <span className="text-slate-700">{i.title}{i.client ? <span className="text-slate-400"> ({i.client})</span> : null}{i.due ? <span className="text-slate-400"> — due {i.due}</span> : null}</span>
+    </li>
+  );
+  const empty = !data.needsYou.length && !data.behind.count && !data.dueToday.count;
+  return (
+    <Card className="border-lime-200 bg-lime-50/40">
+      <CardHeader className="pb-2">
+        <button className="w-full flex items-center justify-between" onClick={() => setOpen(!open)}>
+          <CardTitle className="text-sm flex items-center gap-2 text-slate-700">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-lime-500 text-white text-[10px] font-bold">L</span>
+            Liv's briefing
+            <span className="font-normal text-slate-500">— {data.headline}</span>
+          </CardTitle>
+          <span className="text-xs text-slate-400">{open ? "hide" : "show"}</span>
+        </button>
+      </CardHeader>
+      {open && (
+        <CardContent className="pt-0 text-sm">
+          {empty ? <p className="text-emerald-600 text-sm">Nothing needs you and nothing's overdue. 🎉</p> : (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-amber-700 mb-1">Needs you</div>
+                {data.needsYou.length ? <ul className="space-y-0.5 text-xs">{data.needsYou.slice(0, 5).map(item)}</ul> : <p className="text-xs text-slate-400">Nothing.</p>}
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-red-600 mb-1">Behind ({data.behind.count})</div>
+                {data.behind.top.length ? <ul className="space-y-0.5 text-xs">{data.behind.top.map(item)}</ul> : <p className="text-xs text-slate-400">Nothing overdue.</p>}
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600 mb-1">Due today ({data.dueToday.count})</div>
+                {data.dueToday.top.length ? <ul className="space-y-0.5 text-xs">{data.dueToday.top.map(item)}</ul> : <p className="text-xs text-slate-400">Nothing due.</p>}
+              </div>
+            </div>
+          )}
+          {data.learned.length > 0 && (
+            <div className="mt-3 pt-2 border-t border-lime-100">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Team learned recently</div>
+              <ul className="space-y-0.5 text-xs text-slate-500">{data.learned.slice(0, 3).map((l: string, i: number) => <li key={i}>• {l}</li>)}</ul>
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
   );
 }
