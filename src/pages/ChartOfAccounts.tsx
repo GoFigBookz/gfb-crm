@@ -14,7 +14,7 @@
  * =============================================================================
  */
 import { useState, useMemo } from "react";
-import { ListTree, Download, GitCompare, ClipboardCheck, FileSpreadsheet, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { ListTree, Download, GitCompare, ClipboardCheck, FileSpreadsheet, AlertTriangle, CheckCircle2, Loader2, Sparkles, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -62,6 +62,10 @@ export default function ChartOfAccounts() {
   const { data: clients } = trpc.crmClient.list.useQuery({ status: "all", limit: 200 });
   const clientList = (clients ?? []) as any[];
 
+  // ---- Cleanup one chart ----
+  const [cleanClient, setCleanClient] = useState("");
+  const cleanM = trpc.coa.reviewChart.useMutation();
+
   // ---- Export ----
   const [exportClient, setExportClient] = useState("");
   const exportM = trpc.coa.exportChart.useMutation();
@@ -106,17 +110,66 @@ export default function ChartOfAccounts() {
         <div className="h-10 w-10 rounded-xl bg-lime-100 flex items-center justify-center"><ListTree className="h-6 w-6 text-lime-700" /></div>
         <div className="flex-1">
           <h1 className="text-xl font-bold flex items-center gap-2">Chart of Accounts Cleanup <HelpButton id="coa-cleanup" /></h1>
-          <p className="text-sm text-slate-500">Export · compare · tie out to the trial balance. Read-only — the chart stays locked; you apply the cleaned changes by hand.</p>
+          <p className="text-sm text-slate-500">Clean up one chart · marry two · export · tie out to the trial balance. Read-only — the chart stays locked; you apply the changes by hand.</p>
         </div>
       </div>
 
-      <Tabs defaultValue="export">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="export"><Download className="h-4 w-4 mr-1.5" />Export</TabsTrigger>
-          <TabsTrigger value="compare"><GitCompare className="h-4 w-4 mr-1.5" />Compare 2</TabsTrigger>
+      <Tabs defaultValue="cleanup">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="cleanup"><Sparkles className="h-4 w-4 mr-1.5" />Cleanup 1</TabsTrigger>
+          <TabsTrigger value="compare"><GitCompare className="h-4 w-4 mr-1.5" />Marry 2</TabsTrigger>
           <TabsTrigger value="template"><FileSpreadsheet className="h-4 w-4 mr-1.5" />Template</TabsTrigger>
           <TabsTrigger value="reconcile"><ClipboardCheck className="h-4 w-4 mr-1.5" />Tie-out</TabsTrigger>
+          <TabsTrigger value="export"><Download className="h-4 w-4 mr-1.5" />Export</TabsTrigger>
         </TabsList>
+
+        {/* ===== CLEANUP ONE CHART ===== */}
+        <TabsContent value="cleanup" className="space-y-3 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Tidy up one chart</CardTitle>
+              <CardDescription>Not every chart needs to marry another — most just need a cleanup. Figgy reviews a single client's chart and flags duplicate names/numbers, missing account numbers, inconsistent casing (ALL CAPS / lowercase), abbreviations to spell out, and inactive accounts still carrying a balance. Suggestions only — you approve and apply each one in QBO.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+                <div className="flex-1"><ClientPicker label="Client" value={cleanClient} onChange={setCleanClient} clients={clientList} /></div>
+                <Button disabled={!cleanClient || cleanM.isPending} onClick={() => cleanM.mutate({ clientId: Number(cleanClient) })}>
+                  {cleanM.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Sparkles className="h-4 w-4 mr-1.5" />}Review chart
+                </Button>
+              </div>
+              {cleanM.data && !cleanM.data.ok && <ErrPill error={cleanM.data.error} />}
+              {cleanM.data?.ok && (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="text-slate-600">{cleanM.data.count} accounts in <b>{cleanM.data.clientName}</b> —</span>
+                    {cleanM.data.summary.high > 0 && <Badge variant="secondary" className="bg-red-100 text-red-700">{cleanM.data.summary.high} need fixing</Badge>}
+                    {cleanM.data.summary.medium > 0 && <Badge variant="secondary" className="bg-amber-100 text-amber-700">{cleanM.data.summary.medium} to tidy</Badge>}
+                    {cleanM.data.summary.low > 0 && <Badge variant="secondary" className="bg-yellow-100 text-yellow-700">{cleanM.data.summary.low} minor</Badge>}
+                    <Badge variant="secondary" className="bg-green-100 text-green-700">{cleanM.data.summary.clean} clean</Badge>
+                  </div>
+                  {cleanM.data.findings.length === 0 ? (
+                    <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3"><CheckCircle2 className="h-4 w-4" />This chart looks clean — nothing to tidy up. Nice.</div>
+                  ) : (
+                    <div className="border rounded-lg overflow-hidden max-h-[30rem] overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-50 text-slate-500 text-xs uppercase sticky top-0"><tr><th className="text-left p-2 w-20">Priority</th><th className="text-left p-2">Account</th><th className="text-left p-2">What to do</th></tr></thead>
+                        <tbody>
+                          {cleanM.data.findings.map((f, i) => (
+                            <tr key={i} className="border-t align-top">
+                              <td className="p-2"><Badge variant="secondary" className={cn("font-normal", f.severity === "high" ? "bg-red-100 text-red-700" : f.severity === "medium" ? "bg-amber-100 text-amber-700" : "bg-yellow-100 text-yellow-700")}>{f.severity === "high" ? "Fix" : f.severity === "medium" ? "Tidy" : "Minor"}</Badge></td>
+                              <td className="p-2 whitespace-nowrap"><span className="font-mono text-xs">{f.num || "—"}</span> {f.name}</td>
+                              <td className="p-2 text-slate-600">{f.message}{f.suggestion && <span className="inline-flex items-center gap-1 ml-1 text-slate-800"><ArrowRight className="h-3 w-3 text-lime-600" /><b>{f.suggestion}</b></span>}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* ===== EXPORT ===== */}
         <TabsContent value="export" className="space-y-3 mt-4">

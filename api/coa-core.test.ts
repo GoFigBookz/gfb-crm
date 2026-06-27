@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCoaCsv, diffCharts, parseTrialBalance, reconcileToTrialBalance, type AcctRow } from "./coa-core";
+import { buildCoaCsv, diffCharts, parseTrialBalance, reconcileToTrialBalance, reviewChartForCleanup, suggestCleanName, type AcctRow } from "./coa-core";
 
 const A = (num: string, name: string, type = "Expense", balance = 0): AcctRow => ({ num, name, type, balance, active: true });
 
@@ -19,6 +19,32 @@ describe("coa-core — diff two charts (marry Clark OS ↔ CW)", () => {
     expect(summary.match).toBe(1);                                  // 1500 matches
     expect(entries.find((e) => e.num === "1000")?.issue).toBe("name_differs"); // Chequing vs Operating Chequing
     expect(entries.find((e) => e.a?.name === "Inventory")?.issue).toBe("number_differs"); // 1200 vs 1205, same name
+  });
+});
+
+describe("coa-core — single-chart cleanup review (no marrying needed)", () => {
+  it("suggests professional Title Case + keeps acronyms", () => {
+    expect(suggestCleanName("office supplies")).toBe("Office Supplies");
+    expect(suggestCleanName("HST PAYABLE")).toBe("HST Payable");
+    expect(suggestCleanName("cost of goods sold")).toBe("Cost of Goods Sold");
+    expect(suggestCleanName("PayPal Fees")).toBe("PayPal Fees");
+  });
+
+  it("flags duplicates, missing numbers, casing, abbreviations + inactive-with-balance", () => {
+    const rows: AcctRow[] = [
+      { num: "6000", name: "office supplies", type: "Expense", balance: 100, active: true },
+      { num: "6000", name: "Office Supplies", type: "Expense", balance: 50, active: true },   // dup number
+      { num: "", name: "Misc Exp", type: "Expense", balance: 0, active: true },               // missing num + abbrev
+      { num: "1900", name: "Old Account", type: "Bank", balance: 250, active: false },        // inactive w/ balance
+      { num: "4000", name: "Sales Revenue", type: "Income", balance: 9000, active: true },    // clean
+    ];
+    const { findings, summary } = reviewChartForCleanup(rows);
+    expect(findings.some((f) => f.issue === "duplicate_number" && f.num === "6000")).toBe(true);
+    expect(findings.some((f) => f.issue === "missing_number")).toBe(true);
+    expect(findings.some((f) => f.issue === "abbreviation" && f.suggestion === "Miscellaneous Expense")).toBe(true);
+    expect(findings.some((f) => f.issue === "inactive_with_balance")).toBe(true);
+    expect(findings.some((f) => f.issue === "casing" && f.suggestion === "Office Supplies")).toBe(true);
+    expect(summary.clean).toBe(1); // only Sales Revenue is untouched
   });
 });
 

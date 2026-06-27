@@ -182,8 +182,9 @@ export const HELP: Record<string, HelpEntry> = {
   "coa-cleanup": {
     title: "Chart of Accounts Cleanup",
     steps: [
-      "Export — pick a client, pull their full chart of accounts, and download the CSV. Clean it up in Sheets/Excel with AI, then apply the few real changes back in QBO by hand.",
-      "Compare 2 — line up two clients so their charts ‘marry’ (e.g. Clark Pools Owen Sound ↔ Collingwood: same numbers, same names). It flags same-name/different-number, same-number/different-name, and accounts only one of them has.",
+      "Cleanup 1 — most charts don't need to marry another, they just need a tidy. Pick a client and Figgy flags duplicate names/numbers, missing account numbers, ALL-CAPS/lowercase names, abbreviations to spell out, and inactive accounts still carrying a balance — with a suggested clean name for each. You approve and apply in QBO.",
+      "Marry 2 — line up two clients so their charts match (e.g. Clark Pools Owen Sound ↔ Collingwood: same numbers, same names). It flags same-name/different-number, same-number/different-name, and accounts only one of them has.",
+      "Export — pull a client's full chart and download the CSV. Clean it up in Sheets/Excel with AI, then apply the few real changes back in QBO by hand.",
       "Template — check a client against a standard chart for their business type (e.g. Construction/Trades) so all clients of the same type look alike. Shows what's missing vs the standard and what's extra.",
       "Tie-out — paste the accountant's trial balance; Figgy checks every QBO balance ties before you clean anything. Clean the chart only once it's tied.",
     ],

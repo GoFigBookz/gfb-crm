@@ -67804,7 +67804,7 @@ function prettyName(raw2) {
   if (over) return over;
   return raw2.toLowerCase().split(/\s+/).map((w, i) => {
     if (/^\d/.test(w)) return w;
-    if (i > 0 && SMALL_WORDS.has(w)) return w;
+    if (i > 0 && SMALL_WORDS2.has(w)) return w;
     let s = w.replace(/\b([a-z])/, (c) => c.toUpperCase());
     s = s.replace(/-([a-z])/g, (_, c) => "-" + c.toUpperCase());
     return s.replace(/^(Inc|Ltd|Corp|Co)\.?$/i, (m) => m.replace(/\.?$/, ".").replace(/^\w/, (c) => c.toUpperCase())).replace(/^Llc$/i, "LLC").replace(/^Usa$/i, "USA").replace(/^Hd$/i, "HD").replace(/^Saas$/i, "SaaS");
@@ -68010,7 +68010,7 @@ async function importClientMaster() {
   }
   return report;
 }
-var F, D, ROWS, MONTHS5, payMap, hstMap, hstFreqForTasks, payFreqForTasks, NAME_OVERRIDES, SMALL_WORDS, norm22, asRows2;
+var F, D, ROWS, MONTHS5, payMap, hstMap, hstFreqForTasks, payFreqForTasks, NAME_OVERRIDES, SMALL_WORDS2, norm22, asRows2;
 var init_import_client_master = __esm({
   "api/import-client-master.ts"() {
     init_connection();
@@ -68074,7 +68074,7 @@ var init_import_client_master = __esm({
       "unimax (usa)": "Unimax (USA)",
       "universal drywall (usa)": "Universal Drywall (USA)"
     };
-    SMALL_WORDS = /* @__PURE__ */ new Set(["and", "by", "of", "the", "for", "to"]);
+    SMALL_WORDS2 = /* @__PURE__ */ new Set(["and", "by", "of", "the", "for", "to"]);
     norm22 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
     asRows2 = (res) => [...res?.rows ?? res ?? []];
   }
@@ -91834,6 +91834,104 @@ function diffToTemplate(chart, templateKey) {
   const { entries, summary } = diffCharts(chart, tplRows);
   return { label: tpl.label, entries, summary: { ...summary, missingFromChart: summary.onlyB, extraInChart: summary.onlyA } };
 }
+var SMALL_WORDS = /* @__PURE__ */ new Set(["of", "and", "the", "for", "to", "in", "on", "a", "an", "or", "by", "with"]);
+var FIXED_CASE = {
+  hst: "HST",
+  gst: "GST",
+  pst: "PST",
+  qst: "QST",
+  cogs: "COGS",
+  wip: "WIP",
+  usd: "USD",
+  cad: "CAD",
+  rrsp: "RRSP",
+  tfsa: "TFSA",
+  gic: "GIC",
+  cor: "COR",
+  gl: "GL",
+  ap: "AP",
+  ar: "AR",
+  hr: "HR",
+  it: "IT",
+  t4: "T4",
+  t5: "T5",
+  wsib: "WSIB",
+  cpp: "CPP",
+  ei: "EI"
+};
+function suggestCleanName(name2) {
+  const collapsed = (name2 || "").replace(/\s+/g, " ").trim();
+  if (!collapsed) return collapsed;
+  const words = collapsed.split(" ");
+  return words.map((w, i) => {
+    const bare = w.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (FIXED_CASE[bare]) return w.replace(new RegExp(bare, "i"), FIXED_CASE[bare]);
+    if (i !== 0 && i !== words.length - 1 && SMALL_WORDS.has(bare)) return bare;
+    if (/[a-z][A-Z]/.test(w)) return w;
+    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  }).join(" ");
+}
+var ABBREVS = [
+  [/\bacct\b/i, "Account"],
+  [/\ba\/p\b/i, "Accounts Payable"],
+  [/\ba\/r\b/i, "Accounts Receivable"],
+  [/\brec'?ble\b/i, "Receivable"],
+  [/\bpay'?ble\b/i, "Payable"],
+  [/\bexp\b/i, "Expense"],
+  [/\bmktg\b/i, "Marketing"],
+  [/\bmisc\b/i, "Miscellaneous"],
+  [/\binv\b/i, "Inventory"],
+  [/\bequip\b/i, "Equipment"],
+  [/\bmaint\b/i, "Maintenance"],
+  [/\binsur\b/i, "Insurance"],
+  [/\bdepr\b/i, "Depreciation"],
+  [/\bint\b/i, "Interest"],
+  [/\butil\b/i, "Utilities"]
+];
+function reviewChartForCleanup(rows) {
+  const findings = [];
+  const byName = /* @__PURE__ */ new Map();
+  const byNum = /* @__PURE__ */ new Map();
+  for (const r of rows) {
+    const n = normName3(r.name);
+    if (n) (byName.get(n) ?? byName.set(n, []).get(n)).push(r);
+    const k = normNum(r.num);
+    if (k) (byNum.get(k) ?? byNum.set(k, []).get(k)).push(r);
+  }
+  for (const [, group] of byName) if (group.length > 1)
+    for (const r of group) findings.push({ num: r.num, name: r.name, severity: "high", issue: "duplicate_name", message: `Duplicate name \u2014 ${group.length} accounts called "${r.name}". Merge or rename so each is distinct.` });
+  for (const [k, group] of byNum) if (group.length > 1)
+    for (const r of group) findings.push({ num: r.num, name: r.name, severity: "high", issue: "duplicate_number", message: `Account number ${k} is used by ${group.length} accounts. Numbers must be unique.` });
+  for (const r of rows) {
+    const name2 = r.name || "";
+    if (!normNum(r.num)) findings.push({ num: r.num, name: name2, severity: "medium", issue: "missing_number", message: `"${name2}" has no account number.` });
+    if (r.active === false && Math.abs(r.balance) > 5e-3) findings.push({ num: r.num, name: name2, severity: "high", issue: "inactive_with_balance", message: `"${name2}" is inactive but still carries ${r.balance.toLocaleString("en-CA", { style: "currency", currency: "CAD" })}. Can't be cleaned up until it's zeroed.` });
+    if (name2 !== name2.trim() || /\s{2,}/.test(name2)) findings.push({ num: r.num, name: name2, severity: "low", issue: "whitespace", message: `Stray spaces in "${name2}".`, suggestion: suggestNameWithAbbrevs(name2) });
+    else {
+      const cleaned = suggestNameWithAbbrevs(name2);
+      const allCaps = name2.length > 3 && name2 === name2.toUpperCase() && /[A-Z]/.test(name2);
+      const allLower = name2 === name2.toLowerCase() && /[a-z]/.test(name2);
+      const abbrev = ABBREVS.some(([re]) => re.test(name2));
+      if (abbrev && cleaned !== name2) findings.push({ num: r.num, name: name2, severity: "medium", issue: "abbreviation", message: `"${name2}" uses an abbreviation \u2014 spell it out for a professional chart.`, suggestion: cleaned });
+      else if ((allCaps || allLower) && cleaned !== name2) findings.push({ num: r.num, name: name2, severity: "medium", issue: "casing", message: `"${name2}" is ${allCaps ? "ALL CAPS" : "all lowercase"} \u2014 use Title Case.`, suggestion: cleaned });
+    }
+  }
+  const flagged = new Set(findings.map((f) => `${f.num}|${f.name}`));
+  const summary = {
+    high: findings.filter((f) => f.severity === "high").length,
+    medium: findings.filter((f) => f.severity === "medium").length,
+    low: findings.filter((f) => f.severity === "low").length,
+    clean: rows.filter((r) => !flagged.has(`${r.num}|${r.name}`)).length
+  };
+  const sev = (s) => ({ high: 0, medium: 1, low: 2 })[s];
+  findings.sort((a, b) => sev(a.severity) - sev(b.severity) || normNum(a.num).localeCompare(normNum(b.num)));
+  return { findings, summary };
+}
+function suggestNameWithAbbrevs(name2) {
+  let out = name2;
+  for (const [re, full] of ABBREVS) out = out.replace(re, full);
+  return suggestCleanName(out);
+}
 function parseTrialBalance(text2) {
   const out = [];
   const balRe = /[-(]?\$?\s*\d[\d,]*(?:\.\d+)?\)?%?\s*$/;
@@ -91918,6 +92016,14 @@ var coaRouter = createRouter({
     const name2 = await clientName(input.clientId);
     const rows = res.rows.sort((a, b) => (a.num || "").localeCompare(b.num || "") || a.name.localeCompare(b.name));
     return { ok: true, clientName: name2, count: rows.length, rows, csv: buildCoaCsv(rows) };
+  }),
+  /** Review ONE chart for a standalone cleanup (no marrying) — review-gated suggestions. */
+  reviewChart: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ input }) => {
+    const res = await pullChart(input.clientId);
+    if ("error" in res) return { ok: false, error: res.error };
+    const name2 = await clientName(input.clientId);
+    const { findings, summary } = reviewChartForCleanup(res.rows);
+    return { ok: true, clientName: name2, count: res.rows.length, findings, summary };
   }),
   /** Diff two clients' charts so they can be married (e.g. Clark OS ↔ Clark CW). */
   compareCharts: staffQuery.input(external_exports.object({ clientIdA: external_exports.number(), clientIdB: external_exports.number() })).mutation(async ({ input }) => {
@@ -93249,7 +93355,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.239";
+var BUILD_TAG = "2026-06-27.240";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
