@@ -46946,7 +46946,7 @@ async function pullHstAccountBalance(conn) {
   const net = hst.reduce((s, a) => s + a.balance, 0);
   return { accounts: hst, net: Math.round((net + Number.EPSILON) * 100) / 100 };
 }
-async function pullBillableExpenses(conn, cpKey, fromISO, toISO2) {
+async function pullBillableExpenses(conn, cpKey) {
   const q3 = (s) => qboRequest(conn, `/query?query=${encodeURIComponent(s)}`);
   const itemMap = /* @__PURE__ */ new Map();
   try {
@@ -46956,10 +46956,9 @@ async function pullBillableExpenses(conn, cpKey, fromISO, toISO2) {
   } catch {
   }
   const byAcct = /* @__PURE__ */ new Map();
-  let subtotal = 0, hstActual = 0, count5 = 0;
-  const range = `TxnDate >= '${fromISO}' AND TxnDate <= '${toISO2}'`;
+  let subtotal = 0, hstActual = 0, count5 = 0, minDate = "", maxDate = "";
   for (const entity of ["Bill", "Purchase"]) {
-    for (const e of arr2(await q3(`SELECT * FROM ${entity} WHERE ${range} MAXRESULTS 1000`), entity)) {
+    for (const e of arr2(await q3(`SELECT * FROM ${entity} ORDER BY TxnDate DESC MAXRESULTS 1000`), entity)) {
       let hasBillable = false;
       for (const l of e.Line ?? []) {
         const ab = l.AccountBasedExpenseLineDetail, ib = l.ItemBasedExpenseLineDetail, d10 = ab || ib;
@@ -46988,6 +46987,11 @@ async function pullBillableExpenses(conn, cpKey, fromISO, toISO2) {
       if (hasBillable) {
         count5++;
         hstActual += Math.abs(num2(e.TxnTaxDetail?.TotalTax));
+        const d10 = String(e.TxnDate || "").slice(0, 10);
+        if (d10) {
+          if (!minDate || d10 < minDate) minDate = d10;
+          if (!maxDate || d10 > maxDate) maxDate = d10;
+        }
       }
     }
   }
@@ -46995,7 +46999,9 @@ async function pullBillableExpenses(conn, cpKey, fromISO, toISO2) {
     byAccount: Array.from(byAcct.values()).map((a) => ({ ...a, net: round26(a.net) })),
     subtotal: round26(subtotal),
     hstActual: round26(hstActual),
-    count: count5
+    count: count5,
+    minDate,
+    maxDate
   };
 }
 function fiscalYearStartFor(endISO, fyeMonth) {
@@ -47710,10 +47716,8 @@ var init_interco_recharge_router = __esm({
         const rate = num2(cfg.chargeHst ?? 1) !== 0 ? (num2(cfg.hstRatePct) || 13) / 100 : 0;
         const clientRow = await db.all(sql`SELECT name FROM clients WHERE id=${input.payerClientId} LIMIT 1`);
         const payerName = clientRow[0]?.name || "Payer";
-        const to = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-        const from = fiscalYearStartFor(to, await clientFyeMonth(input.payerClientId));
         try {
-          const b = await pullBillableExpenses(cr.conn, cpKey, from, to);
+          const b = await pullBillableExpenses(cr.conn, cpKey);
           const subtotal = round26(b.subtotal);
           const hst = round26(subtotal * rate);
           const hstAcc = await pullHstAccountBalance(cr.conn);
@@ -47722,8 +47726,9 @@ var init_interco_recharge_router = __esm({
             ok: true,
             payerName,
             counterpartyName,
-            from,
-            to,
+            from: b.minDate,
+            to: b.maxDate,
+            // actual span of the billable expenses, not a window
             byAccount: b.byAccount,
             count: b.count,
             subtotal,
@@ -90315,7 +90320,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.202";
+var BUILD_TAG = "2026-06-27.203";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

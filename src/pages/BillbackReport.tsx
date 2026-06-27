@@ -33,7 +33,7 @@ export default function BillbackReport() {
         )}
         {data && data.ok && (
           <>
-            <p className="text-sm text-slate-500">{data.payerName} → {data.counterpartyName} · billable expenses {data.from} → {data.to} · {data.count} bills/expenses</p>
+            <p className="text-sm text-slate-500">{data.payerName} → {data.counterpartyName} · {data.count} unbilled expense(s) marked billable to {data.counterpartyName}{data.from ? ` · dated ${data.from} – ${data.to}` : ""}. (No date filter — already-invoiced quarters drop off automatically.)</p>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Tile label="Costs to recharge" value={money(data.subtotal)} />
