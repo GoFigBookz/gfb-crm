@@ -179,6 +179,9 @@ export default function ClientWorkspace() {
         )}
       </Section>
 
+      {/* QUICKBOOKS overview — live high-level numbers, read-only. */}
+      <QboOverviewSection clientId={id} />
+
       {/* Operational sections — gated on active. */}
       {active ? (
         <>
@@ -244,6 +247,58 @@ export default function ClientWorkspace() {
       ) : (
         <Card><CardContent className="p-4 text-sm text-slate-500">The workflow (payroll, month-end, HST, tools, tasks) activates once this client is onboarded. Tick both gates above and hit <b>Activate client</b>.</CardContent></Card>
       )}
+    </div>
+  );
+}
+
+/** Live QuickBooks high-level numbers (lazy — only fetches when the section is open). */
+function QboOverviewSection({ clientId }: { clientId: number }) {
+  const [open, setOpen] = useState<boolean>(() => { try { return localStorage.getItem(`ws-open:${clientId}-qbo`) !== "0"; } catch { return true; } });
+  const { data, isFetching } = trpc.clientDashboard.qboOverview.useQuery({ clientId }, { enabled: open && clientId > 0, staleTime: 5 * 60_000 });
+  const money = (n: number | null | undefined) => n == null ? "—" : (n).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+  const toggle = () => setOpen((o) => { try { localStorage.setItem(`ws-open:${clientId}-qbo`, o ? "0" : "1"); } catch { /* */ } return !o; });
+  return (
+    <Card className="overflow-hidden border-emerald-200">
+      <button type="button" onClick={toggle} className="w-full flex items-center gap-2 px-4 py-3 hover:bg-emerald-50/40 text-left">
+        <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform shrink-0", open ? "" : "-rotate-90")} />
+        <span className="font-semibold text-slate-800">QuickBooks</span>
+        <span className="text-xs text-slate-400">· live snapshot</span>
+        {isFetching && <span className="text-[11px] text-slate-400">loading…</span>}
+        {data && data.ok && (data as any).transport !== "native" && <span className="ml-auto text-[10px] text-amber-600">read-only bridge</span>}
+      </button>
+      {open && (
+        <CardContent className="pt-0 pb-4">
+          {data && !data.ok ? (
+            <p className="text-xs text-amber-700">{data.error === "bridge_not_returning_data" ? "Live QBO not returning data yet (bridge config)." : `No usable QBO connection (${data.error}).`}</p>
+          ) : data && data.ok ? (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <Stat label="Cash" value={money(data.cashTotal)} sub={data.cashUsd ? `incl. ${money(data.cashUsd)} USD` : undefined} />
+                <Stat label="Credit cards owed" value={money(data.creditCardOwed)} />
+                <Stat label="A/R" value={money(data.ar)} />
+                <Stat label="A/P" value={money(data.ap)} />
+                <Stat label="Revenue (YTD)" value={money(data.revenue)} />
+                <Stat label="Expenses (YTD)" value={money(data.expenses)} />
+                <Stat label="Net income (YTD)" value={money(data.netIncome)} accent={data.netIncome != null && data.netIncome < 0 ? "text-red-600" : "text-emerald-700"} />
+                <Stat label="Uncategorized" value={money(data.uncategorized)} sub={data.uncategorizedCount ? `${data.uncategorizedCount} acct(s)` : undefined} accent={data.uncategorized > 0 ? "text-amber-600" : undefined} />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1.5">{data.companyName ? `${data.companyName} · ` : ""}YTD {data.periodFrom} → {data.periodTo}. High-level only — open QuickBooks for detail.</p>
+            </>
+          ) : (
+            <p className="text-xs text-slate-400">Loading QuickBooks…</p>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+function Stat({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
+  return (
+    <div className="rounded-lg border bg-white p-2">
+      <div className="text-[11px] text-slate-400">{label}</div>
+      <div className={cn("text-base font-semibold tabular-nums", accent || "text-slate-800")}>{value}</div>
+      {sub && <div className="text-[10px] text-slate-400">{sub}</div>}
     </div>
   );
 }

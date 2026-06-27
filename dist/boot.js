@@ -42042,6 +42042,391 @@ var init_sheet_inbound_sync = __esm({
   }
 });
 
+// api/qbo-cashflow.ts
+var qbo_cashflow_exports = {};
+__export(qbo_cashflow_exports, {
+  bankBreakdownFromAccounts: () => bankBreakdownFromAccounts,
+  estimateUpcomingPayroll: () => estimateUpcomingPayroll,
+  nextPayrollDate: () => nextPayrollDate,
+  periodsPerYear: () => periodsPerYear,
+  staleFeedFromTransactionList: () => staleFeedFromTransactionList
+});
+function bankBreakdownFromAccounts(rows) {
+  let cashCad = 0, cashUsd = 0, creditCardOwed = 0, uncategorizedBalance = 0, uncategorizedCount = 0;
+  const bankAccounts = [];
+  for (const a of rows) {
+    if (a.active === false) continue;
+    const type2 = (a.accountType || "").toLowerCase();
+    const bal = Number(a.currentBalance) || 0;
+    const cur = (a.currencyRef || "").toLowerCase();
+    const name2 = a.name || "(unnamed)";
+    if (/uncategor|ask my accountant/i.test(name2)) {
+      if (bal !== 0) {
+        uncategorizedBalance += Math.abs(bal);
+        uncategorizedCount++;
+      }
+    }
+    if (type2 === "bank") {
+      if (cur === USD) cashUsd += bal;
+      else cashCad += bal;
+      bankAccounts.push({ name: name2, balance: bal, currency: cur === USD ? "USD" : "CAD", type: "Bank", staleDays: null });
+    } else if (type2 === "credit card" || type2 === "creditcard") {
+      creditCardOwed += Math.abs(bal);
+      bankAccounts.push({ name: name2, balance: bal, currency: cur === USD ? "USD" : "CAD", type: "Credit Card", staleDays: null });
+    }
+  }
+  return { cashTotal: cashCad + cashUsd, cashCad, cashUsd, creditCardOwed, uncategorizedBalance, uncategorizedCount, bankAccounts };
+}
+function periodsPerYear(freq) {
+  switch ((freq || "").toLowerCase()) {
+    case "weekly":
+      return 52;
+    case "bi-weekly":
+    case "biweekly":
+      return 26;
+    case "semi-monthly":
+    case "semi_monthly":
+      return 24;
+    case "monthly":
+      return 12;
+    default:
+      return 0;
+  }
+}
+function estimateUpcomingPayroll(employees2, freq) {
+  const ppy = periodsPerYear(freq);
+  if (ppy === 0) return null;
+  const weeksPerPeriod = 52 / ppy;
+  let gross = 0;
+  for (const e of employees2) {
+    if (e.isActive === false || e.isContractor === true) continue;
+    if ((e.payType || "salary") === "hourly") {
+      gross += (Number(e.hourlyRate) || 0) * (Number(e.hoursPerWeek) || 0) * weeksPerPeriod;
+    } else if ((e.payType || "salary") === "salary") {
+      gross += (Number(e.annualSalary) || 0) / ppy;
+    }
+  }
+  if (gross <= 0) return null;
+  return Math.round(gross * 1.12 * 100) / 100;
+}
+function nextPayrollDate(freq, from) {
+  const ppy = periodsPerYear(freq);
+  if (ppy === 0) return null;
+  const d10 = new Date(from.getFullYear(), from.getMonth(), from.getDate(), 12, 0, 0);
+  switch ((freq || "").toLowerCase()) {
+    case "weekly":
+      d10.setDate(d10.getDate() + 7);
+      break;
+    case "bi-weekly":
+    case "biweekly":
+      d10.setDate(d10.getDate() + 14);
+      break;
+    case "semi-monthly":
+    case "semi_monthly":
+      d10.setDate(
+        d10.getDate() <= 15 ? 15 : 0
+        /* last day rollover */
+      );
+      if (d10.getDate() === 0) {
+        d10.setMonth(d10.getMonth() + 1, 0);
+      }
+      break;
+    case "monthly":
+      d10.setMonth(d10.getMonth() + 1, 1);
+      break;
+  }
+  return d10;
+}
+function staleFeedFromTransactionList(report, now, thresholdDays = 10) {
+  const empty = { perAccount: {}, maxStaleDays: null, staleAccounts: [] };
+  try {
+    const cols = report?.Columns?.Column ?? [];
+    const colType = (c) => String(c?.ColType ?? c?.ColTitle ?? "").toLowerCase();
+    let dateIdx = cols.findIndex((c) => /date/.test(colType(c)));
+    let acctIdx = cols.findIndex((c) => /account/.test(colType(c)));
+    if (dateIdx < 0) dateIdx = 0;
+    if (acctIdx < 0) acctIdx = -1;
+    const lastByAccount = {};
+    let lastOverall = 0;
+    const walk2 = (row) => {
+      const cd = row?.ColData;
+      if (Array.isArray(cd) && cd.length) {
+        const dv = cd[dateIdx]?.value;
+        const t2 = dv ? Date.parse(String(dv)) : NaN;
+        if (!isNaN(t2)) {
+          lastOverall = Math.max(lastOverall, t2);
+          const acct = acctIdx >= 0 ? String(cd[acctIdx]?.value || "").trim() : "";
+          if (acct) lastByAccount[acct] = Math.max(lastByAccount[acct] || 0, t2);
+        }
+      }
+      for (const k of row?.Rows?.Row ?? []) walk2(k);
+    };
+    for (const r of report?.Rows?.Row ?? []) walk2(r);
+    const dayMs = 864e5;
+    const perAccount = {};
+    for (const [acct, t2] of Object.entries(lastByAccount)) perAccount[acct] = Math.floor((now.getTime() - t2) / dayMs);
+    let maxStaleDays = null;
+    if (Object.keys(perAccount).length) maxStaleDays = Math.max(...Object.values(perAccount));
+    else if (lastOverall) maxStaleDays = Math.floor((now.getTime() - lastOverall) / dayMs);
+    const staleAccounts = Object.entries(perAccount).filter(([, d10]) => d10 >= thresholdDays).map(([a]) => a);
+    return { perAccount, maxStaleDays, staleAccounts };
+  } catch {
+    return empty;
+  }
+}
+var USD;
+var init_qbo_cashflow = __esm({
+  "api/qbo-cashflow.ts"() {
+    USD = "usd";
+  }
+});
+
+// api/qbo-snapshot.ts
+var qbo_snapshot_exports = {};
+__export(qbo_snapshot_exports, {
+  balanceSheetFromAccounts: () => balanceSheetFromAccounts,
+  captureCashSnapshot: () => captureCashSnapshot,
+  profitAndLossFromReport: () => profitAndLossFromReport,
+  reportGroupValue: () => reportGroupValue,
+  runQboSync: () => runQboSync,
+  syncConnection: () => syncConnection
+});
+function isoDate(d10) {
+  return `${d10.getFullYear()}-${String(d10.getMonth() + 1).padStart(2, "0")}-${String(d10.getDate()).padStart(2, "0")}`;
+}
+function sameCalendarDay(a, b) {
+  if (!a) return false;
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+function balanceSheetFromAccounts(rows) {
+  let assets = 0, liabilities = 0, equity = 0;
+  for (const a of rows) {
+    if (a.active === false) continue;
+    const bal = Number(a.currentBalance) || 0;
+    switch ((a.classification || "").toLowerCase()) {
+      case "asset":
+        assets += bal;
+        break;
+      case "liability":
+        liabilities += bal;
+        break;
+      case "equity":
+        equity += bal;
+        break;
+    }
+  }
+  return { assets, liabilities, equity };
+}
+function reportGroupValue(report, group) {
+  const rows = report?.Rows?.Row ?? [];
+  const want = group.toLowerCase();
+  let found = null;
+  const visit = (row) => {
+    if (found != null) return;
+    if (row?.group && String(row.group).toLowerCase() === want) {
+      const cols = row?.Summary?.ColData ?? [];
+      for (let i = cols.length - 1; i >= 0; i--) {
+        const v = cols[i]?.value;
+        if (v != null && v !== "" && !isNaN(Number(v))) {
+          found = Number(v);
+          return;
+        }
+      }
+    }
+    const kids = row?.Rows?.Row ?? [];
+    for (const k of kids) visit(k);
+  };
+  for (const r of rows) visit(r);
+  return found;
+}
+function profitAndLossFromReport(report) {
+  const revenue = reportGroupValue(report, "Income");
+  const net = reportGroupValue(report, "NetIncome");
+  let expenses = null;
+  if (revenue != null && net != null) {
+    expenses = revenue - net;
+  } else {
+    const exp = reportGroupValue(report, "Expenses");
+    const cogs = reportGroupValue(report, "COGS") ?? reportGroupValue(report, "CostOfGoodsSold");
+    if (exp != null || cogs != null) expenses = (exp || 0) + (cogs || 0);
+  }
+  return { revenue, expenses, netIncome: net };
+}
+async function captureCashSnapshot(connection) {
+  if (connection.clientId == null) return;
+  const db = getDb();
+  const clientId = connection.clientId;
+  const now = /* @__PURE__ */ new Date();
+  const acctRows = await db.select({ name: qboAccounts.name, accountType: qboAccounts.accountType, currentBalance: qboAccounts.currentBalance, currencyRef: qboAccounts.currencyRef, active: qboAccounts.active }).from(qboAccounts).where(eq(qboAccounts.connectionId, connection.id));
+  const bank = bankBreakdownFromAccounts(acctRows);
+  const invRows = await db.select({ balance: qboInvoices.balance }).from(qboInvoices).where(eq(qboInvoices.connectionId, connection.id));
+  const arOutstanding = invRows.reduce((s, i) => s + (Number(i.balance) || 0), 0);
+  let apOutstanding = 0;
+  try {
+    const billData = await qboRequest(connection, "/query?query=SELECT * FROM Bill MAXRESULTS 1000");
+    const bills = billData?.QueryResponse?.Bill || [];
+    apOutstanding = bills.reduce((s, b) => s + (Number(b.Balance) || 0), 0);
+  } catch (e) {
+    console.error(`[cashflow] AP query (conn ${connection.id}):`, e instanceof Error ? e.message : e);
+  }
+  let stale = { maxStaleDays: null, staleAccounts: [], perAccount: {} };
+  try {
+    const start = new Date(now.getTime() - 120 * 864e5).toISOString().slice(0, 10);
+    const end = now.toISOString().slice(0, 10);
+    const report = await qboRequest(connection, `/reports/TransactionList?start_date=${start}&end_date=${end}&columns=tx_date,account_name,subt_nat_amount`);
+    stale = staleFeedFromTransactionList(report, now);
+    for (const ba of bank.bankAccounts) {
+      const d10 = stale.perAccount[ba.name];
+      if (d10 != null) ba.staleDays = d10;
+    }
+  } catch (e) {
+    console.error(`[cashflow] TransactionList (conn ${connection.id}):`, e instanceof Error ? e.message : e);
+  }
+  const clientRow = (await db.select({ payrollFrequency: clients.payrollFrequency, hasPayroll: clients.hasPayroll }).from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+  let upcomingPayrollAmount = null, coversPayroll = null, payrollShortfall = null;
+  let upcomingPayrollDate = null;
+  if (clientRow?.hasPayroll) {
+    const emps = await db.select({ payType: employees.payType, annualSalary: employees.annualSalary, hourlyRate: employees.hourlyRate, hoursPerWeek: employees.hoursPerWeek, isActive: employees.isActive, isContractor: employees.isContractor }).from(employees).where(eq(employees.clientId, clientId));
+    upcomingPayrollAmount = estimateUpcomingPayroll(emps, clientRow.payrollFrequency);
+    if (upcomingPayrollAmount != null) {
+      upcomingPayrollDate = nextPayrollDate(clientRow.payrollFrequency, now);
+      coversPayroll = bank.cashCad >= upcomingPayrollAmount;
+      payrollShortfall = coversPayroll ? 0 : Math.round((upcomingPayrollAmount - bank.cashCad) * 100) / 100;
+    }
+  }
+  const date5 = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const row = {
+    clientId,
+    connectionId: connection.id,
+    date: date5,
+    cashTotal: bank.cashTotal,
+    cashCad: bank.cashCad,
+    cashUsd: bank.cashUsd,
+    creditCardOwed: bank.creditCardOwed,
+    bankAccounts: JSON.stringify(bank.bankAccounts),
+    arOutstanding,
+    apOutstanding,
+    uncategorizedBalance: bank.uncategorizedBalance,
+    uncategorizedCount: bank.uncategorizedCount,
+    staleFeedDays: stale.maxStaleDays,
+    staleAccounts: JSON.stringify(stale.staleAccounts),
+    upcomingPayrollAmount,
+    upcomingPayrollDate,
+    coversPayroll,
+    payrollShortfall
+  };
+  const ex = (await db.select({ id: clientCashSnapshots.id }).from(clientCashSnapshots).where(and(eq(clientCashSnapshots.clientId, clientId), eq(clientCashSnapshots.date, date5))).limit(1))[0];
+  if (ex) await db.update(clientCashSnapshots).set(row).where(eq(clientCashSnapshots.id, ex.id));
+  else await db.insert(clientCashSnapshots).values(row);
+}
+async function syncConnection(connection) {
+  const out = {
+    connectionId: connection.id,
+    clientId: connection.clientId ?? null,
+    company: connection.companyName || `realm ${connection.realmId}`,
+    ok: false
+  };
+  const db = getDb();
+  try {
+    await ensureValidToken(connection);
+    try {
+      out.customers = (await doSyncCustomers(connection.id)).recordsSynced;
+    } catch (e) {
+      console.error(`[qbo-sync] customers ${out.company}:`, e instanceof Error ? e.message : e);
+    }
+    try {
+      out.invoices = (await doSyncInvoices(connection.id)).recordsSynced;
+    } catch (e) {
+      console.error(`[qbo-sync] invoices ${out.company}:`, e instanceof Error ? e.message : e);
+    }
+    try {
+      out.payments = (await doSyncPayments(connection.id)).recordsSynced;
+    } catch (e) {
+      console.error(`[qbo-sync] payments ${out.company}:`, e instanceof Error ? e.message : e);
+    }
+    try {
+      out.accounts = (await doSyncAccounts(connection.id)).recordsSynced;
+    } catch (e) {
+      console.error(`[qbo-sync] accounts ${out.company}:`, e instanceof Error ? e.message : e);
+    }
+    if (connection.clientId != null) {
+      const acctRows = await db.select({ classification: qboAccounts.classification, currentBalance: qboAccounts.currentBalance, active: qboAccounts.active }).from(qboAccounts).where(eq(qboAccounts.connectionId, connection.id));
+      const bs = balanceSheetFromAccounts(acctRows);
+      const now = /* @__PURE__ */ new Date();
+      const periodStart = new Date(now.getFullYear(), 0, 1);
+      let pl = { revenue: null, expenses: null, netIncome: null };
+      try {
+        const report = await qboRequest(connection, `/reports/ProfitAndLoss?start_date=${isoDate(periodStart)}&end_date=${isoDate(now)}`);
+        pl = profitAndLossFromReport(report);
+      } catch (e) {
+        console.error(`[qbo-sync] P&L ${out.company}:`, e instanceof Error ? e.message : e);
+      }
+      const fin = { ...pl, ...bs };
+      out.financials = fin;
+      const userId = connection.userId ?? 1;
+      const existing = await db.select().from(clientDashboardSnapshots).where(and(eq(clientDashboardSnapshots.clientId, connection.clientId), eq(clientDashboardSnapshots.source, "qbo"))).orderBy(desc(clientDashboardSnapshots.createdAt)).limit(1);
+      const row = {
+        clientId: connection.clientId,
+        userId,
+        revenue: fin.revenue ?? 0,
+        expenses: fin.expenses ?? 0,
+        netIncome: fin.netIncome ?? (fin.revenue ?? 0) - (fin.expenses ?? 0),
+        assets: fin.assets,
+        liabilities: fin.liabilities,
+        equity: fin.equity,
+        periodStart,
+        periodEnd: now,
+        source: "qbo"
+      };
+      if (existing[0] && sameCalendarDay(existing[0].createdAt ?? null, now)) {
+        await db.update(clientDashboardSnapshots).set(row).where(eq(clientDashboardSnapshots.id, existing[0].id));
+      } else {
+        await db.insert(clientDashboardSnapshots).values(row);
+      }
+      try {
+        await captureCashSnapshot(connection);
+      } catch (e) {
+        console.error(`[qbo-sync] cashflow ${out.company}:`, e instanceof Error ? e.message : e);
+      }
+    }
+    await db.update(qboConnections).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(qboConnections.id, connection.id));
+    out.ok = true;
+  } catch (e) {
+    out.error = e instanceof Error ? e.message : String(e);
+    console.error(`[qbo-sync] connection ${out.company} failed:`, out.error);
+    try {
+      await db.insert(qboSyncLogs).values({ connectionId: connection.id, entityType: "company_info", status: "error", recordsSynced: 0, errorMessage: out.error, completedAt: /* @__PURE__ */ new Date() });
+    } catch {
+    }
+  }
+  return out;
+}
+async function runQboSync() {
+  if (process.env.FIGGY_QBO_SYNC_DISABLE === "on") {
+    console.log("[qbo-sync] FIGGY_QBO_SYNC_DISABLE=on \u2014 skipping.");
+    return { ran: false, connections: 0, results: [] };
+  }
+  const db = getDb();
+  const conns = await db.select().from(qboConnections).where(eq(qboConnections.isActive, true));
+  console.log(`[qbo-sync] starting for ${conns.length} active connection(s)`);
+  const results = [];
+  for (const c of conns) {
+    results.push(await syncConnection(c));
+  }
+  const okCount = results.filter((r) => r.ok).length;
+  console.log(`[qbo-sync] done: ${okCount}/${results.length} ok`);
+  return { ran: true, connections: conns.length, results };
+}
+var init_qbo_snapshot = __esm({
+  "api/qbo-snapshot.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_qbo_router();
+    init_qbo_cashflow();
+  }
+});
+
 // api/sensitive.ts
 var sensitive_exports = {};
 __export(sensitive_exports, {
@@ -42372,7 +42757,7 @@ var init_employee_router = __esm({
 });
 
 // api/payroll-core.ts
-function periodsPerYear(freq) {
+function periodsPerYear2(freq) {
   switch (freq) {
     case "weekly":
       return 52;
@@ -42388,7 +42773,7 @@ function periodsPerYear(freq) {
 }
 function salaryPerPeriod(annualSalary, freq) {
   if (!annualSalary) return 0;
-  return round2(annualSalary / periodsPerYear(freq));
+  return round2(annualSalary / periodsPerYear2(freq));
 }
 function normalizeFrequency(f) {
   const s = (f || "").toLowerCase().replace(/[\s-]/g, "_");
@@ -44683,7 +45068,7 @@ var init_payroll_router = __esm({
         const row = (await db.select().from(payRunLines).where(eq(payRunLines.id, input.id)).limit(1))[0];
         if (!row) throw new Error("Line not found");
         const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, row.payRunId)).limit(1))[0];
-        const P = periodsPerYear(normalizeFrequency(run3?.frequency));
+        const P = periodsPerYear2(normalizeFrequency(run3?.frequency));
         const ytd = await ytdGrossBeforeRun(db, row.employeeId, run3);
         const elapsed = periodsElapsedBeforeRun(run3);
         const gross = input.fromNet != null ? craGrossForNet(input.fromNet, P, ytd, elapsed) : row.grossPay || 0;
@@ -44712,7 +45097,7 @@ var init_payroll_router = __esm({
         const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
         if (!run3) throw new Error("Pay run not found");
         const rows = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
-        const P = periodsPerYear(normalizeFrequency(run3?.frequency));
+        const P = periodsPerYear2(normalizeFrequency(run3?.frequency));
         const elapsed = periodsElapsedBeforeRun(run3);
         let estimated = 0;
         for (const row of rows) {
@@ -44778,7 +45163,7 @@ var init_payroll_router = __esm({
         const empById = new Map(emps.map((e) => [e.id, e]));
         const allLines = await db.select().from(payRunLines);
         const lines2 = allLines.filter((l) => runIds.has(l.payRunId));
-        const ppy = periodsPerYear(normalizeFrequency(client?.payrollFrequency));
+        const ppy = periodsPerYear2(normalizeFrequency(client?.payrollFrequency));
         const runsCount = yrRuns.length;
         const fraction = Math.min(1, Math.max(1e-4, runsCount / ppy));
         const agg = /* @__PURE__ */ new Map();
@@ -65916,383 +66301,6 @@ var init_seed_employee_dedup = __esm({
   }
 });
 
-// api/qbo-cashflow.ts
-function bankBreakdownFromAccounts(rows) {
-  let cashCad = 0, cashUsd = 0, creditCardOwed = 0, uncategorizedBalance = 0, uncategorizedCount = 0;
-  const bankAccounts = [];
-  for (const a of rows) {
-    if (a.active === false) continue;
-    const type2 = (a.accountType || "").toLowerCase();
-    const bal = Number(a.currentBalance) || 0;
-    const cur = (a.currencyRef || "").toLowerCase();
-    const name2 = a.name || "(unnamed)";
-    if (/uncategor|ask my accountant/i.test(name2)) {
-      if (bal !== 0) {
-        uncategorizedBalance += Math.abs(bal);
-        uncategorizedCount++;
-      }
-    }
-    if (type2 === "bank") {
-      if (cur === USD) cashUsd += bal;
-      else cashCad += bal;
-      bankAccounts.push({ name: name2, balance: bal, currency: cur === USD ? "USD" : "CAD", type: "Bank", staleDays: null });
-    } else if (type2 === "credit card" || type2 === "creditcard") {
-      creditCardOwed += Math.abs(bal);
-      bankAccounts.push({ name: name2, balance: bal, currency: cur === USD ? "USD" : "CAD", type: "Credit Card", staleDays: null });
-    }
-  }
-  return { cashTotal: cashCad + cashUsd, cashCad, cashUsd, creditCardOwed, uncategorizedBalance, uncategorizedCount, bankAccounts };
-}
-function periodsPerYear2(freq) {
-  switch ((freq || "").toLowerCase()) {
-    case "weekly":
-      return 52;
-    case "bi-weekly":
-    case "biweekly":
-      return 26;
-    case "semi-monthly":
-    case "semi_monthly":
-      return 24;
-    case "monthly":
-      return 12;
-    default:
-      return 0;
-  }
-}
-function estimateUpcomingPayroll(employees2, freq) {
-  const ppy = periodsPerYear2(freq);
-  if (ppy === 0) return null;
-  const weeksPerPeriod = 52 / ppy;
-  let gross = 0;
-  for (const e of employees2) {
-    if (e.isActive === false || e.isContractor === true) continue;
-    if ((e.payType || "salary") === "hourly") {
-      gross += (Number(e.hourlyRate) || 0) * (Number(e.hoursPerWeek) || 0) * weeksPerPeriod;
-    } else if ((e.payType || "salary") === "salary") {
-      gross += (Number(e.annualSalary) || 0) / ppy;
-    }
-  }
-  if (gross <= 0) return null;
-  return Math.round(gross * 1.12 * 100) / 100;
-}
-function nextPayrollDate(freq, from) {
-  const ppy = periodsPerYear2(freq);
-  if (ppy === 0) return null;
-  const d10 = new Date(from.getFullYear(), from.getMonth(), from.getDate(), 12, 0, 0);
-  switch ((freq || "").toLowerCase()) {
-    case "weekly":
-      d10.setDate(d10.getDate() + 7);
-      break;
-    case "bi-weekly":
-    case "biweekly":
-      d10.setDate(d10.getDate() + 14);
-      break;
-    case "semi-monthly":
-    case "semi_monthly":
-      d10.setDate(
-        d10.getDate() <= 15 ? 15 : 0
-        /* last day rollover */
-      );
-      if (d10.getDate() === 0) {
-        d10.setMonth(d10.getMonth() + 1, 0);
-      }
-      break;
-    case "monthly":
-      d10.setMonth(d10.getMonth() + 1, 1);
-      break;
-  }
-  return d10;
-}
-function staleFeedFromTransactionList(report, now, thresholdDays = 10) {
-  const empty = { perAccount: {}, maxStaleDays: null, staleAccounts: [] };
-  try {
-    const cols = report?.Columns?.Column ?? [];
-    const colType = (c) => String(c?.ColType ?? c?.ColTitle ?? "").toLowerCase();
-    let dateIdx = cols.findIndex((c) => /date/.test(colType(c)));
-    let acctIdx = cols.findIndex((c) => /account/.test(colType(c)));
-    if (dateIdx < 0) dateIdx = 0;
-    if (acctIdx < 0) acctIdx = -1;
-    const lastByAccount = {};
-    let lastOverall = 0;
-    const walk2 = (row) => {
-      const cd = row?.ColData;
-      if (Array.isArray(cd) && cd.length) {
-        const dv = cd[dateIdx]?.value;
-        const t2 = dv ? Date.parse(String(dv)) : NaN;
-        if (!isNaN(t2)) {
-          lastOverall = Math.max(lastOverall, t2);
-          const acct = acctIdx >= 0 ? String(cd[acctIdx]?.value || "").trim() : "";
-          if (acct) lastByAccount[acct] = Math.max(lastByAccount[acct] || 0, t2);
-        }
-      }
-      for (const k of row?.Rows?.Row ?? []) walk2(k);
-    };
-    for (const r of report?.Rows?.Row ?? []) walk2(r);
-    const dayMs = 864e5;
-    const perAccount = {};
-    for (const [acct, t2] of Object.entries(lastByAccount)) perAccount[acct] = Math.floor((now.getTime() - t2) / dayMs);
-    let maxStaleDays = null;
-    if (Object.keys(perAccount).length) maxStaleDays = Math.max(...Object.values(perAccount));
-    else if (lastOverall) maxStaleDays = Math.floor((now.getTime() - lastOverall) / dayMs);
-    const staleAccounts = Object.entries(perAccount).filter(([, d10]) => d10 >= thresholdDays).map(([a]) => a);
-    return { perAccount, maxStaleDays, staleAccounts };
-  } catch {
-    return empty;
-  }
-}
-var USD;
-var init_qbo_cashflow = __esm({
-  "api/qbo-cashflow.ts"() {
-    USD = "usd";
-  }
-});
-
-// api/qbo-snapshot.ts
-var qbo_snapshot_exports = {};
-__export(qbo_snapshot_exports, {
-  balanceSheetFromAccounts: () => balanceSheetFromAccounts,
-  captureCashSnapshot: () => captureCashSnapshot,
-  profitAndLossFromReport: () => profitAndLossFromReport,
-  reportGroupValue: () => reportGroupValue,
-  runQboSync: () => runQboSync,
-  syncConnection: () => syncConnection
-});
-function isoDate(d10) {
-  return `${d10.getFullYear()}-${String(d10.getMonth() + 1).padStart(2, "0")}-${String(d10.getDate()).padStart(2, "0")}`;
-}
-function sameCalendarDay(a, b) {
-  if (!a) return false;
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-function balanceSheetFromAccounts(rows) {
-  let assets = 0, liabilities = 0, equity = 0;
-  for (const a of rows) {
-    if (a.active === false) continue;
-    const bal = Number(a.currentBalance) || 0;
-    switch ((a.classification || "").toLowerCase()) {
-      case "asset":
-        assets += bal;
-        break;
-      case "liability":
-        liabilities += bal;
-        break;
-      case "equity":
-        equity += bal;
-        break;
-    }
-  }
-  return { assets, liabilities, equity };
-}
-function reportGroupValue(report, group) {
-  const rows = report?.Rows?.Row ?? [];
-  const want = group.toLowerCase();
-  let found = null;
-  const visit = (row) => {
-    if (found != null) return;
-    if (row?.group && String(row.group).toLowerCase() === want) {
-      const cols = row?.Summary?.ColData ?? [];
-      for (let i = cols.length - 1; i >= 0; i--) {
-        const v = cols[i]?.value;
-        if (v != null && v !== "" && !isNaN(Number(v))) {
-          found = Number(v);
-          return;
-        }
-      }
-    }
-    const kids = row?.Rows?.Row ?? [];
-    for (const k of kids) visit(k);
-  };
-  for (const r of rows) visit(r);
-  return found;
-}
-function profitAndLossFromReport(report) {
-  const revenue = reportGroupValue(report, "Income");
-  const net = reportGroupValue(report, "NetIncome");
-  let expenses = null;
-  if (revenue != null && net != null) {
-    expenses = revenue - net;
-  } else {
-    const exp = reportGroupValue(report, "Expenses");
-    const cogs = reportGroupValue(report, "COGS") ?? reportGroupValue(report, "CostOfGoodsSold");
-    if (exp != null || cogs != null) expenses = (exp || 0) + (cogs || 0);
-  }
-  return { revenue, expenses, netIncome: net };
-}
-async function captureCashSnapshot(connection) {
-  if (connection.clientId == null) return;
-  const db = getDb();
-  const clientId = connection.clientId;
-  const now = /* @__PURE__ */ new Date();
-  const acctRows = await db.select({ name: qboAccounts.name, accountType: qboAccounts.accountType, currentBalance: qboAccounts.currentBalance, currencyRef: qboAccounts.currencyRef, active: qboAccounts.active }).from(qboAccounts).where(eq(qboAccounts.connectionId, connection.id));
-  const bank = bankBreakdownFromAccounts(acctRows);
-  const invRows = await db.select({ balance: qboInvoices.balance }).from(qboInvoices).where(eq(qboInvoices.connectionId, connection.id));
-  const arOutstanding = invRows.reduce((s, i) => s + (Number(i.balance) || 0), 0);
-  let apOutstanding = 0;
-  try {
-    const billData = await qboRequest(connection, "/query?query=SELECT * FROM Bill MAXRESULTS 1000");
-    const bills = billData?.QueryResponse?.Bill || [];
-    apOutstanding = bills.reduce((s, b) => s + (Number(b.Balance) || 0), 0);
-  } catch (e) {
-    console.error(`[cashflow] AP query (conn ${connection.id}):`, e instanceof Error ? e.message : e);
-  }
-  let stale = { maxStaleDays: null, staleAccounts: [], perAccount: {} };
-  try {
-    const start = new Date(now.getTime() - 120 * 864e5).toISOString().slice(0, 10);
-    const end = now.toISOString().slice(0, 10);
-    const report = await qboRequest(connection, `/reports/TransactionList?start_date=${start}&end_date=${end}&columns=tx_date,account_name,subt_nat_amount`);
-    stale = staleFeedFromTransactionList(report, now);
-    for (const ba of bank.bankAccounts) {
-      const d10 = stale.perAccount[ba.name];
-      if (d10 != null) ba.staleDays = d10;
-    }
-  } catch (e) {
-    console.error(`[cashflow] TransactionList (conn ${connection.id}):`, e instanceof Error ? e.message : e);
-  }
-  const clientRow = (await db.select({ payrollFrequency: clients.payrollFrequency, hasPayroll: clients.hasPayroll }).from(clients).where(eq(clients.id, clientId)).limit(1))[0];
-  let upcomingPayrollAmount = null, coversPayroll = null, payrollShortfall = null;
-  let upcomingPayrollDate = null;
-  if (clientRow?.hasPayroll) {
-    const emps = await db.select({ payType: employees.payType, annualSalary: employees.annualSalary, hourlyRate: employees.hourlyRate, hoursPerWeek: employees.hoursPerWeek, isActive: employees.isActive, isContractor: employees.isContractor }).from(employees).where(eq(employees.clientId, clientId));
-    upcomingPayrollAmount = estimateUpcomingPayroll(emps, clientRow.payrollFrequency);
-    if (upcomingPayrollAmount != null) {
-      upcomingPayrollDate = nextPayrollDate(clientRow.payrollFrequency, now);
-      coversPayroll = bank.cashCad >= upcomingPayrollAmount;
-      payrollShortfall = coversPayroll ? 0 : Math.round((upcomingPayrollAmount - bank.cashCad) * 100) / 100;
-    }
-  }
-  const date5 = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const row = {
-    clientId,
-    connectionId: connection.id,
-    date: date5,
-    cashTotal: bank.cashTotal,
-    cashCad: bank.cashCad,
-    cashUsd: bank.cashUsd,
-    creditCardOwed: bank.creditCardOwed,
-    bankAccounts: JSON.stringify(bank.bankAccounts),
-    arOutstanding,
-    apOutstanding,
-    uncategorizedBalance: bank.uncategorizedBalance,
-    uncategorizedCount: bank.uncategorizedCount,
-    staleFeedDays: stale.maxStaleDays,
-    staleAccounts: JSON.stringify(stale.staleAccounts),
-    upcomingPayrollAmount,
-    upcomingPayrollDate,
-    coversPayroll,
-    payrollShortfall
-  };
-  const ex = (await db.select({ id: clientCashSnapshots.id }).from(clientCashSnapshots).where(and(eq(clientCashSnapshots.clientId, clientId), eq(clientCashSnapshots.date, date5))).limit(1))[0];
-  if (ex) await db.update(clientCashSnapshots).set(row).where(eq(clientCashSnapshots.id, ex.id));
-  else await db.insert(clientCashSnapshots).values(row);
-}
-async function syncConnection(connection) {
-  const out = {
-    connectionId: connection.id,
-    clientId: connection.clientId ?? null,
-    company: connection.companyName || `realm ${connection.realmId}`,
-    ok: false
-  };
-  const db = getDb();
-  try {
-    await ensureValidToken(connection);
-    try {
-      out.customers = (await doSyncCustomers(connection.id)).recordsSynced;
-    } catch (e) {
-      console.error(`[qbo-sync] customers ${out.company}:`, e instanceof Error ? e.message : e);
-    }
-    try {
-      out.invoices = (await doSyncInvoices(connection.id)).recordsSynced;
-    } catch (e) {
-      console.error(`[qbo-sync] invoices ${out.company}:`, e instanceof Error ? e.message : e);
-    }
-    try {
-      out.payments = (await doSyncPayments(connection.id)).recordsSynced;
-    } catch (e) {
-      console.error(`[qbo-sync] payments ${out.company}:`, e instanceof Error ? e.message : e);
-    }
-    try {
-      out.accounts = (await doSyncAccounts(connection.id)).recordsSynced;
-    } catch (e) {
-      console.error(`[qbo-sync] accounts ${out.company}:`, e instanceof Error ? e.message : e);
-    }
-    if (connection.clientId != null) {
-      const acctRows = await db.select({ classification: qboAccounts.classification, currentBalance: qboAccounts.currentBalance, active: qboAccounts.active }).from(qboAccounts).where(eq(qboAccounts.connectionId, connection.id));
-      const bs = balanceSheetFromAccounts(acctRows);
-      const now = /* @__PURE__ */ new Date();
-      const periodStart = new Date(now.getFullYear(), 0, 1);
-      let pl = { revenue: null, expenses: null, netIncome: null };
-      try {
-        const report = await qboRequest(connection, `/reports/ProfitAndLoss?start_date=${isoDate(periodStart)}&end_date=${isoDate(now)}`);
-        pl = profitAndLossFromReport(report);
-      } catch (e) {
-        console.error(`[qbo-sync] P&L ${out.company}:`, e instanceof Error ? e.message : e);
-      }
-      const fin = { ...pl, ...bs };
-      out.financials = fin;
-      const userId = connection.userId ?? 1;
-      const existing = await db.select().from(clientDashboardSnapshots).where(and(eq(clientDashboardSnapshots.clientId, connection.clientId), eq(clientDashboardSnapshots.source, "qbo"))).orderBy(desc(clientDashboardSnapshots.createdAt)).limit(1);
-      const row = {
-        clientId: connection.clientId,
-        userId,
-        revenue: fin.revenue ?? 0,
-        expenses: fin.expenses ?? 0,
-        netIncome: fin.netIncome ?? (fin.revenue ?? 0) - (fin.expenses ?? 0),
-        assets: fin.assets,
-        liabilities: fin.liabilities,
-        equity: fin.equity,
-        periodStart,
-        periodEnd: now,
-        source: "qbo"
-      };
-      if (existing[0] && sameCalendarDay(existing[0].createdAt ?? null, now)) {
-        await db.update(clientDashboardSnapshots).set(row).where(eq(clientDashboardSnapshots.id, existing[0].id));
-      } else {
-        await db.insert(clientDashboardSnapshots).values(row);
-      }
-      try {
-        await captureCashSnapshot(connection);
-      } catch (e) {
-        console.error(`[qbo-sync] cashflow ${out.company}:`, e instanceof Error ? e.message : e);
-      }
-    }
-    await db.update(qboConnections).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(qboConnections.id, connection.id));
-    out.ok = true;
-  } catch (e) {
-    out.error = e instanceof Error ? e.message : String(e);
-    console.error(`[qbo-sync] connection ${out.company} failed:`, out.error);
-    try {
-      await db.insert(qboSyncLogs).values({ connectionId: connection.id, entityType: "company_info", status: "error", recordsSynced: 0, errorMessage: out.error, completedAt: /* @__PURE__ */ new Date() });
-    } catch {
-    }
-  }
-  return out;
-}
-async function runQboSync() {
-  if (process.env.FIGGY_QBO_SYNC_DISABLE === "on") {
-    console.log("[qbo-sync] FIGGY_QBO_SYNC_DISABLE=on \u2014 skipping.");
-    return { ran: false, connections: 0, results: [] };
-  }
-  const db = getDb();
-  const conns = await db.select().from(qboConnections).where(eq(qboConnections.isActive, true));
-  console.log(`[qbo-sync] starting for ${conns.length} active connection(s)`);
-  const results = [];
-  for (const c of conns) {
-    results.push(await syncConnection(c));
-  }
-  const okCount = results.filter((r) => r.ok).length;
-  console.log(`[qbo-sync] done: ${okCount}/${results.length} ok`);
-  return { ran: true, connections: conns.length, results };
-}
-var init_qbo_snapshot = __esm({
-  "api/qbo-snapshot.ts"() {
-    init_connection();
-    init_schema();
-    init_drizzle_orm();
-    init_qbo_router();
-    init_qbo_cashflow();
-  }
-});
-
 // api/ensure-connectors-schema.ts
 var ensure_connectors_schema_exports = {};
 __export(ensure_connectors_schema_exports, {
@@ -81378,6 +81386,61 @@ function shapeCashSnapshot(s) {
   return { ...s, bankAccounts, staleAccounts, risk, reasons };
 }
 var clientDashboardRouter = createRouter({
+  /** LIVE high-level QBO numbers for the client card (read-only; no posting). Cash,
+   *  credit-card owed, A/R, A/P, uncategorized, and fiscal-YTD revenue/expense/net.
+   *  NOT all transactions — just the cockpit glance (Markie 2026-06-27). */
+  qboOverview: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+    const { getConnectionForClient: getConnectionForClient2 } = await Promise.resolve().then(() => (init_qbo_vendor_brain(), qbo_vendor_brain_exports));
+    const { qboRequest: qboRequest2 } = await Promise.resolve().then(() => (init_qbo_router(), qbo_router_exports));
+    const { bankBreakdownFromAccounts: bankBreakdownFromAccounts2 } = await Promise.resolve().then(() => (init_qbo_cashflow(), qbo_cashflow_exports));
+    const { profitAndLossFromReport: profitAndLossFromReport2 } = await Promise.resolve().then(() => (init_qbo_snapshot(), qbo_snapshot_exports));
+    const cr = await getConnectionForClient2(input.clientId);
+    if ("error" in cr) return { ok: false, error: cr.error };
+    const conn = cr.conn;
+    const num6 = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+    try {
+      const data = await qboRequest2(conn, `/query?query=${encodeURIComponent("SELECT * FROM Account MAXRESULTS 1000")}`);
+      const accounts = data?.QueryResponse?.Account ?? [];
+      const rows = accounts.map((a) => ({ name: a.Name, accountType: a.AccountType, currentBalance: num6(a.CurrentBalance), currencyRef: a.CurrencyRef?.value, active: a.Active }));
+      const bank = bankBreakdownFromAccounts2(rows);
+      const ar = accounts.filter((a) => /receivable/i.test(a.AccountType || "")).reduce((s, a) => s + num6(a.CurrentBalance), 0);
+      const ap = accounts.filter((a) => /payable/i.test(a.AccountType || "")).reduce((s, a) => s + Math.abs(num6(a.CurrentBalance)), 0);
+      const today2 = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      const yStart = `${today2.slice(0, 4)}-01-01`;
+      let pnl = { revenue: null, expenses: null, netIncome: null };
+      try {
+        pnl = profitAndLossFromReport2(await qboRequest2(conn, `/reports/ProfitAndLoss?start_date=${yStart}&end_date=${today2}`));
+      } catch {
+      }
+      const r26 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+      return {
+        ok: true,
+        companyName: conn.companyName || "",
+        transport: conn.transport || "native",
+        cashTotal: r26(bank.cashTotal),
+        cashCad: r26(bank.cashCad),
+        cashUsd: r26(bank.cashUsd),
+        creditCardOwed: r26(bank.creditCardOwed),
+        uncategorized: r26(bank.uncategorizedBalance),
+        uncategorizedCount: bank.uncategorizedCount,
+        ar: r26(ar),
+        ap: r26(ap),
+        revenue: pnl.revenue,
+        expenses: pnl.expenses,
+        netIncome: pnl.netIncome,
+        bankAccounts: bank.bankAccounts,
+        periodFrom: yStart,
+        periodTo: today2
+      };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/async ack|non-JSON|Make bridge/i.test(msg)) return { ok: false, error: "bridge_not_returning_data" };
+      return { ok: false, error: msg };
+    }
+  }),
   // Get all dashboard data for a client
   getByClient: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
@@ -90384,7 +90447,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.206";
+var BUILD_TAG = "2026-06-27.207";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
