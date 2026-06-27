@@ -19000,7 +19000,7 @@ function and(...unfilteredConditions) {
     new StringChunk(")")
   ]);
 }
-function or(...unfilteredConditions) {
+function or2(...unfilteredConditions) {
   const conditions = unfilteredConditions.filter(
     (c) => c !== void 0
   );
@@ -19103,14 +19103,14 @@ function arrayOverlaps(column, values) {
   }
   return sql`${column} && ${bindIfParam(values, column)}`;
 }
-var eq, ne, gt, gte, lt, lte;
+var eq2, ne, gt, gte, lt, lte;
 var init_conditions = __esm({
   "node_modules/drizzle-orm/sql/expressions/conditions.js"() {
     init_column();
     init_entity();
     init_table();
     init_sql();
-    eq = (left, right) => {
+    eq2 = (left, right) => {
       return sql`${left} = ${bindIfParam(right, left)}`;
     };
     ne = (left, right) => {
@@ -19157,7 +19157,7 @@ function getOperators() {
   return {
     and,
     between,
-    eq,
+    eq: eq2,
     exists,
     gt,
     gte,
@@ -19175,7 +19175,7 @@ function getOperators() {
     notLike,
     notIlike,
     notInArray,
-    or,
+    or: or2,
     sql
   };
 }
@@ -20062,7 +20062,7 @@ var init_dialect = __esm({
             const relationTableAlias = `${tableAlias}_${selectedRelationTsKey}`;
             const joinOn2 = and(
               ...normalizedRelation.fields.map(
-                (field2, i) => eq(
+                (field2, i) => eq2(
                   aliasedTableColumn(
                     normalizedRelation.references[i],
                     relationTableAlias
@@ -22407,15 +22407,15 @@ __export(schema_exports, {
   triageFindings: () => triageFindings,
   triageQueue: () => triageQueue,
   userSettings: () => userSettings,
-  users: () => users,
+  users: () => users2,
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, loanAccounts, loanEntries, loanShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks, lifeEntries;
+var users2, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, loanAccounts, loanEntries, loanShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks, lifeEntries;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
-    users = sqliteTable("users", {
+    users2 = sqliteTable("users", {
       id: integer2("id").primaryKey({ autoIncrement: true }),
       unionId: text("unionId").unique(),
       email: text("email").notNull().unique(),
@@ -24514,7 +24514,7 @@ __export(drizzle_orm_exports, {
   createTableRelationsHelpers: () => createTableRelationsHelpers,
   desc: () => desc,
   entityKind: () => entityKind,
-  eq: () => eq,
+  eq: () => eq2,
   exists: () => exists,
   extractTablesRelationalConfig: () => extractTablesRelationalConfig,
   fillPlaceholders: () => fillPlaceholders,
@@ -24568,7 +24568,7 @@ __export(drizzle_orm_exports, {
   notIlike: () => notIlike,
   notInArray: () => notInArray,
   notLike: () => notLike,
-  or: () => or,
+  or: () => or2,
   orderSelectedFields: () => orderSelectedFields,
   param: () => param,
   placeholder: () => placeholder,
@@ -24621,7 +24621,7 @@ var init_relations2 = __esm({
   "db/relations.ts"() {
     init_drizzle_orm();
     init_schema();
-    usersRelations = relations(users, ({ many, one }) => ({
+    usersRelations = relations(users2, ({ many, one }) => ({
       connectedAccounts: many(connectedAccounts),
       clients: many(clients),
       tasks: many(tasks),
@@ -24635,23 +24635,23 @@ var init_relations2 = __esm({
       aiAgentRuns: many(aiAgentRuns),
       notifications: many(notifications),
       settings: one(userSettings, {
-        fields: [users.id],
+        fields: [users2.id],
         references: [userSettings.userId]
       })
     }));
     connectedAccountsRelations = relations(connectedAccounts, ({ one, many }) => ({
-      user: one(users, {
+      user: one(users2, {
         fields: [connectedAccounts.userId],
-        references: [users.id]
+        references: [users2.id]
       }),
       emails: many(emails),
       files: many(files),
       calendarEvents: many(calendarEvents)
     }));
     clientsRelations = relations(clients, ({ one, many }) => ({
-      user: one(users, {
+      user: one(users2, {
         fields: [clients.userId],
-        references: [users.id]
+        references: [users2.id]
       }),
       tasks: many(tasks),
       recurringTasks: many(recurringTasks),
@@ -24666,9 +24666,9 @@ var init_relations2 = __esm({
       interactions: many(interactions)
     }));
     tasksRelations = relations(tasks, ({ one }) => ({
-      user: one(users, {
+      user: one(users2, {
         fields: [tasks.userId],
-        references: [users.id]
+        references: [users2.id]
       }),
       client: one(clients, {
         fields: [tasks.clientId],
@@ -24676,9 +24676,9 @@ var init_relations2 = __esm({
       })
     }));
     recurringTasksRelations = relations(recurringTasks, ({ one }) => ({
-      user: one(users, {
+      user: one(users2, {
         fields: [recurringTasks.userId],
-        references: [users.id]
+        references: [users2.id]
       }),
       client: one(clients, {
         fields: [recurringTasks.clientId],
@@ -24686,9 +24686,9 @@ var init_relations2 = __esm({
       })
     }));
     clientTaskRulesRelations = relations(clientTaskRules, ({ one }) => ({
-      user: one(users, {
+      user: one(users2, {
         fields: [clientTaskRules.userId],
-        references: [users.id]
+        references: [users2.id]
       }),
       client: one(clients, {
         fields: [clientTaskRules.clientId],
@@ -24696,9 +24696,9 @@ var init_relations2 = __esm({
       })
     }));
     emailsRelations = relations(emails, ({ one }) => ({
-      user: one(users, {
+      user: one(users2, {
         fields: [emails.userId],
-        references: [users.id]
+        references: [users2.id]
       }),
       connectedAccount: one(connectedAccounts, {
         fields: [emails.connectedAccountId],
@@ -24710,9 +24710,9 @@ var init_relations2 = __esm({
       })
     }));
     filesRelations = relations(files, ({ one }) => ({
-      user: one(users, {
+      user: one(users2, {
         fields: [files.userId],
-        references: [users.id]
+        references: [users2.id]
       }),
       connectedAccount: one(connectedAccounts, {
         fields: [files.connectedAccountId],
@@ -24724,9 +24724,9 @@ var init_relations2 = __esm({
       })
     }));
     calendarEventsRelations = relations(calendarEvents, ({ one }) => ({
-      user: one(users, {
+      user: one(users2, {
         fields: [calendarEvents.userId],
-        references: [users.id]
+        references: [users2.id]
       }),
       connectedAccount: one(connectedAccounts, {
         fields: [calendarEvents.connectedAccountId],
@@ -24738,9 +24738,9 @@ var init_relations2 = __esm({
       })
     }));
     invoicesRelations = relations(invoices, ({ one, many }) => ({
-      user: one(users, {
+      user: one(users2, {
         fields: [invoices.userId],
-        references: [users.id]
+        references: [users2.id]
       }),
       client: one(clients, {
         fields: [invoices.clientId],
@@ -24755,9 +24755,9 @@ var init_relations2 = __esm({
       })
     }));
     interactionsRelations = relations(interactions, ({ one }) => ({
-      user: one(users, {
+      user: one(users2, {
         fields: [interactions.userId],
-        references: [users.id]
+        references: [users2.id]
       }),
       client: one(clients, {
         fields: [interactions.clientId],
@@ -24765,9 +24765,9 @@ var init_relations2 = __esm({
       })
     }));
     aiAgentConfigsRelations = relations(aiAgentConfigs, ({ one, many }) => ({
-      user: one(users, {
+      user: one(users2, {
         fields: [aiAgentConfigs.userId],
-        references: [users.id]
+        references: [users2.id]
       }),
       runs: many(aiAgentRuns)
     }));
@@ -24776,15 +24776,15 @@ var init_relations2 = __esm({
         fields: [aiAgentRuns.agentId],
         references: [aiAgentConfigs.id]
       }),
-      user: one(users, {
+      user: one(users2, {
         fields: [aiAgentRuns.userId],
-        references: [users.id]
+        references: [users2.id]
       })
     }));
     notificationsRelations = relations(notifications, ({ one }) => ({
-      user: one(users, {
+      user: one(users2, {
         fields: [notifications.userId],
-        references: [users.id]
+        references: [users2.id]
       })
     }));
   }
@@ -35352,7 +35352,7 @@ async function getValidGoogleAccessToken(account) {
   await getDb().update(connectedAccounts).set({
     accessToken: data.access_token,
     expiresAt: data.expires_in ? new Date(Date.now() + data.expires_in * 1e3) : null
-  }).where(eq(connectedAccounts.id, account.id));
+  }).where(eq2(connectedAccounts.id, account.id));
   return data.access_token;
 }
 var init_google_token = __esm({
@@ -37811,7 +37811,7 @@ async function restrictedClientIds(ctx) {
   if (!user) return [];
   if (seesAllClients(user.role)) return null;
   if (!user.restrictedToClients) return null;
-  const rows = await getDb().select().from(clientAccess).where(eq(clientAccess.userId, user.id));
+  const rows = await getDb().select().from(clientAccess).where(eq2(clientAccess.userId, user.id));
   return rows.map((r) => r.clientId);
 }
 async function canAccessClient(ctx, clientId) {
@@ -37821,14 +37821,14 @@ async function canAccessClient(ctx, clientId) {
 }
 async function setClientAccessGrants(userId, clientIds) {
   const db = getDb();
-  await db.delete(clientAccess).where(eq(clientAccess.userId, userId));
+  await db.delete(clientAccess).where(eq2(clientAccess.userId, userId));
   const unique = Array.from(new Set(clientIds.filter((n) => Number.isFinite(n))));
   for (const clientId of unique) {
     await db.insert(clientAccess).values({ userId, clientId });
   }
 }
 async function getClientAccessGrants(userId) {
-  const rows = await getDb().select().from(clientAccess).where(eq(clientAccess.userId, userId));
+  const rows = await getDb().select().from(clientAccess).where(eq2(clientAccess.userId, userId));
   return rows.map((r) => r.clientId);
 }
 var init_rbac = __esm({
@@ -38437,7 +38437,7 @@ async function ensureSetupTasks(opts) {
   });
   let created = 0;
   for (const it of items) {
-    const existing = await db.select().from(tasks).where(and(eq(tasks.clientId, opts.clientId), eq(tasks.title, it.title))).limit(1);
+    const existing = await db.select().from(tasks).where(and(eq2(tasks.clientId, opts.clientId), eq2(tasks.title, it.title))).limit(1);
     if (existing[0]) continue;
     await db.insert(tasks).values({
       userId: opts.userId,
@@ -38459,7 +38459,7 @@ async function ensureSetupTasks(opts) {
 }
 async function backfillSetupTasks() {
   const db = getDb();
-  const all = await db.select().from(clients).where(eq(clients.status, "active"));
+  const all = await db.select().from(clients).where(eq2(clients.status, "active"));
   let created = 0;
   for (const c of all) {
     if ((c.clientType || "monthly") === "wholesale") continue;
@@ -38523,13 +38523,13 @@ async function applyPayrollRemitterOverrides() {
     try {
       const id = await matchClientIdByName(o.match);
       if (!id) continue;
-      const c = (await db.select().from(clients).where(eq(clients.id, id)).limit(1))[0];
+      const c = (await db.select().from(clients).where(eq2(clients.id, id)).limit(1))[0];
       if (!c) continue;
       if (c.payrollRemitterFreq === o.freq) continue;
-      await db.update(clients).set({ payrollRemitterFreq: o.freq }).where(eq(clients.id, id));
-      const oldRules = await db.select().from(clientTaskRules).where(and(eq(clientTaskRules.clientId, id), inArray(clientTaskRules.ruleType, PAYROLL_REMIT_RULE_TYPES)));
-      for (const r of oldRules) await db.delete(tasks).where(eq(tasks.ruleId, r.id));
-      await db.delete(clientTaskRules).where(and(eq(clientTaskRules.clientId, id), inArray(clientTaskRules.ruleType, PAYROLL_REMIT_RULE_TYPES)));
+      await db.update(clients).set({ payrollRemitterFreq: o.freq }).where(eq2(clients.id, id));
+      const oldRules = await db.select().from(clientTaskRules).where(and(eq2(clientTaskRules.clientId, id), inArray(clientTaskRules.ruleType, PAYROLL_REMIT_RULE_TYPES)));
+      for (const r of oldRules) await db.delete(tasks).where(eq2(tasks.ruleId, r.id));
+      await db.delete(clientTaskRules).where(and(eq2(clientTaskRules.clientId, id), inArray(clientTaskRules.ruleType, PAYROLL_REMIT_RULE_TYPES)));
       const cfg = payrollRemitConfig(o.freq);
       const nextDueDate = calculateNextDueDate(cfg);
       const [rule] = await db.insert(clientTaskRules).values({
@@ -38594,7 +38594,7 @@ async function createClientTaskRules(data) {
       if (task) {
         createdTasks.push(task);
       }
-      await db.update(clientTaskRules).set({ lastGeneratedDate: /* @__PURE__ */ new Date() }).where(eq(clientTaskRules.id, rule.id));
+      await db.update(clientTaskRules).set({ lastGeneratedDate: /* @__PURE__ */ new Date() }).where(eq2(clientTaskRules.id, rule.id));
     }
   }
   const setupCreated = await ensureSetupTasks({
@@ -38610,9 +38610,9 @@ async function createClientTaskRules(data) {
 }
 async function clientToOnboardingData(clientId, opts = {}) {
   const db = getDb();
-  const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+  const c = (await db.select().from(clients).where(eq2(clients.id, clientId)).limit(1))[0];
   if (!c) return null;
-  const onbRows = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(clientOnboarding.id);
+  const onbRows = await db.select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, clientId)).orderBy(clientOnboarding.id);
   const onb = onbRows[onbRows.length - 1] || {};
   const hstFreq = c.hasHST ? c.hstPeriod === "monthly" ? "monthly" : c.hstPeriod === "quarterly" ? "quarterly" : "annually" : null;
   const fiscalYearEnd = c.yearEndMonth ? `${c.yearEndMonth} 30` : onb.fiscalYearEnd ?? null;
@@ -38670,17 +38670,17 @@ async function reconcileClientFromIntake(clientId, opts = {}) {
   const isOff = (c.clientType || "monthly") === "wholesale" || c.status === "inactive";
   const desired = isOff ? [] : buildTaskRules(data);
   const desiredByType = new Map(desired.map((r) => [r.ruleType, r]));
-  const existing = await db.select().from(clientTaskRules).where(eq(clientTaskRules.clientId, clientId));
+  const existing = await db.select().from(clientTaskRules).where(eq2(clientTaskRules.clientId, clientId));
   const existingByType = new Map(existing.map((r) => [r.ruleType, r]));
   const created = { rules: 0, tasks: 0 };
   let deactivated = 0;
   for (const r of existing) {
     if (!r.ruleType || desiredByType.has(r.ruleType)) continue;
     if (r.active) {
-      await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.id, r.id));
+      await db.update(clientTaskRules).set({ active: false }).where(eq2(clientTaskRules.id, r.id));
       deactivated++;
     }
-    await db.delete(tasks).where(and(eq(tasks.ruleId, r.id), ne(tasks.status, "completed")));
+    await db.delete(tasks).where(and(eq2(tasks.ruleId, r.id), ne(tasks.status, "completed")));
   }
   for (const [type2, config2] of desiredByType) {
     let rule = existingByType.get(type2);
@@ -38706,18 +38706,18 @@ async function reconcileClientFromIntake(clientId, opts = {}) {
       rule = ins;
       if (rule) created.rules++;
     } else if (!rule.active) {
-      await db.update(clientTaskRules).set({ active: true }).where(eq(clientTaskRules.id, rule.id));
+      await db.update(clientTaskRules).set({ active: true }).where(eq2(clientTaskRules.id, rule.id));
     }
     if (!rule) continue;
-    const open3 = await db.select().from(tasks).where(and(eq(tasks.clientId, clientId), eq(tasks.ruleId, rule.id), ne(tasks.status, "completed"))).limit(1);
+    const open3 = await db.select().from(tasks).where(and(eq2(tasks.clientId, clientId), eq2(tasks.ruleId, rule.id), ne(tasks.status, "completed"))).limit(1);
     if (open3.length === 0) {
       const [t2] = await db.insert(tasks).values(generateTaskFromRule(rule, 1)).returning();
       if (t2) created.tasks++;
-      await db.update(clientTaskRules).set({ lastGeneratedDate: /* @__PURE__ */ new Date() }).where(eq(clientTaskRules.id, rule.id));
+      await db.update(clientTaskRules).set({ lastGeneratedDate: /* @__PURE__ */ new Date() }).where(eq2(clientTaskRules.id, rule.id));
     }
   }
   if (isOff) {
-    const del = await db.delete(tasks).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed"))).returning();
+    const del = await db.delete(tasks).where(and(eq2(tasks.clientId, clientId), ne(tasks.status, "completed"))).returning();
     deactivated += del?.length || 0;
   } else {
     await ensureSetupTasks({
@@ -38732,10 +38732,10 @@ async function reconcileClientFromIntake(clientId, opts = {}) {
       monthsBehind: data.monthsBehind
     });
     const desiredSetup = desiredSetupTitles(c, data);
-    const activeSetup = await db.select().from(tasks).where(and(eq(tasks.clientId, clientId), eq(tasks.category, "Setup"), ne(tasks.status, "completed")));
+    const activeSetup = await db.select().from(tasks).where(and(eq2(tasks.clientId, clientId), eq2(tasks.category, "Setup"), ne(tasks.status, "completed")));
     for (const t2 of activeSetup) {
       if (!desiredSetup.has(t2.title) && !/Catch-up bookkeeping/.test(t2.title)) {
-        await db.delete(tasks).where(eq(tasks.id, t2.id));
+        await db.delete(tasks).where(eq2(tasks.id, t2.id));
         deactivated++;
       }
     }
@@ -38749,9 +38749,9 @@ async function ensureComplianceRulesAndTasks(data) {
   const db = getDb();
   const rules = buildTaskRules(data);
   const created = { rules: 0, tasks: 0 };
-  const existing = await db.select().from(clientTaskRules).where(eq(clientTaskRules.clientId, data.clientId));
+  const existing = await db.select().from(clientTaskRules).where(eq2(clientTaskRules.clientId, data.clientId));
   const haveTypes = new Set(existing.map((r) => r.ruleType).filter(Boolean));
-  const openTasks = await db.select({ title: tasks.title }).from(tasks).where(and(eq(tasks.clientId, data.clientId), ne(tasks.status, "completed")));
+  const openTasks = await db.select({ title: tasks.title }).from(tasks).where(and(eq2(tasks.clientId, data.clientId), ne(tasks.status, "completed")));
   const openTitles = openTasks.map((t2) => String(t2.title ?? "").toLowerCase());
   const DOMAIN_KEYWORD = {
     hst_monthly: "hst",
@@ -38787,21 +38787,21 @@ async function ensureComplianceRulesAndTasks(data) {
     if (!rule) continue;
     created.rules++;
     haveTypes.add(config2.ruleType);
-    const openOfType = await db.select().from(tasks).where(and(eq(tasks.clientId, data.clientId), eq(tasks.ruleId, rule.id))).limit(1);
+    const openOfType = await db.select().from(tasks).where(and(eq2(tasks.clientId, data.clientId), eq2(tasks.ruleId, rule.id))).limit(1);
     if (openOfType.length === 0) {
       const [task] = await db.insert(tasks).values(generateTaskFromRule(rule, 1)).returning();
       if (task) created.tasks++;
     }
-    await db.update(clientTaskRules).set({ lastGeneratedDate: /* @__PURE__ */ new Date() }).where(eq(clientTaskRules.id, rule.id));
+    await db.update(clientTaskRules).set({ lastGeneratedDate: /* @__PURE__ */ new Date() }).where(eq2(clientTaskRules.id, rule.id));
   }
   return created;
 }
 async function generateNextTaskInstance(completedTaskId) {
   const db = getDb();
-  const taskRows = await db.select().from(tasks).where(eq(tasks.id, completedTaskId)).limit(1);
+  const taskRows = await db.select().from(tasks).where(eq2(tasks.id, completedTaskId)).limit(1);
   const completedTask = taskRows[0];
   if (!completedTask || !completedTask.ruleId) return null;
-  const ruleRows = await db.select().from(clientTaskRules).where(eq(clientTaskRules.id, completedTask.ruleId)).limit(1);
+  const ruleRows = await db.select().from(clientTaskRules).where(eq2(clientTaskRules.id, completedTask.ruleId)).limit(1);
   const rule = ruleRows[0];
   if (!rule || !rule.active) return null;
   const config2 = {
@@ -38818,7 +38818,7 @@ async function generateNextTaskInstance(completedTaskId) {
     fiscalYearEndDay: rule.fiscalYearEndDay || void 0
   };
   const nextDueDate = calculateNextDueDate(config2, new Date(rule.nextDueDate));
-  await db.update(clientTaskRules).set({ nextDueDate, lastGeneratedDate: /* @__PURE__ */ new Date() }).where(eq(clientTaskRules.id, rule.id));
+  await db.update(clientTaskRules).set({ nextDueDate, lastGeneratedDate: /* @__PURE__ */ new Date() }).where(eq2(clientTaskRules.id, rule.id));
   const newInstanceCount = (completedTask.recurrenceCount || 1) + 1;
   const nextTask = generateTaskFromRule({ ...rule, nextDueDate }, newInstanceCount);
   const [newTask] = await db.insert(tasks).values(nextTask);
@@ -38826,11 +38826,11 @@ async function generateNextTaskInstance(completedTaskId) {
 }
 async function getClientTaskRules(clientId) {
   const db = getDb();
-  return db.select().from(clientTaskRules).where(eq(clientTaskRules.clientId, clientId));
+  return db.select().from(clientTaskRules).where(eq2(clientTaskRules.clientId, clientId));
 }
 async function setRuleActive(ruleId, active) {
   const db = getDb();
-  await db.update(clientTaskRules).set({ active }).where(eq(clientTaskRules.id, ruleId));
+  await db.update(clientTaskRules).set({ active }).where(eq2(clientTaskRules.id, ruleId));
 }
 var PAYROLL_REMIT_RULE_TYPES;
 var init_task_generator = __esm({
@@ -38867,7 +38867,7 @@ async function seedTriageEmails() {
     if (c.figgyEmail && String(c.figgyEmail).trim()) continue;
     const email3 = figgyEmailFor(c.name || c.company || `client${c.id}`);
     try {
-      await db.update(clients).set({ figgyEmail: email3, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+      await db.update(clients).set({ figgyEmail: email3, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, c.id));
       set2++;
     } catch (e) {
       console.error("[triage-email] set failed for", c.id, ":", e instanceof Error ? e.message : e);
@@ -39318,7 +39318,7 @@ async function upsertClientToMaster(c) {
     }
     if (c.id) {
       try {
-        const onbRows = await getDb().select().from(clientOnboarding).where(eq(clientOnboarding.clientId, c.id)).orderBy(clientOnboarding.id);
+        const onbRows = await getDb().select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, c.id)).orderBy(clientOnboarding.id);
         const o = onbRows[onbRows.length - 1];
         if (o) {
           c = {
@@ -39642,7 +39642,7 @@ async function linkDriveFolders() {
       continue;
     }
     try {
-      await db.update(clients).set({ driveFolderUrl: folderUrl(folderId) }).where(eq(clients.id, c.id));
+      await db.update(clients).set({ driveFolderUrl: folderUrl(folderId) }).where(eq2(clients.id, c.id));
       linked++;
     } catch (e) {
       console.error("[drive-link] failed for", c.name, ":", e instanceof Error ? e.message : e);
@@ -39788,7 +39788,7 @@ function subfolderTree(isUS) {
 }
 async function ensureClientDriveFolder(clientId, opts = {}) {
   const db = getDb();
-  const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+  const c = (await db.select().from(clients).where(eq2(clients.id, clientId)).limit(1))[0];
   if (!c) return { ok: false, error: "client_not_found" };
   if (c.driveFolderUrl && !opts.force) return { ok: false, skipped: "already_has_folder", url: c.driveFolderUrl };
   if (!driveConfigured()) return { ok: false, skipped: "not_configured" };
@@ -39814,7 +39814,7 @@ async function ensureClientDriveFolder(clientId, opts = {}) {
         console.error(`[drive] subfolder "${sub.name}" failed:`, e instanceof Error ? e.message : e);
       }
     }
-    await db.update(clients).set({ driveFolderUrl: top.webViewLink, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, clientId));
+    await db.update(clients).set({ driveFolderUrl: top.webViewLink, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, clientId));
     return { ok: true, created, url: top.webViewLink, folderId: top.id };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
@@ -39858,7 +39858,7 @@ async function gfetch(url2, method, accessToken, body) {
 async function pushTaskToGoogle(taskId) {
   try {
     const db = getDb();
-    const t2 = (await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1))[0];
+    const t2 = (await db.select().from(tasks).where(eq2(tasks.id, taskId)).limit(1))[0];
     if (!t2) return;
     const at2 = await token();
     if (!at2) return;
@@ -39873,7 +39873,7 @@ async function pushTaskToGoogle(taskId) {
       await gfetch(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${t2.googleTaskId}`, "PATCH", at2, payload);
     } else {
       const created = await gfetch("https://tasks.googleapis.com/tasks/v1/lists/@default/tasks", "POST", at2, payload);
-      if (created?.id) await db.update(tasks).set({ googleTaskId: created.id }).where(eq(tasks.id, taskId));
+      if (created?.id) await db.update(tasks).set({ googleTaskId: created.id }).where(eq2(tasks.id, taskId));
     }
   } catch (e) {
     console.error("[google-push] task failed:", e instanceof Error ? e.message : e);
@@ -39882,7 +39882,7 @@ async function pushTaskToGoogle(taskId) {
 async function pushEventToGoogle(eventId) {
   try {
     const db = getDb();
-    const ev = (await db.select().from(calendarEvents).where(eq(calendarEvents.id, eventId)).limit(1))[0];
+    const ev = (await db.select().from(calendarEvents).where(eq2(calendarEvents.id, eventId)).limit(1))[0];
     if (!ev) return;
     const at2 = await token();
     if (!at2) return;
@@ -39909,7 +39909,7 @@ async function pushEventToGoogle(eventId) {
       await gfetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${ev.googleEventId}`, "PATCH", at2, payload);
     } else {
       const created = await gfetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", "POST", at2, payload);
-      if (created?.id) await db.update(calendarEvents).set({ googleEventId: created.id }).where(eq(calendarEvents.id, eventId));
+      if (created?.id) await db.update(calendarEvents).set({ googleEventId: created.id }).where(eq2(calendarEvents.id, eventId));
     }
   } catch (e) {
     console.error("[google-push] event failed:", e instanceof Error ? e.message : e);
@@ -40084,12 +40084,12 @@ async function ensureTokenKey() {
   try {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
     const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    const { eq: eq4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const db = getDb2();
     const { sql: sql4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     await db.run(sql4`CREATE TABLE IF NOT EXISTS app_settings (key text PRIMARY KEY, value text, updatedAt integer)`);
     const KEY = "figgy_token_key";
-    const existing = (await db.select().from(appSettings2).where(eq3(appSettings2.key, KEY)).limit(1))[0];
+    const existing = (await db.select().from(appSettings2).where(eq4(appSettings2.key, KEY)).limit(1))[0];
     if (existing?.value) {
       autoKey = existing.value;
       return "persisted";
@@ -40247,7 +40247,7 @@ async function exchangeAndPersist(input) {
   const data = await res.json();
   const { companyName, companyEmail } = await fetchCompanyInfo(env2, input.realmId, data.access_token);
   const db = getDb();
-  const existing = (await db.select().from(qboConnections).where(eq(qboConnections.realmId, input.realmId)).limit(1))[0];
+  const existing = (await db.select().from(qboConnections).where(eq2(qboConnections.realmId, input.realmId)).limit(1))[0];
   const common = {
     companyName: companyName || existing?.companyName || null,
     companyEmail: companyEmail || existing?.companyEmail || null,
@@ -40263,7 +40263,7 @@ async function exchangeAndPersist(input) {
     updatedAt: /* @__PURE__ */ new Date()
   };
   if (existing) {
-    await db.update(qboConnections).set(common).where(eq(qboConnections.id, existing.id));
+    await db.update(qboConnections).set(common).where(eq2(qboConnections.id, existing.id));
   } else {
     await db.insert(qboConnections).values({ userId: 1, realmId: input.realmId, accountType: "ca_clients", ...common });
   }
@@ -40301,13 +40301,13 @@ async function refreshNativeToken(connection) {
   const encAccess = encryptSecret(newAccess);
   const encRefresh = encryptSecret(newRefresh);
   const db = getDb();
-  await db.update(qboConnections).set({ accessToken: encAccess, refreshToken: encRefresh, expiresAt, isActive: true, reconnectReason: null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(qboConnections.id, connection.id));
+  await db.update(qboConnections).set({ accessToken: encAccess, refreshToken: encRefresh, expiresAt, isActive: true, reconnectReason: null, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(qboConnections.id, connection.id));
   return { ...connection, accessToken: encAccess, refreshToken: encRefresh, expiresAt, isActive: true, reconnectReason: null };
 }
 async function markReconnect(connectionId, reason) {
   try {
     const db = getDb();
-    await db.update(qboConnections).set({ isActive: false, reconnectReason: reason, updatedAt: /* @__PURE__ */ new Date() }).where(eq(qboConnections.id, connectionId));
+    await db.update(qboConnections).set({ isActive: false, reconnectReason: reason, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(qboConnections.id, connectionId));
     console.warn(`[qbo-oauth] connection #${connectionId} needs reconnect: ${reason}`);
   } catch (e) {
     console.error("[qbo-oauth] markReconnect failed:", e instanceof Error ? e.message : e);
@@ -40346,7 +40346,7 @@ async function keepAliveNativeConnections(staleDays = 7, opts = {}) {
   }
   let rows = [];
   try {
-    rows = await db.select().from(qboConnections).where(and(eq(qboConnections.transport, "native"), eq(qboConnections.isActive, true)));
+    rows = await db.select().from(qboConnections).where(and(eq2(qboConnections.transport, "native"), eq2(qboConnections.isActive, true)));
   } catch (e) {
     console.error("[qbo-oauth] keep-alive query failed:", e instanceof Error ? e.message : e);
     return { refreshed, reconnect, skipped };
@@ -40502,7 +40502,7 @@ async function ensureAccountColumns(db) {
 async function syncAllClientAccounts() {
   const db = getDb();
   await ensureAccountColumns(db);
-  const conns = await db.select().from(qboConnections).where(eq(qboConnections.isActive, true));
+  const conns = await db.select().from(qboConnections).where(eq2(qboConnections.isActive, true));
   let synced = 0, failed = 0;
   const errors = [];
   const clientIds = /* @__PURE__ */ new Set();
@@ -40633,7 +40633,7 @@ function jaccardSimilarity(a, b) {
 }
 async function doSyncCustomers(connectionId) {
   const db = getDb();
-  const connRow = await db.select().from(qboConnections).where(eq(qboConnections.id, connectionId)).limit(1);
+  const connRow = await db.select().from(qboConnections).where(eq2(qboConnections.id, connectionId)).limit(1);
   if (!connRow[0]) throw new Error("Connection not found");
   const connection = await ensureValidToken(connRow[0]);
   const clientId = connection.clientId;
@@ -40641,7 +40641,7 @@ async function doSyncCustomers(connectionId) {
   const customers = data.QueryResponse?.Customer || [];
   let inserted = 0;
   for (const c of customers) {
-    const existing = await db.select().from(qboCustomers).where(and(eq(qboCustomers.connectionId, connectionId), eq(qboCustomers.qboCustomerId, String(c.Id))));
+    const existing = await db.select().from(qboCustomers).where(and(eq2(qboCustomers.connectionId, connectionId), eq2(qboCustomers.qboCustomerId, String(c.Id))));
     const row = {
       connectionId,
       clientId,
@@ -40669,7 +40669,7 @@ async function doSyncCustomers(connectionId) {
       updatedAt: /* @__PURE__ */ new Date()
     };
     if (existing[0]) {
-      await db.update(qboCustomers).set(row).where(eq(qboCustomers.id, existing[0].id));
+      await db.update(qboCustomers).set(row).where(eq2(qboCustomers.id, existing[0].id));
     } else {
       await db.insert(qboCustomers).values(row);
       inserted++;
@@ -40682,19 +40682,19 @@ async function doSyncCustomers(connectionId) {
     recordsSynced: customers.length,
     completedAt: /* @__PURE__ */ new Date()
   });
-  await db.update(qboConnections).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(qboConnections.id, connectionId));
+  await db.update(qboConnections).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq2(qboConnections.id, connectionId));
   return { success: true, recordsSynced: customers.length, inserted };
 }
 async function doSyncInvoices(connectionId) {
   const db = getDb();
-  const connRow = await db.select().from(qboConnections).where(eq(qboConnections.id, connectionId)).limit(1);
+  const connRow = await db.select().from(qboConnections).where(eq2(qboConnections.id, connectionId)).limit(1);
   if (!connRow[0]) throw new Error("Connection not found");
   const connection = await ensureValidToken(connRow[0]);
   const clientId = connection.clientId;
   const data = await qboRequest(connection, "/query?query=SELECT * FROM Invoice MAXRESULTS 1000");
   const invoices2 = data.QueryResponse?.Invoice || [];
   for (const inv of invoices2) {
-    const existing = await db.select().from(qboInvoices).where(and(eq(qboInvoices.connectionId, connectionId), eq(qboInvoices.qboInvoiceId, String(inv.Id))));
+    const existing = await db.select().from(qboInvoices).where(and(eq2(qboInvoices.connectionId, connectionId), eq2(qboInvoices.qboInvoiceId, String(inv.Id))));
     const row = {
       connectionId,
       clientId,
@@ -40715,7 +40715,7 @@ async function doSyncInvoices(connectionId) {
       updatedAt: /* @__PURE__ */ new Date()
     };
     if (existing[0]) {
-      await db.update(qboInvoices).set(row).where(eq(qboInvoices.id, existing[0].id));
+      await db.update(qboInvoices).set(row).where(eq2(qboInvoices.id, existing[0].id));
     } else {
       await db.insert(qboInvoices).values(row);
     }
@@ -40731,14 +40731,14 @@ async function doSyncInvoices(connectionId) {
 }
 async function doSyncPayments(connectionId) {
   const db = getDb();
-  const connRow = await db.select().from(qboConnections).where(eq(qboConnections.id, connectionId)).limit(1);
+  const connRow = await db.select().from(qboConnections).where(eq2(qboConnections.id, connectionId)).limit(1);
   if (!connRow[0]) throw new Error("Connection not found");
   const connection = await ensureValidToken(connRow[0]);
   const clientId = connection.clientId;
   const data = await qboRequest(connection, "/query?query=SELECT * FROM Payment MAXRESULTS 1000");
   const payments = data.QueryResponse?.Payment || [];
   for (const p of payments) {
-    const existing = await db.select().from(qboPayments).where(and(eq(qboPayments.connectionId, connectionId), eq(qboPayments.qboPaymentId, String(p.Id))));
+    const existing = await db.select().from(qboPayments).where(and(eq2(qboPayments.connectionId, connectionId), eq2(qboPayments.qboPaymentId, String(p.Id))));
     const row = {
       connectionId,
       clientId,
@@ -40755,7 +40755,7 @@ async function doSyncPayments(connectionId) {
       updatedAt: /* @__PURE__ */ new Date()
     };
     if (existing[0]) {
-      await db.update(qboPayments).set(row).where(eq(qboPayments.id, existing[0].id));
+      await db.update(qboPayments).set(row).where(eq2(qboPayments.id, existing[0].id));
     } else {
       await db.insert(qboPayments).values(row);
     }
@@ -40771,13 +40771,13 @@ async function doSyncPayments(connectionId) {
 }
 async function doSyncAccounts(connectionId) {
   const db = getDb();
-  const connRow = await db.select().from(qboConnections).where(eq(qboConnections.id, connectionId)).limit(1);
+  const connRow = await db.select().from(qboConnections).where(eq2(qboConnections.id, connectionId)).limit(1);
   if (!connRow[0]) throw new Error("Connection not found");
   const connection = await ensureValidToken(connRow[0]);
   const data = await qboRequest(connection, "/query?query=SELECT * FROM Account MAXRESULTS 1000");
   const accounts = data.QueryResponse?.Account || [];
   for (const a of accounts) {
-    const existing = await db.select().from(qboAccounts).where(and(eq(qboAccounts.connectionId, connectionId), eq(qboAccounts.qboAccountId, String(a.Id))));
+    const existing = await db.select().from(qboAccounts).where(and(eq2(qboAccounts.connectionId, connectionId), eq2(qboAccounts.qboAccountId, String(a.Id))));
     const nm = a.Name || "";
     const digitRuns = nm.match(/\d{3,7}/g);
     const last4 = digitRuns && digitRuns.length ? digitRuns[digitRuns.length - 1] : existing[0]?.last4 || null;
@@ -40797,7 +40797,7 @@ async function doSyncAccounts(connectionId) {
       updatedAt: /* @__PURE__ */ new Date()
     };
     if (existing[0]) {
-      await db.update(qboAccounts).set(row).where(eq(qboAccounts.id, existing[0].id));
+      await db.update(qboAccounts).set(row).where(eq2(qboAccounts.id, existing[0].id));
     } else {
       await db.insert(qboAccounts).values(row);
     }
@@ -40859,7 +40859,7 @@ var init_qbo_router = __esm({
       // Mirrors the brain's isolation rule: 0 = none, 2+ = ambiguous (never picks one).
       connectionForClient: publicQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
-        const rows = await db.select().from(qboConnections).where(eq(qboConnections.clientId, input.clientId)).orderBy(desc(qboConnections.createdAt));
+        const rows = await db.select().from(qboConnections).where(eq2(qboConnections.clientId, input.clientId)).orderBy(desc(qboConnections.createdAt));
         const active = rows.filter((r) => r.isActive);
         return {
           connection: rows[0] ? safeConnection(rows[0]) : null,
@@ -40869,17 +40869,17 @@ var init_qbo_router = __esm({
       }),
       getConnectionByType: publicQuery.input(external_exports.object({ accountType: external_exports.enum(["ca_clients", "us_clients", "personal_business"]) })).query(async ({ input }) => {
         const db = getDb();
-        const rows = await db.select().from(qboConnections).where(and(eq(qboConnections.accountType, input.accountType), eq(qboConnections.isActive, true))).orderBy(desc(qboConnections.createdAt)).limit(1);
+        const rows = await db.select().from(qboConnections).where(and(eq2(qboConnections.accountType, input.accountType), eq2(qboConnections.isActive, true))).orderBy(desc(qboConnections.createdAt)).limit(1);
         return rows[0] || null;
       }),
       deleteConnection: publicQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
         const db = getDb();
-        await db.delete(qboConnections).where(eq(qboConnections.id, input.id));
+        await db.delete(qboConnections).where(eq2(qboConnections.id, input.id));
         return { success: true };
       }),
       toggleConnection: publicQuery.input(external_exports.object({ id: external_exports.number(), active: external_exports.boolean() })).mutation(async ({ input }) => {
         const db = getDb();
-        await db.update(qboConnections).set({ isActive: input.active }).where(eq(qboConnections.id, input.id));
+        await db.update(qboConnections).set({ isActive: input.active }).where(eq2(qboConnections.id, input.id));
         return { success: true };
       }),
       // --- Sync Engine (individual endpoints) ---
@@ -40918,35 +40918,35 @@ var init_qbo_router = __esm({
       getCustomers: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
         const db = getDb();
         if (input?.connectionId) {
-          return db.select().from(qboCustomers).where(eq(qboCustomers.connectionId, input.connectionId)).orderBy(qboCustomers.displayName);
+          return db.select().from(qboCustomers).where(eq2(qboCustomers.connectionId, input.connectionId)).orderBy(qboCustomers.displayName);
         }
         return db.select().from(qboCustomers).orderBy(qboCustomers.displayName);
       }),
       getInvoices: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional(), status: external_exports.string().optional() }).optional()).query(async ({ input }) => {
         const db = getDb();
         if (input?.connectionId) {
-          return db.select().from(qboInvoices).where(eq(qboInvoices.connectionId, input.connectionId)).orderBy(desc(qboInvoices.transactionDate));
+          return db.select().from(qboInvoices).where(eq2(qboInvoices.connectionId, input.connectionId)).orderBy(desc(qboInvoices.transactionDate));
         }
         return db.select().from(qboInvoices).orderBy(desc(qboInvoices.transactionDate));
       }),
       getPayments: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
         const db = getDb();
         if (input?.connectionId) {
-          return db.select().from(qboPayments).where(eq(qboPayments.connectionId, input.connectionId)).orderBy(desc(qboPayments.transactionDate));
+          return db.select().from(qboPayments).where(eq2(qboPayments.connectionId, input.connectionId)).orderBy(desc(qboPayments.transactionDate));
         }
         return db.select().from(qboPayments).orderBy(desc(qboPayments.transactionDate));
       }),
       getAccounts: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
         const db = getDb();
         if (input?.connectionId) {
-          return db.select().from(qboAccounts).where(eq(qboAccounts.connectionId, input.connectionId)).orderBy(qboAccounts.name);
+          return db.select().from(qboAccounts).where(eq2(qboAccounts.connectionId, input.connectionId)).orderBy(qboAccounts.name);
         }
         return db.select().from(qboAccounts).orderBy(qboAccounts.name);
       }),
       getSyncLogs: publicQuery.input(external_exports.object({ connectionId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
         const db = getDb();
         if (input?.connectionId) {
-          return db.select().from(qboSyncLogs).where(eq(qboSyncLogs.connectionId, input.connectionId)).orderBy(desc(qboSyncLogs.startedAt));
+          return db.select().from(qboSyncLogs).where(eq2(qboSyncLogs.connectionId, input.connectionId)).orderBy(desc(qboSyncLogs.startedAt));
         }
         return db.select().from(qboSyncLogs).orderBy(desc(qboSyncLogs.startedAt));
       }),
@@ -40978,26 +40978,26 @@ var init_qbo_router = __esm({
         entityType: external_exports.enum(["invoices", "payments", "all"]).default("all")
       }).optional()).query(async ({ input }) => {
         const db = getDb();
-        const wherePending = eq(qboInvoices.reviewStatus, "pending");
+        const wherePending = eq2(qboInvoices.reviewStatus, "pending");
         let invoiceRows = [];
         let paymentRows = [];
         if (!input || input.entityType === "all" || input.entityType === "invoices") {
           const query = db.select().from(qboInvoices).where(wherePending).orderBy(desc(qboInvoices.transactionDate));
           if (input?.connectionId) {
-            invoiceRows = await db.select().from(qboInvoices).where(and(eq(qboInvoices.connectionId, input.connectionId), eq(qboInvoices.reviewStatus, "pending"))).orderBy(desc(qboInvoices.transactionDate));
+            invoiceRows = await db.select().from(qboInvoices).where(and(eq2(qboInvoices.connectionId, input.connectionId), eq2(qboInvoices.reviewStatus, "pending"))).orderBy(desc(qboInvoices.transactionDate));
           } else {
             invoiceRows = await query;
           }
         }
         if (!input || input.entityType === "all" || input.entityType === "payments") {
           if (input?.connectionId) {
-            paymentRows = await db.select().from(qboPayments).where(and(eq(qboPayments.connectionId, input.connectionId), eq(qboPayments.reviewStatus, "pending"))).orderBy(desc(qboPayments.transactionDate));
+            paymentRows = await db.select().from(qboPayments).where(and(eq2(qboPayments.connectionId, input.connectionId), eq2(qboPayments.reviewStatus, "pending"))).orderBy(desc(qboPayments.transactionDate));
           } else {
-            paymentRows = await db.select().from(qboPayments).where(eq(qboPayments.reviewStatus, "pending")).orderBy(desc(qboPayments.transactionDate));
+            paymentRows = await db.select().from(qboPayments).where(eq2(qboPayments.reviewStatus, "pending")).orderBy(desc(qboPayments.transactionDate));
           }
         }
         const customerIds = /* @__PURE__ */ new Set([...invoiceRows.map((r) => r.qboCustomerId), ...paymentRows.map((r) => r.qboCustomerId)]);
-        const customers = await db.select().from(qboCustomers).where(eq(qboCustomers.qboCustomerId, [...customerIds][0] || ""));
+        const customers = await db.select().from(qboCustomers).where(eq2(qboCustomers.qboCustomerId, [...customerIds][0] || ""));
         const customerMap = new Map(customers.map((c) => [c.qboCustomerId, c.displayName || c.companyName]));
         return {
           invoices: invoiceRows.map((r) => ({ ...r, qboCustomerName: customerMap.get(r.qboCustomerId) || "Unknown" })),
@@ -41007,7 +41007,7 @@ var init_qbo_router = __esm({
       }),
       suggestClientMatches: publicQuery.query(async () => {
         const db = getDb();
-        const unmappedQboCustomers = await db.select().from(qboCustomers).where(eq(qboCustomers.clientId, 0));
+        const unmappedQboCustomers = await db.select().from(qboCustomers).where(eq2(qboCustomers.clientId, 0));
         const crmClients = await db.select().from(clients);
         const suggestions = unmappedQboCustomers.map((qboCust) => {
           const qboName = (qboCust.displayName || qboCust.companyName || "").toLowerCase();
@@ -41037,7 +41037,7 @@ var init_qbo_router = __esm({
         clientId: external_exports.number()
       })).mutation(async ({ input }) => {
         const db = getDb();
-        await db.update(qboCustomers).set({ clientId: input.clientId }).where(eq(qboCustomers.qboCustomerId, input.qboCustomerId));
+        await db.update(qboCustomers).set({ clientId: input.clientId }).where(eq2(qboCustomers.qboCustomerId, input.qboCustomerId));
         return { success: true };
       }),
       approveItems: publicQuery.input(external_exports.object({
@@ -41054,7 +41054,7 @@ var init_qbo_router = __esm({
               reviewStatus: "posted",
               clientId: input.clientId || void 0,
               reviewedAt: now
-            }).where(eq(qboInvoices.id, id));
+            }).where(eq2(qboInvoices.id, id));
             updated++;
           }
         }
@@ -41064,7 +41064,7 @@ var init_qbo_router = __esm({
               reviewStatus: "posted",
               clientId: input.clientId || void 0,
               reviewedAt: now
-            }).where(eq(qboPayments.id, id));
+            }).where(eq2(qboPayments.id, id));
             updated++;
           }
         }
@@ -41080,13 +41080,13 @@ var init_qbo_router = __esm({
         let updated = 0;
         if (input.invoiceIds && input.invoiceIds.length > 0) {
           for (const id of input.invoiceIds) {
-            await db.update(qboInvoices).set({ reviewStatus: "rejected", reviewedAt: now, reviewNotes: input.notes || null }).where(eq(qboInvoices.id, id));
+            await db.update(qboInvoices).set({ reviewStatus: "rejected", reviewedAt: now, reviewNotes: input.notes || null }).where(eq2(qboInvoices.id, id));
             updated++;
           }
         }
         if (input.paymentIds && input.paymentIds.length > 0) {
           for (const id of input.paymentIds) {
-            await db.update(qboPayments).set({ reviewStatus: "rejected", reviewedAt: now, reviewNotes: input.notes || null }).where(eq(qboPayments.id, id));
+            await db.update(qboPayments).set({ reviewStatus: "rejected", reviewedAt: now, reviewNotes: input.notes || null }).where(eq2(qboPayments.id, id));
             updated++;
           }
         }
@@ -41099,10 +41099,10 @@ var init_qbo_router = __esm({
         clientId: external_exports.number()
       })).mutation(async ({ input }) => {
         const db = getDb();
-        await db.update(qboConnections).set({ clientId: input.clientId, updatedAt: /* @__PURE__ */ new Date() }).where(eq(qboConnections.id, input.connectionId));
-        await db.update(qboCustomers).set({ clientId: input.clientId }).where(eq(qboCustomers.connectionId, input.connectionId));
-        await db.update(qboInvoices).set({ clientId: input.clientId }).where(eq(qboInvoices.connectionId, input.connectionId));
-        await db.update(qboPayments).set({ clientId: input.clientId }).where(eq(qboPayments.connectionId, input.connectionId));
+        await db.update(qboConnections).set({ clientId: input.clientId, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(qboConnections.id, input.connectionId));
+        await db.update(qboCustomers).set({ clientId: input.clientId }).where(eq2(qboCustomers.connectionId, input.connectionId));
+        await db.update(qboInvoices).set({ clientId: input.clientId }).where(eq2(qboInvoices.connectionId, input.connectionId));
+        await db.update(qboPayments).set({ clientId: input.clientId }).where(eq2(qboPayments.connectionId, input.connectionId));
         return {
           success: true,
           message: `QBO connection assigned to client ${input.clientId}. All existing records retagged.`
@@ -41111,10 +41111,10 @@ var init_qbo_router = __esm({
       // Get all unassigned QBO data for triage review
       getTriage: publicQuery.query(async () => {
         const db = getDb();
-        const unassignedConnections = await db.select().from(qboConnections).where(eq(qboConnections.clientId, null)).orderBy(desc(qboConnections.createdAt));
-        const unassignedCustomers = await db.select().from(qboCustomers).where(eq(qboCustomers.clientId, null)).limit(50);
-        const unassignedInvoices = await db.select().from(qboInvoices).where(eq(qboInvoices.clientId, null)).limit(50);
-        const unassignedPayments = await db.select().from(qboPayments).where(eq(qboPayments.clientId, null)).limit(50);
+        const unassignedConnections = await db.select().from(qboConnections).where(eq2(qboConnections.clientId, null)).orderBy(desc(qboConnections.createdAt));
+        const unassignedCustomers = await db.select().from(qboCustomers).where(eq2(qboCustomers.clientId, null)).limit(50);
+        const unassignedInvoices = await db.select().from(qboInvoices).where(eq2(qboInvoices.clientId, null)).limit(50);
+        const unassignedPayments = await db.select().from(qboPayments).where(eq2(qboPayments.clientId, null)).limit(50);
         return {
           connections: unassignedConnections,
           customers: unassignedCustomers,
@@ -41137,7 +41137,7 @@ var init_qbo_router = __esm({
         const db = getDb();
         const table = input.entityType === "customers" ? qboCustomers : input.entityType === "invoices" ? qboInvoices : qboPayments;
         for (const id of input.ids) {
-          await db.update(table).set({ clientId: input.clientId }).where(eq(table.id, id));
+          await db.update(table).set({ clientId: input.clientId }).where(eq2(table.id, id));
         }
         return {
           success: true,
@@ -41496,7 +41496,7 @@ async function writeBackVendorCardContact(conn, vendorId, fields) {
 }
 async function getConnectionForClient(clientId) {
   const db = getDb();
-  const rows = await db.select().from(qboConnections).where(and(eq(qboConnections.clientId, clientId), eq(qboConnections.isActive, true)));
+  const rows = await db.select().from(qboConnections).where(and(eq2(qboConnections.clientId, clientId), eq2(qboConnections.isActive, true)));
   if (rows.length === 0) return { error: "no_active_qbo_connection_for_client" };
   if (rows.length > 1) return { error: "ambiguous_qbo_connections_for_client" };
   return { conn: await ensureValidToken(rows[0]) };
@@ -41523,7 +41523,7 @@ async function suggestForClient(clientId, input) {
   let isConfirmed = false;
   try {
     const db = getDb();
-    const rule = (await db.select().from(vendorMemory).where(and(eq(vendorMemory.connectionId, conn.id), eq(vendorMemory.qboVendorId, resolution.vendorId))).limit(1))[0];
+    const rule = (await db.select().from(vendorMemory).where(and(eq2(vendorMemory.connectionId, conn.id), eq2(vendorMemory.qboVendorId, resolution.vendorId))).limit(1))[0];
     if (rule?.confirmedByHuman && rule.preferredAccountId) {
       isConfirmed = true;
       coding = {
@@ -41567,7 +41567,7 @@ async function suggestForClient(clientId, input) {
   if (!isConfirmed && coding.status === "suggested" && coding.suggestedAccountId) {
     try {
       const db = getDb();
-      const existing = await db.select().from(vendorMemory).where(and(eq(vendorMemory.connectionId, conn.id), eq(vendorMemory.qboVendorId, resolution.vendorId))).limit(1);
+      const existing = await db.select().from(vendorMemory).where(and(eq2(vendorMemory.connectionId, conn.id), eq2(vendorMemory.qboVendorId, resolution.vendorId))).limit(1);
       const patch = {
         connectionId: conn.id,
         clientId,
@@ -41579,7 +41579,7 @@ async function suggestForClient(clientId, input) {
         sampleCount: coding.sampleCount,
         lastValidatedAt: /* @__PURE__ */ new Date()
       };
-      if (existing[0]) await db.update(vendorMemory).set(patch).where(eq(vendorMemory.id, existing[0].id));
+      if (existing[0]) await db.update(vendorMemory).set(patch).where(eq2(vendorMemory.id, existing[0].id));
       else await db.insert(vendorMemory).values(patch);
     } catch {
     }
@@ -41590,7 +41590,7 @@ async function runEnrichment(input) {
   const db = getDb();
   const limit2 = input?.limit ?? 50;
   const status = input?.status ?? "new";
-  const rows = await db.select().from(triageFindings).where(eq(triageFindings.status, status)).orderBy(desc(triageFindings.createdAt)).limit(limit2);
+  const rows = await db.select().from(triageFindings).where(eq2(triageFindings.status, status)).orderBy(desc(triageFindings.createdAt)).limit(limit2);
   let enriched = 0;
   const skip = { noClient: 0, noVendor: 0, already: 0, notConnected: 0, error: 0 };
   const errors = [];
@@ -41646,7 +41646,7 @@ async function runEnrichment(input) {
         connectionId: r.connectionId ?? meta3.connectionId ?? null,
         dedup: r.dedup && r.dedup.isDuplicate ? r.dedup : null
       };
-      await db.update(triageFindings).set({ sourceData: JSON.stringify(newMeta) }).where(eq(triageFindings.id, f.id));
+      await db.update(triageFindings).set({ sourceData: JSON.stringify(newMeta) }).where(eq2(triageFindings.id, f.id));
       enriched++;
     } catch (e) {
       skip.error++;
@@ -41757,14 +41757,14 @@ __export(sheet_inbound_sync_exports, {
 async function applyOnboardingPatch(db, clientId, patch) {
   if (!patch || Object.keys(patch).length === 0) return;
   try {
-    const rows = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(clientOnboarding.id);
+    const rows = await db.select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, clientId)).orderBy(clientOnboarding.id);
     const latest = rows[rows.length - 1];
     if (latest) {
       const diff = {};
       for (const [k, v] of Object.entries(patch)) if (Number(!!latest[k]) !== Number(!!v)) diff[k] = v;
       if (Object.keys(diff).length) {
         diff.updatedAt = /* @__PURE__ */ new Date();
-        await db.update(clientOnboarding).set(diff).where(eq(clientOnboarding.id, latest.id));
+        await db.update(clientOnboarding).set(diff).where(eq2(clientOnboarding.id, latest.id));
       }
     } else {
       const { randomBytes } = await import("crypto");
@@ -41822,7 +41822,7 @@ async function pullClientMasterIntoCrm() {
       }
       if (Object.keys(patch).length) {
         patch.updatedAt = /* @__PURE__ */ new Date();
-        await db.update(clients).set(patch).where(eq(clients.id, match2.id));
+        await db.update(clients).set(patch).where(eq2(clients.id, match2.id));
         report.updated++;
       }
       await applyOnboardingPatch(db, match2.id, onb);
@@ -41887,7 +41887,7 @@ async function pullLeadsIntoCrm() {
       for (const [k, v] of Object.entries(sv)) if (String(match2[k] ?? "") !== String(v ?? "")) patch[k] = v;
       if (Object.keys(patch).length) {
         patch.updatedAt = /* @__PURE__ */ new Date();
-        await db.update(clients).set(patch).where(eq(clients.id, match2.id));
+        await db.update(clients).set(patch).where(eq2(clients.id, match2.id));
         report.updated++;
       }
     } else {
@@ -41918,7 +41918,7 @@ async function pullLeadsIntoCrm() {
           notes: "Inbound sheet sync",
           createdAt: /* @__PURE__ */ new Date()
         });
-        const lead = (await db.select().from(clients).where(eq(clients.id, id)).limit(1))[0];
+        const lead = (await db.select().from(clients).where(eq2(clients.id, id)).limit(1))[0];
         if (lead) syncLeadToMaster(lead);
       }
     }
@@ -42007,7 +42007,7 @@ async function pullInactiveClientsIntoCrm() {
     if (match2) {
       const patch = { status: "inactive", updatedAt: /* @__PURE__ */ new Date() };
       for (const [k, v] of Object.entries(fields)) if (v !== void 0 && String(match2[k] ?? "") !== String(v)) patch[k] = v;
-      await db.update(clients).set(patch).where(eq(clients.id, match2.id));
+      await db.update(clients).set(patch).where(eq2(clients.id, match2.id));
       report.updated++;
     } else {
       const clean22 = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== void 0));
@@ -42257,9 +42257,9 @@ async function captureCashSnapshot(connection) {
   const db = getDb();
   const clientId = connection.clientId;
   const now = /* @__PURE__ */ new Date();
-  const acctRows = await db.select({ name: qboAccounts.name, accountType: qboAccounts.accountType, currentBalance: qboAccounts.currentBalance, currencyRef: qboAccounts.currencyRef, active: qboAccounts.active }).from(qboAccounts).where(eq(qboAccounts.connectionId, connection.id));
+  const acctRows = await db.select({ name: qboAccounts.name, accountType: qboAccounts.accountType, currentBalance: qboAccounts.currentBalance, currencyRef: qboAccounts.currencyRef, active: qboAccounts.active }).from(qboAccounts).where(eq2(qboAccounts.connectionId, connection.id));
   const bank = bankBreakdownFromAccounts(acctRows);
-  const invRows = await db.select({ balance: qboInvoices.balance }).from(qboInvoices).where(eq(qboInvoices.connectionId, connection.id));
+  const invRows = await db.select({ balance: qboInvoices.balance }).from(qboInvoices).where(eq2(qboInvoices.connectionId, connection.id));
   const arOutstanding = invRows.reduce((s, i) => s + (Number(i.balance) || 0), 0);
   let apOutstanding = 0;
   try {
@@ -42282,11 +42282,11 @@ async function captureCashSnapshot(connection) {
   } catch (e) {
     console.error(`[cashflow] TransactionList (conn ${connection.id}):`, e instanceof Error ? e.message : e);
   }
-  const clientRow = (await db.select({ payrollFrequency: clients.payrollFrequency, hasPayroll: clients.hasPayroll }).from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+  const clientRow = (await db.select({ payrollFrequency: clients.payrollFrequency, hasPayroll: clients.hasPayroll }).from(clients).where(eq2(clients.id, clientId)).limit(1))[0];
   let upcomingPayrollAmount = null, coversPayroll = null, payrollShortfall = null;
   let upcomingPayrollDate = null;
   if (clientRow?.hasPayroll) {
-    const emps = await db.select({ payType: employees.payType, annualSalary: employees.annualSalary, hourlyRate: employees.hourlyRate, hoursPerWeek: employees.hoursPerWeek, isActive: employees.isActive, isContractor: employees.isContractor }).from(employees).where(eq(employees.clientId, clientId));
+    const emps = await db.select({ payType: employees.payType, annualSalary: employees.annualSalary, hourlyRate: employees.hourlyRate, hoursPerWeek: employees.hoursPerWeek, isActive: employees.isActive, isContractor: employees.isContractor }).from(employees).where(eq2(employees.clientId, clientId));
     upcomingPayrollAmount = estimateUpcomingPayroll(emps, clientRow.payrollFrequency);
     if (upcomingPayrollAmount != null) {
       upcomingPayrollDate = nextPayrollDate(clientRow.payrollFrequency, now);
@@ -42315,8 +42315,8 @@ async function captureCashSnapshot(connection) {
     coversPayroll,
     payrollShortfall
   };
-  const ex = (await db.select({ id: clientCashSnapshots.id }).from(clientCashSnapshots).where(and(eq(clientCashSnapshots.clientId, clientId), eq(clientCashSnapshots.date, date5))).limit(1))[0];
-  if (ex) await db.update(clientCashSnapshots).set(row).where(eq(clientCashSnapshots.id, ex.id));
+  const ex = (await db.select({ id: clientCashSnapshots.id }).from(clientCashSnapshots).where(and(eq2(clientCashSnapshots.clientId, clientId), eq2(clientCashSnapshots.date, date5))).limit(1))[0];
+  if (ex) await db.update(clientCashSnapshots).set(row).where(eq2(clientCashSnapshots.id, ex.id));
   else await db.insert(clientCashSnapshots).values(row);
 }
 async function syncConnection(connection) {
@@ -42350,7 +42350,7 @@ async function syncConnection(connection) {
       console.error(`[qbo-sync] accounts ${out.company}:`, e instanceof Error ? e.message : e);
     }
     if (connection.clientId != null) {
-      const acctRows = await db.select({ classification: qboAccounts.classification, currentBalance: qboAccounts.currentBalance, active: qboAccounts.active }).from(qboAccounts).where(eq(qboAccounts.connectionId, connection.id));
+      const acctRows = await db.select({ classification: qboAccounts.classification, currentBalance: qboAccounts.currentBalance, active: qboAccounts.active }).from(qboAccounts).where(eq2(qboAccounts.connectionId, connection.id));
       const bs = balanceSheetFromAccounts(acctRows);
       const now = /* @__PURE__ */ new Date();
       const periodStart = new Date(now.getFullYear(), 0, 1);
@@ -42364,7 +42364,7 @@ async function syncConnection(connection) {
       const fin = { ...pl, ...bs };
       out.financials = fin;
       const userId = connection.userId ?? 1;
-      const existing = await db.select().from(clientDashboardSnapshots).where(and(eq(clientDashboardSnapshots.clientId, connection.clientId), eq(clientDashboardSnapshots.source, "qbo"))).orderBy(desc(clientDashboardSnapshots.createdAt)).limit(1);
+      const existing = await db.select().from(clientDashboardSnapshots).where(and(eq2(clientDashboardSnapshots.clientId, connection.clientId), eq2(clientDashboardSnapshots.source, "qbo"))).orderBy(desc(clientDashboardSnapshots.createdAt)).limit(1);
       const row = {
         clientId: connection.clientId,
         userId,
@@ -42379,7 +42379,7 @@ async function syncConnection(connection) {
         source: "qbo"
       };
       if (existing[0] && sameCalendarDay(existing[0].createdAt ?? null, now)) {
-        await db.update(clientDashboardSnapshots).set(row).where(eq(clientDashboardSnapshots.id, existing[0].id));
+        await db.update(clientDashboardSnapshots).set(row).where(eq2(clientDashboardSnapshots.id, existing[0].id));
       } else {
         await db.insert(clientDashboardSnapshots).values(row);
       }
@@ -42389,7 +42389,7 @@ async function syncConnection(connection) {
         console.error(`[qbo-sync] cashflow ${out.company}:`, e instanceof Error ? e.message : e);
       }
     }
-    await db.update(qboConnections).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(qboConnections.id, connection.id));
+    await db.update(qboConnections).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq2(qboConnections.id, connection.id));
     out.ok = true;
   } catch (e) {
     out.error = e instanceof Error ? e.message : String(e);
@@ -42407,7 +42407,7 @@ async function runQboSync() {
     return { ran: false, connections: 0, results: [] };
   }
   const db = getDb();
-  const conns = await db.select().from(qboConnections).where(eq(qboConnections.isActive, true));
+  const conns = await db.select().from(qboConnections).where(eq2(qboConnections.isActive, true));
   console.log(`[qbo-sync] starting for ${conns.length} active connection(s)`);
   const results = [];
   for (const c of conns) {
@@ -42604,12 +42604,12 @@ var init_employee_router = __esm({
     employeeRouter = createRouter({
       list: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
-        const rows = await db.select().from(employees).where(eq(employees.clientId, input.clientId)).orderBy(employees.lastName);
+        const rows = await db.select().from(employees).where(eq2(employees.clientId, input.clientId)).orderBy(employees.lastName);
         return rows.map(stripSin);
       }),
       get: staffQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
-        const row = await db.select().from(employees).where(eq(employees.id, input.id)).limit(1);
+        const row = await db.select().from(employees).where(eq2(employees.id, input.id)).limit(1);
         return row[0] ? stripSin(row[0]) : null;
       }),
       // Code-gated SIN reveal (for printing T4/T4A). Requires FIGGY_SIN_PIN.
@@ -42617,7 +42617,7 @@ var init_employee_router = __esm({
         const gate = checkRevealCode(input.code);
         if (!gate.ok) return { ok: false, reason: gate.reason };
         const db = getDb();
-        const row = (await db.select().from(employees).where(eq(employees.id, input.id)).limit(1))[0];
+        const row = (await db.select().from(employees).where(eq2(employees.id, input.id)).limit(1))[0];
         return { ok: true, sin: row?.sin ? decryptSecret(row.sin) : null };
       }),
       create: seniorQuery.input(external_exports.object({
@@ -42723,10 +42723,10 @@ var init_employee_router = __esm({
       })).mutation(async ({ input }) => {
         const { id, sin, rateEffectiveDate, rateNote, ...data } = input;
         const db = getDb();
-        const before = (await db.select().from(employees).where(eq(employees.id, id)).limit(1))[0];
+        const before = (await db.select().from(employees).where(eq2(employees.id, id)).limit(1))[0];
         const patch = { ...data, updatedAt: /* @__PURE__ */ new Date() };
         if (sin !== void 0) patch.sin = sin ? encryptSecret(sin) : null;
-        await db.update(employees).set(await keepEmployeeColumns(patch)).where(eq(employees.id, id));
+        await db.update(employees).set(await keepEmployeeColumns(patch)).where(eq2(employees.id, id));
         const rateChanged = data.hourlyRate !== void 0 && data.hourlyRate !== (before?.hourlyRate ?? null) || data.annualSalary !== void 0 && data.annualSalary !== (before?.annualSalary ?? null);
         if (before && rateChanged) {
           await recordRateChange(db, {
@@ -42745,11 +42745,11 @@ var init_employee_router = __esm({
       // Pay-rate history for one employee (newest first) — the raise log.
       rateHistory: staffQuery.input(external_exports.object({ employeeId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
-        return await db.select().from(employeeRateHistory).where(eq(employeeRateHistory.employeeId, input.employeeId)).orderBy(desc(employeeRateHistory.effectiveDate), desc(employeeRateHistory.id));
+        return await db.select().from(employeeRateHistory).where(eq2(employeeRateHistory.employeeId, input.employeeId)).orderBy(desc(employeeRateHistory.effectiveDate), desc(employeeRateHistory.id));
       }),
       delete: seniorQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
         const db = getDb();
-        await db.delete(employees).where(eq(employees.id, input.id));
+        await db.delete(employees).where(eq2(employees.id, input.id));
         return { success: true };
       })
     });
@@ -43374,7 +43374,7 @@ async function ensureAppSettings() {
 }
 async function getCred(key11, envVal) {
   try {
-    const rows = await getDb().select().from(appSettings).where(eq(appSettings.key, key11)).limit(1);
+    const rows = await getDb().select().from(appSettings).where(eq2(appSettings.key, key11)).limit(1);
     const stored = rows[0]?.value;
     if (stored) return decryptSecret(stored) || null;
   } catch {
@@ -43386,8 +43386,8 @@ async function setJobberCreds(clientId, secret) {
   const db = getDb();
   for (const [k, v] of [["jobber_client_id", clientId], ["jobber_client_secret", secret]]) {
     const enc = encryptSecret(v.trim());
-    const existing = await db.select().from(appSettings).where(eq(appSettings.key, k)).limit(1);
-    if (existing[0]) await db.update(appSettings).set({ value: enc, updatedAt: /* @__PURE__ */ new Date() }).where(eq(appSettings.key, k));
+    const existing = await db.select().from(appSettings).where(eq2(appSettings.key, k)).limit(1);
+    if (existing[0]) await db.update(appSettings).set({ value: enc, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(appSettings.key, k));
     else await db.insert(appSettings).values({ key: k, value: enc });
   }
 }
@@ -43487,7 +43487,7 @@ async function exchangeAndPersist2(input) {
       );
     }
   }
-  const existing = await db.select().from(jobberConnections).where(eq(jobberConnections.clientId, state.clientId)).limit(1);
+  const existing = await db.select().from(jobberConnections).where(eq2(jobberConnections.clientId, state.clientId)).limit(1);
   const row = {
     clientId: state.clientId,
     accountName: acc?.name ?? null,
@@ -43499,7 +43499,7 @@ async function exchangeAndPersist2(input) {
     reconnectReason: null,
     updatedAt: /* @__PURE__ */ new Date()
   };
-  if (existing[0]) await db.update(jobberConnections).set(row).where(eq(jobberConnections.clientId, state.clientId));
+  if (existing[0]) await db.update(jobberConnections).set(row).where(eq2(jobberConnections.clientId, state.clientId));
   else await db.insert(jobberConnections).values(row);
 }
 async function refreshToken(conn) {
@@ -43515,7 +43515,7 @@ async function refreshToken(conn) {
     });
   } catch (e) {
     const db2 = getDb();
-    await db2.update(jobberConnections).set({ active: false, reconnectReason: "refresh_failed", updatedAt: /* @__PURE__ */ new Date() }).where(eq(jobberConnections.id, conn.id));
+    await db2.update(jobberConnections).set({ active: false, reconnectReason: "refresh_failed", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(jobberConnections.id, conn.id));
     throw new Error("Jobber reconnect required \u2014 refresh failed. Click Connect Jobber again.");
   }
   const expiresAt = new Date(Date.now() + (Number(data.expires_in) || 3600) * 1e3);
@@ -43528,13 +43528,13 @@ async function refreshToken(conn) {
     active: true,
     updatedAt: /* @__PURE__ */ new Date()
   };
-  await db.update(jobberConnections).set(patch).where(eq(jobberConnections.id, conn.id));
+  await db.update(jobberConnections).set(patch).where(eq2(jobberConnections.id, conn.id));
   return { ...conn, ...patch };
 }
 async function getValidConnection(clientId) {
   await ensureJobberTable();
   const db = getDb();
-  const rows = await db.select().from(jobberConnections).where(eq(jobberConnections.clientId, clientId)).limit(1);
+  const rows = await db.select().from(jobberConnections).where(eq2(jobberConnections.clientId, clientId)).limit(1);
   let conn = rows[0];
   if (!conn || !conn.active) return null;
   if (!conn.expiresAt || conn.expiresAt.getTime() - Date.now() < 12e4) {
@@ -43548,7 +43548,7 @@ function bearerFor(conn) {
 async function disconnectJobber(clientId) {
   await ensureJobberTable();
   const db = getDb();
-  await db.update(jobberConnections).set({ active: false, reconnectReason: "disconnected", updatedAt: /* @__PURE__ */ new Date() }).where(eq(jobberConnections.clientId, clientId));
+  await db.update(jobberConnections).set({ active: false, reconnectReason: "disconnected", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(jobberConnections.clientId, clientId));
 }
 async function ensureJobberTable() {
   try {
@@ -44039,10 +44039,10 @@ async function keep(obj) {
 async function seedCollingwoodPayroll() {
   const db = getDb();
   try {
-    const client = (await db.select().from(clients).where(eq(clients.id, CLIENT_ID)).limit(1))[0];
+    const client = (await db.select().from(clients).where(eq2(clients.id, CLIENT_ID)).limit(1))[0];
     if (!client) return { created: 0, filled: 0, banked: 0, skipped: "client 7 not found" };
     if (!/colling/i.test(client.name || "")) return { created: 0, filled: 0, banked: 0, skipped: `client 7 is "${client.name}", not Collingwood` };
-    const existing = await db.select().from(employees).where(eq(employees.clientId, CLIENT_ID));
+    const existing = await db.select().from(employees).where(eq2(employees.clientId, CLIENT_ID));
     let created = 0, filled = 0, banked = 0;
     for (const e of ROSTER) {
       const match2 = existing.find((x) => norm6(x.firstName) === norm6(e.first) && norm6(x.lastName) === norm6(e.last));
@@ -44077,12 +44077,12 @@ async function seedCollingwoodPayroll() {
         }
         if (Object.keys(patch).length) {
           patch.updatedAt = /* @__PURE__ */ new Date();
-          await db.update(employees).set(await keep(patch)).where(eq(employees.id, employeeId));
+          await db.update(employees).set(await keep(patch)).where(eq2(employees.id, employeeId));
           filled++;
         }
       }
       if (e.banked != null) {
-        const have = await db.select().from(bankedHourEntries).where(and(eq(bankedHourEntries.employeeId, employeeId), eq(bankedHourEntries.kind, "opening")));
+        const have = await db.select().from(bankedHourEntries).where(and(eq2(bankedHourEntries.employeeId, employeeId), eq2(bankedHourEntries.kind, "opening")));
         if (!have.length) {
           await db.insert(bankedHourEntries).values({
             clientId: CLIENT_ID,
@@ -44108,19 +44108,19 @@ async function seedCollingwoodPayroll() {
 async function applyCollingwoodPhoneAllowances() {
   const db = getDb();
   try {
-    const client = (await db.select().from(clients).where(eq(clients.id, CLIENT_ID)).limit(1))[0];
+    const client = (await db.select().from(clients).where(eq2(clients.id, CLIENT_ID)).limit(1))[0];
     if (!client || !/colling/i.test(client.name || "")) return { on: 0, off: 0, skipped: "client 7 not Collingwood" };
-    const emps = await db.select().from(employees).where(eq(employees.clientId, CLIENT_ID));
+    const emps = await db.select().from(employees).where(eq2(employees.clientId, CLIENT_ID));
     let on = 0, off = 0;
     for (const e of emps) {
       const entitled = !PHONE_EXEMPT_LAST.includes(norm6(e.lastName));
       if (entitled) {
         if (e.getsPhoneAllowance !== true || e.phoneAllowance !== PHONE_ALLOWANCE) {
-          await db.update(employees).set(await keep({ getsPhoneAllowance: true, phoneAllowance: PHONE_ALLOWANCE, updatedAt: /* @__PURE__ */ new Date() })).where(eq(employees.id, e.id));
+          await db.update(employees).set(await keep({ getsPhoneAllowance: true, phoneAllowance: PHONE_ALLOWANCE, updatedAt: /* @__PURE__ */ new Date() })).where(eq2(employees.id, e.id));
           on++;
         }
       } else if (e.getsPhoneAllowance || (e.phoneAllowance ?? 0) > 0) {
-        await db.update(employees).set(await keep({ getsPhoneAllowance: false, phoneAllowance: null, updatedAt: /* @__PURE__ */ new Date() })).where(eq(employees.id, e.id));
+        await db.update(employees).set(await keep({ getsPhoneAllowance: false, phoneAllowance: null, updatedAt: /* @__PURE__ */ new Date() })).where(eq2(employees.id, e.id));
         off++;
       }
     }
@@ -44183,7 +44183,7 @@ async function seedTouchbistroPayroll() {
   const skipped = [];
   for (const { clientId, nameMatch, roster } of TOUCHBISTRO) {
     try {
-      const client = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+      const client = (await db.select().from(clients).where(eq2(clients.id, clientId)).limit(1))[0];
       if (!client) {
         skipped.push(`client ${clientId} not found`);
         continue;
@@ -44192,7 +44192,7 @@ async function seedTouchbistroPayroll() {
         skipped.push(`client ${clientId} is "${client.name}", not a match`);
         continue;
       }
-      const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
+      const existing = await db.select().from(employees).where(eq2(employees.clientId, clientId));
       for (const e of roster) {
         const match2 = existing.find((x) => norm7(x.firstName) === norm7(e.first) && norm7(x.lastName) === norm7(e.last));
         if (!match2) {
@@ -44220,7 +44220,7 @@ async function seedTouchbistroPayroll() {
           if (match2.position == null && e.position) patch.position = e.position;
           if (Object.keys(patch).length) {
             patch.updatedAt = /* @__PURE__ */ new Date();
-            await db.update(employees).set(await keep2(patch)).where(eq(employees.id, match2.id));
+            await db.update(employees).set(await keep2(patch)).where(eq2(employees.id, match2.id));
             filled++;
           }
         }
@@ -44290,10 +44290,10 @@ __export(payroll_router_exports, {
   seedPayrollSchedules: () => seedPayrollSchedules
 });
 async function ytdGrossBeforeRun(db, employeeId, run3) {
-  const emp = (await db.select().from(employees).where(eq(employees.id, employeeId)).limit(1))[0];
+  const emp = (await db.select().from(employees).where(eq2(employees.id, employeeId)).limit(1))[0];
   const opening = emp?.ytdGrossOpening || 0;
   const year2 = new Date(run3.payPeriodEnd).getFullYear();
-  const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, run3.clientId));
+  const allRuns = await db.select().from(payRuns).where(eq2(payRuns.clientId, run3.clientId));
   const priorRunIds = allRuns.filter((r) => new Date(r.payPeriodEnd).getFullYear() === year2 && new Date(r.payPeriodEnd) < new Date(run3.payPeriodStart)).map((r) => r.id);
   if (priorRunIds.length === 0) return opening;
   const allLines = await db.select().from(payRunLines);
@@ -44341,7 +44341,7 @@ async function backfillHasPayroll() {
       if (c.hasPayroll) continue;
       const n = (c.name || "").toLowerCase();
       if (KNOWN_PAYROLL.some((k) => n.includes(k))) {
-        await db.update(clients).set({ hasPayroll: true }).where(eq(clients.id, c.id));
+        await db.update(clients).set({ hasPayroll: true }).where(eq2(clients.id, c.id));
         console.log(`[payroll] backfilled hasPayroll for client ${c.id} (${c.name})`);
       }
     }
@@ -44358,9 +44358,9 @@ async function seedPayrollSchedules() {
       const n = (c.name || "").toLowerCase();
       const src = n.includes("clark") ? "jobber" : n.includes("spot") || n.includes("sher") || n.includes("punjab") ? "touchbistro" : n.includes("originality") ? "clockify" : null;
       if (["clark", "spot", "sher", "punjab"].some((k) => n.includes(k))) {
-        await db.update(clients).set({ payrollFrequency: "bi-weekly", payrollAnchorStart: biweeklyAnchor, payrollPayDayOffset: 3, ...src && !c.payrollHoursSource ? { payrollHoursSource: src } : {} }).where(eq(clients.id, c.id));
+        await db.update(clients).set({ payrollFrequency: "bi-weekly", payrollAnchorStart: biweeklyAnchor, payrollPayDayOffset: 3, ...src && !c.payrollHoursSource ? { payrollHoursSource: src } : {} }).where(eq2(clients.id, c.id));
       } else if (n.includes("originality")) {
-        await db.update(clients).set({ ...c.payrollFrequency ? {} : { payrollFrequency: "semi-monthly" }, ...src && !c.payrollHoursSource ? { payrollHoursSource: src } : {} }).where(eq(clients.id, c.id));
+        await db.update(clients).set({ ...c.payrollFrequency ? {} : { payrollFrequency: "semi-monthly" }, ...src && !c.payrollHoursSource ? { payrollHoursSource: src } : {} }).where(eq2(clients.id, c.id));
       }
     }
   } catch (e) {
@@ -44389,7 +44389,7 @@ function payrollKind(name2, source) {
 }
 async function recomputeRunTotals(runId) {
   const db = getDb();
-  const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
+  const lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, runId));
   let g = 0, n = 0, eded = 0, empc = 0;
   for (const l of lines2) {
     g += l.grossPay || 0;
@@ -44403,10 +44403,10 @@ async function recomputeRunTotals(runId) {
     totalEmployeeDeductions: round2(eded),
     totalEmployerCost: round2(empc),
     updatedAt: /* @__PURE__ */ new Date()
-  }).where(eq(payRuns.id, runId));
+  }).where(eq2(payRuns.id, runId));
 }
 async function applyImportedHours(db, runId, clientId, hours) {
-  const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
+  const emps = await db.select().from(employees).where(eq2(employees.clientId, clientId));
   const rosterExists = emps.length > 0;
   const norm24 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
   const byAlias = /* @__PURE__ */ new Map(), byFull = /* @__PURE__ */ new Map(), byFirst = /* @__PURE__ */ new Map();
@@ -44444,7 +44444,7 @@ async function applyImportedHours(db, runId, clientId, hours) {
     }
     return byFirst.get(norm24(first)) || byFirst.get(norm24(n.split(/[ ,]/)[0])) || null;
   };
-  const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, runId));
+  const lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, runId));
   const lineByEmp = new Map(lines2.map((l) => [l.employeeId, l]));
   const { longShiftNote: longShiftNote2 } = await Promise.resolve().then(() => (init_timesheet_core(), timesheet_core_exports));
   let matched = 0;
@@ -44481,7 +44481,7 @@ async function applyImportedHours(db, runId, clientId, hours) {
     if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
     const line = lineByEmp.get(emp.id);
     if (line) {
-      await db.update(payRunLines).set({ regularHours: h.hours, notes: note ?? line.notes ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRunLines.id, line.id));
+      await db.update(payRunLines).set({ regularHours: h.hours, notes: note ?? line.notes ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRunLines.id, line.id));
     } else {
       const [newLine] = await db.insert(payRunLines).values({ payRunId: runId, employeeId: emp.id, regularHours: h.hours, notes: note ?? null }).returning();
       if (newLine) lineByEmp.set(emp.id, newLine);
@@ -44527,10 +44527,10 @@ var init_payroll_router = __esm({
         const year2 = input.year ?? now.getUTCFullYear();
         const quarter = input.quarter ?? (Math.floor(now.getUTCMonth() / 3) || 4);
         const qStartMonth = (quarter - 1) * 3;
-        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
-        const emps = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
+        const client = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
+        const emps = await db.select().from(employees).where(eq2(employees.clientId, input.clientId));
         const eligibleIds = new Set(emps.filter((e) => e.wsibEligible !== false).map((e) => e.id));
-        const runs = await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId));
+        const runs = await db.select().from(payRuns).where(eq2(payRuns.clientId, input.clientId));
         const inQuarter = runs.filter((r) => {
           const d10 = r.payDate || r.payPeriodEnd;
           if (!d10) return false;
@@ -44564,13 +44564,13 @@ var init_payroll_router = __esm({
       /** Toggle an employee's WSIB eligibility (management/exec excluded). */
       setEmployeeWsibEligible: staffQuery.input(external_exports.object({ employeeId: external_exports.number(), eligible: external_exports.boolean() })).mutation(async ({ input }) => {
         const db = getDb();
-        await db.update(employees).set({ wsibEligible: input.eligible, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, input.employeeId));
+        await db.update(employees).set({ wsibEligible: input.eligible, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(employees.id, input.employeeId));
         return { success: true };
       }),
       /** Set the client's WSIB premium rate ($ per $100). */
       setWsibRate: staffQuery.input(external_exports.object({ clientId: external_exports.number(), rate: external_exports.number().min(0).max(50) })).mutation(async ({ input }) => {
         const db = getDb();
-        await db.update(clients).set({ wsibRate: input.rate, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, input.clientId));
+        await db.update(clients).set({ wsibRate: input.rate, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, input.clientId));
         return { success: true };
       }),
       // Clients that run payroll: hasPayroll flag OR at least one employee on file.
@@ -44642,7 +44642,7 @@ var init_payroll_router = __esm({
         const cs = await db.select().from(clients);
         const nameById = new Map(cs.map((c) => [c.id, c.name]));
         const since = new Date(Date.now() - 12 * 36e5);
-        const ts = await db.select().from(tasks).where(and(eq(tasks.category, "Payroll"), gte(tasks.dueDate, since)));
+        const ts = await db.select().from(tasks).where(and(eq2(tasks.category, "Payroll"), gte(tasks.dueDate, since)));
         const byClient = /* @__PURE__ */ new Map();
         for (const t2 of ts) {
           if (!t2.clientId) continue;
@@ -44665,7 +44665,7 @@ var init_payroll_router = __esm({
       // Pay runs for a client, newest period first.
       listRuns: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
-        return db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId)).orderBy(desc(payRuns.payPeriodStart));
+        return db.select().from(payRuns).where(eq2(payRuns.clientId, input.clientId)).orderBy(desc(payRuns.payPeriodStart));
       }),
       // Stat holidays (Ontario ESA) that fall inside a pay run's period — so the
       // timesheet knows a stat day needs to be paid out (feeds QBO Payroll; we don't
@@ -44675,7 +44675,7 @@ var init_payroll_router = __esm({
         let { start, end } = input;
         if (input.runId && (!start || !end)) {
           const db = getDb();
-          const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+          const run3 = (await db.select().from(payRuns).where(eq2(payRuns.id, input.runId)).limit(1))[0];
           if (run3) {
             start = new Date(run3.payPeriodStart).toISOString().slice(0, 10);
             end = new Date(run3.payPeriodEnd).toISOString().slice(0, 10);
@@ -44733,7 +44733,7 @@ var init_payroll_router = __esm({
       // to QBO. Returns matched/unmatched + any error verbatim for diagnosis.
       importJobberHours: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ input }) => {
         const db = getDb();
-        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        const run3 = (await db.select().from(payRuns).where(eq2(payRuns.id, input.runId)).limit(1))[0];
         if (!run3) throw new Error("Pay run not found");
         const start = new Date(run3.payPeriodStart).toISOString().slice(0, 10);
         const end = new Date(run3.payPeriodEnd).toISOString().slice(0, 10);
@@ -44752,17 +44752,17 @@ var init_payroll_router = __esm({
       // no name spelling/nickname problems — and fills this run's hours immediately.
       mapJobberWorker: staffQuery.input(external_exports.object({ runId: external_exports.number(), employeeId: external_exports.number(), jobberUserId: external_exports.string().optional(), jobberName: external_exports.string().optional(), hours: external_exports.number().optional() })).mutation(async ({ input }) => {
         const db = getDb();
-        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        const run3 = (await db.select().from(payRuns).where(eq2(payRuns.id, input.runId)).limit(1))[0];
         if (!run3) throw new Error("Pay run not found");
-        const emp = (await db.select().from(employees).where(eq(employees.id, input.employeeId)).limit(1))[0];
+        const emp = (await db.select().from(employees).where(eq2(employees.id, input.employeeId)).limit(1))[0];
         if (!emp || emp.clientId !== run3.clientId) throw new Error("Employee not on this client");
         const patch = { updatedAt: /* @__PURE__ */ new Date() };
         if (input.jobberUserId) patch.jobberUserId = String(input.jobberUserId);
         if (input.jobberName) patch.jobberName = input.jobberName;
-        await db.update(employees).set(patch).where(eq(employees.id, input.employeeId));
+        await db.update(employees).set(patch).where(eq2(employees.id, input.employeeId));
         if (input.hours != null) {
-          const line = (await db.select().from(payRunLines).where(and(eq(payRunLines.payRunId, input.runId), eq(payRunLines.employeeId, input.employeeId))).limit(1))[0];
-          if (line) await db.update(payRunLines).set({ regularHours: input.hours, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRunLines.id, line.id));
+          const line = (await db.select().from(payRunLines).where(and(eq2(payRunLines.payRunId, input.runId), eq2(payRunLines.employeeId, input.employeeId))).limit(1))[0];
+          if (line) await db.update(payRunLines).set({ regularHours: input.hours, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRunLines.id, line.id));
           else await db.insert(payRunLines).values({ payRunId: input.runId, employeeId: input.employeeId, regularHours: input.hours });
           await recomputeRunTotals(input.runId);
         }
@@ -44773,9 +44773,9 @@ var init_payroll_router = __esm({
       // Google account, AI-extracts the period's hours, fills the run.
       importTouchBistroHours: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
-        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        const run3 = (await db.select().from(payRuns).where(eq2(payRuns.id, input.runId)).limit(1))[0];
         if (!run3) throw new Error("Pay run not found");
-        const client = (await db.select().from(clients).where(eq(clients.id, run3.clientId)).limit(1))[0];
+        const client = (await db.select().from(clients).where(eq2(clients.id, run3.clientId)).limit(1))[0];
         const start = new Date(run3.payPeriodStart).toISOString().slice(0, 10);
         const end = new Date(run3.payPeriodEnd).toISOString().slice(0, 10);
         let hours;
@@ -44800,7 +44800,7 @@ var init_payroll_router = __esm({
         fileName: external_exports.string().optional()
       })).mutation(async ({ input }) => {
         const db = getDb();
-        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        const run3 = (await db.select().from(payRuns).where(eq2(payRuns.id, input.runId)).limit(1))[0];
         if (!run3) throw new Error("Pay run not found");
         const start = new Date(run3.payPeriodStart).toISOString().slice(0, 10);
         const end = new Date(run3.payPeriodEnd).toISOString().slice(0, 10);
@@ -44823,9 +44823,9 @@ var init_payroll_router = __esm({
       // connected in Integrations (with Drive access).
       importTimesheetFromDrive: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
-        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        const run3 = (await db.select().from(payRuns).where(eq2(payRuns.id, input.runId)).limit(1))[0];
         if (!run3) throw new Error("Pay run not found");
-        const client = (await db.select().from(clients).where(eq(clients.id, run3.clientId)).limit(1))[0];
+        const client = (await db.select().from(clients).where(eq2(clients.id, run3.clientId)).limit(1))[0];
         const start = new Date(run3.payPeriodStart).toISOString().slice(0, 10);
         const end = new Date(run3.payPeriodEnd).toISOString().slice(0, 10);
         let hours;
@@ -44851,7 +44851,7 @@ var init_payroll_router = __esm({
       // effective date in employee_rate_history (raises tracked by day).
       importEmployeeRoster: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
-        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        const client = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
         if (!client) throw new Error("Client not found");
         if (input.clientId === 7) {
           const { seedCollingwoodPayroll: seedCollingwoodPayroll2 } = await Promise.resolve().then(() => (init_seed_collingwood_payroll(), seed_collingwood_payroll_exports));
@@ -44871,7 +44871,7 @@ var init_payroll_router = __esm({
           return { ok: false, error: e instanceof Error ? e.message : String(e), created: [], updated: [], total: 0 };
         }
         const { recordRateChange: recordRateChange2 } = await Promise.resolve().then(() => (init_employee_router(), employee_router_exports));
-        const existing = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
+        const existing = await db.select().from(employees).where(eq2(employees.clientId, input.clientId));
         const norm24 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
         const byName = /* @__PURE__ */ new Map();
         for (const e of existing) byName.set(norm24(`${e.firstName} ${e.lastName}`), e);
@@ -44893,7 +44893,7 @@ var init_payroll_router = __esm({
           if (hit) {
             const changed = row.hourlyRate != null && row.hourlyRate !== hit.hourlyRate || row.annualSalary != null && row.annualSalary !== hit.annualSalary;
             if (changed) {
-              await db.update(employees).set({ payType: row.payType ?? hit.payType, hourlyRate: row.hourlyRate ?? hit.hourlyRate, annualSalary: row.annualSalary ?? hit.annualSalary, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, hit.id));
+              await db.update(employees).set({ payType: row.payType ?? hit.payType, hourlyRate: row.hourlyRate ?? hit.hourlyRate, annualSalary: row.annualSalary ?? hit.annualSalary, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(employees.id, hit.id));
               await recordRateChange2(db, { employeeId: hit.id, clientId: input.clientId, payType: row.payType ?? hit.payType, hourlyRate: row.hourlyRate ?? hit.hourlyRate, annualSalary: row.annualSalary ?? hit.annualSalary, effectiveDate: eff, note: "Rate from roster sheet", source: "roster_sheet" });
               updated.push(`${first} ${last}`.trim());
             }
@@ -44909,11 +44909,11 @@ var init_payroll_router = __esm({
       // One run with its lines + employee names (the clean sheet).
       getRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
-        const runRows = await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1);
+        const runRows = await db.select().from(payRuns).where(eq2(payRuns.id, input.runId)).limit(1);
         const run3 = runRows[0];
         if (!run3) return null;
-        let lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
-        const emps = await db.select().from(employees).where(eq(employees.clientId, run3.clientId));
+        let lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, input.runId));
+        const emps = await db.select().from(employees).where(eq2(employees.clientId, run3.clientId));
         const empById = new Map(emps.map((e) => [e.id, e]));
         if (run3.status !== "paid") {
           let touched = false;
@@ -44924,11 +44924,11 @@ var init_payroll_router = __esm({
             if (e.getsPhoneAllowance && (e.phoneAllowance ?? 0) > 0 && (l.phoneAllowance ?? 0) === 0) patch.phoneAllowance = e.phoneAllowance;
             if (e.getsReimbursement && (e.reimbursementAmount ?? 0) > 0 && (l.reimbursement ?? 0) === 0) patch.reimbursement = e.reimbursementAmount;
             if (Object.keys(patch).length) {
-              await db.update(payRunLines).set(patch).where(eq(payRunLines.id, l.id));
+              await db.update(payRunLines).set(patch).where(eq2(payRunLines.id, l.id));
               touched = true;
             }
           }
-          if (touched) lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
+          if (touched) lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, input.runId));
         }
         const withNames = lines2.map((l) => {
           const e = empById.get(l.employeeId);
@@ -44963,7 +44963,7 @@ var init_payroll_router = __esm({
           runType: input.runType ?? "regular",
           status: "draft"
         }).returning();
-        const emps = await db.select().from(employees).where(and(eq(employees.clientId, input.clientId), eq(employees.isActive, true)));
+        const emps = await db.select().from(employees).where(and(eq2(employees.clientId, input.clientId), eq2(employees.isActive, true)));
         for (const e of emps) {
           const gross = e.payType === "salary" ? salaryPerPeriod(e.annualSalary, input.frequency) : 0;
           await db.insert(payRunLines).values({
@@ -44991,7 +44991,7 @@ var init_payroll_router = __esm({
         }).optional()
       })).mutation(async ({ input }) => {
         const db = getDb();
-        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.payRunId)).limit(1))[0];
+        const run3 = (await db.select().from(payRuns).where(eq2(payRuns.id, input.payRunId)).limit(1))[0];
         if (!run3) throw new Error("Pay run not found");
         let employeeId = input.employeeId;
         if (!employeeId && input.newEmployee) {
@@ -45007,7 +45007,7 @@ var init_payroll_router = __esm({
           employeeId = emp2.id;
         }
         if (!employeeId) throw new Error("Provide an employee or new employee details");
-        const emp = (await db.select().from(employees).where(eq(employees.id, employeeId)).limit(1))[0];
+        const emp = (await db.select().from(employees).where(eq2(employees.id, employeeId)).limit(1))[0];
         const gross = emp?.payType === "salary" ? salaryPerPeriod(emp.annualSalary, run3.frequency) : 0;
         const [line] = await db.insert(payRunLines).values({
           payRunId: input.payRunId,
@@ -45022,8 +45022,8 @@ var init_payroll_router = __esm({
       // Remove a single line from a run.
       removeLine: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
         const db = getDb();
-        const row = (await db.select().from(payRunLines).where(eq(payRunLines.id, input.id)).limit(1))[0];
-        await db.delete(payRunLines).where(eq(payRunLines.id, input.id));
+        const row = (await db.select().from(payRunLines).where(eq2(payRunLines.id, input.id)).limit(1))[0];
+        await db.delete(payRunLines).where(eq2(payRunLines.id, input.id));
         if (row) await recomputeRunTotals(row.payRunId);
         return { success: true };
       }),
@@ -45055,8 +45055,8 @@ var init_payroll_router = __esm({
       })).mutation(async ({ input }) => {
         const db = getDb();
         const { id, ...updates } = input;
-        await db.update(payRunLines).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRunLines.id, id));
-        const row = (await db.select().from(payRunLines).where(eq(payRunLines.id, id)).limit(1))[0];
+        await db.update(payRunLines).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRunLines.id, id));
+        const row = (await db.select().from(payRunLines).where(eq2(payRunLines.id, id)).limit(1))[0];
         if (row) await recomputeRunTotals(row.payRunId);
         return { success: true };
       }),
@@ -45065,9 +45065,9 @@ var init_payroll_router = __esm({
       // annual maximums + carryforward are respected. Fills every column, recomputes.
       estimateLine: staffQuery.input(external_exports.object({ id: external_exports.number(), fromNet: external_exports.number().optional() })).mutation(async ({ input }) => {
         const db = getDb();
-        const row = (await db.select().from(payRunLines).where(eq(payRunLines.id, input.id)).limit(1))[0];
+        const row = (await db.select().from(payRunLines).where(eq2(payRunLines.id, input.id)).limit(1))[0];
         if (!row) throw new Error("Line not found");
-        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, row.payRunId)).limit(1))[0];
+        const run3 = (await db.select().from(payRuns).where(eq2(payRuns.id, row.payRunId)).limit(1))[0];
         const P = periodsPerYear2(normalizeFrequency(run3?.frequency));
         const ytd = await ytdGrossBeforeRun(db, row.employeeId, run3);
         const elapsed = periodsElapsedBeforeRun(run3);
@@ -45085,7 +45085,7 @@ var init_payroll_router = __esm({
           eiEmployer: line.eiEmployer,
           netPay: line.netPay,
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq(payRunLines.id, input.id));
+        }).where(eq2(payRunLines.id, input.id));
         await recomputeRunTotals(row.payRunId);
         return { success: true, estimate: line };
       }),
@@ -45094,9 +45094,9 @@ var init_payroll_router = __esm({
       // Uses each line's current gross (run ∑ first); lines with no rate stay $0.
       estimateRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ input }) => {
         const db = getDb();
-        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        const run3 = (await db.select().from(payRuns).where(eq2(payRuns.id, input.runId)).limit(1))[0];
         if (!run3) throw new Error("Pay run not found");
-        const rows = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, input.runId));
+        const rows = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, input.runId));
         const P = periodsPerYear2(normalizeFrequency(run3?.frequency));
         const elapsed = periodsElapsedBeforeRun(run3);
         let estimated = 0;
@@ -45117,7 +45117,7 @@ var init_payroll_router = __esm({
             eiEmployer: line.eiEmployer,
             netPay: line.netPay,
             updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq(payRunLines.id, row.id));
+          }).where(eq2(payRunLines.id, row.id));
           estimated++;
         }
         await recomputeRunTotals(input.runId);
@@ -45125,26 +45125,26 @@ var init_payroll_router = __esm({
       }),
       setRunStatus: staffQuery.input(external_exports.object({ runId: external_exports.number(), status: external_exports.enum(["draft", "review", "approved", "paid", "posted"]) })).mutation(async ({ input }) => {
         const db = getDb();
-        await db.update(payRuns).set({ status: input.status, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, input.runId));
+        await db.update(payRuns).set({ status: input.status, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, input.runId));
         return { success: true };
       }),
       deleteRun: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ input }) => {
         const db = getDb();
-        await db.delete(payRunLines).where(eq(payRunLines.payRunId, input.runId));
-        await db.delete(payRuns).where(eq(payRuns.id, input.runId));
+        await db.delete(payRunLines).where(eq2(payRunLines.payRunId, input.runId));
+        await db.delete(payRuns).where(eq2(payRuns.id, input.runId));
         return { success: true };
       }),
       // Create (or return) a client hours-approval link for a run, and mark it sent.
       createApprovalLink: staffQuery.input(external_exports.object({ runId: external_exports.number() })).mutation(async ({ input }) => {
         const db = getDb();
-        const run3 = (await db.select().from(payRuns).where(eq(payRuns.id, input.runId)).limit(1))[0];
+        const run3 = (await db.select().from(payRuns).where(eq2(payRuns.id, input.runId)).limit(1))[0];
         if (!run3) throw new Error("Pay run not found");
         const token2 = run3.approvalToken || `pa_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
         await db.update(payRuns).set({
           approvalToken: token2,
           approvalStatus: run3.approvalStatus === "approved" ? "approved" : "sent",
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq(payRuns.id, input.runId));
+        }).where(eq2(payRuns.id, input.runId));
         return { token: token2 };
       }),
       // AUTOMATIC withholding check (vs CRA), per employee, computed from the
@@ -45154,12 +45154,12 @@ var init_payroll_router = __esm({
       withholdingCheck: staffQuery.input(external_exports.object({ clientId: external_exports.number(), year: external_exports.number().optional() })).query(async ({ input }) => {
         const db = getDb();
         const year2 = input.year ?? (/* @__PURE__ */ new Date()).getFullYear();
-        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
-        const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId));
+        const client = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
+        const allRuns = await db.select().from(payRuns).where(eq2(payRuns.clientId, input.clientId));
         const yrRuns = allRuns.filter((r) => new Date(r.payPeriodEnd).getFullYear() === year2);
         const runIds = new Set(yrRuns.map((r) => r.id));
         if (!yrRuns.length) return { year: year2, periodsPerYear: 0, runsCount: 0, fraction: 0, rows: [] };
-        const emps = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
+        const emps = await db.select().from(employees).where(eq2(employees.clientId, input.clientId));
         const empById = new Map(emps.map((e) => [e.id, e]));
         const allLines = await db.select().from(payRunLines);
         const lines2 = allLines.filter((l) => runIds.has(l.payRunId));
@@ -45219,10 +45219,10 @@ var init_payroll_router = __esm({
         const year2 = input.year ?? (/* @__PURE__ */ new Date()).getFullYear();
         const fromQbo = await pullT4FromQbo(input.clientId, year2);
         if (fromQbo) return { ...fromQbo, source: "qbo", note: null };
-        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
-        const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, input.clientId));
+        const client = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
+        const allRuns = await db.select().from(payRuns).where(eq2(payRuns.clientId, input.clientId));
         const runIds = new Set(allRuns.filter((r) => new Date(r.payPeriodEnd).getFullYear() === year2).map((r) => r.id));
-        const emps = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
+        const emps = await db.select().from(employees).where(eq2(employees.clientId, input.clientId));
         const empById = new Map(emps.map((e) => [e.id, e]));
         const allLines = await db.select().from(payRunLines);
         const lines2 = allLines.filter((l) => runIds.has(l.payRunId));
@@ -45352,7 +45352,7 @@ async function ingestInboundSms(from, body, externalId) {
 }
 async function maybeAutoRespond(counterparty, client) {
   const db = getDb();
-  const rows = await db.select().from(smsMessages).where(eq(smsMessages.counterparty, counterparty)).orderBy(smsMessages.createdAt);
+  const rows = await db.select().from(smsMessages).where(eq2(smsMessages.counterparty, counterparty)).orderBy(smsMessages.createdAt);
   const thread = rows.map((m) => ({ direction: m.direction, body: m.body }));
   const reply = await draftSmsReply({ clientName: client.name, thread });
   if (!reply) return;
@@ -45420,17 +45420,17 @@ var init_message_router = __esm({
       }),
       unreadCount: staffQuery.query(async () => {
         const db = getDb();
-        const rows = await db.select().from(smsMessages).where(and(eq(smsMessages.direction, "inbound"), eq(smsMessages.read, false)));
+        const rows = await db.select().from(smsMessages).where(and(eq2(smsMessages.direction, "inbound"), eq2(smsMessages.read, false)));
         return rows.length;
       }),
       thread: staffQuery.input(external_exports.object({ counterparty: external_exports.string() })).query(async ({ input }) => {
         const db = getDb();
         const cp2 = normalizePhone(input.counterparty);
-        return db.select().from(smsMessages).where(eq(smsMessages.counterparty, cp2)).orderBy(smsMessages.createdAt);
+        return db.select().from(smsMessages).where(eq2(smsMessages.counterparty, cp2)).orderBy(smsMessages.createdAt);
       }),
       markRead: staffQuery.input(external_exports.object({ counterparty: external_exports.string() })).mutation(async ({ input }) => {
         const db = getDb();
-        await db.update(smsMessages).set({ read: true }).where(and(eq(smsMessages.counterparty, normalizePhone(input.counterparty)), eq(smsMessages.direction, "inbound")));
+        await db.update(smsMessages).set({ read: true }).where(and(eq2(smsMessages.counterparty, normalizePhone(input.counterparty)), eq2(smsMessages.direction, "inbound")));
         return { success: true };
       }),
       send: staffQuery.input(external_exports.object({ counterparty: external_exports.string().min(7), body: external_exports.string().min(1) })).mutation(async ({ ctx, input }) => {
@@ -45454,7 +45454,7 @@ var init_message_router = __esm({
       suggestReply: staffQuery.input(external_exports.object({ counterparty: external_exports.string() })).mutation(async ({ input }) => {
         const db = getDb();
         const cp2 = normalizePhone(input.counterparty);
-        const rows = await db.select().from(smsMessages).where(eq(smsMessages.counterparty, cp2)).orderBy(smsMessages.createdAt);
+        const rows = await db.select().from(smsMessages).where(eq2(smsMessages.counterparty, cp2)).orderBy(smsMessages.createdAt);
         const client = await matchClientByPhone(cp2);
         const thread = rows.map((m) => ({ direction: m.direction, body: m.body }));
         const reply = await draftSmsReply({ clientName: client?.name, thread });
@@ -45512,7 +45512,7 @@ function applicableItems(client) {
   return CHECKLIST_ITEMS.filter((i) => applies(i, client));
 }
 async function loadClient(clientId) {
-  const rows = await getDb().select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  const rows = await getDb().select().from(clients).where(eq2(clients.id, clientId)).limit(1);
   return rows[0] || {};
 }
 async function markFiscalYearClosedForAll(userId, year2) {
@@ -45526,9 +45526,9 @@ async function markFiscalYearClosedForAll(userId, year2) {
     for (let month = 1; month <= lastMonth; month++) {
       const setData = { completionPercent: 100, completedAt: /* @__PURE__ */ new Date() };
       for (const it of items) setData[it.field] = 1;
-      const existing = await db.select().from(monthlyCloseChecklist).where(and(eq(monthlyCloseChecklist.clientId, client.id), eq(monthlyCloseChecklist.year, year2), eq(monthlyCloseChecklist.month, month))).limit(1);
+      const existing = await db.select().from(monthlyCloseChecklist).where(and(eq2(monthlyCloseChecklist.clientId, client.id), eq2(monthlyCloseChecklist.year, year2), eq2(monthlyCloseChecklist.month, month))).limit(1);
       if (existing[0]) {
-        await db.update(monthlyCloseChecklist).set(setData).where(eq(monthlyCloseChecklist.id, existing[0].id));
+        await db.update(monthlyCloseChecklist).set(setData).where(eq2(monthlyCloseChecklist.id, existing[0].id));
       } else {
         await db.insert(monthlyCloseChecklist).values({ clientId: client.id, userId, year: year2, month, ...setData });
       }
@@ -45541,14 +45541,14 @@ async function seedClose2025Complete() {
   const db = getDb();
   try {
     const KEY = "close_seed_fy2025_done";
-    const flag = await db.select().from(appSettings).where(eq(appSettings.key, KEY)).limit(1);
+    const flag = await db.select().from(appSettings).where(eq2(appSettings.key, KEY)).limit(1);
     if (flag[0]?.value === "1") return;
     const owner = await db.select().from(clients).limit(1);
     if (!owner.length) return;
-    const admins = await db.select().from(users).where(eq(users.role, "admin")).limit(1);
+    const admins = await db.select().from(users2).where(eq2(users2.role, "admin")).limit(1);
     let uid = admins[0]?.id;
     if (!uid) {
-      const anyUser = await db.select().from(users).limit(1);
+      const anyUser = await db.select().from(users2).limit(1);
       uid = anyUser[0]?.id ?? 1;
     }
     const res = await markFiscalYearClosedForAll(uid, 2025);
@@ -45589,7 +45589,7 @@ var init_monthly_close_router = __esm({
     monthlyCloseRouter = createRouter({
       getOrCreate: staffQuery.input(external_exports.object({ clientId: external_exports.number(), year: external_exports.number(), month: external_exports.number() })).query(async ({ ctx, input }) => {
         const db = getDb();
-        const existing = await db.select().from(monthlyCloseChecklist).where(and(eq(monthlyCloseChecklist.clientId, input.clientId), eq(monthlyCloseChecklist.year, input.year), eq(monthlyCloseChecklist.month, input.month))).limit(1);
+        const existing = await db.select().from(monthlyCloseChecklist).where(and(eq2(monthlyCloseChecklist.clientId, input.clientId), eq2(monthlyCloseChecklist.year, input.year), eq2(monthlyCloseChecklist.month, input.month))).limit(1);
         if (existing[0]) return existing[0];
         const [checklist] = await db.insert(monthlyCloseChecklist).values({
           clientId: input.clientId,
@@ -45609,7 +45609,7 @@ var init_monthly_close_router = __esm({
       toggleItem: staffQuery.input(external_exports.object({ id: external_exports.number(), field: external_exports.string(), checked: external_exports.boolean() })).mutation(async ({ input }) => {
         const db = getDb();
         const { id, field, checked } = input;
-        const rows = await db.select().from(monthlyCloseChecklist).where(eq(monthlyCloseChecklist.id, id)).limit(1);
+        const rows = await db.select().from(monthlyCloseChecklist).where(eq2(monthlyCloseChecklist.id, id)).limit(1);
         if (!rows[0]) throw new Error("Checklist not found");
         const client = await loadClient(rows[0].clientId);
         const items = applicableItems(client);
@@ -45622,18 +45622,18 @@ var init_monthly_close_router = __esm({
         }
         updateData.completionPercent = items.length ? Math.round(completed / items.length * 100) : 0;
         updateData.completedAt = items.length && completed === items.length ? /* @__PURE__ */ new Date() : null;
-        await db.update(monthlyCloseChecklist).set(updateData).where(eq(monthlyCloseChecklist.id, id));
+        await db.update(monthlyCloseChecklist).set(updateData).where(eq2(monthlyCloseChecklist.id, id));
         return { success: true, completionPercent: updateData.completionPercent };
       }),
       updateNotes: staffQuery.input(external_exports.object({ id: external_exports.number(), notes: external_exports.string() })).mutation(async ({ input }) => {
-        await getDb().update(monthlyCloseChecklist).set({ notes: input.notes }).where(eq(monthlyCloseChecklist.id, input.id));
+        await getDb().update(monthlyCloseChecklist).set({ notes: input.notes }).where(eq2(monthlyCloseChecklist.id, input.id));
         return { success: true };
       }),
       /** Mark ALL relevant items done (or clear) in one click — over the client's
        *  applicable items only, so it never re-introduces an irrelevant step. */
       markAll: staffQuery.input(external_exports.object({ id: external_exports.number(), done: external_exports.boolean().default(true) })).mutation(async ({ input }) => {
         const db = getDb();
-        const rows = await db.select().from(monthlyCloseChecklist).where(eq(monthlyCloseChecklist.id, input.id)).limit(1);
+        const rows = await db.select().from(monthlyCloseChecklist).where(eq2(monthlyCloseChecklist.id, input.id)).limit(1);
         if (!rows[0]) throw new Error("Checklist not found");
         const client = await loadClient(rows[0].clientId);
         const items = applicableItems(client);
@@ -45641,7 +45641,7 @@ var init_monthly_close_router = __esm({
         for (const item of items) updateData[item.field] = input.done ? 1 : 0;
         updateData.completionPercent = input.done ? 100 : 0;
         updateData.completedAt = input.done ? /* @__PURE__ */ new Date() : null;
-        await db.update(monthlyCloseChecklist).set(updateData).where(eq(monthlyCloseChecklist.id, input.id));
+        await db.update(monthlyCloseChecklist).set(updateData).where(eq2(monthlyCloseChecklist.id, input.id));
         return { success: true, completionPercent: updateData.completionPercent };
       }),
       /** Mark a whole fiscal year's closes COMPLETE for every relevant client, up to each
@@ -45652,7 +45652,7 @@ var init_monthly_close_router = __esm({
       }),
       /** Toggle whether a client has credit cards (drives the credit-card step). */
       setHasCreditCard: staffQuery.input(external_exports.object({ clientId: external_exports.number(), value: external_exports.boolean() })).mutation(async ({ input }) => {
-        await getDb().update(clients).set({ hasCreditCard: input.value }).where(eq(clients.id, input.clientId));
+        await getDb().update(clients).set({ hasCreditCard: input.value }).where(eq2(clients.id, input.clientId));
         return { success: true };
       }),
       /** The close-step picker for a client: the full library + which are enabled (the
@@ -45666,7 +45666,7 @@ var init_monthly_close_router = __esm({
       setStepConfig: staffQuery.input(external_exports.object({ clientId: external_exports.number(), fields: external_exports.array(external_exports.string()) })).mutation(async ({ input }) => {
         const valid = new Set(ALL_CHECKLIST_ITEMS.map((i) => i.field));
         const fields = input.fields.filter((f) => valid.has(f));
-        await getDb().update(clients).set({ closeSteps: JSON.stringify(fields) }).where(eq(clients.id, input.clientId));
+        await getDb().update(clients).set({ closeSteps: JSON.stringify(fields) }).where(eq2(clients.id, input.clientId));
         return { success: true, count: fields.length };
       }),
       /** Does this client have credit cards? (for the inline toggle default) */
@@ -45680,24 +45680,24 @@ var init_monthly_close_router = __esm({
 
 // api/month-end-router.ts
 async function countToReview(db, clientId) {
-  const rows = await db.select({ n: count() }).from(triageFindings).where(and(eq(triageFindings.clientId, clientId), eq(triageFindings.status, "new")));
+  const rows = await db.select({ n: count() }).from(triageFindings).where(and(eq2(triageFindings.clientId, clientId), eq2(triageFindings.status, "new")));
   return Number(rows[0]?.n ?? 0);
 }
 async function countOpenTasks(db, clientId) {
-  const rows = await db.select({ n: count() }).from(tasks).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
+  const rows = await db.select({ n: count() }).from(tasks).where(and(eq2(tasks.clientId, clientId), ne(tasks.status, "completed")));
   return Number(rows[0]?.n ?? 0);
 }
 async function currentChecklistPercent(db, clientId, asOf) {
   const rows = await db.select().from(monthlyCloseChecklist).where(and(
-    eq(monthlyCloseChecklist.clientId, clientId),
-    eq(monthlyCloseChecklist.year, asOf.getUTCFullYear()),
-    eq(monthlyCloseChecklist.month, asOf.getUTCMonth() + 1)
+    eq2(monthlyCloseChecklist.clientId, clientId),
+    eq2(monthlyCloseChecklist.year, asOf.getUTCFullYear()),
+    eq2(monthlyCloseChecklist.month, asOf.getUTCMonth() + 1)
   )).limit(1);
   return rows[0] ? Number(rows[0].completionPercent ?? 0) : null;
 }
 async function scorecard(db, clientId) {
   try {
-    const rows = await db.select().from(qboCustomers).where(eq(qboCustomers.clientId, clientId)).limit(1);
+    const rows = await db.select().from(qboCustomers).where(eq2(qboCustomers.clientId, clientId)).limit(1);
     const r = rows[0];
     return { lastHstFiled: r?.lastHstFiled ?? null, lastReconciled: r?.lastReconciledDate ?? null };
   } catch {
@@ -45741,7 +45741,7 @@ async function statusForClient(db, client, asOf) {
 }
 async function computePortfolio(asOf) {
   const db = getDb();
-  const active = await db.select().from(clients).where(eq(clients.status, "active"));
+  const active = await db.select().from(clients).where(eq2(clients.status, "active"));
   const operational = active.filter((c) => isOperationalClient(c.clientType));
   const out = [];
   for (const c of operational) {
@@ -45786,7 +45786,7 @@ var init_month_end_router = __esm({
       getClientStatus: authedQuery.input(external_exports.object({ clientId: external_exports.number(), asOf: external_exports.string().optional() })).query(async ({ input }) => {
         const db = getDb();
         const asOf = input.asOf ? new Date(input.asOf) : /* @__PURE__ */ new Date();
-        const rows = await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1);
+        const rows = await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1);
         if (!rows[0]) return null;
         return statusForClient(db, rows[0], asOf);
       }),
@@ -46262,13 +46262,13 @@ __export(quote_router_exports, {
 import crypto7 from "crypto";
 async function createAndSendDoc(opts) {
   const { db, clientId } = opts;
-  const ps = await db.select().from(portalSettings).where(eq(portalSettings.clientId, clientId)).limit(1);
+  const ps = await db.select().from(portalSettings).where(eq2(portalSettings.clientId, clientId)).limit(1);
   if (ps.length === 0) {
     await db.insert(portalSettings).values({ clientId, isEnabled: true, showFinancialOverview: true, showTasks: true, showDocuments: true, showInvoices: true });
   } else if (!ps[0].isEnabled) {
-    await db.update(portalSettings).set({ isEnabled: true }).where(eq(portalSettings.clientId, clientId));
+    await db.update(portalSettings).set({ isEnabled: true }).where(eq2(portalSettings.clientId, clientId));
   }
-  const existing = await db.select().from(portalTokens).where(and(eq(portalTokens.clientId, clientId), eq(portalTokens.isActive, true))).limit(1);
+  const existing = await db.select().from(portalTokens).where(and(eq2(portalTokens.clientId, clientId), eq2(portalTokens.isActive, true))).limit(1);
   let token2;
   if (existing[0]) token2 = existing[0].token;
   else {
@@ -46398,10 +46398,10 @@ var init_quote_router = __esm({
       // Scope-based quote for one client + comparison to its flat fee.
       forClient: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
-        const crows = await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1);
+        const crows = await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1);
         const client = crows[0];
         if (!client) return null;
-        const orows = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1);
+        const orows = await db.select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1);
         const onb = orows[0] ?? null;
         const scope = buildScopeForClient(client, onb);
         const quote = computeQuote(scope);
@@ -46452,9 +46452,9 @@ var init_quote_router = __esm({
         bankAccountCount: external_exports.number().min(0).optional()
       })).query(async ({ input }) => {
         const db = getDb();
-        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        const client = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
         if (!client) return null;
-        const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
+        const onb = (await db.select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
         const scope = buildScopeForClient(client, onb);
         scope.avgMonthlyTransactions = input.avgMonthlyTransactions;
         if (input.employeeCount != null) {
@@ -46469,7 +46469,7 @@ var init_quote_router = __esm({
       // Documents already generated for a client (quote + engagement), newest first.
       documents: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
         const db = getDb();
-        const rows = await db.select().from(signatureDocuments).where(eq(signatureDocuments.clientId, input.clientId)).orderBy(desc(signatureDocuments.id));
+        const rows = await db.select().from(signatureDocuments).where(eq2(signatureDocuments.clientId, input.clientId)).orderBy(desc(signatureDocuments.id));
         return rows.map((d10) => ({
           id: d10.id,
           title: d10.title,
@@ -46491,9 +46491,9 @@ var init_quote_router = __esm({
         oneTime: external_exports.array(external_exports.object({ label: external_exports.string(), amount: external_exports.number(), rationale: external_exports.string().optional() })).optional()
       })).mutation(async ({ ctx, input }) => {
         const db = getDb();
-        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        const client = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
         if (!client) throw new Error("Client not found");
-        const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
+        const onb = (await db.select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
         let quote = computeQuote(buildScopeForClient(client, onb));
         if (input.lines) {
           const { nearestPackage: nearestPackage2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
@@ -46530,15 +46530,15 @@ var init_quote_router = __esm({
           quoteSentAt: /* @__PURE__ */ new Date(),
           workflowStatus: "quote_sent",
           ...input.transactions != null ? { transactionsPerMonth: input.transactions } : {}
-        }).where(eq(clients.id, client.id));
+        }).where(eq2(clients.id, client.id));
         return res;
       }),
       // Generate a branded, signable letter of engagement and send it.
       createEngagementLetter: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
-        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        const client = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
         if (!client) throw new Error("Client not found");
-        const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
+        const onb = (await db.select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, input.clientId)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
         const quote = computeQuote(buildScopeForClient(client, onb));
         const firm = getFirmSettings();
         const content = renderEngagementHtml({
@@ -46566,13 +46566,13 @@ var init_quote_router = __esm({
           documentType: "engagement_letter",
           clientEmail: client.email || null
         });
-        await db.update(clients).set({ engagementSentAt: /* @__PURE__ */ new Date(), workflowStatus: "engagement_sent" }).where(eq(clients.id, client.id));
+        await db.update(clients).set({ engagementSentAt: /* @__PURE__ */ new Date(), workflowStatus: "engagement_sent" }).where(eq2(clients.id, client.id));
         return res;
       }),
       // Generate a branded, signable CRA Represent-a-Client authorization request.
       createCraAuthRequest: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
-        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        const client = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
         if (!client) throw new Error("Client not found");
         const content = renderCraAuthRequestHtml({ firm: getFirmSettings(), clientName: client.name, clientCompany: client.company });
         return createAndSendDoc({
@@ -46589,18 +46589,18 @@ var init_quote_router = __esm({
       // Final step: make the client active and generate their recurring tasks.
       activateClient: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ ctx, input }) => {
         const db = getDb();
-        const client = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+        const client = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
         if (!client) throw new Error("Client not found");
         await db.update(clients).set({
           status: "active",
           workflowStatus: "active",
           engagementSignedAt: client.engagementSignedAt ?? /* @__PURE__ */ new Date()
-        }).where(eq(clients.id, client.id));
+        }).where(eq2(clients.id, client.id));
         const { clientTaskRules: clientTaskRules4, tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-        const hasRules = (await db.select().from(clientTaskRules4).where(eq(clientTaskRules4.clientId, client.id)).limit(1)).length > 0;
+        const hasRules = (await db.select().from(clientTaskRules4).where(eq2(clientTaskRules4.clientId, client.id)).limit(1)).length > 0;
         let tasksCreated = 0;
         if (!hasRules) {
-          const onb = (await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, client.id)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
+          const onb = (await db.select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, client.id)).orderBy(desc(clientOnboarding.id)).limit(1))[0] ?? null;
           const { createClientTaskRules: createClientTaskRules2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
           const res = await createClientTaskRules2({
             clientId: client.id,
@@ -46623,7 +46623,7 @@ var init_quote_router = __esm({
           });
           tasksCreated = res.tasks.length;
         } else {
-          await db.update(clientTaskRules4).set({ active: true }).where(eq(clientTaskRules4.clientId, client.id));
+          await db.update(clientTaskRules4).set({ active: true }).where(eq2(clientTaskRules4.clientId, client.id));
         }
         return { success: true, tasksCreated };
       })
@@ -46685,7 +46685,7 @@ async function learnFromApprovals(ids) {
   let learned = 0, skipped = 0;
   for (const id of ids) {
     try {
-      const row = (await db.select().from(triageFindings).where(eq(triageFindings.id, id)).limit(1))[0];
+      const row = (await db.select().from(triageFindings).where(eq2(triageFindings.id, id)).limit(1))[0];
       if (!row) {
         skipped++;
         continue;
@@ -46709,7 +46709,7 @@ async function learnFromApprovals(ids) {
         skipped++;
         continue;
       }
-      const conn = (await db.select().from(qboConnections).where(eq(qboConnections.id, connectionId)).limit(1))[0];
+      const conn = (await db.select().from(qboConnections).where(eq2(qboConnections.id, connectionId)).limit(1))[0];
       if (!conn || !conn.isActive) {
         skipped++;
         continue;
@@ -46718,7 +46718,7 @@ async function learnFromApprovals(ids) {
         skipped++;
         continue;
       }
-      const existing = (await db.select().from(vendorMemory).where(and(eq(vendorMemory.connectionId, connectionId), eq(vendorMemory.qboVendorId, vendorId))).limit(1))[0];
+      const existing = (await db.select().from(vendorMemory).where(and(eq2(vendorMemory.connectionId, connectionId), eq2(vendorMemory.qboVendorId, vendorId))).limit(1))[0];
       const patch = {
         connectionId,
         clientId: row.clientId ?? conn.clientId ?? null,
@@ -46732,7 +46732,7 @@ async function learnFromApprovals(ids) {
         lastValidatedAt: /* @__PURE__ */ new Date(),
         updatedAt: /* @__PURE__ */ new Date()
       };
-      if (existing) await db.update(vendorMemory).set(patch).where(eq(vendorMemory.id, existing.id));
+      if (existing) await db.update(vendorMemory).set(patch).where(eq2(vendorMemory.id, existing.id));
       else await db.insert(vendorMemory).values(patch);
       learned++;
     } catch {
@@ -46773,7 +46773,7 @@ async function recordAudit(e) {
 async function recentAudit(userId, limit2 = 30) {
   try {
     const db = getDb();
-    return await db.select().from(agentAuditLog).where(eq(agentAuditLog.userId, userId)).orderBy(desc(agentAuditLog.createdAt)).limit(limit2);
+    return await db.select().from(agentAuditLog).where(eq2(agentAuditLog.userId, userId)).orderBy(desc(agentAuditLog.createdAt)).limit(limit2);
   } catch {
     return [];
   }
@@ -46802,7 +46802,7 @@ __export(qbo_poster_exports, {
 });
 async function ownerForClient(clientId) {
   try {
-    const r = await getDb().select({ u: clients.userId }).from(clients).where(eq(clients.id, clientId)).limit(1);
+    const r = await getDb().select({ u: clients.userId }).from(clients).where(eq2(clients.id, clientId)).limit(1);
     return r[0]?.u ?? 0;
   } catch {
     return 0;
@@ -46921,7 +46921,7 @@ function billInputFromSourceData(sourceData) {
 }
 async function connForClient(clientId) {
   const db = getDb();
-  const rows = await db.select().from(qboConnections).where(and(eq(qboConnections.clientId, clientId), eq(qboConnections.isActive, true)));
+  const rows = await db.select().from(qboConnections).where(and(eq2(qboConnections.clientId, clientId), eq2(qboConnections.isActive, true)));
   if (rows.length === 0) return { error: "no active QBO connection for this client" };
   if (rows.length > 1) return { error: "ambiguous QBO connections for this client" };
   return rows[0];
@@ -46931,7 +46931,7 @@ async function postFindingToQBO(findingId) {
   try {
     if (!postingMasterEnabled()) return { posted: false, skipped: "posting disabled (FIGGY_QBO_POST off)" };
     const db = getDb();
-    const f = (await db.select().from(triageFindings).where(eq(triageFindings.id, findingId)).limit(1))[0];
+    const f = (await db.select().from(triageFindings).where(eq2(triageFindings.id, findingId)).limit(1))[0];
     if (!f) return { posted: false, error: "finding not found" };
     if (!f.clientId) return { posted: false, skipped: "finding has no client" };
     auditClientId = f.clientId;
@@ -46959,7 +46959,7 @@ async function postFindingToQBO(findingId) {
     }
     meta3.qboBillId = billId;
     meta3.postedAt = (/* @__PURE__ */ new Date()).toISOString();
-    await db.update(triageFindings).set({ sourceData: JSON.stringify(meta3) }).where(eq(triageFindings.id, findingId));
+    await db.update(triageFindings).set({ sourceData: JSON.stringify(meta3) }).where(eq2(triageFindings.id, findingId));
     await recordAudit({ userId: await ownerForClient(f.clientId), agentScope: "fig", action: "qbo.post.bill", decision: "done", clientId: f.clientId, amount: billTotal, summary: `Posted Bill ${billId} to realm ${realmId} (${input.vendorName || "vendor"}, finding #${findingId})` });
     return { posted: true, billId, realmId };
   } catch (e) {
@@ -48254,7 +48254,7 @@ async function capturePracticeSnapshot() {
     const allInvoices = await db.select().from(invoices);
     const invoiceOutstanding = allInvoices.filter((i) => i.status === "sent" || i.status === "overdue").reduce((s, i) => s + (i.amount || 0), 0);
     const invoiceRevenue = allInvoices.filter((i) => i.status === "paid").reduce((s, i) => s + (i.amount || 0), 0);
-    const reviewRows = await db.select({ n: count() }).from(triageFindings).where(eq(triageFindings.status, "new"));
+    const reviewRows = await db.select({ n: count() }).from(triageFindings).where(eq2(triageFindings.status, "new"));
     const toReviewTotal = Number(reviewRows[0]?.n ?? 0);
     const port = await computePortfolio(/* @__PURE__ */ new Date());
     const row = {
@@ -48273,15 +48273,15 @@ async function capturePracticeSnapshot() {
       pipelineValue,
       pipelineLeads: leads.length
     };
-    const existing = await db.select().from(practiceSnapshots).where(eq(practiceSnapshots.date, today2)).limit(1);
-    if (existing[0]) await db.update(practiceSnapshots).set(row).where(eq(practiceSnapshots.date, today2));
+    const existing = await db.select().from(practiceSnapshots).where(eq2(practiceSnapshots.date, today2)).limit(1);
+    if (existing[0]) await db.update(practiceSnapshots).set(row).where(eq2(practiceSnapshots.date, today2));
     else await db.insert(practiceSnapshots).values(row);
     const openByClient = /* @__PURE__ */ new Map();
     for (const t2 of openTasks) if (t2.clientId != null) openByClient.set(t2.clientId, (openByClient.get(t2.clientId) ?? 0) + 1);
     for (const c of port.clients) {
       const crow = { clientId: c.clientId, date: today2, toReview: c.toReview ?? 0, closeStatus: c.status, openTasks: openByClient.get(c.clientId) ?? 0 };
-      const ex = await db.select().from(clientSnapshots).where(and(eq(clientSnapshots.clientId, c.clientId), eq(clientSnapshots.date, today2))).limit(1);
-      if (ex[0]) await db.update(clientSnapshots).set(crow).where(eq(clientSnapshots.id, ex[0].id));
+      const ex = await db.select().from(clientSnapshots).where(and(eq2(clientSnapshots.clientId, c.clientId), eq2(clientSnapshots.date, today2))).limit(1);
+      if (ex[0]) await db.update(clientSnapshots).set(crow).where(eq2(clientSnapshots.id, ex[0].id));
       else await db.insert(clientSnapshots).values(crow);
     }
     console.log(`[snapshot] practice + ${port.clients.length} client snapshots captured for ${today2}`);
@@ -48310,7 +48310,7 @@ var init_dashboard_router = __esm({
       // Per-client trend (to-post backlog + close health over time) for the cockpit.
       clientTrend: authedQuery.input(external_exports.object({ clientId: external_exports.number(), days: external_exports.number().min(2).max(365).default(30) })).query(async ({ input }) => {
         const db = getDb();
-        const rows = await db.select().from(clientSnapshots).where(eq(clientSnapshots.clientId, input.clientId)).orderBy(sql`date asc`);
+        const rows = await db.select().from(clientSnapshots).where(eq2(clientSnapshots.clientId, input.clientId)).orderBy(sql`date asc`);
         return rows.slice(-input.days);
       })
     });
@@ -48343,9 +48343,9 @@ async function ensureTaxRatesTable() {
 }
 async function put(key11, value, label, year2, source) {
   const db = getDb();
-  const existing = await db.select().from(taxRates).where(eq(taxRates.key, key11)).limit(1);
+  const existing = await db.select().from(taxRates).where(eq2(taxRates.key, key11)).limit(1);
   const row = { key: key11, value, label, effectiveYear: year2, source, updatedAt: /* @__PURE__ */ new Date() };
-  if (existing[0]) await db.update(taxRates).set(row).where(eq(taxRates.key, key11));
+  if (existing[0]) await db.update(taxRates).set(row).where(eq2(taxRates.key, key11));
   else await db.insert(taxRates).values(row);
 }
 async function getTaxRateMap() {
@@ -48422,7 +48422,7 @@ Use decimals for rates (13% = 0.13). Use 0 only if you genuinely cannot verify a
       try {
         const db = getDb();
         const rowId = `taxrates-${yr}-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}`;
-        const dup = await db.select().from(triageFindings).where(eq(triageFindings.sourceData, rowId)).limit(1);
+        const dup = await db.select().from(triageFindings).where(eq2(triageFindings.sourceData, rowId)).limit(1);
         if (!dup[0]) {
           await db.insert(triageFindings).values({
             agentName: "Figs",
@@ -60851,6 +60851,7 @@ __export(brain_store_exports, {
   loadScopedRecords: () => loadScopedRecords,
   seedAgentBrain: () => seedAgentBrain,
   seedAgentCharter: () => seedAgentCharter,
+  seedAgentDocsBrain: () => seedAgentDocsBrain,
   seedBrain: () => seedBrain,
   seedConstitution: () => seedConstitution,
   seedKnowledgeBrain: () => seedKnowledgeBrain
@@ -61218,6 +61219,65 @@ async function seedKnowledgeBrain() {
     await addTruth({ scope: firm, label: s.label, statement: s.statement, category: s.category, sourceLabels: s.sourceLabels });
   }
   console.log(`[brain] seeded ${seeds.length} standard-domain knowledge truths`);
+}
+async function seedAgentDocsBrain() {
+  const db = getDb();
+  const have = await db.all(sql`SELECT COUNT(*) AS n FROM brain_records WHERE category = 'agent-docs'`);
+  if (Number(have[0]?.n || 0) > 0) return;
+  const firm = { kind: "firm" };
+  const SRC = "Drive \u203A new Finn filing system \u203A Agents folder (Markie, 2026-06-27)";
+  const firmSeeds = [
+    {
+      label: "New Drive filing system (Finn) \u2014 structure",
+      category: "agent-docs",
+      sourceLabels: [SRC],
+      statement: "Markie + Finn (ChatGPT) created a new canonical Drive filing system. Root has four areas: 'Agents' (agent reference docs/assets), 'Client Master' (canonical per-client homes), 'Standards & Index' (naming/index/SOPs), and 'Build & Notes' (build logs). As of 2026-06-27 only 'Agents' has files; the other three are still empty \u2014 the bulk Drive migration into this structure has NOT run yet."
+    },
+    {
+      label: "Drive migration status \u2014 blocked on OAuth publish (#42)",
+      category: "agent-docs",
+      sourceLabels: [SRC, "Liv \u2014 Drive Cleanup & Migration Plan 2026-06-26"],
+      statement: "The agents' Google Drive tools can CREATE and COPY but cannot MOVE or DELETE files. So moving everything into the new filing system / deleting duplicates needs the Go Fig Bookz Google OAuth app PUBLISHED TO PRODUCTION (Markie action, task #42). Until then the agents can only copy/create \u2014 flag this rather than claim the migration is done."
+    },
+    {
+      label: "Go Fig Bookz client reviews \u2014 AI DRAFT, NEVER publish as real",
+      category: "agent-docs",
+      sourceLabels: [SRC, "GoFigBookz_ClientReviews.docx (AI-generated, Kimi)"],
+      statement: "The 'GoFigBookz_ClientReviews.docx' (500 testimonials) and the Kimi reviews CSV are AI-GENERATED. Markie's standing instruction (2026-06-27): treat them as DRAFTS / inspiration ONLY \u2014 they are NOT real client testimonials and must NEVER be published or presented as genuine reviews (that would be false advertising). Skye may use them as tone/format samples to solicit REAL reviews, nothing more."
+    },
+    {
+      label: "Skye marketing package (Kimi 'AI Marketing Machine')",
+      category: "agent-docs",
+      sourceLabels: [SRC, "sheet_\u2026generated_by_Kimi_AI.csv (index)"],
+      statement: "In the Agents folder Markie added a Kimi-generated marketing package for Go Fig Bookz with 8 parts: 01 Brand Identity (colors/handles/pricing/voice), 02 Content Strategy (5 pillars, weekly calendar, 30 ideas), 03 AI Automation Specs (8-layer machine, APIs, costs, 7-week plan), 04 Video Templates/Scripts, 05 Social Media Setup (TikTok/IG/FB/YouTube/Google Business/Alignable), 06 SEO & Local Listings, 07 Templates Sheet (Content Machine .xlsx, 6 tabs), 08 Figgy Mascot Design Brief. The full package is a 212MB zip (Kimi_Agent_Social Media-GFB) \u2014 Skye's reference for firm marketing; binary, not auto-ingested."
+    },
+    {
+      label: "Skye marketplace-selling package",
+      category: "agent-docs",
+      sourceLabels: [SRC, "Kimi_Agent_Marketplace Selling Machine zip"],
+      statement: "A 'Marketplace Selling Machine' package (zip) is in the Agents folder \u2014 Skye's reference for marketplace listing/selling workflow (used for the Rose resale and future resale). Binary zip, not auto-ingested; open it in Drive when running a marketplace campaign."
+    }
+  ];
+  for (const s of firmSeeds) {
+    await addTruth({ scope: firm, label: s.label, statement: s.statement, category: s.category, sourceLabels: s.sourceLabels });
+  }
+  const markie = await db.all(sql`SELECT id FROM users WHERE email IN ('markie.antle@gmail.com','markie@gofig.ca') OR role = 'admin' ORDER BY (role = 'admin') DESC, id ASC LIMIT 1`);
+  const markieId = markie[0]?.id ? Number(markie[0].id) : void 0;
+  if (markieId != null) {
+    const personal = { kind: "personal" };
+    await addTruth({
+      scope: personal,
+      userId: markieId,
+      category: "agent-docs",
+      label: "Rose Liquidation Master Plan (personal resale \u2014 Skye runs it)",
+      sourceLabels: [SRC, "# ROSE LIQUIDATION MASTER PLAN v1.0"],
+      statement: "Personal side-sale (Phoenix Rising), NOT client/firm work. Goal: sell ~200 new sealed Rose wellness massagers and turn inventory into cash in 2\u20134 weeks \u2014 a LIQUIDATION campaign, not branding. Pricing: ideal $39.99, sale $29.99, primary offer 2 for $50 CAD. Shipping: 1 unit = $29.99 + flat-rate shipping; 2 units = $50 with free shipping (bundle to lift AOV / cut per-unit shipping) \u2014 do NOT free-ship every order. Channels: a simple Shopify store (Home/Product/FAQ/Contact; clearance banner, photos, benefits, trust badges, FAQ, checkout) + marketplace listings (Facebook Marketplace where permitted, Kijiji, eBay, Craigslist). Listing/store angle: Brand New, Factory Sealed, Ships from Canada, Discreet Packaging, Limited Inventory, Secure Checkout. Product copy headline 'CLEARANCE SALE \u2014 Rose Wellness Massager'; benefits: rechargeable, quiet, soft-touch, compact, travel-friendly; CTA 'Order today while supplies last.' SEO: Canadian terms ('Rose wellness massager Canada', 'rechargeable wellness massager'). Success = visibility + fast response + multiple channels + trust + urgency + consistent daily posting. NEEDS MARKIE to execute: Shopify account, marketplace accounts, product photos, shipping/flat-rate setup (task #85)."
+    });
+    console.log("[brain] seeded Rose resale plan into personal scope");
+  } else {
+    console.log("[brain] seedAgentDocsBrain: no Markie user found \u2014 skipped personal-scope Rose seed");
+  }
+  console.log(`[brain] seeded ${firmSeeds.length} agent-folder doc truths (firm)`);
 }
 async function brainStats() {
   const db = getDb();
@@ -62106,14 +62166,14 @@ __export(seed_collingwood_run_hours_exports, {
 async function seedCollingwoodRunHours() {
   const db = getDb();
   try {
-    const client = (await db.select().from(clients).where(eq(clients.id, CLIENT_ID2)).limit(1))[0];
+    const client = (await db.select().from(clients).where(eq2(clients.id, CLIENT_ID2)).limit(1))[0];
     if (!client) return { run: null, filled: 0, phoneSet: 0, skipped: "client 7 not found" };
     if (!/colling/i.test(client.name || "")) return { run: null, filled: 0, phoneSet: 0, skipped: `client 7 is "${client.name}", not Collingwood` };
-    const draft = (await db.select().from(payRuns).where(and(eq(payRuns.clientId, CLIENT_ID2), eq(payRuns.status, "draft"))).orderBy(desc(payRuns.payPeriodEnd)).limit(1))[0];
+    const draft = (await db.select().from(payRuns).where(and(eq2(payRuns.clientId, CLIENT_ID2), eq2(payRuns.status, "draft"))).orderBy(desc(payRuns.payPeriodEnd)).limit(1))[0];
     if (!draft) return { run: null, filled: 0, phoneSet: 0, skipped: "no draft run for Collingwood" };
-    const emps = await db.select().from(employees).where(eq(employees.clientId, CLIENT_ID2));
+    const emps = await db.select().from(employees).where(eq2(employees.clientId, CLIENT_ID2));
     const empById = new Map(emps.map((e) => [e.id, e]));
-    const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, draft.id));
+    const lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, draft.id));
     let filled = 0, phoneSet = 0;
     for (const l of lines2) {
       const e = empById.get(l.employeeId);
@@ -62142,12 +62202,12 @@ async function seedCollingwoodRunHours() {
       }
       if (Object.keys(patch).length) {
         patch.updatedAt = /* @__PURE__ */ new Date();
-        await db.update(payRunLines).set(patch).where(eq(payRunLines.id, l.id));
+        await db.update(payRunLines).set(patch).where(eq2(payRunLines.id, l.id));
       }
     }
-    const fresh = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, draft.id));
+    const fresh = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, draft.id));
     const totalGross = round213(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
-    await db.update(payRuns).set({ totalGross, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, draft.id));
+    await db.update(payRuns).set({ totalGross, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, draft.id));
     if (filled || phoneSet) console.log(`[seed-collingwood-run] run ${draft.id}: filled ${filled} hours, set ${phoneSet} phone`);
     return { run: draft.id, filled, phoneSet, skipped: "" };
   } catch (err) {
@@ -62257,7 +62317,7 @@ function statSet(years) {
 async function ensurePayrollReminders() {
   const db = getDb();
   try {
-    const owner = (await db.select().from(users).where(eq(users.email, OWNER_EMAIL)).limit(1))[0] || (await db.select().from(users).limit(1))[0];
+    const owner = (await db.select().from(users2).where(eq2(users2.email, OWNER_EMAIL)).limit(1))[0] || (await db.select().from(users2).limit(1))[0];
     if (!owner) return { tasksAdded: 0, eventsAdded: 0, tasksRemoved: 0, skipped: "no user" };
     const userId = owner.id;
     const cs = await db.select().from(clients);
@@ -62288,19 +62348,19 @@ async function ensurePayrollReminders() {
     }
     let tasksRemoved = 0;
     const since = new Date(base.getTime() - 2 * 864e5);
-    const allPayrollTasks = await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.category, "Payroll"), gte(tasks.dueDate, since)));
+    const allPayrollTasks = await db.select().from(tasks).where(and(eq2(tasks.userId, userId), eq2(tasks.category, "Payroll"), gte(tasks.dueDate, since)));
     for (const t2 of allPayrollTasks) {
       if (!t2.clientId || !ALL_PAYROLL_IDS.has(t2.clientId)) continue;
       if (t2.status === "completed" || t2.completed) continue;
       const due = t2.dueDate ? ymdInTz(new Date(t2.dueDate)) : "";
       if (!correctKeys.has(`${t2.clientId}|${due}`)) {
-        await db.delete(tasks).where(eq(tasks.id, t2.id));
+        await db.delete(tasks).where(eq2(tasks.id, t2.id));
         tasksRemoved++;
       }
     }
-    const existingTasks = await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.category, "Payroll"), gte(tasks.dueDate, since)));
+    const existingTasks = await db.select().from(tasks).where(and(eq2(tasks.userId, userId), eq2(tasks.category, "Payroll"), gte(tasks.dueDate, since)));
     const haveTask = new Set(existingTasks.map((t2) => `${t2.clientId}|${ymdInTz(new Date(t2.dueDate))}`));
-    const existingEvents = await db.select().from(calendarEvents).where(and(eq(calendarEvents.userId, userId), gte(calendarEvents.startDate, since)));
+    const existingEvents = await db.select().from(calendarEvents).where(and(eq2(calendarEvents.userId, userId), gte(calendarEvents.startDate, since)));
     const haveEvent = new Set(existingEvents.filter((e) => /^Payroll run/.test(e.title || "")).map((e) => ymdInTz(new Date(e.startDate))));
     let tasksAdded = 0, eventsAdded = 0;
     const { pushEventToGoogle: pushEventToGoogle2 } = await Promise.resolve().then(() => (init_google_push(), google_push_exports));
@@ -62384,7 +62444,7 @@ async function backfillSherPayroll() {
     const client = cs.find((c) => /sher|punjab/i.test(c.name || ""));
     if (!client) return { client: null, runsAdded: 0, skipped: "Sher-E-Punjab client not found" };
     const clientId = client.id;
-    const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
+    const existing = await db.select().from(employees).where(eq2(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
     for (const e of existing) empByKey.set(key3(e.firstName, e.lastName), e);
     for (const r of ROSTER2) {
@@ -62397,7 +62457,7 @@ async function backfillSherPayroll() {
         if (r.payType === "salary" && ex.annualSalary == null && r.salary != null) patch.annualSalary = r.salary;
         if (Object.keys(patch).length) {
           patch.updatedAt = /* @__PURE__ */ new Date();
-          await db.update(employees).set(patch).where(eq(employees.id, ex.id));
+          await db.update(employees).set(patch).where(eq2(employees.id, ex.id));
         }
         continue;
       }
@@ -62414,7 +62474,7 @@ async function backfillSherPayroll() {
       }).returning();
       if (ins) empByKey.set(k, ins);
     }
-    const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
+    const allRuns = await db.select().from(payRuns).where(eq2(payRuns.clientId, clientId));
     let runsAdded = 0;
     for (const p of PERIODS) {
       const payDate = d(p.payDate);
@@ -62448,7 +62508,7 @@ async function backfillSherPayroll() {
           grossPay: gross
         });
       }
-      await db.update(payRuns).set({ totalGross: round214(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round214(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[sher-backfill] added ${runsAdded} run(s)`);
@@ -62591,7 +62651,7 @@ async function backfillOwenSoundPayroll() {
     const client = cs.find((c) => /clark/i.test(c.name || "") && /(owen|sound)/i.test(c.name || ""));
     if (!client) return { client: null, runsAdded: 0, skipped: "Clark Owen Sound client not found" };
     const clientId = client.id;
-    const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
+    const existing = await db.select().from(employees).where(eq2(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
     for (const e of existing) empByKey.set(key4(e.firstName, e.lastName), e);
     const isAdam = (r) => r.first === "Adam" && r.last === "Holt";
@@ -62606,7 +62666,7 @@ async function backfillOwenSoundPayroll() {
         } else if (ex.hourlyRate == null) patch.hourlyRate = r.rate;
         if (Object.keys(patch).length) {
           patch.updatedAt = /* @__PURE__ */ new Date();
-          await db.update(employees).set(patch).where(eq(employees.id, ex.id));
+          await db.update(employees).set(patch).where(eq2(employees.id, ex.id));
         }
         continue;
       }
@@ -62623,7 +62683,7 @@ async function backfillOwenSoundPayroll() {
       }).returning();
       if (ins) empByKey.set(k, ins);
     }
-    const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
+    const allRuns = await db.select().from(payRuns).where(eq2(payRuns.clientId, clientId));
     let runsAdded = 0, linesAdded = 0;
     for (const p of PERIODS2) {
       let run3 = allRuns.find((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate);
@@ -62644,16 +62704,16 @@ async function backfillOwenSoundPayroll() {
         allRuns.push(run3);
         runsAdded++;
       }
-      const have = new Set((await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run3.id))).map((l) => l.employeeId));
+      const have = new Set((await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, run3.id))).map((l) => l.employeeId));
       for (const [k, v] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp || have.has(emp.id)) continue;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: round215(v.gross) });
         linesAdded++;
       }
-      const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run3.id));
+      const lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, run3.id));
       const tg = round215(lines2.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
-      await db.update(payRuns).set({ totalGross: tg, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: tg, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
     }
     if (runsAdded || linesAdded) console.log(`[os-backfill] added ${runsAdded} run(s), ${linesAdded} line(s)`);
     return { client: clientId, runsAdded, skipped: "" };
@@ -62820,11 +62880,11 @@ __export(seed_collingwood_backfill_exports, {
 async function backfillCollingwoodPayroll() {
   const db = getDb();
   try {
-    const client = (await db.select().from(clients).where(eq(clients.id, CLIENT_ID3)).limit(1))[0];
+    const client = (await db.select().from(clients).where(eq2(clients.id, CLIENT_ID3)).limit(1))[0];
     if (!client) return { client: null, runsAdded: 0, skipped: "client 7 not found" };
     if (!/colling/i.test(client.name || "")) return { client: null, runsAdded: 0, skipped: `client 7 is "${client.name}", not Collingwood` };
     const clientId = client.id;
-    const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
+    const existing = await db.select().from(employees).where(eq2(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
     for (const e of existing) empByKey.set(key5(e.firstName, e.lastName), e);
     for (const r of ROSTER4) {
@@ -62837,7 +62897,7 @@ async function backfillCollingwoodPayroll() {
         if (r.payType === "salary" && ex.annualSalary == null && r.salary != null) patch.annualSalary = r.salary;
         if (Object.keys(patch).length) {
           patch.updatedAt = /* @__PURE__ */ new Date();
-          await db.update(employees).set(patch).where(eq(employees.id, ex.id));
+          await db.update(employees).set(patch).where(eq2(employees.id, ex.id));
         }
         continue;
       }
@@ -62854,7 +62914,7 @@ async function backfillCollingwoodPayroll() {
       }).returning();
       if (ins) empByKey.set(k, ins);
     }
-    const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
+    const allRuns = await db.select().from(payRuns).where(eq2(payRuns.clientId, clientId));
     let runsAdded = 0;
     for (const p of PERIODS3) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
@@ -62879,7 +62939,7 @@ async function backfillCollingwoodPayroll() {
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round216(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round216(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[cw-backfill] added ${runsAdded} run(s)`);
@@ -63087,7 +63147,7 @@ async function backfillAuldPayroll() {
     const client = cs.find((c) => /auld/i.test(c.name || ""));
     if (!client) return { client: null, runsAdded: 0, skipped: "Auld Spot client not found" };
     const clientId = client.id;
-    const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
+    const existing = await db.select().from(employees).where(eq2(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
     for (const e of existing) empByKey.set(key6(e.firstName, e.lastName), e);
     for (const r of ROSTER5) {
@@ -63099,7 +63159,7 @@ async function backfillAuldPayroll() {
         if (ex.hourlyRate == null && r.rate != null) patch.hourlyRate = r.rate;
         if (Object.keys(patch).length) {
           patch.updatedAt = /* @__PURE__ */ new Date();
-          await db.update(employees).set(patch).where(eq(employees.id, ex.id));
+          await db.update(employees).set(patch).where(eq2(employees.id, ex.id));
         }
         continue;
       }
@@ -63115,7 +63175,7 @@ async function backfillAuldPayroll() {
       }).returning();
       if (ins) empByKey.set(k, ins);
     }
-    const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
+    const allRuns = await db.select().from(payRuns).where(eq2(payRuns.clientId, clientId));
     let runsAdded = 0;
     for (const p of PERIODS4) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
@@ -63140,7 +63200,7 @@ async function backfillAuldPayroll() {
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[auld-backfill] added ${runsAdded} run(s)`);
@@ -63402,7 +63462,7 @@ async function backfillOriginalityPayroll() {
     const client = cs.find((c) => /original/i.test(c.name || ""));
     if (!client) return { client: null, runsAdded: 0, skipped: "Originality client not found" };
     const clientId = client.id;
-    const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
+    const existing = await db.select().from(employees).where(eq2(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
     for (const e of existing) empByKey.set(key7(e.firstName, e.lastName), e);
     for (const r of ROSTER6) {
@@ -63419,7 +63479,7 @@ async function backfillOriginalityPayroll() {
       }).returning();
       if (ins) empByKey.set(k, ins);
     }
-    const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
+    const allRuns = await db.select().from(payRuns).where(eq2(payRuns.clientId, clientId));
     let runsAdded = 0;
     const addRuns = async (periods, note) => {
       for (const p of periods) {
@@ -63446,7 +63506,7 @@ async function backfillOriginalityPayroll() {
           totalGross += gross;
           await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v.hours, grossPay: gross });
         }
-        await db.update(payRuns).set({ totalGross: round218(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+        await db.update(payRuns).set({ totalGross: round218(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
         runsAdded++;
       }
     };
@@ -63670,7 +63730,7 @@ async function backfill2303851Payroll() {
     const client = cs.find((c) => /2303851/.test(c.name || ""));
     if (!client) return { client: null, runsAdded: 0, skipped: "2303851 client not found" };
     const clientId = client.id;
-    const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
+    const existing = await db.select().from(employees).where(eq2(employees.clientId, clientId));
     let emp = existing.find((e) => key8(e.firstName, e.lastName) === key8(EMP.first, EMP.last));
     if (!emp) {
       const [ins] = await db.insert(employees).values({
@@ -63685,10 +63745,10 @@ async function backfill2303851Payroll() {
       }).returning();
       emp = ins;
     } else if (emp.annualSalary == null) {
-      await db.update(employees).set({ payType: emp.payType ?? "salary", annualSalary: 1e5, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
+      await db.update(employees).set({ payType: emp.payType ?? "salary", annualSalary: 1e5, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(employees.id, emp.id));
     }
     if (!emp) return { client: clientId, runsAdded: 0, skipped: "could not create employee" };
-    const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
+    const allRuns = await db.select().from(payRuns).where(eq2(payRuns.clientId, clientId));
     let runsAdded = 0;
     for (const p of PERIODS5) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
@@ -63707,7 +63767,7 @@ async function backfill2303851Payroll() {
       }).returning();
       if (!run3) continue;
       await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
-      await db.update(payRuns).set({ totalGross: gross, updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: gross, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[2303851-backfill] added ${runsAdded} run(s)`);
@@ -63752,7 +63812,7 @@ async function backfillFractalPayroll() {
     const client = cs.find((c) => /fractal/i.test(c.name || ""));
     if (!client) return { client: null, runsAdded: 0, skipped: "Fractal SaaS client not found" };
     const clientId = client.id;
-    const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
+    const existing = await db.select().from(employees).where(eq2(employees.clientId, clientId));
     let emp = existing.find((e) => norm16(e.firstName) === "andrew");
     if (emp) {
       const patch = {};
@@ -63761,7 +63821,7 @@ async function backfillFractalPayroll() {
       if (emp.annualSalary == null) patch.annualSalary = MONTHLY2 * 12;
       if (Object.keys(patch).length) {
         patch.updatedAt = /* @__PURE__ */ new Date();
-        await db.update(employees).set(patch).where(eq(employees.id, emp.id));
+        await db.update(employees).set(patch).where(eq2(employees.id, emp.id));
         emp = { ...emp, ...patch };
       }
     } else {
@@ -63778,7 +63838,7 @@ async function backfillFractalPayroll() {
       emp = ins;
     }
     if (!emp) return { client: clientId, runsAdded: 0, skipped: "could not resolve Andrew" };
-    const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
+    const allRuns = await db.select().from(payRuns).where(eq2(payRuns.clientId, clientId));
     let runsAdded = 0;
     for (const p of PERIODS6) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
@@ -63796,7 +63856,7 @@ async function backfillFractalPayroll() {
       }).returning();
       if (!run3) continue;
       await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: round220(MONTHLY2) });
-      await db.update(payRuns).set({ totalGross: round220(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round220(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[fractal-backfill] added ${runsAdded} run(s)`);
@@ -63838,7 +63898,7 @@ async function backfillMotionInvestPayroll() {
     const client = cs.find((c) => /motion\s*invest/i.test(c.name || ""));
     if (!client) return { client: null, runsAdded: 0, skipped: "Motion Invest client not found" };
     const clientId = client.id;
-    const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
+    const existing = await db.select().from(employees).where(eq2(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
     for (const e of existing) empByKey.set(key9(e.firstName, e.lastName), e);
     for (const r of ROSTER7) {
@@ -63850,7 +63910,7 @@ async function backfillMotionInvestPayroll() {
         if (r.payType === "salary" && ex.annualSalary == null && r.salary != null) patch.annualSalary = r.salary;
         if (Object.keys(patch).length) {
           patch.updatedAt = /* @__PURE__ */ new Date();
-          await db.update(employees).set(patch).where(eq(employees.id, ex.id));
+          await db.update(employees).set(patch).where(eq2(employees.id, ex.id));
         }
         continue;
       }
@@ -63866,7 +63926,7 @@ async function backfillMotionInvestPayroll() {
       }).returning();
       if (ins) empByKey.set(k, ins);
     }
-    const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
+    const allRuns = await db.select().from(payRuns).where(eq2(payRuns.clientId, clientId));
     let runsAdded = 0;
     for (const p of PERIODS7) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
@@ -63891,7 +63951,7 @@ async function backfillMotionInvestPayroll() {
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round221(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round221(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[motioninvest-backfill] added ${runsAdded} run(s)`);
@@ -63947,7 +64007,7 @@ async function backfillMotionInvestRevShare() {
     const client = cs.find((c) => /motion\s*invest/i.test(c.name || ""));
     if (!client) return { client: null, runsAdded: 0, skipped: "Motion Invest client not found" };
     const clientId = client.id;
-    const existing = await db.select().from(employees).where(eq(employees.clientId, clientId));
+    const existing = await db.select().from(employees).where(eq2(employees.clientId, clientId));
     const empByKey = /* @__PURE__ */ new Map();
     for (const e of existing) empByKey.set(key10(e.firstName, e.lastName), e);
     for (const s of SHARERS) {
@@ -63964,7 +64024,7 @@ async function backfillMotionInvestRevShare() {
       }).returning();
       if (ins) empByKey.set(k, ins);
     }
-    const allRuns = await db.select().from(payRuns).where(eq(payRuns.clientId, clientId));
+    const allRuns = await db.select().from(payRuns).where(eq2(payRuns.clientId, clientId));
     const now = /* @__PURE__ */ new Date();
     let runsAdded = 0;
     let cumNet = 0;
@@ -64003,7 +64063,7 @@ async function backfillMotionInvestRevShare() {
         totalGross += ln.amount;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: ln.emp.id, regularHours: 0, grossPay: ln.amount });
       }
-      await db.update(payRuns).set({ totalGross: round222(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round222(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[mi-revshare] added ${runsAdded} quarterly run(s)`);
@@ -64043,7 +64103,7 @@ __export(seed_company_groups_exports, {
 async function seedCompanyGroups() {
   const db = getDb();
   try {
-    await db.update(clients).set({ groupName: "Jon Gillham", updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.groupName, "John Gillham"));
+    await db.update(clients).set({ groupName: "Jon Gillham", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.groupName, "John Gillham"));
     const cs = await db.select().from(clients);
     let tagged = 0;
     const groups = {};
@@ -64055,7 +64115,7 @@ async function seedCompanyGroups() {
         groups[g.group].push(name2);
         if ((c.groupName || "").trim() === g.group) continue;
         if (c.groupName && c.groupName.trim() && c.groupName.trim() !== g.group) continue;
-        await db.update(clients).set({ groupName: g.group, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+        await db.update(clients).set({ groupName: g.group, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, c.id));
         tagged++;
       }
     }
@@ -64119,11 +64179,11 @@ async function seedFirmClient() {
     if (firm) {
       for (const c of cs) {
         if (c.isFirm && c.id !== firm.id) {
-          await db.update(clients).set({ isFirm: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+          await db.update(clients).set({ isFirm: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, c.id));
         }
       }
       if (!firm.isFirm) {
-        await db.update(clients).set({ isFirm: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, firm.id));
+        await db.update(clients).set({ isFirm: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, firm.id));
         console.log(`[firm-client] flagged "${firm.name}" (id ${firm.id}) as the firm self-client`);
       }
       return { firmId: firm.id, created: false };
@@ -64372,19 +64432,19 @@ async function rescheduleAndCleanupTasks() {
       const category = String(t2.category || "");
       const dead = c && (c.status === "inactive" || c.workflowStatus === "churned");
       if (dead) {
-        await db.delete(tasks).where(eq(tasks.id, t2.id));
+        await db.delete(tasks).where(eq2(tasks.id, t2.id));
         stats.deletedInactive++;
         continue;
       }
       const isPayroll = /payroll/i.test(title) || category.toLowerCase() === "payroll";
       if (isPayroll && c && (c.payrollExternal || c.payrollHoursSource === "qbo_autopay")) {
-        await db.delete(tasks).where(eq(tasks.id, t2.id));
+        await db.delete(tasks).where(eq2(tasks.id, t2.id));
         stats.deletedAutoPayroll++;
         continue;
       }
       const cl = category.toLowerCase();
       if (cl === "banking" || cl === "reconciliation") {
-        await db.delete(tasks).where(eq(tasks.id, t2.id));
+        await db.delete(tasks).where(eq2(tasks.id, t2.id));
         stats.deletedReconcile++;
         continue;
       }
@@ -64395,7 +64455,7 @@ async function rescheduleAndCleanupTasks() {
           hstPeriod: c?.hstPeriod ?? null
         });
         if (sched) {
-          await db.update(tasks).set({ startDate: sched.start, dueDate: sched.due, updatedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
+          await db.update(tasks).set({ startDate: sched.start, dueDate: sched.due, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(tasks.id, t2.id));
           stats.rescheduled++;
           continue;
         }
@@ -64403,7 +64463,7 @@ async function rescheduleAndCleanupTasks() {
       if (!t2.dueDate) {
         const base = t2.startDate ? new Date(t2.startDate) : new Date(Date.now() + 7 * 864e5);
         const due = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), 12, 0, 0));
-        await db.update(tasks).set({ dueDate: due, updatedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
+        await db.update(tasks).set({ dueDate: due, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(tasks.id, t2.id));
         stats.scheduled++;
       }
     }
@@ -64798,6 +64858,90 @@ async function ensureBrainSchema() {
 }
 var init_ensure_brain_schema = __esm({
   "api/ensure-brain-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/seed-rose-tasks.ts
+var seed_rose_tasks_exports = {};
+__export(seed_rose_tasks_exports, {
+  seedRoseLiquidationTasks: () => seedRoseLiquidationTasks
+});
+async function seedRoseLiquidationTasks() {
+  const db = getDb();
+  const have = await db.all(sql`SELECT COUNT(*) AS n FROM tasks WHERE category = 'rose-resale'`);
+  if (Number(have[0]?.n || 0) > 0) return;
+  const markie = await db.all(sql`SELECT id FROM users WHERE email IN ('markie.antle@gmail.com','markie@gofig.ca') OR role = 'admin' ORDER BY (role = 'admin') DESC, id ASC LIMIT 1`);
+  const userId = markie[0]?.id ? Number(markie[0].id) : null;
+  if (userId == null) {
+    console.log("[rose] no Markie user \u2014 skipped Rose task seed");
+    return;
+  }
+  void users;
+  void or;
+  void eq;
+  const day2 = 864e5;
+  const due = (n) => new Date(Date.now() + n * day2);
+  const steps = [
+    [
+      "Rose: finalize pricing + bundle offer",
+      1,
+      "high",
+      false,
+      "Lock the liquidation offer per the plan: $29.99/unit + flat-rate shipping, 2 for $50 with free shipping. Skye confirms flat-rate amount vs. unit margin so a single sale still clears cost."
+    ],
+    [
+      "Rose: draft Shopify store copy (Home/Product/FAQ/Contact)",
+      2,
+      "high",
+      false,
+      "Skye drafts the simple clearance store: clearance banner, product description, benefits (rechargeable/quiet/soft-touch/compact/travel), trust badges (Ships from Canada / Brand New & Sealed / Discreet Packaging / Secure Checkout), FAQ. Copy ready for Markie to paste into Shopify."
+    ],
+    [
+      "Rose: set up Shopify store + product photos \u2014 NEEDS MARKIE",
+      3,
+      "high",
+      true,
+      "Needs Markie: a Shopify account + product photos of the sealed unit (discreet). Skye supplies the copy/layout; Markie creates the store + uploads photos. Blocker until then."
+    ],
+    [
+      "Rose: draft marketplace listings (FB/Kijiji/eBay/Craigslist)",
+      2,
+      "high",
+      false,
+      "Skye writes per-channel listings (Brand New, Factory Sealed, Canadian Seller, Discreet Shipping). Note Facebook Marketplace 'where permitted' \u2014 wellness/intimate items have policy limits; Skye checks each channel's rules and flags any that disallow the listing."
+    ],
+    [
+      "Rose: marketplace accounts + post listings \u2014 NEEDS MARKIE",
+      4,
+      "medium",
+      true,
+      "Needs Markie: marketplace accounts (FB/Kijiji/eBay) and the go-ahead to post. Skye provides ready-to-paste listings + photos; Markie posts (or approves Skye to, once accounts are connected)."
+    ],
+    [
+      "Rose: solicit REAL reviews (do NOT use the AI drafts)",
+      5,
+      "medium",
+      false,
+      "Collect genuine reviews from actual buyers as sales happen. The 500 AI-generated 'reviews' in the Agents folder are DRAFTS/SAMPLES ONLY \u2014 never publish them as real (Markie's standing rule). Use them only as tone/format inspiration for review-request wording."
+    ],
+    [
+      "Rose: daily posting + response cadence",
+      6,
+      "medium",
+      false,
+      "Liquidation depends on consistent daily posting + fast responses across channels. Skye sets a simple daily cadence and tracks units sold vs. the ~200 target (2\u20134 week goal) in the Phoenix Rising side-sales tracker."
+    ]
+  ];
+  for (const [title, d10, priority, needsMarkie, description] of steps) {
+    await db.run(sql`INSERT INTO tasks (userId, clientId, title, description, dueDate, priority, status, completed, assignedTo, category, createdAt, updatedAt)
+      VALUES (${userId}, ${null}, ${title}, ${description}, ${due(d10).getTime()}, ${priority}, 'pending', 0, 'Skye', 'rose-resale', ${Date.now()}, ${Date.now()})`);
+  }
+  console.log(`[rose] seeded ${steps.length} Rose liquidation tasks (Skye)`);
+}
+var init_seed_rose_tasks = __esm({
+  "api/seed-rose-tasks.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -65625,10 +65769,10 @@ __export(seed_phoenix_personal_exports, {
 async function seedPhoenixPersonal() {
   const db = getDb();
   try {
-    const us = await db.select().from(users);
+    const us = await db.select().from(users2);
     if (!us.length) return { seeded: false };
     const owner = us.find((u) => /markie@gofig\.ca|markie\.antle@gmail/i.test(u.email || "")) || us.filter((u) => u.role === "admin").sort((a, b) => a.id - b.id)[0] || us[0];
-    const existing = await db.select().from(lifeEntries).where(eq(lifeEntries.userId, owner.id));
+    const existing = await db.select().from(lifeEntries).where(eq2(lifeEntries.userId, owner.id));
     if (existing.some((e) => safeMeta2(e.meta).seed === SENTINEL3)) return { seeded: false };
     const meta3 = JSON.stringify({ seed: SENTINEL3 });
     for (const e of ENTRIES) {
@@ -65743,10 +65887,10 @@ __export(seed_phoenix_personal_v2_exports, {
 async function seedPhoenixPersonalV2() {
   const db = getDb();
   try {
-    const us = await db.select().from(users);
+    const us = await db.select().from(users2);
     if (!us.length) return { seeded: false };
     const owner = us.find((u) => /markie@gofig\.ca|markie\.antle@gmail/i.test(u.email || "")) || us.filter((u) => u.role === "admin").sort((a, b) => a.id - b.id)[0] || us[0];
-    const existing = await db.select().from(lifeEntries).where(eq(lifeEntries.userId, owner.id));
+    const existing = await db.select().from(lifeEntries).where(eq2(lifeEntries.userId, owner.id));
     if (existing.some((e) => safeMeta3(e.meta).seed === SENTINEL4)) return { seeded: false };
     const meta3 = JSON.stringify({ seed: SENTINEL4 });
     for (const e of ENTRIES2) {
@@ -65951,13 +66095,13 @@ __export(seed_jon_control_book_exports, {
 async function seedJonControlBook(opts) {
   const db = getDb();
   try {
-    const existing = await db.select().from(groupEntities).where(eq(groupEntities.groupName, GROUP));
+    const existing = await db.select().from(groupEntities).where(eq2(groupEntities.groupName, GROUP));
     if (existing.length && !opts?.force) return { seeded: false, entities: existing.length };
     if (opts?.force) {
-      await db.delete(groupEntities).where(eq(groupEntities.groupName, GROUP));
-      await db.delete(groupOwnership).where(eq(groupOwnership.groupName, GROUP));
-      await db.delete(groupProfit).where(eq(groupProfit.groupName, GROUP));
-      await db.delete(groupFamilyBenefit).where(eq(groupFamilyBenefit.groupName, GROUP));
+      await db.delete(groupEntities).where(eq2(groupEntities.groupName, GROUP));
+      await db.delete(groupOwnership).where(eq2(groupOwnership.groupName, GROUP));
+      await db.delete(groupProfit).where(eq2(groupProfit.groupName, GROUP));
+      await db.delete(groupFamilyBenefit).where(eq2(groupFamilyBenefit.groupName, GROUP));
     }
     const cs = await db.select().from(clients);
     const findClient2 = (re) => re ? cs.find((c) => re.test(c.name || ""))?.id ?? null : null;
@@ -66126,7 +66270,7 @@ async function seedIntercoScaffold() {
     for (const g of GROUP_PAYERS) {
       const payer = cs.find((c) => (c.groupName || "").trim() === g.group && g.payer.test(c.name || "")) || cs.find((c) => (c.groupName || "").trim() === g.group);
       if (!payer) continue;
-      const [existing] = await db.select().from(intercoPeriods).where(and(eq(intercoPeriods.period, period2), eq(intercoPeriods.payerClientId, payer.id)));
+      const [existing] = await db.select().from(intercoPeriods).where(and(eq2(intercoPeriods.period, period2), eq2(intercoPeriods.payerClientId, payer.id)));
       if (existing) continue;
       await db.insert(intercoPeriods).values({
         period: period2,
@@ -66168,7 +66312,7 @@ __export(seed_employee_dedup_exports, {
 async function repoint(db, fromId, toId) {
   for (const tbl of [payRunLines, timesheets, employeeRateHistory, bankedHourEntries]) {
     try {
-      await db.update(tbl).set({ employeeId: toId }).where(eq(tbl.employeeId, fromId));
+      await db.update(tbl).set({ employeeId: toId }).where(eq2(tbl.employeeId, fromId));
     } catch {
     }
   }
@@ -66177,7 +66321,7 @@ async function dedupClient(clientId, names) {
   const db = getDb();
   const nameByKey = /* @__PURE__ */ new Map();
   for (const n of names) nameByKey.set(idKey(n.first, n.last), n);
-  const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
+  const emps = await db.select().from(employees).where(eq2(employees.clientId, clientId));
   const groups = /* @__PURE__ */ new Map();
   for (const e of emps) {
     const k = idKey(e.firstName || "", e.lastName || "");
@@ -66191,7 +66335,7 @@ async function dedupClient(clientId, names) {
     if (group.length > 1) {
       const lineCounts = /* @__PURE__ */ new Map();
       for (const g of group) {
-        const lc = await db.select().from(payRunLines).where(eq(payRunLines.employeeId, g.id));
+        const lc = await db.select().from(payRunLines).where(eq2(payRunLines.employeeId, g.id));
         lineCounts.set(g.id, lc.length);
       }
       keeper = [...group].sort((a, b) => completeness(b) - completeness(a) || lineCounts.get(b.id) - lineCounts.get(a.id) || a.id - b.id)[0];
@@ -66203,17 +66347,17 @@ async function dedupClient(clientId, names) {
         }
         if (Object.keys(patch).length) {
           patch.updatedAt = /* @__PURE__ */ new Date();
-          await db.update(employees).set(patch).where(eq(employees.id, keeper.id));
+          await db.update(employees).set(patch).where(eq2(employees.id, keeper.id));
           Object.assign(keeper, patch);
         }
         await repoint(db, g.id, keeper.id);
-        await db.delete(employees).where(eq(employees.id, g.id));
+        await db.delete(employees).where(eq2(employees.id, g.id));
         merged++;
       }
     }
     const want = nameByKey.get(k);
     if (want && (keeper.firstName !== want.first || keeper.lastName !== want.last)) {
-      await db.update(employees).set({ firstName: want.first, lastName: want.last, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, keeper.id));
+      await db.update(employees).set({ firstName: want.first, lastName: want.last, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(employees.id, keeper.id));
       renamed++;
     }
   }
@@ -66406,7 +66550,7 @@ async function ensureBridgeReady() {
         continue;
       }
       const client = hits[0];
-      const existing = (await db.select().from(qboConnections).where(eq(qboConnections.realmId, b.realmId)).limit(1))[0];
+      const existing = (await db.select().from(qboConnections).where(eq2(qboConnections.realmId, b.realmId)).limit(1))[0];
       const patch = {
         userId: 1,
         realmId: b.realmId,
@@ -66419,7 +66563,7 @@ async function ensureBridgeReady() {
         isActive: true,
         updatedAt: /* @__PURE__ */ new Date()
       };
-      if (existing) await db.update(qboConnections).set(patch).where(eq(qboConnections.id, existing.id));
+      if (existing) await db.update(qboConnections).set(patch).where(eq2(qboConnections.id, existing.id));
       else await db.insert(qboConnections).values(patch);
       console.log(`[bridge] linked ${b.company} -> client #${client.id} (scenario-run API)`);
     }
@@ -66624,7 +66768,7 @@ async function relinkFindings() {
           receipted++;
         }
         if (newMeta !== meta3) patch.sourceData = JSON.stringify(newMeta);
-        if (Object.keys(patch).length) await db.update(triageFindings).set(patch).where(eq(triageFindings.id, f.id));
+        if (Object.keys(patch).length) await db.update(triageFindings).set(patch).where(eq2(triageFindings.id, f.id));
       } catch {
       }
     }
@@ -66997,7 +67141,7 @@ async function importClientMaster() {
     }
     if (yearEndMonth) patch.yearEndMonth = yearEndMonth;
     if (r.triageEmail) patch.figgyEmail = r.triageEmail;
-    await db.update(clients).set(patch).where(eq(clients.id, clientId));
+    await db.update(clients).set(patch).where(eq2(clients.id, clientId));
     report.updated++;
     const procs = {};
     if (r.stripe) procs.stripe = "https://dashboard.stripe.com/login";
@@ -67005,9 +67149,9 @@ async function importClientMaster() {
     if (r.jobber) procs.jobber = "https://secure.getjobber.com/login";
     if (r.touchbistro) procs.touchbistro = "https://www.touchbistro.com/login";
     if (Object.keys(procs).length) {
-      const existing = (await db.select().from(clientVault).where(eq(clientVault.clientId, clientId)).limit(1))[0];
+      const existing = (await db.select().from(clientVault).where(eq2(clientVault.clientId, clientId)).limit(1))[0];
       const v = { clientId, otherSoftwareLogins: JSON.stringify(procs), updatedAt: /* @__PURE__ */ new Date() };
-      if (existing) await db.update(clientVault).set(v).where(eq(clientVault.id, existing.id));
+      if (existing) await db.update(clientVault).set(v).where(eq2(clientVault.id, existing.id));
       else await db.insert(clientVault).values(v);
       report.vaults++;
     }
@@ -67351,7 +67495,7 @@ async function seedPayrollEmployees() {
       continue;
     }
     result.matched++;
-    const current = await db.select().from(employees).where(eq(employees.clientId, client.id));
+    const current = await db.select().from(employees).where(eq2(employees.clientId, client.id));
     if (current.length > 0 && !roster.merge) {
       result.skipped += roster.employees.length;
       continue;
@@ -67387,7 +67531,7 @@ async function seedPayrollEmployees() {
       if (e.clientId === to.id) continue;
       const from = findClient(clientsNow, mv.fromMatch);
       if (from && e.clientId !== from.id) continue;
-      await db.update(employees).set({ clientId: to.id, notes: mv.note || e.notes, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, e.id));
+      await db.update(employees).set({ clientId: to.id, notes: mv.note || e.notes, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(employees.id, e.id));
       moved++;
     }
   }
@@ -67396,7 +67540,7 @@ async function seedPayrollEmployees() {
     if (e.payType === "salary" && (e.annualSalary == null || e.annualSalary === 0)) {
       const annual = annualFromNotes(e.notes);
       if (annual) {
-        await db.update(employees).set({ annualSalary: annual, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, e.id));
+        await db.update(employees).set({ annualSalary: annual, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(employees.id, e.id));
         filled++;
       }
     }
@@ -67409,7 +67553,7 @@ async function seedPayrollEmployees() {
       if (!client) continue;
       const emp = all.find((e) => e.clientId === client.id && norm21(e.firstName) === norm21(link.firstName) && (!link.lastName || norm21(e.lastName) === norm21(link.lastName)));
       if (emp && !emp.contractUrl) {
-        await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq(employees.id, emp.id));
+        await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(employees.id, emp.id));
         contracts++;
       }
     }
@@ -67455,8 +67599,8 @@ async function isBrowserEnabled() {
   try {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
     const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
-    const row = await getDb2().select().from(appSettings2).where(eq3(appSettings2.key, "figs_browser_enabled")).limit(1);
+    const { eq: eq4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    const row = await getDb2().select().from(appSettings2).where(eq4(appSettings2.key, "figs_browser_enabled")).limit(1);
     return row[0]?.value === "on";
   } catch {
     return false;
@@ -67465,10 +67609,10 @@ async function isBrowserEnabled() {
 async function setBrowserEnabled(on) {
   const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
   const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-  const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+  const { eq: eq4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
   const db = getDb2();
-  const existing = await db.select().from(appSettings2).where(eq3(appSettings2.key, "figs_browser_enabled")).limit(1);
-  if (existing[0]) await db.update(appSettings2).set({ value: on ? "on" : "off" }).where(eq3(appSettings2.key, "figs_browser_enabled"));
+  const existing = await db.select().from(appSettings2).where(eq4(appSettings2.key, "figs_browser_enabled")).limit(1);
+  if (existing[0]) await db.update(appSettings2).set({ value: on ? "on" : "off" }).where(eq4(appSettings2.key, "figs_browser_enabled"));
   else await db.insert(appSettings2).values({ key: "figs_browser_enabled", value: on ? "on" : "off" });
 }
 function touch(s, status) {
@@ -69670,12 +69814,12 @@ async function ensureOwnerAdmin() {
   try {
     const db = getDb();
     const promoted = [];
-    const all = await db.select().from(users);
+    const all = await db.select().from(users2);
     for (const u of all) {
       const email3 = String(u.email || "").toLowerCase();
       if (!OWNER_EMAILS.includes(email3)) continue;
       if (u.role === "admin") continue;
-      await db.update(users).set({ role: "admin", updatedAt: /* @__PURE__ */ new Date() }).where(eq(users.id, u.id));
+      await db.update(users2).set({ role: "admin", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(users2.id, u.id));
       promoted.push(u.email);
     }
     if (promoted.length) console.log(`[owner-admin] promoted to admin: ${promoted.join(", ")}`);
@@ -70250,13 +70394,13 @@ async function seedAiAgents(userId = 1) {
   let created = 0;
   let renamed = 0;
   try {
-    const existing = await db.select().from(aiAgentConfigs).where(eq(aiAgentConfigs.userId, userId));
+    const existing = await db.select().from(aiAgentConfigs).where(eq2(aiAgentConfigs.userId, userId));
     const byName = new Map(existing.map((r) => [r.name, r]));
     for (const a of AGENTS) {
       if (byName.has(a.name)) continue;
       const alias = (a.aliases ?? []).map((n) => byName.get(n)).find(Boolean);
       if (alias) {
-        await db.update(aiAgentConfigs).set({ name: a.name, agentType: a.agentType, description: a.description }).where(and(eq(aiAgentConfigs.id, alias.id), eq(aiAgentConfigs.userId, userId)));
+        await db.update(aiAgentConfigs).set({ name: a.name, agentType: a.agentType, description: a.description }).where(and(eq2(aiAgentConfigs.id, alias.id), eq2(aiAgentConfigs.userId, userId)));
         renamed++;
         continue;
       }
@@ -70407,7 +70551,7 @@ async function seedHstDates() {
       }
       if (due) patch.hstNextDue = due;
       if (Object.keys(patch).length <= 1) continue;
-      await db.update(clients).set(patch).where(eq(clients.id, clientId));
+      await db.update(clients).set(patch).where(eq2(clients.id, clientId));
       report.updated++;
       if (period2) {
         try {
@@ -70423,9 +70567,9 @@ async function seedHstDates() {
       }
       if (due) {
         const dueTs = /* @__PURE__ */ new Date(`${due}T09:00:00Z`);
-        const r1 = await db.update(tasks).set({ dueDate: dueTs }).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed"), like(tasks.title, "%HST%")));
+        const r1 = await db.update(tasks).set({ dueDate: dueTs }).where(and(eq2(tasks.clientId, clientId), ne(tasks.status, "completed"), like(tasks.title, "%HST%")));
         report.tasks += Number(r1?.rowsAffected ?? r1?.changes ?? 0);
-        await db.update(clientTaskRules).set({ nextDueDate: dueTs }).where(and(eq(clientTaskRules.clientId, clientId), inArray(clientTaskRules.ruleType, ["hst_monthly", "hst_quarterly", "hst_annual"])));
+        await db.update(clientTaskRules).set({ nextDueDate: dueTs }).where(and(eq2(clientTaskRules.clientId, clientId), inArray(clientTaskRules.ruleType, ["hst_monthly", "hst_quarterly", "hst_annual"])));
       }
     }
     console.log(`[seed] HST dates: ${report.updated} clients, ${report.tasks} HST tasks dated`);
@@ -70510,7 +70654,7 @@ async function seedClientWebsites() {
       if (c.website && String(c.website).trim()) continue;
       const d10 = domainFromEmail(c.email || "");
       if (!d10) continue;
-      await db.update(clients).set({ website: d10, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+      await db.update(clients).set({ website: d10, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, c.id));
       filled++;
     }
     if (filled) console.log(`[seed] client websites: ${filled} filled from email domains`);
@@ -70585,7 +70729,7 @@ async function seedGovRegistry() {
     if (g.status) patch.governmentStatus = g.status;
     if (g.industry && (!c.industry || c.industry === "other")) patch.industry = g.industry;
     try {
-      await db.update(clients).set(patch).where(eq(clients.id, c.id));
+      await db.update(clients).set(patch).where(eq2(clients.id, c.id));
       report.patched++;
     } catch (e) {
       console.error("[gov-registry] patch failed for", c.name, ":", e instanceof Error ? e.message : e);
@@ -70650,11 +70794,11 @@ async function seedPayrollHistoryLinks() {
   for (const s of SHEETS) {
     try {
       const rows = await db.select().from(clients).where(
-        or(like(clients.name, `%${s.match}%`), like(clients.company, `%${s.match}%`))
+        or2(like(clients.name, `%${s.match}%`), like(clients.company, `%${s.match}%`))
       );
       for (const c of rows) {
         if (c.payrollHistoryUrl) continue;
-        await db.update(clients).set({ payrollHistoryUrl: s.url, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+        await db.update(clients).set({ payrollHistoryUrl: s.url, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, c.id));
         set2++;
       }
     } catch (e) {
@@ -70689,16 +70833,16 @@ async function seedDockKingFlowthrough() {
   const db = getDb();
   const report = { matched: 0, updated: 0, tasksPaused: 0 };
   const rows = await db.select().from(clients).where(
-    or(like(clients.name, "Dock King%"), like(clients.company, "Dock King%"))
+    or2(like(clients.name, "Dock King%"), like(clients.company, "Dock King%"))
   );
   for (const c of rows) {
     report.matched++;
     if (c.clientType !== "wholesale") {
-      await db.update(clients).set({ clientType: "wholesale", qboSoftwareWholesale: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+      await db.update(clients).set({ clientType: "wholesale", qboSoftwareWholesale: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, c.id));
       report.updated++;
     }
-    const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, c.id)).returning();
-    const r26 = await db.delete(tasks).where(and(eq(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
+    const r1 = await db.update(clientTaskRules).set({ active: false }).where(eq2(clientTaskRules.clientId, c.id)).returning();
+    const r26 = await db.delete(tasks).where(and(eq2(tasks.clientId, c.id), ne(tasks.status, "completed"))).returning();
     report.tasksPaused += (r1?.length || 0) + (r26?.length || 0);
   }
   return report;
@@ -70728,7 +70872,7 @@ async function seedTaxRateReviewTasks() {
   for (const r of REMINDERS) {
     report.ensured++;
     try {
-      const open3 = await db.select().from(tasks).where(and(isNull2(tasks.clientId), eq(tasks.title, r.title), ne(tasks.status, "completed"))).limit(1);
+      const open3 = await db.select().from(tasks).where(and(isNull2(tasks.clientId), eq2(tasks.title, r.title), ne(tasks.status, "completed"))).limit(1);
       if (open3[0]) continue;
       await db.insert(tasks).values({
         userId: 1,
@@ -70814,7 +70958,7 @@ async function reconcileOvernight() {
   const allClients = await db.select({ id: clients.id, name: clients.name, yearEndMonth: clients.yearEndMonth }).from(clients);
   const yeByClient = /* @__PURE__ */ new Map();
   for (const c of allClients) yeByClient.set(c.id, monthToNum(c.yearEndMonth));
-  const openTasks = await db.select().from(tasks).where(eq(tasks.completed, false));
+  const openTasks = await db.select().from(tasks).where(eq2(tasks.completed, false));
   for (const t2 of openTasks) {
     const rt = t2.ruleId != null ? ruleType.get(t2.ruleId) : void 0;
     if (!rt) continue;
@@ -70823,36 +70967,36 @@ async function reconcileOvernight() {
       const ye = t2.clientId != null ? yeByClient.get(t2.clientId) ?? null : null;
       const next = correctedDueDate("year_end", cur, ye);
       if (next && !sameDay(cur, next)) {
-        await db.update(tasks).set({ dueDate: next, updatedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
+        await db.update(tasks).set({ dueDate: next, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(tasks.id, t2.id));
         out.yearEndRedated++;
       }
     } else if (rt === "t4_annual") {
       const next = correctedDueDate("t4_annual", cur, null);
       if (next && !sameDay(cur, next)) {
-        await db.update(tasks).set({ dueDate: next, updatedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
+        await db.update(tasks).set({ dueDate: next, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(tasks.id, t2.id));
         out.t4Redated++;
       }
     } else if (rt === "hst_quarterly") {
       if (cur && cur.getDate() !== 15) {
         const next = new Date(cur.getFullYear(), cur.getMonth(), 15, 12, 0, 0);
-        await db.update(tasks).set({ dueDate: next, updatedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
+        await db.update(tasks).set({ dueDate: next, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(tasks.id, t2.id));
         out.hstRedated++;
       }
     }
   }
   const align = allClients.find((c) => /align by design/i.test(c.name));
   if (align) {
-    await db.update(clients).set({ payrollHoursSource: "qbo_autopay", updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, align.id));
+    await db.update(clients).set({ payrollHoursSource: "qbo_autopay", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, align.id));
     out.alignFlagged = true;
     const payrollTypes = ["payroll_tax_prep", "payroll_remit_regular", "payroll_remit_accelerated", "payroll_remit_quarterly", "payroll_remit_monthly"];
-    const alignRules = await db.select().from(clientTaskRules).where(eq(clientTaskRules.clientId, align.id));
+    const alignRules = await db.select().from(clientTaskRules).where(eq2(clientTaskRules.clientId, align.id));
     const retireRuleIds = alignRules.filter((r) => payrollTypes.includes(r.ruleType)).map((r) => r.id);
     if (retireRuleIds.length) {
       for (const rid of retireRuleIds) {
-        const r = await db.update(clientTaskRules).set({ active: false, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(clientTaskRules.id, rid), eq(clientTaskRules.active, true)));
+        const r = await db.update(clientTaskRules).set({ active: false, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq2(clientTaskRules.id, rid), eq2(clientTaskRules.active, true)));
         if (r.rowsAffected) out.alignRulesRetired++;
       }
-      const del = await db.delete(tasks).where(and(inArray(tasks.ruleId, retireRuleIds), eq(tasks.completed, false)));
+      const del = await db.delete(tasks).where(and(inArray(tasks.ruleId, retireRuleIds), eq2(tasks.completed, false)));
       out.alignTasksRetired = del.rowsAffected ?? 0;
     }
   } else {
@@ -70860,14 +71004,14 @@ async function reconcileOvernight() {
   }
   const columbus = allClients.find((c) => /columbus/i.test(c.name));
   if (columbus) {
-    const r = await db.update(clients).set({ status: "prospect", updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(clients.id, columbus.id), eq(clients.status, "active")));
+    const r = await db.update(clients).set({ status: "prospect", updatedAt: /* @__PURE__ */ new Date() }).where(and(eq2(clients.id, columbus.id), eq2(clients.status, "active")));
     out.columbusProspect = !!r.rowsAffected;
   } else {
     out.notes.push("Columbus not found \u2014 prospect status skipped.");
   }
   const wy = allClients.find((c) => /west york/i.test(c.name));
   if (wy) {
-    const r = await db.update(clients).set({ payrollFrequency: "weekly", updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, wy.id));
+    const r = await db.update(clients).set({ payrollFrequency: "weekly", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, wy.id));
     out.westYorkWeekly = !!r.rowsAffected;
   } else {
     out.notes.push("West York not found \u2014 weekly cadence skipped.");
@@ -71185,7 +71329,7 @@ __export(seed_client_run_payroll_exports, {
 async function markClientRunPayroll() {
   const db = getDb();
   try {
-    const owner = (await db.select().from(users).where(eq(users.email, "markie.antle@gmail.com")).limit(1))[0] || (await db.select().from(users).limit(1))[0];
+    const owner = (await db.select().from(users2).where(eq2(users2.email, "markie.antle@gmail.com")).limit(1))[0] || (await db.select().from(users2).limit(1))[0];
     const userId = owner?.id;
     if (!userId) return { updated: [], skipped: "no user" };
     const cs = await db.select().from(clients);
@@ -71195,7 +71339,7 @@ async function markClientRunPayroll() {
       if (!PATTERNS2.some((p) => p.test(c.name || ""))) continue;
       const needsUpdate = c.payrollFrequency !== "self" || !c.payrollExternal || !c.hasPayroll;
       if (needsUpdate) {
-        await db.update(clients).set({ hasPayroll: true, payrollFrequency: "self", payrollExternal: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, c.id));
+        await db.update(clients).set({ hasPayroll: true, payrollFrequency: "self", payrollExternal: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, c.id));
       }
       await createRecurringTasksForClient(
         c.id,
@@ -71226,16 +71370,16 @@ var init_seed_client_run_payroll = __esm({
 // api/seed-demo-data.ts
 async function seedDemoData() {
   const db = getDb();
-  const done = await db.select().from(groupEntities).where(eq(groupEntities.groupName, "Apex Group"));
+  const done = await db.select().from(groupEntities).where(eq2(groupEntities.groupName, "Apex Group"));
   if (done.length) return;
-  for (const tbl of [payRunLines, payRuns, employees, tasks, groupOwnership, groupProfit, groupFamilyBenefit, groupEntities, clients, users]) {
+  for (const tbl of [payRunLines, payRuns, employees, tasks, groupOwnership, groupProfit, groupFamilyBenefit, groupEntities, clients, users2]) {
     try {
       await db.delete(tbl);
     } catch {
     }
   }
   let userId = 1;
-  const u = await db.insert(users).values({
+  const u = await db.insert(users2).values({
     email: "demo@gofigbookz.app",
     name: "Demo Admin",
     role: "admin",
@@ -71420,7 +71564,7 @@ var init_prepare_demo_db = __esm({
     init_seed_demo_data();
     rowsOf = (res) => res?.rows ?? res ?? [];
     SEEDED_TABLES = [
-      [users, "users"],
+      [users2, "users"],
       [clients, "clients"],
       [employees, "employees"],
       [payRuns, "pay_runs"],
@@ -71467,7 +71611,7 @@ async function buildClientAddrMaps(userId) {
   const db = getDb();
   const byAddr = /* @__PURE__ */ new Map();
   const pairs = [];
-  const clientRows = await db.select({ id: clients.id, email: clients.email }).from(clients).where(eq(clients.userId, userId));
+  const clientRows = await db.select({ id: clients.id, email: clients.email }).from(clients).where(eq2(clients.userId, userId));
   for (const c of clientRows) {
     const a = (c.email || "").toLowerCase().trim();
     if (a) {
@@ -71506,7 +71650,7 @@ async function refreshGoogleToken(accountId, refreshToken2) {
         accessToken: data.access_token,
         expiresAt: data.expires_in ? new Date(Date.now() + data.expires_in * 1e3) : null,
         lastSyncedAt: /* @__PURE__ */ new Date()
-      }).where(eq(connectedAccounts.id, accountId));
+      }).where(eq2(connectedAccounts.id, accountId));
       return data.access_token;
     }
   } catch (err) {
@@ -71535,7 +71679,7 @@ async function syncGmail(accessToken, userId, accountId) {
       const subject = headers.find((h) => h.name === "Subject")?.value || "No Subject";
       const from = headers.find((h) => h.name === "From")?.value || "";
       const date5 = headers.find((h) => h.name === "Date")?.value;
-      const existing = await db.select().from(emails).where(eq(emails.gmailMessageId, msg.id)).limit(1);
+      const existing = await db.select().from(emails).where(eq2(emails.gmailMessageId, msg.id)).limit(1);
       if (existing.length === 0) {
         const fromAddr = extractEmail(from);
         const clientId = matchClientId([fromAddr], byAddr) ?? matchClientByDomain([fromAddr], byDomain);
@@ -71571,14 +71715,14 @@ async function syncGmail(accessToken, userId, accountId) {
 }
 async function backfillEmailClientIds(userId, byAddr, byDomain) {
   const db = getDb();
-  const unsorted = await db.select({ id: emails.id, from: emails.from }).from(emails).where(and(eq(emails.userId, userId), isNull2(emails.clientId))).limit(500);
+  const unsorted = await db.select({ id: emails.id, from: emails.from }).from(emails).where(and(eq2(emails.userId, userId), isNull2(emails.clientId))).limit(500);
   let fixed = 0;
   for (const row of unsorted) {
     const fromAddr = extractEmail(row.from || "");
     if (!fromAddr) continue;
     const clientId = matchClientId([fromAddr], byAddr) ?? matchClientByDomain([fromAddr], byDomain);
     if (clientId) {
-      await db.update(emails).set({ clientId }).where(eq(emails.id, row.id));
+      await db.update(emails).set({ clientId }).where(eq2(emails.id, row.id));
       fixed++;
     }
   }
@@ -71598,7 +71742,7 @@ async function syncCalendar(accessToken, userId, accountId) {
     const db = getDb();
     let added = 0;
     for (const event of data.items) {
-      const existing = await db.select().from(calendarEvents).where(eq(calendarEvents.googleEventId, event.id)).limit(1);
+      const existing = await db.select().from(calendarEvents).where(eq2(calendarEvents.googleEventId, event.id)).limit(1);
       if (existing.length === 0) {
         const gDate = (part) => {
           if (part?.dateTime) return new Date(part.dateTime);
@@ -71652,7 +71796,7 @@ async function syncTasks(accessToken, userId, accountId) {
       const tasksData = await tasksResponse.json();
       if (!tasksData.items) continue;
       for (const task of tasksData.items) {
-        const existing = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.googleTaskId, task.id)).limit(1);
+        const existing = await db.select({ id: tasks.id }).from(tasks).where(eq2(tasks.googleTaskId, task.id)).limit(1);
         if (existing.length === 0) {
           await db.insert(tasks).values({
             userId,
@@ -71682,7 +71826,7 @@ async function syncGoogleAccount(accountId) {
   const result = { emailsAdded: 0, eventsAdded: 0, tasksAdded: 0, errors: [] };
   try {
     const db = getDb();
-    const rows = await db.select().from(connectedAccounts).where(eq(connectedAccounts.id, accountId)).limit(1);
+    const rows = await db.select().from(connectedAccounts).where(eq2(connectedAccounts.id, accountId)).limit(1);
     const account = rows[0];
     if (!account || !account.isActive) {
       result.errors.push("Account not found or inactive");
@@ -71709,7 +71853,7 @@ async function syncGoogleAccount(accountId) {
     if (syncEnabled.tasks !== false) {
       result.tasksAdded = await syncTasks(accessToken, userId, accountId);
     }
-    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(connectedAccounts.id, accountId));
+    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq2(connectedAccounts.id, accountId));
   } catch (err) {
     result.errors.push(String(err));
     console.error("[Google Sync] Account sync failed:", err);
@@ -71718,7 +71862,7 @@ async function syncGoogleAccount(accountId) {
 }
 async function syncAllGoogleAccounts() {
   const db = getDb();
-  const accounts = await db.select().from(connectedAccounts).where(eq(connectedAccounts.provider, "google"));
+  const accounts = await db.select().from(connectedAccounts).where(eq2(connectedAccounts.provider, "google"));
   const results = [];
   for (const account of accounts) {
     if (account.isActive) {
@@ -75878,7 +76022,7 @@ var voiceRouter = createRouter({
     }
     const db = getDb();
     const text2 = input.text.toLowerCase();
-    const userRows = await db.select().from(users).where(eq(users.email, input.userEmail)).limit(1);
+    const userRows = await db.select().from(users2).where(eq2(users2.email, input.userEmail)).limit(1);
     const user = userRows[0];
     if (!user) {
       throw new Error("User not found");
@@ -75931,7 +76075,7 @@ var voiceRouter = createRouter({
       throw new Error("Invalid voice token");
     }
     const db = getDb();
-    const userRows = await db.select().from(users).where(eq(users.email, input.userEmail)).limit(1);
+    const userRows = await db.select().from(users2).where(eq2(users2.email, input.userEmail)).limit(1);
     const user = userRows[0];
     if (!user) {
       throw new Error("User not found");
@@ -75942,7 +76086,7 @@ var voiceRouter = createRouter({
     const today2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today2.getTime() + 24 * 60 * 60 * 1e3);
     const nextWeek = new Date(today2.getTime() + 7 * 24 * 60 * 60 * 1e3);
-    const allTasks = await db.select().from(tasks).where(eq(tasks.userId, userId)).orderBy(tasks.dueDate);
+    const allTasks = await db.select().from(tasks).where(eq2(tasks.userId, userId)).orderBy(tasks.dueDate);
     const openTasks = allTasks.filter((t2) => !t2.completed);
     const overdue = openTasks.filter((t2) => t2.dueDate && new Date(t2.dueDate) < today2);
     const dueToday = openTasks.filter((t2) => {
@@ -76170,7 +76314,7 @@ var googleTasksRouter = createRouter({
   ).mutation(async ({ ctx, input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
     const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq3, and: and8, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    const { eq: eq4, and: and8, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const db = getDb2();
     const token2 = await getGoogleToken(ctx.user.id, ctx.db);
     if (!token2) {
@@ -76179,7 +76323,7 @@ var googleTasksRouter = createRouter({
         message: "No Google account connected. Connect Google in Integrations."
       });
     }
-    const where = input.clientId ? and8(eq3(tasks5.userId, ctx.user.id), eq3(tasks5.clientId, input.clientId)) : and8(eq3(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
+    const where = input.clientId ? and8(eq4(tasks5.userId, ctx.user.id), eq4(tasks5.clientId, input.clientId)) : and8(eq4(tasks5.userId, ctx.user.id), isNull3(tasks5.completedAt));
     const crmTasks = await db.select().from(tasks5).where(where);
     const results = [];
     for (const task of crmTasks.slice(0, 50)) {
@@ -76242,8 +76386,8 @@ var googleSyncRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const accounts = await db.select().from(connectedAccounts).where(and(
-      eq(connectedAccounts.id, input.accountId),
-      eq(connectedAccounts.provider, "google")
+      eq2(connectedAccounts.id, input.accountId),
+      eq2(connectedAccounts.provider, "google")
     )).limit(1);
     if (!accounts[0]) throw new Error("Google account not found");
     const account = accounts[0];
@@ -76293,7 +76437,7 @@ var googleSyncRouter = createRouter({
           break;
         }
       }
-      const existing = await db.select({ id: emails.id }).from(emails).where(eq(emails.gmailMessageId, msg.id)).limit(1);
+      const existing = await db.select({ id: emails.id }).from(emails).where(eq2(emails.gmailMessageId, msg.id)).limit(1);
       if (existing[0]) continue;
       const [email3] = await db.insert(emails).values({
         userId: ctx.user.id,
@@ -76316,7 +76460,7 @@ var googleSyncRouter = createRouter({
       }).returning();
       syncedEmails.push(email3);
     }
-    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(connectedAccounts.id, account.id));
+    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq2(connectedAccounts.id, account.id));
     return {
       success: true,
       synced: syncedEmails.length,
@@ -76333,8 +76477,8 @@ var googleSyncRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const accounts = await db.select().from(connectedAccounts).where(and(
-      eq(connectedAccounts.id, input.accountId),
-      eq(connectedAccounts.provider, "google")
+      eq2(connectedAccounts.id, input.accountId),
+      eq2(connectedAccounts.provider, "google")
     )).limit(1);
     if (!accounts[0]) throw new Error("Google account not found");
     const account = accounts[0];
@@ -76356,7 +76500,7 @@ var googleSyncRouter = createRouter({
     const events = data.items || [];
     const syncedEvents = [];
     for (const event of events) {
-      const existing = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.googleEventId, event.id)).limit(1);
+      const existing = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq2(calendarEvents.googleEventId, event.id)).limit(1);
       if (existing[0]) continue;
       const gDate = (part) => {
         if (part?.dateTime) return new Date(part.dateTime);
@@ -76388,7 +76532,7 @@ var googleSyncRouter = createRouter({
       }).returning();
       syncedEvents.push(calEvent);
     }
-    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(connectedAccounts.id, account.id));
+    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq2(connectedAccounts.id, account.id));
     return {
       success: true,
       synced: syncedEvents.length,
@@ -76402,8 +76546,8 @@ var googleSyncRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const accounts = await db.select().from(connectedAccounts).where(and(
-      eq(connectedAccounts.id, input.accountId),
-      eq(connectedAccounts.provider, "google")
+      eq2(connectedAccounts.id, input.accountId),
+      eq2(connectedAccounts.provider, "google")
     )).limit(1);
     if (!accounts[0]) throw new Error("Google account not found");
     const account = accounts[0];
@@ -76421,7 +76565,7 @@ var googleSyncRouter = createRouter({
       );
       const items = tasksData.items || [];
       for (const task of items) {
-        const existing = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.googleTaskId, task.id)).limit(1);
+        const existing = await db.select({ id: tasks.id }).from(tasks).where(eq2(tasks.googleTaskId, task.id)).limit(1);
         if (existing[0]) continue;
         await db.insert(tasks).values({
           userId: ctx.user.id,
@@ -76438,7 +76582,7 @@ var googleSyncRouter = createRouter({
         syncedCount++;
       }
     }
-    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(connectedAccounts.id, account.id));
+    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq2(connectedAccounts.id, account.id));
     return {
       success: true,
       synced: syncedCount,
@@ -76451,8 +76595,8 @@ var googleSyncRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const account = await db.select().from(connectedAccounts).where(and(
-      eq(connectedAccounts.id, input.accountId),
-      eq(connectedAccounts.provider, "google")
+      eq2(connectedAccounts.id, input.accountId),
+      eq2(connectedAccounts.provider, "google")
     )).limit(1);
     if (!account[0]) throw new Error("Google account not found");
     return {
@@ -76497,9 +76641,9 @@ var microsoftSyncRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const accounts = await db.select().from(connectedAccounts).where(and(
-      eq(connectedAccounts.id, input.accountId),
-      eq(connectedAccounts.userId, ctx.user.id),
-      eq(connectedAccounts.provider, "microsoft")
+      eq2(connectedAccounts.id, input.accountId),
+      eq2(connectedAccounts.userId, ctx.user.id),
+      eq2(connectedAccounts.provider, "microsoft")
     )).limit(1);
     if (!accounts[0]) throw new Error("Microsoft account not found");
     const account = accounts[0];
@@ -76516,7 +76660,7 @@ var microsoftSyncRouter = createRouter({
     const messages = data.value || [];
     const syncedEmails = [];
     for (const msg of messages) {
-      const existing = await db.select({ id: emails.id }).from(emails).where(eq(emails.outlookMessageId, msg.id)).limit(1);
+      const existing = await db.select({ id: emails.id }).from(emails).where(eq2(emails.outlookMessageId, msg.id)).limit(1);
       if (existing[0]) continue;
       const from = msg.from?.emailAddress;
       const to = msg.toRecipients?.map(
@@ -76541,7 +76685,7 @@ var microsoftSyncRouter = createRouter({
       }).returning();
       syncedEmails.push(email3);
     }
-    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(connectedAccounts.id, account.id));
+    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq2(connectedAccounts.id, account.id));
     return {
       success: true,
       synced: syncedEmails.length,
@@ -76557,9 +76701,9 @@ var microsoftSyncRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const accounts = await db.select().from(connectedAccounts).where(and(
-      eq(connectedAccounts.id, input.accountId),
-      eq(connectedAccounts.userId, ctx.user.id),
-      eq(connectedAccounts.provider, "microsoft")
+      eq2(connectedAccounts.id, input.accountId),
+      eq2(connectedAccounts.userId, ctx.user.id),
+      eq2(connectedAccounts.provider, "microsoft")
     )).limit(1);
     if (!accounts[0]) throw new Error("Microsoft account not found");
     const account = accounts[0];
@@ -76580,7 +76724,7 @@ var microsoftSyncRouter = createRouter({
     const events = data.value || [];
     const syncedEvents = [];
     for (const event of events) {
-      const existing = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.outlookEventId, event.id)).limit(1);
+      const existing = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq2(calendarEvents.outlookEventId, event.id)).limit(1);
       if (existing[0]) continue;
       const [calEvent] = await db.insert(calendarEvents).values({
         userId: ctx.user.id,
@@ -76603,7 +76747,7 @@ var microsoftSyncRouter = createRouter({
       }).returning();
       syncedEvents.push(calEvent);
     }
-    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(connectedAccounts.id, account.id));
+    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq2(connectedAccounts.id, account.id));
     return {
       success: true,
       synced: syncedEvents.length,
@@ -76617,9 +76761,9 @@ var microsoftSyncRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const accounts = await db.select().from(connectedAccounts).where(and(
-      eq(connectedAccounts.id, input.accountId),
-      eq(connectedAccounts.userId, ctx.user.id),
-      eq(connectedAccounts.provider, "microsoft")
+      eq2(connectedAccounts.id, input.accountId),
+      eq2(connectedAccounts.userId, ctx.user.id),
+      eq2(connectedAccounts.provider, "microsoft")
     )).limit(1);
     if (!accounts[0]) throw new Error("Microsoft account not found");
     const account = accounts[0];
@@ -76639,7 +76783,7 @@ var microsoftSyncRouter = createRouter({
       );
       const items = tasksData.value || [];
       for (const task of items) {
-        const existing = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.microsoftTaskId, task.id)).limit(1);
+        const existing = await db.select({ id: tasks.id }).from(tasks).where(eq2(tasks.microsoftTaskId, task.id)).limit(1);
         if (existing[0]) continue;
         await db.insert(tasks).values({
           userId: ctx.user.id,
@@ -76656,7 +76800,7 @@ var microsoftSyncRouter = createRouter({
         syncedCount++;
       }
     }
-    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(connectedAccounts.id, account.id));
+    await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq2(connectedAccounts.id, account.id));
     return {
       success: true,
       synced: syncedCount,
@@ -76669,9 +76813,9 @@ var microsoftSyncRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const account = await db.select().from(connectedAccounts).where(and(
-      eq(connectedAccounts.id, input.accountId),
-      eq(connectedAccounts.userId, ctx.user.id),
-      eq(connectedAccounts.provider, "microsoft")
+      eq2(connectedAccounts.id, input.accountId),
+      eq2(connectedAccounts.userId, ctx.user.id),
+      eq2(connectedAccounts.provider, "microsoft")
     )).limit(1);
     if (!account[0]) throw new Error("Microsoft account not found");
     return {
@@ -76706,37 +76850,37 @@ var dailyBriefRouter = createRouter({
     const tomorrowEnd = new Date(todayEnd);
     tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
     const overdue = await db.select().from(tasks).where(and(
-      eq(tasks.userId, userId),
-      eq(tasks.completed, false),
+      eq2(tasks.userId, userId),
+      eq2(tasks.completed, false),
       lt(tasks.dueDate, todayStart)
     )).orderBy(tasks.dueDate);
     const todayTasks = await db.select().from(tasks).where(and(
-      eq(tasks.userId, userId),
-      eq(tasks.completed, false),
+      eq2(tasks.userId, userId),
+      eq2(tasks.completed, false),
       gte(tasks.dueDate, todayStart),
       lte(tasks.dueDate, todayEnd)
     )).orderBy(tasks.priority, tasks.dueDate);
     const tomorrowTasks = await db.select().from(tasks).where(and(
-      eq(tasks.userId, userId),
-      eq(tasks.completed, false),
+      eq2(tasks.userId, userId),
+      eq2(tasks.completed, false),
       gte(tasks.dueDate, tomorrowStart),
       lte(tasks.dueDate, tomorrowEnd)
     )).orderBy(tasks.priority);
     const weekEnd = new Date(todayStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
     const upcoming = await db.select().from(tasks).where(and(
-      eq(tasks.userId, userId),
-      eq(tasks.completed, false),
+      eq2(tasks.userId, userId),
+      eq2(tasks.completed, false),
       gte(tasks.dueDate, tomorrowEnd),
       lte(tasks.dueDate, weekEnd)
     )).orderBy(tasks.dueDate).limit(10);
     const calendar = await db.select().from(calendarEvents).where(and(
-      eq(calendarEvents.userId, userId),
+      eq2(calendarEvents.userId, userId),
       gte(calendarEvents.startDate, todayStart),
       lte(calendarEvents.startDate, todayEnd),
-      eq(calendarEvents.status, "confirmed")
+      eq2(calendarEvents.status, "confirmed")
     )).orderBy(calendarEvents.startDate);
-    const totalPending = await db.select({ count: sql`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.completed, false)));
+    const totalPending = await db.select({ count: sql`count(*)` }).from(tasks).where(and(eq2(tasks.userId, userId), eq2(tasks.completed, false)));
     return {
       date: now.toISOString(),
       greeting: getGreeting(now),
@@ -76760,9 +76904,9 @@ var dailyBriefRouter = createRouter({
     taskIds: external_exports.array(external_exports.number()).max(5)
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.update(tasks).set({ category: sql`CASE WHEN category = 'priority' THEN NULL ELSE category END` }).where(eq(tasks.userId, ctx.user.id));
+    await db.update(tasks).set({ category: sql`CASE WHEN category = 'priority' THEN NULL ELSE category END` }).where(eq2(tasks.userId, ctx.user.id));
     for (const taskId of input.taskIds) {
-      await db.update(tasks).set({ category: "priority" }).where(and(eq(tasks.id, taskId), eq(tasks.userId, ctx.user.id)));
+      await db.update(tasks).set({ category: "priority" }).where(and(eq2(tasks.id, taskId), eq2(tasks.userId, ctx.user.id)));
     }
     return { success: true, prioritized: input.taskIds.length };
   })
@@ -78200,12 +78344,12 @@ var localAuthRouter = createRouter({
     role: external_exports.enum(["admin", "senior_bookkeeper", "junior_bookkeeper", "client"]).default("junior_bookkeeper")
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const existing = await db.select().from(users).where(eq(users.email, input.email)).limit(1);
+    const existing = await db.select().from(users2).where(eq2(users2.email, input.email)).limit(1);
     if (existing.length > 0) {
       throw new Error("Email already registered");
     }
     const passwordHash = await (0, import_bcryptjs.hash)(input.password, 12);
-    const [user] = await db.insert(users).values({
+    const [user] = await db.insert(users2).values({
       email: input.email,
       name: input.name,
       passwordHash,
@@ -78227,7 +78371,7 @@ var localAuthRouter = createRouter({
     password: external_exports.string().min(1)
   })).mutation(async ({ input, ctx }) => {
     const db = getDb();
-    const [user] = await db.select().from(users).where(eq(users.email, input.email)).limit(1);
+    const [user] = await db.select().from(users2).where(eq2(users2.email, input.email)).limit(1);
     if (!user) {
       throw new Error("Invalid email or password");
     }
@@ -78241,7 +78385,7 @@ var localAuthRouter = createRouter({
     if (!valid) {
       throw new Error("Invalid email or password");
     }
-    await db.update(users).set({ lastSignInAt: /* @__PURE__ */ new Date() }).where(eq(users.id, user.id));
+    await db.update(users2).set({ lastSignInAt: /* @__PURE__ */ new Date() }).where(eq2(users2.id, user.id));
     const token2 = await signSessionToken({
       unionId: user.id.toString(),
       // Use id as unionId for local auth
@@ -78281,15 +78425,15 @@ var localAuthRouter = createRouter({
   list: adminQuery.query(async () => {
     const db = getDb();
     return db.select({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      role: users.role,
-      isActive: users.isActive,
-      authProvider: users.authProvider,
-      createdAt: users.createdAt,
-      lastSignInAt: users.lastSignInAt
-    }).from(users).orderBy(desc(users.createdAt));
+      id: users2.id,
+      email: users2.email,
+      name: users2.name,
+      role: users2.role,
+      isActive: users2.isActive,
+      authProvider: users2.authProvider,
+      createdAt: users2.createdAt,
+      lastSignInAt: users2.lastSignInAt
+    }).from(users2).orderBy(desc(users2.createdAt));
   }),
   // Update user (admin only)
   update: adminQuery.input(external_exports.object({
@@ -78301,10 +78445,10 @@ var localAuthRouter = createRouter({
   })).mutation(async ({ input }) => {
     const db = getDb();
     const { id, ...updates } = input;
-    await db.update(users).set({
+    await db.update(users2).set({
       ...updates,
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(users.id, id));
+    }).where(eq2(users2.id, id));
     return { success: true };
   }),
   // Change password (any authenticated user)
@@ -78314,7 +78458,7 @@ var localAuthRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     if (!ctx.user) throw new Error("Not authenticated");
     const db = getDb();
-    const [user] = await db.select().from(users).where(eq(users.id, ctx.user.id)).limit(1);
+    const [user] = await db.select().from(users2).where(eq2(users2.id, ctx.user.id)).limit(1);
     if (!user?.passwordHash) {
       throw new Error("No password set for this account");
     }
@@ -78323,7 +78467,7 @@ var localAuthRouter = createRouter({
       throw new Error("Current password is incorrect");
     }
     const newHash = await (0, import_bcryptjs.hash)(input.newPassword, 12);
-    await db.update(users).set({ passwordHash: newHash }).where(eq(users.id, ctx.user.id));
+    await db.update(users2).set({ passwordHash: newHash }).where(eq2(users2.id, ctx.user.id));
     return { success: true, message: "Password changed successfully" };
   }),
   // Reset password (admin only - sets temporary password)
@@ -78333,16 +78477,16 @@ var localAuthRouter = createRouter({
   })).mutation(async ({ input }) => {
     const db = getDb();
     const newHash = await (0, import_bcryptjs.hash)(input.temporaryPassword, 12);
-    await db.update(users).set({
+    await db.update(users2).set({
       passwordHash: newHash,
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(users.id, input.userId));
+    }).where(eq2(users2.id, input.userId));
     return { success: true, message: "Password reset. User must change on next login." };
   }),
   // Delete user (admin only)
   delete: adminQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(users).where(eq(users.id, input.id));
+    await db.delete(users2).where(eq2(users2.id, input.id));
     return { success: true };
   }),
   // Logout
@@ -78410,14 +78554,14 @@ init_task_generator();
 init_seed_triage_emails();
 init_month_end_core();
 function clientScope(ctx, idVal) {
-  return ctx.user?.role === "client" ? and(eq(clients.id, idVal), eq(clients.userId, ctx.user.id)) : eq(clients.id, idVal);
+  return ctx.user?.role === "client" ? and(eq2(clients.id, idVal), eq2(clients.userId, ctx.user.id)) : eq2(clients.id, idVal);
 }
 async function deactivateClientTasks(db, clientId) {
-  await db.update(clientTaskRules).set({ active: false }).where(eq(clientTaskRules.clientId, clientId));
-  await db.delete(tasks).where(and(eq(tasks.clientId, clientId), ne(tasks.status, "completed")));
+  await db.update(clientTaskRules).set({ active: false }).where(eq2(clientTaskRules.clientId, clientId));
+  await db.delete(tasks).where(and(eq2(tasks.clientId, clientId), ne(tasks.status, "completed")));
 }
 async function reactivateClientTasks(db, clientId) {
-  await db.update(clientTaskRules).set({ active: true }).where(eq(clientTaskRules.clientId, clientId));
+  await db.update(clientTaskRules).set({ active: true }).where(eq2(clientTaskRules.clientId, clientId));
 }
 var clientRouter = createRouter({
   // List clients — SHARED PRACTICE VIEW
@@ -78436,13 +78580,13 @@ var clientRouter = createRouter({
     const status = input?.status ?? "all";
     const conditions = [];
     if (userRole === "client") {
-      conditions.push(eq(clients.userId, userId));
+      conditions.push(eq2(clients.userId, userId));
     }
     const allowed = await restrictedClientIds(ctx);
     if (allowed !== null) {
       conditions.push(inArray(clients.id, allowed.length ? allowed : [-1]));
     }
-    if (status !== "all") conditions.push(eq(clients.status, status));
+    if (status !== "all") conditions.push(eq2(clients.status, status));
     if (search) conditions.push(like(clients.name, `%${search}%`));
     const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
     const results = await db.select().from(clients).where(whereClause).orderBy(desc(clients.updatedAt)).limit(input?.limit ?? 50).offset(input?.offset ?? 0);
@@ -78457,7 +78601,7 @@ var clientRouter = createRouter({
     const db = getDb();
     const userRole = ctx.user.role;
     const conditions = [];
-    if (userRole === "client") conditions.push(eq(clients.userId, ctx.user.id));
+    if (userRole === "client") conditions.push(eq2(clients.userId, ctx.user.id));
     const allowed = await restrictedClientIds(ctx);
     if (allowed !== null) conditions.push(inArray(clients.id, allowed.length ? allowed : [-1]));
     const where = conditions.length ? and(...conditions) : void 0;
@@ -78537,7 +78681,7 @@ var clientRouter = createRouter({
   related: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
     if (ctx.user?.role === "client") return [];
     const db = getDb();
-    const me = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+    const me = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
     const g = (me?.groupName || "").trim();
     if (!g) return [];
     const all = await db.select().from(clients);
@@ -78598,7 +78742,7 @@ var clientRouter = createRouter({
     }).returning();
     if (client && !client.figgyEmail) {
       const figgyEmail = figgyEmailFor(client.name || client.company || `client${client.id}`);
-      await db.update(clients).set({ figgyEmail }).where(eq(clients.id, client.id));
+      await db.update(clients).set({ figgyEmail }).where(eq2(clients.id, client.id));
       client.figgyEmail = figgyEmail;
     }
     if (client) syncInsert("clients", client);
@@ -78687,7 +78831,7 @@ var clientRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const { id, hasHST, hstPeriod, hasWSIB, wsibQuarter, hasPayroll, payrollFrequency, billingType, monthlyFee, transactionsPerMonth, workflowStatus, quoteAmount, quoteSentAt, quoteApprovedAt, engagementSentAt, engagementSignedAt, ...updates } = input;
-    const current = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
+    const current = await db.select().from(clients).where(eq2(clients.id, id)).limit(1);
     const currentClient = current[0];
     const wholesale = (updates.clientType ?? currentClient?.clientType) === "wholesale";
     const effHasPayroll = wholesale ? false : hasPayroll;
@@ -78710,7 +78854,7 @@ var clientRouter = createRouter({
       ...engagementSentAt !== void 0 && { engagementSentAt },
       ...engagementSignedAt !== void 0 && { engagementSignedAt }
     }).where(clientScope(ctx, id));
-    const updatedRows = await db.select().from(clients).where(eq(clients.id, id)).limit(1);
+    const updatedRows = await db.select().from(clients).where(eq2(clients.id, id)).limit(1);
     const updated = updatedRows[0];
     if (updated) syncUpdate("clients", updated);
     if (updates.status !== void 0 && currentClient && updates.status !== currentClient.status) {
@@ -78756,8 +78900,8 @@ var clientRouter = createRouter({
     const { keepId, dupeId } = input;
     if (keepId === dupeId) throw new Error("Pick two different clients to merge.");
     const db = getDb();
-    const keep3 = (await db.select().from(clients).where(eq(clients.id, keepId)).limit(1))[0];
-    const dupe = (await db.select().from(clients).where(eq(clients.id, dupeId)).limit(1))[0];
+    const keep3 = (await db.select().from(clients).where(eq2(clients.id, keepId)).limit(1))[0];
+    const dupe = (await db.select().from(clients).where(eq2(clients.id, dupeId)).limit(1))[0];
     if (!keep3 || !dupe) throw new Error("One of those clients no longer exists.");
     const moved = {};
     const tbls = await db.run(sql`SELECT name FROM sqlite_master WHERE type='table'`);
@@ -78791,20 +78935,20 @@ var clientRouter = createRouter({
     }
     if (Object.keys(fill).length) {
       try {
-        await db.update(clients).set({ ...fill, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, keepId));
+        await db.update(clients).set({ ...fill, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, keepId));
       } catch (e) {
         console.error("[merge] fill keeper failed:", e);
       }
     }
-    await db.delete(clients).where(eq(clients.id, dupeId));
+    await db.delete(clients).where(eq2(clients.id, dupeId));
     return { success: true, keepId, dupeId, moved, filledFields: Object.keys(fill) };
   }),
   // Delete client — cascades to their tasks + recurring rules so nothing is
   // left orphaned (and they stop showing in task lists / generating new work).
   delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(tasks).where(eq(tasks.clientId, input.id));
-    await db.delete(clientTaskRules).where(eq(clientTaskRules.clientId, input.id));
+    await db.delete(tasks).where(eq2(tasks.clientId, input.id));
+    await db.delete(clientTaskRules).where(eq2(clientTaskRules.clientId, input.id));
     await db.delete(clients).where(clientScope(ctx, input.id));
     return { success: true };
   }),
@@ -78866,7 +79010,7 @@ var clientRouter = createRouter({
   // Satisfaction scores
   getSatisfactionScores: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    return db.select().from(satisfactionScores).where(eq(satisfactionScores.clientId, input.clientId)).orderBy(desc(satisfactionScores.createdAt));
+    return db.select().from(satisfactionScores).where(eq2(satisfactionScores.clientId, input.clientId)).orderBy(desc(satisfactionScores.createdAt));
   }),
   addSatisfactionScore: authedQuery.input(external_exports.object({
     clientId: external_exports.number(),
@@ -78887,7 +79031,7 @@ var clientRouter = createRouter({
   pipelineStats: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
     const userRole = ctx.user.role;
-    const allClients = userRole === "client" ? await db.select().from(clients).where(eq(clients.userId, ctx.user.id)) : await db.select().from(clients);
+    const allClients = userRole === "client" ? await db.select().from(clients).where(eq2(clients.userId, ctx.user.id)) : await db.select().from(clients);
     const leads = allClients.filter((c) => c.status === "lead" || c.status === "prospect");
     const active = allClients.filter((c) => c.status === "active");
     return {
@@ -78990,7 +79134,7 @@ function getWorkflowTemplate(key11) {
 // api/task-router.ts
 init_schema();
 async function excludeDeadClientTasks(db, rows) {
-  const dead = await db.select({ id: clients.id }).from(clients).where(or(eq(clients.status, "inactive"), eq(clients.status, "archived")));
+  const dead = await db.select({ id: clients.id }).from(clients).where(or2(eq2(clients.status, "inactive"), eq2(clients.status, "archived")));
   const deadIds = new Set(dead.map((c) => c.id));
   return rows.filter((t2) => !t2.clientId || !deadIds.has(t2.clientId));
 }
@@ -79011,16 +79155,16 @@ var taskRouter = createRouter({
     const conditions = [];
     if (userRole !== "admin" && userRole !== "senior_bookkeeper") {
       conditions.push(
-        or(
-          eq(tasks.userId, userId),
-          eq(tasks.assignedTo, userName)
+        or2(
+          eq2(tasks.userId, userId),
+          eq2(tasks.assignedTo, userName)
         )
       );
     }
-    if (input?.clientId) conditions.push(eq(tasks.clientId, input.clientId));
-    if (input?.status && input.status !== "all") conditions.push(eq(tasks.status, input.status));
-    if (input?.priority && input.priority !== "all") conditions.push(eq(tasks.priority, input.priority));
-    if (input?.completed !== void 0) conditions.push(eq(tasks.completed, input.completed));
+    if (input?.clientId) conditions.push(eq2(tasks.clientId, input.clientId));
+    if (input?.status && input.status !== "all") conditions.push(eq2(tasks.status, input.status));
+    if (input?.priority && input.priority !== "all") conditions.push(eq2(tasks.priority, input.priority));
+    if (input?.completed !== void 0) conditions.push(eq2(tasks.completed, input.completed));
     const whereClause = conditions.length > 0 ? and(...conditions) : void 0;
     const results = await db.select().from(tasks).where(whereClause).orderBy(desc(tasks.dueDate)).limit(input?.limit ?? 500).offset(input?.offset ?? 0);
     return excludeDeadClientTasks(db, results);
@@ -79034,9 +79178,9 @@ var taskRouter = createRouter({
     const now = /* @__PURE__ */ new Date();
     const future = /* @__PURE__ */ new Date();
     future.setDate(now.getDate() + input.days);
-    const accessFilter = userRole === "admin" || userRole === "senior_bookkeeper" ? void 0 : or(eq(tasks.userId, userId), eq(tasks.assignedTo, userName));
+    const accessFilter = userRole === "admin" || userRole === "senior_bookkeeper" ? void 0 : or2(eq2(tasks.userId, userId), eq2(tasks.assignedTo, userName));
     const conditions = [
-      eq(tasks.completed, false),
+      eq2(tasks.completed, false),
       gte(tasks.dueDate, now),
       lte(tasks.dueDate, future)
     ];
@@ -79051,9 +79195,9 @@ var taskRouter = createRouter({
     const userRole = ctx.user.role;
     const userName = ctx.user.name || ctx.user.email;
     const now = /* @__PURE__ */ new Date();
-    const accessFilter = userRole === "admin" || userRole === "senior_bookkeeper" ? void 0 : or(eq(tasks.userId, userId), eq(tasks.assignedTo, userName));
+    const accessFilter = userRole === "admin" || userRole === "senior_bookkeeper" ? void 0 : or2(eq2(tasks.userId, userId), eq2(tasks.assignedTo, userName));
     const conditions = [
-      eq(tasks.completed, false),
+      eq2(tasks.completed, false),
       lt(tasks.dueDate, now)
     ];
     if (accessFilter) conditions.push(accessFilter);
@@ -79115,8 +79259,8 @@ var taskRouter = createRouter({
   complete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const now = /* @__PURE__ */ new Date();
-    await db.update(tasks).set({ completed: true, status: "completed", stage: "done", completedAt: now }).where(eq(tasks.id, input.id));
-    const taskRows = await db.select().from(tasks).where(eq(tasks.id, input.id)).limit(1);
+    await db.update(tasks).set({ completed: true, status: "completed", stage: "done", completedAt: now }).where(eq2(tasks.id, input.id));
+    const taskRows = await db.select().from(tasks).where(eq2(tasks.id, input.id)).limit(1);
     const task = taskRows[0];
     if (task) syncUpdate("tasks", task);
     let nextTask = null;
@@ -79133,7 +79277,7 @@ var taskRouter = createRouter({
     await db.update(tasks).set({
       stage: input.stage,
       ...done ? { completed: true, status: "completed", completedAt: /* @__PURE__ */ new Date() } : { completed: false, status: input.stage === "in_progress" ? "in_progress" : "pending" }
-    }).where(eq(tasks.id, input.id));
+    }).where(eq2(tasks.id, input.id));
     return { success: true };
   }),
   // List the available reusable workflow templates (Financial Cents-style).
@@ -79151,7 +79295,7 @@ var taskRouter = createRouter({
     const db = getDb();
     const tpl = getWorkflowTemplate(input.templateKey);
     if (!tpl) throw new Error(`Unknown workflow template: ${input.templateKey}`);
-    const clientRows = await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1);
+    const clientRows = await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1);
     const client = clientRows[0];
     const assignedTo = client?.assignedTo || ctx.user.name || ctx.user.email;
     const baseDue = input.dueDate ?? /* @__PURE__ */ new Date();
@@ -79196,8 +79340,8 @@ var taskRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const { id, ...updates } = input;
-    await db.update(tasks).set(updates).where(eq(tasks.id, id));
-    const updated = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+    await db.update(tasks).set(updates).where(eq2(tasks.id, id));
+    const updated = await db.select().from(tasks).where(eq2(tasks.id, id)).limit(1);
     if (updated[0]) {
       syncUpdate("tasks", updated[0]);
       Promise.resolve().then(() => (init_google_push(), google_push_exports)).then((m) => m.pushTaskToGoogle(id)).catch(() => {
@@ -79208,7 +79352,7 @@ var taskRouter = createRouter({
   // Delete task
   delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(tasks).where(eq(tasks.id, input.id));
+    await db.delete(tasks).where(eq2(tasks.id, input.id));
     return { success: true };
   }),
   // ===== RECURRING TASKS =====
@@ -79217,8 +79361,8 @@ var taskRouter = createRouter({
   }).optional()).query(async ({ ctx, input }) => {
     const db = getDb();
     const userId = ctx.user.id;
-    const conditions = [eq(recurringTasks.userId, userId)];
-    if (input?.active !== void 0) conditions.push(eq(recurringTasks.active, input.active));
+    const conditions = [eq2(recurringTasks.userId, userId)];
+    if (input?.active !== void 0) conditions.push(eq2(recurringTasks.active, input.active));
     return db.select().from(recurringTasks).where(and(...conditions)).orderBy(desc(recurringTasks.createdAt));
   }),
   createRecurring: authedQuery.input(external_exports.object({
@@ -79251,35 +79395,35 @@ var taskRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const { id, ...updates } = input;
-    await db.update(recurringTasks).set(updates).where(and(eq(recurringTasks.id, id), eq(recurringTasks.userId, ctx.user.id)));
+    await db.update(recurringTasks).set(updates).where(and(eq2(recurringTasks.id, id), eq2(recurringTasks.userId, ctx.user.id)));
     return { success: true };
   }),
   deleteRecurring: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(recurringTasks).where(and(eq(recurringTasks.id, input.id), eq(recurringTasks.userId, ctx.user.id)));
+    await db.delete(recurringTasks).where(and(eq2(recurringTasks.id, input.id), eq2(recurringTasks.userId, ctx.user.id)));
     return { success: true };
   }),
   // ===== CLIENT TASK RULES =====
   listClientRules: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
     return db.select().from(clientTaskRules).where(and(
-      eq(clientTaskRules.clientId, input.clientId),
-      eq(clientTaskRules.userId, ctx.user.id)
+      eq2(clientTaskRules.clientId, input.clientId),
+      eq2(clientTaskRules.userId, ctx.user.id)
     )).orderBy(clientTaskRules.category);
   }),
   toggleRule: authedQuery.input(external_exports.object({ ruleId: external_exports.number(), active: external_exports.boolean() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     await db.update(clientTaskRules).set({ active: input.active }).where(and(
-      eq(clientTaskRules.id, input.ruleId),
-      eq(clientTaskRules.userId, ctx.user.id)
+      eq2(clientTaskRules.id, input.ruleId),
+      eq2(clientTaskRules.userId, ctx.user.id)
     ));
     return { success: true };
   }),
   getClientTasks: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
     return db.select().from(tasks).where(and(
-      eq(tasks.clientId, input.clientId),
-      eq(tasks.userId, ctx.user.id)
+      eq2(tasks.clientId, input.clientId),
+      eq2(tasks.userId, ctx.user.id)
     )).orderBy(desc(tasks.dueDate));
   })
 });
@@ -79310,10 +79454,10 @@ var integrationRouter = createRouter({
       lastSyncedAt: connectedAccounts.lastSyncedAt,
       createdAt: connectedAccounts.createdAt,
       updatedAt: connectedAccounts.updatedAt
-    }).from(connectedAccounts).where(or(
-      eq(connectedAccounts.userId, ctx.user.id),
-      eq(connectedAccounts.provider, "google"),
-      eq(connectedAccounts.provider, "microsoft")
+    }).from(connectedAccounts).where(or2(
+      eq2(connectedAccounts.userId, ctx.user.id),
+      eq2(connectedAccounts.provider, "google"),
+      eq2(connectedAccounts.provider, "microsoft")
     )).orderBy(desc(connectedAccounts.createdAt));
   }),
   // Get accounts by provider
@@ -79321,8 +79465,8 @@ var integrationRouter = createRouter({
     const db = getDb();
     return db.select().from(connectedAccounts).where(
       and(
-        eq(connectedAccounts.userId, ctx.user.id),
-        eq(connectedAccounts.provider, input.provider)
+        eq2(connectedAccounts.userId, ctx.user.id),
+        eq2(connectedAccounts.provider, input.provider)
       )
     ).orderBy(desc(connectedAccounts.createdAt));
   }),
@@ -79369,7 +79513,7 @@ var integrationRouter = createRouter({
     })
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.update(connectedAccounts).set({ syncEnabled: input.syncEnabled }).where(and(eq(connectedAccounts.id, input.id), eq(connectedAccounts.userId, ctx.user.id)));
+    await db.update(connectedAccounts).set({ syncEnabled: input.syncEnabled }).where(and(eq2(connectedAccounts.id, input.id), eq2(connectedAccounts.userId, ctx.user.id)));
     return { success: true };
   }),
   // Update account label
@@ -79378,25 +79522,25 @@ var integrationRouter = createRouter({
     accountLabel: external_exports.string().min(1).max(100)
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.update(connectedAccounts).set({ accountLabel: input.accountLabel }).where(and(eq(connectedAccounts.id, input.id), eq(connectedAccounts.userId, ctx.user.id)));
+    await db.update(connectedAccounts).set({ accountLabel: input.accountLabel }).where(and(eq2(connectedAccounts.id, input.id), eq2(connectedAccounts.userId, ctx.user.id)));
     return { success: true };
   }),
   // Toggle account active
   toggleActive: authedQuery.input(external_exports.object({ id: external_exports.number(), active: external_exports.boolean() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.update(connectedAccounts).set({ isActive: input.active }).where(and(eq(connectedAccounts.id, input.id), eq(connectedAccounts.userId, ctx.user.id)));
+    await db.update(connectedAccounts).set({ isActive: input.active }).where(and(eq2(connectedAccounts.id, input.id), eq2(connectedAccounts.userId, ctx.user.id)));
     return { success: true };
   }),
   // Delete / disconnect account
   delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(connectedAccounts).where(and(eq(connectedAccounts.id, input.id), eq(connectedAccounts.userId, ctx.user.id)));
+    await db.delete(connectedAccounts).where(and(eq2(connectedAccounts.id, input.id), eq2(connectedAccounts.userId, ctx.user.id)));
     return { success: true };
   }),
   // Disconnect alias (frontend calls this)
   disconnect: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(connectedAccounts).where(and(eq(connectedAccounts.id, input.id), eq(connectedAccounts.userId, ctx.user.id)));
+    await db.delete(connectedAccounts).where(and(eq2(connectedAccounts.id, input.id), eq2(connectedAccounts.userId, ctx.user.id)));
     return { success: true };
   }),
   // Update tokens
@@ -79411,7 +79555,7 @@ var integrationRouter = createRouter({
     await db.update(connectedAccounts).set({
       ...tokens2,
       lastSyncedAt: /* @__PURE__ */ new Date()
-    }).where(and(eq(connectedAccounts.id, id), eq(connectedAccounts.userId, ctx.user.id)));
+    }).where(and(eq2(connectedAccounts.id, id), eq2(connectedAccounts.userId, ctx.user.id)));
     return { success: true };
   }),
   // Get OAuth URL for Google
@@ -79528,18 +79672,18 @@ var emailRouter = createRouter({
     offset: external_exports.number().min(0).default(0)
   })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const conditions = [eq(emails.userId, ctx.user.id)];
+    const conditions = [eq2(emails.userId, ctx.user.id)];
     if (input.folder === "inbox") {
-      conditions.push(eq(emails.isSent, false));
+      conditions.push(eq2(emails.isSent, false));
       conditions.push(isNull2(emails.inReplyTo));
     } else if (input.folder === "sent") {
-      conditions.push(eq(emails.isSent, true));
+      conditions.push(eq2(emails.isSent, true));
     } else if (input.folder === "starred") {
-      conditions.push(eq(emails.isStarred, true));
+      conditions.push(eq2(emails.isStarred, true));
     }
-    if (input.clientId) conditions.push(eq(emails.clientId, input.clientId));
-    if (input.connectedAccountId) conditions.push(eq(emails.connectedAccountId, input.connectedAccountId));
-    if (input.threadId) conditions.push(eq(emails.threadId, input.threadId));
+    if (input.clientId) conditions.push(eq2(emails.clientId, input.clientId));
+    if (input.connectedAccountId) conditions.push(eq2(emails.connectedAccountId, input.connectedAccountId));
+    if (input.threadId) conditions.push(eq2(emails.threadId, input.threadId));
     if (input.search) {
       const s = `%${input.search}%`;
       conditions.push(
@@ -79552,24 +79696,24 @@ var emailRouter = createRouter({
   // Get single email
   getById: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const rows = await db.select().from(emails).where(and(eq(emails.id, input.id), eq(emails.userId, ctx.user.id))).limit(1);
+    const rows = await db.select().from(emails).where(and(eq2(emails.id, input.id), eq2(emails.userId, ctx.user.id))).limit(1);
     return rows[0] || null;
   }),
   // Get thread messages
   getThread: authedQuery.input(external_exports.object({ threadId: external_exports.string() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    return db.select().from(emails).where(and(eq(emails.userId, ctx.user.id), eq(emails.threadId, input.threadId))).orderBy(emails.receivedAt);
+    return db.select().from(emails).where(and(eq2(emails.userId, ctx.user.id), eq2(emails.threadId, input.threadId))).orderBy(emails.receivedAt);
   }),
   // Mark as read/unread
   markRead: authedQuery.input(external_exports.object({ id: external_exports.number(), isRead: external_exports.boolean() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.update(emails).set({ isRead: input.isRead }).where(and(eq(emails.id, input.id), eq(emails.userId, ctx.user.id)));
+    await db.update(emails).set({ isRead: input.isRead }).where(and(eq2(emails.id, input.id), eq2(emails.userId, ctx.user.id)));
     return { success: true };
   }),
   // Toggle star
   toggleStar: authedQuery.input(external_exports.object({ id: external_exports.number(), isStarred: external_exports.boolean() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.update(emails).set({ isStarred: input.isStarred }).where(and(eq(emails.id, input.id), eq(emails.userId, ctx.user.id)));
+    await db.update(emails).set({ isStarred: input.isStarred }).where(and(eq2(emails.id, input.id), eq2(emails.userId, ctx.user.id)));
     return { success: true };
   }),
   // Send email using sender rules (auto-selects from address based on client)
@@ -79583,9 +79727,9 @@ var emailRouter = createRouter({
     inReplyTo: external_exports.number().optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const clientRows = await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1);
+    const clientRows = await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1);
     if (!clientRows[0]) throw new Error("Client not found");
-    const allRules = await db.select().from(senderRules).where(eq(senderRules.isActive, true)).orderBy(desc(senderRules.priority));
+    const allRules = await db.select().from(senderRules).where(eq2(senderRules.isActive, true)).orderBy(desc(senderRules.priority));
     let matchedRule = null;
     for (const rule of allRules) {
       if (rule.clientId === input.clientId) {
@@ -79608,7 +79752,7 @@ var emailRouter = createRouter({
     const fromAddress = matchedRule?.fromAddress || "markie@gofig.ca";
     const fromName = matchedRule?.fromName || "Go Fig Bookz";
     const replyTo = matchedRule?.replyTo || null;
-    await db.update(clients).set({ lastContactedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, input.clientId));
+    await db.update(clients).set({ lastContactedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, input.clientId));
     const threadId = input.threadId || randomUUID();
     const [email3] = await db.insert(emails).values({
       userId: ctx.user.id,
@@ -79644,13 +79788,13 @@ var emailRouter = createRouter({
     inReplyTo: external_exports.number().optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const acctRows = await db.select().from(connectedAccounts).where(eq(connectedAccounts.id, input.connectedAccountId)).limit(1);
+    const acctRows = await db.select().from(connectedAccounts).where(eq2(connectedAccounts.id, input.connectedAccountId)).limit(1);
     if (!acctRows[0]) {
       throw new Error("Connected account not found");
     }
     const account = acctRows[0];
     if (input.clientId) {
-      await db.update(clients).set({ lastContactedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, input.clientId));
+      await db.update(clients).set({ lastContactedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, input.clientId));
     }
     const sent = await providerSend(account, {
       to: input.to,
@@ -79689,12 +79833,12 @@ var emailRouter = createRouter({
     cc: external_exports.string().optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const origRows = await db.select().from(emails).where(and(eq(emails.id, input.emailId), eq(emails.userId, ctx.user.id))).limit(1);
+    const origRows = await db.select().from(emails).where(and(eq2(emails.id, input.emailId), eq2(emails.userId, ctx.user.id))).limit(1);
     if (!origRows[0]) {
       throw new Error("Original email not found");
     }
     const original = origRows[0];
-    const acctRows = await db.select().from(connectedAccounts).where(eq(connectedAccounts.id, original.connectedAccountId)).limit(1);
+    const acctRows = await db.select().from(connectedAccounts).where(eq2(connectedAccounts.id, original.connectedAccountId)).limit(1);
     if (!acctRows[0]) {
       throw new Error("Connected account not found");
     }
@@ -79735,9 +79879,9 @@ var emailRouter = createRouter({
   // Returns a DRAFT only — Markie reviews/edits, then sends via `reply`.
   draftReply: authedQuery.input(external_exports.object({ emailId: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const orig = (await db.select().from(emails).where(and(eq(emails.id, input.emailId), eq(emails.userId, ctx.user.id))).limit(1))[0];
+    const orig = (await db.select().from(emails).where(and(eq2(emails.id, input.emailId), eq2(emails.userId, ctx.user.id))).limit(1))[0];
     if (!orig) throw new Error("Email not found");
-    const sent = await db.select().from(emails).where(and(eq(emails.userId, ctx.user.id), eq(emails.isSent, true))).orderBy(desc(emails.sentAt)).limit(5);
+    const sent = await db.select().from(emails).where(and(eq2(emails.userId, ctx.user.id), eq2(emails.isSent, true))).orderBy(desc(emails.sentAt)).limit(5);
     const samples = sent.map((e) => e.bodyPlain || (e.body || "").replace(/<[^>]*>/g, " ")).filter(Boolean);
     const userText = `Client email to reply to:
 From: ${orig.fromName || orig.fromAddress}
@@ -79756,7 +79900,7 @@ ${orig.bodyPlain || (orig.body || "").replace(/<[^>]*>/g, " ")}`;
   // Liv: suggest a task from an inbound client email (optionally create it).
   suggestTask: authedQuery.input(external_exports.object({ emailId: external_exports.number(), create: external_exports.boolean().optional() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const e = (await db.select().from(emails).where(and(eq(emails.id, input.emailId), eq(emails.userId, ctx.user.id))).limit(1))[0];
+    const e = (await db.select().from(emails).where(and(eq2(emails.id, input.emailId), eq2(emails.userId, ctx.user.id))).limit(1))[0];
     if (!e) throw new Error("Email not found");
     const userText = `From: ${e.fromName || e.fromAddress}
 Subject: ${e.subject || ""}
@@ -79791,7 +79935,7 @@ ${e.bodyPlain || (e.body || "").replace(/<[^>]*>/g, " ")}`;
   // Get email stats
   stats: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
-    const allEmails = await db.select().from(emails).where(eq(emails.userId, ctx.user.id));
+    const allEmails = await db.select().from(emails).where(eq2(emails.userId, ctx.user.id));
     const unread = allEmails.filter((e) => !e.isRead && !e.isSent).length;
     const sent = allEmails.filter((e) => e.isSent).length;
     const starred = allEmails.filter((e) => e.isStarred).length;
@@ -79800,7 +79944,7 @@ ${e.bodyPlain || (e.body || "").replace(/<[^>]*>/g, " ")}`;
   // ========== CLIENT EMAILS ==========
   getClientEmails: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    return db.select().from(clientEmails).where(eq(clientEmails.clientId, input.clientId)).orderBy(desc(clientEmails.isDefault));
+    return db.select().from(clientEmails).where(eq2(clientEmails.clientId, input.clientId)).orderBy(desc(clientEmails.isDefault));
   }),
   addClientEmail: staffQuery.input(external_exports.object({
     clientId: external_exports.number(),
@@ -79812,7 +79956,7 @@ ${e.bodyPlain || (e.body || "").replace(/<[^>]*>/g, " ")}`;
     const db = getDb();
     const { clientId, ...data } = input;
     if (data.isDefault) {
-      await db.update(clientEmails).set({ isDefault: false }).where(eq(clientEmails.clientId, clientId));
+      await db.update(clientEmails).set({ isDefault: false }).where(eq2(clientEmails.clientId, clientId));
     }
     const [ce] = await db.insert(clientEmails).values({
       clientId,
@@ -79829,17 +79973,17 @@ ${e.bodyPlain || (e.body || "").replace(/<[^>]*>/g, " ")}`;
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const { id, ...data } = input;
-    const rows = await db.select().from(clientEmails).where(eq(clientEmails.id, id)).limit(1);
+    const rows = await db.select().from(clientEmails).where(eq2(clientEmails.id, id)).limit(1);
     if (!rows[0]) throw new Error("Client email not found");
     if (data.isDefault) {
-      await db.update(clientEmails).set({ isDefault: false }).where(eq(clientEmails.clientId, rows[0].clientId));
+      await db.update(clientEmails).set({ isDefault: false }).where(eq2(clientEmails.clientId, rows[0].clientId));
     }
-    await db.update(clientEmails).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clientEmails.id, id));
+    await db.update(clientEmails).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clientEmails.id, id));
     return { success: true };
   }),
   deleteClientEmail: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(clientEmails).where(eq(clientEmails.id, input.id));
+    await db.delete(clientEmails).where(eq2(clientEmails.id, input.id));
     return { success: true };
   })
 });
@@ -79866,18 +80010,18 @@ var fileRouter = createRouter({
   )).query(async ({ ctx, input }) => {
     const db = getDb();
     const userId = ctx.user.id;
-    const conditions = [eq(files.userId, userId)];
-    if (input?.clientId) conditions.push(eq(files.clientId, input.clientId));
-    if (input?.provider) conditions.push(eq(files.provider, input.provider));
-    if (input?.isFolder !== void 0) conditions.push(eq(files.isFolder, input.isFolder));
-    if (input?.parentId) conditions.push(eq(files.providerParentId, input.parentId));
+    const conditions = [eq2(files.userId, userId)];
+    if (input?.clientId) conditions.push(eq2(files.clientId, input.clientId));
+    if (input?.provider) conditions.push(eq2(files.provider, input.provider));
+    if (input?.isFolder !== void 0) conditions.push(eq2(files.isFolder, input.isFolder));
+    if (input?.parentId) conditions.push(eq2(files.providerParentId, input.parentId));
     if (input?.search) conditions.push(like(files.name, `%${input.search}%`));
     return db.select().from(files).where(and(...conditions)).orderBy(desc(files.updatedAt)).limit(input?.limit ?? 50).offset(input?.offset ?? 0);
   }),
   // Get single file
   get: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const result = await db.select().from(files).where(and(eq(files.id, input.id), eq(files.userId, ctx.user.id))).limit(1);
+    const result = await db.select().from(files).where(and(eq2(files.id, input.id), eq2(files.userId, ctx.user.id))).limit(1);
     return result[0] ?? null;
   }),
   // Create file record
@@ -79918,20 +80062,20 @@ var fileRouter = createRouter({
     await db.update(files).set({
       ...updates,
       lastSyncedAt: /* @__PURE__ */ new Date()
-    }).where(and(eq(files.id, id), eq(files.userId, ctx.user.id)));
+    }).where(and(eq2(files.id, id), eq2(files.userId, ctx.user.id)));
     return { success: true };
   }),
   // Delete file
   delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(files).where(and(eq(files.id, input.id), eq(files.userId, ctx.user.id)));
+    await db.delete(files).where(and(eq2(files.id, input.id), eq2(files.userId, ctx.user.id)));
     return { success: true };
   }),
   // Get file stats by provider
   stats: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
     const userId = ctx.user.id;
-    const allFiles = await db.select().from(files).where(eq(files.userId, userId));
+    const allFiles = await db.select().from(files).where(eq2(files.userId, userId));
     return {
       total: allFiles.length,
       googleDrive: allFiles.filter((f) => f.provider === "google_drive").length,
@@ -79961,17 +80105,17 @@ var calendarRouter = createRouter({
   }).optional()).query(async ({ ctx, input }) => {
     const db = getDb();
     const userId = ctx.user.id;
-    const conditions = [eq(calendarEvents.userId, userId)];
+    const conditions = [eq2(calendarEvents.userId, userId)];
     if (input?.startDate) conditions.push(gte(calendarEvents.startDate, input.startDate));
     if (input?.endDate) conditions.push(lte(calendarEvents.endDate, input.endDate));
-    if (input?.clientId) conditions.push(eq(calendarEvents.clientId, input.clientId));
-    if (input?.connectedAccountId) conditions.push(eq(calendarEvents.connectedAccountId, input.connectedAccountId));
+    if (input?.clientId) conditions.push(eq2(calendarEvents.clientId, input.clientId));
+    if (input?.connectedAccountId) conditions.push(eq2(calendarEvents.connectedAccountId, input.connectedAccountId));
     return db.select().from(calendarEvents).where(and(...conditions)).orderBy(calendarEvents.startDate).limit(input?.limit ?? 1e3).offset(input?.offset ?? 0);
   }),
   // Get single event
   get: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const result = await db.select().from(calendarEvents).where(and(eq(calendarEvents.id, input.id), eq(calendarEvents.userId, ctx.user.id))).limit(1);
+    const result = await db.select().from(calendarEvents).where(and(eq2(calendarEvents.id, input.id), eq2(calendarEvents.userId, ctx.user.id))).limit(1);
     return result[0] ?? null;
   }),
   // Create event
@@ -80027,7 +80171,7 @@ var calendarRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const { id, ...updates } = input;
-    await db.update(calendarEvents).set(updates).where(and(eq(calendarEvents.id, id), eq(calendarEvents.userId, ctx.user.id)));
+    await db.update(calendarEvents).set(updates).where(and(eq2(calendarEvents.id, id), eq2(calendarEvents.userId, ctx.user.id)));
     Promise.resolve().then(() => (init_google_push(), google_push_exports)).then((m) => m.pushEventToGoogle(id)).catch(() => {
     });
     return { success: true };
@@ -80035,8 +80179,8 @@ var calendarRouter = createRouter({
   // Delete event
   delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const existing = (await db.select().from(calendarEvents).where(eq(calendarEvents.id, input.id)).limit(1))[0];
-    await db.delete(calendarEvents).where(and(eq(calendarEvents.id, input.id), eq(calendarEvents.userId, ctx.user.id)));
+    const existing = (await db.select().from(calendarEvents).where(eq2(calendarEvents.id, input.id)).limit(1))[0];
+    await db.delete(calendarEvents).where(and(eq2(calendarEvents.id, input.id), eq2(calendarEvents.userId, ctx.user.id)));
     if (existing?.googleEventId) {
       Promise.resolve().then(() => (init_google_push(), google_push_exports)).then((m) => m.deleteGoogleEvent(existing.googleEventId)).catch(() => {
       });
@@ -80061,17 +80205,17 @@ var invoiceRouter = createRouter({
   }).optional()).query(async ({ ctx, input }) => {
     const db = getDb();
     const userId = ctx.user.id;
-    const conditions = [eq(invoices.userId, userId)];
-    if (input?.clientId) conditions.push(eq(invoices.clientId, input.clientId));
-    if (input?.status && input.status !== "all") conditions.push(eq(invoices.status, input.status));
+    const conditions = [eq2(invoices.userId, userId)];
+    if (input?.clientId) conditions.push(eq2(invoices.clientId, input.clientId));
+    if (input?.status && input.status !== "all") conditions.push(eq2(invoices.status, input.status));
     return db.select().from(invoices).where(and(...conditions)).orderBy(desc(invoices.issueDate)).limit(input?.limit ?? 50).offset(input?.offset ?? 0);
   }),
   // Get single invoice with items
   get: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const invoiceResult = await db.select().from(invoices).where(and(eq(invoices.id, input.id), eq(invoices.userId, ctx.user.id))).limit(1);
+    const invoiceResult = await db.select().from(invoices).where(and(eq2(invoices.id, input.id), eq2(invoices.userId, ctx.user.id))).limit(1);
     if (!invoiceResult[0]) return null;
-    const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, input.id));
+    const items = await db.select().from(invoiceItems).where(eq2(invoiceItems.invoiceId, input.id));
     return { ...invoiceResult[0], items };
   }),
   // Create invoice
@@ -80121,27 +80265,27 @@ var invoiceRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const { id, ...updates } = input;
-    await db.update(invoices).set(updates).where(and(eq(invoices.id, id), eq(invoices.userId, ctx.user.id)));
+    await db.update(invoices).set(updates).where(and(eq2(invoices.id, id), eq2(invoices.userId, ctx.user.id)));
     return { success: true };
   }),
   // Mark as paid
   markPaid: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.update(invoices).set({ status: "paid", paidDate: /* @__PURE__ */ new Date() }).where(and(eq(invoices.id, input.id), eq(invoices.userId, ctx.user.id)));
+    await db.update(invoices).set({ status: "paid", paidDate: /* @__PURE__ */ new Date() }).where(and(eq2(invoices.id, input.id), eq2(invoices.userId, ctx.user.id)));
     return { success: true };
   }),
   // Delete invoice
   delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, input.id));
-    await db.delete(invoices).where(and(eq(invoices.id, input.id), eq(invoices.userId, ctx.user.id)));
+    await db.delete(invoiceItems).where(eq2(invoiceItems.invoiceId, input.id));
+    await db.delete(invoices).where(and(eq2(invoices.id, input.id), eq2(invoices.userId, ctx.user.id)));
     return { success: true };
   }),
   // Get invoice stats
   stats: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
     const userId = ctx.user.id;
-    const allInvoices = await db.select().from(invoices).where(eq(invoices.userId, userId));
+    const allInvoices = await db.select().from(invoices).where(eq2(invoices.userId, userId));
     const totalRevenue = allInvoices.filter((i) => i.status === "paid").reduce((sum3, i) => sum3 + parseFloat(i.amount), 0);
     const outstanding = allInvoices.filter((i) => i.status === "sent" || i.status === "overdue").reduce((sum3, i) => sum3 + parseFloat(i.amount), 0);
     return {
@@ -80166,12 +80310,12 @@ var aiAgentRouter = createRouter({
   // List agent configs
   list: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
-    return db.select().from(aiAgentConfigs).where(eq(aiAgentConfigs.userId, ctx.user.id)).orderBy(desc(aiAgentConfigs.createdAt));
+    return db.select().from(aiAgentConfigs).where(eq2(aiAgentConfigs.userId, ctx.user.id)).orderBy(desc(aiAgentConfigs.createdAt));
   }),
   // Get single agent config
   get: authedQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const result = await db.select().from(aiAgentConfigs).where(and(eq(aiAgentConfigs.id, input.id), eq(aiAgentConfigs.userId, ctx.user.id))).limit(1);
+    const result = await db.select().from(aiAgentConfigs).where(and(eq2(aiAgentConfigs.id, input.id), eq2(aiAgentConfigs.userId, ctx.user.id))).limit(1);
     return result[0] ?? null;
   }),
   // Create agent config
@@ -80227,13 +80371,13 @@ var aiAgentRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const { id, ...updates } = input;
-    await db.update(aiAgentConfigs).set(updates).where(and(eq(aiAgentConfigs.id, id), eq(aiAgentConfigs.userId, ctx.user.id)));
+    await db.update(aiAgentConfigs).set(updates).where(and(eq2(aiAgentConfigs.id, id), eq2(aiAgentConfigs.userId, ctx.user.id)));
     return { success: true };
   }),
   // Delete agent config
   delete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(aiAgentConfigs).where(and(eq(aiAgentConfigs.id, input.id), eq(aiAgentConfigs.userId, ctx.user.id)));
+    await db.delete(aiAgentConfigs).where(and(eq2(aiAgentConfigs.id, input.id), eq2(aiAgentConfigs.userId, ctx.user.id)));
     return { success: true };
   }),
   // ===== AGENT RUNS =====
@@ -80243,8 +80387,8 @@ var aiAgentRouter = createRouter({
   }).optional()).query(async ({ ctx, input }) => {
     const db = getDb();
     const userId = ctx.user.id;
-    const conditions = [eq(aiAgentRuns.userId, userId)];
-    if (input?.agentId) conditions.push(eq(aiAgentRuns.agentId, input.agentId));
+    const conditions = [eq2(aiAgentRuns.userId, userId)];
+    if (input?.agentId) conditions.push(eq2(aiAgentRuns.agentId, input.agentId));
     return db.select().from(aiAgentRuns).where(and(...conditions)).orderBy(desc(aiAgentRuns.startedAt)).limit(input?.limit ?? 50);
   }),
   // Create a run (triggered by webhook, schedule, or manual)
@@ -80278,7 +80422,7 @@ var aiAgentRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const { id, ...updates } = input;
-    await db.update(aiAgentRuns).set(updates).where(and(eq(aiAgentRuns.id, id), eq(aiAgentRuns.userId, ctx.user.id)));
+    await db.update(aiAgentRuns).set(updates).where(and(eq2(aiAgentRuns.id, id), eq2(aiAgentRuns.userId, ctx.user.id)));
     return { success: true };
   }),
   // Webhook endpoint for external AI agents to report results
@@ -80297,7 +80441,7 @@ var aiAgentRouter = createRouter({
     durationMs: external_exports.number().optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const agent = await db.select().from(aiAgentConfigs).where(eq(aiAgentConfigs.id, input.agentId)).limit(1);
+    const agent = await db.select().from(aiAgentConfigs).where(eq2(aiAgentConfigs.id, input.agentId)).limit(1);
     if (!agent[0] || agent[0].webhookSecret !== input.secret) {
       throw new Error("Invalid webhook secret");
     }
@@ -80311,7 +80455,7 @@ var aiAgentRouter = createRouter({
       errorMessage: input.errorMessage,
       durationMs: input.durationMs,
       completedAt: input.status === "completed" || input.status === "failed" ? /* @__PURE__ */ new Date() : void 0
-    }).where(eq(aiAgentRuns.agentId, input.agentId));
+    }).where(eq2(aiAgentRuns.agentId, input.agentId));
     return { success: true };
   })
 });
@@ -80326,7 +80470,7 @@ var settingsRouter = createRouter({
   // Get user settings
   get: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
-    const result = await db.select().from(userSettings).where(eq(userSettings.userId, ctx.user.id)).limit(1);
+    const result = await db.select().from(userSettings).where(eq2(userSettings.userId, ctx.user.id)).limit(1);
     if (!result[0]) {
       const [settings] = await db.insert(userSettings).values({
         userId: ctx.user.id
@@ -80352,7 +80496,7 @@ var settingsRouter = createRouter({
     currency: external_exports.string().max(10).optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.update(userSettings).set(input).where(eq(userSettings.userId, ctx.user.id));
+    await db.update(userSettings).set(input).where(eq2(userSettings.userId, ctx.user.id));
     return { success: true };
   }),
   // ===== NOTIFICATIONS =====
@@ -80372,9 +80516,9 @@ var settingsRouter = createRouter({
   }).optional()).query(async ({ ctx, input }) => {
     const db = getDb();
     const userId = ctx.user.id;
-    const conditions = [eq(notifications.userId, userId)];
-    if (input?.isRead !== void 0) conditions.push(eq(notifications.isRead, input.isRead));
-    if (input?.type) conditions.push(eq(notifications.type, input.type));
+    const conditions = [eq2(notifications.userId, userId)];
+    if (input?.isRead !== void 0) conditions.push(eq2(notifications.isRead, input.isRead));
+    if (input?.type) conditions.push(eq2(notifications.type, input.type));
     return db.select().from(notifications).where(and(...conditions)).orderBy(desc(notifications.createdAt)).limit(input?.limit ?? 50);
   }),
   // Create notification
@@ -80406,19 +80550,19 @@ var settingsRouter = createRouter({
   // Mark notification as read
   markRead: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.update(notifications).set({ isRead: true }).where(and(eq(notifications.id, input.id), eq(notifications.userId, ctx.user.id)));
+    await db.update(notifications).set({ isRead: true }).where(and(eq2(notifications.id, input.id), eq2(notifications.userId, ctx.user.id)));
     return { success: true };
   }),
   // Mark all as read
   markAllRead: authedQuery.mutation(async ({ ctx }) => {
     const db = getDb();
-    await db.update(notifications).set({ isRead: true }).where(eq(notifications.userId, ctx.user.id));
+    await db.update(notifications).set({ isRead: true }).where(eq2(notifications.userId, ctx.user.id));
     return { success: true };
   }),
   // Delete notification
   deleteNotification: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(notifications).where(and(eq(notifications.id, input.id), eq(notifications.userId, ctx.user.id)));
+    await db.delete(notifications).where(and(eq2(notifications.id, input.id), eq2(notifications.userId, ctx.user.id)));
     return { success: true };
   })
 });
@@ -80441,7 +80585,7 @@ function maskField(value, visible = 4) {
 var vaultRouter = createRouter({
   getByClient: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const row = await db.select().from(clientVault).where(eq(clientVault.clientId, input.clientId)).limit(1);
+    const row = await db.select().from(clientVault).where(eq2(clientVault.clientId, input.clientId)).limit(1);
     if (!row[0]) return null;
     const isJunior = ctx.user.role === "junior_bookkeeper";
     const data = row[0];
@@ -80503,10 +80647,10 @@ var vaultRouter = createRouter({
     vaultNotes: external_exports.string().optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const existing = await db.select().from(clientVault).where(eq(clientVault.clientId, input.clientId)).limit(1);
+    const existing = await db.select().from(clientVault).where(eq2(clientVault.clientId, input.clientId)).limit(1);
     const values = { ...input, lastUpdatedBy: ctx.user.id, updatedAt: /* @__PURE__ */ new Date() };
     if (existing[0]) {
-      await db.update(clientVault).set(values).where(eq(clientVault.id, existing[0].id));
+      await db.update(clientVault).set(values).where(eq2(clientVault.id, existing[0].id));
       return { success: true, id: existing[0].id };
     } else {
       const result = await db.insert(clientVault).values({ ...values, createdAt: /* @__PURE__ */ new Date() });
@@ -80515,7 +80659,7 @@ var vaultRouter = createRouter({
   }),
   delete: adminQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(clientVault).where(eq(clientVault.id, input.id));
+    await db.delete(clientVault).where(eq2(clientVault.id, input.id));
     return { success: true };
   })
 });
@@ -80599,7 +80743,7 @@ var blank = (v) => v === null || v === void 0 || v === "";
 async function enrichClientFromRegistry(clientId) {
   const db = getDb();
   try {
-    const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+    const c = (await db.select().from(clients).where(eq2(clients.id, clientId)).limit(1))[0];
     if (!c) return [];
     const hit = await lookupGovRegistry(c.name, { province: c.province, knownBn: c.taxId });
     if (!hit) return [];
@@ -80621,7 +80765,7 @@ async function enrichClientFromRegistry(clientId) {
       if (c.hasHST && blank(c.hstNumber)) patch.hstNumber = `${hit.craBusinessNumber}RT0001`;
     }
     const fields = Object.keys(patch).filter((k) => k !== "updatedAt");
-    if (fields.length) await db.update(clients).set(patch).where(eq(clients.id, clientId));
+    if (fields.length) await db.update(clients).set(patch).where(eq2(clients.id, clientId));
     return fields;
   } catch (e) {
     console.error("[activation] enrich failed for client", clientId, ":", e instanceof Error ? e.message : e);
@@ -80632,12 +80776,12 @@ async function activateAndSyncClient(clientId) {
   const db = getDb();
   await enrichClientFromRegistry(clientId);
   try {
-    let c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+    let c = (await db.select().from(clients).where(eq2(clients.id, clientId)).limit(1))[0];
     if (!c) return;
     const slug = String(c.name || c.company || "").toLowerCase().replace(/[^a-z0-9]/g, "");
     if (blank(c.figgyEmail) && slug) {
       const figgyEmail = `markie+${slug}@gofig.ca`;
-      await db.update(clients).set({ figgyEmail, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, clientId));
+      await db.update(clients).set({ figgyEmail, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, clientId));
       c = { ...c, figgyEmail };
     }
     syncClientToMaster(c);
@@ -80657,9 +80801,9 @@ var onboardingRouter = createRouter({
   create: seniorQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
     const token2 = crypto3.randomBytes(32).toString("hex");
-    const existing = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).limit(1);
+    const existing = await db.select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, input.clientId)).limit(1);
     if (existing[0]) {
-      await db.update(clientOnboarding).set({ token: token2, status: "pending", updatedAt: /* @__PURE__ */ new Date() }).where(eq(clientOnboarding.id, existing[0].id));
+      await db.update(clientOnboarding).set({ token: token2, status: "pending", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clientOnboarding.id, existing[0].id));
       return { success: true, token: token2, url: `/onboarding/${token2}` };
     }
     await db.insert(clientOnboarding).values({
@@ -80669,13 +80813,13 @@ var onboardingRouter = createRouter({
       createdAt: /* @__PURE__ */ new Date(),
       updatedAt: /* @__PURE__ */ new Date()
     });
-    await db.update(clients).set({ onboardingSentAt: /* @__PURE__ */ new Date(), workflowStatus: "onboarding_sent" }).where(eq(clients.id, input.clientId));
+    await db.update(clients).set({ onboardingSentAt: /* @__PURE__ */ new Date(), workflowStatus: "onboarding_sent" }).where(eq2(clients.id, input.clientId));
     return { success: true, token: token2, url: `/onboarding/${token2}` };
   }),
   // Public: get onboarding form data by token
   getByToken: publicQuery.input(external_exports.object({ token: external_exports.string() })).query(async ({ input }) => {
     const db = getDb();
-    const row = await db.select().from(clientOnboarding).where(eq(clientOnboarding.token, input.token)).limit(1);
+    const row = await db.select().from(clientOnboarding).where(eq2(clientOnboarding.token, input.token)).limit(1);
     if (!row[0]) throw new Error("Invalid token");
     return row[0];
   }),
@@ -80735,7 +80879,7 @@ var onboardingRouter = createRouter({
     salesReceiptSource: external_exports.string().optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const existing = await db.select().from(clientOnboarding).where(eq(clientOnboarding.token, input.token)).limit(1);
+    const existing = await db.select().from(clientOnboarding).where(eq2(clientOnboarding.token, input.token)).limit(1);
     if (!existing[0]) throw new Error("Invalid token");
     const { token: token2, ...data } = input;
     await db.update(clientOnboarding).set({
@@ -80743,13 +80887,13 @@ var onboardingRouter = createRouter({
       status: "submitted",
       submittedAt: /* @__PURE__ */ new Date(),
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(clientOnboarding.id, existing[0].id));
+    }).where(eq2(clientOnboarding.id, existing[0].id));
     await db.update(clients).set({
       onboardingCompletedAt: /* @__PURE__ */ new Date(),
       workflowStatus: "onboarding_complete",
       painPoints: data.painPoints || null,
       expectations: data.expectations || null
-    }).where(eq(clients.id, existing[0].clientId));
+    }).where(eq2(clients.id, existing[0].clientId));
     return { success: true };
   }),
   // Staff: directly submit intake form (creates client + onboarding + tasks)
@@ -80942,7 +81086,7 @@ var onboardingRouter = createRouter({
       createdAt: /* @__PURE__ */ new Date(),
       updatedAt: /* @__PURE__ */ new Date()
     }).returning();
-    await db.update(clients).set({ workflowStatus: "active", onboardingCompletedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, client.id));
+    await db.update(clients).set({ workflowStatus: "active", onboardingCompletedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, client.id));
     const taskResult = await createClientTaskRules({
       clientId: client.id,
       userId,
@@ -81005,9 +81149,9 @@ var onboardingRouter = createRouter({
       reviewedBy: ctx.user.id,
       reviewedAt: /* @__PURE__ */ new Date(),
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(clientOnboarding.id, input.id));
+    }).where(eq2(clientOnboarding.id, input.id));
     if (input.status === "approved") {
-      const row = await db.select().from(clientOnboarding).where(eq(clientOnboarding.id, input.id)).limit(1);
+      const row = await db.select().from(clientOnboarding).where(eq2(clientOnboarding.id, input.id)).limit(1);
       if (row[0]) {
         const onb = row[0];
         const MONTHS32 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -81034,8 +81178,8 @@ var onboardingRouter = createRouter({
           salesReceiptSource: onb.salesReceiptSource || void 0,
           yearEndMonth,
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq(clients.id, onb.clientId));
-        const clientRows = await db.select().from(clients).where(eq(clients.id, onb.clientId)).limit(1);
+        }).where(eq2(clients.id, onb.clientId));
+        const clientRows = await db.select().from(clients).where(eq2(clients.id, onb.clientId)).limit(1);
         const client = clientRows[0];
         if (client) {
           await createClientTaskRules({
@@ -81064,7 +81208,7 @@ var onboardingRouter = createRouter({
             billPayResponsibility: onb.billPayResponsibility || "none"
           });
           try {
-            syncClientToMaster((await db.select().from(clients).where(eq(clients.id, onb.clientId)).limit(1))[0]);
+            syncClientToMaster((await db.select().from(clients).where(eq2(clients.id, onb.clientId)).limit(1))[0]);
           } catch {
           }
         }
@@ -81075,7 +81219,7 @@ var onboardingRouter = createRouter({
   // Get the latest onboarding record for a client (for the editable intake).
   getRecord: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    const rows = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).orderBy(clientOnboarding.id);
+    const rows = await db.select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, input.clientId)).orderBy(clientOnboarding.id);
     return rows[rows.length - 1] ?? null;
   }),
   // Edit/clean up a client's intake — upserts client_onboarding AND syncs the
@@ -81207,7 +81351,7 @@ var onboardingRouter = createRouter({
       "companyKey",
       "craRepId"
     ];
-    const prior = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+    const prior = (await db.select().from(clients).where(eq2(clients.id, clientId)).limit(1))[0];
     const clientPatch = { updatedAt: /* @__PURE__ */ new Date() };
     for (const k of clientKeys) if (rest[k] !== void 0) clientPatch[k] = rest[k];
     if (typeof clientPatch.website === "string") clientPatch.website = clientPatch.website.toLowerCase();
@@ -81221,7 +81365,7 @@ var onboardingRouter = createRouter({
     }
     if (clientPatch.country === "US" && clientPatch.qboAccountType === void 0) clientPatch.qboAccountType = "us_clients";
     if (clientPatch.country === "CA" && clientPatch.qboAccountType === void 0) clientPatch.qboAccountType = "ca_clients";
-    if (Object.keys(clientPatch).length > 1) await db.update(clients).set(clientPatch).where(eq(clients.id, clientId));
+    if (Object.keys(clientPatch).length > 1) await db.update(clients).set(clientPatch).where(eq2(clients.id, clientId));
     void prior;
     const onbKeys = [
       "businessLegalName",
@@ -81269,10 +81413,10 @@ var onboardingRouter = createRouter({
     for (const k of onbKeys) if (rest[k] !== void 0) onbPatch[k] = rest[k];
     if (onbPayrollFrequency !== void 0) onbPatch.payrollFrequency = onbPayrollFrequency;
     if (rest.wsibAccountNumber !== void 0) onbPatch.wsibAccountNumber = rest.wsibAccountNumber;
-    const existing = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(clientOnboarding.id);
+    const existing = await db.select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, clientId)).orderBy(clientOnboarding.id);
     const latest = existing[existing.length - 1];
     if (latest) {
-      await db.update(clientOnboarding).set(onbPatch).where(eq(clientOnboarding.id, latest.id));
+      await db.update(clientOnboarding).set(onbPatch).where(eq2(clientOnboarding.id, latest.id));
     } else {
       await db.insert(clientOnboarding).values({
         clientId,
@@ -81287,7 +81431,7 @@ var onboardingRouter = createRouter({
       console.error("[onboarding] intake reconcile failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
-      const c = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+      const c = (await db.select().from(clients).where(eq2(clients.id, clientId)).limit(1))[0];
       if (c) syncClientToMaster(c);
     } catch {
     }
@@ -81297,7 +81441,7 @@ var onboardingRouter = createRouter({
   // — fills any blank registry/bio fields then syncs the row to the master sheet.
   lookupGovRegistry: staffQuery.input(external_exports.object({ clientId: external_exports.number(), force: external_exports.boolean().optional() })).mutation(async ({ input }) => {
     const db = getDb();
-    const c = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+    const c = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
     if (!c) return { success: false, error: "client not found" };
     const hit = await lookupGovRegistry(c.name, { province: c.province, knownBn: c.taxId });
     if (!hit) return { success: false, error: "no registry data found (or lookup disabled)" };
@@ -81316,8 +81460,8 @@ var onboardingRouter = createRouter({
     take("phone", hit.phone);
     if (hit.industry && (input.force || blank2(c.industry) || c.industry === "other")) patch.industry = hit.industry;
     if (hit.craBusinessNumber && (input.force || blank2(c.taxId))) patch.taxId = hit.craBusinessNumber;
-    if (Object.keys(patch).length > 1) await db.update(clients).set(patch).where(eq(clients.id, input.clientId));
-    const fresh = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+    if (Object.keys(patch).length > 1) await db.update(clients).set(patch).where(eq2(clients.id, input.clientId));
+    const fresh = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
     if (fresh) syncClientToMaster(fresh);
     return { success: true, fields: Object.keys(patch).filter((k) => k !== "updatedAt") };
   }),
@@ -81333,7 +81477,7 @@ var onboardingRouter = createRouter({
   // so the caller gets a real count back. Cheap (~2 Sheets calls/client).
   syncAllToMaster: staffQuery.mutation(async () => {
     const db = getDb();
-    const rows = await db.select().from(clients).where(eq(clients.status, "active"));
+    const rows = await db.select().from(clients).where(eq2(clients.status, "active"));
     let synced = 0, failed = 0;
     for (const c of rows) {
       const ok = await upsertClientToMaster(c);
@@ -81446,12 +81590,12 @@ var clientDashboardRouter = createRouter({
     const db = getDb();
     const { clientId } = input;
     const clientTasks = await db.select().from(tasks).where(and(
-      eq(tasks.clientId, clientId),
-      eq(tasks.userId, ctx.user.id)
+      eq2(tasks.clientId, clientId),
+      eq2(tasks.userId, ctx.user.id)
     )).orderBy(desc(tasks.dueDate));
-    const snapshots = await db.select().from(clientDashboardSnapshots).where(eq(clientDashboardSnapshots.clientId, clientId)).orderBy(desc(clientDashboardSnapshots.createdAt)).limit(1);
-    const clientTimesheets = await db.select().from(timesheets).where(eq(timesheets.clientId, clientId)).orderBy(desc(timesheets.payPeriodEnd));
-    const onboardingData = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, clientId)).orderBy(desc(clientOnboarding.createdAt)).limit(1);
+    const snapshots = await db.select().from(clientDashboardSnapshots).where(eq2(clientDashboardSnapshots.clientId, clientId)).orderBy(desc(clientDashboardSnapshots.createdAt)).limit(1);
+    const clientTimesheets = await db.select().from(timesheets).where(eq2(timesheets.clientId, clientId)).orderBy(desc(timesheets.payPeriodEnd));
+    const onboardingData = await db.select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, clientId)).orderBy(desc(clientOnboarding.createdAt)).limit(1);
     return {
       tasks: clientTasks,
       snapshot: snapshots[0] || null,
@@ -81501,8 +81645,8 @@ var clientDashboardRouter = createRouter({
     const db = getDb();
     const { id, ...data } = input;
     if (id) {
-      await db.update(timesheets).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq(timesheets.id, id));
-      const rows = await db.select().from(timesheets).where(eq(timesheets.id, id)).limit(1);
+      await db.update(timesheets).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(timesheets.id, id));
+      const rows = await db.select().from(timesheets).where(eq2(timesheets.id, id)).limit(1);
       return rows[0];
     } else {
       const [ts] = await db.insert(timesheets).values({
@@ -81516,7 +81660,7 @@ var clientDashboardRouter = createRouter({
   // QBO Billing verification per client
   getQboBilling: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const qboCustomerRows = await db.select().from(qboCustomers).where(eq(qboCustomers.qboCustomerId, String(input.clientId))).limit(1);
+    const qboCustomerRows = await db.select().from(qboCustomers).where(eq2(qboCustomers.qboCustomerId, String(input.clientId))).limit(1);
     const allInvoices = await db.select().from(qboInvoices).orderBy(desc(qboInvoices.transactionDate)).limit(50);
     const allPayments = await db.select().from(qboPayments).orderBy(desc(qboPayments.transactionDate)).limit(50);
     const totalInvoiced = allInvoices.reduce((sum3, inv) => sum3 + (inv.totalAmount || 0), 0);
@@ -81537,7 +81681,7 @@ var clientDashboardRouter = createRouter({
   // Latest cash-flow snapshot for one client (parsed + risk-flagged).
   getCashFlow: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    const rows = await db.select().from(clientCashSnapshots).where(eq(clientCashSnapshots.clientId, input.clientId)).orderBy(desc(clientCashSnapshots.date), desc(clientCashSnapshots.id)).limit(1);
+    const rows = await db.select().from(clientCashSnapshots).where(eq2(clientCashSnapshots.clientId, input.clientId)).orderBy(desc(clientCashSnapshots.date), desc(clientCashSnapshots.id)).limit(1);
     return shapeCashSnapshot(rows[0]);
   }),
   // Portfolio "Cash Watch": every client's latest cash snapshot, worst first.
@@ -81563,7 +81707,7 @@ var clientDashboardRouter = createRouter({
   // Get all timesheets for a client grouped by pay period
   getTimesheetsByPeriod: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    const rows = await db.select().from(timesheets).where(eq(timesheets.clientId, input.clientId)).orderBy(desc(timesheets.payPeriodEnd));
+    const rows = await db.select().from(timesheets).where(eq2(timesheets.clientId, input.clientId)).orderBy(desc(timesheets.payPeriodEnd));
     const periods = /* @__PURE__ */ new Map();
     for (const row of rows) {
       const key11 = `${row.payPeriodStart?.toISOString()}-${row.payPeriodEnd?.toISOString()}`;
@@ -81598,7 +81742,7 @@ var portalRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const token2 = crypto4.randomBytes(32).toString("hex");
-    await db.update(portalTokens).set({ isActive: false }).where(eq(portalTokens.clientId, input.clientId));
+    await db.update(portalTokens).set({ isActive: false }).where(eq2(portalTokens.clientId, input.clientId));
     const [pt] = await db.insert(portalTokens).values({
       clientId: input.clientId,
       token: token2,
@@ -81608,7 +81752,7 @@ var portalRouter = createRouter({
       // 90 days
     }).returning();
     if (pt) syncInsert("portal_tokens", pt);
-    const existing = await db.select().from(portalSettings).where(eq(portalSettings.clientId, input.clientId)).limit(1);
+    const existing = await db.select().from(portalSettings).where(eq2(portalSettings.clientId, input.clientId)).limit(1);
     if (existing.length === 0) {
       await db.insert(portalSettings).values({
         clientId: input.clientId,
@@ -81620,14 +81764,14 @@ var portalRouter = createRouter({
         welcomeMessage: "Welcome to your Go Fig Bookz client portal. Here you can view your financial overview, upload documents, and see any items we need from you."
       });
     } else if (!existing[0].isEnabled) {
-      await db.update(portalSettings).set({ isEnabled: true }).where(eq(portalSettings.clientId, input.clientId));
+      await db.update(portalSettings).set({ isEnabled: true }).where(eq2(portalSettings.clientId, input.clientId));
     }
     return { token: token2, url: `/portal/${token2}` };
   }),
   // Staff: Get or create portal settings for a client
   getSettings: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const rows = await db.select().from(portalSettings).where(eq(portalSettings.clientId, input.clientId)).limit(1);
+    const rows = await db.select().from(portalSettings).where(eq2(portalSettings.clientId, input.clientId)).limit(1);
     if (rows.length === 0) {
       const [settings] = await db.insert(portalSettings).values({
         clientId: input.clientId,
@@ -81654,7 +81798,7 @@ var portalRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const { clientId, ...updates } = input;
-    await db.update(portalSettings).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(portalSettings.clientId, clientId));
+    await db.update(portalSettings).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(portalSettings.clientId, clientId));
     return { success: true };
   }),
   // Staff: Create a missing item and optionally auto-send email
@@ -81675,19 +81819,19 @@ var portalRouter = createRouter({
     }).returning();
     if (item) syncInsert("missing_items", item);
     if (sendEmail) {
-      await db.update(missingItems).set({ emailSentAt: /* @__PURE__ */ new Date(), emailSentCount: 1 }).where(eq(missingItems.id, item.id));
+      await db.update(missingItems).set({ emailSentAt: /* @__PURE__ */ new Date(), emailSentCount: 1 }).where(eq2(missingItems.id, item.id));
     }
     return { ...item, emailSentAt: sendEmail ? /* @__PURE__ */ new Date() : null, emailSentCount: sendEmail ? 1 : 0 };
   }),
   // Staff: List missing items for a client
   listMissingItems: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    return db.select().from(missingItems).where(eq(missingItems.clientId, input.clientId)).orderBy(desc(missingItems.createdAt));
+    return db.select().from(missingItems).where(eq2(missingItems.clientId, input.clientId)).orderBy(desc(missingItems.createdAt));
   }),
   // Staff: Mark missing item as reviewed/approved
   reviewMissingItem: staffQuery.input(external_exports.object({ id: external_exports.number(), status: external_exports.enum(["approved", "overdue"]), notes: external_exports.string().optional() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.update(missingItems).set({ status: input.status, notes: input.notes || null, reviewedAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() }).where(eq(missingItems.id, input.id));
+    await db.update(missingItems).set({ status: input.status, notes: input.notes || null, reviewedAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(missingItems.id, input.id));
     return { success: true };
   }),
   // Staff: Add a file to the client's portal
@@ -81718,18 +81862,18 @@ var portalRouter = createRouter({
   // Staff: List portal files for a client
   listPortalFiles: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    return db.select().from(portalFiles).where(eq(portalFiles.clientId, input.clientId)).orderBy(desc(portalFiles.createdAt));
+    return db.select().from(portalFiles).where(eq2(portalFiles.clientId, input.clientId)).orderBy(desc(portalFiles.createdAt));
   }),
   // Staff: Delete a portal file
   deletePortalFile: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(portalFiles).where(eq(portalFiles.id, input.id));
+    await db.delete(portalFiles).where(eq2(portalFiles.id, input.id));
     return { success: true };
   }),
   // Staff: Toggle file visibility
   togglePortalFileVisibility: staffQuery.input(external_exports.object({ id: external_exports.number(), isVisible: external_exports.boolean() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.update(portalFiles).set({ isVisible: input.isVisible, updatedAt: /* @__PURE__ */ new Date() }).where(eq(portalFiles.id, input.id));
+    await db.update(portalFiles).set({ isVisible: input.isVisible, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(portalFiles.id, input.id));
     return { success: true };
   }),
   // Staff: Get email template for missing item notification
@@ -81738,17 +81882,17 @@ var portalRouter = createRouter({
     itemId: external_exports.number().optional()
   })).query(async ({ input }) => {
     const db = getDb();
-    const clientRows = await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1);
+    const clientRows = await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1);
     const client = clientRows[0];
     if (!client) return null;
-    const tokenRows = await db.select().from(portalTokens).where(and(eq(portalTokens.clientId, input.clientId), eq(portalTokens.isActive, true))).limit(1);
+    const tokenRows = await db.select().from(portalTokens).where(and(eq2(portalTokens.clientId, input.clientId), eq2(portalTokens.isActive, true))).limit(1);
     let portalUrl = "";
     if (tokenRows[0]) {
       portalUrl = `/portal/${tokenRows[0].token}`;
     }
     let itemTitle = "some documents";
     if (input.itemId) {
-      const itemRows = await db.select().from(missingItems).where(eq(missingItems.id, input.itemId)).limit(1);
+      const itemRows = await db.select().from(missingItems).where(eq2(missingItems.id, input.itemId)).limit(1);
       if (itemRows[0]) itemTitle = itemRows[0].title;
     }
     const subject = `Action needed: ${itemTitle} \u2014 Go Fig Bookz`;
@@ -81771,14 +81915,14 @@ Thanks so much!
   // Public: Validate portal token and return client info
   validateToken: publicQuery.input(external_exports.object({ token: external_exports.string() })).query(async ({ input }) => {
     const db = getDb();
-    const rows = await db.select().from(portalTokens).where(and(eq(portalTokens.token, input.token), eq(portalTokens.isActive, true))).limit(1);
+    const rows = await db.select().from(portalTokens).where(and(eq2(portalTokens.token, input.token), eq2(portalTokens.isActive, true))).limit(1);
     if (!rows[0]) return null;
     if (rows[0].expiresAt && new Date(rows[0].expiresAt) < /* @__PURE__ */ new Date()) {
       return null;
     }
-    await db.update(portalTokens).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq(portalTokens.id, rows[0].id));
-    const clientRows = await db.select().from(clients).where(eq(clients.id, rows[0].clientId)).limit(1);
-    const settingsRows = await db.select().from(portalSettings).where(eq(portalSettings.clientId, rows[0].clientId)).limit(1);
+    await db.update(portalTokens).set({ lastUsedAt: /* @__PURE__ */ new Date() }).where(eq2(portalTokens.id, rows[0].id));
+    const clientRows = await db.select().from(clients).where(eq2(clients.id, rows[0].clientId)).limit(1);
+    const settingsRows = await db.select().from(portalSettings).where(eq2(portalSettings.clientId, rows[0].clientId)).limit(1);
     return {
       client: clientRows[0] || null,
       settings: settingsRows[0] || null,
@@ -81788,17 +81932,17 @@ Thanks so much!
   // Public: Get client's dashboard data (tasks, snapshots, missing items)
   getClientData: publicQuery.input(external_exports.object({ token: external_exports.string() })).query(async ({ input }) => {
     const db = getDb();
-    const tokenRows = await db.select().from(portalTokens).where(and(eq(portalTokens.token, input.token), eq(portalTokens.isActive, true))).limit(1);
+    const tokenRows = await db.select().from(portalTokens).where(and(eq2(portalTokens.token, input.token), eq2(portalTokens.isActive, true))).limit(1);
     if (!tokenRows[0]) return null;
     const clientId = tokenRows[0].clientId;
-    const settingsRows = await db.select().from(portalSettings).where(eq(portalSettings.clientId, clientId)).limit(1);
+    const settingsRows = await db.select().from(portalSettings).where(eq2(portalSettings.clientId, clientId)).limit(1);
     const settings = settingsRows[0];
-    const clientTasks = await db.select().from(tasks).where(eq(tasks.clientId, clientId)).orderBy(desc(tasks.dueDate)).limit(20);
-    const snapshots = await db.select().from(clientDashboardSnapshots).where(eq(clientDashboardSnapshots.clientId, clientId)).orderBy(desc(clientDashboardSnapshots.createdAt)).limit(1);
-    const items = await db.select().from(missingItems).where(eq(missingItems.clientId, clientId)).orderBy(desc(missingItems.createdAt));
-    const rules = await db.select().from(clientTaskRules).where(and(eq(clientTaskRules.clientId, clientId), eq(clientTaskRules.active, true))).orderBy(clientTaskRules.category);
-    const sharedFiles = await db.select().from(portalFiles).where(and(eq(portalFiles.clientId, clientId), eq(portalFiles.isVisible, true))).orderBy(desc(portalFiles.createdAt));
-    const sigDocs = await db.select().from(signatureDocuments).where(eq(signatureDocuments.clientId, clientId)).orderBy(desc(signatureDocuments.createdAt));
+    const clientTasks = await db.select().from(tasks).where(eq2(tasks.clientId, clientId)).orderBy(desc(tasks.dueDate)).limit(20);
+    const snapshots = await db.select().from(clientDashboardSnapshots).where(eq2(clientDashboardSnapshots.clientId, clientId)).orderBy(desc(clientDashboardSnapshots.createdAt)).limit(1);
+    const items = await db.select().from(missingItems).where(eq2(missingItems.clientId, clientId)).orderBy(desc(missingItems.createdAt));
+    const rules = await db.select().from(clientTaskRules).where(and(eq2(clientTaskRules.clientId, clientId), eq2(clientTaskRules.active, true))).orderBy(clientTaskRules.category);
+    const sharedFiles = await db.select().from(portalFiles).where(and(eq2(portalFiles.clientId, clientId), eq2(portalFiles.isVisible, true))).orderBy(desc(portalFiles.createdAt));
+    const sigDocs = await db.select().from(signatureDocuments).where(eq2(signatureDocuments.clientId, clientId)).orderBy(desc(signatureDocuments.createdAt));
     return {
       settings,
       tasks: clientTasks,
@@ -81812,9 +81956,9 @@ Thanks so much!
   // Public: Get shared files only
   getSharedFiles: publicQuery.input(external_exports.object({ token: external_exports.string() })).query(async ({ input }) => {
     const db = getDb();
-    const tokenRows = await db.select().from(portalTokens).where(and(eq(portalTokens.token, input.token), eq(portalTokens.isActive, true))).limit(1);
+    const tokenRows = await db.select().from(portalTokens).where(and(eq2(portalTokens.token, input.token), eq2(portalTokens.isActive, true))).limit(1);
     if (!tokenRows[0]) return [];
-    return db.select().from(portalFiles).where(and(eq(portalFiles.clientId, tokenRows[0].clientId), eq(portalFiles.isVisible, true))).orderBy(desc(portalFiles.createdAt));
+    return db.select().from(portalFiles).where(and(eq2(portalFiles.clientId, tokenRows[0].clientId), eq2(portalFiles.isVisible, true))).orderBy(desc(portalFiles.createdAt));
   }),
   // Public: Submit a missing item (mark as submitted)
   submitMissingItem: publicQuery.input(external_exports.object({
@@ -81822,7 +81966,7 @@ Thanks so much!
     notes: external_exports.string().optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.update(missingItems).set({ status: "submitted", submittedAt: /* @__PURE__ */ new Date(), notes: input.notes || null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(missingItems.id, input.itemId));
+    await db.update(missingItems).set({ status: "submitted", submittedAt: /* @__PURE__ */ new Date(), notes: input.notes || null, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(missingItems.id, input.itemId));
     return { success: true };
   })
 });
@@ -81836,7 +81980,7 @@ init_drizzle_orm();
 var govRepRouter = createRouter({
   getByClient: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    const row = await db.select().from(clientGovReps).where(eq(clientGovReps.clientId, input.clientId)).limit(1);
+    const row = await db.select().from(clientGovReps).where(eq2(clientGovReps.clientId, input.clientId)).limit(1);
     return row[0] || null;
   }),
   upsert: seniorQuery.input(external_exports.object({
@@ -81861,10 +82005,10 @@ var govRepRouter = createRouter({
     notes: external_exports.string().optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const existing = await db.select().from(clientGovReps).where(eq(clientGovReps.clientId, input.clientId)).limit(1);
+    const existing = await db.select().from(clientGovReps).where(eq2(clientGovReps.clientId, input.clientId)).limit(1);
     const values = { ...input, updatedAt: /* @__PURE__ */ new Date() };
     if (existing[0]) {
-      await db.update(clientGovReps).set(values).where(eq(clientGovReps.id, existing[0].id));
+      await db.update(clientGovReps).set(values).where(eq2(clientGovReps.id, existing[0].id));
       return { success: true, id: existing[0].id };
     } else {
       const result = await db.insert(clientGovReps).values({ ...values, createdAt: /* @__PURE__ */ new Date() });
@@ -81883,7 +82027,7 @@ init_master_sheet_sync();
 var workflowRouter = createRouter({
   getLogs: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    return db.select().from(workflowLogs).where(eq(workflowLogs.clientId, input.clientId)).orderBy(desc(workflowLogs.createdAt));
+    return db.select().from(workflowLogs).where(eq2(workflowLogs.clientId, input.clientId)).orderBy(desc(workflowLogs.createdAt));
   }),
   transition: staffQuery.input(external_exports.object({
     clientId: external_exports.number(),
@@ -81892,7 +82036,7 @@ var workflowRouter = createRouter({
     notes: external_exports.string().optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const client = await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1);
+    const client = await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1);
     if (!client[0]) throw new Error("Client not found");
     const fromStatus = client[0].workflowStatus;
     await db.insert(workflowLogs).values({
@@ -81907,8 +82051,8 @@ var workflowRouter = createRouter({
     await db.update(clients).set({
       workflowStatus: input.toStatus,
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(clients.id, input.clientId));
-    const updated = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+    }).where(eq2(clients.id, input.clientId));
+    const updated = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
     if (input.toStatus === "active") {
       activateClientAsync(input.clientId);
     } else if (updated) {
@@ -81926,7 +82070,7 @@ var workflowRouter = createRouter({
       nextAction: input.nextAction,
       nextActionDate: input.nextActionDate || null,
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(clients.id, input.clientId));
+    }).where(eq2(clients.id, input.clientId));
     return { success: true };
   }),
   // Staff: manually add a lead (e.g. phone/referral inquiry) → Leads tab.
@@ -81968,7 +82112,7 @@ var workflowRouter = createRouter({
         performedBy: ctx.user.id,
         createdAt: /* @__PURE__ */ new Date()
       });
-      const lead = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+      const lead = (await db.select().from(clients).where(eq2(clients.id, clientId)).limit(1))[0];
       if (lead) syncLeadToMaster(lead);
     }
     return { success: true, clientId };
@@ -81999,7 +82143,7 @@ init_rbac();
 var userRouter = createRouter({
   list: staffQuery.query(async () => {
     const db = getDb();
-    return db.select().from(users).where(not(eq(users.role, "client"))).orderBy(users.createdAt);
+    return db.select().from(users2).where(not(eq2(users2.role, "client"))).orderBy(users2.createdAt);
   }),
   // Which clients a (restricted) user is granted access to. Admin-only — this is
   // access-control config.
@@ -82015,13 +82159,13 @@ var userRouter = createRouter({
   // sees all). Turning it on without grants means they see nothing until granted.
   setRestricted: adminQuery.input(external_exports.object({ userId: external_exports.number(), restricted: external_exports.boolean() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.update(users).set({ restrictedToClients: input.restricted, updatedAt: /* @__PURE__ */ new Date() }).where(eq(users.id, input.userId));
+    await db.update(users2).set({ restrictedToClients: input.restricted, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(users2.id, input.userId));
     return { success: true };
   }),
   // Activate / deactivate a user account (deactivated users can't sign in).
   setActive: adminQuery.input(external_exports.object({ userId: external_exports.number(), isActive: external_exports.boolean() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.update(users).set({ isActive: input.isActive, updatedAt: /* @__PURE__ */ new Date() }).where(eq(users.id, input.userId));
+    await db.update(users2).set({ isActive: input.isActive, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(users2.id, input.userId));
     return { success: true };
   }),
   updateRole: adminQuery.input(external_exports.object({
@@ -82029,12 +82173,12 @@ var userRouter = createRouter({
     role: external_exports.enum(["admin", "senior_bookkeeper", "junior_bookkeeper", "client"])
   })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.update(users).set({ role: input.role, updatedAt: /* @__PURE__ */ new Date() }).where(eq(users.id, input.id));
+    await db.update(users2).set({ role: input.role, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(users2.id, input.id));
     return { success: true };
   }),
   delete: adminQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(users).where(eq(users.id, input.id));
+    await db.delete(users2).where(eq2(users2.id, input.id));
     return { success: true };
   }),
   me: staffQuery.query((opts) => {
@@ -82079,7 +82223,7 @@ var contactInput = {
 var contactsRouter = createRouter({
   list: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     await ensureTable();
-    return getDb().select().from(clientContacts).where(eq(clientContacts.clientId, input.clientId)).orderBy(desc(clientContacts.isPrimary), desc(clientContacts.updatedAt));
+    return getDb().select().from(clientContacts).where(eq2(clientContacts.clientId, input.clientId)).orderBy(desc(clientContacts.isPrimary), desc(clientContacts.updatedAt));
   }),
   create: authedQuery.input(external_exports.object({ clientId: external_exports.number(), ...contactInput })).mutation(async ({ input }) => {
     await ensureTable();
@@ -82090,11 +82234,11 @@ var contactsRouter = createRouter({
   update: authedQuery.input(external_exports.object({ id: external_exports.number(), ...contactInput })).mutation(async ({ input }) => {
     await ensureTable();
     const { id, ...rest } = input;
-    await getDb().update(clientContacts).set({ ...rest, email: rest.email || null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clientContacts.id, id));
+    await getDb().update(clientContacts).set({ ...rest, email: rest.email || null, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clientContacts.id, id));
     return { success: true };
   }),
   remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
-    await getDb().delete(clientContacts).where(eq(clientContacts.id, input.id));
+    await getDb().delete(clientContacts).where(eq2(clientContacts.id, input.id));
     return { success: true };
   })
 });
@@ -82132,7 +82276,7 @@ var partyInput = {
 var partiesRouter = createRouter({
   list: authedQuery.input(external_exports.object({ clientId: external_exports.number(), kind: external_exports.enum(["vendor", "customer"]) })).query(async ({ input }) => {
     await ensureTable2();
-    return getDb().select().from(clientParties).where(and(eq(clientParties.clientId, input.clientId), eq(clientParties.kind, input.kind))).orderBy(desc(clientParties.active), desc(clientParties.updatedAt));
+    return getDb().select().from(clientParties).where(and(eq2(clientParties.clientId, input.clientId), eq2(clientParties.kind, input.kind))).orderBy(desc(clientParties.active), desc(clientParties.updatedAt));
   }),
   create: authedQuery.input(external_exports.object({ clientId: external_exports.number(), kind: external_exports.enum(["vendor", "customer"]), ...partyInput })).mutation(async ({ input }) => {
     await ensureTable2();
@@ -82143,11 +82287,11 @@ var partiesRouter = createRouter({
   update: authedQuery.input(external_exports.object({ id: external_exports.number(), active: external_exports.boolean().optional(), ...partyInput })).mutation(async ({ input }) => {
     await ensureTable2();
     const { id, ...rest } = input;
-    await getDb().update(clientParties).set({ ...rest, email: rest.email || null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clientParties.id, id));
+    await getDb().update(clientParties).set({ ...rest, email: rest.email || null, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clientParties.id, id));
     return { success: true };
   }),
   remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
-    await getDb().delete(clientParties).where(eq(clientParties.id, input.id));
+    await getDb().delete(clientParties).where(eq2(clientParties.id, input.id));
     return { success: true };
   }),
   /** Vendor mass-email helper — returns the active vendor emails for a client so
@@ -82155,7 +82299,7 @@ var partiesRouter = createRouter({
    *  later backlog item; this exposes the recipient list driven by intake.) */
   vendorEmails: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     await ensureTable2();
-    const rows = await getDb().select().from(clientParties).where(and(eq(clientParties.clientId, input.clientId), eq(clientParties.kind, "vendor"), eq(clientParties.active, true)));
+    const rows = await getDb().select().from(clientParties).where(and(eq2(clientParties.clientId, input.clientId), eq2(clientParties.kind, "vendor"), eq2(clientParties.active, true)));
     return rows.map((r) => r.email).filter(Boolean);
   })
 });
@@ -82201,7 +82345,7 @@ function stripSin2(row) {
 var dividendRouter = createRouter({
   list: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    const rows = await db.select().from(dividendPayments).where(eq(dividendPayments.clientId, input.clientId)).orderBy(desc(dividendPayments.paymentDate));
+    const rows = await db.select().from(dividendPayments).where(eq2(dividendPayments.clientId, input.clientId)).orderBy(desc(dividendPayments.paymentDate));
     return rows.map(stripSin2);
   }),
   add: staffQuery.input(external_exports.object({
@@ -82228,7 +82372,7 @@ var dividendRouter = createRouter({
   }),
   delete: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(dividendPayments).where(eq(dividendPayments.id, input.id));
+    await db.delete(dividendPayments).where(eq2(dividendPayments.id, input.id));
     return { success: true };
   }),
   // Per-recipient T5 slips for a tax year: aggregate eligible + non-eligible
@@ -82237,7 +82381,7 @@ var dividendRouter = createRouter({
   t5Slips: staffQuery.input(external_exports.object({ clientId: external_exports.number(), year: external_exports.number().optional() })).query(async ({ input }) => {
     const db = getDb();
     const year2 = input.year ?? (/* @__PURE__ */ new Date()).getFullYear();
-    const rows = await db.select().from(dividendPayments).where(eq(dividendPayments.clientId, input.clientId));
+    const rows = await db.select().from(dividendPayments).where(eq2(dividendPayments.clientId, input.clientId));
     const inYear = rows.filter((r) => (r.taxYear ?? new Date(r.paymentDate).getFullYear()) === year2);
     const byRecipient = /* @__PURE__ */ new Map();
     for (const r of inYear) {
@@ -82248,7 +82392,7 @@ var dividendRouter = createRouter({
       if (r.recipientSin) agg.hasSin = true;
       byRecipient.set(key11, agg);
     }
-    const payer = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+    const payer = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
     const slips = Array.from(byRecipient.entries()).map(([recipient, a]) => ({
       recipient,
       hasSin: a.hasSin,
@@ -82266,7 +82410,7 @@ var dividendRouter = createRouter({
     const gate = checkRevealCode(input.code);
     if (!gate.ok) return { ok: false, reason: gate.reason };
     const db = getDb();
-    const rows = await db.select().from(dividendPayments).where(and(eq(dividendPayments.clientId, input.clientId), eq(dividendPayments.recipient, input.recipient)));
+    const rows = await db.select().from(dividendPayments).where(and(eq2(dividendPayments.clientId, input.clientId), eq2(dividendPayments.recipient, input.recipient)));
     const withSin = rows.find((r) => r.recipientSin);
     return { ok: true, sin: withSin?.recipientSin ? decryptSecret(withSin.recipientSin) : null };
   })
@@ -82286,7 +82430,7 @@ function strip(row) {
 var taxSlipRouter = createRouter({
   list: staffQuery.input(external_exports.object({ clientId: external_exports.number(), slipType: external_exports.enum(["t4a", "t5018"]) })).query(async ({ input }) => {
     const db = getDb();
-    const rows = await db.select().from(taxSlipEntries).where(and(eq(taxSlipEntries.clientId, input.clientId), eq(taxSlipEntries.slipType, input.slipType))).orderBy(desc(taxSlipEntries.taxYear));
+    const rows = await db.select().from(taxSlipEntries).where(and(eq2(taxSlipEntries.clientId, input.clientId), eq2(taxSlipEntries.slipType, input.slipType))).orderBy(desc(taxSlipEntries.taxYear));
     return rows.map(strip);
   }),
   add: staffQuery.input(external_exports.object({
@@ -82310,14 +82454,14 @@ var taxSlipRouter = createRouter({
   }),
   delete: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(taxSlipEntries).where(eq(taxSlipEntries.id, input.id));
+    await db.delete(taxSlipEntries).where(eq2(taxSlipEntries.id, input.id));
     return { success: true };
   }),
   // Per-recipient aggregated slips for a year (no recipient ID).
   slips: staffQuery.input(external_exports.object({ clientId: external_exports.number(), slipType: external_exports.enum(["t4a", "t5018"]), year: external_exports.number().optional() })).query(async ({ input }) => {
     const db = getDb();
     const year2 = input.year ?? (/* @__PURE__ */ new Date()).getFullYear();
-    const rows = await db.select().from(taxSlipEntries).where(and(eq(taxSlipEntries.clientId, input.clientId), eq(taxSlipEntries.slipType, input.slipType)));
+    const rows = await db.select().from(taxSlipEntries).where(and(eq2(taxSlipEntries.clientId, input.clientId), eq2(taxSlipEntries.slipType, input.slipType)));
     const inYear = rows.filter((r) => (r.taxYear ?? new Date(r.createdAt).getFullYear()) === year2);
     const byRecipient = /* @__PURE__ */ new Map();
     for (const r of inYear) {
@@ -82327,7 +82471,7 @@ var taxSlipRouter = createRouter({
       if (r.recipientId) agg.hasId = true;
       byRecipient.set(key11, agg);
     }
-    const payer = (await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1))[0];
+    const payer = (await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1))[0];
     const slips = Array.from(byRecipient.entries()).map(([recipient, a]) => ({ recipient, amount: Math.round((a.amount + Number.EPSILON) * 100) / 100, hasId: a.hasId })).sort((x, y) => x.recipient.localeCompare(y.recipient));
     return {
       year: year2,
@@ -82342,9 +82486,9 @@ var taxSlipRouter = createRouter({
     if (!gate.ok) return { ok: false, reason: gate.reason };
     const db = getDb();
     const rows = await db.select().from(taxSlipEntries).where(and(
-      eq(taxSlipEntries.clientId, input.clientId),
-      eq(taxSlipEntries.slipType, input.slipType),
-      eq(taxSlipEntries.recipient, input.recipient)
+      eq2(taxSlipEntries.clientId, input.clientId),
+      eq2(taxSlipEntries.slipType, input.slipType),
+      eq2(taxSlipEntries.recipient, input.recipient)
     ));
     const withId = rows.find((r) => r.recipientId);
     return { ok: true, recipientId: withId?.recipientId ? decryptSecret(withId.recipientId) : null };
@@ -82361,10 +82505,10 @@ var clientRequestRouter = createRouter({
   // All requests for a client (newest first), each with its items.
   listForClient: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    const reqs = await db.select().from(clientRequests).where(eq(clientRequests.clientId, input.clientId)).orderBy(desc(clientRequests.createdAt));
+    const reqs = await db.select().from(clientRequests).where(eq2(clientRequests.clientId, input.clientId)).orderBy(desc(clientRequests.createdAt));
     const out = [];
     for (const r of reqs) {
-      const items = await db.select().from(clientRequestItems).where(eq(clientRequestItems.requestId, r.id)).orderBy(clientRequestItems.sortOrder);
+      const items = await db.select().from(clientRequestItems).where(eq2(clientRequestItems.requestId, r.id)).orderBy(clientRequestItems.sortOrder);
       out.push({ ...r, items, provided: items.filter((i) => i.status === "provided").length, total: items.length });
     }
     return out;
@@ -82395,14 +82539,14 @@ var clientRequestRouter = createRouter({
   }),
   cancel: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.update(clientRequests).set({ status: "cancelled", updatedAt: /* @__PURE__ */ new Date() }).where(eq(clientRequests.id, input.id));
+    await db.update(clientRequests).set({ status: "cancelled", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clientRequests.id, input.id));
     return { success: true };
   }),
   // Record that a reminder was sent (the actual send is via copy-link/mailto).
   markReminded: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    const r = (await db.select().from(clientRequests).where(eq(clientRequests.id, input.id)).limit(1))[0];
-    await db.update(clientRequests).set({ reminderCount: (r?.reminderCount || 0) + 1, lastReminderAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() }).where(eq(clientRequests.id, input.id));
+    const r = (await db.select().from(clientRequests).where(eq2(clientRequests.id, input.id)).limit(1))[0];
+    await db.update(clientRequests).set({ reminderCount: (r?.reminderCount || 0) + 1, lastReminderAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clientRequests.id, input.id));
     return { success: true };
   }),
   // Staff can tick an item too (e.g. received by email).
@@ -82411,22 +82555,22 @@ var clientRequestRouter = createRouter({
     await db.update(clientRequestItems).set({
       status: input.status,
       providedAt: input.status === "provided" ? /* @__PURE__ */ new Date() : null
-    }).where(eq(clientRequestItems.id, input.itemId));
-    const item = (await db.select().from(clientRequestItems).where(eq(clientRequestItems.id, input.itemId)).limit(1))[0];
+    }).where(eq2(clientRequestItems.id, input.itemId));
+    const item = (await db.select().from(clientRequestItems).where(eq2(clientRequestItems.id, input.itemId)).limit(1))[0];
     if (item) await maybeComplete(item.requestId);
     return { success: true };
   })
 });
 async function maybeComplete(requestId) {
   const db = getDb();
-  const items = await db.select().from(clientRequestItems).where(eq(clientRequestItems.requestId, requestId));
+  const items = await db.select().from(clientRequestItems).where(eq2(clientRequestItems.requestId, requestId));
   const allDone = items.length > 0 && items.every((i) => i.status === "provided");
-  const req = (await db.select().from(clientRequests).where(eq(clientRequests.id, requestId)).limit(1))[0];
+  const req = (await db.select().from(clientRequests).where(eq2(clientRequests.id, requestId)).limit(1))[0];
   if (!req) return;
   if (allDone && req.status === "open") {
-    await db.update(clientRequests).set({ status: "completed", completedAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() }).where(eq(clientRequests.id, requestId));
+    await db.update(clientRequests).set({ status: "completed", completedAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clientRequests.id, requestId));
   } else if (!allDone && req.status === "completed") {
-    await db.update(clientRequests).set({ status: "open", completedAt: null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(clientRequests.id, requestId));
+    await db.update(clientRequests).set({ status: "open", completedAt: null, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clientRequests.id, requestId));
   }
 }
 
@@ -82443,7 +82587,7 @@ var engagementLetterRouter = createRouter({
   // Generate engagement letter PDF
   generate: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const clientRows = await db.select().from(clients).where(and(eq(clients.id, input.clientId), eq(clients.userId, ctx.user.id))).limit(1);
+    const clientRows = await db.select().from(clients).where(and(eq2(clients.id, input.clientId), eq2(clients.userId, ctx.user.id))).limit(1);
     const client = clientRows[0];
     if (!client) throw new Error("Client not found");
     const services = [];
@@ -82466,7 +82610,7 @@ var engagementLetterRouter = createRouter({
     await db.update(clients).set({
       engagementSentAt: /* @__PURE__ */ new Date(),
       workflowStatus: "engagement_sent"
-    }).where(eq(clients.id, client.id));
+    }).where(eq2(clients.id, client.id));
     return {
       success: true,
       clientId: client.id,
@@ -82477,7 +82621,7 @@ var engagementLetterRouter = createRouter({
   // Get engagement letter data (for display/preview)
   get: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const clientRows = await db.select().from(clients).where(and(eq(clients.id, input.clientId), eq(clients.userId, ctx.user.id))).limit(1);
+    const clientRows = await db.select().from(clients).where(and(eq2(clients.id, input.clientId), eq2(clients.userId, ctx.user.id))).limit(1);
     const client = clientRows[0];
     if (!client) throw new Error("Client not found");
     const services = [];
@@ -82506,7 +82650,7 @@ var engagementLetterRouter = createRouter({
     await db.update(clients).set({
       engagementSignedAt: /* @__PURE__ */ new Date(),
       workflowStatus: "onboarding_sent"
-    }).where(and(eq(clients.id, input.clientId), eq(clients.userId, ctx.user.id)));
+    }).where(and(eq2(clients.id, input.clientId), eq2(clients.userId, ctx.user.id)));
     return { success: true };
   })
 });
@@ -82524,8 +82668,8 @@ var signatureRouter = createRouter({
   list: staffQuery.input(external_exports.object({ clientId: external_exports.number().optional(), status: external_exports.string().optional() }).optional()).query(async ({ input }) => {
     const db = getDb();
     const conditions = [];
-    if (input?.clientId) conditions.push(eq(signatureDocuments.clientId, input.clientId));
-    if (input?.status) conditions.push(eq(signatureDocuments.status, input.status));
+    if (input?.clientId) conditions.push(eq2(signatureDocuments.clientId, input.clientId));
+    if (input?.status) conditions.push(eq2(signatureDocuments.status, input.status));
     if (conditions.length > 0) {
       return db.select().from(signatureDocuments).where(and(...conditions)).orderBy(desc(signatureDocuments.createdAt));
     }
@@ -82534,7 +82678,7 @@ var signatureRouter = createRouter({
   // Get single document
   get: staffQuery.input(external_exports.object({ id: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    const rows = await db.select().from(signatureDocuments).where(eq(signatureDocuments.id, input.id)).limit(1);
+    const rows = await db.select().from(signatureDocuments).where(eq2(signatureDocuments.id, input.id)).limit(1);
     return rows[0] || null;
   }),
   // Create a signature document
@@ -82563,18 +82707,18 @@ var signatureRouter = createRouter({
   })).mutation(async ({ input }) => {
     const { id, ...data } = input;
     const db = getDb();
-    await db.update(signatureDocuments).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq(signatureDocuments.id, id));
+    await db.update(signatureDocuments).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(signatureDocuments.id, id));
     return { success: true };
   }),
   // Send document to client (via portal)
   send: seniorQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const docs = await db.select().from(signatureDocuments).where(eq(signatureDocuments.id, input.id)).limit(1);
+    const docs = await db.select().from(signatureDocuments).where(eq2(signatureDocuments.id, input.id)).limit(1);
     if (!docs[0]) throw new Error("Document not found");
     const doc = docs[0];
-    const clientRows = await db.select().from(clients).where(eq(clients.id, doc.clientId)).limit(1);
+    const clientRows = await db.select().from(clients).where(eq2(clients.id, doc.clientId)).limit(1);
     if (!clientRows[0]) throw new Error("Client not found");
-    let settings = await db.select().from(portalSettings).where(eq(portalSettings.clientId, doc.clientId)).limit(1);
+    let settings = await db.select().from(portalSettings).where(eq2(portalSettings.clientId, doc.clientId)).limit(1);
     if (settings.length === 0) {
       await db.insert(portalSettings).values({
         clientId: doc.clientId,
@@ -82585,9 +82729,9 @@ var signatureRouter = createRouter({
         showInvoices: true
       });
     } else if (!settings[0].isEnabled) {
-      await db.update(portalSettings).set({ isEnabled: true }).where(eq(portalSettings.clientId, doc.clientId));
+      await db.update(portalSettings).set({ isEnabled: true }).where(eq2(portalSettings.clientId, doc.clientId));
     }
-    const existingTokens = await db.select().from(portalTokens).where(and(eq(portalTokens.clientId, doc.clientId), eq(portalTokens.isActive, true))).limit(1);
+    const existingTokens = await db.select().from(portalTokens).where(and(eq2(portalTokens.clientId, doc.clientId), eq2(portalTokens.isActive, true))).limit(1);
     let portalToken;
     if (existingTokens[0]) {
       portalToken = existingTokens[0].token;
@@ -82609,8 +82753,8 @@ var signatureRouter = createRouter({
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3),
       // 30 days to sign
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(signatureDocuments.id, input.id));
-    const sentDoc = await db.select().from(signatureDocuments).where(eq(signatureDocuments.id, input.id)).limit(1);
+    }).where(eq2(signatureDocuments.id, input.id));
+    const sentDoc = await db.select().from(signatureDocuments).where(eq2(signatureDocuments.id, input.id)).limit(1);
     if (sentDoc[0]) syncUpdate("signature_documents", sentDoc[0]);
     return {
       success: true,
@@ -82620,7 +82764,7 @@ var signatureRouter = createRouter({
   // Mark as viewed (called when client opens it)
   markViewed: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.update(signatureDocuments).set({ status: "viewed", viewedAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() }).where(eq(signatureDocuments.id, input.id));
+    await db.update(signatureDocuments).set({ status: "viewed", viewedAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(signatureDocuments.id, input.id));
     return { success: true };
   }),
   // Client signs a document (public endpoint via portal)
@@ -82635,7 +82779,7 @@ var signatureRouter = createRouter({
     ipAddress: external_exports.string().optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const docs = await db.select().from(signatureDocuments).where(eq(signatureDocuments.id, input.id)).limit(1);
+    const docs = await db.select().from(signatureDocuments).where(eq2(signatureDocuments.id, input.id)).limit(1);
     if (!docs[0]) throw new Error("Document not found");
     const doc = docs[0];
     if (doc.status === "signed") throw new Error("Document already signed");
@@ -82650,29 +82794,29 @@ var signatureRouter = createRouter({
       signedAt: /* @__PURE__ */ new Date(),
       ipAddress: input.ipAddress || null,
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(signatureDocuments.id, input.id));
-    const signedDoc = await db.select().from(signatureDocuments).where(eq(signatureDocuments.id, input.id)).limit(1);
+    }).where(eq2(signatureDocuments.id, input.id));
+    const signedDoc = await db.select().from(signatureDocuments).where(eq2(signatureDocuments.id, input.id)).limit(1);
     if (signedDoc[0]) syncUpdate("signature_documents", signedDoc[0]);
     return { success: true, signedAt: /* @__PURE__ */ new Date() };
   }),
   // Cancel a document
   cancel: seniorQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.update(signatureDocuments).set({ status: "cancelled", updatedAt: /* @__PURE__ */ new Date() }).where(eq(signatureDocuments.id, input.id));
+    await db.update(signatureDocuments).set({ status: "cancelled", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(signatureDocuments.id, input.id));
     return { success: true };
   }),
   // Delete a document
   delete: seniorQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(signatureDocuments).where(eq(signatureDocuments.id, input.id));
+    await db.delete(signatureDocuments).where(eq2(signatureDocuments.id, input.id));
     return { success: true };
   }),
   // PUBLIC: Get document for signing (via portal token)
   getPublic: publicQuery.input(external_exports.object({ id: external_exports.number(), token: external_exports.string() })).query(async ({ input }) => {
     const db = getDb();
-    const tokenRows = await db.select().from(portalTokens).where(and(eq(portalTokens.token, input.token), eq(portalTokens.isActive, true))).limit(1);
+    const tokenRows = await db.select().from(portalTokens).where(and(eq2(portalTokens.token, input.token), eq2(portalTokens.isActive, true))).limit(1);
     if (!tokenRows[0]) return null;
-    const docs = await db.select().from(signatureDocuments).where(eq(signatureDocuments.id, input.id)).limit(1);
+    const docs = await db.select().from(signatureDocuments).where(eq2(signatureDocuments.id, input.id)).limit(1);
     if (!docs[0]) return null;
     if (docs[0].clientId !== tokenRows[0].clientId) return null;
     return docs[0];
@@ -82821,11 +82965,11 @@ var playbookRouter = createRouter({
   // Get or create playbook for a client
   get: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const existing = await db.select().from(clientPlaybooks).where(eq(clientPlaybooks.clientId, input.clientId)).limit(1);
+    const existing = await db.select().from(clientPlaybooks).where(eq2(clientPlaybooks.clientId, input.clientId)).limit(1);
     if (existing[0]) {
       return existing[0];
     }
-    const onboardingRows = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).limit(1);
+    const onboardingRows = await db.select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, input.clientId)).limit(1);
     const sections = generateDefaultSections(onboardingRows[0] || null);
     const [playbook] = await db.insert(clientPlaybooks).values({
       clientId: input.clientId,
@@ -82843,14 +82987,14 @@ var playbookRouter = createRouter({
     // JSON string of sections
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const existing = await db.select().from(clientPlaybooks).where(eq(clientPlaybooks.clientId, input.clientId)).limit(1);
+    const existing = await db.select().from(clientPlaybooks).where(eq2(clientPlaybooks.clientId, input.clientId)).limit(1);
     if (existing[0]) {
       await db.update(clientPlaybooks).set({
         sections: input.sections,
         autoGenerated: false,
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq(clientPlaybooks.id, existing[0].id));
-      const updated = await db.select().from(clientPlaybooks).where(eq(clientPlaybooks.id, existing[0].id)).limit(1);
+      }).where(eq2(clientPlaybooks.id, existing[0].id));
+      const updated = await db.select().from(clientPlaybooks).where(eq2(clientPlaybooks.id, existing[0].id)).limit(1);
       if (updated[0]) syncUpdate("client_playbooks", updated[0]);
     } else {
       const [newPb] = await db.insert(clientPlaybooks).values({
@@ -82866,15 +83010,15 @@ var playbookRouter = createRouter({
   // Regenerate from onboarding (overwrites auto-generated content)
   regenerate: seniorQuery.input(external_exports.object({ clientId: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const onboardingRows = await db.select().from(clientOnboarding).where(eq(clientOnboarding.clientId, input.clientId)).limit(1);
+    const onboardingRows = await db.select().from(clientOnboarding).where(eq2(clientOnboarding.clientId, input.clientId)).limit(1);
     const sections = generateDefaultSections(onboardingRows[0] || null);
-    const existing = await db.select().from(clientPlaybooks).where(eq(clientPlaybooks.clientId, input.clientId)).limit(1);
+    const existing = await db.select().from(clientPlaybooks).where(eq2(clientPlaybooks.clientId, input.clientId)).limit(1);
     if (existing[0]) {
       await db.update(clientPlaybooks).set({
         sections: JSON.stringify(sections),
         autoGenerated: true,
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq(clientPlaybooks.id, existing[0].id));
+      }).where(eq2(clientPlaybooks.id, existing[0].id));
     } else {
       await db.insert(clientPlaybooks).values({
         clientId: input.clientId,
@@ -82907,11 +83051,11 @@ var timeRouter = createRouter({
   ).query(async ({ ctx, input }) => {
     const db = getDb();
     const conditions = [];
-    if (input?.clientId) conditions.push(eq(timeEntries.clientId, input.clientId));
-    if (input?.userId) conditions.push(eq(timeEntries.userId, input.userId));
+    if (input?.clientId) conditions.push(eq2(timeEntries.clientId, input.clientId));
+    if (input?.userId) conditions.push(eq2(timeEntries.userId, input.userId));
     if (input?.startDate) conditions.push(gte(timeEntries.date, new Date(input.startDate)));
     if (input?.endDate) conditions.push(lte(timeEntries.date, new Date(input.endDate)));
-    if (input?.category) conditions.push(eq(timeEntries.category, input.category));
+    if (input?.category) conditions.push(eq2(timeEntries.category, input.category));
     if (conditions.length > 0) {
       return db.select().from(timeEntries).where(and(...conditions)).orderBy(desc(timeEntries.date));
     }
@@ -82963,15 +83107,15 @@ var timeRouter = createRouter({
       ...data,
       date: data.date ? new Date(data.date) : void 0,
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(timeEntries.id, id));
-    const updated = await db.select().from(timeEntries).where(eq(timeEntries.id, id)).limit(1);
+    }).where(eq2(timeEntries.id, id));
+    const updated = await db.select().from(timeEntries).where(eq2(timeEntries.id, id)).limit(1);
     if (updated[0]) syncUpdate("time_entries", updated[0]);
     return { success: true };
   }),
   // Delete a time entry
   delete: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(timeEntries).where(eq(timeEntries.id, input.id));
+    await db.delete(timeEntries).where(eq2(timeEntries.id, input.id));
     return { success: true };
   }),
   // Get monthly summary for a client
@@ -82990,7 +83134,7 @@ var timeRouter = createRouter({
     const endOfMonth3 = new Date(targetYear, targetMonth, 0);
     const entries = await db.select().from(timeEntries).where(
       and(
-        eq(timeEntries.clientId, input.clientId),
+        eq2(timeEntries.clientId, input.clientId),
         gte(timeEntries.date, startOfMonth),
         lte(timeEntries.date, endOfMonth3)
       )
@@ -82998,7 +83142,7 @@ var timeRouter = createRouter({
     const totalHours = entries.reduce((sum3, e) => sum3 + (e.hours || 0), 0);
     const billableHours = entries.filter((e) => e.isBillable).reduce((sum3, e) => sum3 + (e.hours || 0), 0);
     const nonBillableHours = totalHours - billableHours;
-    const clientRows = await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1);
+    const clientRows = await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1);
     const client = clientRows[0];
     const monthlyFee = client?.monthlyFee || 0;
     const effectiveHourlyRate = totalHours > 0 ? monthlyFee / totalHours : 0;
@@ -83043,7 +83187,7 @@ var timeRouter = createRouter({
     const clientIds = Object.keys(clientHours).map(Number);
     const clientData = {};
     for (const cid of clientIds) {
-      const rows = await db.select().from(clients).where(eq(clients.id, cid)).limit(1);
+      const rows = await db.select().from(clients).where(eq2(clients.id, cid)).limit(1);
       if (rows[0]) {
         clientData[cid] = { name: rows[0].name, monthlyFee: rows[0].monthlyFee || 0 };
       }
@@ -83064,7 +83208,7 @@ var timeRouter = createRouter({
     const staffHours = {};
     for (const e of entries) {
       if (!staffHours[e.userId]) {
-        const userRows = await db.select().from(users).where(eq(users.id, e.userId)).limit(1);
+        const userRows = await db.select().from(users2).where(eq2(users2.id, e.userId)).limit(1);
         staffHours[e.userId] = { name: userRows[0]?.name || "Unknown", hours: 0 };
       }
       staffHours[e.userId].hours += e.hours || 0;
@@ -83091,7 +83235,7 @@ var timeRouter = createRouter({
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
     return db.select().from(timeEntries).where(
       and(
-        eq(timeEntries.userId, ctx.user.id),
+        eq2(timeEntries.userId, ctx.user.id),
         gte(timeEntries.date, startOfDay),
         lte(timeEntries.date, endOfDay)
       )
@@ -83106,7 +83250,7 @@ var timeRouter = createRouter({
     const endOfWeek2 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 6, 23, 59, 59);
     const entries = await db.select().from(timeEntries).where(
       and(
-        eq(timeEntries.userId, userId),
+        eq2(timeEntries.userId, userId),
         gte(timeEntries.date, startOfWeek),
         lte(timeEntries.date, endOfWeek2)
       )
@@ -83131,27 +83275,27 @@ var workloadRouter = createRouter({
   // Get workload for all staff (or specific user)
   getStaffWorkload: seniorQuery.input(external_exports.object({ userId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
     const db = getDb();
-    const staffUsers = await db.select().from(users).where(
-      sql`${users.role} IN ('admin', 'senior_bookkeeper', 'junior_bookkeeper')`
-    ).orderBy(desc(users.createdAt));
+    const staffUsers = await db.select().from(users2).where(
+      sql`${users2.role} IN ('admin', 'senior_bookkeeper', 'junior_bookkeeper')`
+    ).orderBy(desc(users2.createdAt));
     const now = /* @__PURE__ */ new Date();
     const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
     const endOfWeek2 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 6, 23, 59, 59);
     const result = await Promise.all(
       staffUsers.map(async (user) => {
-        const openTasks = await db.select().from(tasks).where(and(eq(tasks.assignedTo, user.name || user.email), eq(tasks.completed, false)));
+        const openTasks = await db.select().from(tasks).where(and(eq2(tasks.assignedTo, user.name || user.email), eq2(tasks.completed, false)));
         const overdueTasks = openTasks.filter(
           (t2) => t2.dueDate && new Date(t2.dueDate) < now
         );
         const weekEntries = await db.select().from(timeEntries).where(
           and(
-            eq(timeEntries.userId, user.id),
+            eq2(timeEntries.userId, user.id),
             gte(timeEntries.date, startOfWeek),
             lte(timeEntries.date, endOfWeek2)
           )
         );
         const weekHours = weekEntries.reduce((sum3, e) => sum3 + (e.hours || 0), 0);
-        const assignedClients = await db.select().from(clients).where(eq(clients.assignedTo, user.name || user.email));
+        const assignedClients = await db.select().from(clients).where(eq2(clients.assignedTo, user.name || user.email));
         const totalOpen = openTasks.length;
         let capacityColor = "green";
         if (totalOpen > 30) capacityColor = "red";
@@ -83207,7 +83351,7 @@ var expirationRouter = createRouter({
     ])];
     const clientMap = {};
     for (const cid of clientIds) {
-      const rows = await db.select().from(clients).where(eq(clients.id, cid)).limit(1);
+      const rows = await db.select().from(clients).where(eq2(clients.id, cid)).limit(1);
       if (rows[0]) clientMap[cid] = rows[0].name;
     }
     const sigResults = sigDocs.map((d10) => ({
@@ -83283,7 +83427,7 @@ async function applyAccountOverride(db, ids, o) {
   if (!o.confirmedAccountId) return;
   for (const id of ids) {
     try {
-      const row = (await db.select().from(triageFindings).where(eq(triageFindings.id, id)).limit(1))[0];
+      const row = (await db.select().from(triageFindings).where(eq2(triageFindings.id, id)).limit(1))[0];
       if (!row) continue;
       let meta3 = {};
       try {
@@ -83295,7 +83439,7 @@ async function applyAccountOverride(db, ids, o) {
       meta3.confirmedAccountId = o.confirmedAccountId;
       if (o.confirmedAccountName) meta3.confirmedAccountName = o.confirmedAccountName;
       if (o.confirmedTaxCode) meta3.confirmedTaxCode = o.confirmedTaxCode;
-      await db.update(triageFindings).set({ sourceData: JSON.stringify(meta3) }).where(eq(triageFindings.id, id));
+      await db.update(triageFindings).set({ sourceData: JSON.stringify(meta3) }).where(eq2(triageFindings.id, id));
     } catch {
     }
   }
@@ -83327,11 +83471,11 @@ var agentWebhookRouter = createRouter({
     const db = getDb();
     let resolvedClientId = input.clientId;
     if (!resolvedClientId && input.clientName) {
-      const rows = await db.select().from(clients).where(eq(clients.name, input.clientName)).limit(1);
+      const rows = await db.select().from(clients).where(eq2(clients.name, input.clientName)).limit(1);
       if (rows[0]) resolvedClientId = rows[0].id;
     }
     if (input.sourceData) {
-      const dup = await db.select().from(triageFindings).where(eq(triageFindings.sourceData, input.sourceData)).limit(1);
+      const dup = await db.select().from(triageFindings).where(eq2(triageFindings.sourceData, input.sourceData)).limit(1);
       if (dup[0]) return { success: true, findingId: dup[0].id, deduped: true, clientId: resolvedClientId };
     }
     const [finding] = await db.insert(triageFindings).values({
@@ -83366,10 +83510,10 @@ var agentWebhookRouter = createRouter({
   }).optional()).query(async ({ input }) => {
     const db = getDb();
     const conditions = [];
-    if (input?.status) conditions.push(eq(triageFindings.status, input.status));
-    if (input?.severity) conditions.push(eq(triageFindings.severity, input.severity));
-    if (input?.clientId) conditions.push(eq(triageFindings.clientId, input.clientId));
-    if (input?.agentName) conditions.push(eq(triageFindings.agentName, input.agentName));
+    if (input?.status) conditions.push(eq2(triageFindings.status, input.status));
+    if (input?.severity) conditions.push(eq2(triageFindings.severity, input.severity));
+    if (input?.clientId) conditions.push(eq2(triageFindings.clientId, input.clientId));
+    if (input?.agentName) conditions.push(eq2(triageFindings.agentName, input.agentName));
     if (conditions.length > 0) {
       return db.select().from(triageFindings).where(and(...conditions)).orderBy(desc(triageFindings.createdAt));
     }
@@ -83391,7 +83535,7 @@ var agentWebhookRouter = createRouter({
       status: input.action === "approve" ? "approved" : "dismissed",
       reviewedNotes: input.notes,
       reviewedAt: /* @__PURE__ */ new Date()
-    }).where(eq(triageFindings.id, input.id));
+    }).where(eq2(triageFindings.id, input.id));
     let posting = void 0;
     if (input.action === "approve") {
       try {
@@ -83440,7 +83584,7 @@ var agentWebhookRouter = createRouter({
   // Staff: Permanently delete a finding (Dismiss keeps it for the record; this removes it)
   deleteFinding: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(triageFindings).where(eq(triageFindings.id, input.id));
+    await db.delete(triageFindings).where(eq2(triageFindings.id, input.id));
     return { success: true };
   }),
   // Staff: Edit a finding's fields (review/correct what Figgy flagged)
@@ -83460,7 +83604,7 @@ var agentWebhookRouter = createRouter({
     if (input.severity !== void 0) patch.severity = input.severity;
     if (input.notes !== void 0) patch.reviewedNotes = input.notes;
     if (Object.keys(patch).length > 0) {
-      await db.update(triageFindings).set(patch).where(eq(triageFindings.id, input.id));
+      await db.update(triageFindings).set(patch).where(eq2(triageFindings.id, input.id));
     }
     return { success: true };
   }),
@@ -83471,7 +83615,7 @@ var agentWebhookRouter = createRouter({
       status: "awaiting_client",
       reviewedNotes: input.question ? "Asked client: " + input.question : "Asked client for missing info",
       reviewedAt: /* @__PURE__ */ new Date()
-    }).where(eq(triageFindings.id, input.id));
+    }).where(eq2(triageFindings.id, input.id));
     return { success: true };
   }),
   // Agent: Get status of submitted findings
@@ -83479,7 +83623,7 @@ var agentWebhookRouter = createRouter({
     const db = getDb();
     const results = [];
     for (const id of input.findingIds) {
-      const rows = await db.select().from(triageFindings).where(eq(triageFindings.id, id)).limit(1);
+      const rows = await db.select().from(triageFindings).where(eq2(triageFindings.id, id)).limit(1);
       if (rows[0]) results.push({ id: rows[0].id, status: rows[0].status, reviewedAt: rows[0].reviewedAt });
     }
     return results;
@@ -83495,12 +83639,12 @@ var sheetExportRouter = createRouter({
   // Export client time summary (for profitability review)
   exportClientTimeSummary: seniorQuery.query(async () => {
     const db = getDb();
-    const allClients = await db.select().from(clients).where(eq(clients.status, "active"));
+    const allClients = await db.select().from(clients).where(eq2(clients.status, "active"));
     const now = /* @__PURE__ */ new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const rows = [];
     for (const client of allClients) {
-      const entries = await db.select().from(timeEntries).where(and(eq(timeEntries.clientId, client.id), gte(timeEntries.date, startOfMonth)));
+      const entries = await db.select().from(timeEntries).where(and(eq2(timeEntries.clientId, client.id), gte(timeEntries.date, startOfMonth)));
       const totalHours = entries.reduce((s, e) => s + (e.hours || 0), 0);
       const monthlyFee = client.monthlyFee || 0;
       const effectiveRate = totalHours > 0 ? (monthlyFee / totalHours).toFixed(2) : "N/A";
@@ -83564,10 +83708,10 @@ var senderRulesRouter = createRouter({
   // Get the correct sender for a specific client
   getForClient: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    const clientRows = await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1);
+    const clientRows = await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1);
     const client = clientRows[0];
     if (!client) throw new Error("Client not found");
-    const allRules = await db.select().from(senderRules).where(eq(senderRules.isActive, true)).orderBy(desc(senderRules.priority));
+    const allRules = await db.select().from(senderRules).where(eq2(senderRules.isActive, true)).orderBy(desc(senderRules.priority));
     for (const rule of allRules) {
       if (rule.clientId === input.clientId) {
         return { rule, matchedBy: "client_id", client };
@@ -83626,13 +83770,13 @@ var senderRulesRouter = createRouter({
   })).mutation(async ({ input }) => {
     const db = getDb();
     const { id, ...data } = input;
-    await db.update(senderRules).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq(senderRules.id, id));
+    await db.update(senderRules).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(senderRules.id, id));
     return { success: true };
   }),
   // Delete a rule
   delete: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(senderRules).where(eq(senderRules.id, input.id));
+    await db.delete(senderRules).where(eq2(senderRules.id, input.id));
     return { success: true };
   }),
   // Seed default GFB rules
@@ -83668,7 +83812,7 @@ var senderRulesRouter = createRouter({
     for (const def of defaults2) {
       const existing = await db.select().from(senderRules).where(
         and(
-          eq(senderRules.fromAddress, def.fromAddress),
+          eq2(senderRules.fromAddress, def.fromAddress),
           isNull2(senderRules.clientId)
         )
       ).limit(1);
@@ -83733,9 +83877,9 @@ async function syncProviderData(params) {
 async function upsertStatement(db, params, data) {
   const existing = await db.select().from(connectorStatements).where(
     and(
-      eq(connectorStatements.connectedAccountId, params.connectedAccountId),
-      eq(connectorStatements.year, params.year),
-      eq(connectorStatements.month, params.month)
+      eq2(connectorStatements.connectedAccountId, params.connectedAccountId),
+      eq2(connectorStatements.year, params.year),
+      eq2(connectorStatements.month, params.month)
     )
   ).get();
   const statementData = {
@@ -83751,7 +83895,7 @@ async function upsertStatement(db, params, data) {
     status: "synced"
   };
   if (existing) {
-    await db.update(connectorStatements).set({ ...statementData, updatedAt: /* @__PURE__ */ new Date() }).where(eq(connectorStatements.id, existing.id));
+    await db.update(connectorStatements).set({ ...statementData, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(connectorStatements.id, existing.id));
   } else {
     await db.insert(connectorStatements).values(statementData);
   }
@@ -84045,12 +84189,12 @@ var connectorRouter = createRouter({
     }).optional()
   ).query(async ({ ctx, input }) => {
     const db = getDb();
-    const conditions = [eq(connectedAccounts.userId, ctx.user.id)];
+    const conditions = [eq2(connectedAccounts.userId, ctx.user.id)];
     if (input?.provider) {
-      conditions.push(eq(connectedAccounts.provider, input.provider));
+      conditions.push(eq2(connectedAccounts.provider, input.provider));
     }
     if (input?.clientId) {
-      conditions.push(eq(connectedAccounts.clientId, input.clientId));
+      conditions.push(eq2(connectedAccounts.clientId, input.clientId));
     }
     const all = await db.select().from(connectedAccounts).where(and(...conditions)).orderBy(desc(connectedAccounts.createdAt));
     return all.filter(
@@ -84064,8 +84208,8 @@ var connectorRouter = createRouter({
     const db = getDb();
     const rows = await db.select().from(connectedAccounts).where(
       and(
-        eq(connectedAccounts.id, input.id),
-        eq(connectedAccounts.userId, ctx.user.id)
+        eq2(connectedAccounts.id, input.id),
+        eq2(connectedAccounts.userId, ctx.user.id)
       )
     ).limit(1);
     return rows[0] || null;
@@ -84084,13 +84228,13 @@ var connectorRouter = createRouter({
   ).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const { clientId, provider, accountLabel, apiKey, apiSecret, accountEmail, scopes } = input;
-    const client = await db.select().from(clients).where(and(eq(clients.id, clientId), eq(clients.userId, ctx.user.id))).get();
+    const client = await db.select().from(clients).where(and(eq2(clients.id, clientId), eq2(clients.userId, ctx.user.id))).get();
     if (!client) throw new Error("Client not found");
     const existing = await db.select().from(connectedAccounts).where(
       and(
-        eq(connectedAccounts.userId, ctx.user.id),
-        eq(connectedAccounts.clientId, clientId),
-        eq(connectedAccounts.provider, provider)
+        eq2(connectedAccounts.userId, ctx.user.id),
+        eq2(connectedAccounts.clientId, clientId),
+        eq2(connectedAccounts.provider, provider)
       )
     ).limit(1);
     if (existing[0]) {
@@ -84104,7 +84248,7 @@ var connectorRouter = createRouter({
         scopes: scopes || null,
         isActive: true,
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq(connectedAccounts.id, existing[0].id));
+      }).where(eq2(connectedAccounts.id, existing[0].id));
       return { success: true, updated: true, id: existing[0].id };
     }
     const [account] = await db.insert(connectedAccounts).values({
@@ -84145,8 +84289,8 @@ var connectorRouter = createRouter({
     updateData.updatedAt = /* @__PURE__ */ new Date();
     await db.update(connectedAccounts).set(updateData).where(
       and(
-        eq(connectedAccounts.id, id),
-        eq(connectedAccounts.userId, ctx.user.id)
+        eq2(connectedAccounts.id, id),
+        eq2(connectedAccounts.userId, ctx.user.id)
       )
     );
     return { success: true };
@@ -84156,8 +84300,8 @@ var connectorRouter = createRouter({
     const db = getDb();
     await db.delete(connectedAccounts).where(
       and(
-        eq(connectedAccounts.id, input.id),
-        eq(connectedAccounts.userId, ctx.user.id)
+        eq2(connectedAccounts.id, input.id),
+        eq2(connectedAccounts.userId, ctx.user.id)
       )
     );
     return { success: true };
@@ -84167,8 +84311,8 @@ var connectorRouter = createRouter({
     const db = getDb();
     await db.update(connectedAccounts).set({ isActive: input.active, updatedAt: /* @__PURE__ */ new Date() }).where(
       and(
-        eq(connectedAccounts.id, input.id),
-        eq(connectedAccounts.userId, ctx.user.id)
+        eq2(connectedAccounts.id, input.id),
+        eq2(connectedAccounts.userId, ctx.user.id)
       )
     );
     return { success: true };
@@ -84184,8 +84328,8 @@ var connectorRouter = createRouter({
     const db = getDb();
     const rows = await db.select().from(connectedAccounts).where(
       and(
-        eq(connectedAccounts.id, input.connectionId),
-        eq(connectedAccounts.userId, ctx.user.id)
+        eq2(connectedAccounts.id, input.connectionId),
+        eq2(connectedAccounts.userId, ctx.user.id)
       )
     ).limit(1);
     if (!rows[0]) throw new Error("Connection not found");
@@ -84239,8 +84383,8 @@ var connectorRouter = createRouter({
         recordsSynced: result.recordsSynced,
         errorMessage: result.errorMessage,
         completedAt: /* @__PURE__ */ new Date()
-      }).where(eq(connectorSyncLogs.id, syncLogId));
-      await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq(connectedAccounts.id, conn.id));
+      }).where(eq2(connectorSyncLogs.id, syncLogId));
+      await db.update(connectedAccounts).set({ lastSyncedAt: /* @__PURE__ */ new Date() }).where(eq2(connectedAccounts.id, conn.id));
       return {
         success: result.status === "success" || result.status === "partial",
         provider: conn.provider,
@@ -84257,7 +84401,7 @@ var connectorRouter = createRouter({
         status: "error",
         errorMessage,
         completedAt: /* @__PURE__ */ new Date()
-      }).where(eq(connectorSyncLogs.id, syncLogId));
+      }).where(eq2(connectorSyncLogs.id, syncLogId));
       throw new Error(`Sync failed: ${errorMessage}`);
     }
   }),
@@ -84272,14 +84416,14 @@ var connectorRouter = createRouter({
   ).query(async ({ ctx, input }) => {
     const db = getDb();
     const conditions = [
-      eq(connectorStatements.clientId, input.clientId),
-      eq(connectorStatements.userId, ctx.user.id)
+      eq2(connectorStatements.clientId, input.clientId),
+      eq2(connectorStatements.userId, ctx.user.id)
     ];
     if (input.provider)
-      conditions.push(eq(connectorStatements.provider, input.provider));
-    if (input.year) conditions.push(eq(connectorStatements.year, input.year));
+      conditions.push(eq2(connectorStatements.provider, input.provider));
+    if (input.year) conditions.push(eq2(connectorStatements.year, input.year));
     if (input.month)
-      conditions.push(eq(connectorStatements.month, input.month));
+      conditions.push(eq2(connectorStatements.month, input.month));
     return db.select().from(connectorStatements).where(and(...conditions)).orderBy(desc(connectorStatements.periodEnd));
   }),
   // Get sync logs
@@ -84290,15 +84434,15 @@ var connectorRouter = createRouter({
     })
   ).query(async ({ input }) => {
     const db = getDb();
-    return db.select().from(connectorSyncLogs).where(eq(connectorSyncLogs.connectedAccountId, input.connectedAccountId)).orderBy(desc(connectorSyncLogs.startedAt)).limit(input.limit);
+    return db.select().from(connectorSyncLogs).where(eq2(connectorSyncLogs.connectedAccountId, input.connectedAccountId)).orderBy(desc(connectorSyncLogs.startedAt)).limit(input.limit);
   }),
   // Get clients missing a specific connector
   missingConnections: staffQuery.input(external_exports.object({ provider: external_exports.enum(PER_CLIENT_PROVIDERS) })).query(async ({ ctx, input }) => {
     const db = getDb();
     const allClients = await db.select({ id: connectedAccounts.clientId }).from(connectedAccounts).where(
       and(
-        eq(connectedAccounts.userId, ctx.user.id),
-        eq(connectedAccounts.provider, input.provider)
+        eq2(connectedAccounts.userId, ctx.user.id),
+        eq2(connectedAccounts.provider, input.provider)
       )
     );
     const connectedClientIds = new Set(
@@ -84375,7 +84519,7 @@ var restoreRouter = createRouter({
   // Public restore — only works when database is empty (safe guard)
   restoreAll: adminQuery.mutation(async () => {
     const db = getDb();
-    const userRows = await db.select().from(users).limit(1);
+    const userRows = await db.select().from(users2).limit(1);
     const userId = userRows[0]?.id || 1;
     const results = { clientsCreated: 0, onboardingCreated: 0, tasksCreated: 0 };
     const { createClient: createClient2 } = await Promise.resolve().then(() => (init_node2(), node_exports));
@@ -84578,7 +84722,7 @@ var restoreRouter = createRouter({
       }).returning();
       if (onboarding) {
         results.onboardingCreated++;
-        await db.update(clients).set({ workflowStatus: "active", onboardingCompletedAt: /* @__PURE__ */ new Date() }).where(eq(clients.id, client.id));
+        await db.update(clients).set({ workflowStatus: "active", onboardingCompletedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, client.id));
         const taskResult = await createClientTaskRules({
           clientId: client.id,
           userId,
@@ -84996,7 +85140,7 @@ var bulkImportRouter = createRouter({
     const results = { imported: 0, skipped: 0, tasksCreated: 0, errors: [] };
     for (const clientData of CLIENTS_DATA) {
       try {
-        const existing = await db.select().from(clients).where(eq(clients.name, clientData.name)).limit(1);
+        const existing = await db.select().from(clients).where(eq2(clients.name, clientData.name)).limit(1);
         if (existing.length > 0) {
           results.skipped++;
           continue;
@@ -85083,8 +85227,8 @@ var intercoRouter = createRouter({
   // Full detail for one period: record, entries, computed JE + summary.
   getPeriod: staffQuery.input(external_exports.object({ period: external_exports.string(), payerClientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    const [p] = await db.select().from(intercoPeriods).where(and(eq(intercoPeriods.period, input.period), eq(intercoPeriods.payerClientId, input.payerClientId)));
-    const entries = await db.select().from(intercoEntries).where(and(eq(intercoEntries.period, input.period), eq(intercoEntries.payerClientId, input.payerClientId))).orderBy(intercoEntries.counterpartyClientId);
+    const [p] = await db.select().from(intercoPeriods).where(and(eq2(intercoPeriods.period, input.period), eq2(intercoPeriods.payerClientId, input.payerClientId)));
+    const entries = await db.select().from(intercoEntries).where(and(eq2(intercoEntries.period, input.period), eq2(intercoEntries.payerClientId, input.payerClientId))).orderBy(intercoEntries.counterpartyClientId);
     const names = await clientNameMap();
     const withNames = entries.map((e) => ({ ...e, counterpartyName: names.get(e.counterpartyClientId) ?? `#${e.counterpartyClientId}` }));
     const je = buildIntercoJe({
@@ -85107,14 +85251,14 @@ var intercoRouter = createRouter({
     notes: external_exports.string().optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const [existing] = await db.select().from(intercoPeriods).where(and(eq(intercoPeriods.period, input.period), eq(intercoPeriods.payerClientId, input.payerClientId)));
+    const [existing] = await db.select().from(intercoPeriods).where(and(eq2(intercoPeriods.period, input.period), eq2(intercoPeriods.payerClientId, input.payerClientId)));
     if (existing) {
       await db.update(intercoPeriods).set({
         intercoAccount: input.intercoAccount ?? existing.intercoAccount,
         offsetAccount: input.offsetAccount ?? existing.offsetAccount,
         notes: input.notes ?? existing.notes,
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq(intercoPeriods.id, existing.id));
+      }).where(eq2(intercoPeriods.id, existing.id));
       return { id: existing.id };
     }
     const [row] = await db.insert(intercoPeriods).values({
@@ -85130,7 +85274,7 @@ var intercoRouter = createRouter({
   // (Manual confirm now; auto-checked against QBO once the connection is live.)
   setReadiness: staffQuery.input(external_exports.object({ id: external_exports.number(), sourcePosted: external_exports.boolean() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const [p] = await db.select().from(intercoPeriods).where(eq(intercoPeriods.id, input.id));
+    const [p] = await db.select().from(intercoPeriods).where(eq2(intercoPeriods.id, input.id));
     if (!p) throw new Error("Period not found");
     await db.update(intercoPeriods).set({
       sourcePosted: input.sourcePosted,
@@ -85139,16 +85283,16 @@ var intercoRouter = createRouter({
       // Flip status, but never downgrade away from 'posted'.
       status: p.status === "posted" ? "posted" : input.sourcePosted ? "ready" : "open",
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(intercoPeriods.id, input.id));
+    }).where(eq2(intercoPeriods.id, input.id));
     return { success: true };
   }),
   // Record that the draft JE was posted in QBO by hand (gate must be green).
   markPosted: staffQuery.input(external_exports.object({ id: external_exports.number(), postedJeRef: external_exports.string().optional() })).mutation(async ({ input }) => {
     const db = getDb();
-    const [p] = await db.select().from(intercoPeriods).where(eq(intercoPeriods.id, input.id));
+    const [p] = await db.select().from(intercoPeriods).where(eq2(intercoPeriods.id, input.id));
     if (!p) throw new Error("Period not found");
     if (!p.sourcePosted) throw new Error("Readiness gate is not green \u2014 confirm all source txns are posted in QBO first.");
-    await db.update(intercoPeriods).set({ status: "posted", postedJeRef: input.postedJeRef ?? p.postedJeRef, updatedAt: /* @__PURE__ */ new Date() }).where(eq(intercoPeriods.id, input.id));
+    await db.update(intercoPeriods).set({ status: "posted", postedJeRef: input.postedJeRef ?? p.postedJeRef, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(intercoPeriods.id, input.id));
     return { success: true };
   }),
   // Step 3: confirm the interco due-to/due-from ACCOUNT itself is reconciled (it nets
@@ -85156,7 +85300,7 @@ var intercoRouter = createRouter({
   // the back-and-forth close-out between the two entities' interco accounts.
   setReconciled: staffQuery.input(external_exports.object({ id: external_exports.number(), reconciled: external_exports.boolean() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const [p] = await db.select().from(intercoPeriods).where(eq(intercoPeriods.id, input.id));
+    const [p] = await db.select().from(intercoPeriods).where(eq2(intercoPeriods.id, input.id));
     if (!p) throw new Error("Period not found");
     if (input.reconciled && p.status !== "posted" && p.status !== "reconciled")
       throw new Error("Post the interco JE (step 2) before reconciling the interco account (step 3).");
@@ -85166,7 +85310,7 @@ var intercoRouter = createRouter({
       intercoReconciledAt: input.reconciled ? /* @__PURE__ */ new Date() : null,
       status: input.reconciled ? "reconciled" : "posted",
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(intercoPeriods.id, input.id));
+    }).where(eq2(intercoPeriods.id, input.id));
     return { success: true };
   }),
   addEntry: staffQuery.input(external_exports.object({
@@ -85178,7 +85322,7 @@ var intercoRouter = createRouter({
     category: external_exports.string().optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const [existing] = await db.select().from(intercoPeriods).where(and(eq(intercoPeriods.period, input.period), eq(intercoPeriods.payerClientId, input.payerClientId)));
+    const [existing] = await db.select().from(intercoPeriods).where(and(eq2(intercoPeriods.period, input.period), eq2(intercoPeriods.payerClientId, input.payerClientId)));
     if (!existing) await db.insert(intercoPeriods).values({ period: input.period, payerClientId: input.payerClientId });
     const [row] = await db.insert(intercoEntries).values({
       period: input.period,
@@ -85194,7 +85338,7 @@ var intercoRouter = createRouter({
   }),
   deleteEntry: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(intercoEntries).where(eq(intercoEntries.id, input.id));
+    await db.delete(intercoEntries).where(eq2(intercoEntries.id, input.id));
     return { success: true };
   })
 });
@@ -85217,7 +85361,7 @@ var vendorRulesRouter = createRouter({
     const db = getDb();
     const cr = await getConnectionForClient(input.clientId);
     const connId = "conn" in cr ? cr.conn.id : null;
-    const rows = connId != null ? await db.select().from(vendorMemory).where(eq(vendorMemory.connectionId, connId)).orderBy(desc(vendorMemory.confirmedByHuman), desc(vendorMemory.updatedAt)) : await db.select().from(vendorMemory).where(eq(vendorMemory.clientId, input.clientId)).orderBy(desc(vendorMemory.updatedAt));
+    const rows = connId != null ? await db.select().from(vendorMemory).where(eq2(vendorMemory.connectionId, connId)).orderBy(desc(vendorMemory.confirmedByHuman), desc(vendorMemory.updatedAt)) : await db.select().from(vendorMemory).where(eq2(vendorMemory.clientId, input.clientId)).orderBy(desc(vendorMemory.updatedAt));
     return rows.map((r) => ({
       id: r.id,
       qboVendorId: r.qboVendorId,
@@ -85269,7 +85413,7 @@ var vendorRulesRouter = createRouter({
       return { ok: false, error: msg };
     }
     const ruled = new Set(
-      (await db.select().from(vendorMemory).where(and(eq(vendorMemory.connectionId, conn.id), eq(vendorMemory.confirmedByHuman, true)))).map((r) => String(r.qboVendorId))
+      (await db.select().from(vendorMemory).where(and(eq2(vendorMemory.connectionId, conn.id), eq2(vendorMemory.confirmedByHuman, true)))).map((r) => String(r.qboVendorId))
     );
     const todo = vendors.filter((v) => !ruled.has(v.id)).slice(0, cap2);
     const suggestions = [];
@@ -85331,14 +85475,14 @@ var vendorRulesRouter = createRouter({
       confirmedAt: now,
       updatedAt: now
     };
-    const existing = (await db.select().from(vendorMemory).where(and(eq(vendorMemory.connectionId, connId), eq(vendorMemory.qboVendorId, input.qboVendorId))).limit(1))[0];
-    if (existing) await db.update(vendorMemory).set(patch).where(eq(vendorMemory.id, existing.id));
+    const existing = (await db.select().from(vendorMemory).where(and(eq2(vendorMemory.connectionId, connId), eq2(vendorMemory.qboVendorId, input.qboVendorId))).limit(1))[0];
+    if (existing) await db.update(vendorMemory).set(patch).where(eq2(vendorMemory.id, existing.id));
     else await db.insert(vendorMemory).values(patch);
     return { ok: true };
   }),
   /** Remove a rule (vendor goes back to history-derived / review coding). */
   removeRule: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
-    await getDb().delete(vendorMemory).where(eq(vendorMemory.id, input.id));
+    await getDb().delete(vendorMemory).where(eq2(vendorMemory.id, input.id));
     return { ok: true };
   })
 });
@@ -85621,8 +85765,8 @@ async function visibleTasks(ctx) {
   const db = getDb();
   const { role, id: userId, name: name2, email: email3 } = ctx.user;
   const all = role === "admin" || role === "senior_bookkeeper";
-  const rows = all ? await db.select().from(tasks) : await db.select().from(tasks).where(or(eq(tasks.userId, userId), eq(tasks.assignedTo, name2 || email3)));
-  const dead = await db.select({ id: clients.id }).from(clients).where(or(eq(clients.status, "inactive"), eq(clients.status, "archived")));
+  const rows = all ? await db.select().from(tasks) : await db.select().from(tasks).where(or2(eq2(tasks.userId, userId), eq2(tasks.assignedTo, name2 || email3)));
+  const dead = await db.select({ id: clients.id }).from(clients).where(or2(eq2(clients.status, "inactive"), eq2(clients.status, "archived")));
   const deadIds = new Set(dead.map((c) => c.id));
   return rows.filter((t2) => !t2.clientId || !deadIds.has(t2.clientId));
 }
@@ -85655,7 +85799,7 @@ var tasksCleanupRouter = createRouter({
     const now = /* @__PURE__ */ new Date();
     await db.update(tasks).set({ completed: true, completedAt: now, status: "completed", updatedAt: now }).where(inArray(tasks.id, ids));
     for (const id of ids) {
-      const row = (await db.select().from(tasks).where(eq(tasks.id, id)).limit(1))[0];
+      const row = (await db.select().from(tasks).where(eq2(tasks.id, id)).limit(1))[0];
       if (row) syncUpdate("tasks", row);
     }
     return { ok: true, updated: ids.length };
@@ -86039,10 +86183,10 @@ async function buildBook(groupName, fiscalYear) {
   const db = getDb();
   const g = groupName;
   const [entities, ownership, profit, family] = await Promise.all([
-    db.select().from(groupEntities).where(eq(groupEntities.groupName, g)),
-    db.select().from(groupOwnership).where(eq(groupOwnership.groupName, g)),
-    db.select().from(groupProfit).where(eq(groupProfit.groupName, g)),
-    db.select().from(groupFamilyBenefit).where(eq(groupFamilyBenefit.groupName, g))
+    db.select().from(groupEntities).where(eq2(groupEntities.groupName, g)),
+    db.select().from(groupOwnership).where(eq2(groupOwnership.groupName, g)),
+    db.select().from(groupProfit).where(eq2(groupProfit.groupName, g)),
+    db.select().from(groupFamilyBenefit).where(eq2(groupFamilyBenefit.groupName, g))
   ]);
   const ent = entities.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   const own = ownership;
@@ -86107,7 +86251,7 @@ var groupBookRouter = createRouter({
   // ===== Share links (read-only owner view) =====
   shareList: staffQuery.input(external_exports.object({ groupName: external_exports.string() })).query(async ({ input }) => {
     const db = getDb();
-    return db.select().from(groupBookShareLinks).where(eq(groupBookShareLinks.groupName, input.groupName)).orderBy(desc(groupBookShareLinks.createdAt));
+    return db.select().from(groupBookShareLinks).where(eq2(groupBookShareLinks.groupName, input.groupName)).orderBy(desc(groupBookShareLinks.createdAt));
   }),
   shareCreate: staffQuery.input(external_exports.object({ groupName: external_exports.string(), label: external_exports.string().max(120).optional() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
@@ -86117,13 +86261,13 @@ var groupBookRouter = createRouter({
   }),
   shareRevoke: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.update(groupBookShareLinks).set({ active: false, revokedAt: /* @__PURE__ */ new Date() }).where(eq(groupBookShareLinks.id, input.id));
+    await db.update(groupBookShareLinks).set({ active: false, revokedAt: /* @__PURE__ */ new Date() }).where(eq2(groupBookShareLinks.id, input.id));
     return { ok: true };
   }),
   // ===== PUBLIC (token-gated, read-only) =====
   publicView: publicQuery.input(external_exports.object({ token: external_exports.string().min(6), fiscalYear: external_exports.string().optional() })).query(async ({ input }) => {
     const db = getDb();
-    const link = (await db.select().from(groupBookShareLinks).where(eq(groupBookShareLinks.token, input.token)).limit(1))[0];
+    const link = (await db.select().from(groupBookShareLinks).where(eq2(groupBookShareLinks.token, input.token)).limit(1))[0];
     if (!link || !link.active) return null;
     const book = await buildBook(link.groupName, input.fiscalYear);
     return { label: link.label ?? null, generatedAt: (/* @__PURE__ */ new Date()).toISOString(), ...book };
@@ -87065,7 +87209,7 @@ async function execGetAgenda(userId) {
   const now = /* @__PURE__ */ new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(todayStart.getTime() + 864e5);
-  const open3 = await db.select().from(tasks).where(eq(tasks.completed, false));
+  const open3 = await db.select().from(tasks).where(eq2(tasks.completed, false));
   const dstr = (d10) => {
     try {
       return new Date(d10).toLocaleDateString(void 0, { month: "short", day: "numeric" });
@@ -87084,7 +87228,7 @@ async function execGetAgenda(userId) {
   }
   overdue.sort((a, b) => a.due.localeCompare(b.due));
   upcoming.sort((a, b) => new Date(a.due).getTime() - new Date(b.due).getTime());
-  const evs = await db.select().from(calendarEvents).where(eq(calendarEvents.userId, userId));
+  const evs = await db.select().from(calendarEvents).where(eq2(calendarEvents.userId, userId));
   const events = evs.filter((e) => {
     const s = new Date(e.startDate);
     return s >= todayStart && s < todayEnd;
@@ -87164,7 +87308,7 @@ async function execRememberPersonal(input, userId) {
 async function execRecallPersonal(input, userId) {
   const { personalFacts: personalFacts2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
   const db = getDb();
-  const rows = await db.select().from(personalFacts2).where(eq(personalFacts2.userId, userId));
+  const rows = await db.select().from(personalFacts2).where(eq2(personalFacts2.userId, userId));
   const q3 = String(input?.query ?? "").trim().toLowerCase();
   const hits = q3 ? rows.filter((r) => `${r.fact} ${r.category} ${r.tags ?? ""}`.toLowerCase().includes(q3)) : rows;
   if (!hits.length) return q3 ? `I don't have anything on "${q3}" in your personal notes yet.` : "Your personal knowledge base is empty so far.";
@@ -87325,19 +87469,19 @@ async function execCompleteTask(input, userId) {
   const m = String(input?.match ?? "").trim().toLowerCase();
   if (!m) return "Which task should I mark done?";
   const db = getDb();
-  const open3 = await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.completed, false)));
+  const open3 = await db.select().from(tasks).where(and(eq2(tasks.userId, userId), eq2(tasks.completed, false)));
   const hits = open3.filter((t3) => String(t3.title ?? "").toLowerCase().includes(m));
   if (!hits.length) return `I don't see an open task matching "${input.match}".`;
   if (hits.length > 1) return `A few match \u2014 which one? ${hits.slice(0, 5).map((h) => `"${h.title}"`).join(", ")}.`;
   const t2 = hits[0];
-  await db.update(tasks).set({ completed: true, status: "completed", stage: "done", completedAt: /* @__PURE__ */ new Date() }).where(eq(tasks.id, t2.id));
+  await db.update(tasks).set({ completed: true, status: "completed", stage: "done", completedAt: /* @__PURE__ */ new Date() }).where(eq2(tasks.id, t2.id));
   return `Done \u2014 marked "${t2.title}" complete.`;
 }
 async function execFirmStatus(userId) {
   const db = getDb();
   const cls = await db.select({ id: clients.id, status: clients.status }).from(clients);
   const activeClients = cls.filter((c) => (c.status ?? "active") === "active").length;
-  const open3 = await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.completed, false)));
+  const open3 = await db.select().from(tasks).where(and(eq2(tasks.userId, userId), eq2(tasks.completed, false)));
   const now = Date.now();
   const overdue = open3.filter((t2) => t2.dueDate && new Date(t2.dueDate).getTime() < now).length;
   const findings = await db.select({ severity: triageFindings.severity, status: triageFindings.status }).from(triageFindings);
@@ -87453,7 +87597,7 @@ var assistantRouter = createRouter({
     let lessonsBlock = "";
     try {
       const db = getDb();
-      const rows = await db.select({ scope: agentLearnings.scope, lesson: agentLearnings.lesson, createdAt: agentLearnings.createdAt }).from(agentLearnings).where(eq(agentLearnings.userId, ctx.user.id)).orderBy(desc(agentLearnings.createdAt)).limit(100);
+      const rows = await db.select({ scope: agentLearnings.scope, lesson: agentLearnings.lesson, createdAt: agentLearnings.createdAt }).from(agentLearnings).where(eq2(agentLearnings.userId, ctx.user.id)).orderBy(desc(agentLearnings.createdAt)).limit(100);
       lessonsBlock = formatLessonsBlock(selectRelevant(rows, agent));
     } catch {
     }
@@ -87590,8 +87734,8 @@ init_personal_core();
 var personalRouter = createRouter({
   list: authedQuery.input(external_exports.object({ includeDone: external_exports.boolean().optional() }).optional()).query(async ({ ctx, input }) => {
     const db = getDb();
-    const conds = [eq(personalItems.userId, ctx.user.id)];
-    if (!input?.includeDone) conds.push(eq(personalItems.done, false));
+    const conds = [eq2(personalItems.userId, ctx.user.id)];
+    if (!input?.includeDone) conds.push(eq2(personalItems.done, false));
     return db.select().from(personalItems).where(and(...conds)).orderBy(desc(personalItems.createdAt));
   }),
   add: authedQuery.input(external_exports.object({
@@ -87615,7 +87759,7 @@ var personalRouter = createRouter({
   }),
   toggle: authedQuery.input(external_exports.object({ id: external_exports.number(), done: external_exports.boolean() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.update(personalItems).set({ done: input.done, doneAt: input.done ? /* @__PURE__ */ new Date() : null, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(personalItems.id, input.id), eq(personalItems.userId, ctx.user.id)));
+    await db.update(personalItems).set({ done: input.done, doneAt: input.done ? /* @__PURE__ */ new Date() : null, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq2(personalItems.id, input.id), eq2(personalItems.userId, ctx.user.id)));
     return { ok: true };
   }),
   update: authedQuery.input(external_exports.object({
@@ -87627,12 +87771,12 @@ var personalRouter = createRouter({
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const { id, ...rest } = input;
-    await db.update(personalItems).set({ ...rest, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq(personalItems.id, id), eq(personalItems.userId, ctx.user.id)));
+    await db.update(personalItems).set({ ...rest, updatedAt: /* @__PURE__ */ new Date() }).where(and(eq2(personalItems.id, id), eq2(personalItems.userId, ctx.user.id)));
     return { ok: true };
   }),
   remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(personalItems).where(and(eq(personalItems.id, input.id), eq(personalItems.userId, ctx.user.id)));
+    await db.delete(personalItems).where(and(eq2(personalItems.id, input.id), eq2(personalItems.userId, ctx.user.id)));
     return { ok: true };
   }),
   // ===== PERSONAL KNOWLEDGE BASE (Liv's private memory) =====
@@ -87640,8 +87784,8 @@ var personalRouter = createRouter({
   // walled off from clients and from every agent's context except Liv's.
   factsList: authedQuery.input(external_exports.object({ category: external_exports.string().optional() }).optional()).query(async ({ ctx, input }) => {
     const db = getDb();
-    const conds = [eq(personalFacts.userId, ctx.user.id)];
-    if (input?.category) conds.push(eq(personalFacts.category, normalizeCategory(input.category)));
+    const conds = [eq2(personalFacts.userId, ctx.user.id)];
+    if (input?.category) conds.push(eq2(personalFacts.category, normalizeCategory(input.category)));
     return db.select().from(personalFacts).where(and(...conds)).orderBy(desc(personalFacts.pinned), desc(personalFacts.createdAt));
   }),
   factAdd: authedQuery.input(external_exports.object({
@@ -87673,12 +87817,12 @@ var personalRouter = createRouter({
     const { id, category, ...rest } = input;
     const patch = { ...rest, updatedAt: /* @__PURE__ */ new Date() };
     if (category != null) patch.category = normalizeCategory(category);
-    await db.update(personalFacts).set(patch).where(and(eq(personalFacts.id, id), eq(personalFacts.userId, ctx.user.id)));
+    await db.update(personalFacts).set(patch).where(and(eq2(personalFacts.id, id), eq2(personalFacts.userId, ctx.user.id)));
     return { ok: true };
   }),
   factRemove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(personalFacts).where(and(eq(personalFacts.id, input.id), eq(personalFacts.userId, ctx.user.id)));
+    await db.delete(personalFacts).where(and(eq2(personalFacts.id, input.id), eq2(personalFacts.userId, ctx.user.id)));
     return { ok: true };
   }),
   // Bulk "dump" — paste a package about your life; each line becomes a fact for
@@ -88445,7 +88589,7 @@ var lifeRouter = createRouter({
   // Section catalogue + per-section counts + finance net worth + what's coming up.
   overview: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
-    const rows = await db.select().from(lifeEntries).where(and(eq(lifeEntries.userId, ctx.user.id), eq(lifeEntries.archived, false)));
+    const rows = await db.select().from(lifeEntries).where(and(eq2(lifeEntries.userId, ctx.user.id), eq2(lifeEntries.archived, false)));
     const counts = {};
     for (const r of rows) counts[r.section] = (counts[r.section] || 0) + 1;
     const fin = rows.filter((r) => r.section === "finance" && r.amount != null);
@@ -88463,8 +88607,8 @@ var lifeRouter = createRouter({
   }),
   list: authedQuery.input(external_exports.object({ section: external_exports.enum(SECTION_KEYS), includeArchived: external_exports.boolean().optional() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const conds = [eq(lifeEntries.userId, ctx.user.id), eq(lifeEntries.section, input.section)];
-    if (!input.includeArchived) conds.push(eq(lifeEntries.archived, false));
+    const conds = [eq2(lifeEntries.userId, ctx.user.id), eq2(lifeEntries.section, input.section)];
+    if (!input.includeArchived) conds.push(eq2(lifeEntries.archived, false));
     return db.select().from(lifeEntries).where(and(...conds)).orderBy(desc(lifeEntries.pinned), desc(lifeEntries.createdAt));
   }),
   add: authedQuery.input(external_exports.object({
@@ -88510,7 +88654,7 @@ var lifeRouter = createRouter({
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       const meta3 = JSON.stringify({ ...safeMeta(input.meta), calendarEventId: ev[0]?.id });
-      await db.update(lifeEntries).set({ meta: meta3 }).where(and(eq(lifeEntries.id, entry.id), eq(lifeEntries.userId, ctx.user.id)));
+      await db.update(lifeEntries).set({ meta: meta3 }).where(and(eq2(lifeEntries.id, entry.id), eq2(lifeEntries.userId, ctx.user.id)));
       entry.meta = meta3;
     }
     return entry;
@@ -88532,9 +88676,9 @@ var lifeRouter = createRouter({
     const { id, ...rest } = input;
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
     for (const [k, v] of Object.entries(rest)) if (v !== void 0) patch[k] = v;
-    await db.update(lifeEntries).set(patch).where(and(eq(lifeEntries.id, id), eq(lifeEntries.userId, ctx.user.id)));
+    await db.update(lifeEntries).set(patch).where(and(eq2(lifeEntries.id, id), eq2(lifeEntries.userId, ctx.user.id)));
     if (patch.title !== void 0 || patch.date !== void 0) {
-      const cur = (await db.select().from(lifeEntries).where(and(eq(lifeEntries.id, id), eq(lifeEntries.userId, ctx.user.id))).limit(1))[0];
+      const cur = (await db.select().from(lifeEntries).where(and(eq2(lifeEntries.id, id), eq2(lifeEntries.userId, ctx.user.id))).limit(1))[0];
       const cid = cur?.section === "social" ? safeMeta(cur.meta).calendarEventId : null;
       if (cid) {
         const evPatch = { updatedAt: /* @__PURE__ */ new Date(), title: cur.title };
@@ -88542,17 +88686,17 @@ var lifeRouter = createRouter({
           evPatch.startDate = cur.date;
           evPatch.endDate = cur.date;
         }
-        await db.update(calendarEvents).set(evPatch).where(and(eq(calendarEvents.id, cid), eq(calendarEvents.userId, ctx.user.id)));
+        await db.update(calendarEvents).set(evPatch).where(and(eq2(calendarEvents.id, cid), eq2(calendarEvents.userId, ctx.user.id)));
       }
     }
     return { ok: true };
   }),
   remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const cur = (await db.select().from(lifeEntries).where(and(eq(lifeEntries.id, input.id), eq(lifeEntries.userId, ctx.user.id))).limit(1))[0];
+    const cur = (await db.select().from(lifeEntries).where(and(eq2(lifeEntries.id, input.id), eq2(lifeEntries.userId, ctx.user.id))).limit(1))[0];
     const cid = cur?.meta ? safeMeta(cur.meta).calendarEventId : null;
-    if (cid) await db.delete(calendarEvents).where(and(eq(calendarEvents.id, cid), eq(calendarEvents.userId, ctx.user.id)));
-    await db.delete(lifeEntries).where(and(eq(lifeEntries.id, input.id), eq(lifeEntries.userId, ctx.user.id)));
+    if (cid) await db.delete(calendarEvents).where(and(eq2(calendarEvents.id, cid), eq2(calendarEvents.userId, ctx.user.id)));
+    await db.delete(lifeEntries).where(and(eq2(lifeEntries.id, input.id), eq2(lifeEntries.userId, ctx.user.id)));
     return { ok: true };
   })
 });
@@ -88867,9 +89011,9 @@ init_drizzle_orm();
 var learningRouter = createRouter({
   list: authedQuery.input(external_exports.object({ clientId: external_exports.number().nullable().optional(), scope: external_exports.string().optional() }).optional()).query(async ({ ctx, input }) => {
     const db = getDb();
-    const conds = [eq(agentLearnings.userId, ctx.user.id)];
-    if (input?.clientId != null) conds.push(eq(agentLearnings.clientId, input.clientId));
-    if (input?.scope) conds.push(eq(agentLearnings.scope, input.scope));
+    const conds = [eq2(agentLearnings.userId, ctx.user.id)];
+    if (input?.clientId != null) conds.push(eq2(agentLearnings.clientId, input.clientId));
+    if (input?.scope) conds.push(eq2(agentLearnings.scope, input.scope));
     return db.select().from(agentLearnings).where(and(...conds)).orderBy(desc(agentLearnings.createdAt));
   }),
   add: authedQuery.input(external_exports.object({
@@ -88892,7 +89036,7 @@ var learningRouter = createRouter({
   }),
   remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(agentLearnings).where(and(eq(agentLearnings.id, input.id), eq(agentLearnings.userId, ctx.user.id)));
+    await db.delete(agentLearnings).where(and(eq2(agentLearnings.id, input.id), eq2(agentLearnings.userId, ctx.user.id)));
     return { ok: true };
   })
 });
@@ -88907,12 +89051,12 @@ var chatRouter = createRouter({
   /** All messages in one conversation (to restore the thread on load). */
   messages: authedQuery.input(external_exports.object({ conversationId: external_exports.string() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    return db.select().from(chatMessages).where(and(eq(chatMessages.userId, ctx.user.id), eq(chatMessages.conversationId, input.conversationId))).orderBy(asc(chatMessages.id));
+    return db.select().from(chatMessages).where(and(eq2(chatMessages.userId, ctx.user.id), eq2(chatMessages.conversationId, input.conversationId))).orderBy(asc(chatMessages.id));
   }),
   /** Recent conversations (one row each: last message preview + agent + time). */
   conversations: authedQuery.input(external_exports.object({ limit: external_exports.number().min(1).max(50).optional() }).optional()).query(async ({ ctx, input }) => {
     const db = getDb();
-    const rows = await db.select().from(chatMessages).where(eq(chatMessages.userId, ctx.user.id)).orderBy(desc(chatMessages.id));
+    const rows = await db.select().from(chatMessages).where(eq2(chatMessages.userId, ctx.user.id)).orderBy(desc(chatMessages.id));
     const seen = /* @__PURE__ */ new Map();
     for (const r of rows) {
       if (!seen.has(r.conversationId)) {
@@ -88930,13 +89074,13 @@ var chatRouter = createRouter({
   /** File a whole conversation onto a client's record. */
   fileToClient: authedQuery.input(external_exports.object({ conversationId: external_exports.string(), clientId: external_exports.number().nullable() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.update(chatMessages).set({ clientId: input.clientId }).where(and(eq(chatMessages.userId, ctx.user.id), eq(chatMessages.conversationId, input.conversationId)));
+    await db.update(chatMessages).set({ clientId: input.clientId }).where(and(eq2(chatMessages.userId, ctx.user.id), eq2(chatMessages.conversationId, input.conversationId)));
     return { ok: true };
   }),
   /** Conversations filed to a given client (shown on the client's card). */
   forClient: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ ctx, input }) => {
     const db = getDb();
-    const rows = await db.select().from(chatMessages).where(and(eq(chatMessages.userId, ctx.user.id), eq(chatMessages.clientId, input.clientId))).orderBy(asc(chatMessages.id));
+    const rows = await db.select().from(chatMessages).where(and(eq2(chatMessages.userId, ctx.user.id), eq2(chatMessages.clientId, input.clientId))).orderBy(asc(chatMessages.id));
     const convs = /* @__PURE__ */ new Map();
     for (const r of rows) {
       if (!convs.has(r.conversationId)) convs.set(r.conversationId, { conversationId: r.conversationId, agent: r.agent, at: r.createdAt, messages: [] });
@@ -88947,7 +89091,7 @@ var chatRouter = createRouter({
   /** Delete a conversation (for the owning user). */
   remove: authedQuery.input(external_exports.object({ conversationId: external_exports.string() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    await db.delete(chatMessages).where(and(eq(chatMessages.userId, ctx.user.id), eq(chatMessages.conversationId, input.conversationId)));
+    await db.delete(chatMessages).where(and(eq2(chatMessages.userId, ctx.user.id), eq2(chatMessages.conversationId, input.conversationId)));
     return { ok: true };
   })
 });
@@ -89103,10 +89247,10 @@ function fiscalYearMonths(firstMonthKey) {
 var ACCOUNT_KEYS = ["contract_asset", "revenue", "deferred_revenue"];
 async function loadProjectInputs(clientId) {
   const db = getDb();
-  const projs = await db.select().from(rrProjects).where(eq(rrProjects.clientId, clientId));
+  const projs = await db.select().from(rrProjects).where(eq2(rrProjects.clientId, clientId));
   const out = [];
   for (const p of projs) {
-    const prog = await db.select().from(rrProgress).where(eq(rrProgress.projectId, p.id));
+    const prog = await db.select().from(rrProgress).where(eq2(rrProgress.projectId, p.id));
     out.push({
       raw: p,
       project: {
@@ -89128,7 +89272,7 @@ async function loadProjectInputs(clientId) {
 }
 async function getConfig(clientId) {
   const db = getDb();
-  const row = (await db.select().from(rrClientConfig).where(eq(rrClientConfig.clientId, clientId)).limit(1))[0];
+  const row = (await db.select().from(rrClientConfig).where(eq2(rrClientConfig.clientId, clientId)).limit(1))[0];
   return {
     enabled: row?.enabled ?? true,
     fiscalYearStartMonth: row?.fiscalYearStartMonth ?? 1,
@@ -89140,7 +89284,7 @@ async function getConfig(clientId) {
 }
 async function getAccountMap(clientId) {
   const db = getDb();
-  const rows = await db.select().from(rrAccountMap).where(eq(rrAccountMap.clientId, clientId));
+  const rows = await db.select().from(rrAccountMap).where(eq2(rrAccountMap.clientId, clientId));
   const map2 = { _rows: rows };
   for (const r of rows) map2[r.accountKey] = r.qboAccountId ?? null;
   return map2;
@@ -89181,8 +89325,8 @@ var revRecRouter = createRouter({
   // ===== PROJECTS =====
   projectsList: authedQuery.input(external_exports.object({ clientId: external_exports.number(), includeArchived: external_exports.boolean().optional() })).query(async ({ input }) => {
     const db = getDb();
-    const conds = [eq(rrProjects.clientId, input.clientId)];
-    if (!input.includeArchived) conds.push(eq(rrProjects.status, "active"));
+    const conds = [eq2(rrProjects.clientId, input.clientId)];
+    if (!input.includeArchived) conds.push(eq2(rrProjects.status, "active"));
     return db.select().from(rrProjects).where(and(...conds)).orderBy(desc(rrProjects.createdAt));
   }),
   projectCreate: authedQuery.input(external_exports.object({
@@ -89225,12 +89369,12 @@ var revRecRouter = createRouter({
   })).mutation(async ({ input }) => {
     const db = getDb();
     const { id, ...rest } = input;
-    await db.update(rrProjects).set({ ...rest, updatedAt: /* @__PURE__ */ new Date() }).where(eq(rrProjects.id, id));
+    await db.update(rrProjects).set({ ...rest, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(rrProjects.id, id));
     return { ok: true };
   }),
   projectArchive: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.update(rrProjects).set({ status: "archived", updatedAt: /* @__PURE__ */ new Date() }).where(eq(rrProjects.id, input.id));
+    await db.update(rrProjects).set({ status: "archived", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(rrProjects.id, input.id));
     return { ok: true };
   }),
   // ===== PROGRESS (period % + billings) =====
@@ -89243,7 +89387,7 @@ var revRecRouter = createRouter({
     note: external_exports.string().max(1e3).nullable().optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const existing = (await db.select().from(rrProgress).where(and(eq(rrProgress.projectId, input.projectId), eq(rrProgress.periodKey, input.periodKey))).limit(1))[0];
+    const existing = (await db.select().from(rrProgress).where(and(eq2(rrProgress.projectId, input.projectId), eq2(rrProgress.periodKey, input.periodKey))).limit(1))[0];
     if (existing) {
       await db.update(rrProgress).set({
         pctComplete: input.pctComplete,
@@ -89251,7 +89395,7 @@ var revRecRouter = createRouter({
         note: input.note ?? null,
         enteredBy: ctx.user.email ?? String(ctx.user.id),
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq(rrProgress.id, existing.id));
+      }).where(eq2(rrProgress.id, existing.id));
     } else {
       await db.insert(rrProgress).values({
         projectId: input.projectId,
@@ -89267,11 +89411,11 @@ var revRecRouter = createRouter({
   }),
   progressList: authedQuery.input(external_exports.object({ projectId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    return db.select().from(rrProgress).where(eq(rrProgress.projectId, input.projectId)).orderBy(rrProgress.periodKey);
+    return db.select().from(rrProgress).where(eq2(rrProgress.projectId, input.projectId)).orderBy(rrProgress.periodKey);
   }),
   progressDelete: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(rrProgress).where(eq(rrProgress.id, input.id));
+    await db.delete(rrProgress).where(eq2(rrProgress.id, input.id));
     return { ok: true };
   }),
   // ===== SCHEDULE + CALENDAR (computed) =====
@@ -89291,9 +89435,9 @@ var revRecRouter = createRouter({
   })).mutation(async ({ input }) => {
     const db = getDb();
     const { clientId, ...rest } = input;
-    const existing = (await db.select().from(rrClientConfig).where(eq(rrClientConfig.clientId, clientId)).limit(1))[0];
+    const existing = (await db.select().from(rrClientConfig).where(eq2(rrClientConfig.clientId, clientId)).limit(1))[0];
     if (existing) {
-      await db.update(rrClientConfig).set({ ...rest, updatedAt: /* @__PURE__ */ new Date() }).where(eq(rrClientConfig.id, existing.id));
+      await db.update(rrClientConfig).set({ ...rest, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(rrClientConfig.id, existing.id));
     } else {
       await db.insert(rrClientConfig).values({ clientId, ...rest });
     }
@@ -89302,7 +89446,7 @@ var revRecRouter = createRouter({
   // ===== ACCOUNT MAPPING (per client, explicit — never guessed) =====
   accountMapGet: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    const rows = await db.select().from(rrAccountMap).where(eq(rrAccountMap.clientId, input.clientId));
+    const rows = await db.select().from(rrAccountMap).where(eq2(rrAccountMap.clientId, input.clientId));
     const byKey = {};
     for (const r of rows) byKey[r.accountKey] = r;
     return ACCOUNT_KEYS.map((key11) => ({
@@ -89318,9 +89462,9 @@ var revRecRouter = createRouter({
     qboAccountName: external_exports.string().max(200).nullable().optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const existing = (await db.select().from(rrAccountMap).where(and(eq(rrAccountMap.clientId, input.clientId), eq(rrAccountMap.accountKey, input.accountKey))).limit(1))[0];
+    const existing = (await db.select().from(rrAccountMap).where(and(eq2(rrAccountMap.clientId, input.clientId), eq2(rrAccountMap.accountKey, input.accountKey))).limit(1))[0];
     if (existing) {
-      await db.update(rrAccountMap).set({ qboAccountId: input.qboAccountId, qboAccountName: input.qboAccountName ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq(rrAccountMap.id, existing.id));
+      await db.update(rrAccountMap).set({ qboAccountId: input.qboAccountId, qboAccountName: input.qboAccountName ?? null, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(rrAccountMap.id, existing.id));
     } else {
       await db.insert(rrAccountMap).values({ clientId: input.clientId, accountKey: input.accountKey, qboAccountId: input.qboAccountId, qboAccountName: input.qboAccountName ?? null });
     }
@@ -89329,9 +89473,9 @@ var revRecRouter = createRouter({
   // ===== JOURNAL ENTRIES (Phase 2 — DRAFT only, never auto-posts) =====
   jeGenerate: authedQuery.input(external_exports.object({ clientId: external_exports.number(), projectId: external_exports.number(), periodKey: external_exports.string().regex(/^\d{4}-\d{2}$/) })).mutation(async ({ input }) => {
     const db = getDb();
-    const proj = (await db.select().from(rrProjects).where(eq(rrProjects.id, input.projectId)).limit(1))[0];
+    const proj = (await db.select().from(rrProjects).where(eq2(rrProjects.id, input.projectId)).limit(1))[0];
     if (!proj || proj.clientId !== input.clientId) throw new Error("Project not found for this client.");
-    const prog = await db.select().from(rrProgress).where(eq(rrProgress.projectId, input.projectId));
+    const prog = await db.select().from(rrProgress).where(eq2(rrProgress.projectId, input.projectId));
     const schedule = buildProjectSchedule(
       { projectId: proj.id, name: proj.name, customerJob: proj.customerJob, contractValue: proj.contractValue ?? 0, openingPct: proj.openingPct ?? 0, openingInvoiced: proj.openingInvoiced ?? 0 },
       prog.map((r) => ({ periodKey: r.periodKey, pctComplete: r.pctComplete ?? 0, invoicedToDate: r.invoicedToDate }))
@@ -89345,11 +89489,11 @@ var revRecRouter = createRouter({
     const reversal = tagJeWithJob(gen.reversal, proj.customerJob);
     const map2 = await getAccountMap(input.clientId);
     const validation = validateForPosting(accrual, map2);
-    const stale = await db.select().from(rrJe).where(and(eq(rrJe.projectId, input.projectId), eq(rrJe.periodKey, input.periodKey)));
+    const stale = await db.select().from(rrJe).where(and(eq2(rrJe.projectId, input.projectId), eq2(rrJe.periodKey, input.periodKey)));
     for (const s of stale) {
       if (s.status === "draft") {
-        await db.delete(rrJeLines).where(eq(rrJeLines.jeId, s.id));
-        await db.delete(rrJe).where(eq(rrJe.id, s.id));
+        await db.delete(rrJeLines).where(eq2(rrJeLines.jeId, s.id));
+        await db.delete(rrJe).where(eq2(rrJe.id, s.id));
       }
     }
     for (const je of [accrual, reversal]) {
@@ -89380,12 +89524,12 @@ var revRecRouter = createRouter({
   }),
   jeList: authedQuery.input(external_exports.object({ clientId: external_exports.number(), projectId: external_exports.number().optional() })).query(async ({ input }) => {
     const db = getDb();
-    const conds = [eq(rrJe.clientId, input.clientId)];
-    if (input.projectId) conds.push(eq(rrJe.projectId, input.projectId));
+    const conds = [eq2(rrJe.clientId, input.clientId)];
+    if (input.projectId) conds.push(eq2(rrJe.projectId, input.projectId));
     const jes = await db.select().from(rrJe).where(and(...conds)).orderBy(desc(rrJe.periodKey), rrJe.kind);
     const out = [];
     for (const je of jes) {
-      const lines2 = await db.select().from(rrJeLines).where(eq(rrJeLines.jeId, je.id));
+      const lines2 = await db.select().from(rrJeLines).where(eq2(rrJeLines.jeId, je.id));
       out.push({ ...je, lines: lines2 });
     }
     return out;
@@ -89393,7 +89537,7 @@ var revRecRouter = createRouter({
   // ===== CLIENT SHARE LINKS =====
   shareList: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    return db.select().from(rrShareLinks).where(eq(rrShareLinks.clientId, input.clientId)).orderBy(desc(rrShareLinks.createdAt));
+    return db.select().from(rrShareLinks).where(eq2(rrShareLinks.clientId, input.clientId)).orderBy(desc(rrShareLinks.createdAt));
   }),
   shareCreate: authedQuery.input(external_exports.object({ clientId: external_exports.number(), label: external_exports.string().max(120).optional() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
@@ -89403,15 +89547,15 @@ var revRecRouter = createRouter({
   }),
   shareRevoke: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.update(rrShareLinks).set({ active: false, revokedAt: /* @__PURE__ */ new Date() }).where(eq(rrShareLinks.id, input.id));
+    await db.update(rrShareLinks).set({ active: false, revokedAt: /* @__PURE__ */ new Date() }).where(eq2(rrShareLinks.id, input.id));
     return { ok: true };
   }),
   // ===== PUBLIC (token-gated, read-only) =====
   publicView: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
     const db = getDb();
-    const link = (await db.select().from(rrShareLinks).where(eq(rrShareLinks.token, input.token)).limit(1))[0];
+    const link = (await db.select().from(rrShareLinks).where(eq2(rrShareLinks.token, input.token)).limit(1))[0];
     if (!link || !link.active) return null;
-    const client = (await db.select().from(clients).where(eq(clients.id, link.clientId)).limit(1))[0];
+    const client = (await db.select().from(clients).where(eq2(clients.id, link.clientId)).limit(1))[0];
     const view = await buildClientView(link.clientId);
     return {
       clientName: client?.name ?? "Your projects",
@@ -89510,8 +89654,8 @@ function matchEmployee(name2, emps) {
 }
 async function clientBoard(clientId) {
   const db = getDb();
-  const emps = await db.select().from(employees).where(eq(employees.clientId, clientId));
-  const allEntries = await db.select().from(bankedHourEntries).where(eq(bankedHourEntries.clientId, clientId));
+  const emps = await db.select().from(employees).where(eq2(employees.clientId, clientId));
+  const allEntries = await db.select().from(bankedHourEntries).where(eq2(bankedHourEntries.clientId, clientId));
   const byEmp = /* @__PURE__ */ new Map();
   for (const e of allEntries) {
     if (!byEmp.has(e.employeeId)) byEmp.set(e.employeeId, []);
@@ -89536,7 +89680,7 @@ var bankedHoursRouter = createRouter({
   // Per-employee ledger (newest first for display; balance computed oldest→newest).
   ledger: staffQuery.input(external_exports.object({ employeeId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    const rows = await db.select().from(bankedHourEntries).where(eq(bankedHourEntries.employeeId, input.employeeId));
+    const rows = await db.select().from(bankedHourEntries).where(eq2(bankedHourEntries.employeeId, input.employeeId));
     const led = buildLedger(rows.map((r) => ({ ...r, entryDate: r.entryDate })));
     const s = summarize(rows.map((r) => ({ entryDate: r.entryDate, hours: r.hours, kind: r.kind })));
     return { summary: s, ledger: led.reverse() };
@@ -89578,19 +89722,19 @@ var bankedHoursRouter = createRouter({
     const { id, ...rest } = input;
     const patch = { ...rest, updatedAt: /* @__PURE__ */ new Date() };
     if (rest.hours != null && rest.kind === "redeem") patch.hours = -Math.abs(rest.hours);
-    await db.update(bankedHourEntries).set(patch).where(eq(bankedHourEntries.id, id));
+    await db.update(bankedHourEntries).set(patch).where(eq2(bankedHourEntries.id, id));
     return { ok: true };
   }),
   deleteEntry: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(bankedHourEntries).where(eq(bankedHourEntries.id, input.id));
+    await db.delete(bankedHourEntries).where(eq2(bankedHourEntries.id, input.id));
     return { ok: true };
   }),
   // Import opening balances from the client's old payroll sheet (pasted text).
   importOpening: staffQuery.input(external_exports.object({ clientId: external_exports.number(), text: external_exports.string().min(1), asOf: external_exports.date().optional(), replaceExistingOpenings: external_exports.boolean().optional() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
     const parsed = parseOpeningBalances(input.text);
-    const emps = await db.select().from(employees).where(eq(employees.clientId, input.clientId));
+    const emps = await db.select().from(employees).where(eq2(employees.clientId, input.clientId));
     const matched = [];
     const unmatched = [];
     for (const row of parsed) {
@@ -89600,7 +89744,7 @@ var bankedHoursRouter = createRouter({
     }
     if (input.replaceExistingOpenings) {
       for (const m of matched) {
-        await db.delete(bankedHourEntries).where(and(eq(bankedHourEntries.employeeId, m.employeeId), eq(bankedHourEntries.kind, "opening")));
+        await db.delete(bankedHourEntries).where(and(eq2(bankedHourEntries.employeeId, m.employeeId), eq2(bankedHourEntries.kind, "opening")));
       }
     }
     for (const m of matched) {
@@ -89620,7 +89764,7 @@ var bankedHoursRouter = createRouter({
   // ===== SHARE LINKS (read+write client sheet) =====
   shareList: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    return db.select().from(bankedHourShareLinks).where(eq(bankedHourShareLinks.clientId, input.clientId)).orderBy(desc(bankedHourShareLinks.createdAt));
+    return db.select().from(bankedHourShareLinks).where(eq2(bankedHourShareLinks.clientId, input.clientId)).orderBy(desc(bankedHourShareLinks.createdAt));
   }),
   shareCreate: staffQuery.input(external_exports.object({ clientId: external_exports.number(), label: external_exports.string().max(120).optional(), allowEdit: external_exports.boolean().default(true) })).mutation(async ({ ctx, input }) => {
     const db = getDb();
@@ -89630,15 +89774,15 @@ var bankedHoursRouter = createRouter({
   }),
   shareRevoke: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.update(bankedHourShareLinks).set({ active: false, revokedAt: /* @__PURE__ */ new Date() }).where(eq(bankedHourShareLinks.id, input.id));
+    await db.update(bankedHourShareLinks).set({ active: false, revokedAt: /* @__PURE__ */ new Date() }).where(eq2(bankedHourShareLinks.id, input.id));
     return { ok: true };
   }),
   // ===== PUBLIC (token-gated client sheet) =====
   publicView: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
     const db = getDb();
-    const link = (await db.select().from(bankedHourShareLinks).where(eq(bankedHourShareLinks.token, input.token)).limit(1))[0];
+    const link = (await db.select().from(bankedHourShareLinks).where(eq2(bankedHourShareLinks.token, input.token)).limit(1))[0];
     if (!link || !link.active) return null;
-    const client = (await db.select().from(clients).where(eq(clients.id, link.clientId)).limit(1))[0];
+    const client = (await db.select().from(clients).where(eq2(clients.id, link.clientId)).limit(1))[0];
     const board = await clientBoard(link.clientId);
     return { clientName: client?.name ?? "Your team", label: link.label ?? null, allowEdit: !!link.allowEdit, generatedAt: (/* @__PURE__ */ new Date()).toISOString(), ...board };
   }),
@@ -89651,10 +89795,10 @@ var bankedHoursRouter = createRouter({
     enteredByName: external_exports.string().max(120).optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const link = (await db.select().from(bankedHourShareLinks).where(eq(bankedHourShareLinks.token, input.token)).limit(1))[0];
+    const link = (await db.select().from(bankedHourShareLinks).where(eq2(bankedHourShareLinks.token, input.token)).limit(1))[0];
     if (!link || !link.active) throw new Error("This link is not valid.");
     if (!link.allowEdit) throw new Error("This link is view-only.");
-    const emp = (await db.select().from(employees).where(eq(employees.id, input.employeeId)).limit(1))[0];
+    const emp = (await db.select().from(employees).where(eq2(employees.id, input.employeeId)).limit(1))[0];
     if (!emp || emp.clientId !== link.clientId) throw new Error("Employee not found.");
     const hours = input.kind === "redeem" ? -Math.abs(input.hours) : Math.abs(input.hours);
     await db.insert(bankedHourEntries).values({
@@ -90257,8 +90401,8 @@ function signedAmount(kind, amount) {
 }
 async function loansForClient(clientId) {
   const db = getDb();
-  const accounts = await db.select().from(loanAccounts).where(eq(loanAccounts.clientId, clientId)).orderBy(desc(loanAccounts.createdAt));
-  const allEntries = await db.select().from(loanEntries).where(eq(loanEntries.clientId, clientId));
+  const accounts = await db.select().from(loanAccounts).where(eq2(loanAccounts.clientId, clientId)).orderBy(desc(loanAccounts.createdAt));
+  const allEntries = await db.select().from(loanEntries).where(eq2(loanEntries.clientId, clientId));
   const byLoan = /* @__PURE__ */ new Map();
   for (const e of allEntries) {
     if (!byLoan.has(e.loanId)) byLoan.set(e.loanId, []);
@@ -90278,9 +90422,9 @@ var loanTrackerRouter = createRouter({
   // One loan's full ledger (newest first for display; balance computed oldest→newest).
   ledger: staffQuery.input(external_exports.object({ loanId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    const loan = (await db.select().from(loanAccounts).where(eq(loanAccounts.id, input.loanId)).limit(1))[0];
+    const loan = (await db.select().from(loanAccounts).where(eq2(loanAccounts.id, input.loanId)).limit(1))[0];
     if (!loan) return null;
-    const rows = await db.select().from(loanEntries).where(eq(loanEntries.loanId, input.loanId));
+    const rows = await db.select().from(loanEntries).where(eq2(loanEntries.loanId, input.loanId));
     const led = buildLoanLedger(rows.map((r) => ({ ...r, entryDate: r.entryDate })));
     const s = summarizeLoan(rows.map((r) => ({ entryDate: r.entryDate, amount: r.amount, kind: r.kind })));
     return { loan, summary: s, ledger: led.reverse() };
@@ -90314,13 +90458,13 @@ var loanTrackerRouter = createRouter({
   })).mutation(async ({ input }) => {
     const db = getDb();
     const { id, ...rest } = input;
-    await db.update(loanAccounts).set({ ...rest, updatedAt: /* @__PURE__ */ new Date() }).where(eq(loanAccounts.id, id));
+    await db.update(loanAccounts).set({ ...rest, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(loanAccounts.id, id));
     return { ok: true };
   }),
   deleteLoan: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(loanEntries).where(eq(loanEntries.loanId, input.id));
-    await db.delete(loanAccounts).where(eq(loanAccounts.id, input.id));
+    await db.delete(loanEntries).where(eq2(loanEntries.loanId, input.id));
+    await db.delete(loanAccounts).where(eq2(loanAccounts.id, input.id));
     return { ok: true };
   }),
   addEntry: staffQuery.input(external_exports.object({
@@ -90331,7 +90475,7 @@ var loanTrackerRouter = createRouter({
     note: external_exports.string().max(500).nullable().optional()
   })).mutation(async ({ ctx, input }) => {
     const db = getDb();
-    const loan = (await db.select().from(loanAccounts).where(eq(loanAccounts.id, input.loanId)).limit(1))[0];
+    const loan = (await db.select().from(loanAccounts).where(eq2(loanAccounts.id, input.loanId)).limit(1))[0];
     if (!loan) throw new Error("Loan not found.");
     const amount = signedAmount(input.kind, input.amount);
     const warn = validateLoanEntry({ amount, kind: input.kind });
@@ -90356,7 +90500,7 @@ var loanTrackerRouter = createRouter({
     note: external_exports.string().max(500).nullable().optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const existing = (await db.select().from(loanEntries).where(eq(loanEntries.id, input.id)).limit(1))[0];
+    const existing = (await db.select().from(loanEntries).where(eq2(loanEntries.id, input.id)).limit(1))[0];
     if (!existing) throw new Error("Entry not found.");
     const kind = input.kind ?? existing.kind;
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
@@ -90364,18 +90508,18 @@ var loanTrackerRouter = createRouter({
     if (input.kind) patch.kind = input.kind;
     if (input.note !== void 0) patch.note = input.note;
     if (input.amount != null) patch.amount = signedAmount(kind, input.amount);
-    await db.update(loanEntries).set(patch).where(eq(loanEntries.id, input.id));
+    await db.update(loanEntries).set(patch).where(eq2(loanEntries.id, input.id));
     return { ok: true };
   }),
   deleteEntry: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.delete(loanEntries).where(eq(loanEntries.id, input.id));
+    await db.delete(loanEntries).where(eq2(loanEntries.id, input.id));
     return { ok: true };
   }),
   // ===== SHARE LINKS (read-only by default) =====
   shareList: staffQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
     const db = getDb();
-    return db.select().from(loanShareLinks).where(eq(loanShareLinks.clientId, input.clientId)).orderBy(desc(loanShareLinks.createdAt));
+    return db.select().from(loanShareLinks).where(eq2(loanShareLinks.clientId, input.clientId)).orderBy(desc(loanShareLinks.createdAt));
   }),
   shareCreate: staffQuery.input(external_exports.object({ clientId: external_exports.number(), label: external_exports.string().max(120).optional() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
@@ -90385,15 +90529,15 @@ var loanTrackerRouter = createRouter({
   }),
   shareRevoke: staffQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
     const db = getDb();
-    await db.update(loanShareLinks).set({ active: false, revokedAt: /* @__PURE__ */ new Date() }).where(eq(loanShareLinks.id, input.id));
+    await db.update(loanShareLinks).set({ active: false, revokedAt: /* @__PURE__ */ new Date() }).where(eq2(loanShareLinks.id, input.id));
     return { ok: true };
   }),
   // ===== PUBLIC (token-gated read-only) =====
   publicView: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
     const db = getDb();
-    const link = (await db.select().from(loanShareLinks).where(eq(loanShareLinks.token, input.token)).limit(1))[0];
+    const link = (await db.select().from(loanShareLinks).where(eq2(loanShareLinks.token, input.token)).limit(1))[0];
     if (!link || !link.active) return null;
-    const client = (await db.select().from(clients).where(eq(clients.id, link.clientId)).limit(1))[0];
+    const client = (await db.select().from(clients).where(eq2(clients.id, link.clientId)).limit(1))[0];
     const data = await loansForClient(link.clientId);
     return { clientName: client?.name ?? "Loans", label: link.label ?? null, generatedAt: (/* @__PURE__ */ new Date()).toISOString(), ...data };
   })
@@ -90497,7 +90641,7 @@ var publicRouter = createRouter({
       createdAt: /* @__PURE__ */ new Date()
     });
     try {
-      const lead = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+      const lead = (await db.select().from(clients).where(eq2(clients.id, clientId)).limit(1))[0];
       if (lead) syncLeadToMaster(lead);
     } catch {
     }
@@ -90506,11 +90650,11 @@ var publicRouter = createRouter({
   // ===== PAYROLL HOURS APPROVAL (public, token-gated — for clients) =====
   payrollApprovalGet: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
     const db = getDb();
-    const run3 = (await db.select().from(payRuns).where(eq(payRuns.approvalToken, input.token)).limit(1))[0];
+    const run3 = (await db.select().from(payRuns).where(eq2(payRuns.approvalToken, input.token)).limit(1))[0];
     if (!run3) return null;
-    const client = (await db.select().from(clients).where(eq(clients.id, run3.clientId)).limit(1))[0];
-    const lines2 = await db.select().from(payRunLines).where(eq(payRunLines.payRunId, run3.id));
-    const emps = await db.select().from(employees).where(eq(employees.clientId, run3.clientId));
+    const client = (await db.select().from(clients).where(eq2(clients.id, run3.clientId)).limit(1))[0];
+    const lines2 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, run3.id));
+    const emps = await db.select().from(employees).where(eq2(employees.clientId, run3.clientId));
     const byId = new Map(emps.map((e) => [e.id, e]));
     const rows = lines2.map((l) => {
       const e = byId.get(l.employeeId);
@@ -90542,7 +90686,7 @@ var publicRouter = createRouter({
     note: external_exports.string().optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const run3 = (await db.select().from(payRuns).where(eq(payRuns.approvalToken, input.token)).limit(1))[0];
+    const run3 = (await db.select().from(payRuns).where(eq2(payRuns.approvalToken, input.token)).limit(1))[0];
     if (!run3) throw new Error("This approval link is not valid.");
     await db.update(payRuns).set({
       approvalStatus: input.decision,
@@ -90552,16 +90696,16 @@ var publicRouter = createRouter({
       // When the client approves the hours, advance the run to "approved".
       ...input.decision === "approved" ? { status: "approved" } : {},
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(payRuns.id, run3.id));
+    }).where(eq2(payRuns.id, run3.id));
     return { success: true };
   }),
   // ===== CLIENT REQUESTS (public, token-gated — the client's to-do list) =====
   clientRequestGet: publicQuery.input(external_exports.object({ token: external_exports.string().min(6) })).query(async ({ input }) => {
     const db = getDb();
-    const req = (await db.select().from(clientRequests).where(eq(clientRequests.token, input.token)).limit(1))[0];
+    const req = (await db.select().from(clientRequests).where(eq2(clientRequests.token, input.token)).limit(1))[0];
     if (!req) return null;
-    const client = (await db.select().from(clients).where(eq(clients.id, req.clientId)).limit(1))[0];
-    const items = await db.select().from(clientRequestItems).where(eq(clientRequestItems.requestId, req.id)).orderBy(clientRequestItems.sortOrder);
+    const client = (await db.select().from(clients).where(eq2(clients.id, req.clientId)).limit(1))[0];
+    const items = await db.select().from(clientRequestItems).where(eq2(clientRequestItems.requestId, req.id)).orderBy(clientRequestItems.sortOrder);
     return {
       title: req.title,
       message: req.message,
@@ -90578,15 +90722,15 @@ var publicRouter = createRouter({
     response: external_exports.string().optional()
   })).mutation(async ({ input }) => {
     const db = getDb();
-    const req = (await db.select().from(clientRequests).where(eq(clientRequests.token, input.token)).limit(1))[0];
+    const req = (await db.select().from(clientRequests).where(eq2(clientRequests.token, input.token)).limit(1))[0];
     if (!req) throw new Error("This request link is not valid.");
-    const item = (await db.select().from(clientRequestItems).where(eq(clientRequestItems.id, input.itemId)).limit(1))[0];
+    const item = (await db.select().from(clientRequestItems).where(eq2(clientRequestItems.id, input.itemId)).limit(1))[0];
     if (!item || item.requestId !== req.id) throw new Error("Item not found.");
     await db.update(clientRequestItems).set({
       status: input.status,
       response: input.response ?? item.response,
       providedAt: input.status === "provided" ? /* @__PURE__ */ new Date() : null
-    }).where(eq(clientRequestItems.id, input.itemId));
+    }).where(eq2(clientRequestItems.id, input.itemId));
     await maybeComplete(req.id);
     return { success: true };
   })
@@ -90798,7 +90942,7 @@ init_drizzle_orm();
 init_schema();
 init_connection();
 async function findUserByUnionId(unionId) {
-  const rows = await getDb().select().from(users).where(eq(users.unionId, unionId)).limit(1);
+  const rows = await getDb().select().from(users2).where(eq2(users2.unionId, unionId)).limit(1);
   return rows.at(0);
 }
 
@@ -90837,17 +90981,17 @@ async function getGoogleUserInfo(accessToken) {
 }
 async function upsertGoogleUser(unionId, name2, email3) {
   const db = getDb();
-  const byUnionId = await db.select().from(users).where(eq(users.unionId, unionId)).limit(1);
+  const byUnionId = await db.select().from(users2).where(eq2(users2.unionId, unionId)).limit(1);
   if (byUnionId[0]) {
-    await db.update(users).set({ name: name2, email: email3, lastSignInAt: /* @__PURE__ */ new Date() }).where(eq(users.unionId, unionId));
+    await db.update(users2).set({ name: name2, email: email3, lastSignInAt: /* @__PURE__ */ new Date() }).where(eq2(users2.unionId, unionId));
     return;
   }
-  const byEmail = await db.select().from(users).where(eq(users.email, email3)).limit(1);
+  const byEmail = await db.select().from(users2).where(eq2(users2.email, email3)).limit(1);
   if (byEmail[0]) {
-    await db.update(users).set({ unionId, name: name2, lastSignInAt: /* @__PURE__ */ new Date() }).where(eq(users.email, email3));
+    await db.update(users2).set({ unionId, name: name2, lastSignInAt: /* @__PURE__ */ new Date() }).where(eq2(users2.email, email3));
     return;
   }
-  await db.insert(users).values({
+  await db.insert(users2).values({
     unionId,
     name: name2,
     email: email3,
@@ -90902,7 +91046,7 @@ async function createContext(opts) {
   if (isDemo) {
     try {
       const db = getDb();
-      const demoUsers = await db.select().from(users).limit(1);
+      const demoUsers = await db.select().from(users2).limit(1);
       if (demoUsers.length > 0) {
         ctx.user = demoUsers[0];
       }
@@ -90961,7 +91105,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.213";
+var BUILD_TAG = "2026-06-27.214";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -91101,7 +91245,7 @@ app.get("/api/oauth/google/debug", async (c) => {
       const errors = [];
       for (const e of items) {
         try {
-          const ex = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq(calendarEvents.googleEventId, e.id)).limit(1);
+          const ex = await db.select({ id: calendarEvents.id }).from(calendarEvents).where(eq2(calendarEvents.googleEventId, e.id)).limit(1);
           if (ex[0]) {
             skipped++;
             continue;
@@ -91209,7 +91353,7 @@ app.get("/api/payroll/drive-preview", async (c) => {
   if (!clientId) return c.json({ error: "pass ?clientId=N (the client's id)" }, 400);
   try {
     const db = getDb();
-    const client = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+    const client = (await db.select().from(clients).where(eq2(clients.id, clientId)).limit(1))[0];
     if (!client) return c.json({ error: "client not found" }, 404);
     const driveFolderLinked = !!client.driveFolderUrl;
     if (!driveFolderLinked) return c.json({ client: client.name, driveFolderLinked: false, note: "No Drive folder linked yet \u2014 the boot linker sets it; check after the latest deploy has booted." });
@@ -91381,12 +91525,15 @@ app.get("/api/phoenix/seed", async (c) => {
     try {
       const { ensureBrainSchema: ensureBrainSchema2 } = await Promise.resolve().then(() => (init_ensure_brain_schema(), ensure_brain_schema_exports));
       await ensureBrainSchema2();
-      const { seedBrain: seedBrain2, seedAgentBrain: seedAgentBrain2, seedAgentCharter: seedAgentCharter2, seedKnowledgeBrain: seedKnowledgeBrain2, seedConstitution: seedConstitution2 } = await Promise.resolve().then(() => (init_brain_store(), brain_store_exports));
+      const { seedBrain: seedBrain2, seedAgentBrain: seedAgentBrain2, seedAgentCharter: seedAgentCharter2, seedKnowledgeBrain: seedKnowledgeBrain2, seedConstitution: seedConstitution2, seedAgentDocsBrain: seedAgentDocsBrain2 } = await Promise.resolve().then(() => (init_brain_store(), brain_store_exports));
       await seedBrain2();
       await seedAgentBrain2();
       await seedAgentCharter2();
       await seedKnowledgeBrain2();
       await seedConstitution2();
+      await seedAgentDocsBrain2();
+      const { seedRoseLiquidationTasks: seedRoseLiquidationTasks2 } = await Promise.resolve().then(() => (init_seed_rose_tasks(), seed_rose_tasks_exports));
+      await seedRoseLiquidationTasks2();
       const { seedHeritage: seedHeritage2, seedHeritageLineage: seedHeritageLineage2 } = await Promise.resolve().then(() => (init_seed_heritage(), seed_heritage_exports));
       await seedHeritage2();
       await seedHeritageLineage2();
@@ -91470,7 +91617,7 @@ app.get("/api/qbo/sync-now", async (c) => {
     if (c.req.query("raw") === "1") {
       try {
         const db = getDb();
-        const conn = (await db.select().from(qboConnections).where(and(eq(qboConnections.isActive, true)))).find((x) => x.clientId != null);
+        const conn = (await db.select().from(qboConnections).where(and(eq2(qboConnections.isActive, true)))).find((x) => x.clientId != null);
         if (conn) {
           const { qboRequest: qboRequest2 } = await Promise.resolve().then(() => (init_qbo_router(), qbo_router_exports));
           const now = /* @__PURE__ */ new Date();
@@ -91597,7 +91744,7 @@ app.get("/api/oauth/google/callback", async (c) => {
     const userId = stateData.userId || 1;
     try {
       await db.delete(connectedAccounts).where(
-        and(eq(connectedAccounts.userId, userId), eq(connectedAccounts.provider, "google"))
+        and(eq2(connectedAccounts.userId, userId), eq2(connectedAccounts.provider, "google"))
       );
     } catch (e) {
       console.error("[Google OAuth] clear prior google rows failed (continuing):", e instanceof Error ? e.message : e);
@@ -91746,7 +91893,7 @@ app.post("/api/figgy-jr-sync", async (c) => {
         const patch = {};
         if (existing[0].sourceData !== sourceData) patch.sourceData = sourceData;
         if (clientId && existing[0].clientId !== clientId) patch.clientId = clientId;
-        if (Object.keys(patch).length) await db.update(triageFindings).set(patch).where(eq(triageFindings.id, existing[0].id));
+        if (Object.keys(patch).length) await db.update(triageFindings).set(patch).where(eq2(triageFindings.id, existing[0].id));
         skipped++;
         continue;
       }
@@ -91781,12 +91928,12 @@ app.post("/api/figgy-jr-finding", async (c) => {
     const rowId = String(b.rowId || "").trim();
     if (!rowId) return c.json({ success: false, error: "rowId required" }, 400);
     const db = getDb();
-    const dup = await db.select().from(triageFindings).where(eq(triageFindings.sourceData, rowId)).limit(1);
+    const dup = await db.select().from(triageFindings).where(eq2(triageFindings.sourceData, rowId)).limit(1);
     if (dup[0]) return c.json({ success: true, deduped: true, findingId: dup[0].id });
     const clientName = String(b.clientName || "").trim();
     let clientId;
     if (clientName) {
-      const cc = await db.select().from(clients).where(eq(clients.name, clientName)).limit(1);
+      const cc = await db.select().from(clients).where(eq2(clients.name, clientName)).limit(1);
       if (cc[0]) clientId = cc[0].id;
     }
     const sevRaw = String(b.severity || "warning");
@@ -91841,7 +91988,7 @@ app.post("/api/lead", async (c) => {
         notes: `Source: ${String(b.source || "website")}`,
         createdAt: /* @__PURE__ */ new Date()
       });
-      const lead = (await db.select().from(clients).where(eq(clients.id, clientId)).limit(1))[0];
+      const lead = (await db.select().from(clients).where(eq2(clients.id, clientId)).limit(1))[0];
       if (lead) syncLeadToMaster2(lead);
     }
     return c.json({ success: true, clientId });
@@ -91908,7 +92055,7 @@ app.post("/api/admin/import-clients", async (c) => {
     }
     const db = getDb();
     const { clients: clients4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    const { eq: eq4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const { ensureComplianceForClient: ensureComplianceForClient2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
     const CLIENTS_DATA2 = [
       { name: "Aim Construction Inc.", email: "aim@example.com", company: "Aim Construction Inc.", status: "active", assignedTo: "Markie", hasHST: true, hstPeriod: "quarterly", hasWSIB: true, wsibQuarter: "all", hasPayroll: true, payrollFrequency: "bi-weekly", yearEndMonth: "Dec", monthlyFee: 500, billingType: "monthly_fixed" },
@@ -91935,7 +92082,7 @@ app.post("/api/admin/import-clients", async (c) => {
     const results = { imported: 0, skipped: 0, tasksCreated: 0, errors: [] };
     for (const clientData of CLIENTS_DATA2) {
       try {
-        const existing = await db.select().from(clients4).where(eq3(clients4.name, clientData.name)).limit(1);
+        const existing = await db.select().from(clients4).where(eq4(clients4.name, clientData.name)).limit(1);
         if (existing.length > 0) {
           results.skipped++;
           continue;
@@ -92094,7 +92241,7 @@ app.post("/api/admin/figgy", async (c) => {
     if (op === "backfillDueDates") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { tasks: tasks5 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const all = await db.select().from(tasks5);
       const open3 = all.filter((t2) => !t2.completed && t2.dueDate == null);
@@ -92104,7 +92251,7 @@ app.post("/api/admin/figgy", async (c) => {
         const d10 = /* @__PURE__ */ new Date();
         d10.setHours(9, 0, 0, 0);
         d10.setDate(d10.getDate() + i % 10 + 1);
-        await db.update(tasks5).set({ dueDate: d10 }).where(eq3(tasks5.id, t2.id));
+        await db.update(tasks5).set({ dueDate: d10 }).where(eq4(tasks5.id, t2.id));
         updated.push(t2.id);
         i++;
       }
@@ -92115,11 +92262,11 @@ app.post("/api/admin/figgy", async (c) => {
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients4).where(eq4(clients4.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq4(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       return c.json({ success: true, op, client: {
         name: cl.name,
         hasWSIB: cl.hasWSIB,
@@ -92143,13 +92290,13 @@ app.post("/api/admin/figgy", async (c) => {
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients4).where(eq4(clients4.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq4(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const scope = buildScopeForClient2(cl, onb);
       const quote = computeQuote2(scope);
       const comparison = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
@@ -92160,15 +92307,15 @@ app.post("/api/admin/figgy", async (c) => {
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
       const { renderQuoteHtml: renderQuoteHtml2 } = await Promise.resolve().then(() => (init_quote_doc(), quote_doc_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients4).where(eq4(clients4.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq4(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
       const comparison = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
       const qNum = await nextQuoteNumber2(db);
@@ -92183,13 +92330,13 @@ app.post("/api/admin/figgy", async (c) => {
         documentType: "custom",
         clientEmail: cl.email || null
       });
-      await db.update(clients4).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: /* @__PURE__ */ new Date(), workflowStatus: "quote_sent" }).where(eq3(clients4.id, cl.id));
+      await db.update(clients4).set({ quoteAmount: quote.recurringMonthly, quoteSentAt: /* @__PURE__ */ new Date(), workflowStatus: "quote_sent" }).where(eq4(clients4.id, cl.id));
       return c.json({ success: true, op, clientName: cl.name, recurringMonthly: quote.recurringMonthly, nearestPackage: quote.nearestPackage, ...res });
     }
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4, and: and8 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -92199,13 +92346,13 @@ app.post("/api/admin/figgy", async (c) => {
       const steps = [];
       const TESTNAME = "E2E Test Co Inc.";
       try {
-        const prev = await db.select().from(clients4).where(eq3(clients4.name, TESTNAME));
+        const prev = await db.select().from(clients4).where(eq4(clients4.name, TESTNAME));
         for (const p of prev) {
-          await db.delete(tasks5).where(eq3(tasks5.clientId, p.id));
-          await db.delete(clientTaskRules4).where(eq3(clientTaskRules4.clientId, p.id));
-          await db.delete(signatureDocuments2).where(eq3(signatureDocuments2.clientId, p.id));
-          await db.delete(clientOnboarding2).where(eq3(clientOnboarding2.clientId, p.id));
-          await db.delete(clients4).where(eq3(clients4.id, p.id));
+          await db.delete(tasks5).where(eq4(tasks5.clientId, p.id));
+          await db.delete(clientTaskRules4).where(eq4(clientTaskRules4.clientId, p.id));
+          await db.delete(signatureDocuments2).where(eq4(signatureDocuments2.clientId, p.id));
+          await db.delete(clientOnboarding2).where(eq4(clientOnboarding2.clientId, p.id));
+          await db.delete(clients4).where(eq4(clients4.id, p.id));
         }
         const [cl] = await db.insert(clients4).values({
           userId: 1,
@@ -92252,7 +92399,7 @@ app.post("/api/admin/figgy", async (c) => {
           qboPayrollWholesale: true
         });
         steps.push("intake saved (120 txns, HST q, 3 emp, WSIB, dividends, Stripe, QBO essentials wholesale)");
-        const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, cl.id)))[0];
+        const onb = (await db.select().from(clientOnboarding2).where(eq4(clientOnboarding2.clientId, cl.id)))[0];
         const quote = computeQuote2(buildScopeForClient2(cl, onb));
         const cmp = compareToFlatFee2(quote.recurringMonthly, cl.monthlyFee ?? null);
         const qNum = await nextQuoteNumber2(db);
@@ -92300,11 +92447,11 @@ app.post("/api/admin/figgy", async (c) => {
             signatureData: JSON.stringify({ name: "Markie Antle", date: (/* @__PURE__ */ new Date()).toISOString() }),
             signedAt: /* @__PURE__ */ new Date(),
             updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq3(signatureDocuments2.id, docId));
+          }).where(eq4(signatureDocuments2.id, docId));
         }
-        const signedCount = (await db.select().from(signatureDocuments2).where(and8(eq3(signatureDocuments2.clientId, cl.id), eq3(signatureDocuments2.status, "signed")))).length;
+        const signedCount = (await db.select().from(signatureDocuments2).where(and8(eq4(signatureDocuments2.clientId, cl.id), eq4(signatureDocuments2.status, "signed")))).length;
         steps.push(`signed ${signedCount}/2 documents`);
-        await db.update(clients4).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq3(clients4.id, cl.id));
+        await db.update(clients4).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq4(clients4.id, cl.id));
         const res = await createClientTaskRules2({
           clientId: cl.id,
           userId: 1,
@@ -92321,7 +92468,7 @@ app.post("/api/admin/figgy", async (c) => {
           hasInvestments: true,
           needsYearEnd: true
         });
-        const taskCount = (await db.select().from(tasks5).where(eq3(tasks5.clientId, cl.id))).length;
+        const taskCount = (await db.select().from(tasks5).where(eq4(tasks5.clientId, cl.id))).length;
         steps.push(`activated \u2192 ${res.rules.length} rules, ${res.tasks.length} recurring tasks, ${taskCount} tasks total`);
         return c.json({
           success: true,
@@ -92342,15 +92489,15 @@ app.post("/api/admin/figgy", async (c) => {
       if (!clientId) return c.json({ success: false, op, error: "clientId required" }, 400);
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, clientOnboarding: clientOnboarding2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4, desc: desc7 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
       const { renderEngagementHtml: renderEngagementHtml2 } = await Promise.resolve().then(() => (init_quote_doc(), quote_doc_exports));
       const db = getDb2();
-      const cl = (await db.select().from(clients4).where(eq3(clients4.id, clientId)).limit(1))[0];
+      const cl = (await db.select().from(clients4).where(eq4(clients4.id, clientId)).limit(1))[0];
       if (!cl) return c.json({ success: false, op, error: "client not found" }, 404);
-      const onb = (await db.select().from(clientOnboarding2).where(eq3(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
+      const onb = (await db.select().from(clientOnboarding2).where(eq4(clientOnboarding2.clientId, clientId)).orderBy(desc7(clientOnboarding2.id)).limit(1))[0] ?? null;
       const quote = computeQuote2(buildScopeForClient2(cl, onb));
       const content = renderEngagementHtml2({
         firm: getFirmSettings2(),
@@ -92614,9 +92761,9 @@ app.post("/api/figs-browser/brain/stop", async (c) => {
 async function getExtToken(create = false) {
   const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
   const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-  const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+  const { eq: eq4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
   const db = getDb2();
-  const row = await db.select().from(appSettings2).where(eq3(appSettings2.key, "figs_ext_token")).limit(1);
+  const row = await db.select().from(appSettings2).where(eq4(appSettings2.key, "figs_ext_token")).limit(1);
   if (row[0]?.value) return row[0].value;
   if (!create) return "";
   const tok = "fxt_" + (await import("crypto")).randomBytes(24).toString("hex");
@@ -92779,7 +92926,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { reorderNumberedName: reorderNumberedName2 } = await Promise.resolve().then(() => (init_client_name(), client_name_exports));
       const db = getDb2();
       const rows = await db.select().from(clients4);
@@ -92791,7 +92938,7 @@ async function startServer() {
         if (newCompany && newCompany !== cl.company) patch.company = newCompany;
         if (Object.keys(patch).length) {
           try {
-            await db.update(clients4).set(patch).where(eq3(clients4.id, cl.id));
+            await db.update(clients4).set(patch).where(eq4(clients4.id, cl.id));
           } catch {
           }
         }
@@ -92802,15 +92949,15 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, tasks: tasks5, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and8, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4, and: and8, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const matches = await db.select().from(clients4).where(like3(clients4.name, "%Doc King%"));
       for (const cl of matches) {
         if (cl.clientType !== "wholesale") {
-          await db.update(clients4).set({ clientType: "wholesale" }).where(eq3(clients4.id, cl.id));
+          await db.update(clients4).set({ clientType: "wholesale" }).where(eq4(clients4.id, cl.id));
         }
-        await db.update(clientTaskRules4).set({ active: false }).where(eq3(clientTaskRules4.clientId, cl.id));
-        await db.delete(tasks5).where(and8(eq3(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
+        await db.update(clientTaskRules4).set({ active: false }).where(eq4(clientTaskRules4.clientId, cl.id));
+        await db.delete(tasks5).where(and8(eq4(tasks5.clientId, cl.id), ne4(tasks5.status, "completed")));
       }
     } catch (e) {
       console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e);
@@ -92818,14 +92965,14 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients4, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3, and: and8, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4, and: and8, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
         const matches = await db.select().from(clients4).where(like3(clients4.name, nameLike));
         for (const cl of matches) {
           const patch = {};
           for (const [k, v] of Object.entries(flags)) if (!cl[k]) patch[k] = v;
-          if (Object.keys(patch).length) await db.update(clients4).set(patch).where(eq3(clients4.id, cl.id));
+          if (Object.keys(patch).length) await db.update(clients4).set(patch).where(eq4(clients4.id, cl.id));
         }
         return matches;
       };
@@ -92836,13 +92983,13 @@ async function startServer() {
       });
       try {
         const { appSettings: appSettings2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-        const marker = await db.select().from(appSettings2).where(eq3(appSettings2.key, "fix_sharebonus_originality_only_v1")).limit(1);
+        const marker = await db.select().from(appSettings2).where(eq4(appSettings2.key, "fix_sharebonus_originality_only_v1")).limit(1);
         if (!marker[0]) {
           const all = await db.select().from(clients4);
           for (const cl of all) {
             if (/originality/i.test(cl.name || "")) continue;
             if (cl.payrollBonuses || cl.payrollRevenueShare) {
-              await db.update(clients4).set({ payrollBonuses: 0, payrollRevenueShare: 0 }).where(eq3(clients4.id, cl.id));
+              await db.update(clients4).set({ payrollBonuses: 0, payrollRevenueShare: 0 }).where(eq4(clients4.id, cl.id));
             }
           }
           await db.insert(appSettings2).values({ key: "fix_sharebonus_originality_only_v1", value: (/* @__PURE__ */ new Date()).toISOString() });
@@ -92869,7 +93016,7 @@ async function startServer() {
       };
       for (const cl of orig) {
         for (const [last, ytd] of Object.entries(origYtd)) {
-          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and8(eq3(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
+          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and8(eq4(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
         }
       }
     } catch (e) {
@@ -92878,13 +93025,13 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { encryptSecret: encryptSecret2, isEncrypted: isEncrypted2 } = await Promise.resolve().then(() => (init_sensitive(), sensitive_exports));
       const db = getDb2();
       const rows = await db.select().from(employees2);
       for (const e of rows) {
         if (e.sin && !isEncrypted2(e.sin)) {
-          await db.update(employees2).set({ sin: encryptSecret2(String(e.sin)) }).where(eq3(employees2.id, e.id));
+          await db.update(employees2).set({ sin: encryptSecret2(String(e.sin)) }).where(eq4(employees2.id, e.id));
         }
       }
     } catch (e) {

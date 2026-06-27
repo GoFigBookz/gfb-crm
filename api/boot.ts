@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-27.213";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-27.214";  // bump each deploy so prod vs source is unambiguous
 
 // CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
 // secret into a hosting dashboard very often drags a trailing space or newline,
@@ -508,12 +508,15 @@ app.get("/api/phoenix/seed", async (c) => {
     try {
       const { ensureBrainSchema } = await import("./ensure-brain-schema");
       await ensureBrainSchema();
-      const { seedBrain, seedAgentBrain, seedAgentCharter, seedKnowledgeBrain, seedConstitution } = await import("./brain-store");
+      const { seedBrain, seedAgentBrain, seedAgentCharter, seedKnowledgeBrain, seedConstitution, seedAgentDocsBrain } = await import("./brain-store");
       await seedBrain();
       await seedAgentBrain();
       await seedAgentCharter();
       await seedKnowledgeBrain();
       await seedConstitution();
+      await seedAgentDocsBrain();   // ingest the docs Markie added to the Agents Drive folder
+      const { seedRoseLiquidationTasks } = await import("./seed-rose-tasks");
+      await seedRoseLiquidationTasks();   // Skye's Rose liquidation execution checklist
       const { seedHeritage, seedHeritageLineage } = await import("./seed-heritage");
       await seedHeritage();
       await seedHeritageLineage();
