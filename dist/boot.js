@@ -92894,6 +92894,75 @@ function checkMealsFullItc(txns) {
   }
   return out;
 }
+var NONTAXABLE_CODE = /exempt|out of scope|out-of-scope|zero|0\s*%|^z$|^e$|^os$|non-?taxable/i;
+var OFTEN_EXEMPT_ACCOUNT = [
+  /wage|salar|payroll|cpp|ei |source deduction|remittance/i,
+  /insurance/i,
+  /interest|bank charge|bank fee|finance charge|merchant fee|loan|mortgage/i,
+  /licen[cs]e|permit|government|municipal|property tax|land tax|cra|gst\/hst remit|wsib|workers/i,
+  /dues|membership|donation|charit/i,
+  /dividend|owner|draw|shareholder|equity|retained earnings/i,
+  /residential rent|long-?term rent/i,
+  /foreign|us |usd |import|customs|duty/i
+];
+function checkWrongTaxCode(txns) {
+  const out = [];
+  for (const t2 of txns) {
+    if (t2.type === "JournalEntry") continue;
+    if (!isExpenseTxn(t2) && !isSalesTxn(t2)) continue;
+    for (const l of t2.lines) {
+      if (Math.abs(l.amount) < 1) continue;
+      const name2 = l.accountName || "";
+      if (CONTROL_PATTERNS.some((re) => re.test(name2))) continue;
+      const codeName = l.taxCodeName || "";
+      if (!codeName) continue;
+      if (!NONTAXABLE_CODE.test(codeName)) continue;
+      if (OFTEN_EXEMPT_ACCOUNT.some((re) => re.test(name2))) continue;
+      out.push({
+        check: "wrong_tax_code",
+        severity: "medium",
+        ref: ref(t2),
+        amount: money5(l.amount),
+        message: `${isExpenseTxn(t2) ? "Expense" : "Sale"} on "${name2}" is coded "${codeName}" (no HST) \u2014 likely should be HST 13%.`,
+        fix: `Confirm the supply really is exempt/zero-rated/out-of-scope. If it's a normal taxable ${isExpenseTxn(t2) ? "purchase, the ITC is being missed (Line 108)" : "sale, the HST is understated (Line 105)"}.`
+      });
+    }
+  }
+  return out;
+}
+function findHstControlAccounts(accounts) {
+  const bySub = accounts.filter((a) => /globaltax(payable|suspense)|salestaxpayable/i.test(a.subType || ""));
+  if (bySub.length) return bySub;
+  return accounts.filter((a) => /(hst|gst).*(payable|suspense|owing|control)|(payable|suspense).*(hst|gst)|sales tax (payable|suspense)/i.test(a.name || ""));
+}
+function hstAccountTieOut(accounts, tie, tolerance = 1) {
+  const ctrl = findHstControlAccounts(accounts);
+  const controlBalance = money5(ctrl.reduce((s, a) => s + Math.abs(a.balance || 0), 0));
+  const computedNet = money5(Math.abs(tie.net));
+  const diff = money5(controlBalance - computedNet);
+  if (!ctrl.length) {
+    return {
+      controlAccounts: [],
+      controlBalance: 0,
+      computedNet,
+      diff: -computedNet,
+      tied: false,
+      verdict: "na",
+      message: "No HST/GST control account found in the chart of accounts \u2014 can't tie out the balance. Confirm the tax-payable account exists."
+    };
+  }
+  const tied = Math.abs(diff) <= tolerance;
+  const list = ctrl.map((a) => `${a.name} ${money5(Math.abs(a.balance || 0))}`).join(", ");
+  return {
+    controlAccounts: ctrl.map((a) => ({ name: a.name, balance: money5(Math.abs(a.balance || 0)) })),
+    controlBalance,
+    computedNet,
+    diff,
+    tied,
+    verdict: tied ? "green" : "yellow",
+    message: tied ? `HST control account (${list}) ties to the implied net HST (${money5(computedNet)}).` : `HST control account holds ${money5(controlBalance)} but the period's transactions imply ${money5(computedNet)} \u2014 a ${money5(Math.abs(diff))} gap. Ties only if prior periods are filed/cleared; otherwise compare the period's movement in the account. A gap can mean a manual JE, opening balance, or unfiled prior period.`
+  };
+}
 function tieOut(txns) {
   let collected = 0, itc = 0, salesBase = 0, purchaseBase = 0;
   for (const t2 of txns) {
@@ -92964,6 +93033,7 @@ function runHstReview(input) {
     ...checkControlAccountCoding(input.txns),
     ...checkSalesWithoutTax(input.txns),
     ...checkMissingTaxCode(input.txns),
+    ...checkWrongTaxCode(input.txns),
     ...checkDuplicates(input.txns),
     ...checkMealsFullItc(input.txns)
   ];
@@ -92972,11 +93042,24 @@ function runHstReview(input) {
   const order2 = { high: 0, medium: 1, low: 2 };
   findings.sort((a, b) => order2[a.severity] - order2[b.severity]);
   const tie = tieOut(input.txns);
+  const accountTieOut = hstAccountTieOut(input.accounts, tie);
+  if (!accountTieOut.tied && accountTieOut.verdict !== "na" && Math.abs(accountTieOut.diff) > 1) {
+    findings.unshift({
+      check: "hst_account_tieout",
+      severity: "high",
+      ref: accountTieOut.controlAccounts.map((a) => a.name).join(", ") || "HST control account",
+      amount: Math.abs(accountTieOut.diff),
+      message: accountTieOut.message,
+      fix: "Reconcile the HST control account to the period's net tax before filing \u2014 investigate any manual JE, opening balance, or unfiled prior period."
+    });
+    bySeverity.high++;
+  }
   return {
     findings,
     bySeverity,
     tie,
     reasonableness: hstReasonableness(tie, input.expectedRatePct ?? 13),
+    accountTieOut,
     counts: { transactions: input.txns.length, accounts: input.accounts.length }
   };
 }
@@ -92988,6 +93071,17 @@ var num7 = (v2) => {
   const n = Number(v2);
   return Number.isFinite(n) ? n : 0;
 };
+var TAXABLE_CODE = (name2) => !!name2 && !/exempt|out of scope|out-of-scope|zero|0\s*%|^z$|^e$|^os$|non-?taxable/i.test(name2);
+function apportionLineTax(lines3, taxTotal) {
+  if (!taxTotal) return;
+  const taxableBase = lines3.filter((l) => TAXABLE_CODE(l.taxCodeName)).reduce((s, l) => s + Math.max(l.amount, 0), 0);
+  if (taxableBase <= 0) return;
+  for (const l of lines3) {
+    if (TAXABLE_CODE(l.taxCodeName) && l.amount > 0) {
+      l.taxAmount = Math.round(taxTotal * (l.amount / taxableBase) * 100) / 100;
+    }
+  }
+}
 function mapExpense(e, type2, taxName) {
   const lines3 = [];
   for (const l of e.Line ?? []) {
@@ -93001,6 +93095,8 @@ function mapExpense(e, type2, taxName) {
       taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
     });
   }
+  const taxTotal = num7(e.TxnTaxDetail?.TotalTax);
+  apportionLineTax(lines3, taxTotal);
   return {
     id: String(e.Id),
     type: type2,
@@ -93008,7 +93104,7 @@ function mapExpense(e, type2, taxName) {
     name: e.EntityRef?.name || e.VendorRef?.name,
     docNumber: e.DocNumber,
     total: num7(e.TotalAmt),
-    taxTotal: num7(e.TxnTaxDetail?.TotalTax),
+    taxTotal,
     lines: lines3
   };
 }
@@ -93024,6 +93120,8 @@ function mapSale(e, type2, taxName) {
       taxCodeName: d10.TaxCodeRef?.name ?? taxName(d10.TaxCodeRef?.value) ?? null
     });
   }
+  const taxTotal = num7(e.TxnTaxDetail?.TotalTax);
+  apportionLineTax(lines3, taxTotal);
   return {
     id: String(e.Id),
     type: type2,
@@ -93031,7 +93129,7 @@ function mapSale(e, type2, taxName) {
     name: e.CustomerRef?.name,
     docNumber: e.DocNumber,
     total: num7(e.TotalAmt),
-    taxTotal: num7(e.TxnTaxDetail?.TotalTax),
+    taxTotal,
     lines: lines3
   };
 }
@@ -93875,7 +93973,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.244";
+var BUILD_TAG = "2026-06-27.245";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

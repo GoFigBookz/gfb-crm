@@ -209,6 +209,95 @@ export function checkMealsFullItc(txns: RawTxn[]): Finding[] {
   return out;
 }
 
+/** Code names that mean "no HST" (exempt / zero-rated / out-of-scope). */
+const NONTAXABLE_CODE = /exempt|out of scope|out-of-scope|zero|0\s*%|^z$|^e$|^os$|non-?taxable/i;
+/** Accounts where an exempt/zero/OOS code is usually LEGITIMATE — skip to cut false positives. */
+const OFTEN_EXEMPT_ACCOUNT = [
+  /wage|salar|payroll|cpp|ei |source deduction|remittance/i,
+  /insurance/i,
+  /interest|bank charge|bank fee|finance charge|merchant fee|loan|mortgage/i,
+  /licen[cs]e|permit|government|municipal|property tax|land tax|cra|gst\/hst remit|wsib|workers/i,
+  /dues|membership|donation|charit/i,
+  /dividend|owner|draw|shareholder|equity|retained earnings/i,
+  /residential rent|long-?term rent/i,
+  /foreign|us |usd |import|customs|duty/i,
+];
+
+/**
+ * 7) WRONG/SUSPECT TAX CODE — the exception accountants actually chase: a normal
+ * taxable expense or sale coded Exempt / Zero-rated / Out-of-scope when it most likely
+ * should carry HST. Conservative: skips lines on control accounts and on accounts that
+ * are commonly-legitimately exempt (wages, insurance, interest, government fees, …) so it
+ * surfaces the real review items, not noise. Severity medium = "verify the code", not auto-error.
+ */
+export function checkWrongTaxCode(txns: RawTxn[]): Finding[] {
+  const out: Finding[] = [];
+  for (const t of txns) {
+    if (t.type === "JournalEntry") continue;
+    if (!isExpenseTxn(t) && !isSalesTxn(t)) continue;
+    for (const l of t.lines) {
+      if (Math.abs(l.amount) < 1) continue;
+      const name = l.accountName || "";
+      if (CONTROL_PATTERNS.some((re) => re.test(name))) continue;        // its own check
+      const codeName = l.taxCodeName || "";
+      if (!codeName) continue;                                           // missing-code is its own check
+      if (!NONTAXABLE_CODE.test(codeName)) continue;                     // taxable code = fine here
+      if (OFTEN_EXEMPT_ACCOUNT.some((re) => re.test(name))) continue;    // legitimately exempt — skip
+      out.push({
+        check: "wrong_tax_code", severity: "medium",
+        ref: ref(t), amount: money(l.amount),
+        message: `${isExpenseTxn(t) ? "Expense" : "Sale"} on "${name}" is coded "${codeName}" (no HST) — likely should be HST 13%.`,
+        fix: `Confirm the supply really is exempt/zero-rated/out-of-scope. If it's a normal taxable ${isExpenseTxn(t) ? "purchase, the ITC is being missed (Line 108)" : "sale, the HST is understated (Line 105)"}.`,
+      });
+    }
+  }
+  return out;
+}
+
+/** Find the HST/GST control account(s) in the chart of accounts (by subtype, then name). */
+export function findHstControlAccounts(accounts: RawAccount[]): RawAccount[] {
+  const bySub = accounts.filter((a) => /globaltax(payable|suspense)|salestaxpayable/i.test(a.subType || ""));
+  if (bySub.length) return bySub;
+  return accounts.filter((a) => /(hst|gst).*(payable|suspense|owing|control)|(payable|suspense).*(hst|gst)|sales tax (payable|suspense)/i.test(a.name || ""));
+}
+
+export interface HstAccountTieOut {
+  controlAccounts: { name: string; balance: number }[];
+  controlBalance: number;     // sum of the HST control account balances (abs)
+  computedNet: number;        // net HST implied by the period's transactions (abs)
+  diff: number;               // controlBalance − computedNet
+  tied: boolean;
+  verdict: RateVerdict;
+  message: string;
+}
+
+/**
+ * HST ACCOUNT TIE-OUT (Markie's ask): does the HST balance sitting in the chart of
+ * accounts agree with the net HST the period's transactions imply? They tie when prior
+ * periods are filed/cleared. A gap means tax posted outside the transaction set
+ * (manual JE, opening balance, an unfiled prior period) — exactly what to catch pre-filing.
+ */
+export function hstAccountTieOut(accounts: RawAccount[], tie: { net: number }, tolerance = 1): HstAccountTieOut {
+  const ctrl = findHstControlAccounts(accounts);
+  const controlBalance = money(ctrl.reduce((s, a) => s + Math.abs(a.balance || 0), 0));
+  const computedNet = money(Math.abs(tie.net));
+  const diff = money(controlBalance - computedNet);
+  if (!ctrl.length) {
+    return { controlAccounts: [], controlBalance: 0, computedNet, diff: -computedNet, tied: false, verdict: "na",
+      message: "No HST/GST control account found in the chart of accounts — can't tie out the balance. Confirm the tax-payable account exists." };
+  }
+  const tied = Math.abs(diff) <= tolerance;
+  const list = ctrl.map((a) => `${a.name} ${money(Math.abs(a.balance || 0))}`).join(", ");
+  return {
+    controlAccounts: ctrl.map((a) => ({ name: a.name, balance: money(Math.abs(a.balance || 0)) })),
+    controlBalance, computedNet, diff, tied,
+    verdict: tied ? "green" : "yellow",
+    message: tied
+      ? `HST control account (${list}) ties to the implied net HST (${money(computedNet)}).`
+      : `HST control account holds ${money(controlBalance)} but the period's transactions imply ${money(computedNet)} — a ${money(Math.abs(diff))} gap. Ties only if prior periods are filed/cleared; otherwise compare the period's movement in the account. A gap can mean a manual JE, opening balance, or unfiled prior period.`,
+  };
+}
+
 /**
  * Tie-out: implied HST collected (sales) vs ITCs (purchases) vs net, from the
  * pulled transactions. Markie compares this to QBO's Sales Tax report — if they
@@ -305,6 +394,7 @@ export interface HstReviewReport {
   bySeverity: Record<Severity, number>;
   tie: ReturnType<typeof tieOut>;
   reasonableness: HstReasonablenessReport;
+  accountTieOut: HstAccountTieOut;
   counts: { transactions: number; accounts: number };
 }
 
@@ -315,6 +405,7 @@ export function runHstReview(input: { accounts: RawAccount[]; taxCodes: RawTaxCo
     ...checkControlAccountCoding(input.txns),
     ...checkSalesWithoutTax(input.txns),
     ...checkMissingTaxCode(input.txns),
+    ...checkWrongTaxCode(input.txns),
     ...checkDuplicates(input.txns),
     ...checkMealsFullItc(input.txns),
   ];
@@ -324,9 +415,22 @@ export function runHstReview(input: { accounts: RawAccount[]; taxCodes: RawTaxCo
   const order: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
   findings.sort((a, b) => order[a.severity] - order[b.severity]);
   const tie = tieOut(input.txns);
+  const accountTieOut = hstAccountTieOut(input.accounts, tie);
+  // A material control-account gap is itself a high finding so it shows in the list too.
+  if (!accountTieOut.tied && accountTieOut.verdict !== "na" && Math.abs(accountTieOut.diff) > 1) {
+    findings.unshift({
+      check: "hst_account_tieout", severity: "high",
+      ref: accountTieOut.controlAccounts.map((a) => a.name).join(", ") || "HST control account",
+      amount: Math.abs(accountTieOut.diff),
+      message: accountTieOut.message,
+      fix: "Reconcile the HST control account to the period's net tax before filing — investigate any manual JE, opening balance, or unfiled prior period.",
+    });
+    bySeverity.high++;
+  }
   return {
     findings, bySeverity, tie,
     reasonableness: hstReasonableness(tie, input.expectedRatePct ?? 13),
+    accountTieOut,
     counts: { transactions: input.txns.length, accounts: input.accounts.length },
   };
 }

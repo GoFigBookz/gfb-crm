@@ -86,6 +86,18 @@ export default function HstReview() {
 
           {r.report.reasonableness && <HstReasonablenessBanner rz={r.report.reasonableness} />}
 
+          {r.report.accountTieOut && (
+            <Card className={r.report.accountTieOut.tied ? "border-emerald-200 bg-emerald-50" : r.report.accountTieOut.verdict === "na" ? "border-slate-200" : "border-amber-200 bg-amber-50"}>
+              <CardContent className="p-3 text-sm">
+                <span className="font-semibold">Chart-of-accounts HST tie-out — </span>
+                {r.report.accountTieOut.message}
+                {r.report.accountTieOut.controlAccounts.length > 0 && (
+                  <span className="text-slate-500"> · control {money(r.report.accountTieOut.controlBalance)} vs implied {money(r.report.accountTieOut.computedNet)}</span>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {r.report.findings.length === 0 ? (
             <Card><CardContent className="p-4 text-sm text-emerald-600">No accuracy issues flagged in this period. Still reconcile in QBO and sanity-check the tie-out above.</CardContent></Card>
           ) : (

@@ -1785,6 +1785,11 @@ export function ClientHstReviewCard({ clientId, client }: { clientId: number; cl
               Implied net HST <b>{money(r.report.tie.net)}</b> (collected {money(r.report.tie.collected)} − ITC {money(r.report.tie.itc)}) · {r.pulled.transactions} txns.
               <span className="text-slate-400"> Compare to QBO's Sales Tax report.</span>
             </div>
+            {r.report.accountTieOut && (
+              <div className={`text-xs rounded-md px-2 py-1.5 border ${r.report.accountTieOut.tied ? "bg-emerald-50 border-emerald-200 text-emerald-700" : r.report.accountTieOut.verdict === "na" ? "bg-slate-50 border-slate-200 text-slate-600" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+                <span className="font-medium">Chart-of-accounts HST tie-out: </span>{r.report.accountTieOut.message}
+              </div>
+            )}
             {r.errors.length > 0 && <div className="text-[11px] text-amber-600">Pull warnings: {r.errors.join("; ")}</div>}
             {r.report.findings.length === 0
               ? <div className="text-xs text-emerald-600">No coding issues flagged for this period.</div>
