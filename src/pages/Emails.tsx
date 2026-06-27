@@ -71,6 +71,17 @@ export default function Emails() {
     if (googleAcct && !autoSynced) { setAutoSynced(true); doSync(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [googleAcct, autoSynced]);
+
+  // Default the compose "From" to the PROVEN firm Google account (the same one the
+  // calendar/Gmail sync uses and that has a valid token). The send was failing because
+  // the dropdown could land on a different/tokenless account row; this pins it to the
+  // one that works, so the user can't accidentally pick a dead account.
+  useEffect(() => {
+    if (googleAcct?.id && !composeForm.connectedAccountId) {
+      setComposeForm((f) => ({ ...f, connectedAccountId: String(googleAcct.id) }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleAcct]);
   const { data: clientEmails } = trpc.email.getClientEmails.useQuery(
     { clientId: selectedClient! },
     { enabled: !!selectedClient }
@@ -92,7 +103,8 @@ export default function Emails() {
       utils.email.list.invalidate();
       utils.email.stats.invalidate();
       setComposeOpen(false);
-      setComposeForm({ connectedAccountId: "", to: "", cc: "", subject: "", body: "" });
+      // Keep the proven firm account selected for the next compose (don't blank it).
+      setComposeForm({ connectedAccountId: firmAcct?.connected ? String(firmAcct.id) : "", to: "", cc: "", subject: "", body: "" });
     },
   });
 
