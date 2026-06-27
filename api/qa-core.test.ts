@@ -33,6 +33,17 @@ describe("evaluateQa", () => {
     expect(r.counts.warn).toBe(0);
   });
 
+  it("grades data-backup freshness (ok / warn / fail / none)", () => {
+    const DAY = 86_400_000;
+    const at = (ageMs: number | null) => evaluateQa({ ...healthyFacts(), lastBackupAgeMs: ageMs }).checks.find((c) => c.id === "backups")!;
+    expect(at(3_600_000).status).toBe("ok");       // 1h ago
+    expect(at(1.6 * DAY).status).toBe("warn");     // ~38h
+    expect(at(3 * DAY).status).toBe("fail");       // stale → auto-backup likely stopped
+    expect(at(null).status).toBe("warn");          // none yet
+    // Absent fact → no check at all (backward compatible)
+    expect(evaluateQa(healthyFacts()).checks.find((c) => c.id === "backups")).toBeUndefined();
+  });
+
   it("fails when the database is unreachable", () => {
     const f = healthyFacts();
     f.dbReachable = false;

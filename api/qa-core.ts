@@ -49,6 +49,8 @@ export interface QaFacts {
   connectorCount?: number;
   /** Last sync error counts in the recent window, if gathered. */
   recentSyncErrors?: number;
+  /** Age (ms) of the most recent data backup; null = no backups yet. */
+  lastBackupAgeMs?: number | null;
 }
 
 /** Tables we expect to exist + populate. emptyOk=true → 0 rows is fine. */
@@ -178,6 +180,19 @@ export function evaluateQa(facts: QaFacts): QaReport {
       status: facts.recentSyncErrors > 0 ? "warn" : "ok",
       detail: facts.recentSyncErrors > 0 ? `${facts.recentSyncErrors} failed sync(s) recently.` : "No recent sync failures.",
     });
+  }
+
+  // 7) Data backups fresh. A backup nobody watches can silently stop — Jinx flags it.
+  if (facts.lastBackupAgeMs !== undefined) {
+    const age = facts.lastBackupAgeMs;
+    const DAY = 86_400_000;
+    let bStatus: CheckStatus = "ok";
+    let detail = "";
+    if (age == null) { bStatus = "warn"; detail = "No data backup has run yet."; }
+    else if (age > 2 * DAY) { bStatus = "fail"; detail = `Last backup was ${Math.floor(age / DAY)} days ago — daily auto-backup may have stopped.`; }
+    else if (age > 1.5 * DAY) { bStatus = "warn"; detail = `Last backup was ${Math.floor(age / 3_600_000)}h ago — expected within ~24h.`; }
+    else { detail = `Last backup ${Math.floor(age / 3_600_000)}h ago.`; }
+    checks.push({ id: "backups", category: "Data", label: "Data backups", status: bStatus, detail });
   }
 
   const ok = checks.filter((c) => c.status === "ok").length;

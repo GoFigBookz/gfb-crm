@@ -117,7 +117,14 @@ async function gatherFacts(): Promise<QaFacts> {
     // table may not exist on this DB; skip.
   }
 
-  return { dbReachable, dbError, tableCounts, env, qbo, connectorCount, recentSyncErrors };
+  // Data backups: age of the most recent snapshot (so Jinx can flag if they stop).
+  let lastBackupAgeMs: number | null | undefined;
+  try {
+    const r = (await db.all(sql`SELECT createdAt FROM data_backups ORDER BY createdAt DESC LIMIT 1`)) as any[];
+    lastBackupAgeMs = r.length ? Date.now() - Number(r[0].createdAt) : null;
+  } catch { /* table may not exist yet */ }
+
+  return { dbReachable, dbError, tableCounts, env, qbo, connectorCount, recentSyncErrors, lastBackupAgeMs };
 }
 
 /** Run the full health report (reusable — also called by Jinx in the chatbot). */
