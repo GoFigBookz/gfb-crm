@@ -121,6 +121,19 @@ async function seedDemoExtras(): Promise<void> {
         O("software", "Proposal/quoting tool (example)", "Send branded quotes and track acceptance.", "from $29/mo", "Service businesses", "https://example.com", "Demo Vendor", "applied"),
       ]) await demo.run(sql.raw(stmt));
     }
+    // MONTH-END RECON — a few accounts so the tracker shows examples (one behind).
+    const haveRecon = rowsOf(await demo.run(sql.raw("SELECT name FROM sqlite_master WHERE type='table' AND name='client_recon_accounts'"))).length;
+    const seededRecon = haveRecon && rowsOf(await demo.run(sql.raw(`SELECT id FROM client_recon_accounts WHERE clientId=${clientId} LIMIT 1`))).length;
+    if (haveRecon && !seededRecon) {
+      const R = (name: string, kind: string, through: string, needs: string | null, ord: number) =>
+        `INSERT INTO client_recon_accounts (clientId, name, kind, reconciledThrough, needsStatements, source, sortOrder, active, updatedAt) VALUES (${clientId}, '${name}', '${kind}', '${through}', ${needs ? `'${needs}'` : "NULL"}, 'demo', ${ord}, 1, ${now})`;
+      for (const stmt of [
+        R("Demo Bank Chequing", "bank", "2026-05-31", null, 0),
+        R("Demo Visa *4242", "credit_card", "2026-03-31", "Apr & May", 1),
+        R("PayPal", "processor", "2026-05-31", null, 2),
+      ]) await demo.run(sql.raw(stmt));
+    }
+
     // SEND-A-FAX — a couple of sent faxes so the tool's history shows examples.
     const haveFax = rowsOf(await demo.run(sql.raw("SELECT name FROM sqlite_master WHERE type='table' AND name='faxes'"))).length;
     const seededFax = haveFax && rowsOf(await demo.run(sql.raw("SELECT id FROM faxes LIMIT 1"))).length;

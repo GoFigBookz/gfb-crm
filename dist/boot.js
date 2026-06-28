@@ -22338,6 +22338,7 @@ __export(schema_exports, {
   clientOnboarding: () => clientOnboarding,
   clientParties: () => clientParties,
   clientPlaybooks: () => clientPlaybooks,
+  clientReconAccounts: () => clientReconAccounts,
   clientRequestItems: () => clientRequestItems,
   clientRequests: () => clientRequests,
   clientSnapshots: () => clientSnapshots,
@@ -22412,7 +22413,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users2, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, faxes, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, loanAccounts, loanEntries, loanShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks, lifeEntries;
+var users2, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, clientReconAccounts, faxes, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, loanAccounts, loanEntries, loanShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks, lifeEntries;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -24091,6 +24092,26 @@ var init_schema = __esm({
       // QBO Vendor/Customer Id once synced
       active: integer2("active", { mode: "boolean" }).default(true),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    clientReconAccounts = sqliteTable("client_recon_accounts", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      name: text("name").notNull(),
+      // "RBC CAD *0488", "AMEX *1001", "PayPal"
+      kind: text("kind").default("bank"),
+      // bank | credit_card | processor | other
+      institution: text("institution"),
+      last4: text("last4"),
+      reconciledThrough: text("reconciledThrough"),
+      // yyyy-mm-dd
+      needsStatements: text("needsStatements"),
+      // free text, e.g. "Apr & May"
+      note: text("note"),
+      source: text("source").default("manual"),
+      // manual | qbo
+      sortOrder: integer2("sortOrder").default(0),
+      active: integer2("active", { mode: "boolean" }).default(true),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
     faxes = sqliteTable("faxes", {
@@ -38952,8 +38973,8 @@ function daysBetween(a, b) {
 }
 function addMonths(d10, n) {
   const r = new Date(Date.UTC(d10.getUTCFullYear(), d10.getUTCMonth() + n, 1));
-  const lastDay = new Date(Date.UTC(r.getUTCFullYear(), r.getUTCMonth() + 1, 0)).getUTCDate();
-  r.setUTCDate(Math.min(d10.getUTCDate(), lastDay));
+  const lastDay2 = new Date(Date.UTC(r.getUTCFullYear(), r.getUTCMonth() + 1, 0)).getUTCDate();
+  r.setUTCDate(Math.min(d10.getUTCDate(), lastDay2));
   return r;
 }
 function endOfMonth(year2, monthIdx0) {
@@ -65111,7 +65132,7 @@ async function rescheduleAndCleanupTasks() {
       const rule = detectRule(title, category);
       if (rule) {
         const sched = taskSchedule(rule, t2.dueDate ? new Date(t2.dueDate) : null, {
-          yearEndMonth: c?.yearEndMonth ? MONTHS4[c.yearEndMonth] ?? null : null,
+          yearEndMonth: c?.yearEndMonth ? MONTHS5[c.yearEndMonth] ?? null : null,
           hstPeriod: c?.hstPeriod ?? null
         });
         if (sched) {
@@ -65140,14 +65161,14 @@ async function rescheduleAndCleanupTasks() {
     return stats;
   }
 }
-var MONTHS4;
+var MONTHS5;
 var init_reschedule_tasks = __esm({
   "api/reschedule-tasks.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     init_task_date_rules();
-    MONTHS4 = {
+    MONTHS5 = {
       Jan: 1,
       Feb: 2,
       Mar: 3,
@@ -67824,7 +67845,7 @@ __export(import_client_master_exports, {
 });
 function onboardingFromRow(clientId, r) {
   const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(r.ye);
-  const fiscalYearEnd = m ? `${MONTHS5[Number(m[1]) - 1]} ${Number(m[2])}` : null;
+  const fiscalYearEnd = m ? `${MONTHS6[Number(m[1]) - 1]} ${Number(m[2])}` : null;
   return {
     clientId,
     userId: 1,
@@ -67998,7 +68019,7 @@ async function importClientMaster() {
     claimed.add(clientId);
     const payFreq = payMap[r.pay.toLowerCase()] ?? null;
     const hstPeriod = hstMap[r.hst.toLowerCase()] ?? null;
-    const yearEndMonth = /^\d{4}-(\d{2})-\d{2}$/.test(r.ye) ? MONTHS5[Number(r.ye.slice(5, 7)) - 1] : null;
+    const yearEndMonth = /^\d{4}-(\d{2})-\d{2}$/.test(r.ye) ? MONTHS6[Number(r.ye.slice(5, 7)) - 1] : null;
     const patch = {
       name: reorderNumberedName(prettyName(r.name)),
       // clean casing + operating-name-first
@@ -68055,7 +68076,7 @@ async function importClientMaster() {
   }
   return report;
 }
-var F, D, ROWS, MONTHS5, payMap, hstMap, hstFreqForTasks, payFreqForTasks, NAME_OVERRIDES, SMALL_WORDS2, norm22, asRows2;
+var F, D, ROWS, MONTHS6, payMap, hstMap, hstFreqForTasks, payFreqForTasks, NAME_OVERRIDES, SMALL_WORDS2, norm22, asRows2;
 var init_import_client_master = __esm({
   "api/import-client-master.ts"() {
     init_connection();
@@ -68100,7 +68121,7 @@ var init_import_client_master = __esm({
       { name: "FLEMING ADVISORY INC. (fka Kaavio)", bn: "736845488", pay: "", hst: "Annually", wsib: "", ye: "2025-12-31", folder: F + "1ynQJzY3sffTICdqU8cWoenW5ZhRxz_o3", doc: D + "1jv_rIscsDekjSLqsWHpw-iD4J4A_hed-VTf8QkJ6ktQ" },
       { name: "UNIVERSAL DRYWALL (USA)", bn: "", pay: "", hst: "", wsib: "", ye: "", folder: F + "1y1Tg7_k8u3d3NTJs2C-dYNIjdj83UokB", doc: D + "1wGoGDChnBCusbDYoHC1ZsKfqc42JtHFqPr0N3gJuvYQ" }
     ];
-    MONTHS5 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    MONTHS6 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     payMap = { weekly: "weekly", "bi-weekly": "bi-weekly", "semi-monthly": "semi-monthly", monthly: "monthly" };
     hstMap = { annually: "annual", quarterly: "quarterly", monthly: "monthly" };
     hstFreqForTasks = { annually: "annually", quarterly: "quarterly", monthly: "monthly" };
@@ -71269,6 +71290,41 @@ var init_ensure_fax_schema = __esm({
   }
 });
 
+// api/ensure-recon-tracker-schema.ts
+var ensure_recon_tracker_schema_exports = {};
+__export(ensure_recon_tracker_schema_exports, {
+  ensureReconTrackerSchema: () => ensureReconTrackerSchema
+});
+async function ensureReconTrackerSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS client_recon_accounts (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      clientId integer NOT NULL,
+      name text NOT NULL,
+      kind text DEFAULT 'bank',
+      institution text,
+      last4 text,
+      reconciledThrough text,
+      needsStatements text,
+      note text,
+      source text DEFAULT 'manual',
+      sortOrder integer DEFAULT 0,
+      active integer DEFAULT 1,
+      updatedAt integer
+    )`);
+    await db.run(sql`CREATE INDEX IF NOT EXISTS recon_accts_client ON client_recon_accounts (clientId)`);
+  } catch (e) {
+    console.error("[recon-tracker] ensure schema failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_recon_tracker_schema = __esm({
+  "api/ensure-recon-tracker-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/ensure-loan-schema.ts
 var ensure_loan_schema_exports = {};
 __export(ensure_loan_schema_exports, {
@@ -71468,7 +71524,7 @@ __export(seed_hst_dates_exports, {
 function dueDateFromMonthYear(s) {
   const m = /([A-Za-z]{3})[A-Za-z]*\s+(\d{4})/.exec((s || "").trim());
   if (!m) return null;
-  const mo = MONTHS6[m[1].toLowerCase()];
+  const mo = MONTHS7[m[1].toLowerCase()];
   const yr = Number(m[2]);
   if (!mo || !yr) return null;
   const last = new Date(Date.UTC(yr, mo, 0)).getUTCDate();
@@ -71532,14 +71588,14 @@ async function seedHstDates() {
   }
   return report;
 }
-var MONTHS6, ROWS2;
+var MONTHS7, ROWS2;
 var init_seed_hst_dates = __esm({
   "api/seed-hst-dates.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     init_task_generator();
-    MONTHS6 = {
+    MONTHS7 = {
       jan: 1,
       feb: 2,
       mar: 3,
@@ -71886,7 +71942,7 @@ __export(reconcile_overnight_exports, {
 });
 function monthToNum(m) {
   if (!m) return null;
-  const i = MONTHS7.indexOf(String(m).slice(0, 3).toLowerCase());
+  const i = MONTHS8.indexOf(String(m).slice(0, 3).toLowerCase());
   return i < 0 ? null : i + 1;
 }
 function sameDay(a, b) {
@@ -71975,14 +72031,14 @@ async function reconcileOvernight() {
   }
   return out;
 }
-var MONTHS7;
+var MONTHS8;
 var init_reconcile_overnight = __esm({
   "api/reconcile-overnight.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     init_task_date_rules();
-    MONTHS7 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    MONTHS8 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
   }
 });
 
@@ -72543,6 +72599,16 @@ async function seedDemoExtras() {
         O("grants", "Canada Digital Adoption Program (example)", "Funding to adopt digital tools and e-commerce.", "up to $15,000", "Canadian SMBs", "https://ised-isde.canada.ca", "ISED", "reviewing"),
         O("wsib", "WSIB Health & Safety Excellence (example)", "Rebates for completing safety topics.", "premium rebate", "WSIB-registered employers", "https://www.wsib.ca", "WSIB", "suggested"),
         O("software", "Proposal/quoting tool (example)", "Send branded quotes and track acceptance.", "from $29/mo", "Service businesses", "https://example.com", "Demo Vendor", "applied")
+      ]) await demo.run(sql.raw(stmt));
+    }
+    const haveRecon = rowsOf(await demo.run(sql.raw("SELECT name FROM sqlite_master WHERE type='table' AND name='client_recon_accounts'"))).length;
+    const seededRecon = haveRecon && rowsOf(await demo.run(sql.raw(`SELECT id FROM client_recon_accounts WHERE clientId=${clientId} LIMIT 1`))).length;
+    if (haveRecon && !seededRecon) {
+      const R = (name2, kind, through, needs, ord) => `INSERT INTO client_recon_accounts (clientId, name, kind, reconciledThrough, needsStatements, source, sortOrder, active, updatedAt) VALUES (${clientId}, '${name2}', '${kind}', '${through}', ${needs ? `'${needs}'` : "NULL"}, 'demo', ${ord}, 1, ${now})`;
+      for (const stmt of [
+        R("Demo Bank Chequing", "bank", "2026-05-31", null, 0),
+        R("Demo Visa *4242", "credit_card", "2026-03-31", "Apr & May", 1),
+        R("PayPal", "processor", "2026-05-31", null, 2)
       ]) await demo.run(sql.raw(stmt));
     }
     const haveFax = rowsOf(await demo.run(sql.raw("SELECT name FROM sqlite_master WHERE type='table' AND name='faxes'"))).length;
@@ -93483,6 +93549,172 @@ var surplusCashRouter = createRouter({
   })
 });
 
+// api/recon-tracker-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_schema();
+init_drizzle_orm();
+
+// api/recon-tracker-core.ts
+var MONTHS4 = {
+  jan: 1,
+  feb: 2,
+  mar: 3,
+  apr: 4,
+  may: 5,
+  jun: 6,
+  jul: 7,
+  aug: 8,
+  sep: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12
+};
+var lastDay = (y, m) => new Date(y, m, 0).getDate();
+function parseLooseDate(s) {
+  const t2 = String(s || "").trim();
+  const iso2 = t2.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (iso2) return `${iso2[1]}-${iso2[2]}-${iso2[3]}`;
+  const md = t2.match(/([A-Za-z]{3,})\.?\s+(\d{1,2}),?\s+(\d{4})/);
+  if (md) {
+    const m = MONTHS4[md[1].slice(0, 3).toLowerCase()];
+    if (m) return `${md[3]}-${String(m).padStart(2, "0")}-${String(+md[2]).padStart(2, "0")}`;
+  }
+  const my = t2.match(/([A-Za-z]{3,})\.?\s+(\d{4})/);
+  if (my) {
+    const m = MONTHS4[my[1].slice(0, 3).toLowerCase()];
+    if (m) return `${my[2]}-${String(m).padStart(2, "0")}-${String(lastDay(+my[2], m)).padStart(2, "0")}`;
+  }
+  return null;
+}
+function guessKind(name2) {
+  const n = name2.toLowerCase();
+  if (/visa|mastercard|amex|credit|\bcc\b/.test(n)) return "credit_card";
+  if (/paypal|stripe|square|shopify|wise|processor/.test(n)) return "processor";
+  if (/chequing|checking|savings|bank|rbc|td|cibc|bmo|scotia|account|usd|cad/.test(n)) return "bank";
+  return "other";
+}
+function parseReconPaste(text2) {
+  const out = [];
+  for (const raw2 of String(text2 || "").split(/\r?\n/)) {
+    const line = raw2.replace(/^[\s*•\-]+/, "").trim();
+    if (!line) continue;
+    const dash = line.indexOf(" - ");
+    if (dash < 0) continue;
+    const name2 = line.slice(0, dash).trim();
+    const rest = line.slice(dash + 3).trim();
+    if (!name2) continue;
+    const needsMatch = rest.match(/\(?\s*need[s]?\s+([^)]+?)\s*statement[s]?\s*\)?/i);
+    const needsStatements = needsMatch ? needsMatch[1].trim() : null;
+    let reconciledThrough = null;
+    const recMatch = rest.match(/reconciled\s+(?:up\s+to|until|to|through)\s+([A-Za-z0-9 ,.\-]+?)(?:\s*\(|$)/i);
+    if (recMatch) reconciledThrough = parseLooseDate(recMatch[1]);
+    const doneMatch = rest.match(/done\s+for\s+([A-Za-z]{3,}\.?\s+\d{4})/i);
+    if (!reconciledThrough && doneMatch) reconciledThrough = parseLooseDate(doneMatch[1]);
+    const note = !reconciledThrough && /no transaction|which|\?/.test(rest) ? rest : null;
+    out.push({ name: name2, kind: guessKind(name2), reconciledThrough, needsStatements, note });
+  }
+  return out;
+}
+function accountStatus(acc, periodEnd) {
+  const target = Date.parse(periodEnd);
+  const through = acc.reconciledThrough ? Date.parse(acc.reconciledThrough) : NaN;
+  let monthsBehind = 0;
+  let behind = false;
+  if (Number.isFinite(target) && Number.isFinite(through)) {
+    behind = through < target - 864e5;
+    if (behind) monthsBehind = Math.max(1, Math.round((target - through) / (30 * 864e5)));
+  } else if (!acc.reconciledThrough) {
+    behind = true;
+  }
+  return { ...acc, behind, monthsBehind, current: !behind };
+}
+function summarizeRecon(accounts, periodEnd) {
+  const statuses = accounts.map((a) => accountStatus(a, periodEnd));
+  const needing = statuses.filter((s) => s.needsStatements);
+  return {
+    total: statuses.length,
+    current: statuses.filter((s) => s.current).length,
+    behind: statuses.filter((s) => s.behind).length,
+    needingStatements: needing.length,
+    worstMonthsBehind: statuses.reduce((m, s) => Math.max(m, s.monthsBehind), 0),
+    statementPullList: needing.map((s) => ({ name: s.name, needs: s.needsStatements }))
+  };
+}
+
+// api/recon-tracker-router.ts
+function defaultPeriodEnd() {
+  const now = /* @__PURE__ */ new Date();
+  const firstOfThis = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonthEnd = new Date(firstOfThis.getTime() - 864e5);
+  return lastMonthEnd.toISOString().slice(0, 10);
+}
+var acctInput = {
+  name: external_exports.string().min(1).max(200),
+  kind: external_exports.string().max(30).optional(),
+  institution: external_exports.string().max(120).optional(),
+  last4: external_exports.string().max(10).optional(),
+  reconciledThrough: external_exports.string().max(20).nullable().optional(),
+  needsStatements: external_exports.string().max(200).nullable().optional(),
+  note: external_exports.string().max(500).nullable().optional()
+};
+var reconTrackerRouter = createRouter({
+  list: authedQuery.input(external_exports.object({ clientId: external_exports.number(), periodEnd: external_exports.string().optional() })).query(async ({ input }) => {
+    const db = getDb();
+    const periodEnd = input.periodEnd || defaultPeriodEnd();
+    const rows = await db.select().from(clientReconAccounts).where(and(eq2(clientReconAccounts.clientId, input.clientId), eq2(clientReconAccounts.active, true))).orderBy(asc(clientReconAccounts.sortOrder), asc(clientReconAccounts.id));
+    const accounts = rows.map((r) => accountStatus(r, periodEnd));
+    const rollup2 = summarizeRecon(rows, periodEnd);
+    return { periodEnd, accounts, rollup: rollup2 };
+  }),
+  upsert: authedQuery.input(external_exports.object({ id: external_exports.number().optional(), clientId: external_exports.number(), ...acctInput })).mutation(async ({ input }) => {
+    const db = getDb();
+    const { id, clientId, ...rest } = input;
+    const values = { ...rest, updatedAt: /* @__PURE__ */ new Date() };
+    if (id) {
+      await db.update(clientReconAccounts).set(values).where(eq2(clientReconAccounts.id, id));
+      return { id };
+    }
+    const [row] = await db.insert(clientReconAccounts).values({ clientId, ...values }).returning();
+    return row;
+  }),
+  remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    await getDb().delete(clientReconAccounts).where(eq2(clientReconAccounts.id, input.id));
+    return { success: true };
+  }),
+  // Paste the status block Markie gets from Rachel → parsed rows. By default
+  // REPLACES the client's accounts (a fresh status); set merge to keep + update by name.
+  importPaste: authedQuery.input(external_exports.object({ clientId: external_exports.number(), text: external_exports.string().min(1), replace: external_exports.boolean().default(true) })).mutation(async ({ input }) => {
+    const db = getDb();
+    const parsed = parseReconPaste(input.text).filter((a) => a.name && (a.reconciledThrough || a.needsStatements || a.note));
+    if (!parsed.length) return { ok: false, imported: 0, error: "No account lines recognized in that paste." };
+    if (input.replace) {
+      await db.delete(clientReconAccounts).where(eq2(clientReconAccounts.clientId, input.clientId));
+    }
+    const existing = input.replace ? [] : await db.select().from(clientReconAccounts).where(eq2(clientReconAccounts.clientId, input.clientId));
+    const byName = new Map(existing.map((r) => [r.name.toLowerCase(), r]));
+    let imported = 0, order2 = 0;
+    for (const a of parsed) {
+      const hit = byName.get(a.name.toLowerCase());
+      const values = {
+        kind: a.kind || "bank",
+        reconciledThrough: a.reconciledThrough ?? null,
+        needsStatements: a.needsStatements ?? null,
+        note: a.note ?? null,
+        source: "manual",
+        sortOrder: order2++,
+        active: true,
+        updatedAt: /* @__PURE__ */ new Date()
+      };
+      if (hit) await db.update(clientReconAccounts).set(values).where(eq2(clientReconAccounts.id, hit.id));
+      else await db.insert(clientReconAccounts).values({ clientId: input.clientId, name: a.name, ...values });
+      imported++;
+    }
+    return { ok: true, imported };
+  })
+});
+
 // api/genealogy-router.ts
 init_zod();
 init_middleware();
@@ -94601,6 +94833,7 @@ var appRouter = createRouter({
   fax: faxRouter,
   crypto: cryptoRouter,
   surplusCash: surplusCashRouter,
+  reconTracker: reconTrackerRouter,
   loanTracker: loanTrackerRouter
 });
 
@@ -94883,7 +95116,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.260";
+var BUILD_TAG = "2026-06-28.261";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -96678,6 +96911,8 @@ async function startServer() {
     await ensureBankedHoursSchema2();
     const { ensureFaxSchema: ensureFaxSchema2 } = await Promise.resolve().then(() => (init_ensure_fax_schema(), ensure_fax_schema_exports));
     await ensureFaxSchema2();
+    const { ensureReconTrackerSchema: ensureReconTrackerSchema2 } = await Promise.resolve().then(() => (init_ensure_recon_tracker_schema(), ensure_recon_tracker_schema_exports));
+    await ensureReconTrackerSchema2();
     const { ensureLoanSchema: ensureLoanSchema2 } = await Promise.resolve().then(() => (init_ensure_loan_schema(), ensure_loan_schema_exports));
     await ensureLoanSchema2();
     try {

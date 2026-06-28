@@ -3147,6 +3147,91 @@ export function ContactsCard({ clientId }: { clientId: number }) {
   );
 }
 
+/** MONTH-END RECONCILIATION TRACKER — every account in the client's close, what
+ *  each is reconciled THROUGH, and the statement pull-list surfaced up front.
+ *  Paste-import the status from the bookkeeper; QBO auto-pull comes later. */
+export function MonthEndReconCard({ clientId }: { clientId: number }) {
+  const utils = trpc.useUtils();
+  const { data } = trpc.reconTracker.list.useQuery({ clientId });
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [paste, setPaste] = useState("");
+  const [msg, setMsg] = useState("");
+  const inv = () => utils.reconTracker.list.invalidate({ clientId });
+  const importPaste = trpc.reconTracker.importPaste.useMutation({
+    onSuccess: (r: any) => { if (r.ok) { inv(); setPaste(""); setPasteOpen(false); setMsg(""); } else setMsg(r.error || "Nothing recognized"); },
+    onError: (e) => setMsg(e.message),
+  });
+  const remove = trpc.reconTracker.remove.useMutation({ onSuccess: inv });
+  const roll = data?.rollup;
+  const fmtD = (s?: string | null) => { if (!s) return "—"; try { return new Date(s + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); } catch { return s; } };
+  const kindLabel: Record<string, string> = { bank: "Bank", credit_card: "Credit card", processor: "Processor", other: "Other" };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-base"><CheckSquare className="h-5 w-5 text-lime-500" /> Month-end reconciliation</CardTitle>
+          {roll && roll.total > 0 && (
+            <CardDescription>
+              {roll.current}/{roll.total} accounts current{roll.behind > 0 ? ` · ${roll.behind} behind` : ""}{roll.needingStatements > 0 ? ` · ${roll.needingStatements} waiting on statements` : ""}
+            </CardDescription>
+          )}
+        </div>
+        <Button size="sm" variant="outline" onClick={() => { setPasteOpen(true); setMsg(""); }}>Paste status</Button>
+      </CardHeader>
+      <CardContent>
+        {(!data || data.accounts.length === 0) ? (
+          <p className="text-sm text-slate-400 py-2">No accounts yet. Paste the reconciliation status, or this fills automatically once QuickBooks is connected.</p>
+        ) : (
+          <>
+            {roll && roll.statementPullList.length > 0 && (
+              <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 p-2.5">
+                <p className="text-xs font-semibold text-amber-800 mb-1">📄 Statements to pull first ({roll.statementPullList.length})</p>
+                <ul className="text-xs text-amber-700 space-y-0.5">
+                  {roll.statementPullList.map((p: any, i: number) => <li key={i}>• <b>{p.name}</b> — {p.needs}</li>)}
+                </ul>
+              </div>
+            )}
+            <div className="divide-y">
+              {data.accounts.map((a: any) => (
+                <div key={a.id} className="flex items-start justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {a.name}
+                      {a.current
+                        ? <Badge variant="outline" className="ml-2 text-[10px] bg-lime-50 text-lime-700">current</Badge>
+                        : <Badge variant="outline" className="ml-2 text-[10px] bg-red-50 text-red-600">{a.monthsBehind ? `${a.monthsBehind}mo behind` : "behind"}</Badge>}
+                    </p>
+                    <p className="text-xs text-slate-500">{kindLabel[a.kind] || a.kind} · reconciled through {fmtD(a.reconciledThrough)}{a.needsStatements ? ` · needs ${a.needsStatements}` : ""}</p>
+                    {a.note ? <p className="text-xs text-amber-600 mt-0.5">⚠ {a.note}</p> : null}
+                  </div>
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:text-red-600" onClick={() => { if (confirm(`Remove ${a.name}?`)) remove.mutate({ id: a.id }); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-2">Target close: {fmtD(data.periodEnd)}. "Behind" = not reconciled through that month-end.</p>
+          </>
+        )}
+      </CardContent>
+
+      <Dialog open={pasteOpen} onOpenChange={(v) => { if (!v) setPasteOpen(false); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Paste reconciliation status</DialogTitle></DialogHeader>
+          <div className="space-y-2 pt-1">
+            <p className="text-xs text-slate-500">Paste the per-account status (one account per line). It reads the reconciled-through date and any "(Need … statements)" note. This replaces the current list.</p>
+            <Textarea value={paste} onChange={(e) => setPaste(e.target.value)} rows={8} className="font-mono text-xs" placeholder={"PayPal - Reconciled until May 31, 2026\nRBC CAD *0488 - Reconciled up to Apr 01, 2026 (Need Apr & May statements)\nAMEX *1001 - Reconciled up to Jan 05, 2026 (Need Jan-May statements)"} />
+            {msg && <p className="text-xs text-red-500">{msg}</p>}
+            <div className="flex gap-2">
+              <Button className="bg-lime-500 flex-1" disabled={!paste.trim() || importPaste.isPending} onClick={() => importPaste.mutate({ clientId, text: paste })}>{importPaste.isPending ? "Importing…" : "Import"}</Button>
+              <Button variant="outline" onClick={() => setPasteOpen(false)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
 /** Per-client vendors / customers (CRM-side; QBO sync later). One component,
  *  reused for both kinds. Vendors add a "Email all" action (mailto bcc) for
  *  statement / missing-invoice requests. */
