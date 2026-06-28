@@ -34,7 +34,7 @@ The single checklist we work through **in order, one item at a time**. No squirr
 | 2.4 Gmail auto-sync + visible status | Open Emails → auto-syncs; "pulled N · skipped M" shows | 2.1, 1.2/1.3 | 🔧 .246/.247, re-test |
 | 2.5 Send an email | Compose → Send → goes out (verified in Gmail) | 2.1 | 🔧 fixed .248 (lastContactedAt) |
 | 2.6 Received client email shows on inbox + client card | Real client emails appear (both sent + received) | 1.2, 1.3 | ❌ blocked on real emails |
-| 2.7 Contact harvester (pull real emails from Gmail) | Client card → "Find contacts" → suggests real addrs → save | 1.3, 2.6 | ⬜ to build |
+| 2.7 Contact harvester (pull real emails from Gmail) | Client card → Contacts → "Find from Gmail" → suggests real addrs → save | 1.3, 2.6 | 🔧 built .251 (core+DB tested, live-Gmail validated) — Markie live re-test on Alderson |
 | 2.8 Triage `+code` mail routes to Fig posting (NOT inbox) | Mail to `markie+cpos@` → shows in Fig's posting area, not inbox | 1.4, receipts | ⬜ to build (separate pipeline) |
 | 2.9 Reply to a client email (threaded) | Reply on a client email → sends, threads correctly | 2.5 | ⬜ |
 | 2.10 AI agents can read email (Liv) | Ask Liv about an email → it can read it | 2.1 | ⬜ |
