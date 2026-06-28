@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-28.262";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-28.263";  // bump each deploy so prod vs source is unambiguous
 
 // CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
 // secret into a hosting dashboard very often drags a trailing space or newline,
@@ -549,8 +549,9 @@ app.get("/api/phoenix/seed", async (c) => {
         const owners = (await getDb().all(sql`SELECT DISTINCT userId FROM family_members`)) as any[];
         for (const o of owners) await backfillGenealogyFields(o.userId);
       }
-      const { ensureLaunchpadSchema } = await import("./ensure-launchpad-schema");
+      const { ensureLaunchpadSchema, seedLaunchpadIdeas } = await import("./ensure-launchpad-schema");
       await ensureLaunchpadSchema();
+      await seedLaunchpadIdeas();
       const { ensureSubscriptionsSchema } = await import("./ensure-subscriptions-schema");
       await ensureSubscriptionsSchema();
       const { ensureRegistersSchema } = await import("./ensure-registers-schema");

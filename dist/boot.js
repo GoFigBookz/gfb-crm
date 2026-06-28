@@ -66259,7 +66259,8 @@ var init_ensure_genealogy_schema = __esm({
 // api/ensure-launchpad-schema.ts
 var ensure_launchpad_schema_exports = {};
 __export(ensure_launchpad_schema_exports, {
-  ensureLaunchpadSchema: () => ensureLaunchpadSchema
+  ensureLaunchpadSchema: () => ensureLaunchpadSchema,
+  seedLaunchpadIdeas: () => seedLaunchpadIdeas
 });
 async function ensureLaunchpadSchema() {
   const db = getDb();
@@ -66281,6 +66282,32 @@ async function ensureLaunchpadSchema() {
     )`);
   } catch (e) {
     console.error("[launchpad] ensure table failed:", e instanceof Error ? e.message : e);
+  }
+}
+async function seedLaunchpadIdeas() {
+  const db = getDb();
+  try {
+    const owner = await db.all(sql`SELECT id FROM users WHERE email IN ('markie.antle@gmail.com','markie@gofig.ca') OR role = 'admin' ORDER BY (role = 'admin') DESC, id ASC LIMIT 1`);
+    const userId = owner[0]?.id;
+    if (!userId) return;
+    const ideas = [
+      {
+        name: "QuickBooks Training (new revenue stream)",
+        category: "Revenue stream",
+        notes: "Offer QuickBooks training as a paid service \u2014 onboarding new business owners, teaching staff to use QBO properly, fixing-then-teaching cleanup clients. Ties to the bookkeeping team manual + QBO manual already being built (reuse that content as the curriculum). Markie's idea 2026-06-28.",
+        nextStep: "Decide format (1:1, group, recorded course) + pricing; build a curriculum from the QBO manual.",
+        potentialValue: "recurring"
+      }
+    ];
+    for (const o of ideas) {
+      const exists2 = await db.all(sql`SELECT id FROM launchpad_opportunities WHERE userId = ${userId} AND name = ${o.name} LIMIT 1`);
+      if (exists2[0]) continue;
+      const now = Date.now();
+      await db.run(sql`INSERT INTO launchpad_opportunities (userId, name, stage, category, notes, nextStep, potentialValue, pinned, archived, createdAt, updatedAt)
+        VALUES (${userId}, ${o.name}, 'idea', ${o.category}, ${o.notes}, ${o.nextStep}, ${o.potentialValue}, 0, 0, ${now}, ${now})`);
+    }
+  } catch (e) {
+    console.error("[launchpad] seed ideas failed:", e instanceof Error ? e.message : e);
   }
 }
 var init_ensure_launchpad_schema = __esm({
@@ -95216,7 +95243,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.262";
+var BUILD_TAG = "2026-06-28.263";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -95669,8 +95696,9 @@ app.get("/api/phoenix/seed", async (c) => {
         const owners = await getDb().all(sql`SELECT DISTINCT userId FROM family_members`);
         for (const o of owners) await backfillGenealogyFields2(o.userId);
       }
-      const { ensureLaunchpadSchema: ensureLaunchpadSchema2 } = await Promise.resolve().then(() => (init_ensure_launchpad_schema(), ensure_launchpad_schema_exports));
+      const { ensureLaunchpadSchema: ensureLaunchpadSchema2, seedLaunchpadIdeas: seedLaunchpadIdeas2 } = await Promise.resolve().then(() => (init_ensure_launchpad_schema(), ensure_launchpad_schema_exports));
       await ensureLaunchpadSchema2();
+      await seedLaunchpadIdeas2();
       const { ensureSubscriptionsSchema: ensureSubscriptionsSchema2 } = await Promise.resolve().then(() => (init_ensure_subscriptions_schema(), ensure_subscriptions_schema_exports));
       await ensureSubscriptionsSchema2();
       const { ensureRegistersSchema: ensureRegistersSchema2 } = await Promise.resolve().then(() => (init_ensure_registers_schema(), ensure_registers_schema_exports));
