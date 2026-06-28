@@ -80646,6 +80646,34 @@ var emailRouter = createRouter({
     await db.update(emails).set({ isRead: input.isRead }).where(and(eq2(emails.id, input.id), eq2(emails.userId, ctx.user.id)));
     return { success: true };
   }),
+  // Build a Gmail web-search deep link scoped to this client — the client's name
+  // plus every real address we know (primary + contacts + alt emails), OR'd together.
+  // Lets Markie jump straight into Gmail to dig through a client's full history
+  // (and archive/delete/label natively there). Read-only; no Gmail scope needed.
+  gmailSearchUrl: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+    const db = getDb();
+    const [c] = await db.select().from(clients).where(eq2(clients.id, input.clientId)).limit(1);
+    const contacts = await db.select().from(clientContacts).where(eq2(clientContacts.clientId, input.clientId));
+    const ces = await db.select().from(clientEmails).where(eq2(clientEmails.clientId, input.clientId));
+    const addrs = /* @__PURE__ */ new Set();
+    const note = (e) => {
+      const lc = String(e || "").toLowerCase().trim();
+      if (lc && !lc.includes("@example.com")) addrs.add(lc);
+    };
+    note(c?.email);
+    for (const x of contacts) note(x.email);
+    for (const x of ces) note(x.email);
+    const parts = [];
+    const name2 = String(c?.name || "").replace(/"/g, "").trim();
+    if (name2) parts.push(`"${name2}"`);
+    for (const a of addrs) {
+      parts.push(`from:${a}`);
+      parts.push(`to:${a}`);
+    }
+    const query = parts.join(" OR ") || (name2 ? `"${name2}"` : "");
+    const url2 = `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(query)}`;
+    return { url: url2, query, addressCount: addrs.size };
+  }),
   // Toggle star
   toggleStar: authedQuery.input(external_exports.object({ id: external_exports.number(), isStarred: external_exports.boolean() })).mutation(async ({ ctx, input }) => {
     const db = getDb();
@@ -94233,7 +94261,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-27.251";
+var BUILD_TAG = "2026-06-28.252";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

@@ -1442,16 +1442,26 @@ export function ClientEmailsCard({ clientId }: { clientId: number }) {
     onSuccess: (r: any) => { utils.task.list.invalidate(); alert(r.task ? `✓ Task added: ${r.task}${r.due ? ` (due ${r.due})` : ""}` : "Liv: no task needed for this email."); },
     onError: (e) => alert(e.message),
   });
+  const { data: gmailLink } = trpc.email.gmailSearchUrl.useQuery({ clientId });
   const fmt = (d: any) => { try { return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch { return ""; } };
 
   return (
     <Card>
-      <CardHeader className="pb-2 cursor-pointer" onClick={() => setCollapsed((c) => !c)}>
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Mail className="h-4 w-4 text-slate-500" /> Emails ({emails?.length ?? 0})
-          <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform ${collapsed ? "" : "rotate-90"}`} />
-        </CardTitle>
-        <CardDescription>This client's emails, synced from your inbox. Reply here — it sends from the account that received it.</CardDescription>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-lg flex items-center gap-2 cursor-pointer" onClick={() => setCollapsed((c) => !c)}>
+            <Mail className="h-4 w-4 text-slate-500" /> Emails ({emails?.length ?? 0})
+            <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform ${collapsed ? "" : "rotate-90"}`} />
+          </CardTitle>
+          {gmailLink?.url && (
+            <a href={gmailLink.url} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border rounded-lg text-slate-600 hover:bg-slate-50 shrink-0"
+              title="Search this client's full email history in Gmail (archive/delete/label there)">
+              <Mail className="h-3.5 w-3.5" /> Open in Gmail
+            </a>
+          )}
+        </div>
+        <CardDescription className="cursor-pointer" onClick={() => setCollapsed((c) => !c)}>This client's emails, synced from your inbox. Reply here — it sends from the account that received it. Use <b>Open in Gmail</b> to dig through the full history.</CardDescription>
       </CardHeader>
       {!collapsed && (
         <CardContent className="space-y-2">
@@ -1472,6 +1482,12 @@ export function ClientEmailsCard({ clientId }: { clientId: number }) {
                 {openId === e.id && (
                   <div className="border-t p-2.5 space-y-2">
                     <div className="text-sm whitespace-pre-wrap max-h-60 overflow-auto text-slate-700">{e.bodyPlain || (e.body || "").replace(/<[^>]*>/g, " ") || "(no content)"}</div>
+                    {e.threadId && (
+                      <a href={`https://mail.google.com/mail/u/0/#all/${e.threadId}`} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-lime-700 hover:underline">
+                        <Mail className="h-3 w-3" /> Open this thread in Gmail
+                      </a>
+                    )}
                     {!e.isSent && (
                       <div className="space-y-1.5">
                         <div className="flex gap-2 flex-wrap">

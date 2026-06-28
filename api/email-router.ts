@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, authedQuery, staffQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { emails, connectedAccounts, clientEmails, senderRules, clients } from "../db/schema";
+import { emails, connectedAccounts, clientEmails, senderRules, clients, clientContacts } from "../db/schema";
 import { eq, and, desc, inArray, isNull, ne, like } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { buildRawMessage, extractEmail, replyDraftSystem, taskSuggestSystem, polishSystem } from "./email-core";
@@ -132,6 +132,34 @@ export const emailRouter = createRouter({
         .set({ isRead: input.isRead })
         .where(and(eq(emails.id, input.id), eq(emails.userId, ctx.user.id)));
       return { success: true };
+    }),
+
+  // Build a Gmail web-search deep link scoped to this client — the client's name
+  // plus every real address we know (primary + contacts + alt emails), OR'd together.
+  // Lets Markie jump straight into Gmail to dig through a client's full history
+  // (and archive/delete/label natively there). Read-only; no Gmail scope needed.
+  gmailSearchUrl: authedQuery
+    .input(z.object({ clientId: z.number() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const [c] = await db.select().from(clients).where(eq(clients.id, input.clientId)).limit(1);
+      const contacts = await db.select().from(clientContacts).where(eq(clientContacts.clientId, input.clientId));
+      const ces = await db.select().from(clientEmails).where(eq(clientEmails.clientId, input.clientId));
+      const addrs = new Set<string>();
+      const note = (e?: string | null) => {
+        const lc = String(e || "").toLowerCase().trim();
+        if (lc && !lc.includes("@example.com")) addrs.add(lc);
+      };
+      note((c as any)?.email);
+      for (const x of contacts as any[]) note(x.email);
+      for (const x of ces as any[]) note(x.email);
+      const parts: string[] = [];
+      const name = String((c as any)?.name || "").replace(/"/g, "").trim();
+      if (name) parts.push(`"${name}"`);
+      for (const a of addrs) { parts.push(`from:${a}`); parts.push(`to:${a}`); }
+      const query = parts.join(" OR ") || (name ? `"${name}"` : "");
+      const url = `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(query)}`;
+      return { url, query, addressCount: addrs.size };
     }),
 
   // Toggle star
