@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-28.265";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-28.266";  // bump each deploy so prod vs source is unambiguous
 
 // CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
 // secret into a hosting dashboard very often drags a trailing space or newline,
@@ -293,6 +293,25 @@ app.get("/api/qbo/debug", async (c) => {
     connections,
     note: "hasClientId/Secret/TokenKey must all be true and redirectUri must be registered in the Intuit app before connecting. connections lists realms already linked.",
   });
+});
+
+// On-demand relink: bind any active QBO realm that has clientId=null to its CRM client
+// by name (isolation-safe). Runs on boot too; this lets Markie fix it now without a
+// redeploy and SEE exactly what bound / what stayed ambiguous or unmatched.
+//   GET /api/qbo/relink
+app.get("/api/qbo/relink", async (c) => {
+  try {
+    const { relinkUnmappedConnections } = await import("./qbo-relink");
+    const result = await relinkUnmappedConnections();
+    return c.json({
+      build: BUILD_TAG,
+      linkedCount: result.linked.length,
+      ...result,
+      note: "linked = newly bound to a CRM client. ambiguous = matched >1 client (left unlinked, isolation guard). unmatched = no CRM client for that realm (e.g. a company not in the CRM).",
+    });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 200);
+  }
 });
 
 // READ-ONLY preview of the Drive timesheet import for a client — finds the newest
@@ -2313,6 +2332,10 @@ async function startServer() {
   await ensureBridgeReady();
   const { ensureVendorMemoryColumns } = await import("./vendor-learning");
   await ensureVendorMemoryColumns();
+  // Bind any QBO realm that was authorized without a clientId (generic Connect button)
+  // to its CRM client by name — isolation-safe, never overwrites. Zero-touch on deploy.
+  const { relinkUnmappedConnections } = await import("./qbo-relink");
+  await relinkUnmappedConnections();
   // Native OAuth: add the reconnectReason column, then keep refresh tokens alive
   // so a quiet client's rolling 100-day window never lapses.
   const { ensureOAuthColumns, keepAliveNativeConnections } = await import("./qbo-oauth");

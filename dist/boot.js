@@ -62882,6 +62882,105 @@ var init_ensure_calendar_schema = __esm({
   }
 });
 
+// api/qbo-relink-core.ts
+function significantTokens(s) {
+  return (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3 && !STOP2.has(w));
+}
+function matchConnectionToClient(companyName, clients5) {
+  const want = new Set(significantTokens(companyName));
+  if (want.size === 0) return { result: "none" };
+  const hits = clients5.filter((c2) => {
+    if (c2.status && c2.status !== "active") return false;
+    const ct = /* @__PURE__ */ new Set([...significantTokens(c2.name || ""), ...significantTokens(c2.company || "")]);
+    for (const w of want) if (ct.has(w)) return true;
+    return false;
+  });
+  if (hits.length === 0) return { result: "none" };
+  if (hits.length > 1) return { result: "ambiguous", candidates: hits.map((c2) => c2.name || c2.company || `#${c2.id}`) };
+  const c = hits[0];
+  return { result: "matched", clientId: c.id, clientName: c.name || c.company || `#${c.id}` };
+}
+var STOP2;
+var init_qbo_relink_core = __esm({
+  "api/qbo-relink-core.ts"() {
+    STOP2 = /* @__PURE__ */ new Set([
+      "inc",
+      "incorporated",
+      "ltd",
+      "limited",
+      "llc",
+      "corp",
+      "corporation",
+      "company",
+      "group",
+      "holdings",
+      "the",
+      "and",
+      "construction",
+      "painting",
+      "consulting",
+      "developments",
+      "development",
+      "enterprises",
+      "services",
+      "solutions",
+      "ontario",
+      "canada",
+      "industries",
+      "international",
+      "global",
+      "capital",
+      "ventures",
+      "co",
+      "pub",
+      "cafe",
+      "caf\xE9",
+      "health"
+    ]);
+  }
+});
+
+// api/qbo-relink.ts
+var qbo_relink_exports = {};
+__export(qbo_relink_exports, {
+  relinkUnmappedConnections: () => relinkUnmappedConnections
+});
+async function relinkUnmappedConnections() {
+  const db = getDb();
+  const out = { linked: [], ambiguous: [], unmatched: [] };
+  try {
+    const allConns = await db.select().from(qboConnections);
+    const orphans = allConns.filter((c) => c.clientId == null && c.isActive);
+    if (!orphans.length) return out;
+    const taken = new Set(allConns.filter((c) => c.clientId != null).map((c) => c.clientId));
+    const allClients = (await db.select({ id: clients.id, name: clients.name, company: clients.company, status: clients.status }).from(clients)).filter((c) => !taken.has(c.id));
+    for (const conn of orphans) {
+      const m = matchConnectionToClient(conn.companyName || "", allClients);
+      if (m.result === "matched") {
+        await db.update(qboConnections).set({ clientId: m.clientId, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(qboConnections.id, conn.id));
+        out.linked.push({ connectionId: conn.id, companyName: conn.companyName, clientId: m.clientId, clientName: m.clientName });
+        console.log(`[qbo-relink] linked connection #${conn.id} (${conn.companyName}) -> client #${m.clientId} (${m.clientName})`);
+      } else if (m.result === "ambiguous") {
+        out.ambiguous.push({ connectionId: conn.id, companyName: conn.companyName, candidates: m.candidates });
+        console.warn(`[qbo-relink] AMBIGUOUS connection #${conn.id} (${conn.companyName}) -> ${m.candidates.join(", ")} \u2014 left unlinked`);
+      } else {
+        out.unmatched.push({ connectionId: conn.id, companyName: conn.companyName });
+      }
+    }
+  } catch (e) {
+    console.error("[qbo-relink] sweep failed (non-fatal):", e instanceof Error ? e.message : e);
+  }
+  return out;
+}
+var init_qbo_relink = __esm({
+  "api/qbo-relink.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_qbo_relink_core();
+  }
+});
+
 // api/seed-collingwood-run-hours.ts
 var seed_collingwood_run_hours_exports = {};
 __export(seed_collingwood_run_hours_exports, {
@@ -77574,7 +77673,7 @@ var googleTasksRouter = createRouter({
   ).mutation(async ({ ctx, input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
     const { tasks: tasks6 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq4, and: and9, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+    const { eq: eq4, and: and10, isNull: isNull4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
     const db = getDb2();
     const token2 = await getGoogleToken(ctx.user.id, ctx.db);
     if (!token2) {
@@ -77583,7 +77682,7 @@ var googleTasksRouter = createRouter({
         message: "No Google account connected. Connect Google in Integrations."
       });
     }
-    const where = input.clientId ? and9(eq4(tasks6.userId, ctx.user.id), eq4(tasks6.clientId, input.clientId)) : and9(eq4(tasks6.userId, ctx.user.id), isNull3(tasks6.completedAt));
+    const where = input.clientId ? and10(eq4(tasks6.userId, ctx.user.id), eq4(tasks6.clientId, input.clientId)) : and10(eq4(tasks6.userId, ctx.user.id), isNull4(tasks6.completedAt));
     const crmTasks = await db.select().from(tasks6).where(where);
     const results = [];
     for (const task of crmTasks.slice(0, 50)) {
@@ -95752,7 +95851,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.265";
+var BUILD_TAG = "2026-06-28.266";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -95994,6 +96093,20 @@ app.get("/api/qbo/debug", async (c) => {
     connections,
     note: "hasClientId/Secret/TokenKey must all be true and redirectUri must be registered in the Intuit app before connecting. connections lists realms already linked."
   });
+});
+app.get("/api/qbo/relink", async (c) => {
+  try {
+    const { relinkUnmappedConnections: relinkUnmappedConnections2 } = await Promise.resolve().then(() => (init_qbo_relink(), qbo_relink_exports));
+    const result = await relinkUnmappedConnections2();
+    return c.json({
+      build: BUILD_TAG,
+      linkedCount: result.linked.length,
+      ...result,
+      note: "linked = newly bound to a CRM client. ambiguous = matched >1 client (left unlinked, isolation guard). unmatched = no CRM client for that realm (e.g. a company not in the CRM)."
+    });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 200);
+  }
 });
 app.get("/api/payroll/drive-preview", async (c) => {
   const clientId = Number(c.req.query("clientId") || 0);
@@ -96994,7 +97107,7 @@ app.post("/api/admin/figgy", async (c) => {
     if (op === "e2e") {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients5, clientOnboarding: clientOnboarding2, signatureDocuments: signatureDocuments2, tasks: tasks6, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq4, and: and9 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4, and: and10 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const { computeQuote: computeQuote2, compareToFlatFee: compareToFlatFee2 } = await Promise.resolve().then(() => (init_quote_core(), quote_core_exports));
       const { buildScopeForClient: buildScopeForClient2, createAndSendDoc: createAndSendDoc2, nextQuoteNumber: nextQuoteNumber2, servicesForEngagement: servicesForEngagement2, clientAppsForEngagement: clientAppsForEngagement2 } = await Promise.resolve().then(() => (init_quote_router(), quote_router_exports));
       const { getFirmSettings: getFirmSettings2 } = await Promise.resolve().then(() => (init_firm_settings(), firm_settings_exports));
@@ -97107,7 +97220,7 @@ app.post("/api/admin/figgy", async (c) => {
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq4(signatureDocuments2.id, docId));
         }
-        const signedCount = (await db.select().from(signatureDocuments2).where(and9(eq4(signatureDocuments2.clientId, cl.id), eq4(signatureDocuments2.status, "signed")))).length;
+        const signedCount = (await db.select().from(signatureDocuments2).where(and10(eq4(signatureDocuments2.clientId, cl.id), eq4(signatureDocuments2.status, "signed")))).length;
         steps.push(`signed ${signedCount}/2 documents`);
         await db.update(clients5).set({ status: "active", workflowStatus: "active", engagementSignedAt: /* @__PURE__ */ new Date() }).where(eq4(clients5.id, cl.id));
         const res = await createClientTaskRules2({
@@ -97615,7 +97728,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients5, tasks: tasks6, clientTaskRules: clientTaskRules4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq4, and: and9, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4, and: and10, ne: ne4, like: like3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const matches = await db.select().from(clients5).where(like3(clients5.name, "%Doc King%"));
       for (const cl of matches) {
@@ -97623,7 +97736,7 @@ async function startServer() {
           await db.update(clients5).set({ clientType: "wholesale" }).where(eq4(clients5.id, cl.id));
         }
         await db.update(clientTaskRules4).set({ active: false }).where(eq4(clientTaskRules4.clientId, cl.id));
-        await db.delete(tasks6).where(and9(eq4(tasks6.clientId, cl.id), ne4(tasks6.status, "completed")));
+        await db.delete(tasks6).where(and10(eq4(tasks6.clientId, cl.id), ne4(tasks6.status, "completed")));
       }
     } catch (e) {
       console.error("[normalize] Doc Kings wholesale failed (non-fatal):", e instanceof Error ? e.message : e);
@@ -97631,7 +97744,7 @@ async function startServer() {
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_connection(), connection_exports));
       const { clients: clients5, employees: employees2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq4, and: and9, like: like3, isNull: isNull3 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
+      const { eq: eq4, and: and10, like: like3, isNull: isNull4 } = await Promise.resolve().then(() => (init_drizzle_orm(), drizzle_orm_exports));
       const db = getDb2();
       const setFlags = async (nameLike, flags) => {
         const matches = await db.select().from(clients5).where(like3(clients5.name, nameLike));
@@ -97682,7 +97795,7 @@ async function startServer() {
       };
       for (const cl of orig) {
         for (const [last, ytd] of Object.entries(origYtd)) {
-          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and9(eq4(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull3(employees2.ytdGrossOpening)));
+          await db.update(employees2).set({ ytdGrossOpening: ytd }).where(and10(eq4(employees2.clientId, cl.id), like3(employees2.lastName, last), isNull4(employees2.ytdGrossOpening)));
         }
       }
     } catch (e) {
@@ -97980,6 +98093,8 @@ async function startServer() {
   await ensureBridgeReady2();
   const { ensureVendorMemoryColumns: ensureVendorMemoryColumns2 } = await Promise.resolve().then(() => (init_vendor_learning(), vendor_learning_exports));
   await ensureVendorMemoryColumns2();
+  const { relinkUnmappedConnections: relinkUnmappedConnections2 } = await Promise.resolve().then(() => (init_qbo_relink(), qbo_relink_exports));
+  await relinkUnmappedConnections2();
   const { ensureOAuthColumns: ensureOAuthColumns2, keepAliveNativeConnections: keepAliveNativeConnections2 } = await Promise.resolve().then(() => (init_qbo_oauth(), qbo_oauth_exports));
   await ensureOAuthColumns2();
   const { relinkFindings: relinkFindings2 } = await Promise.resolve().then(() => (init_relink_findings(), relink_findings_exports));
