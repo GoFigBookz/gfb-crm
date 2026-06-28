@@ -62882,6 +62882,92 @@ var init_ensure_calendar_schema = __esm({
   }
 });
 
+// api/seed-us-firm.ts
+var seed_us_firm_exports = {};
+__export(seed_us_firm_exports, {
+  ensureUsFirmStructure: () => ensureUsFirmStructure
+});
+async function ensureUsFirmStructure() {
+  const db = getDb();
+  const out = { firmClientId: null, firmCreated: false, reclassified: [], notes: [] };
+  try {
+    const cs = await db.select().from(clients);
+    const usFirm = cs.find((c) => /g[o0]\s*fig|gofig|fig\s*b[o0]{1,2}kz|figbook/i.test(c.name || "") && /\b(usa|u\.s\.a?|united states)\b/i.test(`${c.name || ""} ${c.company || ""}`));
+    let firmId = usFirm?.id ?? null;
+    if (!firmId) {
+      const userId = cs[0]?.userId ?? 1;
+      const inserted = await db.insert(clients).values({
+        userId,
+        name: US_FIRM_NAME,
+        company: US_FIRM_NAME,
+        status: "active",
+        clientType: "monthly",
+        country: "US",
+        qboAccountType: "us_clients",
+        groupName: US_FIRM_GROUP,
+        hasHST: false,
+        isFirm: false
+      }).returning();
+      firmId = inserted[0]?.id ?? null;
+      out.firmCreated = true;
+      out.notes.push(`Created "${US_FIRM_NAME}" client (id ${firmId}).`);
+      console.log(`[us-firm] created "${US_FIRM_NAME}" client id ${firmId}`);
+    } else {
+      await db.update(clients).set({ country: "US", qboAccountType: "us_clients", groupName: US_FIRM_GROUP, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, firmId));
+    }
+    out.firmClientId = firmId;
+    const usClientTargets = [
+      { re: /drywall/i, label: "Universal Drywall" },
+      { re: /unimax/i, label: "Unimax" }
+    ];
+    for (const t2 of usClientTargets) {
+      const hits = cs.filter((c2) => t2.re.test(`${c2.name || ""} ${c2.company || ""}`) && c2.id !== firmId);
+      if (hits.length === 0) {
+        out.notes.push(`No CRM client matched ${t2.label} \u2014 skipped.`);
+        continue;
+      }
+      if (hits.length > 1) {
+        out.notes.push(`Ambiguous: ${t2.label} matched ${hits.length} clients \u2014 left as-is.`);
+        continue;
+      }
+      const c = hits[0];
+      await db.update(clients).set({ country: "US", qboAccountType: "us_clients", groupName: US_FIRM_GROUP, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, c.id));
+      out.reclassified.push({ id: c.id, name: c.name });
+      console.log(`[us-firm] reclassified ${c.name} (id ${c.id}) -> US / us_clients / group "${US_FIRM_GROUP}"`);
+    }
+    try {
+      const usRealms = [
+        US_FIRM_REALM,
+        "9130357660929466"
+        /* Unimax Construction Group LLC */
+      ];
+      for (const realm of usRealms) {
+        const conn = (await db.select().from(qboConnections).where(eq2(qboConnections.realmId, realm)).limit(1))[0];
+        if (conn && conn.accountType !== "us_clients") {
+          await db.update(qboConnections).set({ accountType: "us_clients", updatedAt: /* @__PURE__ */ new Date() }).where(eq2(qboConnections.id, conn.id));
+        }
+      }
+    } catch (e) {
+      out.notes.push(`connection accountType tag skipped: ${e instanceof Error ? e.message : e}`);
+    }
+  } catch (e) {
+    console.error("[us-firm] ensureUsFirmStructure failed (non-fatal):", e instanceof Error ? e.message : e);
+    out.notes.push(`error: ${e instanceof Error ? e.message : e}`);
+  }
+  return out;
+}
+var US_FIRM_NAME, US_FIRM_GROUP, US_FIRM_REALM;
+var init_seed_us_firm = __esm({
+  "api/seed-us-firm.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    US_FIRM_NAME = "Go Fig Bookz USA";
+    US_FIRM_GROUP = "Go Fig Bookz USA";
+    US_FIRM_REALM = "123145947533149";
+  }
+});
+
 // api/qbo-relink-core.ts
 function significantTokens(s) {
   return (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3 && !STOP2.has(w));
@@ -95863,7 +95949,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.267";
+var BUILD_TAG = "2026-06-28.268";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -96108,10 +96194,13 @@ app.get("/api/qbo/debug", async (c) => {
 });
 app.get("/api/qbo/relink", async (c) => {
   try {
+    const { ensureUsFirmStructure: ensureUsFirmStructure2 } = await Promise.resolve().then(() => (init_seed_us_firm(), seed_us_firm_exports));
+    const usFirm = await ensureUsFirmStructure2();
     const { relinkUnmappedConnections: relinkUnmappedConnections2 } = await Promise.resolve().then(() => (init_qbo_relink(), qbo_relink_exports));
     const result = await relinkUnmappedConnections2();
     return c.json({
       build: BUILD_TAG,
+      usFirm,
       linkedCount: result.linked.length,
       ...result,
       note: "linked = newly bound to a CRM client. ambiguous = matched >1 client (left unlinked, isolation guard). unmatched = no CRM client for that realm (e.g. a company not in the CRM)."
@@ -98105,6 +98194,8 @@ async function startServer() {
   await ensureBridgeReady2();
   const { ensureVendorMemoryColumns: ensureVendorMemoryColumns2 } = await Promise.resolve().then(() => (init_vendor_learning(), vendor_learning_exports));
   await ensureVendorMemoryColumns2();
+  const { ensureUsFirmStructure: ensureUsFirmStructure2 } = await Promise.resolve().then(() => (init_seed_us_firm(), seed_us_firm_exports));
+  await ensureUsFirmStructure2();
   const { relinkUnmappedConnections: relinkUnmappedConnections2 } = await Promise.resolve().then(() => (init_qbo_relink(), qbo_relink_exports));
   await relinkUnmappedConnections2();
   const { ensureOAuthColumns: ensureOAuthColumns2, keepAliveNativeConnections: keepAliveNativeConnections2 } = await Promise.resolve().then(() => (init_qbo_oauth(), qbo_oauth_exports));

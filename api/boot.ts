@@ -64,7 +64,7 @@ const BOOT_TIME = new Date().toISOString();
 // Last Google OAuth callback outcome (no secrets) so we can diagnose a failed
 // connect from /api/oauth/google/debug instead of guessing.
 let lastGoogleOAuth: { ok: boolean; at: string; email?: string; userId?: number; error?: string } | null = null;
-const BUILD_TAG = "2026-06-28.267";  // bump each deploy so prod vs source is unambiguous
+const BUILD_TAG = "2026-06-28.268";  // bump each deploy so prod vs source is unambiguous
 
 // CREDENTIAL HYGIENE: trim OAuth client id/secret env vars at startup. Pasting a
 // secret into a hosting dashboard very often drags a trailing space or newline,
@@ -301,10 +301,13 @@ app.get("/api/qbo/debug", async (c) => {
 //   GET /api/qbo/relink
 app.get("/api/qbo/relink", async (c) => {
   try {
+    const { ensureUsFirmStructure } = await import("./seed-us-firm");
+    const usFirm = await ensureUsFirmStructure();
     const { relinkUnmappedConnections } = await import("./qbo-relink");
     const result = await relinkUnmappedConnections();
     return c.json({
       build: BUILD_TAG,
+      usFirm,
       linkedCount: result.linked.length,
       ...result,
       note: "linked = newly bound to a CRM client. ambiguous = matched >1 client (left unlinked, isolation guard). unmatched = no CRM client for that realm (e.g. a company not in the CRM).",
@@ -2332,6 +2335,10 @@ async function startServer() {
   await ensureBridgeReady();
   const { ensureVendorMemoryColumns } = await import("./vendor-learning");
   await ensureVendorMemoryColumns();
+  // Ensure the US firm structure (Go Fig Bookz USA + its US clients) exists BEFORE the
+  // relink, so the orphaned "Go Fig Bookz USA" realm has a client to bind to.
+  const { ensureUsFirmStructure } = await import("./seed-us-firm");
+  await ensureUsFirmStructure();
   // Bind any QBO realm that was authorized without a clientId (generic Connect button)
   // to its CRM client by name — isolation-safe, never overwrites. Zero-touch on deploy.
   const { relinkUnmappedConnections } = await import("./qbo-relink");
