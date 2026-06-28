@@ -19,7 +19,7 @@ const feeOf = (c: any) => Number(c.monthlyFee) || Number(c.estimatedMonthlyValue
 
 export const practiceHealthRouter = createRouter({
   summary: staffQuery
-    .input(z.object({ year: z.number().optional() }).optional())
+    .input(z.object({ year: z.number().optional(), firmId: z.number().optional() }).optional())
     .query(async ({ input }) => {
       const db = getDb();
       const year = input?.year ?? new Date().getFullYear();
@@ -34,9 +34,21 @@ export const practiceHealthRouter = createRouter({
       ]);
 
       const all = cs as any[];
-      const firm = all.find((c) => c.isFirm) || null;
-      // The book = every real client except our own firm row.
-      const book = all.filter((c) => !c.isFirm);
+      // The firm can be MORE THAN ONE entity — Go Fig Bookz (Canada) and Go Fig Bookz
+      // USA are separate firms with their own income, issues and taxes. Each anchors its
+      // own Practice Health view; the caller picks which via firmId (default: the
+      // Canadian firm, i.e. the non-US one).
+      const firms = all.filter((c) => c.isFirm);
+      const firm = (input?.firmId ? firms.find((c) => c.id === input.firmId) : null)
+        || firms.find((c) => (c.country || "CA") !== "US")
+        || firms[0]
+        || null;
+      // The book = every real client except ANY firm row, SCOPED to the selected firm's
+      // country so each firm's Practice Health shows only its own clients/income (the
+      // Canadian firm books CA clients; Go Fig Bookz USA books US clients). With one firm
+      // this is a no-op (everything is its country).
+      const firmIsUS = (firm?.country || "CA") === "US";
+      const book = all.filter((c) => !c.isFirm && ((c.country || "CA") === "US") === firmIsUS);
       const active = book.filter((c) => c.status === "active");
 
       // ---- Client roster ----
@@ -135,7 +147,9 @@ export const practiceHealthRouter = createRouter({
 
       return {
         year,
-        firm: firm ? { id: firm.id, name: firm.name, qboConnected: !!firm.qboConnectionId } : null,
+        firm: firm ? { id: firm.id, name: firm.name, country: firm.country || "CA", qboConnected: !!firm.qboConnectionId } : null,
+        // All firm entities, so the UI can switch between Go Fig Bookz (CA) and Go Fig Bookz USA.
+        firms: firms.map((f) => ({ id: f.id, name: f.name, country: f.country || "CA" })),
         roster,
         revenue,
         payrollProcessed,

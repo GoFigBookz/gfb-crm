@@ -26,7 +26,12 @@ export async function seedFirmClient(): Promise<{ firmId: number | null; created
   const db = getDb();
   try {
     const cs = (await db.select().from(clients)) as any[];
+    // This seeds the CANADIAN firm specifically. Go Fig Bookz USA is a SEPARATE firm
+    // (its own income/taxes), flagged by ensureUsFirmStructure — so we never touch a
+    // US-country firm here. Match go-fig names that are NOT the US entity.
+    const isUS = (c: any) => (c.country || "CA") === "US" || /\b(usa|u\.s\.a?|united states)\b/i.test(`${c.name || ""} ${c.company || ""}`);
     const matches = cs.filter((c) => {
+      if (isUS(c)) return false;
       const email = (c.email || "").toLowerCase();
       const name = c.name || "";
       return email === FIRM_EMAIL || NAME_RE.test(name);
@@ -36,9 +41,10 @@ export async function seedFirmClient(): Promise<{ firmId: number | null; created
     let firm = matches.find((c) => c.isFirm) || matches[0] || null;
 
     if (firm) {
-      // Make sure exactly this one carries the flag.
+      // Make sure exactly ONE CANADIAN firm carries the flag — but NEVER clear a US firm
+      // (it's its own entity, managed elsewhere).
       for (const c of cs) {
-        if (c.isFirm && c.id !== firm.id) {
+        if (c.isFirm && c.id !== firm.id && !isUS(c)) {
           await db.update(clients).set({ isFirm: false, updatedAt: new Date() } as any).where(eq(clients.id, c.id));
         }
       }
