@@ -52,6 +52,8 @@ export type OnboardingData = {
   // Inter-company journals: related entities whose bill-back balances must be
   // reconciled + settled every month (drives a monthly interco recon task).
   hasIntercoJournals?: boolean | null;
+  // CRA Represent-a-Client access already set up → suppress the one-time CRA RAC setup task.
+  craRacDone?: boolean | null;
 };
 
 export type TaskRuleConfig = {
@@ -531,15 +533,16 @@ export async function ensureSetupTasks(opts: {
   clientId: number; userId: number; assignedTo?: string | null;
   hasPayroll?: boolean | null; hasWsib?: boolean | null; usesHubdoc?: boolean | null;
   monthsBehind?: number | null; wsibNumberMissing?: boolean | null; craNumberMissing?: boolean | null;
+  craRacDone?: boolean | null;   // intake flag: CRA Represent-a-Client access already set up → skip that task
 }): Promise<number> {
   const db = getDb();
   const dueDate = new Date(Date.now() + 14 * 86_400_000); // ~2 weeks to get access set up
-  const items: Array<{ title: string; description: string }> = [
-    {
-      title: "Get CRA Represent a Client (RAC) access",
-      description: "Request and confirm Represent a Client authorization with CRA so we can manage this client's CRA accounts (RC59 / online authorization request). Required before we can file or view CRA data.",
-    },
-  ];
+  const items: Array<{ title: string; description: string }> = [];
+  // CRA Represent-a-Client setup task ONLY when the intake hasn't marked it done.
+  if (!opts.craRacDone) items.push({
+    title: "Get CRA Represent a Client (RAC) access",
+    description: "Request and confirm Represent a Client authorization with CRA so we can manage this client's CRA accounts (RC59 / online authorization request). Required before we can file or view CRA data.",
+  });
   if (opts.craNumberMissing) items.push({
     title: "Request CRA Business Number from client",
     description: "We don't have this client's CRA Business Number (BN) on file. Request it from the client and add it to the client card.",
@@ -596,11 +599,31 @@ export async function backfillSetupTasks(): Promise<{ clients: number; created: 
         clientId: c.id, userId: c.userId ?? 1, assignedTo: c.assignedTo ?? null,
         hasPayroll: Boolean(c.hasPayroll), hasWsib: Boolean(c.hasWSIB),
         wsibNumberMissing: Boolean(c.hasWSIB) && !c.wsibAccountNumber,
-        craNumberMissing: !c.taxId,
+        craNumberMissing: !c.taxId, craRacDone: Boolean(c.craRacDone),
       });
     } catch { /* best effort per client */ }
   }
   return { clients: all.length, created };
+}
+
+/** Idempotent prune: remove the open "Get CRA Represent a Client (RAC) access"
+ *  setup task for any client whose intake has marked CRA RAC done. Safe to run
+ *  every boot (a no-op once clean). Clears the stale task without the client
+ *  having to re-save their intake. Completed tasks are left as history. */
+export async function pruneCraRacTasksForDone(): Promise<{ removed: number }> {
+  const db = getDb();
+  const done = await db.select().from(clients).where(eq(clients.craRacDone, true));
+  let removed = 0;
+  for (const c of done as any[]) {
+    const del = await db.delete(tasks).where(and(
+      eq(tasks.clientId, c.id),
+      eq(tasks.title, "Get CRA Represent a Client (RAC) access"),
+      ne(tasks.status, "completed"),
+    )).returning();
+    removed += del?.length || 0;
+  }
+  if (removed) console.log(`[setup-tasks] pruned ${removed} stale CRA RAC task(s) for clients marked done`);
+  return { removed };
 }
 
 /** The PD7A remittance rule config for a given CRA remitter type. */
@@ -723,6 +746,7 @@ export async function createClientTaskRules(data: OnboardingData) {
     hasWsib: Boolean(data.wsibRequired),
     usesHubdoc: Boolean(data.usesHubdoc),
     monthsBehind: data.monthsBehind ?? 0,
+    craRacDone: Boolean(data.craRacDone),
   });
 
   return { rules: createdRules, tasks: createdTasks, setupTasks: setupCreated };
@@ -796,6 +820,7 @@ async function clientToOnboardingData(
     monthlySalesReceipt: !!c.monthlySalesReceipt,
     salesReceiptSource: c.salesReceiptSource ?? null,
     hasIntercoJournals: !!c.hasIntercoJournals,
+    craRacDone: !!c.craRacDone,
   };
   return { c, data };
 }
@@ -803,7 +828,9 @@ async function clientToOnboardingData(
 /** The setup-task titles that SHOULD exist for an operational client, given its
  *  flags (mirrors ensureSetupTasks). Used to deactivate ones no longer applicable. */
 function desiredSetupTitles(c: any, data: OnboardingData): Set<string> {
-  const s = new Set<string>(["Get CRA Represent a Client (RAC) access"]);
+  const s = new Set<string>();
+  // CRA RAC access task only stays while the intake hasn't marked it done.
+  if (!c.craRacDone) s.add("Get CRA Represent a Client (RAC) access");
   if (!c.taxId) s.add("Request CRA Business Number from client");
   if (data.hasEmployees) s.add("Set up Service Canada (ROE Web) access");
   if (data.wsibRequired) s.add("Set up WSIB account & access");
@@ -889,6 +916,7 @@ export async function reconcileClientFromIntake(
       hasPayroll: !!data.hasEmployees, hasWsib: !!data.wsibRequired,
       wsibNumberMissing: !!data.wsibRequired && !c.wsibAccountNumber,
       craNumberMissing: !c.taxId, usesHubdoc: !!data.usesHubdoc, monthsBehind: data.monthsBehind,
+      craRacDone: !!c.craRacDone,
     });
     const desiredSetup = desiredSetupTitles(c, data);
     const activeSetup = await db.select().from(tasks)

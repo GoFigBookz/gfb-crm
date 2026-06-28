@@ -37994,6 +37994,7 @@ __export(task_generator_exports, {
   generateTaskFromRule: () => generateTaskFromRule,
   getClientTaskRules: () => getClientTaskRules,
   parseFiscalYearEnd: () => parseFiscalYearEnd,
+  pruneCraRacTasksForDone: () => pruneCraRacTasksForDone,
   reconcileClientFromIntake: () => reconcileClientFromIntake,
   setRuleActive: () => setRuleActive
 });
@@ -38408,12 +38409,11 @@ function generateTaskFromRule(rule, instanceNumber = 1) {
 async function ensureSetupTasks(opts) {
   const db = getDb();
   const dueDate = new Date(Date.now() + 14 * 864e5);
-  const items = [
-    {
-      title: "Get CRA Represent a Client (RAC) access",
-      description: "Request and confirm Represent a Client authorization with CRA so we can manage this client's CRA accounts (RC59 / online authorization request). Required before we can file or view CRA data."
-    }
-  ];
+  const items = [];
+  if (!opts.craRacDone) items.push({
+    title: "Get CRA Represent a Client (RAC) access",
+    description: "Request and confirm Represent a Client authorization with CRA so we can manage this client's CRA accounts (RC59 / online authorization request). Required before we can file or view CRA data."
+  });
   if (opts.craNumberMissing) items.push({
     title: "Request CRA Business Number from client",
     description: "We don't have this client's CRA Business Number (BN) on file. Request it from the client and add it to the client card."
@@ -38474,12 +38474,28 @@ async function backfillSetupTasks() {
         hasPayroll: Boolean(c.hasPayroll),
         hasWsib: Boolean(c.hasWSIB),
         wsibNumberMissing: Boolean(c.hasWSIB) && !c.wsibAccountNumber,
-        craNumberMissing: !c.taxId
+        craNumberMissing: !c.taxId,
+        craRacDone: Boolean(c.craRacDone)
       });
     } catch {
     }
   }
   return { clients: all.length, created };
+}
+async function pruneCraRacTasksForDone() {
+  const db = getDb();
+  const done = await db.select().from(clients).where(eq2(clients.craRacDone, true));
+  let removed = 0;
+  for (const c of done) {
+    const del = await db.delete(tasks).where(and(
+      eq2(tasks.clientId, c.id),
+      eq2(tasks.title, "Get CRA Represent a Client (RAC) access"),
+      ne(tasks.status, "completed")
+    )).returning();
+    removed += del?.length || 0;
+  }
+  if (removed) console.log(`[setup-tasks] pruned ${removed} stale CRA RAC task(s) for clients marked done`);
+  return { removed };
 }
 function payrollRemitConfig(remitter) {
   if (remitter === "quarterly") return {
@@ -38607,7 +38623,8 @@ async function createClientTaskRules(data) {
     hasPayroll: Boolean(data.payrollFrequency && data.payrollFrequency !== "none") || Boolean(data.hasEmployees),
     hasWsib: Boolean(data.wsibRequired),
     usesHubdoc: Boolean(data.usesHubdoc),
-    monthsBehind: data.monthsBehind ?? 0
+    monthsBehind: data.monthsBehind ?? 0,
+    craRacDone: Boolean(data.craRacDone)
   });
   return { rules: createdRules, tasks: createdTasks, setupTasks: setupCreated };
 }
@@ -38652,12 +38669,14 @@ async function clientToOnboardingData(clientId, opts = {}) {
     billPayResponsibility: onb.billPayResponsibility ?? null,
     monthlySalesReceipt: !!c.monthlySalesReceipt,
     salesReceiptSource: c.salesReceiptSource ?? null,
-    hasIntercoJournals: !!c.hasIntercoJournals
+    hasIntercoJournals: !!c.hasIntercoJournals,
+    craRacDone: !!c.craRacDone
   };
   return { c, data };
 }
 function desiredSetupTitles(c, data) {
-  const s = /* @__PURE__ */ new Set(["Get CRA Represent a Client (RAC) access"]);
+  const s = /* @__PURE__ */ new Set();
+  if (!c.craRacDone) s.add("Get CRA Represent a Client (RAC) access");
   if (!c.taxId) s.add("Request CRA Business Number from client");
   if (data.hasEmployees) s.add("Set up Service Canada (ROE Web) access");
   if (data.wsibRequired) s.add("Set up WSIB account & access");
@@ -38732,7 +38751,8 @@ async function reconcileClientFromIntake(clientId, opts = {}) {
       wsibNumberMissing: !!data.wsibRequired && !c.wsibAccountNumber,
       craNumberMissing: !c.taxId,
       usesHubdoc: !!data.usesHubdoc,
-      monthsBehind: data.monthsBehind
+      monthsBehind: data.monthsBehind,
+      craRacDone: !!c.craRacDone
     });
     const desiredSetup = desiredSetupTitles(c, data);
     const activeSetup = await db.select().from(tasks).where(and(eq2(tasks.clientId, clientId), eq2(tasks.category, "Setup"), ne(tasks.status, "completed")));
@@ -94261,7 +94281,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.252";
+var BUILD_TAG = "2026-06-28.253";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -96286,9 +96306,10 @@ async function startServer() {
       console.error("[seed] seedTaxRateReviewTasks failed (non-fatal):", e instanceof Error ? e.message : e);
     }
     try {
-      const { backfillSetupTasks: backfillSetupTasks2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
+      const { backfillSetupTasks: backfillSetupTasks2, pruneCraRacTasksForDone: pruneCraRacTasksForDone2 } = await Promise.resolve().then(() => (init_task_generator(), task_generator_exports));
       const s = await backfillSetupTasks2();
       console.log(`[setup-tasks] ensured for ${s.clients} clients, +${s.created} created`);
+      await pruneCraRacTasksForDone2();
     } catch (e) {
       console.error("[setup-tasks] backfill failed (non-fatal):", e instanceof Error ? e.message : e);
     }
