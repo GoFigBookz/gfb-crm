@@ -14,6 +14,7 @@ import PaymentSourceCard from "@/components/PaymentSourceCard";
 import IntercoRechargePanel from "@/components/IntercoRechargePanel";
 import VendorRulesPanel from "@/components/VendorRulesPanel";
 import StatementCodingPanel from "@/components/StatementCodingPanel";
+import { fmtMoney } from "@/lib/money";
 import {
   ClientCloseChecklist, ClientHstReviewCard, EmployeesCard, ContactsCard, GroupCard, ClientRequestsCard, ClientEmailsCard, MonthEndReconCard, ClientThreadCard,
 } from "./ClientDashboard";
@@ -74,7 +75,7 @@ export default function ClientWorkspace() {
   const isGroup = !!(client as any).groupName;
   const hasRecharge = !!(client as any).hasRecharge;
   const hasInterco = !!(client as any).hasIntercoJournals;
-  const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+  const money = (n: number) => fmtMoney(n, { country: (client as any).country, qboAccountType: (client as any).qboAccountType });
 
   // ── NEEDS ATTENTION — the first thing on the card. Only true-right-now flags. ──
   const now = Date.now();
@@ -316,7 +317,7 @@ export default function ClientWorkspace() {
           </Section>
 
           {/* FINANCIALS — live QuickBooks snapshot */}
-          <QboOverviewSection clientId={id} />
+          <QboOverviewSection clientId={id} country={(client as any).country} qboAccountType={(client as any).qboAccountType} />
 
           {/* BILLING */}
           <Section id={`${id}-billing`} title="Billing" subtitle="fee + invoicing" icon={<Receipt className="h-4 w-4 text-slate-500" />}>
@@ -349,7 +350,7 @@ export default function ClientWorkspace() {
         </>
       ) : (
         <>
-          <QboOverviewSection clientId={id} />
+          <QboOverviewSection clientId={id} country={(client as any).country} qboAccountType={(client as any).qboAccountType} />
           <Card><CardContent className="p-4 text-sm text-slate-500">The workflow (payroll, custom tools, HST, emails, tasks) activates once this client is onboarded. Tick both gates above and hit <b>Activate client</b>.</CardContent></Card>
         </>
       )}
@@ -358,10 +359,10 @@ export default function ClientWorkspace() {
 }
 
 /** Live QuickBooks high-level numbers (lazy — only fetches when the section is open). */
-function QboOverviewSection({ clientId }: { clientId: number }) {
+function QboOverviewSection({ clientId, country, qboAccountType }: { clientId: number; country?: string | null; qboAccountType?: string | null }) {
   const [open, setOpen] = useState<boolean>(() => { try { return localStorage.getItem(`ws-open:${clientId}-qbo`) !== "0"; } catch { return true; } });
   const { data, isFetching } = trpc.clientDashboard.qboOverview.useQuery({ clientId }, { enabled: open && clientId > 0, staleTime: 5 * 60_000 });
-  const money = (n: number | null | undefined) => n == null ? "—" : (n).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+  const money = (n: number | null | undefined) => n == null ? "—" : fmtMoney(n, { country, qboAccountType });
   const toggle = () => setOpen((o) => { try { localStorage.setItem(`ws-open:${clientId}-qbo`, o ? "0" : "1"); } catch { /* */ } return !o; });
   return (
     <Card id={`sec-${clientId}-qbo`} className="overflow-hidden border-emerald-200 scroll-mt-20">

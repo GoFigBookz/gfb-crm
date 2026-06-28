@@ -598,7 +598,7 @@ export default function ClientDashboard() {
 
         {/* OVERVIEW TAB */}
         <TabsContent value="overview" className="space-y-4 mt-4">
-          {!wholesale && <CashPositionCard clientId={id} />}
+          {!wholesale && <CashPositionCard clientId={id} country={(client as any).country} qboAccountType={(client as any).qboAccountType} />}
           <GroupCard clientId={id} groupName={(client as any).groupName} />
           <ContactsCard clientId={id} />
           <ClientChatsCard clientId={id} />
