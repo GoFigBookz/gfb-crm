@@ -142,12 +142,24 @@ export default function ClientWorkspace() {
               <AlertTriangle className="h-4 w-4" /> Needs attention
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {alerts.map((a) => (
-                <Badge key={a.key} variant="secondary"
-                  className={cn("font-normal", a.severity === "high" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800")}>
-                  {a.label}
-                </Badge>
-              ))}
+              {alerts.map((a) => {
+                // Drill-down: each alert jumps to the section that fixes it.
+                const anchorByKey: Record<string, string> = {
+                  hst_overdue: `sec-${id}-hst`, hst_due: `sec-${id}-hst`,
+                  payroll_overdue: `sec-${id}-payroll`, payroll_due: `sec-${id}-payroll`,
+                  questions: `sec-${id}-notes`, recon_behind: `sec-${id}-close`, stale: `sec-${id}-close`,
+                  tasks: `sec-${id}-tasks`, cash_low: `sec-${id}-qbo`, qbo: `sec-${id}-qbo`,
+                };
+                const anchor = anchorByKey[a.key];
+                const cls = cn("font-normal", a.severity === "high" ? "bg-red-100 text-red-700 hover:bg-red-200" : "bg-amber-100 text-amber-800 hover:bg-amber-200");
+                return anchor ? (
+                  <a key={a.key} href={`#${anchor}`} title="Go to the relevant section">
+                    <Badge variant="secondary" className={cn(cls, "cursor-pointer")}>{a.label} ›</Badge>
+                  </a>
+                ) : (
+                  <Badge key={a.key} variant="secondary" className={cls}>{a.label}</Badge>
+                );
+              })}
             </div>
           </CardContent>
         </Card>

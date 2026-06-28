@@ -66506,9 +66506,8 @@ async function ensureLaunchpadSchema() {
 async function seedLaunchpadIdeas() {
   const db = getDb();
   try {
-    const owner = await db.all(sql`SELECT id FROM users WHERE email IN ('markie.antle@gmail.com','markie@gofig.ca') OR role = 'admin' ORDER BY (role = 'admin') DESC, id ASC LIMIT 1`);
-    const userId = owner[0]?.id;
-    if (!userId) return;
+    const owners = await db.all(sql`SELECT id FROM users WHERE email IN ('markie.antle@gmail.com','markie@gofig.ca') OR role = 'admin' ORDER BY (email IN ('markie.antle@gmail.com','markie@gofig.ca')) DESC, (role = 'admin') DESC, id ASC`);
+    if (!owners.length) return;
     const ideas = [
       {
         name: "QuickBooks Training (new revenue stream)",
@@ -66516,14 +66515,24 @@ async function seedLaunchpadIdeas() {
         notes: "Offer QuickBooks training as a paid service \u2014 onboarding new business owners, teaching staff to use QBO properly, fixing-then-teaching cleanup clients. Ties to the bookkeeping team manual + QBO manual already being built (reuse that content as the curriculum). Markie's idea 2026-06-28.",
         nextStep: "Decide format (1:1, group, recorded course) + pricing; build a curriculum from the QBO manual.",
         potentialValue: "recurring"
+      },
+      {
+        name: "Figgy as a SaaS product (kick.co model)",
+        category: "Product / venture",
+        notes: "Productize the Figgy CRM + AI bookkeeping team as a subscription other bookkeepers/firms could buy \u2014 Markie shared kick.co's pricing as a reference (kick.co/pricing). Competitive research already done (docs/FIGGY_JR_COMPETITIVE_RESEARCH). Build ONCE on consolidated rails, never per-client clones. Markie's idea 2026-06-28.",
+        nextStep: "Positioning vs Karbon/TaxDome/Client Hub + pricing tiers; assess kick.co as the billing/packaging model; scope a multi-tenant boundary.",
+        potentialValue: "high \u2014 recurring SaaS"
       }
     ];
-    for (const o of ideas) {
-      const exists2 = await db.all(sql`SELECT id FROM launchpad_opportunities WHERE userId = ${userId} AND name = ${o.name} LIMIT 1`);
-      if (exists2[0]) continue;
-      const now = Date.now();
-      await db.run(sql`INSERT INTO launchpad_opportunities (userId, name, stage, category, notes, nextStep, potentialValue, pinned, archived, createdAt, updatedAt)
+    for (const owner of owners) {
+      const userId = owner.id;
+      for (const o of ideas) {
+        const exists2 = await db.all(sql`SELECT id FROM launchpad_opportunities WHERE userId = ${userId} AND name = ${o.name} LIMIT 1`);
+        if (exists2[0]) continue;
+        const now = Date.now();
+        await db.run(sql`INSERT INTO launchpad_opportunities (userId, name, stage, category, notes, nextStep, potentialValue, pinned, archived, createdAt, updatedAt)
         VALUES (${userId}, ${o.name}, 'idea', ${o.category}, ${o.notes}, ${o.nextStep}, ${o.potentialValue}, 0, 0, ${now}, ${now})`);
+      }
     }
   } catch (e) {
     console.error("[launchpad] seed ideas failed:", e instanceof Error ? e.message : e);
@@ -95955,7 +95964,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.272";
+var BUILD_TAG = "2026-06-28.273";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
