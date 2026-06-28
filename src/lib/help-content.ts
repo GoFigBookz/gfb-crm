@@ -7,6 +7,54 @@
 export interface HelpEntry { title: string; steps: string[]; note?: string }
 
 export const HELP: Record<string, HelpEntry> = {
+  "client-thread": {
+    title: "Team notes",
+    steps: [
+      "Use this to chat with the team about THIS client — status updates, questions, reclass requests. It replaces the WhatsApp back-and-forth.",
+      "Type a note and Post. Tick ‘This is a question’ for anything that needs an answer (e.g. ‘reclass the Amazon charges to office supplies?’).",
+      "Open questions show an amber badge at the top of the card and on the client's Needs-Attention banner, so nothing gets lost.",
+      "When a question's answered, click ‘mark resolved’ on it — it turns green and drops off the open count.",
+    ],
+    note: "Staff-only and private to the team — clients never see this.",
+  },
+  "month-end-recon": {
+    title: "Month-end reconciliation",
+    steps: [
+      "This lists every account in the client's close (bank, credit card, processor) and what each is reconciled THROUGH.",
+      "Click ‘Paste status’ and paste the per-account status (one account per line, e.g. ‘RBC CAD *0488 - Reconciled up to Apr 01, 2026 (Need Apr & May statements)’).",
+      "Accounts short of the close month-end show a red ‘behind’ badge; the ‘Statements to pull first’ banner lists exactly what to download.",
+      "Pull those statements at the START of the month so the bookkeeper isn't blocked mid-close.",
+    ],
+    note: "Auto-populates from QuickBooks once it's connected. A paste replaces the current list.",
+  },
+  "crypto-books": {
+    title: "Crypto Books",
+    steps: [
+      "Paste the client's exchange/wallet report (any CSV — it detects the columns).",
+      "Review the parsed rows — it's classified each as buy/sell/send/receive and flagged mining/staking as income. Edit anything, blank CAD value = auto-priced.",
+      "Click ‘Calculate gains’ — it values each line in CAD (CoinGecko), runs the adjusted-cost-base method, and shows realized capital gains, holdings value, and mining income.",
+      "Use ‘Download CSV’ on the journal entry to post the summary into QuickBooks.",
+    ],
+    note: "Calculates only — never posts. Confirm capital-vs-business income treatment with Tess.",
+  },
+  "surplus-cash": {
+    title: "Surplus Cash",
+    steps: [
+      "Enter the client's idle cash + an assumed rate to see the projected investment income.",
+      "It shows the corporate tax angle: passive income over $50k/yr grinds the small-business deduction (the part we CAN advise on).",
+      "Click ‘Scan rates’ to pull today's GIC / high-interest-savings rates for the conversation.",
+    ],
+    note: "Information only — not investment advice. Send the actual investing decision to a licensed advisor.",
+  },
+  "contact-harvester": {
+    title: "Find contacts from Gmail",
+    steps: [
+      "On a client's Contacts, click ‘Find from Gmail’ → ‘Search Gmail’.",
+      "It scans the firm inbox for the real people on this client's threads, skips automated senders and our own addresses.",
+      "Tick the ones to keep, fix the name/role, and Save — they land in Contacts. Run it again later to dig deeper (it keys off saved domains too).",
+    ],
+    note: "Read-only on Gmail; nothing's saved until you pick and click Save.",
+  },
   "recharge-invoice": {
     title: "Recharge invoice (inter-company)",
     steps: [

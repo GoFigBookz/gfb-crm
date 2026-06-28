@@ -12,6 +12,8 @@ export interface ClientAlertInput {
   qboConnected?: boolean | null;   // false = a connected client whose QBO isn't returning data
   stalePostingsDays?: number;      // most-behind bank/CC account; > threshold = behind
   staleThresholdDays?: number;     // default 5
+  openQuestions?: number;          // unanswered team-thread questions (from the bookkeeper)
+  accountsBehind?: number;         // month-end accounts not reconciled through period-end
 }
 
 export type AlertSeverity = "high" | "medium";
@@ -50,6 +52,16 @@ export function buildClientAlerts(i: ClientAlertInput): ClientAlert[] {
   // Overdue tasks (count).
   if (i.overdueTasks && i.overdueTasks > 0) {
     out.push({ severity: i.overdueTasks >= 5 ? "high" : "medium", label: `${i.overdueTasks} task${i.overdueTasks === 1 ? "" : "s"} behind`, key: "tasks" });
+  }
+
+  // Open team-thread questions (the bookkeeper waiting on Markie).
+  if (i.openQuestions && i.openQuestions > 0) {
+    out.push({ severity: "medium", label: `${i.openQuestions} open question${i.openQuestions === 1 ? "" : "s"} from the team`, key: "questions" });
+  }
+
+  // Month-end accounts behind on reconciliation.
+  if (i.accountsBehind && i.accountsBehind > 0) {
+    out.push({ severity: "medium", label: `${i.accountsBehind} account${i.accountsBehind === 1 ? "" : "s"} behind on reconciliation`, key: "recon_behind" });
   }
 
   // High first, stable within.

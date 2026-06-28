@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { computeT5Boxes } from "../../api/dividend-core";
 import { useParams, Link, useNavigate } from "react-router";
-import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, AlertTriangle, Info, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet, Globe, Mail, FileSpreadsheet, Bot, ClipboardCheck, Loader2 } from "lucide-react";
+import { ArrowLeft, Building2, Receipt, CreditCard, Users, Briefcase, AlertCircle, AlertTriangle, Info, CheckCircle, Clock, DollarSign, TrendingUp, TrendingDown, Shield, FileText, Calendar, Package, ChevronDown, ChevronUp, ChevronRight, ExternalLink, FolderOpen, Link2, Edit, Plus, X, Timer, BarChart3, Trash2, Wallet, Globe, Mail, FileSpreadsheet, Bot, ClipboardCheck, Loader2, CheckSquare, MessageSquare } from "lucide-react";
+import HelpButton from "@/components/HelpButton";
 import { fiscalHstRange, normalizeFreq } from "../../api/hst-period";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -3053,7 +3054,7 @@ export function ContactsCard({ clientId }: { clientId: number }) {
   return (
     <Card>
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2 text-base"><Users className="h-5 w-5 text-lime-500" /> Contacts</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-base"><Users className="h-5 w-5 text-lime-500" /> Contacts <HelpButton id="contact-harvester" /></CardTitle>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => { setHarvestOpen(true); setHarvestMsg(""); setCands([]); }}><Mail className="h-3.5 w-3.5 mr-1" /> Find from Gmail</Button>
           <Button size="sm" variant="outline" onClick={startAdd}><Plus className="h-3.5 w-3.5 mr-1" /> Add contact</Button>
@@ -3170,7 +3171,7 @@ export function MonthEndReconCard({ clientId }: { clientId: number }) {
     <Card>
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <div>
-          <CardTitle className="flex items-center gap-2 text-base"><CheckSquare className="h-5 w-5 text-lime-500" /> Month-end reconciliation</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base"><CheckSquare className="h-5 w-5 text-lime-500" /> Month-end reconciliation <HelpButton id="month-end-recon" /></CardTitle>
           {roll && roll.total > 0 && (
             <CardDescription>
               {roll.current}/{roll.total} accounts current{roll.behind > 0 ? ` · ${roll.behind} behind` : ""}{roll.needingStatements > 0 ? ` · ${roll.needingStatements} waiting on statements` : ""}
@@ -3228,6 +3229,63 @@ export function MonthEndReconCard({ clientId }: { clientId: number }) {
           </div>
         </DialogContent>
       </Dialog>
+    </Card>
+  );
+}
+
+/** CLIENT TEAM THREAD — Markie ↔ the bookkeeper chat about THIS client (status,
+ *  "want me to reclass these?" questions). Replaces the WhatsApp back-and-forth. */
+export function ClientThreadCard({ clientId }: { clientId: number }) {
+  const utils = trpc.useUtils();
+  const { data } = trpc.clientThread.list.useQuery({ clientId });
+  const [body, setBody] = useState("");
+  const [isQuestion, setIsQuestion] = useState(false);
+  const inv = () => utils.clientThread.list.invalidate({ clientId });
+  const post = trpc.clientThread.post.useMutation({ onSuccess: () => { setBody(""); setIsQuestion(false); inv(); }, onError: (e) => alert(e.message) });
+  const setResolved = trpc.clientThread.setResolved.useMutation({ onSuccess: inv });
+  const remove = trpc.clientThread.remove.useMutation({ onSuccess: inv });
+  const open = data?.summary?.openQuestions || 0;
+  const when = (d: any) => { try { return new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch { return ""; } };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <MessageSquare className="h-5 w-5 text-lime-500" /> Team notes
+          {open > 0 && <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700">{open} open question{open === 1 ? "" : "s"}</Badge>}
+          <HelpButton id="client-thread" />
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+          {(!data || data.notes.length === 0) ? (
+            <p className="text-sm text-slate-400 py-1">No notes yet. Use this to chat with the team about this client — status, questions, reclass requests.</p>
+          ) : data.notes.map((n: any) => (
+            <div key={n.id} className={`rounded-lg p-2.5 text-sm ${n.isQuestion && !n.resolved ? "bg-amber-50 border border-amber-200" : "bg-slate-50"}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-slate-600">{n.authorName || "Staff"} <span className="text-slate-400 font-normal">· {when(n.createdAt)}</span></span>
+                <div className="flex items-center gap-1">
+                  {n.isQuestion && (
+                    <button className={`text-[10px] px-1.5 py-0.5 rounded ${n.resolved ? "bg-lime-100 text-lime-700" : "bg-amber-200 text-amber-800"}`}
+                      onClick={() => setResolved.mutate({ id: n.id, resolved: !n.resolved })}>
+                      {n.resolved ? "resolved ✓" : "mark resolved"}
+                    </button>
+                  )}
+                  <button className="text-slate-300 hover:text-red-500" onClick={() => { if (confirm("Delete this note?")) remove.mutate({ id: n.id }); }}><Trash2 className="h-3 w-3" /></button>
+                </div>
+              </div>
+              <p className="text-slate-700 whitespace-pre-wrap mt-0.5">{n.isQuestion ? "❓ " : ""}{n.body}</p>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-1.5 border-t pt-2">
+          <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={2} placeholder="Add a note or question for the team…" />
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-1.5 text-xs text-slate-600"><input type="checkbox" checked={isQuestion} onChange={(e) => setIsQuestion(e.target.checked)} /> This is a question (needs an answer)</label>
+            <Button size="sm" className="bg-lime-500" disabled={!body.trim() || post.isPending} onClick={() => post.mutate({ clientId, body, isQuestion })}>{post.isPending ? "Posting…" : "Post"}</Button>
+          </div>
+        </div>
+      </CardContent>
     </Card>
   );
 }

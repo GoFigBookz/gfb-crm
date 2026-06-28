@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router";
-import { ChevronDown, Building2, CheckCircle2, Lock, ListChecks, AlertTriangle, Mail, Wrench, DollarSign, Receipt, Users } from "lucide-react";
+import { ChevronDown, Building2, CheckCircle2, Lock, ListChecks, AlertTriangle, Mail, Wrench, DollarSign, Receipt, Users, MessageSquare } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import IntercoRechargePanel from "@/components/IntercoRechargePanel";
 import VendorRulesPanel from "@/components/VendorRulesPanel";
 import StatementCodingPanel from "@/components/StatementCodingPanel";
 import {
-  ClientCloseChecklist, ClientHstReviewCard, EmployeesCard, ContactsCard, GroupCard, ClientRequestsCard, ClientEmailsCard, MonthEndReconCard,
+  ClientCloseChecklist, ClientHstReviewCard, EmployeesCard, ContactsCard, GroupCard, ClientRequestsCard, ClientEmailsCard, MonthEndReconCard, ClientThreadCard,
 } from "./ClientDashboard";
 
 /**
@@ -86,9 +86,16 @@ export default function ClientWorkspace() {
         due: !!closeStatus.hst.periodLabel && !closeStatus.hst.filed && !closeStatus.hst.overdue,
         periodLabel: closeStatus.hst.periodLabel }
     : null;
-  const alerts = buildClientAlerts({ overdueTasks, hst: hstFlag });
+  const { data: threadData } = trpc.clientThread.list.useQuery({ clientId: id }, { enabled: !!id });
+  const { data: reconData } = trpc.reconTracker.list.useQuery({ clientId: id }, { enabled: !!id });
+  const alerts = buildClientAlerts({
+    overdueTasks, hst: hstFlag,
+    openQuestions: threadData?.summary?.openQuestions || 0,
+    accountsBehind: reconData?.rollup?.behind || 0,
+  });
   // Jump-links shown for an active client.
   const jump = [
+    ["Team notes", `sec-${id}-notes`, true],
     ["Payroll", `sec-${id}-payroll`, hasPayroll],
     ["Month-end", `sec-${id}-close`, true],
     ["Custom workflow", `sec-${id}-workflow`, hasRecharge || hasInterco || isGroup],
@@ -238,6 +245,11 @@ export default function ClientWorkspace() {
           Payroll → Custom workflow → HST → Emails → Tasks → Financials → Billing → Contacts → More. */}
       {active ? (
         <>
+          {/* TEAM NOTES — Markie ↔ bookkeeper chat about this client (replaces WhatsApp) */}
+          <Section id={`${id}-notes`} title="Team notes" subtitle="chat with the team about this client" icon={<MessageSquare className="h-4 w-4 text-lime-500" />} defaultOpen>
+            <ClientThreadCard clientId={id} />
+          </Section>
+
           {/* PAYROLL — always first if they have it */}
           {hasPayroll && (
             <Section id={`${id}-payroll`} title="Payroll" subtitle="employees, runs, banked hours" defaultOpen>
