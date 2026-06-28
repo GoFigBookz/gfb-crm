@@ -145,6 +145,28 @@ async function seedDemoExtras(): Promise<void> {
         F("17055551234", "Demo Bank — Lending", "Account confirmation letter", "bank_letter.pdf", "queued", "DEMO-88240"),
       ]) await demo.run(sql.raw(stmt));
     }
+
+    // YEAR-END REVIEW — one in-progress review + its checklist so the card lights up.
+    const haveYe = rowsOf(await demo.run(sql.raw("SELECT name FROM sqlite_master WHERE type='table' AND name='year_end_reviews'"))).length;
+    const seededYe = haveYe && rowsOf(await demo.run(sql.raw(`SELECT id FROM year_end_reviews WHERE clientId=${clientId} LIMIT 1`))).length;
+    if (haveYe && !seededYe) {
+      await demo.run(sql.raw(`INSERT INTO year_end_reviews (clientId, fiscalYear, fiscalYearEnd, status, accountantName, accountantEmail, notes, startedAt, createdAt, updatedAt) VALUES (${clientId}, 2025, '2025-12-31', 'in_progress', 'Jane Smith, CPA (example)', 'jane@example-cpa.ca', 'Demo: booked CCA, wrote off one stale receivable.', ${now}, ${now}, ${now})`));
+      const rev = rowsOf(await demo.run(sql.raw(`SELECT id FROM year_end_reviews WHERE clientId=${clientId} ORDER BY id DESC LIMIT 1`)));
+      const reviewId = (rev[0] as any)?.id;
+      if (reviewId) {
+        const items: Array<[string, string, string, number]> = [
+          ["recon_bank", "All bank accounts reconciled to year-end", "reconcile", 1],
+          ["recon_cc", "All credit cards reconciled to year-end", "reconcile", 1],
+          ["hst_filed", "HST filed for every period in the fiscal year", "compliance", 1],
+          ["depreciation", "Depreciation / amortization recorded", "adjustments", 0],
+          ["tb_reviewed", "Trial balance reviewed for reasonableness", "review", 0],
+          ["pkg_statements", "Year-end month statements gathered (all accounts)", "package", 0],
+        ];
+        let ord = 0;
+        for (const [key, label, phase, done] of items)
+          await demo.run(sql.raw(`INSERT INTO year_end_items (reviewId, itemKey, label, phase, done, na, sortOrder, updatedAt) VALUES (${reviewId}, '${key}', '${label.replace(/'/g, "''")}', '${phase}', ${done}, 0, ${ord++}, ${now})`));
+      }
+    }
   } catch (e) {
     console.error("[demo-db] seedDemoExtras failed (non-fatal):", e instanceof Error ? e.message : e);
   }

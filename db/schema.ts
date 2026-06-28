@@ -1856,6 +1856,40 @@ export const clientReconAccounts = sqliteTable("client_recon_accounts", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// YEAR-END REVIEW — one row per client per fiscal year. The bookkeeper's close-out
+// flow (Start review → work the checklist → Close → build the accountant Package).
+// status: in_progress | closed | packaged. Accountant = the package recipient.
+export const yearEndReviews = sqliteTable("year_end_reviews", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  fiscalYear: integer("fiscalYear").notNull(),         // e.g. 2026
+  fiscalYearEnd: text("fiscalYearEnd"),                 // yyyy-mm-dd (derived from client's FYE month)
+  status: text("status").notNull().default("in_progress"),
+  accountantName: text("accountantName"),
+  accountantEmail: text("accountantEmail"),
+  notes: text("notes"),                                 // working-paper notes for the accountant
+  startedAt: integer("startedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  closedAt: integer("closedAt", { mode: "timestamp" }),
+  packagedAt: integer("packagedAt", { mode: "timestamp" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// YEAR-END CHECKLIST ITEM — one row per step per review (seeded from the standard
+// checklist on Start; phase groups them; done/na/note track progress).
+export const yearEndItems = sqliteTable("year_end_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  reviewId: integer("reviewId").notNull(),
+  itemKey: text("itemKey").notNull(),
+  label: text("label").notNull(),
+  phase: text("phase").notNull(),
+  done: integer("done", { mode: "boolean" }).default(false),
+  na: integer("na", { mode: "boolean" }).default(false),
+  note: text("note"),
+  sortOrder: integer("sortOrder").default(0),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // OUTBOUND FAX LOG — one row per fax we send (CRA still demands faxes). Keeps an
 // auditable record of who/what/when (engineering standard: preserve auditability)
 // without storing the file bytes. Optionally linked to a client.

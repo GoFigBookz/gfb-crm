@@ -22412,9 +22412,11 @@ __export(schema_exports, {
   userSettings: () => userSettings,
   users: () => users2,
   vendorMemory: () => vendorMemory,
-  workflowLogs: () => workflowLogs
+  workflowLogs: () => workflowLogs,
+  yearEndItems: () => yearEndItems,
+  yearEndReviews: () => yearEndReviews
 });
-var users2, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, clientThreadNotes, clientReconAccounts, faxes, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, loanAccounts, loanEntries, loanShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks, lifeEntries;
+var users2, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, clientThreadNotes, clientReconAccounts, yearEndReviews, yearEndItems, faxes, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, loanAccounts, loanEntries, loanShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks, lifeEntries;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -24123,6 +24125,36 @@ var init_schema = __esm({
       // manual | qbo
       sortOrder: integer2("sortOrder").default(0),
       active: integer2("active", { mode: "boolean" }).default(true),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    yearEndReviews = sqliteTable("year_end_reviews", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      fiscalYear: integer2("fiscalYear").notNull(),
+      // e.g. 2026
+      fiscalYearEnd: text("fiscalYearEnd"),
+      // yyyy-mm-dd (derived from client's FYE month)
+      status: text("status").notNull().default("in_progress"),
+      accountantName: text("accountantName"),
+      accountantEmail: text("accountantEmail"),
+      notes: text("notes"),
+      // working-paper notes for the accountant
+      startedAt: integer2("startedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      closedAt: integer2("closedAt", { mode: "timestamp" }),
+      packagedAt: integer2("packagedAt", { mode: "timestamp" }),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    yearEndItems = sqliteTable("year_end_items", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      reviewId: integer2("reviewId").notNull(),
+      itemKey: text("itemKey").notNull(),
+      label: text("label").notNull(),
+      phase: text("phase").notNull(),
+      done: integer2("done", { mode: "boolean" }).default(false),
+      na: integer2("na", { mode: "boolean" }).default(false),
+      note: text("note"),
+      sortOrder: integer2("sortOrder").default(0),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
     faxes = sqliteTable("faxes", {
@@ -71393,6 +71425,54 @@ var init_ensure_client_thread_schema = __esm({
   }
 });
 
+// api/ensure-year-end-schema.ts
+var ensure_year_end_schema_exports = {};
+__export(ensure_year_end_schema_exports, {
+  ensureYearEndSchema: () => ensureYearEndSchema
+});
+async function ensureYearEndSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS year_end_reviews (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      clientId integer NOT NULL,
+      fiscalYear integer NOT NULL,
+      fiscalYearEnd text,
+      status text NOT NULL DEFAULT 'in_progress',
+      accountantName text,
+      accountantEmail text,
+      notes text,
+      startedAt integer,
+      closedAt integer,
+      packagedAt integer,
+      createdAt integer,
+      updatedAt integer
+    )`);
+    await db.run(sql`CREATE INDEX IF NOT EXISTS year_end_reviews_client ON year_end_reviews (clientId, fiscalYear)`);
+    await db.run(sql`CREATE TABLE IF NOT EXISTS year_end_items (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      reviewId integer NOT NULL,
+      itemKey text NOT NULL,
+      label text NOT NULL,
+      phase text NOT NULL,
+      done integer DEFAULT 0,
+      na integer DEFAULT 0,
+      note text,
+      sortOrder integer DEFAULT 0,
+      updatedAt integer
+    )`);
+    await db.run(sql`CREATE INDEX IF NOT EXISTS year_end_items_review ON year_end_items (reviewId, sortOrder)`);
+  } catch (e) {
+    console.error("[year-end] ensure schema failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_year_end_schema = __esm({
+  "api/ensure-year-end-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/ensure-loan-schema.ts
 var ensure_loan_schema_exports = {};
 __export(ensure_loan_schema_exports, {
@@ -72687,6 +72767,26 @@ async function seedDemoExtras() {
         F2("18334419644", "CRA \u2014 Authorization Services", "RC59 business authorization", "RC59_signed.pdf", "sent", "DEMO-88231"),
         F2("17055551234", "Demo Bank \u2014 Lending", "Account confirmation letter", "bank_letter.pdf", "queued", "DEMO-88240")
       ]) await demo.run(sql.raw(stmt));
+    }
+    const haveYe = rowsOf(await demo.run(sql.raw("SELECT name FROM sqlite_master WHERE type='table' AND name='year_end_reviews'"))).length;
+    const seededYe = haveYe && rowsOf(await demo.run(sql.raw(`SELECT id FROM year_end_reviews WHERE clientId=${clientId} LIMIT 1`))).length;
+    if (haveYe && !seededYe) {
+      await demo.run(sql.raw(`INSERT INTO year_end_reviews (clientId, fiscalYear, fiscalYearEnd, status, accountantName, accountantEmail, notes, startedAt, createdAt, updatedAt) VALUES (${clientId}, 2025, '2025-12-31', 'in_progress', 'Jane Smith, CPA (example)', 'jane@example-cpa.ca', 'Demo: booked CCA, wrote off one stale receivable.', ${now}, ${now}, ${now})`));
+      const rev = rowsOf(await demo.run(sql.raw(`SELECT id FROM year_end_reviews WHERE clientId=${clientId} ORDER BY id DESC LIMIT 1`)));
+      const reviewId = rev[0]?.id;
+      if (reviewId) {
+        const items = [
+          ["recon_bank", "All bank accounts reconciled to year-end", "reconcile", 1],
+          ["recon_cc", "All credit cards reconciled to year-end", "reconcile", 1],
+          ["hst_filed", "HST filed for every period in the fiscal year", "compliance", 1],
+          ["depreciation", "Depreciation / amortization recorded", "adjustments", 0],
+          ["tb_reviewed", "Trial balance reviewed for reasonableness", "review", 0],
+          ["pkg_statements", "Year-end month statements gathered (all accounts)", "package", 0]
+        ];
+        let ord = 0;
+        for (const [key12, label, phase, done] of items)
+          await demo.run(sql.raw(`INSERT INTO year_end_items (reviewId, itemKey, label, phase, done, na, sortOrder, updatedAt) VALUES (${reviewId}, '${key12}', '${label.replace(/'/g, "''")}', '${phase}', ${done}, 0, ${ord++}, ${now})`));
+      }
     }
   } catch (e) {
     console.error("[demo-db] seedDemoExtras failed (non-fatal):", e instanceof Error ? e.message : e);
@@ -93841,6 +93941,330 @@ var clientThreadRouter = createRouter({
   })
 });
 
+// api/year-end-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_schema();
+init_drizzle_orm();
+
+// api/year-end-core.ts
+var YEAR_END_CHECKLIST = [
+  // Reconcile — the books have to tie before anything else.
+  { key: "recon_bank", label: "All bank accounts reconciled to year-end", phase: "reconcile", requiredToClose: true },
+  { key: "recon_cc", label: "All credit cards reconciled to year-end", phase: "reconcile", requiredToClose: true },
+  { key: "recon_loans", label: "Loans / lines of credit reconciled to statements", phase: "reconcile" },
+  { key: "clear_undeposited", label: "Undeposited funds / clearing accounts cleared to zero", phase: "reconcile" },
+  { key: "recon_processors", label: "Payment processors (Stripe/PayPal/Square) reconciled", phase: "reconcile", optional: true },
+  // Compliance — filings for the year.
+  { key: "hst_filed", label: "HST filed for every period in the fiscal year", phase: "compliance", requiredToClose: true },
+  { key: "payroll_filed", label: "Payroll remitted + T4/T4A filed (if payroll)", phase: "compliance", optional: true },
+  { key: "wsib", label: "WSIB reconciled + reported (if applicable)", phase: "compliance", optional: true },
+  { key: "t5_dividends", label: "T5s issued for any dividends paid (if applicable)", phase: "compliance", optional: true },
+  // Adjustments — the year-end journal work.
+  { key: "depreciation", label: "Depreciation / amortization recorded", phase: "adjustments" },
+  { key: "prepaids_accruals", label: "Prepaids & accruals adjusted", phase: "adjustments" },
+  { key: "shareholder_loan", label: "Shareholder / owner loan reconciled & confirmed", phase: "adjustments" },
+  { key: "inventory", label: "Inventory counted & adjusted (if applicable)", phase: "adjustments", optional: true },
+  { key: "bad_debts", label: "Bad debts written off / reviewed", phase: "adjustments" },
+  { key: "adjusting_jes", label: "Year-end adjusting journal entries posted", phase: "adjustments" },
+  // Review — does it all make sense.
+  { key: "ar_aging", label: "A/R aging reviewed (old receivables addressed)", phase: "review" },
+  { key: "ap_aging", label: "A/P aging reviewed (old payables addressed)", phase: "review" },
+  { key: "tb_reviewed", label: "Trial balance reviewed for reasonableness", phase: "review", requiredToClose: true },
+  { key: "pl_reviewed", label: "P&L reviewed vs prior year", phase: "review" },
+  // Package — assembling the accountant bundle.
+  { key: "pkg_statements", label: "Year-end month statements gathered (all accounts)", phase: "package" },
+  { key: "pkg_recon", label: "Reconciliation reports attached", phase: "package" },
+  { key: "pkg_notes", label: "Working-paper notes written for the accountant", phase: "package" }
+];
+function fiscalYearLabel(fiscalYear, fiscalYearEnd) {
+  if (!fiscalYearEnd) return `FY${fiscalYear}`;
+  const d10 = /* @__PURE__ */ new Date(fiscalYearEnd + "T00:00:00");
+  if (isNaN(d10.getTime())) return `FY${fiscalYear}`;
+  const m = d10.toLocaleString("en-CA", { month: "short", timeZone: "UTC" });
+  return `FY${fiscalYear} (ended ${m} ${d10.getUTCDate()}, ${d10.getUTCFullYear()})`;
+}
+function fiscalYearEndDate(fiscalYear, fiscalYearEndMonth) {
+  const m = fiscalYearEndMonth && fiscalYearEndMonth >= 1 && fiscalYearEndMonth <= 12 ? fiscalYearEndMonth : 12;
+  const d10 = new Date(Date.UTC(fiscalYear, m, 0));
+  return d10.toISOString().slice(0, 10);
+}
+function summarizeYearEnd(items, defs = YEAR_END_CHECKLIST) {
+  const stateByKey = new Map(items.map((i) => [i.key, i]));
+  let done = 0, na = 0, requiredTotal = 0, requiredDone = 0;
+  const blockers = [];
+  for (const def of defs) {
+    const st = stateByKey.get(def.key);
+    if (st?.na) {
+      na++;
+      continue;
+    }
+    if (st?.done) done++;
+    if (def.requiredToClose) {
+      requiredTotal++;
+      if (st?.done || st?.na) requiredDone++;
+      else blockers.push(def.label);
+    }
+  }
+  const total = defs.length;
+  const applicable = total - na;
+  return {
+    total,
+    done,
+    na,
+    applicable,
+    completionPercent: applicable > 0 ? Math.round(done / applicable * 100) : 0,
+    requiredTotal,
+    requiredDone,
+    canClose: blockers.length === 0,
+    blockers
+  };
+}
+function buildPackageManifest(inp) {
+  const state = new Map((inp.items || []).map((i) => [i.key, i]));
+  const r = inp.reports || {};
+  const out = [];
+  const reportItem = (key12, label, have) => {
+    if (have === true) return { key: key12, label, status: "included", detail: "Pulled from QuickBooks" };
+    if (inp.qboConnected === false || have === void 0) return { key: key12, label, status: "manual", detail: "Pull from QuickBooks Reports (no live API report)" };
+    return { key: key12, label, status: "manual", detail: "QuickBooks didn't return it \u2014 pull manually from Reports" };
+  };
+  out.push(reportItem("trial_balance", "Trial Balance (year-end)", r.trialBalance));
+  out.push(reportItem("general_ledger", "General Ledger (full year)", r.generalLedger));
+  out.push(reportItem("balance_sheet", "Balance Sheet (year-end)", r.balanceSheet));
+  out.push(reportItem("profit_loss", "Profit & Loss (full year)", r.profitAndLoss));
+  const stmtDone = state.get("pkg_statements")?.done;
+  if (inp.recon && inp.recon.totalAccounts > 0) {
+    const allRec = inp.recon.behind === 0;
+    out.push({
+      key: "statements",
+      label: "Year-end month statements (all accounts)",
+      status: stmtDone ? "included" : allRec ? "manual" : "missing",
+      detail: stmtDone ? "Marked gathered" : `${inp.recon.reconciledThrough}/${inp.recon.totalAccounts} accounts reconciled through year-end${inp.recon.behind ? ` \u2014 ${inp.recon.behind} behind` : ""}`
+    });
+    out.push({
+      key: "recon_reports",
+      label: "Reconciliation reports",
+      status: state.get("pkg_recon")?.done ? "included" : allRec ? "manual" : "missing",
+      detail: allRec ? "All accounts reconciled \u2014 pull the recon reports" : "Some accounts not reconciled through year-end"
+    });
+  } else {
+    out.push({ key: "statements", label: "Year-end month statements (all accounts)", status: stmtDone ? "included" : "manual", detail: stmtDone ? "Marked gathered" : "Set up the month-end recon accounts to track this" });
+    out.push({ key: "recon_reports", label: "Reconciliation reports", status: state.get("pkg_recon")?.done ? "included" : "manual", detail: "Pull from QuickBooks once reconciled" });
+  }
+  out.push({
+    key: "notes",
+    label: "Working-paper notes for the accountant",
+    status: inp.notes && inp.notes.trim() || state.get("pkg_notes")?.done ? "included" : "missing",
+    detail: inp.notes && inp.notes.trim() ? "Notes written" : "Add notes explaining anything unusual this year"
+  });
+  out.push({
+    key: "accountant",
+    label: "Accountant recipient on file",
+    status: inp.accountant && (inp.accountant.email || inp.accountant.name) ? "included" : "missing",
+    detail: inp.accountant?.name || inp.accountant?.email || "Add the accountant as the package recipient"
+  });
+  const readyCount = out.filter((i) => i.status === "included").length;
+  const ready = out.every((i) => i.status !== "missing");
+  return { items: out, readyCount, total: out.length, ready };
+}
+
+// api/year-end-router.ts
+async function reconForPeriod(clientId, periodEnd) {
+  const db = getDb();
+  const rows = await db.select().from(clientReconAccounts).where(and(eq2(clientReconAccounts.clientId, clientId), eq2(clientReconAccounts.active, true)));
+  if (!rows.length) return null;
+  const roll = summarizeRecon(rows, periodEnd);
+  const reconciledThrough = rows.filter((r) => accountStatus(r, periodEnd).current).length;
+  return { totalAccounts: roll.total, reconciledThrough, behind: roll.behind };
+}
+function itemStates(items) {
+  return items.map((i) => ({ key: i.itemKey, done: !!i.done, na: !!i.na, note: i.note }));
+}
+var yearEndRouter = createRouter({
+  /** All year-end reviews for a client (newest first). */
+  listForClient: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+    const db = getDb();
+    const rows = await db.select().from(yearEndReviews).where(eq2(yearEndReviews.clientId, input.clientId)).orderBy(desc(yearEndReviews.fiscalYear));
+    return { reviews: rows };
+  }),
+  /** Start (or fetch) the review for a client + fiscal year, seeding the standard checklist. */
+  start: authedQuery.input(external_exports.object({ clientId: external_exports.number(), fiscalYear: external_exports.number().optional() })).mutation(async ({ input }) => {
+    const db = getDb();
+    const [client] = await db.select().from(clients).where(eq2(clients.id, input.clientId));
+    const fyeMonth = client?.fiscalYearEndMonth ?? 12;
+    const now = /* @__PURE__ */ new Date();
+    let fy = input.fiscalYear;
+    if (!fy) {
+      const thisYearEnd = /* @__PURE__ */ new Date(fiscalYearEndDate(now.getUTCFullYear(), fyeMonth) + "T00:00:00Z");
+      fy = thisYearEnd.getTime() <= now.getTime() ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+    }
+    const fiscalYearEnd = fiscalYearEndDate(fy, fyeMonth);
+    const existing = await db.select().from(yearEndReviews).where(and(eq2(yearEndReviews.clientId, input.clientId), eq2(yearEndReviews.fiscalYear, fy)));
+    if (existing[0]) return { review: existing[0], created: false };
+    const [review] = await db.insert(yearEndReviews).values({
+      clientId: input.clientId,
+      fiscalYear: fy,
+      fiscalYearEnd,
+      status: "in_progress",
+      accountantName: client?.accountantName ?? null,
+      accountantEmail: client?.accountantEmail ?? null,
+      startedAt: /* @__PURE__ */ new Date(),
+      createdAt: /* @__PURE__ */ new Date(),
+      updatedAt: /* @__PURE__ */ new Date()
+    }).returning();
+    let order2 = 0;
+    for (const def of YEAR_END_CHECKLIST) {
+      await db.insert(yearEndItems).values({
+        reviewId: review.id,
+        itemKey: def.key,
+        label: def.label,
+        phase: def.phase,
+        done: false,
+        na: false,
+        sortOrder: order2++,
+        updatedAt: /* @__PURE__ */ new Date()
+      });
+    }
+    return { review, created: true };
+  }),
+  /** Full review state: review + checklist items + recon rollup + package manifest. */
+  get: authedQuery.input(external_exports.object({ reviewId: external_exports.number() })).query(async ({ input }) => {
+    const db = getDb();
+    const [review] = await db.select().from(yearEndReviews).where(eq2(yearEndReviews.id, input.reviewId));
+    if (!review) return { ok: false, error: "not_found" };
+    const items = await db.select().from(yearEndItems).where(eq2(yearEndItems.reviewId, input.reviewId)).orderBy(asc(yearEndItems.sortOrder));
+    const recon = await reconForPeriod(review.clientId, review.fiscalYearEnd || fiscalYearEndDate(review.fiscalYear));
+    const states = itemStates(items);
+    const summary = summarizeYearEnd(states);
+    const manifest = buildPackageManifest({
+      recon,
+      items: states,
+      accountant: { name: review.accountantName, email: review.accountantEmail },
+      notes: review.notes
+    });
+    return {
+      ok: true,
+      review,
+      items,
+      label: fiscalYearLabel(review.fiscalYear, review.fiscalYearEnd),
+      recon,
+      summary,
+      manifest
+    };
+  }),
+  /** Toggle / annotate one checklist item. */
+  setItem: authedQuery.input(external_exports.object({ id: external_exports.number(), done: external_exports.boolean().optional(), na: external_exports.boolean().optional(), note: external_exports.string().max(1e3).nullable().optional() })).mutation(async ({ input }) => {
+    const db = getDb();
+    const patch = { updatedAt: /* @__PURE__ */ new Date() };
+    if (input.done !== void 0) patch.done = input.done;
+    if (input.na !== void 0) patch.na = input.na;
+    if (input.note !== void 0) patch.note = input.note;
+    await db.update(yearEndItems).set(patch).where(eq2(yearEndItems.id, input.id));
+    return { ok: true };
+  }),
+  setAccountant: authedQuery.input(external_exports.object({ reviewId: external_exports.number(), accountantName: external_exports.string().max(200).nullable().optional(), accountantEmail: external_exports.string().max(200).nullable().optional() })).mutation(async ({ input }) => {
+    await getDb().update(yearEndReviews).set({
+      accountantName: input.accountantName ?? null,
+      accountantEmail: input.accountantEmail ?? null,
+      updatedAt: /* @__PURE__ */ new Date()
+    }).where(eq2(yearEndReviews.id, input.reviewId));
+    return { ok: true };
+  }),
+  updateNotes: authedQuery.input(external_exports.object({ reviewId: external_exports.number(), notes: external_exports.string().max(2e4) })).mutation(async ({ input }) => {
+    await getDb().update(yearEndReviews).set({ notes: input.notes, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(yearEndReviews.id, input.reviewId));
+    return { ok: true };
+  }),
+  /** Mark the year CLOSED — gated on every required checklist item being done/na. */
+  close: authedQuery.input(external_exports.object({ reviewId: external_exports.number() })).mutation(async ({ input }) => {
+    const db = getDb();
+    const items = await db.select().from(yearEndItems).where(eq2(yearEndItems.reviewId, input.reviewId));
+    const summary = summarizeYearEnd(itemStates(items));
+    if (!summary.canClose) return { ok: false, error: "blocked", blockers: summary.blockers };
+    await db.update(yearEndReviews).set({ status: "closed", closedAt: /* @__PURE__ */ new Date(), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(yearEndReviews.id, input.reviewId));
+    return { ok: true };
+  }),
+  /** Reopen a closed/packaged review to keep working. */
+  reopen: authedQuery.input(external_exports.object({ reviewId: external_exports.number() })).mutation(async ({ input }) => {
+    await getDb().update(yearEndReviews).set({ status: "in_progress", closedAt: null, packagedAt: null, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(yearEndReviews.id, input.reviewId));
+    return { ok: true };
+  }),
+  /**
+   * BUILD THE ACCOUNTANT PACKAGE. Pulls TB / GL / BS / P&L from QBO read-only and
+   * best-effort; whatever can't be fetched is flagged "pull manually" in the manifest
+   * (never faked). Marks the review packaged. Returns the manifest + per-report status.
+   */
+  buildPackage: authedQuery.input(external_exports.object({ reviewId: external_exports.number() })).mutation(async ({ input }) => {
+    const db = getDb();
+    const [review] = await db.select().from(yearEndReviews).where(eq2(yearEndReviews.id, input.reviewId));
+    if (!review) return { ok: false, error: "not_found" };
+    const clientId = review.clientId;
+    const fye = review.fiscalYearEnd || fiscalYearEndDate(review.fiscalYear);
+    const yearStart = (() => {
+      const d10 = /* @__PURE__ */ new Date(fye + "T00:00:00Z");
+      d10.setUTCFullYear(d10.getUTCFullYear() - 1);
+      d10.setUTCDate(d10.getUTCDate() + 1);
+      return d10.toISOString().slice(0, 10);
+    })();
+    const reports = {};
+    const reportErrors = [];
+    let qboConnected = void 0;
+    try {
+      const { getConnectionForClient: getConnectionForClient2 } = await Promise.resolve().then(() => (init_qbo_vendor_brain(), qbo_vendor_brain_exports));
+      const { qboRequest: qboRequest2 } = await Promise.resolve().then(() => (init_qbo_router(), qbo_router_exports));
+      const cr = await getConnectionForClient2(clientId);
+      if ("error" in cr) {
+        qboConnected = false;
+      } else {
+        qboConnected = true;
+        const conn = cr.conn;
+        const tryReport = async (key12, path7) => {
+          try {
+            const data = await qboRequest2(conn, path7);
+            const hasRows = data && (data.Rows || data.Header || data.Columns);
+            reports[key12] = !!hasRows;
+            if (!hasRows) reportErrors.push(`${key12}: empty`);
+          } catch (e) {
+            reports[key12] = false;
+            reportErrors.push(`${key12}: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        };
+        await tryReport("trialBalance", `/reports/TrialBalance?start_date=${yearStart}&end_date=${fye}`);
+        await tryReport("balanceSheet", `/reports/BalanceSheet?start_date=${yearStart}&end_date=${fye}`);
+        await tryReport("profitAndLoss", `/reports/ProfitAndLoss?start_date=${yearStart}&end_date=${fye}`);
+        await tryReport("generalLedger", `/reports/GeneralLedger?start_date=${yearStart}&end_date=${fye}&columns=tx_date,name,memo,account_name,debt_amt,credit_amt`);
+      }
+    } catch (e) {
+      reportErrors.push(`connection: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    const items = await db.select().from(yearEndItems).where(eq2(yearEndItems.reviewId, input.reviewId)).orderBy(asc(yearEndItems.sortOrder));
+    const recon = await reconForPeriod(clientId, fye);
+    const states = itemStates(items);
+    const manifest = buildPackageManifest({
+      reports,
+      qboConnected,
+      recon,
+      items: states,
+      accountant: { name: review.accountantName, email: review.accountantEmail },
+      notes: review.notes
+    });
+    await db.update(yearEndReviews).set({
+      status: review.status === "in_progress" ? "in_progress" : review.status,
+      // packaging doesn't force a close
+      packagedAt: /* @__PURE__ */ new Date(),
+      updatedAt: /* @__PURE__ */ new Date()
+    }).where(eq2(yearEndReviews.id, input.reviewId));
+    return { ok: true, manifest, reports, qboConnected: qboConnected ?? false, reportErrors, period: { start: yearStart, end: fye } };
+  }),
+  remove: authedQuery.input(external_exports.object({ reviewId: external_exports.number() })).mutation(async ({ input }) => {
+    const db = getDb();
+    await db.delete(yearEndItems).where(eq2(yearEndItems.reviewId, input.reviewId));
+    await db.delete(yearEndReviews).where(eq2(yearEndReviews.id, input.reviewId));
+    return { ok: true };
+  })
+});
+
 // api/genealogy-router.ts
 init_zod();
 init_middleware();
@@ -95045,6 +95469,7 @@ var appRouter = createRouter({
   surplusCash: surplusCashRouter,
   reconTracker: reconTrackerRouter,
   clientThread: clientThreadRouter,
+  yearEnd: yearEndRouter,
   loanTracker: loanTrackerRouter
 });
 
@@ -95327,7 +95752,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.264";
+var BUILD_TAG = "2026-06-28.265";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -97127,6 +97552,8 @@ async function startServer() {
     await ensureReconTrackerSchema2();
     const { ensureClientThreadSchema: ensureClientThreadSchema2 } = await Promise.resolve().then(() => (init_ensure_client_thread_schema(), ensure_client_thread_schema_exports));
     await ensureClientThreadSchema2();
+    const { ensureYearEndSchema: ensureYearEndSchema2 } = await Promise.resolve().then(() => (init_ensure_year_end_schema(), ensure_year_end_schema_exports));
+    await ensureYearEndSchema2();
     const { ensureLoanSchema: ensureLoanSchema2 } = await Promise.resolve().then(() => (init_ensure_loan_schema(), ensure_loan_schema_exports));
     await ensureLoanSchema2();
     try {
