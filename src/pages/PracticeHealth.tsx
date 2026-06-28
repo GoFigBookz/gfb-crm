@@ -12,13 +12,15 @@ const money2 = (n: number) => (n || 0).toLocaleString("en-CA", { style: "currenc
 
 export default function PracticeHealth() {
   const [activeTab, setActiveTab] = useState("overview");
-  const { data, isLoading } = trpc.practiceHealth.summary.useQuery({});
+  const [firmId, setFirmId] = useState<number | undefined>(undefined);
+  const { data, isLoading } = trpc.practiceHealth.summary.useQuery({ firmId });
 
   const roster = data?.roster;
   const revenue = data?.revenue;
   const payroll = data?.payrollProcessed;
   const billing = data?.billing;
   const firm = data?.firm;
+  const firms = data?.firms ?? [];
 
   return (
     <div className="space-y-6">
@@ -33,9 +35,24 @@ export default function PracticeHealth() {
             Owner-only view of firm performance{firm ? <> — anchored on <span className="font-medium text-slate-700">{firm.name}</span></> : null}.
           </p>
         </div>
-        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-          <Lock className="h-3 w-3 mr-1" /> Admin Only
-        </Badge>
+        <div className="flex items-center gap-2">
+          {firms.length > 1 && (
+            <div className="flex items-center gap-1 rounded-lg border border-slate-200 p-0.5">
+              {firms.map((f) => {
+                const selected = (firm?.id ?? firms[0].id) === f.id;
+                return (
+                  <button key={f.id} onClick={() => setFirmId(f.id)}
+                    className={`text-xs px-2.5 py-1 rounded-md font-medium ${selected ? "bg-lime-100 text-lime-700" : "text-slate-500 hover:text-slate-700"}`}>
+                    {f.name} <span className="opacity-60">{f.country}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+            <Lock className="h-3 w-3 mr-1" /> Admin Only
+          </Badge>
+        </div>
       </div>
 
       {!firm && !isLoading && (

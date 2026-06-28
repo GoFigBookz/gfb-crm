@@ -62906,14 +62906,14 @@ async function ensureUsFirmStructure() {
         qboAccountType: "us_clients",
         groupName: US_FIRM_GROUP,
         hasHST: false,
-        isFirm: false
+        isFirm: true
       }).returning();
       firmId = inserted[0]?.id ?? null;
       out.firmCreated = true;
       out.notes.push(`Created "${US_FIRM_NAME}" client (id ${firmId}).`);
       console.log(`[us-firm] created "${US_FIRM_NAME}" client id ${firmId}`);
     } else {
-      await db.update(clients).set({ country: "US", qboAccountType: "us_clients", groupName: US_FIRM_GROUP, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, firmId));
+      await db.update(clients).set({ country: "US", qboAccountType: "us_clients", groupName: US_FIRM_GROUP, isFirm: true, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, firmId));
     }
     out.firmClientId = firmId;
     const usClientTargets = [
@@ -65079,7 +65079,9 @@ async function seedFirmClient() {
   const db = getDb();
   try {
     const cs = await db.select().from(clients);
+    const isUS = (c) => (c.country || "CA") === "US" || /\b(usa|u\.s\.a?|united states)\b/i.test(`${c.name || ""} ${c.company || ""}`);
     const matches = cs.filter((c) => {
+      if (isUS(c)) return false;
       const email3 = (c.email || "").toLowerCase();
       const name2 = c.name || "";
       return email3 === FIRM_EMAIL || NAME_RE.test(name2);
@@ -65087,7 +65089,7 @@ async function seedFirmClient() {
     let firm = matches.find((c) => c.isFirm) || matches[0] || null;
     if (firm) {
       for (const c of cs) {
-        if (c.isFirm && c.id !== firm.id) {
+        if (c.isFirm && c.id !== firm.id && !isUS(c)) {
           await db.update(clients).set({ isFirm: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(clients.id, c.id));
         }
       }
@@ -87918,7 +87920,7 @@ var r24 = (n) => Math.round(n * 100) / 100;
 var yearOf2 = (d10) => d10 ? new Date(d10).getFullYear() : null;
 var feeOf = (c) => Number(c.monthlyFee) || Number(c.estimatedMonthlyValue) || 0;
 var practiceHealthRouter = createRouter({
-  summary: staffQuery.input(external_exports.object({ year: external_exports.number().optional() }).optional()).query(async ({ input }) => {
+  summary: staffQuery.input(external_exports.object({ year: external_exports.number().optional(), firmId: external_exports.number().optional() }).optional()).query(async ({ input }) => {
     const db = getDb();
     const year2 = input?.year ?? (/* @__PURE__ */ new Date()).getFullYear();
     const now = /* @__PURE__ */ new Date();
@@ -87930,8 +87932,10 @@ var practiceHealthRouter = createRouter({
       db.select().from(tasks)
     ]);
     const all = cs;
-    const firm = all.find((c) => c.isFirm) || null;
-    const book = all.filter((c) => !c.isFirm);
+    const firms = all.filter((c) => c.isFirm);
+    const firm = (input?.firmId ? firms.find((c) => c.id === input.firmId) : null) || firms.find((c) => (c.country || "CA") !== "US") || firms[0] || null;
+    const firmIsUS = (firm?.country || "CA") === "US";
+    const book = all.filter((c) => !c.isFirm && (c.country || "CA") === "US" === firmIsUS);
     const active = book.filter((c) => c.status === "active");
     const roster = {
       total: book.length,
@@ -88012,7 +88016,9 @@ var practiceHealthRouter = createRouter({
     }
     return {
       year: year2,
-      firm: firm ? { id: firm.id, name: firm.name, qboConnected: !!firm.qboConnectionId } : null,
+      firm: firm ? { id: firm.id, name: firm.name, country: firm.country || "CA", qboConnected: !!firm.qboConnectionId } : null,
+      // All firm entities, so the UI can switch between Go Fig Bookz (CA) and Go Fig Bookz USA.
+      firms: firms.map((f) => ({ id: f.id, name: f.name, country: f.country || "CA" })),
       roster,
       revenue,
       payrollProcessed,
@@ -95949,7 +95955,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.268";
+var BUILD_TAG = "2026-06-28.269";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

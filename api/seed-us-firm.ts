@@ -13,8 +13,10 @@
  *     under the US firm so they surface together.
  *  3. Tags the US realms' connection accountType = us_clients.
  *
- * NOT isFirm: the schema keeps exactly ONE isFirm (the Canadian Go Fig Bookz, which
- * anchors Practice Health). The US arm is a separate tracked entity, not that anchor.
+ * isFirm = true: Go Fig Bookz USA is its OWN firm (different income, issues, taxes), not
+ * a client and not part of the Canadian firm. Practice Health now supports multiple firms
+ * (one per country) and the US firm anchors its own US view. seedFirmClient manages the
+ * Canadian firm only and never clears a US firm's flag.
  * Safe: idempotent, name-matched (exactly-one), only creates the one missing entity.
  * =============================================================================
  */
@@ -48,15 +50,15 @@ export async function ensureUsFirmStructure(): Promise<UsFirmOutcome> {
       const inserted = (await db.insert(clients).values({
         userId, name: US_FIRM_NAME, company: US_FIRM_NAME, status: "active",
         clientType: "monthly", country: "US", qboAccountType: "us_clients",
-        groupName: US_FIRM_GROUP, hasHST: false, isFirm: false,
+        groupName: US_FIRM_GROUP, hasHST: false, isFirm: true,
       } as any).returning()) as any[];
       firmId = inserted[0]?.id ?? null;
       out.firmCreated = true;
       out.notes.push(`Created "${US_FIRM_NAME}" client (id ${firmId}).`);
       console.log(`[us-firm] created "${US_FIRM_NAME}" client id ${firmId}`);
     } else {
-      // Make sure it carries the US classification + group.
-      await db.update(clients).set({ country: "US", qboAccountType: "us_clients", groupName: US_FIRM_GROUP, updatedAt: new Date() } as any).where(eq(clients.id, firmId));
+      // Make sure it carries the US classification + group AND is its own firm entity.
+      await db.update(clients).set({ country: "US", qboAccountType: "us_clients", groupName: US_FIRM_GROUP, isFirm: true, updatedAt: new Date() } as any).where(eq(clients.id, firmId));
     }
     out.firmClientId = firmId;
 
