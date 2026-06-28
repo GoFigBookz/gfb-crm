@@ -76,6 +76,25 @@ export async function ensureBridgeReady(): Promise<void> {
       if (hits.length > 1) { console.error(`[bridge] AMBIGUOUS: "${b.match}" matched ${hits.length} clients (${hits.map((c: any) => c.name).join(", ")}) — refusing to bind ${b.company}`); continue; }
       const client = hits[0];
       const existing = (await db.select().from(qboConnections).where(eq(qboConnections.realmId, b.realmId)).limit(1))[0];
+      // NATIVE WINS: once a realm has native OAuth tokens (the durable rail), never run
+      // it through the read-only Make webhook proxy. The bridge is only for realms not
+      // yet on native. Without this, every deploy reverted natively-connected realms
+      // (Alderson, Universal, …) to make_bridge — the "connections keep changing" symptom.
+      // A refreshToken in the row means native OAuth happened (the bridge seed has none),
+      // so PREFER native — and SELF-HEAL a row already downgraded to make_bridge back to
+      // native. Only re-bind the clientId if it drifted.
+      if (existing && (existing as any).refreshToken) {
+        const patchNative: any = { updatedAt: new Date() };
+        if ((existing as any).transport !== "native") patchNative.transport = "native";
+        if ((existing as any).clientId !== client.id) patchNative.clientId = client.id;
+        if (Object.keys(patchNative).length > 1) {
+          await db.update(qboConnections).set(patchNative).where(eq(qboConnections.id, existing.id));
+          console.log(`[bridge] ${b.company} has native tokens — kept/restored native${patchNative.clientId ? `, re-bound clientId -> #${client.id}` : ""}`);
+        } else {
+          console.log(`[bridge] ${b.company} is natively connected — leaving native in place (no downgrade)`);
+        }
+        continue;
+      }
       const patch = {
         userId: 1, realmId: b.realmId, companyName: b.company, environment: "production" as const,
         transport: "make_bridge" as const, bridgeUrl: b.bridgeUrl,
