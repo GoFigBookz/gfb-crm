@@ -17,7 +17,7 @@ import { z } from "zod";
 import { createRouter, staffQuery } from "./middleware";
 import { qboRequest } from "./qbo-router";
 import { getConnectionForClient } from "./qbo-vendor-brain";
-import { runHstReview, type RawAccount, type RawTaxCode, type RawTxn, type RawLine } from "./hst-review-core";
+import { runHstReview, reconcileHstException, parseTaxReportNumbers, type RawAccount, type RawTaxCode, type RawTxn, type RawLine } from "./hst-review-core";
 
 const q = (conn: any, sql: string) => qboRequest(conn, `/query?query=${encodeURIComponent(sql)}`);
 const arr = (data: any, entity: string): any[] => (data?.QueryResponse?.[entity] ?? []) as any[];
@@ -149,4 +149,27 @@ export const hstReviewRouter = createRouter({
         errors,
       };
     }),
+
+  /**
+   * EXCEPTION-REPORT CROSS-CHECK (Markie's authoritative method). Pure, paste-driven —
+   * no QBO connection required. Take QuickBooks' OWN tax/exception report numbers (HST
+   * collected, ITCs, adjustments) + the GST/HST account balance at period end, and prove
+   * the net tax equals what's in the account. A gap = the exception total to clear before
+   * filing. Read-only: this never writes anything.
+   */
+  reconcileException: staffQuery
+    .input(z.object({
+      collected: z.number(),
+      itc: z.number(),
+      adjustments: z.number().optional(),
+      hstAccountBalance: z.number(),
+      priorUnfiled: z.number().optional(),
+      tolerance: z.number().optional(),
+    }))
+    .mutation(async ({ input }) => reconcileHstException(input)),
+
+  /** Parse a PASTED QBO tax/exception report → {collected, itc, netTax} so Markie doesn't retype. */
+  parseReport: staffQuery
+    .input(z.object({ text: z.string() }))
+    .mutation(async ({ input }) => parseTaxReportNumbers(input.text)),
 });

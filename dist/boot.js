@@ -94328,6 +94328,73 @@ function runHstReview(input) {
     counts: { transactions: input.txns.length, accounts: input.accounts.length }
   };
 }
+function reconcileHstException(input) {
+  const collected = money5(input.collected || 0);
+  const itc = money5(input.itc || 0);
+  const adjustments = money5(input.adjustments || 0);
+  const priorUnfiled = money5(input.priorUnfiled || 0);
+  const hstAccountBalance = money5(input.hstAccountBalance || 0);
+  const tol = input.tolerance ?? 1;
+  const netTax = money5(collected - itc + adjustments);
+  const expectedInAccount = money5(netTax + priorUnfiled);
+  const diff = money5(hstAccountBalance - expectedInAccount);
+  const tied = Math.abs(diff) <= tol;
+  return {
+    collected,
+    itc,
+    adjustments,
+    netTax,
+    hstAccountBalance,
+    priorUnfiled,
+    expectedInAccount,
+    diff,
+    tied,
+    verdict: tied ? "green" : "red",
+    message: tied ? `Tied \u2014 net tax ${money5(netTax)} equals the HST account (${money5(hstAccountBalance)}). The return matches the books.` : `Net tax ${money5(netTax)} (collected ${money5(collected)} \u2212 ITC ${money5(itc)}${adjustments ? ` ${adjustments >= 0 ? "+" : "\u2212"} adj ${money5(Math.abs(adjustments))}` : ""}) but the HST account holds ${money5(hstAccountBalance)}${priorUnfiled ? ` (incl. ${money5(priorUnfiled)} prior unfiled)` : ""} \u2014 a ${money5(Math.abs(diff))} exception. Something hit the HST account that the return doesn't explain (manual JE, opening balance, prior-period adjustment, or a miscode). Find and clear it before filing.`
+  };
+}
+function parseTaxReportNumbers(text2) {
+  const out = { collected: null, itc: null, netTax: null, matched: [] };
+  const numFrom = (s) => {
+    const m = s.match(/\(?-?\$?\s*[\d,]+(?:\.\d+)?\)?/g);
+    if (!m || !m.length) return null;
+    const last = m[m.length - 1];
+    const neg = /^\(.*\)$/.test(last) || /^-/.test(last);
+    const mag = Number(last.replace(/[()$,\s-]/g, ""));
+    return Number.isFinite(mag) ? neg ? -mag : mag : null;
+  };
+  for (const raw2 of (text2 || "").split("\n")) {
+    const line = raw2.trim();
+    if (!line) continue;
+    const low = line.toLowerCase();
+    if (out.collected == null && /(collected|line\s*105|tax on sales|gst\/hst on sales|output tax|sales tax collected)/.test(low)) {
+      const n = numFrom(line);
+      if (n != null) {
+        out.collected = Math.abs(n);
+        out.matched.push("collected");
+        continue;
+      }
+    }
+    if (out.itc == null && /(input tax credit|itc|line\s*108|tax on purchases|gst\/hst on purchases)/.test(low)) {
+      const n = numFrom(line);
+      if (n != null) {
+        out.itc = Math.abs(n);
+        out.matched.push("itc");
+        continue;
+      }
+    }
+    if (out.netTax == null && /(net tax|line\s*109|balance \(refund\)|net gst\/hst)/.test(low)) {
+      const n = numFrom(line);
+      if (n != null) {
+        out.netTax = n;
+        out.matched.push("netTax");
+      }
+    }
+  }
+  if (out.netTax != null && out.collected != null && out.itc == null) out.itc = money5(out.collected - out.netTax);
+  if (out.netTax != null && out.itc != null && out.collected == null) out.collected = money5(out.netTax + out.itc);
+  return out;
+}
 
 // api/hst-review-router.ts
 var q2 = (conn, sql5) => qboRequest(conn, `/query?query=${encodeURIComponent(sql5)}`);
@@ -94453,7 +94520,24 @@ var hstReviewRouter = createRouter({
       pulled: { accounts: accounts.length, taxCodes: taxCodes.length, transactions: txns.length },
       errors
     };
-  })
+  }),
+  /**
+   * EXCEPTION-REPORT CROSS-CHECK (Markie's authoritative method). Pure, paste-driven —
+   * no QBO connection required. Take QuickBooks' OWN tax/exception report numbers (HST
+   * collected, ITCs, adjustments) + the GST/HST account balance at period end, and prove
+   * the net tax equals what's in the account. A gap = the exception total to clear before
+   * filing. Read-only: this never writes anything.
+   */
+  reconcileException: staffQuery.input(external_exports.object({
+    collected: external_exports.number(),
+    itc: external_exports.number(),
+    adjustments: external_exports.number().optional(),
+    hstAccountBalance: external_exports.number(),
+    priorUnfiled: external_exports.number().optional(),
+    tolerance: external_exports.number().optional()
+  })).mutation(async ({ input }) => reconcileHstException(input)),
+  /** Parse a PASTED QBO tax/exception report → {collected, itc, netTax} so Markie doesn't retype. */
+  parseReport: staffQuery.input(external_exports.object({ text: external_exports.string() })).mutation(async ({ input }) => parseTaxReportNumbers(input.text))
 });
 
 // api/loan-tracker-router.ts
@@ -95243,7 +95327,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.263";
+var BUILD_TAG = "2026-06-28.264";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
