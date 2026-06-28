@@ -31,7 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { computePaycheck, CPP_EI_2026 } from "../../api/payroll-paycheck-core";
-import { annualIncomeTax } from "../../api/payroll-tax-core";
+import { compareSalaryVsDividend, PROV_CORP_RATES } from "../../api/salary-dividend-core";
 import { trpc } from "@/providers/trpc";
 import { periodsPerYear } from "../../api/payroll-core";
 
@@ -727,40 +727,21 @@ function DividendsCalculator() {
 function SalaryVsDividendCalculator() {
   const [profit, setProfit] = useState("");
   const [divType, setDivType] = useState<"noneligible" | "eligible">("noneligible");
+  const [province, setProvince] = useState("ON");
+  // Editable per-province corp/DTC rates, keyed by province so switching doesn't lose edits.
+  const [edits, setEdits] = useState<Record<string, any>>({});
 
   const P = parseFloat(profit) || 0;
-  const r = useMemo(() => {
-    // SALARY: fully deductible to the corp (corp tax $0); owner taxed as employment
-    // income (federal + Ontario + CPP/EI) via the same 2026 engine as the payroll calc.
-    const pc = computePaycheck(P, "annual");
-    const salaryPersonalTax = pc.federalTax + pc.provincialTax;
-    const salaryCppEi = pc.cpp + pc.cpp2 + pc.ei;
-    const salaryNet = pc.netPay;                       // P − tax − CPP/EI
-    const salaryTotalTax = salaryPersonalTax + salaryCppEi;
-
-    // DIVIDEND: corp pays tax first, balance paid out + taxed personally (gross-up/DTC).
-    const elig = divType === "eligible";
-    const corpRate = elig ? 0.265 : 0.122;             // ON combined: general vs small-business
-    const grossUp = elig ? 1.38 : 1.15;
-    const fedDtc = elig ? 0.150198 : 0.090301;         // of grossed-up amount
-    const onDtc = elig ? 0.10 : 0.029863;              // Ontario DTC of grossed-up amount
-    const corpTax = P * corpRate;
-    const dividend = P - corpTax;
-    const grossed = dividend * grossUp;
-    const taxOnGrossed = annualIncomeTax(grossed);     // federal + Ontario (BPA, surtax, OHP)
-    const dtc = grossed * (fedDtc + onDtc);
-    const dividendPersonalTax = Math.max(0, taxOnGrossed - dtc);
-    const dividendNet = dividend - dividendPersonalTax;
-    const dividendTotalTax = corpTax + dividendPersonalTax;
-
-    const better = salaryNet >= dividendNet ? "salary" : "dividend";
-    return {
-      salaryNet, salaryTotalTax, salaryPersonalTax, salaryCppEi,
-      corpTax, dividend, dividendNet, dividendTotalTax, dividendPersonalTax,
-      better, delta: Math.abs(salaryNet - dividendNet),
-    };
-  }, [P, divType]);
-
+  const baseRates = PROV_CORP_RATES[province] || PROV_CORP_RATES.ON;
+  const rates = { ...baseRates, ...(edits[province] || {}) };
+  const r = useMemo(
+    () => compareSalaryVsDividend({ province, profit: P, dividendType: divType, rates }),
+    [province, P, divType, JSON.stringify(rates)],
+  );
+  const setRate = (field: string, pct: string) => {
+    const v = parseFloat(pct);
+    setEdits((e) => ({ ...e, [province]: { ...(e[province] || {}), [field]: Number.isFinite(v) ? v / 100 : 0 } }));
+  };
   const pc = (n: number) => (P > 0 ? `${(n / P * 100).toFixed(1)}%` : "—");
 
   return (
@@ -771,14 +752,20 @@ function SalaryVsDividendCalculator() {
           Salary vs Dividend (owner-manager)
         </CardTitle>
         <CardDescription>
-          Compare extracting the same pre-tax corporate profit as salary vs dividends — after-tax cash in your pocket
-          and total tax (corporate + personal). Ontario rates; estimate — confirm with a full T1/T2 projection.
+          Compare extracting the same pre-tax corporate profit as salary vs dividends — after-tax cash and total tax
+          (corporate + personal), for any province/territory. Estimate — confirm with a full T1/T2 projection.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2"><Label>Pre-tax corporate profit to extract ($)</Label>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2"><Label>Pre-tax corporate profit ($)</Label>
             <Input type="number" value={profit} onChange={(e) => setProfit(e.target.value)} placeholder="150000" /></div>
+          <div className="space-y-2"><Label>Province / territory</Label>
+            <Select value={province} onValueChange={setProvince}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{CA_PROVINCES.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2"><Label>Dividend type</Label>
             <Select value={divType} onValueChange={(v: any) => setDivType(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -789,6 +776,22 @@ function SalaryVsDividendCalculator() {
             </Select>
           </div>
         </div>
+
+        {/* Editable provincial rates — transparent, no black box. Ontario verified. */}
+        <details className="bg-slate-50 rounded-lg p-3 text-sm" open={!baseRates.verified}>
+          <summary className="cursor-pointer font-medium text-slate-700">
+            {province} provincial rates {baseRates.verified
+              ? <span className="text-lime-700 text-xs">✓ verified</span>
+              : <span className="text-amber-600 text-xs">⚠ estimate — confirm against your rate sheet, then edit below</span>}
+          </summary>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+            <div><label className="text-[11px] text-slate-500">Small-biz corp %</label><Input className="h-8" type="number" step="0.1" value={+(rates.smallBizCorp * 100).toFixed(3)} onChange={(e) => setRate("smallBizCorp", e.target.value)} /></div>
+            <div><label className="text-[11px] text-slate-500">General corp %</label><Input className="h-8" type="number" step="0.1" value={+(rates.generalCorp * 100).toFixed(3)} onChange={(e) => setRate("generalCorp", e.target.value)} /></div>
+            <div><label className="text-[11px] text-slate-500">Elig. DTC %</label><Input className="h-8" type="number" step="0.01" value={+(rates.dtcEligible * 100).toFixed(4)} onChange={(e) => setRate("dtcEligible", e.target.value)} /></div>
+            <div><label className="text-[11px] text-slate-500">Non-elig. DTC %</label><Input className="h-8" type="number" step="0.01" value={+(rates.dtcNonEligible * 100).toFixed(4)} onChange={(e) => setRate("dtcNonEligible", e.target.value)} /></div>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-2">Provincial portions only — the federal corp (9%/15%) + gross-up + federal DTC are applied automatically. Personal tax uses the verified 2026 federal + provincial brackets.</p>
+        </details>
 
         {P > 0 && (
           <div className="space-y-3">
