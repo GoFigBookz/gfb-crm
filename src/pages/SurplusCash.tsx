@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/providers/trpc";
+import HelpButton from "@/components/HelpButton";
 
 const money = (n: number) => (n || 0).toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
 
@@ -43,7 +44,7 @@ export default function SurplusCash() {
       <div className="flex items-center gap-3">
         <PiggyBank className="h-7 w-7 text-lime-600" />
         <div>
-          <h1 className="text-2xl font-bold">Surplus Cash</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2">Surplus Cash <HelpButton id="surplus-cash" /></h1>
           <p className="text-sm text-slate-500">For the "what do I do with the cash sitting in the bank?" conversation.</p>
         </div>
       </div>

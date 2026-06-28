@@ -1822,6 +1822,20 @@ export const clientParties = sqliteTable("client_parties", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// CLIENT TEAM THREAD — per-client internal conversation between staff (Markie ↔
+// the bookkeeper ↔ agents). Status notes + questions ("reclass these?") with a
+// resolve flag, replacing the WhatsApp back-and-forth. Per client, staff-only.
+export const clientThreadNotes = sqliteTable("client_thread_notes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  userId: integer("userId"),
+  authorName: text("authorName"),
+  body: text("body").notNull(),
+  isQuestion: integer("isQuestion", { mode: "boolean" }).default(false),
+  resolved: integer("resolved", { mode: "boolean" }).default(false),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // MONTH-END RECONCILIATION TRACKER — one row per account in a client's close
 // (bank / credit-card / processor). Tracks what each is reconciled THROUGH + which
 // are waiting on statements, so the pull-list surfaces at the start of the month.

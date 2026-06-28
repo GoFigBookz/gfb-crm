@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/providers/trpc";
+import HelpButton from "@/components/HelpButton";
 import { buildCryptoJournal } from "../../api/crypto-core";
 
 type Row = { date: string; asset: string; direction: "acquire" | "dispose"; qty: number; cadValue: number; feeCad: number; income: boolean; rawType?: string };
@@ -53,7 +54,7 @@ export default function Crypto() {
       <div className="flex items-center gap-3">
         <Bitcoin className="h-7 w-7 text-amber-500" />
         <div>
-          <h1 className="text-2xl font-bold">Crypto Books</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2">Crypto Books <HelpButton id="crypto-books" /></h1>
           <p className="text-sm text-slate-500">Paste the client's report → CAD-valued capital gains, holdings, and mining income. CRA adjusted-cost-base method.</p>
         </div>
       </div>

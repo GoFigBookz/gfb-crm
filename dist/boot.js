@@ -22343,6 +22343,7 @@ __export(schema_exports, {
   clientRequests: () => clientRequests,
   clientSnapshots: () => clientSnapshots,
   clientTaskRules: () => clientTaskRules,
+  clientThreadNotes: () => clientThreadNotes,
   clientVault: () => clientVault,
   clients: () => clients,
   connectedAccounts: () => connectedAccounts,
@@ -22413,7 +22414,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users2, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, clientReconAccounts, faxes, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, loanAccounts, loanEntries, loanShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks, lifeEntries;
+var users2, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, clientThreadNotes, clientReconAccounts, faxes, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, loanAccounts, loanEntries, loanShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks, lifeEntries;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -24093,6 +24094,16 @@ var init_schema = __esm({
       active: integer2("active", { mode: "boolean" }).default(true),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    clientThreadNotes = sqliteTable("client_thread_notes", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      clientId: integer2("clientId").notNull(),
+      userId: integer2("userId"),
+      authorName: text("authorName"),
+      body: text("body").notNull(),
+      isQuestion: integer2("isQuestion", { mode: "boolean" }).default(false),
+      resolved: integer2("resolved", { mode: "boolean" }).default(false),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
     });
     clientReconAccounts = sqliteTable("client_recon_accounts", {
       id: integer2("id").primaryKey({ autoIncrement: true }),
@@ -43483,11 +43494,11 @@ function verifyState2(raw2) {
     const decoded = Buffer.from(raw2, "base64url").toString();
     const parts = decoded.split(".");
     if (parts.length !== 4) return null;
-    const [cid, ts, nonce, sig] = parts;
-    const body = `${cid}.${ts}.${nonce}`;
+    const [cid, ts2, nonce, sig] = parts;
+    const body = `${cid}.${ts2}.${nonce}`;
     const expect = crypto5.createHmac("sha256", stateKey()).update(body).digest("hex").slice(0, 32);
     if (!crypto5.timingSafeEqual(Buffer.from(sig), Buffer.from(expect))) return null;
-    if (Date.now() - Number(ts) > 15 * 60 * 1e3) return null;
+    if (Date.now() - Number(ts2) > 15 * 60 * 1e3) return null;
     return { clientId: cid ? Number(cid) : null };
   } catch {
     return null;
@@ -44714,9 +44725,9 @@ var init_payroll_router = __esm({
         const cs = await db.select().from(clients);
         const nameById = new Map(cs.map((c) => [c.id, c.name]));
         const since = new Date(Date.now() - 12 * 36e5);
-        const ts = await db.select().from(tasks).where(and(eq2(tasks.category, "Payroll"), gte(tasks.dueDate, since)));
+        const ts2 = await db.select().from(tasks).where(and(eq2(tasks.category, "Payroll"), gte(tasks.dueDate, since)));
         const byClient = /* @__PURE__ */ new Map();
-        for (const t2 of ts) {
+        for (const t2 of ts2) {
           if (!t2.clientId) continue;
           if (t2.status === "completed" || t2.completed) continue;
           if (allowed !== null && !allowed.includes(t2.clientId)) continue;
@@ -71325,6 +71336,36 @@ var init_ensure_recon_tracker_schema = __esm({
   }
 });
 
+// api/ensure-client-thread-schema.ts
+var ensure_client_thread_schema_exports = {};
+__export(ensure_client_thread_schema_exports, {
+  ensureClientThreadSchema: () => ensureClientThreadSchema
+});
+async function ensureClientThreadSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS client_thread_notes (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      clientId integer NOT NULL,
+      userId integer,
+      authorName text,
+      body text NOT NULL,
+      isQuestion integer DEFAULT 0,
+      resolved integer DEFAULT 0,
+      createdAt integer
+    )`);
+    await db.run(sql`CREATE INDEX IF NOT EXISTS client_thread_client ON client_thread_notes (clientId, createdAt)`);
+  } catch (e) {
+    console.error("[client-thread] ensure schema failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_client_thread_schema = __esm({
+  "api/ensure-client-thread-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
 // api/ensure-loan-schema.ts
 var ensure_loan_schema_exports = {};
 __export(ensure_loan_schema_exports, {
@@ -82777,12 +82818,12 @@ var clientDashboardRouter = createRouter({
       const rows = await db.select().from(timesheets).where(eq2(timesheets.id, id)).limit(1);
       return rows[0];
     } else {
-      const [ts] = await db.insert(timesheets).values({
+      const [ts2] = await db.insert(timesheets).values({
         ...data,
         approvedBy: data.status === "approved" ? ctx.user.id : void 0,
         approvedAt: data.status === "approved" ? /* @__PURE__ */ new Date() : void 0
       }).returning();
-      return ts;
+      return ts2;
     }
   }),
   // QBO Billing verification per client
@@ -83431,8 +83472,8 @@ function extractContacts(input) {
   const firmDomains = (input.firmDomains || []).map((d10) => d10.toLowerCase().trim()).filter(Boolean);
   const acc = /* @__PURE__ */ new Map();
   for (const msg of input.messages || []) {
-    const ts = msg.date ? Date.parse(msg.date) : NaN;
-    const lastSeen = Number.isFinite(ts) ? ts : null;
+    const ts2 = msg.date ? Date.parse(msg.date) : NaN;
+    const lastSeen = Number.isFinite(ts2) ? ts2 : null;
     const buckets = [
       ["from", parseAddressList(msg.from)],
       ["to", parseAddressList(msg.to)],
@@ -93715,6 +93756,64 @@ var reconTrackerRouter = createRouter({
   })
 });
 
+// api/client-thread-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_schema();
+init_drizzle_orm();
+
+// api/client-thread-core.ts
+function ts(n) {
+  const v2 = n.createdAt;
+  if (v2 == null) return 0;
+  if (typeof v2 === "number") return v2;
+  const t2 = new Date(v2).getTime();
+  return Number.isFinite(t2) ? t2 : 0;
+}
+function summarizeThread(notes) {
+  const all = notes || [];
+  const open3 = all.filter((n) => n.isQuestion && !n.resolved);
+  const sorted = [...all].sort((a, b) => ts(b) - ts(a));
+  return {
+    total: all.length,
+    openQuestions: open3.length,
+    lastNote: sorted[0] || null,
+    openList: [...open3].sort((a, b) => ts(b) - ts(a))
+  };
+}
+
+// api/client-thread-router.ts
+var clientThreadRouter = createRouter({
+  list: authedQuery.input(external_exports.object({ clientId: external_exports.number() })).query(async ({ input }) => {
+    const db = getDb();
+    const rows = await db.select().from(clientThreadNotes).where(eq2(clientThreadNotes.clientId, input.clientId)).orderBy(desc(clientThreadNotes.createdAt));
+    const notes = rows.slice().reverse();
+    return { notes, summary: summarizeThread(notes) };
+  }),
+  post: authedQuery.input(external_exports.object({ clientId: external_exports.number(), body: external_exports.string().min(1).max(4e3), isQuestion: external_exports.boolean().default(false) })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const [row] = await db.insert(clientThreadNotes).values({
+      clientId: input.clientId,
+      userId: ctx.user.id,
+      authorName: ctx.user.name || ctx.user.email || "Staff",
+      body: input.body,
+      isQuestion: input.isQuestion,
+      resolved: false,
+      createdAt: /* @__PURE__ */ new Date()
+    }).returning();
+    return row;
+  }),
+  setResolved: authedQuery.input(external_exports.object({ id: external_exports.number(), resolved: external_exports.boolean() })).mutation(async ({ input }) => {
+    await getDb().update(clientThreadNotes).set({ resolved: input.resolved }).where(eq2(clientThreadNotes.id, input.id));
+    return { success: true };
+  }),
+  remove: authedQuery.input(external_exports.object({ id: external_exports.number() })).mutation(async ({ input }) => {
+    await getDb().delete(clientThreadNotes).where(eq2(clientThreadNotes.id, input.id));
+    return { success: true };
+  })
+});
+
 // api/genealogy-router.ts
 init_zod();
 init_middleware();
@@ -94834,6 +94933,7 @@ var appRouter = createRouter({
   crypto: cryptoRouter,
   surplusCash: surplusCashRouter,
   reconTracker: reconTrackerRouter,
+  clientThread: clientThreadRouter,
   loanTracker: loanTrackerRouter
 });
 
@@ -95116,7 +95216,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.261";
+var BUILD_TAG = "2026-06-28.262";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -96913,6 +97013,8 @@ async function startServer() {
     await ensureFaxSchema2();
     const { ensureReconTrackerSchema: ensureReconTrackerSchema2 } = await Promise.resolve().then(() => (init_ensure_recon_tracker_schema(), ensure_recon_tracker_schema_exports));
     await ensureReconTrackerSchema2();
+    const { ensureClientThreadSchema: ensureClientThreadSchema2 } = await Promise.resolve().then(() => (init_ensure_client_thread_schema(), ensure_client_thread_schema_exports));
+    await ensureClientThreadSchema2();
     const { ensureLoanSchema: ensureLoanSchema2 } = await Promise.resolve().then(() => (init_ensure_loan_schema(), ensure_loan_schema_exports));
     await ensureLoanSchema2();
     try {

@@ -40,4 +40,12 @@ describe("client-alerts-core — the Needs Attention banner", () => {
     expect(a[0].severity).toBe("high");
     expect(a[a.length - 1].severity).toBe("medium");
   });
+
+  it("surfaces open team questions and accounts behind on reconciliation", () => {
+    const a = buildClientAlerts({ openQuestions: 2, accountsBehind: 3 });
+    expect(a.find((x) => x.key === "questions")!.label).toMatch(/2 open questions from the team/);
+    expect(a.find((x) => x.key === "recon_behind")!.label).toMatch(/3 accounts behind/);
+    expect(buildClientAlerts({ openQuestions: 0, accountsBehind: 0 })).toEqual([]);
+    expect(buildClientAlerts({ openQuestions: 1 })[0].label).toBe("1 open question from the team");
+  });
 });
