@@ -67631,6 +67631,18 @@ async function ensureBridgeReady() {
       }
       const client = hits[0];
       const existing = (await db.select().from(qboConnections).where(eq2(qboConnections.realmId, b.realmId)).limit(1))[0];
+      if (existing && existing.refreshToken) {
+        const patchNative = { updatedAt: /* @__PURE__ */ new Date() };
+        if (existing.transport !== "native") patchNative.transport = "native";
+        if (existing.clientId !== client.id) patchNative.clientId = client.id;
+        if (Object.keys(patchNative).length > 1) {
+          await db.update(qboConnections).set(patchNative).where(eq2(qboConnections.id, existing.id));
+          console.log(`[bridge] ${b.company} has native tokens \u2014 kept/restored native${patchNative.clientId ? `, re-bound clientId -> #${client.id}` : ""}`);
+        } else {
+          console.log(`[bridge] ${b.company} is natively connected \u2014 leaving native in place (no downgrade)`);
+        }
+        continue;
+      }
       const patch = {
         userId: 1,
         realmId: b.realmId,
@@ -95851,7 +95863,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.266";
+var BUILD_TAG = "2026-06-28.267";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
