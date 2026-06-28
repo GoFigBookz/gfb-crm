@@ -1776,7 +1776,7 @@ export function ClientHstReviewCard({ clientId, client }: { clientId: number; cl
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-indigo-600" /> Pre-HST review <span className="text-xs font-normal text-slate-400">(read-only)</span></CardTitle>
+        <CardTitle className="text-base flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-indigo-600" /> Pre-HST review <span className="text-xs font-normal text-slate-400">(read-only)</span> <HelpButton id="hst-review" /></CardTitle>
         <CardDescription>
           Reconcile in QuickBooks first, then run this to catch coding issues before you file. It checks what's in the books — it can't see transactions never entered. Period defaults to this client's fiscal quarter; adjust if needed.
         </CardDescription>
@@ -1822,8 +1822,93 @@ export function ClientHstReviewCard({ clientId, client }: { clientId: number; cl
                 </div>}
           </div>
         )}
+        <HstExceptionCrossCheck />
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * HST EXCEPTION CROSS-CHECK (Markie's authoritative method). Paste QuickBooks' OWN
+ * exception/tax report numbers + the GST/HST account balance at period end and prove
+ * the net tax ties to the account. A gap = the exception total to clear before filing.
+ * Pure + paste-driven — works today with no live QBO connection. Read-only; posts nothing.
+ */
+function HstExceptionCrossCheck() {
+  const [open, setOpen] = useState(false);
+  const [paste, setPaste] = useState("");
+  const [collected, setCollected] = useState("");
+  const [itc, setItc] = useState("");
+  const [adjustments, setAdjustments] = useState("");
+  const [balance, setBalance] = useState("");
+  const [prior, setPrior] = useState("");
+  const parse = trpc.hstReview.parseReport.useMutation();
+  const reconcile = trpc.hstReview.reconcileException.useMutation();
+  const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+  const res = reconcile.data;
+
+  const doParse = async () => {
+    const p = await parse.mutateAsync({ text: paste });
+    if (p.collected != null) setCollected(String(p.collected));
+    if (p.itc != null) setItc(String(p.itc));
+  };
+  const doReconcile = () =>
+    reconcile.mutate({
+      collected: parseFloat(collected) || 0,
+      itc: parseFloat(itc) || 0,
+      adjustments: adjustments ? parseFloat(adjustments) || 0 : undefined,
+      hstAccountBalance: parseFloat(balance) || 0,
+      priorUnfiled: prior ? parseFloat(prior) || 0 : undefined,
+    });
+
+  return (
+    <div className="mt-3 border-t pt-2">
+      <button onClick={() => setOpen((o) => !o)} className="text-xs font-medium text-indigo-700 hover:underline inline-flex items-center gap-1">
+        {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        Exception cross-check — tie QBO's tax report to the HST account
+        <HelpButton id="hst-exception" />
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          <p className="text-[11px] text-slate-500">
+            The authoritative check: paste QuickBooks' Sales Tax / exception report, enter the GST/HST account
+            balance at period end, and confirm the net tax matches. A gap = money in the HST account the return
+            doesn't explain (a JE, opening balance, prior-period adjustment, or miscode). Read-only — nothing posts.
+          </p>
+          <div>
+            <Label className="text-[11px] text-slate-500">Paste the exception / Sales Tax report (optional — fills collected &amp; ITC)</Label>
+            <Textarea value={paste} onChange={(e) => setPaste(e.target.value)} rows={4} className="font-mono text-[11px]"
+              placeholder={"Line 105 GST/HST collected on sales   $1,300.00\nLine 108 Input tax credits (ITC)        $300.00\nLine 109 Net tax                        $1,000.00"} />
+            <Button size="sm" variant="outline" className="h-7 mt-1 text-xs" disabled={!paste.trim() || parse.isPending} onClick={doParse}>
+              {parse.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null} Read numbers from paste
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div><Label className="text-[11px] text-slate-500">HST collected (105)</Label><Input value={collected} onChange={(e) => setCollected(e.target.value)} className="h-8" inputMode="decimal" placeholder="0.00" /></div>
+            <div><Label className="text-[11px] text-slate-500">ITCs (108)</Label><Input value={itc} onChange={(e) => setItc(e.target.value)} className="h-8" inputMode="decimal" placeholder="0.00" /></div>
+            <div><Label className="text-[11px] text-slate-500">Adjustments (±)</Label><Input value={adjustments} onChange={(e) => setAdjustments(e.target.value)} className="h-8" inputMode="decimal" placeholder="0.00" /></div>
+            <div><Label className="text-[11px] text-slate-500">HST account balance</Label><Input value={balance} onChange={(e) => setBalance(e.target.value)} className="h-8" inputMode="decimal" placeholder="period-end" /></div>
+            <div><Label className="text-[11px] text-slate-500">Prior unfiled (if any)</Label><Input value={prior} onChange={(e) => setPrior(e.target.value)} className="h-8" inputMode="decimal" placeholder="0.00" /></div>
+          </div>
+          <Button size="sm" className="h-8 text-xs" disabled={reconcile.isPending || (!collected && !itc && !balance)} onClick={doReconcile}>
+            {reconcile.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null} Cross-check
+          </Button>
+          {res && (
+            <div className={`text-xs rounded-md px-2.5 py-2 border ${res.tied ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-800"}`}>
+              <div className="flex items-center gap-1.5 font-medium">
+                {res.tied ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                {res.tied ? "Tied — the return matches the books." : `Exception: ${money(Math.abs(res.diff))} unexplained.`}
+              </div>
+              <div className="mt-1 text-slate-700">
+                Net tax <b>{money(res.netTax)}</b> (collected {money(res.collected)} − ITC {money(res.itc)}{res.adjustments ? ` ${res.adjustments >= 0 ? "+" : "−"} adj ${money(Math.abs(res.adjustments))}` : ""})
+                {" "}vs HST account <b>{money(res.hstAccountBalance)}</b>{res.priorUnfiled ? ` (incl. ${money(res.priorUnfiled)} prior unfiled)` : ""}.
+              </div>
+              <div className="mt-1 text-slate-600">{res.message}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

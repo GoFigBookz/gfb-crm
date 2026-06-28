@@ -144,6 +144,17 @@ export const HELP: Record<string, HelpEntry> = {
       "Use it as the sanity gate before Sage prepares the return.",
     ],
   },
+  "hst-exception": {
+    title: "HST exception cross-check",
+    steps: [
+      "This is the authoritative check: it proves QuickBooks' tax report ties to the GST/HST account before you file.",
+      "In QuickBooks, open the Sales Tax / Exception report and the Balance Sheet. Paste the exception report into the box (or type the numbers): HST collected on sales, ITCs on purchases, and any adjustments.",
+      "Enter the GST/HST Payable account balance at the period END (from the Balance Sheet). If a prior period's HST is still sitting in the account unfiled, put that in ‘prior unfiled’.",
+      "Click ‘Cross-check’. Green = net tax equals the account → the return matches the books. Red = the exact gap (the ‘exception’) — money in the HST account the return doesn't explain.",
+      "A gap is usually a manual journal entry, an opening balance, a prior-period adjustment, or a miscode. Find and clear it BEFORE filing.",
+    ],
+    note: "Paste-driven and read-only — works today without a live QBO connection. Nothing is posted.",
+  },
   "triage": {
     title: "Ask Markie (review queue)",
     steps: [

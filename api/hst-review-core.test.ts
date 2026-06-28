@@ -3,7 +3,7 @@ import {
   runHstReview, tieOut, isTaxableCode, checkUnreviewedAccounts, checkControlAccountCoding,
   checkMissingTaxCode, checkSalesWithoutTax, checkDuplicates, checkMealsFullItc,
   checkWrongTaxCode, hstAccountTieOut, findHstControlAccounts,
-  hstReasonableness,
+  hstReasonableness, reconcileHstException, parseTaxReportNumbers,
   type RawTxn, type RawAccount,
 } from "./hst-review-core";
 
@@ -202,6 +202,65 @@ describe("hstAccountTieOut — confirm the chart-of-accounts HST balance", () =>
     const none = hstAccountTieOut([{ id: "1", name: "Chequing", type: "Bank", balance: 100 }], { net: 200 });
     expect(none.verdict).toBe("na");
     expect(none.controlAccounts.length).toBe(0);
+  });
+});
+
+describe("reconcileHstException — net tax from QBO's report vs the HST account", () => {
+  it("ties when collected − ITC equals the HST account balance", () => {
+    const r = reconcileHstException({ collected: 1300, itc: 300, hstAccountBalance: 1000 });
+    expect(r.netTax).toBe(1000);
+    expect(r.expectedInAccount).toBe(1000);
+    expect(r.tied).toBe(true);
+    expect(r.verdict).toBe("green");
+    expect(r.message).toMatch(/Tied/);
+  });
+
+  it("flags the exact exception gap when the account doesn't match", () => {
+    const r = reconcileHstException({ collected: 1300, itc: 300, hstAccountBalance: 1450 });
+    expect(r.netTax).toBe(1000);
+    expect(r.diff).toBe(450);
+    expect(r.tied).toBe(false);
+    expect(r.verdict).toBe("red");
+    expect(r.message).toMatch(/450.*exception/);
+  });
+
+  it("respects adjustments and a prior unfiled balance carried in the account", () => {
+    // net = 1300 − 300 + 50 = 1050; expected = 1050 + 200 prior = 1250
+    const r = reconcileHstException({ collected: 1300, itc: 300, adjustments: 50, priorUnfiled: 200, hstAccountBalance: 1250 });
+    expect(r.netTax).toBe(1050);
+    expect(r.expectedInAccount).toBe(1250);
+    expect(r.tied).toBe(true);
+  });
+
+  it("honours the tolerance band (rounding)", () => {
+    expect(reconcileHstException({ collected: 1000, itc: 0, hstAccountBalance: 1000.75 }).tied).toBe(true);  // within $1
+    expect(reconcileHstException({ collected: 1000, itc: 0, hstAccountBalance: 1002 }).tied).toBe(false);     // over $1
+  });
+});
+
+describe("parseTaxReportNumbers — pull the numbers out of a pasted QBO tax report", () => {
+  it("reads collected / ITC / net from labelled lines", () => {
+    const p = parseTaxReportNumbers([
+      "Line 105 GST/HST collected on sales        $1,300.00",
+      "Line 108 Input tax credits (ITC)           $300.00",
+      "Line 109 Net tax                           $1,000.00",
+    ].join("\n"));
+    expect(p.collected).toBe(1300);
+    expect(p.itc).toBe(300);
+    expect(p.netTax).toBe(1000);
+    expect(p.matched).toEqual(expect.arrayContaining(["collected", "itc", "netTax"]));
+  });
+
+  it("infers the missing side when only net + one side are given", () => {
+    const p = parseTaxReportNumbers("Tax on sales 1300\nNet tax 1000");
+    expect(p.collected).toBe(1300);
+    expect(p.netTax).toBe(1000);
+    expect(p.itc).toBe(300); // inferred 1300 − 1000
+  });
+
+  it("handles parentheses (refund) and commas", () => {
+    const p = parseTaxReportNumbers("Net tax (refund)  (1,250.50)");
+    expect(p.netTax).toBe(-1250.5);
   });
 });
 
