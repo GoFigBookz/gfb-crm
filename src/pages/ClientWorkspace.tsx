@@ -15,7 +15,7 @@ import IntercoRechargePanel from "@/components/IntercoRechargePanel";
 import VendorRulesPanel from "@/components/VendorRulesPanel";
 import StatementCodingPanel from "@/components/StatementCodingPanel";
 import {
-  ClientCloseChecklist, ClientHstReviewCard, EmployeesCard, ContactsCard, GroupCard, ClientRequestsCard, ClientEmailsCard,
+  ClientCloseChecklist, ClientHstReviewCard, EmployeesCard, ContactsCard, GroupCard, ClientRequestsCard, ClientEmailsCard, MonthEndReconCard,
 } from "./ClientDashboard";
 
 /**
@@ -250,6 +250,7 @@ export default function ClientWorkspace() {
           <Section id={`${id}-close`} title="Month-end close" subtitle="post → reconcile → review → financials" icon={<CheckCircle2 className="h-4 w-4 text-indigo-500" />}
             badge={closeStatus?.checklistPercent != null ? <span className="text-xs text-slate-500">{closeStatus.checklistPercent}%</span> : undefined}>
             <ClientCloseChecklist clientId={id} />
+            <div className="mt-3"><MonthEndReconCard clientId={id} /></div>
           </Section>
 
           {/* CUSTOM WORKFLOW — per-client assigned tools (recharge, interco, …) */}

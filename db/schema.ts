@@ -1822,6 +1822,26 @@ export const clientParties = sqliteTable("client_parties", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// MONTH-END RECONCILIATION TRACKER — one row per account in a client's close
+// (bank / credit-card / processor). Tracks what each is reconciled THROUGH + which
+// are waiting on statements, so the pull-list surfaces at the start of the month.
+// Auto-populated from QBO when connected; paste-imported otherwise. Per client.
+export const clientReconAccounts = sqliteTable("client_recon_accounts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull(),
+  name: text("name").notNull(),                 // "RBC CAD *0488", "AMEX *1001", "PayPal"
+  kind: text("kind").default("bank"),           // bank | credit_card | processor | other
+  institution: text("institution"),
+  last4: text("last4"),
+  reconciledThrough: text("reconciledThrough"), // yyyy-mm-dd
+  needsStatements: text("needsStatements"),      // free text, e.g. "Apr & May"
+  note: text("note"),
+  source: text("source").default("manual"),      // manual | qbo
+  sortOrder: integer("sortOrder").default(0),
+  active: integer("active", { mode: "boolean" }).default(true),
+  updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // OUTBOUND FAX LOG — one row per fax we send (CRA still demands faxes). Keeps an
 // auditable record of who/what/when (engineering standard: preserve auditability)
 // without storing the file bytes. Optionally linked to a client.

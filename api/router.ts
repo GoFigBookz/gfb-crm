@@ -86,6 +86,7 @@ import { driveCleanupRouter } from "./drive-cleanup-router";
 import { faxRouter } from "./fax-router";
 import { cryptoRouter } from "./crypto-router";
 import { surplusCashRouter } from "./surplus-cash-router";
+import { reconTrackerRouter } from "./recon-tracker-router";
 import { genealogyRouter } from "./genealogy-router";
 import { hstReviewRouter } from "./hst-review-router";
 import { loanTrackerRouter } from "./loan-tracker-router";
@@ -189,6 +190,7 @@ export const appRouter = createRouter({
   fax: faxRouter,
   crypto: cryptoRouter,
   surplusCash: surplusCashRouter,
+  reconTracker: reconTrackerRouter,
   loanTracker: loanTrackerRouter,
 });
 
