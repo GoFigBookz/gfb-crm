@@ -120,3 +120,49 @@ export function valueHoldings(holdings: Holding[], priceCad: Record<string, numb
     return { ...h, marketValue, unrealized: px ? round2(marketValue - h.acb) : 0 };
   });
 }
+
+export interface JournalLine { account: string; debit: number; credit: number; memo: string }
+export interface JournalAccounts {
+  digitalAssets?: string;   // the crypto asset account on the balance sheet
+  realizedGain?: string;    // realized gain/loss on crypto (P&L)
+  miningIncome?: string;    // mining/staking income (P&L)
+  clearing?: string;        // cash/clearing the proceeds land in
+}
+
+/**
+ * Build a BALANCED draft journal entry from the period's results — a review-ready
+ * proposal, never auto-posted (golden rule). Two summary entries:
+ *  1) Disposals: Dr clearing (proceeds), Cr digital assets (cost base), and the
+ *     net realized gain (credit) or loss (debit) to the gain/loss account.
+ *  2) Mining/staking income: Dr digital assets (FMV), Cr income.
+ * Accounts are editable defaults — Figgy never guesses the client's real chart.
+ */
+export function buildCryptoJournal(
+  totals: { proceeds: number; costBasis: number; gainLoss: number },
+  incomeTotal: number,
+  periodEnd: string,
+  acc: JournalAccounts = {},
+): { lines: JournalLine[]; balanced: boolean; periodEnd: string } {
+  const A = {
+    digitalAssets: acc.digitalAssets || "Digital Assets",
+    realizedGain: acc.realizedGain || "Realized Gain/Loss on Crypto",
+    miningIncome: acc.miningIncome || "Crypto Mining Income",
+    clearing: acc.clearing || "Crypto Clearing",
+  };
+  const lines: JournalLine[] = [];
+
+  if (totals.proceeds > 0 || totals.costBasis > 0) {
+    lines.push({ account: A.clearing, debit: round2(totals.proceeds), credit: 0, memo: "Proceeds on crypto disposals (period)" });
+    lines.push({ account: A.digitalAssets, debit: 0, credit: round2(totals.costBasis), memo: "Cost base (ACB) of crypto disposed" });
+    if (totals.gainLoss >= 0) lines.push({ account: A.realizedGain, debit: 0, credit: round2(totals.gainLoss), memo: "Realized gain on crypto" });
+    else lines.push({ account: A.realizedGain, debit: round2(-totals.gainLoss), credit: 0, memo: "Realized loss on crypto" });
+  }
+  if (incomeTotal > 0) {
+    lines.push({ account: A.digitalAssets, debit: round2(incomeTotal), credit: 0, memo: "Mined/earned crypto at FMV" });
+    lines.push({ account: A.miningIncome, debit: 0, credit: round2(incomeTotal), memo: "Mining/staking income" });
+  }
+
+  const dr = round2(lines.reduce((s, l) => s + l.debit, 0));
+  const cr = round2(lines.reduce((s, l) => s + l.credit, 0));
+  return { lines, balanced: Math.abs(dr - cr) < 0.01, periodEnd };
+}

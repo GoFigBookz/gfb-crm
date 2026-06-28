@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeAcb, valueHoldings, unvaluedRows, type CryptoTxn } from "./crypto-core";
+import { computeAcb, valueHoldings, unvaluedRows, buildCryptoJournal, type CryptoTxn } from "./crypto-core";
 
 describe("crypto ACB + capital gains (CRA moving-average method)", () => {
   it("averages cost across multiple buys, then a partial sell uses the average ACB", () => {
@@ -80,5 +80,31 @@ describe("period-end valuation + data-gap surfacing", () => {
       { date: "2026-01-01", asset: "BTC", direction: "acquire", qty: 1, cadValue: 0 },
       { date: "2026-01-02", asset: "BTC", direction: "acquire", qty: 1, cadValue: 40000 },
     ])).toBe(1);
+  });
+});
+
+describe("buildCryptoJournal — balanced draft JE", () => {
+  it("books proceeds, cost base, gain, and mining income — and balances", () => {
+    const j = buildCryptoJournal({ proceeds: 70000, costBasis: 50000, gainLoss: 20000 }, 1500, "2026-03-31");
+    expect(j.balanced).toBe(true);
+    const dr = j.lines.reduce((s, l) => s + l.debit, 0);
+    const cr = j.lines.reduce((s, l) => s + l.credit, 0);
+    expect(dr).toBeCloseTo(cr, 2);
+    // clearing debited proceeds, gain credited
+    expect(j.lines.find((l) => /clearing/i.test(l.account))!.debit).toBe(70000);
+    expect(j.lines.find((l) => /gain/i.test(l.account))!.credit).toBe(20000);
+    expect(j.lines.find((l) => /income/i.test(l.account))!.credit).toBe(1500);
+  });
+
+  it("books a realized loss as a debit and still balances", () => {
+    const j = buildCryptoJournal({ proceeds: 12000, costBasis: 20000, gainLoss: -8000 }, 0, "2026-03-31");
+    expect(j.balanced).toBe(true);
+    expect(j.lines.find((l) => /gain/i.test(l.account))!.debit).toBe(8000); // loss = debit
+  });
+
+  it("respects custom account names", () => {
+    const j = buildCryptoJournal({ proceeds: 100, costBasis: 80, gainLoss: 20 }, 0, "2026-03-31", { clearing: "Wealthsimple CAD", realizedGain: "8200 Crypto Gains" });
+    expect(j.lines.some((l) => l.account === "Wealthsimple CAD")).toBe(true);
+    expect(j.lines.some((l) => l.account === "8200 Crypto Gains")).toBe(true);
   });
 });

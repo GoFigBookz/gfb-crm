@@ -93404,6 +93404,85 @@ var cryptoRouter = createRouter({
   })
 });
 
+// api/surplus-cash-router.ts
+init_zod();
+init_middleware();
+
+// api/surplus-cash-core.ts
+function projectAnnualIncome(idleCash, annualRatePct) {
+  const v2 = Math.max(0, idleCash) * Math.max(0, annualRatePct) / 100;
+  return Math.round(v2 * 100) / 100;
+}
+var SBD_FLOOR = 5e4;
+var SBD_CEILING = 15e4;
+function sbdGrind(passiveIncome) {
+  const over = Math.max(0, passiveIncome - SBD_FLOOR);
+  const reduction = Math.min(5e5, over * 5);
+  return { reduction: Math.round(reduction), eliminated: passiveIncome >= SBD_CEILING, floor: SBD_FLOOR, ceiling: SBD_CEILING };
+}
+function analyzeSurplusCash(idleCash, annualRatePct, existingPassive = 0) {
+  const projectedIncome = projectAnnualIncome(idleCash, annualRatePct);
+  const totalPassive = Math.round((Math.max(0, existingPassive) + projectedIncome) * 100) / 100;
+  return {
+    projectedIncome,
+    totalPassive,
+    grind: sbdGrind(totalPassive),
+    crossesThreshold: existingPassive < SBD_FLOOR && totalPassive >= SBD_FLOOR
+  };
+}
+
+// api/surplus-cash-router.ts
+function extractJson5(text2) {
+  const a = text2.indexOf("[");
+  const b = text2.lastIndexOf("]");
+  if (a >= 0 && b > a) {
+    try {
+      return JSON.parse(text2.slice(a, b + 1));
+    } catch {
+    }
+  }
+  const o = text2.indexOf("{");
+  const c = text2.lastIndexOf("}");
+  if (o >= 0 && c > o) {
+    try {
+      return JSON.parse(text2.slice(o, c + 1));
+    } catch {
+    }
+  }
+  return null;
+}
+var surplusCashRouter = createRouter({
+  analyze: authedQuery.input(external_exports.object({ idleCash: external_exports.number().min(0), ratePct: external_exports.number().min(0).max(100), existingPassive: external_exports.number().min(0).default(0) })).query(async ({ input }) => analyzeSurplusCash(input.idleCash, input.ratePct, input.existingPassive)),
+  scanRates: authedQuery.input(external_exports.object({ kind: external_exports.enum(["gic", "hisa", "both"]).default("both") }).optional()).mutation(async ({ input }) => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return { ok: false, error: "Rate scan needs ANTHROPIC_API_KEY set on the server.", rates: [], asOf: null };
+    const kind = input?.kind ?? "both";
+    const want = kind === "gic" ? "1-year and 5-year GIC rates" : kind === "hisa" ? "business/personal high-interest savings account rates" : "current 1-year & 5-year GIC rates AND high-interest savings account rates";
+    const model = process.env.FIGGY_CLASSIFY_MODEL || "claude-haiku-4-5";
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({
+          model,
+          max_tokens: 1200,
+          tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
+          system: `You are a Canadian bookkeeping assistant gathering CURRENT posted deposit rates for a client conversation. Use web_search to find today's published Canadian rates. Return ONLY a JSON array, no prose. Each item: {"institution":string,"product":string,"term":string,"ratePct":number,"notes":string}. Include a mix of banks, EQ Bank, Wealthsimple, and credit unions / brokered GICs where available. Do not editorialize or recommend.`,
+          messages: [{ role: "user", content: `Find ${want} in Canada right now. Return the JSON array.` }]
+        })
+      });
+      if (!res.ok) return { ok: false, error: `Rate scan failed (${res.status}).`, rates: [], asOf: null };
+      const data = await res.json();
+      const text2 = (data?.content ?? []).filter((b) => b?.type === "text").map((b) => String(b.text ?? "")).join("\n");
+      const parsed = extractJson5(text2);
+      const rates = Array.isArray(parsed) ? parsed.filter((r) => r && typeof r.ratePct === "number") : [];
+      return { ok: true, rates, asOf: text2 ? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) : null, raw: rates.length ? void 0 : text2.slice(0, 400) };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e), rates: [], asOf: null };
+    }
+  })
+});
+
 // api/genealogy-router.ts
 init_zod();
 init_middleware();
@@ -94521,6 +94600,7 @@ var appRouter = createRouter({
   driveCleanup: driveCleanupRouter,
   fax: faxRouter,
   crypto: cryptoRouter,
+  surplusCash: surplusCashRouter,
   loanTracker: loanTrackerRouter
 });
 
@@ -94803,7 +94883,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.258";
+var BUILD_TAG = "2026-06-28.259";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

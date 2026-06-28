@@ -7,14 +7,14 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft, FileStack,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked, Brain, Sun, ListTree, HardDrive, Printer, Bitcoin,
+  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked, Brain, Sun, ListTree, HardDrive, Printer, Bitcoin, PiggyBank,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
 interface SidebarProps { collapsed: boolean; onToggle: () => void; mobileOpen?: boolean; onMobileClose?: () => void; }
 
-type SectionKey = "work" | "clients" | "payroll" | "comms" | "tools" | "insights" | "admin";
+type SectionKey = "work" | "clients" | "payroll" | "comms" | "bookkeeping" | "compliance" | "advisory" | "resources" | "insights" | "admin";
 
 export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose }: SidebarProps) {
   const { user, can } = useAuth();
@@ -23,7 +23,10 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     clients: false,
     payroll: false,
     comms: false,
-    tools: false,
+    bookkeeping: false,
+    compliance: false,
+    advisory: false,
+    resources: false,
     insights: false,
     admin: false,
   });
@@ -97,24 +100,31 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/launchpad", icon: Rocket, label: "Launchpad", iconClass: "text-sky-400" },
   ];
 
-  // Tools & Compliance.
-  const toolItems = [
+  // Tools — split into themed sub-sections (the flat list got too big).
+  const bookkeepingItems = [
     { to: "/qbo", icon: Receipt, label: "QBO Review" },
     { to: "/bank-converter", icon: ArrowRightLeft, label: "Bank → QBO" },
     { to: "/recon-match", icon: ArrowRightLeft, label: "Recon Matcher" },
     { to: "/pdf-splitter", icon: FileStack, label: "PDF Splitter" },
-    { to: "/tax-deadlines", icon: CalendarClock, label: "Tax Deadlines" },
-    { to: "/year-end", icon: ClipboardCheck, label: "Year-End" },
+    { to: "/chart-of-accounts", icon: ListTree, label: "Chart Cleanup" },
+    { to: "/crypto", icon: Bitcoin, label: "Crypto Books" },
+  ];
+  const complianceItems = [
     { to: "/hst-audit", icon: ShieldCheck, label: "HST Audit" },
     { to: "/hst-review", icon: ClipboardCheck, label: "Pre-HST Review" },
+    { to: "/tax-deadlines", icon: CalendarClock, label: "Tax Deadlines" },
+    { to: "/year-end", icon: ClipboardCheck, label: "Year-End" },
     { to: "/monthly-close", icon: CheckSquare, label: "Monthly Close" },
+  ];
+  const advisoryItems = [
     { to: "/calculators", icon: Calculator, label: "Calculators" },
+    { to: "/surplus-cash", icon: PiggyBank, label: "Surplus Cash" },
+    { to: "/pricing-calculator", icon: DollarSign, label: "Pricing Calc" },
+  ];
+  const resourceItems = [
+    { to: "/drive-cleanup", icon: HardDrive, label: "Drive Cleanup" },
     { to: "/templates", icon: FileSpreadsheet, label: "Templates" },
     { to: "/resources", icon: BookOpen, label: "Resources" },
-    { to: "/pricing-calculator", icon: DollarSign, label: "Pricing Calc" },
-    { to: "/chart-of-accounts", icon: ListTree, label: "Chart Cleanup" },
-    { to: "/drive-cleanup", icon: HardDrive, label: "Drive Cleanup" },
-    { to: "/crypto", icon: Bitcoin, label: "Crypto Books" },
     // Send a Fax — built but hidden (no free integrated fax provider; Markie won't
     // pay a subscription for it). Code/route stay dormant; re-add here to revive.
   ];
@@ -140,7 +150,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
   ];
 
   // Flat registry so a favorited path resolves back to its icon + label.
-  const allItems = [...workItems, ...payrollItems, ...clientItems, ...commsItems, ...toolItems, ...insightItems, ...adminItems, ...personalNav];
+  const allItems = [...workItems, ...payrollItems, ...clientItems, ...commsItems, ...bookkeepingItems, ...complianceItems, ...advisoryItems, ...resourceItems, ...insightItems, ...adminItems, ...personalNav];
   const itemByPath = new Map(allItems.map((i) => [i.to, i]));
   const favItems = favorites.map((to) => itemByPath.get(to)).filter(Boolean) as { to: string; icon: any; label: string }[];
 
@@ -258,7 +268,10 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
         <Section label="People & Payroll" icon={Wallet} sectionKey="payroll" items={payrollItems} />
         <Section label="Clients" icon={Users} sectionKey="clients" items={clientItems} />
         <Section label="Comms" icon={Mail} sectionKey="comms" items={commsItems} />
-        <Section label="Tools & Compliance" icon={Wrench} sectionKey="tools" items={toolItems} />
+        <Section label="Bookkeeping" icon={Receipt} sectionKey="bookkeeping" items={bookkeepingItems} />
+        <Section label="Tax & Compliance" icon={ShieldCheck} sectionKey="compliance" items={complianceItems} />
+        <Section label="Advisory & Calculators" icon={Calculator} sectionKey="advisory" items={advisoryItems} />
+        <Section label="Files & Resources" icon={BookOpen} sectionKey="resources" items={resourceItems} />
         {/* Insights + Admin are senior/owner-only — juniors don't see them. */}
         {can.senior && (
           <Section label="Insights" icon={TrendingUp} sectionKey="insights" items={insightItems} />
