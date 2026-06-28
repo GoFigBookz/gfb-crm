@@ -41,7 +41,7 @@ export function serveStaticFiles(app: any) {
   // /agents/* (a nested path can never match the root /*.svg glob).
   const EXACT_FILES = [
     "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/icon.svg", "/logo.jpg",
-    "/figgy-logo.svg", "/figgy-mark.svg", "/phoenix-rising.svg", "/phoenix-rising.png",
+    "/figgy-logo.png", "/figgy-mark.png", "/figgy-logo.svg", "/figgy-mark.svg", "/phoenix-rising.svg", "/phoenix-rising.png",
     "/agents/fig.svg", "/agents/sage.svg", "/agents/wren.svg", "/agents/liv.svg",
     "/agents/jinx.svg", "/agents/tess.svg", "/agents/jade.svg", "/agents/skye.svg",
   ];

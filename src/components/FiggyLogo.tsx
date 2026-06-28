@@ -7,8 +7,6 @@
  * The black ink needs a light backing on dark surfaces (the slate sidebar passes
  * `onDark` to get a rounded white plate); on light pages it drops in transparent.
  */
-export function FiggyLogo({ className = "h-16 w-auto", onDark = false }: { className?: string; onDark?: boolean }) {
-  const img = <img src="/figgy-logo.png" alt="Figgy" className={`${className} object-contain`} />;
-  if (!onDark) return img;
-  return <span className="inline-flex items-center rounded-lg bg-white px-2.5 py-1 shadow-sm">{img}</span>;
+export function FiggyLogo({ className = "h-16 w-auto" }: { className?: string }) {
+  return <img src="/figgy-logo.png" alt="Figgy" className={`${className} object-contain`} />;
 }

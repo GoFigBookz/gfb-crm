@@ -70121,6 +70121,8 @@ function serveStaticFiles(app2) {
     "/apple-touch-icon.png",
     "/icon.svg",
     "/logo.jpg",
+    "/figgy-logo.png",
+    "/figgy-mark.png",
     "/figgy-logo.svg",
     "/figgy-mark.svg",
     "/phoenix-rising.svg",
