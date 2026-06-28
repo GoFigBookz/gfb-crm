@@ -22352,6 +22352,7 @@ __export(schema_exports, {
   employeeRateHistory: () => employeeRateHistory,
   employees: () => employees,
   engagementLetters: () => engagementLetters,
+  faxes: () => faxes,
   files: () => files,
   groupBookShareLinks: () => groupBookShareLinks,
   groupEntities: () => groupEntities,
@@ -22411,7 +22412,7 @@ __export(schema_exports, {
   vendorMemory: () => vendorMemory,
   workflowLogs: () => workflowLogs
 });
-var users2, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, loanAccounts, loanEntries, loanShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks, lifeEntries;
+var users2, clientAccess, connectedAccounts, qboConnections, qboSyncLogs, qboCustomers, qboInvoices, qboPayments, qboAccounts, vendorMemory, clients, clientVault, clientGovReps, clientOnboarding, workflowLogs, clientTaskRules, tasks, recurringTasks, timeEntries, emails, portalTokens, portalSettings, missingItems, clientEmails, files, calendarEvents, invoices, invoiceItems, interactions, aiAgentConfigs, aiAgentRuns, notifications, userSettings, clientDashboardSnapshots, clientCashSnapshots, timesheets, employees, employeeRateHistory, payRuns, payRunLines, smsMessages, clientRequests, clientRequestItems, triageFindings, triageQueue, makeSubmissions, satisfactionScores, monthlyCloseChecklist, portalFiles, signatureDocuments, clientPlaybooks, engagementLetters, senderRules, connectorStatements, connectorSyncLogs, makeIntake, dividendPayments, taxSlipEntries, intercoPeriods, intercoEntries, practiceSnapshots, clientSnapshots, taxRates, jobberConnections, appSettings, clientContacts, clientParties, faxes, personalItems, personalFacts, agentLearnings, agentAuditLog, chatMessages, rrProjects, rrProgress, rrJe, rrJeLines, rrAccountMap, rrClientConfig, rrShareLinks, bankedHourEntries, bankedHourShareLinks, loanAccounts, loanEntries, loanShareLinks, groupEntities, groupOwnership, groupProfit, groupFamilyBenefit, groupBookShareLinks, lifeEntries;
 var init_schema = __esm({
   "db/schema.ts"() {
     init_sqlite_core();
@@ -24091,6 +24092,27 @@ var init_schema = __esm({
       active: integer2("active", { mode: "boolean" }).default(true),
       createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
       updatedAt: integer2("updatedAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date())
+    });
+    faxes = sqliteTable("faxes", {
+      id: integer2("id").primaryKey({ autoIncrement: true }),
+      userId: integer2("userId").notNull(),
+      clientId: integer2("clientId"),
+      // optional link to a client
+      toNumber: text("toNumber").notNull(),
+      // normalized 11-digit NANP
+      toName: text("toName"),
+      // who it's going to (e.g. "CRA — Sudbury TC")
+      subject: text("subject"),
+      fileName: text("fileName"),
+      pages: integer2("pages"),
+      provider: text("provider").default("srfax"),
+      providerReference: text("providerReference"),
+      // SRFax queued-fax id
+      status: text("status").default("queued"),
+      // queued | sent | failed
+      errorMessage: text("errorMessage"),
+      createdAt: integer2("createdAt", { mode: "timestamp" }).$defaultFn(() => /* @__PURE__ */ new Date()),
+      sentAt: integer2("sentAt", { mode: "timestamp" })
     });
     personalItems = sqliteTable("personal_items", {
       id: integer2("id").primaryKey({ autoIncrement: true }),
@@ -70123,6 +70145,7 @@ function serveStaticFiles(app2) {
     "/logo.jpg",
     "/figgy-logo.png",
     "/figgy-mark.png",
+    "/figgy-f.png",
     "/figgy-logo.svg",
     "/figgy-mark.svg",
     "/phoenix-rising.svg",
@@ -71205,6 +71228,42 @@ async function ensureBankedHoursSchema() {
 }
 var init_ensure_banked_hours_schema = __esm({
   "api/ensure-banked-hours-schema.ts"() {
+    init_connection();
+    init_drizzle_orm();
+  }
+});
+
+// api/ensure-fax-schema.ts
+var ensure_fax_schema_exports = {};
+__export(ensure_fax_schema_exports, {
+  ensureFaxSchema: () => ensureFaxSchema
+});
+async function ensureFaxSchema() {
+  const db = getDb();
+  try {
+    await db.run(sql`CREATE TABLE IF NOT EXISTS faxes (
+      id integer PRIMARY KEY AUTOINCREMENT,
+      userId integer NOT NULL,
+      clientId integer,
+      toNumber text NOT NULL,
+      toName text,
+      subject text,
+      fileName text,
+      pages integer,
+      provider text DEFAULT 'srfax',
+      providerReference text,
+      status text DEFAULT 'queued',
+      errorMessage text,
+      createdAt integer,
+      sentAt integer
+    )`);
+    await db.run(sql`CREATE INDEX IF NOT EXISTS faxes_user_idx ON faxes (userId, createdAt)`);
+  } catch (e) {
+    console.error("[fax] ensure schema failed:", e instanceof Error ? e.message : e);
+  }
+}
+var init_ensure_fax_schema = __esm({
+  "api/ensure-fax-schema.ts"() {
     init_connection();
     init_drizzle_orm();
   }
@@ -72484,6 +72543,15 @@ async function seedDemoExtras() {
         O("grants", "Canada Digital Adoption Program (example)", "Funding to adopt digital tools and e-commerce.", "up to $15,000", "Canadian SMBs", "https://ised-isde.canada.ca", "ISED", "reviewing"),
         O("wsib", "WSIB Health & Safety Excellence (example)", "Rebates for completing safety topics.", "premium rebate", "WSIB-registered employers", "https://www.wsib.ca", "WSIB", "suggested"),
         O("software", "Proposal/quoting tool (example)", "Send branded quotes and track acceptance.", "from $29/mo", "Service businesses", "https://example.com", "Demo Vendor", "applied")
+      ]) await demo.run(sql.raw(stmt));
+    }
+    const haveFax = rowsOf(await demo.run(sql.raw("SELECT name FROM sqlite_master WHERE type='table' AND name='faxes'"))).length;
+    const seededFax = haveFax && rowsOf(await demo.run(sql.raw("SELECT id FROM faxes LIMIT 1"))).length;
+    if (haveFax && !seededFax) {
+      const F2 = (toNumber, toName, subject, fileName, status, ref2) => `INSERT INTO faxes (userId, clientId, toNumber, toName, subject, fileName, pages, provider, providerReference, status, createdAt, sentAt) VALUES (1, ${clientId}, '${toNumber}', '${toName}', '${subject}', '${fileName}', 2, 'srfax', '${ref2}', '${status}', ${now}, ${now})`;
+      for (const stmt of [
+        F2("18334419644", "CRA \u2014 Authorization Services", "RC59 business authorization", "RC59_signed.pdf", "sent", "DEMO-88231"),
+        F2("17055551234", "Demo Bank \u2014 Lending", "Account confirmation letter", "bank_letter.pdf", "queued", "DEMO-88240")
       ]) await demo.run(sql.raw(stmt));
     }
   } catch (e) {
@@ -92886,6 +92954,161 @@ var driveCleanupRouter = createRouter({
   })
 });
 
+// api/fax-router.ts
+init_zod();
+init_middleware();
+init_connection();
+init_schema();
+init_drizzle_orm();
+
+// api/fax-core.ts
+function normalizeFaxNumber(raw2) {
+  const digits2 = String(raw2 || "").replace(/[^\d]/g, "");
+  if (digits2.length === 11 && digits2.startsWith("1")) return digits2;
+  if (digits2.length === 10) return "1" + digits2;
+  return digits2;
+}
+function isValidFaxNumber(raw2) {
+  const d10 = normalizeFaxNumber(raw2);
+  return d10.length === 11 && d10.startsWith("1") && d10[1] !== "0" && d10[1] !== "1";
+}
+function buildSrFaxQueueParams(cfg, o) {
+  const params = {
+    action: "Queue_Fax",
+    access_id: cfg.accessId,
+    access_pwd: cfg.accessPwd,
+    sCallerID: String(cfg.callerId || "").replace(/[^\d]/g, "").slice(-10),
+    sSenderEmail: cfg.senderEmail,
+    sFaxType: "SINGLE",
+    sToFaxNumber: normalizeFaxNumber(o.toNumber),
+    sFileName_1: o.fileName,
+    sFileContent_1: o.fileContentB64,
+    sResponseFormat: "JSON"
+  };
+  if (o.coverPage) {
+    params.sCoverPage = o.coverPage;
+    if (o.coverTo) params.sCPToName = o.coverTo;
+    if (o.coverFrom) params.sCPFromName = o.coverFrom;
+    if (o.subject) params.sCPSubject = o.subject;
+    if (o.comments) params.sCPComments = o.comments;
+  }
+  return params;
+}
+function parseSrFaxResponse(json2) {
+  const status = String(json2?.Status ?? "").toLowerCase();
+  if (status === "success") return { ok: true, reference: String(json2?.Result ?? "") };
+  const err = json2?.Result ?? json2?.Error ?? "Fax provider returned an error";
+  return { ok: false, error: typeof err === "string" ? err : JSON.stringify(err) };
+}
+
+// api/fax-router.ts
+var SRFAX_ENDPOINT = "https://www.srfax.com/SRF_SecWebSvc.php";
+function srfaxConfig() {
+  const accessId = process.env.SRFAX_ACCESS_ID || "";
+  const accessPwd = process.env.SRFAX_ACCESS_PWD || "";
+  const callerId = process.env.SRFAX_CALLER_ID || "";
+  const senderEmail = process.env.SRFAX_SENDER_EMAIL || process.env.FIRM_EMAIL || "markie@gofig.ca";
+  const configured = Boolean(accessId && accessPwd && callerId);
+  return { accessId, accessPwd, callerId, senderEmail, configured };
+}
+var faxRouter = createRouter({
+  // Is a fax line wired up? (Never returns secrets — just whether it's ready.)
+  providerStatus: authedQuery.query(async () => {
+    const c = srfaxConfig();
+    return {
+      configured: c.configured,
+      provider: "srfax",
+      callerId: c.configured ? c.callerId.replace(/\d(?=\d{4})/g, "\u2022") : null
+      // masked
+    };
+  }),
+  // Recent fax log (audit trail) for the signed-in user, with client names.
+  history: authedQuery.input(external_exports.object({ limit: external_exports.number().min(1).max(200).default(50) }).optional()).query(async ({ ctx, input }) => {
+    const db = getDb();
+    const rows = await db.select().from(faxes).where(eq2(faxes.userId, ctx.user.id)).orderBy(desc(faxes.createdAt)).limit(input?.limit ?? 50);
+    const ids = Array.from(new Set(rows.map((r) => r.clientId).filter(Boolean)));
+    const names = /* @__PURE__ */ new Map();
+    if (ids.length) {
+      const cs = await db.select({ id: clients.id, name: clients.name }).from(clients).where(inArray(clients.id, ids));
+      for (const c of cs) names.set(c.id, c.name);
+    }
+    return rows.map((r) => ({ ...r, clientName: r.clientId ? names.get(r.clientId) || null : null }));
+  }),
+  // Send a fax. The file arrives as base64 (PDF or TIFF). Logs every attempt.
+  send: authedQuery.input(external_exports.object({
+    toNumber: external_exports.string().min(7),
+    toName: external_exports.string().max(200).optional(),
+    clientId: external_exports.number().optional(),
+    fileName: external_exports.string().min(1).max(200),
+    base64: external_exports.string().min(1),
+    // file content, no data: prefix
+    pages: external_exports.number().optional(),
+    subject: external_exports.string().max(200).optional(),
+    coverNote: external_exports.string().max(2e3).optional(),
+    includeCover: external_exports.boolean().default(false)
+  })).mutation(async ({ ctx, input }) => {
+    const db = getDb();
+    const toNumber = normalizeFaxNumber(input.toNumber);
+    const log3 = async (status, providerReference, errorMessage) => {
+      const [row] = await db.insert(faxes).values({
+        userId: ctx.user.id,
+        clientId: input.clientId ?? null,
+        toNumber,
+        toName: input.toName ?? null,
+        subject: input.subject ?? null,
+        fileName: input.fileName,
+        pages: input.pages ?? null,
+        provider: "srfax",
+        providerReference,
+        status,
+        errorMessage,
+        sentAt: status === "queued" || status === "sent" ? /* @__PURE__ */ new Date() : null
+      }).returning();
+      return row;
+    };
+    if (!isValidFaxNumber(input.toNumber)) {
+      await log3("failed", null, "Invalid fax number");
+      throw new Error("That doesn't look like a valid fax number (Canada/US). Check the digits and try again.");
+    }
+    const cfg = srfaxConfig();
+    if (!cfg.configured) {
+      await log3("failed", null, "Fax provider not configured");
+      throw new Error("No fax line connected yet. Add the SRFax credentials (SRFAX_ACCESS_ID / SRFAX_ACCESS_PWD / SRFAX_CALLER_ID) and this will send.");
+    }
+    const content = input.base64.includes(",") ? input.base64.split(",").pop() : input.base64;
+    const params = buildSrFaxQueueParams(cfg, {
+      toNumber,
+      fileName: input.fileName,
+      fileContentB64: content,
+      coverPage: input.includeCover ? "Standard" : null,
+      coverTo: input.toName ?? null,
+      coverFrom: "Go Fig Bookz",
+      subject: input.subject ?? null,
+      comments: input.coverNote ?? null
+    });
+    try {
+      const body = new URLSearchParams(params).toString();
+      const res = await fetch(SRFAX_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+      });
+      const json2 = await res.json().catch(() => ({}));
+      const parsed = parseSrFaxResponse(json2);
+      if (!parsed.ok) {
+        const row2 = await log3("failed", null, parsed.error || `HTTP ${res.status}`);
+        return { ok: false, status: "failed", error: parsed.error, fax: row2 };
+      }
+      const row = await log3("queued", parsed.reference ?? null, null);
+      return { ok: true, status: "queued", reference: parsed.reference, fax: row };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const row = await log3("failed", null, msg);
+      return { ok: false, status: "failed", error: msg, fax: row };
+    }
+  })
+});
+
 // api/genealogy-router.ts
 init_zod();
 init_middleware();
@@ -94001,6 +94224,7 @@ var appRouter = createRouter({
   cashPosition: cashPositionRouter,
   coa: coaRouter,
   driveCleanup: driveCleanupRouter,
+  fax: faxRouter,
   loanTracker: loanTrackerRouter
 });
 
@@ -94283,7 +94507,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.255";
+var BUILD_TAG = "2026-06-28.256";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -96076,6 +96300,8 @@ async function startServer() {
     await ensureRevRecSchema2();
     const { ensureBankedHoursSchema: ensureBankedHoursSchema2 } = await Promise.resolve().then(() => (init_ensure_banked_hours_schema(), ensure_banked_hours_schema_exports));
     await ensureBankedHoursSchema2();
+    const { ensureFaxSchema: ensureFaxSchema2 } = await Promise.resolve().then(() => (init_ensure_fax_schema(), ensure_fax_schema_exports));
+    await ensureFaxSchema2();
     const { ensureLoanSchema: ensureLoanSchema2 } = await Promise.resolve().then(() => (init_ensure_loan_schema(), ensure_loan_schema_exports));
     await ensureLoanSchema2();
     try {

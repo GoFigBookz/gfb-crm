@@ -1822,6 +1822,26 @@ export const clientParties = sqliteTable("client_parties", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// OUTBOUND FAX LOG — one row per fax we send (CRA still demands faxes). Keeps an
+// auditable record of who/what/when (engineering standard: preserve auditability)
+// without storing the file bytes. Optionally linked to a client.
+export const faxes = sqliteTable("faxes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("userId").notNull(),
+  clientId: integer("clientId"),            // optional link to a client
+  toNumber: text("toNumber").notNull(),     // normalized 11-digit NANP
+  toName: text("toName"),                   // who it's going to (e.g. "CRA — Sudbury TC")
+  subject: text("subject"),
+  fileName: text("fileName"),
+  pages: integer("pages"),
+  provider: text("provider").default("srfax"),
+  providerReference: text("providerReference"),  // SRFax queued-fax id
+  status: text("status").default("queued"),       // queued | sent | failed
+  errorMessage: text("errorMessage"),
+  createdAt: integer("createdAt", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  sentAt: integer("sentAt", { mode: "timestamp" }),
+});
+
 // ========== PERSONAL SPACE (Liv) — WALLED OFF FROM ALL CLIENT DATA ==========
 // Markie's private personal life: tasks, reminders, notes. Scoped strictly to
 // the owning user (userId) and NEVER joined to clients. This is the separate

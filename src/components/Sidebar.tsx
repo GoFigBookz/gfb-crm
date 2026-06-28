@@ -7,7 +7,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft, FileStack,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked, Brain, Sun, ListTree, HardDrive,
+  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked, Brain, Sun, ListTree, HardDrive, Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -114,6 +114,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/pricing-calculator", icon: DollarSign, label: "Pricing Calc" },
     { to: "/chart-of-accounts", icon: ListTree, label: "Chart Cleanup" },
     { to: "/drive-cleanup", icon: HardDrive, label: "Drive Cleanup" },
+    { to: "/send-fax", icon: Printer, label: "Send a Fax" },
   ];
 
   // Insights — practice analytics + automation.
@@ -222,7 +223,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
       {/* Logo — white band so Markie's black-ink wordmark reads on the dark sidebar */}
       <div className="flex items-center justify-between min-h-[5rem] py-2 px-3 bg-white border-b border-slate-200 flex-shrink-0">
         {!collapsed && (
-          <FiggyLogo className="h-10 w-auto" />
+          <FiggyLogo className="h-14 w-auto max-w-[180px]" />
         )}
         {collapsed && (
           <img src="/figgy-mark.png" alt="Figgy" className="h-9 w-auto object-contain mx-auto" />
