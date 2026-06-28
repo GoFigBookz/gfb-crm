@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { trpc } from "@/providers/trpc";
 import { cn } from "@/lib/utils";
 import { splitClientName } from "@/lib/clientName";
@@ -1912,6 +1913,154 @@ function HstExceptionCrossCheck() {
   );
 }
 
+const YEAR_END_PHASE_LABEL: Record<string, string> = {
+  reconcile: "1 · Reconcile",
+  compliance: "2 · Compliance filings",
+  adjustments: "3 · Year-end adjustments",
+  review: "4 · Review",
+  package: "5 · Accountant package",
+};
+
+/**
+ * YEAR-END REVIEW + ACCOUNTANT PACKAGE card. Start a fiscal year → work the phased
+ * checklist → Close (gated on the required items) → Build the accountant package
+ * (pulls TB/GL/BS/P&L read-only, lists statements/recon to gather). Per client.
+ */
+function ClientYearEndCard({ clientId, client }: { clientId: number; client: any }) {
+  const utils = trpc.useUtils();
+  const list = trpc.yearEnd.listForClient.useQuery({ clientId });
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const reviewId = activeId ?? (list.data?.reviews?.[0]?.id ?? null);
+  const detail = trpc.yearEnd.get.useQuery({ reviewId: reviewId! }, { enabled: !!reviewId });
+  const start = trpc.yearEnd.start.useMutation({ onSuccess: (r) => { setActiveId((r.review as any).id); utils.yearEnd.listForClient.invalidate({ clientId }); } });
+  const setItem = trpc.yearEnd.setItem.useMutation({ onSuccess: () => detail.refetch() });
+  const setAcct = trpc.yearEnd.setAccountant.useMutation({ onSuccess: () => detail.refetch() });
+  const saveNotes = trpc.yearEnd.updateNotes.useMutation({ onSuccess: () => detail.refetch() });
+  const close = trpc.yearEnd.close.useMutation({ onSuccess: () => { detail.refetch(); utils.yearEnd.listForClient.invalidate({ clientId }); } });
+  const reopen = trpc.yearEnd.reopen.useMutation({ onSuccess: () => { detail.refetch(); utils.yearEnd.listForClient.invalidate({ clientId }); } });
+  const buildPkg = trpc.yearEnd.buildPackage.useMutation({ onSuccess: () => detail.refetch() });
+
+  const [acctName, setAcctName] = useState<string | null>(null);
+  const [acctEmail, setAcctEmail] = useState<string | null>(null);
+  const [notes, setNotes] = useState<string | null>(null);
+  const d = detail.data && detail.data.ok ? detail.data : null;
+  const review = d?.review as any;
+  // hydrate editable fields from the loaded review (once per review)
+  const nameVal = acctName ?? review?.accountantName ?? "";
+  const emailVal = acctEmail ?? review?.accountantEmail ?? "";
+  const notesVal = notes ?? review?.notes ?? "";
+
+  const reviews = list.data?.reviews ?? [];
+  const statusBadge = (s: string) =>
+    s === "closed" ? <Badge className="bg-emerald-100 text-emerald-700">Closed</Badge>
+    : s === "packaged" ? <Badge className="bg-indigo-100 text-indigo-700">Packaged</Badge>
+    : <Badge variant="outline">In progress</Badge>;
+  const mStatusPill = (st: string) => {
+    const map: Record<string, string> = { included: "bg-emerald-100 text-emerald-700", manual: "bg-amber-100 text-amber-700", missing: "bg-red-100 text-red-700", na: "bg-slate-100 text-slate-500" };
+    const label: Record<string, string> = { included: "Ready", manual: "Pull manually", missing: "Missing", na: "n/a" };
+    return <span className={`text-[10px] px-1.5 py-0.5 rounded ${map[st] || "bg-slate-100"}`}>{label[st] || st}</span>;
+  };
+
+  const itemsByPhase: Record<string, any[]> = {};
+  for (const it of (d?.items ?? []) as any[]) (itemsByPhase[it.phase] ||= []).push(it);
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2"><Package className="h-4 w-4 text-indigo-600" /> Year-end review &amp; accountant package <HelpButton id="year-end-package" /></CardTitle>
+        <CardDescription>Close out the fiscal year and build the bundle the accountant needs. Start → work the checklist → Close → Package.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          {reviews.map((rv: any) => (
+            <button key={rv.id} onClick={() => setActiveId(rv.id)}
+              className={`text-xs px-2 py-1 rounded border ${rv.id === reviewId ? "border-indigo-400 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-600"}`}>
+              FY{rv.fiscalYear} {rv.status !== "in_progress" ? "✓" : ""}
+            </button>
+          ))}
+          <Button size="sm" variant="outline" className="h-7 text-xs" disabled={start.isPending} onClick={() => start.mutate({ clientId })}>
+            {start.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />} Start a year-end
+          </Button>
+        </div>
+
+        {!reviewId && <div className="text-xs text-slate-500">No year-end started yet. Click “Start a year-end” to begin the most recent completed fiscal year.</div>}
+
+        {d && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="text-sm font-medium text-slate-700">{d.label} {statusBadge(review.status)}</div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500">{d.summary.completionPercent}% · {d.summary.done}/{d.summary.applicable}</span>
+                <div className="w-28"><Progress value={d.summary.completionPercent} className="h-2" /></div>
+              </div>
+            </div>
+
+            {Object.keys(YEAR_END_PHASE_LABEL).filter((p) => itemsByPhase[p]?.length).map((phase) => (
+              <div key={phase} className="space-y-1">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{YEAR_END_PHASE_LABEL[phase]}</div>
+                {itemsByPhase[phase].map((it: any) => (
+                  <div key={it.id} className="flex items-start gap-2 text-xs">
+                    <Checkbox checked={!!it.done} onCheckedChange={(v: any) => setItem.mutate({ id: it.id, done: !!v })} className="mt-0.5" />
+                    <span className={`flex-1 ${it.done ? "text-slate-400 line-through" : it.na ? "text-slate-400" : "text-slate-700"}`}>{it.label}</span>
+                    <button onClick={() => setItem.mutate({ id: it.id, na: !it.na, done: false })}
+                      className={`text-[10px] px-1 rounded ${it.na ? "bg-slate-200 text-slate-600" : "text-slate-400 hover:text-slate-600"}`}>n/a</button>
+                  </div>
+                ))}
+              </div>
+            ))}
+
+            <div className="grid sm:grid-cols-2 gap-2">
+              <div><Label className="text-[11px] text-slate-500">Accountant name</Label>
+                <Input value={nameVal} onChange={(e) => setAcctName(e.target.value)} onBlur={() => setAcct.mutate({ reviewId, accountantName: nameVal || null, accountantEmail: emailVal || null })} className="h-8" placeholder="Jane Smith, CPA" /></div>
+              <div><Label className="text-[11px] text-slate-500">Accountant email</Label>
+                <Input value={emailVal} onChange={(e) => setAcctEmail(e.target.value)} onBlur={() => setAcct.mutate({ reviewId, accountantName: nameVal || null, accountantEmail: emailVal || null })} className="h-8" placeholder="jane@cpafirm.ca" /></div>
+            </div>
+            <div><Label className="text-[11px] text-slate-500">Working-paper notes for the accountant</Label>
+              <Textarea value={notesVal} onChange={(e) => setNotes(e.target.value)} onBlur={() => saveNotes.mutate({ reviewId, notes: notesVal })} rows={3} className="text-xs"
+                placeholder="Anything unusual this year — CCA taken, bad debts written off, shareholder loan movements, estimates the accountant should confirm…" /></div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {review.status === "in_progress" ? (
+                <Button size="sm" className="h-8 text-xs" disabled={!d.summary.canClose || close.isPending} onClick={() => close.mutate({ reviewId })}>
+                  {close.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CheckCircle className="h-3 w-3 mr-1" />} Close the year
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => reopen.mutate({ reviewId })}>Reopen</Button>
+              )}
+              <Button size="sm" variant="outline" className="h-8 text-xs" disabled={buildPkg.isPending} onClick={() => buildPkg.mutate({ reviewId })}>
+                {buildPkg.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Package className="h-3 w-3 mr-1" />} Build accountant package
+              </Button>
+            </div>
+            {!d.summary.canClose && review.status === "in_progress" && (
+              <div className="text-[11px] text-amber-600">To close: {d.summary.blockers.join("; ")}</div>
+            )}
+
+            {/* Package manifest — what's in the bundle, honestly. */}
+            <div className="rounded-md border border-slate-200 bg-slate-50/60 p-2 space-y-1">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Package contents</div>
+              {(buildPkg.data?.manifest?.items ?? d.manifest.items).map((m: any) => (
+                <div key={m.key} className="flex items-start gap-2 text-xs">
+                  {mStatusPill(m.status)}
+                  <span className="flex-1 text-slate-700">{m.label}{m.detail && <span className="text-slate-400"> — {m.detail}</span>}</span>
+                </div>
+              ))}
+              {buildPkg.data && (
+                <div className="text-[11px] text-slate-500 pt-1">
+                  {buildPkg.data.qboConnected ? "Pulled live reports where QuickBooks returned them." : "QuickBooks not connected — reports are a manual pull."}
+                  {buildPkg.data.reportErrors?.length ? ` (${buildPkg.data.reportErrors.length} report(s) unavailable)` : ""}
+                </div>
+              )}
+              {d.recon && (
+                <div className="text-[11px] text-slate-500">Recon: {d.recon.reconciledThrough}/{d.recon.totalAccounts} accounts reconciled through year-end{d.recon.behind ? ` · ${d.recon.behind} behind` : ""}.</div>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ComplianceTab({ clientId, client, onboarding, closeStatus, tasks, onOpenTask }: {
   clientId: number; client: any; onboarding?: any; closeStatus: any; tasks: any[]; onOpenTask?: (t: any) => void;
 }) {
@@ -2015,6 +2164,9 @@ function ComplianceTab({ clientId, client, onboarding, closeStatus, tasks, onOpe
       {/* Pre-HST accuracy review — right on the client card, defaults to the
           client's fiscal quarter. Only for HST-registered clients. */}
       {client.hasHST && <ClientHstReviewCard clientId={clientId} client={client} />}
+
+      {/* Year-end review + accountant package builder. */}
+      <ClientYearEndCard clientId={clientId} client={client} />
 
       {/* "Who paid this?" — cross-account / cross-entity double-post finder. */}
       <PaymentSourceCard clientId={clientId} groupName={(client as any).groupName} />

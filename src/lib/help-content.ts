@@ -155,6 +155,17 @@ export const HELP: Record<string, HelpEntry> = {
     ],
     note: "Paste-driven and read-only — works today without a live QBO connection. Nothing is posted.",
   },
+  "year-end-package": {
+    title: "Year-end review & accountant package",
+    steps: [
+      "Click ‘Start a year-end’ — it opens the most recently completed fiscal year (from the client's fiscal year-end month) and seeds the standard close checklist.",
+      "Work the checklist top to bottom: Reconcile → Compliance filings → Year-end adjustments → Review → Package. Tick each item; mark ‘n/a’ for anything that doesn't apply to this client.",
+      "Add the accountant (name + email) and write working-paper notes — anything unusual this year the accountant should know (CCA, bad debts, shareholder-loan movements, estimates to confirm).",
+      "‘Close the year’ unlocks once the required items (bank/CC reconciled, HST filed, trial balance reviewed) are done. It's the gate that says the books are right.",
+      "‘Build accountant package’ assembles the bundle: it pulls the Trial Balance, GL, Balance Sheet and P&L from QuickBooks where it can, and lists the statements + reconciliation reports to gather. Anything QuickBooks can't hand over via API shows ‘Pull manually’.",
+    ],
+    note: "Read-only — nothing posts to QuickBooks. ‘Missing’ = a real gap to fix; ‘Pull manually’ = expected (statements/reports you log in and download).",
+  },
   "triage": {
     title: "Ask Markie (review queue)",
     steps: [

@@ -88,6 +88,7 @@ import { cryptoRouter } from "./crypto-router";
 import { surplusCashRouter } from "./surplus-cash-router";
 import { reconTrackerRouter } from "./recon-tracker-router";
 import { clientThreadRouter } from "./client-thread-router";
+import { yearEndRouter } from "./year-end-router";
 import { genealogyRouter } from "./genealogy-router";
 import { hstReviewRouter } from "./hst-review-router";
 import { loanTrackerRouter } from "./loan-tracker-router";
@@ -193,6 +194,7 @@ export const appRouter = createRouter({
   surplusCash: surplusCashRouter,
   reconTracker: reconTrackerRouter,
   clientThread: clientThreadRouter,
+  yearEnd: yearEndRouter,
   loanTracker: loanTrackerRouter,
 });
 
