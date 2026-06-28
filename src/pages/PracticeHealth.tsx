@@ -7,9 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router";
 import { trpc } from "@/providers/trpc";
 
-const money = (n: number) => (n || 0).toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
-const money2 = (n: number) => (n || 0).toLocaleString("en-CA", { style: "currency", currency: "CAD", minimumFractionDigits: 2 });
-
 export default function PracticeHealth() {
   const [activeTab, setActiveTab] = useState("overview");
   const [firmId, setFirmId] = useState<number | undefined>(undefined);
@@ -22,6 +19,13 @@ export default function PracticeHealth() {
   const firm = data?.firm;
   const firms = data?.firms ?? [];
 
+  // Currency follows the firm — Go Fig Bookz USA's books are in USD, the Canadian
+  // firm's in CAD. (The numbers are the firm's own ledger amounts in its own currency;
+  // we don't FX-convert, just label correctly.)
+  const cur = (firm?.country || "CA") === "US" ? { locale: "en-US", code: "USD" } : { locale: "en-CA", code: "CAD" };
+  const money = (n: number) => (n || 0).toLocaleString(cur.locale, { style: "currency", currency: cur.code, maximumFractionDigits: 0 });
+  const money2 = (n: number) => (n || 0).toLocaleString(cur.locale, { style: "currency", currency: cur.code, minimumFractionDigits: 2 });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -32,7 +36,7 @@ export default function PracticeHealth() {
             Practice Health
           </h1>
           <p className="text-slate-500">
-            Owner-only view of firm performance{firm ? <> — anchored on <span className="font-medium text-slate-700">{firm.name}</span></> : null}.
+            Owner-only view of firm performance{firm ? <> — anchored on <span className="font-medium text-slate-700">{firm.name}</span> <span className="text-xs font-medium text-slate-400">({cur.code})</span></> : null}.
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -10,16 +10,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import HelpButton from "@/components/HelpButton";
+import { fmtMoney } from "@/lib/money";
 import { Wallet, RefreshCw, Loader2, AlertTriangle, CheckCircle2, ArrowDownToLine, CreditCard } from "lucide-react";
 
-const money = (n: number) => (n ?? 0).toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
 const STATUS: Record<string, { cls: string; icon: any; label: string }> = {
   ok: { cls: "border-emerald-200 bg-emerald-50 text-emerald-800", icon: CheckCircle2, label: "Healthy" },
   watch: { cls: "border-amber-200 bg-amber-50 text-amber-800", icon: AlertTriangle, label: "Watch" },
   alert: { cls: "border-red-200 bg-red-50 text-red-800", icon: AlertTriangle, label: "Needs attention" },
 };
 
-export function CashPositionCard({ clientId }: { clientId: number }) {
+export function CashPositionCard({ clientId, country, qboAccountType }: { clientId: number; country?: string | null; qboAccountType?: string | null }) {
+  const money = (n: number) => fmtMoney(n, { country, qboAccountType, decimals: 0 });
   const utils = trpc.useUtils();
   const buffer = trpc.cashPosition.buffer.useQuery({ clientId });
   const setBuffer = trpc.cashPosition.setBuffer.useMutation({ onSuccess: () => utils.cashPosition.buffer.invalidate({ clientId }) });
