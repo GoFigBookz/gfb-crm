@@ -59,6 +59,11 @@ export default function ClientWorkspace() {
   const { data: client } = trpc.crmClient.get.useQuery({ id }, { enabled: !!id });
   const { data: dashboardData } = trpc.clientDashboard.getByClient.useQuery({ clientId: id }, { enabled: !!id });
   const { data: closeStatus } = trpc.monthEnd.getClientStatus.useQuery({ clientId: id }, { enabled: !!id });
+  // NOTE: every hook MUST be called before the `if (!client) return` gate below — these
+  // two used to sit after it, so on a cold load (client undefined first render, then loaded)
+  // the hook count changed and React threw #310. Keep all hooks above the early return.
+  const { data: threadData } = trpc.clientThread.list.useQuery({ clientId: id }, { enabled: !!id });
+  const { data: reconData } = trpc.reconTracker.list.useQuery({ clientId: id }, { enabled: !!id });
   const update = trpc.crmClient.update.useMutation({ onSuccess: () => utils.crmClient.get.invalidate({ id }) });
   const set = (patch: Record<string, any>) => update.mutate({ id, ...patch } as any);
 
@@ -87,8 +92,6 @@ export default function ClientWorkspace() {
         due: !!closeStatus.hst.periodLabel && !closeStatus.hst.filed && !closeStatus.hst.overdue,
         periodLabel: closeStatus.hst.periodLabel }
     : null;
-  const { data: threadData } = trpc.clientThread.list.useQuery({ clientId: id }, { enabled: !!id });
-  const { data: reconData } = trpc.reconTracker.list.useQuery({ clientId: id }, { enabled: !!id });
   const alerts = buildClientAlerts({
     overdueTasks, hst: hstFlag,
     openQuestions: threadData?.summary?.openQuestions || 0,
