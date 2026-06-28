@@ -11220,13 +11220,13 @@ function _promise(Class2, innerType) {
 }
 // @__NO_SIDE_EFFECTS__
 function _custom(Class2, fn, _params) {
-  const norm24 = normalizeParams(_params);
-  norm24.abort ?? (norm24.abort = true);
+  const norm25 = normalizeParams(_params);
+  norm25.abort ?? (norm25.abort = true);
   const schema = new Class2({
     type: "custom",
     check: "custom",
     fn,
-    ...norm24
+    ...norm25
   });
   return schema;
 }
@@ -39115,7 +39115,7 @@ async function ensureClientRealmSync() {
       await db.run(sql.raw(`ALTER TABLE clients ADD COLUMN qboRealmId text`));
       console.log("[realm-sync] added clients.qboRealmId column");
     }
-    const norm24 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const norm25 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
     const unbound = await db.all(
       sql.raw(`SELECT id, realmId, companyName FROM qbo_connections WHERE isActive = 1 AND clientId IS NULL AND companyName IS NOT NULL AND companyName <> ''`)
     );
@@ -39130,11 +39130,11 @@ async function ensureClientRealmSync() {
         idx.set(key12, s);
       };
       for (const c of clientRows) {
-        add(norm24(c.name), Number(c.id));
-        add(norm24(c.company), Number(c.id));
+        add(norm25(c.name), Number(c.id));
+        add(norm25(c.company), Number(c.id));
       }
       for (const cn of unbound) {
-        const key12 = norm24(cn.companyName);
+        const key12 = norm25(cn.companyName);
         const matches = idx.get(key12);
         if (matches && matches.size === 1) {
           const clientId = [...matches][0];
@@ -44459,17 +44459,17 @@ async function recomputeRunTotals(runId) {
 async function applyImportedHours(db, runId, clientId, hours) {
   const emps = await db.select().from(employees).where(eq2(employees.clientId, clientId));
   const rosterExists = emps.length > 0;
-  const norm24 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  const norm25 = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
   const byAlias = /* @__PURE__ */ new Map(), byFull = /* @__PURE__ */ new Map(), byFirst = /* @__PURE__ */ new Map();
   const byLast = /* @__PURE__ */ new Map();
   const byJobberId = /* @__PURE__ */ new Map();
   for (const e of emps) {
     if (e.jobberUserId) byJobberId.set(String(e.jobberUserId), e);
-    if (e.jobberName) byAlias.set(norm24(e.jobberName), e);
-    byFull.set(norm24(`${e.firstName} ${e.lastName}`), e);
-    byFull.set(norm24(`${e.lastName}, ${e.firstName}`), e);
-    if (!byFirst.has(norm24(e.firstName))) byFirst.set(norm24(e.firstName), e);
-    const ln = norm24(e.lastName);
+    if (e.jobberName) byAlias.set(norm25(e.jobberName), e);
+    byFull.set(norm25(`${e.firstName} ${e.lastName}`), e);
+    byFull.set(norm25(`${e.lastName}, ${e.firstName}`), e);
+    if (!byFirst.has(norm25(e.firstName))) byFirst.set(norm25(e.firstName), e);
+    const ln = norm25(e.lastName);
     if (ln) byLast.set(ln, byLast.has(ln) ? "AMBIG" : e);
   }
   const parseName = (label) => {
@@ -44483,17 +44483,17 @@ async function applyImportedHours(db, runId, clientId, hours) {
     return { first: t2[0] || "", last: t2.slice(1).join(" ") };
   };
   const matchEmp = (label) => {
-    const n = norm24(label);
+    const n = norm25(label);
     let m = byAlias.get(n) || byFull.get(n);
     if (m) return m;
     const { first, last } = parseName(label);
-    m = byFull.get(norm24(`${first} ${last}`)) || byFull.get(norm24(`${last}, ${first}`));
+    m = byFull.get(norm25(`${first} ${last}`)) || byFull.get(norm25(`${last}, ${first}`));
     if (m) return m;
     if (last) {
-      const bl = byLast.get(norm24(last));
+      const bl = byLast.get(norm25(last));
       if (bl && bl !== "AMBIG") return bl;
     }
-    return byFirst.get(norm24(first)) || byFirst.get(norm24(n.split(/[ ,]/)[0])) || null;
+    return byFirst.get(norm25(first)) || byFirst.get(norm25(n.split(/[ ,]/)[0])) || null;
   };
   const lines3 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, runId));
   const lineByEmp = new Map(lines3.map((l) => [l.employeeId, l]));
@@ -44523,10 +44523,10 @@ async function applyImportedHours(db, runId, clientId, hours) {
       }).returning();
       emp = ins;
       created.push(`${ins.firstName} ${ins.lastName}`.trim());
-      byFull.set(norm24(h.userName), ins);
-      byFull.set(norm24(`${ins.firstName} ${ins.lastName}`), ins);
-      byFull.set(norm24(`${ins.lastName}, ${ins.firstName}`), ins);
-      if (ins.firstName && !byFirst.has(norm24(ins.firstName))) byFirst.set(norm24(ins.firstName), ins);
+      byFull.set(norm25(h.userName), ins);
+      byFull.set(norm25(`${ins.firstName} ${ins.lastName}`), ins);
+      byFull.set(norm25(`${ins.lastName}, ${ins.firstName}`), ins);
+      if (ins.firstName && !byFirst.has(norm25(ins.firstName))) byFirst.set(norm25(ins.firstName), ins);
     }
     const note = longShiftNote2(h.maxShiftHours ?? 0);
     if (note) flagged.push({ name: `${emp.firstName} ${emp.lastName}`.trim(), hours: h.hours, maxShiftHours: h.maxShiftHours ?? 0 });
@@ -44923,9 +44923,9 @@ var init_payroll_router = __esm({
         }
         const { recordRateChange: recordRateChange2 } = await Promise.resolve().then(() => (init_employee_router(), employee_router_exports));
         const existing = await db.select().from(employees).where(eq2(employees.clientId, input.clientId));
-        const norm24 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+        const norm25 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
         const byName = /* @__PURE__ */ new Map();
-        for (const e of existing) byName.set(norm24(`${e.firstName} ${e.lastName}`), e);
+        for (const e of existing) byName.set(norm25(`${e.firstName} ${e.lastName}`), e);
         const parseName = (label) => {
           const s = (label || "").trim();
           if (s.includes(",")) {
@@ -44940,7 +44940,7 @@ var init_payroll_router = __esm({
           const { first, last } = parseName(row.name);
           if (!first && !last) continue;
           const eff = row.effectiveDate ? /* @__PURE__ */ new Date(row.effectiveDate + "T12:00:00") : /* @__PURE__ */ new Date();
-          const hit = byName.get(norm24(`${first} ${last}`)) || byName.get(norm24(row.name));
+          const hit = byName.get(norm25(`${first} ${last}`)) || byName.get(norm25(row.name));
           if (hit) {
             const changed = row.hourlyRate != null && row.hourlyRate !== hit.hourlyRate || row.annualSalary != null && row.annualSalary !== hit.annualSalary;
             if (changed) {
@@ -44952,7 +44952,7 @@ var init_payroll_router = __esm({
             const [ins] = await db.insert(employees).values({ clientId: input.clientId, firstName: first || row.name, lastName: last || "", payType: row.payType ?? "hourly", hourlyRate: row.hourlyRate ?? null, annualSalary: row.annualSalary ?? null, isActive: true }).returning();
             await recordRateChange2(db, { employeeId: ins.id, clientId: input.clientId, payType: ins.payType, hourlyRate: ins.hourlyRate, annualSalary: ins.annualSalary, effectiveDate: eff, note: "Starting rate (roster sheet)", source: "roster_sheet" });
             created.push(`${first} ${last}`.trim());
-            byName.set(norm24(`${first} ${last}`), ins);
+            byName.set(norm25(`${first} ${last}`), ins);
           }
         }
         return { ok: true, created, updated, total: roster.length };
@@ -45376,10 +45376,10 @@ function normalizePhone(raw2) {
 }
 async function matchClientByPhone(phone) {
   const db = getDb();
-  const norm24 = normalizePhone(phone);
-  if (!norm24) return null;
+  const norm25 = normalizePhone(phone);
+  if (!norm25) return null;
   const all = await db.select().from(clients);
-  const hit = all.find((c) => normalizePhone(c.phone || "") === norm24);
+  const hit = all.find((c) => normalizePhone(c.phone || "") === norm25);
   return hit ? { id: hit.id, name: hit.name } : null;
 }
 async function ingestInboundSms(from, body, externalId) {
@@ -62841,7 +62841,7 @@ async function seedCollingwoodRunHours() {
       const k = key3(e.firstName, e.lastName);
       const patch = {};
       if ((e.payType || "") === "salary") {
-        const g = round213((e.annualSalary || 0) / PERIODS_PER_YEAR);
+        const g = round214((e.annualSalary || 0) / PERIODS_PER_YEAR);
         if (g > 0 && (l.grossPay ?? 0) === 0) patch.grossPay = g;
       } else if (k in HOURS) {
         const target = HOURS[k];
@@ -62851,10 +62851,10 @@ async function seedCollingwoodRunHours() {
           filled++;
         }
         const rate = e.hourlyRate ?? 0;
-        const g = round213(reg * rate);
+        const g = round214(reg * rate);
         if (g !== (l.grossPay ?? 0)) patch.grossPay = g;
       }
-      const entitled = !PHONE_EXEMPT_LAST2.includes(norm9(e.lastName));
+      const entitled = !PHONE_EXEMPT_LAST2.includes(norm10(e.lastName));
       const targetPhone = entitled ? PHONE : 0;
       if ((l.phoneAllowance ?? 0) !== targetPhone) {
         patch.phoneAllowance = targetPhone;
@@ -62866,7 +62866,7 @@ async function seedCollingwoodRunHours() {
       }
     }
     const fresh = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, draft.id));
-    const totalGross = round213(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
+    const totalGross = round214(fresh.reduce((s, l) => s + (l.grossPay || 0), 0));
     await db.update(payRuns).set({ totalGross, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, draft.id));
     if (filled || phoneSet) console.log(`[seed-collingwood-run] run ${draft.id}: filled ${filled} hours, set ${phoneSet} phone`);
     return { run: draft.id, filled, phoneSet, skipped: "" };
@@ -62874,7 +62874,7 @@ async function seedCollingwoodRunHours() {
     console.error("[seed-collingwood-run] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID2, PHONE, round213, norm9, key3, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
+var CLIENT_ID2, PHONE, round214, norm10, key3, HOURS, PHONE_EXEMPT_LAST2, PERIODS_PER_YEAR;
 var init_seed_collingwood_run_hours = __esm({
   "api/seed-collingwood-run-hours.ts"() {
     init_connection();
@@ -62882,9 +62882,9 @@ var init_seed_collingwood_run_hours = __esm({
     init_drizzle_orm();
     CLIENT_ID2 = 7;
     PHONE = 23.08;
-    round213 = (n) => Math.round(n * 100) / 100;
-    norm9 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key3 = (first, last) => `${norm9(last)}|${norm9(first)}`;
+    round214 = (n) => Math.round(n * 100) / 100;
+    norm10 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key3 = (first, last) => `${norm10(last)}|${norm10(first)}`;
     HOURS = {
       [key3("Matteo", "Companion")]: 64.63,
       [key3("Logan", "Greig")]: 0,
@@ -63159,7 +63159,7 @@ async function backfillSherPayroll() {
         const emp = empByKey.get(k);
         if (!emp) continue;
         const ln = p.lines[k];
-        const gross = round214(ln?.gross ?? 0);
+        const gross = round215(ln?.gross ?? 0);
         totalGross += gross;
         await db.insert(payRunLines).values({
           payRunId: run3.id,
@@ -63168,7 +63168,7 @@ async function backfillSherPayroll() {
           grossPay: gross
         });
       }
-      await db.update(payRuns).set({ totalGross: round214(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round215(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[sher-backfill] added ${runsAdded} run(s)`);
@@ -63177,15 +63177,15 @@ async function backfillSherPayroll() {
     console.error("[sher-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round214, norm10, key4, d, ROSTER2, PERIODS;
+var round215, norm11, key4, d, ROSTER2, PERIODS;
 var init_seed_sher_backfill = __esm({
   "api/seed-sher-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round214 = (n) => Math.round(n * 100) / 100;
-    norm10 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key4 = (first, last) => `${norm10(last)}|${norm10(first)}`;
+    round215 = (n) => Math.round(n * 100) / 100;
+    norm11 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key4 = (first, last) => `${norm11(last)}|${norm11(first)}`;
     d = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER2 = [
       { first: "Surya", last: "Bhattrai", payType: "salary", salary: 7e4 },
@@ -63368,11 +63368,11 @@ async function backfillOwenSoundPayroll() {
       for (const [k, v2] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp || have.has(emp.id)) continue;
-        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v2.hours, grossPay: round215(v2.gross) });
+        await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v2.hours, grossPay: round216(v2.gross) });
         linesAdded++;
       }
       const lines3 = await db.select().from(payRunLines).where(eq2(payRunLines.payRunId, run3.id));
-      const tg = round215(lines3.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
+      const tg = round216(lines3.reduce((s, l) => s + (Number(l.grossPay) || 0), 0));
       await db.update(payRuns).set({ totalGross: tg, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
     }
     if (runsAdded || linesAdded) console.log(`[os-backfill] added ${runsAdded} run(s), ${linesAdded} line(s)`);
@@ -63381,15 +63381,15 @@ async function backfillOwenSoundPayroll() {
     console.error("[os-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round215, norm11, key5, d2, ROSTER3, PERIODS2;
+var round216, norm12, key5, d2, ROSTER3, PERIODS2;
 var init_seed_os_backfill = __esm({
   "api/seed-os-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round215 = (n) => Math.round(n * 100) / 100;
-    norm11 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key5 = (first, last) => `${norm11(last)}|${norm11(first)}`;
+    round216 = (n) => Math.round(n * 100) / 100;
+    norm12 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key5 = (first, last) => `${norm12(last)}|${norm12(first)}`;
     d2 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER3 = [
       { first: "Jammie", last: "Cook", rate: 31 },
@@ -63595,11 +63595,11 @@ async function backfillCollingwoodPayroll() {
       for (const [k, v2] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round216(v2.gross);
+        const gross = round217(v2.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v2.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round216(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[cw-backfill] added ${runsAdded} run(s)`);
@@ -63608,16 +63608,16 @@ async function backfillCollingwoodPayroll() {
     console.error("[cw-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var CLIENT_ID3, round216, norm12, key6, d3, ROSTER4, PERIODS3;
+var CLIENT_ID3, round217, norm13, key6, d3, ROSTER4, PERIODS3;
 var init_seed_collingwood_backfill = __esm({
   "api/seed-collingwood-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
     CLIENT_ID3 = 7;
-    round216 = (n) => Math.round(n * 100) / 100;
-    norm12 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key6 = (first, last) => `${norm12(last)}|${norm12(first)}`;
+    round217 = (n) => Math.round(n * 100) / 100;
+    norm13 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key6 = (first, last) => `${norm13(last)}|${norm13(first)}`;
     d3 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER4 = [
       { first: "Chris", last: "Hawton", payType: "salary", salary: 6e4 },
@@ -63856,11 +63856,11 @@ async function backfillAuldPayroll() {
       for (const [k, v2] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round217(v2.gross);
+        const gross = round218(v2.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v2.hours, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round217(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round218(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[auld-backfill] added ${runsAdded} run(s)`);
@@ -63869,15 +63869,15 @@ async function backfillAuldPayroll() {
     console.error("[auld-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round217, norm13, key7, d4, ROSTER5, PERIODS4;
+var round218, norm14, key7, d4, ROSTER5, PERIODS4;
 var init_seed_auld_backfill = __esm({
   "api/seed-auld-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round217 = (n) => Math.round(n * 100) / 100;
-    norm13 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key7 = (first, last) => `${norm13(last)}|${norm13(first)}`;
+    round218 = (n) => Math.round(n * 100) / 100;
+    norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key7 = (first, last) => `${norm14(last)}|${norm14(first)}`;
     d4 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER5 = [
       { first: "James", last: "Allard", rate: 20 },
@@ -64162,11 +64162,11 @@ async function backfillOriginalityPayroll() {
         for (const [k, v2] of Object.entries(p.lines)) {
           const emp = empByKey.get(k);
           if (!emp) continue;
-          const gross = round218(v2.gross);
+          const gross = round219(v2.gross);
           totalGross += gross;
           await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: v2.hours, grossPay: gross });
         }
-        await db.update(payRuns).set({ totalGross: round218(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
+        await db.update(payRuns).set({ totalGross: round219(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
         runsAdded++;
       }
     };
@@ -64178,15 +64178,15 @@ async function backfillOriginalityPayroll() {
     console.error("[og-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round218, norm14, key8, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
+var round219, norm15, key8, d5, BASE_NOTE, SHARE_NOTE, ROSTER6, BASE_PERIODS, SHARE_PERIODS;
 var init_seed_originality_backfill = __esm({
   "api/seed-originality-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round218 = (n) => Math.round(n * 100) / 100;
-    norm14 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key8 = (first, last) => `${norm14(last)}|${norm14(first)}`;
+    round219 = (n) => Math.round(n * 100) / 100;
+    norm15 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key8 = (first, last) => `${norm15(last)}|${norm15(first)}`;
     d5 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     BASE_NOTE = "Backfill from Google payroll sheet";
     SHARE_NOTE = "Revenue share bonus (backfill)";
@@ -64412,7 +64412,7 @@ async function backfill2303851Payroll() {
     let runsAdded = 0;
     for (const p of PERIODS5) {
       if (allRuns.some((r) => r.payDate && new Date(r.payDate).toISOString().slice(0, 10) === p.payDate)) continue;
-      const gross = round219(p.gross);
+      const gross = round220(p.gross);
       const [run3] = await db.insert(payRuns).values({
         clientId,
         payPeriodStart: d6(p.start),
@@ -64436,19 +64436,19 @@ async function backfill2303851Payroll() {
     console.error("[2303851-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round219, norm15, key9, d6, EMP, MONTHLY, HALF, PERIODS5;
+var round220, norm16, key9, d6, EMP, MONTHLY, HALF, PERIODS5;
 var init_seed_2303851_backfill = __esm({
   "api/seed-2303851-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round219 = (n) => Math.round(n * 100) / 100;
-    norm15 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key9 = (first, last) => `${norm15(last)}|${norm15(first)}`;
+    round220 = (n) => Math.round(n * 100) / 100;
+    norm16 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key9 = (first, last) => `${norm16(last)}|${norm16(first)}`;
     d6 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     EMP = { first: "Stacey", last: "Gillham" };
     MONTHLY = 8333.33;
-    HALF = round219(MONTHLY / 2);
+    HALF = round220(MONTHLY / 2);
     PERIODS5 = [
       { payDate: "2026-01-31", start: "2026-01-01", end: "2026-01-31", gross: MONTHLY },
       { payDate: "2026-02-28", start: "2026-02-01", end: "2026-02-28", gross: MONTHLY },
@@ -64473,7 +64473,7 @@ async function backfillFractalPayroll() {
     if (!client) return { client: null, runsAdded: 0, skipped: "Fractal SaaS client not found" };
     const clientId = client.id;
     const existing = await db.select().from(employees).where(eq2(employees.clientId, clientId));
-    let emp = existing.find((e) => norm16(e.firstName) === "andrew");
+    let emp = existing.find((e) => norm17(e.firstName) === "andrew");
     if (emp) {
       const patch = {};
       if (!emp.lastName) patch.lastName = "Raines";
@@ -64515,8 +64515,8 @@ async function backfillFractalPayroll() {
         updatedAt: /* @__PURE__ */ new Date()
       }).returning();
       if (!run3) continue;
-      await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: round220(MONTHLY2) });
-      await db.update(payRuns).set({ totalGross: round220(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
+      await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: round221(MONTHLY2) });
+      await db.update(payRuns).set({ totalGross: round221(MONTHLY2), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[fractal-backfill] added ${runsAdded} run(s)`);
@@ -64525,14 +64525,14 @@ async function backfillFractalPayroll() {
     console.error("[fractal-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round220, norm16, d7, MONTHLY2, PERIODS6;
+var round221, norm17, d7, MONTHLY2, PERIODS6;
 var init_seed_fractal_backfill = __esm({
   "api/seed-fractal-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round220 = (n) => Math.round(n * 100) / 100;
-    norm16 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    round221 = (n) => Math.round(n * 100) / 100;
+    norm17 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
     d7 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     MONTHLY2 = 4500;
     PERIODS6 = [
@@ -64607,11 +64607,11 @@ async function backfillMotionInvestPayroll() {
       for (const [k, v2] of Object.entries(p.lines)) {
         const emp = empByKey.get(k);
         if (!emp) continue;
-        const gross = round221(v2.gross);
+        const gross = round222(v2.gross);
         totalGross += gross;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: emp.id, regularHours: 0, grossPay: gross });
       }
-      await db.update(payRuns).set({ totalGross: round221(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round222(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[motioninvest-backfill] added ${runsAdded} run(s)`);
@@ -64620,15 +64620,15 @@ async function backfillMotionInvestPayroll() {
     console.error("[motioninvest-backfill] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round221, norm17, key10, d8, ROSTER7, PERIODS7;
+var round222, norm18, key10, d8, ROSTER7, PERIODS7;
 var init_seed_motioninvest_backfill = __esm({
   "api/seed-motioninvest-backfill.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round221 = (n) => Math.round(n * 100) / 100;
-    norm17 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key10 = (first, last) => `${norm17(last)}|${norm17(first)}`;
+    round222 = (n) => Math.round(n * 100) / 100;
+    norm18 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key10 = (first, last) => `${norm18(last)}|${norm18(first)}`;
     d8 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     ROSTER7 = [
       { first: "Kelley", last: "Van Boxmeer", payType: "salary", salary: 75e3 },
@@ -64690,16 +64690,16 @@ async function backfillMotionInvestRevShare() {
     let cumNet = 0;
     const paidByKey = /* @__PURE__ */ new Map();
     for (const q3 of QUARTERS) {
-      cumNet = round222(cumNet + q3.netProfit);
+      cumNet = round223(cumNet + q3.netProfit);
       const note = `Revenue share bonus (${q3.label})`;
       const due = d9(q3.payDate) <= now;
       const exists2 = allRuns.some((r) => (r.notes || "") === note);
       const lines3 = [];
       for (const s of SHARERS) {
         const k = key11(s.first, s.last);
-        const earned = round222(cumNet * s.pct);
+        const earned = round223(cumNet * s.pct);
         const prior = paidByKey.get(k) || 0;
-        const payout = round222(Math.max(0, earned - prior));
+        const payout = round223(Math.max(0, earned - prior));
         paidByKey.set(k, prior + payout);
         const emp = empByKey.get(k);
         if (emp && payout > 0) lines3.push({ emp, amount: payout });
@@ -64723,7 +64723,7 @@ async function backfillMotionInvestRevShare() {
         totalGross += ln.amount;
         await db.insert(payRunLines).values({ payRunId: run3.id, employeeId: ln.emp.id, regularHours: 0, grossPay: ln.amount });
       }
-      await db.update(payRuns).set({ totalGross: round222(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
+      await db.update(payRuns).set({ totalGross: round223(totalGross), updatedAt: /* @__PURE__ */ new Date() }).where(eq2(payRuns.id, run3.id));
       runsAdded++;
     }
     if (runsAdded) console.log(`[mi-revshare] added ${runsAdded} quarterly run(s)`);
@@ -64732,15 +64732,15 @@ async function backfillMotionInvestRevShare() {
     console.error("[mi-revshare] failed:", err instanceof Error ? err.message : err);
   }
 }
-var round222, norm18, key11, d9, SHARERS, QUARTERS;
+var round223, norm19, key11, d9, SHARERS, QUARTERS;
 var init_seed_motioninvest_revshare = __esm({
   "api/seed-motioninvest-revshare.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    round222 = (n) => Math.round(n * 100) / 100;
-    norm18 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    key11 = (first, last) => `${norm18(last)}|${norm18(first)}`;
+    round223 = (n) => Math.round(n * 100) / 100;
+    norm19 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    key11 = (first, last) => `${norm19(last)}|${norm19(first)}`;
     d9 = (s) => /* @__PURE__ */ new Date(`${s}T12:00:00Z`);
     SHARERS = [
       { first: "Kelley", last: "Van Boxmeer", pct: 0.1 },
@@ -67276,14 +67276,14 @@ async function dedupEmployees() {
     console.error("[emp-dedup] failed:", err instanceof Error ? err.message : err);
   }
 }
-var norm19, idKey, OS_NAMES, CW_NAMES, SHER_NAMES, completeness;
+var norm20, idKey, OS_NAMES, CW_NAMES, SHER_NAMES, completeness;
 var init_seed_employee_dedup = __esm({
   "api/seed-employee-dedup.ts"() {
     init_connection();
     init_schema();
     init_drizzle_orm();
-    norm19 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
-    idKey = (first, last) => (norm19(first) + norm19(last)).split("").sort().join("");
+    norm20 = (s) => (s || "").toLowerCase().replace(/[^a-z]/g, "");
+    idKey = (first, last) => (norm20(first) + norm20(last)).split("").sort().join("");
     OS_NAMES = [
       { first: "Jammie", last: "Cook" },
       { first: "Grace", last: "Dickerson" },
@@ -67699,7 +67699,7 @@ async function dedupeClients(confirm) {
   const groups = /* @__PURE__ */ new Map();
   for (const r of clientRows) {
     const id = Number(r.id ?? r[0]);
-    const key12 = `${norm20(r.name ?? r[1])}|${norm20(r.company ?? r[2])}`;
+    const key12 = `${norm21(r.name ?? r[1])}|${norm21(r.company ?? r[2])}`;
     if (!groups.has(key12)) groups.set(key12, []);
     groups.get(key12).push(id);
   }
@@ -67779,12 +67779,12 @@ async function dedupeClients(confirm) {
   }
   return report;
 }
-var norm20, asRows, num8;
+var norm21, asRows, num8;
 var init_dedupe_clients = __esm({
   "api/dedupe-clients.ts"() {
     init_connection();
     init_drizzle_orm();
-    norm20 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+    norm21 = (s) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
     asRows = (res) => [...res?.rows ?? res ?? []];
     num8 = (res) => Number(res?.rowsAffected ?? res?.changes ?? 0);
   }
@@ -68390,9 +68390,9 @@ async function seedPayrollEmployees() {
       result.skipped += roster.employees.length;
       continue;
     }
-    const have = new Set(current.map((e) => `${norm21(e.firstName)} ${norm21(e.lastName)}`.trim()));
+    const have = new Set(current.map((e) => `${norm23(e.firstName)} ${norm23(e.lastName)}`.trim()));
     for (const emp of roster.employees) {
-      if (roster.merge && have.has(`${norm21(emp.firstName)} ${norm21(emp.lastName || "")}`.trim())) {
+      if (roster.merge && have.has(`${norm23(emp.firstName)} ${norm23(emp.lastName || "")}`.trim())) {
         result.skipped++;
         continue;
       }
@@ -68416,7 +68416,7 @@ async function seedPayrollEmployees() {
   for (const mv of PAYROLL_EMPLOYEE_MOVES) {
     const to = findClient(clientsNow, mv.toMatch);
     if (!to) continue;
-    const matches = (await db.select().from(employees)).filter((e) => norm21(e.firstName) === norm21(mv.firstName) && norm21(e.lastName) === norm21(mv.lastName));
+    const matches = (await db.select().from(employees)).filter((e) => norm23(e.firstName) === norm23(mv.firstName) && norm23(e.lastName) === norm23(mv.lastName));
     for (const e of matches) {
       if (e.clientId === to.id) continue;
       const from = findClient(clientsNow, mv.fromMatch);
@@ -68441,7 +68441,7 @@ async function seedPayrollEmployees() {
     for (const link of PAYROLL_CONTRACT_LINKS) {
       const client = findClient(clientsNow, link.clientMatch);
       if (!client) continue;
-      const emp = all.find((e) => e.clientId === client.id && norm21(e.firstName) === norm21(link.firstName) && (!link.lastName || norm21(e.lastName) === norm21(link.lastName)));
+      const emp = all.find((e) => e.clientId === client.id && norm23(e.firstName) === norm23(link.firstName) && (!link.lastName || norm23(e.lastName) === norm23(link.lastName)));
       if (emp && !emp.contractUrl) {
         await db.update(employees).set({ contractUrl: link.contractUrl, updatedAt: /* @__PURE__ */ new Date() }).where(eq2(employees.id, emp.id));
         contracts++;
@@ -68452,7 +68452,7 @@ async function seedPayrollEmployees() {
     console.log(`[seed] payroll employees: +${result.added} -${result.removed} moved ${moved} salary-filled ${filled} contracts ${contracts}`);
   return { ...result, moved, filled, contracts };
 }
-var PAYROLL_EMPLOYEE_MOVES, norm21, findClient;
+var PAYROLL_EMPLOYEE_MOVES, norm23, findClient;
 var init_seed_payroll_employees = __esm({
   "api/seed-payroll-employees.ts"() {
     init_connection();
@@ -68463,8 +68463,8 @@ var init_seed_payroll_employees = __esm({
     PAYROLL_EMPLOYEE_MOVES = [
       { firstName: "Stacey", lastName: "Gillham", fromMatch: "2303851", toMatch: "originality", note: "Moved to Originality as of the 15th" }
     ];
-    norm21 = (s) => (s || "").toLowerCase().trim();
-    findClient = (all, match2) => all.find((c) => norm21(c.name).includes(norm21(match2)));
+    norm23 = (s) => (s || "").toLowerCase().trim();
+    findClient = (all, match2) => all.find((c) => norm23(c.name).includes(norm23(match2)));
   }
 });
 
@@ -71671,8 +71671,8 @@ async function seedGovRegistry() {
     return report;
   }
   for (const g of GOV) {
-    let c = g.bn ? all.find((x) => norm23(x.taxId) === norm23(g.bn)) : void 0;
-    if (!c && g.nameKey) c = all.find((x) => norm23(x.name).includes(norm23(g.nameKey)) || norm23(x.company).includes(norm23(g.nameKey)));
+    let c = g.bn ? all.find((x) => norm24(x.taxId) === norm24(g.bn)) : void 0;
+    if (!c && g.nameKey) c = all.find((x) => norm24(x.name).includes(norm24(g.nameKey)) || norm24(x.company).includes(norm24(g.nameKey)));
     if (!c) continue;
     report.matched++;
     const patch = { updatedAt: /* @__PURE__ */ new Date() };
@@ -71691,7 +71691,7 @@ async function seedGovRegistry() {
   }
   return report;
 }
-var GOV, norm23;
+var GOV, norm24;
 var init_seed_gov_registry = __esm({
   "api/seed-gov-registry.ts"() {
     init_connection();
@@ -71733,7 +71733,7 @@ var init_seed_gov_registry = __esm({
       { bn: "809545346", industry: "Healthcare/Wellness", bio: "Healthcare business in the osteopathic / wellness field, providing therapeutic services and alternative health treatments." },
       { nameKey: "universal drywall", industry: "Construction/Drywall", bio: "Drywall and construction services company providing interior framing, drywall installation and exterior finishes. USA (Florida) entity." }
     ];
-    norm23 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    norm24 = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   }
 });
 
@@ -89970,10 +89970,10 @@ async function pricingAnalysis(months = 3) {
     subs = await db.all(sql`SELECT label, monthlyCost FROM firm_subscriptions WHERE active = 1`);
   } catch {
   }
-  const norm24 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const costByName = new Map(subs.map((s) => [norm24(s.label), Number(s.monthlyCost) || 0]));
+  const norm25 = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const costByName = new Map(subs.map((s) => [norm25(s.label), Number(s.monthlyCost) || 0]));
   const rows = billing.rows.map((r) => {
-    const cost = costByName.get(norm24(r.customer)) ?? null;
+    const cost = costByName.get(norm25(r.customer)) ?? null;
     const margin = cost != null ? Math.round((r.monthlyAvg - cost) * 100) / 100 : null;
     const flag = r.monthlyAvg <= 0 ? "no recent billing" : margin != null && margin < 0 ? "billing below cost" : void 0;
     return { ...r, monthlyCost: cost, margin, flag };
@@ -91269,17 +91269,17 @@ function parseOpeningBalances(text2) {
 
 // api/banked-hours-router.ts
 function matchEmployee(name2, emps) {
-  const norm24 = (s) => (s || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
-  const target = norm24(name2);
+  const norm25 = (s) => (s || "").toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
+  const target = norm25(name2);
   if (!target) return null;
   for (const e of emps) {
-    const full = norm24(`${e.firstName} ${e.lastName}`);
-    const rev = norm24(`${e.lastName} ${e.firstName}`);
+    const full = norm25(`${e.firstName} ${e.lastName}`);
+    const rev = norm25(`${e.lastName} ${e.firstName}`);
     if (target === full || target === rev) return e;
   }
   for (const e of emps) {
-    const ln = norm24(e.lastName);
-    const fi = norm24(e.firstName).charAt(0);
+    const ln = norm25(e.lastName);
+    const fi = norm25(e.firstName).charAt(0);
     if (ln && target.includes(ln) && (!fi || target.includes(fi))) return e;
   }
   return null;
@@ -93109,6 +93109,301 @@ var faxRouter = createRouter({
   })
 });
 
+// api/crypto-router.ts
+init_zod();
+init_middleware();
+
+// api/crypto-parse-core.ts
+var SYNONYMS = {
+  date: ["date", "time", "timestamp", "date(utc)", "date (utc)", "trade date", "datetime", "created at", "completed at"],
+  asset: ["asset", "symbol", "currency", "coin", "token", "base currency", "ticker", "instrument"],
+  qty: ["amount", "quantity", "qty", "units", "size", "volume", "filled"],
+  cadValue: ["cad value", "value (cad)", "value cad", "cad", "total (cad)", "total cad", "proceeds", "subtotal", "fiat amount", "total value", "amount (cad)", "cad amount", "total"],
+  fee: ["fee", "fees", "commission", "fee (cad)", "fee cad", "trading fee"],
+  type: ["type", "side", "transaction type", "activity", "action", "operation", "kind", "category"]
+};
+var ACQUIRE_WORDS = ["buy", "bought", "purchase", "purchased", "receive", "received", "deposit", "credit", "in", "long"];
+var DISPOSE_WORDS = ["sell", "sold", "sale", "send", "sent", "withdraw", "withdrawal", "spend", "spent", "payment", "paid", "debit", "out", "short"];
+var INCOME_WORDS = ["mining", "mined", "mine", "reward", "rewards", "staking", "stake", "interest", "airdrop", "income", "earn"];
+var norm8 = (s) => s.trim().toLowerCase().replace(/\s+/g, " ").replace(/^"|"$/g, "");
+function splitLine2(line, delim) {
+  const out = [];
+  let cur = "";
+  let q3 = false;
+  for (const ch of line) {
+    if (ch === '"') q3 = !q3;
+    else if (ch === delim && !q3) {
+      out.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  out.push(cur);
+  return out.map((c) => c.trim().replace(/^"|"$/g, ""));
+}
+function matchHeader(headers, field) {
+  const syns = SYNONYMS[field];
+  for (let i = 0; i < headers.length; i++) if (syns.includes(headers[i])) return i;
+  for (let i = 0; i < headers.length; i++) if (syns.some((s) => headers[i].includes(s))) return i;
+  return -1;
+}
+var toNum = (s) => {
+  const n = parseFloat(String(s ?? "").replace(/[$,\s]/g, "").replace(/[()]/g, ""));
+  return Number.isFinite(n) ? Math.abs(n) : 0;
+};
+function toIsoDate(s) {
+  const t2 = String(s ?? "").trim();
+  const iso2 = t2.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (iso2) return `${iso2[1]}-${iso2[2].padStart(2, "0")}-${iso2[3].padStart(2, "0")}`;
+  const dmy = t2.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmy) {
+    let a = +dmy[1], b = +dmy[2];
+    const day2 = a > 12 ? a : b, mon = a > 12 ? b : a;
+    return `${dmy[3]}-${String(mon).padStart(2, "0")}-${String(day2).padStart(2, "0")}`;
+  }
+  const d10 = new Date(t2);
+  if (!isNaN(d10.getTime())) return d10.toISOString().slice(0, 10);
+  return t2;
+}
+function classify(typeText) {
+  const t2 = norm8(typeText);
+  if (!t2) return null;
+  const income = INCOME_WORDS.some((w) => t2.includes(w));
+  if (income) return { direction: "acquire", income: true };
+  if (ACQUIRE_WORDS.some((w) => t2 === w || t2.includes(w))) return { direction: "acquire", income: false };
+  if (DISPOSE_WORDS.some((w) => t2 === w || t2.includes(w))) return { direction: "dispose", income: false };
+  return null;
+}
+function parseCryptoCsv(text2) {
+  const warnings = [];
+  const lines3 = String(text2 || "").split(/\r?\n/).filter((l) => l.trim());
+  if (lines3.length < 2) return { rows: [], warnings: ["Need a header row plus at least one transaction."], columns: {} };
+  const delim = lines3[0].match(/\t/) ? "	" : lines3[0].split(";").length > lines3[0].split(",").length ? ";" : ",";
+  const headers = splitLine2(lines3[0], delim).map(norm8);
+  const idx = {
+    date: matchHeader(headers, "date"),
+    asset: matchHeader(headers, "asset"),
+    qty: matchHeader(headers, "qty"),
+    cadValue: matchHeader(headers, "cadValue"),
+    fee: matchHeader(headers, "fee"),
+    type: matchHeader(headers, "type")
+  };
+  const columns = {};
+  for (const [k, v2] of Object.entries(idx)) columns[k] = v2 >= 0 ? headers[v2] : null;
+  if (idx.date < 0 || idx.asset < 0 || idx.qty < 0 || idx.type < 0) {
+    warnings.push("Couldn't find all of date / asset / amount / type columns \u2014 check the report has a header row.");
+  }
+  const rows = [];
+  for (let i = 1; i < lines3.length; i++) {
+    const cells = splitLine2(lines3[i], delim);
+    const get = (j) => j >= 0 && j < cells.length ? cells[j] : "";
+    const cls = classify(get(idx.type));
+    if (!cls) {
+      warnings.push(`Row ${i}: couldn't tell if "${get(idx.type) || "(blank type)"}" is a buy or sell \u2014 skipped.`);
+      continue;
+    }
+    const qty = toNum(get(idx.qty));
+    const asset = norm8(get(idx.asset)).toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!asset || qty <= 0) {
+      warnings.push(`Row ${i}: missing asset or amount \u2014 skipped.`);
+      continue;
+    }
+    rows.push({
+      date: toIsoDate(get(idx.date)),
+      asset,
+      direction: cls.direction,
+      qty,
+      cadValue: toNum(get(idx.cadValue)),
+      feeCad: toNum(get(idx.fee)),
+      income: cls.income,
+      rawType: get(idx.type)
+    });
+  }
+  if (!rows.length && !warnings.length) warnings.push("No transactions recognized.");
+  return { rows, warnings, columns };
+}
+
+// api/crypto-core.ts
+var round212 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+function computeAcb(txns) {
+  const pool = /* @__PURE__ */ new Map();
+  const disposals = [];
+  const ordered = [...txns].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  for (const t2 of ordered) {
+    const fee = t2.feeCad || 0;
+    const p = pool.get(t2.asset) || { qty: 0, acb: 0 };
+    if (t2.direction === "acquire") {
+      p.qty += t2.qty;
+      p.acb += t2.cadValue + fee;
+      pool.set(t2.asset, p);
+      continue;
+    }
+    const oversold = t2.qty > p.qty + 1e-9;
+    const qtySold = oversold ? p.qty : t2.qty;
+    const costBasis = p.qty > 0 ? p.acb * (qtySold / p.qty) : 0;
+    const proceeds = t2.cadValue - fee;
+    disposals.push({
+      date: t2.date,
+      asset: t2.asset,
+      qty: t2.qty,
+      proceeds: round212(proceeds),
+      costBasis: round212(costBasis),
+      gainLoss: round212(proceeds - costBasis),
+      oversold
+    });
+    p.qty = Math.max(0, p.qty - qtySold);
+    p.acb = Math.max(0, p.acb - costBasis);
+    pool.set(t2.asset, p);
+  }
+  const holdings = [];
+  for (const [asset, p] of pool) {
+    if (p.qty <= 1e-9 && p.acb <= 5e-3) continue;
+    holdings.push({ asset, qty: round212(p.qty), acb: round212(p.acb), avgCost: p.qty > 0 ? round212(p.acb / p.qty) : 0 });
+  }
+  holdings.sort((a, b) => b.acb - a.acb);
+  const totals = disposals.reduce(
+    (s, d10) => ({ proceeds: s.proceeds + d10.proceeds, costBasis: s.costBasis + d10.costBasis, gainLoss: s.gainLoss + d10.gainLoss }),
+    { proceeds: 0, costBasis: 0, gainLoss: 0 }
+  );
+  return { disposals, holdings, totals: { proceeds: round212(totals.proceeds), costBasis: round212(totals.costBasis), gainLoss: round212(totals.gainLoss) } };
+}
+function valueHoldings(holdings, priceCad) {
+  return holdings.map((h) => {
+    const px = priceCad[h.asset];
+    const marketValue = px ? round212(h.qty * px) : 0;
+    return { ...h, marketValue, unrealized: px ? round212(marketValue - h.acb) : 0 };
+  });
+}
+
+// api/crypto-router.ts
+var COIN_IDS = {
+  BTC: "bitcoin",
+  ETH: "ethereum",
+  USDT: "tether",
+  USDC: "usd-coin",
+  BNB: "binancecoin",
+  XRP: "ripple",
+  ADA: "cardano",
+  SOL: "solana",
+  DOGE: "dogecoin",
+  DOT: "polkadot",
+  LTC: "litecoin",
+  BCH: "bitcoin-cash",
+  TRX: "tron",
+  MATIC: "matic-network",
+  AVAX: "avalanche-2",
+  LINK: "chainlink",
+  XLM: "stellar",
+  ATOM: "cosmos",
+  XMR: "monero",
+  ETC: "ethereum-classic",
+  ALGO: "algorand",
+  VET: "vechain",
+  FIL: "filecoin",
+  APE: "apecoin",
+  SHIB: "shiba-inu",
+  NEAR: "near",
+  UNI: "uniswap",
+  AAVE: "aave",
+  SAND: "the-sandbox",
+  MANA: "decentraland"
+};
+var priceCache = /* @__PURE__ */ new Map();
+async function historicalCad(asset, isoDate2) {
+  const id = COIN_IDS[asset];
+  if (!id) return null;
+  const [y, m, d10] = isoDate2.split("-");
+  if (!y || !m || !d10) return null;
+  const dmy = `${d10}-${m}-${y}`;
+  const key12 = `${id}@${dmy}`;
+  if (priceCache.has(key12)) return priceCache.get(key12);
+  try {
+    const res = await fetch(`https://api.coingecko.com/api/v3/coins/${id}/history?date=${dmy}&localization=false`);
+    if (!res.ok) return null;
+    const j = await res.json();
+    const cad = j?.market_data?.current_price?.cad;
+    if (typeof cad === "number") {
+      priceCache.set(key12, cad);
+      return cad;
+    }
+  } catch {
+  }
+  return null;
+}
+async function currentCad(assets) {
+  const ids = assets.map((a) => COIN_IDS[a]).filter(Boolean);
+  if (!ids.length) return {};
+  try {
+    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(",")}&vs_currencies=cad`);
+    if (!res.ok) return {};
+    const j = await res.json();
+    const out = {};
+    for (const a of assets) {
+      const id = COIN_IDS[a];
+      if (id && j?.[id]?.cad != null) out[a] = j[id].cad;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+var rowInput = external_exports.object({
+  date: external_exports.string(),
+  asset: external_exports.string(),
+  direction: external_exports.enum(["acquire", "dispose"]),
+  qty: external_exports.number(),
+  cadValue: external_exports.number().default(0),
+  feeCad: external_exports.number().default(0),
+  income: external_exports.boolean().default(false)
+});
+var cryptoRouter = createRouter({
+  // Parse a pasted report into editable rows (pure; no network).
+  parse: authedQuery.input(external_exports.object({ text: external_exports.string().min(1) })).mutation(async ({ input }) => {
+    const r = parseCryptoCsv(input.text);
+    const knownAssets = r.rows.map((x) => x.asset);
+    const unsupported = Array.from(new Set(knownAssets.filter((a) => !COIN_IDS[a])));
+    return { ...r, unsupportedForPricing: unsupported };
+  }),
+  // Value (fill CAD gaps), run ACB, and report gains + holdings.
+  analyze: authedQuery.input(external_exports.object({ rows: external_exports.array(rowInput).min(1).max(5e3) })).mutation(async ({ input }) => {
+    const rows = input.rows.map((r) => ({ ...r }));
+    const unpriced = [];
+    let lookups = 0;
+    const LOOKUP_CAP = 80;
+    for (const r of rows) {
+      if (r.cadValue > 0) continue;
+      if (lookups >= LOOKUP_CAP) {
+        unpriced.push({ date: r.date, asset: r.asset });
+        continue;
+      }
+      lookups++;
+      const px = await historicalCad(r.asset, r.date);
+      if (px != null) r.cadValue = +(r.qty * px).toFixed(2);
+      else unpriced.push({ date: r.date, asset: r.asset });
+    }
+    const txns = rows.map((r) => ({
+      date: r.date,
+      asset: r.asset,
+      direction: r.direction,
+      qty: r.qty,
+      cadValue: r.cadValue,
+      feeCad: r.feeCad
+    }));
+    const result = computeAcb(txns);
+    const prices = await currentCad(result.holdings.map((h) => h.asset));
+    const valuedHoldings = valueHoldings(result.holdings, prices);
+    const incomeTotal = +rows.filter((r) => r.income && r.direction === "acquire").reduce((s, r) => s + (r.cadValue || 0), 0).toFixed(2);
+    return {
+      result,
+      valuedHoldings,
+      incomeTotal,
+      unpriced,
+      cappedPricing: lookups >= LOOKUP_CAP,
+      marketValueTotal: +valuedHoldings.reduce((s, h) => s + (h.marketValue || 0), 0).toFixed(2),
+      unrealizedTotal: +valuedHoldings.reduce((s, h) => s + (h.unrealized || 0), 0).toFixed(2)
+    };
+  })
+});
+
 // api/genealogy-router.ts
 init_zod();
 init_middleware();
@@ -93291,7 +93586,7 @@ init_qbo_router();
 init_qbo_vendor_brain();
 
 // api/hst-review-core.ts
-var norm8 = (s) => (s || "").toLowerCase();
+var norm9 = (s) => (s || "").toLowerCase();
 var money5 = (n) => Math.round((n || 0) * 100) / 100;
 var isExpenseTxn = (t2) => t2.type === "Purchase" || t2.type === "Bill";
 var isSalesTxn = (t2) => t2.type === "Invoice" || t2.type === "SalesReceipt";
@@ -93389,7 +93684,7 @@ function checkDuplicates(txns) {
   const seen = /* @__PURE__ */ new Map();
   for (const t2 of txns) {
     if (!isExpenseTxn(t2)) continue;
-    const keyDoc = `${norm8(t2.name)}|${money5(t2.total)}|${norm8(t2.docNumber)}`;
+    const keyDoc = `${norm9(t2.name)}|${money5(t2.total)}|${norm9(t2.docNumber)}`;
     const prior = t2.docNumber ? seen.get(keyDoc) : void 0;
     if (t2.docNumber && prior) {
       out.push({
@@ -93732,7 +94027,7 @@ init_schema();
 init_drizzle_orm();
 
 // api/loan-tracker-core.ts
-function round212(n) {
+function round213(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 function toTime2(d10) {
@@ -93746,7 +94041,7 @@ function buildLoanLedger(entries) {
   });
   let bal = 0;
   return sorted.map((e) => {
-    bal = round212(bal + (e.amount || 0));
+    bal = round213(bal + (e.amount || 0));
     return { ...e, runningBalance: bal };
   });
 }
@@ -93762,13 +94057,13 @@ function summarizeLoan(entries) {
     const t2 = toTime2(e.entryDate);
     if (t2 > last) last = t2;
   }
-  balance = round212(balance);
+  balance = round213(balance);
   const direction = balance > 0 ? "owed_to_lender" : balance < 0 ? "owed_to_borrower" : "settled";
   return {
     balance,
-    totalAdvanced: round212(totalAdvanced),
-    totalRepaid: round212(totalRepaid),
-    totalInterest: round212(totalInterest),
+    totalAdvanced: round213(totalAdvanced),
+    totalRepaid: round213(totalRepaid),
+    totalInterest: round213(totalInterest),
     entryCount: entries.length,
     lastActivity: last ? new Date(last).toISOString() : null,
     direction
@@ -94225,6 +94520,7 @@ var appRouter = createRouter({
   coa: coaRouter,
   driveCleanup: driveCleanupRouter,
   fax: faxRouter,
+  crypto: cryptoRouter,
   loanTracker: loanTrackerRouter
 });
 
@@ -94507,7 +94803,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.257";
+var BUILD_TAG = "2026-06-28.258";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",

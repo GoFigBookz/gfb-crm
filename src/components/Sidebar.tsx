@@ -7,7 +7,7 @@ import {
   ChevronDown, Briefcase, Wrench, Calculator, ArrowRightLeft, FileStack,
   CalendarClock, ClipboardCheck, FileSpreadsheet, BookOpen,
   DollarSign, Building2, Globe, Bot, BarChart3, UserCheck,
-  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked, Brain, Sun, ListTree, HardDrive, Printer,
+  Plus, TrendingUp, Lock, ShieldCheck, Gauge, UserPlus, Inbox, Wallet, MessageSquare, Target, Star, Heart, Flame, Sparkles, Rocket, Megaphone, BookMarked, Brain, Sun, ListTree, HardDrive, Printer, Bitcoin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -114,6 +114,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/pricing-calculator", icon: DollarSign, label: "Pricing Calc" },
     { to: "/chart-of-accounts", icon: ListTree, label: "Chart Cleanup" },
     { to: "/drive-cleanup", icon: HardDrive, label: "Drive Cleanup" },
+    { to: "/crypto", icon: Bitcoin, label: "Crypto Books" },
     // Send a Fax — built but hidden (no free integrated fax provider; Markie won't
     // pay a subscription for it). Code/route stay dormant; re-add here to revive.
   ];
