@@ -25,6 +25,7 @@ import ChartOfAccounts from "./pages/ChartOfAccounts";
 import DriveCleanup from "./pages/DriveCleanup";
 import SendFax from "./pages/SendFax";
 import Crypto from "./pages/Crypto";
+import SurplusCash from "./pages/SurplusCash";
 import ClientVault from "./pages/ClientVault";
 import Onboarding from "./pages/Onboarding";
 import OnboardingForm from "./pages/OnboardingForm";
@@ -137,6 +138,7 @@ function AppRoutes() {
         <Route path="/drive-cleanup" element={<DriveCleanup />} />
         <Route path="/send-fax" element={<SendFax />} />
         <Route path="/crypto" element={<Crypto />} />
+        <Route path="/surplus-cash" element={<SurplusCash />} />
         <Route path="/vault" element={<ClientVault />} />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/employees" element={<Employees />} />

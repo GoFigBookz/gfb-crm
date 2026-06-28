@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/providers/trpc";
+import { buildCryptoJournal } from "../../api/crypto-core";
 
 type Row = { date: string; asset: string; direction: "acquire" | "dispose"; qty: number; cadValue: number; feeCad: number; income: boolean; rawType?: string };
 const money = (n: number) => (n || 0).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
@@ -26,6 +27,9 @@ export default function Crypto() {
   const [rows, setRows] = useState<Row[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [report, setReport] = useState<any>(null);
+  const today = new Date().toISOString().slice(0, 10);
+  const [acc, setAcc] = useState({ digitalAssets: "Digital Assets", realizedGain: "Realized Gain/Loss on Crypto", miningIncome: "Crypto Mining Income", clearing: "Crypto Clearing" });
+  const [periodEnd, setPeriodEnd] = useState(today);
 
   const parse = trpc.crypto.parse.useMutation({
     onSuccess: (r: any) => {
@@ -167,6 +171,50 @@ export default function Crypto() {
               </table>
             </CardContent>
           </Card>
+
+          {/* QBO JOURNAL EXPORT — balanced draft JE, review-only (never auto-posts). */}
+          {(() => {
+            const je = buildCryptoJournal(report.result.totals, report.incomeTotal, periodEnd, acc);
+            const downloadCsv = () => {
+              const header = "JournalDate,Account,Debit,Credit,Memo";
+              const body = je.lines.map((l: any) => `${periodEnd},"${l.account}",${l.debit || ""},${l.credit || ""},"${l.memo}"`).join("\n");
+              const blob = new Blob([header + "\n" + body], { type: "text/csv" });
+              const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `crypto-journal-${periodEnd}.csv`; a.click();
+            };
+            return (
+              <Card>
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">QBO journal entry {je.balanced ? <Badge variant="outline" className="ml-1 text-[10px] bg-lime-50 text-lime-700">balanced</Badge> : <Badge variant="outline" className="ml-1 text-[10px] bg-red-50 text-red-600">unbalanced</Badge>}</CardTitle>
+                    <CardDescription>Draft only — review, then enter/import into QuickBooks. Figgy never auto-posts.</CardDescription>
+                  </div>
+                  <Button variant="outline" disabled={!je.lines.length} onClick={downloadCsv}>Download CSV</Button>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div><label className="text-[11px] text-slate-500">Period end</label><Input className="h-8 text-xs" type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} /></div>
+                    <div><label className="text-[11px] text-slate-500">Crypto asset acct</label><Input className="h-8 text-xs" value={acc.digitalAssets} onChange={(e) => setAcc({ ...acc, digitalAssets: e.target.value })} /></div>
+                    <div><label className="text-[11px] text-slate-500">Gain/Loss acct</label><Input className="h-8 text-xs" value={acc.realizedGain} onChange={(e) => setAcc({ ...acc, realizedGain: e.target.value })} /></div>
+                    <div><label className="text-[11px] text-slate-500">Mining income acct</label><Input className="h-8 text-xs" value={acc.miningIncome} onChange={(e) => setAcc({ ...acc, miningIncome: e.target.value })} /></div>
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead><tr className="text-left text-slate-500 border-b"><th className="py-1 pr-2">Account</th><th className="pr-2 text-right">Debit</th><th className="pr-2 text-right">Credit</th><th className="pr-2">Memo</th></tr></thead>
+                    <tbody>
+                      {je.lines.map((l: any, i: number) => (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="py-1 pr-2">{l.account}</td>
+                          <td className="pr-2 text-right">{l.debit ? money(l.debit) : ""}</td>
+                          <td className="pr-2 text-right">{l.credit ? money(l.credit) : ""}</td>
+                          <td className="pr-2 text-slate-500">{l.memo}</td>
+                        </tr>
+                      ))}
+                      {je.lines.length === 0 && <tr><td colSpan={4} className="py-2 text-slate-400">Nothing to post for this report.</td></tr>}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            );
+          })()}
         </>
       )}
     </div>
