@@ -121,6 +121,17 @@ async function seedDemoExtras(): Promise<void> {
         O("software", "Proposal/quoting tool (example)", "Send branded quotes and track acceptance.", "from $29/mo", "Service businesses", "https://example.com", "Demo Vendor", "applied"),
       ]) await demo.run(sql.raw(stmt));
     }
+    // SEND-A-FAX — a couple of sent faxes so the tool's history shows examples.
+    const haveFax = rowsOf(await demo.run(sql.raw("SELECT name FROM sqlite_master WHERE type='table' AND name='faxes'"))).length;
+    const seededFax = haveFax && rowsOf(await demo.run(sql.raw("SELECT id FROM faxes LIMIT 1"))).length;
+    if (haveFax && !seededFax) {
+      const F = (toNumber: string, toName: string, subject: string, fileName: string, status: string, ref: string) =>
+        `INSERT INTO faxes (userId, clientId, toNumber, toName, subject, fileName, pages, provider, providerReference, status, createdAt, sentAt) VALUES (1, ${clientId}, '${toNumber}', '${toName}', '${subject}', '${fileName}', 2, 'srfax', '${ref}', '${status}', ${now}, ${now})`;
+      for (const stmt of [
+        F("18334419644", "CRA — Authorization Services", "RC59 business authorization", "RC59_signed.pdf", "sent", "DEMO-88231"),
+        F("17055551234", "Demo Bank — Lending", "Account confirmation letter", "bank_letter.pdf", "queued", "DEMO-88240"),
+      ]) await demo.run(sql.raw(stmt));
+    }
   } catch (e) {
     console.error("[demo-db] seedDemoExtras failed (non-fatal):", e instanceof Error ? e.message : e);
   }
