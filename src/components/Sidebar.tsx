@@ -122,6 +122,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
     { to: "/pricing-calculator", icon: DollarSign, label: "Pricing Calc" },
   ];
   const resourceItems = [
+    { to: "/manuals", icon: BookOpen, label: "Manuals" },
     { to: "/drive-cleanup", icon: HardDrive, label: "Drive Cleanup" },
     { to: "/templates", icon: FileSpreadsheet, label: "Templates" },
     { to: "/resources", icon: BookOpen, label: "Resources" },
