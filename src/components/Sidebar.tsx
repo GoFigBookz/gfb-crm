@@ -219,15 +219,15 @@ export function Sidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose
       mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
       collapsed ? "w-16" : "w-56"
     )}>
-      {/* Logo */}
-      <div className="flex items-center justify-between min-h-[5rem] py-2 px-3 border-b border-slate-800 flex-shrink-0">
+      {/* Logo — white band so Markie's black-ink wordmark reads on the dark sidebar */}
+      <div className="flex items-center justify-between min-h-[5rem] py-2 px-3 bg-white border-b border-slate-200 flex-shrink-0">
         {!collapsed && (
-          <FiggyLogo className="h-9 w-auto" onDark />
+          <FiggyLogo className="h-10 w-auto" />
         )}
         {collapsed && (
-          <img src="/figgy-mark.svg" alt="Figgy" className="h-10 w-auto object-contain mx-auto" />
+          <img src="/figgy-mark.png" alt="Figgy" className="h-9 w-auto object-contain mx-auto" />
         )}
-        <button onClick={onToggle} className="p-1 rounded-lg hover:bg-slate-800 transition-colors flex-shrink-0">
+        <button onClick={onToggle} className="p-1 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors flex-shrink-0">
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
       </div>

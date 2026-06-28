@@ -70121,6 +70121,8 @@ function serveStaticFiles(app2) {
     "/apple-touch-icon.png",
     "/icon.svg",
     "/logo.jpg",
+    "/figgy-logo.png",
+    "/figgy-mark.png",
     "/figgy-logo.svg",
     "/figgy-mark.svg",
     "/phoenix-rising.svg",
@@ -94281,7 +94283,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.254";
+var BUILD_TAG = "2026-06-28.255";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
