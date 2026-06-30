@@ -50,9 +50,69 @@ function colIdx(header: string[], needles: string[]): number {
  * include Staff Name, Staff Type, Shift Length (hrs), Payable(Reg. Hrs) and
  * payable OT. Totals payable hours per employee; tracks the longest shift.
  */
+/** Parse "1.50" (decimal hours), "01:30:00" or "1:30" (HH:MM[:SS]) → decimal hours. */
+function parseDurationHours(s: string | undefined): number {
+  const raw = String(s ?? "").trim();
+  if (!raw) return 0;
+  const t = raw.match(/^(\d+):([0-5]?\d)(?::([0-5]?\d))?$/);
+  if (t) return Math.round((Number(t[1]) + Number(t[2]) / 60 + (t[3] ? Number(t[3]) / 3600 : 0)) * 1000) / 1000;
+  return num(raw);
+}
+
+/**
+ * Parse a CLOCKIFY export (Summary or Detailed report). Clockify uses "User" for the
+ * person and "Duration (decimal)" / "Duration (h)" / "Time (decimal)" / "Time (h)" for
+ * hours — none of TouchBistro's column names — so it needs its own reader. Sums each
+ * user's hours across all rows; tracks the longest single entry. Decimal columns are
+ * preferred; HH:MM:SS is converted.
+ */
+export function parseClockifyCsv(text: string): TimesheetRow[] {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (!lines.length) return [];
+  // Header = first row that has a User column and a Duration/Time column.
+  let headerIdx = lines.findIndex((l) => /\buser\b|member|name/i.test(l) && /duration|time\s*\(|hours?/i.test(l));
+  if (headerIdx < 0) headerIdx = 0;
+  const header = splitCsvLine(lines[headerIdx]);
+  const iName = colIdx(header, ["user", "member", "name"]);
+  // Prefer a DECIMAL hours column; fall back to the HH:MM:SS one.
+  let iHours = header.findIndex((h) => /(duration|time).*decimal|decimal.*(duration|time)/i.test(h));
+  if (iHours < 0) iHours = colIdx(header, ["duration (h)", "duration", "time (h)", "total hours", "hours"]);
+  const agg = new Map<string, { hours: number; max: number }>();
+  for (let r = headerIdx + 1; r < lines.length; r++) {
+    const cells = splitCsvLine(lines[r]);
+    const name = (iName >= 0 ? cells[iName] : cells[0] || "").trim();
+    if (!name) continue;
+    const lname = name.toLowerCase();
+    if (lname.startsWith("total") || lname.startsWith("summary") || lname === "user") continue;
+    const hrs = parseDurationHours(iHours >= 0 ? cells[iHours] : undefined);
+    if (!hrs) continue;
+    const a = agg.get(name) || { hours: 0, max: 0 };
+    a.hours += hrs;
+    a.max = Math.max(a.max, hrs);
+    agg.set(name, a);
+  }
+  return Array.from(agg.entries()).map(([userName, a]) => ({
+    userName,
+    hours: Math.round(a.hours * 100) / 100,
+    maxShiftHours: Math.round(a.max * 100) / 100,
+  }));
+}
+
+/** Does this CSV header look like a Clockify report (User + Duration/Time columns)? */
+function looksLikeClockify(header: string[]): boolean {
+  const h = header.map((x) => x.toLowerCase());
+  const hasUser = h.some((x) => /\buser\b|member/.test(x));
+  const hasDuration = h.some((x) => /duration|time\s*\(/.test(x));
+  const hasTouchBistro = h.some((x) => /shift|payable|staff/.test(x));
+  return hasUser && hasDuration && !hasTouchBistro;
+}
+
 export function parseTimesheetCsv(text: string): TimesheetRow[] {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
   if (!lines.length) return [];
+  // Clockify report? Use the Clockify reader (User + Duration columns).
+  const firstHeader = splitCsvLine(lines.find((l) => splitCsvLine(l).length > 2) || lines[0]);
+  if (looksLikeClockify(firstHeader)) return parseClockifyCsv(text);
   // Find the header row (the one with "Staff Name"); default to the first line.
   let headerIdx = lines.findIndex((l) => /staff\s*name|employee|name/i.test(l) && /shift|hour|hrs|payable|clock/i.test(l));
   if (headerIdx < 0) headerIdx = 0;
@@ -97,7 +157,8 @@ export function parseTimesheetCsv(text: string): TimesheetRow[] {
 
 function looksLikeCsv(text: string): boolean {
   const head = text.slice(0, 2000).toLowerCase();
-  return head.includes(",") && (head.includes("staff") || head.includes("name") || head.includes("shift") || head.includes("hour"));
+  return head.includes(",") && (head.includes("staff") || head.includes("name") || head.includes("shift") || head.includes("hour")
+    || head.includes("user") || head.includes("duration") || head.includes("project")); // Clockify columns
 }
 
 function extractJson(text: string): any {

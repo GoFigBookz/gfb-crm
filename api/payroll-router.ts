@@ -131,6 +131,12 @@ export async function seedPayrollSchedules(): Promise<void> {
         await db.update(clients).set({ payrollFrequency: "bi-weekly", payrollAnchorStart: biweeklyAnchor, payrollPayDayOffset: 3, ...(src && !c.payrollHoursSource ? { payrollHoursSource: src } : {}) }).where(eq(clients.id, c.id));
       } else if (n.includes("originality")) {
         await db.update(clients).set({ ...(c.payrollFrequency ? {} : { payrollFrequency: "semi-monthly" }), ...(src && !c.payrollHoursSource ? { payrollHoursSource: src } : {}) }).where(eq(clients.id, c.id));
+      } else if (n.includes("motion invest") || n.includes("2303851")) {
+        // Motion Invest staff are paid through 2303851; hours come from CLOCKIFY, not
+        // Jobber. FORCE-correct a wrong source (Markie 2026-06-28) so the page is accurate.
+        if (c.payrollHoursSource !== "clockify") {
+          await db.update(clients).set({ payrollHoursSource: "clockify" }).where(eq(clients.id, c.id));
+        }
       }
     }
   } catch (e) { console.error("[payroll] seedPayrollSchedules failed:", e instanceof Error ? e.message : e); }
@@ -144,13 +150,16 @@ function payrollKind(name: string | null | undefined, source?: string | null): {
     const m: Record<string, { kind: string; note?: string }> = {
       jobber: { kind: "jobber", note: "Hours come from Jobber timesheets — use Connect Jobber to import." },
       touchbistro: { kind: "touchbistro", note: "Hours come from TouchBistro — enter or import them here." },
-      clockify: { kind: "clockify", note: "Hours come from Clockify." },
+      clockify: { kind: "clockify", note: "Hours come from Clockify — export the Clockify report (Summary or Detailed) and Upload it on the pay run to fill each person's hours." },
       qbo_autopay: { kind: "qbo_autopay", note: "Auto-paid in QuickBooks." },
       manual: { kind: "manual" },
     };
     if (m[source]) return m[source];
   }
   if (n.includes("selective")) return { kind: "estimator", note: "Monthly flat-rate estimator: enter gross (or net) and Figgy fills CPP/EI/tax + the CRA remittance." };
+  // Motion Invest staff (Ryan + Kelly) are paid THROUGH 2303851 — hours come from Clockify,
+  // NOT Jobber (Markie 2026-06-28). Export the Clockify report and upload it on the run.
+  if (n.includes("motion invest") || n.includes("2303851")) return { kind: "clockify", note: "Hours come from Clockify (Motion Invest staff paid through 2303851) — export the Clockify report and Upload it on the pay run." };
   if (n.includes("originality")) return { kind: "clockify", note: "Hourly staff hours come from Clockify; salaried staff are entered manually." };
   if (n.includes("clark")) return { kind: "jobber", note: "Employee hours come from Jobber timesheets (import coming in Phase 3). Enter or adjust manually here." };
   if (n.includes("old spot") || n.includes("sher") || n.includes("punjab")) return { kind: "touchbistro", note: "Hours come from TouchBistro — enter or adjust them manually here (no direct API)." };

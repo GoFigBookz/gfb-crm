@@ -43999,6 +43999,7 @@ var init_touchbistro_client = __esm({
 var timesheet_file_parse_exports = {};
 __export(timesheet_file_parse_exports, {
   extractTimesheetFromFile: () => extractTimesheetFromFile,
+  parseClockifyCsv: () => parseClockifyCsv,
   parseTimesheetCsv: () => parseTimesheetCsv
 });
 function splitCsvLine(line) {
@@ -44035,9 +44036,54 @@ function colIdx(header2, needles) {
   }
   return -1;
 }
+function parseDurationHours(s) {
+  const raw2 = String(s ?? "").trim();
+  if (!raw2) return 0;
+  const t2 = raw2.match(/^(\d+):([0-5]?\d)(?::([0-5]?\d))?$/);
+  if (t2) return Math.round((Number(t2[1]) + Number(t2[2]) / 60 + (t2[3] ? Number(t2[3]) / 3600 : 0)) * 1e3) / 1e3;
+  return num(raw2);
+}
+function parseClockifyCsv(text2) {
+  const lines3 = text2.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (!lines3.length) return [];
+  let headerIdx = lines3.findIndex((l) => /\buser\b|member|name/i.test(l) && /duration|time\s*\(|hours?/i.test(l));
+  if (headerIdx < 0) headerIdx = 0;
+  const header2 = splitCsvLine(lines3[headerIdx]);
+  const iName = colIdx(header2, ["user", "member", "name"]);
+  let iHours = header2.findIndex((h) => /(duration|time).*decimal|decimal.*(duration|time)/i.test(h));
+  if (iHours < 0) iHours = colIdx(header2, ["duration (h)", "duration", "time (h)", "total hours", "hours"]);
+  const agg = /* @__PURE__ */ new Map();
+  for (let r = headerIdx + 1; r < lines3.length; r++) {
+    const cells = splitCsvLine(lines3[r]);
+    const name2 = (iName >= 0 ? cells[iName] : cells[0] || "").trim();
+    if (!name2) continue;
+    const lname = name2.toLowerCase();
+    if (lname.startsWith("total") || lname.startsWith("summary") || lname === "user") continue;
+    const hrs = parseDurationHours(iHours >= 0 ? cells[iHours] : void 0);
+    if (!hrs) continue;
+    const a = agg.get(name2) || { hours: 0, max: 0 };
+    a.hours += hrs;
+    a.max = Math.max(a.max, hrs);
+    agg.set(name2, a);
+  }
+  return Array.from(agg.entries()).map(([userName, a]) => ({
+    userName,
+    hours: Math.round(a.hours * 100) / 100,
+    maxShiftHours: Math.round(a.max * 100) / 100
+  }));
+}
+function looksLikeClockify(header2) {
+  const h = header2.map((x) => x.toLowerCase());
+  const hasUser = h.some((x) => /\buser\b|member/.test(x));
+  const hasDuration = h.some((x) => /duration|time\s*\(/.test(x));
+  const hasTouchBistro = h.some((x) => /shift|payable|staff/.test(x));
+  return hasUser && hasDuration && !hasTouchBistro;
+}
 function parseTimesheetCsv(text2) {
   const lines3 = text2.split(/\r?\n/).filter((l) => l.trim().length > 0);
   if (!lines3.length) return [];
+  const firstHeader = splitCsvLine(lines3.find((l) => splitCsvLine(l).length > 2) || lines3[0]);
+  if (looksLikeClockify(firstHeader)) return parseClockifyCsv(text2);
   let headerIdx = lines3.findIndex((l) => /staff\s*name|employee|name/i.test(l) && /shift|hour|hrs|payable|clock/i.test(l));
   if (headerIdx < 0) headerIdx = 0;
   const header2 = splitCsvLine(lines3[headerIdx]);
@@ -44077,7 +44123,7 @@ function parseTimesheetCsv(text2) {
 }
 function looksLikeCsv(text2) {
   const head = text2.slice(0, 2e3).toLowerCase();
-  return head.includes(",") && (head.includes("staff") || head.includes("name") || head.includes("shift") || head.includes("hour"));
+  return head.includes(",") && (head.includes("staff") || head.includes("name") || head.includes("shift") || head.includes("hour") || head.includes("user") || head.includes("duration") || head.includes("project"));
 }
 function extractJson2(text2) {
   try {
@@ -44476,6 +44522,10 @@ async function seedPayrollSchedules() {
         await db.update(clients).set({ payrollFrequency: "bi-weekly", payrollAnchorStart: biweeklyAnchor, payrollPayDayOffset: 3, ...src && !c.payrollHoursSource ? { payrollHoursSource: src } : {} }).where(eq2(clients.id, c.id));
       } else if (n.includes("originality")) {
         await db.update(clients).set({ ...c.payrollFrequency ? {} : { payrollFrequency: "semi-monthly" }, ...src && !c.payrollHoursSource ? { payrollHoursSource: src } : {} }).where(eq2(clients.id, c.id));
+      } else if (n.includes("motion invest") || n.includes("2303851")) {
+        if (c.payrollHoursSource !== "clockify") {
+          await db.update(clients).set({ payrollHoursSource: "clockify" }).where(eq2(clients.id, c.id));
+        }
       }
     }
   } catch (e) {
@@ -44489,13 +44539,14 @@ function payrollKind(name2, source) {
     const m = {
       jobber: { kind: "jobber", note: "Hours come from Jobber timesheets \u2014 use Connect Jobber to import." },
       touchbistro: { kind: "touchbistro", note: "Hours come from TouchBistro \u2014 enter or import them here." },
-      clockify: { kind: "clockify", note: "Hours come from Clockify." },
+      clockify: { kind: "clockify", note: "Hours come from Clockify \u2014 export the Clockify report (Summary or Detailed) and Upload it on the pay run to fill each person's hours." },
       qbo_autopay: { kind: "qbo_autopay", note: "Auto-paid in QuickBooks." },
       manual: { kind: "manual" }
     };
     if (m[source]) return m[source];
   }
   if (n.includes("selective")) return { kind: "estimator", note: "Monthly flat-rate estimator: enter gross (or net) and Figgy fills CPP/EI/tax + the CRA remittance." };
+  if (n.includes("motion invest") || n.includes("2303851")) return { kind: "clockify", note: "Hours come from Clockify (Motion Invest staff paid through 2303851) \u2014 export the Clockify report and Upload it on the pay run." };
   if (n.includes("originality")) return { kind: "clockify", note: "Hourly staff hours come from Clockify; salaried staff are entered manually." };
   if (n.includes("clark")) return { kind: "jobber", note: "Employee hours come from Jobber timesheets (import coming in Phase 3). Enter or adjust manually here." };
   if (n.includes("old spot") || n.includes("sher") || n.includes("punjab")) return { kind: "touchbistro", note: "Hours come from TouchBistro \u2014 enter or adjust them manually here (no direct API)." };
@@ -95964,7 +96015,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.273";
+var BUILD_TAG = "2026-06-28.274";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
