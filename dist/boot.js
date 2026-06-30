@@ -62552,6 +62552,133 @@ var init_backup_router = __esm({
   }
 });
 
+// api/year-end-core.ts
+function fiscalYearLabel(fiscalYear, fiscalYearEnd) {
+  if (!fiscalYearEnd) return `FY${fiscalYear}`;
+  const d10 = /* @__PURE__ */ new Date(fiscalYearEnd + "T00:00:00");
+  if (isNaN(d10.getTime())) return `FY${fiscalYear}`;
+  const m = d10.toLocaleString("en-CA", { month: "short", timeZone: "UTC" });
+  return `FY${fiscalYear} (ended ${m} ${d10.getUTCDate()}, ${d10.getUTCFullYear()})`;
+}
+function fiscalYearEndDate(fiscalYear, fiscalYearEndMonth) {
+  const m = fiscalYearEndMonth && fiscalYearEndMonth >= 1 && fiscalYearEndMonth <= 12 ? fiscalYearEndMonth : 12;
+  const d10 = new Date(Date.UTC(fiscalYear, m, 0));
+  return d10.toISOString().slice(0, 10);
+}
+function summarizeYearEnd(items, defs = YEAR_END_CHECKLIST) {
+  const stateByKey = new Map(items.map((i) => [i.key, i]));
+  let done = 0, na = 0, requiredTotal = 0, requiredDone = 0;
+  const blockers = [];
+  for (const def of defs) {
+    const st = stateByKey.get(def.key);
+    if (st?.na) {
+      na++;
+      continue;
+    }
+    if (st?.done) done++;
+    if (def.requiredToClose) {
+      requiredTotal++;
+      if (st?.done || st?.na) requiredDone++;
+      else blockers.push(def.label);
+    }
+  }
+  const total = defs.length;
+  const applicable = total - na;
+  return {
+    total,
+    done,
+    na,
+    applicable,
+    completionPercent: applicable > 0 ? Math.round(done / applicable * 100) : 0,
+    requiredTotal,
+    requiredDone,
+    canClose: blockers.length === 0,
+    blockers
+  };
+}
+function buildPackageManifest(inp) {
+  const state = new Map((inp.items || []).map((i) => [i.key, i]));
+  const r = inp.reports || {};
+  const out = [];
+  const reportItem = (key12, label, have) => {
+    if (have === true) return { key: key12, label, status: "included", detail: "Pulled from QuickBooks" };
+    if (inp.qboConnected === false || have === void 0) return { key: key12, label, status: "manual", detail: "Pull from QuickBooks Reports (no live API report)" };
+    return { key: key12, label, status: "manual", detail: "QuickBooks didn't return it \u2014 pull manually from Reports" };
+  };
+  out.push(reportItem("trial_balance", "Trial Balance (year-end)", r.trialBalance));
+  out.push(reportItem("general_ledger", "General Ledger (full year)", r.generalLedger));
+  out.push(reportItem("balance_sheet", "Balance Sheet (year-end)", r.balanceSheet));
+  out.push(reportItem("profit_loss", "Profit & Loss (full year)", r.profitAndLoss));
+  const stmtDone = state.get("pkg_statements")?.done;
+  if (inp.recon && inp.recon.totalAccounts > 0) {
+    const allRec = inp.recon.behind === 0;
+    out.push({
+      key: "statements",
+      label: "Year-end month statements (all accounts)",
+      status: stmtDone ? "included" : allRec ? "manual" : "missing",
+      detail: stmtDone ? "Marked gathered" : `${inp.recon.reconciledThrough}/${inp.recon.totalAccounts} accounts reconciled through year-end${inp.recon.behind ? ` \u2014 ${inp.recon.behind} behind` : ""}`
+    });
+    out.push({
+      key: "recon_reports",
+      label: "Reconciliation reports",
+      status: state.get("pkg_recon")?.done ? "included" : allRec ? "manual" : "missing",
+      detail: allRec ? "All accounts reconciled \u2014 pull the recon reports" : "Some accounts not reconciled through year-end"
+    });
+  } else {
+    out.push({ key: "statements", label: "Year-end month statements (all accounts)", status: stmtDone ? "included" : "manual", detail: stmtDone ? "Marked gathered" : "Set up the month-end recon accounts to track this" });
+    out.push({ key: "recon_reports", label: "Reconciliation reports", status: state.get("pkg_recon")?.done ? "included" : "manual", detail: "Pull from QuickBooks once reconciled" });
+  }
+  out.push({
+    key: "notes",
+    label: "Working-paper notes for the accountant",
+    status: inp.notes && inp.notes.trim() || state.get("pkg_notes")?.done ? "included" : "missing",
+    detail: inp.notes && inp.notes.trim() ? "Notes written" : "Add notes explaining anything unusual this year"
+  });
+  out.push({
+    key: "accountant",
+    label: "Accountant recipient on file",
+    status: inp.accountant && (inp.accountant.email || inp.accountant.name) ? "included" : "missing",
+    detail: inp.accountant?.name || inp.accountant?.email || "Add the accountant as the package recipient"
+  });
+  const readyCount = out.filter((i) => i.status === "included").length;
+  const ready = out.every((i) => i.status !== "missing");
+  return { items: out, readyCount, total: out.length, ready };
+}
+var YEAR_END_CHECKLIST;
+var init_year_end_core = __esm({
+  "api/year-end-core.ts"() {
+    YEAR_END_CHECKLIST = [
+      // Reconcile — the books have to tie before anything else.
+      { key: "recon_bank", label: "All bank accounts reconciled to year-end", phase: "reconcile", requiredToClose: true },
+      { key: "recon_cc", label: "All credit cards reconciled to year-end", phase: "reconcile", requiredToClose: true },
+      { key: "recon_loans", label: "Loans / lines of credit reconciled to statements", phase: "reconcile" },
+      { key: "clear_undeposited", label: "Undeposited funds / clearing accounts cleared to zero", phase: "reconcile" },
+      { key: "recon_processors", label: "Payment processors (Stripe/PayPal/Square) reconciled", phase: "reconcile", optional: true },
+      // Compliance — filings for the year.
+      { key: "hst_filed", label: "HST filed for every period in the fiscal year", phase: "compliance", requiredToClose: true },
+      { key: "payroll_filed", label: "Payroll remitted + T4/T4A filed (if payroll)", phase: "compliance", optional: true },
+      { key: "wsib", label: "WSIB reconciled + reported (if applicable)", phase: "compliance", optional: true },
+      { key: "t5_dividends", label: "T5s issued for any dividends paid (if applicable)", phase: "compliance", optional: true },
+      // Adjustments — the year-end journal work.
+      { key: "depreciation", label: "Depreciation / amortization recorded", phase: "adjustments" },
+      { key: "prepaids_accruals", label: "Prepaids & accruals adjusted", phase: "adjustments" },
+      { key: "shareholder_loan", label: "Shareholder / owner loan reconciled & confirmed", phase: "adjustments" },
+      { key: "inventory", label: "Inventory counted & adjusted (if applicable)", phase: "adjustments", optional: true },
+      { key: "bad_debts", label: "Bad debts written off / reviewed", phase: "adjustments" },
+      { key: "adjusting_jes", label: "Year-end adjusting journal entries posted", phase: "adjustments" },
+      // Review — does it all make sense.
+      { key: "ar_aging", label: "A/R aging reviewed (old receivables addressed)", phase: "review" },
+      { key: "ap_aging", label: "A/P aging reviewed (old payables addressed)", phase: "review" },
+      { key: "tb_reviewed", label: "Trial balance reviewed for reasonableness", phase: "review", requiredToClose: true },
+      { key: "pl_reviewed", label: "P&L reviewed vs prior year", phase: "review" },
+      // Package — assembling the accountant bundle.
+      { key: "pkg_statements", label: "Year-end month statements gathered (all accounts)", phase: "package" },
+      { key: "pkg_recon", label: "Reconciliation reports attached", phase: "package" },
+      { key: "pkg_notes", label: "Working-paper notes written for the accountant", phase: "package" }
+    ];
+  }
+});
+
 // api/genealogy-core.ts
 function clampConfidence(n) {
   const v2 = Math.round(Number(n));
@@ -71729,6 +71856,75 @@ var init_ensure_year_end_schema = __esm({
   "api/ensure-year-end-schema.ts"() {
     init_connection();
     init_drizzle_orm();
+  }
+});
+
+// api/seed-selective-yearend.ts
+var seed_selective_yearend_exports = {};
+__export(seed_selective_yearend_exports, {
+  ensureYearEndStartedForClient: () => ensureYearEndStartedForClient,
+  mostRecentCompletedFiscalYear: () => mostRecentCompletedFiscalYear,
+  seedSelectivePaintingYearEnd: () => seedSelectivePaintingYearEnd
+});
+function mostRecentCompletedFiscalYear(now, fiscalYearEndMonth) {
+  const y = now.getUTCFullYear();
+  const thisYearEnd = /* @__PURE__ */ new Date(fiscalYearEndDate(y, fiscalYearEndMonth) + "T00:00:00Z");
+  return thisYearEnd.getTime() <= now.getTime() ? y : y - 1;
+}
+async function ensureYearEndStartedForClient(like3) {
+  const db = getDb();
+  try {
+    const cs = await db.select().from(clients);
+    const k = like3.toLowerCase();
+    const client = cs.find((c) => `${c.name || ""} ${c.company || ""}`.toLowerCase().includes(k));
+    if (!client) {
+      console.warn(`[year-end-seed] no client matched "${like3}" \u2014 skipping`);
+      return;
+    }
+    const fyeMonth = client.fiscalYearEndMonth ?? 12;
+    const fy = mostRecentCompletedFiscalYear(/* @__PURE__ */ new Date(), fyeMonth);
+    const fiscalYearEnd = fiscalYearEndDate(fy, fyeMonth);
+    const existing = await db.select().from(yearEndReviews).where(and(eq2(yearEndReviews.clientId, client.id), eq2(yearEndReviews.fiscalYear, fy)));
+    if (existing[0]) return;
+    const [review] = await db.insert(yearEndReviews).values({
+      clientId: client.id,
+      fiscalYear: fy,
+      fiscalYearEnd,
+      status: "in_progress",
+      accountantName: client.accountantName ?? null,
+      accountantEmail: client.accountantEmail ?? null,
+      startedAt: /* @__PURE__ */ new Date(),
+      createdAt: /* @__PURE__ */ new Date(),
+      updatedAt: /* @__PURE__ */ new Date()
+    }).returning();
+    let order2 = 0;
+    for (const def of YEAR_END_CHECKLIST) {
+      await db.insert(yearEndItems).values({
+        reviewId: review.id,
+        itemKey: def.key,
+        label: def.label,
+        phase: def.phase,
+        done: false,
+        na: false,
+        sortOrder: order2++,
+        updatedAt: /* @__PURE__ */ new Date()
+      });
+    }
+    console.log(`[year-end-seed] started FY${fy} year-end for "${client.name}" (client ${client.id})`);
+  } catch (e) {
+    console.error("[year-end-seed] failed:", e instanceof Error ? e.message : e);
+  }
+}
+async function seedSelectivePaintingYearEnd() {
+  await ensureYearEndStartedForClient("selective");
+  await ensureYearEndStartedForClient("universal construction");
+}
+var init_seed_selective_yearend = __esm({
+  "api/seed-selective-yearend.ts"() {
+    init_connection();
+    init_schema();
+    init_drizzle_orm();
+    init_year_end_core();
   }
 });
 
@@ -94210,130 +94406,7 @@ init_middleware();
 init_connection();
 init_schema();
 init_drizzle_orm();
-
-// api/year-end-core.ts
-var YEAR_END_CHECKLIST = [
-  // Reconcile — the books have to tie before anything else.
-  { key: "recon_bank", label: "All bank accounts reconciled to year-end", phase: "reconcile", requiredToClose: true },
-  { key: "recon_cc", label: "All credit cards reconciled to year-end", phase: "reconcile", requiredToClose: true },
-  { key: "recon_loans", label: "Loans / lines of credit reconciled to statements", phase: "reconcile" },
-  { key: "clear_undeposited", label: "Undeposited funds / clearing accounts cleared to zero", phase: "reconcile" },
-  { key: "recon_processors", label: "Payment processors (Stripe/PayPal/Square) reconciled", phase: "reconcile", optional: true },
-  // Compliance — filings for the year.
-  { key: "hst_filed", label: "HST filed for every period in the fiscal year", phase: "compliance", requiredToClose: true },
-  { key: "payroll_filed", label: "Payroll remitted + T4/T4A filed (if payroll)", phase: "compliance", optional: true },
-  { key: "wsib", label: "WSIB reconciled + reported (if applicable)", phase: "compliance", optional: true },
-  { key: "t5_dividends", label: "T5s issued for any dividends paid (if applicable)", phase: "compliance", optional: true },
-  // Adjustments — the year-end journal work.
-  { key: "depreciation", label: "Depreciation / amortization recorded", phase: "adjustments" },
-  { key: "prepaids_accruals", label: "Prepaids & accruals adjusted", phase: "adjustments" },
-  { key: "shareholder_loan", label: "Shareholder / owner loan reconciled & confirmed", phase: "adjustments" },
-  { key: "inventory", label: "Inventory counted & adjusted (if applicable)", phase: "adjustments", optional: true },
-  { key: "bad_debts", label: "Bad debts written off / reviewed", phase: "adjustments" },
-  { key: "adjusting_jes", label: "Year-end adjusting journal entries posted", phase: "adjustments" },
-  // Review — does it all make sense.
-  { key: "ar_aging", label: "A/R aging reviewed (old receivables addressed)", phase: "review" },
-  { key: "ap_aging", label: "A/P aging reviewed (old payables addressed)", phase: "review" },
-  { key: "tb_reviewed", label: "Trial balance reviewed for reasonableness", phase: "review", requiredToClose: true },
-  { key: "pl_reviewed", label: "P&L reviewed vs prior year", phase: "review" },
-  // Package — assembling the accountant bundle.
-  { key: "pkg_statements", label: "Year-end month statements gathered (all accounts)", phase: "package" },
-  { key: "pkg_recon", label: "Reconciliation reports attached", phase: "package" },
-  { key: "pkg_notes", label: "Working-paper notes written for the accountant", phase: "package" }
-];
-function fiscalYearLabel(fiscalYear, fiscalYearEnd) {
-  if (!fiscalYearEnd) return `FY${fiscalYear}`;
-  const d10 = /* @__PURE__ */ new Date(fiscalYearEnd + "T00:00:00");
-  if (isNaN(d10.getTime())) return `FY${fiscalYear}`;
-  const m = d10.toLocaleString("en-CA", { month: "short", timeZone: "UTC" });
-  return `FY${fiscalYear} (ended ${m} ${d10.getUTCDate()}, ${d10.getUTCFullYear()})`;
-}
-function fiscalYearEndDate(fiscalYear, fiscalYearEndMonth) {
-  const m = fiscalYearEndMonth && fiscalYearEndMonth >= 1 && fiscalYearEndMonth <= 12 ? fiscalYearEndMonth : 12;
-  const d10 = new Date(Date.UTC(fiscalYear, m, 0));
-  return d10.toISOString().slice(0, 10);
-}
-function summarizeYearEnd(items, defs = YEAR_END_CHECKLIST) {
-  const stateByKey = new Map(items.map((i) => [i.key, i]));
-  let done = 0, na = 0, requiredTotal = 0, requiredDone = 0;
-  const blockers = [];
-  for (const def of defs) {
-    const st = stateByKey.get(def.key);
-    if (st?.na) {
-      na++;
-      continue;
-    }
-    if (st?.done) done++;
-    if (def.requiredToClose) {
-      requiredTotal++;
-      if (st?.done || st?.na) requiredDone++;
-      else blockers.push(def.label);
-    }
-  }
-  const total = defs.length;
-  const applicable = total - na;
-  return {
-    total,
-    done,
-    na,
-    applicable,
-    completionPercent: applicable > 0 ? Math.round(done / applicable * 100) : 0,
-    requiredTotal,
-    requiredDone,
-    canClose: blockers.length === 0,
-    blockers
-  };
-}
-function buildPackageManifest(inp) {
-  const state = new Map((inp.items || []).map((i) => [i.key, i]));
-  const r = inp.reports || {};
-  const out = [];
-  const reportItem = (key12, label, have) => {
-    if (have === true) return { key: key12, label, status: "included", detail: "Pulled from QuickBooks" };
-    if (inp.qboConnected === false || have === void 0) return { key: key12, label, status: "manual", detail: "Pull from QuickBooks Reports (no live API report)" };
-    return { key: key12, label, status: "manual", detail: "QuickBooks didn't return it \u2014 pull manually from Reports" };
-  };
-  out.push(reportItem("trial_balance", "Trial Balance (year-end)", r.trialBalance));
-  out.push(reportItem("general_ledger", "General Ledger (full year)", r.generalLedger));
-  out.push(reportItem("balance_sheet", "Balance Sheet (year-end)", r.balanceSheet));
-  out.push(reportItem("profit_loss", "Profit & Loss (full year)", r.profitAndLoss));
-  const stmtDone = state.get("pkg_statements")?.done;
-  if (inp.recon && inp.recon.totalAccounts > 0) {
-    const allRec = inp.recon.behind === 0;
-    out.push({
-      key: "statements",
-      label: "Year-end month statements (all accounts)",
-      status: stmtDone ? "included" : allRec ? "manual" : "missing",
-      detail: stmtDone ? "Marked gathered" : `${inp.recon.reconciledThrough}/${inp.recon.totalAccounts} accounts reconciled through year-end${inp.recon.behind ? ` \u2014 ${inp.recon.behind} behind` : ""}`
-    });
-    out.push({
-      key: "recon_reports",
-      label: "Reconciliation reports",
-      status: state.get("pkg_recon")?.done ? "included" : allRec ? "manual" : "missing",
-      detail: allRec ? "All accounts reconciled \u2014 pull the recon reports" : "Some accounts not reconciled through year-end"
-    });
-  } else {
-    out.push({ key: "statements", label: "Year-end month statements (all accounts)", status: stmtDone ? "included" : "manual", detail: stmtDone ? "Marked gathered" : "Set up the month-end recon accounts to track this" });
-    out.push({ key: "recon_reports", label: "Reconciliation reports", status: state.get("pkg_recon")?.done ? "included" : "manual", detail: "Pull from QuickBooks once reconciled" });
-  }
-  out.push({
-    key: "notes",
-    label: "Working-paper notes for the accountant",
-    status: inp.notes && inp.notes.trim() || state.get("pkg_notes")?.done ? "included" : "missing",
-    detail: inp.notes && inp.notes.trim() ? "Notes written" : "Add notes explaining anything unusual this year"
-  });
-  out.push({
-    key: "accountant",
-    label: "Accountant recipient on file",
-    status: inp.accountant && (inp.accountant.email || inp.accountant.name) ? "included" : "missing",
-    detail: inp.accountant?.name || inp.accountant?.email || "Add the accountant as the package recipient"
-  });
-  const readyCount = out.filter((i) => i.status === "included").length;
-  const ready = out.every((i) => i.status !== "missing");
-  return { items: out, readyCount, total: out.length, ready };
-}
-
-// api/year-end-router.ts
+init_year_end_core();
 async function reconForPeriod(clientId, periodEnd) {
   const db = getDb();
   const rows = await db.select().from(clientReconAccounts).where(and(eq2(clientReconAccounts.clientId, clientId), eq2(clientReconAccounts.active, true)));
@@ -96015,7 +96088,7 @@ function getRecentClientErrors() {
 }
 var BOOT_TIME = (/* @__PURE__ */ new Date()).toISOString();
 var lastGoogleOAuth = null;
-var BUILD_TAG = "2026-06-28.274";
+var BUILD_TAG = "2026-06-28.275";
 for (const k of [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
@@ -97834,6 +97907,8 @@ async function startServer() {
     await ensureClientThreadSchema2();
     const { ensureYearEndSchema: ensureYearEndSchema2 } = await Promise.resolve().then(() => (init_ensure_year_end_schema(), ensure_year_end_schema_exports));
     await ensureYearEndSchema2();
+    const { seedSelectivePaintingYearEnd: seedSelectivePaintingYearEnd2 } = await Promise.resolve().then(() => (init_seed_selective_yearend(), seed_selective_yearend_exports));
+    await seedSelectivePaintingYearEnd2();
     const { ensureLoanSchema: ensureLoanSchema2 } = await Promise.resolve().then(() => (init_ensure_loan_schema(), ensure_loan_schema_exports));
     await ensureLoanSchema2();
     try {
